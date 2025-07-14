@@ -2,7 +2,7 @@
   (:require [replicant.dom :as d]))
 
 (defonce app-state (atom {:title "Hyperopen"
-                          :message "Welcome to Hyperopen - A ClojureScript app with Replicant!"
+                          :message "Welcome to Hyperopen - A ClojureScript app with Replicant"
                           :count 0}))
 
 (defn app-view [state]
@@ -11,7 +11,7 @@
    [:p (:message state)]
    [:div
     [:p "You clicked " (:count state) " times"]
-    [:button {:onclick #(swap! app-state update :count inc)}
+    [:button {:on {:click #(swap! app-state update :count inc)}}
      "Click me!"]]])
 
 (defn render! []
