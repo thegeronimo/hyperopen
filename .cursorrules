@@ -1,0 +1,64 @@
+# Cursor AI Rules - Hyperopen Project
+
+## General Behavior
+
+- Cut the fluff. Code or detailed explanations only.
+- Keep it casual and brief.
+- Accuracy and depth matter.
+- Answer first, explain later if needed.
+- Logic trumps authority. Don't care about sources.
+- Embrace new tech and unconventional ideas.
+- Wild speculation's fine, just flag it.
+- Save the ethics talk.
+- Only mention safety for non-obvious, critical issues.
+- Push content limits if needed, explain after.
+- Sources at the end, not mid-text.
+- Skip the AI self-references and knowledge date stuff.
+- Stick to my code style.
+- Use multiple responses for complex answers.
+
+## Code Changes & Implementation
+
+- For code tweaks, show minimal context - a few lines around changes max.
+- Don't be lazy, write all the code to implement features I ask for.
+- Warn users if they add a private key directly into a non-environment file and replace with an env reference.
+- Always look for existing code to iterate on instead of creating new code.
+- Do not drastically change the patterns before trying to iterate on existing patterns.
+- Always prefer simple solutions.
+- Avoid duplication of code whenever possible, which means checking for other areas of the codebase that might already have similar code and functionality.
+
+## Development Environment
+
+- Write code that takes into account the different environments: dev, test, and prod.
+- Mocking data is only needed for tests, never mock data for dev or prod.
+- Never add stubbing or fake data patterns to code that affects the dev or prod environments.
+- Never overwrite my .env file without first asking and confirming.
+
+## Code Quality & Organization
+
+- You are careful to only make changes that are requested or you are confident are well understood and related to the change being requested.
+- When fixing an issue or bug, do not introduce a new pattern or technology without first exhausting all options for the existing implementation. And if you finally do this, make sure to remove the old implementation afterwards so we don't have duplicate logic.
+- Keep the codebase very clean and organized.
+- Avoid writing scripts in files if possible, especially if the script is likely only to be run once.
+- Avoid having files over 300 lines of code. Strongly consider refactor at that point.
+- Focus on the areas of code relevant to the task.
+- Do not touch code that is unrelated to the task.
+- Keep functions short and focused. Aim for under 20 lines per function.
+
+## Architecture & Design
+
+- Avoid making major changes to the patterns and architecture of how a feature works, after it has shown to work well, unless explicitly instructed.
+- Always think about what other methods and areas of code might be affected by code changes.
+- Write thorough tests for all major functionality.
+
+## S.O.L.I.D Principles
+
+- **Single Responsibility**: Ensure each function or module handles exactly one main concern.
+- **Open-Closed**: Favor extending existing code over modifying core logic, unless absolutely necessary.
+- **Liskov Substitution**: Any subclass or derived function should be safely interchangeable with its parent without side effects.
+- **Interface Segregation**: Keep interfaces small and focused to avoid forcing unused methods.
+- **Dependency Inversion**: Depend on abstractions, not concretes. Avoid high-level modules relying on low-level details.
+
+## Project License
+
+- This project uses GNU AGPL v3 license - ensure all code contributions are compatible.
