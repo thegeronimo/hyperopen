@@ -1,6 +1,19 @@
 # Hyperopen
 
-A ClojureScript application using [Replicant](https://github.com/cjohansen/replicant) for data-driven rendering.
+> An open source hyperliquid client
+
+A ClojureScript trading interface built with [Replicant](https://github.com/cjohansen/replicant) for data-driven rendering and [Nexus](https://github.com/cjohansen/nexus) for action-based state management.
+
+## Architecture
+
+This project follows a pure functional architecture with strict separation between components and side effects. For detailed information about the design philosophy, data flow architecture, and implementation patterns, see the [Technical Implementation Guide](PRDs/technical-implementation-guide.md).
+
+Key architectural principles:
+
+- **Pure Components**: No direct state mutation in UI components
+- **Action-based State Management**: All state changes flow through registered actions and effects
+- **Data-driven**: Event handlers declare actions as data structures
+- **Testable**: Actions are pure functions, effects are isolated side effects
 
 ## Development
 
