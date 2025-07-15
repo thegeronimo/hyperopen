@@ -1,6 +1,7 @@
 {:source-paths ["src"]
  
- :dependencies [[no.cjohansen/replicant "2025.06.21"]]
+ :dependencies [[no.cjohansen/replicant "2025.06.21"]
+                [no.cjohansen/nexus "2025.07.1"]]
  
  :dev-http {8080 "resources/public"}
  
