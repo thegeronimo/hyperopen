@@ -1,5 +1,135 @@
 # Technical Implementation Guide - Hyperliquid Interface
 
+## Data Flow Architecture with Nexus
+
+### Philosophy
+
+The Hyperopen trading interface uses **Nexus** for action-based state management, following a strict separation between pure components and side effects. This architecture ensures:
+
+- **Pure Components**: Components only receive state and declare what actions should happen
+- **Predictable State Changes**: All state mutations flow through registered actions and effects
+- **Testability**: Actions are pure functions, effects are isolated side effects
+- **Data-Driven**: Event handlers declare data structures, not function calls
+
+### Execution Flow
+
+When a user interacts with the interface (e.g., clicking a button), the following execution path occurs:
+
+```
+┌─────────────────┐
+│   User Action   │
+│ (Button Click)  │
+│ [[:actions/xyz]]│
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│   Replicant     │
+│  set-dispatch!  │
+│  calls nexus    │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│     Nexus       │
+│ Action Handler  │
+│ (pure function) │
+│ returns effects │
+└─────────┬───────┘
+          │
+          ▼ [[:effects/save path value]]
+┌─────────────────┐
+│     Nexus       │
+│ Effect Handler  │
+│ (side effect)   │
+│ updates state   │
+└─────────┬───────┘
+          │
+          ▼ (swap! store ...)
+┌─────────────────┐
+│   Atom Watch    │
+│    Triggers     │
+│   Re-render     │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│   Replicant     │
+│   Re-renders    │
+│   Components    │
+└─────────────────┘
+```
+
+### Core Concepts
+
+#### Actions
+
+Pure functions that receive current state and return a vector of effects:
+
+```clojure
+(defn increment-count [state]
+  [[:effects/save [:count] (inc (:count state))]])
+```
+
+#### Effects
+
+Functions that handle side effects (state updates, API calls, etc.):
+
+```clojure
+(defn save [_ store path value]
+  (swap! store assoc-in path value))
+```
+
+#### Component Declaration
+
+Components declare actions in event handlers as data:
+
+```clojure
+[:button {:on {:click [[:actions/increment-count]]}} "Click me!"]
+```
+
+### Nexus Integration Setup
+
+```clojure
+;; Register actions and effects
+(nxr/register-action! :actions/increment-count increment-count)
+(nxr/register-effect! :effects/save save)
+(nxr/register-system->state! deref)
+
+;; Wire up dispatch with Replicant
+(r/set-dispatch! #(nxr/dispatch store %1 %2))
+
+;; Auto re-render on state changes
+(add-watch store ::render #(r/render target (app-view %4)))
+```
+
+### Benefits for Trading Interface
+
+1. **Real-time Data Handling**: WebSocket updates flow through effects, ensuring consistent state
+2. **Form Validation**: Order form validation happens in pure actions before effects
+3. **Error Handling**: Nexus provides built-in error collection and handling
+4. **Performance**: Efficient re-rendering through Replicant's data-driven approach
+5. **Testing**: Each action and effect can be tested independently
+
+### Example: Order Placement Flow
+
+```clojure
+;; User clicks "Buy" button
+[:button {:on {:click [[:actions/place-order :buy]]}}]
+
+;; Action validates and returns effects
+(defn place-order [state side]
+  (if (valid-order? state side)
+    [[:effects/submit-order state side]
+     [:effects/update-ui [:order-status] :pending]]
+    [[:effects/show-error "Invalid order parameters"]]))
+
+;; Effects handle the actual work
+(defn submit-order [ctx store state side]
+  ;; API call, WebSocket message, etc.
+  )
+```
+
 ## Component Architecture Overview
 
 ```
