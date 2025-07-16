@@ -255,6 +255,21 @@ Implement a custom WebSocket communication layer using Sente for the Hyperopen t
 
 ## Technical Specifications
 
+### Reference Implementations
+
+When implementing Hyperliquid API integration, refer to these established libraries for guidance on API patterns, message formats, and best practices:
+
+- **[@nktkas/hyperliquid](https://github.com/nktkas/hyperliquid)**: TypeScript SDK with comprehensive WebSocket support, message handling, and API integration patterns
+- **[hyperliquid-python-sdk](https://github.com/hyperliquid-dex/hyperliquid-python-sdk)**: Python SDK providing reference implementations for order management, market data, and account operations
+
+These libraries serve as authoritative references for:
+
+- WebSocket message formats and protocols
+- API endpoint structures and authentication
+- Error handling and reconnection strategies
+- Data transformation and validation patterns
+- Order management and market data subscription flows
+
 ### Message Format
 
 ```clojure
