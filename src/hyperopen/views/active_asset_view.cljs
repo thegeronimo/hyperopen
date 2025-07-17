@@ -68,7 +68,7 @@
     [:div.flex.items-center.justify-between.p-4.bg-base-200.rounded-lg.border.border-base-300
      [:div.flex-1.flex.items-center.space-x-6
       ;; Asset/Pair column
-      [:div.flex-1
+      [:div.flex-0
        (asset-icon coin)]
       
       ;; Mark column
