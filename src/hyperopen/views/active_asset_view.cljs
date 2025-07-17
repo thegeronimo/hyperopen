@@ -19,9 +19,9 @@
   (when amount
     (.format usd-formatter amount)))
 
-(defn format-percentage [value]
+(defn format-percentage [value & [decimals]]
   (when value
-    (str (format-number value 4) "%")))
+    (str (format-number value (or decimals 2)) "%")))
 
 (defn format-time [seconds]
   (when seconds
@@ -72,34 +72,35 @@
        (asset-icon coin)]
       
       ;; Mark column
-      [:div.flex-1
+      [:div.flex-0
        (data-column "Mark" (format-currency mark) {:underlined true})]
       
       ;; Oracle column
-      [:div.flex-1
+      [:div.flex-0
        (data-column "Oracle" (format-currency oracle) {:underlined true})]
       
       ;; 24h Change column
-      [:div.flex-1
+      [:div.flex-3
        (data-column "24h Change" 
                     (str (format-number change-24h 2) " / " (format-percentage change-24h-pct))
                     {:change? true})]
       
       ;; 24h Volume column
-      [:div.flex-1
+      [:div.flex-0
        (data-column "24h Volume" (format-currency volume-24h))]
       
       ;; Open Interest column
-      [:div.flex-1
+      [:div.flex-0
        (data-column "Open Interest" open-interest-usd {:underlined true})]
       
       ;; Funding / Countdown column
       [:div.flex-1
        [:div.flex.flex-col.space-y-1
         [:span.text-xs.text-gray-400 "Funding / Countdown"]
-        [:div.flex.flex-col.space-y-1
-         [:span.text-sm.font-medium.text-success (format-percentage funding-rate)]
-         [:span.text-sm.font-medium funding-countdown]]]]]]))
+        [:div.text-sm.font-medium
+         [:span.text-success (format-percentage funding-rate 4)]
+         [:span " / "]
+         [:span funding-countdown]]]]]]))
 
 (defn active-asset-list [contexts]
   [:div.space-y-2
