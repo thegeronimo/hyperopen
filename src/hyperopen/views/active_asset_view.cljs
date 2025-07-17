@@ -32,6 +32,21 @@
            (.padStart (str minutes) 2 "0") ":"
            (.padStart (str secs) 2 "0")))))
 
+(defn format-funding-countdown []
+  (let [now (js/Date.)
+        current-minutes (.getMinutes now)
+        current-seconds (.getSeconds now)
+        minutes-until-hour (- 60 current-minutes)
+        seconds-until-minute (- 60 current-seconds)
+        total-minutes (if (zero? seconds-until-minute) 
+                       minutes-until-hour 
+                       (dec minutes-until-hour))
+        total-seconds (if (zero? seconds-until-minute) 
+                       0 
+                       seconds-until-minute)]
+    (str "00:" (.padStart (str total-minutes) 2 "0") ":"
+         (.padStart (str total-seconds) 2 "0"))))
+
 (defn change-indicator [change-value]
   (let [is-positive (and change-value (>= change-value 0))
         color-class (if is-positive "text-success" "text-error")]
@@ -62,8 +77,7 @@
         volume-24h (:volume24h ctx-data)
         open-interest (:openInterest ctx-data)
         open-interest-usd (format-currency (* open-interest mark))
-        funding-rate (:fundingRate ctx-data)
-        funding-countdown (:fundingCountdown ctx-data)]
+        funding-rate (:fundingRate ctx-data)]
     [:div.flex.items-center.justify-between.p-4.bg-base-200.rounded-lg.border.border-base-300
      [:div.flex-1.flex.items-center.space-x-6
       ;; Asset/Pair column
@@ -99,7 +113,7 @@
         [:div.text-sm.font-medium
          [:span.text-success (format-percentage funding-rate 4)]
          [:span " / "]
-         [:span funding-countdown]]]]]]))
+         [:span (format-funding-countdown)]]]]]]))
 
 (defn active-asset-list [contexts]
   [:div.space-y-2
