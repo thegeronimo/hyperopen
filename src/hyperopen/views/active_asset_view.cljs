@@ -47,10 +47,11 @@
     (str "00:" (.padStart (str total-minutes) 2 "0") ":"
          (.padStart (str total-seconds) 2 "0"))))
 
-(defn change-indicator [change-value]
+(defn change-indicator [change-value change-pct]
   (let [is-positive (and change-value (>= change-value 0))
         color-class (if is-positive "text-success" "text-error")]
-    [:span {:class color-class} change-value]))
+    [:span {:class color-class} 
+     (str (format-number change-value 2) " / " (format-percentage change-pct))]))
 
 (defn asset-icon [coin]
   [:div.flex.items-center.space-x-2
@@ -62,7 +63,7 @@
 (defn data-column [label value & [options]]
   (let [underlined? (:underlined options)
         value-component (if (:change? options)
-                         (change-indicator value)
+                         (change-indicator (:change-value options) (:change-pct options))
                          [:span value])]
     [:div.flex.flex-col.space-y-1
      [:span.text-xs.text-gray-400 {:class (when underlined? "border-b border-dashed border-gray-600")} label]
@@ -95,8 +96,10 @@
       ;; 24h Change column
       [:div.flex-3
        (data-column "24h Change" 
-                    (str (format-number change-24h 2) " / " (format-percentage change-24h-pct))
-                    {:change? true})]
+                    nil
+                    {:change? true
+                     :change-value change-24h
+                     :change-pct change-24h-pct})]
       
       ;; 24h Volume column
       [:div.flex-0
