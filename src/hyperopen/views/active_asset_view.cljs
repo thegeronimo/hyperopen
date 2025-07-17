@@ -7,14 +7,21 @@
   (when (and n (number? n))
     (.toFixed n decimals)))
 
+(def usd-formatter
+  (js/Intl.NumberFormat.
+   "en-US"
+   #js {:style           "currency"
+        :currency        "USD"
+        :minimumFractionDigits 2
+        :maximumFractionDigits 2}))
+
 (defn format-currency [amount]
   (when amount
-    (str "$" (.toLocaleString js/Number (or amount 0) #js {:minimumFractionDigits 2
-                                                           :maximumFractionDigits 2}))))
+    (.format usd-formatter amount)))
 
 (defn format-percentage [value]
   (when value
-    (str (format-number value 2) "%")))
+    (str (format-number value 4) "%")))
 
 (defn format-time [seconds]
   (when seconds
@@ -55,6 +62,7 @@
         change-24h-pct (:change24hPct ctx-data)
         volume-24h (:volume24h ctx-data)
         open-interest (:openInterest ctx-data)
+        open-interest-usd (format-currency (* open-interest mark))
         funding-rate (:fundingRate ctx-data)
         funding-countdown (:fundingCountdown ctx-data)]
     [:div.flex.items-center.justify-between.p-4.bg-base-200.rounded-lg.border.border-base-300
@@ -65,17 +73,17 @@
       
       ;; Mark column
       [:div.flex-1
-       (data-column "Mark" (format-number mark 6) {:underlined true})]
+       (data-column "Mark" (format-currency mark) {:underlined true})]
       
       ;; Oracle column
       [:div.flex-1
-       (data-column "Oracle" (format-number oracle 6) {:underlined true})]
+       (data-column "Oracle" (format-currency oracle) {:underlined true})]
       
       ;; 24h Change column
       [:div.flex-1
        (data-column "24h Change" 
-        (str (format-number change-24h 6) " / " (format-percentage change-24h-pct))
-        {:change? true})]
+                    (str (format-number change-24h 2) " / " (format-percentage change-24h-pct))
+                    {:change? true})]
       
       ;; 24h Volume column
       [:div.flex-1
@@ -83,7 +91,7 @@
       
       ;; Open Interest column
       [:div.flex-1
-       (data-column "Open Interest" (format-currency open-interest) {:underlined true})]
+       (data-column "Open Interest" open-interest-usd {:underlined true})]
       
       ;; Funding / Countdown column
       [:div.flex-1
@@ -91,7 +99,7 @@
         [:span.text-xs.text-gray-400 "Funding / Countdown"]
         [:div.flex.flex-col.space-y-1
          [:span.text-sm.font-medium.text-success (format-percentage funding-rate)]
-         [:span.text-sm.font-medium (format-time funding-countdown)]]]]]]))
+         [:span.text-sm.font-medium funding-countdown]]]]]]))
 
 (defn active-asset-list [contexts]
   [:div.space-y-2
