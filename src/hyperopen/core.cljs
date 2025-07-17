@@ -37,31 +37,7 @@
 (defn subscribe-to-asset [state coin]
   [[:effects/subscribe-active-asset coin]])
 
-;; Handle incoming active asset context data
-(defn handle-active-asset-data [data]
-  (println "Processing active asset context data:" data)
-  (when (and (map? data) (= (:channel data) "activeAssetCtx"))
-    (let [data-payload (:data data)
-          coin (:coin data-payload)
-          ctx (:ctx data-payload)]
-      (when (and coin ctx)
-        ;; Transform the data to match our expected format
-        (let [formatted-data {:coin coin
-                             :mark (:markPx ctx)
-                             :oracle (:oraclePx ctx)
-                             :change24h (- (:markPx ctx) (:prevDayPx ctx))
-                             :change24hPct (* 100 (/ (- (:markPx ctx) (:prevDayPx ctx)) (:prevDayPx ctx)))
-                             :volume24h (:dayNtlVlm ctx)
-                             :openInterest (:openInterest ctx)
-                             :fundingRate (* 100 (:funding ctx))
-                             :fundingCountdown 28800}] ; 8 hours in seconds
-          (println "Formatted data for" coin ":" formatted-data)
-          ;; Use setTimeout to avoid nested render issues
-          (js/setTimeout 
-            #(do
-               (swap! store assoc-in [:active-assets :contexts coin] formatted-data)
-               (swap! store assoc-in [:active-assets :loading] false))
-            0))))))
+
 
 ;; Pure component - uses actions directly in event handlers
 (defn app-view [state]
@@ -124,8 +100,7 @@
 
 (defn init []
   (println "Initializing Hyperopen...")
-  ;; Initialize active asset context and register the data handler
-  (active-ctx/init!)
-  (ws-client/register-handler! "activeAssetCtx" handle-active-asset-data)
+  ;; Initialize active asset context with store access
+  (active-ctx/init! store)
   ;; Trigger initial render by updating the store
   (swap! store identity)) 

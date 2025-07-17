@@ -5,6 +5,32 @@
 (defonce active-asset-ctx-state (atom {:subscriptions #{}
                                        :contexts {}})) ; Map of coin -> WsActiveAssetCtx or WsActiveSpotAssetCtx
 
+;; Create a handler function that has access to the store
+(defn create-active-asset-data-handler [store]
+  (fn [data]
+    (println "Processing active asset context data:" data)
+    (when (and (map? data) (= (:channel data) "activeAssetCtx"))
+      (let [data-payload (:data data)
+            coin (:coin data-payload)
+            ctx (:ctx data-payload)]
+        (when (and coin ctx)
+          ;; Transform the data to match our expected format
+          (let [formatted-data {:coin coin
+                               :mark (:markPx ctx)
+                               :oracle (:oraclePx ctx)
+                               :change24h (- (:markPx ctx) (:prevDayPx ctx))
+                               :change24hPct (* 100 (/ (- (:markPx ctx) (:prevDayPx ctx)) (:prevDayPx ctx)))
+                               :volume24h (:dayNtlVlm ctx)
+                               :openInterest (:openInterest ctx)
+                               :fundingRate (* 100 (:funding ctx))}]
+            (println "Formatted data for" coin ":" formatted-data)
+            ;; Use setTimeout to avoid nested render issues
+            (js/setTimeout 
+              #(do
+                 (swap! store assoc-in [:active-assets :contexts coin] formatted-data)
+                 (swap! store assoc-in [:active-assets :loading] false))
+              0)))))))
+
 ;; Subscribe to active asset context for a coin
 (defn subscribe-active-asset-ctx! [coin]
   (when (ws-client/connected?)
@@ -65,7 +91,7 @@
   (vec (:subscriptions @active-asset-ctx-state)))
 
 ;; Initialize active asset context module
-(defn init! []
+(defn init! [store]
   (println "Active asset context subscription module initialized")
-  ;; Register handler for activeAssetCtx channel
-  (ws-client/register-handler! "activeAssetCtx" handle-active-asset-ctx-data!)) 
+  ;; Register handler for activeAssetCtx channel with store access
+  (ws-client/register-handler! "activeAssetCtx" (create-active-asset-data-handler store))) 
