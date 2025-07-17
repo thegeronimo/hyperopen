@@ -39,8 +39,7 @@
 
 (defn asset-icon [coin]
   [:div.flex.items-center.space-x-2
-   [:div.w-6.h-6.rounded-full.bg-gradient-to-r.from-white.to-green-300.flex.items-center.justify-center
-    [:div.w-3.h-1.5.bg-white.rounded-full]]
+   [:img.w-6.h-6.rounded-full {:src (str "https://app.hyperliquid.xyz/coins/" coin ".svg") :alt coin}]
    [:span.font-medium coin]
    [:svg.w-4.h-4.text-gray-400 {:fill "none" :stroke "currentColor" :viewBox "0 0 24 24"}
     [:path {:stroke-linecap "round" :stroke-linejoin "round" :stroke-width 2 :d "M19 9l-7 7-7-7"}]]])
