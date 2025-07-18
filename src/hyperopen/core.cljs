@@ -3,7 +3,8 @@
             [nexus.registry :as nxr]
             [hyperopen.views.app-view :as app-view]
             [hyperopen.websocket.active-asset-ctx :as active-ctx]
-            [hyperopen.websocket.client :as ws-client]))
+            [hyperopen.websocket.client :as ws-client]
+            [hyperopen.websocket.orderbook :as orderbook]))
 
 ;; App state
 (defonce store (atom {:title "Hyperopen"
@@ -11,7 +12,8 @@
                       :count 0
                       :websocket {:status :disconnected}
                       :active-assets {:contexts {}
-                                     :loading false}}))
+                                     :loading false}
+                      :orderbooks {}}))
 
 ;; Effects - handle side effects
 (defn save [_ store path value]
@@ -27,6 +29,9 @@
   (active-ctx/subscribe-active-asset-ctx! coin)
   (swap! store assoc-in [:active-assets :loading] true))
 
+(defn subscribe-orderbook [_ store coin]
+  (orderbook/subscribe-orderbook! coin))
+
 ;; Actions - pure functions that return effects
 (defn increment-count [state]
   [[:effects/save [:count] (inc (:count state))]])
@@ -35,7 +40,8 @@
   [[:effects/init-websocket]])
 
 (defn subscribe-to-asset [state coin]
-  [[:effects/subscribe-active-asset coin]])
+  [[:effects/subscribe-active-asset coin]
+   [:effects/subscribe-orderbook coin]])
 
 
 
@@ -67,5 +73,7 @@
   (println "Initializing Hyperopen...")
   ;; Initialize active asset context with store access
   (active-ctx/init! store)
+  ;; Initialize orderbook module
+  (orderbook/init! store)
   ;; Trigger initial render by updating the store
   (swap! store identity)) 
