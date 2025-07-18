@@ -65,13 +65,12 @@
         size (:sz order)
         total (:total order)
         bar-width (size-bar-width size max-size)
-        color-class (if is-ask? "bg-red-900/20" "bg-green-900/20")
+        bar-color (if is-ask? "bg-red-500/30" "bg-green-500/30")
         text-color (if is-ask? "text-red-400" "text-green-400")]
-    [:div.flex.items-center.h-8.relative
-     {:class [color-class]}
+    [:div.flex.items-center.h-8.relative.bg-gray-900
      ;; Size bar background
      [:div.absolute.inset-0.flex.items-center
-      [:div {:class ["h-full" color-class]
+      [:div {:class ["h-full" bar-color]
              :style {:width (str bar-width "%")}}]]
      ;; Content
      [:div.flex.w-full.items-center.justify-between.px-3.relative.z-10
