@@ -28,7 +28,7 @@
                      (if (string? px) (js/parseFloat px) px))]
       (when (and bid-price ask-price (number? bid-price) (number? ask-price))
         (let [spread-abs (- ask-price bid-price)
-              spread-pct (* (/ spread-abs bid-price) 100)]
+              spread-pct (* (/ spread-abs ask-price) 100)]
           {:absolute spread-abs
            :percentage spread-pct})))))
 
@@ -119,7 +119,7 @@
   (let [bids (:bids orderbook-data)
         asks (:asks orderbook-data)
         best-bid (first bids)
-        best-ask (first asks)
+        best-ask (last asks)
         spread (calculate-spread best-bid best-ask)
         asks-with-totals (calculate-cumulative-totals asks)
         bids-with-totals (calculate-cumulative-totals bids)
