@@ -16,7 +16,7 @@
   (try
     (let [data (js/JSON.parse (.-data event))
           js-data (js->clj data :keywordize-keys true)]
-      (println "Received WebSocket message:" js-data)
+      ;;(println "Received WebSocket message:" js-data)
       ;; Route to registered handlers based on channel
       (when-let [channel (:channel js-data)]
         (when-let [handler (get @message-handlers channel)]

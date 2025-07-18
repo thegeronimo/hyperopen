@@ -8,7 +8,7 @@
 ;; Create a handler function that has access to the store
 (defn create-active-asset-data-handler [store]
   (fn [data]
-    (println "Processing active asset context data:" data)
+    ;;(println "Processing active asset context data:" data)
     (when (and (map? data) (= (:channel data) "activeAssetCtx"))
       (let [data-payload (:data data)
             coin (:coin data-payload)
@@ -23,7 +23,7 @@
                                :volume24h (:dayNtlVlm ctx)
                                :openInterest (:openInterest ctx)
                                :fundingRate (* 100 (:funding ctx))}]
-            (println "Formatted data for" coin ":" formatted-data)
+            ;;(println "Formatted data for" coin ":" formatted-data)
             ;; Use setTimeout to avoid nested render issues
             (js/setTimeout 
               #(do

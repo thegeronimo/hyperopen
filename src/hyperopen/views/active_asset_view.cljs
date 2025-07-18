@@ -55,22 +55,21 @@
   (let [pos (or position "top")]
     [:div.relative.group
      [:div (first content)]
-     [:div {:class (str "absolute " 
-                        (case pos
-                          "top" "bottom-full left-1/2 transform -translate-x-1/2 mb-2"
-                          "bottom" "top-full left-1/2 transform -translate-x-1/2 mt-2"
-                          "left" "right-full top-1/2 transform -translate-y-1/2 mr-2"
-                          "right" "left-full top-1/2 transform -translate-y-1/2 ml-2")
-                        " opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50")
+     [:div {:class (into ["absolute" "opacity-0" "group-hover:opacity-100" "transition-opacity" "duration-200" "pointer-events-none" "z-50"]
+                         (case pos
+                           "top" ["bottom-full" "left-1/2" "transform" "-translate-x-1/2" "mb-2"]
+                           "bottom" ["top-full" "left-1/2" "transform" "-translate-x-1/2" "mt-2"]
+                           "left" ["right-full" "top-1/2" "transform" "-translate-y-1/2" "mr-2"]
+                           "right" ["left-full" "top-1/2" "transform" "-translate-y-1/2" "ml-2"]))
              :style {:min-width "max-content"}}
       [:div.bg-gray-800.text-white.text-xs.rounded.py-1.px-2.whitespace-nowrap
        (second content)
-       [:div {:class (str "absolute w-0 h-0 border-4 border-transparent "
-                          (case pos
-                            "top" "top-full border-t-gray-800"
-                            "bottom" "bottom-full border-b-gray-800"
-                            "left" "left-full border-l-gray-800"
-                            "right" "right-full border-r-gray-800"))}]]]]))
+       [:div {:class (into ["absolute" "w-0" "h-0" "border-4" "border-transparent"]
+                           (case pos
+                             "top" ["top-full" "border-t-gray-800"]
+                             "bottom" ["bottom-full" "border-b-gray-800"]
+                             "left" ["left-full" "border-l-gray-800"]
+                             "right" ["right-full" "border-r-gray-800"]))}]]]]))
 
 (defn change-indicator [change-value change-pct]
   (let [is-positive (and change-value (>= change-value 0))
@@ -91,7 +90,7 @@
                          (change-indicator (:change-value options) (:change-pct options))
                          [:span value])]
     [:div.flex.flex-col.space-y-1
-     [:span.text-xs.text-gray-400 {:class (when underlined? "border-b border-dashed border-gray-600")} label]
+     [:span.text-xs.text-gray-400 {:class (when underlined? ["border-b" "border-dashed" "border-gray-600"])} label]
      [:div.text-sm.font-medium value-component]]))
 
 (defn active-asset-row [ctx-data]
