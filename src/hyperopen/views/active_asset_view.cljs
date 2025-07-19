@@ -49,9 +49,21 @@
         :minimumFractionDigits 2
         :maximumFractionDigits 2}))
 
+(def large-number-formatter
+  (js/Intl.NumberFormat.
+   "en-US"
+   #js {:style           "currency"
+        :currency        "USD"
+        :minimumFractionDigits 0
+        :maximumFractionDigits 0}))
+
 (defn format-currency [amount]
   (when amount
     (.format usd-formatter amount)))
+
+(defn format-large-currency [amount]
+  (when amount
+    (.format large-number-formatter amount)))
 
 (defn format-percentage [value & [decimals]]
   (when value
@@ -173,11 +185,11 @@
       
       ;; 24h Volume column
       [:div.flex-shrink-0.w-28
-       (data-column "24h Volume" (format-currency volume-24h))]
+       (data-column "24h Volume" (format-large-currency volume-24h))]
       
       ;; Open Interest column
       [:div.flex-shrink-0.w-32
-       (data-column "Open Interest" open-interest-usd {:underlined true})]
+       (data-column "Open Interest" (format-large-currency open-interest) {:underlined true})]
       
       ;; Funding / Countdown column
       [:div.flex-shrink-0.w-36

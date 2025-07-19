@@ -2,6 +2,18 @@
 
 ;; Asset selector dropdown component
 
+(def large-number-formatter
+  (js/Intl.NumberFormat.
+   "en-US"
+   #js {:style           "currency"
+        :currency        "USD"
+        :minimumFractionDigits 0
+        :maximumFractionDigits 0}))
+
+(defn format-large-currency [amount]
+  (when amount
+    (.format large-number-formatter amount)))
+
 (defn safe-to-fixed [value decimals]
   "Safely convert a value to fixed decimal places, defaulting to 0 if not a number"
   (let [num-value (if (and value (number? value)) value 0)]
@@ -72,13 +84,13 @@
      ;; Price (2 cols)
      [:div.col-span-2.text-sm.text-gray-400.text-center (str "$" (safe-to-fixed safe-mark 2))]
      ;; Volume (2 cols)
-     [:div.col-span-2.text-sm.font-medium.text-center (str "$" (safe-to-fixed safe-volume 0))]
+     [:div.col-span-2.text-sm.font-medium.text-center (format-large-currency safe-volume)]
      ;; Change (2 cols)
      [:div.col-span-2.text-center
       [:div {:class [change-color "text-sm"]}
        (str (if is-positive "+" "") (safe-to-fixed safe-change 2) " (" (safe-to-fixed safe-change-pct 2) "%)")]]
      ;; Open Interest (2 cols)
-     [:div.col-span-2.text-sm.font-medium.text-center (str "$" (safe-to-fixed safe-open-interest 0))]
+     [:div.col-span-2.text-sm.font-medium.text-center (format-large-currency safe-open-interest)]
      ;; Funding Rate (2 cols)
      [:div.col-span-2.text-center
       [:div {:class [funding-color "text-sm"]}
