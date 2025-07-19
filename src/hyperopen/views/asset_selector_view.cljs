@@ -30,9 +30,9 @@
         [:path {:stroke-linecap "round" :stroke-linejoin "round" :stroke-width 2 :d "M19 9l-7 7-7-7"}])])])
 
 (defn sort-controls [sort-by sort-direction]
-  [:div.grid.grid-cols-10.gap-4.items-center.px-4.mb-4
-   ;; Name column (3 cols to match Icon + Symbol)
-   [:div.col-span-3.justify-items-center
+  [:div.grid.grid-cols-12.gap-3.items-center.px-4.mb-4
+   ;; Name column (2 cols)
+   [:div.col-span-2.justify-items-center
     (sort-button "Name" (= sort-by :name) sort-direction :name)]
    ;; Price column (2 cols)
    [:div.col-span-2.justify-items-center
@@ -40,33 +40,49 @@
    ;; Volume column (2 cols)
    [:div.col-span-2.justify-items-center
     (sort-button "Volume" (= sort-by :volume) sort-direction :volume)]
-   ;; Change column (3 cols)
-   [:div.col-span-3.justify-items-center
-    (sort-button "Change" (= sort-by :change) sort-direction :change)]])
+   ;; Change column (2 cols)
+   [:div.col-span-2.justify-items-center
+    (sort-button "Change" (= sort-by :change) sort-direction :change)]
+   ;; Open Interest column (2 cols)
+   [:div.col-span-2.justify-items-center
+    (sort-button "Open Interest" (= sort-by :openInterest) sort-direction :openInterest)]
+   ;; Funding column (2 cols)
+   [:div.col-span-2.justify-items-center
+    (sort-button "Funding" (= sort-by :funding) sort-direction :funding)]])
 
 (defn asset-list-item [asset selected?]
-  (let [{:keys [coin mark volume24h change24h change24hPct]} asset
+  (let [{:keys [coin mark volume24h change24h change24hPct openInterest fundingRate]} asset
         safe-mark (or mark 0)
         safe-volume (or volume24h 0)
         safe-change (or change24h 0)
         safe-change-pct (or change24hPct 0)
+        safe-open-interest (or openInterest 0)
+        safe-funding-rate (or fundingRate 0)
         is-positive (>= safe-change 0)
-        change-color (if is-positive "text-success" "text-error")]
-    [:div.grid.grid-cols-10.gap-4.items-center.px-4.py-2.cursor-pointer.rounded.hover:bg-base-200.transition-colors
+        change-color (if is-positive "text-success" "text-error")
+        funding-positive (>= safe-funding-rate 0)
+        funding-color (if funding-positive "text-success" "text-error")]
+    [:div.grid.grid-cols-12.gap-3.items-center.px-4.py-2.cursor-pointer.rounded.hover:bg-base-200.transition-colors
      {:class (when selected? ["bg-primary" "bg-opacity-10" "border" "border-primary"])
       :on {:click [[:actions/select-asset coin]]}}
-     ;; Icon + Symbol (3 cols)
-     [:div.col-span-3.flex.items-center.space-x-3
-      [:img.w-6.h-6.rounded-full {:src (str "https://app.hyperliquid.xyz/coins/" coin ".svg") :alt coin}]
+     ;; Icon + Symbol (2 cols)
+     [:div.col-span-2.flex.items-center.space-x-2
+      [:img.w-5.h-5.rounded-full {:src (str "https://app.hyperliquid.xyz/coins/" coin ".svg") :alt coin}]
       [:div.font-medium.text-sm coin]]
      ;; Price (2 cols)
-     [:div.col-span-2.text-sm.text-gray-400 (str "$" (safe-to-fixed safe-mark 2))]
+     [:div.col-span-2.text-sm.text-gray-400.text-center (str "$" (safe-to-fixed safe-mark 2))]
      ;; Volume (2 cols)
-     [:div.col-span-2.text-sm.font-medium.text-right (str "$" (safe-to-fixed safe-volume 0))]
-     ;; Change (3 cols)
-     [:div.col-span-3.text-right
+     [:div.col-span-2.text-sm.font-medium.text-center (str "$" (safe-to-fixed safe-volume 0))]
+     ;; Change (2 cols)
+     [:div.col-span-2.text-center
       [:div {:class [change-color "text-sm"]}
-       (str (if is-positive "+" "") (safe-to-fixed safe-change 2) " (" (safe-to-fixed safe-change-pct 2) "%)")]]]))
+       (str (if is-positive "+" "") (safe-to-fixed safe-change 2) " (" (safe-to-fixed safe-change-pct 2) "%)")]]
+     ;; Open Interest (2 cols)
+     [:div.col-span-2.text-sm.font-medium.text-center (str "$" (safe-to-fixed safe-open-interest 0))]
+     ;; Funding Rate (2 cols)
+     [:div.col-span-2.text-center
+      [:div {:class [funding-color "text-sm"]}
+       (str (if funding-positive "+" "") (safe-to-fixed (* safe-funding-rate 100) 4) "%")]]]))
 
 (defn asset-list [assets selected-asset]
   [:div.max-h-96.overflow-y-auto.space-y-1
@@ -91,11 +107,11 @@
    - :assets - list of asset data
    - :selected-asset - currently selected asset
    - :search-term - current search query
-   - :sort-by - current sort field (:name, :price, :volume, :change)
+   - :sort-by - current sort field (:name, :price, :volume, :change, :openInterest, :funding)
    - :sort-direction - :asc or :desc"
   [{:keys [visible? assets selected-asset search-term sort-by sort-direction]}]
   (when visible?
-    [:div.absolute.top-full.left-0.mt-2.bg-base-100.border.border-base-300.rounded-lg.shadow-lg.z-50 {:style {:width "600px"}}
+    [:div.absolute.top-full.left-0.mt-2.bg-base-100.border.border-base-300.rounded-lg.shadow-lg.z-50 {:style {:width "800px"}}
      (close-button)
      [:div.p-4
       [:div.mb-4
