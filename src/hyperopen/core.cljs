@@ -72,7 +72,7 @@
         current-direction (get-in state [:asset-selector :sort-direction] :asc)
         new-direction (if (= current-sort sort-field)
                        (if (= current-direction :asc) :desc :asc)
-                       :asc)]
+                       :desc)]
     [[:effects/save [:asset-selector :sort-by] sort-field]
      [:effects/save [:asset-selector :sort-direction] new-direction]]))
 
