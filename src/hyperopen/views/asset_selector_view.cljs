@@ -20,6 +20,34 @@
   (let [num-value (if (and value (number? value)) value 0)]
     (.toFixed num-value decimals)))
 
+(defn format-percentage [value & [decimals]]
+  (when value
+    (str (safe-to-fixed value (or decimals 2)) "%")))
+
+(defn annualized-funding-rate [hourly-rate]
+  (when hourly-rate
+    (* hourly-rate 24 365)))
+
+(defn tooltip [content & [position]]
+  (let [pos (or position "top")]
+    [:div.relative.group
+     [:div (first content)]
+     [:div {:class (into ["absolute" "opacity-0" "group-hover:opacity-100" "transition-opacity" "duration-200" "pointer-events-none" "z-50"]
+                         (case pos
+                           "top" ["bottom-full" "left-1/2" "transform" "-translate-x-1/2" "mb-2"]
+                           "bottom" ["top-full" "left-1/2" "transform" "-translate-x-1/2" "mt-2"]
+                           "left" ["right-full" "top-1/2" "transform" "-translate-y-1/2" "mr-2"]
+                           "right" ["left-full" "top-1/2" "transform" "-translate-y-1/2" "ml-2"]))
+             :style {:min-width "max-content"}}
+      [:div.bg-gray-800.text-white.text-xs.rounded.py-1.px-2.whitespace-nowrap
+       (second content)
+       [:div {:class (into ["absolute" "w-0" "h-0" "border-4" "border-transparent"]
+                           (case pos
+                             "top" ["top-full" "border-t-gray-800"]
+                             "bottom" ["bottom-full" "border-b-gray-800"]
+                             "left" ["left-full" "border-l-gray-800"]
+                             "right" ["right-full" "border-r-gray-800"]))}]]]]))
+
 (defn search-input [search-term]
   [:div.relative.mb-4
    [:input.w-full.px-3.py-2.bg-base-200.border.border-base-300.rounded-lg.text-sm.placeholder-gray-400
@@ -99,8 +127,12 @@
      [:div.col-span-2.text-sm.font-medium.text-center (format-large-currency safe-open-interest)]
      ;; Funding Rate (2 cols)
      [:div.col-span-2.text-center
-      [:div {:class [funding-color "text-sm"]}
-       (str (if funding-positive "+" "") (safe-to-fixed (* safe-funding-rate 100) 4) "%")]]]))
+      (tooltip 
+        [[:div {:class [funding-color "text-sm" "cursor-help"]
+                :style {:min-width "max-content"}}
+          (str (if funding-positive "+" "") (safe-to-fixed (* safe-funding-rate 100) 4) "%")]
+         (str "Annualized: " (format-percentage (annualized-funding-rate (* safe-funding-rate 100)) 2))]
+        "bottom")]]))
 
 (defn asset-list [assets selected-asset]
   [:div.max-h-96.overflow-y-auto.space-y-1
