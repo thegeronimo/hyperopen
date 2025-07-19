@@ -10,18 +10,23 @@
    * :idx         → original index (handy for other endpoint look-ups)"
   [data]
   (let [[{:keys [universe marginTables]} funding] data
-        ;; 1. margin-table-id -> table
         margin-map (into {} marginTables)]
-    ;; 2. merge everything per asset
-    (reduce
-      (fn [m [idx {:keys [name marginTableId] :as info}]]
-        (assoc m (keyword name)
-                  {:idx     idx
-                   :info    info
-                   :margin  (margin-map marginTableId)
-                   :funding (nth funding idx)}))
-      {}
-      (map-indexed vector universe))))
+    (->> (map-indexed vector universe)
+         ;; Filter out assets with zero volume and open interest
+         (filter (fn [[idx {:keys [name] :as info}]]
+                   (let [funding-data (nth funding idx)
+                         day-ntl-vlm (js/parseFloat (:dayNtlVlm funding-data))
+                         open-interest (js/parseFloat (:openInterest funding-data))]
+                     (and (not (js/isNaN day-ntl-vlm)) (> day-ntl-vlm 0)
+                          (not (js/isNaN open-interest)) (> open-interest 0)))))
+         ;; Build normalized map
+         (reduce (fn [m [idx {:keys [name marginTableId] :as info}]]
+                   (assoc m (keyword name)
+                          {:idx     idx
+                           :info    info
+                           :margin  (margin-map marginTableId)
+                           :funding (nth funding idx)}))
+                 {}))))
 
 (defn fetch-asset-contexts! [store]
   (println "Fetching perpetual asset contexts...")
