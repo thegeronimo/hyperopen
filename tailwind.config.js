@@ -15,6 +15,7 @@ module.exports = {
       },
       fontFamily: {
         mono: ["JetBrains Mono", "Fira Code", "monospace"],
+        splash: ["Splash", "ui-sans-serif", "system-ui", "sans-serif"],
       },
     },
   },
