@@ -98,17 +98,8 @@
     [:div.relative.flex.items-center.justify-between.px-4.py-2.bg-base-200.rounded-lg.border.border-base-300
      [:div.flex.items-center.space-x-4.w-full
       ;; Asset/Pair column
-      [:div.flex-shrink-0.relative.w-20
-       (asset-icon coin dropdown-visible?)
-       ;; Asset Selector Dropdown
-       (when dropdown-visible?
-         (asset-selector/asset-selector-wrapper
-           {:visible? dropdown-visible?
-            :assets (get-available-assets full-state)
-            :selected-asset coin
-            :search-term (:search-term dropdown-state "")
-            :sort-by (:sort-by dropdown-state :name)
-            :sort-direction (:sort-direction dropdown-state :asc)}))]
+      [:div.flex-shrink-0
+       (asset-icon coin dropdown-visible?)]
       
       ;; Mark column
       [:div.flex-shrink-0.w-24
@@ -164,7 +155,7 @@
    [:div.animate-spin.rounded-full.h-8.w-8.border-b-2.border-primary]])
 
 (defn active-asset-panel [contexts loading? dropdown-state full-state]
-  [:div.bg-base-100.rounded-lg.shadow-lg
+  [:div.relative.bg-base-100.rounded-lg.shadow-lg
    [:div.p-4.border-b.border-base-300
     [:h2.text-lg.font-semibold "Active Assets"]
     [:p.text-sm.text-gray-500 "Real-time trading data"]]
@@ -172,7 +163,16 @@
     (cond
       loading? (loading-state)
       (empty? contexts) (empty-state)
-      :else (active-asset-list contexts dropdown-state full-state))]])
+      :else (active-asset-list contexts dropdown-state full-state))]
+   ;; Asset Selector Dropdown positioned at panel level
+   (when (:visible-dropdown dropdown-state)
+     (asset-selector/asset-selector-wrapper
+       {:visible? true
+        :assets (get-available-assets full-state)
+        :selected-asset (:visible-dropdown dropdown-state)
+        :search-term (:search-term dropdown-state "")
+        :sort-by (:sort-by dropdown-state :name)
+        :sort-direction (:sort-direction dropdown-state :asc)}))])
 
 ;; Main component that takes state and renders the UI
 (defn active-asset-view [state]

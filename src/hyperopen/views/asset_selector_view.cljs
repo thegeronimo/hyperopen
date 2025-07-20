@@ -162,9 +162,8 @@
   [{:keys [visible? assets selected-asset search-term sort-by sort-direction]}]
   (when visible?
     (let [processed-assets (filter-and-sort-assets assets search-term sort-by sort-direction)]
-      [:div.absolute.top-full.left-0.mt-2.bg-base-100.border.border-base-300.rounded-lg.shadow-lg.z-50 
-       {:style {:width "800px"
-                :transition "opacity 0.3s ease-in-out, transform 0.3s ease-in-out"
+      [:div.absolute.top-full.left-0.right-0.mt-2.bg-base-100.border.border-base-300.rounded-lg.shadow-lg.z-50 
+       {:style {:transition "opacity 0.3s ease-in-out, transform 0.3s ease-in-out"
                 :opacity 1
                 :transform "translateY(0)"}
         :replicant/mounting {:style {:opacity 0 :transform "translateY(-8px)"}}
