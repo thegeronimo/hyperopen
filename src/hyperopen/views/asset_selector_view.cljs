@@ -113,7 +113,7 @@
         "bottom")]]))
 
 (defn asset-list [assets selected-asset]
-  [:div.max-h-96.overflow-y-auto.space-y-1
+  [:div.max-h-96.overflow-y-auto.space-y-1.scrollbar-hide
    (if (empty? assets)
      [:div.text-center.py-8.text-gray-400
       [:div "No assets found"]
