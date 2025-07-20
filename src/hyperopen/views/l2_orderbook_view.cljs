@@ -81,11 +81,10 @@
         cum-size (:cum-size order)
         bar-width (cumulative-bar-width cum-size max-cum-size)
         bar-color (if is-ask? "bg-red-500/30" "bg-green-500/30")
-        text-color (if is-ask? "text-red-400" "text-green-400")
-        bar-alignment (if is-ask? "justify-end" "justify-start")]
+        text-color (if is-ask? "text-red-400" "text-green-400")]
     [:div.flex.items-center.h-8.relative.bg-gray-900
-     ;; Size bar background - positioned based on ask/bid
-     [:div.absolute.inset-0.flex.items-center {:class [bar-alignment]}
+     ;; Size bar background - always positioned from left
+     [:div.absolute.inset-0.flex.items-center.justify-start
       [:div {:class ["h-full" bar-color]
              :style {:width (str bar-width "%")}}]]
      ;; Content
