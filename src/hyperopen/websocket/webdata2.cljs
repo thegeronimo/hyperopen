@@ -35,39 +35,34 @@
   (fn [data]
     (when (map? data)
       (when (= (:channel data) "webData2")
-        (let [webdata2-data (:data data)
-              address (:user webdata2-data)]
+        (let [webdata2-data (:data data)]
           ;; Update local state
-          (swap! webdata2-state assoc-in [:data address] 
-                 {:data webdata2-data
-                  :timestamp (:time webdata2-data)})
+          (swap! webdata2-state assoc :data webdata2-data)
           ;; Update app store
           (when store
             (js/setTimeout 
-             #(swap! store assoc-in [:webdata2 address] 
-                     {:data webdata2-data
-                      :timestamp (:time webdata2-data)})
+             #(swap! store assoc :webdata2 webdata2-data)
              0)))))))
 
 ;; Get current subscriptions
 (defn get-subscriptions []
   (:subscriptions @webdata2-state))
 
-;; Get WebData2 for a specific address
-(defn get-webdata2 [address]
-  (get-in @webdata2-state [:data address]))
-
-;; Get all WebData2
-(defn get-all-webdata2 []
+;; Get WebData2 data
+(defn get-webdata2 []
   (:data @webdata2-state))
 
-;; Clear WebData2 data for a specific address
-(defn clear-webdata2! [address]
-  (swap! webdata2-state update :data dissoc address))
+;; Get all WebData2 (alias for get-webdata2)
+(defn get-all-webdata2 []
+  (get-webdata2))
 
-;; Clear all WebData2 data
+;; Clear WebData2 data
+(defn clear-webdata2! []
+  (swap! webdata2-state assoc :data nil))
+
+;; Clear all WebData2 data (alias for clear-webdata2!)
 (defn clear-all-webdata2! []
-  (swap! webdata2-state assoc :data {}))
+  (clear-webdata2!))
 
 ;; Initialize WebData2 module
 (defn init! [store]
