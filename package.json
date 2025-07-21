@@ -7,6 +7,9 @@
     "dev": "concurrently -k -n TAILWIND,CLJS \"npm run css:watch\" \"npm run cljs:watch\"",
     "build": "npm run css:build && npx shadow-cljs release app",
     "repl": "npx shadow-cljs cljs-repl app",
+    "test": "shadow-cljs compile test && node out/test.js",
+    "test:watch": "shadow-cljs watch test",
+    "test:repl": "shadow-cljs cljs-repl test",
     "css:build": "tailwindcss -i ./src/styles/main.css -o ./resources/public/css/main.css --minify",
     "css:watch": "tailwindcss -i ./src/styles/main.css -o ./resources/public/css/main.css --watch"
   },

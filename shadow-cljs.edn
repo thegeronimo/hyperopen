@@ -1,4 +1,4 @@
-{:source-paths ["src"]
+{:source-paths ["src" "test"]
  
  :dependencies [[no.cjohansen/replicant "2025.06.21"]
                 [no.cjohansen/nexus "2025.07.1"]]
@@ -13,6 +13,9 @@
         :devtools {:http-root "resources/public"
                    :http-port 8080
                    :after-load hyperopen.core/reload}}
+  
+  :test {:target :node-test
+         :output-to "out/test.js"}
   
   :release {:target :browser
             :output-dir "resources/public/js"
