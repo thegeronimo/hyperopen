@@ -85,7 +85,7 @@
     [:div.flex.items-center.h-8.relative.bg-gray-900
      ;; Size bar background - always positioned from left
      [:div.absolute.inset-0.flex.items-center.justify-start
-      [:div {:class ["h-full" bar-color "transition-all" "duration-300" "ease-in-out"]
+      [:div {:class ["h-full" bar-color "transition-all" "duration-300" "ease-[cubic-bezier(0.68,-0.6,0.32,1.6)]"]
              :style {:width (str bar-width "%")}}]]
      ;; Content
      [:div.flex.w-full.items-center.justify-between.px-3.relative.z-10
