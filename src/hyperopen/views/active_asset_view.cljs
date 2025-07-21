@@ -171,7 +171,7 @@
         :assets (get-available-assets full-state)
         :selected-asset (:visible-dropdown dropdown-state)
         :search-term (:search-term dropdown-state "")
-        :sort-by (:sort-by dropdown-state :name)
+        :sort-by (:sort-by dropdown-state :volume)
         :sort-direction (:sort-direction dropdown-state :asc)}))])
 
 ;; Main component that takes state and renders the UI
@@ -181,6 +181,6 @@
         loading? (:loading active-assets)
         dropdown-state (get-in state [:asset-selector] {:visible-dropdown nil
                                                          :search-term ""
-                                                         :sort-by :name
-                                                         :sort-direction :asc})]
+                                                         :sort-by :volume
+                                                         :sort-direction :desc})]
     (active-asset-panel contexts loading? dropdown-state state))) 

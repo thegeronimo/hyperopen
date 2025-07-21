@@ -19,8 +19,8 @@
                       :webdata2 {}
                       :asset-selector {:visible-dropdown nil
                                       :search-term ""
-                      				  :sort-by :name
-                      				  :sort-direction :asc}}))
+                      				  :sort-by :volume
+                      				  :sort-direction :desc}}))
 
 ;; Effects - handle side effects
 (defn save [_ store path value]
