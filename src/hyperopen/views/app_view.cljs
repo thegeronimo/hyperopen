@@ -1,6 +1,7 @@
 (ns hyperopen.views.app-view
   (:require [hyperopen.views.active-asset-view :as active-asset-view]
-            [hyperopen.views.l2-orderbook-view :as l2-orderbook-view]))
+            [hyperopen.views.l2-orderbook-view :as l2-orderbook-view]
+            [hyperopen.views.trading-chart.core :as trading-chart]))
 
 (defn app-view [state]
   [:div.min-h-screen.bg-base-100.p-8
@@ -42,6 +43,10 @@
          {:coin (or display-coin "No Asset Selected")
           :orderbook orderbook-data
           :loading (and display-coin (nil? orderbook-data))}))]
+          
+    ;; Trading Chart Panel
+    [:div
+     (trading-chart/trading-chart-view {:coin "BTC"})]
     
     ;; Demo Counter Card
     [:div.card.bg-base-200.shadow-xl.p-6.max-w-md.mx-auto
