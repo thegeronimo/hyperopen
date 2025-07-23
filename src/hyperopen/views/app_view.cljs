@@ -46,7 +46,7 @@
           
     ;; Trading Chart Panel
     [:div
-     (trading-chart/trading-chart-view {:coin "BTC"})]
+     (trading-chart/trading-chart-view state)]
     
     ;; Demo Counter Card
     [:div.card.bg-base-200.shadow-xl.p-6.max-w-md.mx-auto

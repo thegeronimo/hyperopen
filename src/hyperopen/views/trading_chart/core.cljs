@@ -8,11 +8,13 @@
                    :replicant.life-cycle/mount
                    (try
                      (js/console.log "=== MOUNTING CANDLESTICK CHART ===")
-                     ;; Exactly mirror the JavaScript candlestick example
+                     ;; Create chart
                      (let [chart (ci/create-candlestick-chart! node)
                            candlestick-series (ci/add-candlestick-series! chart)]
                        (ci/set-candlestick-data! candlestick-series)
                        (ci/fit-content! chart)
+                       ;; Create legend element following TradingView docs
+                       (ci/create-legend! node chart candlestick-series)
                        (js/console.log "=== CANDLESTICK CHART SETUP COMPLETE ==="))
                      (catch :default e
                        (js/console.error "Error in candlestick chart:" e)))
@@ -22,7 +24,7 @@
                    
                    nil))]
 
-    [:div.w-full.h-96.bg-gray-800
+    [:div.w-full.h-96.bg-gray-800.relative
      {:replicant/on-render mount!
       :style {:width "600px" :height "400px"}}]))
 
