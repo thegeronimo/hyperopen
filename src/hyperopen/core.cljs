@@ -107,7 +107,7 @@
   (let [current-visible (get-in state [:chart-options :timeframes-dropdown-visible])]
     [[:effects/save [:chart-options :timeframes-dropdown-visible] (not current-visible)]]))
 
-(defn select-timeframe [state timeframe]
+(defn select-chart-timeframe [state timeframe]
   [[:effects/save [:chart-options :selected-timeframe] timeframe]
    [:effects/save [:chart-options :timeframes-dropdown-visible] false]])
 
@@ -130,7 +130,7 @@
 (nxr/register-action! :actions/update-asset-search update-asset-search)
 (nxr/register-action! :actions/update-asset-selector-sort update-asset-selector-sort)
 (nxr/register-action! :actions/toggle-timeframes-dropdown toggle-timeframes-dropdown)
-(nxr/register-action! :actions/select-timeframe select-timeframe)
+(nxr/register-action! :actions/select-chart-timeframe select-chart-timeframe)
 (nxr/register-system->state! deref)
 
 ;; Register placeholder for DOM event values

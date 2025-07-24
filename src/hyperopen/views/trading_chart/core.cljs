@@ -11,17 +11,17 @@
      [:div.flex.items-center.space-x-1
       ;; Favorite timeframes (with star indicators)
       [:button.relative.px-3.py-1.text-sm.font-medium.rounded.transition-colors
-       {:class (if (= selected-timeframe :1h) 
+               {:class (if (= selected-timeframe :1h) 
                  ["text-white" "bg-blue-600"] 
                  ["text-gray-300" "hover:text-white" "hover:bg-gray-700"])
-        :on {:click [[:actions/select-timeframe :1h]]}}
+         :on {:click [[:actions/select-chart-timeframe :1h]]}}
        "1h"
        [:span.absolute.top-0.right-0.text-yellow-400.text-xs "⭐"]]
       [:button.relative.px-3.py-1.text-sm.font-medium.rounded.transition-colors
-       {:class (if (= selected-timeframe :1d) 
+               {:class (if (= selected-timeframe :1d) 
                  ["text-white" "bg-blue-600"] 
                  ["text-gray-300" "hover:text-white" "hover:bg-gray-700"])
-        :on {:click [[:actions/select-timeframe :1d]]}}
+         :on {:click [[:actions/select-chart-timeframe :1d]]}}
        "1d"
        [:span.absolute.top-0.right-0.text-yellow-400.text-xs "⭐"]]
       ;; Dropdown for additional timeframes
@@ -37,65 +37,65 @@
         [:div.px-3.py-2.text-xs.text-gray-400.uppercase.font-semibold.border-b.border-gray-600 "Minutes"]
         [:button.block.w-full.text-left.px-3.py-2.text-sm.hover:bg-gray-700.hover:text-white
          {:class (if (= selected-timeframe :1m) ["text-blue-400" "bg-gray-700"] ["text-gray-300"])
-          :on {:click [[:actions/select-timeframe :1m]]}}
+          :on {:click [[:actions/select-chart-timeframe :1m]]}}
          "1 min"]
         [:button.block.w-full.text-left.px-3.py-2.text-sm.hover:bg-gray-700.hover:text-white
          {:class (if (= selected-timeframe :3m) ["text-blue-400" "bg-gray-700"] ["text-gray-300"])
-          :on {:click [[:actions/select-timeframe :3m]]}}
+          :on {:click [[:actions/select-chart-timeframe :3m]]}}
          "3 min"]
         [:button.block.w-full.text-left.px-3.py-2.text-sm.hover:bg-gray-700.hover:text-white
          {:class (if (= selected-timeframe :5m) ["text-blue-400" "bg-gray-700"] ["text-gray-300"])
-          :on {:click [[:actions/select-timeframe :5m]]}}
+          :on {:click [[:actions/select-chart-timeframe :5m]]}}
          "5 min"]
         [:button.block.w-full.text-left.px-3.py-2.text-sm.hover:bg-gray-700.hover:text-white
          {:class (if (= selected-timeframe :15m) ["text-blue-400" "bg-gray-700"] ["text-gray-300"])
-          :on {:click [[:actions/select-timeframe :15m]]}}
+          :on {:click [[:actions/select-chart-timeframe :15m]]}}
          "15 min"]
         [:button.block.w-full.text-left.px-3.py-2.text-sm.hover:bg-gray-700.hover:text-white
          {:class (if (= selected-timeframe :30m) ["text-blue-400" "bg-gray-700"] ["text-gray-300"])
-          :on {:click [[:actions/select-timeframe :30m]]}}
+          :on {:click [[:actions/select-chart-timeframe :30m]]}}
          "30 min"]
         ;; Hours section
         [:div.px-3.py-2.text-xs.text-gray-400.uppercase.font-semibold.border-b.border-gray-600.border-t "Hours"]
         [:button.relative.block.w-full.text-left.px-3.py-2.text-sm.hover:bg-gray-700.hover:text-white
          {:class (if (= selected-timeframe :1h) ["text-blue-400" "bg-gray-700"] ["text-gray-300"])
-          :on {:click [[:actions/select-timeframe :1h]]}}
+          :on {:click [[:actions/select-chart-timeframe :1h]]}}
          "1 hour"
          [:span.absolute.right-2.top-2.text-yellow-400.text-xs "⭐"]]
         [:button.block.w-full.text-left.px-3.py-2.text-sm.hover:bg-gray-700.hover:text-white
          {:class (if (= selected-timeframe :2h) ["text-blue-400" "bg-gray-700"] ["text-gray-300"])
-          :on {:click [[:actions/select-timeframe :2h]]}}
+          :on {:click [[:actions/select-chart-timeframe :2h]]}}
          "2 hours"]
         [:button.block.w-full.text-left.px-3.py-2.text-sm.hover:bg-gray-700.hover:text-white
          {:class (if (= selected-timeframe :4h) ["text-blue-400" "bg-gray-700"] ["text-gray-300"])
-          :on {:click [[:actions/select-timeframe :4h]]}}
+          :on {:click [[:actions/select-chart-timeframe :4h]]}}
          "4 hours"]
         [:button.block.w-full.text-left.px-3.py-2.text-sm.hover:bg-gray-700.hover:text-white
          {:class (if (= selected-timeframe :8h) ["text-blue-400" "bg-gray-700"] ["text-gray-300"])
-          :on {:click [[:actions/select-timeframe :8h]]}}
+          :on {:click [[:actions/select-chart-timeframe :8h]]}}
          "8 hours"]
         [:button.block.w-full.text-left.px-3.py-2.text-sm.hover:bg-gray-700.hover:text-white
          {:class (if (= selected-timeframe :12h) ["text-blue-400" "bg-gray-700"] ["text-gray-300"])
-          :on {:click [[:actions/select-timeframe :12h]]}}
+          :on {:click [[:actions/select-chart-timeframe :12h]]}}
          "12 hours"]
         ;; Days section
         [:div.px-3.py-2.text-xs.text-gray-400.uppercase.font-semibold.border-b.border-gray-600.border-t "Days"]
         [:button.relative.block.w-full.text-left.px-3.py-2.text-sm.hover:bg-gray-700.hover:text-white
          {:class (if (= selected-timeframe :1d) ["text-blue-400" "bg-gray-700"] ["text-gray-300"])
-          :on {:click [[:actions/select-timeframe :1d]]}}
+          :on {:click [[:actions/select-chart-timeframe :1d]]}}
          "1 day"
          [:span.absolute.right-2.top-2.text-yellow-400.text-xs "⭐"]]
         [:button.block.w-full.text-left.px-3.py-2.text-sm.hover:bg-gray-700.hover:text-white
          {:class (if (= selected-timeframe :3d) ["text-blue-400" "bg-gray-700"] ["text-gray-300"])
-          :on {:click [[:actions/select-timeframe :3d]]}}
+          :on {:click [[:actions/select-chart-timeframe :3d]]}}
          "3 days"]
         [:button.block.w-full.text-left.px-3.py-2.text-sm.hover:bg-gray-700.hover:text-white
          {:class (if (= selected-timeframe :1w) ["text-blue-400" "bg-gray-700"] ["text-gray-300"])
-          :on {:click [[:actions/select-timeframe :1w]]}}
+          :on {:click [[:actions/select-chart-timeframe :1w]]}}
          "1 week"]
         [:button.block.w-full.text-left.px-3.py-2.text-sm.hover:bg-gray-700.hover:text-white
          {:class (if (= selected-timeframe :1M) ["text-blue-400" "bg-gray-700"] ["text-gray-300"])
-          :on {:click [[:actions/select-timeframe :1M]]}}
+          :on {:click [[:actions/select-chart-timeframe :1M]]}}
          "1 month"]]]]
    
      ;; Center - Chart type and indicators
