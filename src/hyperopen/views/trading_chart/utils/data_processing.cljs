@@ -2,22 +2,23 @@
 
 (defn process-candle-data [raw-data]
   "Transform raw API candle data to Lightweight.Charts format"
-  (if (or (nil? raw-data) (empty? raw-data))
-    []
+  (if (seq raw-data)
     (->> raw-data
-         (filter #(and % (map? %) (:t %) (:o %) (:h %) (:l %) (:c %) (:v %)))
-         (map #(try
-                 (hash-map :time (/ (:t %) 1000)  ; Convert to seconds
-                           :open (js/parseFloat (:o %))
-                           :high (js/parseFloat (:h %))
-                           :low (js/parseFloat (:l %))
-                           :close (js/parseFloat (:c %))
-                           :volume (js/parseFloat (:v %)))
-                 (catch :default e
-                   (js/console.warn "Error processing candle:" (pr-str %) e)
-                   nil)))
-         (filter some?)
-         (sort-by :time))))
+         (keep (fn [c]
+                 (when (and (map? c)
+                            (:t c) (:o c) (:h c) (:l c) (:c c) (:v c))
+                   (try
+                     {:time   (/ (:t c) 1000)
+                      :open   (js/parseFloat (:o c))
+                      :high   (js/parseFloat (:h c))
+                      :low    (js/parseFloat (:l c))
+                      :close  (js/parseFloat (:c c))
+                      :volume (js/parseFloat (:v c))}
+                     (catch :default e
+                       (js/console.warn "Error processing candle:" (pr-str c) e)
+                       nil)))))
+         (sort-by :time))
+    []))
 
 (defn process-volume-data [candle-data]
   "Extract volume data from candle data for volume chart"
