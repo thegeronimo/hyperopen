@@ -30,7 +30,9 @@
 (defn save [_ store path value]
   (swap! store assoc-in path value))
 
-
+(defn fetch-candle-snapshot [_ store & {:keys [interval bars] :or {interval :1d bars 330}}]
+  (println "Fetching candle snapshot for active asset...")
+  (api/fetch-candle-snapshot! store :interval interval :bars bars))
 
 (defn init-websocket [_ store]
   (println "Initializing WebSocket connection...")
@@ -43,7 +45,7 @@
                     (assoc-in [:active-assets :loading] true)
                     (assoc-in [:active-asset] coin)))
   (active-ctx/subscribe-active-asset-ctx! coin)
-  (api/fetch-candle-snapshot! store))
+  (fetch-candle-snapshot _ store))
 
 (defn subscribe-orderbook [_ store coin]
   (println "Subscribing to orderbook for:" coin)
@@ -52,10 +54,6 @@
 (defn subscribe-webdata2 [_ store address]
   (println "Subscribing to WebData2 for address:" address)
   (webdata2/subscribe-webdata2! address))
-
-(defn fetch-candle-snapshot [_ store]
-  (println "Fetching candle snapshot for active asset...")
-  (api/fetch-candle-snapshot! store))
 
 ;; Actions - pure functions that return effects
 (defn increment-count [state]
@@ -109,8 +107,8 @@
 
 (defn select-chart-timeframe [state timeframe]
   [[:effects/save [:chart-options :selected-timeframe] timeframe]
-   [:effects/save [:chart-options :timeframes-dropdown-visible] false]])
-
+   [:effects/save [:chart-options :timeframes-dropdown-visible] false]
+   [:effects/fetch-candle-snapshot :interval timeframe]])
 
 
 ;; Register effects and actions
