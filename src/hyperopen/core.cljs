@@ -22,7 +22,8 @@
                       :asset-selector {:visible-dropdown nil
                                       :search-term ""
                       				  :sort-by :volume
-                      				  :sort-direction :desc}}))
+                      				  :sort-direction :desc}
+                      :chart-options {:timeframes-dropdown-visible false}}))
 
 ;; Effects - handle side effects
 (defn save [_ store path value]
@@ -101,7 +102,9 @@
     [[:effects/save [:asset-selector :sort-by] sort-field]
      [:effects/save [:asset-selector :sort-direction] new-direction]]))
 
-
+(defn toggle-timeframes-dropdown [state]
+  (let [current-visible (get-in state [:chart-options :timeframes-dropdown-visible])]
+    [[:effects/save [:chart-options :timeframes-dropdown-visible] (not current-visible)]]))
 
 
 
@@ -121,6 +124,7 @@
 (nxr/register-action! :actions/select-asset select-asset)
 (nxr/register-action! :actions/update-asset-search update-asset-search)
 (nxr/register-action! :actions/update-asset-selector-sort update-asset-selector-sort)
+(nxr/register-action! :actions/toggle-timeframes-dropdown toggle-timeframes-dropdown)
 (nxr/register-system->state! deref)
 
 ;; Register placeholder for DOM event values
