@@ -26,6 +26,9 @@
       ;; Dropdown for additional timeframes
       (timeframe-dropdown {:selected-timeframe selected-timeframe
                           :timeframes-dropdown-visible timeframes-dropdown-visible})]
+     
+     ;; Vertical divider
+     [:div.w-px.h-6.bg-gray-700]
    
      ;; Center - Chart type and indicators
      [:div.flex.items-center.space-x-4
