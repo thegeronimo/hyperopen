@@ -11,25 +11,22 @@
      [:div.flex.items-center.space-x-1
       ;; Favorite timeframes (with star indicators)
       [:button.relative.px-3.py-1.text-sm.font-medium.rounded.transition-colors
-               {:class (if (= selected-timeframe :1h) 
-                 ["text-white" "bg-blue-600"] 
+       {:class (if (= selected-timeframe :1h)
+                 ["text-white" "bg-blue-600"]
                  ["text-gray-300" "hover:text-white" "hover:bg-gray-700"])
-         :on {:click [[:actions/select-chart-timeframe :1h]]}}
-       "1h"
-       [:span.absolute.top-0.right-0.text-yellow-400.text-xs "⭐"]]
+        :on {:click [[:actions/select-chart-timeframe :1h]]}}
+       "1h"]
       [:button.relative.px-3.py-1.text-sm.font-medium.rounded.transition-colors
-               {:class (if (= selected-timeframe :1d) 
-                 ["text-white" "bg-blue-600"] 
+       {:class (if (= selected-timeframe :1d)
+                 ["text-white" "bg-blue-600"]
                  ["text-gray-300" "hover:text-white" "hover:bg-gray-700"])
-         :on {:click [[:actions/select-chart-timeframe :1d]]}}
-       "1d"
-       [:span.absolute.top-0.right-0.text-yellow-400.text-xs "⭐"]]
+        :on {:click [[:actions/select-chart-timeframe :1d]]}}
+       "1d"]
       ;; Dropdown for additional timeframes
       [:div.relative
        [:button.flex.items-center.space-x-1.px-3.py-1.text-sm.font-medium.text-gray-300.hover:text-white.hover:bg-gray-700.rounded.transition-colors
         {:on {:click [[:actions/toggle-timeframes-dropdown]]}}
-        [:span "⋯"]
-        [:span "▼"]]
+        [:span (if timeframes-dropdown-visible "▲" "▼")]]
        ;; Dropdown menu (toggled with state)
        [:div.absolute.top-full.left-0.mt-1.bg-gray-800.border.border-gray-600.rounded.shadow-lg.z-50.min-w-32
         {:class (if timeframes-dropdown-visible "block" "hidden")}
