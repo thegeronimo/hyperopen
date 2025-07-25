@@ -3,6 +3,9 @@
             [hyperopen.views.trading-chart.utils.data-processing :as dp]
             [hyperopen.views.trading-chart.timeframe-dropdown :refer [timeframe-dropdown]]))
 
+;; Main timeframes for quick access buttons
+(def main-timeframes [:5m :1h :1d])
+
 ;; Top menu component with timeframe selection and bars indicator
 (defn chart-top-menu [state]
   (let [timeframes-dropdown-visible (get-in state [:chart-options :timeframes-dropdown-visible])
@@ -10,28 +13,17 @@
     [:div.flex.items-center.justify-between.bg-gray-900.border-b.border-gray-700.px-4.py-2.w-full
      ;; Left side - Favorite timeframes + dropdown
      [:div.flex.items-center.space-x-1
-      ;; Favorite timeframes (with star indicators)
-      [:button.relative.px-3.py-1.text-sm.font-medium.rounded.transition-colors
-       {:class (if (= selected-timeframe :5m)
-                 ["text-white" "bg-blue-600"]
-                 ["text-gray-300" "hover:text-white" "hover:bg-gray-700"])
-        :on {:click [[:actions/select-chart-timeframe :5m]]}}
-       "5m"]
-      ;; 1 hour
-      [:button.relative.px-3.py-1.text-sm.font-medium.rounded.transition-colors
-       {:class (if (= selected-timeframe :1h)
-                 ["text-white" "bg-blue-600"]
-                 ["text-gray-300" "hover:text-white" "hover:bg-gray-700"])
-        :on {:click [[:actions/select-chart-timeframe :1h]]}}
-       "1h"]
-      [:button.relative.px-3.py-1.text-sm.font-medium.rounded.transition-colors
-       {:class (if (= selected-timeframe :1d)
-                 ["text-white" "bg-blue-600"]
-                 ["text-gray-300" "hover:text-white" "hover:bg-gray-700"])
-        :on {:click [[:actions/select-chart-timeframe :1d]]}}
-       "D"]
+      ;; Main timeframe buttons
+      (for [key main-timeframes]
+        [:button.relative.px-3.py-1.text-sm.font-medium.rounded.transition-colors
+         {:key key
+          :class (if (= selected-timeframe key)
+                   ["text-white" "bg-blue-600"]
+                   ["text-gray-300" "hover:text-white" "hover:bg-gray-700"])
+          :on {:click [[:actions/select-chart-timeframe key]]}}
+         (name key)])
       ;; Additional timeframe button visible only when selected timeframe is not one of the main 3
-      (when-not (#{:5m :1h :1d} selected-timeframe)
+      (when-not (contains? (set main-timeframes) selected-timeframe)
         [:button.relative.px-3.py-1.text-sm.font-medium.rounded.transition-colors
          {:class ["text-white" "bg-blue-600"]
           :on {:click [[:actions/toggle-timeframes-dropdown]]}}
