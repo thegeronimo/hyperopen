@@ -12,6 +12,13 @@
      [:div.flex.items-center.space-x-1
       ;; Favorite timeframes (with star indicators)
       [:button.relative.px-3.py-1.text-sm.font-medium.rounded.transition-colors
+       {:class (if (= selected-timeframe :5m)
+                 ["text-white" "bg-blue-600"]
+                 ["text-gray-300" "hover:text-white" "hover:bg-gray-700"])
+        :on {:click [[:actions/select-chart-timeframe :5m]]}}
+       "5m"]
+      ;; 1 hour
+      [:button.relative.px-3.py-1.text-sm.font-medium.rounded.transition-colors
        {:class (if (= selected-timeframe :1h)
                  ["text-white" "bg-blue-600"]
                  ["text-gray-300" "hover:text-white" "hover:bg-gray-700"])
@@ -22,7 +29,14 @@
                  ["text-white" "bg-blue-600"]
                  ["text-gray-300" "hover:text-white" "hover:bg-gray-700"])
         :on {:click [[:actions/select-chart-timeframe :1d]]}}
-       "1d"]
+       "D"]
+      ;; Additional timeframe button visible only when selected timeframe is not one of the main 3
+      (when-not (#{:5m :1h :1d} selected-timeframe)
+        [:button.relative.px-3.py-1.text-sm.font-medium.rounded.transition-colors
+         {:class ["text-white" "bg-blue-600"]
+          :on {:click [[:actions/toggle-timeframes-dropdown]]}}
+         (name selected-timeframe)])
+
       ;; Dropdown for additional timeframes
       (timeframe-dropdown {:selected-timeframe selected-timeframe
                           :timeframes-dropdown-visible timeframes-dropdown-visible})]
