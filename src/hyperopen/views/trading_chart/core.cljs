@@ -1,7 +1,8 @@
 (ns hyperopen.views.trading-chart.core
   (:require [hyperopen.views.trading-chart.utils.chart-interop :as ci]
             [hyperopen.views.trading-chart.utils.data-processing :as dp]
-            [hyperopen.views.trading-chart.timeframe-dropdown :refer [timeframe-dropdown]]))
+            [hyperopen.views.trading-chart.timeframe-dropdown :refer [timeframe-dropdown]]
+            [hyperopen.views.trading-chart.chart-type-dropdown :refer [chart-type-dropdown]]))
 
 ;; Main timeframes for quick access buttons
 (def main-timeframes [:5m :1h :1d])
@@ -9,7 +10,9 @@
 ;; Top menu component with timeframe selection and bars indicator
 (defn chart-top-menu [state]
   (let [timeframes-dropdown-visible (get-in state [:chart-options :timeframes-dropdown-visible])
-        selected-timeframe (get-in state [:chart-options :selected-timeframe] :1d)]
+        selected-timeframe (get-in state [:chart-options :selected-timeframe] :1d)
+        chart-type-dropdown-visible (get-in state [:chart-options :chart-type-dropdown-visible])
+        selected-chart-type (get-in state [:chart-options :selected-chart-type] :candlestick)]
     [:div.flex.items-center.justify-between.bg-gray-900.border-b.border-gray-700.px-4.py-2.w-full
      ;; Left side - Favorite timeframes + dropdown
      [:div.flex.items-center.space-x-1
@@ -39,10 +42,9 @@
      ;; Center - Chart type and indicators
      [:div.flex.items-center.space-x-4
       [:div.flex.items-center.space-x-2
-       [:button.flex.items-center.space-x-1.px-3.py-1.text-sm.font-medium.text-gray-300.hover:text-white.hover:bg-gray-700.rounded.transition-colors
-        [:span "📊"]
-        [:span "Bars"]
-        [:span "▼"]]
+       ;; Chart type dropdown
+       (chart-type-dropdown {:selected-chart-type selected-chart-type
+                            :chart-type-dropdown-visible chart-type-dropdown-visible})
        [:button.flex.items-center.space-x-1.px-3.py-1.text-sm.font-medium.text-gray-300.hover:text-white.hover:bg-gray-700.rounded.transition-colors
         [:span "📈"]
         [:span "fx Indicators"]

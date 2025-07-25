@@ -24,7 +24,9 @@
                       				  :sort-by :volume
                       				  :sort-direction :desc}
                       :chart-options {:timeframes-dropdown-visible false
-                                      :selected-timeframe :1d}}))
+                                      :selected-timeframe :1d
+                                      :chart-type-dropdown-visible false
+                                      :selected-chart-type :candlestick}}))
 
 ;; Effects - handle side effects
 (defn save [_ store path value]
@@ -110,6 +112,14 @@
    [:effects/save [:chart-options :timeframes-dropdown-visible] false]
    [:effects/fetch-candle-snapshot :interval timeframe]])
 
+(defn toggle-chart-type-dropdown [state]
+  (let [current-visible (get-in state [:chart-options :chart-type-dropdown-visible])]
+    [[:effects/save [:chart-options :chart-type-dropdown-visible] (not current-visible)]]))
+
+(defn select-chart-type [state chart-type]
+  [[:effects/save [:chart-options :selected-chart-type] chart-type]
+   [:effects/save [:chart-options :chart-type-dropdown-visible] false]])
+
 
 ;; Register effects and actions
 (nxr/register-effect! :effects/save save)
@@ -129,6 +139,8 @@
 (nxr/register-action! :actions/update-asset-selector-sort update-asset-selector-sort)
 (nxr/register-action! :actions/toggle-timeframes-dropdown toggle-timeframes-dropdown)
 (nxr/register-action! :actions/select-chart-timeframe select-chart-timeframe)
+(nxr/register-action! :actions/toggle-chart-type-dropdown toggle-chart-type-dropdown)
+(nxr/register-action! :actions/select-chart-type select-chart-type)
 (nxr/register-system->state! deref)
 
 ;; Register placeholder for DOM event values
