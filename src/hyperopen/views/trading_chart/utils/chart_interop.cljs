@@ -1,6 +1,25 @@
 (ns hyperopen.views.trading-chart.utils.chart-interop
   (:require ["lightweight-charts" :refer [createChart AreaSeries BarSeries BaselineSeries CandlestickSeries HistogramSeries LineSeries]]))
 
+;; Generic chart creation with volume support
+(defn create-chart-with-volume! [container]
+  "Create a chart with volume pane"
+  (let [chartOptions #js {:layout #js {:textColor "#e5e7eb" 
+                                       :background #js {:type "solid" 
+                                                       :color "#1f2937"}}
+                          :grid #js {:vertLines #js {:color "#374151"}
+                                    :horzLines #js {:color "#374151"}}
+                          :rightPriceScale #js {:borderColor "#374151"}
+                          :timeScale #js {:borderColor "#374151"}
+                          :height 400}
+        chart (createChart container chartOptions)
+        ;; Create volume series on a separate pane
+        volumeSeries (.addSeries chart HistogramSeries #js {:priceFormat #js {:type "volume"}
+                                                            :priceScaleId ""
+                                                            :scaleMargins #js {:top 0.8 :bottom 0}
+                                                            :color "#26a69a"})]
+    #js {:chart chart :volumeSeries volumeSeries}))
+
 ;; Generic chart creation
 (defn create-chart! [container]
   "Create a chart with common options"
@@ -64,12 +83,28 @@
         series (.addSeries ^js chart LineSeries seriesOptions)]
     series))
 
+(defn add-volume-series! [chart]
+  "Add a volume histogram series to the chart"
+  (let [seriesOptions #js {:priceFormat #js {:type "volume"}
+                           :priceScaleId ""
+                           :scaleMargins #js {:top 0.7 :bottom 0}
+                           :color "#26a69a"}
+        series (.addSeries ^js chart HistogramSeries seriesOptions)]
+    series))
+
 ;; Data transformation functions
 (defn transform-data-for-single-value [data]
   "Transform OHLC data to single value (close price) for area, baseline, line, histogram"
   (map (fn [candle]
          {:value (:close candle)
           :time (:time candle)}) data))
+
+(defn transform-data-for-volume [data]
+  "Transform OHLC data to volume data for volume chart"
+  (map (fn [candle]
+         {:value (:volume candle)
+          :time (:time candle)
+          :color (if (>= (:close candle) (:open candle)) "#26a69a" "#ef5350")}) data))
 
 ;; Generic data setting function
 (defn set-series-data! [series data chart-type]
@@ -78,6 +113,11 @@
                           (:area :baseline :line :histogram) (transform-data-for-single-value data)
                           (:bar :candlestick) data)]
     (.setData series (clj->js transformed-data))))
+
+(defn set-volume-data! [volume-series data]
+  "Set volume data for volume series"
+  (let [volume-data (transform-data-for-volume data)]
+    (.setData volume-series (clj->js volume-data))))
 
 ;; Generic series creation function
 (defn add-series! [chart chart-type]
@@ -116,6 +156,12 @@
     
     ;; Format price helper
     (let [format-price (fn [price] (.toFixed price 2))
+          format-volume (fn [volume] 
+                         (cond
+                           (>= volume 1000000000) (str (.toFixed (/ volume 1000000000) 1) "B")
+                           (>= volume 1000000) (str (.toFixed (/ volume 1000000) 1) "M")
+                           (>= volume 1000) (str (.toFixed (/ volume 1000) 1) "K")
+                           :else (.toFixed volume 0)))
           
           ;; Update legend content based on chart type
           update-legend (fn [param]
@@ -150,6 +196,31 @@
       
       ;; Initialize
       (update-legend nil))))
+
+;; Chart with volume support using separate panes
+(defn create-chart-with-volume-and-series! [container chart-type data]
+  "Create a chart with main series and volume series in separate panes"
+  (let [chart (create-chart! container)
+        ;; Add main series to pane 0 (default)
+        main-series (add-series! chart chart-type)
+        ;; Add volume series to pane 1 (separate pane)
+        volume-series (.addSeries ^js chart HistogramSeries 
+                                  #js {:color "#26a69a"
+                                       :priceFormat #js {:type "volume"}}
+                                  1)] ; Pane index 1
+    
+    ;; Set data for both series
+    (set-series-data! main-series data chart-type)
+    (set-volume-data! volume-series data)
+    
+    ;; Configure the volume pane height
+    (let [volume-pane (aget (.panes ^js chart) 1)]
+      (.setHeight ^js volume-pane 150))
+    
+    (fit-content! chart)
+    
+    ;; Return both chart and series for legend creation
+    #js {:chart chart :mainSeries main-series :volumeSeries volume-series}))
 
 ;; Legacy function names for backward compatibility
 (defn create-candlestick-chart! [container]

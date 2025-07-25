@@ -49,19 +49,19 @@
        [:span "fx Indicators"]
        [:span "▼"]]]]))
 
-;; Generic chart component that supports all chart types
+;; Generic chart component that supports all chart types with volume
 (defn chart-canvas [candle-data chart-type]
   (let [mount! (fn [{:keys [:replicant/life-cycle :replicant/node]}]
                  (case life-cycle
                    :replicant.life-cycle/mount
                    (try
-                     ;; Create chart
-                     (let [chart (ci/create-chart! node)
-                           series (ci/add-series! chart chart-type)]
-                       (ci/set-series-data! series candle-data chart-type)
-                       (ci/fit-content! chart)
-                       ;; Create legend element
-                       (ci/create-legend! node chart series chart-type))
+                     ;; Create chart with volume support
+                     (let [chart-obj (ci/create-chart-with-volume-and-series! node chart-type candle-data)
+                           chart (.-chart chart-obj)
+                           main-series (.-mainSeries chart-obj)
+                           volume-series (.-volumeSeries chart-obj)]
+                       ;; Create legend for main series only
+                       (ci/create-legend! node chart main-series chart-type))
                      (catch :default e
                        (js/console.error "Error in chart:" e)))
                    :replicant.life-cycle/unmount
