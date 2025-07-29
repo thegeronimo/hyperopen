@@ -1,7 +1,8 @@
 (ns hyperopen.views.app-view
   (:require [hyperopen.views.active-asset-view :as active-asset-view]
             [hyperopen.views.l2-orderbook-view :as l2-orderbook-view]
-            [hyperopen.views.trading-chart.core :as trading-chart]))
+            [hyperopen.views.trading-chart.core :as trading-chart]
+            [hyperopen.views.footer-view :as footer-view]))
 
 (defn app-view [state]
   [:div.min-h-screen.bg-base-100.p-8
@@ -53,4 +54,7 @@
      [:p.text-xl.mb-4 "You clicked " (:count state) " times"]
      [:button.btn.btn-primary.btn-lg
       {:on {:click [[:actions/increment-count]]}}
-      "Click me!"]]]]) 
+      "Click me!"]]]
+    
+    ;; Footer
+    (footer-view/footer-view)]) 
