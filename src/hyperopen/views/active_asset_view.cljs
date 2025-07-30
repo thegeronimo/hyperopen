@@ -95,22 +95,21 @@
         open-interest-usd (fmt/format-currency (* open-interest mark))
         funding-rate (:fundingRate ctx-data)
         dropdown-visible? (= (:visible-dropdown dropdown-state) coin)]
-    [:div.relative.flex.items-center.justify-between.px-4.py-2.bg-base-200.rounded-lg.border.border-base-300
-     [:div.flex.items-center.space-x-4.w-full
+    [:div.relative.grid.grid-cols-7.gap-4.items-center.px-4.py-2.bg-base-200.rounded-lg.border.border-base-300
       ;; Asset/Pair column
-      [:div.flex-shrink-0
+      [:div.flex.justify-start
        (asset-icon coin dropdown-visible?)]
       
       ;; Mark column
-      [:div.flex-shrink-0.w-24
+      [:div.flex.justify-center
        (data-column "Mark" (fmt/format-currency mark) {:underlined true})]
       
       ;; Oracle column
-      [:div.flex-shrink-0.w-24
+      [:div.flex.justify-center
        (data-column "Oracle" (fmt/format-currency oracle) {:underlined true})]
       
       ;; 24h Change column
-      [:div.flex-shrink-0.w-32
+      [:div.flex.justify-center
        (data-column "24h Change" 
                     nil
                     {:change? true
@@ -118,15 +117,15 @@
                      :change-pct change-24h-pct})]
       
       ;; 24h Volume column
-      [:div.flex-shrink-0.w-28
+      [:div.flex.justify-center
        (data-column "24h Volume" (fmt/format-large-currency volume-24h))]
       
       ;; Open Interest column
-      [:div.flex-shrink-0.w-32
+      [:div.flex.justify-center
        (data-column "Open Interest" (fmt/format-large-currency open-interest) {:underlined true})]
       
       ;; Funding / Countdown column
-      [:div.flex-shrink-0.w-36
+      [:div.flex.justify-center
        [:div.text-center
         [:div.text-xs.text-gray-400.mb-1 "Funding / Countdown"]
         [:div.text-sm.flex.items-center.justify-center
@@ -134,7 +133,7 @@
            [[:span.text-success.cursor-help (fmt/format-percentage funding-rate 4)]
             (str "Annualized: " (fmt/format-percentage (fmt/annualized-funding-rate funding-rate) 2))])
          [:span.mx-1 "/"]
-         [:span (fmt/format-funding-countdown)]]]]]]))
+         [:span (fmt/format-funding-countdown)]]]]]))
 
 (defn active-asset-list [contexts dropdown-state full-state]
   [:div.space-y-2
