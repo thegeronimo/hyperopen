@@ -46,13 +46,27 @@
   (active-ctx/subscribe-active-asset-ctx! coin)
   (fetch-candle-snapshot _ store))
 
+(defn unsubscribe-active-asset [_ store coin]
+  (println "Unsubscribing from active asset context for:" coin)
+  (active-ctx/unsubscribe-active-asset-ctx! coin)
+  (swap! store update-in [:active-assets :contexts] dissoc coin))
+
 (defn subscribe-orderbook [_ store coin]
   (println "Subscribing to orderbook for:" coin)
   (orderbook/subscribe-orderbook! coin))
 
+(defn unsubscribe-orderbook [_ store coin]
+  (println "Unsubscribing from orderbook for:" coin)
+  (orderbook/unsubscribe-orderbook! coin)
+  (swap! store update-in [:orderbooks] dissoc coin))
+
 (defn subscribe-webdata2 [_ store address]
   (println "Subscribing to WebData2 for address:" address)
   (webdata2/subscribe-webdata2! address))
+
+(defn unsubscribe-webdata2 [_ store address]
+  (println "Unsubscribing from WebData2 for address:" address)
+  (webdata2/unsubscribe-webdata2! address))
 
 (defn init-websockets [state]
   [[:effects/init-websocket]])
@@ -74,10 +88,20 @@
   [[:effects/save [:asset-selector :visible-dropdown] nil]])
 
 (defn select-asset [state coin]
-  [[:effects/save [:selected-asset] coin]
-   [:effects/save [:active-asset] coin]
-   [:effects/save [:asset-selector :visible-dropdown] nil]
-   [:effects/fetch-candle-snapshot]])
+  (let [current-asset (get-in state [:active-asset])
+        unsubscribe-effects (if current-asset
+                             [[:effects/unsubscribe-active-asset current-asset]
+                              [:effects/unsubscribe-orderbook current-asset]
+                              [:effects/unsubscribe-webdata2 "0x0000000000000000000000000000000000000000"]]
+                             [])
+        subscribe-effects [[:effects/subscribe-active-asset coin]
+                          [:effects/subscribe-orderbook coin]
+                          [:effects/subscribe-webdata2 "0x0000000000000000000000000000000000000000"]
+                          [:effects/save [:selected-asset] coin]
+                          [:effects/save [:active-asset] coin]
+                          [:effects/save [:asset-selector :visible-dropdown] nil]
+                          [:effects/fetch-candle-snapshot]]]
+    (into unsubscribe-effects subscribe-effects)))
 
 (defn update-asset-search [state value]
   [[:effects/save [:asset-selector :search-term] (str value)]])
@@ -141,6 +165,9 @@
 (nxr/register-effect! :effects/subscribe-orderbook subscribe-orderbook)
 (nxr/register-effect! :effects/subscribe-webdata2 subscribe-webdata2)
 (nxr/register-effect! :effects/fetch-candle-snapshot fetch-candle-snapshot)
+(nxr/register-effect! :effects/unsubscribe-active-asset unsubscribe-active-asset)
+(nxr/register-effect! :effects/unsubscribe-orderbook unsubscribe-orderbook)
+(nxr/register-effect! :effects/unsubscribe-webdata2 unsubscribe-webdata2)
 (nxr/register-action! :actions/init-websockets init-websockets)
 (nxr/register-action! :actions/subscribe-to-asset subscribe-to-asset)
 (nxr/register-action! :actions/subscribe-to-webdata2 subscribe-to-webdata2)
