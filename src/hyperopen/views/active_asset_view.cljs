@@ -136,10 +136,12 @@
          [:span (fmt/format-funding-countdown)]]]]]))
 
 (defn active-asset-list [contexts dropdown-state full-state]
-  [:div.space-y-2
-   (for [[coin ctx-data] contexts]
-     ^{:key coin}
-     (active-asset-row ctx-data dropdown-state full-state))])
+  (let [active-asset (:active-asset full-state)
+        ctx-data (when active-asset (get contexts active-asset))]
+    [:div.space-y-2
+     (when ctx-data
+       ^{:key active-asset}
+       (active-asset-row ctx-data dropdown-state full-state))]))
 
 (defn empty-state []
   [:div.flex.flex-col.items-center.justify-center.p-8.text-center
