@@ -73,7 +73,6 @@
 
 (defn subscribe-to-asset [state coin]
   [[:effects/subscribe-active-asset coin]
-   [:effects/subscribe-webdata2 "0x0000000000000000000000000000000000000000"]
    [:effects/subscribe-orderbook coin]])
 
 (defn subscribe-to-webdata2 [state address]
@@ -91,12 +90,10 @@
   (let [current-asset (get-in state [:active-asset])
         unsubscribe-effects (if current-asset
                              [[:effects/unsubscribe-active-asset current-asset]
-                              [:effects/unsubscribe-orderbook current-asset]
-                              [:effects/unsubscribe-webdata2 "0x0000000000000000000000000000000000000000"]]
+                              [:effects/unsubscribe-orderbook current-asset]]
                              [])
         subscribe-effects [[:effects/subscribe-active-asset coin]
                           [:effects/subscribe-orderbook coin]
-                          [:effects/subscribe-webdata2 "0x0000000000000000000000000000000000000000"]
                           [:effects/save [:selected-asset] coin]
                           [:effects/save [:active-asset] coin]
                           [:effects/save [:asset-selector :visible-dropdown] nil]
@@ -214,6 +211,8 @@
   (orderbook/init! store)
   ;; Initialize WebData2 module
   (webdata2/init! store)
+  ;; Subscribe to WebData2 for the zero address
+  (webdata2/subscribe-webdata2! "0x0000000000000000000000000000000000000000")
   ;; Fetch initial market data
   (api/fetch-asset-contexts! store))
 
