@@ -10,9 +10,7 @@
             [hyperopen.asset-selector.settings :as asset-selector-settings]))
 
 ;; App state
-(defonce store (atom {:title "Hyperopen"
-                      :message "Welcome to Hyperopen - A ClojureScript app with Replicant"
-                      :websocket {:status :disconnected}
+(defonce store (atom {:websocket {:status :disconnected}
                       :active-assets {:contexts {}
                                      :loading false}
                       :active-asset nil

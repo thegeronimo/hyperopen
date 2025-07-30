@@ -12,10 +12,6 @@
    ;; Main Content
    [:div.flex-1.p-8.overflow-auto
     [:div.max-w-7xl.mx-auto.space-y-8
-     ;; Header
-     [:div.text-center.space-y-4
-      [:h1.text-4xl.font-bold.text-primary.font-splash (:title state)]
-      [:p.text-lg.text-base-content.opacity-80 (:message state)]]
      
      ;; Controls
      [:div.flex.justify-center.space-x-4

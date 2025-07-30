@@ -155,9 +155,6 @@
 
 (defn active-asset-panel [contexts loading? dropdown-state full-state]
   [:div.relative.bg-base-100.rounded-lg.shadow-lg
-   [:div.p-4.border-b.border-base-300
-    [:h2.text-lg.font-semibold "Active Assets"]
-    [:p.text-sm.text-gray-500 "Real-time trading data"]]
    [:div.p-4
     (cond
       loading? (loading-state)
