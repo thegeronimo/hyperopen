@@ -24,15 +24,13 @@
      
      ;; L2 Order Book Panel
      [:div.flex.justify-center
-      (let [active-coins (keys (:contexts (:active-assets state)))
-            available-orderbook-coins (keys (:orderbooks state))
-            display-coin (or (first active-coins) (first available-orderbook-coins))
-            orderbook-data (when display-coin 
-                            (get-in state [:orderbooks display-coin]))]
+      (let [active-asset (:active-asset state)
+            orderbook-data (when active-asset 
+                            (get-in state [:orderbooks active-asset]))]
         (l2-orderbook-view/l2-orderbook-view 
-          {:coin (or display-coin "No Asset Selected")
+          {:coin (or active-asset "No Asset Selected")
            :orderbook orderbook-data
-           :loading (and display-coin (nil? orderbook-data))}))]
+           :loading (and active-asset (nil? orderbook-data))}))]
            
      ;; Trading Chart Panel
      [:div
