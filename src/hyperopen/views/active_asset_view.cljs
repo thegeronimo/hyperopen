@@ -92,9 +92,10 @@
         change-24h-pct (:change24hPct ctx-data)
         volume-24h (:volume24h ctx-data)
         open-interest (:openInterest ctx-data)
-        open-interest-usd (fmt/format-currency (* open-interest mark))
         funding-rate (:fundingRate ctx-data)
-        dropdown-visible? (= (:visible-dropdown dropdown-state) coin)]
+        dropdown-visible? (= (:visible-dropdown dropdown-state) coin)
+        ;; Handle missing data gracefully
+        has-data? (and mark oracle change-24h volume-24h open-interest funding-rate)]
     [:div.relative.grid.grid-cols-7.gap-4.items-center.px-4.py-2.bg-base-200.rounded-lg.border.border-base-300
       ;; Asset/Pair column
       [:div.flex.justify-start
@@ -102,36 +103,38 @@
       
       ;; Mark column
       [:div.flex.justify-center
-       (data-column "Mark" (fmt/format-currency mark) {:underlined true})]
+       (data-column "Mark" (if mark (fmt/format-currency mark) "Loading...") {:underlined true})]
       
       ;; Oracle column
       [:div.flex.justify-center
-       (data-column "Oracle" (fmt/format-currency oracle) {:underlined true})]
+       (data-column "Oracle" (if oracle (fmt/format-currency oracle) "Loading...") {:underlined true})]
       
       ;; 24h Change column
       [:div.flex.justify-center
        (data-column "24h Change" 
-                    nil
-                    {:change? true
+                    (if has-data? nil "Loading...")
+                    {:change? has-data?
                      :change-value change-24h
                      :change-pct change-24h-pct})]
       
       ;; 24h Volume column
       [:div.flex.justify-center
-       (data-column "24h Volume" (fmt/format-large-currency volume-24h))]
+       (data-column "24h Volume" (if volume-24h (fmt/format-large-currency volume-24h) "Loading..."))]
       
       ;; Open Interest column
       [:div.flex.justify-center
-       (data-column "Open Interest" (fmt/format-large-currency open-interest) {:underlined true})]
+       (data-column "Open Interest" (if open-interest (fmt/format-large-currency open-interest) "Loading...") {:underlined true})]
       
       ;; Funding / Countdown column
       [:div.flex.justify-center
        [:div.text-center
         [:div.text-xs.text-gray-400.mb-1 "Funding / Countdown"]
         [:div.text-sm.flex.items-center.justify-center
-         (tooltip 
-           [[:span.text-success.cursor-help (fmt/format-percentage funding-rate 4)]
-            (str "Annualized: " (fmt/format-percentage (fmt/annualized-funding-rate funding-rate) 2))])
+         (if has-data?
+           (tooltip 
+             [[:span.text-success.cursor-help (fmt/format-percentage funding-rate 4)]
+              (str "Annualized: " (fmt/format-percentage (fmt/annualized-funding-rate funding-rate) 2))])
+           [:span "Loading..."])
          [:span.mx-1 "/"]
          [:span (fmt/format-funding-countdown)]]]]]))
 
@@ -139,9 +142,9 @@
   (let [active-asset (:active-asset full-state)
         ctx-data (when active-asset (get contexts active-asset))]
     [:div.space-y-2
-     (when ctx-data
+     (when active-asset
        ^{:key active-asset}
-       (active-asset-row ctx-data dropdown-state full-state))]))
+       (active-asset-row (or ctx-data {:coin active-asset}) dropdown-state full-state))]))
 
 (defn empty-state []
   [:div.flex.flex-col.items-center.justify-center.p-8.text-center
@@ -158,10 +161,9 @@
 (defn active-asset-panel [contexts loading? dropdown-state full-state]
   [:div.relative.bg-base-100.rounded-lg.shadow-lg
    [:div
-    (cond
-      loading? (loading-state)
-      (empty? contexts) (empty-state)
-      :else (active-asset-list contexts dropdown-state full-state))]
+    (if (:active-asset full-state)
+      (active-asset-list contexts dropdown-state full-state)
+      (empty-state))]
    ;; Asset Selector Dropdown positioned at panel level
    (when (:visible-dropdown dropdown-state)
      (asset-selector/asset-selector-wrapper
