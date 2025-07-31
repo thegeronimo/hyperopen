@@ -25,8 +25,7 @@
                           change-24h-pct (when (and change-24h prev-day-px (not= prev-day-px 0))
                                           (* 100 (/ change-24h prev-day-px)))
                           ;; Calculate open interest in USD
-                          open-interest-usd (when (and open-interest mark-px)
-                                             (* open-interest mark-px))]
+                          open-interest-usd (fmt/calculate-open-interest-usd open-interest mark-px)]
                       {:coin coin
                        :mark mark-px
                        :volume24h day-ntl-vlm
@@ -121,9 +120,9 @@
       [:div.flex.justify-center
        (data-column "24h Volume" (if volume-24h (fmt/format-large-currency volume-24h) "Loading..."))]
       
-      ;; Open Interest column
-      [:div.flex.justify-center
-       (data-column "Open Interest" (if open-interest (fmt/format-large-currency open-interest) "Loading...") {:underlined true})]
+      ;; Open Interest column 
+      [:div.flex.justify-center 
+       (data-column "Open Interest" (if open-interest (fmt/format-open-interest-usd open-interest mark) "Loading...") {:underlined true})]
       
       ;; Funding / Countdown column
       [:div.flex.justify-center

@@ -70,4 +70,14 @@
 (defn safe-number [value]
   "Convert value to number, handling NaN and nil cases"
   (let [num (if (number? value) value (js/parseFloat value))]
-    (if (js/isNaN num) 0 num))) 
+    (if (js/isNaN num) 0 num)))
+
+(defn calculate-open-interest-usd [open-interest mark-price]
+  "Calculate open interest in USD by multiplying open interest by mark price"
+  (when (and open-interest mark-price)
+    (* open-interest mark-price)))
+
+(defn format-open-interest-usd [open-interest mark-price]
+  "Calculate and format open interest in USD"
+  (when-let [usd-value (calculate-open-interest-usd open-interest mark-price)]
+    (format-large-currency usd-value))) 
