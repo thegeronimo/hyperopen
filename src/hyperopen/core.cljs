@@ -8,7 +8,8 @@
             [hyperopen.websocket.webdata2 :as webdata2]
             [hyperopen.api :as api]
             [hyperopen.asset-selector.settings :as asset-selector-settings]
-            [hyperopen.wallet.core :as wallet]))
+            [hyperopen.wallet.core :as wallet]
+            [hyperopen.wallet.address-watcher :as address-watcher]))
 
 ;; App state
 (defonce store (atom {:websocket {:status :disconnected}
@@ -227,8 +228,8 @@
   (orderbook/init! store)
   ;; Initialize WebData2 module
   (webdata2/init! store)
-  ;; Subscribe to WebData2 for the zero address
-  (webdata2/subscribe-webdata2! "0x0000000000000000000000000000000000000000")
+  ;; Note: WebData2 subscriptions are now managed by address-watcher
+  (address-watcher/init-with-webdata2! store webdata2/subscribe-webdata2! webdata2/unsubscribe-webdata2!)
   ;; Fetch initial market data
   (api/fetch-asset-contexts! store))
 
