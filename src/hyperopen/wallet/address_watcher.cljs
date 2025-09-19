@@ -38,7 +38,9 @@
 (defonce ^:private address-watcher-state
   (atom {:handlers []
          :current-address nil
-         :watching? false}))
+         :watching? false
+         :pending-subscription nil
+         :ws-connected? false}))
 
 (defn add-handler!
   "Add a handler for address changes. Handler must implement IAddressChangeHandler"
@@ -59,14 +61,21 @@
 (defn- notify-handlers!
   "Notify all registered handlers of address change"
   [old-address new-address]
-  (let [handlers (get @address-watcher-state :handlers)]
-    (doseq [handler handlers]
-      (try
-        (on-address-changed handler old-address new-address)
-        (catch js/Error e
-          (println (str "Error in address change handler " 
-                       (get-handler-name handler) ": " 
-                       (.-message e))))))))
+  (let [{:keys [handlers ws-connected?]} @address-watcher-state]
+    (if ws-connected?
+      ;; WebSocket is connected, notify handlers immediately
+      (doseq [handler handlers]
+        (try
+          (on-address-changed handler old-address new-address)
+          (catch js/Error e
+            (println (str "Error in address change handler " 
+                         (get-handler-name handler) ": " 
+                         (.-message e))))))
+      ;; WebSocket not connected, store pending subscription
+      (do
+        (println "WebSocket not connected, storing pending subscription for address:" new-address)
+        (swap! address-watcher-state assoc :pending-subscription {:old-address old-address
+                                                                   :new-address new-address})))))
 
 (defn- address-change-listener
   "Watch function that detects address changes"
@@ -84,6 +93,36 @@
       
       ;; Notify all handlers
       (notify-handlers! old-address new-address))))
+
+(defn- process-pending-subscription!
+  "Process any pending subscription when WebSocket connects"
+  []
+  (when-let [pending (get @address-watcher-state :pending-subscription)]
+    (let [{:keys [old-address new-address]} pending
+          handlers (get @address-watcher-state :handlers)]
+      (println "Processing pending subscription for address:" new-address)
+      (doseq [handler handlers]
+        (try
+          (on-address-changed handler old-address new-address)
+          (catch js/Error e
+            (println (str "Error in pending subscription handler " 
+                         (get-handler-name handler) ": " 
+                         (.-message e))))))
+      ;; Clear pending subscription
+      (swap! address-watcher-state assoc :pending-subscription nil))))
+
+(defn on-websocket-connected!
+  "Called when WebSocket connection is established"
+  []
+  (println "Address watcher: WebSocket connected")
+  (swap! address-watcher-state assoc :ws-connected? true)
+  (process-pending-subscription!))
+
+(defn on-websocket-disconnected!
+  "Called when WebSocket connection is lost"
+  []
+  (println "Address watcher: WebSocket disconnected")
+  (swap! address-watcher-state assoc :ws-connected? false))
 
 ;; ---------- Public API ---------------------------------------------------
 

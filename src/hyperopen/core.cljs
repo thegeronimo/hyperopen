@@ -212,7 +212,11 @@
 (add-watch ws-client/connection-state ::ws-status
   (fn [_ _ _ new-state]
     ;; Defer store update to next tick to avoid nested renders
-    (js/queueMicrotask #(swap! store assoc-in [:websocket :status] (:status new-state)))))
+    (js/queueMicrotask #(swap! store assoc-in [:websocket :status] (:status new-state)))
+    ;; Notify address watcher of connection status changes
+    (if (= (:status new-state) :connected)
+      (address-watcher/on-websocket-connected!)
+      (address-watcher/on-websocket-disconnected!))))
 
 (defn reload []
   (println "Reloading Hyperopen...")
