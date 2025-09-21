@@ -3,7 +3,8 @@
             [hyperopen.views.l2-orderbook-view :as l2-orderbook-view]
             [hyperopen.views.trading-chart.core :as trading-chart]
             [hyperopen.views.footer-view :as footer-view]
-            [hyperopen.views.header-view :as header-view]))
+            [hyperopen.views.header-view :as header-view]
+            [hyperopen.views.account-info-view :as account-info-view]))
 
 (defn app-view [state]
   [:div.h-screen.bg-base-100.flex.flex-col
@@ -21,6 +22,10 @@
     
     ;; Other content with max width constraint
     [:div.max-w-7xl.mx-auto.px-8.space-y-8
+     
+     ;; Account Info Panel
+     [:div.flex.justify-center
+      (account-info-view/account-info-view state)]
      
      ;; L2 Order Book Panel
      [:div.flex.justify-center

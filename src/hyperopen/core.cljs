@@ -30,7 +30,10 @@
                       :chart-options {:timeframes-dropdown-visible false
                                       :selected-timeframe :1d
                                       :chart-type-dropdown-visible false
-                                      :selected-chart-type :candlestick}}))
+                                      :selected-chart-type :candlestick}
+                      :account-info {:selected-tab :balances
+                                     :loading false
+                                     :error nil}}))
 
 ;; Effects - handle side effects
 (defn save [_ store path value]
@@ -168,6 +171,9 @@
         updated-indicators (assoc-in current-indicators [indicator-type :period] period)]
     [[:effects/save [:chart-options :active-indicators] updated-indicators]]))
 
+(defn select-account-info-tab [state tab]
+  [[:effects/save [:account-info :selected-tab] tab]])
+
 
 ;; Register effects and actions
 (nxr/register-effect! :effects/save save)
@@ -197,6 +203,7 @@
 (nxr/register-action! :actions/add-indicator add-indicator)
 (nxr/register-action! :actions/remove-indicator remove-indicator)
 (nxr/register-action! :actions/update-indicator-period update-indicator-period)
+(nxr/register-action! :actions/select-account-info-tab select-account-info-tab)
 (nxr/register-system->state! deref)
 
 ;; Register placeholder for DOM event values
