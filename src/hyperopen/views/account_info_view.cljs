@@ -116,28 +116,81 @@
         (balance-row "HYPE" "2,980.83245490" "2,980.83245490" "149,909.61" "+83,888.91 (+50.0%)")]]
       (empty-state "No balance data available"))))
 
+;; Position row component
+(defn position-row [coin size position-value entry-price mark-price pnl-value pnl-percent liq-price margin funding]
+  [:div.grid.grid-cols-11.gap-4.py-3.px-4.hover:bg-base-200.border-b.border-base-300.items-center.text-sm
+   ;; Coin with leverage badge
+   [:div.flex.items-center.space-x-2
+    [:span.font-medium coin]
+    [:span.badge.badge-sm.badge-outline "10x"]]
+   ;; Size
+   [:div.text-right size]
+   ;; Position Value  
+   [:div.text-right "$" (format-currency position-value)]
+   ;; Entry Price
+   [:div.text-right (format-currency entry-price)]
+   ;; Mark Price
+   [:div.text-right (format-currency mark-price)]
+   ;; PNL (ROE %)
+   [:div.text-right
+    [:div 
+     [:span {:class (if (and pnl-value (pos? (js/parseFloat pnl-value)))
+                     "text-success" "text-error")}
+      "$" (format-currency pnl-value)]
+     [:div.text-xs.opacity-70 
+      [:span {:class (if (and pnl-percent (pos? (js/parseFloat pnl-percent)))
+                      "text-success" "text-error")}
+       "(" (if (and pnl-percent (pos? (js/parseFloat pnl-percent))) "+" "") 
+       (format-currency pnl-percent) "%)"]]]]
+   ;; Liq. Price
+   [:div.text-right (if liq-price (format-currency liq-price) "N/A")]
+   ;; Margin
+   [:div.text-right "$" (format-currency margin)]
+   ;; Funding
+   [:div.text-right
+    [:span {:class (if (and funding (pos? (js/parseFloat funding)))
+                    "text-success" "text-error")}
+     "$" (format-currency funding)]]
+   ;; Close All
+   [:div.text-center
+    [:button.btn.btn-xs.btn-ghost "Limit"]
+    [:button.btn.btn-xs.btn-ghost.ml-1 "Market"]]
+   ;; TP/SL
+   [:div.text-center
+    [:button.btn.btn-xs.btn-ghost "-- / --"]]])
+
+;; Position table header
+(defn position-table-header []
+  [:div.grid.grid-cols-11.gap-4.py-2.px-4.bg-base-200.border-b.border-base-300.text-sm.font-medium.text-base-content
+   [:div "Coin"]
+   [:div.text-right "Size"] 
+   [:div.text-right "Position Value"]
+   [:div.text-right "Entry Price"]
+   [:div.text-right "Mark Price"]
+   [:div.text-right "PNL (ROE %)"]
+   [:div.text-right "Liq. Price"]
+   [:div.text-right "Margin"]
+   [:div.text-right "Funding"]
+   [:div.text-center "Close All"]
+   [:div.text-center "TP/SL"]])
+
 ;; Positions tab content
 (defn positions-tab-content [webdata2]
   (let [positions (get-in webdata2 [:clearinghouseState :assetPositions])]
     (if (and positions (seq positions))
-      [:div.p-4
-       [:div.text-lg.font-medium.mb-4 "Active Positions"]
-       [:div.space-y-4
-        (for [position positions]
-          (let [pos-data (:position position)
-                coin (:coin pos-data)]
-            [:div.border.border-base-300.rounded.p-3
-             {:key coin}
-             [:div.font-medium coin]
-             [:div.text-sm.space-y-1
-              [:div "Size: " (:szi pos-data)]
-              [:div "Entry Price: " (:entryPx pos-data)]
-              [:div "Unrealized P&L: " 
-               [:span {:class (if (pos? (js/parseFloat (:unrealizedPnl pos-data)))
-                               "text-success" "text-error")}
-                (:unrealizedPnl pos-data)]]
-              [:div "Leverage: " (get-in pos-data [:leverage :value])]
-              [:div "Margin Used: " (:marginUsed pos-data)]]]))]]
+      [:div
+       ;; Header with count
+       [:div.flex.justify-between.items-center.p-4.border-b.border-base-300
+        [:div.text-lg.font-medium "Positions (" (count positions) ")"]
+        [:div.text-sm.text-base-content.opacity-70 "Active positions"]]
+       
+       ;; Position table
+       [:div
+        (position-table-header)
+        ;; Sample position rows - will be replaced with real data
+        (position-row "HYPE" "10x 30.16 HYPE" "19,575.93" "3,043" "49,186" "-1543.76" "-7.31" "2.5485" "1,957.59" "-37.55")
+        (position-row "ETH" "20x 3.2912 ETH" "13,827.32" "4,505.5" "4,201.3" "-1001.02" "-135.0" "N/A" "891.37" "-13.07")
+        (position-row "PUMP" "5x 771,949 PUMP" "4,717.38" "0.006730" "0.006111" "-478.48" "-46.0" "N/A" "943.48" "-16.18")]]
       (empty-state "No active positions"))))
 
 ;; Placeholder tab content for other tabs
