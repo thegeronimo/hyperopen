@@ -22,6 +22,8 @@
                       :active-asset nil
                       :orderbooks {}
                       :webdata2 {}
+                      :perp-dexs []
+                      :perp-dex-clearinghouse {}
                       :spot {:meta nil
                              :clearinghouse-state nil
                              :loading-meta? false
@@ -407,8 +409,24 @@
           (api/fetch-spot-clearinghouse-state! store new-address)
           (swap! store assoc-in [:spot :clearinghouse-state] nil)))
       (get-handler-name [_] "spot-clearinghouse-handler")))
+  ;; Fetch clearinghouse states for all perp DEXes on address change
+  (address-watcher/add-handler!
+    (reify address-watcher/IAddressChangeHandler
+      (on-address-changed [_ _ new-address]
+        (if new-address
+          (do
+            (swap! store assoc-in [:perp-dex-clearinghouse] {})
+            (let [dexs (:perp-dexs @store)]
+              (if (seq dexs)
+                (api/fetch-perp-dex-clearinghouse-states! store new-address dexs)
+                (-> (api/fetch-perp-dexs! store)
+                    (.then (fn [loaded-dexs]
+                             (api/fetch-perp-dex-clearinghouse-states! store new-address loaded-dexs)))))))
+          (swap! store assoc-in [:perp-dex-clearinghouse] {})))
+      (get-handler-name [_] "perp-dex-clearinghouse-handler")))
   ;; Fetch initial market data
   (api/fetch-asset-contexts! store)
+  (api/fetch-perp-dexs! store)
   (api/fetch-spot-meta! store))
 
 (defn init []

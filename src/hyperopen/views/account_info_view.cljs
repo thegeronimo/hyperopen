@@ -238,6 +238,28 @@
         coin (:coin position-data)]
     (str leverage "x " size " " coin)))
 
+;; Combine positions across the default DEX (webdata2) and any additional perp DEXes.
+(defn position-unique-key [position-data]
+  (str (get-in position-data [:position :coin]) "|" (or (:dex position-data) "default")))
+
+(defn collect-positions [webdata2 perp-dex-states]
+  (let [base-positions (->> (get-in webdata2 [:clearinghouseState :assetPositions])
+                            (map #(assoc % :dex nil)))
+        extra-positions (->> perp-dex-states
+                             (mapcat (fn [[dex state]]
+                                       (->> (:assetPositions state)
+                                            (map #(assoc % :dex dex))))))
+        combined (->> (concat base-positions extra-positions)
+                      (remove nil?))]
+    (second
+      (reduce (fn [[seen acc] pos]
+                (let [k (position-unique-key pos)]
+                  (if (contains? seen k)
+                    [seen acc]
+                    [(conj seen k) (conj acc pos)])))
+              [#{} []]
+              combined))))
+
 ;; Position row component using real data
 (defn position-row [position-data]
   (let [pos (:position position-data)
@@ -349,8 +371,8 @@
    [:div.text-center (non-sortable-header "TP/SL")]])
 
 ;; Positions tab content
-(defn positions-tab-content [webdata2 sort-state]
-  (let [positions (get-in webdata2 [:clearinghouseState :assetPositions])
+(defn positions-tab-content [webdata2 sort-state perp-dex-states]
+  (let [positions (collect-positions webdata2 perp-dex-states)
         sorted-positions (if positions
                           (sort-positions-by-column positions 
                                                    (:column sort-state) 
@@ -368,7 +390,7 @@
         (position-table-header sort-state)
         ;; Real position rows from data
         (for [position sorted-positions]
-          ^{:key (get-in position [:position :coin])}
+          ^{:key (position-unique-key position)}
           (position-row position))]]
       (empty-state "No active positions"))))
 
@@ -462,10 +484,10 @@
     (empty-state "No order history")))
 
 ;; Main tab content renderer
-(defn tab-content [selected-tab webdata2 sort-state spot-data hide-small?]
+(defn tab-content [selected-tab webdata2 sort-state spot-data hide-small? perp-dex-states]
   (case selected-tab
     :balances (balances-tab-content webdata2 spot-data hide-small?)
-    :positions (positions-tab-content webdata2 sort-state)
+    :positions (positions-tab-content webdata2 sort-state perp-dex-states)
     :open-orders (open-orders-tab-content (get-in webdata2 [:open-orders]))
     :twap (placeholder-tab-content :twap)
     :trade-history (trade-history-tab-content (get-in webdata2 [:fills]))
@@ -481,7 +503,8 @@
         error (get-in state [:account-info :error])
         sort-state (get-in state [:account-info :positions-sort] {:column nil :direction :asc})
         spot-data (:spot state)
-        hide-small? (get-in state [:account-info :hide-small-balances?] false)]
+        hide-small? (get-in state [:account-info :hide-small-balances?] false)
+        perp-dex-states (:perp-dex-clearinghouse state)]
     [:div.bg-base-100.rounded-lg.shadow-lg.overflow-hidden.w-full.max-w-6xl
      ;; Tab navigation
      (tab-navigation selected-tab)
@@ -491,7 +514,7 @@
       (cond
         error (error-state error)
         loading? (loading-spinner)
-        :else (tab-content selected-tab webdata2 sort-state spot-data hide-small?))]]))
+        :else (tab-content selected-tab webdata2 sort-state spot-data hide-small? perp-dex-states))]]))
 
 ;; Main component that takes state and renders the UI
 (defn account-info-view [state]

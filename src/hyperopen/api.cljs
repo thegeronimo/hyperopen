@@ -23,6 +23,25 @@
       (.catch #(do (println "Error fetching asset contexts:" %)
                    (swap! store assoc-in [:asset-contexts :error] (str %))))))
 
+(defn fetch-perp-dexs!
+  "Fetch the list of available perp DEXes. The default DEX is omitted from
+  the response, so we only store named DEXes."
+  [store]
+  (println "Fetching perp DEX list...")
+  (-> (post-info! {"type" "perpDexs"})
+      (.then #(.json %))
+      (.then #(let [data (js->clj % :keywordize-keys true)
+                    dex-names (->> data
+                                   (keep (fn [entry]
+                                           (when (and (map? entry)
+                                                      (seq (:name entry)))
+                                             (:name entry))))
+                                   vec)]
+                (swap! store assoc-in [:perp-dexs] dex-names)
+                dex-names))
+      (.catch #(do (println "Error fetching perp DEX list:" %)
+                   (swap! store assoc-in [:perp-dexs-error] (str %))))))
+
 (defn fetch-candle-snapshot!
   "Fetch `bars` worth of candles for the active asset at keyword interval (e.g. :1m, :1h).
    Defaults to :1d interval and 330 bars if not specified."
@@ -95,3 +114,23 @@
         (.catch #(do (println "Error fetching spot balances:" %)
                      (swap! store assoc-in [:spot :loading-balances?] false)
                      (swap! store assoc-in [:spot :error] (str %)))))))
+
+(defn fetch-clearinghouse-state!
+  "Fetch clearinghouse state for a specific perp DEX."
+  [store address dex]
+  (when address
+    (let [body (cond-> {"type" "clearinghouseState" "user" address}
+                 (and dex (not= dex "")) (assoc "dex" dex))]
+      (-> (post-info! body)
+          (.then #(.json %))
+          (.then #(let [data (js->clj % :keywordize-keys true)]
+                    (swap! store assoc-in [:perp-dex-clearinghouse dex] data)))
+          (.catch #(do (println "Error fetching clearinghouse state:" %)
+                       (swap! store assoc-in [:perp-dex-clearinghouse-error] (str %))))))))
+
+(defn fetch-perp-dex-clearinghouse-states!
+  "Fetch clearinghouse state for all named perp DEXes."
+  [store address dex-names]
+  (when (and address (seq dex-names))
+    (doseq [dex dex-names]
+      (fetch-clearinghouse-state! store address dex))))
