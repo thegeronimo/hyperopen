@@ -5,6 +5,13 @@
 (defonce active-asset-ctx-state (atom {:subscriptions #{}
                                        :contexts {}})) ; Map of coin -> WsActiveAssetCtx or WsActiveSpotAssetCtx
 
+(defn- parse-number [value]
+  (cond
+    (number? value) (when-not (js/isNaN value) value)
+    (string? value) (let [num (js/parseFloat value)]
+                      (when-not (js/isNaN num) num))
+    :else nil))
+
 ;; Create a handler function that has access to the store
 (defn create-active-asset-data-handler [store]
   (fn [data]
@@ -15,14 +22,31 @@
             ctx (:ctx data-payload)]
         (when (and coin ctx)
           ;; Transform the data to match our expected format
-          (let [formatted-data {:coin coin
-                               :mark (:markPx ctx)
-                               :oracle (:oraclePx ctx)
-                               :change24h (- (:markPx ctx) (:prevDayPx ctx))
-                               :change24hPct (* 100 (/ (- (:markPx ctx) (:prevDayPx ctx)) (:prevDayPx ctx)))
-                               :volume24h (:dayNtlVlm ctx)
-                               :openInterest (:openInterest ctx)
-                               :fundingRate (* 100 (:funding ctx))}]
+          (let [mark-raw (:markPx ctx)
+                oracle-raw (:oraclePx ctx)
+                prev-day-raw (:prevDayPx ctx)
+                mark (parse-number mark-raw)
+                oracle (parse-number oracle-raw)
+                prev-day (parse-number prev-day-raw)
+                funding (parse-number (:funding ctx))
+                change (when (and (number? mark) (number? prev-day))
+                         (- mark prev-day))
+                change-pct (when (and (number? change)
+                                      (number? prev-day)
+                                      (not= prev-day 0))
+                             (* 100 (/ change prev-day)))
+                formatted-data {:coin coin
+                                :mark mark
+                                :markRaw mark-raw
+                                :oracle oracle
+                                :oracleRaw oracle-raw
+                                :prevDayRaw prev-day-raw
+                                :change24h change
+                                :change24hPct change-pct
+                                :volume24h (parse-number (:dayNtlVlm ctx))
+                                :openInterest (parse-number (:openInterest ctx))
+                                :fundingRate (when (number? funding)
+                                               (* 100 funding))}]
             ;;(println "Formatted data for" coin ":" formatted-data)
             ;; Use setTimeout to avoid nested render issues
             (js/setTimeout 

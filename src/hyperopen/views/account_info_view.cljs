@@ -1,4 +1,5 @@
-(ns hyperopen.views.account-info-view)
+(ns hyperopen.views.account-info-view
+  (:require [hyperopen.utils.formatting :as fmt]))
 
 ;; Available tabs for the account info component
 (def available-tabs [:balances :positions :open-orders :twap :trade-history :funding-history :order-history])
@@ -61,6 +62,14 @@
 (defn parse-num [value]
   (let [num-val (js/parseFloat (or value 0))]
     (if (js/isNaN num-val) 0 num-val)))
+
+(defn format-trade-price [value]
+  (if (or (nil? value) (= value "N/A"))
+    "0.00"
+    (let [num-val (js/parseFloat value)]
+      (if (js/isNaN num-val)
+        "0.00"
+        (or (fmt/format-trade-price num-val value) "0.00")))))
 
 (defn format-amount [value decimals]
   (let [num-val (parse-num value)
@@ -187,7 +196,7 @@
 (defn format-trigger-conditions [{:keys [is-trigger trigger-condition trigger-px]}]
   (if (and is-trigger (pos? (parse-num trigger-px)))
     (let [label (trigger-condition-label trigger-condition)
-          price (format-currency trigger-px)]
+          price (format-trade-price trigger-px)]
       (if label
         (str label " " price)
         (str "Trigger @ " price)))
@@ -483,9 +492,9 @@
      ;; Position Value  
      [:div.text-right "$" (format-currency position-value)]
      ;; Entry Price
-     [:div.text-right (format-currency entry-price)]
+     [:div.text-right (format-trade-price entry-price)]
      ;; Mark Price
-     [:div.text-right (format-currency mark-price)]
+     [:div.text-right (format-trade-price mark-price)]
      ;; PNL (ROE %)
      [:div.text-right
       [:div 
@@ -498,7 +507,7 @@
          "(" (if (pos? pnl-percent) "+" "") 
          (.toFixed pnl-percent 2) "%)"]]]]
      ;; Liq. Price
-     [:div.text-right (if liq-price (format-currency liq-price) "N/A")]
+     [:div.text-right (if liq-price (format-trade-price liq-price) "N/A")]
      ;; Margin
      [:div.text-right "$" (format-currency margin)]
      ;; Funding
@@ -626,7 +635,7 @@
           [:div.text-right (if-let [val (order-value o)]
                              (str (format-currency val) " USDC")
                              "--")]
-          [:div.text-right (format-currency (:px o))]
+          [:div.text-right (format-trade-price (:px o))]
           [:div.text-center (if (:reduce-only o) "Yes" "No")]
           [:div.text-right (format-trigger-conditions o)]
           [:div.text-center (format-tp-sl o)]
@@ -652,7 +661,7 @@
         [:div (:coin f)]
         [:div.text-right (format-side (:side f))]
         [:div.text-right (format-currency (:sz f))]
-        [:div.text-right (format-currency (:px f))]
+        [:div.text-right (format-trade-price (:px f))]
         [:div.text-right (format-currency (:fee f))]
         [:div.text-right (format-timestamp (:time f))]])]
     (empty-state "No fills")))

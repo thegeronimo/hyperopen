@@ -17,6 +17,8 @@
                                                    :dex "hyna")]
       (is (= "BTC-USDC" (:symbol (first default-markets))))
       (is (= "perp:BTC" (:key (first default-markets))))
+      (is (= "100" (:markRaw (first default-markets))))
+      (is (= "90" (:prevDayRaw (first default-markets))))
       (is (= "ETH-USDE" (:symbol (second hyna-markets))))
       (is (= "hyna" (:dex (second hyna-markets)))))))
 
@@ -36,6 +38,8 @@
       (is (= "PURR" (:base purr-market)))
       (is (= "USDC" (:quote purr-market)))
       (is (= :spot (:market-type purr-market)))
+      (is (= "0.5" (:markRaw purr-market)))
+      (is (= "0.4" (:prevDayRaw purr-market)))
       (is (= "HYPE/USDC" (:symbol hype-market)))
       (is (= "HYPE" (:base hype-market)))
       (is (= "USDC" (:quote hype-market))))))

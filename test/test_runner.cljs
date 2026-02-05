@@ -2,6 +2,7 @@
   (:require [cljs.test :refer-macros [run-tests]]
             [hyperopen.asset-selector.markets-test]
             [hyperopen.utils.data-normalization-test]
+            [hyperopen.utils.formatting-test]
             [hyperopen.views.asset-selector-view-test]
             [hyperopen.state.trading-test]))
 
@@ -9,6 +10,7 @@
   "Run all test namespaces and return the results"
   []
   (run-tests 'hyperopen.utils.data-normalization-test
+             'hyperopen.utils.formatting-test
              'hyperopen.asset-selector.markets-test
              'hyperopen.views.asset-selector-view-test
              'hyperopen.state.trading-test))

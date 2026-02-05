@@ -33,11 +33,13 @@
                              "left" ["left-full" "border-l-gray-800"]
                              "right" ["right-full" "border-r-gray-800"]))}]]]]))
 
-(defn change-indicator [change-value change-pct]
+(defn change-indicator [change-value change-pct & [change-raw]]
   (let [is-positive (and change-value (>= change-value 0))
         color-class (if is-positive "text-success" "text-error")]
     [:span {:class color-class} 
-     (str (fmt/format-number change-value 2) " / " (fmt/format-percentage change-pct))]))
+     (str (or (fmt/format-trade-price-delta change-value change-raw) "--")
+          " / "
+          (or (fmt/format-percentage change-pct) "--"))]))
 
 (defn asset-icon [market dropdown-visible? missing-icons]
   (let [coin (:coin market)
@@ -85,7 +87,9 @@
 (defn data-column [label value & [options]]
   (let [underlined? (:underlined options)
         value-component (if (:change? options)
-                          (change-indicator (:change-value options) (:change-pct options))
+                          (change-indicator (:change-value options)
+                                            (:change-pct options)
+                                            (:change-raw options))
                           [:span.font-medium value])]
     [:div.text-center
      [:div {:class (into ["text-[11px]" "text-gray-400" "mb-1"]
@@ -96,7 +100,9 @@
 (defn active-asset-row [ctx-data market dropdown-state full-state]
   (let [coin (or (:coin market) (:coin ctx-data))
         mark (or (:mark ctx-data) (:mark market))
+        mark-raw (or (:markRaw ctx-data) (:markRaw market))
         oracle (:oracle ctx-data)
+        oracle-raw (:oracleRaw ctx-data)
         change-24h (or (:change24h ctx-data) (:change24h market))
         change-24h-pct (or (:change24hPct ctx-data) (:change24hPct market))
         volume-24h (or (:volume24h ctx-data) (:volume24h market))
@@ -129,13 +135,17 @@
       
       ;; Mark column
       [:div.flex.justify-center
-       (data-column "Mark" (if mark (fmt/format-currency mark) "Loading...") {:underlined true})]
+       (data-column "Mark"
+                    (if mark
+                      (fmt/format-trade-price mark mark-raw)
+                      "Loading...")
+                    {:underlined true})]
       
       ;; Oracle column
       [:div.flex.justify-center
        (data-column "Oracle"
                     (if (and (not is-spot) oracle)
-                      (fmt/format-currency oracle)
+                      (fmt/format-trade-price oracle oracle-raw)
                       (if is-spot "—" "Loading..."))
                     {:underlined true})]
       
@@ -145,7 +155,8 @@
                     (if (or has-perp-data? has-spot-data?) nil "Loading...")
                     {:change? (or has-perp-data? has-spot-data?)
                      :change-value change-24h
-                     :change-pct change-24h-pct})]
+                     :change-pct change-24h-pct
+                     :change-raw nil})]
       
       ;; 24h Volume column
       [:div.flex.justify-center

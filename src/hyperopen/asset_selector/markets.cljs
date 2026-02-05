@@ -69,8 +69,10 @@
                            base (:base parsed)
                            coin (:coin parsed)
                            dex-name (or dex (:dex parsed))
-                           mark (safe-num (:markPx ctx))
-                           prev (safe-num (:prevDayPx ctx))
+                           mark-raw (:markPx ctx)
+                           prev-raw (:prevDayPx ctx)
+                           mark (safe-num mark-raw)
+                           prev (safe-num prev-raw)
                            change (- mark prev)
                            change-pct (pct-change mark prev)
                            volume (safe-num (:dayNtlVlm ctx))
@@ -86,9 +88,11 @@
                                    :dex dex-name
                                    :idx idx
                                    :mark mark
+                                   :markRaw mark-raw
                                    :volume24h volume
                                    :change24h change
                                    :change24hPct change-pct
+                                   :prevDayRaw prev-raw
                                    :openInterest open-interest-usd
                                    :fundingRate funding
                                    :maxLeverage maxLeverage}]
@@ -131,8 +135,10 @@
                            base (or (token-name base-idx) (:base parsed))
                            quote (or (token-name quote-idx) (:quote parsed))
                            symbol (if (and base quote) (str base "/" quote) coin)
-                           mark (safe-num (:markPx ctx))
-                           prev (safe-num (:prevDayPx ctx))
+                           mark-raw (:markPx ctx)
+                           prev-raw (:prevDayPx ctx)
+                           mark (safe-num mark-raw)
+                           prev (safe-num prev-raw)
                            change (- mark prev)
                            change-pct (pct-change mark prev)
                            volume (safe-num (:dayNtlVlm ctx))
@@ -145,9 +151,11 @@
                                    :dex nil
                                    :idx idx
                                    :mark mark
+                                   :markRaw mark-raw
                                    :volume24h volume
                                    :change24h change
                                    :change24hPct change-pct
+                                   :prevDayRaw prev-raw
                                    :openInterest nil
                                    :fundingRate nil
                                    :maxLeverage nil}]

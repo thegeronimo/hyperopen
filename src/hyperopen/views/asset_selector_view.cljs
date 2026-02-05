@@ -121,7 +121,7 @@
   (or (formatter value) "—"))
 
 (defn asset-list-item [asset selected? favorites missing-icons]
-  (let [{:keys [key coin symbol base mark volume24h change24h change24hPct openInterest fundingRate
+  (let [{:keys [key coin symbol base mark markRaw volume24h change24h change24hPct openInterest fundingRate
                 market-type dex maxLeverage]} asset
         safe-change (or change24h 0)
         safe-change-pct (or change24hPct 0)
@@ -157,11 +157,12 @@
        (when (and maxLeverage (> maxLeverage 0))
          (chip (str maxLeverage "x") ["bg-primary" "text-primary-content" "border-primary"]))]]
      ;; Last Price
-     [:div.col-span-2.text-sm.text-gray-400.text-center (format-or-dash mark fmt/format-currency)]
+     [:div.col-span-2.text-sm.text-gray-400.text-center
+      (or (fmt/format-trade-price mark markRaw) "—")]
      ;; 24H Change
      [:div.col-span-2.text-center
       [:div {:class [change-color "text-sm"]}
-       (str (if is-positive "+" "") (fmt/safe-to-fixed safe-change 2)
+       (str (if is-positive "+" "") (or (fmt/format-trade-price-delta safe-change) "0.00")
             " (" (fmt/safe-to-fixed safe-change-pct 2) "%)")]]
      ;; 8H Funding
      [:div.col-span-1.text-center

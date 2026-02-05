@@ -1,4 +1,5 @@
-(ns hyperopen.utils.formatting)
+(ns hyperopen.utils.formatting
+  (:require [clojure.string :as str]))
 
 ;; Number formatters
 (def usd-formatter
@@ -16,6 +17,96 @@
         :currency        "USD"
         :minimumFractionDigits 0
         :maximumFractionDigits 0}))
+
+(def ^:private min-trade-price-decimals 2)
+(def ^:private max-trade-price-decimals 8)
+
+(defn- parse-number [value]
+  (cond
+    (number? value) (when-not (js/isNaN value) value)
+    (string? value) (let [num (js/parseFloat value)]
+                      (when-not (js/isNaN num) num))
+    :else nil))
+
+(defn- clamp-trade-price-decimals [decimals]
+  (-> (or decimals min-trade-price-decimals)
+      (max min-trade-price-decimals)
+      (min max-trade-price-decimals)))
+
+(defn price-decimals-from-raw
+  "Infer display decimals from a raw price string, preserving useful precision
+   while trimming noisy trailing zeros."
+  [raw]
+  (when (some? raw)
+    (let [text (str raw)
+          trimmed (str/trim text)]
+      (when (seq trimmed)
+        (let [base (first (str/split trimmed #"[eE]" 2))
+              dot-idx (.indexOf base ".")]
+          (if (= dot-idx -1)
+            min-trade-price-decimals
+            (let [fractional (.slice base (inc dot-idx))
+                  cleaned (str/replace fractional #"0+$" "")
+                  decimals (count cleaned)]
+              (clamp-trade-price-decimals
+               (if (pos? decimals) decimals min-trade-price-decimals)))))))))
+
+(defn infer-price-decimals
+  "Infer decimals from price magnitude when raw API precision is unavailable."
+  [price]
+  (when-let [num (parse-number price)]
+    (let [abs-value (js/Math.abs num)]
+      (cond
+        (zero? abs-value) min-trade-price-decimals
+        (>= abs-value 0.01) min-trade-price-decimals
+        :else (let [log10 (/ (js/Math.log abs-value) (js/Math.log 10))
+                    leading-zeros (max 0 (dec (- (js/Math.floor log10))))
+                    decimals (+ leading-zeros 4)]
+                (clamp-trade-price-decimals decimals))))))
+
+(defn- trade-price-decimals [price raw]
+  (or (price-decimals-from-raw raw)
+      (infer-price-decimals price)
+      min-trade-price-decimals))
+
+(defn- min-visible-price [decimals]
+  (js/Math.pow 10 (- decimals)))
+
+(defn format-trade-price
+  "Format a trade price in USD with adaptive decimals and a max 8 decimal cap."
+  ([price] (format-trade-price price nil))
+  ([price raw]
+   (when-let [num (parse-number price)]
+     (let [decimals (trade-price-decimals num raw)
+           min-visible (min-visible-price decimals)]
+       (if (and (pos? num) (< num min-visible))
+         (str "<$" (.toFixed min-visible decimals))
+         (.toLocaleString (js/Number. num)
+                          "en-US"
+                          #js {:style "currency"
+                               :currency "USD"
+                               :minimumFractionDigits decimals
+                               :maximumFractionDigits decimals}))))))
+
+(defn format-trade-price-plain
+  "Format a trade price without currency symbol using adaptive decimals."
+  ([price] (format-trade-price-plain price nil))
+  ([price raw]
+   (when-let [num (parse-number price)]
+     (let [decimals (trade-price-decimals num raw)
+           min-visible (min-visible-price decimals)]
+       (if (and (pos? num) (< num min-visible))
+         (str "<" (.toFixed min-visible decimals))
+         (.toLocaleString (js/Number. num)
+                          "en-US"
+                          #js {:minimumFractionDigits decimals
+                               :maximumFractionDigits decimals}))))))
+
+(defn format-trade-price-delta
+  "Format absolute price change values with adaptive decimals."
+  ([delta] (format-trade-price-delta delta nil))
+  ([delta raw]
+   (format-trade-price-plain delta raw)))
 
 ;; Formatting functions
 (defn format-number [n decimals]

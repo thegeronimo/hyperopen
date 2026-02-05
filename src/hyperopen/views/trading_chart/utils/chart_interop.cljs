@@ -1,5 +1,6 @@
 (ns hyperopen.views.trading-chart.utils.chart-interop
-  (:require ["lightweight-charts" :refer [createChart AreaSeries BarSeries BaselineSeries CandlestickSeries HistogramSeries LineSeries]]))
+  (:require ["lightweight-charts" :refer [createChart AreaSeries BarSeries BaselineSeries CandlestickSeries HistogramSeries LineSeries]]
+            [hyperopen.utils.formatting :as fmt]))
 
 ;; Generic chart creation with volume support
 (defn create-chart-with-volume! [container]
@@ -93,6 +94,35 @@
         series (.addSeries ^js chart HistogramSeries seriesOptions)]
     series))
 
+(defn- series-prices
+  "Extract numeric prices from chart data for precision inference."
+  [data chart-type]
+  (let [values (case chart-type
+                 (:area :baseline :line :histogram) (map :close data)
+                 (:bar :candlestick) (mapcat (fn [c] [(:open c) (:high c) (:low c) (:close c)]) data)
+                 (map :close data))]
+    (->> values
+         (map (fn [v]
+                (if (number? v) v (js/parseFloat v))))
+         (filter (fn [v]
+                   (and (number? v) (not (js/isNaN v)))))
+         vec)))
+
+(defn- infer-series-price-format
+  "Infer Lightweight Charts price format options based on current data."
+  [data chart-type]
+  (let [prices (series-prices data chart-type)
+        positive-prices (filter pos? prices)
+        reference-price (or (when (seq positive-prices)
+                              (apply min positive-prices))
+                            (when (seq prices)
+                              (apply min (map js/Math.abs prices))))
+        decimals (or (fmt/infer-price-decimals reference-price) 2)
+        min-move (js/Math.pow 10 (- decimals))]
+    #js {:type "price"
+         :precision decimals
+         :minMove min-move}))
+
 ;; Data transformation functions
 (defn transform-data-for-single-value [data]
   "Transform OHLC data to single value (close price) for area, baseline, line, histogram"
@@ -111,8 +141,9 @@
 (defn set-series-data! [series data chart-type]
   "Set data for any series type with appropriate transformation"
   (let [transformed-data (case chart-type
-                          (:area :baseline :line :histogram) (transform-data-for-single-value data)
-                          (:bar :candlestick) data)]
+                           (:area :baseline :line :histogram) (transform-data-for-single-value data)
+                           (:bar :candlestick) data)]
+    (.applyOptions ^js series #js {:priceFormat (infer-series-price-format data chart-type)})
     (.setData series (clj->js transformed-data))))
 
 (defn set-volume-data! [volume-series data]
@@ -184,18 +215,10 @@
     (let [state (atom (build-legend-state legend-meta))
           format-price (fn [price]
                          (when (number? price)
-                           (let [abs (js/Math.abs price)
-                                 decimals (if (>= abs 1) 2 6)]
-                             (.toLocaleString (js/Number. price) "en-US"
-                                              #js {:minimumFractionDigits decimals
-                                                   :maximumFractionDigits decimals}))))
+                           (fmt/format-trade-price-plain price)))
           format-delta (fn [delta]
                          (when (number? delta)
-                           (let [abs (js/Math.abs delta)
-                                 decimals (if (>= abs 1) 2 6)
-                                 formatted (.toLocaleString (js/Number. delta) "en-US"
-                                                            #js {:minimumFractionDigits decimals
-                                                                 :maximumFractionDigits decimals})]
+                           (let [formatted (fmt/format-trade-price-delta delta)]
                              (if (>= delta 0) (str "+" formatted) formatted))))
           format-pct (fn [pct]
                        (when (number? pct)

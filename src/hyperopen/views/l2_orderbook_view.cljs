@@ -1,12 +1,20 @@
 (ns hyperopen.views.l2-orderbook-view
-  (:require [hyperopen.websocket.orderbook :as orderbook]))
+  (:require [hyperopen.websocket.orderbook :as orderbook]
+            [hyperopen.utils.formatting :as fmt]))
 
 ;; Utility functions for formatting
-(defn format-price [price decimals]
-  (when price
-    (let [num-price (if (string? price) (js/parseFloat price) price)]
-      (when (and num-price (number? num-price) (not (js/isNaN num-price)))
-        (.toLocaleString (js/Number. num-price) "en-US" #js {:minimumFractionDigits decimals :maximumFractionDigits decimals})))))
+(defn format-price
+  ([price] (fmt/format-trade-price-plain price price))
+  ([price raw] (fmt/format-trade-price-plain price raw)))
+
+(defn format-percent [value decimals]
+  (when value
+    (let [num-value (if (string? value) (js/parseFloat value) value)]
+      (when (and (number? num-value) (not (js/isNaN num-value)))
+        (.toLocaleString (js/Number. num-value)
+                         "en-US"
+                         #js {:minimumFractionDigits decimals
+                              :maximumFractionDigits decimals})))))
 
 (defn format-size [size]
   (when size
@@ -90,7 +98,7 @@
      ;; Content
      [:div.flex.w-full.items-center.justify-between.px-2.relative.z-10
       [:div.text-right.flex-1
-       [:span {:class [text-color]} (or (format-price price 2) "0.000000")]]
+       [:span {:class [text-color]} (or (format-price price price) "0.00")]]
       [:div.text-right.flex-1
        [:span {:class [text-color]} (or size "0")]]
       [:div.text-right.flex-1
@@ -103,8 +111,8 @@
     [:div.flex.items-center.justify-center.h-6.bg-gray-800.border-y.border-gray-700.text-xs
      [:div.flex.items-center.space-x-3.text-white
       [:span "Spread"]
-      [:span (format-price absolute 6)]
-      [:span (str (format-price percentage 3) "%")]]]))
+      [:span (format-price absolute)]
+      [:span (str (format-percent percentage 3) "%")]]]))
 
 ;; Header component
 (defn orderbook-header [coin precision]

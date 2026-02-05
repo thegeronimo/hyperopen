@@ -49,3 +49,29 @@
     (let [results (view/filter-and-sort-assets sample-markets "" :name :asc #{} false false :spot)]
       (is (= 1 (count results)))
       (is (= :spot (:market-type (first results)))))))
+
+(defn- collect-strings [node]
+  (cond
+    (string? node) [node]
+    (vector? node) (mapcat collect-strings node)
+    (seq? node) (mapcat collect-strings node)
+    :else []))
+
+(deftest asset-list-item-sub-cent-formatting-test
+  (testing "last price renders adaptive decimals for tiny assets"
+    (let [asset {:key "perp:PUMP"
+                 :symbol "PUMP-USDC"
+                 :coin "PUMP"
+                 :base "PUMP"
+                 :mark 0.002028
+                 :markRaw "0.002028"
+                 :volume24h 1000
+                 :change24h -0.000329
+                 :change24hPct -13.95
+                 :fundingRate 0.001
+                 :market-type :perp}
+          hiccup (view/asset-list-item asset false #{} #{})
+          strings (collect-strings hiccup)
+          rendered (set strings)]
+      (is (contains? rendered "$0.002028"))
+      (is (not (contains? rendered "$0.00"))))))
