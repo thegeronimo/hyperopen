@@ -601,7 +601,7 @@
                                            (:direction sort-state))]
     (if (seq sorted)
       [:div
-       [:div {:class "grid gap-2 py-2 px-3 bg-base-200 border-b border-base-300 text-xs font-medium grid-cols-[130px_70px_60px_70px_60px_80px_100px_70px_70px_120px_50px_70px]"}
+       [:div {:class ["grid" "gap-2" "py-2" "px-3" "bg-base-200" "border-b" "border-base-300" "text-xs" "font-medium" "grid-cols-[130px_70px_60px_70px_60px_80px_100px_70px_70px_120px_50px_70px]"]}
         [:div.pr-2.whitespace-nowrap (sortable-open-orders-header "Time" sort-state)]
         [:div.pl-1 (sortable-open-orders-header "Type" sort-state)]
         [:div (sortable-open-orders-header "Coin" sort-state)]
@@ -616,7 +616,7 @@
         [:div.text-right "Cancel All"]]
        (for [o sorted]
          ^{:key (str (:oid o) "-" (:coin o))}
-         [:div {:class "grid gap-2 py-2 px-3 border-b border-base-300 text-xs grid-cols-[130px_70px_60px_70px_60px_80px_100px_70px_70px_120px_50px_70px]"}
+         [:div {:class ["grid" "gap-2" "py-2" "px-3" "border-b" "border-base-300" "text-xs" "grid-cols-[130px_70px_60px_70px_60px_80px_100px_70px_70px_120px_50px_70px]"]}
           [:div.pr-2.whitespace-nowrap (format-open-orders-time (:time o))]
           [:div.pl-1 (or (:type o) "Order")]
           [:div (:coin o)]

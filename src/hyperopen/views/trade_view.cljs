@@ -13,7 +13,7 @@
       (active-asset-view/active-asset-view state)]
 
      [:div.max-w-7xl.mx-auto.px-6.py-4.space-y-6
-      [:div {:class "grid grid-cols-1 lg:grid-cols-3 gap-6"}
+      [:div {:class ["grid" "grid-cols-1" "lg:grid-cols-3" "gap-6"]}
        [:div {:class "lg:col-span-2"}
         (trading-chart/trading-chart-view state)]
        [:div.space-y-6
