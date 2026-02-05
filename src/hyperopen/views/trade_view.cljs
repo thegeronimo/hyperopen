@@ -3,6 +3,7 @@
             [hyperopen.views.l2-orderbook-view :as l2-orderbook-view]
             [hyperopen.views.trading-chart.core :as trading-chart]
             [hyperopen.views.account-info-view :as account-info-view]
+            [hyperopen.views.account-equity-view :as account-equity-view]
             [hyperopen.views.trade.order-form-view :as order-form-view]))
 
 (defn trade-view [state]
@@ -13,11 +14,12 @@
       (active-asset-view/active-asset-view state)]
 
      [:div.max-w-7xl.mx-auto.px-6.py-4.space-y-6
-      [:div {:class ["grid" "grid-cols-1" "lg:grid-cols-3" "gap-6"]}
+       [:div {:class ["grid" "grid-cols-1" "lg:grid-cols-3" "gap-6"]}
        [:div {:class "lg:col-span-2"}
         (trading-chart/trading-chart-view state)]
        [:div.space-y-6
         (order-form-view/order-form-view state)
+        (account-equity-view/account-equity-view state)
         (l2-orderbook-view/l2-orderbook-view
           {:coin (or active-asset "No Asset Selected")
            :orderbook orderbook-data
