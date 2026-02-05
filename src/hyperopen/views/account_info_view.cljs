@@ -260,39 +260,8 @@
             " (" (if (pos? pct-num) "+" "") (.toFixed pct-num 2) "%)")])
     [:span.text-base-content "--"]))
 
-;; Balance row component
-(defn balance-row [{:keys [coin total-balance available-balance usdc-value pnl-value pnl-pct amount-decimals]}]
-  [:div.grid.grid-cols-7.gap-4.py-3.px-4.hover:bg-base-200.border-b.border-base-300.items-center
-   ;; Coin
-   [:div.font-medium coin]
-   ;; Total Balance  
-   [:div.text-right (format-balance-amount total-balance amount-decimals)]
-   ;; Available Balance
-   [:div.text-right (format-balance-amount available-balance amount-decimals)]
-   ;; USDC Value
-   [:div.text-right "$" (format-currency usdc-value)]
-   ;; PNL (ROE %)
-   [:div.text-right (format-pnl pnl-value pnl-pct)]
-   ;; Send
-   [:div.text-center
-    [:button.btn.btn-xs.btn-ghost "Send"]]
-   ;; Transfer/Contract
-   [:div.text-center
-    [:button.btn.btn-xs.btn-ghost "Transfer"]]])
-
-;; Balance table header
-(defn balance-table-header []
-  [:div.grid.grid-cols-7.gap-4.py-2.px-4.bg-base-200.border-b.border-base-300.text-sm.font-medium.text-base-content
-   [:div "Coin"]
-   [:div.text-right "Total Balance"] 
-   [:div.text-right "Available Balance"]
-   [:div.text-right "USDC Value"]
-   [:div.text-right "PNL (ROE %)"]
-   [:div.text-center "Send"]
-   [:div.text-center "Transfer"]])
-
-;; Balances tab content
-(defn balances-tab-content [webdata2 spot-data hide-small?]
+;; Build balances rows for perps + spot
+(defn build-balance-rows [webdata2 spot-data]
   (let [clearinghouse-state (:clearinghouseState webdata2)
         spot-meta (:meta spot-data)
         spot-state (:clearinghouse-state spot-data)
@@ -321,14 +290,17 @@
                                    (:universe spot-meta)))
                          {})
         perps-row (when clearinghouse-state
-                    {:key "perps-usdc"
-                     :coin "USDC (Perps)"
-                     :total-balance (get-in clearinghouse-state [:marginSummary :accountValue])
-                     :available-balance (:withdrawable clearinghouse-state)
-                     :usdc-value (get-in clearinghouse-state [:marginSummary :accountValue])
-                     :pnl-value nil
-                     :pnl-pct nil
-                     :amount-decimals nil})
+                    (let [account-value (parse-num (get-in clearinghouse-state [:marginSummary :accountValue]))
+                          total-margin-used (parse-num (get-in clearinghouse-state [:marginSummary :totalMarginUsed]))
+                          available (- account-value total-margin-used)]
+                      {:key "perps-usdc"
+                       :coin "USDC (Perps)"
+                       :total-balance account-value
+                       :available-balance available
+                       :usdc-value account-value
+                       :pnl-value nil
+                       :pnl-pct nil
+                       :amount-decimals nil}))
         spot-rows (when (seq (get spot-state :balances))
                     (map (fn [{:keys [coin token hold total entryNtl]}]
                            (let [token-idx (if (string? token) (js/parseInt token) token)
@@ -352,18 +324,91 @@
                               :pnl-value pnl-value
                               :pnl-pct pnl-pct
                               :amount-decimals decimals}))
-                         (get spot-state :balances)))
-        rows (->> (concat (when perps-row [perps-row]) spot-rows)
-                  (remove nil?)
-                  (filter (fn [row]
-                            (if hide-small?
-                              (>= (parse-num (:usdc-value row)) 1)
-                              true))))]
-    (if (seq rows)
+                         (get spot-state :balances)))]
+    (->> (concat (when perps-row [perps-row]) spot-rows)
+         (remove nil?)
+         vec)))
+
+;; Sort balances by column
+(defn sort-balances-by-column [rows column direction]
+  (let [sort-fn (case column
+                  "Coin" (fn [row] (:coin row))
+                  "Total Balance" (fn [row] (parse-num (:total-balance row)))
+                  "Available Balance" (fn [row] (parse-num (:available-balance row)))
+                  "USDC Value" (fn [row] (parse-num (:usdc-value row)))
+                  "PNL (ROE %)" (fn [row] (parse-num (:pnl-value row)))
+                  (fn [_] 0))
+        sorted-rows (sort-by sort-fn rows)]
+    (if (= direction :desc)
+      (reverse sorted-rows)
+      sorted-rows)))
+
+;; Sortable balances header
+(defn sortable-balances-header [column-name sort-state]
+  (let [current-column (:column sort-state)
+        current-direction (:direction sort-state)
+        is-active (= current-column column-name)
+        sort-icon (when is-active
+                    (if (= current-direction :asc) "↑" "↓"))]
+    [:button.text-sm.font-medium.text-base-content.hover:text-primary.transition-colors.flex.items-center.space-x-1.group
+     {:on {:click [[:actions/sort-balances column-name]]}}
+     [:span column-name]
+     (when sort-icon
+       [:span.text-xs.opacity-70 sort-icon])]))
+
+;; Non-sortable column header
+(defn non-sortable-header [column-name]
+  [:div.text-sm.font-medium.text-base-content column-name])
+
+;; Balance row component
+(defn balance-row [{:keys [coin total-balance available-balance usdc-value pnl-value pnl-pct amount-decimals]}]
+  [:div.grid.grid-cols-7.gap-4.py-3.px-4.hover:bg-base-200.border-b.border-base-300.items-center
+   ;; Coin
+   [:div.font-medium coin]
+   ;; Total Balance  
+   [:div.text-right (format-balance-amount total-balance amount-decimals)]
+   ;; Available Balance
+   [:div.text-right (format-balance-amount available-balance amount-decimals)]
+   ;; USDC Value
+   [:div.text-right "$" (format-currency usdc-value)]
+   ;; PNL (ROE %)
+   [:div.text-right (format-pnl pnl-value pnl-pct)]
+   ;; Send
+   [:div.text-center
+    [:button.btn.btn-xs.btn-ghost "Send"]]
+   ;; Transfer/Contract
+   [:div.text-center
+    [:button.btn.btn-xs.btn-ghost "Transfer"]]])
+
+;; Balance table header
+(defn balance-table-header [sort-state]
+  [:div.grid.grid-cols-7.gap-4.py-2.px-4.bg-base-200.border-b.border-base-300.text-sm.font-medium.text-base-content
+   [:div (sortable-balances-header "Coin" sort-state)]
+   [:div.text-right (sortable-balances-header "Total Balance" sort-state)]
+   [:div.text-right (sortable-balances-header "Available Balance" sort-state)]
+   [:div.text-right (sortable-balances-header "USDC Value" sort-state)]
+   [:div.text-right (sortable-balances-header "PNL (ROE %)" sort-state)]
+   [:div.text-center (non-sortable-header "Send")]
+   [:div.text-center (non-sortable-header "Transfer")]])
+
+;; Balances tab content
+(defn balances-tab-content [balance-rows hide-small? sort-state]
+  (let [visible-rows (if hide-small?
+                       (filter (fn [row]
+                                 (>= (parse-num (:usdc-value row)) 1))
+                               balance-rows)
+                       balance-rows)
+        sorted-rows (if (:column sort-state)
+                      (sort-balances-by-column visible-rows
+                                               (:column sort-state)
+                                               (:direction sort-state))
+                      visible-rows)
+        balances-count (count balance-rows)]
+    (if (seq visible-rows)
       [:div
        ;; Filter toggle
        [:div.flex.justify-between.items-center.p-4.border-b.border-base-300
-        [:div.text-lg.font-medium "Balances"]
+        [:div.text-lg.font-medium "Balances (" balances-count ")"]
         [:div.flex.items-center.space-x-2
          [:input.checkbox.checkbox-primary
           {:type "checkbox"
@@ -371,11 +416,11 @@
            :checked (boolean hide-small?)
            :on {:change [[:actions/set-hide-small-balances :event.target/checked]]}}]
          [:label.text-sm {:for "hide-small-balances"} "Hide Small Balances"]]]
-       
+
        ;; Balance table
        [:div
-        (balance-table-header)
-        (for [row rows]
+        (balance-table-header sort-state)
+        (for [row sorted-rows]
           ^{:key (:key row)}
           (balance-row row))]]
       (empty-state "No balance data available"))))
@@ -504,10 +549,6 @@
      [:span column-name]
      (when sort-icon
        [:span.text-xs.opacity-70 sort-icon])]))
-
-;; Non-sortable column header
-(defn non-sortable-header [column-name]
-  [:div.text-sm.font-medium.text-base-content column-name])
 
 ;; Position table header with sorting
 (defn position-table-header [sort-state]
@@ -653,9 +694,9 @@
     (empty-state "No order history")))
 
 ;; Main tab content renderer
-(defn tab-content [selected-tab webdata2 sort-state spot-data hide-small? perp-dex-states open-orders open-orders-sort]
+(defn tab-content [selected-tab webdata2 sort-state hide-small? perp-dex-states open-orders open-orders-sort balance-rows balances-sort]
   (case selected-tab
-    :balances (balances-tab-content webdata2 spot-data hide-small?)
+    :balances (balances-tab-content balance-rows hide-small? balances-sort)
     :positions (positions-tab-content webdata2 sort-state perp-dex-states)
     :open-orders (open-orders-tab-content open-orders open-orders-sort)
     :twap (placeholder-tab-content :twap)
@@ -671,13 +712,16 @@
         loading? (get-in state [:account-info :loading] false)
         error (get-in state [:account-info :error])
         sort-state (get-in state [:account-info :positions-sort] {:column nil :direction :asc})
+        balances-sort (get-in state [:account-info :balances-sort] {:column nil :direction :asc})
         spot-data (:spot state)
+        balance-rows (build-balance-rows webdata2 spot-data)
         hide-small? (get-in state [:account-info :hide-small-balances?] false)
         perp-dex-states (:perp-dex-clearinghouse state)
         open-orders (normalized-open-orders (get-in webdata2 [:open-orders])
                                             (get-in webdata2 [:open-orders-snapshot])
                                             (get-in webdata2 [:open-orders-snapshot-by-dex]))
-        tab-counts {:open-orders (count open-orders)}
+        tab-counts {:open-orders (count open-orders)
+                    :balances (count balance-rows)}
         open-orders-sort (get-in state [:account-info :open-orders-sort] {:column "Time" :direction :desc})]
     [:div.bg-base-100.rounded-lg.shadow-lg.overflow-hidden.w-full.max-w-6xl
      ;; Tab navigation
@@ -688,7 +732,7 @@
       (cond
         error (error-state error)
         loading? (loading-spinner)
-        :else (tab-content selected-tab webdata2 sort-state spot-data hide-small? perp-dex-states open-orders open-orders-sort))]]))
+        :else (tab-content selected-tab webdata2 sort-state hide-small? perp-dex-states open-orders open-orders-sort balance-rows balances-sort))]]))
 
 ;; Main component that takes state and renders the UI
 (defn account-info-view [state]

@@ -55,6 +55,7 @@
                                      :loading false
                                      :error nil
                                      :hide-small-balances? false
+                                     :balances-sort {:column nil :direction :asc}
                                      :positions-sort {:column nil :direction :asc}
                                      :open-orders-sort {:column "Time" :direction :desc}}}))
 
@@ -230,6 +231,15 @@
                        :asc)]
     [[:effects/save [:account-info :positions-sort] {:column column :direction new-direction}]]))
 
+(defn sort-balances [state column]
+  (let [current-sort (get-in state [:account-info :balances-sort])
+        current-column (:column current-sort)
+        current-direction (:direction current-sort)
+        new-direction (if (and (= current-column column) (= current-direction :asc))
+                        :desc
+                        :asc)]
+    [[:effects/save [:account-info :balances-sort] {:column column :direction new-direction}]]))
+
 (defn sort-open-orders [state column]
   (let [current-sort (get-in state [:account-info :open-orders-sort])
         current-column (:column current-sort)
@@ -370,6 +380,7 @@
 (nxr/register-action! :actions/update-indicator-period update-indicator-period)
 (nxr/register-action! :actions/select-account-info-tab select-account-info-tab)
 (nxr/register-action! :actions/sort-positions sort-positions)
+(nxr/register-action! :actions/sort-balances sort-balances)
 (nxr/register-action! :actions/sort-open-orders sort-open-orders)
 (nxr/register-action! :actions/set-hide-small-balances set-hide-small-balances)
 (nxr/register-action! :actions/update-order-form update-order-form)
