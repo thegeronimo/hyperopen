@@ -1,39 +1,36 @@
 (ns hyperopen.views.l2-orderbook-view
-  (:require [hyperopen.websocket.orderbook :as orderbook]
+  (:require [clojure.string :as str]
             [hyperopen.utils.formatting :as fmt]))
 
 ;; Utility functions for formatting
+(defn parse-number [value]
+  (cond
+    (number? value) value
+    (string? value) (let [n (js/parseFloat value)]
+                      (when-not (js/isNaN n) n))
+    :else nil))
+
 (defn format-price
   ([price] (fmt/format-trade-price-plain price price))
   ([price raw] (fmt/format-trade-price-plain price raw)))
 
 (defn format-percent [value decimals]
-  (when value
-    (let [num-value (if (string? value) (js/parseFloat value) value)]
-      (when (and (number? num-value) (not (js/isNaN num-value)))
-        (.toLocaleString (js/Number. num-value)
-                         "en-US"
-                         #js {:minimumFractionDigits decimals
-                              :maximumFractionDigits decimals})))))
-
-(defn format-size [size]
-  (when size
-    (let [num-size (if (string? size) (js/parseFloat size) size)]
-      (when (and num-size (number? num-size) (not (js/isNaN num-size)))
-        (.toLocaleString (js/Number. num-size) "en-US" #js {:maximumFractionDigits 0})))))
+  (when-some [num-value (parse-number value)]
+    (.toLocaleString (js/Number. num-value)
+                     "en-US"
+                     #js {:minimumFractionDigits decimals
+                          :maximumFractionDigits decimals})))
 
 (defn format-total [total & {:keys [decimals] :or {decimals 0}}]
-  (when total
-    (let [num-total (if (string? total) (js/parseFloat total) total)]
-      (when (and num-total (number? num-total) (not (js/isNaN num-total)))
-        (.toLocaleString (js/Number. num-total) "en-US" #js {:maximumFractionDigits decimals})))))
+  (when-some [num-total (parse-number total)]
+    (.toLocaleString (js/Number. num-total)
+                     "en-US"
+                     #js {:maximumFractionDigits decimals})))
 
 (defn calculate-spread [best-bid best-ask]
   (when (and best-bid best-ask)
-    (let [bid-price (let [px (:px best-bid)]
-                     (if (string? px) (js/parseFloat px) px))
-          ask-price (let [px (:px best-ask)]
-                     (if (string? px) (js/parseFloat px) px))]
+    (let [bid-price (parse-number (:px best-bid))
+          ask-price (parse-number (:px best-ask))]
       (when (and bid-price ask-price (number? bid-price) (number? ask-price))
         (let [spread-abs (- ask-price bid-price)
               spread-pct (* (/ spread-abs ask-price) 100)]
@@ -43,8 +40,8 @@
 (defn calculate-cumulative-totals [orders]
   "Given a vector of orders {:px price :sz size}
    returns the same orders with:
-     :cum-size   – running total size (BTC)
-     :cum-value  – running notional value in quote currency (price*size)
+     :cum-size   running total size
+     :cum-value  running notional value in quote currency (price*size)
    Orders must already be sorted in display order."
   (if (empty? orders)
     []
@@ -55,11 +52,11 @@
       (if (empty? remaining)
         result
         (let [order (first remaining)
-              price (if (string? (:px order)) (js/parseFloat (:px order)) (:px order))
-              size (if (string? (:sz order)) (js/parseFloat (:sz order)) (:sz order))
+              price (parse-number (:px order))
+              size (parse-number (:sz order))
               new-cum-size (+ cum-size (or size 0))
               new-cum-value (+ cum-value (* (or price 0) (or size 0)))
-              updated-order (assoc order 
+              updated-order (assoc order
                                    :cum-size new-cum-size
                                    :cum-value new-cum-value)]
           (recur (rest remaining)
@@ -67,42 +64,82 @@
                  new-cum-value
                  (conj result updated-order)))))))
 
-(defn get-max-size [orders]
-  (when (seq orders)
-    (apply max (map (fn [order]
-                     (let [size (:sz order)]
-                       (if (string? size) (js/parseFloat size) size)))
-                   orders))))
+(defn normalize-size-unit [size-unit]
+  (if (= size-unit :quote) :quote :base))
 
-(defn get-max-cumulative-size [orders]
+(defn base-symbol-from-coin [coin]
+  (cond
+    (and (string? coin) (str/includes? coin "/"))
+    (first (str/split coin #"/" 2))
+
+    (and (string? coin) (str/includes? coin ":"))
+    (second (str/split coin #":" 2))
+
+    :else coin))
+
+(defn quote-symbol-from-coin [coin]
+  (if (and (string? coin) (str/includes? coin "/"))
+    (second (str/split coin #"/" 2))
+    "USDC"))
+
+(defn resolve-base-symbol [coin market]
+  (or (:base market) (base-symbol-from-coin coin) "Asset"))
+
+(defn resolve-quote-symbol [coin market]
+  (or (:quote market) (quote-symbol-from-coin coin) "USDC"))
+
+(defn order-size-for-unit [order size-unit]
+  (if (= size-unit :quote)
+    (* (or (parse-number (:px order)) 0)
+       (or (parse-number (:sz order)) 0))
+    (parse-number (:sz order))))
+
+(defn order-total-for-unit [order size-unit]
+  (if (= size-unit :quote)
+    (:cum-value order)
+    (:cum-size order)))
+
+(defn get-max-cumulative-total [orders size-unit]
   (when (seq orders)
-    (apply max (map :cum-size orders))))
+    (apply max (map #(or (order-total-for-unit % size-unit) 0) orders))))
+
+(defn format-order-size [order size-unit]
+  (if (= size-unit :quote)
+    (or (format-total (order-size-for-unit order size-unit) :decimals 0) "0")
+    (let [raw-size (:sz order)]
+      (if (string? raw-size)
+        raw-size
+        (or (format-total raw-size :decimals 8) "0")))))
+
+(defn format-order-total [order size-unit]
+  (if (= size-unit :quote)
+    (or (format-total (:cum-value order) :decimals 0) "0")
+    (or (format-total (:cum-size order) :decimals 8) "0")))
 
 (defn cumulative-bar-width [cum-size max-cum-size]
   (when (and cum-size max-cum-size (> max-cum-size 0))
     (* (/ cum-size max-cum-size) 100)))
 
 ;; Component for individual order row
-(defn order-row [order max-cum-size is-ask?]
+(defn order-row [order max-cum-size is-ask? size-unit]
   (let [price (:px order)
-        size (:sz order)
-        cum-size (:cum-size order)
-        bar-width (cumulative-bar-width cum-size max-cum-size)
+        cum-total (order-total-for-unit order size-unit)
+        bar-width (cumulative-bar-width cum-total max-cum-size)
         bar-color (if is-ask? "bg-red-500/30" "bg-green-500/30")
         text-color (if is-ask? "text-red-400" "text-green-400")]
     [:div.flex.items-center.h-6.relative.bg-gray-900.text-xs
      ;; Size bar background - always positioned from left
      [:div.absolute.inset-0.flex.items-center.justify-start
       [:div {:class ["h-full" bar-color "transition-all" "duration-300" "ease-[cubic-bezier(0.68,-0.6,0.32,1.6)]"]
-             :style {:width (str bar-width "%")}}]]
+             :style {:width (str (or bar-width 0) "%")}}]]
      ;; Content
      [:div.flex.w-full.items-center.justify-between.px-2.relative.z-10
       [:div.text-right.flex-1
        [:span {:class [text-color]} (or (format-price price price) "0.00")]]
       [:div.text-right.flex-1
-       [:span {:class [text-color]} (or size "0")]]
+       [:span {:class [text-color]} (format-order-size order size-unit)]]
       [:div.text-right.flex-1
-       [:span {:class [text-color]} (or (format-total cum-size :decimals 8) "0")]]]]))
+       [:span {:class [text-color]} (format-order-total order size-unit)]]]]))
 
 ;; Spread component
 (defn spread-row [spread]
@@ -115,78 +152,103 @@
       [:span (str (format-percent percentage 3) "%")]]]))
 
 ;; Header component
-(defn orderbook-header [coin precision]
-  [:div.flex.items-center.justify-between.px-3.py-2.bg-gray-900.border-b.border-gray-700
-   [:div.flex.items-center.space-x-2
-    [:span.text-white.text-sm precision]
-    [:svg.w-4.h-4.text-gray-400 {:fill "none" :stroke "currentColor" :viewBox "0 0 24 24"}
-     [:path {:stroke-linecap "round" :stroke-linejoin "round" :stroke-width 2 :d "M19 9l-7 7-7-7"}]]]
-   [:div.flex.items-center.space-x-2
-    [:span.text-white.text-sm coin]
-    [:svg.w-4.h-4.text-gray-400 {:fill "none" :stroke "currentColor" :viewBox "0 0 24 24"}
-     [:path {:stroke-linecap "round" :stroke-linejoin "round" :stroke-width 2 :d "M19 9l-7 7-7-7"}]]]])
+(defn orderbook-header [precision base-symbol quote-symbol size-unit dropdown-visible?]
+  (let [selected-symbol (if (= size-unit :quote) quote-symbol base-symbol)]
+    [:div.flex.items-center.justify-between.px-3.py-2.bg-gray-900.border-b.border-gray-700
+     [:div.flex.items-center.space-x-2
+      [:span.text-white.text-sm precision]
+      [:svg.w-4.h-4.text-gray-400 {:fill "none" :stroke "currentColor" :viewBox "0 0 24 24"}
+       [:path {:stroke-linecap "round" :stroke-linejoin "round" :stroke-width 2 :d "M19 9l-7 7-7-7"}]]]
+     [:div.relative
+      [:button.flex.items-center.space-x-2.hover:bg-gray-800.rounded.px-2.py-1.transition-colors
+       {:type "button"
+        :on {:click [[:actions/toggle-orderbook-size-unit-dropdown]]}}
+       [:span.text-white.text-sm selected-symbol]
+       [:svg.w-4.h-4.text-gray-400.transition-transform {:fill "none"
+                                                         :stroke "currentColor"
+                                                         :viewBox "0 0 24 24"
+                                                         :class (when dropdown-visible? "rotate-180")}
+        [:path {:stroke-linecap "round" :stroke-linejoin "round" :stroke-width 2 :d "M19 9l-7 7-7-7"}]]]
+      [:div.absolute.top-full.right-0.mt-1.bg-gray-900.border.border-gray-700.rounded.shadow-lg.z-20.min-w-20.overflow-hidden
+       {:class (if dropdown-visible?
+                 ["opacity-100" "scale-y-100" "translate-y-0"]
+                 ["opacity-0" "scale-y-95" "-translate-y-2" "pointer-events-none"])
+        :style {:transition "all 80ms ease-in-out"}}
+       [:button.block.w-full.text-left.px-3.py-2.text-sm.hover:bg-gray-800
+        {:class (if (= size-unit :quote) ["text-white" "bg-gray-800"] ["text-gray-300"])
+         :on {:click [[:actions/select-orderbook-size-unit :quote]]}}
+        quote-symbol]
+       [:button.block.w-full.text-left.px-3.py-2.text-sm.hover:bg-gray-800
+        {:class (if (= size-unit :base) ["text-white" "bg-gray-800"] ["text-gray-300"])
+         :on {:click [[:actions/select-orderbook-size-unit :base]]}}
+        base-symbol]]]]))
 
 ;; Column headers
-(defn column-headers []
+(defn column-headers [size-symbol]
   [:div.flex.items-center.justify-between.px-3.py-2.bg-gray-800.border-b.border-gray-700
    [:div.text-right.flex-1
     [:span.text-gray-400.text-xs "Price"]]
    [:div.text-right.flex-1
-    [:span.text-gray-400.text-xs "Size"]]
+    [:span.text-gray-400.text-xs (str "Size (" size-symbol ")")]]
    [:div.text-right.flex-1
-    [:span.text-gray-400.text-xs "Total"]]])
+    [:span.text-gray-400.text-xs (str "Total (" size-symbol ")")]]])
 
 ;; Main order book component
-(defn l2-orderbook-panel [coin orderbook-data]
+(defn l2-orderbook-panel [coin market orderbook-data orderbook-ui]
   (let [max-rows 10
+        size-unit (normalize-size-unit (:size-unit orderbook-ui))
+        dropdown-visible? (boolean (:size-unit-dropdown-visible? orderbook-ui))
+        base-symbol (resolve-base-symbol coin market)
+        quote-symbol (resolve-quote-symbol coin market)
+        selected-size-symbol (if (= size-unit :quote) quote-symbol base-symbol)
         raw-bids (:bids orderbook-data)
         raw-asks (:asks orderbook-data)
-        
+
         ;; Sort into display order:
-        ;; Asks: best→worst (lowest→highest). Lowest price = best ask.
-        display-asks (sort-by (comp js/parseFloat :px) < raw-asks)
-        ;; Bids: best→worst (highest→lowest). Highest price = best bid.  
-        display-bids (sort-by (comp js/parseFloat :px) > raw-bids)
+        ;; Asks: best->worst (lowest->highest). Lowest price = best ask.
+        display-asks (sort-by #(or (parse-number (:px %)) 0) < raw-asks)
+        ;; Bids: best->worst (highest->lowest). Highest price = best bid.
+        display-bids (sort-by #(or (parse-number (:px %)) 0) > raw-bids)
         asks-limited (take max-rows display-asks)
         bids-limited (take max-rows display-bids)
-        
+
         ;; Calculate cumulative totals in display order
         asks-with-totals (calculate-cumulative-totals asks-limited)
         bids-with-totals (calculate-cumulative-totals bids-limited)
-        
+
         ;; Get best prices for spread calculation
         best-bid (first display-bids)
-        best-ask (first display-asks)  ; first because asks go best→worst now
+        best-ask (first display-asks) ; first because asks go best->worst now
         spread (calculate-spread best-bid best-ask)
-        
-        ;; Calculate max size for bar width
-        max-ask-cum-size (get-max-cumulative-size asks-with-totals)
-        max-bid-cum-size (get-max-cumulative-size bids-with-totals)
+
+        ;; Calculate max size for bar width in the selected unit
+        max-ask-cum-size (get-max-cumulative-total asks-with-totals size-unit)
+        max-bid-cum-size (get-max-cumulative-total bids-with-totals size-unit)
         max-cum-size (max (or max-ask-cum-size 0) (or max-bid-cum-size 0))]
     [:div {:class ["bg-base-100" "border" "border-base-300" "rounded-none" "overflow-hidden" "h-full" "flex" "flex-col"]}
      ;; Header
-     (orderbook-header coin "0.000001")
-     
+     (orderbook-header "0.000001" base-symbol quote-symbol size-unit dropdown-visible?)
+
      ;; Column headers
-     (column-headers)
+     (column-headers selected-size-symbol)
 
      ;; Order rows
      [:div
-      ;; Asks (sell orders) - top section, rendered worst→best (reversed for display)
+      ;; Asks (sell orders) - top section, rendered worst->best (reversed for display)
       [:div
        (for [ask (reverse asks-with-totals)]
          ^{:key (str "ask-" (:px ask))}
-         (order-row ask max-cum-size true))]
-      
+         (order-row ask max-cum-size true size-unit))]
+
       ;; Spread - middle section
       (when spread
         (spread-row spread))
-      
-      ;; Bids (buy orders) - bottom section, rendered best→worst
+
+      ;; Bids (buy orders) - bottom section, rendered best->worst
       [:div
        (for [bid bids-with-totals]
          ^{:key (str "bid-" (:px bid))}
-         (order-row bid max-cum-size false))]]]))
+         (order-row bid max-cum-size false size-unit))]]]))
 
 ;; Empty state
 (defn empty-orderbook []
@@ -205,10 +267,14 @@
 ;; Main component that takes state and renders the UI
 (defn l2-orderbook-view [state]
   (let [coin (:coin state)
+        market (:market state)
         orderbook-data (:orderbook state)
+        orderbook-ui (merge {:size-unit :base
+                             :size-unit-dropdown-visible? false}
+                            (:orderbook-ui state))
         loading? (:loading state)]
     [:div {:class ["w-full" "h-full"]}
      (cond
        loading? (loading-orderbook)
-       (and coin orderbook-data) (l2-orderbook-panel coin orderbook-data)
-       :else (empty-orderbook))])) 
+       (and coin orderbook-data) (l2-orderbook-panel coin market orderbook-data orderbook-ui)
+       :else (empty-orderbook))]))

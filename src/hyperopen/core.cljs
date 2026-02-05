@@ -62,6 +62,8 @@
                                       :selected-timeframe :1d
                                       :chart-type-dropdown-visible false
                                       :selected-chart-type :candlestick}
+                      :orderbook-ui {:size-unit :base
+                                     :size-unit-dropdown-visible? false}
                       :account-info {:selected-tab :balances
                                      :loading false
                                      :error nil
@@ -183,6 +185,7 @@
                            [:effects/save [:selected-asset] coin]
                            [:effects/save [:active-asset] coin]
                            [:effects/save [:active-market] market]
+                           [:effects/save [:orderbook-ui :size-unit-dropdown-visible?] false]
                            [:effects/save [:asset-selector :visible-dropdown] nil]
                            [:effects/fetch-candle-snapshot :interval selected-timeframe]]]
     (into unsubscribe-effects subscribe-effects)))
@@ -247,10 +250,17 @@
 (def chart-types
   #{:area :bar :baseline :candlestick :histogram :line})
 
+(def orderbook-size-units
+  #{:base :quote})
+
 (defn- load-chart-option
   [ls-key default valid-set]
   (let [v (keyword (or (js/localStorage.getItem ls-key) (name default)))]
     (if (contains? valid-set v) v default)))
+
+(defn- load-orderbook-size-unit []
+  (let [v (keyword (or (js/localStorage.getItem "orderbook-size-unit") "base"))]
+    (if (contains? orderbook-size-units v) v :base)))
 
 (defn- serialize-indicators [indicators]
   (into {}
@@ -295,6 +305,9 @@
             :selected-chart-type chart-type
             :active-indicators indicators})))
 
+(defn restore-orderbook-ui! [store]
+  (swap! store assoc-in [:orderbook-ui :size-unit] (load-orderbook-size-unit)))
+
 (defn restore-active-asset! [store]
   (when (nil? (:active-asset @store))
     (let [stored-asset (js/localStorage.getItem "active-asset")
@@ -327,6 +340,16 @@
 (defn toggle-indicators-dropdown [state]
   (let [current-visible (get-in state [:chart-options :indicators-dropdown-visible])]
     [[:effects/save [:chart-options :indicators-dropdown-visible] (not current-visible)]]))
+
+(defn toggle-orderbook-size-unit-dropdown [state]
+  (let [visible? (get-in state [:orderbook-ui :size-unit-dropdown-visible?] false)]
+    [[:effects/save [:orderbook-ui :size-unit-dropdown-visible?] (not visible?)]]))
+
+(defn select-orderbook-size-unit [state unit]
+  (let [size-unit (if (= unit :quote) :quote :base)]
+    (js/localStorage.setItem "orderbook-size-unit" (name size-unit))
+    [[:effects/save [:orderbook-ui :size-unit] size-unit]
+     [:effects/save [:orderbook-ui :size-unit-dropdown-visible?] false]]))
 
 (defn add-indicator [state indicator-type params]
   (let [current-indicators (get-in state [:chart-options :active-indicators] {})
@@ -526,6 +549,8 @@
 (nxr/register-action! :actions/toggle-chart-type-dropdown toggle-chart-type-dropdown)
 (nxr/register-action! :actions/select-chart-type select-chart-type)
 (nxr/register-action! :actions/toggle-indicators-dropdown toggle-indicators-dropdown)
+(nxr/register-action! :actions/toggle-orderbook-size-unit-dropdown toggle-orderbook-size-unit-dropdown)
+(nxr/register-action! :actions/select-orderbook-size-unit select-orderbook-size-unit)
 (nxr/register-action! :actions/add-indicator add-indicator)
 (nxr/register-action! :actions/remove-indicator remove-indicator)
 (nxr/register-action! :actions/update-indicator-period update-indicator-period)
@@ -651,6 +676,8 @@
   (asset-selector-settings/restore-asset-selector-sort-settings! store)
   ;; Restore chart options from localStorage
   (restore-chart-options! store)
+  ;; Restore orderbook UI options from localStorage
+  (restore-orderbook-ui! store)
   ;; Restore selected asset from localStorage (default to BTC)
   (restore-active-asset! store)
   ;; Restore open orders sort settings from localStorage

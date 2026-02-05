@@ -30,7 +30,9 @@
         [:div {:class ["bg-base-100" "w-full" "h-full"]}
          (l2-orderbook-view/l2-orderbook-view
            {:coin (or active-asset "No Asset Selected")
+            :market (:active-market state)
             :orderbook orderbook-data
+            :orderbook-ui (:orderbook-ui state)
             :loading (and active-asset (nil? orderbook-data))})]
 
         [:div {:class ["bg-base-100" "lg:col-span-2" "xl:col-span-1" "xl:col-start-3" "h-full"]}
