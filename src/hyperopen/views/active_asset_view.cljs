@@ -1,41 +1,14 @@
 (ns hyperopen.views.active-asset-view
   (:require [hyperopen.websocket.active-asset-ctx :as active-ctx]
             [hyperopen.views.asset-selector-view :as asset-selector]
-            [hyperopen.utils.formatting :as fmt]))
+            [hyperopen.utils.formatting :as fmt]
+            [hyperopen.asset-selector.markets :as markets]))
 
 ;; Pure presentation components
 
 (defn get-available-assets [state]
-  "Get list of available assets from asset contexts"
-  (let [asset-contexts (:asset-contexts state)]
-    (->> (keys asset-contexts)
-         (map (fn [coin-key]
-                (let [coin (name coin-key)
-                      context-data (get asset-contexts coin-key)]
-                  (when context-data
-                    (let [funding (:funding context-data)
-                          mark-px (js/parseFloat (:markPx funding))
-                          prev-day-px (js/parseFloat (:prevDayPx funding))
-                          day-ntl-vlm (js/parseFloat (:dayNtlVlm funding))
-                          open-interest (js/parseFloat (:openInterest funding))
-                          funding-rate (js/parseFloat (:funding funding))
-                          ;; Calculate 24h change
-                          change-24h (when (and mark-px prev-day-px)
-                                      (- mark-px prev-day-px))
-                          change-24h-pct (when (and change-24h prev-day-px (not= prev-day-px 0))
-                                          (* 100 (/ change-24h prev-day-px)))
-                          ;; Calculate open interest in USD
-                          open-interest-usd (fmt/calculate-open-interest-usd open-interest mark-px)]
-                      {:coin coin
-                       :mark mark-px
-                       :volume24h day-ntl-vlm
-                       :change24h change-24h
-                       :change24hPct change-24h-pct
-                       :openInterest open-interest-usd
-                       :fundingRate funding-rate
-                       :funding funding
-                       :info (:info context-data)})))))
-         (filter #(not (nil? %))))))
+  "Get list of available markets for the asset selector."
+  (get-in state [:asset-selector :markets] []))
 
 
 
@@ -65,14 +38,27 @@
     [:span {:class color-class} 
      (str (fmt/format-number change-value 2) " / " (fmt/format-percentage change-pct))]))
 
-(defn asset-icon [coin dropdown-visible?]
-  [:div.flex.items-center.space-x-2.cursor-pointer.hover:bg-base-300.rounded.px-2.py-1.transition-colors
-   {:on {:click [[:actions/toggle-asset-dropdown coin]]}}
-   [:img.w-6.h-6.rounded-full {:src (str "https://app.hyperliquid.xyz/coins/" coin ".svg") :alt coin}]
-   [:span.font-medium coin]
-   [:svg.w-4.h-4.text-gray-400.transition-transform {:fill "none" :stroke "currentColor" :viewBox "0 0 24 24"
-                                                      :class (when dropdown-visible? "rotate-180")}
-    [:path {:stroke-linecap "round" :stroke-linejoin "round" :stroke-width 2 :d "M19 9l-7 7-7-7"}]]])
+(defn asset-icon [market dropdown-visible?]
+  (let [coin (:coin market)
+        base (or (:base market) coin)
+        symbol (or (:symbol market) coin)
+        dex (:dex market)
+        market-type (:market-type market)]
+    [:div.flex.items-center.space-x-2.cursor-pointer.hover:bg-base-300.rounded.px-2.py-1.transition-colors
+     {:on {:click [[:actions/toggle-asset-dropdown :asset-selector]]}}
+     [:img.w-6.h-6.rounded-full {:src (str "https://app.hyperliquid.xyz/coins/" base ".svg") :alt base}]
+     [:div.flex.items-center.space-x-2
+      [:span.font-medium symbol]
+      (when (= market-type :spot)
+        [:span {:class ["px-1.5" "py-0.5" "text-[10px]" "font-medium" "rounded" "bg-base-300" "text-gray-200"]}
+         "SPOT"])
+      (when dex
+        [:span {:class ["px-1.5" "py-0.5" "text-[10px]" "font-medium" "rounded"
+                        "bg-emerald-500/20" "text-emerald-300" "border" "border-emerald-500/30"]}
+         dex])]
+     [:svg.w-4.h-4.text-gray-400.transition-transform {:fill "none" :stroke "currentColor" :viewBox "0 0 24 24"
+                                                        :class (when dropdown-visible? "rotate-180")}
+      [:path {:stroke-linecap "round" :stroke-linejoin "round" :stroke-width 2 :d "M19 9l-7 7-7-7"}]]]))
 
 (defn asset-selector-trigger [dropdown-visible?]
   [:button.flex.items-center.space-x-2.cursor-pointer.hover:bg-base-300.rounded.px-2.py-1.transition-colors
@@ -97,18 +83,25 @@
       label]
      [:div {:class ["text-[13px]"]} value-component]]))
 
-(defn active-asset-row [ctx-data dropdown-state full-state]
-  (let [coin (:coin ctx-data)
-        mark (:mark ctx-data)
+(defn active-asset-row [ctx-data market dropdown-state full-state]
+  (let [coin (or (:coin market) (:coin ctx-data))
+        mark (or (:mark ctx-data) (:mark market))
         oracle (:oracle ctx-data)
-        change-24h (:change24h ctx-data)
-        change-24h-pct (:change24hPct ctx-data)
-        volume-24h (:volume24h ctx-data)
-        open-interest (:openInterest ctx-data)
+        change-24h (or (:change24h ctx-data) (:change24h market))
+        change-24h-pct (or (:change24hPct ctx-data) (:change24hPct market))
+        volume-24h (or (:volume24h ctx-data) (:volume24h market))
+        open-interest-raw (:openInterest ctx-data)
+        open-interest-usd (if (= :spot (:market-type market))
+                            nil
+                            (or (when (and open-interest-raw mark)
+                                  (fmt/calculate-open-interest-usd open-interest-raw mark))
+                                (:openInterest market)))
         funding-rate (:fundingRate ctx-data)
-        dropdown-visible? (= (:visible-dropdown dropdown-state) coin)
+        dropdown-visible? (= (:visible-dropdown dropdown-state) :asset-selector)
+        is-spot (= :spot (:market-type market))
         ;; Handle missing data gracefully
-        has-data? (and mark oracle change-24h volume-24h open-interest funding-rate)]
+        has-perp-data? (and mark oracle change-24h volume-24h open-interest-usd funding-rate)
+        has-spot-data? (and mark change-24h volume-24h)]
     [:div {:class ["relative"
                    "grid"
                    "grid-cols-7"
@@ -120,7 +113,7 @@
                    "md:grid-cols-[1.4fr_0.9fr_0.9fr_1.1fr_1.1fr_1.2fr_1.6fr]"]}
       ;; Asset/Pair column
       [:div.flex.justify-start
-       (asset-icon coin dropdown-visible?)]
+       (asset-icon (or market {:coin coin}) dropdown-visible?)]
       
       ;; Mark column
       [:div.flex.justify-center
@@ -128,13 +121,17 @@
       
       ;; Oracle column
       [:div.flex.justify-center
-       (data-column "Oracle" (if oracle (fmt/format-currency oracle) "Loading...") {:underlined true})]
+       (data-column "Oracle"
+                    (if (and (not is-spot) oracle)
+                      (fmt/format-currency oracle)
+                      (if is-spot "—" "Loading..."))
+                    {:underlined true})]
       
       ;; 24h Change column
       [:div.flex.justify-center
        (data-column "24h Change" 
-                    (if has-data? nil "Loading...")
-                    {:change? has-data?
+                    (if (or has-perp-data? has-spot-data?) nil "Loading...")
+                    {:change? (or has-perp-data? has-spot-data?)
                      :change-value change-24h
                      :change-pct change-24h-pct})]
       
@@ -144,20 +141,25 @@
       
       ;; Open Interest column 
       [:div.flex.justify-center 
-       (data-column "Open Interest" (if open-interest (fmt/format-open-interest-usd open-interest mark) "Loading...") {:underlined true})]
+       (data-column "Open Interest"
+                    (cond
+                      is-spot "—"
+                      open-interest-usd (fmt/format-large-currency open-interest-usd)
+                      :else "Loading...")
+                    {:underlined true})]
       
       ;; Funding / Countdown column
       [:div.flex.justify-center
        [:div.text-center
        [:div {:class ["text-[11px]" "text-gray-400" "mb-1"]} "Funding / Countdown"]
         [:div {:class ["text-[13px]" "flex" "items-center" "justify-center"]}
-         (if has-data?
+         (if (and (not is-spot) has-perp-data?)
            (tooltip 
              [[:span.text-success.cursor-help (fmt/format-percentage funding-rate 4)]
               (str "Annualized: " (fmt/format-percentage (fmt/annualized-funding-rate funding-rate) 2))])
-           [:span "Loading..."])
+           [:span (if is-spot "—" "Loading...")])
          [:span.mx-1 "/"]
-         [:span (fmt/format-funding-countdown)]]]]]))
+         [:span (if is-spot "—" (fmt/format-funding-countdown))]]]]]))
 
 (defn select-asset-row [dropdown-state]
   (let [dropdown-visible? (= (:visible-dropdown dropdown-state) :asset-selector)]
@@ -195,11 +197,15 @@
 
 (defn active-asset-list [contexts dropdown-state full-state]
   (let [active-asset (:active-asset full-state)
-        ctx-data (when active-asset (get contexts active-asset))]
+        ctx-data (when active-asset (get contexts active-asset))
+        market-by-key (get-in full-state [:asset-selector :market-by-key])
+        active-market (or (:active-market full-state)
+                          (when active-asset
+                            (get market-by-key (markets/coin->market-key active-asset))))]
     [:div.space-y-2
      (when active-asset
        ^{:key active-asset}
-       (active-asset-row (or ctx-data {:coin active-asset}) dropdown-state full-state))]))
+       (active-asset-row (or ctx-data {:coin active-asset}) active-market dropdown-state full-state))]))
 
 (defn empty-state []
   [:div.flex.flex-col.items-center.justify-center.p-8.text-center
@@ -214,20 +220,28 @@
    [:div.animate-spin.rounded-full.h-8.w-8.border-b-2.border-primary]])
 
 (defn active-asset-panel [contexts loading? dropdown-state full-state]
-  [:div {:class ["relative" "bg-base-200" "border-b" "border-base-300" "rounded-none" "shadow-none"]}
-   [:div
-    (if (:active-asset full-state)
-      (active-asset-list contexts dropdown-state full-state)
-      (select-asset-row dropdown-state))]
-   ;; Asset Selector Dropdown positioned at panel level
-   (when (:visible-dropdown dropdown-state)
-     (asset-selector/asset-selector-wrapper
-       {:visible? true
-        :assets (get-available-assets full-state)
-        :selected-asset (:active-asset full-state)
-        :search-term (:search-term dropdown-state "")
-        :sort-by (:sort-by dropdown-state :volume)
-        :sort-direction (:sort-direction dropdown-state :asc)}))])
+  (let [active-market (:active-market full-state)
+        active-asset (:active-asset full-state)
+        selected-key (or (:key active-market)
+                         (when active-asset (markets/coin->market-key active-asset)))]
+    [:div {:class ["relative" "bg-base-200" "border-b" "border-base-300" "rounded-none" "shadow-none"]}
+     [:div
+      (if (:active-asset full-state)
+        (active-asset-list contexts dropdown-state full-state)
+        (select-asset-row dropdown-state))]
+     ;; Asset Selector Dropdown positioned at panel level
+     (when (:visible-dropdown dropdown-state)
+       (asset-selector/asset-selector-wrapper
+         {:visible? true
+          :markets (get-available-assets full-state)
+          :selected-market-key selected-key
+          :search-term (:search-term dropdown-state "")
+          :sort-by (:sort-by dropdown-state :volume)
+          :sort-direction (:sort-direction dropdown-state :asc)
+          :favorites (:favorites dropdown-state #{})
+          :favorites-only? (:favorites-only? dropdown-state false)
+          :strict? (:strict? dropdown-state false)
+          :active-tab (:active-tab dropdown-state :all)}))]))
 
 ;; Main component that takes state and renders the UI
 (defn active-asset-view [state]
@@ -237,5 +251,9 @@
         dropdown-state (get-in state [:asset-selector] {:visible-dropdown nil
                                                          :search-term ""
                                                          :sort-by :volume
-                                                         :sort-direction :desc})]
+                                                         :sort-direction :desc
+                                                         :favorites #{}
+                                                         :favorites-only? false
+                                                         :strict? false
+                                                         :active-tab :all})]
     (active-asset-panel contexts loading? dropdown-state state))) 

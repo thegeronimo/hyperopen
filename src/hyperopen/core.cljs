@@ -1,5 +1,6 @@
 (ns hyperopen.core
-  (:require [replicant.dom :as r]
+  (:require [clojure.string :as str]
+            [replicant.dom :as r]
             [nexus.registry :as nxr]
             [hyperopen.views.app-view :as app-view]
             [hyperopen.websocket.active-asset-ctx :as active-ctx]
@@ -11,6 +12,7 @@
             [hyperopen.api :as api]
             [hyperopen.api.trading :as trading-api]
             [hyperopen.asset-selector.settings :as asset-selector-settings]
+            [hyperopen.asset-selector.markets :as markets]
             [hyperopen.wallet.core :as wallet]
             [hyperopen.wallet.address-watcher :as address-watcher]
             [hyperopen.router :as router]
@@ -21,6 +23,7 @@
                       :active-assets {:contexts {}
                                      :loading false}
                       :active-asset nil
+                      :active-market nil
                       :orderbooks {}
                       :webdata2 {}
                       :perp-dexs []
@@ -47,7 +50,13 @@
                       :asset-selector {:visible-dropdown nil
                                       :search-term ""
                       				  :sort-by :volume
-                      				  :sort-direction :desc}
+                     				  :sort-direction :desc
+                                      :markets []
+                                      :market-by-key {}
+                                      :favorites #{}
+                                      :favorites-only? false
+                                      :strict? false
+                                      :active-tab :all}
                       :chart-options {:timeframes-dropdown-visible false
                                       :selected-timeframe :1d
                                       :chart-type-dropdown-visible false
@@ -82,10 +91,15 @@
 (defn subscribe-active-asset [_ store coin]
   (println "Subscribing to active asset context for:" coin)
   (js/localStorage.setItem "active-asset" coin)
-  (swap! store #(-> %
-                    (assoc-in [:active-assets :loading] true)
-                    (assoc-in [:active-asset] coin)
-                    (assoc-in [:selected-asset] coin)))
+  (swap! store
+         (fn [state]
+           (let [market (get-in state [:asset-selector :market-by-key]
+                                (markets/coin->market-key coin))]
+             (-> state
+                 (assoc-in [:active-assets :loading] true)
+                 (assoc-in [:active-asset] coin)
+                 (assoc-in [:selected-asset] coin)
+                 (assoc :active-market market)))))
   (active-ctx/subscribe-active-asset-ctx! coin)
   (fetch-candle-snapshot _ store :interval (get-in @store [:chart-options :selected-timeframe] :1d)))
 
@@ -139,14 +153,23 @@
 
 (defn toggle-asset-dropdown [state coin]
   (let [current-dropdown (get-in state [:asset-selector :visible-dropdown])]
-    [[:effects/save [:asset-selector :visible-dropdown] 
-      (if (= current-dropdown coin) nil coin)]]))
+    (let [next-dropdown (if (= current-dropdown coin) nil coin)
+          effects [[:effects/save [:asset-selector :visible-dropdown] next-dropdown]]]
+      (cond-> effects
+        (and (= coin :asset-selector) (some? next-dropdown))
+        (conj [:effects/fetch-asset-selector-markets])))))
 
 (defn close-asset-dropdown [state]
   [[:effects/save [:asset-selector :visible-dropdown] nil]])
 
-(defn select-asset [state coin]
-  (let [current-asset (get-in state [:active-asset])
+(defn select-asset [state market-or-coin]
+  (let [market (cond
+                 (map? market-or-coin) market-or-coin
+                 (string? market-or-coin) (get-in state [:asset-selector :market-by-key]
+                                                 (markets/coin->market-key market-or-coin))
+                 :else nil)
+        coin (or (:coin market) market-or-coin)
+        current-asset (get-in state [:active-asset])
         selected-timeframe (get-in state [:chart-options :selected-timeframe] :1d)
         unsubscribe-effects (if current-asset
                              [[:effects/unsubscribe-active-asset current-asset]
@@ -154,12 +177,13 @@
                               [:effects/unsubscribe-trades current-asset]]
                              [])
         subscribe-effects [[:effects/subscribe-active-asset coin]
-                          [:effects/subscribe-orderbook coin]
-                          [:effects/subscribe-trades coin]
-                          [:effects/save [:selected-asset] coin]
-                          [:effects/save [:active-asset] coin]
-                          [:effects/save [:asset-selector :visible-dropdown] nil]
-                          [:effects/fetch-candle-snapshot :interval selected-timeframe]]]
+                           [:effects/subscribe-orderbook coin]
+                           [:effects/subscribe-trades coin]
+                           [:effects/save [:selected-asset] coin]
+                           [:effects/save [:active-asset] coin]
+                           [:effects/save [:active-market] market]
+                           [:effects/save [:asset-selector :visible-dropdown] nil]
+                           [:effects/fetch-candle-snapshot :interval selected-timeframe]]]
     (into unsubscribe-effects subscribe-effects)))
 
 (defn update-asset-search [state value]
@@ -178,6 +202,30 @@
     (js/localStorage.setItem "asset-selector-sort-direction" (name new-direction))
     [[:effects/save [:asset-selector :sort-by] sort-field]
      [:effects/save [:asset-selector :sort-direction] new-direction]]))
+
+(defn toggle-asset-selector-strict [state]
+  (let [new-value (not (get-in state [:asset-selector :strict?] false))]
+    (js/localStorage.setItem "asset-selector-strict" (str new-value))
+    [[:effects/save [:asset-selector :strict?] new-value]]))
+
+(defn toggle-asset-favorite [state market-key]
+  (let [favorites (get-in state [:asset-selector :favorites] #{})
+        new-favorites (if (contains? favorites market-key)
+                        (disj favorites market-key)
+                        (conj favorites market-key))]
+    (js/localStorage.setItem "asset-selector-favorites"
+                             (js/JSON.stringify (clj->js (vec new-favorites))))
+    [[:effects/save [:asset-selector :favorites] new-favorites]]))
+
+(defn set-asset-selector-favorites-only [state enabled?]
+  [[:effects/save [:asset-selector :favorites-only?] (boolean enabled?)]])
+
+(defn set-asset-selector-tab [state tab]
+  (js/localStorage.setItem "asset-selector-active-tab" (name tab))
+  [[:effects/save [:asset-selector :active-tab] tab]])
+
+(defn refresh-asset-markets [state]
+  [[:effects/fetch-asset-selector-markets]])
 
 (def open-orders-sortable-columns
   #{"Time" "Type" "Coin" "Direction" "Size" "Original Size" "Order Value" "Price"})
@@ -340,12 +388,24 @@
 
 (defn submit-order [state]
   (let [form (:order-form state)
+        active-market (:active-market state)
+        active-asset (:active-asset state)
+        inferred-spot? (and (string? active-asset) (str/includes? active-asset "/"))
+        inferred-hip3? (and (string? active-asset) (str/includes? active-asset ":") (not inferred-spot?))
+        spot? (or (= :spot (:market-type active-market)) inferred-spot?)
+        hip3? (or (:dex active-market) inferred-hip3?)
         market-form (when (= :market (:type form))
                       (trading/apply-market-price state form))
         form* (if market-form market-form form)
         errors (trading/validate-order-form form*)
         request (trading/build-order-request state form*)]
     (cond
+      spot?
+      [[:effects/save [:order-form :error] "Spot trading is not supported yet."]]
+
+      hip3?
+      [[:effects/save [:order-form :error] "HIP-3 trading is not supported yet."]]
+
       (and (= :market (:type form)) (nil? market-form))
       [[:effects/save [:order-form :error] "Market price unavailable. Load order book first."]]
       (seq errors) [[:effects/save [:order-form :error] (first errors)]]
@@ -385,6 +445,9 @@
 (nxr/register-effect! :effects/unsubscribe-trades unsubscribe-trades)
 (nxr/register-effect! :effects/unsubscribe-webdata2 unsubscribe-webdata2)
 (nxr/register-effect! :effects/connect-wallet connect-wallet)
+(nxr/register-effect! :effects/fetch-asset-selector-markets
+  (fn [_ store & _]
+    (api/fetch-asset-selector-markets! store)))
 (nxr/register-effect! :effects/api-submit-order
   (fn [_ store request]
     (let [address (get-in @store [:wallet :address])]
@@ -444,6 +507,11 @@
 (nxr/register-action! :actions/select-asset select-asset)
 (nxr/register-action! :actions/update-asset-search update-asset-search)
 (nxr/register-action! :actions/update-asset-selector-sort update-asset-selector-sort)
+(nxr/register-action! :actions/toggle-asset-selector-strict toggle-asset-selector-strict)
+(nxr/register-action! :actions/toggle-asset-favorite toggle-asset-favorite)
+(nxr/register-action! :actions/set-asset-selector-favorites-only set-asset-selector-favorites-only)
+(nxr/register-action! :actions/set-asset-selector-tab set-asset-selector-tab)
+(nxr/register-action! :actions/refresh-asset-markets refresh-asset-markets)
 (nxr/register-action! :actions/toggle-timeframes-dropdown toggle-timeframes-dropdown)
 (nxr/register-action! :actions/select-chart-timeframe select-chart-timeframe)
 (nxr/register-action! :actions/toggle-chart-type-dropdown toggle-chart-type-dropdown)
@@ -565,7 +633,8 @@
   ;; Fetch initial market data
   (api/fetch-asset-contexts! store)
   (api/fetch-perp-dexs! store)
-  (api/fetch-spot-meta! store))
+  (api/fetch-spot-meta! store)
+  (api/fetch-asset-selector-markets! store))
 
 (defn init []
   (println "Initializing Hyperopen...")

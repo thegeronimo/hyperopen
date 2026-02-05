@@ -1,12 +1,16 @@
 (ns test-runner
   (:require [cljs.test :refer-macros [run-tests]]
+            [hyperopen.asset-selector.markets-test]
             [hyperopen.utils.data-normalization-test]
+            [hyperopen.views.asset-selector-view-test]
             [hyperopen.state.trading-test]))
 
 (defn run-all-tests
   "Run all test namespaces and return the results"
   []
   (run-tests 'hyperopen.utils.data-normalization-test
+             'hyperopen.asset-selector.markets-test
+             'hyperopen.views.asset-selector-view-test
              'hyperopen.state.trading-test))
 
 (defn -main
