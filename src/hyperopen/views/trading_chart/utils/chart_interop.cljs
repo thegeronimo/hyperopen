@@ -136,7 +136,33 @@
   "Fit content to the chart viewport"
   (.fitContent ^js (.timeScale ^js chart))) 
 
-(defn create-legend! [container chart _series _chart-type legend-meta]
+(defn- build-legend-state [legend-meta]
+  (let [symbol (or (:symbol legend-meta) "—")
+        timeframe-label (or (:timeframe-label legend-meta) "—")
+        venue (or (:venue legend-meta) "Hyperopen")
+        header-text (str symbol " · " timeframe-label " · " venue)
+        candle-data (or (:candle-data legend-meta) [])
+        candle-lookup (when (seq candle-data)
+                        (loop [remaining candle-data
+                               prev-close nil
+                               acc {}]
+                          (if (empty? remaining)
+                            acc
+                            (let [c (first remaining)
+                                  acc (assoc acc (:time c) {:candle c :prev-close prev-close})
+                                  prev-close (:close c)]
+                              (recur (rest remaining) prev-close acc)))))
+        latest-candle (last candle-data)
+        latest-prev-close (when (> (count candle-data) 1)
+                            (:close (nth candle-data (- (count candle-data) 2))))
+        latest-entry (when latest-candle
+                       {:candle latest-candle
+                        :prev-close latest-prev-close})]
+    {:header-text header-text
+     :candle-lookup candle-lookup
+     :latest-entry latest-entry}))
+
+(defn create-legend! [container chart legend-meta]
   "Create legend element that adapts to different chart types"
   ;; Ensure container has relative positioning for absolute legend positioning
   (let [container-style (.-style container)]
@@ -155,27 +181,7 @@
     ;; Append to container
     (.appendChild container legend)
     
-    (let [symbol (or (:symbol legend-meta) "—")
-          timeframe-label (or (:timeframe-label legend-meta) "—")
-          venue (or (:venue legend-meta) "Hyperopen")
-          header-text (str symbol " · " timeframe-label " · " venue)
-          candle-data (or (:candle-data legend-meta) [])
-          candle-lookup (when (seq candle-data)
-                          (loop [remaining candle-data
-                                 prev-close nil
-                                 acc {}]
-                            (if (empty? remaining)
-                              acc
-                              (let [c (first remaining)
-                                    acc (assoc acc (:time c) {:candle c :prev-close prev-close})
-                                    prev-close (:close c)]
-                                (recur (rest remaining) prev-close acc)))))
-          latest-candle (last candle-data)
-          latest-prev-close (when (> (count candle-data) 1)
-                              (:close (nth candle-data (- (count candle-data) 2))))
-          latest-entry (when latest-candle
-                         {:candle latest-candle
-                          :prev-close latest-prev-close})
+    (let [state (atom (build-legend-state legend-meta))
           format-price (fn [price]
                          (when (number? price)
                            (let [abs (js/Math.abs price)
@@ -196,53 +202,64 @@
                          (let [formatted (.toFixed pct 2)]
                            (if (>= pct 0) (str "+" formatted "%") (str formatted "%")))))
           render-legend! (fn [entry]
-                           (if (and entry (:candle entry))
-                             (let [c (:candle entry)
-                                   baseline (or (:prev-close entry) (:open c))
-                                   close (:close c)
-                                   delta (when (and close baseline) (- close baseline))
-                                   pct (when (and delta baseline (not= baseline 0)) (* 100 (/ delta baseline)))
-                                   delta-color (cond
-                                                 (nil? delta) "#9ca3af"
-                                                 (>= delta 0) "#10b981"
-                                                 :else "#ef4444")
-                                   o (or (format-price (:open c)) "--")
-                                   h (or (format-price (:high c)) "--")
-                                   l (or (format-price (:low c)) "--")
-                                   cl (or (format-price (:close c)) "--")
-                                   delta-str (or (format-delta delta) "--")
-                                   pct-str (or (format-pct pct) "--")]
+                           (let [{:keys [header-text]} @state]
+                             (if (and entry (:candle entry))
+                               (let [c (:candle entry)
+                                     baseline (or (:prev-close entry) (:open c))
+                                     close (:close c)
+                                     delta (when (and close baseline) (- close baseline))
+                                     pct (when (and delta baseline (not= baseline 0)) (* 100 (/ delta baseline)))
+                                     delta-color (cond
+                                                   (nil? delta) "#9ca3af"
+                                                   (>= delta 0) "#10b981"
+                                                   :else "#ef4444")
+                                     o (or (format-price (:open c)) "--")
+                                     h (or (format-price (:high c)) "--")
+                                     l (or (format-price (:low c)) "--")
+                                     cl (or (format-price (:close c)) "--")
+                                     delta-str (or (format-delta delta) "--")
+                                     pct-str (or (format-pct pct) "--")]
+                                 (set! (.-innerHTML legend)
+                                       (str "<div style='display:flex; align-items:center; gap:6px; font-weight:600;'>"
+                                            "<span style='color:#e5e7eb;'>" header-text "</span>"
+                                            "</div>"
+                                            "<div style='display:flex; align-items:center; gap:8px;'>"
+                                            "<span style='color:#9ca3af'>O</span> " o
+                                            " <span style='color:#9ca3af'>H</span> " h
+                                            " <span style='color:#9ca3af'>L</span> " l
+                                            " <span style='color:#9ca3af'>C</span> " cl
+                                            " <span style='color:" delta-color "; font-weight:600;'>" delta-str " (" pct-str ")</span>"
+                                            "</div>")))
                                (set! (.-innerHTML legend)
                                      (str "<div style='display:flex; align-items:center; gap:6px; font-weight:600;'>"
                                           "<span style='color:#e5e7eb;'>" header-text "</span>"
                                           "</div>"
                                           "<div style='display:flex; align-items:center; gap:8px;'>"
-                                          "<span style='color:#9ca3af'>O</span> " o
-                                          " <span style='color:#9ca3af'>H</span> " h
-                                          " <span style='color:#9ca3af'>L</span> " l
-                                          " <span style='color:#9ca3af'>C</span> " cl
-                                          " <span style='color:" delta-color "; font-weight:600;'>" delta-str " (" pct-str ")</span>"
-                                          "</div>")))
-                             (set! (.-innerHTML legend)
-                                   (str "<div style='display:flex; align-items:center; gap:6px; font-weight:600;'>"
-                                        "<span style='color:#e5e7eb;'>" header-text "</span>"
-                                        "</div>"
-                                        "<div style='display:flex; align-items:center; gap:8px;'>"
-                                        "<span style='color:#9ca3af'>O</span> --"
-                                        " <span style='color:#9ca3af'>H</span> --"
-                                        " <span style='color:#9ca3af'>L</span> --"
-                                        " <span style='color:#9ca3af'>C</span> --"
-                                        " <span style='color:#9ca3af'>-- (--)</span>"
-                                        "</div>"))))
+                                          "<span style='color:#9ca3af'>O</span> --"
+                                          " <span style='color:#9ca3af'>H</span> --"
+                                          " <span style='color:#9ca3af'>L</span> --"
+                                          " <span style='color:#9ca3af'>C</span> --"
+                                          " <span style='color:#9ca3af'>-- (--)</span>"
+                                          "</div>")))))
           update-legend (fn [param]
-                          (let [entry (when (and param (.-time param))
+                          (let [{:keys [candle-lookup latest-entry]} @state
+                                entry (when (and param (.-time param))
                                         (get candle-lookup (.-time param)))]
-                            (render-legend! (or entry latest-entry))))]
+                            (render-legend! (or entry latest-entry))))
+          update! (fn [new-meta]
+                    (reset! state (build-legend-state new-meta))
+                    (update-legend nil))
+          destroy! (fn []
+                     (try
+                       (.unsubscribeCrosshairMove ^js chart update-legend)
+                       (catch :default _ nil))
+                     (when (.-parentNode legend)
+                       (.removeChild (.-parentNode legend) legend)))]
       ;; Subscribe to crosshair move events
       (.subscribeCrosshairMove ^js chart update-legend)
-      
       ;; Initialize
-      (update-legend nil))))
+      (update-legend nil)
+      #js {:update update! :destroy destroy!})))
 
 ;; Indicator series functions
 (defn add-indicator-line-series! [chart color]

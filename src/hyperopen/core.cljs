@@ -5,6 +5,7 @@
             [hyperopen.websocket.active-asset-ctx :as active-ctx]
             [hyperopen.websocket.client :as ws-client]
             [hyperopen.websocket.orderbook :as orderbook]
+            [hyperopen.websocket.trades :as trades]
             [hyperopen.websocket.webdata2 :as webdata2]
             [hyperopen.websocket.user :as user-ws]
             [hyperopen.api :as api]
@@ -86,7 +87,7 @@
                     (assoc-in [:active-asset] coin)
                     (assoc-in [:selected-asset] coin)))
   (active-ctx/subscribe-active-asset-ctx! coin)
-  (fetch-candle-snapshot _ store))
+  (fetch-candle-snapshot _ store :interval (get-in @store [:chart-options :selected-timeframe] :1d)))
 
 (defn unsubscribe-active-asset [_ store coin]
   (println "Unsubscribing from active asset context for:" coin)
@@ -97,10 +98,18 @@
   (println "Subscribing to orderbook for:" coin)
   (orderbook/subscribe-orderbook! coin))
 
+(defn subscribe-trades [_ store coin]
+  (println "Subscribing to trades for:" coin)
+  (trades/subscribe-trades! coin))
+
 (defn unsubscribe-orderbook [_ store coin]
   (println "Unsubscribing from orderbook for:" coin)
   (orderbook/unsubscribe-orderbook! coin)
   (swap! store update-in [:orderbooks] dissoc coin))
+
+(defn unsubscribe-trades [_ store coin]
+  (println "Unsubscribing from trades for:" coin)
+  (trades/unsubscribe-trades! coin))
 
 (defn subscribe-webdata2 [_ store address]
   (println "Subscribing to WebData2 for address:" address)
@@ -119,7 +128,8 @@
 
 (defn subscribe-to-asset [state coin]
   [[:effects/subscribe-active-asset coin]
-   [:effects/subscribe-orderbook coin]])
+   [:effects/subscribe-orderbook coin]
+   [:effects/subscribe-trades coin]])
 
 (defn subscribe-to-webdata2 [state address]
   [[:effects/subscribe-webdata2 address]])
@@ -137,16 +147,19 @@
 
 (defn select-asset [state coin]
   (let [current-asset (get-in state [:active-asset])
+        selected-timeframe (get-in state [:chart-options :selected-timeframe] :1d)
         unsubscribe-effects (if current-asset
                              [[:effects/unsubscribe-active-asset current-asset]
-                              [:effects/unsubscribe-orderbook current-asset]]
+                              [:effects/unsubscribe-orderbook current-asset]
+                              [:effects/unsubscribe-trades current-asset]]
                              [])
         subscribe-effects [[:effects/subscribe-active-asset coin]
                           [:effects/subscribe-orderbook coin]
+                          [:effects/subscribe-trades coin]
                           [:effects/save [:selected-asset] coin]
                           [:effects/save [:active-asset] coin]
                           [:effects/save [:asset-selector :visible-dropdown] nil]
-                          [:effects/fetch-candle-snapshot]]]
+                          [:effects/fetch-candle-snapshot :interval selected-timeframe]]]
     (into unsubscribe-effects subscribe-effects)))
 
 (defn update-asset-search [state value]
@@ -172,6 +185,39 @@
 (def open-orders-sort-directions
   #{:asc :desc})
 
+(def chart-timeframes
+  #{:1m :3m :5m :15m :30m :1h :2h :4h :8h :12h :1d :3d :1w :1M})
+
+(def chart-types
+  #{:area :bar :baseline :candlestick :histogram :line})
+
+(defn- load-chart-option
+  [ls-key default valid-set]
+  (let [v (keyword (or (js/localStorage.getItem ls-key) (name default)))]
+    (if (contains? valid-set v) v default)))
+
+(defn- serialize-indicators [indicators]
+  (into {}
+        (map (fn [[k v]] [(name k) v]))
+        (or indicators {})))
+
+(defn- persist-indicators! [indicators]
+  (try
+    (js/localStorage.setItem "chart-active-indicators"
+                             (js/JSON.stringify (clj->js (serialize-indicators indicators))))
+    (catch :default e
+      (js/console.warn "Failed to persist chart indicators:" e))))
+
+(defn- load-indicators []
+  (try
+    (let [raw (js/localStorage.getItem "chart-active-indicators")]
+      (if (seq raw)
+        (let [parsed (js->clj (js/JSON.parse raw) :keywordize-keys true)]
+          (if (map? parsed) parsed {}))
+        {}))
+    (catch :default _
+      {})))
+
 (defn restore-open-orders-sort-settings! [store]
   (let [stored-column (or (js/localStorage.getItem "open-orders-sort-by") "Time")
         stored-direction (keyword (or (js/localStorage.getItem "open-orders-sort-direction") "desc"))
@@ -183,6 +229,15 @@
                     :desc)]
     (swap! store update-in [:account-info] merge {:open-orders-sort {:column column
                                                                      :direction direction}})))
+
+(defn restore-chart-options! [store]
+  (let [timeframe (load-chart-option "chart-timeframe" :1d chart-timeframes)
+        chart-type (load-chart-option "chart-type" :candlestick chart-types)
+        indicators (load-indicators)]
+    (swap! store update-in [:chart-options] merge
+           {:selected-timeframe timeframe
+            :selected-chart-type chart-type
+            :active-indicators indicators})))
 
 (defn restore-active-asset! [store]
   (when (nil? (:active-asset @store))
@@ -199,6 +254,7 @@
     [[:effects/save [:chart-options :timeframes-dropdown-visible] (not current-visible)]]))
 
 (defn select-chart-timeframe [state timeframe]
+  (js/localStorage.setItem "chart-timeframe" (name timeframe))
   [[:effects/save [:chart-options :selected-timeframe] timeframe]
    [:effects/save [:chart-options :timeframes-dropdown-visible] false]
    [:effects/fetch-candle-snapshot :interval timeframe]])
@@ -208,6 +264,7 @@
     [[:effects/save [:chart-options :chart-type-dropdown-visible] (not current-visible)]]))
 
 (defn select-chart-type [state chart-type]
+  (js/localStorage.setItem "chart-type" (name chart-type))
   [[:effects/save [:chart-options :selected-chart-type] chart-type]
    [:effects/save [:chart-options :chart-type-dropdown-visible] false]])
 
@@ -218,17 +275,20 @@
 (defn add-indicator [state indicator-type params]
   (let [current-indicators (get-in state [:chart-options :active-indicators] {})
         new-indicators (assoc current-indicators indicator-type params)]
+    (persist-indicators! new-indicators)
     [[:effects/save [:chart-options :active-indicators] new-indicators]]))
 
 (defn remove-indicator [state indicator-type]
   (let [current-indicators (get-in state [:chart-options :active-indicators] {})
         new-indicators (dissoc current-indicators indicator-type)]
+    (persist-indicators! new-indicators)
     [[:effects/save [:chart-options :active-indicators] new-indicators]]))
 
 (defn update-indicator-period [state indicator-type period-value]
   (let [current-indicators (get-in state [:chart-options :active-indicators] {})
         period (js/parseInt period-value)
         updated-indicators (assoc-in current-indicators [indicator-type :period] period)]
+    (persist-indicators! updated-indicators)
     [[:effects/save [:chart-options :active-indicators] updated-indicators]]))
 
 (defn select-account-info-tab [state tab]
@@ -317,10 +377,12 @@
 (nxr/register-effect! :effects/init-websocket init-websocket)
 (nxr/register-effect! :effects/subscribe-active-asset subscribe-active-asset)
 (nxr/register-effect! :effects/subscribe-orderbook subscribe-orderbook)
+(nxr/register-effect! :effects/subscribe-trades subscribe-trades)
 (nxr/register-effect! :effects/subscribe-webdata2 subscribe-webdata2)
 (nxr/register-effect! :effects/fetch-candle-snapshot fetch-candle-snapshot)
 (nxr/register-effect! :effects/unsubscribe-active-asset unsubscribe-active-asset)
 (nxr/register-effect! :effects/unsubscribe-orderbook unsubscribe-orderbook)
+(nxr/register-effect! :effects/unsubscribe-trades unsubscribe-trades)
 (nxr/register-effect! :effects/unsubscribe-webdata2 unsubscribe-webdata2)
 (nxr/register-effect! :effects/connect-wallet connect-wallet)
 (nxr/register-effect! :effects/api-submit-order
@@ -448,6 +510,8 @@
   (active-ctx/init! store)
   ;; Initialize orderbook module
   (orderbook/init! store)
+  ;; Initialize trades module
+  (trades/init! store)
   ;; Initialize user websocket handlers
   (user-ws/init! store)
   ;; Initialize WebData2 module
@@ -507,6 +571,8 @@
   (println "Initializing Hyperopen...")
   ;; Restore asset selector sort settings from localStorage
   (asset-selector-settings/restore-asset-selector-sort-settings! store)
+  ;; Restore chart options from localStorage
+  (restore-chart-options! store)
   ;; Restore selected asset from localStorage (default to BTC)
   (restore-active-asset! store)
   ;; Restore open orders sort settings from localStorage

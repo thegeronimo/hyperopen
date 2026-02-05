@@ -75,6 +75,7 @@
                                :config config
                                :data (indicators/calculate-indicator indicator-type candle-data config)})
                             active-indicators)
+        indicators-data-vec (vec indicators-data)
         legend-key (str (or (:symbol legend-meta) "")
                         "-"
                         (or (:timeframe-label legend-meta) "")
@@ -85,21 +86,63 @@
                    :replicant.life-cycle/mount
                    (try
                      ;; Create chart with indicators support
-                     (let [chart-obj (if (seq indicators-data)
-                                       (ci/create-chart-with-indicators! node chart-type candle-data indicators-data)
+                     (let [chart-obj (if (seq indicators-data-vec)
+                                       (ci/create-chart-with-indicators! node chart-type candle-data indicators-data-vec)
                                        (ci/create-chart-with-volume-and-series! node chart-type candle-data))
                            chart (.-chart chart-obj)
-                           main-series (.-mainSeries chart-obj)
-                           volume-series (.-volumeSeries chart-obj)]
-                       ;; Create legend for main series only
-                       (ci/create-legend! node chart main-series chart-type legend-meta))
+                           legend-control (ci/create-legend! node chart legend-meta)]
+                       (set! (.-legendControl ^js chart-obj) legend-control)
+                       (set! (.-__chartType ^js chart-obj) chart-type)
+                       (set! (.-__hyperopenChart ^js node) chart-obj))
                      (catch :default e
                        (js/console.error "Error in chart:" e)))
+                   :replicant.life-cycle/update
+                   (let [chart-obj (.-__hyperopenChart ^js node)
+                         main-series (when chart-obj (.-mainSeries ^js chart-obj))
+                         volume-series (when chart-obj (.-volumeSeries ^js chart-obj))
+                         indicator-series (when chart-obj (.-indicatorSeries ^js chart-obj))
+                         legend-control (when chart-obj (.-legendControl ^js chart-obj))
+                         chart (when chart-obj (.-chart ^js chart-obj))
+                         previous-chart-type (when chart-obj (.-__chartType ^js chart-obj))]
+                     (when (and chart previous-chart-type (not= previous-chart-type chart-type))
+                       (let [time-scale (.timeScale ^js chart)
+                             visible-range (.getVisibleLogicalRange ^js time-scale)
+                             new-series (ci/add-series! chart chart-type)]
+                         (when main-series
+                           (try
+                             (.removeSeries ^js chart main-series)
+                             (catch :default _ nil)))
+                         (set! (.-mainSeries ^js chart-obj) new-series)
+                         (set! (.-__chartType ^js chart-obj) chart-type)
+                         (ci/set-series-data! new-series candle-data chart-type)
+                         (when visible-range
+                           (try
+                             (.setVisibleLogicalRange ^js time-scale visible-range)
+                             (catch :default _ nil)))))
+                     (when (and main-series (or (nil? previous-chart-type) (= previous-chart-type chart-type)))
+                       (ci/set-series-data! main-series candle-data chart-type))
+                     (when volume-series
+                       (ci/set-volume-data! volume-series candle-data))
+                     (when (and indicator-series (seq indicators-data-vec))
+                       (doseq [[idx indicator] (map-indexed vector indicators-data-vec)]
+                         (when-let [series (.-series (aget indicator-series idx))]
+                           (ci/set-indicator-data! series (:data indicator)))))
+                     (when legend-control
+                       (.update ^js legend-control legend-meta)))
                    :replicant.life-cycle/unmount
-                   nil
+                   (let [chart-obj (.-__hyperopenChart ^js node)
+                         legend-control (when chart-obj (.-legendControl ^js chart-obj))
+                         chart (when chart-obj (.-chart ^js chart-obj))]
+                     (when legend-control
+                       (.destroy ^js legend-control))
+                     (when chart
+                       (try
+                         (.remove ^js chart)
+                         (catch :default _ nil)))
+                     (set! (.-__hyperopenChart ^js node) nil))
                    nil))]
     [:div {:class ["w-full" "relative" "flex-1" "h-full" "min-h-[480px]"]
-           :replicant/key (str "chart-" chart-type "-" (hash candle-data) "-" (hash active-indicators) "-" legend-key)
+           :replicant/key (str "chart-" (hash active-indicators) "-" legend-key)
            :replicant/on-render mount!
            :style {:background-color "rgb(30, 41, 55)"}}]))
 
