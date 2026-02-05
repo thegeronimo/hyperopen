@@ -33,7 +33,7 @@
         type (:type form)
         error (:error form)
         submitting? (:submitting? form)]
-    [:div {:class ["bg-base-100" "border" "border-base-300" "rounded-none" "shadow-none" "p-3" "space-y-4"]}
+    [:div {:class ["bg-base-100" "border" "border-base-300" "rounded-none" "shadow-none" "p-3" "space-y-4" "h-full"]}
      [:div.flex.items-center.justify-between
       [:div.text-lg.font-semibold "Order"]
       [:div.flex.items-center.space-x-2

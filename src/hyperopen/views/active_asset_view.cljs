@@ -89,11 +89,13 @@
 (defn data-column [label value & [options]]
   (let [underlined? (:underlined options)
         value-component (if (:change? options)
-                         (change-indicator (:change-value options) (:change-pct options))
-                         [:span.font-medium value])]
+                          (change-indicator (:change-value options) (:change-pct options))
+                          [:span.font-medium value])]
     [:div.text-center
-     [:div.text-xs.text-gray-400.mb-1 {:class (when underlined? ["border-b" "border-dashed" "border-gray-600"])} label]
-     [:div.text-sm value-component]]))
+     [:div {:class (into ["text-[11px]" "text-gray-400" "mb-1"]
+                         (when underlined? ["border-b" "border-dashed" "border-gray-600"]))}
+      label]
+     [:div {:class ["text-[13px]"]} value-component]]))
 
 (defn active-asset-row [ctx-data dropdown-state full-state]
   (let [coin (:coin ctx-data)
@@ -107,7 +109,15 @@
         dropdown-visible? (= (:visible-dropdown dropdown-state) coin)
         ;; Handle missing data gracefully
         has-data? (and mark oracle change-24h volume-24h open-interest funding-rate)]
-    [:div {:class ["relative" "grid" "grid-cols-7" "gap-4" "items-center" "px-0" "py-2"]}
+    [:div {:class ["relative"
+                   "grid"
+                   "grid-cols-7"
+                   "gap-2"
+                   "md:gap-3"
+                   "items-center"
+                   "px-0"
+                   "py-2"
+                   "md:grid-cols-[1.4fr_0.9fr_0.9fr_1.1fr_1.1fr_1.2fr_1.6fr]"]}
       ;; Asset/Pair column
       [:div.flex.justify-start
        (asset-icon coin dropdown-visible?)]
@@ -139,8 +149,8 @@
       ;; Funding / Countdown column
       [:div.flex.justify-center
        [:div.text-center
-       [:div.text-xs.text-gray-400.mb-1 "Funding / Countdown"]
-        [:div.text-sm.flex.items-center.justify-center
+       [:div {:class ["text-[11px]" "text-gray-400" "mb-1"]} "Funding / Countdown"]
+        [:div {:class ["text-[13px]" "flex" "items-center" "justify-center"]}
          (if has-data?
            (tooltip 
              [[:span.text-success.cursor-help (fmt/format-percentage funding-rate 4)]
@@ -151,7 +161,15 @@
 
 (defn select-asset-row [dropdown-state]
   (let [dropdown-visible? (= (:visible-dropdown dropdown-state) :asset-selector)]
-    [:div {:class ["relative" "grid" "grid-cols-7" "gap-4" "items-center" "px-0" "py-2"]}
+    [:div {:class ["relative"
+                   "grid"
+                   "grid-cols-7"
+                   "gap-2"
+                   "md:gap-3"
+                   "items-center"
+                   "px-0"
+                   "py-2"
+                   "md:grid-cols-[1.4fr_0.9fr_0.9fr_1.1fr_1.1fr_1.2fr_1.6fr]"]}
      [:div.flex.justify-start
       (asset-selector-trigger dropdown-visible?)]
 
@@ -172,8 +190,8 @@
 
      [:div.flex.justify-center
       [:div.text-center
-       [:div.text-xs.text-gray-400.mb-1 "Funding / Countdown"]
-       [:div.text-sm.text-gray-400 "— / —"]]]]))
+       [:div {:class ["text-[11px]" "text-gray-400" "mb-1"]} "Funding / Countdown"]
+       [:div {:class ["text-[13px]" "text-gray-400"]} "— / —"]]]]))
 
 (defn active-asset-list [contexts dropdown-state full-state]
   (let [active-asset (:active-asset full-state)

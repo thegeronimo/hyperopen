@@ -12,8 +12,6 @@
         top-row-height "600px"]
     [:div.flex-1.overflow-auto.flex.flex-col
      [:div {:class ["w-full" "px-0" "py-0" "space-y-0" "flex" "flex-col" "min-h-full"]}
-      (active-asset-view/active-asset-view state)
-
       [:div {:class ["relative" "flex-1"]}
        [:div {:class ["hidden" "xl:block" "absolute" "top-0" "bottom-0" "right-[320px]" "w-px" "bg-base-300" "pointer-events-none" "z-10"]}]
        [:div {:class ["grid"
@@ -23,20 +21,19 @@
                       "items-stretch"
                       "lg:grid-cols-[minmax(0,1fr)_320px]"
                       "xl:grid-cols-[minmax(0,1fr)_320px_320px]"]}
-        [:div {:class ["bg-base-100" "border-r" "border-base-300"]
-               :style {:height top-row-height}}
-         [:div {:class ["h-full" "overflow-hidden" "flex" "flex-col"]}
+        [:div {:class ["bg-base-100" "border-r" "border-base-300" "flex" "flex-col"]}
+         (active-asset-view/active-asset-view state)
+         [:div {:class ["overflow-hidden"]
+                :style {:height top-row-height}}
           (trading-chart/trading-chart-view state)]]
 
-        [:div {:class ["bg-base-100" "w-full"]
-               :style {:height top-row-height}}
+        [:div {:class ["bg-base-100" "w-full" "h-full"]}
          (l2-orderbook-view/l2-orderbook-view
            {:coin (or active-asset "No Asset Selected")
             :orderbook orderbook-data
             :loading (and active-asset (nil? orderbook-data))})]
 
-        [:div {:class ["bg-base-100" "lg:col-span-2" "xl:col-span-1" "xl:col-start-3"]
-               :style {:min-height top-row-height}}
+        [:div {:class ["bg-base-100" "lg:col-span-2" "xl:col-span-1" "xl:col-start-3" "h-full"]}
          (order-form-view/order-form-view state)]
 
         [:div {:class ["bg-base-100" "lg:col-span-2" "xl:col-span-2" "border-t" "border-base-300"]}
