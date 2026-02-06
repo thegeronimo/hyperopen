@@ -14,6 +14,12 @@
 - MUST keep runtime behavior deterministic where architecture depends on ordered/event-driven flows.
 - MUST NOT include machine-specific absolute paths in repo docs or agent guidance; use repo-root paths like `/hyperopen/...` instead.
 
+## UI Interaction Runtime Rules (MUST)
+- MUST apply user-visible UI state transitions first in an action pipeline (example: close dropdown immediately before unsubscribe/subscribe/fetch effects).
+- MUST batch related UI state writes caused by one interaction into a single state projection effect when feasible.
+- MUST avoid duplicate side-effect issuance in one interaction flow (example: only one candle snapshot trigger per asset selection).
+- MUST define a single owner per projection path in a flow (`:active-asset`, `:selected-asset`, `:active-market`) and avoid redundant writers unless explicitly documented and tested.
+
 ## Domain-Driven Design Rules (MUST)
 - MUST use ubiquitous language aligned to Hyperliquid protocol and product concepts.
 - MUST keep domain decision logic pure and deterministic (no IO, no hidden mutable state).
@@ -86,6 +92,8 @@
 - [ ] Yes/No: invariants are enforced in reducer/domain policy, not split across layers.
 - [ ] Yes/No: external payload normalization/mapping is handled in ACL/interpreter boundaries.
 - [ ] Yes/No: domain changes include determinism, ordering, and replay safety tests.
+- [ ] Yes/No: projection entities used by views (for example `:active-market`) are either fully shaped or deterministically derived from canonical state.
+- [ ] Yes/No: canonical identity fields (for example `:active-asset`) have deterministic fallback rendering paths when denormalized projections are absent/incomplete.
 
 ## S.O.L.I.D. Checklist
 - [ ] Yes/No: SRP is preserved (no mixed domain decision + IO + projection responsibilities in one unit).
@@ -102,9 +110,24 @@
 - MUST include lossless ordering tests for `openOrders`, `userFills`, `userFundings`, and `userNonFundingLedgerUpdates`.
 - MUST include lifecycle and watchdog behavior tests.
 - MUST include address-watcher compatibility tests for websocket status transitions.
+- MUST include effect-order tests for user-interaction actions where responsiveness is critical (UI-close/save projection effects must precede heavy subscription/fetch effects).
+- MUST include no-duplicate-effects tests for selection flows (no repeated network/subscription effects caused by one action dispatch).
+- MUST include view fallback tests ensuring active symbol/icon text renders from canonical identity when market projection is partial.
+- MUST include regression tests for selection transitions from asset A -> B covering both timing and render correctness.
 - MUST pass compile gates: `npx shadow-cljs compile app` and `npx shadow-cljs compile test`.
 - MUST keep websocket-focused tests independently runnable.
 - MUST acknowledge the known full `npm test` limitation: Node import issue with `lightweight-charts` exports.
+
+## Interaction Regression Scenarios (MUST)
+- Asset select emits immediate close/projection update before unsubscribe/subscribe effects.
+- Asset select emits no duplicate fetch/subscription effects.
+- Active asset bar still renders symbol if `:active-market` is partial.
+- Transition from one active asset to another preserves visible symbol and closes selector instantly.
+
+## Interaction Assumptions and Defaults
+- Assume existing Nexus/Replicant synchronous dispatch model remains unchanged.
+- Assume `:active-asset` is canonical identity and `:active-market` is a denormalized projection.
+- Default policy style is strict `MUST` / `DO NOT` guidance for interaction flow constraints.
 
 ## Anti-Patterns (DO NOT)
 - DO NOT perform side effects inside reducer transitions.
@@ -119,6 +142,9 @@
 - DO NOT modify stable interfaces for one-off behavior when existing extension points can satisfy the change.
 - DO NOT couple high-level runtime logic directly to concrete browser/JS infrastructure primitives.
 - DO NOT design broad protocols/handlers that force consumers to implement unused methods or accept unused arguments.
+- DO NOT place UI-close/visibility effects after subscription or fetch effects in the same synchronous interaction pipeline.
+- DO NOT write the same semantic state in multiple layers of one flow (action + effect) unless idempotency and intent are documented.
+- DO NOT persist partial denormalized market projections without required identity/display fields (`:coin`, `:symbol`) when non-nil.
 
 ## Change Workflow for Agents
 - Read websocket runtime files before editing:
@@ -128,6 +154,8 @@
 - `/hyperopen/src/hyperopen/websocket/client.cljs`
 - Validate SRP/OCP/LSP/ISP/DIP impact before editing websocket runtime components; document intentional tradeoffs in PR notes.
 - Add or adjust tests before finalizing large runtime behavior changes.
+- When changing interaction flows (selector/modals/dropdowns), explicitly document intended effect order in PR notes.
+- Require at least one targeted regression test that validates both responsiveness ordering and rendering fallback behavior.
 - Keep compatibility adapter behavior explicit and documented.
 - Document any intentional invariant deviations in PR notes.
 
