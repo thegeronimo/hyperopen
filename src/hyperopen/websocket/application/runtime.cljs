@@ -1,39 +1,16 @@
 (ns hyperopen.websocket.application.runtime
-  (:require [cljs.core.async :as async :refer [<! >! chan close! put!]]
+  (:require [cljs.core.async :as async :refer [<! chan close! put!]]
+            [hyperopen.websocket.application.runtime-engine :as engine]
+            [hyperopen.websocket.application.runtime-reducer :as reducer]
             [hyperopen.websocket.domain.model :as model]
+            [hyperopen.websocket.infrastructure.runtime-effects :as runtime-effects]
             [hyperopen.websocket.infrastructure.transport :as infra])
   (:require-macros [cljs.core.async.macros :refer [go-loop]]))
 
 (defprotocol IMessageRouter
-  (route-domain-message! [this envelope]))
-
-(defrecord HandlerRouter [handlers]
-  IMessageRouter
-  (route-domain-message! [_ envelope]
-    (let [payload (:payload envelope)
-          topic (:topic envelope)
-          payload* (if (contains? payload :channel)
-                     payload
-                     (assoc payload :channel topic))]
-      (when-let [handler (get @handlers topic)]
-        (handler payload*)))))
-
-(defn make-handler-router [handlers]
-  (->HandlerRouter handlers))
-
-(defn create-runtime-channels
-  [{:keys [control-buffer-size
-           outbound-buffer-size
-           ingress-raw-buffer-size
-           ingress-decoded-buffer-size
-           market-buffer-size
-           lossless-buffer-size]}]
-  {:control-ch (chan (async/buffer control-buffer-size))
-   :outbound-ch (chan (async/buffer outbound-buffer-size))
-   :ingress-raw-ch (chan (async/sliding-buffer ingress-raw-buffer-size))
-   :ingress-decoded-ch (chan (async/sliding-buffer ingress-decoded-buffer-size))
-   :market-tier-ch (chan (async/sliding-buffer market-buffer-size))
-   :lossless-tier-ch (chan (async/buffer lossless-buffer-size))})
+  (route-domain-message! [this envelope])
+  (register-topic-handler! [this topic handler-fn])
+  (stop-router! [this]))
 
 (defn safe-put! [channel value]
   (when channel
@@ -42,164 +19,195 @@
       (catch :default _
         false))))
 
-(defn- update-tier-depth! [stream-runtime tier f]
-  (swap! stream-runtime update-in [:tier-depth tier] (fnil f 0)))
+(defrecord AsyncTopicRouter [bus-ch topic-pub handlers topic->tier config]
+  IMessageRouter
+  (route-domain-message! [_ envelope]
+    (safe-put! bus-ch envelope))
+  (register-topic-handler! [_ topic handler-fn]
+    (when-let [{:keys [ch]} (get @handlers topic)]
+      (async/unsub topic-pub topic ch)
+      (close! ch))
+    (let [buffer-size (or (:handler-buffer-size config) 64)
+          tier (topic->tier topic)
+          ch (chan (if (= tier :market)
+                     (async/sliding-buffer buffer-size)
+                     (async/buffer buffer-size)))]
+      (swap! handlers assoc topic {:ch ch :handler handler-fn})
+      (async/sub topic-pub topic ch)
+      (go-loop []
+        (when-let [envelope (<! ch)]
+          (let [payload (:payload envelope)
+                payload* (if (contains? payload :channel)
+                           payload
+                           (assoc payload :channel (:topic envelope)))]
+            (try
+              (handler-fn payload*)
+              (catch :default e
+                (println "WebSocket topic handler failed for" topic e))))
+          (recur)))))
+  (stop-router! [_]
+    (doseq [[topic {:keys [ch]}] @handlers]
+      (async/unsub topic-pub topic ch)
+      (close! ch))
+    (reset! handlers {})
+    (close! bus-ch)))
 
-(defn- increment-metric! [stream-runtime metric-key]
-  (swap! stream-runtime update-in [:metrics metric-key] (fnil inc 0)))
+(defn make-handler-router
+  [{:keys [topic->tier config]
+    :or {topic->tier (constantly :lossless)
+         config {}}}]
+  (let [bus-ch (chan (async/buffer (or (:lossless-buffer-size config) 4096)))
+        topic-pub (async/pub bus-ch :topic)
+        handlers (atom {})]
+    (->AsyncTopicRouter bus-ch topic-pub handlers topic->tier config)))
 
-(defn- queue-market-envelope! [{:keys [stream-runtime config scheduler publish-control! make-command]} envelope]
-  (let [key (model/market-coalesce-key envelope)
-        coalesce-window-ms (:market-coalesce-window-ms config)
-        replacing? (contains? (get-in @stream-runtime [:market-coalesce :pending] {}) key)
-        needs-timer? (nil? (get-in @stream-runtime [:market-coalesce :timer]))]
-    (swap! stream-runtime assoc-in [:market-coalesce :pending key] envelope)
-    (when replacing?
-      (increment-metric! stream-runtime :market-coalesced))
-    (when needs-timer?
-      (let [timer-id (infra/schedule-timeout* scheduler
-                                        (fn []
-                                          (swap! stream-runtime assoc-in [:market-coalesce :timer] nil)
-                                          (publish-control! (make-command :flush-market-coalesced)))
-                                        coalesce-window-ms)]
-        (swap! stream-runtime assoc-in [:market-coalesce :timer] timer-id)))))
+(defn create-runtime-channels
+  [{:keys [mailbox-buffer-size effects-buffer-size metrics-buffer-size dead-letter-buffer-size]}]
+  {:mailbox-ch (chan (async/buffer (or mailbox-buffer-size 4096)))
+   :effects-ch (chan (async/buffer (or effects-buffer-size 4096)))
+   :metrics-ch (chan (async/dropping-buffer (or metrics-buffer-size 1024)))
+   :dead-letter-ch (chan (async/dropping-buffer (or dead-letter-buffer-size 512)))})
 
-(defn- flush-market-coalesced! [{:keys [stream-runtime router]}]
-  (let [pending (vals (get-in @stream-runtime [:market-coalesce :pending] {}))]
-    (swap! stream-runtime assoc-in [:market-coalesce :pending] {})
-    (doseq [envelope (sort-by :ts pending)]
-      (increment-metric! stream-runtime :market-dispatched)
-      (route-domain-message! router envelope))))
+(defn- command->runtime-msg [command now-ms]
+  (cond
+    (model/runtime-msg? command)
+    command
 
-(defn- dispatch-lossless-envelope! [{:keys [stream-runtime router]} envelope]
-  (increment-metric! stream-runtime :lossless-dispatched)
-  (route-domain-message! router envelope))
+    (model/connection-command? command)
+    (case (:op command)
+      :runtime/stop (model/make-runtime-msg :cmd/disconnect (:ts command))
+      :outbound/intent (model/make-runtime-msg :cmd/send-message (:ts command) {:data (:data command)})
+      :connection/connect (if (:force? command)
+                            (model/make-runtime-msg :cmd/force-reconnect (:ts command))
+                            (model/make-runtime-msg :cmd/init-connection (:ts command)
+                                                    {:ws-url (:ws-url command)}))
+      (model/make-runtime-msg :evt/parse-error
+                              (:ts command)
+                              {:error (js/Error. (str "Unsupported connection command: " (:op command)))
+                               :raw command}))
 
-(defn default-command-handlers
-  [{:keys [desired-subscriptions
-           drain-queued-messages!
-           reconnect-if-needed!
-           stream-runtime
-           router
-           dispatch-outbound-message!]}]
-  {:send-outbound
-   (fn [{:keys [data]} channels _]
-     (safe-put! (:outbound-ch channels) data))
+    (and (map? command) (keyword? (:op command)))
+    (command->runtime-msg (model/make-connection-command (:op command)
+                                                         (or (:ts command) (now-ms))
+                                                         (dissoc command :op :ts))
+                          now-ms)
 
-   :replay-subscriptions
-   (fn [_ channels _]
-     (doseq [subscription (->> @desired-subscriptions vals (sort-by pr-str))]
-       (safe-put! (:outbound-ch channels)
-                  {:method "subscribe"
-                   :subscription subscription})))
+    :else
+    (model/make-runtime-msg :evt/parse-error
+                            (now-ms)
+                            {:error (js/Error. "Unsupported command payload")
+                             :raw command})))
 
-   :flush-outbound-queue
-   (fn [_ channels _]
-     (doseq [queued (drain-queued-messages!)]
-       (safe-put! (:outbound-ch channels) queued)))
+(defn- transport-event->runtime-msg [event now-ms]
+  (cond
+    (model/runtime-msg? event)
+    event
 
-   :flush-market-coalesced
-   (fn [_ _ _]
-     (flush-market-coalesced! {:stream-runtime stream-runtime
-                               :router router}))
+    (model/transport-event? event)
+    (case (:event/type event)
+      :socket/open (model/make-runtime-msg :evt/socket-open (:ts event) {:socket-id (:socket-id event)})
+      :socket/message (model/make-runtime-msg :evt/socket-message (:ts event)
+                                              {:socket-id (:socket-id event)
+                                               :raw (:raw event)})
+      :socket/close (model/make-runtime-msg :evt/socket-close (:ts event)
+                                            {:socket-id (:socket-id event)
+                                             :code (:code event)
+                                             :reason (:reason event)
+                                             :was-clean? (:was-clean? event)})
+      :socket/error (model/make-runtime-msg :evt/socket-error (:ts event)
+                                            {:socket-id (:socket-id event)
+                                             :error (:error event)})
+      :lifecycle/focus (model/make-runtime-msg :evt/lifecycle-focus (:ts event))
+      :lifecycle/online (model/make-runtime-msg :evt/lifecycle-online (:ts event))
+      :lifecycle/offline (model/make-runtime-msg :evt/lifecycle-offline (:ts event))
+      :lifecycle/visible (model/make-runtime-msg :evt/lifecycle-visible (:ts event))
+      :timer/retry (model/make-runtime-msg :evt/timer-retry-fired (:ts event))
+      :timer/watchdog (model/make-runtime-msg :evt/timer-watchdog-fired (:ts event))
+      :timer/market-flush (model/make-runtime-msg :evt/timer-market-flush-fired (:ts event))
+      (model/make-runtime-msg :evt/parse-error (:ts event)
+                              {:error (js/Error. (str "Unsupported transport event: " (:event/type event)))
+                               :raw event}))
 
-   :reconnect-if-needed
-   (fn [_ _ _]
-     (reconnect-if-needed!))
+    (and (map? event) (keyword? (:event/type event)))
+    (transport-event->runtime-msg (model/make-transport-event (:event/type event)
+                                                              (or (:ts event) (now-ms))
+                                                              (dissoc event :event/type :ts))
+                                  now-ms)
 
-   :dispatch-outbound
-   (fn [{:keys [data]} _ _]
-     (dispatch-outbound-message! data))})
+    :else
+    (model/make-runtime-msg :evt/parse-error
+                            (now-ms)
+                            {:error (js/Error. "Unsupported transport payload")
+                             :raw event})))
 
-(defn start-runtime-loops!
-  [{:keys [channels
+(defn start-runtime!
+  [{:keys [config
            parse-raw-envelope
            topic->tier
            router
-           config
+           connection-state
            stream-runtime
+           transport
            scheduler
-           publish-control!
-           make-command
-           reconnect-if-needed!
-           drain-queued-messages!
-           desired-subscriptions
-           dispatch-outbound-message!
-           command-handlers]}]
-  (let [{:keys [control-ch outbound-ch ingress-raw-ch ingress-decoded-ch market-tier-ch lossless-tier-ch]} channels
-        control-handlers (merge (default-command-handlers
-                                  {:desired-subscriptions desired-subscriptions
-                                   :drain-queued-messages! drain-queued-messages!
-                                   :reconnect-if-needed! reconnect-if-needed!
-                                   :stream-runtime stream-runtime
-                                   :router router
-                                   :dispatch-outbound-message! dispatch-outbound-message!})
-                                command-handlers)
-        market-ctx {:stream-runtime stream-runtime
-                    :config config
-                    :scheduler scheduler
-                    :publish-control! publish-control!
-                    :make-command make-command}]
-    ;; Ingress decode loop: raw websocket text -> domain envelope.
-    (go-loop []
-      (when-let [raw-envelope (<! ingress-raw-ch)]
-        (let [{:keys [ok error]} (parse-raw-envelope raw-envelope)]
-          (if ok
-            (>! ingress-decoded-ch (update ok :tier #(or % (topic->tier (:topic ok)))))
-            (do
-              (increment-metric! stream-runtime :ingress-parse-errors)
-              (println "Error parsing WebSocket message:" error))))
-        (recur)))
-    ;; Demux loop: decoded envelopes -> tier channels.
-    (go-loop []
-      (when-let [envelope (<! ingress-decoded-ch)]
-        (case (:tier envelope)
-          :market
-          (do
-            (update-tier-depth! stream-runtime :market inc)
-            (>! market-tier-ch envelope))
-          :lossless
-          (do
-            (update-tier-depth! stream-runtime :lossless inc)
-            (>! lossless-tier-ch envelope))
-          (dispatch-lossless-envelope! {:stream-runtime stream-runtime
-                                        :router router}
-                                      envelope))
-        (recur)))
-    ;; Market loop: coalesced by topic/coin before dispatch.
-    (go-loop []
-      (when-let [envelope (<! market-tier-ch)]
-        (update-tier-depth! stream-runtime :market #(max 0 (dec %)))
-        (queue-market-envelope! market-ctx envelope)
-        (recur)))
-    ;; Lossless loop: strict ordered dispatch.
-    (go-loop []
-      (when-let [envelope (<! lossless-tier-ch)]
-        (update-tier-depth! stream-runtime :lossless #(max 0 (dec %)))
-        (dispatch-lossless-envelope! {:stream-runtime stream-runtime
-                                      :router router}
-                                    envelope)
-        (when (> (get-in @stream-runtime [:tier-depth :lossless] 0)
-                 (:lossless-depth-alert-threshold config))
-          (println "Lossless websocket queue depth is elevated:"
-                   (get-in @stream-runtime [:tier-depth :lossless])))
-        (recur)))
-    ;; Outbound loop.
-    (go-loop []
-      (when-let [data (<! outbound-ch)]
-        (dispatch-outbound-message! data)
-        (recur)))
-    ;; Control loop: handler registry replaces hardcoded case branching.
-    (go-loop []
-      (when-let [command (<! control-ch)]
-        (try
-          (when-let [handler (get control-handlers (:op command))]
-            (handler command channels {:stream-runtime stream-runtime
-                                       :router router}))
-          (catch :default e
-            (println "WebSocket control loop command failed:" e)))
-        (recur)))))
+           clock
+           calculate-retry-delay-ms]}]
+  (let [io-state (atom {:sockets {}
+                        :timers {}
+                        :active-socket-id nil
+                        :lifecycle-installed? false
+                        :lifecycle-handlers nil})
+        step-fn (fn [state msg]
+                  (reducer/step {:calculate-retry-delay-ms calculate-retry-delay-ms}
+                                state
+                                msg))
+        engine-instance (engine/start-engine!
+                          {:initial-state (reducer/initial-runtime-state config)
+                           :reducer step-fn
+                           :now-ms #(infra/now-ms* clock)
+                           :interpret-effect! runtime-effects/interpret-effect!
+                           :context {:transport transport
+                                     :scheduler scheduler
+                                     :clock clock
+                                     :io-state io-state
+                                     :parse-raw-envelope parse-raw-envelope
+                                     :register-router-handler! #(register-topic-handler! router %1 %2)
+                                     :dispatch-envelope! #(route-domain-message! router %)
+                                     :connection-state-atom connection-state
+                                     :stream-runtime-atom stream-runtime}})]
+    {:engine engine-instance
+     :io-state io-state
+     :router router
+     :transport transport
+     :scheduler scheduler
+     :clock clock
+     :dispatch! (fn [msg]
+                  (engine/dispatch! engine-instance msg))}))
 
-(defn stop-runtime! [channels]
-  (doseq [channel (vals (or channels {}))]
-    (close! channel)))
+(defn publish-command! [runtime command]
+  (let [now-ms #(infra/now-ms* (:clock runtime))
+        msg (command->runtime-msg command now-ms)]
+    ((:dispatch! runtime) msg)))
+
+(defn publish-transport-event! [runtime event]
+  (let [now-ms #(infra/now-ms* (:clock runtime))
+        msg (transport-event->runtime-msg event now-ms)]
+    ((:dispatch! runtime) msg)))
+
+(defn stop-runtime! [runtime]
+  (when runtime
+    (let [io-state (:io-state runtime)
+          scheduler (:scheduler runtime)
+          transport (:transport runtime)]
+      (doseq [timer-id (vals (get @io-state :timers {}))]
+        (infra/clear-timeout* scheduler timer-id)
+        (infra/clear-interval* scheduler timer-id))
+      (swap! io-state assoc :timers {})
+      (doseq [socket (vals (get @io-state :sockets {}))]
+        (try
+          (infra/detach-handlers! transport socket)
+          (infra/close-socket! transport socket 1000 "Runtime stop")
+          (catch :default _ nil)))
+      (swap! io-state assoc :sockets {} :active-socket-id nil)
+      (when-let [router (:router runtime)]
+        (stop-router! router))
+      (engine/stop-engine! (:engine runtime)))))

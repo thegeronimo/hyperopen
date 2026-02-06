@@ -11,12 +11,17 @@
    "userNonFundingLedgerUpdates" :lossless})
 
 (def default-backpressure-policy
-  {:control-buffer-size 256
-   :outbound-buffer-size 1024
-   :ingress-raw-buffer-size 2048
-   :ingress-decoded-buffer-size 1024
-   :market-buffer-size 512
-   :lossless-buffer-size 1024
+  {:mailbox-buffer-size 4096
+   :effects-buffer-size 4096
+   :control-buffer-size 1024
+   :socket-event-buffer-size 8192
+   :ingress-decoded-buffer-size 4096
+   :market-buffer-size 2048
+   :lossless-buffer-size 4096
+   :outbound-intent-buffer-size 2048
+   :metrics-buffer-size 1024
+   :dead-letter-buffer-size 512
+   :handler-buffer-size 64
    :lossless-depth-alert-threshold 500
    :market-coalesce-window-ms 16})
 
@@ -30,4 +35,3 @@
   "Merge policy overrides without mutating defaults."
   [base-policy overrides]
   (merge (or base-policy {}) (or overrides {})))
-

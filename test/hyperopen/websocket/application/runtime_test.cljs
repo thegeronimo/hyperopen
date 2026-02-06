@@ -1,6 +1,5 @@
 (ns hyperopen.websocket.application.runtime-test
-  (:require [cljs.core.async :as async]
-            [cljs.test :refer-macros [deftest is testing async use-fixtures]]
+  (:require [cljs.test :refer-macros [async deftest is]]
             [hyperopen.websocket.application.runtime :as runtime]
             [hyperopen.websocket.domain.model :as model]
             [hyperopen.websocket.infrastructure.transport :as infra]))
@@ -27,50 +26,105 @@
     (online?* [_] true)
     (hidden-tab?* [_] false)))
 
+(defn- make-test-clock []
+  (reify infra/IClock
+    (now-ms* [_] (.now js/Date))
+    (random-value* [_] 0.5)))
+
+(defn- make-test-transport []
+  (reify infra/ITransport
+    (connect-websocket! [_ _ _] (js-obj "readyState" 0))
+    (send-json! [_ _ _] true)
+    (close-socket! [_ _ _ _] true)
+    (ready-state [_ socket] (.-readyState socket))
+    (detach-handlers! [_ _] nil)))
+
+(defn- make-test-runtime
+  [{:keys [parse-raw-envelope topic->tier router stream-runtime]
+    :or {topic->tier (constantly :lossless)}}]
+  (let [runtime-state (atom {:ws-url nil
+                             :socket nil
+                             :socket-id 0
+                             :active-socket-id nil
+                             :intentional-close? false
+                             :retry-timer nil
+                             :watchdog-timer nil})
+        connection-state (atom {:status :disconnected
+                                :attempt 0
+                                :next-retry-at-ms nil
+                                :last-close nil
+                                :last-activity-at-ms nil
+                                :queue-size 0
+                                :ws nil})]
+    (runtime/start-runtime!
+      {:config {:control-buffer-size 8
+                :socket-event-buffer-size 32
+                :ingress-decoded-buffer-size 32
+                :market-buffer-size 16
+                :lossless-buffer-size 16
+                :outbound-intent-buffer-size 16
+                :metrics-buffer-size 32
+                :dead-letter-buffer-size 16
+                :lossless-depth-alert-threshold 100
+                :max-queue-size 100
+                :watchdog-interval-ms 1000
+                :stale-visible-ms 45000
+                :stale-hidden-ms 180000
+                :market-coalesce-window-ms 5}
+       :parse-raw-envelope parse-raw-envelope
+       :topic->tier topic->tier
+       :router router
+       :stream-runtime stream-runtime
+       :runtime-state runtime-state
+       :connection-state connection-state
+       :desired-subscriptions (atom {})
+       :outbound-queue (atom [])
+       :transport (make-test-transport)
+       :scheduler (make-test-scheduler)
+       :clock (make-test-clock)
+       :calculate-retry-delay-ms (fn [_ _ _ _] 10)})))
+
 (deftest create-runtime-channels-contract-test
-  (let [channels (runtime/create-runtime-channels {:control-buffer-size 2
-                                                   :outbound-buffer-size 2
-                                                   :ingress-raw-buffer-size 2
-                                                   :ingress-decoded-buffer-size 2
-                                                   :market-buffer-size 2
-                                                   :lossless-buffer-size 2})]
-    (testing "Runtime can be created without browser globals"
-      (is (contains? channels :control-ch))
-      (is (contains? channels :ingress-raw-ch))
-      (is (contains? channels :lossless-tier-ch)))))
+  (let [channels (runtime/create-runtime-channels {:mailbox-buffer-size 4
+                                                   :effects-buffer-size 4
+                                                   :metrics-buffer-size 4
+                                                   :dead-letter-buffer-size 4})]
+    (is (contains? channels :mailbox-ch))
+    (is (contains? channels :effects-ch))
+    (is (contains? channels :metrics-ch))
+    (is (contains? channels :dead-letter-ch))))
 
 (deftest handler-router-routes-by-topic-test
-  (let [calls (atom [])
-        handlers (atom {"trades" #(swap! calls conj %)})
-        router (runtime/make-handler-router handlers)]
-    (runtime/route-domain-message! router (model/make-domain-message-envelope
-                                            {:topic "trades"
-                                             :tier :market
-                                             :ts 1
-                                             :source :test
-                                             :socket-id 7
-                                             :payload {:channel "trades" :data [1]}}))
-    (testing "Router dispatches to handler by domain topic"
-      (is (= 1 (count @calls)))
-      (is (= "trades" (:channel (first @calls)))))))
+  (async done
+    (let [calls (atom [])
+          router (runtime/make-handler-router {:topic->tier (constantly :lossless)
+                                               :config {:handler-buffer-size 8}})]
+      (runtime/register-topic-handler! router "trades" #(swap! calls conj %))
+      (runtime/route-domain-message! router (model/make-domain-message-envelope
+                                              {:topic "trades"
+                                               :tier :market
+                                               :ts 1
+                                               :source :test
+                                               :socket-id 7
+                                               :payload {:channel "trades" :data [1]}}))
+      (js/setTimeout
+        (fn []
+          (is (= 1 (count @calls)))
+          (is (= "trades" (:channel (first @calls))))
+          (runtime/stop-router! router)
+          (done))
+        20))))
 
 (deftest market-coalescing-invariant-test
   (async done
     (let [stream-runtime (atom nil)
           _ (reset-stream! stream-runtime)
           routed (atom [])
-          channels (runtime/create-runtime-channels {:control-buffer-size 8
-                                                     :outbound-buffer-size 8
-                                                     :ingress-raw-buffer-size 8
-                                                     :ingress-decoded-buffer-size 8
-                                                     :market-buffer-size 8
-                                                     :lossless-buffer-size 8})
-          scheduler (make-test-scheduler)
           router (reify runtime/IMessageRouter
                    (route-domain-message! [_ envelope]
-                     (swap! routed conj envelope)))
-          publish-control! (fn [command]
-                             (runtime/safe-put! (:control-ch channels) command))
+                     (swap! routed conj envelope))
+                   (register-topic-handler! [_ _ _] nil)
+                   (stop-router! [_] nil))
           parse-raw-envelope (fn [{:keys [raw socket-id]}]
                                (let [msg (js->clj (js/JSON.parse raw) :keywordize-keys true)]
                                  {:ok (model/make-domain-message-envelope
@@ -79,48 +133,37 @@
                                          :ts (:seq msg)
                                          :source :test
                                          :socket-id socket-id
-                                         :payload msg})}))]
-      (runtime/start-runtime-loops! {:channels channels
-                                     :parse-raw-envelope parse-raw-envelope
-                                     :topic->tier (constantly :market)
-                                     :router router
-                                     :config {:market-coalesce-window-ms 5
-                                              :lossless-depth-alert-threshold 100}
-                                     :stream-runtime stream-runtime
-                                     :scheduler scheduler
-                                     :publish-control! publish-control!
-                                     :make-command (fn [op] {:op op :ts 0})
-                                     :reconnect-if-needed! (fn [] nil)
-                                     :drain-queued-messages! (fn [] [])
-                                     :desired-subscriptions (atom {})
-                                     :dispatch-outbound-message! (fn [_] true)
-                                     :command-handlers {}})
-      (runtime/safe-put! (:ingress-raw-ch channels) {:raw "{\"channel\":\"trades\",\"seq\":1,\"data\":[{\"coin\":\"BTC\"}]}" :socket-id 1})
-      (runtime/safe-put! (:ingress-raw-ch channels) {:raw "{\"channel\":\"trades\",\"seq\":2,\"data\":[{\"coin\":\"BTC\"}]}" :socket-id 1})
+                                         :payload msg})}))
+          rt (make-test-runtime {:parse-raw-envelope parse-raw-envelope
+                                 :topic->tier (constantly :market)
+                                 :router router
+                                 :stream-runtime stream-runtime})]
+      (runtime/publish-transport-event! rt {:event/type :socket/message
+                                            :socket-id 1
+                                            :raw "{\"channel\":\"trades\",\"seq\":1,\"data\":[{\"coin\":\"BTC\"}]}"})
+      (runtime/publish-transport-event! rt {:event/type :socket/message
+                                            :socket-id 1
+                                            :raw "{\"channel\":\"trades\",\"seq\":2,\"data\":[{\"coin\":\"BTC\"}]}"})
       (js/setTimeout
         (fn []
           (is (= 1 (count @routed)))
           (is (= 2 (get-in (first @routed) [:payload :seq])))
           (is (>= (get-in @stream-runtime [:metrics :market-coalesced]) 1))
-          (runtime/stop-runtime! channels)
+          (is (= 1 (get-in @stream-runtime [:metrics :market-dispatched])))
+          (runtime/stop-runtime! rt)
           (done))
-        40))))
+        50))))
 
 (deftest lossless-ordering-invariant-test
   (async done
     (let [stream-runtime (atom nil)
           _ (reset-stream! stream-runtime)
           routed (atom [])
-          channels (runtime/create-runtime-channels {:control-buffer-size 8
-                                                     :outbound-buffer-size 8
-                                                     :ingress-raw-buffer-size 8
-                                                     :ingress-decoded-buffer-size 8
-                                                     :market-buffer-size 8
-                                                     :lossless-buffer-size 8})
-          scheduler (make-test-scheduler)
           router (reify runtime/IMessageRouter
                    (route-domain-message! [_ envelope]
-                     (swap! routed conj (get-in envelope [:payload :seq]))))
+                     (swap! routed conj (get-in envelope [:payload :seq])))
+                   (register-topic-handler! [_ _ _] nil)
+                   (stop-router! [_] nil))
           parse-raw-envelope (fn [{:keys [raw socket-id]}]
                                (let [msg (js->clj (js/JSON.parse raw) :keywordize-keys true)]
                                  {:ok (model/make-domain-message-envelope
@@ -129,28 +172,20 @@
                                          :ts (:seq msg)
                                          :source :test
                                          :socket-id socket-id
-                                         :payload msg})}))]
-      (runtime/start-runtime-loops! {:channels channels
-                                     :parse-raw-envelope parse-raw-envelope
-                                     :topic->tier (constantly :lossless)
-                                     :router router
-                                     :config {:market-coalesce-window-ms 5
-                                              :lossless-depth-alert-threshold 100}
-                                     :stream-runtime stream-runtime
-                                     :scheduler scheduler
-                                     :publish-control! (fn [_] true)
-                                     :make-command (fn [op] {:op op :ts 0})
-                                     :reconnect-if-needed! (fn [] nil)
-                                     :drain-queued-messages! (fn [] [])
-                                     :desired-subscriptions (atom {})
-                                     :dispatch-outbound-message! (fn [_] true)
-                                     :command-handlers {}})
-      (runtime/safe-put! (:ingress-raw-ch channels) {:raw "{\"channel\":\"userFills\",\"seq\":1,\"data\":[]}" :socket-id 1})
-      (runtime/safe-put! (:ingress-raw-ch channels) {:raw "{\"channel\":\"userFills\",\"seq\":2,\"data\":[]}" :socket-id 1})
+                                         :payload msg})}))
+          rt (make-test-runtime {:parse-raw-envelope parse-raw-envelope
+                                 :topic->tier (constantly :lossless)
+                                 :router router
+                                 :stream-runtime stream-runtime})]
+      (runtime/publish-transport-event! rt {:event/type :socket/message
+                                            :socket-id 1
+                                            :raw "{\"channel\":\"userFills\",\"seq\":1,\"data\":[]}"})
+      (runtime/publish-transport-event! rt {:event/type :socket/message
+                                            :socket-id 1
+                                            :raw "{\"channel\":\"userFills\",\"seq\":2,\"data\":[]}"})
       (js/setTimeout
         (fn []
           (is (= [1 2] @routed))
-          (runtime/stop-runtime! channels)
+          (runtime/stop-runtime! rt)
           (done))
-        25))))
-
+        30))))
