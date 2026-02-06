@@ -19,6 +19,7 @@
 - MUST batch related UI state writes caused by one interaction into a single state projection effect when feasible.
 - MUST avoid duplicate side-effect issuance in one interaction flow (example: only one candle snapshot trigger per asset selection).
 - MUST define a single owner per projection path in a flow (`:active-asset`, `:selected-asset`, `:active-market`) and avoid redundant writers unless explicitly documented and tested.
+- MUST represent multi-token Replicant `:class` values as collections (for example `["opacity-0" "scale-y-95"]`) and MUST NOT use space-separated class strings in `:class` (for example `"opacity-0 scale-y-95"`), to avoid Replicant warnings and normalization overhead.
 
 ## Domain-Driven Design Rules (MUST)
 - MUST use ubiquitous language aligned to Hyperliquid protocol and product concepts.
@@ -145,6 +146,7 @@
 - DO NOT place UI-close/visibility effects after subscription or fetch effects in the same synchronous interaction pipeline.
 - DO NOT write the same semantic state in multiple layers of one flow (action + effect) unless idempotency and intent are documented.
 - DO NOT persist partial denormalized market projections without required identity/display fields (`:coin`, `:symbol`) when non-nil.
+- DO NOT pass space-separated class strings to `:class` in Hiccup attrs.
 
 ## Change Workflow for Agents
 - Read websocket runtime files before editing:

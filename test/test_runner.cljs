@@ -16,6 +16,7 @@
             [hyperopen.views.app-shell-spacing-test]
             [hyperopen.views.asset-selector-view-test]
             [hyperopen.views.footer-view-test]
+            [hyperopen.views.trading-chart.timeframe-dropdown-test]
             [hyperopen.views.l2-orderbook-view-test]
             [hyperopen.state.trading-test]))
 
@@ -38,6 +39,7 @@
              'hyperopen.views.app-shell-spacing-test
              'hyperopen.views.asset-selector-view-test
              'hyperopen.views.footer-view-test
+             'hyperopen.views.trading-chart.timeframe-dropdown-test
              'hyperopen.views.l2-orderbook-view-test
              'hyperopen.state.trading-test))
 
