@@ -3,7 +3,7 @@
 
 (defn header-view [state]
   [:header.bg-base-200.border-b.border-base-300.w-full
-   [:div {:class ["w-full" "px-0" "py-3"]}
+   [:div {:class ["w-full" "app-shell-gutter" "py-3"]}
     [:div.flex.justify-between.items-center
      ;; Logo and Brand
      [:div.flex.items-center.space-x-3

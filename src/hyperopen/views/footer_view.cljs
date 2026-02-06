@@ -23,7 +23,7 @@
                        (str "reconnecting (attempt " attempt ")")
                        (name status))]
     [:footer.bg-base-200.border-t.border-base-300.w-full
-     [:div {:class ["w-full" "px-0" "py-2" "relative"]}
+     [:div {:class ["w-full" "app-shell-gutter" "py-2" "relative"]}
       [:div.flex.justify-between.items-center
        ;; Connection Status
        [:div.flex.items-center.space-x-3

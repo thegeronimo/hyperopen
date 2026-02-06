@@ -10,7 +10,7 @@
   (let [active-asset (:active-asset state)
         orderbook-data (when active-asset (get-in state [:orderbooks active-asset]))]
     [:div.flex-1.overflow-auto.flex.flex-col
-     [:div {:class ["w-full" "px-0" "py-0" "space-y-0" "flex" "flex-col" "min-h-full"]}
+     [:div {:class ["w-full" "app-shell-gutter" "py-0" "space-y-0" "flex" "flex-col" "min-h-full"]}
       [:div {:class ["relative" "flex-1"]}
        [:div {:class ["hidden" "xl:block" "absolute" "top-0" "bottom-0" "right-[320px]" "w-px" "bg-base-300" "pointer-events-none" "z-10"]}]
        [:div {:class ["grid"

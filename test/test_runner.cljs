@@ -13,6 +13,7 @@
             [hyperopen.wallet.address-watcher-test]
             [hyperopen.websocket.client-test]
             [hyperopen.views.active-asset-view-test]
+            [hyperopen.views.app-shell-spacing-test]
             [hyperopen.views.asset-selector-view-test]
             [hyperopen.views.footer-view-test]
             [hyperopen.views.l2-orderbook-view-test]
@@ -34,6 +35,7 @@
              'hyperopen.wallet.address-watcher-test
              'hyperopen.websocket.client-test
              'hyperopen.views.active-asset-view-test
+             'hyperopen.views.app-shell-spacing-test
              'hyperopen.views.asset-selector-view-test
              'hyperopen.views.footer-view-test
              'hyperopen.views.l2-orderbook-view-test
