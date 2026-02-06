@@ -12,6 +12,16 @@
 - MUST avoid duplicate logic; extend existing code where feasible.
 - MUST add or update tests for all behavioral changes.
 - MUST keep runtime behavior deterministic where architecture depends on ordered/event-driven flows.
+- MUST NOT include machine-specific absolute paths in repo docs or agent guidance; use repo-root paths like `/hyperopen/...` instead.
+
+## Domain-Driven Design Rules (MUST)
+- MUST use ubiquitous language aligned to Hyperliquid protocol and product concepts.
+- MUST keep domain decision logic pure and deterministic (no IO, no hidden mutable state).
+- MUST model business transitions through explicit domain messages/effects, not ad hoc maps/calls.
+- MUST enforce invariants in a single domain decision point (reducer/domain policy), not duplicated across UI/infrastructure.
+- MUST isolate external protocol payloads behind ACL translation before they become domain envelopes.
+- MUST keep domain models and policies implementation-agnostic (framework/runtime-independent where practical).
+- MUST preserve lossless ordering rules for account/order/funding flows as a domain invariant.
 
 ## WebSocket Runtime Architecture Rules (MUST)
 - MUST keep runtime decisions pure via `step(state, msg) -> {:state next-state :effects [...]}`.
@@ -21,6 +31,24 @@
 - MUST NOT use multi-loop shared mutable writes for connection/metrics runtime ownership.
 - MUST preserve existing websocket public APIs in `/hyperopen/src/hyperopen/websocket/client.cljs` unless explicitly requested.
 - MUST maintain message/effect algebra using `RuntimeMsg` and `RuntimeEffect` style contracts.
+
+## DDD Layer Boundaries (MUST)
+- Domain model/policy ownership:
+- `/hyperopen/src/hyperopen/websocket/domain/model.cljs`
+- `/hyperopen/src/hyperopen/websocket/domain/policy.cljs`
+- Application orchestration/decision flow ownership:
+- `/hyperopen/src/hyperopen/websocket/application/runtime_reducer.cljs`
+- `/hyperopen/src/hyperopen/websocket/application/runtime.cljs`
+- `/hyperopen/src/hyperopen/websocket/application/runtime_engine.cljs`
+- Infrastructure IO/effect interpretation ownership:
+- `/hyperopen/src/hyperopen/websocket/infrastructure/runtime_effects.cljs`
+- `/hyperopen/src/hyperopen/websocket/infrastructure/transport.cljs`
+- ACL/adapters/public client seam ownership:
+- `/hyperopen/src/hyperopen/websocket/acl/hyperliquid.cljs`
+- `/hyperopen/src/hyperopen/websocket/client.cljs`
+- MUST keep dependency direction intentional: domain -> application -> infrastructure, with ACL adapters at system boundaries.
+- MUST ensure domain decisions never directly perform transport/timer/dom/log side effects.
+- MUST absorb external schema changes in ACL mapping and keep domain contracts stable.
 
 ## core.async / Channel Best Practices (MUST)
 - MUST define explicit channel roles and keep them stable:
@@ -43,6 +71,13 @@
 - [ ] Yes/No: connection and stream projections are applied as explicit projection effects.
 - [ ] Yes/No: new websocket behaviors are introduced through message/effect algebra, not ad hoc direct calls.
 
+## DDD Modeling Checklist
+- [ ] Yes/No: ubiquitous language is consistent in message/effect names.
+- [ ] Yes/No: new behavior is expressed as domain message/effect variants.
+- [ ] Yes/No: invariants are enforced in reducer/domain policy, not split across layers.
+- [ ] Yes/No: external payload normalization/mapping is handled in ACL/interpreter boundaries.
+- [ ] Yes/No: domain changes include determinism, ordering, and replay safety tests.
+
 ## Testing Requirements (MUST)
 - MUST include reducer determinism tests (same state + same msg => same state/effects).
 - MUST include single-writer invariant tests for runtime ownership.
@@ -61,6 +96,9 @@
 - DO NOT add hidden synchronous fallback paths that bypass the channel model.
 - DO NOT use unbounded queues for lossless flows.
 - DO NOT bypass message/effect contracts with direct infrastructure calls from domain logic.
+- DO NOT put business rules in effect interpreters, transport handlers, or UI callbacks.
+- DO NOT leak raw exchange payload shapes directly into domain consumers without ACL mapping.
+- DO NOT introduce new behavior via direct infrastructure calls that bypass runtime message/effect algebra.
 
 ## Change Workflow for Agents
 - Read websocket runtime files before editing:
@@ -73,9 +111,11 @@
 - Document any intentional invariant deviations in PR notes.
 
 ## Mini-Template: Add a New WebSocket Event
+- Define or update the domain concept/invariant and ubiquitous term first.
 - Add a `RuntimeMsg` variant in domain model (constructor/predicate coverage).
 - Extend reducer `step` with pure state transition and emitted effects.
 - Add or extend interpreter handling for any new effect type.
+- Follow the RuntimeMsg -> reducer -> interpreter -> tests sequence.
 - Add tests for:
 - reducer branch determinism,
 - expected effect emission,
