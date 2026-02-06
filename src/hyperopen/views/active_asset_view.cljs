@@ -99,6 +99,9 @@
 
 (defn active-asset-row [ctx-data market dropdown-state full-state]
   (let [coin (or (:coin market) (:coin ctx-data))
+        icon-market (-> (or market {})
+                        (assoc :coin (or (:coin market) coin))
+                        (assoc :symbol (or (:symbol market) coin)))
         mark (or (:mark ctx-data) (:mark market))
         mark-raw (or (:markRaw ctx-data) (:markRaw market))
         oracle (:oracle ctx-data)
@@ -129,7 +132,7 @@
                    "md:grid-cols-[1.4fr_0.9fr_0.9fr_1.1fr_1.1fr_1.2fr_1.6fr]"]}
       ;; Asset/Pair column
       [:div.flex.justify-start
-       (asset-icon (or market {:coin coin})
+       (asset-icon icon-market
                    dropdown-visible?
                    (get-in full-state [:asset-selector :missing-icons] #{}))]
       

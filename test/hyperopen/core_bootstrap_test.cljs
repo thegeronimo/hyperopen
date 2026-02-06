@@ -85,3 +85,40 @@
               (done))
             0))
          0)))))
+
+(deftest select-asset-closes-dropdown-first-and-removes-duplicate-effects-test
+  (let [market {:key :perp/BTC
+                :coin "BTC"}
+        effects (core/select-asset {:active-asset "ETH"
+                                    :asset-selector {:visible-dropdown :asset-selector}
+                                    :orderbook-ui {:price-aggregation-dropdown-visible? true
+                                                   :size-unit-dropdown-visible? true}}
+                                   market)]
+    (is (= [[:effects/save-many [[[:asset-selector :visible-dropdown] nil]
+                                 [[:orderbook-ui :price-aggregation-dropdown-visible?] false]
+                                 [[:orderbook-ui :size-unit-dropdown-visible?] false]
+                                 [[:active-market] market]]]
+            [:effects/unsubscribe-active-asset "ETH"]
+            [:effects/unsubscribe-orderbook "ETH"]
+            [:effects/unsubscribe-trades "ETH"]
+            [:effects/subscribe-active-asset "BTC"]
+            [:effects/subscribe-orderbook "BTC"]
+            [:effects/subscribe-trades "BTC"]]
+           effects))
+    (is (not-any? #(= (first %) :effects/fetch-candle-snapshot) effects))
+    (is (not-any? #(and (= (first %) :effects/save)
+                        (= (second %) [:asset-selector :visible-dropdown]))
+                  effects))))
+
+(deftest select-asset-without-current-asset-still-batches-immediate-ui-close-test
+  (let [market {:key :perp/SOL
+                :coin "SOL"}
+        effects (core/select-asset {:active-asset nil} market)]
+    (is (= [[:effects/save-many [[[:asset-selector :visible-dropdown] nil]
+                                 [[:orderbook-ui :price-aggregation-dropdown-visible?] false]
+                                 [[:orderbook-ui :size-unit-dropdown-visible?] false]
+                                 [[:active-market] market]]]
+            [:effects/subscribe-active-asset "SOL"]
+            [:effects/subscribe-orderbook "SOL"]
+            [:effects/subscribe-trades "SOL"]]
+           effects))))

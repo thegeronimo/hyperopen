@@ -88,6 +88,14 @@
 (defn save [_ store path value]
   (swap! store assoc-in path value))
 
+(defn save-many [_ store path-values]
+  (swap! store
+         (fn [state]
+           (reduce (fn [acc [path value]]
+                     (assoc-in acc path value))
+                   state
+                   path-values))))
+
 (defn push-state [_ _ path]
   (.pushState js/history nil "" path))
 
@@ -114,7 +122,7 @@
                  (assoc-in [:active-assets :loading] true)
                  (assoc-in [:active-asset] coin)
                  (assoc-in [:selected-asset] coin)
-                 (assoc :active-market market)))))
+                 (assoc :active-market (or market (:active-market state)))))))
   (active-ctx/subscribe-active-asset-ctx! coin)
   (fetch-candle-snapshot _ store :interval (get-in @store [:chart-options :selected-timeframe] :1d)))
 
@@ -198,8 +206,15 @@
                                                  (markets/coin->market-key market-or-coin))
                  :else nil)
         coin (or (:coin market) market-or-coin)
+        resolved-market (or market
+                            (when (string? coin)
+                              (get-in state [:asset-selector :market-by-key]
+                                      (markets/coin->market-key coin))))
         current-asset (get-in state [:active-asset])
-        selected-timeframe (get-in state [:chart-options :selected-timeframe] :1d)
+        immediate-ui-effects [[:effects/save-many [[[:asset-selector :visible-dropdown] nil]
+                                                   [[:orderbook-ui :price-aggregation-dropdown-visible?] false]
+                                                   [[:orderbook-ui :size-unit-dropdown-visible?] false]
+                                                   [[:active-market] resolved-market]]]]
         unsubscribe-effects (if current-asset
                              [[:effects/unsubscribe-active-asset current-asset]
                               [:effects/unsubscribe-orderbook current-asset]
@@ -207,15 +222,9 @@
                              [])
         subscribe-effects [[:effects/subscribe-active-asset coin]
                            [:effects/subscribe-orderbook coin]
-                           [:effects/subscribe-trades coin]
-                           [:effects/save [:selected-asset] coin]
-                           [:effects/save [:active-asset] coin]
-                           [:effects/save [:active-market] market]
-                           [:effects/save [:orderbook-ui :price-aggregation-dropdown-visible?] false]
-                           [:effects/save [:orderbook-ui :size-unit-dropdown-visible?] false]
-                           [:effects/save [:asset-selector :visible-dropdown] nil]
-                           [:effects/fetch-candle-snapshot :interval selected-timeframe]]]
-    (into unsubscribe-effects subscribe-effects)))
+                           [:effects/subscribe-trades coin]]]
+    (into immediate-ui-effects
+          (into unsubscribe-effects subscribe-effects))))
 
 (defn update-asset-search [state value]
   [[:effects/save [:asset-selector :search-term] (str value)]])
@@ -560,6 +569,7 @@
 
 ;; Register effects and actions
 (nxr/register-effect! :effects/save save)
+(nxr/register-effect! :effects/save-many save-many)
 (nxr/register-effect! :effects/push-state push-state)
 (nxr/register-effect! :effects/replace-state replace-state)
 (nxr/register-effect! :effects/init-websocket init-websocket)
