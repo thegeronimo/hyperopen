@@ -19,7 +19,7 @@
 - MUST execute IO only through effect interpreters (transport, timers, lifecycle hooks, logging, routing, state projections).
 - MUST NOT perform direct transport/timer/dom/log side effects inside reducers or domain message handling.
 - MUST NOT use multi-loop shared mutable writes for connection/metrics runtime ownership.
-- MUST preserve existing websocket public APIs in `/Users//projects/hyperopen/src/hyperopen/websocket/client.cljs` unless explicitly requested.
+- MUST preserve existing websocket public APIs in `/hyperopen/src/hyperopen/websocket/client.cljs` unless explicitly requested.
 - MUST maintain message/effect algebra using `RuntimeMsg` and `RuntimeEffect` style contracts.
 
 ## core.async / Channel Best Practices (MUST)
@@ -64,10 +64,10 @@
 
 ## Change Workflow for Agents
 - Read websocket runtime files before editing:
-- `/Users//projects/hyperopen/src/hyperopen/websocket/application/runtime_reducer.cljs`
-- `/Users//projects/hyperopen/src/hyperopen/websocket/application/runtime_engine.cljs`
-- `/Users//projects/hyperopen/src/hyperopen/websocket/infrastructure/runtime_effects.cljs`
-- `/Users//projects/hyperopen/src/hyperopen/websocket/client.cljs`
+- `/hyperopen/src/hyperopen/websocket/application/runtime_reducer.cljs`
+- `/hyperopen/src/hyperopen/websocket/application/runtime_engine.cljs`
+- `/hyperopen/src/hyperopen/websocket/infrastructure/runtime_effects.cljs`
+- `/hyperopen/src/hyperopen/websocket/client.cljs`
 - Add or adjust tests before finalizing large runtime behavior changes.
 - Keep compatibility adapter behavior explicit and documented.
 - Document any intentional invariant deviations in PR notes.
