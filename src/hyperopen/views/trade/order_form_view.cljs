@@ -44,28 +44,32 @@
            :on {:input on-change}}])
 
 (defn- row-input [value placeholder on-change accessory]
-  [:div {:class ["w-full"
-                 "h-11"
-                 "px-3"
-                 "bg-base-200"
-                 "border"
-                 "border-base-300"
-                 "rounded-lg"
-                 "flex"
-                 "items-center"
-                 "gap-3"]}
-   [:input {:class ["w-full"
-                    "bg-transparent"
-                    "outline-none"
-                    "text-sm"
-                    "text-gray-100"
-                    "placeholder:text-gray-500"]
+  [:div {:class ["relative" "w-full"]}
+   [:input {:class (into ["w-full"
+                          "h-11"
+                          "px-3"
+                          "bg-base-200"
+                          "border"
+                          "border-base-300"
+                          "rounded-lg"
+                          "text-sm"
+                          "text-gray-100"
+                          "placeholder:text-gray-500"
+                          "outline-none"
+                          "appearance-none"]
+                         (when accessory ["pr-16"]))
             :type "text"
             :placeholder placeholder
             :value (or value "")
             :on {:input on-change}}]
    (when accessory
-     [:div {:class ["shrink-0"]} accessory])])
+     [:div {:class ["pointer-events-none"
+                    "absolute"
+                    "right-3"
+                    "top-1/2"
+                    "-translate-y-1/2"
+                    "shrink-0"]}
+      accessory])])
 
 (defn- chip-button [label active? & {:keys [on-click disabled?]}]
   [:button {:type "button"
@@ -227,22 +231,6 @@
             :clip-rule "evenodd"
             :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"}]]])
 
-(defn- price-context-accessory [state form]
-  (let [{:keys [mid-price source]} (trading/mid-price-summary state form)
-        label (case source
-                :mid "Mid"
-                :reference "Ref"
-                nil)
-        price-text (when (number? mid-price)
-                     (or (fmt/format-trade-price mid-price)
-                         (fmt/safe-to-fixed mid-price 2)))]
-    (if price-text
-      [:div {:class ["flex" "items-center" "gap-1.5" "tabular-nums"]}
-       [:span {:class ["text-sm" "font-semibold" "text-gray-100"]} price-text]
-       (when label
-         [:span {:class ["text-xs" "font-semibold" "text-primary"]} label])]
-      [:span {:class ["text-xs" "text-gray-500"]} "N/A"])))
-
 (defn- tif-inline-control [form]
   [:div {:class ["relative" "flex" "items-center" "gap-2"]}
    [:span {:class ["text-xs" "uppercase" "tracking-wide" "text-gray-400"]} "TIF"]
@@ -284,7 +272,7 @@
         side (:side normalized-form)
         type (:type normalized-form)
         entry-mode (trading/entry-mode-for-type type)
-        limit-like? (contains? #{:limit :stop-limit :take-limit} type)
+        limit-like? (trading/limit-like-type? type)
         summary (trading/order-summary state normalized-form)
         available-to-trade (:available-to-trade summary)
         position (:current-position summary)
@@ -292,6 +280,12 @@
         max-leverage (trading/market-max-leverage state)
         next-lev (next-leverage ui-leverage max-leverage)
         size-percent (trading/clamp-percent (:size-percent normalized-form))
+        raw-price (or (:price normalized-form) "")
+        fallback-limit-price (when limit-like?
+                               (trading/effective-limit-price-string state normalized-form))
+        display-price (if (str/blank? raw-price)
+                        (or fallback-limit-price "")
+                        raw-price)
         quote-symbol (or (:quote active-market) "USDC")
         sz-decimals (or (:szDecimals active-market) 4)
         order-value (:order-value summary)
@@ -363,10 +357,10 @@
          (format-position-label position sz-decimals)]]]
 
       (when limit-like?
-        (row-input (:price normalized-form)
+        (row-input display-price
                    (str "Price (" quote-symbol ")")
                    [[:actions/update-order-form [:price] [:event.target/value]]]
-                   (price-context-accessory state normalized-form)))
+                   nil))
 
       (row-input (:size normalized-form)
                  "Size"
@@ -391,21 +385,9 @@
                       "flex"
                       "items-center"
                       "justify-center"
-                      "gap-1"
                       "tabular-nums"]}
-        [:input {:class ["w-9"
-                         "bg-transparent"
-                         "outline-none"
-                         "text-sm"
-                         "text-right"
-                         "text-gray-100"]
-                 :type "number"
-                 :min 0
-                 :max 100
-                 :step 1
-                 :value (int (js/Math.round size-percent))
-                 :on {:input [[:actions/set-order-size-percent [:event.target/value]]]}}]
-        [:span {:class ["text-sm" "font-semibold" "text-gray-100"]} "%"]]]
+        [:span {:class ["text-sm" "font-semibold" "text-gray-100"]}
+         (str (int (js/Math.round size-percent)) " %")]]]
 
       (when (#{:stop-market :stop-limit :take-market :take-limit} type)
         [:div

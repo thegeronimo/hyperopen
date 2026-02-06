@@ -7,6 +7,9 @@
 (def advanced-order-types
   [:stop-market :stop-limit :take-market :take-limit :scale :twap])
 
+(def limit-like-order-types
+  #{:limit :stop-limit :take-limit})
+
 (def tif-options [:gtc :ioc :alo])
 
 (def default-max-slippage-pct 8.0)
@@ -75,6 +78,9 @@
 (defn normalize-order-type [order-type]
   (let [candidate (if (keyword? order-type) order-type (keyword order-type))]
     (if (some #{candidate} order-types) candidate :limit)))
+
+(defn limit-like-type? [order-type]
+  (contains? limit-like-order-types (normalize-order-type order-type)))
 
 (defn entry-mode-for-type [order-type]
   (case (normalize-order-type order-type)
@@ -161,7 +167,7 @@
 
 (defn reference-price [state form]
   (let [order-type (normalize-order-type (:type form))
-        limit-price (when (contains? #{:limit :stop-limit :take-limit} order-type)
+        limit-price (when (limit-like-type? order-type)
                       (parse-num (:price form)))
         side (:side form)
         best-px (if (= side :buy)
@@ -192,6 +198,24 @@
       (number? mid) {:mid-price mid :source :mid}
       (number? ref) {:mid-price ref :source :reference}
       :else {:mid-price nil :source :none})))
+
+(defn effective-limit-price
+  "Return a deterministic fallback price for limit-like order types.
+   Prefers mid (bid/ask average), then reference price."
+  [state form]
+  (when (limit-like-type? (:type form))
+    (let [{:keys [mid-price]} (mid-price-summary state form)
+          ref (reference-price state form)]
+      (cond
+        (and (number? mid-price) (pos? mid-price)) mid-price
+        (and (number? ref) (pos? ref)) ref
+        :else nil))))
+
+(defn effective-limit-price-string
+  "String representation for deterministic limit fallback price."
+  [state form]
+  (when-let [price (effective-limit-price state form)]
+    (number->clean-string price 6)))
 
 (defn size-from-percent [state form percent]
   (let [pct (clamp-percent percent)
@@ -303,7 +327,7 @@
         sl-trigger (parse-num (get-in form [:sl :trigger]))]
     (cond-> []
       (or (nil? size) (<= size 0)) (conj "Size must be greater than 0.")
-      (and (#{:limit :stop-limit :take-limit} (:type form))
+      (and (limit-like-type? (:type form))
            (or (nil? price) (<= price 0))) (conj "Price is required for limit orders.")
       (and (#{:stop-market :stop-limit :take-market :take-limit} (:type form))
            (or (nil? trigger) (<= trigger 0))) (conj "Trigger price is required for stop/take orders.")

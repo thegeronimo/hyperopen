@@ -31,6 +31,32 @@
                          (when (= item target) idx))
                        items)))
 
+(defn- find-first-node [node pred]
+  (cond
+    (vector? node)
+    (let [attrs (when (map? (second node)) (second node))
+          children (if attrs (drop 2 node) (drop 1 node))]
+      (or (when (pred node) node)
+          (some #(find-first-node % pred) children)))
+
+    (seq? node)
+    (some #(find-first-node % pred) node)
+
+    :else nil))
+
+(defn- collect-input-attrs [node]
+  (cond
+    (vector? node)
+    (let [attrs (when (map? (second node)) (second node))
+          children (if attrs (drop 2 node) (drop 1 node))
+          self (if (= :input (first node)) [attrs] [])]
+      (into self (mapcat collect-input-attrs children)))
+
+    (seq? node)
+    (mapcat collect-input-attrs node)
+
+    :else []))
+
 (defn- base-state
   ([] (base-state {}))
   ([order-form-overrides]
@@ -87,14 +113,45 @@
     (is (not (contains? limit-strings "Slippage")))
     (is (contains? market-strings "Slippage"))))
 
-(deftest price-row-renders-mid-and-reference-fallback-labels-test
-  (let [mid-view (view/order-form-view (base-state {:type :limit}))
-        mid-strings (set (collect-strings mid-view))
-        ref-view (view/order-form-view (-> (base-state {:type :limit})
-                                           (assoc :orderbooks {})))
-        ref-strings (set (collect-strings ref-view))]
-    (is (contains? mid-strings "Mid"))
-    (is (contains? ref-strings "Ref"))))
+(deftest price-row-populates-field-value-and-hides-mid-reference-accessory-test
+  (let [view-node (view/order-form-view (base-state {:type :limit :price ""}))
+        strings (set (collect-strings view-node))
+        price-input (find-first-node view-node
+                                     (fn [node]
+                                       (let [attrs (when (map? (second node)) (second node))]
+                                         (and (= :input (first node))
+                                              (= "Price (USDC)" (:placeholder attrs))))))
+        price-attrs (second price-input)]
+    (is (some? price-input))
+    (is (seq (:value price-attrs)))
+    (is (not (contains? strings "Mid")))
+    (is (not (contains? strings "Ref")))))
+
+(deftest slider-percent-badge-is-visible-without-numeric-spinner-input-test
+  (let [view-node (view/order-form-view (base-state {:type :limit :size-percent 37}))
+        strings (collect-strings view-node)
+        input-attrs (collect-input-attrs view-node)]
+    (is (some #(re-find #"\d+\s%" %) strings))
+    (is (not-any? #(= "number" (:type %)) input-attrs))))
+
+(deftest price-and-size-rows-use-single-field-surface-test
+  (let [view-node (view/order-form-view (base-state {:type :limit :price ""}))
+        price-input (find-first-node view-node
+                                     (fn [node]
+                                       (let [attrs (when (map? (second node)) (second node))]
+                                         (and (= :input (first node))
+                                              (= "Price (USDC)" (:placeholder attrs))))))
+        size-input (find-first-node view-node
+                                    (fn [node]
+                                      (let [attrs (when (map? (second node)) (second node))]
+                                        (and (= :input (first node))
+                                             (= "Size" (:placeholder attrs))))))
+        price-class (set (:class (second price-input)))
+        size-class (set (:class (second size-input)))]
+    (is (contains? price-class "border"))
+    (is (contains? size-class "border"))
+    (is (not (contains? price-class "bg-transparent")))
+    (is (not (contains? size-class "bg-transparent")))))
 
 (deftest pro-mode-renders-advanced-controls-test
   (let [view-node (view/order-form-view (base-state {:type :stop-market}))

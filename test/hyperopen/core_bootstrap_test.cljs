@@ -185,3 +185,24 @@
         effects (core/submit-order state)
         api-submit-effects (filter #(= (first %) :effects/api-submit-order) effects)]
     (is (= 1 (count api-submit-effects)))))
+
+(deftest submit-order-limit-with-blank-price-uses-fallback-and-emits-single-submit-effect-test
+  (let [state {:active-asset "BTC"
+               :active-market {:coin "BTC" :market-type :perp}
+               :asset-contexts {:BTC {:idx 0}}
+               :orderbooks {"BTC" {:bids [{:px "99"}]
+                                   :asks [{:px "101"}]}}
+               :order-form (assoc (trading/default-order-form)
+                                  :type :limit
+                                  :side :buy
+                                  :size "1"
+                                  :price "")}
+        effects (core/submit-order state)
+        api-submit-effects (filter #(= (first %) :effects/api-submit-order) effects)
+        saved-form (some (fn [effect]
+                           (when (and (= :effects/save (first effect))
+                                      (= [:order-form] (second effect)))
+                             (nth effect 2)))
+                         effects)]
+    (is (= 1 (count api-submit-effects)))
+    (is (seq (:price saved-form)))))

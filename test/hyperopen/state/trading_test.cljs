@@ -145,3 +145,29 @@
           summary (trading/mid-price-summary state (trading/default-order-form))]
       (is (= :none (:source summary)))
       (is (nil? (:mid-price summary))))))
+
+(deftest effective-limit-price-and-string-fallback-test
+  (testing "effective limit price prefers mid when bid/ask are present"
+    (let [form (assoc (trading/default-order-form) :type :limit :price "")]
+      (is (approx= 100 (trading/effective-limit-price base-state form)))))
+
+  (testing "effective limit price falls back to reference when mid is unavailable"
+    (let [state (assoc base-state :orderbooks {})
+          form (assoc (trading/default-order-form) :type :limit :price "")]
+      (is (approx= 100 (trading/effective-limit-price state form)))))
+
+  (testing "effective limit price returns nil when no usable sources exist"
+    (let [state {:active-asset "BTC"
+                 :active-market {}
+                 :orderbooks {}
+                 :webdata2 {}}
+          form (assoc (trading/default-order-form) :type :limit :price "")]
+      (is (nil? (trading/effective-limit-price state form)))
+      (is (nil? (trading/effective-limit-price-string state form)))))
+
+  (testing "effective limit price string formatting is deterministic"
+    (let [state (assoc-in base-state [:orderbooks "BTC" :asks 0 :px] "101.25")
+          form (assoc (trading/default-order-form) :type :limit :price "")]
+      (is (= "100.125" (trading/effective-limit-price-string state form)))
+      (is (= (trading/effective-limit-price-string state form)
+             (trading/effective-limit-price-string state form))))))

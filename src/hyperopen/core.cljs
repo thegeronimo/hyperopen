@@ -621,7 +621,13 @@
         hip3? (or (:dex active-market) inferred-hip3?)
         market-form (when (= :market (:type form))
                       (trading/apply-market-price state form))
-        form* (if market-form market-form form)
+        form-with-market (if market-form market-form form)
+        form* (if (and (trading/limit-like-type? (:type form-with-market))
+                       (str/blank? (:price form-with-market)))
+                (if-let [fallback-price (trading/effective-limit-price-string state form-with-market)]
+                  (assoc form-with-market :price fallback-price)
+                  form-with-market)
+                form-with-market)
         errors (trading/validate-order-form form*)
         request (trading/build-order-request state form*)]
     (cond
