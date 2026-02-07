@@ -22,7 +22,7 @@
         status-label (if (and (= status :reconnecting) (pos? attempt))
                        (str "reconnecting (attempt " attempt ")")
                        (name status))]
-    [:footer {:class ["sticky" "bottom-0" "z-40" "isolate" "w-full" "shrink-0" "bg-base-200" "border-t" "border-base-300"]}
+    [:footer {:class ["fixed" "inset-x-0" "bottom-0" "z-40" "isolate" "w-full" "shrink-0" "bg-base-200" "border-t" "border-base-300"]}
      [:div {:class ["w-full" "app-shell-gutter" "py-2" "relative"]}
       [:div.flex.justify-between.items-center
        ;; Connection Status

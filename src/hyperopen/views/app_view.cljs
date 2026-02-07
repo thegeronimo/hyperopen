@@ -8,9 +8,10 @@
   (let [route (get-in state [:router :path] "/trade")]
     [:div.h-screen.bg-base-100.flex.flex-col
      (header-view/header-view state)
-     (case route
-       "/trade" (trade-view/trade-view state)
-       (trade-view/trade-view state))
+     [:div {:class ["flex-1" "min-h-0" "pb-12" "flex" "flex-col"]}
+      (case route
+        "/trade" (trade-view/trade-view state)
+        (trade-view/trade-view state))]
      (when-let [modal (get-in state [:funding-ui :modal])]
        [:div.fixed.inset-0.z-50.flex.items-center.justify-center
         [:div.absolute.inset-0.bg-black.opacity-50

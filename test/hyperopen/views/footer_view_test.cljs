@@ -46,10 +46,11 @@
                              view)]
     (is (nil? retry-btn))))
 
-(deftest footer-root-includes-sticky-layering-classes-test
+(deftest footer-root-includes-fixed-layering-classes-test
   (let [view (footer-view/footer-view {:websocket {:status :connected}})
         classes (root-class-set view)]
-    (is (contains? classes "sticky"))
+    (is (contains? classes "fixed"))
+    (is (contains? classes "inset-x-0"))
     (is (contains? classes "bottom-0"))
     (is (contains? classes "z-40"))
     (is (contains? classes "bg-base-200"))
