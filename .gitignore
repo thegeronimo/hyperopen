@@ -31,3 +31,11 @@ yarn-error.log*
 
 # Tailwind generated CSS
 /resources/public/css/main.css
+
+# Local tooling and temp output
+/.calva/
+/.clj-kondo/
+/.lsp/
+/out/
+/output/
+/tmp/
