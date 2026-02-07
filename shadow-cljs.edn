@@ -15,7 +15,13 @@
                    :after-load hyperopen.core/reload}}
   
   :test {:target :node-test
-         :output-to "out/test.js"}
+         :output-to "out/test.js"
+         :js-options {:resolve {"lightweight-charts" {:target :file
+                                                      :file "test/shims/lightweight_charts_stub.cjs"}}}}
+
+  :ws-test {:target :node-test
+            :output-to "out/ws-test.js"
+            :ns-regexp "^(hyperopen\\.websocket\\..*-test|hyperopen\\.wallet\\.address-watcher-test)$"}
   
   :release {:target :browser
             :output-dir "resources/public/js"

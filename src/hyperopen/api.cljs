@@ -13,6 +13,7 @@
 (defonce ^:private info-cooldown-until-ms (atom 0))
 (defonce ^:private single-flight-promises (atom {}))
 (defonce ^:private public-webdata2-cache (atom nil))
+(defonce ^:private ensure-perp-dexs-flight (atom nil))
 (defonce ^:private request-runtime
   (atom {:inflight 0
          :queues {:high []
@@ -205,6 +206,7 @@
   (reset! info-cooldown-until-ms 0)
   (reset! single-flight-promises {})
   (reset! public-webdata2-cache nil)
+  (reset! ensure-perp-dexs-flight nil)
   (reset! request-runtime
           {:inflight 0
            :queues {:high []
@@ -468,9 +470,20 @@
    (let [existing (get-in @store [:perp-dexs])]
      (if (seq existing)
        (js/Promise.resolve existing)
-       (fetch-perp-dexs! store
-                         (merge {:dedupe-key :perp-dexs}
-                                opts))))))
+       (if-let [inflight @ensure-perp-dexs-flight]
+         inflight
+         (let [tracked-ref (atom nil)
+               tracked (-> (fetch-perp-dexs! store
+                                             (merge {:dedupe-key :perp-dexs}
+                                                    opts))
+                           (.finally
+                            (fn []
+                              (let [tracked* @tracked-ref]
+                                (when (identical? @ensure-perp-dexs-flight tracked*)
+                                  (reset! ensure-perp-dexs-flight nil))))))]
+           (reset! tracked-ref tracked)
+           (reset! ensure-perp-dexs-flight tracked)
+           tracked))))))
 
 (defn ensure-spot-meta!
   ([store]

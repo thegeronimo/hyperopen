@@ -45,6 +45,23 @@ npm run build
 clj -M:dev -m shadow.cljs.devtools.cli release app
 ```
 
+### Testing
+
+Run test commands from the repository root:
+
+```bash
+npm install
+```
+
+| Command | What it does |
+| --- | --- |
+| `npm test` | Compiles the `:test` Shadow build and runs the full Node test suite (`out/test.js`). |
+| `npm run test:websocket` | Compiles the websocket-focused test build and runs only websocket/address-watcher tests. |
+| `npm run check` | Runs class-attr lint checks and compile gates for both app and test builds (no test execution). |
+| `npm run test:ci` | Runs the CI gate locally: `npm run check` followed by `npm test`. |
+| `npm run test:watch` | Watches and recompiles the `:test` build while you iterate. |
+| `npm run test:repl` | Starts a ClojureScript REPL connected to the `:test` build. |
+
 ## License
 
 GNU AGPL v3

@@ -8,6 +8,8 @@
     "build": "npm run css:build && npx shadow-cljs release app",
     "repl": "npx shadow-cljs cljs-repl app",
     "test": "shadow-cljs compile test && node out/test.js",
+    "test:ci": "npm run check && npm test",
+    "test:websocket": "shadow-cljs compile ws-test && node out/ws-test.js",
     "lint:class-attrs": "node dev/check_class_attrs.mjs",
     "check": "npm run lint:class-attrs && npx shadow-cljs compile app && npx shadow-cljs compile test",
     "test:watch": "shadow-cljs watch test",

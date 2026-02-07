@@ -117,7 +117,25 @@
 - MUST include regression tests for selection transitions from asset A -> B covering both timing and render correctness.
 - MUST pass compile gates: `npx shadow-cljs compile app` and `npx shadow-cljs compile test`.
 - MUST keep websocket-focused tests independently runnable.
-- MUST acknowledge the known full `npm test` limitation: Node import issue with `lightweight-charts` exports.
+
+## TDD Workflow (MUST)
+- MUST follow Red -> Green -> Refactor for behavior changes.
+- MUST add a failing regression test first for bug fixes before implementing code changes.
+- MUST test pure decision logic directly without IO dependencies.
+- MUST test IO boundaries with fakes/stubs and deterministic assertions.
+- MUST keep tests deterministic (no uncontrolled wall-clock, randomness, or network).
+
+## Tests As Documentation (MUST)
+- MUST use behavior-oriented test names that describe invariants and expected outcomes.
+- MUST encode fallback behavior explicitly in tests when projections can be partial.
+- MUST encode ordering guarantees in tests for interaction-critical and websocket flows.
+- MUST prefer focused tests that document one invariant each instead of broad opaque fixtures.
+
+## Definition Of Done (MUST)
+- MUST pass `npm run check`.
+- MUST pass `npm test`.
+- MUST pass `npm run test:websocket`.
+- MUST keep `/hyperopen/.github/workflows/tests.yml` required in branch protection.
 
 ## Interaction Regression Scenarios (MUST)
 - Asset select emits immediate close/projection update before unsubscribe/subscribe effects.

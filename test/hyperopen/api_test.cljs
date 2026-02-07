@@ -11,33 +11,44 @@
 
 (use-fixtures
   :each
-  (fn [f]
-    (api/reset-request-runtime!)
-    (f)
-    (api/reset-request-runtime!)))
+  {:before (fn []
+             (api/reset-request-runtime!))
+   :after (fn []
+            (api/reset-request-runtime!))})
 
 (deftest ensure-perp-dexs-single-flight-test
   (async done
     (let [store (atom {:perp-dexs []})
           calls (atom 0)
-          resolve! (atom nil)]
-      (with-redefs [hyperopen.api/fetch-perp-dexs!
-                    (fn [_ _]
-                      (swap! calls inc)
-                      (js/Promise.
-                       (fn [resolve _]
-                         (reset! resolve! resolve))))]
-        (let [p1 (api/ensure-perp-dexs! store)
-              p2 (api/ensure-perp-dexs! store)]
-          (is (identical? p1 p2))
-          (@resolve! ["dex-a"])
-          (-> (js/Promise.all #js [p1 p2])
-              (.then (fn [_]
-                       (is (= 1 @calls))
-                       (done)))
-              (.catch (fn [err]
-                        (is false (str "Unexpected error: " err))
-                        (done)))))))))
+          original-post-info hyperopen.api/post-info!]
+      (set! hyperopen.api/post-info!
+            (fn post-info-mock
+              ([body]
+               (post-info-mock body {}))
+              ([body _opts]
+               (swap! calls inc)
+               (js/Promise.resolve
+                #js {:status 200
+                     :ok true
+                     :json (fn []
+                             (js/Promise.resolve #js [#js {:name "dex-a"}]))}))
+              ([body opts _attempt]
+               (post-info-mock body opts))))
+      (let [p1 (api/ensure-perp-dexs! store)
+            p2 (api/ensure-perp-dexs! store)]
+        (is (identical? p1 p2))
+        (-> (js/Promise.all #js [p1 p2])
+            (.then (fn [results]
+                     (is (= [["dex-a"] ["dex-a"]]
+                            (js->clj results)))
+                     (is (= 1 @calls))
+                     (done)))
+            (.catch (fn [err]
+                      (is false (str "Unexpected error: " err))
+                      (done)))
+            (.finally
+              (fn []
+                (set! hyperopen.api/post-info! original-post-info))))))))
 
 (deftest scheduler-prioritizes-high-after-saturation-test
   (async done
@@ -74,21 +85,27 @@
 (deftest retry-path-reenters-scheduler-test
   (async done
     (let [enqueue-count (atom 0)
-          step (atom 0)]
-      (with-redefs [hyperopen.api/enqueue-info-request!
-                    (fn [_ _]
-                      (swap! enqueue-count inc)
-                      (let [status (if (zero? @step) 500 200)]
-                        (swap! step inc)
-                        (js/Promise.resolve (fake-response status))))
-                    hyperopen.api/wait-ms
-                    (fn [_]
-                      (js/Promise.resolve nil))]
-        (-> (@#'hyperopen.api/post-info! {"type" "perpDexs"} {:priority :high})
-            (.then (fn [resp]
-                     (is (= 2 @enqueue-count))
-                     (is (= 200 (.-status resp)))
-                     (done)))
-            (.catch (fn [err]
-                      (is false (str "Unexpected error: " err))
-                      (done))))))))
+          step (atom 0)
+          original-enqueue hyperopen.api/enqueue-info-request!
+          original-wait hyperopen.api/wait-ms]
+      (set! hyperopen.api/enqueue-info-request!
+            (fn [_ _]
+              (swap! enqueue-count inc)
+              (let [status (if (zero? @step) 500 200)]
+                (swap! step inc)
+                (js/Promise.resolve (fake-response status)))))
+      (set! hyperopen.api/wait-ms
+            (fn [_]
+              (js/Promise.resolve nil)))
+      (-> (@#'hyperopen.api/post-info! {"type" "perpDexs"} {:priority :high})
+          (.then (fn [resp]
+                   (is (= 2 @enqueue-count))
+                   (is (= 200 (.-status resp)))
+                   (done)))
+          (.catch (fn [err]
+                    (is false (str "Unexpected error: " err))
+                    (done)))
+          (.finally
+            (fn []
+              (set! hyperopen.api/enqueue-info-request! original-enqueue)
+              (set! hyperopen.api/wait-ms original-wait)))))))

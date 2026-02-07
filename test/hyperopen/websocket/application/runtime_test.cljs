@@ -138,6 +138,10 @@
                                  :topic->tier (constantly :market)
                                  :router router
                                  :stream-runtime stream-runtime})]
+      (runtime/publish-command! rt {:op :connection/connect
+                                    :ws-url "wss://example.test/ws"})
+      (runtime/publish-transport-event! rt {:event/type :socket/open
+                                            :socket-id 1})
       (runtime/publish-transport-event! rt {:event/type :socket/message
                                             :socket-id 1
                                             :raw "{\"channel\":\"trades\",\"seq\":1,\"data\":[{\"coin\":\"BTC\"}]}"})
@@ -177,6 +181,10 @@
                                  :topic->tier (constantly :lossless)
                                  :router router
                                  :stream-runtime stream-runtime})]
+      (runtime/publish-command! rt {:op :connection/connect
+                                    :ws-url "wss://example.test/ws"})
+      (runtime/publish-transport-event! rt {:event/type :socket/open
+                                            :socket-id 1})
       (runtime/publish-transport-event! rt {:event/type :socket/message
                                             :socket-id 1
                                             :raw "{\"channel\":\"userFills\",\"seq\":1,\"data\":[]}"})

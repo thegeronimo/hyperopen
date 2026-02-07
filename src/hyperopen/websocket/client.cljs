@@ -261,7 +261,8 @@
 
 (defn reset-manager-state! []
   ;; Primarily intended for tests.
-  (disconnect!)
+  (when (current-runtime)
+    (disconnect!))
   (stop-channel-runtime!)
   (reset! connection-config default-config)
   (reset! connection-state {:status :disconnected

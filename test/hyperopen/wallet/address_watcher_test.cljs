@@ -12,10 +12,10 @@
 
 (use-fixtures
   :each
-  (fn [f]
-    (reset-watcher-state!)
-    (f)
-    (reset-watcher-state!)))
+  {:before (fn []
+             (reset-watcher-state!))
+   :after (fn []
+            (reset-watcher-state!))})
 
 (deftest sync-current-address-notifies-handlers-test
   (let [store (atom {:wallet {:address "0xabc"}})

@@ -837,7 +837,8 @@
 
 ;; Wire up the render loop
 (r/set-dispatch! #(nxr/dispatch store %1 %2))
-(add-watch store ::render #(r/render (.getElementById js/document "app") (app-view/app-view %4)))
+(when (exists? js/document)
+  (add-watch store ::render #(r/render (.getElementById js/document "app") (app-view/app-view %4))))
 
 ;; Watch for WebSocket connection status changes
 (add-watch ws-client/connection-state ::ws-status
@@ -862,7 +863,8 @@
 
 (defn reload []
   (println "Reloading Hyperopen...")
-  (r/render (.getElementById js/document "app") (app-view/app-view @store)))
+  (when (exists? js/document)
+    (r/render (.getElementById js/document "app") (app-view/app-view @store))))
 
 (def ^:private deferred-bootstrap-delay-ms 1200)
 (def ^:private per-dex-stagger-ms 120)

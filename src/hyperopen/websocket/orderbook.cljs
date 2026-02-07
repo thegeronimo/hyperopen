@@ -1,29 +1,6 @@
 (ns hyperopen.websocket.orderbook
-  (:require [hyperopen.websocket.client :as ws-client]))
-
-(defn- parse-number [value]
-  (cond
-    (number? value) value
-    (string? value) (let [n (js/parseFloat value)]
-                      (when-not (js/isNaN n) n))
-    :else nil))
-
-(defn- sort-bids [bids]
-  (vec (sort-by #(or (parse-number (:px %)) 0) > bids)))
-
-(defn- sort-asks [asks]
-  ;; Keep legacy sort direction for compatibility with existing consumers.
-  (vec (sort-by #(or (parse-number (:px %)) 0) > asks)))
-
-(defn- normalize-aggregation-config [aggregation-config]
-  (let [n-sig-figs (:nSigFigs aggregation-config)]
-    (cond-> {}
-      (contains? #{2 3 4 5} n-sig-figs) (assoc :nSigFigs n-sig-figs))))
-
-(defn- build-subscription [symbol aggregation-config]
-  (merge {:type "l2Book"
-          :coin symbol}
-         (normalize-aggregation-config aggregation-config)))
+  (:require [hyperopen.websocket.client :as ws-client]
+            [hyperopen.websocket.orderbook-policy :as policy]))
 
 (defn- send-subscribe! [subscription]
   (ws-client/send-message! {:method "subscribe"
@@ -42,7 +19,7 @@
   ([symbol] (subscribe-orderbook! symbol nil))
   ([symbol aggregation-config]
    (when symbol
-     (let [desired-subscription (build-subscription symbol aggregation-config)
+     (let [desired-subscription (policy/build-subscription symbol aggregation-config)
            current-subscription (get-in @orderbook-state [:subscriptions symbol])]
        (if (= current-subscription desired-subscription)
          (println "Order book subscription unchanged for:" symbol desired-subscription)
@@ -56,7 +33,7 @@
 ;; Unsubscribe from order book for a symbol
 (defn unsubscribe-orderbook! [symbol]
   (let [subscription (or (get-in @orderbook-state [:subscriptions symbol])
-                         (build-subscription symbol nil))]
+                         (policy/build-subscription symbol nil))]
     (when symbol
       (send-unsubscribe! subscription)
       (println "Unsubscribed from order book for:" symbol))
@@ -73,8 +50,8 @@
         (when (and coin levels (>= (count levels) 2))
           (let [bids (first levels)
                 asks (second levels)
-                next-book {:bids (sort-bids bids)
-                           :asks (sort-asks asks)
+                next-book {:bids (policy/sort-bids bids)
+                           :asks (policy/sort-asks asks)
                            :timestamp (:time book-data)}]
             ;; Update local state
             (swap! orderbook-state assoc-in [:books coin] next-book)

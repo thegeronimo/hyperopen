@@ -25,10 +25,10 @@
 
 (use-fixtures
   :each
-  (fn [f]
-    (ws-client/reset-manager-state!)
-    (f)
-    (ws-client/reset-manager-state!)))
+  {:before (fn []
+             (ws-client/reset-manager-state!))
+   :after (fn []
+            (ws-client/reset-manager-state!))})
 
 (deftest init-connection-idempotent-test
   (async done
@@ -119,24 +119,25 @@
                     (fn [_ event-name handler]
                       (swap! listeners assoc event-name handler))
                     hyperopen.websocket.client/schedule-interval! (fn [& _] :watchdog)
+                    hyperopen.websocket.client/schedule-timeout! (fn [& _] :retry-timer)
                     hyperopen.websocket.client/clear-timeout! (fn [& _] nil)]
         (ws-client/init-connection! "wss://example.test/ws")
         (js/setTimeout
           (fn []
-            (swap! ws-client/connection-state assoc :status :disconnected)
-            (swap! ws-client/runtime-state assoc :socket nil :active-socket-id nil :intentional-close? false)
+            (let [socket-1 (:socket (first @created))]
+              ((aget socket-1 "onclose") (js-obj "code" 1006 "reason" "abnormal" "wasClean" false)))
             ((get @listeners "focus") nil)
             (js/setTimeout
               (fn []
                 (is (= 2 (count @created)))
-                (swap! ws-client/connection-state assoc :status :disconnected)
-                (swap! ws-client/runtime-state assoc :socket nil :active-socket-id nil :intentional-close? false)
+                (let [socket-2 (:socket (second @created))]
+                  ((aget socket-2 "onclose") (js-obj "code" 1006 "reason" "abnormal" "wasClean" false)))
                 ((get @listeners "online") nil)
                 (js/setTimeout
                   (fn []
                     (is (= 3 (count @created)))
-                    (swap! ws-client/connection-state assoc :status :disconnected)
-                    (swap! ws-client/runtime-state assoc :socket nil :active-socket-id nil :intentional-close? false)
+                    (let [socket-3 (:socket (nth @created 2))]
+                      ((aget socket-3 "onclose") (js-obj "code" 1006 "reason" "abnormal" "wasClean" false)))
                     ((get @listeners "visibilitychange") nil)
                     (js/setTimeout
                       (fn []
@@ -267,7 +268,7 @@
             (let [socket (:socket (first @created))]
               (aset socket "readyState" 1)
               ((aget socket "onopen") (js-obj)))
-            (swap! ws-client/connection-state assoc :last-activity-at-ms 0)
+            (reset! now 300000)
             (@watchdog-callback)
             (js/setTimeout
               (fn []

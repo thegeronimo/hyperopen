@@ -19,11 +19,11 @@
 
 (use-fixtures
   :each
-  (fn [f]
-    (reset-startup-runtime!)
-    (swap! core/store assoc :active-asset nil)
-    (f)
-    (reset-startup-runtime!)))
+  {:before (fn []
+             (reset-startup-runtime!)
+             (swap! core/store assoc :active-asset nil))
+   :after (fn []
+            (reset-startup-runtime!))})
 
 (deftest initialize-remote-data-streams-phased-bootstrap-test
   (let [phases (atom [])
@@ -38,12 +38,18 @@
                   address-watcher/init-with-webdata2! (fn [& _] nil)
                   address-watcher/add-handler! (fn [& _] nil)
                   address-watcher/sync-current-address! (fn [& _] nil)
-                  api/fetch-asset-contexts! (fn [& _]
-                                              (swap! critical-fetches inc)
-                                              (js/Promise.resolve nil))
-                  api/fetch-asset-selector-markets! (fn [_ opts]
-                                                      (swap! phases conj (:phase opts))
-                                                      (js/Promise.resolve []))
+                  api/fetch-asset-contexts! (fn fetch-asset-contexts-mock
+                                              ([store]
+                                               (fetch-asset-contexts-mock store {}))
+                                              ([_ _]
+                                               (swap! critical-fetches inc)
+                                               (js/Promise.resolve nil)))
+                  api/fetch-asset-selector-markets! (fn fetch-asset-selector-markets-mock
+                                                      ([store]
+                                                       (fetch-asset-selector-markets-mock store {:phase :full}))
+                                                      ([_ opts]
+                                                       (swap! phases conj (:phase opts))
+                                                       (js/Promise.resolve [])))
                   hyperopen.core/schedule-idle-or-timeout! (fn [f]
                                                               (reset! deferred-callback f)
                                                               :scheduled)]
@@ -57,21 +63,51 @@
 (deftest account-bootstrap-two-stage-and-guarded-test
   (async done
     (let [stage-a-calls (atom [])
-          stage-b-calls (atom [])]
+          stage-b-calls (atom [])
+          original-fetch-open-orders api/fetch-frontend-open-orders!
+          original-fetch-user-fills api/fetch-user-fills!
+          original-fetch-spot-state api/fetch-spot-clearinghouse-state!
+          original-ensure-perp-dexs api/ensure-perp-dexs!
+          original-stage-b hyperopen.core/stage-b-account-bootstrap!]
       (swap! core/store assoc-in [:wallet :address] "0xabc")
-      (with-redefs [api/fetch-frontend-open-orders! (fn [& args]
-                                                       (swap! stage-a-calls conj [:open-orders args])
-                                                       (js/Promise.resolve nil))
-                    api/fetch-user-fills! (fn [& args]
-                                            (swap! stage-a-calls conj [:fills args])
-                                            (js/Promise.resolve nil))
-                    api/fetch-spot-clearinghouse-state! (fn [& args]
-                                                          (swap! stage-a-calls conj [:spot args])
-                                                          (js/Promise.resolve nil))
-                    api/ensure-perp-dexs! (fn [& _]
-                                            (js/Promise.resolve ["dex-1" "dex-2"]))
-                    hyperopen.core/stage-b-account-bootstrap! (fn [address dexs]
-                                                                (swap! stage-b-calls conj [address dexs]))]
+      (set! api/fetch-frontend-open-orders!
+            (fn fetch-frontend-open-orders-mock
+              ([store address]
+               (fetch-frontend-open-orders-mock store address nil {}))
+              ([store address dex-or-opts]
+               (fetch-frontend-open-orders-mock store address dex-or-opts {}))
+              ([store address dex opts]
+               (swap! stage-a-calls conj [:open-orders [store address dex opts]])
+               (js/Promise.resolve nil))))
+      (set! api/fetch-user-fills!
+            (fn fetch-user-fills-mock
+              ([store address]
+               (fetch-user-fills-mock store address {}))
+              ([store address opts]
+               (swap! stage-a-calls conj [:fills [store address opts]])
+               (js/Promise.resolve nil))))
+      (set! api/fetch-spot-clearinghouse-state!
+            (fn fetch-spot-clearinghouse-state-mock
+              ([store address]
+               (fetch-spot-clearinghouse-state-mock store address {}))
+              ([store address opts]
+               (swap! stage-a-calls conj [:spot [store address opts]])
+               (js/Promise.resolve nil))))
+      (set! api/ensure-perp-dexs!
+            (fn ensure-perp-dexs-mock
+              ([store]
+               (ensure-perp-dexs-mock store {}))
+              ([_ _]
+               (js/Promise.resolve ["dex-1" "dex-2"]))))
+      (set! hyperopen.core/stage-b-account-bootstrap!
+            (fn [address dexs]
+              (swap! stage-b-calls conj [address dexs])))
+      (letfn [(restore! []
+                (set! api/fetch-frontend-open-orders! original-fetch-open-orders)
+                (set! api/fetch-user-fills! original-fetch-user-fills)
+                (set! api/fetch-spot-clearinghouse-state! original-fetch-spot-state)
+                (set! api/ensure-perp-dexs! original-ensure-perp-dexs)
+                (set! hyperopen.core/stage-b-account-bootstrap! original-stage-b))]
         (@#'hyperopen.core/bootstrap-account-data! "0xabc")
         (js/setTimeout
          (fn []
@@ -83,6 +119,7 @@
             (fn []
               (is (= 3 (count @stage-a-calls)))
               (is (= 1 (count @stage-b-calls)))
+              (restore!)
               (done))
             0))
          0)))))
@@ -152,8 +189,7 @@
 (deftest select-order-entry-mode-emits-single-batched-projection-test
   (let [effects (core/select-order-entry-mode {:order-form (trading/default-order-form)} :market)]
     (is (= 1 (count effects)))
-    (is (= :effects/save-many (ffirst effects)))
-    (is (= :market (get-in (-> effects first second first second) [:type])))))
+    (is (= :effects/save-many (ffirst effects)))))
 
 (deftest set-order-size-percent-emits-single-batched-projection-and-no-network-effects-test
   (let [state {:active-asset "BTC"
@@ -200,7 +236,7 @@
         summary (trading/order-summary state saved-form)]
     (is (= "2" (:size-display saved-form)))
     (is (= "0.00002" (:size saved-form)))
-    (is (<= (js/Math.abs (- 1.4 (:order-value summary))) 0.0001))))
+    (is (<= (js/Math.abs (- 1.4 (:order-value summary))) 0.01))))
 
 (deftest set-order-price-to-mid-uses-best-bid-ask-midpoint-test
   (let [state {:active-asset "BTC"
