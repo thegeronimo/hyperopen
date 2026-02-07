@@ -50,8 +50,10 @@ clj -M:dev -m shadow.cljs.devtools.cli release app
 Run test commands from the repository root:
 
 ```bash
-npm install
+npm ci
 ```
+
+> Security notice: use `npm ci` for CI and production/release builds. It installs exactly from `package-lock.json` and verifies package integrity data, failing fast on lockfile drift or integrity mismatch.
 
 | Command | What it does |
 | --- | --- |
