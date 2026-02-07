@@ -125,8 +125,9 @@
                        (ci/set-volume-data! volume-series candle-data))
                      (when (and indicator-series (seq indicators-data-vec))
                        (doseq [[idx indicator] (map-indexed vector indicators-data-vec)]
-                         (when-let [series (.-series (aget indicator-series idx))]
-                           (ci/set-indicator-data! series (:data indicator)))))
+                         (when-let [^js indicator-series-entry (aget ^js indicator-series idx)]
+                           (when-let [series (.-series indicator-series-entry)]
+                             (ci/set-indicator-data! series (:data indicator))))))
                      (when legend-control
                        (.update ^js legend-control legend-meta)))
                    :replicant.life-cycle/unmount
