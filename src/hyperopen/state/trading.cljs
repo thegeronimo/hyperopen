@@ -24,6 +24,7 @@
    :side :buy
    :ui-leverage 20
    :size-percent 0
+   :pro-order-type-dropdown-open? false
    :tpsl-panel-open? false
    :size-display ""
    :size ""
@@ -442,6 +443,7 @@
                :type final-type
                :size-display (or (:size-display form) (:size form) "")
                :size-percent (clamp-percent (:size-percent form))
+               :pro-order-type-dropdown-open? (boolean (:pro-order-type-dropdown-open? form))
                :ui-leverage (normalize-ui-leverage state (:ui-leverage form))
                :tpsl-panel-open? (boolean (:tpsl-panel-open? form))))))
 

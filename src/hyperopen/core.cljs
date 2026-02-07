@@ -541,6 +541,7 @@
 (defn select-order-entry-mode [state mode]
   (let [mode* (normalize-order-entry-mode mode)
         form (:order-form state)
+        close-pro-dropdown? (contains? #{:market :limit} mode*)
         next-type (case mode*
                     :market :market
                     :limit :limit
@@ -548,7 +549,11 @@
         normalized (trading/normalize-order-form state
                                                  (assoc form
                                                         :entry-mode mode*
-                                                        :type next-type))
+                                                        :type next-type
+                                                        :pro-order-type-dropdown-open?
+                                                        (if close-pro-dropdown?
+                                                          false
+                                                          (boolean (:pro-order-type-dropdown-open? form)))))
         next-form (-> (trading/sync-size-from-percent state normalized)
                       (assoc :error nil))]
     [[:effects/save-many [[[:order-form] next-form]]]]))
@@ -559,10 +564,23 @@
         normalized (trading/normalize-order-form state
                                                  (assoc form
                                                         :entry-mode :pro
-                                                        :type next-type))
+                                                        :type next-type
+                                                        :pro-order-type-dropdown-open? false))
         next-form (-> (trading/sync-size-from-percent state normalized)
                       (assoc :error nil))]
     [[:effects/save-many [[[:order-form] next-form]]]]))
+
+(defn toggle-pro-order-type-dropdown [state]
+  (let [open? (boolean (get-in state [:order-form :pro-order-type-dropdown-open?]))]
+    [[:effects/save-many [[[:order-form :pro-order-type-dropdown-open?] (not open?)]]]]))
+
+(defn close-pro-order-type-dropdown [_state]
+  [[:effects/save-many [[[:order-form :pro-order-type-dropdown-open?] false]]]])
+
+(defn handle-pro-order-type-dropdown-keydown [state key]
+  (if (= key "Escape")
+    (close-pro-order-type-dropdown state)
+    []))
 
 (defn set-order-ui-leverage [state leverage]
   (let [form (:order-form state)
@@ -812,6 +830,9 @@
 (nxr/register-action! :actions/set-hide-small-balances set-hide-small-balances)
 (nxr/register-action! :actions/select-order-entry-mode select-order-entry-mode)
 (nxr/register-action! :actions/select-pro-order-type select-pro-order-type)
+(nxr/register-action! :actions/toggle-pro-order-type-dropdown toggle-pro-order-type-dropdown)
+(nxr/register-action! :actions/close-pro-order-type-dropdown close-pro-order-type-dropdown)
+(nxr/register-action! :actions/handle-pro-order-type-dropdown-keydown handle-pro-order-type-dropdown-keydown)
 (nxr/register-action! :actions/set-order-ui-leverage set-order-ui-leverage)
 (nxr/register-action! :actions/set-order-size-percent set-order-size-percent)
 (nxr/register-action! :actions/set-order-size-display set-order-size-display)
@@ -839,6 +860,10 @@
 (nxr/register-placeholder! :event.target/checked
   (fn [{:replicant/keys [dom-event]}]
     (some-> dom-event .-target .-checked)))
+
+(nxr/register-placeholder! :event/key
+  (fn [{:replicant/keys [dom-event]}]
+    (some-> dom-event .-key)))
 
 ;; Wire up the render loop
 (r/set-dispatch! #(nxr/dispatch store %1 %2))

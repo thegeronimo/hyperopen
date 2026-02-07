@@ -31,13 +31,26 @@
                          (when (= item target) idx))
                        items)))
 
-(declare find-first-node)
+(declare find-first-node find-all-nodes)
 
 (defn- button-node-by-label [node label]
   (find-first-node node
                    (fn [candidate]
                      (and (= :button (first candidate))
-                          (= label (last candidate))))))
+                          (some #{label} (collect-strings candidate))))))
+
+(defn- button-node-by-click-action [node action]
+  (find-first-node node
+                   (fn [candidate]
+                     (and (= :button (first candidate))
+                          (= action (ffirst (get-in candidate [1 :on :click])))))))
+
+(defn- pro-dropdown-option-nodes [node]
+  (find-all-nodes node
+                  (fn [candidate]
+                    (and (= :button (first candidate))
+                         (= :actions/select-pro-order-type
+                            (ffirst (get-in candidate [1 :on :click])))))))
 
 (defn- find-first-node [node pred]
   (cond
@@ -152,6 +165,83 @@
         market-button (button-node-by-label view-node "Market")
         market-click (get-in market-button [1 :on :click])]
     (is (= [[:actions/select-order-entry-mode :market]] market-click))))
+
+(deftest third-tab-shows-pro-label-when-market-or-limit-mode-active-test
+  (let [market-view (view/order-form-view (base-state {:entry-mode :market
+                                                       :type :market
+                                                       :pro-order-type-dropdown-open? false}))
+        limit-view (view/order-form-view (base-state {:entry-mode :limit
+                                                      :type :limit
+                                                      :pro-order-type-dropdown-open? false}))
+        market-pro-button (button-node-by-click-action market-view :actions/toggle-pro-order-type-dropdown)
+        limit-pro-button (button-node-by-click-action limit-view :actions/toggle-pro-order-type-dropdown)]
+    (is (some #{"Pro"} (collect-strings market-pro-button)))
+    (is (some #{"Pro"} (collect-strings limit-pro-button)))))
+
+(deftest third-tab-shows-selected-pro-type-label-when-pro-mode-active-test
+  (let [view-node (view/order-form-view (base-state {:entry-mode :pro
+                                                      :type :scale
+                                                      :pro-order-type-dropdown-open? false}))
+        pro-button (button-node-by-click-action view-node :actions/toggle-pro-order-type-dropdown)
+        labels (set (collect-strings pro-button))]
+    (is (contains? labels "Scale"))
+    (is (not (contains? labels "Pro")))))
+
+(deftest third-tab-click-dispatches-toggle-pro-dropdown-action-test
+  (let [view-node (view/order-form-view (base-state {:entry-mode :limit :type :limit}))
+        pro-button (button-node-by-click-action view-node :actions/toggle-pro-order-type-dropdown)
+        pro-click (get-in pro-button [1 :on :click])]
+    (is (= [[:actions/toggle-pro-order-type-dropdown]] pro-click))))
+
+(deftest pro-dropdown-renders-only-when-open-flag-is-true-test
+  (let [closed-view (view/order-form-view (base-state {:entry-mode :limit
+                                                        :type :limit
+                                                        :pro-order-type-dropdown-open? false}))
+        open-view (view/order-form-view (base-state {:entry-mode :limit
+                                                     :type :limit
+                                                     :pro-order-type-dropdown-open? true}))
+        closed-options (pro-dropdown-option-nodes closed-view)
+        open-options (pro-dropdown-option-nodes open-view)]
+    (is (= 0 (count closed-options)))
+    (is (= 6 (count open-options)))))
+
+(deftest pro-dropdown-renders-options-in-hyperliquid-order-test
+  (let [view-node (view/order-form-view (base-state {:entry-mode :limit
+                                                      :type :limit
+                                                      :pro-order-type-dropdown-open? true}))
+        option-labels (mapv (comp first collect-strings) (pro-dropdown-option-nodes view-node))]
+    (is (= ["Scale" "Stop Limit" "Stop Market" "Take Limit" "Take Market" "TWAP"]
+           option-labels))))
+
+(deftest pro-dropdown-option-dispatches-select-pro-order-type-payload-test
+  (let [view-node (view/order-form-view (base-state {:entry-mode :limit
+                                                      :type :limit
+                                                      :pro-order-type-dropdown-open? true}))
+        first-option (first (pro-dropdown-option-nodes view-node))
+        first-option-click (get-in first-option [1 :on :click])]
+    (is (= [[:actions/select-pro-order-type :scale]] first-option-click))))
+
+(deftest pro-dropdown-overlay-click-dispatches-close-action-test
+  (let [view-node (view/order-form-view (base-state {:entry-mode :limit
+                                                      :type :limit
+                                                      :pro-order-type-dropdown-open? true}))
+        overlay (find-first-node view-node
+                                 (fn [candidate]
+                                   (and (= :div (first candidate))
+                                        (= [[:actions/close-pro-order-type-dropdown]]
+                                           (get-in candidate [1 :on :click]))
+                                        (contains? (set (get-in candidate [1 :class])) "fixed"))))
+        overlay-click (get-in overlay [1 :on :click])]
+    (is (= [[:actions/close-pro-order-type-dropdown]] overlay-click))))
+
+(deftest pro-dropdown-escape-key-dispatches-keydown-action-test
+  (let [view-node (view/order-form-view (base-state {:entry-mode :limit
+                                                      :type :limit
+                                                      :pro-order-type-dropdown-open? true}))
+        pro-button (button-node-by-click-action view-node :actions/toggle-pro-order-type-dropdown)
+        keydown (get-in pro-button [1 :on :keydown])]
+    (is (= [[:actions/handle-pro-order-type-dropdown-keydown [:event/key]]]
+           keydown))))
 
 (deftest limit-mode-renders-price-before-size-test
   (let [view-node (view/order-form-view (base-state {:type :limit}))
@@ -328,8 +418,8 @@
 (deftest pro-mode-renders-advanced-controls-test
   (let [view-node (view/order-form-view (base-state {:type :stop-market}))
         strings (set (collect-strings view-node))]
-    (is (contains? strings "Pro Order Type"))
     (is (contains? strings "Stop Market"))
+    (is (not (contains? strings "Pro Order Type")))
     (is (contains? strings "Trigger"))))
 
 (deftest toggle-checkboxes-use-green-checked-state-with-lighter-hover-test

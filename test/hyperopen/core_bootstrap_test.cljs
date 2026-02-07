@@ -200,23 +200,32 @@
     (is (not-any? #(= (first %) :effects/fetch-candle-snapshot) effects))))
 
 (deftest select-order-entry-mode-market-emits-single-batched-projection-test
-  (let [effects (core/select-order-entry-mode {:order-form (trading/default-order-form)} :market)
+  (let [state {:order-form (assoc (trading/default-order-form)
+                                  :entry-mode :pro
+                                  :type :stop-market
+                                  :pro-order-type-dropdown-open? true)}
+        effects (core/select-order-entry-mode state :market)
         saved-form (extract-saved-order-form effects)]
     (is (= 1 (count effects)))
     (is (= :effects/save-many (ffirst effects)))
     (is (map? saved-form))
     (is (= :market (:entry-mode saved-form)))
-    (is (= :market (:type saved-form)))))
+    (is (= :market (:type saved-form)))
+    (is (= false (:pro-order-type-dropdown-open? saved-form)))))
 
 (deftest select-order-entry-mode-limit-forces-limit-type-test
-  (let [state {:order-form (assoc (trading/default-order-form) :type :stop-limit :entry-mode :pro)}
+  (let [state {:order-form (assoc (trading/default-order-form)
+                                  :type :stop-limit
+                                  :entry-mode :pro
+                                  :pro-order-type-dropdown-open? true)}
         effects (core/select-order-entry-mode state :limit)
         saved-form (extract-saved-order-form effects)]
     (is (= 1 (count effects)))
     (is (= :effects/save-many (ffirst effects)))
     (is (map? saved-form))
     (is (= :limit (:entry-mode saved-form)))
-    (is (= :limit (:type saved-form)))))
+    (is (= :limit (:type saved-form)))
+    (is (= false (:pro-order-type-dropdown-open? saved-form)))))
 
 (deftest select-order-entry-mode-pro-sets-pro-entry-and-normalized-pro-type-test
   (let [state {:order-form (assoc (trading/default-order-form) :type :limit)}
@@ -227,6 +236,43 @@
     (is (map? saved-form))
     (is (= :pro (:entry-mode saved-form)))
     (is (= :stop-market (:type saved-form)))))
+
+(deftest select-pro-order-type-closes-dropdown-and-persists-pro-selection-test
+  (let [state {:order-form (assoc (trading/default-order-form)
+                                  :entry-mode :pro
+                                  :type :stop-market
+                                  :pro-order-type-dropdown-open? true)}
+        effects (core/select-pro-order-type state :scale)
+        saved-form (extract-saved-order-form effects)]
+    (is (= 1 (count effects)))
+    (is (= :effects/save-many (ffirst effects)))
+    (is (= :pro (:entry-mode saved-form)))
+    (is (= :scale (:type saved-form)))
+    (is (= false (:pro-order-type-dropdown-open? saved-form)))))
+
+(deftest toggle-pro-order-type-dropdown-flips-open-flag-test
+  (let [closed-state {:order-form (assoc (trading/default-order-form) :pro-order-type-dropdown-open? false)}
+        open-state {:order-form (assoc (trading/default-order-form) :pro-order-type-dropdown-open? true)}
+        closed-effects (core/toggle-pro-order-type-dropdown closed-state)
+        open-effects (core/toggle-pro-order-type-dropdown open-state)]
+    (is (= [[:effects/save-many [[[:order-form :pro-order-type-dropdown-open?] true]]]]
+           closed-effects))
+    (is (= [[:effects/save-many [[[:order-form :pro-order-type-dropdown-open?] false]]]]
+           open-effects))))
+
+(deftest close-pro-order-type-dropdown-forces-open-flag-false-test
+  (let [state {:order-form (assoc (trading/default-order-form) :pro-order-type-dropdown-open? true)}
+        effects (core/close-pro-order-type-dropdown state)]
+    (is (= [[:effects/save-many [[[:order-form :pro-order-type-dropdown-open?] false]]]]
+           effects))))
+
+(deftest handle-pro-order-type-dropdown-keydown-closes-only-on-escape-test
+  (let [state {:order-form (assoc (trading/default-order-form) :pro-order-type-dropdown-open? true)}
+        escape-effects (core/handle-pro-order-type-dropdown-keydown state "Escape")
+        enter-effects (core/handle-pro-order-type-dropdown-keydown state "Enter")]
+    (is (= [[:effects/save-many [[[:order-form :pro-order-type-dropdown-open?] false]]]]
+           escape-effects))
+    (is (= [] enter-effects))))
 
 (deftest set-order-size-percent-emits-single-batched-projection-and-no-network-effects-test
   (let [state {:active-asset "BTC"

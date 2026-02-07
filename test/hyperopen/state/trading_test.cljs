@@ -55,6 +55,15 @@
 (deftest default-order-form-uses-limit-entry-mode-test
   (is (= :limit (:entry-mode (trading/default-order-form)))))
 
+(deftest normalize-order-form-defaults-pro-order-type-dropdown-open-flag-to-false-test
+  (let [without-flag (-> (trading/default-order-form)
+                         (dissoc :pro-order-type-dropdown-open?))
+        nil-flag (assoc (trading/default-order-form) :pro-order-type-dropdown-open? nil)
+        normalized-without-flag (trading/normalize-order-form base-state without-flag)
+        normalized-nil-flag (trading/normalize-order-form base-state nil-flag)]
+    (is (= false (:pro-order-type-dropdown-open? normalized-without-flag)))
+    (is (= false (:pro-order-type-dropdown-open? normalized-nil-flag)))))
+
 (deftest normalize-order-form-keeps-entry-mode-and-type-consistent-test
   (let [market-form (trading/normalize-order-form base-state {:entry-mode :market
                                                                :type :limit

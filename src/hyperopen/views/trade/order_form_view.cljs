@@ -123,18 +123,6 @@
             :on {:click on-click}}
    label])
 
-(defn- entry-mode-tabs [entry-mode]
-  [:div {:class ["flex" "items-center" "border-b" "border-base-300"]}
-   (mode-button "Market"
-                (= entry-mode :market)
-                [[:actions/select-order-entry-mode :market]])
-   (mode-button "Limit"
-                (= entry-mode :limit)
-                [[:actions/select-order-entry-mode :limit]])
-   (mode-button "Pro"
-                (= entry-mode :pro)
-                [[:actions/select-order-entry-mode :pro]])])
-
 (defn- order-type-label [order-type]
   (case order-type
     :stop-market "Stop Market"
@@ -145,8 +133,85 @@
     :twap "TWAP"
     "Stop Market"))
 
-(defn- pro-order-types []
-  [:stop-market :stop-limit :take-market :take-limit :scale :twap])
+(defn- pro-dropdown-options []
+  [:scale :stop-limit :stop-market :take-limit :take-market :twap])
+
+(defn- pro-tab-label [entry-mode order-type]
+  (if (= entry-mode :pro)
+    (order-type-label order-type)
+    "Pro"))
+
+(defn- pro-dropdown-open? [form]
+  (boolean (:pro-order-type-dropdown-open? form)))
+
+(defn- entry-mode-tabs [entry-mode order-type pro-dropdown-open?]
+  [:div {:class ["relative"]}
+   (when pro-dropdown-open?
+     [:div {:class ["fixed" "inset-0" "z-[180]"]
+            :on {:click [[:actions/close-pro-order-type-dropdown]]}}])
+   [:div {:class ["relative" "z-[190]" "flex" "items-center" "border-b" "border-base-300"]}
+    (mode-button "Market"
+                 (= entry-mode :market)
+                 [[:actions/select-order-entry-mode :market]])
+    (mode-button "Limit"
+                 (= entry-mode :limit)
+                 [[:actions/select-order-entry-mode :limit]])
+    [:div {:class ["relative" "flex-1"]}
+     [:button {:type "button"
+               :class (into ["w-full"
+                             "h-10"
+                             "text-sm"
+                             "font-medium"
+                             "border-b-2"
+                             "transition-colors"
+                             "inline-flex"
+                             "items-center"
+                             "justify-center"
+                             "gap-1.5"]
+                            (if (= entry-mode :pro)
+                              ["text-gray-100" "border-primary"]
+                              ["text-gray-400" "border-transparent" "hover:text-gray-200"]))
+               :on {:click [[:actions/toggle-pro-order-type-dropdown]]
+                    :keydown [[:actions/handle-pro-order-type-dropdown-keydown [:event/key]]]}}
+      [:span (pro-tab-label entry-mode order-type)]
+      [:svg {:class (into ["h-3.5" "w-3.5" "transition-transform"]
+                          (if pro-dropdown-open?
+                            ["rotate-180"]
+                            ["rotate-0"]))
+             :viewBox "0 0 20 20"
+             :fill "currentColor"}
+       [:path {:fill-rule "evenodd"
+               :clip-rule "evenodd"
+               :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"}]]
+      ]
+     (when pro-dropdown-open?
+       [:div {:class ["absolute"
+                      "right-0"
+                      "top-full"
+                      "mt-1"
+                      "w-36"
+                      "overflow-hidden"
+                      "rounded-lg"
+                      "border"
+                      "border-base-300"
+                      "bg-base-100"
+                      "shadow-lg"
+                      "z-[210]"]}
+        (for [pro-order-type (pro-dropdown-options)]
+          ^{:key (name pro-order-type)}
+          [:button {:type "button"
+                    :class (into ["block"
+                                  "w-full"
+                                  "px-3"
+                                  "py-2"
+                                  "text-left"
+                                  "text-sm"
+                                  "transition-colors"]
+                                 (if (= order-type pro-order-type)
+                                   ["bg-base-200" "text-gray-100"]
+                                   ["text-gray-300" "hover:bg-base-200" "hover:text-gray-100"]))
+                    :on {:click [[:actions/select-pro-order-type pro-order-type]]}}
+           (order-type-label pro-order-type)])])]]])
 
 (defn- next-leverage [current-leverage max-leverage]
   (let [cap (or max-leverage (last leverage-presets))
@@ -198,25 +263,6 @@
                           [value-class]
                           ["text-gray-100"]))}
     value]]))
-
-(defn- pro-order-type-select [form]
-  [:div
-   (section-label "Pro Order Type")
-   [:select {:class ["w-full"
-                     "h-10"
-                     "px-3"
-                     "bg-base-200"
-                     "border"
-                     "border-base-300"
-                     "rounded-lg"
-                     "text-sm"
-                     "text-gray-100"]
-             :value (name (trading/normalize-pro-order-type (:type form)))
-             :on {:change [[:actions/select-pro-order-type [:event.target/value]]]}}
-    (for [order-type (pro-order-types)]
-      ^{:key (name order-type)}
-      [:option {:value (name order-type)}
-       (order-type-label order-type)])]])
 
 (defn- tp-sl-panel [form]
   [:div {:class ["space-y-2"]}
@@ -330,6 +376,7 @@
         side (:side normalized-form)
         type (:type normalized-form)
         entry-mode (:entry-mode normalized-form)
+        pro-dropdown-open?* (pro-dropdown-open? normalized-form)
         market-mode? (= entry-mode :market)
         pro-mode? (= entry-mode :pro)
         show-limit-like-controls? (and (not market-mode?) (trading/limit-like-type? type))
@@ -387,10 +434,7 @@
                     :on-click [[:actions/set-order-ui-leverage next-lev]])
        (chip-button "Classic" true :disabled? true)]
 
-      (entry-mode-tabs entry-mode)
-
-      (when pro-mode?
-        (pro-order-type-select normalized-form))
+      (entry-mode-tabs entry-mode type pro-dropdown-open?*)
 
       [:div {:class ["flex" "items-center" "gap-2" "bg-base-200" "rounded-md" "p-1"]}
        (side-button "Buy / Long"
