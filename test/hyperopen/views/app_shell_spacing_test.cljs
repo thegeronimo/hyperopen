@@ -99,4 +99,9 @@
 
 (deftest footer-view-uses-app-shell-gutter-test
   (let [view-node (footer-view/footer-view {:websocket {:status :connected}})]
-    (is (contains-class? view-node "app-shell-gutter"))))
+    (is (contains-class? view-node "app-shell-gutter"))
+    (is (contains-class? view-node "sticky"))
+    (is (contains-class? view-node "bottom-0"))
+    (is (contains-class? view-node "z-40"))
+    (is (contains-class? view-node "bg-base-200"))
+    (is (contains-class? view-node "isolate"))))
