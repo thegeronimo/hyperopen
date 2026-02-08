@@ -110,6 +110,21 @@
         trimmed (some-> s str/trim)]
     (when (seq trimmed) trimmed)))
 
+(defn- base-symbol-from-value [value]
+  (let [text (non-blank-string value)]
+    (cond
+      (and text (str/includes? text "/"))
+      (non-blank-string (first (str/split text #"/" 2)))
+
+      (and text (str/includes? text ":"))
+      (non-blank-string (second (str/split text #":" 2)))
+
+      (and text (str/includes? text "-"))
+      (non-blank-string (first (str/split text #"-" 2)))
+
+      :else
+      text)))
+
 (defn- chip-button [label active? & {:keys [on-click disabled?]}]
   [:button {:type "button"
             :disabled (boolean disabled?)
@@ -353,6 +368,24 @@
         (non-blank-string (second (str/split active-asset #"/" 2))))
       "USDC"))
 
+(defn- resolve-base-symbol [active-asset active-market]
+  (or (base-symbol-from-value active-asset)
+      (non-blank-string (:base active-market))
+      (base-symbol-from-value (:coin active-market))
+      (base-symbol-from-value (:symbol active-market))
+      "Asset"))
+
+(defn- format-scale-preview-line [state edge raw-price base-symbol quote-symbol]
+  (let [size (when (map? edge) (:size edge))
+        price (when (map? edge) (:price edge))
+        formatted-size (when (number? size)
+                         (trading/base-size-string state size))
+        formatted-price (when (number? price)
+                          (fmt/format-trade-price-plain price raw-price))]
+    (if (and (seq formatted-size) (seq formatted-price))
+      (str formatted-size " " base-symbol " @ " formatted-price " " quote-symbol)
+      "N/A")))
+
 (defn- price-context-accessory [state form]
   (let [{:keys [source]} (trading/mid-price-summary state form)
         mid-available? (= :mid source)]
@@ -425,8 +458,21 @@
         display-price (if (str/blank? raw-price)
                         (or fallback-limit-price "")
                         raw-price)
-        quote-symbol (resolve-quote-symbol active-asset active-market)
         sz-decimals (or (:szDecimals active-market) 4)
+        base-symbol (resolve-base-symbol active-asset active-market)
+        quote-symbol (resolve-quote-symbol active-asset active-market)
+        scale-preview (when (= :scale type)
+                        (trading/scale-preview-boundaries normalized-form {:sz-decimals sz-decimals}))
+        start-preview-line (format-scale-preview-line state
+                                                      (:start scale-preview)
+                                                      (get-in normalized-form [:scale :start])
+                                                      base-symbol
+                                                      quote-symbol)
+        end-preview-line (format-scale-preview-line state
+                                                    (:end scale-preview)
+                                                    (get-in normalized-form [:scale :end])
+                                                    base-symbol
+                                                    quote-symbol)
         order-value (:order-value summary)
         margin-required (:margin-required summary)
         size-display (:size-display normalized-form)
@@ -616,6 +662,11 @@
                     [[:actions/update-order-form [:post-only] [:event.target/checked]]]))
 
       [:div {:class ["flex-1"]}]
+
+      (when (= :scale type)
+        [:div {:class ["space-y-1.5"]}
+         (metric-row "Start" start-preview-line)
+         (metric-row "End" end-preview-line)])
 
       [:div {:class ["border-t" "border-base-300" "pt-3" "space-y-2"]}
        (metric-row "Liquidation Price"

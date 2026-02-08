@@ -1,5 +1,6 @@
 (ns hyperopen.views.trade.order-form-view-test
-  (:require [cljs.test :refer-macros [deftest is]]
+  (:require [clojure.string :as str]
+            [cljs.test :refer-macros [deftest is]]
             [hyperopen.state.trading :as trading]
             [hyperopen.views.trade.order-form-view :as view]))
 
@@ -88,6 +89,22 @@
                                       (contains? (set (get-in % [1 :class]))
                                                  "tabular-nums"))
                                 (drop (if (map? (second candidate)) 2 1) candidate))))))
+
+(defn- metric-value-text [node label]
+  (let [row (metric-value-node-by-label node label)
+        attrs (when (map? (second row)) (second row))
+        children (if attrs (drop 2 row) (drop 1 row))
+        value-span (some #(when (and (vector? %)
+                                     (= :span (first %))
+                                     (contains? (set (get-in % [1 :class]))
+                                                "tabular-nums"))
+                            %)
+                         children)]
+    (first (collect-strings value-span))))
+
+(defn- preview-leading-size [text]
+  (js/parseFloat (or (first (str/split (or text "") #" " 2))
+                     "")))
 
 (defn- collect-input-attrs [node]
   (cond
@@ -428,6 +445,91 @@
     (is (contains? tokens "Total Orders"))
     (is (contains? tokens "Size Skew"))
     (is (not (contains? tokens "Order count")))))
+
+(deftest scale-mode-renders-start-and-end-preview-rows-test
+  (let [view-node (view/order-form-view (base-state {:type :scale
+                                                      :size "13.8"
+                                                      :scale {:start "80"
+                                                              :end "60"
+                                                              :count 20
+                                                              :skew "1.00"}}))
+        strings (set (collect-strings view-node))]
+    (is (contains? strings "Start"))
+    (is (contains? strings "End"))))
+
+(deftest scale-preview-rows-render-formatted-boundary-values-test
+  (let [view-node (view/order-form-view (base-state {:type :scale
+                                                      :size "13.8"
+                                                      :scale {:start "80"
+                                                              :end "60"
+                                                              :count 20
+                                                              :skew "1.00"}}))]
+    (is (= "0.6899 BTC @ 80.00 USDC" (metric-value-text view-node "Start")))
+    (is (= "0.6899 BTC @ 60.00 USDC" (metric-value-text view-node "End")))))
+
+(deftest scale-preview-rows-render-na-when-inputs-are-incomplete-test
+  (let [view-node (view/order-form-view (base-state {:type :scale
+                                                      :size "13.8"
+                                                      :scale {:start ""
+                                                              :end "60"
+                                                              :count 20
+                                                              :skew "1.00"}}))]
+    (is (= "N/A" (metric-value-text view-node "Start")))
+    (is (= "N/A" (metric-value-text view-node "End")))))
+
+(deftest scale-preview-rows-use-active-asset-as-canonical-base-symbol-fallback-test
+  (let [state (-> (base-state {:type :scale
+                               :size "13.8"
+                               :scale {:start "80"
+                                       :end "60"
+                                       :count 20
+                                       :skew "1.00"}})
+                  (assoc :active-asset "SOL")
+                  (assoc :active-market {:quote "USDC"
+                                         :mark 100
+                                         :maxLeverage 40
+                                         :market-type :perp
+                                         :szDecimals 4}))
+        view-node (view/order-form-view state)]
+    (is (= "0.6899 SOL @ 80.00 USDC" (metric-value-text view-node "Start")))
+    (is (= "0.6899 SOL @ 60.00 USDC" (metric-value-text view-node "End")))))
+
+(deftest scale-preview-values-follow-linear-ramp-ratio-test
+  (let [view-node (view/order-form-view (base-state {:type :scale
+                                                      :size "9.45"
+                                                      :scale {:start "80"
+                                                              :end "70"
+                                                              :count 20
+                                                              :skew "2"}}))
+        start-size (preview-leading-size (metric-value-text view-node "Start"))
+        end-size (preview-leading-size (metric-value-text view-node "End"))]
+    (is (number? start-size))
+    (is (number? end-size))
+    (is (<= (js/Math.abs (- 2 (/ end-size start-size))) 0.01))))
+
+(deftest scale-preview-high-skew-front-size-near-zero-test
+  (let [view-node (view/order-form-view (base-state {:type :scale
+                                                      :size "9.45"
+                                                      :scale {:start "80"
+                                                              :end "70"
+                                                              :count 20
+                                                              :skew "50"}}))
+        start-size (preview-leading-size (metric-value-text view-node "Start"))
+        end-size (preview-leading-size (metric-value-text view-node "End"))]
+    (is (< start-size 0.03))
+    (is (> end-size 0.9))))
+
+(deftest scale-preview-low-skew-back-size-smaller-test
+  (let [view-node (view/order-form-view (base-state {:type :scale
+                                                      :size "9.45"
+                                                      :scale {:start "80"
+                                                              :end "70"
+                                                              :count 20
+                                                              :skew "0.25"}}))
+        start-size (preview-leading-size (metric-value-text view-node "Start"))
+        end-size (preview-leading-size (metric-value-text view-node "End"))]
+    (is (> start-size 0.7))
+    (is (< end-size 0.2))))
 
 (deftest size-skew-input-dispatch-path-test
   (let [view-node (view/order-form-view (base-state {:type :scale}))

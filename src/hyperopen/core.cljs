@@ -707,7 +707,7 @@
                   (assoc form-with-market :price fallback-price)
                   form-with-market)
                 form-with-market)
-        errors (trading/validate-order-form form*)
+        errors (trading/validate-order-form state form*)
         request (trading/build-order-request state form*)]
     (cond
       spot?

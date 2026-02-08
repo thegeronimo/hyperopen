@@ -23,6 +23,10 @@
    :front 0.5
    :back 2.0})
 
+(def scale-min-order-count 2)
+(def scale-max-order-count 100)
+(def scale-min-endpoint-notional 10)
+
 (defn default-order-form []
   {:entry-mode :limit
    :type :limit
@@ -89,7 +93,8 @@
 (defn- valid-scale-skew? [value]
   (let [parsed (parse-scale-skew-number value)]
     (and (number? parsed)
-         (<= 0 parsed 100))))
+         (> parsed 0)
+         (<= parsed 100))))
 
 (defn- number->clean-string [value decimals]
   (let [safe-decimals (-> (or decimals 4)
@@ -113,6 +118,36 @@
      :end (or (:end raw-scale) "")
      :count (or (:count raw-scale) 5)
      :skew normalized-skew}))
+
+(defn- normalize-scale-order-count [count]
+  (when-let [parsed (parse-num count)]
+    (-> parsed
+        int
+        (max scale-min-order-count)
+        (min scale-max-order-count))))
+
+(defn- valid-scale-order-count? [count]
+  (when-let [parsed (parse-num count)]
+    (and (>= parsed scale-min-order-count)
+         (<= parsed scale-max-order-count))))
+
+(defn- normalize-scale-sz-decimals [sz-decimals]
+  (let [parsed (parse-num sz-decimals)]
+    (-> (or parsed 8)
+        (max 0)
+        (min 8)
+        int)))
+
+(defn- floor-size-to-decimals [size sz-decimals]
+  (if (and (number? size)
+           (not (js/isNaN size))
+           (js/isFinite size)
+           (>= size 0))
+    (let [factor (js/Math.pow 10 (normalize-scale-sz-decimals sz-decimals))]
+      (/ (js/Math.floor (* size factor)) factor))
+    0))
+
+(declare scale-order-legs)
 
 (defn normalize-order-type [order-type]
   (let [candidate (if (keyword? order-type) order-type (keyword order-type))]
@@ -514,38 +549,69 @@
      :slippage-max default-max-slippage-pct
      :fees default-fees}))
 
-(defn validate-order-form [form]
-  (let [size (parse-num (:size form))
-        price (parse-num (:price form))
-        trigger (parse-num (:trigger-px form))
-        scale-start (parse-num (get-in form [:scale :start]))
-        scale-end (parse-num (get-in form [:scale :end]))
-        scale-count (parse-num (get-in form [:scale :count]))
-        scale-skew (get-in form [:scale :skew])
-        twap-min (parse-num (get-in form [:twap :minutes]))
-        tp-enabled? (get-in form [:tp :enabled?])
-        sl-enabled? (get-in form [:sl :enabled?])
-        tp-trigger (parse-num (get-in form [:tp :trigger]))
-        sl-trigger (parse-num (get-in form [:sl :trigger]))]
-    (cond-> []
-      (or (nil? size) (<= size 0)) (conj "Size must be greater than 0.")
-      (and (limit-like-type? (:type form))
-           (or (nil? price) (<= price 0))) (conj "Price is required for limit orders.")
-      (and (#{:stop-market :stop-limit :take-market :take-limit} (:type form))
-           (or (nil? trigger) (<= trigger 0))) (conj "Trigger price is required for stop/take orders.")
-      (and (= :scale (:type form))
-           (or (nil? scale-start) (nil? scale-end) (<= scale-count 1)))
-      (conj "Scale orders need start/end prices and count > 1.")
-      (and (= :scale (:type form))
-           (not (valid-scale-skew? scale-skew)))
-      (conj "Scale skew must be a number between 0 and 100.")
-      (and (= :twap (:type form))
-           (or (nil? twap-min) (<= twap-min 0)))
-      (conj "TWAP minutes must be greater than 0.")
-      (and tp-enabled? (or (nil? tp-trigger) (<= tp-trigger 0)))
-      (conj "TP trigger price is required when TP is enabled.")
-      (and sl-enabled? (or (nil? sl-trigger) (<= sl-trigger 0)))
-      (conj "SL trigger price is required when SL is enabled."))))
+(defn validate-order-form
+  ([form]
+   (validate-order-form nil form))
+  ([state form]
+   (let [size (parse-num (:size form))
+         price (parse-num (:price form))
+         trigger (parse-num (:trigger-px form))
+         scale-start (parse-num (get-in form [:scale :start]))
+         scale-end (parse-num (get-in form [:scale :end]))
+         scale-count (parse-num (get-in form [:scale :count]))
+         scale-skew (get-in form [:scale :skew])
+         scale-sz-decimals (or (get-in state [:active-market :szDecimals])
+                               (:sz-decimals form)
+                               (get-in form [:scale :sz-decimals]))
+         scale-legs (when (= :scale (:type form))
+                      (scale-order-legs size
+                                        scale-count
+                                        scale-skew
+                                        scale-start
+                                        scale-end
+                                        {:sz-decimals scale-sz-decimals}))
+         start-leg (first scale-legs)
+         end-leg (last scale-legs)
+         start-notional (when (and (map? start-leg)
+                                   (number? (:price start-leg))
+                                   (number? (:size start-leg)))
+                          (* (:price start-leg) (:size start-leg)))
+         end-notional (when (and (map? end-leg)
+                                 (number? (:price end-leg))
+                                 (number? (:size end-leg)))
+                        (* (:price end-leg) (:size end-leg)))
+         twap-min (parse-num (get-in form [:twap :minutes]))
+         tp-enabled? (get-in form [:tp :enabled?])
+         sl-enabled? (get-in form [:sl :enabled?])
+         tp-trigger (parse-num (get-in form [:tp :trigger]))
+         sl-trigger (parse-num (get-in form [:sl :trigger]))]
+     (cond-> []
+       (or (nil? size) (<= size 0)) (conj "Size must be greater than 0.")
+       (and (limit-like-type? (:type form))
+            (or (nil? price) (<= price 0))) (conj "Price is required for limit orders.")
+       (and (#{:stop-market :stop-limit :take-market :take-limit} (:type form))
+            (or (nil? trigger) (<= trigger 0))) (conj "Trigger price is required for stop/take orders.")
+       (and (= :scale (:type form))
+            (or (nil? scale-start)
+                (nil? scale-end)
+                (not (valid-scale-order-count? scale-count))))
+       (conj "Scale orders need start/end prices and count between 2 and 100.")
+       (and (= :scale (:type form))
+            (not (valid-scale-skew? scale-skew)))
+       (conj "Scale skew must be greater than 0 and at most 100.")
+       (and (= :scale (:type form))
+            (or (nil? start-notional)
+                (nil? end-notional)
+                (< start-notional scale-min-endpoint-notional)
+                (< end-notional scale-min-endpoint-notional)))
+       (conj "Scale start/end orders must each be at least 10 in order value.")
+       (and (= :twap (:type form))
+            (or (nil? twap-min) (<= twap-min 0)))
+       (conj "TWAP minutes must be greater than 0.")
+       (and tp-enabled? (or (nil? tp-trigger) (<= tp-trigger 0)))
+       (conj "TP trigger price is required when TP is enabled.")
+       (and sl-enabled? (or (nil? sl-trigger) (<= sl-trigger 0)))
+       (conj "SL trigger price is required when SL is enabled.")))))
 
 (defn order-side->is-buy [side]
   (= side :buy))
@@ -554,38 +620,87 @@
   (if (= side :buy) :sell :buy))
 
 (defn scale-weights [count skew]
-  (let [n (max 1 (int count))
-        exponent (- (normalize-scale-skew-number skew) 1.0)
-        raw-weights (map (fn [idx]
-                           (let [raw (js/Math.pow (inc idx) exponent)]
-                             (if (and (number? raw) (js/isFinite raw) (pos? raw))
-                               raw
-                               0)))
-                         (range n))
-        total (reduce + raw-weights)]
-    (if (and (number? total) (js/isFinite total) (pos? total))
-      (map #(/ % total) raw-weights)
-      (repeat n (/ 1 n)))))
+  (let [n (max 1 (int count))]
+    (if (= n 1)
+      [1]
+      (let [normalized-skew (normalize-scale-skew-number skew)
+            skew* (if (<= normalized-skew 0) 1.0 normalized-skew)
+            start-weight (/ 2.0 (* n (+ 1.0 skew*)))
+            step (/ (* start-weight (- skew* 1.0)) (dec n))
+            raw-weights (map (fn [idx]
+                               (let [raw (+ start-weight (* step idx))]
+                                 (if (and (number? raw) (js/isFinite raw) (>= raw 0))
+                                   raw
+                                   0)))
+                             (range n))
+            total (reduce + raw-weights)]
+        (if (and (number? total) (js/isFinite total) (pos? total))
+          (map #(/ % total) raw-weights)
+          (repeat n (/ 1 n)))))))
+
+(defn- scale-order-legs
+  "Build deterministic scale ladder legs as [{:price p :size s}] or nil when inputs are incomplete."
+  ([size count skew start end]
+   (scale-order-legs size count skew start end nil))
+  ([size count skew start end opts]
+   (let [size* (parse-num size)
+         count* (parse-num count)
+         start-px (parse-num start)
+         end-px (parse-num end)
+         order-count (normalize-scale-order-count count*)
+         sz-decimals (normalize-scale-sz-decimals (:sz-decimals opts))]
+     (when (and (number? size*)
+                (pos? size*)
+                (number? count*)
+                (> count* 1)
+                (number? start-px)
+                (number? end-px)
+                (number? order-count)
+                (valid-scale-skew? skew))
+       (let [weights (vec (scale-weights order-count skew))
+             step (if (= order-count 1) 0 (/ (- end-px start-px) (dec order-count)))]
+         (mapv (fn [i w]
+                 (let [raw-size (* size* w)]
+                   {:price (+ start-px (* step i))
+                    :size (floor-size-to-decimals raw-size sz-decimals)}))
+               (range order-count)
+               weights))))))
+
+(defn scale-preview-boundaries
+  "Return first/last scale ladder legs as:
+   {:start {:price number :size number}
+    :end   {:price number :size number}}
+   Returns nil for incomplete/invalid input."
+  ([form]
+   (scale-preview-boundaries form nil))
+  ([form opts]
+   (let [scale (or (:scale form) {})
+         legs (scale-order-legs (:size form)
+                                (:count scale)
+                                (:skew scale)
+                                (:start scale)
+                                (:end scale)
+                                opts)]
+     (when (seq legs)
+       {:start (first legs)
+        :end (last legs)}))))
 
 (defn build-scale-orders [asset-idx side total-size start end reduce-only post-only]
-  (let [count (max 2 (int (or (parse-num (get-in total-size [:count])) 2)))
-        start-px (parse-num start)
-        end-px (parse-num end)
-        weights (scale-weights count (get-in total-size [:skew]))
-        size (parse-num (get-in total-size [:size]))
-        step (if (= count 1) 0 (/ (- end-px start-px) (dec count)))
+  (let [legs (scale-order-legs (get total-size :size)
+                               (get total-size :count)
+                               (get total-size :skew)
+                               start
+                               end
+                               {:sz-decimals (get total-size :sz-decimals)})
         tif (if post-only "Alo" "Gtc")]
-    (map-indexed
-      (fn [i w]
-        (let [px (+ start-px (* step i))
-              sz (* size w)]
-          {:a asset-idx
-           :b (order-side->is-buy side)
-           :p (str px)
-           :s (str sz)
-           :r reduce-only
-           :t {:limit {:tif tif}}}))
-      weights)))
+    (mapv (fn [{:keys [price size]}]
+            {:a asset-idx
+             :b (order-side->is-buy side)
+             :p (str price)
+             :s (str size)
+             :r reduce-only
+             :t {:limit {:tif tif}}})
+          legs)))
 
 (defn build-tpsl-orders [asset-idx side form]
   (let [tp (get-in form [:tp])
@@ -691,7 +806,10 @@
                           (build-scale-orders
                             asset-idx
                             side
-                            {:size size :count (:count scale) :skew (:skew scale)}
+                            {:size size
+                             :count (:count scale)
+                             :skew (:skew scale)
+                             :sz-decimals (get-in state [:active-market :szDecimals])}
                             (get scale :start)
                             (get scale :end)
                             (:reduce-only form)
