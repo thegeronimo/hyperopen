@@ -6,6 +6,15 @@
 - `.cursorrules` and `GUIDELINES.md` remain important context documents, but they are not the primary agent contract.
 - This document is repo-wide and includes strict websocket runtime standards.
 
+## UI Guidance (UI Tasks Only)
+- Apply UI guidance only when tasks touch UI-facing code such as `/hyperopen/src/hyperopen/views/**`, `/hyperopen/src/styles/**`, or user interaction flows (selectors/modals/dropdowns/forms/tables).
+- For UI-facing tasks, this file remains the primary contract and runtime authority.
+- For UI-facing tasks, apply additional guidance in this order:
+- `/hyperopen/docs/agent-guides/ui-foundations.md`
+- `/hyperopen/docs/agent-guides/trading-ui-policy.md`
+- If any UI-guide instruction conflicts with this file (especially websocket/runtime invariants), `AGENTS.md` wins.
+- Keep detailed design rationale and examples in `/hyperopen/docs/agent-guides/...`; keep `AGENTS.md` concise and enforceable.
+
 ## Repo-Wide Engineering Rules (MUST)
 - MUST keep changes scoped to the task and avoid unrelated edits.
 - MUST preserve existing public APIs unless explicitly requested to change them.
