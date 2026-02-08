@@ -347,6 +347,66 @@
       (is (not (contains? header-classes "border-b")))
       (is (not (contains? header-classes "border-base-300"))))))
 
+(deftest account-info-table-rows-use-compact-density-classes-test
+  (let [open-orders [{:oid 101
+                      :coin "HYPE"
+                      :side "B"
+                      :sz "2.0"
+                      :orig-sz "2.0"
+                      :px "100.0"
+                      :type "Limit"
+                      :time 1700000000000
+                      :reduce-only true
+                      :is-trigger false
+                      :trigger-condition nil
+                      :is-position-tpsl false}]
+        fills [{:tid 1 :coin "HYPE" :side "B" :sz "1.2" :px "100.0" :fee "0.1" :time 1700000000000}]
+        fundings [{:coin "HYPE" :fundingRate "0.001" :payment "1.23" :positionSize "100.0" :time 1700000000000}]
+        ledger [{:type "deposit" :coin "USDC" :delta "5.0" :time 1700000000000}]
+        contents [[:balances (view/balances-tab-content [sample-balance-row] false default-sort-state)]
+                  [:positions (view/positions-tab-content {:clearinghouseState {:assetPositions [sample-position-data]}}
+                                                          default-sort-state
+                                                          {})]
+                  [:open-orders (view/open-orders-tab-content open-orders {:column "Time" :direction :desc})]
+                  [:trade-history (view/trade-history-tab-content fills)]
+                  [:funding-history (view/funding-history-tab-content fundings)]
+                  [:order-history (view/order-history-tab-content ledger)]]]
+    (doseq [[_ content] contents
+            :let [row-classes (node-class-set (first-viewport-row content))]]
+      (is (contains? row-classes "py-px"))
+      (is (contains? row-classes "px-3"))
+      (is (contains? row-classes "gap-2")))))
+
+(deftest account-info-table-headers-use-compact-density-classes-test
+  (let [open-orders [{:oid 101
+                      :coin "HYPE"
+                      :side "B"
+                      :sz "2.0"
+                      :orig-sz "2.0"
+                      :px "100.0"
+                      :type "Limit"
+                      :time 1700000000000
+                      :reduce-only true
+                      :is-trigger false
+                      :trigger-condition nil
+                      :is-position-tpsl false}]
+        fills [{:tid 1 :coin "HYPE" :side "B" :sz "1.2" :px "100.0" :fee "0.1" :time 1700000000000}]
+        fundings [{:coin "HYPE" :fundingRate "0.001" :payment "1.23" :positionSize "100.0" :time 1700000000000}]
+        ledger [{:type "deposit" :coin "USDC" :delta "5.0" :time 1700000000000}]
+        contents [[:balances (view/balances-tab-content [sample-balance-row] false default-sort-state)]
+                  [:positions (view/positions-tab-content {:clearinghouseState {:assetPositions [sample-position-data]}}
+                                                          default-sort-state
+                                                          {})]
+                  [:open-orders (view/open-orders-tab-content open-orders {:column "Time" :direction :desc})]
+                  [:trade-history (view/trade-history-tab-content fills)]
+                  [:funding-history (view/funding-history-tab-content fundings)]
+                  [:order-history (view/order-history-tab-content ledger)]]]
+    (doseq [[_ content] contents
+            :let [header-classes (node-class-set (tab-header-node content))]]
+      (is (contains? header-classes "py-1"))
+      (is (contains? header-classes "px-3"))
+      (is (contains? header-classes "gap-2")))))
+
 (deftest balance-row-primary-value-and-action-contrast-test
   (let [row-node (view/balance-row sample-balance-row)
         coin-node (find-first-node row-node #(contains? (direct-texts %) "USDC (Spot)"))

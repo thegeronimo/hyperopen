@@ -292,7 +292,7 @@
            [:div {:class ["flex" "max-h-28" "flex-wrap" "gap-2" "overflow-y-auto" "rounded-md" "border" "border-base-300" "bg-base-100" "p-2"]}
             (for [coin coin-options]
               ^{:key coin}
-              [:label {:class ["flex" "items-center" "gap-1" "rounded-md" "px-1" "py-0.5" "hover:bg-base-200"]}
+              [:label {:class ["flex" "items-center" "gap-1" "rounded-md" "px-1" "py-px" "hover:bg-base-200"]}
                [:input.checkbox.checkbox-xs
                 {:type "checkbox"
                  :checked (contains? coin-set coin)
@@ -449,7 +449,7 @@
       sorted)))
 
 (def header-base-text-classes
-  ["text-sm" "font-medium" "text-trading-text-secondary"])
+  ["text-m" "font-medium" "text-trading-text-secondary" "min-h-6" "py-0.5"])
 
 (def sortable-header-interaction-classes
   ["hover:text-trading-text" "transition-colors"])
@@ -675,7 +675,7 @@
 
 ;; Balance row component
 (defn balance-row [{:keys [coin total-balance available-balance usdc-value pnl-value pnl-pct amount-decimals]}]
-  [:div.grid.grid-cols-7.gap-4.py-3.px-4.hover:bg-base-300.items-center.text-sm.text-trading-text
+  [:div.grid.grid-cols-7.gap-2.py-px.px-3.hover:bg-base-300.items-center.text-sm.text-trading-text
    ;; Coin
    [:div.font-semibold coin]
    ;; Total Balance  
@@ -695,7 +695,7 @@
 
 ;; Balance table header
 (defn balance-table-header [sort-state]
-  [:div.grid.grid-cols-7.gap-4.py-2.px-4.bg-base-200.text-sm.font-medium.text-trading-text
+  [:div.grid.grid-cols-7.gap-2.py-1.px-3.bg-base-200.text-sm.font-medium.text-trading-text
    [:div (sortable-balances-header "Coin" sort-state :left)]
    [:div (sortable-balances-header "Total Balance" sort-state :left)]
    [:div (sortable-balances-header "Available Balance" sort-state :left)]
@@ -771,7 +771,7 @@
         liq-price (:liquidationPx pos)
         margin (:marginUsed pos)
         funding (get-in pos [:cumFunding :allTime])]
-    [:div.grid.grid-cols-11.gap-4.py-3.px-4.hover:bg-base-300.items-center.text-sm
+    [:div.grid.grid-cols-11.gap-2.py-px.px-3.hover:bg-base-300.items-center.text-sm
      ;; Coin with leverage badge
      [:div.flex.items-center.space-x-2
       [:span.font-medium coin]
@@ -786,14 +786,16 @@
      [:div.text-left.font-semibold (format-trade-price mark-price)]
      ;; PNL (ROE %)
      [:div.text-left.font-semibold
-      [:div 
+      [:div
        [:span {:class (if (pos? (js/parseFloat pnl-value))
                        "text-success" "text-error")}
         "$" (format-currency pnl-value)]
-       [:div.text-xs.opacity-70 
+       [:div.text-xs.opacity-70
         [:span {:class (if (pos? pnl-percent)
-                        "text-success" "text-error")}
-         "(" (if (pos? pnl-percent) "+" "") 
+                        "text-success"
+                        "text-error")}
+         "(" (if (pos? pnl-percent) "+"
+               "")
          (.toFixed pnl-percent 2) "%)"]]]]
      ;; Liq. Price
      [:div.text-left.font-semibold (if liq-price (format-trade-price liq-price) "N/A")]
@@ -853,7 +855,7 @@
 
 ;; Position table header with sorting
 (defn position-table-header [sort-state]
-  [:div.grid.grid-cols-11.gap-4.py-2.px-4.bg-base-200
+  [:div.grid.grid-cols-11.gap-2.py-1.px-3.bg-base-200
    [:div.text-left (sortable-header "Coin" sort-state)]
    [:div.text-left (sortable-header "Size" sort-state)]
    [:div.text-left (sortable-header "Position Value" sort-state)]
@@ -893,7 +895,7 @@
                                            (:direction sort-state))]
     (if (seq sorted)
       (tab-table-content
-        [:div {:class ["grid" "gap-2" "py-2" "px-3" "bg-base-200" "text-xs" "font-medium" "grid-cols-[130px_70px_60px_70px_60px_80px_100px_70px_70px_120px_50px_70px]"]}
+        [:div {:class ["grid" "gap-2" "py-1" "px-3" "bg-base-200" "text-xs" "font-medium" "grid-cols-[130px_70px_60px_70px_60px_80px_100px_70px_70px_120px_50px_70px]"]}
          [:div.pr-2.whitespace-nowrap (sortable-open-orders-header "Time" sort-state)]
          [:div.pl-1 (sortable-open-orders-header "Type" sort-state)]
          [:div (sortable-open-orders-header "Coin" sort-state)]
@@ -908,7 +910,7 @@
          [:div.text-left "Cancel All"]]
         (for [o sorted]
           ^{:key (str (:oid o) "-" (:coin o))}
-          [:div {:class ["grid" "gap-2" "py-2" "px-3" "hover:bg-base-300" "text-xs" "grid-cols-[130px_70px_60px_70px_60px_80px_100px_70px_70px_120px_50px_70px]"]}
+          [:div {:class ["grid" "gap-2" "py-px" "px-3" "hover:bg-base-300" "text-xs" "grid-cols-[130px_70px_60px_70px_60px_80px_100px_70px_70px_120px_50px_70px]"]}
            [:div.pr-2.whitespace-nowrap (format-open-orders-time (:time o))]
            [:div.pl-1 (or (:type o) "Order")]
            [:div (:coin o)]
@@ -923,15 +925,15 @@
            [:div.text-left (format-trigger-conditions o)]
            [:div.text-left (format-tp-sl o)]
            [:div.text-left
-            [:button.btn.btn-xs.btn-ghost
-             {:on {:click [[:actions/cancel-order o]]}}
+            [:button {:class ["btn" "btn-xs" "btn-ghost"]
+                      :on {:click [[:actions/cancel-order o]]}}
              "Cancel"]]]))
       (empty-state "No open orders"))))
 
 (defn trade-history-tab-content [fills]
   (if (seq fills)
     (tab-table-content
-      [:div.grid.grid-cols-6.gap-4.py-2.px-4.bg-base-200.text-sm.font-medium
+      [:div.grid.grid-cols-6.gap-2.py-1.px-3.bg-base-200.text-sm.font-medium
        [:div "Coin"]
        [:div.text-left "Side"]
        [:div.text-left "Size"]
@@ -940,7 +942,7 @@
        [:div.text-left "Time"]]
       (for [f fills]
         ^{:key (str (:tid f) "-" (:coin f) "-" (:time f))}
-        [:div.grid.grid-cols-6.gap-4.py-3.px-4.hover:bg-base-300.text-sm
+        [:div.grid.grid-cols-6.gap-2.py-px.px-3.hover:bg-base-300.text-sm
          [:div (:coin f)]
          [:div.text-left (format-side (:side f))]
          [:div.text-left (format-currency (:sz f))]
@@ -956,7 +958,7 @@
                                                         (:direction sort-state))]
     (if (seq sorted-fundings)
       (tab-table-content
-       [:div.grid.grid-cols-6.gap-4.py-2.px-4.bg-base-200.text-sm.font-medium
+       [:div.grid.grid-cols-6.gap-2.py-1.px-3.bg-base-200.text-sm.font-medium
         [:div (sortable-funding-history-header "Time" sort-state)]
         [:div.text-left (sortable-funding-history-header "Coin" sort-state)]
         [:div.text-left (sortable-funding-history-header "Size" sort-state)]
@@ -965,7 +967,7 @@
         [:div.text-left (sortable-funding-history-header "Rate" sort-state)]]
        (for [f sorted-fundings]
          ^{:key (funding-row-sort-id f)}
-         [:div.grid.grid-cols-6.gap-4.py-3.px-4.hover:bg-base-300.text-sm
+         [:div.grid.grid-cols-6.gap-2.py-px.px-3.hover:bg-base-300.text-sm
           [:div (format-funding-history-time (or (:time-ms f) (:time f)))]
           [:div.text-left (:coin f)]
           [:div.text-left (funding-size-text f)]
@@ -990,14 +992,14 @@
 (defn order-history-tab-content [ledger]
   (if (seq ledger)
     (tab-table-content
-      [:div.grid.grid-cols-4.gap-4.py-2.px-4.bg-base-200.text-sm.font-medium
+      [:div.grid.grid-cols-4.gap-2.py-1.px-3.bg-base-200.text-sm.font-medium
        [:div "Type"]
        [:div.text-left "Asset"]
        [:div.text-left "Delta"]
        [:div.text-left "Time"]]
       (for [l ledger]
         ^{:key (str (:time l) "-" (:coin l) "-" (:delta l))}
-        [:div.grid.grid-cols-4.gap-4.py-3.px-4.hover:bg-base-300.text-sm
+        [:div.grid.grid-cols-4.gap-2.py-px.px-3.hover:bg-base-300.text-sm
          [:div (or (:type l) "event")]
          [:div.text-left (or (:coin l) "-")]
          [:div.text-left (format-currency (:delta l))]

@@ -71,7 +71,7 @@
       (is (re-find #"\[:label\.text-sm\.text-trading-text(?:\.[A-Za-z0-9_-]+)*\s+\{:for \"hide-small-balances\"\}\s+\"Hide Small Balances\"\]"
                    account-info-source)))
     (testing "balance row wrapper includes text-sm for 12px baseline"
-      (is (re-find #"\[:div\.grid\.grid-cols-7\.gap-4\.py-3\.px-4\.hover:bg-base-300\.items-center\.text-sm(?:\.[A-Za-z0-9_-]+)*"
+      (is (re-find #"\[:div\.grid\.grid-cols-7\.gap-2\.py-px\.px-3\.hover:bg-base-300\.items-center\.text-sm(?:\.[A-Za-z0-9_-]+)*"
                    account-info-source)))))
 
 (deftest header-nav-link-css-uses-14px-and-600-weight-test

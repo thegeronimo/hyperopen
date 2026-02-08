@@ -8,6 +8,7 @@ module.exports = {
       fontSize: {
         xs: ["12px", { lineHeight: "16px" }],
         sm: ["12px", { lineHeight: "16px" }],
+        m: ["13px", { lineHeight: "17px" }],
       },
       colors: {
         // Custom colors for trading interface
