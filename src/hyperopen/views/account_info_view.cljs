@@ -22,16 +22,39 @@
       (str base " (" count ")")
       base)))
 
-(defn tab-navigation [selected-tab counts]
-  [:div.flex.items-center.border-b.border-base-300.bg-base-200
-   (for [tab available-tabs]
-     [:button.px-4.py-2.text-sm.font-medium.transition-colors.border-b-2
-      {:key (name tab)
-       :class (if (= selected-tab tab)
-                ["text-primary" "border-primary" "bg-base-100"]
-                ["text-base-content" "border-transparent" "hover:text-primary" "hover:bg-base-100"])
-       :on {:click [[:actions/select-account-info-tab tab]]}}
-      (tab-label tab counts)])])
+(defn tab-navigation [selected-tab counts hide-small?]
+  [:div.flex.items-center.justify-between.border-b.border-base-300.bg-base-200
+   [:div.flex.items-center
+    (for [tab available-tabs]
+      [:button.px-4.py-2.text-sm.font-medium.transition-colors.border-b-2
+       {:key (name tab)
+        :class (if (= selected-tab tab)
+                 ["text-primary" "border-primary" "bg-base-100"]
+                 ["text-base-content" "border-transparent" "hover:text-primary" "hover:bg-base-100"])
+        :on {:click [[:actions/select-account-info-tab tab]]}}
+       (tab-label tab counts)])]
+   (when (= selected-tab :balances)
+     [:div.flex.items-center.space-x-2.px-4.py-2
+      [:input
+       {:type "checkbox"
+        :id "hide-small-balances"
+        :class ["h-4"
+                "w-4"
+                "rounded-[3px]"
+                "border"
+                "border-base-300"
+                "bg-transparent"
+                "trade-toggle-checkbox"
+                "transition-colors"
+                "focus:outline-none"
+                "focus:ring-0"
+                "focus:ring-offset-0"
+                "focus:shadow-none"]
+        :checked (boolean hide-small?)
+        :on {:change [[:actions/set-hide-small-balances :event.target/checked]]}}]
+      [:label.text-sm.text-trading-text.cursor-pointer.select-none
+       {:for "hide-small-balances"}
+       "Hide Small Balances"]])])
 
 ;; Loading spinner component
 (defn loading-spinner []
@@ -428,27 +451,13 @@
                       (sort-balances-by-column visible-rows
                                                (:column sort-state)
                                                (:direction sort-state))
-                      visible-rows)
-        balances-count (count balance-rows)]
+                      visible-rows)]
     (if (seq visible-rows)
       [:div
-       ;; Filter toggle
-       [:div.flex.justify-between.items-center.p-4.border-b.border-base-300
-        [:div.text-sm.font-medium.text-trading-text "Balances (" balances-count ")"]
-        [:div.flex.items-center.space-x-2
-         [:input.checkbox.checkbox-primary
-          {:type "checkbox"
-           :id "hide-small-balances"
-           :checked (boolean hide-small?)
-           :on {:change [[:actions/set-hide-small-balances :event.target/checked]]}}]
-         [:label.text-sm.text-trading-text {:for "hide-small-balances"} "Hide Small Balances"]]]
-
-       ;; Balance table
-       [:div
-        (balance-table-header sort-state)
-        (for [row sorted-rows]
-          ^{:key (:key row)}
-          (balance-row row))]]
+       (balance-table-header sort-state)
+       (for [row sorted-rows]
+         ^{:key (:key row)}
+         (balance-row row))]
       (empty-state "No balance data available"))))
 
 ;; Calculate mark price from position data (placeholder - would need market data)
@@ -751,7 +760,7 @@
         open-orders-sort (get-in state [:account-info :open-orders-sort] {:column "Time" :direction :desc})]
     [:div {:class ["bg-base-100" "border-t" "border-base-300" "rounded-none" "shadow-none" "overflow-hidden" "w-full"]}
      ;; Tab navigation
-     (tab-navigation selected-tab tab-counts)
+     (tab-navigation selected-tab tab-counts hide-small?)
      
      ;; Content area
      [:div.min-h-96

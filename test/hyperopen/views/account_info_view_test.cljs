@@ -85,12 +85,34 @@
     (is (contains? (node-class-set non-sortable-node) "text-trading-text"))
     (is (contains? (node-class-set non-sortable-center-node) "justify-center"))))
 
-(deftest balances-title-and-filter-contrast-test
+(deftest tab-navigation-renders-hide-small-toggle-only-on-balances-tab-test
+  (let [counts {:balances 1 :positions 1}
+        balances-nav (view/tab-navigation :balances counts true)
+        positions-nav (view/tab-navigation :positions counts true)
+        balances-toggle-input (find-first-node balances-nav
+                                               #(= "hide-small-balances"
+                                                   (get-in % [1 :id])))
+        balances-toggle-classes (node-class-set balances-toggle-input)
+        balances-toggle-label (find-first-node balances-nav
+                                               #(contains? (direct-texts %) "Hide Small Balances"))
+        positions-toggle-input (find-first-node positions-nav
+                                                #(= "hide-small-balances"
+                                                    (get-in % [1 :id])))]
+    (is (contains? (node-class-set balances-nav) "justify-between"))
+    (is (some? balances-toggle-input))
+    (is (true? (get-in balances-toggle-input [1 :checked])))
+    (is (contains? balances-toggle-classes "trade-toggle-checkbox"))
+    (is (contains? balances-toggle-classes "h-4"))
+    (is (contains? balances-toggle-classes "w-4"))
+    (is (contains? (node-class-set balances-toggle-label) "text-trading-text"))
+    (is (nil? positions-toggle-input))))
+
+(deftest balances-tab-content-does-not-render-legacy-subheader-row-test
   (let [content (view/balances-tab-content [sample-balance-row] false default-sort-state)
         title-node (find-first-node content #(contains? (direct-texts %) "Balances ("))
         filter-label-node (find-first-node content #(contains? (direct-texts %) "Hide Small Balances"))]
-    (is (contains? (node-class-set title-node) "text-trading-text"))
-    (is (contains? (node-class-set filter-label-node) "text-trading-text"))))
+    (is (nil? title-node))
+    (is (nil? filter-label-node))))
 
 (deftest balance-row-primary-value-and-action-contrast-test
   (let [row-node (view/balance-row sample-balance-row)

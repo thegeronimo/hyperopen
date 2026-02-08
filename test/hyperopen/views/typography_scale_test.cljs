@@ -64,12 +64,12 @@
                                    (str file " => " matches))
                                  violations))))))
 
-(deftest balances-tab-uses-12px-typography-for-title-and-rows-test
+(deftest balances-tab-uses-12px-typography-for-toggle-and-rows-test
   (let [account-info-path (join-path (project-root) "src" "hyperopen" "views" "account_info_view.cljs")
         account-info-source (read-text account-info-path)]
-    (testing "balances title uses text-sm, not text-lg"
-      (is (re-find #"\[:div\.text-sm\.font-medium(?:\.[A-Za-z0-9_-]+)* \"Balances \(" account-info-source))
-      (is (not (re-find #"\[:div\.text-lg\.font-medium \"Balances \(" account-info-source))))
+    (testing "hide small balances label uses text-sm"
+      (is (re-find #"\[:label\.text-sm\.text-trading-text(?:\.[A-Za-z0-9_-]+)*\s+\{:for \"hide-small-balances\"\}\s+\"Hide Small Balances\"\]"
+                   account-info-source)))
     (testing "balance row wrapper includes text-sm for 12px baseline"
       (is (re-find #"\[:div\.grid\.grid-cols-7\.gap-4\.py-3\.px-4\.hover:bg-base-200\.border-b\.border-base-300\.items-center\.text-sm(?:\.[A-Za-z0-9_-]+)*"
                    account-info-source)))))
