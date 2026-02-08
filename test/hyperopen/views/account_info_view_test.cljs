@@ -47,6 +47,19 @@
 
     :else nil))
 
+(defn- find-all-nodes [node pred]
+  (cond
+    (vector? node)
+    (let [children (node-children node)
+          self-match (when (pred node) [node])]
+      (into (or self-match [])
+            (mapcat #(find-all-nodes % pred) children)))
+
+    (seq? node)
+    (mapcat #(find-all-nodes % pred) node)
+
+    :else []))
+
 (defn- count-nodes [node pred]
   (cond
     (vector? node)
@@ -616,3 +629,48 @@
     (is (some? datetime-input))
     (is (some? (find-first-node panel #(contains? (direct-texts %) "Apply"))))
     (is (some? (find-first-node panel #(contains? (direct-texts %) "Cancel"))))))
+
+(deftest funding-history-coin-filter-uses-standard-green-checkboxes-test
+  (let [funding-row-hype {:id "1700000000000|HYPE|120.0|-0.42|0.0006"
+                          :time-ms 1700000000000
+                          :coin "HYPE"
+                          :size-raw 120.0
+                          :position-size-raw 120.0
+                          :position-side :long
+                          :payment-usdc-raw -0.42
+                          :funding-rate-raw 0.0006}
+        funding-row-sol {:id "1700000100000|SOL|80.0|0.18|0.0002"
+                         :time-ms 1700000100000
+                         :coin "SOL"
+                         :size-raw 80.0
+                         :position-size-raw 80.0
+                         :position-side :long
+                         :payment-usdc-raw 0.18
+                         :funding-rate-raw 0.0002}
+        state (-> sample-account-info-state
+                  (assoc-in [:account-info :selected-tab] :funding-history)
+                  (assoc-in [:account-info :funding-history]
+                            {:filters {:coin-set #{}}
+                             :draft-filters {:coin-set #{"HYPE"}}
+                             :filter-open? true
+                             :loading? false
+                             :error nil})
+                  (assoc-in [:orders :fundings-raw] [funding-row-hype funding-row-sol])
+                  (assoc-in [:orders :fundings] [funding-row-hype funding-row-sol]))
+        panel (view/account-info-panel state)
+        coin-checkboxes (find-all-nodes panel
+                                        (fn [node]
+                                          (and (= :input (first node))
+                                               (= "checkbox" (get-in node [1 :type]))
+                                               (= :actions/toggle-funding-history-filter-coin
+                                                  (first (first (get-in node [1 :on :change])))))))
+        class-sets (map node-class-set coin-checkboxes)]
+    (is (= 2 (count coin-checkboxes)))
+    (is (every? #(contains? % "trade-toggle-checkbox") class-sets))
+    (is (every? #(contains? % "h-4") class-sets))
+    (is (every? #(contains? % "w-4") class-sets))
+    (is (every? #(not (contains? % "checkbox-xs")) class-sets))
+    (is (some true? (map #(get-in % [1 :checked]) coin-checkboxes)))
+    (is (every? #(= :actions/toggle-funding-history-filter-coin
+                    (first (first (get-in % [1 :on :change]))))
+                coin-checkboxes))))

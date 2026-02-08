@@ -290,11 +290,22 @@
           "Coins"]
          (if (seq coin-options)
            [:div {:class ["flex" "max-h-28" "flex-wrap" "gap-2" "overflow-y-auto" "rounded-md" "border" "border-base-300" "bg-base-100" "p-2"]}
-            (for [coin coin-options]
+             (for [coin coin-options]
               ^{:key coin}
               [:label {:class ["flex" "items-center" "gap-1" "rounded-md" "px-1" "py-px" "hover:bg-base-200"]}
-               [:input.checkbox.checkbox-xs
-                {:type "checkbox"
+               [:input {:class ["h-4"
+                                "w-4"
+                                "rounded-[3px]"
+                                "border"
+                                "border-base-300"
+                                "bg-transparent"
+                                "trade-toggle-checkbox"
+                                "transition-colors"
+                                "focus:outline-none"
+                                "focus:ring-0"
+                                "focus:ring-offset-0"
+                                "focus:shadow-none"]
+                 :type "checkbox"
                  :checked (contains? coin-set coin)
                  :on {:change [[:actions/toggle-funding-history-filter-coin coin]]}}]
                [:span coin]])]
