@@ -243,6 +243,11 @@
     [:div {:class ["border-b" "border-base-300" "bg-base-200"]}
      [:div {:class ["flex" "items-center" "justify-between" "px-4" "py-2" "text-sm"]}
       [:div {:class ["flex" "items-center" "gap-2"]}
+       (when loading?
+         [:span {:class ["text-xs" "text-trading-text-secondary"]} "Loading..."])
+       (when error
+         [:span {:class ["text-xs" "text-error"]} (str error)])]
+      [:div {:class ["flex" "items-center" "gap-2"]}
        [:button.btn.btn-xs.btn-ghost
         {:on {:click [[:actions/toggle-funding-history-filter-open]]}}
         "Filter"]
@@ -251,12 +256,7 @@
         "View All"]
        [:button.btn.btn-xs.btn-ghost
         {:on {:click [[:actions/export-funding-history-csv]]}}
-        "Export as CSV"]]
-      [:div {:class ["flex" "items-center" "gap-2"]}
-       (when loading?
-         [:span {:class ["text-xs" "text-trading-text-secondary"]} "Loading..."])
-       (when error
-         [:span {:class ["text-xs" "text-error"]} (str error)])]]
+        "Export as CSV"]]]
      (when filter-open?
        [:div {:class ["grid" "grid-cols-1" "gap-3" "border-t" "border-base-300" "p-4" "text-sm" "md:grid-cols-2"]}
         [:div {:class ["space-y-2"]}
@@ -456,6 +456,68 @@
                                    sortable-header-interaction-classes
                                    sortable-header-layout-classes))
               :on {:click [[:actions/sort-open-orders column-name]]}}
+     [:span column-name]
+     (when sort-icon
+       [:span.text-xs.opacity-70 sort-icon])]))
+
+(def default-funding-history-sort
+  {:column "Time" :direction :desc})
+
+(defn funding-history-sort-state [funding-history-state]
+  (merge default-funding-history-sort
+         (or (:sort funding-history-state) {})))
+
+(defn- funding-row-sort-id [row]
+  (or (:id row)
+      (str (or (:time-ms row) (:time row) 0)
+           "|"
+           (or (:coin row) "")
+           "|"
+           (or (:position-size-raw row) (:positionSize row) (:size-raw row) 0)
+           "|"
+           (or (:payment-usdc-raw row) (:payment row) 0)
+           "|"
+           (or (:funding-rate-raw row) (:fundingRate row) 0))))
+
+(defn sort-funding-history-by-column [rows column direction]
+  (let [sort-fn (case column
+                  "Time" (fn [row]
+                           (parse-num (or (:time-ms row) (:time row))))
+                  "Coin" (fn [row]
+                           (or (:coin row) ""))
+                  "Size" (fn [row]
+                           (js/Math.abs
+                            (parse-num (or (:position-size-raw row)
+                                           (:positionSize row)
+                                           (:size-raw row)))))
+                  "Position Side" (fn [row]
+                                    (name (funding-side-value row)))
+                  "Payment" (fn [row]
+                              (parse-num (or (:payment-usdc-raw row)
+                                             (:payment row))))
+                  "Rate" (fn [row]
+                           (parse-num (or (:funding-rate-raw row)
+                                          (:fundingRate row))))
+                  (fn [_] 0))
+        sorted (sort-by (fn [row]
+                          [(sort-fn row)
+                           (funding-row-sort-id row)])
+                        rows)]
+    (if (= direction :desc)
+      (reverse sorted)
+      sorted)))
+
+(defn sortable-funding-history-header [column-name sort-state]
+  (let [current-column (:column sort-state)
+        current-direction (:direction sort-state)
+        is-active (= current-column column-name)
+        sort-icon (when is-active
+                    (if (= current-direction :asc) "↑" "↓"))]
+    [:button {:class (into []
+                           (concat header-base-text-classes
+                                   sortable-header-interaction-classes
+                                   sortable-header-layout-classes))
+              :on {:click [[:actions/sort-funding-history column-name]]}}
      [:span column-name]
      (when sort-icon
        [:span.text-xs.opacity-70 sort-icon])]))
@@ -876,31 +938,34 @@
     (empty-state "No fills")))
 
 (defn- funding-history-table [fundings funding-history-state]
-  (if (seq fundings)
-    (tab-table-content
-     [:div.grid.grid-cols-6.gap-4.py-2.px-4.bg-base-200.border-b.border-base-300.text-sm.font-medium
-      [:div "Time"]
-      [:div.text-left "Coin"]
-      [:div.text-left "Size"]
-      [:div.text-left "Position Side"]
-      [:div.text-left "Payment"]
-      [:div.text-left "Rate"]]
-     (for [f fundings]
-       ^{:key (or (:id f)
-                  (str (:time-ms f) "|" (:coin f) "|" (:positionSize f) "|" (:payment f) "|" (:fundingRate f)))}
-       [:div.grid.grid-cols-6.gap-4.py-3.px-4.border-b.border-base-300.text-sm
-        [:div (format-funding-history-time (or (:time-ms f) (:time f)))]
-        [:div.text-left (:coin f)]
-        [:div.text-left (funding-size-text f)]
-        [:div.text-left
-         (let [position-side (funding-side-value f)]
-           [:span {:class (funding-side-class position-side)}
-            (funding-side-label position-side)])]
-        [:div.text-left (funding-payment-node f)]
-        [:div.text-left (funding-rate-node f)]]))
-    (if (:loading? funding-history-state)
-      (empty-state "Loading funding history...")
-      (empty-state "No funding history"))))
+  (let [sort-state (funding-history-sort-state funding-history-state)
+        sorted-fundings (sort-funding-history-by-column fundings
+                                                        (:column sort-state)
+                                                        (:direction sort-state))]
+    (if (seq sorted-fundings)
+      (tab-table-content
+       [:div.grid.grid-cols-6.gap-4.py-2.px-4.bg-base-200.border-b.border-base-300.text-sm.font-medium
+        [:div (sortable-funding-history-header "Time" sort-state)]
+        [:div.text-left (sortable-funding-history-header "Coin" sort-state)]
+        [:div.text-left (sortable-funding-history-header "Size" sort-state)]
+        [:div.text-left (sortable-funding-history-header "Position Side" sort-state)]
+        [:div.text-left (sortable-funding-history-header "Payment" sort-state)]
+        [:div.text-left (sortable-funding-history-header "Rate" sort-state)]]
+       (for [f sorted-fundings]
+         ^{:key (funding-row-sort-id f)}
+         [:div.grid.grid-cols-6.gap-4.py-3.px-4.border-b.border-base-300.text-sm
+          [:div (format-funding-history-time (or (:time-ms f) (:time f)))]
+          [:div.text-left (:coin f)]
+          [:div.text-left (funding-size-text f)]
+          [:div.text-left
+           (let [position-side (funding-side-value f)]
+             [:span {:class (funding-side-class position-side)}
+              (funding-side-label position-side)])]
+          [:div.text-left (funding-payment-node f)]
+          [:div.text-left (funding-rate-node f)]]))
+      (if (:loading? funding-history-state)
+        (empty-state "Loading funding history...")
+        (empty-state "No funding history")))))
 
 (defn funding-history-tab-content
   ([fundings]

@@ -197,6 +197,26 @@
     (is (some #(= :effects/api-fetch-user-funding-history (first %))
               with-refetch))))
 
+(deftest sort-funding-history-toggles-direction-on-same-column-test
+  (let [state {:account-info {:funding-history {:sort {:column "Time"
+                                                       :direction :desc}}}}
+        effects (core/sort-funding-history state "Time")]
+    (is (= [[:effects/save [:account-info :funding-history :sort]
+             {:column "Time" :direction :asc}]]
+           effects))))
+
+(deftest sort-funding-history-uses-mixed-default-direction-for-new-columns-test
+  (let [state {:account-info {:funding-history {:sort {:column "Time"
+                                                       :direction :desc}}}}
+        coin-effects (core/sort-funding-history state "Coin")
+        payment-effects (core/sort-funding-history state "Payment")]
+    (is (= [[:effects/save [:account-info :funding-history :sort]
+             {:column "Coin" :direction :asc}]]
+           coin-effects))
+    (is (= [[:effects/save [:account-info :funding-history :sort]
+             {:column "Payment" :direction :desc}]]
+           payment-effects))))
+
 (deftest select-asset-closes-dropdown-first-and-removes-duplicate-effects-test
   (let [market {:key :perp/BTC
                 :coin "BTC"}

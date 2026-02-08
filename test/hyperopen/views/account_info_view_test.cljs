@@ -124,6 +124,43 @@
     (is (contains? (node-class-set header-node) "text-trading-text-secondary"))
     (is (contains? (node-class-set header-node) "hover:text-trading-text"))))
 
+(deftest funding-history-sortable-header-uses-secondary-text-hover-and-action-test
+  (let [header-node (view/sortable-funding-history-header "Time" {:column "Time" :direction :asc})
+        sort-icon-node (second (vec (node-children header-node)))]
+    (is (contains? (node-class-set header-node) "text-trading-text-secondary"))
+    (is (contains? (node-class-set header-node) "hover:text-trading-text"))
+    (is (= [[:actions/sort-funding-history "Time"]]
+           (get-in header-node [1 :on :click])))
+    (is (= "↑" (last sort-icon-node)))))
+
+(deftest sort-funding-history-by-column-respects-direction-and-deterministic-fallback-test
+  (let [rows [{:id "2"
+               :time-ms 2000
+               :coin "ETH"
+               :position-size-raw 2
+               :payment-usdc-raw 0.5
+               :funding-rate-raw 0.0002}
+              {:id "1"
+               :time-ms 1000
+               :coin "BTC"
+               :position-size-raw -1
+               :payment-usdc-raw 1.2
+               :funding-rate-raw -0.0001}
+              {:id "3"
+               :time-ms 1500
+               :coin "SOL"
+               :position-size-raw 0.5
+               :payment-usdc-raw -0.3
+               :funding-rate-raw 0.0004}]
+        coin-asc (view/sort-funding-history-by-column rows "Coin" :asc)
+        payment-desc (view/sort-funding-history-by-column rows "Payment" :desc)
+        missing-values [{:id "b" :coin "ETH"}
+                        {:id "a" :coin "BTC"}]
+        missing-asc (view/sort-funding-history-by-column missing-values "Payment" :asc)]
+    (is (= ["BTC" "ETH" "SOL"] (mapv :coin coin-asc)))
+    (is (= [1.2 0.5 -0.3] (mapv :payment-usdc-raw payment-desc)))
+    (is (= ["a" "b"] (mapv :id missing-asc)))))
+
 (deftest tab-navigation-renders-hide-small-toggle-only-on-balances-tab-test
   (let [counts {:balances 1 :positions 1}
         balances-nav (view/tab-navigation :balances counts true)
@@ -311,6 +348,52 @@
       (is (contains? (node-class-set (nth order-header-cells idx)) "text-left"))
       (is (contains? (node-class-set (nth order-row-cells idx)) "text-left")))))
 
+(deftest funding-history-headers-use-secondary-text-and-sort-actions-test
+  (let [fundings [{:id "1700000000000|HYPE|120.0|-0.42|0.0006"
+                   :time-ms 1700000000000
+                   :coin "HYPE"
+                   :position-size-raw 120.0
+                   :payment-usdc-raw -0.42
+                   :funding-rate-raw 0.0006}]
+        content (@#'view/funding-history-table fundings {:sort {:column "Time" :direction :desc}})
+        header-cells (vec (node-children (tab-header-node content)))
+        columns ["Time" "Coin" "Size" "Position Side" "Payment" "Rate"]]
+    (doseq [[idx column-name] (map-indexed vector columns)]
+      (let [button-node (first (vec (node-children (nth header-cells idx))))]
+        (is (= :button (first button-node)))
+        (is (contains? (node-class-set button-node) "text-trading-text-secondary"))
+        (is (contains? (node-class-set button-node) "hover:text-trading-text"))
+        (is (= [[:actions/sort-funding-history column-name]]
+               (get-in button-node [1 :on :click])))))))
+
+(deftest funding-history-content-sorts-by-sort-state-and-default-fallback-test
+  (let [rows [{:id "2"
+               :time-ms 2000
+               :coin "BTC"
+               :position-size-raw 2
+               :payment-usdc-raw 0.5
+               :funding-rate-raw 0.0002}
+              {:id "1"
+               :time-ms 3000
+               :coin "ETH"
+               :position-size-raw -1
+               :payment-usdc-raw 1.2
+               :funding-rate-raw -0.0001}
+              {:id "3"
+               :time-ms 1000
+               :coin "SOL"
+               :position-size-raw 0.5
+               :payment-usdc-raw -0.3
+               :funding-rate-raw 0.0004}]
+        coin-sorted (@#'view/funding-history-table rows {:sort {:column "Coin" :direction :asc}})
+        coin-row (first-viewport-row coin-sorted)
+        coin-value (nth (vec (node-children coin-row)) 1)
+        default-sorted (@#'view/funding-history-table rows {})
+        default-row (first-viewport-row default-sorted)
+        default-coin (nth (vec (node-children default-row)) 1)]
+    (is (contains? (direct-texts coin-value) "BTC"))
+    (is (contains? (direct-texts default-coin) "ETH"))))
+
 (deftest funding-history-panel-renders-controls-and-parity-columns-test
   (let [funding-row {:id "1700000000000|HYPE|120.0|-0.42|0.0006"
                      :time-ms 1700000000000
@@ -340,6 +423,21 @@
     (is (some? (find-first-node panel #(contains? (direct-texts %) "Export as CSV"))))
     (is (some? (find-first-node panel #(contains? (direct-texts %) "Position Side"))))
     (is (some? (find-first-node panel #(contains? (direct-texts %) "Long"))))))
+
+(deftest funding-history-controls-align-status-left-and-actions-right-test
+  (let [controls (@#'view/funding-history-controls {:loading? true
+                                                    :error "Boom"
+                                                    :filters {:coin-set #{}}
+                                                    :draft-filters {:coin-set #{}}}
+                                                   [])
+        controls-row (first (vec (node-children controls)))
+        status-group (first (vec (node-children controls-row)))
+        actions-group (second (vec (node-children controls-row)))]
+    (is (some? (find-first-node status-group #(contains? (direct-texts %) "Loading..."))))
+    (is (some? (find-first-node status-group #(contains? (direct-texts %) "Boom"))))
+    (is (some? (find-first-node actions-group #(contains? (direct-texts %) "Filter"))))
+    (is (some? (find-first-node actions-group #(contains? (direct-texts %) "View All"))))
+    (is (some? (find-first-node actions-group #(contains? (direct-texts %) "Export as CSV"))))))
 
 (deftest funding-history-filter-panel-renders-apply-and-cancel-controls-test
   (let [funding-row {:id "1700000000000|HYPE|120.0|-0.42|0.0006"

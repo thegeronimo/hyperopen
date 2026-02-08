@@ -26,6 +26,7 @@
   (let [filters (default-funding-history-filters)]
     {:filters filters
      :draft-filters filters
+     :sort {:column "Time" :direction :desc}
      :filter-open? false
      :loading? false
      :error nil
@@ -670,6 +671,20 @@
     [[:effects/save [:account-info :open-orders-sort] {:column column
                                                        :direction new-direction}]]))
 
+(defn sort-funding-history [state column]
+  (let [current-sort (get-in state
+                             [:account-info :funding-history :sort]
+                             {:column "Time" :direction :desc})
+        current-column (:column current-sort)
+        current-direction (:direction current-sort)
+        new-direction (if (= current-column column)
+                        (if (= current-direction :asc) :desc :asc)
+                        (if (contains? #{"Time" "Size" "Payment" "Rate"} column)
+                          :desc
+                          :asc))]
+    [[:effects/save [:account-info :funding-history :sort]
+      {:column column :direction new-direction}]]))
+
 (defn set-hide-small-balances [state checked]
   [[:effects/save [:account-info :hide-small-balances?] checked]])
 
@@ -1137,6 +1152,7 @@
 (nxr/register-action! :actions/sort-positions sort-positions)
 (nxr/register-action! :actions/sort-balances sort-balances)
 (nxr/register-action! :actions/sort-open-orders sort-open-orders)
+(nxr/register-action! :actions/sort-funding-history sort-funding-history)
 (nxr/register-action! :actions/set-hide-small-balances set-hide-small-balances)
 (nxr/register-action! :actions/select-order-entry-mode select-order-entry-mode)
 (nxr/register-action! :actions/select-pro-order-type select-pro-order-type)
