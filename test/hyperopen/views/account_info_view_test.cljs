@@ -127,12 +127,34 @@
     (is (contains? (node-class-set balances-toggle-label) "text-trading-text"))
     (is (nil? positions-toggle-input))))
 
+(deftest tab-navigation-renders-positions-count-when-positive-test
+  (let [counts {:balances 2 :positions 4 :open-orders 3}
+        nav (view/tab-navigation :positions counts false)
+        positions-tab-node (find-first-node nav #(contains? (direct-texts %) "Positions (4)"))]
+    (is (some? positions-tab-node))))
+
+(deftest tab-navigation-hides-positions-count-when-zero-test
+  (let [counts {:balances 2 :positions 0 :open-orders 3}
+        nav (view/tab-navigation :positions counts false)
+        positions-tab-base-node (find-first-node nav #(contains? (direct-texts %) "Positions"))
+        positions-tab-count-node (find-first-node nav #(contains? (direct-texts %) "Positions (0)"))]
+    (is (some? positions-tab-base-node))
+    (is (nil? positions-tab-count-node))))
+
 (deftest balances-tab-content-does-not-render-legacy-subheader-row-test
   (let [content (view/balances-tab-content [sample-balance-row] false default-sort-state)
         title-node (find-first-node content #(contains? (direct-texts %) "Balances ("))
         filter-label-node (find-first-node content #(contains? (direct-texts %) "Hide Small Balances"))]
     (is (nil? title-node))
     (is (nil? filter-label-node))))
+
+(deftest positions-tab-content-does-not-render-legacy-subheader-row-test
+  (let [webdata2 {:clearinghouseState {:assetPositions [sample-position-data]}}
+        content (view/positions-tab-content webdata2 default-sort-state {})
+        title-node (find-first-node content #(contains? (direct-texts %) "Positions ("))
+        active-positions-node (find-first-node content #(contains? (direct-texts %) "Active positions"))]
+    (is (nil? title-node))
+    (is (nil? active-positions-node))))
 
 (deftest balance-row-primary-value-and-action-contrast-test
   (let [row-node (view/balance-row sample-balance-row)

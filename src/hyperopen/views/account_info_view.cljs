@@ -18,9 +18,17 @@
 (defn tab-label [tab counts]
   (let [base (get tab-labels tab (name tab))
         count (get counts tab)]
-    (if (number? count)
+    (cond
+      (and (= tab :positions) (number? count) (pos? count))
       (str base " (" count ")")
-      base)))
+
+      (and (= tab :positions) (number? count))
+      base
+
+      (number? count)
+      (str base " (" count ")")
+
+      :else base)))
 
 (defn tab-navigation [selected-tab counts hide-small?]
   [:div.flex.items-center.justify-between.border-b.border-base-300.bg-base-200
@@ -627,11 +635,6 @@
                           [])]
     (if (and positions (seq positions))
       [:div
-       ;; Header with count
-       [:div.flex.justify-between.items-center.p-4.border-b.border-base-300
-        [:div.text-lg.font-medium "Positions (" (count positions) ")"]
-        [:div.text-sm.text-base-content.opacity-70 "Active positions"]]
-       
        ;; Position table
        [:div
         (position-table-header sort-state)
@@ -769,10 +772,12 @@
         balance-rows (build-balance-rows webdata2 spot-data)
         hide-small? (get-in state [:account-info :hide-small-balances?] false)
         perp-dex-states (:perp-dex-clearinghouse state)
+        positions (collect-positions webdata2 perp-dex-states)
         open-orders (normalized-open-orders (get-in webdata2 [:open-orders])
                                             (get-in webdata2 [:open-orders-snapshot])
                                             (get-in webdata2 [:open-orders-snapshot-by-dex]))
         tab-counts {:open-orders (count open-orders)
+                    :positions (count positions)
                     :balances (count balance-rows)}
         open-orders-sort (get-in state [:account-info :open-orders-sort] {:column "Time" :direction :desc})]
     [:div {:class ["bg-base-100" "border-t" "border-base-300" "rounded-none" "shadow-none" "overflow-hidden" "w-full"]}
