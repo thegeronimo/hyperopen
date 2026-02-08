@@ -182,6 +182,42 @@
            ":"
            (pad2 (.getMinutes d))))))
 
+(def ^:private position-chip-classes
+  ["px-1.5"
+   "py-0.5"
+   "text-xs"
+   "leading-none"
+   "font-medium"
+   "rounded"
+   "border"
+   "bg-emerald-500/20"
+   "text-emerald-300"
+   "border-emerald-500/30"])
+
+(defn- non-blank-text [value]
+  (let [text (some-> value str str/trim)]
+    (when (seq text) text)))
+
+(defn- parse-coin-namespace [coin]
+  (let [coin* (non-blank-text coin)]
+    (when coin*
+      (if (str/includes? coin* ":")
+        (let [[prefix suffix] (str/split coin* #":" 2)]
+          {:prefix (non-blank-text prefix)
+           :base (non-blank-text suffix)})
+        {:prefix nil
+         :base coin*}))))
+
+(defn- funding-filter-coin-label [coin]
+  (let [coin* (non-blank-text coin)
+        parsed (parse-coin-namespace coin*)
+        base-label (or (:base parsed) coin* "-")
+        prefix-label (:prefix parsed)]
+    [:span {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
+     [:span {:class ["truncate"]} base-label]
+     (when prefix-label
+       [:span {:class position-chip-classes} prefix-label])]))
+
 (defn- funding-side-value [row]
   (or (:position-side row)
       (let [signed-size (parse-num (or (:position-size-raw row)
@@ -309,14 +345,14 @@
                  :type "checkbox"
                  :checked (contains? coin-set coin)
                  :on {:change [[:actions/toggle-funding-history-filter-coin coin]]}}]
-               [:span coin]])]
+               (funding-filter-coin-label coin)])]
            [:div {:class ["text-xs" "text-trading-text-secondary"]} "No coin data available for current range."])]
         [:div {:class ["flex" "items-center" "justify-end" "gap-2" "md:col-span-2"]}
-         [:button.btn.btn-sm.btn-ghost
-          {:on {:click [[:actions/reset-funding-history-filter-draft]]}}
+         [:button {:class ["btn" "btn-xs" "btn-ghost" "h-8" "px-3" "text-xs" "font-medium" "min-w-[4.5rem]"]
+                   :on {:click [[:actions/reset-funding-history-filter-draft]]}}
           "Cancel"]
-         [:button.btn.btn-sm.btn-primary
-          {:on {:click [[:actions/apply-funding-history-filters]]}}
+         [:button {:class ["btn" "btn-xs" "btn-primary" "h-8" "px-3" "text-xs" "font-medium" "min-w-[4.5rem]"]
+                   :on {:click [[:actions/apply-funding-history-filters]]}}
           "Apply"]]])])))
 
 (defn format-open-orders-time [ms]
@@ -766,32 +802,6 @@
 (defn calculate-mark-price [position-data]
   ;; For now, use entry price as approximation - in real app would get from market data
   (:entryPx position-data))
-
-(def ^:private position-chip-classes
-  ["px-1.5"
-   "py-0.5"
-   "text-xs"
-   "leading-none"
-   "font-medium"
-   "rounded"
-   "border"
-   "bg-emerald-500/20"
-   "text-emerald-300"
-   "border-emerald-500/30"])
-
-(defn- non-blank-text [value]
-  (let [text (some-> value str str/trim)]
-    (when (seq text) text)))
-
-(defn- parse-coin-namespace [coin]
-  (let [coin* (non-blank-text coin)]
-    (when coin*
-      (if (str/includes? coin* ":")
-        (let [[prefix suffix] (str/split coin* #":" 2)]
-          {:prefix (non-blank-text prefix)
-           :base (non-blank-text suffix)})
-        {:prefix nil
-         :base coin*}))))
 
 (defn- display-coin [position-data]
   (let [coin (:coin position-data)

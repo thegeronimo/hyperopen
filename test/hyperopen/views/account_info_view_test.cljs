@@ -749,10 +749,22 @@
                   (assoc-in [:orders :fundings-raw] [funding-row])
                   (assoc-in [:orders :fundings] [funding-row]))
         panel (view/account-info-panel state)
-        datetime-input (find-first-node panel #(= "datetime-local" (get-in % [1 :type])))]
+        datetime-input (find-first-node panel #(= "datetime-local" (get-in % [1 :type])))
+        apply-button (find-first-node panel #(contains? (direct-texts %) "Apply"))
+        cancel-button (find-first-node panel #(contains? (direct-texts %) "Cancel"))
+        apply-classes (node-class-set apply-button)
+        cancel-classes (node-class-set cancel-button)]
     (is (some? datetime-input))
-    (is (some? (find-first-node panel #(contains? (direct-texts %) "Apply"))))
-    (is (some? (find-first-node panel #(contains? (direct-texts %) "Cancel"))))))
+    (is (some? apply-button))
+    (is (some? cancel-button))
+    (is (contains? apply-classes "btn-xs"))
+    (is (contains? cancel-classes "btn-xs"))
+    (is (not (contains? apply-classes "btn-sm")))
+    (is (not (contains? cancel-classes "btn-sm")))
+    (is (contains? apply-classes "px-3"))
+    (is (contains? cancel-classes "px-3"))
+    (is (contains? apply-classes "min-w-[4.5rem]"))
+    (is (contains? cancel-classes "min-w-[4.5rem]"))))
 
 (deftest funding-history-coin-filter-uses-standard-green-checkboxes-test
   (let [funding-row-hype {:id "1700000000000|HYPE|120.0|-0.42|0.0006"
@@ -798,3 +810,44 @@
     (is (every? #(= :actions/toggle-funding-history-filter-coin
                     (first (first (get-in % [1 :on :change]))))
                 coin-checkboxes))))
+
+(deftest funding-history-coin-filter-renders-prefixed-coins-as-base-plus-chip-test
+  (let [funding-row-pump {:id "1700000000000|PUMP|120.0|-0.42|0.0006"
+                          :time-ms 1700000000000
+                          :coin "PUMP"
+                          :size-raw 120.0
+                          :position-size-raw 120.0
+                          :position-side :long
+                          :payment-usdc-raw -0.42
+                          :funding-rate-raw 0.0006}
+        funding-row-xyz {:id "1700000100000|xyz:GOOGL|80.0|0.18|0.0002"
+                         :time-ms 1700000100000
+                         :coin "xyz:GOOGL"
+                         :size-raw 80.0
+                         :position-size-raw 80.0
+                         :position-side :long
+                         :payment-usdc-raw 0.18
+                         :funding-rate-raw 0.0002}
+        funding-history-state {:filters {:coin-set #{}}
+                               :draft-filters {:coin-set #{"xyz:GOOGL"}}
+                               :filter-open? true
+                               :loading? false
+                               :error nil}
+        controls (@#'view/funding-history-controls funding-history-state
+                                                   [funding-row-pump funding-row-xyz])
+        coin-checkboxes (find-all-nodes controls
+                                        (fn [node]
+                                          (and (= :input (first node))
+                                               (= "checkbox" (get-in node [1 :type]))
+                                               (= :actions/toggle-funding-history-filter-coin
+                                                  (first (first (get-in node [1 :on :change])))))))
+        xyz-label (find-first-node controls #(contains? (direct-texts %) "xyz"))
+        googl-label (find-first-node controls #(contains? (direct-texts %) "GOOGL"))
+        controls-strings (set (collect-strings controls))]
+    (is (= 2 (count coin-checkboxes)))
+    (is (some? xyz-label))
+    (is (some? googl-label))
+    (is (contains? (node-class-set xyz-label) "bg-emerald-500/20"))
+    (is (contains? controls-strings "GOOGL"))
+    (is (contains? controls-strings "xyz"))
+    (is (not (contains? controls-strings "xyz:GOOGL")))))
