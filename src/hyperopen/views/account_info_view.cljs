@@ -194,6 +194,11 @@
    "text-emerald-300"
    "border-emerald-500/30"])
 
+(def ^:private position-coin-cell-style
+  {:background "linear-gradient(90deg, rgb(31, 166, 125) 0px, rgb(31, 166, 125) 4px, rgb(11, 50, 38) 4px, transparent 100%) transparent"
+   :padding-left "12px"
+   :margin-left "-12px"})
+
 (defn- non-blank-text [value]
   (let [text (some-> value str str/trim)]
     (when (seq text) text)))
@@ -858,9 +863,10 @@
         liq-price (:liquidationPx pos)
         margin (:marginUsed pos)
         funding (get-in pos [:cumFunding :allTime])]
-    [:div.grid.grid-cols-11.gap-2.py-px.px-3.hover:bg-base-300.items-center.text-sm
+    [:div.grid.grid-cols-11.gap-2.py-0.px-3.hover:bg-base-300.items-center.text-sm
      ;; Coin with leverage and dex chips
-     [:div {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
+     [:div {:class ["flex" "items-center" "gap-1.5" "min-w-0" "self-stretch"]
+            :style position-coin-cell-style}
       [:span {:class ["font-medium" "truncate"]} coin-label]
       (when (some? leverage)
         [:span {:class position-chip-classes} (str leverage "x")])

@@ -457,9 +457,11 @@
                   [:trade-history (view/trade-history-tab-content fills)]
                   [:funding-history (view/funding-history-tab-content fundings)]
                   [:order-history (view/order-history-tab-content ledger)]]]
-    (doseq [[_ content] contents
+    (doseq [[tab-key content] contents
             :let [row-classes (node-class-set (first-viewport-row content))]]
-      (is (contains? row-classes "py-px"))
+      (if (= tab-key :positions)
+        (is (contains? row-classes "py-0"))
+        (is (contains? row-classes "py-px")))
       (is (contains? row-classes "px-3"))
       (is (contains? row-classes "gap-2")))))
 
@@ -581,6 +583,17 @@
     (is (every? #(contains? (node-class-set leverage-chip) %) expected-chip-classes))
     (is (every? #(contains? (node-class-set dex-chip) %) expected-chip-classes))))
 
+(deftest position-row-coin-cell-uses-hyperliquid-gradient-background-test
+  (let [row-node (view/position-row (sample-position-row "xyz:NVDA" 10 "0.500"))
+        coin-cell (first (vec (node-children row-node)))
+        expected-background "linear-gradient(90deg, rgb(31, 166, 125) 0px, rgb(31, 166, 125) 4px, rgb(11, 50, 38) 4px, transparent 100%) transparent"]
+    (is (= expected-background
+           (get-in coin-cell [1 :style :background])))
+    (is (= "12px" (get-in coin-cell [1 :style :padding-left])))
+    (is (= "-12px" (get-in coin-cell [1 :style :margin-left])))
+    (is (nil? (get-in coin-cell [1 :style :padding-right])))
+    (is (contains? (node-class-set coin-cell) "self-stretch"))))
+
 (deftest position-row-dedupes-explicit-and-prefixed-dex-label-test
   (let [row-node (view/position-row (sample-position-row "xyz:NVDA" 10 "0.500" "xyz"))
         coin-cell (first (vec (node-children row-node)))
@@ -588,6 +601,11 @@
     (is (= 1 (count (filter #(= "xyz" %) coin-strings))))
     (is (contains? (set coin-strings) "NVDA"))
     (is (contains? (set coin-strings) "10x"))))
+
+(deftest balance-row-coin-cell-does-not-use-position-gradient-background-test
+  (let [row-node (view/balance-row sample-balance-row)
+        coin-cell (first (vec (node-children row-node)))]
+    (is (nil? (get-in coin-cell [1 :style :background])))))
 
 (deftest open-orders-columns-are-left-aligned-test
   (let [open-orders [{:oid 101
