@@ -42,5 +42,5 @@
          [:div {:class ["border-t" "border-base-300"]}
           (account-equity-view/account-equity-view state)]]
 
-        [:div {:class ["bg-base-100" "lg:col-span-2" "xl:col-span-2" "border-t" "border-base-300"]}
+        [:div {:class ["bg-base-100" "lg:col-span-2" "xl:col-span-2" "border-t" "border-base-300" "flex" "flex-col" "min-h-0" "overflow-hidden"]}
          (account-info-view/account-info-view state)]]]]]))

@@ -47,11 +47,14 @@
 
     :else nil))
 
-(defn- first-data-row [table-node]
-  (->> (node-children table-node)
-       rest
-       (mapcat #(if (seq? %) % [%]))
-       first))
+(defn- tab-header-node [tab-content]
+  (first (vec (node-children tab-content))))
+
+(defn- tab-rows-viewport-node [tab-content]
+  (second (vec (node-children tab-content))))
+
+(defn- first-viewport-row [tab-content]
+  (-> tab-content tab-rows-viewport-node node-children first))
 
 (def sample-balance-row
   {:key "spot-0"
@@ -76,6 +79,22 @@
               :liquidationPx "12.10"
               :marginUsed "2400"
               :cumFunding {:allTime "10.0"}}})
+
+(def sample-account-info-state
+  {:account-info {:selected-tab :balances
+                  :loading false
+                  :error nil
+                  :hide-small-balances? false
+                  :balances-sort default-sort-state
+                  :positions-sort default-sort-state
+                  :open-orders-sort {:column "Time" :direction :desc}}
+   :webdata2 {}
+   :orders {:open-orders []
+            :open-orders-snapshot []
+            :open-orders-snapshot-by-dex {}}
+   :spot {:meta nil
+          :clearinghouse-state nil}
+   :perp-dex-clearinghouse {}})
 
 (deftest balances-header-contrast-test
   (let [header-node (view/balance-table-header default-sort-state)
@@ -156,6 +175,51 @@
     (is (nil? title-node))
     (is (nil? active-positions-node))))
 
+(deftest account-info-panel-uses-fixed-height-and-bounded-content-test
+  (let [panel (view/account-info-panel sample-account-info-state)
+        panel-classes (node-class-set panel)
+        content-node (second (vec (node-children panel)))
+        content-classes (node-class-set content-node)]
+    (is (contains? panel-classes "h-96"))
+    (is (contains? panel-classes "flex"))
+    (is (contains? panel-classes "flex-col"))
+    (is (contains? panel-classes "min-h-0"))
+    (is (contains? panel-classes "overflow-hidden"))
+    (is (contains? content-classes "flex-1"))
+    (is (contains? content-classes "min-h-0"))
+    (is (contains? content-classes "overflow-hidden"))))
+
+(deftest tab-content-uses-scrollable-row-viewport-test
+  (let [open-orders [{:oid 101
+                      :coin "HYPE"
+                      :side "B"
+                      :sz "2.0"
+                      :orig-sz "2.0"
+                      :px "100.0"
+                      :type "Limit"
+                      :time 1700000000000
+                      :reduce-only true
+                      :is-trigger false
+                      :trigger-condition nil
+                      :is-position-tpsl false}]
+        fills [{:tid 1 :coin "HYPE" :side "B" :sz "1.2" :px "100.0" :fee "0.1" :time 1700000000000}]
+        fundings [{:coin "HYPE" :fundingRate "0.001" :payment "1.23" :positionSize "100.0" :time 1700000000000}]
+        ledger [{:type "deposit" :coin "USDC" :delta "5.0" :time 1700000000000}]
+        contents [(view/balances-tab-content [sample-balance-row] false default-sort-state)
+                  (view/positions-tab-content {:clearinghouseState {:assetPositions [sample-position-data]}}
+                                              default-sort-state
+                                              {})
+                  (view/open-orders-tab-content open-orders {:column "Time" :direction :desc})
+                  (view/trade-history-tab-content fills)
+                  (view/funding-history-tab-content fundings)
+                  (view/order-history-tab-content ledger)]]
+    (doseq [content contents
+            :let [rows-viewport-classes (node-class-set (tab-rows-viewport-node content))]]
+      (is (contains? rows-viewport-classes "flex-1"))
+      (is (contains? rows-viewport-classes "min-h-0"))
+      (is (contains? rows-viewport-classes "overflow-y-auto"))
+      (is (contains? rows-viewport-classes "scrollbar-hide")))))
+
 (deftest balance-row-primary-value-and-action-contrast-test
   (let [row-node (view/balance-row sample-balance-row)
         coin-node (find-first-node row-node #(contains? (direct-texts %) "USDC (Spot)"))
@@ -215,9 +279,9 @@
                       :trigger-condition nil
                       :is-position-tpsl false}]
         content (view/open-orders-tab-content open-orders {:column "Time" :direction :desc})
-        header-node (first (node-children content))
+        header-node (tab-header-node content)
         header-cells (vec (node-children header-node))
-        row-node (first-data-row content)
+        row-node (first-viewport-row content)
         row-cells (vec (node-children row-node))]
     (doseq [idx [4 5 6 7 8 9 10 11]]
       (is (contains? (node-class-set (nth header-cells idx)) "text-left")))
@@ -229,14 +293,14 @@
         fundings [{:coin "HYPE" :fundingRate "0.001" :payment "1.23" :positionSize "100.0" :time 1700000000000}]
         ledger [{:type "deposit" :coin "USDC" :delta "5.0" :time 1700000000000}]
         trade-node (view/trade-history-tab-content fills)
-        trade-header-cells (vec (node-children (first (node-children trade-node))))
-        trade-row-cells (vec (node-children (first-data-row trade-node)))
+        trade-header-cells (vec (node-children (tab-header-node trade-node)))
+        trade-row-cells (vec (node-children (first-viewport-row trade-node)))
         funding-node (view/funding-history-tab-content fundings)
-        funding-header-cells (vec (node-children (first (node-children funding-node))))
-        funding-row-cells (vec (node-children (first-data-row funding-node)))
+        funding-header-cells (vec (node-children (tab-header-node funding-node)))
+        funding-row-cells (vec (node-children (first-viewport-row funding-node)))
         order-node (view/order-history-tab-content ledger)
-        order-header-cells (vec (node-children (first (node-children order-node))))
-        order-row-cells (vec (node-children (first-data-row order-node)))]
+        order-header-cells (vec (node-children (tab-header-node order-node)))
+        order-row-cells (vec (node-children (first-viewport-row order-node)))]
     (doseq [idx (range 1 6)]
       (is (contains? (node-class-set (nth trade-header-cells idx)) "text-left"))
       (is (contains? (node-class-set (nth trade-row-cells idx)) "text-left")))

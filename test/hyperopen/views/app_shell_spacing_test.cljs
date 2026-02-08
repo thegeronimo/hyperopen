@@ -56,6 +56,11 @@
                 (second node))]
     (set (class-values (:class attrs)))))
 
+(defn- node-class-set [node]
+  (let [attrs (when (and (vector? node) (map? (second node)))
+                (second node))]
+    (set (class-values (:class attrs)))))
+
 (def trade-view-test-state
   {:active-asset nil
    :active-market nil
@@ -148,6 +153,21 @@
     (is (contains-class? view-node "xl:row-span-2"))
     (is (not (contains-class? view-node "xl:row-start-2")))))
 
+(deftest trade-view-account-info-cell-bounds-overflow-test
+  (let [view-node (trade-view/trade-view trade-view-test-state)
+        account-info-cell (find-first-node view-node
+                                           (fn [candidate]
+                                             (let [classes (node-class-set candidate)]
+                                               (and (contains? classes "lg:col-span-2")
+                                                    (contains? classes "xl:col-span-2")
+                                                    (contains? classes "border-t")))))
+        account-info-cell-classes (node-class-set account-info-cell)]
+    (is (some? account-info-cell))
+    (is (contains? account-info-cell-classes "flex"))
+    (is (contains? account-info-cell-classes "flex-col"))
+    (is (contains? account-info-cell-classes "min-h-0"))
+    (is (contains? account-info-cell-classes "overflow-hidden"))))
+
 (deftest footer-view-uses-app-shell-gutter-test
   (let [view-node (footer-view/footer-view {:websocket {:status :connected}})]
     (is (contains-class? view-node "app-shell-gutter"))
@@ -158,10 +178,20 @@
     (is (contains-class? view-node "bg-base-200"))
     (is (contains-class? view-node "isolate"))))
 
-(deftest app-view-root-hides-scrollbar-while-remaining-scrollable-test
+(deftest app-view-root-hides-scrollbar-with-trade-xl-scroll-lock-test
   (let [view-node (app-view/app-view (assoc trade-view-test-state
                                             :router {:path "/trade"}
                                             :wallet {}))
         root-classes (root-class-set view-node)]
     (is (contains? root-classes "overflow-y-auto"))
-    (is (contains? root-classes "scrollbar-hide"))))
+    (is (contains? root-classes "scrollbar-hide"))
+    (is (contains? root-classes "xl:overflow-y-hidden"))))
+
+(deftest app-view-root-keeps-non-trade-scroll-policy-test
+  (let [view-node (app-view/app-view (assoc trade-view-test-state
+                                            :router {:path "/vaults"}
+                                            :wallet {}))
+        root-classes (root-class-set view-node)]
+    (is (contains? root-classes "overflow-y-auto"))
+    (is (contains? root-classes "scrollbar-hide"))
+    (is (not (contains? root-classes "xl:overflow-y-hidden")))))
