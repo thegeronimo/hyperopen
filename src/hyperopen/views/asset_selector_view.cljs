@@ -26,7 +26,7 @@
                              "right" ["right-full" "border-r-gray-800"]))}]]]]))
 
 (defn chip [label & [extra-classes]]
-  [:span {:class (into ["px-1.5" "py-0.5" "text-[10px]" "font-medium" "rounded" "border" "border-base-300" "bg-base-200" "text-gray-300"]
+  [:span {:class (into ["px-1.5" "py-0.5" "text-xs" "font-medium" "rounded" "border" "border-base-300" "bg-base-200" "text-gray-300"]
                        (or extra-classes []))}
    label])
 
@@ -98,7 +98,7 @@
 
 (defn sort-controls [sort-by sort-direction]
   [:div {:class ["grid" "grid-cols-12" "gap-3" "items-center" "px-4" "pb-2"
-                 "border-b" "border-base-300" "text-[11px]" "uppercase"
+                 "border-b" "border-base-300" "text-xs" "uppercase"
                  "tracking-wide" "text-gray-400" "bg-base-100"]}
    [:div.col-span-3 (sort-button "Symbol" (= sort-by :name) sort-direction :name)]
    [:div.col-span-2.text-center (sort-button "Last Price" (= sort-by :price) sort-direction :price)]

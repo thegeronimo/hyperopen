@@ -77,10 +77,10 @@
      [:div.flex.items-center.space-x-2.min-w-0
       [:span.font-medium.truncate symbol]
       (when (= market-type :spot)
-        [:span {:class ["px-1.5" "py-0.5" "text-[10px]" "font-medium" "rounded" "bg-base-300" "text-gray-200"]}
+        [:span {:class ["px-1.5" "py-0.5" "text-xs" "font-medium" "rounded" "bg-base-300" "text-gray-200"]}
          "SPOT"])
       (when dex
-        [:span {:class ["px-1.5" "py-0.5" "text-[10px]" "font-medium" "rounded"
+        [:span {:class ["px-1.5" "py-0.5" "text-xs" "font-medium" "rounded"
                         "bg-emerald-500/20" "text-emerald-300" "border" "border-emerald-500/30"]}
          dex])]
      [:svg {:fill "none"
@@ -111,10 +111,10 @@
                                             (:change-raw options))
                           [:span.font-medium value])]
     [:div.text-center
-     [:div {:class (into ["text-[11px]" "text-gray-400" "mb-1"]
+     [:div {:class (into ["text-xs" "text-gray-400" "mb-1"]
                          (when underlined? ["border-b" "border-dashed" "border-gray-600"]))}
       label]
-     [:div {:class ["text-[13px]"]} value-component]]))
+     [:div {:class ["text-xs"]} value-component]]))
 
 (defn active-asset-row [ctx-data market dropdown-state full-state]
   (let [coin (or (:coin market) (:coin ctx-data))
@@ -194,10 +194,10 @@
                     {:underlined true})]
       
       ;; Funding / Countdown column
-      [:div.flex.justify-center
-       [:div.text-center
-       [:div {:class ["text-[11px]" "text-gray-400" "mb-1"]} "Funding / Countdown"]
-        [:div {:class ["text-[13px]" "flex" "items-center" "justify-center"]}
+     [:div.flex.justify-center
+      [:div.text-center
+       [:div {:class ["text-xs" "text-gray-400" "mb-1"]} "Funding / Countdown"]
+        [:div {:class ["text-xs" "flex" "items-center" "justify-center"]}
          (if (and (not is-spot) has-perp-data?)
            (tooltip 
              [[:span.text-success.cursor-help (fmt/format-percentage funding-rate 4)]
@@ -237,8 +237,8 @@
 
      [:div.flex.justify-center
       [:div.text-center
-       [:div {:class ["text-[11px]" "text-gray-400" "mb-1"]} "Funding / Countdown"]
-       [:div {:class ["text-[13px]" "text-gray-400"]} "— / —"]]]]))
+       [:div {:class ["text-xs" "text-gray-400" "mb-1"]} "Funding / Countdown"]
+       [:div {:class ["text-xs" "text-gray-400"]} "— / —"]]]]))
 
 (defn active-asset-list [contexts dropdown-state full-state]
   (let [active-asset (:active-asset full-state)

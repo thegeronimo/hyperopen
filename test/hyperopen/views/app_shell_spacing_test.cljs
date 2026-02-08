@@ -31,6 +31,26 @@
               nil))]
     (boolean (walk node))))
 
+(defn- find-first-node [node pred]
+  (cond
+    (vector? node)
+    (let [attrs (when (map? (second node)) (second node))
+          children (if attrs (drop 2 node) (drop 1 node))]
+      (or (when (pred node) node)
+          (some #(find-first-node % pred) children)))
+
+    (seq? node)
+    (some #(find-first-node % pred) node)
+
+    :else nil))
+
+(defn- collect-strings [node]
+  (cond
+    (string? node) [node]
+    (vector? node) (mapcat collect-strings node)
+    (seq? node) (mapcat collect-strings node)
+    :else []))
+
 (defn- root-class-set [node]
   (let [attrs (when (and (vector? node) (map? (second node)))
                 (second node))]
@@ -82,6 +102,33 @@
 (deftest header-view-uses-app-shell-gutter-test
   (let [view-node (header-view/header-view {:wallet {}})]
     (is (contains-class? view-node "app-shell-gutter"))))
+
+(deftest header-navigation-links-remain-left-aligned-test
+  (let [view-node (header-view/header-view {:wallet {}})
+        nav-node (find-first-node view-node
+                                  (fn [candidate]
+                                    (and (vector? candidate)
+                                         (keyword? (first candidate))
+                                         (str/starts-with? (name (first candidate)) "nav."))))]
+    (is (= :nav.hidden.md:flex.flex-1.items-center.justify-start.space-x-8.ml-8
+           (first nav-node)))))
+
+(deftest header-navigation-links-use-hyperliquid-typography-classes-test
+  (let [view-node (header-view/header-view {:wallet {}})
+        trade-link (find-first-node view-node
+                                    (fn [candidate]
+                                      (and (= :a (first candidate))
+                                           (some #{"Trade"} (collect-strings candidate)))))
+        vaults-link (find-first-node view-node
+                                     (fn [candidate]
+                                       (and (= :a (first candidate))
+                                            (some #{"Vaults"} (collect-strings candidate)))))
+        trade-classes (set (class-values (get-in trade-link [1 :class])))
+        vaults-classes (set (class-values (get-in vaults-link [1 :class])))]
+    (is (contains? trade-classes "header-nav-link"))
+    (is (contains? trade-classes "header-nav-link-active"))
+    (is (contains? vaults-classes "header-nav-link"))
+    (is (not (contains? vaults-classes "header-nav-link-active")))))
 
 (deftest trade-view-does-not-use-app-shell-gutter-test
   (let [view-node (trade-view/trade-view trade-view-test-state)]

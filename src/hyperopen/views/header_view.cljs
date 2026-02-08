@@ -1,37 +1,50 @@
 (ns hyperopen.views.header-view
   (:require [hyperopen.wallet.core :as wallet]))
 
+(def header-nav-link-base-classes
+  ["header-nav-link"
+   "transition-colors"
+   "no-underline"])
+
+(def header-nav-link-active-classes
+  (into header-nav-link-base-classes
+        ["header-nav-link-active"
+         "hover:text-[#aefde8]"]))
+
+(def header-nav-link-inactive-classes
+  (into header-nav-link-base-classes
+        ["text-white"
+         "opacity-80"
+         "hover:opacity-100"
+         "hover:text-white"]))
+
+(defn- nav-link [label route active?]
+  [:a {:class (if active?
+                header-nav-link-active-classes
+                header-nav-link-inactive-classes)
+       :href "#"
+       :on {:click [[:actions/navigate route]]}}
+   label])
+
 (defn header-view [state]
   [:header.bg-base-200.border-b.border-base-300.w-full
    [:div {:class ["w-full" "app-shell-gutter" "py-3"]}
-    [:div.flex.justify-between.items-center
+    [:div.flex.items-center
      ;; Logo and Brand
      [:div.flex.items-center.space-x-3
       [:span.text-primary.text-3xl.font-bold.font-splash "HyperOpen"]]
      
      ;; Navigation Links
-     [:nav.hidden.md:flex.items-center.space-x-8
-      [:a.text-cyan-400.font-medium.hover:text-cyan-300.transition-colors
-       {:href "#"
-        :on {:click [[:actions/navigate "/trade"]]}} "Trade"]
-      [:a.text-white.opacity-80.hover:opacity-100.hover:text-white.transition-colors
-       {:href "#"
-        :on {:click [[:actions/navigate "/vaults"]]}} "Vaults"]
-      [:a.text-white.opacity-80.hover:opacity-100.hover:text-white.transition-colors
-       {:href "#"
-        :on {:click [[:actions/navigate "/portfolio"]]}} "Portfolio"]
-      [:a.text-white.opacity-80.hover:opacity-100.hover:text-white.transition-colors
-       {:href "#"
-        :on {:click [[:actions/navigate "/staking"]]}} "Staking"]
-      [:a.text-white.opacity-80.hover:opacity-100.hover:text-white.transition-colors
-       {:href "#"
-        :on {:click [[:actions/navigate "/referrals"]]}} "Referrals"]
-      [:a.text-white.opacity-80.hover:opacity-100.hover:text-white.transition-colors
-       {:href "#"
-        :on {:click [[:actions/navigate "/leaderboard"]]}} "Leaderboard"]
+     [:nav.hidden.md:flex.flex-1.items-center.justify-start.space-x-8.ml-8
+      (nav-link "Trade" "/trade" true)
+      (nav-link "Vaults" "/vaults" false)
+      (nav-link "Portfolio" "/portfolio" false)
+      (nav-link "Staking" "/staking" false)
+      (nav-link "Referrals" "/referrals" false)
+      (nav-link "Leaderboard" "/leaderboard" false)
       [:div.relative.group
-       [:a.text-white.opacity-80.hover:opacity-100.hover:text-white.transition-colors.flex.items-center.space-x-1
-        {:href "#"
+       [:a {:class (into header-nav-link-inactive-classes ["flex" "items-center" "space-x-1"])
+            :href "#"
          :on {:click [[:actions/navigate "/more"]]}}
         [:span "More"]
         [:svg.w-4.h-4 {:viewBox "0 0 20 20" :fill "currentColor"}

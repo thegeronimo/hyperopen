@@ -25,6 +25,7 @@
             [hyperopen.views.trading-chart.utils.data-processing-test]
             [hyperopen.views.trading-chart.utils.indicators-test]
             [hyperopen.views.l2-orderbook-view-test]
+            [hyperopen.views.typography-scale-test]
             [hyperopen.views.trade.order-form-view-test]
             [hyperopen.state.trading-test]))
 
@@ -56,6 +57,7 @@
              'hyperopen.views.trading-chart.utils.data-processing-test
              'hyperopen.views.trading-chart.utils.indicators-test
              'hyperopen.views.l2-orderbook-view-test
+             'hyperopen.views.typography-scale-test
              'hyperopen.views.trade.order-form-view-test
              'hyperopen.state.trading-test))
 

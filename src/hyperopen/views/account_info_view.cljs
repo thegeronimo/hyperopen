@@ -371,7 +371,7 @@
 
 ;; Balance row component
 (defn balance-row [{:keys [coin total-balance available-balance usdc-value pnl-value pnl-pct amount-decimals]}]
-  [:div.grid.grid-cols-7.gap-4.py-3.px-4.hover:bg-base-200.border-b.border-base-300.items-center
+  [:div.grid.grid-cols-7.gap-4.py-3.px-4.hover:bg-base-200.border-b.border-base-300.items-center.text-sm
    ;; Coin
    [:div.font-medium coin]
    ;; Total Balance  
@@ -417,7 +417,7 @@
       [:div
        ;; Filter toggle
        [:div.flex.justify-between.items-center.p-4.border-b.border-base-300
-        [:div.text-lg.font-medium "Balances (" balances-count ")"]
+        [:div.text-sm.font-medium "Balances (" balances-count ")"]
         [:div.flex.items-center.space-x-2
          [:input.checkbox.checkbox-primary
           {:type "checkbox"

@@ -3,6 +3,10 @@ module.exports = {
   content: ["./src/**/*.{cljs,clj}", "./resources/public/**/*.html"],
   theme: {
     extend: {
+      fontSize: {
+        xs: ["12px", { lineHeight: "16px" }],
+        sm: ["12px", { lineHeight: "16px" }],
+      },
       colors: {
         // Custom colors for trading interface
         "trading-bg": "#0b0e11",

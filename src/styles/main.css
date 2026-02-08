@@ -48,6 +48,24 @@
     @apply input input-sm bg-trading-surface border-trading-border text-trading-text font-mono;
   }
 
+  .header-nav-link {
+    font-family: OurFont, system-ui, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue",
+      sans-serif;
+    font-style: normal;
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 15px;
+    font-feature-settings: "calt" off;
+    font-variant-ligatures: no-contextual;
+    text-underline-offset: 0.2em;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .header-nav-link-active {
+    color: rgb(151 252 228);
+  }
+
   .order-size-slider.range {
     --range-shdw: rgba(0, 212, 170, 0.42);
   }
