@@ -47,6 +47,18 @@
 
     :else nil))
 
+(defn- count-nodes [node pred]
+  (cond
+    (vector? node)
+    (let [children (node-children node)
+          self-count (if (pred node) 1 0)]
+      (+ self-count (reduce + 0 (map #(count-nodes % pred) children))))
+
+    (seq? node)
+    (reduce + 0 (map #(count-nodes % pred) node))
+
+    :else 0))
+
 (defn- tab-header-node [tab-content]
   (first (vec (node-children tab-content))))
 
@@ -163,8 +175,8 @@
 
 (deftest tab-navigation-renders-hide-small-toggle-only-on-balances-tab-test
   (let [counts {:balances 1 :positions 1}
-        balances-nav (view/tab-navigation :balances counts true)
-        positions-nav (view/tab-navigation :positions counts true)
+        balances-nav (view/tab-navigation :balances counts true {})
+        positions-nav (view/tab-navigation :positions counts true {})
         balances-toggle-input (find-first-node balances-nav
                                                #(= "hide-small-balances"
                                                    (get-in % [1 :id])))
@@ -183,15 +195,34 @@
     (is (contains? (node-class-set balances-toggle-label) "text-trading-text"))
     (is (nil? positions-toggle-input))))
 
+(deftest tab-navigation-renders-funding-history-actions-in-right-controls-test
+  (let [counts {:balances 2 :positions 4 :open-orders 3}
+        nav (view/tab-navigation :funding-history counts false {:filter-open? false})
+        filter-button (find-first-node nav #(contains? (direct-texts %) "Filter"))
+        view-all-button (find-first-node nav #(contains? (direct-texts %) "View All"))
+        export-button (find-first-node nav #(contains? (direct-texts %) "Export as CSV"))
+        export-button-classes (node-class-set export-button)]
+    (is (some? filter-button))
+    (is (some? view-all-button))
+    (is (some? export-button))
+    (is (= [[:actions/toggle-funding-history-filter-open]]
+           (get-in filter-button [1 :on :click])))
+    (is (= [[:actions/view-all-funding-history]]
+           (get-in view-all-button [1 :on :click])))
+    (is (= [[:actions/export-funding-history-csv]]
+           (get-in export-button [1 :on :click])))
+    (is (contains? export-button-classes "text-trading-green"))
+    (is (contains? export-button-classes "font-normal"))))
+
 (deftest tab-navigation-renders-positions-count-when-positive-test
   (let [counts {:balances 2 :positions 4 :open-orders 3}
-        nav (view/tab-navigation :positions counts false)
+        nav (view/tab-navigation :positions counts false {})
         positions-tab-node (find-first-node nav #(contains? (direct-texts %) "Positions (4)"))]
     (is (some? positions-tab-node))))
 
 (deftest tab-navigation-hides-positions-count-when-zero-test
   (let [counts {:balances 2 :positions 0 :open-orders 3}
-        nav (view/tab-navigation :positions counts false)
+        nav (view/tab-navigation :positions counts false {})
         positions-tab-base-node (find-first-node nav #(contains? (direct-texts %) "Positions"))
         positions-tab-count-node (find-first-node nav #(contains? (direct-texts %) "Positions (0)"))]
     (is (some? positions-tab-base-node))
@@ -480,23 +511,22 @@
     (is (some? (find-first-node panel #(contains? (direct-texts %) "Filter"))))
     (is (some? (find-first-node panel #(contains? (direct-texts %) "View All"))))
     (is (some? (find-first-node panel #(contains? (direct-texts %) "Export as CSV"))))
+    (is (= 1 (count-nodes panel #(contains? (direct-texts %) "Export as CSV"))))
     (is (some? (find-first-node panel #(contains? (direct-texts %) "Position Side"))))
     (is (some? (find-first-node panel #(contains? (direct-texts %) "Long"))))))
 
-(deftest funding-history-controls-align-status-left-and-actions-right-test
+(deftest funding-history-controls-renders-status-without-header-actions-test
   (let [controls (@#'view/funding-history-controls {:loading? true
                                                     :error "Boom"
                                                     :filters {:coin-set #{}}
                                                     :draft-filters {:coin-set #{}}}
                                                    [])
-        controls-row (first (vec (node-children controls)))
-        status-group (first (vec (node-children controls-row)))
-        actions-group (second (vec (node-children controls-row)))]
-    (is (some? (find-first-node status-group #(contains? (direct-texts %) "Loading..."))))
-    (is (some? (find-first-node status-group #(contains? (direct-texts %) "Boom"))))
-    (is (some? (find-first-node actions-group #(contains? (direct-texts %) "Filter"))))
-    (is (some? (find-first-node actions-group #(contains? (direct-texts %) "View All"))))
-    (is (some? (find-first-node actions-group #(contains? (direct-texts %) "Export as CSV"))))))
+        status-row (first (vec (node-children controls)))]
+    (is (some? (find-first-node status-row #(contains? (direct-texts %) "Loading..."))))
+    (is (some? (find-first-node status-row #(contains? (direct-texts %) "Boom"))))
+    (is (nil? (find-first-node controls #(contains? (direct-texts %) "Filter"))))
+    (is (nil? (find-first-node controls #(contains? (direct-texts %) "View All"))))
+    (is (nil? (find-first-node controls #(contains? (direct-texts %) "Export as CSV"))))))
 
 (deftest funding-history-filter-panel-renders-apply-and-cancel-controls-test
   (let [funding-row {:id "1700000000000|HYPE|120.0|-0.42|0.0006"

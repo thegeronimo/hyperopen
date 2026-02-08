@@ -30,7 +30,19 @@
 
       :else base)))
 
-(defn tab-navigation [selected-tab counts hide-small?]
+(defn- funding-history-header-actions []
+  [:div {:class ["ml-auto" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2"]}
+   [:button {:class ["btn" "btn-xs" "btn-ghost" "font-normal" "text-trading-green" "hover:bg-trading-green/10" "hover:text-trading-green"]
+             :on {:click [[:actions/toggle-funding-history-filter-open]]}}
+    "Filter"]
+   [:button {:class ["btn" "btn-xs" "btn-ghost" "font-normal" "text-trading-green" "hover:bg-trading-green/10" "hover:text-trading-green"]
+             :on {:click [[:actions/view-all-funding-history]]}}
+    "View All"]
+   [:button {:class ["btn" "btn-xs" "btn-ghost" "font-normal" "text-trading-green" "hover:bg-trading-green/10" "hover:text-trading-green"]
+             :on {:click [[:actions/export-funding-history-csv]]}}
+    "Export as CSV"]])
+
+(defn tab-navigation [selected-tab counts hide-small? _funding-history-state]
   [:div.flex.items-center.justify-between.border-b.border-base-300.bg-base-200
    [:div.flex.items-center
     (for [tab available-tabs]
@@ -41,7 +53,8 @@
                  ["text-base-content" "border-transparent" "hover:text-primary" "hover:bg-base-100"])
         :on {:click [[:actions/select-account-info-tab tab]]}}
        (tab-label tab counts)])]
-   (when (= selected-tab :balances)
+   (case selected-tab
+     :balances
      [:div.flex.items-center.space-x-2.px-4.py-2
       [:input
        {:type "checkbox"
@@ -62,7 +75,12 @@
         :on {:change [[:actions/set-hide-small-balances :event.target/checked]]}}]
       [:label.text-sm.text-trading-text.cursor-pointer.select-none
        {:for "hide-small-balances"}
-       "Hide Small Balances"]])])
+       "Hide Small Balances"]]
+
+     :funding-history
+     (funding-history-header-actions)
+
+     nil)])
 
 ;; Loading spinner component
 (defn loading-spinner []
@@ -237,28 +255,22 @@
         filter-open? (boolean (:filter-open? funding-history-state))
         loading? (boolean (:loading? funding-history-state))
         error (:error funding-history-state)
+        status-open? (or loading? (some? error))
         start-time-ms (:start-time-ms draft-filters)
         end-time-ms (:end-time-ms draft-filters)
         coin-options (funding-coin-options fundings-raw)]
-    [:div {:class ["border-b" "border-base-300" "bg-base-200"]}
-     [:div {:class ["flex" "items-center" "justify-between" "px-4" "py-2" "text-sm"]}
-      [:div {:class ["flex" "items-center" "gap-2"]}
-       (when loading?
-         [:span {:class ["text-xs" "text-trading-text-secondary"]} "Loading..."])
-       (when error
-         [:span {:class ["text-xs" "text-error"]} (str error)])]
-      [:div {:class ["flex" "items-center" "gap-2"]}
-       [:button.btn.btn-xs.btn-ghost
-        {:on {:click [[:actions/toggle-funding-history-filter-open]]}}
-        "Filter"]
-       [:button.btn.btn-xs.btn-ghost
-        {:on {:click [[:actions/view-all-funding-history]]}}
-        "View All"]
-       [:button.btn.btn-xs.btn-ghost
-        {:on {:click [[:actions/export-funding-history-csv]]}}
-        "Export as CSV"]]]
-     (when filter-open?
-       [:div {:class ["grid" "grid-cols-1" "gap-3" "border-t" "border-base-300" "p-4" "text-sm" "md:grid-cols-2"]}
+    (when (or status-open? filter-open?)
+      [:div {:class ["border-b" "border-base-300" "bg-base-200"]}
+       (when status-open?
+         [:div {:class ["flex" "items-center" "gap-2" "px-4" "py-2" "text-sm"]}
+          (when loading?
+            [:span {:class ["text-xs" "text-trading-text-secondary"]} "Loading..."])
+          (when error
+            [:span {:class ["text-xs" "text-error"]} (str error)])])
+       (when filter-open?
+         [:div {:class (into ["grid" "grid-cols-1" "gap-3" "p-4" "text-sm" "md:grid-cols-2"]
+                             (when status-open?
+                               ["border-t" "border-base-300"]))}
         [:div {:class ["space-y-2"]}
          [:label {:class ["text-xs" "font-medium" "text-trading-text-secondary"]}
           "Start Time"]
@@ -293,7 +305,7 @@
           "Cancel"]
          [:button.btn.btn-sm.btn-primary
           {:on {:click [[:actions/apply-funding-history-filters]]}}
-          "Apply"]]])]))
+          "Apply"]]])])))
 
 (defn format-open-orders-time [ms]
   (when ms
@@ -1029,7 +1041,7 @@
         open-orders-sort (get-in state [:account-info :open-orders-sort] {:column "Time" :direction :desc})]
     [:div {:class ["bg-base-100" "border-t" "border-base-300" "rounded-none" "shadow-none" "overflow-hidden" "w-full" "h-96" "flex" "flex-col" "min-h-0"]}
      ;; Tab navigation
-     (tab-navigation selected-tab tab-counts hide-small?)
+     (tab-navigation selected-tab tab-counts hide-small? funding-history-state)
      
      ;; Content area
      [:div {:class ["flex-1" "min-h-0" "overflow-hidden"]}
