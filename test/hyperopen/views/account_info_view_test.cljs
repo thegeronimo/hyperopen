@@ -47,6 +47,12 @@
 
     :else nil))
 
+(defn- first-data-row [table-node]
+  (->> (node-children table-node)
+       rest
+       (mapcat #(if (seq? %) % [%]))
+       first))
+
 (def sample-balance-row
   {:key "spot-0"
    :coin "USDC (Spot)"
@@ -74,13 +80,13 @@
 (deftest balances-header-contrast-test
   (let [header-node (view/balance-table-header default-sort-state)
         sortable-node (view/sortable-balances-header "Coin" default-sort-state)
-        sortable-right-node (view/sortable-balances-header "Total Balance" default-sort-state :right)
+        sortable-left-node (view/sortable-balances-header "Total Balance" default-sort-state :left)
         non-sortable-node (view/non-sortable-header "Send")
         non-sortable-center-node (view/non-sortable-header "Send" :center)]
     (is (contains? (node-class-set header-node) "text-trading-text"))
     (is (contains? (node-class-set sortable-node) "text-trading-text-secondary"))
     (is (contains? (node-class-set sortable-node) "justify-start"))
-    (is (contains? (node-class-set sortable-right-node) "justify-end"))
+    (is (contains? (node-class-set sortable-left-node) "justify-start"))
     (is (contains? (node-class-set sortable-node) "hover:text-trading-text"))
     (is (contains? (node-class-set non-sortable-node) "text-trading-text-secondary"))
     (is (contains? (node-class-set non-sortable-center-node) "justify-center"))))
@@ -154,11 +160,67 @@
         position-row-node (view/position-row sample-position-data)
         balance-value-node (find-first-node balance-row-node
                                             #(let [classes (node-class-set %)]
-                                               (and (contains? classes "text-right")
+                                               (and (contains? classes "text-left")
                                                     (contains? classes "font-semibold"))))
         position-value-node (find-first-node position-row-node
                                              #(let [classes (node-class-set %)]
-                                                (and (contains? classes "text-right")
+                                                (and (contains? classes "text-left")
                                                      (contains? classes "font-semibold"))))]
     (is (some? balance-value-node))
     (is (some? position-value-node))))
+
+(deftest position-table-columns-are-left-aligned-test
+  (let [header-node (view/position-table-header default-sort-state)
+        header-cells (vec (node-children header-node))
+        row-node (view/position-row sample-position-data)
+        row-cells (vec (node-children row-node))]
+    (doseq [idx (range 1 11)]
+      (is (contains? (node-class-set (nth header-cells idx)) "text-left")))
+    (doseq [idx (range 1 11)]
+      (is (contains? (node-class-set (nth row-cells idx)) "text-left")))))
+
+(deftest open-orders-columns-are-left-aligned-test
+  (let [open-orders [{:oid 101
+                      :coin "HYPE"
+                      :side "B"
+                      :sz "2.0"
+                      :orig-sz "2.0"
+                      :px "100.0"
+                      :type "Limit"
+                      :time 1700000000000
+                      :reduce-only true
+                      :is-trigger false
+                      :trigger-condition nil
+                      :is-position-tpsl false}]
+        content (view/open-orders-tab-content open-orders {:column "Time" :direction :desc})
+        header-node (first (node-children content))
+        header-cells (vec (node-children header-node))
+        row-node (first-data-row content)
+        row-cells (vec (node-children row-node))]
+    (doseq [idx [4 5 6 7 8 9 10 11]]
+      (is (contains? (node-class-set (nth header-cells idx)) "text-left")))
+    (doseq [idx [4 5 6 7 8 9 10 11]]
+      (is (contains? (node-class-set (nth row-cells idx)) "text-left")))))
+
+(deftest history-tables-columns-are-left-aligned-test
+  (let [fills [{:tid 1 :coin "HYPE" :side "B" :sz "1.2" :px "100.0" :fee "0.1" :time 1700000000000}]
+        fundings [{:coin "HYPE" :fundingRate "0.001" :payment "1.23" :positionSize "100.0" :time 1700000000000}]
+        ledger [{:type "deposit" :coin "USDC" :delta "5.0" :time 1700000000000}]
+        trade-node (view/trade-history-tab-content fills)
+        trade-header-cells (vec (node-children (first (node-children trade-node))))
+        trade-row-cells (vec (node-children (first-data-row trade-node)))
+        funding-node (view/funding-history-tab-content fundings)
+        funding-header-cells (vec (node-children (first (node-children funding-node))))
+        funding-row-cells (vec (node-children (first-data-row funding-node)))
+        order-node (view/order-history-tab-content ledger)
+        order-header-cells (vec (node-children (first (node-children order-node))))
+        order-row-cells (vec (node-children (first-data-row order-node)))]
+    (doseq [idx (range 1 6)]
+      (is (contains? (node-class-set (nth trade-header-cells idx)) "text-left"))
+      (is (contains? (node-class-set (nth trade-row-cells idx)) "text-left")))
+    (doseq [idx (range 1 5)]
+      (is (contains? (node-class-set (nth funding-header-cells idx)) "text-left"))
+      (is (contains? (node-class-set (nth funding-row-cells idx)) "text-left")))
+    (doseq [idx (range 1 4)]
+      (is (contains? (node-class-set (nth order-header-cells idx)) "text-left"))
+      (is (contains? (node-class-set (nth order-row-cells idx)) "text-left")))))
