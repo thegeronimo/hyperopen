@@ -15,6 +15,8 @@
 (def orderbook-tabs
   #{:orderbook :trades})
 
+(def ^:private max-render-levels-per-side 80)
+
 (defn normalize-orderbook-tab [tab]
   (let [tab* (cond
                (keyword? tab) tab
@@ -279,7 +281,7 @@
    (orderbook-tab-button active-tab :trades "Trades")])
 
 (defn tab-content-viewport [content]
-  [:div {:class ["flex-1" "h-full" "min-h-0" "overflow-hidden"]}
+  [:div {:class ["flex-1" "h-full" "min-h-0" "overflow-hidden" "bg-base-100"]}
    content])
 
 (defn trades-column-headers [base-symbol]
@@ -325,7 +327,7 @@
         bar-width (cumulative-bar-width cum-total max-cum-size)
         bar-color (if is-ask? "bg-red-500/30" "bg-green-500/30")
         text-color (if is-ask? "text-red-400" "text-green-400")]
-    [:div.flex.items-center.h-6.relative.bg-base-100.text-xs
+    [:div.flex.items-center.h-6.relative.bg-base-100.text-xs {:data-role "orderbook-level-row"}
      ;; Size bar background - always positioned from left
      [:div.absolute.inset-0.flex.items-center.justify-start
       [:div {:class ["h-full" bar-color "transition-all" "duration-300" "ease-[cubic-bezier(0.68,-0.6,0.32,1.6)]"]
@@ -361,8 +363,7 @@
 
 ;; Main order book component
 (defn l2-orderbook-panel [coin market orderbook-data orderbook-ui]
-  (let [max-rows 9
-        size-unit (normalize-size-unit (:size-unit orderbook-ui))
+  (let [size-unit (normalize-size-unit (:size-unit orderbook-ui))
         size-unit-dropdown-visible? (boolean (:size-unit-dropdown-visible? orderbook-ui))
         price-dropdown-visible? (boolean (:price-aggregation-dropdown-visible? orderbook-ui))
         aggregation-by-coin (or (:price-aggregation-by-coin orderbook-ui) {})
@@ -378,8 +379,8 @@
         display-asks (sort-by #(or (parse-number (:px %)) 0) < raw-asks)
         ;; Bids: best->worst (highest->lowest). Highest price = best bid.
         display-bids (sort-by #(or (parse-number (:px %)) 0) > raw-bids)
-        asks-limited (take max-rows display-asks)
-        bids-limited (take max-rows display-bids)
+        asks-limited (take max-render-levels-per-side display-asks)
+        bids-limited (take max-render-levels-per-side display-bids)
 
         ;; Calculate cumulative totals in display order
         asks-with-totals (calculate-cumulative-totals asks-limited)
@@ -416,9 +417,11 @@
      (column-headers selected-size-symbol)
 
      ;; Order rows
-     [:div
+     [:div {:class ["flex-1" "min-h-0" "flex" "flex-col"]
+            :data-role "orderbook-depth-body"}
       ;; Asks (sell orders) - top section, rendered worst->best (reversed for display)
-      [:div
+      [:div {:class ["flex-1" "min-h-0" "overflow-hidden" "flex" "flex-col" "justify-end"]
+             :data-role "orderbook-asks-pane"}
        (for [ask (reverse asks-with-totals)]
          ^{:key (str "ask-" (:px ask))}
          (order-row ask max-cum-size true size-unit))]
@@ -428,7 +431,8 @@
         (spread-row spread))
 
       ;; Bids (buy orders) - bottom section, rendered best->worst
-      [:div
+      [:div {:class ["flex-1" "min-h-0" "overflow-hidden" "flex" "flex-col"]
+             :data-role "orderbook-bids-pane"}
        (for [bid bids-with-totals]
          ^{:key (str "bid-" (:px bid))}
          (order-row bid max-cum-size false size-unit))]]]))
@@ -463,7 +467,7 @@
         base-symbol (resolve-base-symbol coin market)]
     [:div {:class ["w-full" "h-full" "min-h-0" "overflow-hidden" "flex" "flex-col"]}
      (orderbook-tabs-row active-tab)
-     [:div.flex-1.h-full.min-h-0.overflow-hidden
+     [:div {:class ["flex-1" "h-full" "min-h-0" "overflow-hidden" "bg-base-100"]}
       (if (= active-tab :trades)
         (tab-content-viewport
          (trades-panel coin base-symbol))

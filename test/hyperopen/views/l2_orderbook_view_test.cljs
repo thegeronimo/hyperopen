@@ -51,6 +51,27 @@
                 (second node))]
     (set (class-values (:class attrs)))))
 
+(defn- node-attrs [node]
+  (when (and (vector? node) (map? (second node)))
+    (second node)))
+
+(defn- data-role= [role]
+  (fn [node]
+    (= role (:data-role (node-attrs node)))))
+
+(defn- count-nodes [node pred]
+  (cond
+    (vector? node)
+    (let [attrs (node-attrs node)
+          children (if attrs (drop 2 node) (drop 1 node))]
+      (+ (if (pred node) 1 0)
+         (reduce + 0 (map #(count-nodes % pred) children))))
+
+    (seq? node)
+    (reduce + 0 (map #(count-nodes % pred) node))
+
+    :else 0))
+
 (deftest symbol-resolution-test
   (testing "market metadata takes precedence"
     (is (= "PUMP" (view/resolve-base-symbol "PUMP" {:base "PUMP"})))
@@ -161,7 +182,7 @@
       (is (contains? classes "scrollbar-hide")))))
 
 (deftest orderbook-and-trades-share-constrained-tab-viewport-sizing-test
-  (let [required-classes #{"flex-1" "h-full" "min-h-0" "overflow-hidden"}
+  (let [required-classes #{"flex-1" "h-full" "min-h-0" "overflow-hidden" "bg-base-100"}
         orderbook-view (view/l2-orderbook-view {:coin "BTC"
                                                 :market {:market-type :perp
                                                          :base "BTC"
@@ -187,3 +208,51 @@
     (is (some? trades-viewport))
     (is (= orderbook-classes trades-classes))
     (is (every? orderbook-classes required-classes))))
+
+(deftest orderbook-panel-renders-full-available-depth-instead-of-hard-capping-at-nine-test
+  (let [asks (mapv (fn [idx]
+                     {:px (str (+ 101 idx))
+                      :sz (str (+ 1 idx))})
+                   (range 12))
+        bids (mapv (fn [idx]
+                     {:px (str (- 99 idx))
+                      :sz (str (+ 1 idx))})
+                   (range 12))
+        panel (view/l2-orderbook-panel "BTC"
+                                       {:market-type :perp
+                                        :base "BTC"
+                                        :quote "USDC"
+                                        :szDecimals 4}
+                                       {:bids bids
+                                        :asks asks}
+                                       {:size-unit :base
+                                        :size-unit-dropdown-visible? false
+                                        :price-aggregation-dropdown-visible? false
+                                        :price-aggregation-by-coin {"BTC" :full}})
+        level-row-count (count-nodes panel (data-role= "orderbook-level-row"))]
+    (is (= 24 level-row-count))))
+
+(deftest orderbook-panel-depth-panes-use-flex-constrained-layout-contract-test
+  (let [panel (view/l2-orderbook-panel "BTC"
+                                       {:market-type :perp
+                                        :base "BTC"
+                                        :quote "USDC"
+                                        :szDecimals 4}
+                                       {:bids [{:px "99" :sz "2"}]
+                                        :asks [{:px "101" :sz "1"}]}
+                                       {:size-unit :base
+                                        :size-unit-dropdown-visible? false
+                                        :price-aggregation-dropdown-visible? false
+                                        :price-aggregation-by-coin {"BTC" :full}})
+        depth-body (find-first-node panel (data-role= "orderbook-depth-body"))
+        asks-pane (find-first-node panel (data-role= "orderbook-asks-pane"))
+        bids-pane (find-first-node panel (data-role= "orderbook-bids-pane"))
+        depth-body-classes (node-class-set depth-body)
+        asks-pane-classes (node-class-set asks-pane)
+        bids-pane-classes (node-class-set bids-pane)]
+    (is (some? depth-body))
+    (is (some? asks-pane))
+    (is (some? bids-pane))
+    (is (every? depth-body-classes #{"flex-1" "min-h-0" "flex" "flex-col"}))
+    (is (every? asks-pane-classes #{"flex-1" "min-h-0" "overflow-hidden" "flex" "flex-col" "justify-end"}))
+    (is (every? bids-pane-classes #{"flex-1" "min-h-0" "overflow-hidden" "flex" "flex-col"}))))
