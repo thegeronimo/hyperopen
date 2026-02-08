@@ -411,28 +411,41 @@
       (when (ws-client/connected?)
         (nxr/dispatch store nil [[:actions/subscribe-to-asset asset]])))))
 
+(defn- chart-dropdown-visibility-path-values [open-dropdown]
+  [[[:chart-options :timeframes-dropdown-visible] (= open-dropdown :timeframes)]
+   [[:chart-options :chart-type-dropdown-visible] (= open-dropdown :chart-type)]
+   [[:chart-options :indicators-dropdown-visible] (= open-dropdown :indicators)]])
+
+(defn- chart-dropdown-projection-effect
+  ([open-dropdown]
+   (chart-dropdown-projection-effect open-dropdown []))
+  ([open-dropdown extra-path-values]
+   [:effects/save-many (into (vec extra-path-values)
+                             (chart-dropdown-visibility-path-values open-dropdown))]))
+
 (defn toggle-timeframes-dropdown [state]
-  (let [current-visible (get-in state [:chart-options :timeframes-dropdown-visible])]
-    [[:effects/save [:chart-options :timeframes-dropdown-visible] (not current-visible)]]))
+  (let [current-visible (boolean (get-in state [:chart-options :timeframes-dropdown-visible]))
+        open-dropdown (when-not current-visible :timeframes)]
+    [(chart-dropdown-projection-effect open-dropdown)]))
 
 (defn select-chart-timeframe [state timeframe]
   (js/localStorage.setItem "chart-timeframe" (name timeframe))
-  [[:effects/save [:chart-options :selected-timeframe] timeframe]
-   [:effects/save [:chart-options :timeframes-dropdown-visible] false]
+  [(chart-dropdown-projection-effect nil [[[:chart-options :selected-timeframe] timeframe]])
    [:effects/fetch-candle-snapshot :interval timeframe]])
 
 (defn toggle-chart-type-dropdown [state]
-  (let [current-visible (get-in state [:chart-options :chart-type-dropdown-visible])]
-    [[:effects/save [:chart-options :chart-type-dropdown-visible] (not current-visible)]]))
+  (let [current-visible (boolean (get-in state [:chart-options :chart-type-dropdown-visible]))
+        open-dropdown (when-not current-visible :chart-type)]
+    [(chart-dropdown-projection-effect open-dropdown)]))
 
 (defn select-chart-type [state chart-type]
   (js/localStorage.setItem "chart-type" (name chart-type))
-  [[:effects/save [:chart-options :selected-chart-type] chart-type]
-   [:effects/save [:chart-options :chart-type-dropdown-visible] false]])
+  [(chart-dropdown-projection-effect nil [[[:chart-options :selected-chart-type] chart-type]])])
 
 (defn toggle-indicators-dropdown [state]
-  (let [current-visible (get-in state [:chart-options :indicators-dropdown-visible])]
-    [[:effects/save [:chart-options :indicators-dropdown-visible] (not current-visible)]]))
+  (let [current-visible (boolean (get-in state [:chart-options :indicators-dropdown-visible]))
+        open-dropdown (when-not current-visible :indicators)]
+    [(chart-dropdown-projection-effect open-dropdown)]))
 
 (defn toggle-orderbook-size-unit-dropdown [state]
   (let [visible? (get-in state [:orderbook-ui :size-unit-dropdown-visible?] false)]

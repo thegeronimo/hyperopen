@@ -38,6 +38,23 @@
                 (nth effect 2)))
             effects)))
 
+(defn- with-test-local-storage [f]
+  (let [original-local-storage (.-localStorage js/globalThis)
+        storage (atom {})]
+    (set! (.-localStorage js/globalThis)
+          #js {:setItem (fn [key value]
+                          (swap! storage assoc (str key) (str value)))
+               :getItem (fn [key]
+                          (get @storage (str key)))
+               :removeItem (fn [key]
+                             (swap! storage dissoc (str key)))
+               :clear (fn []
+                        (reset! storage {}))})
+    (try
+      (f)
+      (finally
+        (set! (.-localStorage js/globalThis) original-local-storage)))))
+
 (deftest initialize-remote-data-streams-phased-bootstrap-test
   (let [phases (atom [])
         critical-fetches (atom 0)
@@ -198,6 +215,81 @@
            effects))
     (is (= :effects/save-many (ffirst effects)))
     (is (not-any? #(= (first %) :effects/fetch-candle-snapshot) effects))))
+
+(deftest toggle-timeframes-dropdown-opens-timeframes-and-closes-other-chart-menus-test
+  (let [effects (core/toggle-timeframes-dropdown
+                 {:chart-options {:timeframes-dropdown-visible false
+                                  :chart-type-dropdown-visible true
+                                  :indicators-dropdown-visible true}})]
+    (is (= [[:effects/save-many [[[:chart-options :timeframes-dropdown-visible] true]
+                                 [[:chart-options :chart-type-dropdown-visible] false]
+                                 [[:chart-options :indicators-dropdown-visible] false]]]]
+           effects))))
+
+(deftest toggle-chart-type-dropdown-opens-chart-type-and-closes-other-chart-menus-test
+  (let [effects (core/toggle-chart-type-dropdown
+                 {:chart-options {:timeframes-dropdown-visible true
+                                  :chart-type-dropdown-visible false
+                                  :indicators-dropdown-visible true}})]
+    (is (= [[:effects/save-many [[[:chart-options :timeframes-dropdown-visible] false]
+                                 [[:chart-options :chart-type-dropdown-visible] true]
+                                 [[:chart-options :indicators-dropdown-visible] false]]]]
+           effects))))
+
+(deftest toggle-indicators-dropdown-opens-indicators-and-closes-other-chart-menus-test
+  (let [effects (core/toggle-indicators-dropdown
+                 {:chart-options {:timeframes-dropdown-visible true
+                                  :chart-type-dropdown-visible true
+                                  :indicators-dropdown-visible false}})]
+    (is (= [[:effects/save-many [[[:chart-options :timeframes-dropdown-visible] false]
+                                 [[:chart-options :chart-type-dropdown-visible] false]
+                                 [[:chart-options :indicators-dropdown-visible] true]]]]
+           effects))))
+
+(deftest toggle-open-chart-menu-closes-all-chart-menus-test
+  (let [effects (core/toggle-timeframes-dropdown
+                 {:chart-options {:timeframes-dropdown-visible true
+                                  :chart-type-dropdown-visible false
+                                  :indicators-dropdown-visible false}})]
+    (is (= [[:effects/save-many [[[:chart-options :timeframes-dropdown-visible] false]
+                                 [[:chart-options :chart-type-dropdown-visible] false]
+                                 [[:chart-options :indicators-dropdown-visible] false]]]]
+           effects))))
+
+(deftest select-chart-timeframe-emits-batched-projection-before-single-fetch-test
+  (with-test-local-storage
+    (fn []
+      (let [effects (core/select-chart-timeframe
+                     {:chart-options {:timeframes-dropdown-visible true
+                                      :chart-type-dropdown-visible true
+                                      :indicators-dropdown-visible true}}
+                     :5m)]
+        (is (= [[:effects/save-many [[[:chart-options :selected-timeframe] :5m]
+                                     [[:chart-options :timeframes-dropdown-visible] false]
+                                     [[:chart-options :chart-type-dropdown-visible] false]
+                                     [[:chart-options :indicators-dropdown-visible] false]]]
+                [:effects/fetch-candle-snapshot :interval :5m]]
+               effects))
+        (is (= 1 (count (filter #(= :effects/fetch-candle-snapshot (first %)) effects))))
+        (is (= :effects/save-many (ffirst effects)))
+        (is (= :effects/fetch-candle-snapshot (first (second effects))))))))
+
+(deftest select-chart-type-emits-single-batched-projection-and-no-network-effects-test
+  (with-test-local-storage
+    (fn []
+      (let [effects (core/select-chart-type
+                     {:chart-options {:timeframes-dropdown-visible true
+                                      :chart-type-dropdown-visible true
+                                      :indicators-dropdown-visible true}}
+                     :line)]
+        (is (= [[:effects/save-many [[[:chart-options :selected-chart-type] :line]
+                                     [[:chart-options :timeframes-dropdown-visible] false]
+                                     [[:chart-options :chart-type-dropdown-visible] false]
+                                     [[:chart-options :indicators-dropdown-visible] false]]]]
+               effects))
+        (is (= 1 (count effects)))
+        (is (not-any? #(= :effects/fetch-candle-snapshot (first %)) effects))
+        (is (not-any? #(= :effects/subscribe-active-asset (first %)) effects))))))
 
 (deftest select-order-entry-mode-market-emits-single-batched-projection-test
   (let [state {:order-form (assoc (trading/default-order-form)

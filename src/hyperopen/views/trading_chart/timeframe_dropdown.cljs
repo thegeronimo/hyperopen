@@ -9,10 +9,13 @@
      {:class (if timeframes-dropdown-visible "rotate-180" "rotate-0")}
      "▼"]]
    ;; Dropdown menu (toggled with state)
-   [:div.absolute.top-full.left-0.mt-1.bg-base-100.border.border-base-300.rounded.shadow-lg.z-50.min-w-32.overflow-hidden
-    {:class (if timeframes-dropdown-visible 
-              ["opacity-100" "scale-y-100" "translate-y-0"] 
-              ["opacity-0" "scale-y-95" "-translate-y-2" "pointer-events-none"])
+   [:div
+    {:class (into ["absolute" "top-full" "left-0" "mt-1"
+                   "bg-base-100" "border" "border-base-300" "rounded" "shadow-lg"
+                   "z-[120]" "isolate" "min-w-32" "overflow-hidden"]
+                  (if timeframes-dropdown-visible
+                    ["opacity-100" "scale-y-100" "translate-y-0"]
+                    ["opacity-0" "scale-y-95" "-translate-y-2" "pointer-events-none"]))
      :style {:transition "all 50ms ease-in-out"}}
     ;; Minutes section
     [:div.px-3.py-2.text-xs.text-gray-400.uppercase.font-semibold.border-b.border-base-300 "Minutes"]

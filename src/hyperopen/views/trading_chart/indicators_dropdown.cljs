@@ -6,7 +6,10 @@
   [{:keys [indicators-dropdown-visible active-indicators]}]
   [:div.relative
    (when indicators-dropdown-visible
-     [:div.absolute.left-0.top-full.mt-1.w-80.bg-base-100.border.border-base-300.rounded-lg.shadow-lg.z-50.p-4
+     [:div
+      {:class ["absolute" "left-0" "top-full" "mt-1" "w-80"
+               "bg-base-100" "opacity-100" "border" "border-base-300"
+               "rounded-lg" "shadow-lg" "z-[120]" "isolate" "p-4"]}
       [:div.text-white.font-medium.mb-3 "Add Indicators"]
       
       ;; Available indicators list

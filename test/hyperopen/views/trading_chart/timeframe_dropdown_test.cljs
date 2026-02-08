@@ -32,16 +32,26 @@
 (deftest hidden-state-emits-no-space-separated-class-string-test
   (let [view (timeframe-dropdown/timeframe-dropdown {:selected-timeframe :1m
                                                      :timeframes-dropdown-visible false})
-        dropdown-class (get-in view [2 1 :class])]
-    (is (= ["opacity-0" "scale-y-95" "-translate-y-2" "pointer-events-none"]
-           dropdown-class))
+        dropdown-class (set (get-in view [2 1 :class]))]
+    (is (contains? dropdown-class "bg-base-100"))
+    (is (contains? dropdown-class "z-[120]"))
+    (is (contains? dropdown-class "isolate"))
+    (is (contains? dropdown-class "opacity-0"))
+    (is (contains? dropdown-class "scale-y-95"))
+    (is (contains? dropdown-class "-translate-y-2"))
+    (is (contains? dropdown-class "pointer-events-none"))
     (is (not-any? spaced-class-string? (collect-class-strings view)))))
 
 (deftest visible-state-emits-no-space-separated-class-string-test
   (let [view (timeframe-dropdown/timeframe-dropdown {:selected-timeframe :1m
                                                      :timeframes-dropdown-visible true})
-        dropdown-class (get-in view [2 1 :class])]
-    (is (= ["opacity-100" "scale-y-100" "translate-y-0"] dropdown-class))
+        dropdown-class (set (get-in view [2 1 :class]))]
+    (is (contains? dropdown-class "bg-base-100"))
+    (is (contains? dropdown-class "z-[120]"))
+    (is (contains? dropdown-class "isolate"))
+    (is (contains? dropdown-class "opacity-100"))
+    (is (contains? dropdown-class "scale-y-100"))
+    (is (contains? dropdown-class "translate-y-0"))
     (is (not-any? spaced-class-string? (collect-class-strings view)))))
 
 (deftest dropdown-transition-class-is-tokenized-collection-test
