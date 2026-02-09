@@ -1380,8 +1380,31 @@
         default-sorted (@#'view/funding-history-table rows {})
         default-row (first-viewport-row default-sorted)
         default-coin (nth (vec (node-children default-row)) 1)]
-    (is (contains? (direct-texts coin-value) "BTC"))
-    (is (contains? (direct-texts default-coin) "ETH"))))
+    (is (contains? (set (collect-strings coin-value)) "BTC"))
+    (is (contains? (set (collect-strings default-coin)) "ETH"))))
+
+(deftest funding-history-row-renders-coin-chip-and-size-without-prefix-test
+  (let [rows [{:id "1700000000000|xyz:NVDA|0.5|-0.42|0.0006"
+               :time-ms 1700000000000
+               :coin "xyz:NVDA"
+               :position-size-raw 0.5
+               :payment-usdc-raw -0.42
+               :funding-rate-raw 0.0006}]
+        content (@#'view/funding-history-table rows {:sort {:column "Time" :direction :desc}})
+        row (first-viewport-row content)
+        row-cells (vec (node-children row))
+        coin-cell (nth row-cells 1)
+        size-cell (nth row-cells 2)
+        row-strings (set (collect-strings row))
+        coin-strings (set (collect-strings coin-cell))
+        size-strings (set (collect-strings size-cell))
+        xyz-chip (find-first-node coin-cell #(contains? (direct-texts %) "xyz"))]
+    (is (contains? coin-strings "NVDA"))
+    (is (contains? coin-strings "xyz"))
+    (is (not (contains? row-strings "xyz:NVDA")))
+    (is (= #{"0.500 NVDA"} size-strings))
+    (is (some? xyz-chip))
+    (is (contains? (node-class-set xyz-chip) "bg-emerald-500/20"))))
 
 (deftest funding-history-pagination-renders-only-current-page-rows-test
   (let [rows (mapv funding-history-row (range 55))

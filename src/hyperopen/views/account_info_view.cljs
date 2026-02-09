@@ -332,7 +332,8 @@
   (let [size (js/Math.abs (parse-num (or (:position-size-raw row)
                                          (:positionSize row)
                                          (:size-raw row))))
-        coin (or (:coin row) "-")]
+        {:keys [base-label]} (resolve-coin-display (:coin row) {})
+        coin (or (non-blank-text base-label) "-")]
     (str (.toLocaleString (js/Number. size)
                           "en-US"
                           #js {:minimumFractionDigits 3
@@ -2015,7 +2016,7 @@
          ^{:key (funding-row-sort-id f)}
          [:div.grid.grid-cols-6.gap-2.py-px.px-3.hover:bg-base-300.text-sm
           [:div (format-funding-history-time (or (:time-ms f) (:time f)))]
-          [:div.text-left (:coin f)]
+          [:div.text-left (order-history-coin-node (:coin f))]
           [:div.text-left.num (funding-size-text f)]
           [:div.text-left
            (let [position-side (funding-side-value f)]
