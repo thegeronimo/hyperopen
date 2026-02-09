@@ -148,11 +148,25 @@
         ask-classes (frequencies (collect-all-classes (view/order-row order 3 true :base)))
         bid-classes (frequencies (collect-all-classes (view/order-row order 3 false :base)))]
     (testing "ask rows keep price red while rendering size/total as white"
-      (is (= 1 (get ask-classes "text-red-400" 0)))
+      (is (= 1 (get ask-classes "text-[rgb(237,112,136)]" 0)))
       (is (= 2 (get ask-classes "text-white" 0))))
     (testing "bid rows keep price green while rendering size/total as white"
-      (is (= 1 (get bid-classes "text-green-400" 0)))
+      (is (= 1 (get bid-classes "text-[rgb(31,166,125)]" 0)))
       (is (= 2 (get bid-classes "text-white" 0))))))
+
+(deftest order-row-uses-20pct-depth-bar-translucency-test
+  (let [order {:px "101.5"
+               :sz "2"
+               :cum-size 2
+               :cum-value 203}
+        ask-classes (set (collect-all-classes (view/order-row order 3 true :base)))
+        bid-classes (set (collect-all-classes (view/order-row order 3 false :base)))]
+    (testing "ask depth bars use Hyperliquid red at 20pct translucency"
+      (is (contains? ask-classes "bg-[rgba(237,112,136,0.20)]"))
+      (is (not (contains? ask-classes "bg-red-500/30"))))
+    (testing "bid depth bars use Hyperliquid green at 20pct translucency"
+      (is (contains? bid-classes "bg-[rgba(31,166,125,0.20)]"))
+      (is (not (contains? bid-classes "bg-green-500/30"))))))
 
 (deftest orderbook-price-column-is-left-aligned-with-readable-left-inset-test
   (let [panel (view/l2-orderbook-panel "BTC"

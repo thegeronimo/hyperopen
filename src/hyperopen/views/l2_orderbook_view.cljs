@@ -333,8 +333,8 @@
   (let [price (:px order)
         cum-total (order-total-for-unit order size-unit)
         bar-width (cumulative-bar-width cum-total max-cum-size)
-        bar-color (if is-ask? "bg-red-500/30" "bg-green-500/30")
-        price-text-color (if is-ask? "text-red-400" "text-green-400")]
+        bar-color (if is-ask? "bg-[rgba(237,112,136,0.20)]" "bg-[rgba(31,166,125,0.20)]")
+        price-text-color (if is-ask? "text-[rgb(237,112,136)]" "text-[rgb(31,166,125)]")]
     [:div.flex.items-center.h-6.relative.bg-base-100.text-xs {:data-role "orderbook-level-row"}
      ;; Size bar background - always positioned from left
      [:div.absolute.inset-0.flex.items-center.justify-start
