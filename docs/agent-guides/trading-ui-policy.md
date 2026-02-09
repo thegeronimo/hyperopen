@@ -31,6 +31,8 @@
 - MUST include `+` or `-` signs for deltas and avoid color-only gain/loss encoding.
 - MUST show timezone context and data freshness when staleness is possible.
 - MUST show market session context (open/closed/pre/post) where execution behavior changes.
+- MUST keep Trade History value columns `Price`, `Size`, `Trade Value`, `Fee`, and `Closed PNL` left-aligned in both header and row cells so values start directly under the header labels.
+- MUST NOT apply right-alignment utilities (for example `text-right` or `num-right`) to those Trade History value columns.
 
 ## Instrument Rendering Rules (MUST)
 - MUST render namespaced instrument identifiers as base symbol text plus a separate venue/type chip in table/list cells (for example `xyz:NVDA` renders as `NVDA` with an `xyz` chip).
