@@ -937,6 +937,28 @@
      :page-count page-count
      :page-input page-input}))
 
+(defn- paginate-funding-history [rows funding-history-state]
+  (let [total-rows (count rows)
+        page-size (normalize-order-history-page-size (:page-size funding-history-state))
+        page-count (max 1 (int (js/Math.ceil (/ total-rows page-size))))
+        requested-page (normalize-order-history-page (:page funding-history-state))
+        safe-page (normalize-order-history-page requested-page page-count)
+        start-idx (* (dec safe-page) page-size)
+        end-idx (min total-rows (+ start-idx page-size))
+        page-rows (if (< start-idx total-rows)
+                    (subvec rows start-idx end-idx)
+                    [])
+        raw-page-input (some-> (:page-input funding-history-state) str)
+        page-input (if (= raw-page-input (str requested-page))
+                     (str safe-page)
+                     (or raw-page-input (str safe-page)))]
+    {:rows page-rows
+     :total-rows total-rows
+     :page-size page-size
+     :page safe-page
+     :page-count page-count
+     :page-input page-input}))
+
 (defn sort-order-history-by-column [rows column direction]
   (let [sort-fn (case column
                   "Time" (fn [row] (or (:time-ms row) 0))
@@ -985,6 +1007,58 @@
      [:span column-name]
      (when sort-icon
        [:span.text-xs.opacity-70 sort-icon])]))
+
+(defn- funding-history-pagination-controls [{:keys [total-rows page-size page page-count page-input]}]
+  (let [on-first-page? (<= page 1)
+        on-last-page? (>= page page-count)]
+    [:div {:class ["border-t" "border-base-300" "bg-base-100"]}
+     [:div {:class ["flex" "flex-wrap" "items-center" "justify-between" "gap-3" "px-3" "py-2" "text-xs"]}
+      [:div {:class ["flex" "items-center" "gap-2"]}
+       [:label {:for "funding-history-page-size"
+                :class ["font-medium" "text-trading-text-secondary"]}
+        "Rows"]
+       [:select {:id "funding-history-page-size"
+                 :class ["select" "select-sm" "select-bordered" "h-8" "min-h-8" "w-24" "pl-2" "pr-8" "text-sm" "leading-5"]
+                 :aria-label "Funding rows per page"
+                 :value (str page-size)
+                 :on {:change [[:actions/set-funding-history-page-size [:event.target/value]]]}}
+        (for [size order-history-page-size-options]
+          ^{:key size}
+          [:option {:value (str size)}
+           (str size)])]
+       [:span {:class ["text-trading-text-secondary"]}
+        (str "Total: " total-rows)]]
+      [:div {:class ["flex" "items-center" "gap-2"]}
+       [:button {:class ["btn" "btn-xs" "btn-ghost" "h-6" "min-h-6" "min-w-6"]
+                 :aria-label "Previous funding page"
+                 :disabled on-first-page?
+                 :on {:click [[:actions/prev-funding-history-page page-count]]}}
+        "Prev"]
+       [:span {:class ["min-w-[5.5rem]" "text-center" "text-trading-text-secondary"]}
+        (str "Page " page " of " page-count)]
+       [:button {:class ["btn" "btn-xs" "btn-ghost" "h-6" "min-h-6" "min-w-6"]
+                 :aria-label "Next funding page"
+                 :disabled on-last-page?
+                 :on {:click [[:actions/next-funding-history-page page-count]]}}
+        "Next"]]
+      [:div {:class ["flex" "items-center" "gap-2"]}
+       [:label {:for "funding-history-page-input"
+                :class ["font-medium" "text-trading-text-secondary"]}
+        "Jump"]
+       [:input {:id "funding-history-page-input"
+                :class ["input" "input-xs" "input-bordered" "h-6" "min-h-6" "w-16" "text-xs"]
+                :type "text"
+                :inputmode "numeric"
+                :pattern "[0-9]*"
+                :aria-label "Jump to funding page"
+                :value page-input
+                :on {:input [[:actions/set-funding-history-page-input [:event.target/value]]]
+                     :change [[:actions/set-funding-history-page-input [:event.target/value]]]
+                     :keydown [[:actions/handle-funding-history-page-input-keydown [:event/key] page-count]]}}]
+       [:button {:class ["btn" "btn-xs" "btn-primary" "h-6" "min-h-6" "min-w-6"]
+                 :aria-label "Go to funding page"
+                 :on {:click [[:actions/apply-funding-history-page-input page-count]]}}
+        "Go"]]]]))
 
 (defn- order-history-pagination-controls [{:keys [total-rows page-size page page-count page-input]}]
   (let [on-first-page? (<= page 1)
@@ -1505,9 +1579,10 @@
 
 (defn- funding-history-table [fundings funding-history-state]
   (let [sort-state (funding-history-sort-state funding-history-state)
-        sorted-fundings (sort-funding-history-by-column fundings
-                                                        (:column sort-state)
-                                                        (:direction sort-state))]
+        sorted-fundings (vec (sort-funding-history-by-column fundings
+                                                             (:column sort-state)
+                                                             (:direction sort-state)))
+        {:keys [rows] :as pagination} (paginate-funding-history sorted-fundings funding-history-state)]
     (if (seq sorted-fundings)
       (tab-table-content
        [:div.grid.grid-cols-6.gap-2.py-1.px-3.bg-base-200.text-sm.font-medium
@@ -1517,7 +1592,7 @@
         [:div.text-left (sortable-funding-history-header "Position Side" sort-state)]
         [:div.text-left (sortable-funding-history-header "Payment" sort-state)]
         [:div.text-left (sortable-funding-history-header "Rate" sort-state)]]
-       (for [f sorted-fundings]
+       (for [f rows]
          ^{:key (funding-row-sort-id f)}
          [:div.grid.grid-cols-6.gap-2.py-px.px-3.hover:bg-base-300.text-sm
           [:div (format-funding-history-time (or (:time-ms f) (:time f)))]
@@ -1528,7 +1603,8 @@
              [:span {:class (funding-side-class position-side)}
               (funding-side-label position-side)])]
           [:div.text-left (funding-payment-node f)]
-          [:div.text-left (funding-rate-node f)]]))
+          [:div.text-left (funding-rate-node f)]])
+       (funding-history-pagination-controls pagination))
       (if (:loading? funding-history-state)
         (empty-state "Loading funding history...")
         (empty-state "No funding history")))))

@@ -22,21 +22,24 @@
 (defn- default-funding-history-filters []
   (api/normalize-funding-history-filters {}))
 
+(def ^:private order-history-page-size-options
+  #{25 50 100})
+
+(def ^:private default-order-history-page-size
+  50)
+
 (defn- default-funding-history-state []
   (let [filters (default-funding-history-filters)]
     {:filters filters
      :draft-filters filters
      :sort {:column "Time" :direction :desc}
      :filter-open? false
+     :page-size default-order-history-page-size
+     :page 1
+     :page-input "1"
      :loading? false
      :error nil
      :request-id 0}))
-
-(def ^:private order-history-page-size-options
-  #{25 50 100})
-
-(def ^:private default-order-history-page-size
-  50)
 
 (defn- parse-int-value
   [value]
@@ -456,6 +459,14 @@
             :page 1
             :page-input "1"})))
 
+(defn restore-funding-history-pagination-settings! [store]
+  (let [page-size (normalize-order-history-page-size
+                   (js/localStorage.getItem "funding-history-page-size"))]
+    (swap! store update-in [:account-info :funding-history] merge
+           {:page-size page-size
+            :page 1
+            :page-input "1"})))
+
 (defn restore-chart-options! [store]
   (let [timeframe (load-chart-option "chart-timeframe" :1d chart-timeframes)
         chart-type (load-chart-option "chart-type" :candlestick chart-types)
@@ -692,6 +703,8 @@
         base-effects [[:effects/save-many [[[:account-info :funding-history :filters] draft-filters]
                                            [[:account-info :funding-history :draft-filters] draft-filters]
                                            [[:account-info :funding-history :filter-open?] false]
+                                           [[:account-info :funding-history :page] 1]
+                                           [[:account-info :funding-history :page-input] "1"]
                                            [[:orders :fundings] projected]]]]]
     (if time-range-changed?
       (into base-effects
@@ -711,6 +724,8 @@
     [[:effects/save-many [[[:account-info :funding-history :filters] next-filters]
                           [[:account-info :funding-history :draft-filters] next-filters]
                           [[:account-info :funding-history :filter-open?] false]
+                          [[:account-info :funding-history :page] 1]
+                          [[:account-info :funding-history :page-input] "1"]
                           [[:account-info :funding-history :loading?] true]
                           [[:account-info :funding-history :error] nil]
                           [[:account-info :funding-history :request-id] request-id]
@@ -765,8 +780,47 @@
                         (if (contains? #{"Time" "Size" "Payment" "Rate"} column)
                           :desc
                           :asc))]
-    [[:effects/save [:account-info :funding-history :sort]
-      {:column column :direction new-direction}]]))
+    [[:effects/save-many [[[:account-info :funding-history :sort]
+                           {:column column :direction new-direction}]
+                          [[:account-info :funding-history :page] 1]
+                          [[:account-info :funding-history :page-input] "1"]]]]))
+
+(defn set-funding-history-page-size [state page-size]
+  (let [page-size* (normalize-order-history-page-size page-size)]
+    (js/localStorage.setItem "funding-history-page-size" (str page-size*))
+    [[:effects/save-many [[[:account-info :funding-history :page-size] page-size*]
+                          [[:account-info :funding-history :page] 1]
+                          [[:account-info :funding-history :page-input] "1"]]]]))
+
+(defn set-funding-history-page [state page max-page]
+  (let [page* (normalize-order-history-page page max-page)]
+    [[:effects/save-many [[[:account-info :funding-history :page] page*]
+                          [[:account-info :funding-history :page-input] (str page*)]]]]))
+
+(defn next-funding-history-page [state max-page]
+  (let [current-page (get-in state [:account-info :funding-history :page] 1)]
+    (set-funding-history-page state (inc current-page) max-page)))
+
+(defn prev-funding-history-page [state max-page]
+  (let [current-page (get-in state [:account-info :funding-history :page] 1)]
+    (set-funding-history-page state (dec current-page) max-page)))
+
+(defn set-funding-history-page-input [_state input-value]
+  [[:effects/save [:account-info :funding-history :page-input]
+    (if (string? input-value)
+      input-value
+      (str (or input-value "")))]] )
+
+(defn apply-funding-history-page-input [state max-page]
+  (let [raw-value (get-in state [:account-info :funding-history :page-input] "")
+        page* (normalize-order-history-page raw-value max-page)]
+    [[:effects/save-many [[[:account-info :funding-history :page] page*]
+                          [[:account-info :funding-history :page-input] (str page*)]]]]))
+
+(defn handle-funding-history-page-input-keydown [state key max-page]
+  (if (= key "Enter")
+    (apply-funding-history-page-input state max-page)
+    []))
 
 (defn sort-order-history [state column]
   (let [current-sort (get-in state
@@ -1340,6 +1394,13 @@
 (nxr/register-action! :actions/apply-funding-history-filters apply-funding-history-filters)
 (nxr/register-action! :actions/view-all-funding-history view-all-funding-history)
 (nxr/register-action! :actions/export-funding-history-csv export-funding-history-csv)
+(nxr/register-action! :actions/set-funding-history-page-size set-funding-history-page-size)
+(nxr/register-action! :actions/set-funding-history-page set-funding-history-page)
+(nxr/register-action! :actions/next-funding-history-page next-funding-history-page)
+(nxr/register-action! :actions/prev-funding-history-page prev-funding-history-page)
+(nxr/register-action! :actions/set-funding-history-page-input set-funding-history-page-input)
+(nxr/register-action! :actions/apply-funding-history-page-input apply-funding-history-page-input)
+(nxr/register-action! :actions/handle-funding-history-page-input-keydown handle-funding-history-page-input-keydown)
 (nxr/register-action! :actions/sort-positions sort-positions)
 (nxr/register-action! :actions/sort-balances sort-balances)
 (nxr/register-action! :actions/sort-open-orders sort-open-orders)
@@ -1573,6 +1634,8 @@
   (restore-active-asset! store)
   ;; Restore open orders sort settings from localStorage
   (restore-open-orders-sort-settings! store)
+  ;; Restore funding history pagination settings from localStorage
+  (restore-funding-history-pagination-settings! store)
   ;; Restore order history pagination settings from localStorage
   (restore-order-history-pagination-settings! store)
   ;; Initialize wallet system

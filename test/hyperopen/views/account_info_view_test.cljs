@@ -157,6 +157,15 @@
    :status (if (odd? idx) "filled" "canceled")
    :statusTimestamp (+ 1700000000000 idx)})
 
+(defn- funding-history-row
+  [idx]
+  {:id (str idx)
+   :time-ms (+ 1700000000000 idx)
+   :coin (if (odd? idx) "BTC" "ETH")
+   :position-size-raw (if (odd? idx) 1.0 -1.0)
+   :payment-usdc-raw (/ idx 1000)
+   :funding-rate-raw (/ idx 1000000)})
+
 (def sample-account-info-state
   {:account-info {:selected-tab :balances
                   :loading false
@@ -1001,6 +1010,84 @@
         default-coin (nth (vec (node-children default-row)) 1)]
     (is (contains? (direct-texts coin-value) "BTC"))
     (is (contains? (direct-texts default-coin) "ETH"))))
+
+(deftest funding-history-pagination-renders-only-current-page-rows-test
+  (let [rows (mapv funding-history-row (range 55))
+        content (@#'view/funding-history-table rows {:sort {:column "Time" :direction :desc}
+                                                     :page-size 25
+                                                     :page 2
+                                                     :page-input "2"
+                                                     :loading? false})
+        viewport (tab-rows-viewport-node content)
+        rendered-rows (vec (node-children viewport))
+        all-strings (set (collect-strings content))]
+    (is (= 25 (count rendered-rows)))
+    (is (contains? all-strings "Page 2 of 3"))
+    (is (contains? all-strings "Total: 55"))))
+
+(deftest funding-history-pagination-controls-disable-prev-next-at-edges-test
+  (let [rows (mapv funding-history-row (range 51))
+        first-page (@#'view/funding-history-table rows {:sort {:column "Time" :direction :desc}
+                                                        :page-size 25
+                                                        :page 1
+                                                        :page-input "1"
+                                                        :loading? false})
+        first-prev (find-first-node first-page #(and (= :button (first %))
+                                                     (contains? (direct-texts %) "Prev")))
+        first-next (find-first-node first-page #(and (= :button (first %))
+                                                     (contains? (direct-texts %) "Next")))
+        last-page (@#'view/funding-history-table rows {:sort {:column "Time" :direction :desc}
+                                                       :page-size 25
+                                                       :page 3
+                                                       :page-input "3"
+                                                       :loading? false})
+        last-prev (find-first-node last-page #(and (= :button (first %))
+                                                   (contains? (direct-texts %) "Prev")))
+        last-next (find-first-node last-page #(and (= :button (first %))
+                                                   (contains? (direct-texts %) "Next")))]
+    (is (= true (get-in first-prev [1 :disabled])))
+    (is (not= true (get-in first-next [1 :disabled])))
+    (is (not= true (get-in last-prev [1 :disabled])))
+    (is (= true (get-in last-next [1 :disabled])))))
+
+(deftest funding-history-pagination-controls-wire-actions-test
+  (let [rows (mapv funding-history-row (range 12))
+        content (@#'view/funding-history-table rows {:sort {:column "Time" :direction :desc}
+                                                     :page-size 25
+                                                     :page 1
+                                                     :page-input "4"
+                                                     :loading? false})
+        page-size-select (find-first-node content #(and (= :select (first %))
+                                                        (= "funding-history-page-size" (get-in % [1 :id]))))
+        jump-input (find-first-node content #(and (= :input (first %))
+                                                  (= "funding-history-page-input" (get-in % [1 :id]))))
+        go-button (find-first-node content #(and (= :button (first %))
+                                                 (contains? (direct-texts %) "Go")))]
+    (is (= [[:actions/set-funding-history-page-size [:event.target/value]]]
+           (get-in page-size-select [1 :on :change])))
+    (is (= [[:actions/set-funding-history-page-input [:event.target/value]]]
+           (get-in jump-input [1 :on :input])))
+    (is (= [[:actions/set-funding-history-page-input [:event.target/value]]]
+           (get-in jump-input [1 :on :change])))
+    (is (= [[:actions/handle-funding-history-page-input-keydown [:event/key] 1]]
+           (get-in jump-input [1 :on :keydown])))
+    (is (= [[:actions/apply-funding-history-page-input 1]]
+           (get-in go-button [1 :on :click])))))
+
+(deftest funding-history-pagination-clamps-page-when-data-shrinks-test
+  (let [rows (mapv funding-history-row (range 10))
+        content (@#'view/funding-history-table rows {:sort {:column "Time" :direction :desc}
+                                                     :page-size 25
+                                                     :page 4
+                                                     :page-input "4"
+                                                     :loading? false})
+        viewport (tab-rows-viewport-node content)
+        jump-input (find-first-node content #(and (= :input (first %))
+                                                  (= "funding-history-page-input" (get-in % [1 :id]))))
+        all-strings (set (collect-strings content))]
+    (is (= 10 (count (vec (node-children viewport)))))
+    (is (contains? all-strings "Page 1 of 1"))
+    (is (= "1" (get-in jump-input [1 :value])))))
 
 (deftest funding-history-panel-renders-controls-and-parity-columns-test
   (let [funding-row {:id "1700000000000|HYPE|120.0|-0.42|0.0006"

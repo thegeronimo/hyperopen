@@ -178,13 +178,15 @@
     (is (= [:effects/api-fetch-user-funding-history 3]
            (second effects)))))
 
-(deftest apply-funding-history-filters-refetches-only-on-time-range-change-test
+(deftest apply-funding-history-filters-resets-pagination-and-refetches-only-on-time-range-change-test
   (let [base-state {:account-info {:funding-history {:filters {:coin-set #{}
                                                           :start-time-ms 1000
                                                           :end-time-ms 2000}
                                                     :draft-filters {:coin-set #{"BTC"}
                                                                     :start-time-ms 1000
                                                                     :end-time-ms 2000}
+                                                    :page 4
+                                                    :page-input "4"
                                                     :request-id 5}}
                     :orders {:fundings-raw []}}
         no-refetch (core/apply-funding-history-filters base-state)
@@ -192,6 +194,10 @@
                       (assoc-in base-state
                                 [:account-info :funding-history :draft-filters :end-time-ms]
                                 3000))]
+    (is (some #(= [[:account-info :funding-history :page] 1] %)
+              (-> no-refetch first second)))
+    (is (some #(= [[:account-info :funding-history :page-input] "1"] %)
+              (-> no-refetch first second)))
     (is (not-any? #(= :effects/api-fetch-user-funding-history (first %))
                   no-refetch))
     (is (some #(= :effects/api-fetch-user-funding-history (first %))
@@ -199,23 +205,135 @@
 
 (deftest sort-funding-history-toggles-direction-on-same-column-test
   (let [state {:account-info {:funding-history {:sort {:column "Time"
-                                                       :direction :desc}}}}
+                                                       :direction :desc}
+                                                :page 3
+                                                :page-input "3"}}}
         effects (core/sort-funding-history state "Time")]
-    (is (= [[:effects/save [:account-info :funding-history :sort]
-             {:column "Time" :direction :asc}]]
+    (is (= [[:effects/save-many [[[:account-info :funding-history :sort]
+                                  {:column "Time" :direction :asc}]
+                                 [[:account-info :funding-history :page] 1]
+                                 [[:account-info :funding-history :page-input] "1"]]]]
            effects))))
 
 (deftest sort-funding-history-uses-mixed-default-direction-for-new-columns-test
   (let [state {:account-info {:funding-history {:sort {:column "Time"
-                                                       :direction :desc}}}}
+                                                       :direction :desc}
+                                                :page 2
+                                                :page-input "2"}}}
         coin-effects (core/sort-funding-history state "Coin")
         payment-effects (core/sort-funding-history state "Payment")]
-    (is (= [[:effects/save [:account-info :funding-history :sort]
-             {:column "Coin" :direction :asc}]]
+    (is (= [[:effects/save-many [[[:account-info :funding-history :sort]
+                                  {:column "Coin" :direction :asc}]
+                                 [[:account-info :funding-history :page] 1]
+                                 [[:account-info :funding-history :page-input] "1"]]]]
            coin-effects))
-    (is (= [[:effects/save [:account-info :funding-history :sort]
-             {:column "Payment" :direction :desc}]]
+    (is (= [[:effects/save-many [[[:account-info :funding-history :sort]
+                                  {:column "Payment" :direction :desc}]
+                                 [[:account-info :funding-history :page] 1]
+                                 [[:account-info :funding-history :page-input] "1"]]]]
            payment-effects))))
+
+(deftest view-all-funding-history-resets-pagination-before-fetch-test
+  (let [state {:account-info {:funding-history {:filters {:coin-set #{"BTC"}
+                                                          :start-time-ms 1000
+                                                          :end-time-ms 2000}
+                                                :request-id 3
+                                                :page 7
+                                                :page-input "7"}}
+               :orders {:fundings-raw []}}
+        effects (core/view-all-funding-history state)
+        path-values (-> effects first second)]
+    (is (some #(= [[:account-info :funding-history :page] 1] %) path-values))
+    (is (some #(= [[:account-info :funding-history :page-input] "1"] %) path-values))
+    (is (= [:effects/api-fetch-user-funding-history 4]
+           (second effects)))))
+
+(deftest funding-history-pagination-page-size-normalizes-and-persists-test
+  (with-test-local-storage
+    (fn []
+      (let [state {:account-info {:funding-history {:page-size 25
+                                                    :page 8
+                                                    :page-input "8"}}}
+            effects (core/set-funding-history-page-size state "100")]
+        (is (= [[:effects/save-many [[[:account-info :funding-history :page-size] 100]
+                                     [[:account-info :funding-history :page] 1]
+                                     [[:account-info :funding-history :page-input] "1"]]]]
+               effects))
+        (is (= "100" (.getItem js/localStorage "funding-history-page-size")))
+        (let [invalid-effects (core/set-funding-history-page-size state "13")]
+          (is (= [[:effects/save-many [[[:account-info :funding-history :page-size] 50]
+                                       [[:account-info :funding-history :page] 1]
+                                       [[:account-info :funding-history :page-input] "1"]]]]
+                 invalid-effects))
+          (is (= "50" (.getItem js/localStorage "funding-history-page-size"))))))))
+
+(deftest funding-history-pagination-set-page-clamps-and-syncs-input-test
+  (let [state {:account-info {:funding-history {:page 2
+                                                :page-input "2"}}}
+        within (core/set-funding-history-page state 3 5)
+        too-high (core/set-funding-history-page state 99 5)
+        too-low (core/set-funding-history-page state -2 5)]
+    (is (= [[:effects/save-many [[[:account-info :funding-history :page] 3]
+                                 [[:account-info :funding-history :page-input] "3"]]]]
+           within))
+    (is (= [[:effects/save-many [[[:account-info :funding-history :page] 5]
+                                 [[:account-info :funding-history :page-input] "5"]]]]
+           too-high))
+    (is (= [[:effects/save-many [[[:account-info :funding-history :page] 1]
+                                 [[:account-info :funding-history :page-input] "1"]]]]
+           too-low))))
+
+(deftest funding-history-pagination-next-prev-and-input-apply-test
+  (let [state {:account-info {:funding-history {:page 2
+                                                :page-input "2"}}}
+        next-effects (core/next-funding-history-page state 3)
+        prev-effects (core/prev-funding-history-page state 3)
+        at-end-effects (core/next-funding-history-page
+                        {:account-info {:funding-history {:page 3 :page-input "3"}}}
+                        3)
+        typed-state {:account-info {:funding-history {:page 1 :page-input "12"}}}
+        apply-effects (core/apply-funding-history-page-input typed-state 4)
+        invalid-apply-effects (core/apply-funding-history-page-input
+                               {:account-info {:funding-history {:page 1 :page-input "abc"}}}
+                               4)
+        keydown-effects (core/handle-funding-history-page-input-keydown typed-state "Enter" 4)
+        keydown-nop (core/handle-funding-history-page-input-keydown typed-state "Escape" 4)]
+    (is (= [[:effects/save-many [[[:account-info :funding-history :page] 3]
+                                 [[:account-info :funding-history :page-input] "3"]]]]
+           next-effects))
+    (is (= [[:effects/save-many [[[:account-info :funding-history :page] 1]
+                                 [[:account-info :funding-history :page-input] "1"]]]]
+           prev-effects))
+    (is (= [[:effects/save-many [[[:account-info :funding-history :page] 3]
+                                 [[:account-info :funding-history :page-input] "3"]]]]
+           at-end-effects))
+    (is (= [[:effects/save-many [[[:account-info :funding-history :page] 4]
+                                 [[:account-info :funding-history :page-input] "4"]]]]
+           apply-effects))
+    (is (= [[:effects/save-many [[[:account-info :funding-history :page] 1]
+                                 [[:account-info :funding-history :page-input] "1"]]]]
+           invalid-apply-effects))
+    (is (= apply-effects keydown-effects))
+    (is (= [] keydown-nop))))
+
+(deftest restore-funding-history-pagination-settings-uses-defaults-and-stored-size-test
+  (with-test-local-storage
+    (fn []
+      (.setItem js/localStorage "funding-history-page-size" "100")
+      (let [store (atom {:account-info {:funding-history {:page-size 25
+                                                          :page 4
+                                                          :page-input "4"}}})]
+        (core/restore-funding-history-pagination-settings! store)
+        (is (= {:page-size 100
+                :page 1
+                :page-input "1"}
+               (select-keys (get-in @store [:account-info :funding-history])
+                            [:page-size :page :page-input]))))
+      (.setItem js/localStorage "funding-history-page-size" "13")
+      (let [store (atom {:account-info {:funding-history {}}})]
+        (core/restore-funding-history-pagination-settings! store)
+        (is (= 50
+               (get-in @store [:account-info :funding-history :page-size])))))))
 
 (deftest select-account-info-tab-order-history-saves-selection-before-fetch-test
   (let [state {:account-info {:selected-tab :balances
