@@ -254,6 +254,12 @@
   {:background "linear-gradient(90deg, rgb(31, 166, 125) 0px, rgb(31, 166, 125) 4px, rgb(11, 50, 38) 4px, transparent 100%) transparent"
    :padding-left "12px"})
 
+(def ^:private positions-grid-template-class
+  "grid-cols-[minmax(170px,1.9fr)_minmax(130px,1.2fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(130px,1.3fr)_minmax(110px,1fr)_minmax(100px,1fr)_minmax(100px,1fr)_minmax(80px,0.8fr)]")
+
+(def ^:private positions-grid-min-width-class
+  "min-w-[1140px]")
+
 (defn- non-blank-text [value]
   (let [text (some-> value str str/trim)]
     (when (seq text) text)))
@@ -1546,11 +1552,19 @@
         liq-price (:liquidationPx pos)
         margin (:marginUsed pos)
         funding (get-in pos [:cumFunding :allTime])]
-    [:div.grid.grid-cols-11.gap-2.py-0.pr-3.hover:bg-base-300.items-center.text-sm
+    [:div {:class ["grid"
+                   positions-grid-template-class
+                   "gap-2"
+                   "py-0"
+                   "pr-3"
+                   positions-grid-min-width-class
+                   "hover:bg-base-300"
+                   "items-center"
+                   "text-sm"]}
      ;; Coin with leverage and dex chips
-     [:div {:class ["flex" "items-center" "gap-1.5" "min-w-0" "self-stretch"]
+     [:div {:class ["flex" "items-center" "gap-1.5" "self-stretch" "min-w-[170px]"]
             :style position-coin-cell-style}
-     [:span {:class ["font-medium" "truncate"]} coin-label]
+     [:span {:class ["font-medium" "whitespace-nowrap" "shrink-0"]} coin-label]
       (when (some? leverage)
         [:span {:class position-chip-classes} (str leverage "x")])
       (when dex-label
@@ -1591,10 +1605,6 @@
                           "text-success")
                         "num"]}
          display-text])]
-     ;; Close All
-     [:div.text-left
-      [:button.btn.btn-xs.btn-ghost "Limit"]
-      [:button.btn.btn-xs.btn-ghost.ml-1 "Market"]]
      ;; TP/SL
      [:div.text-left
       [:button.btn.btn-xs.btn-ghost "-- / --"]]]))
@@ -1636,7 +1646,13 @@
 
 ;; Position table header with sorting
 (defn position-table-header [sort-state]
-  [:div.grid.grid-cols-11.gap-2.py-1.pr-3.bg-base-200
+  [:div {:class ["grid"
+                 positions-grid-template-class
+                 "gap-2"
+                 "py-1"
+                 "pr-3"
+                 positions-grid-min-width-class
+                 "bg-base-200"]}
    [:div.text-left.pl-3 (sortable-header "Coin" sort-state)]
    [:div.text-right (sortable-header "Size" sort-state)]
    [:div.text-right (sortable-header "Position Value" sort-state)]
@@ -1646,7 +1662,6 @@
    [:div.text-right (sortable-header "Liq. Price" sort-state)]
    [:div.text-right (sortable-header "Margin" sort-state)]
    [:div.text-right (sortable-header "Funding" sort-state)]
-   [:div.text-left (non-sortable-header "Close All")]
    [:div.text-left (non-sortable-header "TP/SL")]])
 
 ;; Positions tab content

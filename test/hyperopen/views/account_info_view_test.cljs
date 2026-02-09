@@ -754,9 +754,9 @@
       (is (contains? (node-class-set (nth header-cells idx)) "text-right")))
     (doseq [idx (range 1 9)]
       (is (contains? (node-class-set (nth row-cells idx)) "text-right")))
-    (doseq [idx [9 10]]
+    (doseq [idx [9]]
       (is (contains? (node-class-set (nth header-cells idx)) "text-left")))
-    (doseq [idx [9 10]]
+    (doseq [idx [9]]
       (is (contains? (node-class-set (nth row-cells idx)) "text-left")))))
 
 (defn- sample-position-row
@@ -820,6 +820,19 @@
     (is (= 1 (count (filter #(= "xyz" %) coin-strings))))
     (is (contains? (set coin-strings) "NVDA"))
     (is (contains? (set coin-strings) "10x"))))
+
+(deftest position-table-layout-prioritizes-coin-column-over-right-edge-actions-test
+  (let [grid-template-class "grid-cols-[minmax(170px,1.9fr)_minmax(130px,1.2fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(130px,1.3fr)_minmax(110px,1fr)_minmax(100px,1fr)_minmax(100px,1fr)_minmax(80px,0.8fr)]"
+        header-node (view/position-table-header default-sort-state)
+        row-node (view/position-row (sample-position-row "xyz:NVDA" 10 "0.500"))
+        coin-cell (first (vec (node-children row-node)))
+        coin-label-node (find-first-node coin-cell #(contains? (direct-texts %) "NVDA"))]
+    (is (contains? (node-class-set header-node) grid-template-class))
+    (is (contains? (node-class-set header-node) "min-w-[1140px]"))
+    (is (contains? (node-class-set row-node) grid-template-class))
+    (is (contains? (node-class-set row-node) "min-w-[1140px]"))
+    (is (contains? (node-class-set coin-label-node) "whitespace-nowrap"))
+    (is (not (contains? (node-class-set coin-label-node) "truncate")))))
 
 (deftest balance-row-coin-cell-does-not-use-position-gradient-background-test
   (let [row-node (view/balance-row sample-balance-row)
