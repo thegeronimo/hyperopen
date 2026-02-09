@@ -90,6 +90,9 @@
     (testing "order size slider active fill stays darker than notch accents"
       (is (re-find #"\.order-size-slider\.range\s*\{[^}]*--order-size-slider-active:\s*rgb\(15,\s*51,\s*51\);"
                    styles-source)))
+    (testing "order size slider allows aura to render outside control bounds"
+      (is (re-find #"\.order-size-slider\.range\s*\{[^}]*overflow:\s*visible;"
+                   styles-source)))
     (testing "order size slider track fills from explicit progress variable"
       (is (re-find #"\.order-size-slider\.range::-webkit-slider-runnable-track\s*\{[^}]*var\(--order-size-slider-progress\)"
                    styles-source))
@@ -99,4 +102,18 @@
       (is (not (re-find #"\.order-size-slider\.range::-webkit-slider-thumb\s*\{[^}]*calc\(var\(--filler-size\)"
                         styles-source)))
       (is (not (re-find #"\.order-size-slider\.range::-moz-range-thumb\s*\{[^}]*calc\(var\(--filler-size\)"
+                        styles-source))))
+    (testing "order size slider thumb animates aura from base on mouse down"
+      (is (re-find #"\.order-size-slider\.range::-webkit-slider-thumb\s*\{[^}]*transition:\s*box-shadow\s*180ms\s*cubic-bezier\(0\.16,\s*1,\s*0\.3,\s*1\);"
+                   styles-source))
+      (is (re-find #"\.order-size-slider\.range::-moz-range-thumb\s*\{[^}]*transition:\s*box-shadow\s*180ms\s*cubic-bezier\(0\.16,\s*1,\s*0\.3,\s*1\);"
+                   styles-source))
+      (is (re-find #"\.order-size-slider\.range:active::-webkit-slider-thumb\s*\{[^}]*0 0 0 12px rgba\(0,\s*212,\s*170,\s*0\.18\);"
+                   styles-source))
+      (is (re-find #"\.order-size-slider\.range:active::-moz-range-thumb\s*\{[^}]*0 0 0 12px rgba\(0,\s*212,\s*170,\s*0\.18\);"
+                   styles-source)))
+    (testing "order size slider focus-visible state stays smaller than active aura"
+      (is (not (re-find #"\.order-size-slider\.range:focus-visible::-webkit-slider-thumb\s*\{[^}]*0 0 0 12px"
+                        styles-source)))
+      (is (not (re-find #"\.order-size-slider\.range:focus-visible::-moz-range-thumb\s*\{[^}]*0 0 0 12px"
                         styles-source))))))
