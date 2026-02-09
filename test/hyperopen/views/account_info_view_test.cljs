@@ -908,12 +908,13 @@
     (doseq [idx [1 2 3 4 5]]
       (is (contains? (node-class-set (nth funding-header-cells idx)) "text-left"))
       (is (contains? (node-class-set (nth funding-row-cells idx)) "text-left")))
-    (doseq [idx [1 2 3 8 9 10 11 12]]
+    (doseq [idx [1 2 3 4 5 6 7 8 9 10 11 12]]
       (is (contains? (node-class-set (nth order-header-cells idx)) "text-left"))
       (is (contains? (node-class-set (nth order-row-cells idx)) "text-left")))
     (doseq [idx [4 5 6 7]]
-      (is (contains? (node-class-set (nth order-header-cells idx)) "text-right"))
-      (is (contains? (node-class-set (nth order-row-cells idx)) "text-right")))))
+      (is (not (contains? (node-class-set (nth order-header-cells idx)) "text-right")))
+      (is (not (contains? (node-class-set (nth order-row-cells idx)) "text-right")))
+      (is (not (contains? (node-class-set (nth order-row-cells idx)) "num-right"))))))
 
 (deftest trade-history-headers-match-hyperliquid-order-and-contrast-test
   (let [fills [{:tid 1
