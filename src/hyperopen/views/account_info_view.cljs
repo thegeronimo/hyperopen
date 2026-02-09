@@ -51,6 +51,15 @@
    [:rejected "Rejected"]
    [:triggered "Triggered"]])
 
+(def ^:private order-history-page-size-options
+  [25 50 100])
+
+(def ^:private order-history-page-size-option-set
+  (set order-history-page-size-options))
+
+(def ^:private default-order-history-page-size
+  50)
+
 (def ^:private order-history-status-labels
   (into {} order-history-status-options))
 
@@ -647,6 +656,31 @@
     (when (and (number? num) (not (js/isNaN num)))
       num)))
 
+(defn- parse-optional-int [value]
+  (let [num (cond
+              (number? value) value
+              (string? value) (js/parseInt value 10)
+              :else js/NaN)]
+    (when (and (number? num) (not (js/isNaN num)))
+      (js/Math.floor num))))
+
+(defn- normalize-order-history-page-size [value]
+  (let [page-size (parse-optional-int value)]
+    (if (contains? order-history-page-size-option-set page-size)
+      page-size
+      default-order-history-page-size)))
+
+(defn- normalize-order-history-page
+  ([value]
+   (normalize-order-history-page value nil))
+  ([value max-page]
+   (let [candidate (max 1 (or (parse-optional-int value) 1))
+         max-page* (when (some? max-page)
+                     (max 1 (or (parse-optional-int max-page) 1)))]
+     (if max-page*
+       (min candidate max-page*)
+       candidate))))
+
 (defn- parse-time-ms [value]
   (when-let [num (parse-optional-num value)]
     (js/Math.floor num)))
@@ -859,6 +893,28 @@
               (= status-filter (:status-key row)))
             rows)))
 
+(defn- paginate-order-history [rows order-history-state]
+  (let [total-rows (count rows)
+        page-size (normalize-order-history-page-size (:page-size order-history-state))
+        page-count (max 1 (int (js/Math.ceil (/ total-rows page-size))))
+        requested-page (normalize-order-history-page (:page order-history-state))
+        safe-page (normalize-order-history-page requested-page page-count)
+        start-idx (* (dec safe-page) page-size)
+        end-idx (min total-rows (+ start-idx page-size))
+        page-rows (if (< start-idx total-rows)
+                    (subvec rows start-idx end-idx)
+                    [])
+        raw-page-input (some-> (:page-input order-history-state) str)
+        page-input (if (= raw-page-input (str requested-page))
+                     (str safe-page)
+                     (or raw-page-input (str safe-page)))]
+    {:rows page-rows
+     :total-rows total-rows
+     :page-size page-size
+     :page safe-page
+     :page-count page-count
+     :page-input page-input}))
+
 (defn sort-order-history-by-column [rows column direction]
   (let [sort-fn (case column
                   "Time" (fn [row] (or (:time-ms row) 0))
@@ -907,6 +963,58 @@
      [:span column-name]
      (when sort-icon
        [:span.text-xs.opacity-70 sort-icon])]))
+
+(defn- order-history-pagination-controls [{:keys [total-rows page-size page page-count page-input]}]
+  (let [on-first-page? (<= page 1)
+        on-last-page? (>= page page-count)]
+    [:div {:class ["border-t" "border-base-300" "bg-base-100"]}
+     [:div {:class ["flex" "flex-wrap" "items-center" "justify-between" "gap-3" "px-3" "py-2" "text-xs"]}
+      [:div {:class ["flex" "items-center" "gap-2"]}
+       [:label {:for "order-history-page-size"
+                :class ["font-medium" "text-trading-text-secondary"]}
+        "Rows"]
+       [:select {:id "order-history-page-size"
+                 :class ["select" "select-sm" "select-bordered" "h-8" "min-h-8" "w-24" "pl-2" "pr-8" "text-sm" "leading-5"]
+                 :aria-label "Rows per page"
+                 :value (str page-size)
+                 :on {:change [[:actions/set-order-history-page-size [:event.target/value]]]}}
+        (for [size order-history-page-size-options]
+          ^{:key size}
+          [:option {:value (str size)}
+           (str size)])]
+       [:span {:class ["text-trading-text-secondary"]}
+        (str "Total: " total-rows)]]
+      [:div {:class ["flex" "items-center" "gap-2"]}
+       [:button {:class ["btn" "btn-xs" "btn-ghost" "h-6" "min-h-6" "min-w-6"]
+                 :aria-label "Previous page"
+                 :disabled on-first-page?
+                 :on {:click [[:actions/prev-order-history-page page-count]]}}
+        "Prev"]
+       [:span {:class ["min-w-[5.5rem]" "text-center" "text-trading-text-secondary"]}
+        (str "Page " page " of " page-count)]
+       [:button {:class ["btn" "btn-xs" "btn-ghost" "h-6" "min-h-6" "min-w-6"]
+                 :aria-label "Next page"
+                 :disabled on-last-page?
+                 :on {:click [[:actions/next-order-history-page page-count]]}}
+        "Next"]]
+      [:div {:class ["flex" "items-center" "gap-2"]}
+       [:label {:for "order-history-page-input"
+                :class ["font-medium" "text-trading-text-secondary"]}
+        "Jump"]
+       [:input {:id "order-history-page-input"
+                :class ["input" "input-xs" "input-bordered" "h-6" "min-h-6" "w-16" "text-xs"]
+                :type "text"
+                :inputmode "numeric"
+                :pattern "[0-9]*"
+                :aria-label "Jump to page"
+                :value page-input
+                :on {:input [[:actions/set-order-history-page-input [:event.target/value]]]
+                     :change [[:actions/set-order-history-page-input [:event.target/value]]]
+                     :keydown [[:actions/handle-order-history-page-input-keydown [:event/key] page-count]]}}]
+       [:button {:class ["btn" "btn-xs" "btn-primary" "h-6" "min-h-6" "min-w-6"]
+                 :aria-label "Go to page"
+                 :on {:click [[:actions/apply-order-history-page-input page-count]]}}
+        "Go"]]]]))
 
 (defn format-pnl [pnl-value pnl-pct]
   (if (and (some? pnl-value) (some? pnl-pct))
@@ -1068,11 +1176,16 @@
                                (header-alignment-classes align)))}
     column-name]))
 
-(defn tab-table-content [header rows]
-  [:div {:class ["flex" "h-full" "min-h-0" "flex-col"]}
-   header
-   (into [:div {:class ["flex-1" "min-h-0" "overflow-y-auto" "scrollbar-hide"]}]
-         rows)])
+(defn tab-table-content
+  ([header rows]
+   (tab-table-content header rows nil))
+  ([header rows footer]
+   [:div {:class ["flex" "h-full" "min-h-0" "flex-col"]}
+    header
+    (into [:div {:class ["flex-1" "min-h-0" "overflow-y-auto" "scrollbar-hide"]}]
+          rows)
+    (when footer
+      footer)]))
 
 ;; Balance row component
 (defn balance-row [{:keys [coin total-balance available-balance usdc-value pnl-value pnl-pct amount-decimals]}]
@@ -1411,9 +1524,10 @@
         status-filter (order-history-status-filter-key order-history-state)
         normalized (normalized-order-history order-history)
         filtered (vec (order-history-filter-status normalized status-filter))
-        sorted (sort-order-history-by-column filtered
-                                             (:column sort-state)
-                                             (:direction sort-state))]
+        sorted (vec (sort-order-history-by-column filtered
+                                                  (:column sort-state)
+                                                  (:direction sort-state)))
+        {:keys [rows] :as pagination} (paginate-order-history sorted order-history-state)]
     (if (seq sorted)
       (tab-table-content
        [:div {:class ["grid" "gap-2" "py-1" "px-3" "bg-base-200" "text-xs" "font-medium" "grid-cols-[130px_70px_90px_80px_90px_90px_110px_80px_90px_140px_70px_80px_120px]"]}
@@ -1430,7 +1544,7 @@
         [:div.text-left (sortable-order-history-header "TP/SL" sort-state)]
         [:div.text-left (sortable-order-history-header "Status" sort-state)]
         [:div.text-left (sortable-order-history-header "Order ID" sort-state)]]
-       (for [row sorted]
+       (for [row rows]
          ^{:key (order-history-row-sort-id row)}
          [:div {:class ["grid" "gap-2" "py-px" "px-3" "hover:bg-base-300" "text-xs" "grid-cols-[130px_70px_90px_80px_90px_90px_110px_80px_90px_140px_70px_80px_120px]"]}
           [:div.pr-2.whitespace-nowrap (or (format-open-orders-time (:time-ms row)) "--")]
@@ -1445,7 +1559,8 @@
           [:div.text-left (format-order-history-trigger row)]
           [:div.text-left (format-order-history-tp-sl row)]
           [:div.text-left (:status-label row)]
-          [:div.text-left (or (some-> (:oid row) str) "--")]]))
+          [:div.text-left (or (some-> (:oid row) str) "--")]])
+       (order-history-pagination-controls pagination))
       (if (:loading? order-history-state)
         (empty-state "Loading order history...")
         (empty-state "No order history")))))

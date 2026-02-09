@@ -32,10 +32,47 @@
      :error nil
      :request-id 0}))
 
+(def ^:private order-history-page-size-options
+  #{25 50 100})
+
+(def ^:private default-order-history-page-size
+  50)
+
+(defn- parse-int-value
+  [value]
+  (let [num (cond
+              (number? value) value
+              (string? value) (js/parseInt value 10)
+              :else js/NaN)]
+    (when (and (number? num)
+               (not (js/isNaN num)))
+      (js/Math.floor num))))
+
+(defn- normalize-order-history-page-size
+  [value]
+  (let [candidate (parse-int-value value)]
+    (if (contains? order-history-page-size-options candidate)
+      candidate
+      default-order-history-page-size)))
+
+(defn- normalize-order-history-page
+  ([value]
+   (normalize-order-history-page value nil))
+  ([value max-page]
+   (let [candidate (max 1 (or (parse-int-value value) 1))
+         max-page* (when (some? max-page)
+                     (max 1 (or (parse-int-value max-page) 1)))]
+     (if max-page*
+       (min candidate max-page*)
+       candidate))))
+
 (defn- default-order-history-state []
   {:sort {:column "Time" :direction :desc}
    :status-filter :all
    :filter-open? false
+   :page-size default-order-history-page-size
+   :page 1
+   :page-input "1"
    :loading? false
    :error nil
    :request-id 0})
@@ -411,6 +448,14 @@
     (swap! store update-in [:account-info] merge {:open-orders-sort {:column column
                                                                      :direction direction}})))
 
+(defn restore-order-history-pagination-settings! [store]
+  (let [page-size (normalize-order-history-page-size
+                   (js/localStorage.getItem "order-history-page-size"))]
+    (swap! store update-in [:account-info :order-history] merge
+           {:page-size page-size
+            :page 1
+            :page-input "1"})))
+
 (defn restore-chart-options! [store]
   (let [timeframe (load-chart-option "chart-timeframe" :1d chart-timeframes)
         chart-type (load-chart-option "chart-type" :candlestick chart-types)
@@ -735,8 +780,10 @@
                         (if (contains? desc-columns column)
                           :desc
                           :asc))]
-    [[:effects/save [:account-info :order-history :sort]
-      {:column column :direction new-direction}]]))
+    [[:effects/save-many [[[:account-info :order-history :sort]
+                           {:column column :direction new-direction}]
+                          [[:account-info :order-history :page] 1]
+                          [[:account-info :order-history :page-input] "1"]]]]))
 
 (defn toggle-order-history-filter-open [state]
   (let [open? (boolean (get-in state [:account-info :order-history :filter-open?]))]
@@ -745,7 +792,46 @@
 (defn set-order-history-status-filter [state status-filter]
   (let [status* (normalize-order-history-status-filter status-filter)]
     [[:effects/save-many [[[:account-info :order-history :status-filter] status*]
-                          [[:account-info :order-history :filter-open?] false]]]]))
+                          [[:account-info :order-history :filter-open?] false]
+                          [[:account-info :order-history :page] 1]
+                          [[:account-info :order-history :page-input] "1"]]]]))
+
+(defn set-order-history-page-size [state page-size]
+  (let [page-size* (normalize-order-history-page-size page-size)]
+    (js/localStorage.setItem "order-history-page-size" (str page-size*))
+    [[:effects/save-many [[[:account-info :order-history :page-size] page-size*]
+                          [[:account-info :order-history :page] 1]
+                          [[:account-info :order-history :page-input] "1"]]]]))
+
+(defn set-order-history-page [state page max-page]
+  (let [page* (normalize-order-history-page page max-page)]
+    [[:effects/save-many [[[:account-info :order-history :page] page*]
+                          [[:account-info :order-history :page-input] (str page*)]]]]))
+
+(defn next-order-history-page [state max-page]
+  (let [current-page (get-in state [:account-info :order-history :page] 1)]
+    (set-order-history-page state (inc current-page) max-page)))
+
+(defn prev-order-history-page [state max-page]
+  (let [current-page (get-in state [:account-info :order-history :page] 1)]
+    (set-order-history-page state (dec current-page) max-page)))
+
+(defn set-order-history-page-input [_state input-value]
+  [[:effects/save [:account-info :order-history :page-input]
+    (if (string? input-value)
+      input-value
+      (str (or input-value "")))]] )
+
+(defn apply-order-history-page-input [state max-page]
+  (let [raw-value (get-in state [:account-info :order-history :page-input] "")
+        page* (normalize-order-history-page raw-value max-page)]
+    [[:effects/save-many [[[:account-info :order-history :page] page*]
+                          [[:account-info :order-history :page-input] (str page*)]]]]))
+
+(defn handle-order-history-page-input-keydown [state key max-page]
+  (if (= key "Enter")
+    (apply-order-history-page-input state max-page)
+    []))
 
 (defn refresh-order-history [state]
   (let [request-id (inc (order-history-request-id state))
@@ -1261,6 +1347,13 @@
 (nxr/register-action! :actions/sort-order-history sort-order-history)
 (nxr/register-action! :actions/toggle-order-history-filter-open toggle-order-history-filter-open)
 (nxr/register-action! :actions/set-order-history-status-filter set-order-history-status-filter)
+(nxr/register-action! :actions/set-order-history-page-size set-order-history-page-size)
+(nxr/register-action! :actions/set-order-history-page set-order-history-page)
+(nxr/register-action! :actions/next-order-history-page next-order-history-page)
+(nxr/register-action! :actions/prev-order-history-page prev-order-history-page)
+(nxr/register-action! :actions/set-order-history-page-input set-order-history-page-input)
+(nxr/register-action! :actions/apply-order-history-page-input apply-order-history-page-input)
+(nxr/register-action! :actions/handle-order-history-page-input-keydown handle-order-history-page-input-keydown)
 (nxr/register-action! :actions/refresh-order-history refresh-order-history)
 (nxr/register-action! :actions/set-hide-small-balances set-hide-small-balances)
 (nxr/register-action! :actions/select-order-entry-mode select-order-entry-mode)
@@ -1480,6 +1573,8 @@
   (restore-active-asset! store)
   ;; Restore open orders sort settings from localStorage
   (restore-open-orders-sort-settings! store)
+  ;; Restore order history pagination settings from localStorage
+  (restore-order-history-pagination-settings! store)
   ;; Initialize wallet system
   (wallet/init-wallet! store)
   ;; Initialize router

@@ -141,6 +141,22 @@
    :status "filled"
    :statusTimestamp 1700000005000})
 
+(defn- order-history-row
+  [idx]
+  {:order {:coin "PUMP"
+           :oid idx
+           :side (if (odd? idx) "B" "A")
+           :origSz "1.0"
+           :remainingSz "0.0"
+           :limitPx "0.001"
+           :orderType "Limit"
+           :reduceOnly false
+           :isTrigger false
+           :isPositionTpsl false
+           :timestamp (+ 1700000000000 idx)}
+   :status (if (odd? idx) "filled" "canceled")
+   :statusTimestamp (+ 1700000000000 idx)})
+
 (def sample-account-info-state
   {:account-info {:selected-tab :balances
                   :loading false
@@ -831,6 +847,89 @@
            (get-in filter-button [1 :on :click])))
     (is (= [[:actions/set-order-history-status-filter :filled]]
            (get-in filled-option [1 :on :click])))))
+
+(deftest order-history-pagination-renders-only-current-page-rows-test
+  (let [rows (mapv order-history-row (range 55))
+        content (@#'view/order-history-table rows {:sort {:column "Time" :direction :desc}
+                                                   :status-filter :all
+                                                   :page-size 25
+                                                   :page 2
+                                                   :page-input "2"
+                                                   :loading? false})
+        viewport (tab-rows-viewport-node content)
+        rendered-rows (vec (node-children viewport))
+        all-strings (set (collect-strings content))]
+    (is (= 25 (count rendered-rows)))
+    (is (contains? all-strings "Page 2 of 3"))
+    (is (contains? all-strings "Total: 55"))))
+
+(deftest order-history-pagination-controls-disable-prev-next-at-edges-test
+  (let [rows (mapv order-history-row (range 51))
+        first-page (@#'view/order-history-table rows {:sort {:column "Time" :direction :desc}
+                                                      :status-filter :all
+                                                      :page-size 25
+                                                      :page 1
+                                                      :page-input "1"
+                                                      :loading? false})
+        first-prev (find-first-node first-page #(and (= :button (first %))
+                                                     (contains? (direct-texts %) "Prev")))
+        first-next (find-first-node first-page #(and (= :button (first %))
+                                                     (contains? (direct-texts %) "Next")))
+        last-page (@#'view/order-history-table rows {:sort {:column "Time" :direction :desc}
+                                                     :status-filter :all
+                                                     :page-size 25
+                                                     :page 3
+                                                     :page-input "3"
+                                                     :loading? false})
+        last-prev (find-first-node last-page #(and (= :button (first %))
+                                                   (contains? (direct-texts %) "Prev")))
+        last-next (find-first-node last-page #(and (= :button (first %))
+                                                   (contains? (direct-texts %) "Next")))]
+    (is (= true (get-in first-prev [1 :disabled])))
+    (is (not= true (get-in first-next [1 :disabled])))
+    (is (not= true (get-in last-prev [1 :disabled])))
+    (is (= true (get-in last-next [1 :disabled])))))
+
+(deftest order-history-pagination-controls-wire-actions-test
+  (let [rows (mapv order-history-row (range 12))
+        content (@#'view/order-history-table rows {:sort {:column "Time" :direction :desc}
+                                                   :status-filter :all
+                                                   :page-size 25
+                                                   :page 1
+                                                   :page-input "4"
+                                                   :loading? false})
+        page-size-select (find-first-node content #(and (= :select (first %))
+                                                        (= "order-history-page-size" (get-in % [1 :id]))))
+        jump-input (find-first-node content #(and (= :input (first %))
+                                                  (= "order-history-page-input" (get-in % [1 :id]))))
+        go-button (find-first-node content #(and (= :button (first %))
+                                                 (contains? (direct-texts %) "Go")))]
+    (is (= [[:actions/set-order-history-page-size [:event.target/value]]]
+           (get-in page-size-select [1 :on :change])))
+    (is (= [[:actions/set-order-history-page-input [:event.target/value]]]
+           (get-in jump-input [1 :on :input])))
+    (is (= [[:actions/set-order-history-page-input [:event.target/value]]]
+           (get-in jump-input [1 :on :change])))
+    (is (= [[:actions/handle-order-history-page-input-keydown [:event/key] 1]]
+           (get-in jump-input [1 :on :keydown])))
+    (is (= [[:actions/apply-order-history-page-input 1]]
+           (get-in go-button [1 :on :click])))))
+
+(deftest order-history-pagination-clamps-page-when-data-shrinks-test
+  (let [rows (mapv order-history-row (range 10))
+        content (@#'view/order-history-table rows {:sort {:column "Time" :direction :desc}
+                                                   :status-filter :all
+                                                   :page-size 25
+                                                   :page 4
+                                                   :page-input "4"
+                                                   :loading? false})
+        viewport (tab-rows-viewport-node content)
+        jump-input (find-first-node content #(and (= :input (first %))
+                                                  (= "order-history-page-input" (get-in % [1 :id]))))
+        all-strings (set (collect-strings content))]
+    (is (= 10 (count (vec (node-children viewport)))))
+    (is (contains? all-strings "Page 1 of 1"))
+    (is (= "1" (get-in jump-input [1 :value])))))
 
 (deftest funding-history-headers-use-secondary-text-and-sort-actions-test
   (let [fundings [{:id "1700000000000|HYPE|120.0|-0.42|0.0006"
