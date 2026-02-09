@@ -154,6 +154,60 @@
       (is (= 1 (get bid-classes "text-green-400" 0)))
       (is (= 2 (get bid-classes "text-white" 0))))))
 
+(deftest orderbook-price-column-is-left-aligned-with-readable-left-inset-test
+  (let [panel (view/l2-orderbook-panel "BTC"
+                                       {:market-type :perp
+                                        :base "BTC"
+                                        :quote "USDC"
+                                        :szDecimals 4}
+                                       {:bids [{:px "99" :sz "2"}]
+                                        :asks [{:px "101" :sz "1"}]}
+                                       {:size-unit :base
+                                        :size-unit-dropdown-visible? false
+                                        :price-aggregation-dropdown-visible? false
+                                        :price-aggregation-by-coin {"BTC" :full}})
+        header-row (find-first-node panel (data-role= "orderbook-column-headers-row"))
+        level-content-row (find-first-node panel (data-role= "orderbook-level-content-row"))
+        price-header-cell (find-first-node panel (data-role= "orderbook-price-header-cell"))
+        size-header-cell (find-first-node panel (data-role= "orderbook-size-header-cell"))
+        total-header-cell (find-first-node panel (data-role= "orderbook-total-header-cell"))
+        price-level-cell (find-first-node panel (data-role= "orderbook-level-price-cell"))
+        size-level-cell (find-first-node panel (data-role= "orderbook-level-size-cell"))
+        total-level-cell (find-first-node panel (data-role= "orderbook-level-total-cell"))
+        header-row-classes (node-class-set header-row)
+        level-content-row-classes (node-class-set level-content-row)
+        price-header-classes (node-class-set price-header-cell)
+        size-header-classes (node-class-set size-header-cell)
+        total-header-classes (node-class-set total-header-cell)
+        price-level-classes (node-class-set price-level-cell)
+        size-level-classes (node-class-set size-level-cell)
+        total-level-classes (node-class-set total-level-cell)]
+    (testing "orderbook header and level content expose stable alignment data roles"
+      (is (some? header-row))
+      (is (some? level-content-row))
+      (is (some? price-header-cell))
+      (is (some? size-header-cell))
+      (is (some? total-header-cell))
+      (is (some? price-level-cell))
+      (is (some? size-level-cell))
+      (is (some? total-level-cell)))
+
+    (testing "price column is left aligned while size/total stay right aligned"
+      (is (contains? price-header-classes "text-left"))
+      (is (contains? price-level-classes "text-left"))
+      (is (contains? size-header-classes "text-right"))
+      (is (contains? total-header-classes "text-right"))
+      (is (contains? size-level-classes "text-right"))
+      (is (contains? total-level-classes "text-right")))
+
+    (testing "readable inset contract keeps small left padding without large horizontal gutters"
+      (is (contains? header-row-classes "pl-2"))
+      (is (contains? level-content-row-classes "pl-2"))
+      (is (not (contains? header-row-classes "px-3")))
+      (is (not (contains? header-row-classes "pl-3")))
+      (is (not (contains? level-content-row-classes "px-3")))
+      (is (not (contains? level-content-row-classes "pl-3"))))))
+
 (deftest recent-trades-for-coin-test
   (testing "mixed coin trades are filtered to the selected coin and sorted newest first"
     (with-redefs [ws-trades/get-recent-trades
@@ -166,6 +220,54 @@
         (is (every? #(= "BTC" (:coin %)) filtered-trades))
         (is (>= (:time-ms (first filtered-trades))
                 (:time-ms (second filtered-trades))))))))
+
+(deftest trades-price-column-is-left-aligned-with-readable-left-inset-test
+  (with-redefs [ws-trades/get-recent-trades
+                (fn []
+                  [{:coin "BTC" :px "61500.1" :sz "0.03" :side "A" :time 1700000003}
+                   {:coin "BTC" :px "61500.2" :sz "0.01" :side "B" :time 1700000004}])]
+    (let [panel (view/trades-panel "BTC" "BTC")
+          header-row (find-first-node panel (data-role= "trades-column-headers-row"))
+          trade-content-row (find-first-node panel (data-role= "trades-level-content-row"))
+          price-header-cell (find-first-node panel (data-role= "trades-price-header-cell"))
+          size-header-cell (find-first-node panel (data-role= "trades-size-header-cell"))
+          time-header-cell (find-first-node panel (data-role= "trades-time-header-cell"))
+          price-level-cell (find-first-node panel (data-role= "trades-level-price-cell"))
+          size-level-cell (find-first-node panel (data-role= "trades-level-size-cell"))
+          time-level-cell (find-first-node panel (data-role= "trades-level-time-cell"))
+          header-row-classes (node-class-set header-row)
+          trade-content-row-classes (node-class-set trade-content-row)
+          price-header-classes (node-class-set price-header-cell)
+          size-header-classes (node-class-set size-header-cell)
+          time-header-classes (node-class-set time-header-cell)
+          price-level-classes (node-class-set price-level-cell)
+          size-level-classes (node-class-set size-level-cell)
+          time-level-classes (node-class-set time-level-cell)]
+      (testing "trades header and level content expose stable alignment data roles"
+        (is (some? header-row))
+        (is (some? trade-content-row))
+        (is (some? price-header-cell))
+        (is (some? size-header-cell))
+        (is (some? time-header-cell))
+        (is (some? price-level-cell))
+        (is (some? size-level-cell))
+        (is (some? time-level-cell)))
+
+      (testing "price column is left aligned while size/time stay right aligned"
+        (is (contains? price-header-classes "text-left"))
+        (is (contains? price-level-classes "text-left"))
+        (is (contains? size-header-classes "text-right"))
+        (is (contains? time-header-classes "text-right"))
+        (is (contains? size-level-classes "text-right"))
+        (is (contains? time-level-classes "text-right")))
+
+      (testing "readable inset contract keeps small left padding without large horizontal gutters"
+        (is (contains? header-row-classes "pl-2"))
+        (is (contains? trade-content-row-classes "pl-2"))
+        (is (not (contains? header-row-classes "px-3")))
+        (is (not (contains? header-row-classes "pl-3")))
+        (is (not (contains? trade-content-row-classes "px-3")))
+        (is (not (contains? trade-content-row-classes "pl-3")))))))
 
 (deftest orderbook-panel-uses-base-background-and-border-tokens-test
   (let [panel (view/l2-orderbook-panel "BTC"
