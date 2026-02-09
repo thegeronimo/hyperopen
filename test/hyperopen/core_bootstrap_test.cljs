@@ -1,5 +1,6 @@
 (ns hyperopen.core-bootstrap-test
-  (:require [cljs.test :refer-macros [async deftest is use-fixtures]]
+  (:require [clojure.string :as str]
+            [cljs.test :refer-macros [async deftest is use-fixtures]]
             [hyperopen.api :as api]
             [hyperopen.core :as core]
             [hyperopen.state.trading :as trading]
@@ -682,6 +683,197 @@
            effects))
     (is (= :effects/save-many (ffirst effects)))
     (is (not-any? #(= (first %) :effects/fetch-candle-snapshot) effects))))
+
+(deftest websocket-diagnostics-ui-actions-emit-deterministic-effects-test
+  (is (= [[:effects/save-many [[[:websocket-ui :diagnostics-open?] true]
+                               [[:websocket-ui :reveal-sensitive?] false]
+                               [[:websocket-ui :copy-status] nil]]]
+          [:effects/refresh-websocket-health]]
+         (core/toggle-ws-diagnostics {:websocket-ui {:diagnostics-open? false}})))
+  (is (= [[:effects/save-many [[[:websocket-ui :diagnostics-open?] false]
+                               [[:websocket-ui :reveal-sensitive?] false]
+                               [[:websocket-ui :copy-status] nil]]]]
+         (core/toggle-ws-diagnostics {:websocket-ui {:diagnostics-open? true}})))
+  (is (= [[:effects/save-many [[[:websocket-ui :diagnostics-open?] false]
+                               [[:websocket-ui :reveal-sensitive?] false]
+                               [[:websocket-ui :copy-status] nil]]]]
+         (core/close-ws-diagnostics {})))
+  (is (= [[:effects/save [:websocket-ui :reveal-sensitive?] false]]
+         (core/toggle-ws-diagnostics-sensitive {:websocket-ui {:reveal-sensitive? true}})))
+  (is (= [[:effects/confirm-ws-diagnostics-reveal]]
+         (core/toggle-ws-diagnostics-sensitive {:websocket-ui {:reveal-sensitive? false}})))
+  (is (= [[:effects/save-many [[[:websocket-ui :diagnostics-open?] false]
+                               [[:websocket-ui :reveal-sensitive?] false]
+                               [[:websocket-ui :copy-status] nil]]]
+          [:effects/save [:websocket-ui :reconnect-cooldown-until-ms] 7000]
+          [:effects/reconnect-websocket]]
+         (core/ws-diagnostics-reconnect-now {:websocket-ui {:diagnostics-open? true}
+                                             :websocket {:health {:generated-at-ms 2000
+                                                                  :transport {:state :connected}}}})))
+  (is (= [[:effects/copy-websocket-diagnostics]]
+         (core/ws-diagnostics-copy {}))))
+
+(deftest websocket-diagnostics-reconnect-guard-prevents-duplicate-reconnect-test
+  (is (= []
+         (core/ws-diagnostics-reconnect-now {:websocket-ui {:reconnect-cooldown-until-ms 9000}
+                                             :websocket {:health {:generated-at-ms 5000
+                                                                  :transport {:state :connected}}}})))
+  (is (= []
+         (core/ws-diagnostics-reconnect-now {:websocket-ui {:reconnect-cooldown-until-ms nil}
+                                             :websocket {:health {:generated-at-ms 5000
+                                                                  :transport {:state :reconnecting}}}}))))
+
+(deftest copy-websocket-diagnostics-redacts-sensitive-fields-test
+  (async done
+    (let [address "0x1234567890abcdef1234567890abcdef12345678"
+          written (atom nil)
+          navigator-prop "navigator"
+          original-navigator-descriptor (js/Object.getOwnPropertyDescriptor js/globalThis navigator-prop)
+          fake-clipboard #js {:writeText (fn [payload]
+                                           (reset! written payload)
+                                           (js/Promise.resolve true))}
+          fake-navigator #js {:clipboard fake-clipboard}
+          health {:generated-at-ms 1700000000000
+                  :transport {:state :connected
+                              :freshness :live
+                              :last-close {:code 1000
+                                           :reason "ok"}}
+                  :groups {:orders_oms {:worst-status :offline}
+                           :market_data {:worst-status :idle}
+                           :account {:worst-status :n-a}}
+                  :streams {["openOrders" nil address nil nil]
+                            {:group :orders_oms
+                             :topic "openOrders"
+                             :status :offline
+                             :last-payload-at-ms 1699999999000
+                             :stale-threshold-ms nil
+                             :descriptor {:type "openOrders"
+                                          :user address
+                                          :token "secret-token"
+                                          :meta {:authorization "Bearer token"
+                                                 :entries [{:address address}]}}}}}
+          store (atom {:websocket {:health health}
+                       :websocket-ui {:copy-status nil}})]
+      (js/Object.defineProperty js/globalThis navigator-prop
+                                #js {:value fake-navigator
+                                     :configurable true})
+      (core/copy-websocket-diagnostics nil store)
+      (js/setTimeout
+        (fn []
+          (try
+            (is (string? @written))
+            (is (not (str/includes? @written address)))
+            (is (str/includes? @written "<redacted>"))
+            (is (= :success (get-in @store [:websocket-ui :copy-status :kind])))
+            (is (= "Copied (redacted)"
+                   (get-in @store [:websocket-ui :copy-status :message])))
+            (let [decoded (js->clj (js/JSON.parse @written) :keywordize-keys true)]
+              (is (= "<redacted>" (get-in decoded [:streams 0 :descriptor :user])))
+              (is (= "<redacted>" (get-in decoded [:streams 0 :descriptor :token])))
+              (is (= "<redacted>" (get-in decoded [:streams 0 :descriptor :meta :authorization])))
+              (is (= "<redacted>" (get-in decoded [:streams 0 :descriptor :meta :entries 0 :address]))))
+            (finally
+              (if original-navigator-descriptor
+                (js/Object.defineProperty js/globalThis navigator-prop original-navigator-descriptor)
+                (js/Reflect.deleteProperty js/globalThis navigator-prop))
+              (done))))
+        0))))
+
+(deftest copy-websocket-diagnostics-fallback-status-when-clipboard-unavailable-test
+  (let [navigator-prop "navigator"
+        original-navigator-descriptor (js/Object.getOwnPropertyDescriptor js/globalThis navigator-prop)
+        store (atom {:websocket {:health {:generated-at-ms 1700000000000
+                                          :transport {:state :connected
+                                                      :freshness :live}
+                                          :groups {:orders_oms {:worst-status :idle}
+                                                   :market_data {:worst-status :live}
+                                                   :account {:worst-status :n-a}}
+                                          :streams {["openOrders" nil "0x1234567890abcdef1234567890abcdef12345678" nil nil]
+                                                    {:group :orders_oms
+                                                     :topic "openOrders"
+                                                     :status :n-a
+                                                     :descriptor {:type "openOrders"
+                                                                  :user "0x1234567890abcdef1234567890abcdef12345678"}}}}}
+                     :websocket-ui {:copy-status nil}})]
+    (js/Object.defineProperty js/globalThis navigator-prop
+                              #js {:value #js {}
+                                   :configurable true})
+    (try
+      (core/copy-websocket-diagnostics nil store)
+      (let [status (get-in @store [:websocket-ui :copy-status])]
+        (is (= :error (:kind status)))
+        (is (str/includes? (:message status) "Couldn't access clipboard"))
+        (is (string? (:fallback-json status)))
+        (is (str/includes? (:fallback-json status) "<redacted>")))
+      (finally
+        (if original-navigator-descriptor
+          (js/Object.defineProperty js/globalThis navigator-prop original-navigator-descriptor)
+          (js/Reflect.deleteProperty js/globalThis navigator-prop))))))
+
+(deftest sync-websocket-health-second-bucket-updates-only-when-drawer-open-test
+  (async done
+    (let [original-connection @ws-client/connection-state
+          original-runtime @ws-client/stream-runtime
+          store (atom {:websocket {:health {}}
+                       :websocket-ui {:diagnostics-open? false}})
+          projection-state @#'hyperopen.core/websocket-health-projection-state]
+      (reset! ws-client/connection-state
+              {:status :connected
+               :attempt 0
+               :next-retry-at-ms nil
+               :last-close nil
+               :last-activity-at-ms 100
+               :now-ms 1000
+               :online? true
+               :transport/state :connected
+               :transport/last-recv-at-ms 900
+               :transport/connected-at-ms 900
+               :transport/expected-traffic? false
+               :transport/freshness :live
+               :queue-size 0
+               :ws nil})
+      (reset! ws-client/stream-runtime
+              {:tier-depth {:market 0 :lossless 0}
+               :metrics {:market-coalesced 0
+                         :market-dispatched 0
+                         :lossless-dispatched 0
+                         :ingress-parse-errors 0}
+               :now-ms 1000
+               :streams {}
+               :transport {:state :connected
+                           :online? true
+                           :last-recv-at-ms 900
+                           :connected-at-ms 900
+                           :expected-traffic? false
+                           :freshness :live
+                           :attempt 0
+                           :last-close nil}
+               :market-coalesce {:pending {}
+                                 :timer nil}})
+      (reset! projection-state {:second-bucket nil :fingerprint nil})
+      (@#'hyperopen.core/sync-websocket-health! store :force? true)
+      (js/setTimeout
+        (fn []
+          (is (= 1000 (get-in @store [:websocket :health :generated-at-ms])))
+          (swap! ws-client/stream-runtime assoc :now-ms 2000)
+          (@#'hyperopen.core/sync-websocket-health! store)
+          (js/setTimeout
+            (fn []
+              (is (= 1000 (get-in @store [:websocket :health :generated-at-ms])))
+              (swap! store assoc-in [:websocket-ui :diagnostics-open?] true)
+              (swap! ws-client/stream-runtime assoc :now-ms 3000)
+              (@#'hyperopen.core/sync-websocket-health! store)
+              (js/setTimeout
+                (fn []
+                  (try
+                    (is (= 3000 (get-in @store [:websocket :health :generated-at-ms])))
+                    (finally
+                      (reset! ws-client/connection-state original-connection)
+                      (reset! ws-client/stream-runtime original-runtime)
+                      (done))))
+                0))
+            0))
+        0))))
 
 (deftest toggle-timeframes-dropdown-opens-timeframes-and-closes-other-chart-menus-test
   (let [effects (core/toggle-timeframes-dropdown

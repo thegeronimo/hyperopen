@@ -3,6 +3,7 @@
             [hyperopen.websocket.application.runtime :as app-runtime]
             [hyperopen.websocket.domain.model :as model]
             [hyperopen.websocket.domain.policy :as policy]
+            [hyperopen.websocket.health :as health]
             [hyperopen.websocket.infrastructure.transport :as infra]))
 
 (def ^:private default-config
@@ -13,6 +14,10 @@
           :max-hidden-delay-ms 60000
           :max-queue-size 1000
           :watchdog-interval-ms 10000
+          :health-tick-interval-ms 1000
+          :transport-live-threshold-ms health/default-transport-live-threshold-ms
+          :freshness-hysteresis-consecutive health/default-freshness-hysteresis-consecutive
+          :stale-threshold-ms health/default-stream-stale-threshold-ms
           :stale-visible-ms 45000
           :stale-hidden-ms 180000
           :channel-tier-policy policy/default-channel-tier-policy}
@@ -25,6 +30,13 @@
                                  :next-retry-at-ms nil
                                  :last-close nil
                                  :last-activity-at-ms nil
+                                 :now-ms nil
+                                 :online? true
+                                 :transport/state :disconnected
+                                 :transport/last-recv-at-ms nil
+                                 :transport/connected-at-ms nil
+                                 :transport/expected-traffic? false
+                                 :transport/freshness :offline
                                  :queue-size 0
                                  :ws nil}))
 
@@ -50,6 +62,16 @@
                                          :market-dispatched 0
                                          :lossless-dispatched 0
                                          :ingress-parse-errors 0}
+                               :now-ms nil
+                               :streams {}
+                               :transport {:state :disconnected
+                                           :online? true
+                                           :last-recv-at-ms nil
+                                           :connected-at-ms nil
+                                           :expected-traffic? false
+                                           :freshness :offline
+                                           :attempt 0
+                                           :last-close nil}
                                :market-coalesce {:pending {}
                                                  :timer nil}}))
 
@@ -196,6 +218,16 @@
                                     :market-dispatched 0
                                     :lossless-dispatched 0
                                     :ingress-parse-errors 0}
+                          :now-ms nil
+                          :streams {}
+                          :transport {:state :disconnected
+                                      :online? true
+                                      :last-recv-at-ms nil
+                                      :connected-at-ms nil
+                                      :expected-traffic? false
+                                      :freshness :offline
+                                      :attempt 0
+                                      :last-close nil}
                           :market-coalesce {:pending {}
                                             :timer nil}}))
 
@@ -259,6 +291,28 @@
 (defn get-tier-depths []
   (:tier-depth @stream-runtime))
 
+(defn get-health-snapshot []
+  (let [connection @connection-state
+        runtime @stream-runtime
+        clock (current-clock)
+        now-ms (or (:now-ms runtime)
+                   (:now-ms connection)
+                   (when clock (infra/now-ms* clock))
+                   0)
+        transport {:state (:transport/state connection)
+                   :online? (:online? connection)
+                   :last-recv-at-ms (:transport/last-recv-at-ms connection)
+                   :connected-at-ms (:transport/connected-at-ms connection)
+                   :expected-traffic? (:transport/expected-traffic? connection)
+                   :freshness (:transport/freshness connection)
+                   :attempt (:attempt connection)
+                   :last-close (:last-close connection)}
+        streams (:streams runtime)]
+    (health/derive-health-snapshot {:now-ms now-ms
+                                    :transport transport
+                                    :streams streams
+                                    :config @connection-config})))
+
 (defn reset-manager-state! []
   ;; Primarily intended for tests.
   (when (current-runtime)
@@ -270,6 +324,13 @@
                             :next-retry-at-ms nil
                             :last-close nil
                             :last-activity-at-ms nil
+                            :now-ms nil
+                            :online? true
+                            :transport/state :disconnected
+                            :transport/last-recv-at-ms nil
+                            :transport/connected-at-ms nil
+                            :transport/expected-traffic? false
+                            :transport/freshness :offline
                             :queue-size 0
                             :ws nil})
   (reset! message-handlers {})

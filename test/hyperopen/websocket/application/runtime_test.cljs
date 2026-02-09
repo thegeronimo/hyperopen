@@ -10,6 +10,15 @@
                             :market-dispatched 0
                             :lossless-dispatched 0
                             :ingress-parse-errors 0}
+                  :now-ms nil
+                  :streams {}
+                  :transport {:state :disconnected
+                              :online? true
+                              :last-recv-at-ms nil
+                              :connected-at-ms nil
+                              :expected-traffic? false
+                              :attempt 0
+                              :last-close nil}
                   :market-coalesce {:pending {}
                                     :timer nil}}))
 
@@ -54,6 +63,12 @@
                                 :next-retry-at-ms nil
                                 :last-close nil
                                 :last-activity-at-ms nil
+                                :now-ms nil
+                                :online? true
+                                :transport/state :disconnected
+                                :transport/last-recv-at-ms nil
+                                :transport/connected-at-ms nil
+                                :transport/expected-traffic? false
                                 :queue-size 0
                                 :ws nil})]
     (runtime/start-runtime!
@@ -194,6 +209,33 @@
       (js/setTimeout
         (fn []
           (is (= [1 2] @routed))
+          (runtime/stop-runtime! rt)
+          (done))
+        30))))
+
+(deftest health-tick-event-updates-stream-runtime-now-ms-test
+  (async done
+    (let [stream-runtime (atom nil)
+          _ (reset-stream! stream-runtime)
+          router (reify runtime/IMessageRouter
+                   (route-domain-message! [_ _] nil)
+                   (register-topic-handler! [_ _ _] nil)
+                   (stop-router! [_] nil))
+          rt (make-test-runtime {:parse-raw-envelope (fn [_] {:error (js/Error. "unused")})
+                                 :topic->tier (constantly :lossless)
+                                 :router router
+                                 :stream-runtime stream-runtime})]
+      (runtime/publish-command! rt {:op :connection/connect
+                                    :ws-url "wss://example.test/ws"})
+      (runtime/publish-transport-event! rt {:event/type :socket/open
+                                            :socket-id 1
+                                            :ts 100})
+      (runtime/publish-transport-event! rt {:event/type :timer/health
+                                            :ts 5000
+                                            :now-ms 5000})
+      (js/setTimeout
+        (fn []
+          (is (= 5000 (:now-ms @stream-runtime)))
           (runtime/stop-runtime! rt)
           (done))
         30))))

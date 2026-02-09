@@ -64,6 +64,7 @@
     :lifecycle/visible
     :timer/watchdog
     :timer/retry
+    :timer/health
     :timer/market-flush})
 
 (defn make-transport-event
@@ -96,6 +97,7 @@
     :evt/lifecycle-visible
     :evt/timer-retry-fired
     :evt/timer-watchdog-fired
+    :evt/timer-health-tick
     :evt/timer-market-flush-fired
     :evt/decoded-envelope
     :evt/parse-error})
@@ -152,3 +154,19 @@
                  (some-> data first :symbol)
                  (some-> data first :asset))]
     [(:topic envelope) coin]))
+
+(def default-topic->group
+  {"l2Book" :market_data
+   "trades" :market_data
+   "activeAssetCtx" :market_data
+   "openOrders" :orders_oms
+   "userFills" :orders_oms
+   "userFundings" :orders_oms
+   "userNonFundingLedgerUpdates" :orders_oms
+   "webData2" :account})
+
+(defn topic->group
+  ([topic]
+   (topic->group default-topic->group topic))
+  ([topic-group-map topic]
+   (get topic-group-map topic :account)))

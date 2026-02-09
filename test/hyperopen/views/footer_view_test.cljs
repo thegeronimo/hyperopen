@@ -1,6 +1,6 @@
 (ns hyperopen.views.footer-view-test
   (:require [clojure.string :as str]
-            [cljs.test :refer-macros [deftest is testing]]
+            [cljs.test :refer-macros [deftest is]]
             [hyperopen.views.footer-view :as footer-view]))
 
 (defn- find-node [pred node]
@@ -14,6 +14,17 @@
 
     :else nil))
 
+(defn- count-nodes [pred node]
+  (cond
+    (vector? node)
+    (+ (if (pred node) 1 0)
+       (reduce + (map #(count-nodes pred %) (rest node))))
+
+    (seq? node)
+    (reduce + (map #(count-nodes pred %) node))
+
+    :else 0))
+
 (defn- class-values [class-attr]
   (cond
     (nil? class-attr) []
@@ -26,6 +37,26 @@
                 (second node))]
     (set (class-values (:class attrs)))))
 
+(defn- collect-strings [node]
+  (cond
+    (string? node) [node]
+    (vector? node) (mapcat collect-strings (rest node))
+    (seq? node) (mapcat collect-strings node)
+    :else []))
+
+(defn- node-text [node]
+  (str/join " " (collect-strings node)))
+
+(defn- find-pill [view]
+  (find-node #(and (vector? %)
+                   (= :button (first %))
+                   (str/includes? (node-text %) "WebSocket:"))
+             view))
+
+(defn- button-tag? [node]
+  (and (keyword? node)
+       (str/starts-with? (name node) "button")))
+
 (defn- footer-link-nodes [node]
   (let [links ["Docs" "Support" "Terms" "Privacy Policy"]]
     (keep (fn [label]
@@ -35,28 +66,226 @@
                        node))
           links)))
 
-(deftest retry-button-visible-when-disconnected-test
-  (let [view (footer-view/footer-view {:websocket {:status :disconnected}})
-        retry-btn (find-node #(and (vector? %)
-                                   (keyword? (first %))
-                                   (str/starts-with? (name (first %)) "button")
-                                   (= "Retry" (last %)))
-                             view)]
-    (is retry-btn)
-    (is (= [[:actions/reconnect-websocket]]
-           (get-in retry-btn [1 :on :click])))))
+(defn- base-health []
+  {:generated-at-ms 10000
+   :transport {:state :connected
+               :freshness :live
+               :last-recv-at-ms 9500
+               :expected-traffic? true
+               :attempt 2
+               :last-close {:code 1006
+                            :reason "abnormal"
+                            :at-ms 9000}}
+   :groups {:orders_oms {:worst-status :idle}
+            :market_data {:worst-status :live}
+            :account {:worst-status :n-a}}
+   :streams {["trades" "BTC" nil nil nil]
+             {:group :market_data
+              :topic "trades"
+              :status :live
+              :last-payload-at-ms 5000
+              :stale-threshold-ms 10000
+              :descriptor {:type "trades" :coin "BTC"}
+              :message-count 3}}})
 
-(deftest retry-button-hidden-when-connected-test
-  (let [view (footer-view/footer-view {:websocket {:status :connected}})
+(defn- base-state []
+  {:websocket {:health (base-health)}
+   :websocket-ui {:diagnostics-open? false
+                  :reveal-sensitive? false
+                  :copy-status nil
+                  :reconnect-cooldown-until-ms nil}})
+
+(deftest status-pill-is-snapshot-driven-and-retry-button-removed-test
+  (let [state (assoc-in (base-state) [:websocket :health :groups :orders_oms :worst-status] :offline)
+        view (footer-view/footer-view state)
+        pill (find-pill view)
         retry-btn (find-node #(and (vector? %)
-                                   (keyword? (first %))
-                                   (str/starts-with? (name (first %)) "button")
+                                   (= :button (first %))
                                    (= "Retry" (last %)))
                              view)]
+    (is (some? pill))
+    (is (str/includes? (node-text pill) "OFFLINE"))
+    (is (str/includes? (node-text pill) "(orders/oms)"))
     (is (nil? retry-btn))))
 
+(deftest status-pill-uses-deterministic-group-precedence-test
+  (let [state (-> (base-state)
+                  (assoc-in [:websocket :health :groups :orders_oms :worst-status] :idle)
+                  (assoc-in [:websocket :health :groups :market_data :worst-status] :delayed)
+                  (assoc-in [:websocket :health :groups :account :worst-status] :offline))
+        view (footer-view/footer-view state)
+        pill (find-pill view)]
+    (is (some? pill))
+    (is (str/includes? (node-text pill) "DELAYED"))
+    (is (str/includes? (node-text pill) "(market data)"))))
+
+(deftest status-pill-falls-back-to-transport-when-groups-are-neutral-test
+  (let [state (-> (base-state)
+                  (assoc-in [:websocket :health :groups :orders_oms :worst-status] :idle)
+                  (assoc-in [:websocket :health :groups :market_data :worst-status] :n-a)
+                  (assoc-in [:websocket :health :groups :account :worst-status] :idle)
+                  (assoc-in [:websocket :health :transport :freshness] :offline))
+        view (footer-view/footer-view state)
+        pill (find-pill view)]
+    (is (some? pill))
+    (is (str/includes? (node-text pill) "OFFLINE"))
+    (is (str/includes? (node-text pill) "(transport)"))))
+
+(deftest status-pill-click-dispatches-diagnostics-toggle-test
+  (let [view (footer-view/footer-view (base-state))
+        pill (find-pill view)]
+    (is (= [[:actions/toggle-ws-diagnostics]]
+           (get-in pill [1 :on :click])))))
+
+(deftest diagnostics-drawer-renders-only-when-open-test
+  (let [closed-view (footer-view/footer-view (base-state))
+        open-view (footer-view/footer-view (assoc-in (base-state) [:websocket-ui :diagnostics-open?] true))]
+    (is (nil? (find-node #(and (vector? %)
+                               (= :h2 (first %))
+                               (= "WebSocket diagnostics" (last %)))
+                         closed-view)))
+    (is (some? (find-node #(and (vector? %)
+                                (= :h2 (first %))
+                                (= "WebSocket diagnostics" (last %)))
+                          open-view)))
+    (is (some? (find-node #(and (vector? %)
+                                (= :h3 (first %))
+                                (= "Transport" (last %)))
+                          open-view)))
+    (is (some? (find-node #(and (vector? %)
+                                (= :h3 (first %))
+                                (= "Group health" (last %)))
+                          open-view)))
+    (is (some? (find-node #(and (vector? %)
+                                (= :h3 (first %))
+                                (= "Streams" (last %)))
+                          open-view)))
+    (is (pos? (count-nodes #(and (vector? %) (= :details (first %))) open-view)))))
+
+(deftest diagnostics-drawer-stream-ages-update-from-snapshot-test
+  (let [view-a (footer-view/footer-view (-> (base-state)
+                                            (assoc-in [:websocket-ui :diagnostics-open?] true)
+                                            (assoc-in [:websocket :health :streams ["trades" "BTC" nil nil nil] :last-payload-at-ms] 5000)))
+        view-b (footer-view/footer-view (-> (base-state)
+                                            (assoc-in [:websocket-ui :diagnostics-open?] true)
+                                            (assoc-in [:websocket :health :generated-at-ms] 11000)
+                                            (assoc-in [:websocket :health :streams ["trades" "BTC" nil nil nil] :last-payload-at-ms] 5000)))
+        text-a (node-text view-a)
+        text-b (node-text view-b)]
+    (is (str/includes? text-a "Age: 5s | Threshold: 10000 ms"))
+    (is (str/includes? text-b "Age: 6s | Threshold: 10000 ms"))))
+
+(deftest diagnostics-actions-dispatch-correct-events-test
+  (let [view (footer-view/footer-view (assoc-in (base-state) [:websocket-ui :diagnostics-open?] true))
+        reconnect-btn (find-node #(and (vector? %)
+                                       (button-tag? (first %))
+                                       (= "Reconnect now" (last %)))
+                                 view)
+        copy-btn (find-node #(and (vector? %)
+                                  (button-tag? (first %))
+                                  (= "Copy diagnostics" (last %)))
+                            view)]
+    (is (= [[:actions/ws-diagnostics-reconnect-now]]
+           (get-in reconnect-btn [1 :on :click])))
+    (is (= [[:actions/ws-diagnostics-copy]]
+           (get-in copy-btn [1 :on :click])))))
+
+(deftest diagnostics-masks-addresses-by-default-test
+  (let [address "0x1234567890abcdef1234567890abcdef12345678"
+        view (footer-view/footer-view
+               (-> (base-state)
+                   (assoc-in [:websocket-ui :diagnostics-open?] true)
+                   (assoc-in [:websocket :health :streams ["openOrders" nil address nil nil]]
+                             {:group :orders_oms
+                              :topic "openOrders"
+                              :status :n-a
+                              :last-payload-at-ms 9500
+                              :stale-threshold-ms nil
+                              :descriptor {:type "openOrders"
+                                           :user address}})))
+        text (node-text view)]
+    (is (not (str/includes? text address)))
+    (is (str/includes? text "0x1234...45678"))))
+
+(deftest diagnostics-reveal-toggle-dispatches-action-test
+  (let [view (footer-view/footer-view (assoc-in (base-state) [:websocket-ui :diagnostics-open?] true))
+        reveal-btn (find-node #(and (vector? %)
+                                    (button-tag? (first %))
+                                    (= "Reveal sensitive" (last %)))
+                              view)]
+    (is (= [[:actions/toggle-ws-diagnostics-sensitive]]
+           (get-in reveal-btn [1 :on :click])))))
+
+(deftest diagnostics-na-status-renders-neutral-chip-test
+  (let [view (footer-view/footer-view (assoc-in (base-state) [:websocket-ui :diagnostics-open?] true))
+        chip (find-node #(and (vector? %)
+                              (= :span (first %))
+                              (str/includes? (node-text %) "EVENT-DRIVEN"))
+                        view)
+        classes (set (class-values (get-in chip [1 :class])))]
+    (is (contains? classes "border-base-300"))
+    (is (contains? classes "text-base-content/70"))
+    (is (not (contains? classes "border-error/50")))))
+
+(deftest reconnect-button-disabled-when-reconnecting-or-cooldown-active-test
+  (let [reconnecting-view (footer-view/footer-view
+                            (-> (base-state)
+                                (assoc-in [:websocket-ui :diagnostics-open?] true)
+                                (assoc-in [:websocket :health :transport :state] :reconnecting)))
+        reconnecting-btn (find-node #(and (vector? %)
+                                          (button-tag? (first %))
+                                          (= "Reconnecting..." (last %)))
+                                    reconnecting-view)
+        cooldown-view (footer-view/footer-view
+                        (-> (base-state)
+                            (assoc-in [:websocket-ui :diagnostics-open?] true)
+                            (assoc-in [:websocket-ui :reconnect-cooldown-until-ms] 12000)))
+        cooldown-btn (find-node #(and (vector? %)
+                                      (button-tag? (first %))
+                                      (str/includes? (node-text %) "Reconnect in"))
+                                cooldown-view)]
+    (is (true? (get-in reconnecting-btn [1 :disabled])))
+    (is (true? (get-in cooldown-btn [1 :disabled])))))
+
+(deftest diagnostics-copy-feedback-renders-status-and-fallback-json-test
+  (let [view (footer-view/footer-view
+               (-> (base-state)
+                   (assoc-in [:websocket-ui :diagnostics-open?] true)
+                   (assoc-in [:websocket-ui :copy-status]
+                             {:kind :error
+                              :message "Couldn't access clipboard. Copy the redacted JSON below."
+                              :fallback-json "{\"redacted\":true}"})))
+        text (node-text view)]
+    (is (str/includes? text "Couldn't access clipboard. Copy the redacted JSON below."))
+    (is (str/includes? text "{\"redacted\":true}"))))
+
+(deftest diagnostics-transport-section-uses-single-last-close-row-test
+  (let [view (footer-view/footer-view (assoc-in (base-state) [:websocket-ui :diagnostics-open?] true))
+        text (node-text view)]
+    (is (str/includes? text "Last close"))
+    (is (not (str/includes? text "Last close code")))
+    (is (not (str/includes? text "Last close reason")))))
+
+(deftest persistent-banner-rules-test
+  (let [orders-offline-view (footer-view/footer-view
+                             (assoc-in (base-state) [:websocket :health :groups :orders_oms :worst-status] :offline))
+        orders-reconnecting-view (footer-view/footer-view
+                                  (assoc-in (base-state) [:websocket :health :groups :orders_oms :worst-status] :reconnecting))
+        market-delayed-view (footer-view/footer-view
+                             (assoc-in (base-state) [:websocket :health :groups :market_data :worst-status] :delayed))
+        market-offline-default-hidden-view (footer-view/footer-view
+                                            (-> (base-state)
+                                                (assoc-in [:websocket :health :groups :market_data :worst-status] :offline)
+                                                (assoc-in [:websocket-ui :show-market-offline-banner?] false)))]
+    (is (str/includes? (node-text orders-offline-view)
+                       "Orders/OMS websocket offline. Trading activity status may be stale."))
+    (is (str/includes? (node-text orders-reconnecting-view)
+                       "Orders/OMS websocket reconnecting. Order lifecycle updates may be delayed."))
+    (is (not (str/includes? (node-text market-delayed-view) "Market data websocket offline")))
+    (is (not (str/includes? (node-text market-offline-default-hidden-view) "Market data websocket offline")))))
+
 (deftest footer-root-includes-fixed-layering-classes-test
-  (let [view (footer-view/footer-view {:websocket {:status :connected}})
+  (let [view (footer-view/footer-view (base-state))
         classes (root-class-set view)]
     (is (contains? classes "fixed"))
     (is (contains? classes "inset-x-0"))
@@ -66,13 +295,19 @@
     (is (contains? classes "isolate"))))
 
 (deftest footer-root-class-attr-is-collection-test
-  (let [view (footer-view/footer-view {:websocket {:status :connected}})
+  (let [view (footer-view/footer-view (base-state))
         class-attr (get-in view [1 :class])]
     (is (coll? class-attr))
     (is (not (string? class-attr)))))
 
+(deftest diagnostics-open-raises-footer-z-layer-test
+  (let [view (footer-view/footer-view (assoc-in (base-state) [:websocket-ui :diagnostics-open?] true))
+        classes (root-class-set view)]
+    (is (contains? classes "z-[260]"))
+    (is (not (contains? classes "z-40")))))
+
 (deftest footer-links-use-standard-white-12px-typography-test
-  (let [view (footer-view/footer-view {:websocket {:status :connected}})
+  (let [view (footer-view/footer-view (base-state))
         links (footer-link-nodes view)]
     (is (= 4 (count links)))
     (doseq [link links]

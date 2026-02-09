@@ -254,7 +254,8 @@
                     hyperopen.websocket.client/add-event-listener! (fn [& _] nil)
                     hyperopen.websocket.client/schedule-interval!
                     (fn [f _]
-                      (reset! watchdog-callback f)
+                      (when (nil? @watchdog-callback)
+                        (reset! watchdog-callback f))
                       :watchdog)
                     hyperopen.websocket.client/schedule-timeout!
                     (fn [f delay-ms]
@@ -311,3 +312,105 @@
                 (done))
               20))
           20)))))
+
+(deftest health-snapshot-accessor-includes-close-reason-and-derived-status-test
+  (let [sub-key ["trades" "BTC" nil nil nil]]
+    (swap! ws-client/connection-config assoc
+           :transport-live-threshold-ms 10000
+           :stale-threshold-ms {"trades" 5000})
+    (reset! ws-client/connection-state
+            {:status :connected
+             :attempt 2
+             :next-retry-at-ms nil
+             :last-close {:code 1006 :reason "abnormal" :was-clean? false :at-ms 100}
+             :last-activity-at-ms 100
+             :now-ms 20000
+             :online? true
+             :transport/state :connected
+             :transport/last-recv-at-ms 100
+             :transport/connected-at-ms 100
+             :transport/expected-traffic? true
+             :queue-size 0
+             :ws nil})
+    (reset! ws-client/stream-runtime
+            {:tier-depth {:market 0 :lossless 0}
+             :metrics {:market-coalesced 0
+                       :market-dispatched 0
+                       :lossless-dispatched 0
+                       :ingress-parse-errors 0}
+             :now-ms 20000
+             :streams {sub-key {:subscribed? true
+                                :subscribed-at-ms 120
+                                :first-payload-at-ms 130
+                                :last-payload-at-ms 130
+                                :message-count 1
+                                :topic "trades"
+                                :group :market_data
+                                :descriptor {:type "trades" :coin "BTC"}
+                                :stale-threshold-ms 5000}}
+             :transport {:state :connected
+                         :online? true
+                         :last-recv-at-ms 100
+                         :connected-at-ms 100
+                         :expected-traffic? true
+                         :attempt 2
+                         :last-close {:code 1006 :reason "abnormal" :was-clean? false :at-ms 100}}
+             :market-coalesce {:pending {}
+                               :timer nil}})
+    (let [snapshot (ws-client/get-health-snapshot)]
+      (is (= :delayed (get-in snapshot [:transport :freshness])))
+      (is (= 1006 (get-in snapshot [:transport :last-close :code])))
+      (is (= "abnormal" (get-in snapshot [:transport :last-close :reason])))
+      (is (= :delayed (get-in snapshot [:streams sub-key :status]))))))
+
+(deftest health-snapshot-prefers-stable-hysteresis-status-from-runtime-projections-test
+  (let [sub-key ["trades" "BTC" nil nil nil]]
+    (swap! ws-client/connection-config assoc
+           :transport-live-threshold-ms 10000
+           :stale-threshold-ms {"trades" 5000}
+           :freshness-hysteresis-consecutive 2)
+    (reset! ws-client/connection-state
+            {:status :connected
+             :attempt 1
+             :next-retry-at-ms nil
+             :last-close nil
+             :last-activity-at-ms 100
+             :now-ms 20000
+             :online? true
+             :transport/state :connected
+             :transport/last-recv-at-ms 100
+             :transport/connected-at-ms 100
+             :transport/expected-traffic? true
+             :transport/freshness :live
+             :queue-size 0
+             :ws nil})
+    (reset! ws-client/stream-runtime
+            {:tier-depth {:market 0 :lossless 0}
+             :metrics {:market-coalesced 0
+                       :market-dispatched 0
+                       :lossless-dispatched 0
+                       :ingress-parse-errors 0}
+             :now-ms 20000
+             :streams {sub-key {:subscribed? true
+                                :subscribed-at-ms 120
+                                :first-payload-at-ms 130
+                                :last-payload-at-ms 130
+                                :message-count 1
+                                :topic "trades"
+                                :group :market_data
+                                :descriptor {:type "trades" :coin "BTC"}
+                                :stale-threshold-ms 5000
+                                :status :live}}
+             :transport {:state :connected
+                         :online? true
+                         :last-recv-at-ms 100
+                         :connected-at-ms 100
+                         :expected-traffic? true
+                         :freshness :live
+                         :attempt 1
+                         :last-close nil}
+             :market-coalesce {:pending {}
+                               :timer nil}})
+    (let [snapshot (ws-client/get-health-snapshot)]
+      (is (= :live (get-in snapshot [:transport :freshness])))
+      (is (= :live (get-in snapshot [:streams sub-key :status]))))))

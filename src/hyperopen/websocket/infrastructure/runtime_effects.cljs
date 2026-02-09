@@ -17,11 +17,14 @@
     (reset! connection-state-atom
             (assoc connection :ws socket))))
 
-(defn- update-stream-projection! [stream-runtime-atom metrics tier-depth market-coalesce]
+(defn- update-stream-projection! [stream-runtime-atom metrics tier-depth market-coalesce now-ms streams transport]
   (reset! stream-runtime-atom
           {:metrics metrics
            :tier-depth tier-depth
-           :market-coalesce market-coalesce}))
+           :market-coalesce market-coalesce
+           :now-ms now-ms
+           :streams streams
+           :transport transport}))
 
 (defn interpret-effect!
   [{:keys [transport
@@ -41,27 +44,34 @@
           socket (infra/connect-websocket!
                    transport
                    ws-url
-                   {:on-open (fn [_]
-                               (dispatch! {:msg/type :evt/socket-open
-                                           :socket-id socket-id
-                                           :ts (now-ms clock)}))
-                    :on-message (fn [event]
-                                  (dispatch! {:msg/type :evt/socket-message
+                    {:on-open (fn [_]
+                                (let [at-ms (now-ms clock)]
+                                  (dispatch! {:msg/type :evt/socket-open
                                               :socket-id socket-id
-                                              :raw (.-data event)
-                                              :ts (now-ms clock)}))
-                    :on-close (fn [event]
-                                (dispatch! {:msg/type :evt/socket-close
-                                            :socket-id socket-id
-                                            :code (or (.-code event) 0)
-                                            :reason (or (.-reason event) "")
-                                            :was-clean? (boolean (.-wasClean event))
-                                            :ts (now-ms clock)}))
-                    :on-error (fn [event]
-                                (dispatch! {:msg/type :evt/socket-error
-                                            :socket-id socket-id
-                                            :error event
-                                            :ts (now-ms clock)}))})]
+                                              :at-ms at-ms
+                                              :ts at-ms})))
+                     :on-message (fn [event]
+                                   (let [recv-at-ms (now-ms clock)]
+                                     (dispatch! {:msg/type :evt/socket-message
+                                                 :socket-id socket-id
+                                                 :raw (.-data event)
+                                                 :recv-at-ms recv-at-ms
+                                                 :ts recv-at-ms})))
+                     :on-close (fn [event]
+                                 (let [at-ms (now-ms clock)]
+                                   (dispatch! {:msg/type :evt/socket-close
+                                               :socket-id socket-id
+                                               :code (or (.-code event) 0)
+                                               :reason (or (.-reason event) "")
+                                               :was-clean? (boolean (.-wasClean event))
+                                               :at-ms at-ms
+                                               :ts at-ms})))
+                     :on-error (fn [event]
+                                 (let [at-ms (now-ms clock)]
+                                   (dispatch! {:msg/type :evt/socket-error
+                                               :socket-id socket-id
+                                               :error event
+                                               :ts at-ms})))})]
       (swap! io-state assoc-in [:sockets socket-id] socket)
       (swap! io-state assoc :active-socket-id socket-id))
 
@@ -98,7 +108,8 @@
                        scheduler
                        (fn []
                          (swap! io-state update :timers dissoc timer-key)
-                         (dispatch! (assoc msg :ts (now-ms clock))))
+                         (let [fired-at-ms (now-ms clock)]
+                           (dispatch! (assoc msg :ts fired-at-ms :now-ms fired-at-ms))))
                        ms)]
         (swap! io-state assoc-in [:timers timer-key] timer-id)))
 
@@ -111,7 +122,8 @@
       (let [timer-id (infra/schedule-interval*
                        scheduler
                        (fn []
-                         (dispatch! (assoc msg :ts (now-ms clock))))
+                         (let [fired-at-ms (now-ms clock)]
+                           (dispatch! (assoc msg :ts fired-at-ms :now-ms fired-at-ms))))
                        ms)]
         (swap! io-state assoc-in [:timers timer-key] timer-id)))
 
@@ -151,17 +163,20 @@
     (dispatch-envelope! (:envelope effect))
 
     :fx/parse-raw-message
-    (let [{:keys [raw socket-id]} effect
+    (let [{:keys [raw socket-id recv-at-ms]} effect
+          decode-at-ms (or recv-at-ms (now-ms clock))
           {:keys [ok error]} (parse-raw-envelope {:raw raw
                                                   :socket-id socket-id})]
       (if ok
         (dispatch! {:msg/type :evt/decoded-envelope
                     :envelope ok
-                    :ts (now-ms clock)})
+                    :recv-at-ms decode-at-ms
+                    :ts decode-at-ms})
         (dispatch! {:msg/type :evt/parse-error
                     :error error
                     :raw raw
-                    :ts (now-ms clock)})))
+                    :recv-at-ms decode-at-ms
+                    :ts decode-at-ms})))
 
     :fx/project-connection-state
     (update-connection-projection! connection-state-atom
@@ -173,7 +188,10 @@
     (update-stream-projection! stream-runtime-atom
                                (:metrics effect)
                                (:tier-depth effect)
-                               (:market-coalesce effect))
+                               (:market-coalesce effect)
+                               (:now-ms effect)
+                               (:streams effect)
+                               (:transport effect))
 
     :fx/log
     (let [{:keys [level message error]} effect]

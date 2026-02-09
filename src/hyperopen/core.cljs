@@ -9,6 +9,7 @@
             [hyperopen.websocket.trades :as trades]
             [hyperopen.websocket.webdata2 :as webdata2]
             [hyperopen.websocket.user :as user-ws]
+            [hyperopen.websocket.diagnostics-sanitize :as diagnostics-sanitize]
             [hyperopen.api :as api]
             [hyperopen.api.trading :as trading-api]
             [hyperopen.asset-selector.settings :as asset-selector-settings]
@@ -92,7 +93,13 @@
                                   :next-retry-at-ms nil
                                   :last-close nil
                                   :last-activity-at-ms nil
-                                  :queue-size 0}
+                                  :queue-size 0
+                                  :health (ws-client/get-health-snapshot)}
+                      :websocket-ui {:diagnostics-open? false
+                                     :show-market-offline-banner? false
+                                     :reveal-sensitive? false
+                                     :copy-status nil
+                                     :reconnect-cooldown-until-ms nil}
                       :active-assets {:contexts {}
                                      :loading false}
                       :active-asset nil
@@ -155,6 +162,80 @@
                                      :trade-history (default-trade-history-state)
                                      :funding-history (default-funding-history-state)
                                      :order-history (default-order-history-state)}}))
+
+(defonce ^:private websocket-health-projection-state
+  (atom {:second-bucket nil
+         :fingerprint nil}))
+
+(defn- websocket-health-fingerprint [health]
+  {:transport/state (get-in health [:transport :state])
+   :transport/freshness (get-in health [:transport :freshness])
+   :groups/orders_oms (get-in health [:groups :orders_oms :worst-status])
+   :groups/market_data (get-in health [:groups :market_data :worst-status])
+   :groups/account (get-in health [:groups :account :worst-status])})
+
+(defn- sync-websocket-health!
+  [store & {:keys [force?]}]
+  (let [health (ws-client/get-health-snapshot)
+        generated-at-ms (or (:generated-at-ms health) 0)
+        second-bucket (quot generated-at-ms 1000)
+        diagnostics-open? (boolean (get-in @store [:websocket-ui :diagnostics-open?] false))
+        fingerprint (websocket-health-fingerprint health)
+        prior @websocket-health-projection-state
+        should-sync? (or force?
+                         (and diagnostics-open?
+                              (not= second-bucket (:second-bucket prior)))
+                         (not= fingerprint (:fingerprint prior)))]
+    (when should-sync?
+      (reset! websocket-health-projection-state
+              {:second-bucket second-bucket
+               :fingerprint fingerprint})
+      (js/queueMicrotask
+        #(swap! store assoc-in [:websocket :health] health)))))
+
+(def ^:private reconnect-cooldown-ms
+  5000)
+
+(defn- copy-status-at-ms [health]
+  (or (:generated-at-ms health)
+      0))
+
+(defn- set-copy-status!
+  [store status]
+  (swap! store assoc-in [:websocket-ui :copy-status] status))
+
+(defn- copy-success-status [health]
+  {:kind :success
+   :at-ms (copy-status-at-ms health)
+   :message "Copied (redacted)"})
+
+(defn- copy-error-status [health diagnostics-json]
+  {:kind :error
+   :at-ms (copy-status-at-ms health)
+   :message "Couldn't access clipboard. Copy the redacted JSON below."
+   :fallback-json diagnostics-json})
+
+(defn- diagnostics-stream-rows [health]
+  (->> (get health :streams {})
+       (sort-by (fn [[sub-key stream]]
+                  [(name (or (:group stream) :account))
+                   (str (:topic stream))
+                   (pr-str sub-key)]))
+       (mapv (fn [[sub-key stream]]
+               {:sub-key sub-key
+                :group (:group stream)
+                :topic (:topic stream)
+                :status (:status stream)
+                :last-payload-at-ms (:last-payload-at-ms stream)
+                :stale-threshold-ms (:stale-threshold-ms stream)
+                :message-count (:message-count stream)
+                :descriptor (:descriptor stream)}))))
+
+(defn- diagnostics-copy-payload [health]
+  {:generated-at-ms (:generated-at-ms health)
+   :transport (:transport health)
+   :groups (:groups health)
+   :streams (diagnostics-stream-rows health)})
 
 ;; Effects - handle side effects
 (defn save [_ store path value]
@@ -245,6 +326,38 @@
   (println "Forcing WebSocket reconnect...")
   (ws-client/force-reconnect!))
 
+(defn refresh-websocket-health [_ store]
+  (sync-websocket-health! store :force? true))
+
+(defn confirm-ws-diagnostics-reveal [_ store]
+  (let [confirmed? (js/confirm "Reveal sensitive diagnostics values? This may expose wallet identifiers.")]
+    (when confirmed?
+      (swap! store assoc-in [:websocket-ui :reveal-sensitive?] true))))
+
+(defn copy-websocket-diagnostics [_ store]
+  (let [health (get-in @store [:websocket :health] {})
+        payload (diagnostics-sanitize/sanitize-value
+                  :redact
+                  (diagnostics-copy-payload health))
+        diagnostics-json (.stringify js/JSON (clj->js payload) nil 2)
+        clipboard (some-> js/globalThis .-navigator .-clipboard)
+        write-text-fn (some-> clipboard .-writeText)]
+    (set-copy-status! store nil)
+    (if (and clipboard write-text-fn)
+      (try
+        (-> (.writeText clipboard diagnostics-json)
+            (.then (fn []
+                     (set-copy-status! store (copy-success-status health))))
+            (.catch (fn [err]
+                      (println "Copy diagnostics failed:" err)
+                      (set-copy-status! store (copy-error-status health diagnostics-json)))))
+        (catch :default err
+          (println "Copy diagnostics failed:" err)
+          (set-copy-status! store (copy-error-status health diagnostics-json))))
+      (do
+        (println "Clipboard API unavailable for websocket diagnostics copy")
+        (set-copy-status! store (copy-error-status health diagnostics-json))))))
+
 (defn init-websockets [state]
   [[:effects/init-websocket]])
 
@@ -261,6 +374,46 @@
 
 (defn reconnect-websocket-action [state]
   [[:effects/reconnect-websocket]])
+
+(defn toggle-ws-diagnostics [state]
+  (let [open? (not (boolean (get-in state [:websocket-ui :diagnostics-open?])))]
+    (cond-> [[:effects/save-many [[[:websocket-ui :diagnostics-open?] open?]
+                                  [[:websocket-ui :reveal-sensitive?] false]
+                                  [[:websocket-ui :copy-status] nil]]]]
+      open?
+      (conj [:effects/refresh-websocket-health]))))
+
+(defn close-ws-diagnostics [_]
+  [[:effects/save-many [[[:websocket-ui :diagnostics-open?] false]
+                        [[:websocket-ui :reveal-sensitive?] false]
+                        [[:websocket-ui :copy-status] nil]]]])
+
+(defn toggle-ws-diagnostics-sensitive [state]
+  (if (boolean (get-in state [:websocket-ui :reveal-sensitive?]))
+    [[:effects/save [:websocket-ui :reveal-sensitive?] false]]
+    [[:effects/confirm-ws-diagnostics-reveal]]))
+
+(defn- reconnect-blocked? [state]
+  (let [transport-state (get-in state [:websocket :health :transport :state])
+        generated-at-ms (or (get-in state [:websocket :health :generated-at-ms]) 0)
+        cooldown-until-ms (get-in state [:websocket-ui :reconnect-cooldown-until-ms])]
+    (or (contains? #{:connecting :reconnecting} transport-state)
+        (and (number? cooldown-until-ms)
+             (> cooldown-until-ms generated-at-ms)))))
+
+(defn ws-diagnostics-reconnect-now [state]
+  (if (reconnect-blocked? state)
+    []
+    (let [generated-at-ms (or (get-in state [:websocket :health :generated-at-ms]) 0)]
+      [[:effects/save-many [[[:websocket-ui :diagnostics-open?] false]
+                            [[:websocket-ui :reveal-sensitive?] false]
+                            [[:websocket-ui :copy-status] nil]]]
+       [:effects/save [:websocket-ui :reconnect-cooldown-until-ms]
+        (+ generated-at-ms reconnect-cooldown-ms)]
+       [:effects/reconnect-websocket]])))
+
+(defn ws-diagnostics-copy [_]
+  [[:effects/copy-websocket-diagnostics]])
 
 (defn toggle-asset-dropdown [state coin]
   (let [current-dropdown (get-in state [:asset-selector :visible-dropdown])]
@@ -1310,6 +1463,9 @@
 (nxr/register-effect! :effects/unsubscribe-webdata2 unsubscribe-webdata2)
 (nxr/register-effect! :effects/connect-wallet connect-wallet)
 (nxr/register-effect! :effects/reconnect-websocket reconnect-websocket)
+(nxr/register-effect! :effects/refresh-websocket-health refresh-websocket-health)
+(nxr/register-effect! :effects/confirm-ws-diagnostics-reveal confirm-ws-diagnostics-reveal)
+(nxr/register-effect! :effects/copy-websocket-diagnostics copy-websocket-diagnostics)
 (nxr/register-effect! :effects/fetch-asset-selector-markets
   (fn [_ store & [opts]]
     (api/fetch-asset-selector-markets! store (or opts {:phase :full}))))
@@ -1454,6 +1610,11 @@
 (nxr/register-action! :actions/subscribe-to-webdata2 subscribe-to-webdata2)
 (nxr/register-action! :actions/connect-wallet connect-wallet-action)
 (nxr/register-action! :actions/reconnect-websocket reconnect-websocket-action)
+(nxr/register-action! :actions/toggle-ws-diagnostics toggle-ws-diagnostics)
+(nxr/register-action! :actions/close-ws-diagnostics close-ws-diagnostics)
+(nxr/register-action! :actions/toggle-ws-diagnostics-sensitive toggle-ws-diagnostics-sensitive)
+(nxr/register-action! :actions/ws-diagnostics-reconnect-now ws-diagnostics-reconnect-now)
+(nxr/register-action! :actions/ws-diagnostics-copy ws-diagnostics-copy)
 (nxr/register-action! :actions/toggle-asset-dropdown toggle-asset-dropdown)
 (nxr/register-action! :actions/close-asset-dropdown close-asset-dropdown)
 (nxr/register-action! :actions/select-asset select-asset)
@@ -1563,22 +1724,26 @@
 (add-watch ws-client/connection-state ::ws-status
   (fn [_ _ old-state new-state]
     (let [old-status (:status old-state)
-          new-status (:status new-state)]
+          new-status (:status new-state)
+          status-transition? (not= old-status new-status)
+          legacy-projection (select-keys new-state [:status
+                                                    :attempt
+                                                    :next-retry-at-ms
+                                                    :last-close
+                                                    :queue-size])]
       ;; Defer store update to next tick to avoid nested renders.
-      ;; Exclude :last-activity-at-ms so high-frequency message flow does not trigger
-      ;; unnecessary app-wide renders.
       (js/queueMicrotask
-        #(swap! store assoc :websocket
-                (select-keys new-state [:status
-                                        :attempt
-                                        :next-retry-at-ms
-                                        :last-close
-                                        :queue-size])))
+        #(swap! store update :websocket merge legacy-projection))
+      (sync-websocket-health! store :force? status-transition?)
       ;; Notify address watcher only on status transitions.
-      (when (not= old-status new-status)
+      (when status-transition?
         (if (= new-status :connected)
           (address-watcher/on-websocket-connected!)
           (address-watcher/on-websocket-disconnected!))))))
+
+(add-watch ws-client/stream-runtime ::ws-health
+  (fn [_ _ _ _]
+    (sync-websocket-health! store)))
 
 (defn reload []
   (println "Reloading Hyperopen...")
