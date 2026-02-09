@@ -842,6 +842,64 @@
     (is (contains? (direct-texts (nth nvda-row-cells 7)) "-0.01 USDC"))
     (is (contains? (direct-texts (nth hype-row-cells 7)) "--"))))
 
+(deftest trade-history-time-cell-renders-explorer-link-when-valid-hash-present-test
+  (let [hash-value "0xcb13be47d7d3e736cc8d04346f1535020494002d72d706086edc699a96d7c121"
+        fills [{:tid 1
+                :coin "HYPE"
+                :side "B"
+                :sz "1.2"
+                :px "100.0"
+                :fee "0.1"
+                :time 1700000000000
+                :hash hash-value}]
+        content (view/trade-history-tab-content fills)
+        row-node (first-viewport-row content)
+        time-cell (first (vec (node-children row-node)))
+        time-cell-classes (node-class-set time-cell)
+        link-node (find-first-node time-cell #(= :a (first %)))
+        link-classes (node-class-set link-node)
+        icon-node (find-first-node link-node #(= :svg (first %)))
+        expected-time (view/format-open-orders-time 1700000000000)
+        strings (set (collect-strings time-cell))]
+    (is (some? link-node))
+    (is (contains? time-cell-classes "whitespace-nowrap"))
+    (is (contains? link-classes "whitespace-nowrap"))
+    (is (= (str "https://app.hyperliquid.xyz/explorer/tx/" hash-value)
+           (get-in link-node [1 :href])))
+    (is (= "_blank" (get-in link-node [1 :target])))
+    (is (= "noopener noreferrer" (get-in link-node [1 :rel])))
+    (is (contains? strings expected-time))
+    (is (some? icon-node))))
+
+(deftest trade-history-time-cell-falls-back-to-plain-text-when-hash-missing-or-invalid-test
+  (let [fills [{:tid 1
+                :coin "HYPE"
+                :side "B"
+                :sz "1.2"
+                :px "100.0"
+                :fee "0.1"
+                :time 1700000000000}
+               {:tid 2
+                :coin "BTC"
+                :side "A"
+                :sz "0.8"
+                :px "95.0"
+                :fee "0.05"
+                :time 1700000001000
+                :hash "0x1234"}]
+        content (view/trade-history-tab-content fills)
+        viewport (tab-rows-viewport-node content)
+        rendered-rows (vec (node-children viewport))
+        expected-times (set (mapv (comp view/format-open-orders-time :time) fills))
+        rendered-times (->> rendered-rows
+                            (map (fn [row]
+                                   (let [time-cell (first (vec (node-children row)))]
+                                     (is (nil? (find-first-node time-cell #(= :a (first %)))))
+                                     (collect-strings time-cell))))
+                            (reduce into #{}))]
+    (doseq [expected expected-times]
+      (is (contains? rendered-times expected)))))
+
 (deftest trade-history-pagination-renders-only-current-page-rows-test
   (let [rows (mapv trade-history-row (range 55))
         content (@#'view/trade-history-table rows {:page-size 25

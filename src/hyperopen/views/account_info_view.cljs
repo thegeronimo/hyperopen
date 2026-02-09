@@ -1656,6 +1656,60 @@
         (* rounded 1000)
         rounded))))
 
+(def ^:private trade-history-explorer-tx-base-url
+  "https://app.hyperliquid.xyz/explorer/tx/")
+
+(def ^:private trade-history-tx-hash-pattern
+  #"^0x[0-9a-fA-F]{64}$")
+
+(defn- trade-history-tx-hash [row]
+  (non-blank-text (or (:hash row)
+                      (:txHash row)
+                      (:tx-hash row))))
+
+(defn- valid-trade-history-tx-hash? [hash-value]
+  (boolean (and hash-value
+                (re-matches trade-history-tx-hash-pattern hash-value))))
+
+(defn- trade-history-explorer-tx-url [row]
+  (let [hash-value (trade-history-tx-hash row)]
+    (when (valid-trade-history-tx-hash? hash-value)
+      (str trade-history-explorer-tx-base-url hash-value))))
+
+(defn- trade-history-external-link-icon []
+  [:svg {:class ["h-3" "w-3" "shrink-0"]
+         :viewBox "0 0 20 20"
+         :fill "none"
+         :stroke "currentColor"
+         :stroke-width "1.8"
+         :aria-hidden true}
+   [:path {:d "M8 4h8v8"}]
+   [:path {:d "M16 4 7 13"}]
+   [:path {:d "M14 10v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"}]])
+
+(defn- trade-history-time-node [row]
+  (let [formatted-time (format-open-orders-time (trade-history-time-ms row))]
+    (if-let [explorer-url (trade-history-explorer-tx-url row)]
+      [:a {:href explorer-url
+           :target "_blank"
+           :rel "noopener noreferrer"
+           :class ["inline-flex"
+                   "min-h-6"
+                   "items-center"
+                   "gap-0.5"
+                   "whitespace-nowrap"
+                   "rounded"
+                   "text-trading-green"
+                   "hover:text-trading-green/80"
+                   "focus-visible:outline-none"
+                   "focus-visible:ring-2"
+                   "focus-visible:ring-trading-green/70"
+                   "focus-visible:ring-offset-1"
+                   "focus-visible:ring-offset-base-100"]}
+       [:span formatted-time]
+       (trade-history-external-link-icon)]
+      formatted-time)))
+
 (defn- format-usdc-amount [value]
   (if-let [num (parse-optional-num value)]
     (str (.toLocaleString (js/Number. num)
@@ -1813,7 +1867,7 @@
                       "text-sm"
                       "font-medium"
                       "text-trading-text-secondary"
-                      "grid-cols-[140px_90px_180px_90px_130px_130px_110px_120px]"]}
+                      "grid-cols-[180px_90px_160px_90px_130px_130px_110px_120px]"]}
         [:div {:class ["text-left"]} (sortable-trade-history-header "Time" sort-state)]
         [:div {:class ["text-left"]} (sortable-trade-history-header "Coin" sort-state)]
         [:div {:class ["text-left"]} (sortable-trade-history-header "Direction" sort-state)]
@@ -1830,9 +1884,9 @@
                         "px-3"
                         "hover:bg-base-300"
                         "text-sm"
-                        "grid-cols-[140px_90px_180px_90px_130px_130px_110px_120px]"]}
-          [:div {:class ["text-left"]}
-           (format-open-orders-time (trade-history-time-ms f))]
+                        "grid-cols-[180px_90px_160px_90px_130px_130px_110px_120px]"]}
+          [:div {:class ["text-left" "text-xs" "whitespace-nowrap"]}
+           (trade-history-time-node f)]
           [:div {:class ["text-left"]}
            (trade-history-coin-node f market-by-key)]
           (let [direction (trade-history-direction-label f)]
