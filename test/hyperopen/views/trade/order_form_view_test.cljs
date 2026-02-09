@@ -642,6 +642,29 @@
     (is (every? #(contains? % "focus:ring-offset-0") all-classes))
     (is (every? #(contains? % "focus:shadow-none") all-classes))))
 
+(deftest text-inputs-use-neutral-focus-styles-test
+  (let [view-node (view/order-form-view (base-state {:type :limit}))
+        text-inputs (find-all-nodes view-node
+                                    (fn [node]
+                                      (let [attrs (when (map? (second node)) (second node))]
+                                        (and (= :input (first node))
+                                             (= "text" (:type attrs))))))
+        required-focus-classes #{"focus:outline-none"
+                                 "hover:border-[#6f7a88]"
+                                 "hover:ring-1"
+                                 "hover:ring-[#6f7a88]/30"
+                                 "hover:ring-offset-0"
+                                 "focus:ring-1"
+                                 "focus:ring-[#8a96a6]/40"
+                                 "focus:ring-offset-0"
+                                 "focus:shadow-none"
+                                 "focus:border-[#8a96a6]"}
+        text-input-class-sets (map (comp set :class second) text-inputs)]
+    (is (not-empty text-inputs))
+    (is (every? (fn [class-set]
+                  (every? #(contains? class-set %) required-focus-classes))
+                text-input-class-sets))))
+
 (deftest tpsl-toggle-uses-explicit-text-label-binding-with-non-label-row-test
   (let [view-node (view/order-form-view (base-state {:type :limit}))
         toggle-row (find-first-node view-node

@@ -5,6 +5,21 @@
 
 (def leverage-presets [2 5 10 20 25 40 50])
 
+(def neutral-input-focus-classes
+  ["outline-none"
+   "transition-[border-color,box-shadow]"
+   "duration-150"
+   "hover:border-[#6f7a88]"
+   "hover:ring-1"
+   "hover:ring-[#6f7a88]/30"
+   "hover:ring-offset-0"
+   "focus:outline-none"
+   "focus:ring-1"
+   "focus:ring-[#8a96a6]/40"
+   "focus:ring-offset-0"
+   "focus:shadow-none"
+   "focus:border-[#8a96a6]"])
+
 (defn- section-label [text]
   [:div {:class ["text-xs" "text-gray-400" "mb-1"]} text])
 
@@ -32,18 +47,19 @@
       label-text]]))
 
 (defn- input [value on-change & {:keys [type placeholder]}]
-  [:input {:class ["w-full"
-                   "h-10"
-                   "px-3"
-                   "bg-base-200"
-                   "border"
-                   "border-base-300"
-                   "rounded-lg"
-                   "text-sm"
-                   "text-right"
-                   "text-gray-100"
-                   "num"
-                   "placeholder:text-gray-500"]
+  [:input {:class (into ["w-full"
+                         "h-10"
+                         "px-3"
+                         "bg-base-200"
+                         "border"
+                         "border-base-300"
+                         "rounded-lg"
+                         "text-sm"
+                         "text-right"
+                         "text-gray-100"
+                         "num"
+                         "placeholder:text-gray-500"]
+                        neutral-input-focus-classes)
            :type (or type "text")
            :placeholder (or placeholder "")
            :value (or value "")
@@ -75,9 +91,9 @@
                           "text-gray-100"
                           "num"
                           "placeholder:text-transparent"
-                          "outline-none"
                           "appearance-none"]
-                         (if accessory [input-padding-right] ["pr-3"]))
+                         (concat neutral-input-focus-classes
+                                 (if accessory [input-padding-right] ["pr-3"])))
             :type "text"
             :aria-label placeholder
             :placeholder placeholder
@@ -103,21 +119,21 @@
                    "truncate"
                    "max-w-[55%]"]}
     label]
-   [:input {:class ["w-full"
-                    "h-10"
-                    "bg-base-200"
-                    "border"
-                    "border-base-300"
-                    "rounded-lg"
-                    "text-right"
-                    "text-sm"
-                    "font-semibold"
-                    "text-gray-100"
-                    "num"
-                    "outline-none"
-                    "appearance-none"
-                    "pl-24"
-                    "pr-3"]
+   [:input {:class (into ["w-full"
+                          "h-10"
+                          "bg-base-200"
+                          "border"
+                          "border-base-300"
+                          "rounded-lg"
+                          "text-right"
+                          "text-sm"
+                          "font-semibold"
+                          "text-gray-100"
+                          "num"
+                          "appearance-none"
+                          "pl-24"
+                          "pr-3"]
+                         neutral-input-focus-classes)
             :type "text"
             :aria-label label
             :value (or value "")
@@ -425,6 +441,11 @@
                      "text-sm"
                      "font-semibold"
                      "text-gray-100"
+                     "outline-none"
+                     "focus:outline-none"
+                     "focus:ring-0"
+                     "focus:ring-offset-0"
+                     "focus:shadow-none"
                      "pr-4"]
              :value (name (:tif form))
              :on {:change [[:actions/update-order-form [:tif] [:event.target/value]]]}}
@@ -598,25 +619,22 @@
                                              notch-overlap-threshold)
                                      "opacity-0")]))}])]]
        [:div {:class ["relative" "w-[82px]"]}
-        [:input {:class ["order-size-percent-input"
-                         "h-10"
-                         "w-full"
-                         "bg-base-200/80"
-                         "border"
-                         "border-base-300"
-                         "rounded-lg"
-                         "text-right"
-                         "text-sm"
-                         "font-semibold"
-                         "text-gray-100"
-                         "num"
-                         "appearance-none"
-                         "outline-none"
-                         "pl-2.5"
-                         "pr-6"
-                         "focus:outline-none"
-                         "focus:ring-0"
-                         "focus:border-base-300"]
+        [:input {:class (into ["order-size-percent-input"
+                               "h-10"
+                               "w-full"
+                               "bg-base-200/80"
+                               "border"
+                               "border-base-300"
+                               "rounded-lg"
+                               "text-right"
+                               "text-sm"
+                               "font-semibold"
+                               "text-gray-100"
+                               "num"
+                               "appearance-none"
+                               "pl-2.5"
+                               "pr-6"]
+                              neutral-input-focus-classes)
                  :type "text"
                  :inputmode "numeric"
                  :pattern "[0-9]*"
