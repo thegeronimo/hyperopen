@@ -326,7 +326,7 @@
         cum-total (order-total-for-unit order size-unit)
         bar-width (cumulative-bar-width cum-total max-cum-size)
         bar-color (if is-ask? "bg-red-500/30" "bg-green-500/30")
-        text-color (if is-ask? "text-red-400" "text-green-400")]
+        price-text-color (if is-ask? "text-red-400" "text-green-400")]
     [:div.flex.items-center.h-6.relative.bg-base-100.text-xs {:data-role "orderbook-level-row"}
      ;; Size bar background - always positioned from left
      [:div.absolute.inset-0.flex.items-center.justify-start
@@ -335,11 +335,11 @@
      ;; Content
      [:div.flex.w-full.items-center.justify-between.px-2.relative.z-10
       [:div.text-right.flex-1
-       [:span {:class [text-color]} (or (format-price price price) "0.00")]]
+       [:span {:class [price-text-color]} (or (format-price price price) "0.00")]]
       [:div.text-right.flex-1
-       [:span {:class [text-color]} (format-order-size order size-unit)]]
+       [:span.text-white (format-order-size order size-unit)]]
       [:div.text-right.flex-1
-       [:span {:class [text-color]} (format-order-total order size-unit)]]]]))
+       [:span.text-white (format-order-total order size-unit)]]]]))
 
 ;; Spread component
 (defn spread-row [spread]

@@ -140,6 +140,20 @@
     (is (= "text-red-400" (view/trade-side->price-class "S")))
     (is (= "text-gray-100" (view/trade-side->price-class "X")))))
 
+(deftest order-row-renders-white-size-and-total-columns-test
+  (let [order {:px "101.5"
+               :sz "2"
+               :cum-size 2
+               :cum-value 203}
+        ask-classes (frequencies (collect-all-classes (view/order-row order 3 true :base)))
+        bid-classes (frequencies (collect-all-classes (view/order-row order 3 false :base)))]
+    (testing "ask rows keep price red while rendering size/total as white"
+      (is (= 1 (get ask-classes "text-red-400" 0)))
+      (is (= 2 (get ask-classes "text-white" 0))))
+    (testing "bid rows keep price green while rendering size/total as white"
+      (is (= 1 (get bid-classes "text-green-400" 0)))
+      (is (= 2 (get bid-classes "text-white" 0))))))
+
 (deftest recent-trades-for-coin-test
   (testing "mixed coin trades are filtered to the selected coin and sorted newest first"
     (with-redefs [ws-trades/get-recent-trades
