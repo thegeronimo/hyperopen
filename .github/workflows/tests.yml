@@ -27,6 +27,16 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      - name: Setup Babashka
+        run: |
+          BB_VERSION=1.12.197
+          curl -sSL -o bb.tar.gz "https://github.com/babashka/babashka/releases/download/v${BB_VERSION}/babashka-${BB_VERSION}-linux-amd64-static.tar.gz"
+          tar -xzf bb.tar.gz bb
+          mkdir -p "$HOME/.local/bin"
+          mv bb "$HOME/.local/bin/"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/bb" --version
+
       - name: Cache Clojure Dependencies
         uses: actions/cache@v4
         with:
