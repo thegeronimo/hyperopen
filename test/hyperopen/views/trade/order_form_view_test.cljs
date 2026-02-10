@@ -736,3 +736,30 @@
     (is (not (:disabled enabled-attrs)))
     (is (contains? enabled-classes "bg-primary"))
     (is (contains? enabled-classes "hover:bg-primary/90"))))
+
+(deftest disabled-submit-tooltip-lists-required-fields-test
+  (let [state (-> (base-state {:type :limit :size "" :price ""})
+                  (assoc :orderbooks {})
+                  (assoc :active-market {:coin "BTC"
+                                         :quote "USDC"
+                                         :maxLeverage 40
+                                         :market-type :perp
+                                         :szDecimals 4}))
+        view-node (view/order-form-view state)
+        tooltip (find-first-node view-node
+                                 (fn [node]
+                                   (let [attrs (when (map? (second node)) (second node))
+                                         classes (set (:class attrs))]
+                                     (contains? classes "order-submit-tooltip"))))
+        tooltip-strings (set (collect-strings tooltip))]
+    (is (some? tooltip))
+    (is (contains? tooltip-strings "Fill required fields: Price, Size."))))
+
+(deftest enabled-submit-hides-required-fields-tooltip-test
+  (let [view-node (view/order-form-view (base-state {:type :limit :size "1" :price "100"}))
+        tooltip (find-first-node view-node
+                                 (fn [node]
+                                   (let [attrs (when (map? (second node)) (second node))
+                                         classes (set (:class attrs))]
+                                     (contains? classes "order-submit-tooltip"))))]
+    (is (nil? tooltip))))

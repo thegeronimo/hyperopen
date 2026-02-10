@@ -466,6 +466,16 @@
             :clip-rule "evenodd"
             :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"}]]])
 
+(defn- submit-tooltip-message [required-fields market-price-missing?]
+  (cond
+    (seq required-fields)
+    (str "Fill required fields: " (str/join ", " required-fields) ".")
+
+    market-price-missing?
+    "Load order book data before placing a market order."
+
+    :else nil))
+
 (defn order-form-view [state]
   (let [form (:order-form state)
         normalized-form (trading/normalize-order-form state form)
@@ -527,6 +537,8 @@
         submit-form (:form submit-prep)
         market-price-missing? (:market-price-missing? submit-prep)
         submit-errors (trading/validate-order-form state submit-form)
+        required-submit-fields (trading/submit-required-fields submit-errors)
+        submit-tooltip (submit-tooltip-message required-submit-fields market-price-missing?)
         submit-disabled? (boolean (or submitting?
                                       read-only?
                                       market-price-missing?
@@ -722,27 +734,55 @@
       (when error
         [:div {:class ["text-xs" "text-red-400"]} error])
 
-      [:button {:type "button"
-                :class (into ["w-full"
-                              "h-11"
-                              "rounded-lg"
-                              "text-sm"
-                              "font-semibold"
-                              "transition-colors"
-                              "focus:outline-none"
-                              "focus:ring-1"
-                              "focus:ring-[#8a96a6]/40"
-                              "focus:ring-offset-0"]
-                             (if submit-disabled?
-                               ["bg-[rgb(23,69,63)]"
-                                "text-[#7f9f9a]"
-                                "cursor-not-allowed"]
-                               ["bg-primary"
-                                "text-primary-content"
-                                "hover:bg-primary/90"]))
-                :disabled submit-disabled?
-                :on {:click [[:actions/submit-order]]}}
-       (if submitting? "Submitting..." "Place Order")]
+      [:div {:class ["relative" "group"]
+             :tabindex (when (seq submit-tooltip) 0)}
+       [:button {:type "button"
+                 :class (into ["w-full"
+                               "h-11"
+                               "rounded-lg"
+                               "text-sm"
+                               "font-semibold"
+                               "transition-colors"
+                               "focus:outline-none"
+                               "focus:ring-1"
+                               "focus:ring-[#8a96a6]/40"
+                               "focus:ring-offset-0"]
+                              (if submit-disabled?
+                                ["bg-[rgb(23,69,63)]"
+                                 "text-[#7f9f9a]"
+                                 "cursor-not-allowed"]
+                                ["bg-primary"
+                                 "text-primary-content"
+                                 "hover:bg-primary/90"]))
+                 :disabled submit-disabled?
+                 :on {:click [[:actions/submit-order]]}}
+        (if submitting? "Submitting..." "Place Order")]
+       (when (seq submit-tooltip)
+         [:div {:class ["order-submit-tooltip"
+                        "pointer-events-none"
+                        "absolute"
+                        "left-0"
+                        "right-0"
+                        "bottom-full"
+                        "mb-2"
+                        "rounded-md"
+                        "border"
+                        "border-base-300"
+                        "bg-base-200"
+                        "px-2.5"
+                        "py-2"
+                        "text-xs"
+                        "text-gray-200"
+                        "shadow-lg"
+                        "opacity-0"
+                        "translate-y-1"
+                        "transition-all"
+                        "duration-150"
+                        "group-hover:opacity-100"
+                        "group-hover:translate-y-0"
+                        "group-focus:opacity-100"
+                        "group-focus:translate-y-0"]}
+          submit-tooltip])]
 
       [:div {:class ["border-t" "border-base-300" "pt-3" "space-y-2"]}
        (when (not= :scale type)

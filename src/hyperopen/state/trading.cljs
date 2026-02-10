@@ -613,6 +613,35 @@
        (and sl-enabled? (or (nil? sl-trigger) (<= sl-trigger 0)))
        (conj "SL trigger price is required when SL is enabled.")))))
 
+(def ^:private validation-error->required-fields
+  {"Size must be greater than 0." ["Size"]
+   "Price is required for limit orders." ["Price"]
+   "Trigger price is required for stop/take orders." ["Trigger Price"]
+   "Scale orders need start/end prices and count between 2 and 100." ["Start Price" "End Price" "Total Orders"]
+   "TWAP minutes must be greater than 0." ["Minutes"]
+   "TP trigger price is required when TP is enabled." ["TP Trigger"]
+   "SL trigger price is required when SL is enabled." ["SL Trigger"]})
+
+(def ^:private required-field-rank
+  {"Price" 0
+   "Size" 1
+   "Trigger Price" 2
+   "Start Price" 3
+   "End Price" 4
+   "Total Orders" 5
+   "Minutes" 6
+   "TP Trigger" 7
+   "SL Trigger" 8})
+
+(defn submit-required-fields
+  "Map validation errors to deterministic field labels for submit guidance UI."
+  [errors]
+  (->> (or errors [])
+       (mapcat #(get validation-error->required-fields %))
+       distinct
+       (sort-by #(get required-field-rank % 999))
+       vec))
+
 (defn order-side->is-buy [side]
   (= side :buy))
 
