@@ -184,11 +184,29 @@
         copy-btn (find-node #(and (vector? %)
                                   (button-tag? (first %))
                                   (= "Copy diagnostics" (last %)))
-                            view)]
+                            view)
+        reset-market-btn (find-node #(and (vector? %)
+                                          (button-tag? (first %))
+                                          (= "Reset market subs" (last %)))
+                                    view)
+        reset-oms-btn (find-node #(and (vector? %)
+                                       (button-tag? (first %))
+                                       (= "Reset OMS subs" (last %)))
+                                 view)
+        reset-all-btn (find-node #(and (vector? %)
+                                       (button-tag? (first %))
+                                       (= "Reset all subs" (last %)))
+                                 view)]
     (is (= [[:actions/ws-diagnostics-reconnect-now]]
            (get-in reconnect-btn [1 :on :click])))
     (is (= [[:actions/ws-diagnostics-copy]]
-           (get-in copy-btn [1 :on :click])))))
+           (get-in copy-btn [1 :on :click])))
+    (is (= [[:actions/ws-diagnostics-reset-market-subscriptions]]
+           (get-in reset-market-btn [1 :on :click])))
+    (is (= [[:actions/ws-diagnostics-reset-orders-subscriptions]]
+           (get-in reset-oms-btn [1 :on :click])))
+    (is (= [[:actions/ws-diagnostics-reset-all-subscriptions]]
+           (get-in reset-all-btn [1 :on :click])))))
 
 (deftest diagnostics-masks-addresses-by-default-test
   (let [address "0x1234567890abcdef1234567890abcdef12345678"
@@ -245,6 +263,26 @@
                                       (str/includes? (node-text %) "Reconnect in"))
                                 cooldown-view)]
     (is (true? (get-in reconnecting-btn [1 :disabled])))
+    (is (true? (get-in cooldown-btn [1 :disabled])))))
+
+(deftest reset-buttons-disabled-when-reset-blocked-test
+  (let [in-progress-view (footer-view/footer-view
+                           (-> (base-state)
+                               (assoc-in [:websocket-ui :diagnostics-open?] true)
+                               (assoc-in [:websocket-ui :reset-in-progress?] true)))
+        in-progress-btn (find-node #(and (vector? %)
+                                         (button-tag? (first %))
+                                         (= "Resetting..." (last %)))
+                                   in-progress-view)
+        cooldown-view (footer-view/footer-view
+                        (-> (base-state)
+                            (assoc-in [:websocket-ui :diagnostics-open?] true)
+                            (assoc-in [:websocket-ui :reset-cooldown-until-ms] 12000)))
+        cooldown-btn (find-node #(and (vector? %)
+                                      (button-tag? (first %))
+                                      (str/includes? (node-text %) "Reset in"))
+                                cooldown-view)]
+    (is (true? (get-in in-progress-btn [1 :disabled])))
     (is (true? (get-in cooldown-btn [1 :disabled])))))
 
 (deftest diagnostics-copy-feedback-renders-status-and-fallback-json-test

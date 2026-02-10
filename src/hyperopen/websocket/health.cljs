@@ -335,16 +335,25 @@
                                         :age-ms payload-age-ms
                                         :message-count (or (:message-count stream) 0)
                                         :stale-threshold-ms (:stale-threshold-ms stream)
+                                        :last-seq (:last-seq stream)
+                                        :seq-gap-detected? (boolean (:seq-gap-detected? stream))
+                                        :seq-gap-count (or (:seq-gap-count stream) 0)
+                                        :last-gap (:last-gap stream)
                                         :descriptor (:descriptor stream)}]))
                              streams*))
-        groups (reduce (fn [acc [_ {:keys [group status]}]]
-                         (let [group* (or group :account)
-                               current (get-in acc [group* :worst-status] :idle)]
-                           (assoc-in acc [group* :worst-status] (worst-status current status))))
-                       {:market_data {:worst-status :idle}
-                        :orders_oms {:worst-status :idle}
-                        :account {:worst-status :idle}}
-                       derived-streams)]
+        groups (reduce
+                 (fn [acc [_ {:keys [group status seq-gap-detected?]}]]
+                   (let [group* (or group :account)
+                         current (get-in acc [group* :worst-status] :idle)]
+                     (-> acc
+                         (assoc-in [group* :worst-status] (worst-status current status))
+                         (update-in [group* :gap-detected?]
+                                    #(or (boolean %)
+                                         (boolean seq-gap-detected?))))))
+                 {:market_data {:worst-status :idle :gap-detected? false}
+                  :orders_oms {:worst-status :idle :gap-detected? false}
+                  :account {:worst-status :idle :gap-detected? false}}
+                 derived-streams)]
     {:generated-at-ms now-ms
      :transport {:state transport-state
                  :freshness transport-freshness

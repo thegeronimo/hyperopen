@@ -251,3 +251,71 @@
       (is (= 1006 (:code close-info)))
       (is (= "abnormal" (:reason close-info)))
       (is (= 100 (:at-ms close-info))))))
+
+(deftest seq-gap-tracking-and-resubscribe-reset-test
+  (let [base (-> (reducer/initial-runtime-state test-config)
+                 (assoc :status :connected
+                        :active-socket-id 1
+                        :online? true)
+                 (assoc-in [:transport :connected-at-ms] 10))
+        sub {:type "trades" :coin "BTC"}
+        sub-key (model/subscription-key sub)
+        subscribed (:state (step base
+                                 (model/make-runtime-msg :cmd/send-message
+                                                         100
+                                                         {:data {:method "subscribe"
+                                                                 :subscription sub}})))
+        with-seq-1 (:state (step subscribed
+                                 (model/make-runtime-msg :evt/decoded-envelope
+                                                         110
+                                                         {:recv-at-ms 110
+                                                          :envelope {:topic "trades"
+                                                                     :tier :market
+                                                                     :ts 110
+                                                                     :payload {:channel "trades"
+                                                                               :seq 1
+                                                                               :data [{:coin "BTC"}]}}})))
+        with-seq-2 (:state (step with-seq-1
+                                 (model/make-runtime-msg :evt/decoded-envelope
+                                                         120
+                                                         {:recv-at-ms 120
+                                                          :envelope {:topic "trades"
+                                                                     :tier :market
+                                                                     :ts 120
+                                                                     :payload {:channel "trades"
+                                                                               :seq 2
+                                                                               :data [{:coin "BTC"}]}}})))
+        with-gap (:state (step with-seq-2
+                               (model/make-runtime-msg :evt/decoded-envelope
+                                                       130
+                                                       {:recv-at-ms 130
+                                                        :envelope {:topic "trades"
+                                                                   :tier :market
+                                                                   :ts 130
+                                                                   :payload {:channel "trades"
+                                                                             :seq 5
+                                                                             :data [{:coin "BTC"}]}}})))
+        resubscribed (:state (step with-gap
+                                   (model/make-runtime-msg :cmd/send-message
+                                                           140
+                                                           {:data {:method "subscribe"
+                                                                   :subscription sub}})))
+        stream-with-gap (get-in with-gap [:streams sub-key])
+        stream-after-resubscribe (get-in resubscribed [:streams sub-key])
+        snapshot (health-snapshot with-gap 131)]
+    (testing "Contiguous sequence updates do not set gap metadata"
+      (is (= 2 (get-in with-seq-2 [:streams sub-key :last-seq])))
+      (is (false? (boolean (get-in with-seq-2 [:streams sub-key :seq-gap-detected?])))))
+    (testing "Sequence jump marks gap details deterministically"
+      (is (= 5 (:last-seq stream-with-gap)))
+      (is (true? (:seq-gap-detected? stream-with-gap)))
+      (is (= 1 (:seq-gap-count stream-with-gap)))
+      (is (= {:expected 3 :actual 5 :at-ms 130}
+             (:last-gap stream-with-gap))))
+    (testing "Group rollup includes seq gap detection"
+      (is (true? (get-in snapshot [:groups :market_data :gap-detected?]))))
+    (testing "Resubscribe clears sequence and gap state"
+      (is (nil? (:last-seq stream-after-resubscribe)))
+      (is (false? (:seq-gap-detected? stream-after-resubscribe)))
+      (is (= 0 (:seq-gap-count stream-after-resubscribe)))
+      (is (nil? (:last-gap stream-after-resubscribe))))))

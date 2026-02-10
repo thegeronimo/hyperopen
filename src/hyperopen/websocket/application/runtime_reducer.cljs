@@ -237,7 +237,11 @@
      :stale-threshold-ms (health/stream-stale-threshold-ms (:config state) topic)
      :status :idle
      :status-pending-status nil
-     :status-pending-count 0}))
+     :status-pending-count 0
+     :last-seq nil
+     :seq-gap-detected? false
+     :seq-gap-count 0
+     :last-gap nil}))
 
 (defn- mark-subscribe [state subscription subscribed-at-ms]
   (let [sub-key (model/subscription-key subscription)
@@ -251,7 +255,11 @@
                             :message-count 0
                             :status :idle
                             :status-pending-status nil
-                            :status-pending-count 0})]
+                            :status-pending-count 0
+                            :last-seq nil
+                            :seq-gap-detected? false
+                            :seq-gap-count 0
+                            :last-gap nil})]
     (assoc-in state [:streams sub-key] next-stream)))
 
 (defn- mark-unsubscribe [state subscription]
@@ -264,7 +272,11 @@
                             :first-payload-at-ms nil
                             :status :idle
                             :status-pending-status nil
-                            :status-pending-count 0})]
+                            :status-pending-count 0
+                            :last-seq nil
+                            :seq-gap-detected? false
+                            :seq-gap-count 0
+                            :last-gap nil})]
     (assoc-in state [:streams sub-key] next-stream)))
 
 (defn- apply-stream-intent [state data at-ms]
@@ -291,11 +303,37 @@
         (update :message-count (fnil inc 0)))
     stream))
 
+(defn- update-stream-seq
+  [stream seq-value recv-at-ms]
+  (if (and (map? stream)
+           (:subscribed? stream)
+           (number? seq-value))
+    (let [last-seq (:last-seq stream)
+          gap? (and (number? last-seq)
+                    (> seq-value (inc last-seq)))
+          next-last-seq (if (number? last-seq)
+                          (max last-seq seq-value)
+                          seq-value)]
+      (cond-> (assoc stream :last-seq next-last-seq)
+        gap?
+        (-> (assoc :seq-gap-detected? true
+                   :last-gap {:expected (inc last-seq)
+                              :actual seq-value
+                              :at-ms recv-at-ms})
+            (update :seq-gap-count (fnil inc 0)))))
+    stream))
+
 (defn- record-stream-payload [state envelope recv-at-ms]
-  (let [stream-keys (health/match-stream-keys (:streams state) envelope)]
+  (let [stream-keys (health/match-stream-keys (:streams state) envelope)
+        seq-value (get-in envelope [:payload :seq])]
     (reduce (fn [acc sub-key]
               (if (contains? (:streams acc) sub-key)
-                (update-in acc [:streams sub-key] update-stream-payload recv-at-ms)
+                (update-in acc
+                           [:streams sub-key]
+                           (fn [stream]
+                             (-> stream
+                                 (update-stream-payload recv-at-ms)
+                                 (update-stream-seq seq-value recv-at-ms))))
                 acc))
             state
             stream-keys)))

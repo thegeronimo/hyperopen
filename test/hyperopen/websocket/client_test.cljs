@@ -414,3 +414,59 @@
     (let [snapshot (ws-client/get-health-snapshot)]
       (is (= :live (get-in snapshot [:transport :freshness])))
       (is (= :live (get-in snapshot [:streams sub-key :status]))))))
+
+(deftest health-snapshot-includes-sequence-gap-diagnostics-fields-test
+  (let [sub-key ["trades" "BTC" nil nil nil]]
+    (reset! ws-client/connection-state
+            {:status :connected
+             :attempt 0
+             :next-retry-at-ms nil
+             :last-close nil
+             :last-activity-at-ms 100
+             :now-ms 20000
+             :online? true
+             :transport/state :connected
+             :transport/last-recv-at-ms 100
+             :transport/connected-at-ms 100
+             :transport/expected-traffic? true
+             :transport/freshness :live
+             :queue-size 0
+             :ws nil})
+    (reset! ws-client/stream-runtime
+            {:tier-depth {:market 0 :lossless 0}
+             :metrics {:market-coalesced 0
+                       :market-dispatched 0
+                       :lossless-dispatched 0
+                       :ingress-parse-errors 0}
+             :now-ms 20000
+             :streams {sub-key {:subscribed? true
+                                :subscribed-at-ms 120
+                                :first-payload-at-ms 130
+                                :last-payload-at-ms 130
+                                :message-count 1
+                                :topic "trades"
+                                :group :market_data
+                                :descriptor {:type "trades" :coin "BTC"}
+                                :stale-threshold-ms 5000
+                                :status :live
+                                :last-seq 9
+                                :seq-gap-detected? true
+                                :seq-gap-count 2
+                                :last-gap {:expected 7 :actual 9 :at-ms 130}}}
+             :transport {:state :connected
+                         :online? true
+                         :last-recv-at-ms 100
+                         :connected-at-ms 100
+                         :expected-traffic? true
+                         :freshness :live
+                         :attempt 0
+                         :last-close nil}
+             :market-coalesce {:pending {}
+                               :timer nil}})
+    (let [snapshot (ws-client/get-health-snapshot)]
+      (is (= 9 (get-in snapshot [:streams sub-key :last-seq])))
+      (is (true? (get-in snapshot [:streams sub-key :seq-gap-detected?])))
+      (is (= 2 (get-in snapshot [:streams sub-key :seq-gap-count])))
+      (is (= {:expected 7 :actual 9 :at-ms 130}
+             (get-in snapshot [:streams sub-key :last-gap])))
+      (is (true? (get-in snapshot [:groups :market_data :gap-detected?]))))))

@@ -1,6 +1,7 @@
 (ns hyperopen.core-bootstrap-test
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [async deftest is use-fixtures]]
+            [nexus.registry :as nxr]
             [hyperopen.api :as api]
             [hyperopen.core :as core]
             [hyperopen.state.trading :as trading]
@@ -711,7 +712,22 @@
                                              :websocket {:health {:generated-at-ms 2000
                                                                   :transport {:state :connected}}}})))
   (is (= [[:effects/copy-websocket-diagnostics]]
-         (core/ws-diagnostics-copy {}))))
+         (core/ws-diagnostics-copy {})))
+  (is (= [[:effects/ws-reset-subscriptions {:group :market_data :source :manual}]]
+         (core/ws-diagnostics-reset-market-subscriptions
+           {:websocket-ui {:reset-in-progress? false}
+            :websocket {:health {:generated-at-ms 2000
+                                 :transport {:state :connected}}}})))
+  (is (= [[:effects/ws-reset-subscriptions {:group :orders_oms :source :manual}]]
+         (core/ws-diagnostics-reset-orders-subscriptions
+           {:websocket-ui {:reset-in-progress? false}
+            :websocket {:health {:generated-at-ms 2000
+                                 :transport {:state :connected}}}})))
+  (is (= [[:effects/ws-reset-subscriptions {:group :all :source :manual}]]
+         (core/ws-diagnostics-reset-all-subscriptions
+           {:websocket-ui {:reset-in-progress? false}
+            :websocket {:health {:generated-at-ms 2000
+                                 :transport {:state :connected}}}}))))
 
 (deftest websocket-diagnostics-reconnect-guard-prevents-duplicate-reconnect-test
   (is (= []
@@ -722,6 +738,94 @@
          (core/ws-diagnostics-reconnect-now {:websocket-ui {:reconnect-cooldown-until-ms nil}
                                              :websocket {:health {:generated-at-ms 5000
                                                                   :transport {:state :reconnecting}}}}))))
+
+(deftest websocket-diagnostics-reset-guard-prevents-duplicate-or-unsafe-reset-test
+  (is (= []
+         (core/ws-diagnostics-reset-market-subscriptions
+           {:websocket-ui {:reset-in-progress? true}
+            :websocket {:health {:generated-at-ms 5000
+                                 :transport {:state :connected}}}})))
+  (is (= []
+         (core/ws-diagnostics-reset-orders-subscriptions
+           {:websocket-ui {:reset-cooldown-until-ms 9000}
+            :websocket {:health {:generated-at-ms 5000
+                                 :transport {:state :connected}}}})))
+  (is (= []
+         (core/ws-diagnostics-reset-all-subscriptions
+           {:websocket-ui {:reset-cooldown-until-ms nil}
+            :websocket {:health {:generated-at-ms 5000
+                                 :transport {:state :reconnecting}}}}))))
+
+(deftest ws-reset-subscriptions-effect-targets-group-and-avoids-duplicates-test
+  (let [address "0x1234567890abcdef1234567890abcdef12345678"
+        sends (atom [])
+        live-health {:generated-at-ms 1700000000000
+                     :transport {:state :connected
+                                 :freshness :live}
+                     :streams {["trades" "BTC" nil nil nil]
+                               {:group :market_data
+                                :topic "trades"
+                                :subscribed? true
+                                :descriptor {:type "trades" :coin "BTC"}}
+                               ["dup-trades" "BTC" nil nil nil]
+                               {:group :market_data
+                                :topic "trades"
+                                :subscribed? true
+                                :descriptor {:type "trades" :coin "BTC"}}
+                               ["openOrders" nil address nil nil]
+                               {:group :orders_oms
+                                :topic "openOrders"
+                                :subscribed? true
+                                :descriptor {:type "openOrders" :user address}}}}
+        store (atom {:websocket {:health {:generated-at-ms 1
+                                          :transport {:state :connected}
+                                          :streams {}}}
+                     :websocket-ui {:reset-in-progress? false
+                                    :reset-cooldown-until-ms nil
+                                    :reset-counts {:market_data 0 :orders_oms 0 :all 0}
+                                    :diagnostics-timeline []}})]
+    (with-redefs [ws-client/get-health-snapshot (fn [] live-health)
+                  ws-client/send-message! (fn [payload]
+                                            (swap! sends conj payload)
+                                            true)]
+      (core/ws-reset-subscriptions nil store {:group :market_data :source :manual})
+      (is (= [{:method "unsubscribe" :subscription {:type "trades" :coin "BTC"}}
+              {:method "subscribe" :subscription {:type "trades" :coin "BTC"}}]
+             @sends))
+      (is (false? (get-in @store [:websocket-ui :reset-in-progress?])))
+      (is (= 1 (get-in @store [:websocket-ui :reset-counts :market_data])))
+      (is (number? (get-in @store [:websocket-ui :reset-cooldown-until-ms])))
+      (is (= :reset-market
+             (get-in @store [:websocket-ui :diagnostics-timeline 0 :event]))))))
+
+(deftest ws-reset-subscriptions-effect-uses-current-snapshot-and-noops-when-unsafe-test
+  (let [sends (atom [])
+        stale-health {:generated-at-ms 1000
+                      :transport {:state :connected}
+                      :streams {["trades" "ETH" nil nil nil]
+                                {:group :market_data
+                                 :topic "trades"
+                                 :subscribed? true
+                                 :descriptor {:type "trades" :coin "ETH"}}}}
+        reconnecting-health {:generated-at-ms 2000
+                             :transport {:state :reconnecting}
+                             :streams {["trades" "BTC" nil nil nil]
+                                       {:group :market_data
+                                        :topic "trades"
+                                        :subscribed? true
+                                        :descriptor {:type "trades" :coin "BTC"}}}}
+        store (atom {:websocket {:health stale-health}
+                     :websocket-ui {:reset-in-progress? false
+                                    :reset-cooldown-until-ms nil
+                                    :reset-counts {:market_data 0 :orders_oms 0 :all 0}
+                                    :diagnostics-timeline []}})]
+    (with-redefs [ws-client/get-health-snapshot (fn [] reconnecting-health)
+                  ws-client/send-message! (fn [payload]
+                                            (swap! sends conj payload)
+                                            true)]
+      (core/ws-reset-subscriptions nil store {:group :market_data :source :manual})
+      (is (empty? @sends))
+      (is (= 0 (get-in @store [:websocket-ui :reset-counts :market_data]))))))
 
 (deftest copy-websocket-diagnostics-redacts-sensitive-fields-test
   (async done
@@ -768,6 +872,8 @@
             (is (= "Copied (redacted)"
                    (get-in @store [:websocket-ui :copy-status :message])))
             (let [decoded (js->clj (js/JSON.parse @written) :keywordize-keys true)]
+              (is (= "0.1.0" (get-in decoded [:app :version])))
+              (is (map? (:counters decoded)))
               (is (= "<redacted>" (get-in decoded [:streams 0 :descriptor :user])))
               (is (= "<redacted>" (get-in decoded [:streams 0 :descriptor :token])))
               (is (= "<redacted>" (get-in decoded [:streams 0 :descriptor :meta :authorization])))
@@ -810,13 +916,14 @@
           (js/Object.defineProperty js/globalThis navigator-prop original-navigator-descriptor)
           (js/Reflect.deleteProperty js/globalThis navigator-prop))))))
 
-(deftest sync-websocket-health-second-bucket-updates-only-when-drawer-open-test
+(deftest sync-websocket-health-fingerprint-updates-and-skips-now-only-churn-test
   (async done
     (let [original-connection @ws-client/connection-state
           original-runtime @ws-client/stream-runtime
           store (atom {:websocket {:health {}}
                        :websocket-ui {:diagnostics-open? false}})
-          projection-state @#'hyperopen.core/websocket-health-projection-state]
+          projection-state @#'hyperopen.core/websocket-health-projection-state
+          sync-stats @#'hyperopen.core/websocket-health-sync-stats]
       (reset! ws-client/connection-state
               {:status :connected
                :attempt 0
@@ -850,23 +957,25 @@
                            :last-close nil}
                :market-coalesce {:pending {}
                                  :timer nil}})
-      (reset! projection-state {:second-bucket nil :fingerprint nil})
+      (reset! projection-state {:fingerprint nil})
+      (reset! sync-stats {:writes 0})
       (@#'hyperopen.core/sync-websocket-health! store :force? true)
       (js/setTimeout
         (fn []
           (is (= 1000 (get-in @store [:websocket :health :generated-at-ms])))
+          (is (= 1 (get-in @sync-stats [:writes])))
           (swap! ws-client/stream-runtime assoc :now-ms 2000)
           (@#'hyperopen.core/sync-websocket-health! store)
           (js/setTimeout
             (fn []
               (is (= 1000 (get-in @store [:websocket :health :generated-at-ms])))
-              (swap! store assoc-in [:websocket-ui :diagnostics-open?] true)
-              (swap! ws-client/stream-runtime assoc :now-ms 3000)
+              (is (= 1 (get-in @sync-stats [:writes])))
+              (swap! ws-client/connection-state assoc :transport/freshness :delayed)
               (@#'hyperopen.core/sync-websocket-health! store)
               (js/setTimeout
                 (fn []
                   (try
-                    (is (= 3000 (get-in @store [:websocket :health :generated-at-ms])))
+                    (is (= 2 (get-in @sync-stats [:writes])))
                     (finally
                       (reset! ws-client/connection-state original-connection)
                       (reset! ws-client/stream-runtime original-runtime)
@@ -874,6 +983,110 @@
                 0))
             0))
         0))))
+
+(deftest sync-websocket-health-auto-recover-is-flagged-and-cooldown-protected-test
+  (let [dispatches (atom [])
+        projection-state @#'hyperopen.core/websocket-health-projection-state
+        flag-prop "ENABLE_WS_AUTO_RECOVER"
+        original-flag-descriptor (js/Object.getOwnPropertyDescriptor js/globalThis flag-prop)
+        health {:generated-at-ms 1700000000000
+                :transport {:state :connected
+                            :freshness :live
+                            :expected-traffic? true
+                            :attempt 0}
+                :groups {:orders_oms {:worst-status :idle}
+                         :market_data {:worst-status :delayed}
+                         :account {:worst-status :idle}}
+                :streams {["l2Book" "BTC" nil nil nil]
+                          {:group :market_data
+                           :topic "l2Book"
+                           :status :delayed
+                           :subscribed? true
+                           :last-payload-at-ms (- 1700000000000 45000)
+                           :stale-threshold-ms 5000
+                           :descriptor {:type "l2Book" :coin "BTC"}}}}
+        store (atom {:websocket {:health {}}
+                     :websocket-ui {:reset-in-progress? false
+                                    :auto-recover-cooldown-until-ms nil
+                                    :auto-recover-count 0
+                                    :diagnostics-timeline []}})]
+    (reset! projection-state {:fingerprint nil})
+    (js/Object.defineProperty js/globalThis flag-prop
+                              #js {:value true
+                                   :configurable true})
+    (try
+      (with-redefs [ws-client/get-health-snapshot (fn [] health)
+                    nxr/dispatch (fn [_ _ effects]
+                                   (swap! dispatches conj effects))]
+        (@#'hyperopen.core/sync-websocket-health! store)
+        (@#'hyperopen.core/sync-websocket-health! store)
+        (is (= 1 (count @dispatches)))
+        (is (= [[:actions/ws-diagnostics-reset-market-subscriptions :auto-recover]]
+               (first @dispatches)))
+        (is (= 1 (get-in @store [:websocket-ui :auto-recover-count])))
+        (is (number? (get-in @store [:websocket-ui :auto-recover-cooldown-until-ms]))))
+      (finally
+        (if original-flag-descriptor
+          (js/Object.defineProperty js/globalThis flag-prop original-flag-descriptor)
+          (js/Reflect.deleteProperty js/globalThis flag-prop))))))
+
+(deftest sync-websocket-health-auto-recover-skips-unsupported-states-test
+  (let [dispatches (atom [])
+        projection-state @#'hyperopen.core/websocket-health-projection-state
+        flag-prop "ENABLE_WS_AUTO_RECOVER"
+        original-flag-descriptor (js/Object.getOwnPropertyDescriptor js/globalThis flag-prop)
+        offline-health {:generated-at-ms 1700000000000
+                        :transport {:state :disconnected
+                                    :freshness :offline
+                                    :expected-traffic? true}
+                        :groups {:orders_oms {:worst-status :idle}
+                                 :market_data {:worst-status :offline}
+                                 :account {:worst-status :idle}}
+                        :streams {["l2Book" "BTC" nil nil nil]
+                                  {:group :market_data
+                                   :topic "l2Book"
+                                   :status :delayed
+                                   :subscribed? true
+                                   :last-payload-at-ms (- 1700000000000 45000)
+                                   :stale-threshold-ms 5000
+                                   :descriptor {:type "l2Book" :coin "BTC"}}}}
+        event-driven-health {:generated-at-ms 1700000001000
+                             :transport {:state :connected
+                                         :freshness :live
+                                         :expected-traffic? false}
+                             :groups {:orders_oms {:worst-status :n-a}
+                                      :market_data {:worst-status :idle}
+                                      :account {:worst-status :n-a}}
+                             :streams {["openOrders" nil "0xabc" nil nil]
+                                       {:group :orders_oms
+                                        :topic "openOrders"
+                                        :status :n-a
+                                        :subscribed? true
+                                        :last-payload-at-ms 1700000000500
+                                        :stale-threshold-ms nil
+                                        :descriptor {:type "openOrders" :user "0xabc"}}}}
+        store (atom {:websocket {:health {}}
+                     :websocket-ui {:reset-in-progress? false
+                                    :auto-recover-cooldown-until-ms nil
+                                    :auto-recover-count 0
+                                    :diagnostics-timeline []}})]
+    (reset! projection-state {:fingerprint nil})
+    (js/Object.defineProperty js/globalThis flag-prop
+                              #js {:value true
+                                   :configurable true})
+    (try
+      (with-redefs [nxr/dispatch (fn [_ _ effects]
+                                   (swap! dispatches conj effects))]
+        (with-redefs [ws-client/get-health-snapshot (fn [] offline-health)]
+          (@#'hyperopen.core/sync-websocket-health! store))
+        (with-redefs [ws-client/get-health-snapshot (fn [] event-driven-health)]
+          (@#'hyperopen.core/sync-websocket-health! store)))
+      (is (empty? @dispatches))
+      (is (= 0 (get-in @store [:websocket-ui :auto-recover-count])))
+      (finally
+        (if original-flag-descriptor
+          (js/Object.defineProperty js/globalThis flag-prop original-flag-descriptor)
+          (js/Reflect.deleteProperty js/globalThis flag-prop))))))
 
 (deftest toggle-timeframes-dropdown-opens-timeframes-and-closes-other-chart-menus-test
   (let [effects (core/toggle-timeframes-dropdown

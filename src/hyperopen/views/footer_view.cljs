@@ -5,6 +5,12 @@
 (def footer-link-classes
   ["text-sm" "text-trading-text" "hover:text-primary" "transition-colors"])
 
+(def ^:private default-app-version
+  "0.1.0")
+
+(def ^:private diagnostics-timeline-limit
+  50)
+
 (def ^:private neutral-statuses
   #{:idle :n-a nil})
 
@@ -34,6 +40,30 @@
     :account "account"
     :transport "transport"
     "transport"))
+
+(defn- timeline-event-label [event]
+  (case event
+    :connected "connected"
+    :reconnecting "reconnecting"
+    :offline "offline"
+    :reset-market "reset-market"
+    :reset-oms "reset-oms"
+    :reset-all "reset-all"
+    :auto-recover-market "auto-recover-market"
+    :gap-detected "gap-detected"
+    "unknown"))
+
+(defn- app-build-id []
+  (some-> js/globalThis
+          (aget "HYPEROPEN_BUILD_ID")
+          str))
+
+(defn- view-now-ms [generated-at-ms]
+  (let [generated* (or generated-at-ms 0)
+        wall-now-ms (.now js/Date)]
+    (if (>= generated* 1000000000000)
+      (max generated* wall-now-ms)
+      generated*)))
 
 (defn- status-tone [status]
   (case status
@@ -88,15 +118,14 @@
           seconds (quot (mod age-ms 60000) 1000)]
       (str minutes "m " seconds "s"))))
 
-(defn- transport-last-recv-age-ms [health]
-  (let [generated-at-ms (:generated-at-ms health)
-        last-recv-at-ms (get-in health [:transport :last-recv-at-ms])]
-    (when (and (number? generated-at-ms)
+(defn- transport-last-recv-age-ms [now-ms health]
+  (let [last-recv-at-ms (get-in health [:transport :last-recv-at-ms])]
+    (when (and (number? now-ms)
                (number? last-recv-at-ms))
-      (max 0 (- generated-at-ms last-recv-at-ms)))))
+      (max 0 (- now-ms last-recv-at-ms)))))
 
-(defn- stream-age-ms [health stream]
-  (let [generated-at-ms (:generated-at-ms health)
+(defn- stream-age-ms [now-ms stream]
+  (let [generated-at-ms now-ms
         last-payload-at-ms (:last-payload-at-ms stream)]
     (when (and (number? generated-at-ms)
                (number? last-payload-at-ms))
@@ -186,19 +215,39 @@
 
 (defn- diagnostics-drawer [state health]
   (let [grouped-streams (stream-groups health)
-        transport-age-ms (transport-last-recv-age-ms health)
         generated-at-ms (or (:generated-at-ms health) 0)
+        now-ms (view-now-ms generated-at-ms)
+        transport-age-ms (transport-last-recv-age-ms now-ms health)
+        reconnect-count (or (get-in state [:websocket-ui :reconnect-count]) 0)
+        reset-counts (merge {:market_data 0 :orders_oms 0 :all 0}
+                            (get-in state [:websocket-ui :reset-counts]))
+        auto-recover-count (or (get-in state [:websocket-ui :auto-recover-count]) 0)
+        timeline (vec (get-in state [:websocket-ui :diagnostics-timeline] []))
         reveal-sensitive? (boolean (get-in state [:websocket-ui :reveal-sensitive?] false))
         copy-status (get-in state [:websocket-ui :copy-status])
         copy-success? (= :success (:kind copy-status))
         transport-state (get-in health [:transport :state])
+        reset-in-progress? (boolean (get-in state [:websocket-ui :reset-in-progress?] false))
+        reset-cooldown-until-ms (get-in state [:websocket-ui :reset-cooldown-until-ms])
+        reset-cooldown-active? (and (number? reset-cooldown-until-ms)
+                                    (> reset-cooldown-until-ms now-ms))
+        reset-disabled? (or reset-in-progress?
+                            reset-cooldown-active?
+                            (contains? #{:connecting :reconnecting} transport-state))
+        reset-label (cond
+                      reset-in-progress? "Resetting..."
+                      reset-cooldown-active?
+                      (str "Reset in "
+                           (max 1 (js/Math.ceil (/ (max 0 (- reset-cooldown-until-ms now-ms)) 1000)))
+                           "s")
+                      :else "Reset")
         reconnecting? (contains? #{:connecting :reconnecting} transport-state)
         cooldown-until-ms (get-in state [:websocket-ui :reconnect-cooldown-until-ms])
         cooldown-active? (and (number? cooldown-until-ms)
-                              (> cooldown-until-ms generated-at-ms))
+                              (> cooldown-until-ms now-ms))
         reconnect-disabled? (or reconnecting? cooldown-active?)
         cooldown-remaining-ms (when cooldown-active?
-                                (max 0 (- cooldown-until-ms generated-at-ms)))
+                                (max 0 (- cooldown-until-ms now-ms)))
         reconnect-label (cond
                           reconnecting? "Reconnecting..."
                           cooldown-active? (str "Reconnect in "
@@ -242,6 +291,29 @@
          :on {:click [[:actions/ws-diagnostics-reconnect-now]]}}
         reconnect-label]]
 
+      [:div {:class ["grid" "grid-cols-1" "gap-2" "sm:grid-cols-3"]}
+       [:button.btn.btn-sm.btn-outline
+        {:type "button"
+         :disabled reset-disabled?
+         :on {:click [[:actions/ws-diagnostics-reset-market-subscriptions]]}}
+        (if (= reset-label "Reset")
+          "Reset market subs"
+          reset-label)]
+       [:button.btn.btn-sm.btn-outline
+        {:type "button"
+         :disabled reset-disabled?
+         :on {:click [[:actions/ws-diagnostics-reset-orders-subscriptions]]}}
+        (if (= reset-label "Reset")
+          "Reset OMS subs"
+          reset-label)]
+       [:button.btn.btn-sm.btn-ghost
+        {:type "button"
+         :disabled reset-disabled?
+         :on {:click [[:actions/ws-diagnostics-reset-all-subscriptions]]}}
+        (if (= reset-label "Reset")
+          "Reset all subs"
+          reset-label)]]
+
       [:div {:class ["flex" "items-center" "justify-between" "text-xs" "text-base-content/70"]}
        [:span "Sensitive values are masked by default"]
        [:button.btn.btn-xs.btn-ghost
@@ -267,6 +339,50 @@
                        "leading-5"
                        "break-all"]}
          fallback-json])
+
+      [:section {:class ["space-y-2"]}
+       [:h3 {:class ["text-xs" "font-semibold" "uppercase" "tracking-wide" "text-base-content/70"]}
+        "Diagnostics"]
+       [:div {:class ["rounded" "border" "border-base-300" "bg-base-200/50" "p-3" "space-y-1.5" "text-xs"]}
+        [:div {:class ["flex" "justify-between"]}
+         [:span "App version"]
+         [:span (or default-app-version "n/a")]]
+        [:div {:class ["flex" "justify-between"]}
+         [:span "Build id"]
+         [:span (or (app-build-id) "n/a")]]
+        [:div {:class ["flex" "justify-between"]}
+         [:span "Reconnect count"]
+         [:span (str reconnect-count)]]
+        [:div {:class ["flex" "justify-between"]}
+         [:span "Reset count (market/oms/all)"]
+         [:span (str (get reset-counts :market_data 0)
+                     "/"
+                     (get reset-counts :orders_oms 0)
+                     "/"
+                     (get reset-counts :all 0))]]
+        [:div {:class ["flex" "justify-between"]}
+         [:span "Auto-recover count"]
+         [:span (str auto-recover-count)]]]
+       [:div {:class ["rounded" "border" "border-base-300" "bg-base-200/50" "p-3" "space-y-1.5" "text-xs"]}
+        [:div {:class ["font-semibold" "uppercase" "tracking-wide" "text-base-content/70"]}
+         "Recent timeline"]
+        (if (seq timeline)
+          (for [entry (take-last diagnostics-timeline-limit timeline)]
+            ^{:key (str (:event entry) "|" (:at-ms entry))}
+            (let [age-ms (when (number? (:at-ms entry))
+                           (max 0 (- now-ms (:at-ms entry))))
+                  details* (diagnostics-display-value reveal-sensitive? (:details entry))]
+              [:div {:class ["space-y-0.5"]}
+               [:div {:class ["flex" "justify-between"]}
+                [:span (timeline-event-label (:event entry))]
+                [:span (if (number? age-ms)
+                         (str (format-age-ms age-ms) " ago")
+                         "n/a")]]
+               (when (map? details*)
+                 [:div {:class ["text-base-content/60" "break-all"]}
+                  (pr-str details*)])]))
+          [:div {:class ["text-base-content/70"]}
+           "No events yet"])]] 
 
       [:section {:class ["space-y-2"]}
        [:h3 {:class ["text-xs" "font-semibold" "uppercase" "tracking-wide" "text-base-content/70"]}
@@ -313,11 +429,12 @@
             [:summary {:class ["cursor-pointer" "px-3" "py-2" "text-xs" "font-semibold" "uppercase" "tracking-wide"]}
              (str (group-title group) " (" (count streams) ")")]
             [:div {:class ["px-3" "pb-3" "space-y-2"]}
-             (for [{:keys [sub-key topic status last-payload-at-ms stale-threshold-ms descriptor]} streams]
+             (for [{:keys [sub-key topic status last-payload-at-ms stale-threshold-ms descriptor last-seq seq-gap-detected? seq-gap-count last-gap]} streams]
                ^{:key (str topic "|" (pr-str sub-key))}
                (let [sub-key* (diagnostics-display-value reveal-sensitive? sub-key)
-                     age-ms (stream-age-ms health {:last-payload-at-ms last-payload-at-ms})
-                     descriptor* (diagnostics-display-value reveal-sensitive? descriptor)]
+                     age-ms (stream-age-ms now-ms {:last-payload-at-ms last-payload-at-ms})
+                     descriptor* (diagnostics-display-value reveal-sensitive? descriptor)
+                     last-gap* (diagnostics-display-value reveal-sensitive? last-gap)]
                  [:div {:class ["rounded" "border" "border-base-300" "bg-base-100" "p-2" "space-y-1"]}
                   [:div {:class ["flex" "items-center" "justify-between" "text-xs"]}
                    [:code (or topic "unknown")]
@@ -325,6 +442,14 @@
                   [:div {:class ["text-xs" "text-base-content/70"]}
                    (str "Age: " (format-age-ms age-ms)
                         " | Threshold: " (threshold-label stale-threshold-ms))]
+                  [:div {:class ["text-xs" "text-base-content/70"]}
+                   (str "Seq: " (if (number? last-seq) last-seq "n/a")
+                        " | Gap: " (if seq-gap-detected?
+                                     (str "yes (" (or seq-gap-count 0) ")")
+                                     "no"))]
+                  (when (map? last-gap*)
+                    [:div {:class ["text-xs" "text-base-content/60" "break-all"]}
+                     (str "Last gap: " (pr-str last-gap*))])
                   [:div {:class ["text-xs" "text-base-content/70" "break-all"]}
                    (str "Subscription: " (pr-str sub-key*))]
                   [:div {:class ["text-xs" "text-base-content/70" "break-all"]}

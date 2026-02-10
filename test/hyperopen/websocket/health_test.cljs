@@ -149,3 +149,33 @@
                                        {:topic "openOrders"
                                         :payload {:channel "openOrders"
                                                   :data {:openOrders []}}}))))))
+
+(deftest health-snapshot-includes-seq-gap-fields-and-group-rollup-test
+  (let [sub-key ["trades" "BTC" nil nil nil]
+        snapshot (health/derive-health-snapshot
+                   {:now-ms 1000
+                    :transport {:state :connected
+                                :online? true
+                                :last-recv-at-ms 900
+                                :expected-traffic? true
+                                :attempt 0}
+                    :streams {sub-key {:subscribed? true
+                                       :subscribed-at-ms 100
+                                       :first-payload-at-ms 200
+                                       :last-payload-at-ms 900
+                                       :message-count 3
+                                       :topic "trades"
+                                       :group :market_data
+                                       :descriptor {:type "trades" :coin "BTC"}
+                                       :stale-threshold-ms 5000
+                                       :last-seq 9
+                                       :seq-gap-detected? true
+                                       :seq-gap-count 2
+                                       :last-gap {:expected 7 :actual 9 :at-ms 900}}}
+                    :config {}})]
+    (is (= 9 (get-in snapshot [:streams sub-key :last-seq])))
+    (is (true? (get-in snapshot [:streams sub-key :seq-gap-detected?])))
+    (is (= 2 (get-in snapshot [:streams sub-key :seq-gap-count])))
+    (is (= {:expected 7 :actual 9 :at-ms 900}
+           (get-in snapshot [:streams sub-key :last-gap])))
+    (is (true? (get-in snapshot [:groups :market_data :gap-detected?])))))

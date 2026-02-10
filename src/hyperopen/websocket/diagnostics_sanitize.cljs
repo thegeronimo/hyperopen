@@ -14,7 +14,10 @@
    "authorization"
    "auth"
    "api-key"
+   "api_key"
    "apikey"
+   "private-key"
+   "privatekey"
    "secret"
    "cookie"
    "session"])
