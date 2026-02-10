@@ -498,8 +498,9 @@
 
 (defn footer-view [state]
   (let [health (get-in state [:websocket :health] {})
-        {:keys [status source]} (dominant-pill-state health)
+        {:keys [status]} (dominant-pill-state health)
         {:keys [border bg text]} (status-tone status)
+        pill-label (if (= status :live) "Connected" (status-label status))
         diagnostics-open? (boolean (get-in state [:websocket-ui :diagnostics-open?] false))
         footer-z-class (if diagnostics-open? "z-[260]" "z-40")
         banner (banner-model state health)]
@@ -534,9 +535,7 @@
                           bg
                           text]
                   :on {:click [[:actions/toggle-ws-diagnostics]]}}
-         [:span "WebSocket:"]
-         [:span (status-label status)]
-         [:span {:class ["normal-case" "font-medium"]} (str "(" (source-label source) ")")]]]
+         [:span pill-label]]]
 
        [:div {:class ["flex" "space-x-6"]}
         [:a {:class footer-link-classes

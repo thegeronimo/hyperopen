@@ -50,7 +50,8 @@
 (defn- find-pill [view]
   (find-node #(and (vector? %)
                    (= :button (first %))
-                   (str/includes? (node-text %) "WebSocket:"))
+                   (= [[:actions/toggle-ws-diagnostics]]
+                      (get-in % [1 :on :click])))
              view))
 
 (defn- button-tag? [node]
@@ -105,7 +106,6 @@
                              view)]
     (is (some? pill))
     (is (str/includes? (node-text pill) "OFFLINE"))
-    (is (str/includes? (node-text pill) "(orders/oms)"))
     (is (nil? retry-btn))))
 
 (deftest status-pill-uses-deterministic-group-precedence-test
@@ -116,8 +116,7 @@
         view (footer-view/footer-view state)
         pill (find-pill view)]
     (is (some? pill))
-    (is (str/includes? (node-text pill) "DELAYED"))
-    (is (str/includes? (node-text pill) "(market data)"))))
+    (is (str/includes? (node-text pill) "DELAYED"))))
 
 (deftest status-pill-falls-back-to-transport-when-groups-are-neutral-test
   (let [state (-> (base-state)
@@ -128,8 +127,13 @@
         view (footer-view/footer-view state)
         pill (find-pill view)]
     (is (some? pill))
-    (is (str/includes? (node-text pill) "OFFLINE"))
-    (is (str/includes? (node-text pill) "(transport)"))))
+    (is (str/includes? (node-text pill) "OFFLINE"))))
+
+(deftest status-pill-shows-connected-for-live-state-test
+  (let [view (footer-view/footer-view (base-state))
+        pill (find-pill view)]
+    (is (some? pill))
+    (is (= "Connected" (node-text pill)))))
 
 (deftest status-pill-click-dispatches-diagnostics-toggle-test
   (let [view (footer-view/footer-view (base-state))
