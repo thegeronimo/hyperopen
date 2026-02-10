@@ -587,6 +587,16 @@
     "S" "text-error"
     "text-base-content"))
 
+(def order-history-long-coin-color "rgb(151, 252, 228)")
+(def order-history-sell-coin-color "rgb(234, 175, 184)")
+
+(defn- order-history-coin-style [side]
+  (case side
+    "B" {:color order-history-long-coin-color}
+    "A" {:color order-history-sell-coin-color}
+    "S" {:color order-history-sell-coin-color}
+    nil))
+
 (defn sort-open-orders-by-column [orders column direction]
   (let [sort-fn (case column
                   "Time" (fn [o] (parse-num (:time o)))
@@ -774,11 +784,19 @@
 
 (defn- order-history-coin-node
   ([coin]
-   (order-history-coin-node coin {}))
+   (order-history-coin-node coin {} nil))
   ([coin market-by-key]
-   (let [{:keys [base-label prefix-label]} (resolve-coin-display coin market-by-key)]
+   (order-history-coin-node coin market-by-key nil))
+  ([coin market-by-key side]
+   (let [{:keys [base-label prefix-label]} (resolve-coin-display coin market-by-key)
+         coin-style (order-history-coin-style side)]
      [:span {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
-      [:span {:class ["truncate"]} base-label]
+      [:span (cond-> {:class (cond-> ["truncate"]
+                               side
+                               (conj "font-semibold"))}
+               coin-style
+               (assoc :style coin-style))
+       base-label]
       (when prefix-label
         [:span {:class position-chip-classes} prefix-label])])))
 
@@ -2213,7 +2231,7 @@
          [:div {:class ["grid" "gap-2" "py-px" "px-3" "hover:bg-base-300" "text-xs" "grid-cols-[130px_70px_90px_80px_90px_90px_110px_80px_90px_140px_70px_80px_120px]"]}
          [:div.pr-2.whitespace-nowrap (or (format-open-orders-time (:time-ms row)) "--")]
          [:div.pl-1.text-left (title-case-label (:type row))]
-         [:div.text-left (order-history-coin-node (:coin row) market-by-key)]
+         [:div.text-left (order-history-coin-node (:coin row) market-by-key (:side row))]
          [:div {:class ["text-left" (direction-class (:side row))]} (direction-label (:side row))]
          [:div.text-left.num (format-order-history-size (:size row))]
          [:div.text-left.num (format-order-history-filled-size (:filled-size row))]

@@ -1407,6 +1407,49 @@
     (is (contains? strings "Filled"))
     (is (contains? strings "Canceled"))))
 
+(deftest order-history-coin-labels-are-bold-and-side-colored-test
+  (let [rows [{:order {:coin "xyz:NVDA"
+                       :oid 307891000622
+                       :side "B"
+                       :origSz "0.500"
+                       :remainingSz "0.000"
+                       :limitPx "0"
+                       :orderType "Market"
+                       :reduceOnly false
+                       :isTrigger false
+                       :timestamp 1700000000000}
+               :status "filled"
+               :statusTimestamp 1700000000500}
+              {:order {:coin "PUMP"
+                       :oid 275043415805
+                       :side "A"
+                       :origSz "11386"
+                       :remainingSz "11386"
+                       :limitPx "0.001000"
+                       :orderType "Limit"
+                       :reduceOnly true
+                       :isTrigger false
+                       :timestamp 1700000000000}
+               :status "canceled"
+               :statusTimestamp 1699999999000}]
+        content (view/order-history-tab-content rows {:sort {:column "Time" :direction :desc}
+                                                      :status-filter :all
+                                                      :loading? false})
+        long-coin-base (find-first-node content #(and (= :span (first %))
+                                                      (contains? (node-class-set %) "truncate")
+                                                      (contains? (direct-texts %) "NVDA")))
+        sell-coin-base (find-first-node content #(and (= :span (first %))
+                                                      (contains? (node-class-set %) "truncate")
+                                                      (contains? (direct-texts %) "PUMP")))]
+    (is (some? long-coin-base))
+    (is (some? sell-coin-base))
+    (is (contains? (node-class-set long-coin-base) "font-semibold"))
+    (is (contains? (node-class-set sell-coin-base) "font-semibold"))
+    (is (= "rgb(151, 252, 228)"
+           (get-in long-coin-base [1 :style :color])))
+    (is (= "rgb(234, 175, 184)"
+           (get-in sell-coin-base [1 :style :color])))))
+
 (deftest order-history-coin-label-prefers-market-base-for-spot-id-test
   (let [rows [{:order {:coin "@230"
                        :oid 307891000622
