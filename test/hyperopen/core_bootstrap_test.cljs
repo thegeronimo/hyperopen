@@ -57,6 +57,12 @@
       (finally
         (set! (.-localStorage js/globalThis) original-local-storage)))))
 
+(defn- clear-wallet-copy-feedback-timeout! []
+  (let [timeout-atom @#'hyperopen.core/wallet-copy-feedback-timeout-id]
+    (when-let [timeout-id @timeout-atom]
+      (js/clearTimeout timeout-id)
+      (reset! timeout-atom nil))))
+
 (deftest initialize-remote-data-streams-phased-bootstrap-test
   (let [phases (atom [])
         critical-fetches (atom 0)
@@ -765,6 +771,61 @@
            {:websocket-ui {:reset-cooldown-until-ms nil}
             :websocket {:health {:generated-at-ms 5000
                                  :transport {:state :reconnecting}}}}))))
+
+(deftest copy-wallet-address-action-emits-copy-effect-when-address-present-test
+  (is (= [[:effects/copy-wallet-address "0xabc"]]
+         (core/copy-wallet-address-action {:wallet {:address "0xabc"}})))
+  (is (= [[:effects/copy-wallet-address nil]]
+         (core/copy-wallet-address-action {:wallet {:address nil}}))))
+
+(deftest copy-wallet-address-effect-writes-to-clipboard-when-available-test
+  (async done
+    (let [written (atom nil)
+          navigator-prop "navigator"
+          original-navigator-descriptor (js/Object.getOwnPropertyDescriptor js/globalThis navigator-prop)
+          fake-clipboard #js {:writeText (fn [payload]
+                                           (reset! written payload)
+                                           (js/Promise.resolve true))}
+          fake-navigator #js {:clipboard fake-clipboard}
+          store (atom {:wallet {:copy-feedback nil}})]
+      (clear-wallet-copy-feedback-timeout!)
+      (js/Object.defineProperty js/globalThis navigator-prop
+                                #js {:value fake-navigator
+                                     :configurable true})
+      (core/copy-wallet-address nil store "0xabc")
+      (js/setTimeout
+       (fn []
+         (try
+           (is (= "0xabc" @written))
+           (is (= :success (get-in @store [:wallet :copy-feedback :kind])))
+           (is (= "Address copied to clipboard"
+                  (get-in @store [:wallet :copy-feedback :message])))
+           (finally
+             (clear-wallet-copy-feedback-timeout!)
+             (if original-navigator-descriptor
+               (js/Object.defineProperty js/globalThis navigator-prop original-navigator-descriptor)
+               (js/Reflect.deleteProperty js/globalThis navigator-prop))
+             (done))))
+       0))))
+
+(deftest copy-wallet-address-effect-shows-error-feedback-when-clipboard-unavailable-test
+  (let [navigator-prop "navigator"
+        original-navigator-descriptor (js/Object.getOwnPropertyDescriptor js/globalThis navigator-prop)
+        store (atom {:wallet {:copy-feedback nil}})]
+    (clear-wallet-copy-feedback-timeout!)
+    (js/Object.defineProperty js/globalThis navigator-prop
+                              #js {:value #js {}
+                                   :configurable true})
+    (try
+      (core/copy-wallet-address nil store "0xabc")
+      (is (= :error (get-in @store [:wallet :copy-feedback :kind])))
+      (is (= "Clipboard unavailable"
+             (get-in @store [:wallet :copy-feedback :message])))
+      (finally
+        (clear-wallet-copy-feedback-timeout!)
+        (if original-navigator-descriptor
+          (js/Object.defineProperty js/globalThis navigator-prop original-navigator-descriptor)
+          (js/Reflect.deleteProperty js/globalThis navigator-prop))))))
 
 (deftest ws-reset-subscriptions-effect-targets-group-and-avoids-duplicates-test
   (let [address "0x1234567890abcdef1234567890abcdef12345678"

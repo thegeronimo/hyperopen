@@ -207,6 +207,12 @@
 (def ^:private app-version
   "0.1.0")
 
+(def ^:private wallet-copy-feedback-duration-ms
+  1500)
+
+(defonce ^:private wallet-copy-feedback-timeout-id
+  (atom nil))
+
 (defn- effective-now-ms
   [generated-at-ms]
   (let [generated* (or generated-at-ms 0)
@@ -436,6 +442,58 @@
   (println "Connecting wallet...")
   (wallet/request-connection! store))
 
+(defn- set-wallet-copy-feedback! [store kind message]
+  (swap! store assoc-in [:wallet :copy-feedback] {:kind kind
+                                                  :message message}))
+
+(defn- clear-wallet-copy-feedback! [store]
+  (swap! store assoc-in [:wallet :copy-feedback] nil))
+
+(defn- clear-wallet-copy-feedback-timeout! []
+  (when-let [timeout-id @wallet-copy-feedback-timeout-id]
+    (js/clearTimeout timeout-id)
+    (reset! wallet-copy-feedback-timeout-id nil)))
+
+(defn- schedule-wallet-copy-feedback-clear! [store]
+  (clear-wallet-copy-feedback-timeout!)
+  (let [timeout-id (js/setTimeout
+                     (fn []
+                       (clear-wallet-copy-feedback! store)
+                       (reset! wallet-copy-feedback-timeout-id nil))
+                     wallet-copy-feedback-duration-ms)]
+    (reset! wallet-copy-feedback-timeout-id timeout-id)))
+
+(defn copy-wallet-address [_ store address]
+  (let [clipboard (some-> js/globalThis .-navigator .-clipboard)
+        write-text-fn (some-> clipboard .-writeText)]
+    (clear-wallet-copy-feedback! store)
+    (clear-wallet-copy-feedback-timeout!)
+    (cond
+      (not (seq address))
+      (do
+        (set-wallet-copy-feedback! store :error "No address to copy")
+        (schedule-wallet-copy-feedback-clear! store))
+
+      (not (and clipboard write-text-fn))
+      (do
+        (set-wallet-copy-feedback! store :error "Clipboard unavailable")
+        (schedule-wallet-copy-feedback-clear! store))
+
+      :else
+      (try
+        (-> (.writeText clipboard address)
+            (.then (fn []
+                     (set-wallet-copy-feedback! store :success "Address copied to clipboard")
+                     (schedule-wallet-copy-feedback-clear! store)))
+            (.catch (fn [err]
+                      (println "Copy wallet address failed:" err)
+                      (set-wallet-copy-feedback! store :error "Couldn't copy address")
+                      (schedule-wallet-copy-feedback-clear! store))))
+        (catch :default err
+          (println "Copy wallet address failed:" err)
+          (set-wallet-copy-feedback! store :error "Couldn't copy address")
+          (schedule-wallet-copy-feedback-clear! store))))))
+
 (defn reconnect-websocket [_ _]
   (println "Forcing WebSocket reconnect...")
   (ws-client/force-reconnect!))
@@ -558,6 +616,9 @@
 
 (defn connect-wallet-action [state]
   [[:effects/connect-wallet]])
+
+(defn copy-wallet-address-action [state]
+  [[:effects/copy-wallet-address (get-in state [:wallet :address])]])
 
 (defn reconnect-websocket-action [state]
   [[:effects/reconnect-websocket]])
@@ -1694,6 +1755,7 @@
 (nxr/register-effect! :effects/unsubscribe-trades unsubscribe-trades)
 (nxr/register-effect! :effects/unsubscribe-webdata2 unsubscribe-webdata2)
 (nxr/register-effect! :effects/connect-wallet connect-wallet)
+(nxr/register-effect! :effects/copy-wallet-address copy-wallet-address)
 (nxr/register-effect! :effects/reconnect-websocket reconnect-websocket)
 (nxr/register-effect! :effects/refresh-websocket-health refresh-websocket-health)
 (nxr/register-effect! :effects/confirm-ws-diagnostics-reveal confirm-ws-diagnostics-reveal)
@@ -1842,6 +1904,7 @@
 (nxr/register-action! :actions/subscribe-to-asset subscribe-to-asset)
 (nxr/register-action! :actions/subscribe-to-webdata2 subscribe-to-webdata2)
 (nxr/register-action! :actions/connect-wallet connect-wallet-action)
+(nxr/register-action! :actions/copy-wallet-address copy-wallet-address-action)
 (nxr/register-action! :actions/reconnect-websocket reconnect-websocket-action)
 (nxr/register-action! :actions/toggle-ws-diagnostics toggle-ws-diagnostics)
 (nxr/register-action! :actions/close-ws-diagnostics close-ws-diagnostics)
