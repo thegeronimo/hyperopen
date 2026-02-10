@@ -213,6 +213,36 @@
                     text]}
      (status-label status)]))
 
+(defn- hover-tooltip [message child]
+  [:div {:class ["relative" "group" "w-full"]}
+   child
+   [:div {:class ["pointer-events-none"
+                  "absolute"
+                  "left-1/2"
+                  "top-full"
+                  "z-50"
+                  "mt-1.5"
+                  "-translate-x-1/2"
+                  "opacity-0"
+                  "transition-opacity"
+                  "duration-150"
+                  "group-hover:opacity-100"
+                  "group-focus-within:opacity-100"]
+          :style {:min-width "max-content"}}
+    [:div {:class ["max-w-[18rem]"
+                   "whitespace-normal"
+                   "rounded"
+                   "border"
+                   "border-base-300"
+                   "bg-base-100"
+                   "px-2"
+                   "py-1"
+                   "text-xs"
+                   "leading-4"
+                   "text-base-content"
+                   "shadow-lg"]}
+     message]]])
+
 (defn- diagnostics-drawer [state health]
   (let [grouped-streams (stream-groups health)
         generated-at-ms (or (:generated-at-ms health) 0)
@@ -292,27 +322,36 @@
         reconnect-label]]
 
       [:div {:class ["grid" "grid-cols-1" "gap-2" "sm:grid-cols-3"]}
-       [:button.btn.btn-sm.btn-outline
-        {:type "button"
-         :disabled reset-disabled?
-         :on {:click [[:actions/ws-diagnostics-reset-market-subscriptions]]}}
-        (if (= reset-label "Reset")
-          "Reset market subs"
-          reset-label)]
-       [:button.btn.btn-sm.btn-outline
-        {:type "button"
-         :disabled reset-disabled?
-         :on {:click [[:actions/ws-diagnostics-reset-orders-subscriptions]]}}
-        (if (= reset-label "Reset")
-          "Reset OMS subs"
-          reset-label)]
-       [:button.btn.btn-sm.btn-ghost
-        {:type "button"
-         :disabled reset-disabled?
-         :on {:click [[:actions/ws-diagnostics-reset-all-subscriptions]]}}
-        (if (= reset-label "Reset")
-          "Reset all subs"
-          reset-label)]]
+       (hover-tooltip
+        "Unsubscribe and resubscribe active market-data streams only. Use this when order book or trades look stuck."
+        [:button.btn.btn-sm.btn-outline
+         {:type "button"
+          :title "Unsubscribe and resubscribe active market-data streams only. Use this when order book or trades look stuck."
+          :disabled reset-disabled?
+          :on {:click [[:actions/ws-diagnostics-reset-market-subscriptions]]}}
+         (if (= reset-label "Reset")
+           "Reset market subs"
+           reset-label)])
+       (hover-tooltip
+        "Unsubscribe and resubscribe active Orders/OMS streams only, without forcing a full websocket reconnect."
+        [:button.btn.btn-sm.btn-outline
+         {:type "button"
+          :title "Unsubscribe and resubscribe active Orders/OMS streams only, without forcing a full websocket reconnect."
+          :disabled reset-disabled?
+          :on {:click [[:actions/ws-diagnostics-reset-orders-subscriptions]]}}
+         (if (= reset-label "Reset")
+           "Reset OMS subs"
+           reset-label)])
+       (hover-tooltip
+        "Run both market-data and Orders/OMS subscription resets in one pass, without a full reconnect."
+        [:button.btn.btn-sm.btn-ghost
+         {:type "button"
+          :title "Run both market-data and Orders/OMS subscription resets in one pass, without a full reconnect."
+          :disabled reset-disabled?
+          :on {:click [[:actions/ws-diagnostics-reset-all-subscriptions]]}}
+         (if (= reset-label "Reset")
+           "Reset all subs"
+           reset-label)])]
 
       [:div {:class ["flex" "items-center" "justify-between" "text-xs" "text-base-content/70"]}
        [:span "Sensitive values are masked by default"]

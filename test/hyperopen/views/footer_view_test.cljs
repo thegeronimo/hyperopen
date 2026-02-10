@@ -203,10 +203,16 @@
            (get-in copy-btn [1 :on :click])))
     (is (= [[:actions/ws-diagnostics-reset-market-subscriptions]]
            (get-in reset-market-btn [1 :on :click])))
+    (is (= "Unsubscribe and resubscribe active market-data streams only. Use this when order book or trades look stuck."
+           (get-in reset-market-btn [1 :title])))
     (is (= [[:actions/ws-diagnostics-reset-orders-subscriptions]]
            (get-in reset-oms-btn [1 :on :click])))
+    (is (= "Unsubscribe and resubscribe active Orders/OMS streams only, without forcing a full websocket reconnect."
+           (get-in reset-oms-btn [1 :title])))
     (is (= [[:actions/ws-diagnostics-reset-all-subscriptions]]
-           (get-in reset-all-btn [1 :on :click])))))
+           (get-in reset-all-btn [1 :on :click])))
+    (is (= "Run both market-data and Orders/OMS subscription resets in one pass, without a full reconnect."
+           (get-in reset-all-btn [1 :title])))))
 
 (deftest diagnostics-masks-addresses-by-default-test
   (let [address "0x1234567890abcdef1234567890abcdef12345678"
