@@ -4,6 +4,27 @@
             ["../vendor/msgpack" :as msgpack]
             ["../vendor/keccak" :as keccak]))
 
+(def ^:private zero-address
+  "0x0000000000000000000000000000000000000000")
+
+(def ^:private l1-domain
+  {:name "Exchange"
+   :version "1"
+   :chainId 1337
+   :verifyingContract zero-address})
+
+(def ^:private eip712-domain-fields
+  [{:name "name" :type "string"}
+   {:name "version" :type "string"}
+   {:name "chainId" :type "uint256"}
+   {:name "verifyingContract" :type "address"}])
+
+(def ^:private approve-agent-fields
+  [{:name "hyperliquidChain" :type "string"}
+   {:name "agentAddress" :type "address"}
+   {:name "agentName" :type "string"}
+   {:name "nonce" :type "uint64"}])
+
 (defn- strip-0x [s]
   (if (and s (str/starts-with? s "0x")) (subs s 2) s))
 
@@ -26,8 +47,30 @@
         (.push parts hex)))
     (apply str parts)))
 
+(defn- concat-bytes [& byte-arrays]
+  (let [arrays (remove nil? byte-arrays)
+        total-len (reduce + (map #(.-length %) arrays))
+        combined (js/Uint8Array. total-len)]
+    (loop [offset 0
+           remaining arrays]
+      (if-let [arr (first remaining)]
+        (do
+          (.set combined arr offset)
+          (recur (+ offset (.-length arr)) (rest remaining)))
+        combined))))
+
+(defn- single-byte [n]
+  (doto (js/Uint8Array. 1)
+    (aset 0 n)))
+
+(defn- parse-chain-id [signature-chain-id]
+  (let [raw (str (or signature-chain-id "0x66eee"))
+        base (if (str/starts-with? raw "0x") 16 10)
+        source (if (str/starts-with? raw "0x") (subs raw 2) raw)]
+    (js/parseInt source base)))
+
 (defn- bigint-u64-bytes [n]
-  (let [hex (-> n (js/BigInt.) (.toString 16))
+  (let [hex (-> n (js/BigInt) (.toString 16))
         pad-count (max 0 (- 16 (count hex)))
         padded (str/join "" (repeat pad-count "0"))]
     (hex->bytes (str padded hex))))
@@ -42,32 +85,44 @@
     x))
 
 (defn compute-connection-id
-  "Compute keccak256(msgpack(action) || vault || nonce-u64).
+  "Compute keccak256(msgpack(action) || nonce-u64 || vault-flag || vault || expiresAfter-flag+u64).
    Returns 0x-prefixed hex string."
-  [action nonce & {:keys [vault-address] :or {vault-address nil}}]
+  [action nonce & {:keys [vault-address expires-after]
+                   :or {vault-address nil
+                        expires-after nil}}]
   (let [action-js (clj->js-clean action)
         action-bytes (.encode msgpack action-js)
-        vault-bytes (if (and vault-address (not (str/blank? vault-address)))
-                      (hex->bytes vault-address)
-                      (js/Uint8Array. 20))
         nonce-bytes (bigint-u64-bytes nonce)
-        total-len (+ (.-length action-bytes) (.-length vault-bytes) (.-length nonce-bytes))
-        combined (js/Uint8Array. total-len)]
-    (.set combined action-bytes 0)
-    (.set combined vault-bytes (.-length action-bytes))
-    (.set combined nonce-bytes (+ (.-length action-bytes) (.-length vault-bytes)))
+        has-vault? (and (some? vault-address) (not (str/blank? vault-address)))
+        vault-flag (single-byte (if has-vault? 1 0))
+        vault-bytes (when has-vault? (hex->bytes vault-address))
+        expires-bytes (when (some? expires-after)
+                        (concat-bytes (single-byte 0) (bigint-u64-bytes expires-after)))
+        combined (concat-bytes action-bytes nonce-bytes vault-flag vault-bytes expires-bytes)]
     (str "0x" (.keccak256 keccak combined))))
 
-(defn build-typed-data [connection-id]
+(defn build-typed-data
+  [connection-id & {:keys [is-mainnet] :or {is-mainnet true}}]
   {:types {:Agent [{:name "source" :type "string"}
                    {:name "connectionId" :type "bytes32"}]}
-   :domain {:name "Exchange"
-            :version "1"
-            :chainId 1337
-            :verifyingContract "0x0000000000000000000000000000000000000000"}
+   :domain l1-domain
    :primaryType "Agent"
-   :message {:source "a"
+   :message {:source (if is-mainnet "a" "b")
              :connectionId connection-id}})
+
+(defn build-approve-agent-typed-data
+  [{:keys [hyperliquidChain signatureChainId agentAddress agentName nonce]}]
+  {:types {"HyperliquidTransaction:ApproveAgent" approve-agent-fields
+           "EIP712Domain" eip712-domain-fields}
+   :domain {:name "HyperliquidSignTransaction"
+            :version "1"
+            :chainId (parse-chain-id signatureChainId)
+            :verifyingContract zero-address}
+   :primaryType "HyperliquidTransaction:ApproveAgent"
+   :message {:hyperliquidChain hyperliquidChain
+             :agentAddress agentAddress
+             :agentName (or agentName "")
+             :nonce nonce}})
 
 (defn split-signature [sig]
   (let [hex (strip-0x sig)
@@ -78,19 +133,31 @@
      :s (str "0x" s)
      :v (js/parseInt v 16)}))
 
-(defn sign-l1-action!
-  "Uses window.ethereum to sign typed data. Returns a promise resolving
-   to {:connectionId :r :s :v :sig}."
-  [address action nonce & {:keys [vault-address]}]
-  (let [connection-id (compute-connection-id action nonce :vault-address vault-address)
-        typed-data (build-typed-data connection-id)
-        payload (clj->js typed-data)
+(defn- sign-typed-data!
+  [address typed-data]
+  (let [payload (clj->js typed-data)
         msg (js/JSON.stringify payload)]
     (-> (.request (.-ethereum js/window)
                   (clj->js {:method "eth_signTypedData_v4"
                             :params [address msg]}))
         (.then (fn [sig]
                  (let [parts (split-signature sig)]
-                   (clj->js (merge {:connectionId connection-id
-                                    :sig sig}
+                   (clj->js (merge {:sig sig}
                                    parts))))))))
+
+(defn sign-l1-action!
+  "Uses window.ethereum to sign typed data. Returns a promise resolving
+   to {:connectionId :r :s :v :sig}."
+  [address action nonce & {:keys [vault-address expires-after is-mainnet]
+                           :or {vault-address nil
+                                expires-after nil
+                                is-mainnet true}}]
+  (let [connection-id (compute-connection-id action
+                                             nonce
+                                             :vault-address vault-address
+                                             :expires-after expires-after)
+        typed-data (build-typed-data connection-id :is-mainnet is-mainnet)]
+    (-> (sign-typed-data! address typed-data)
+        (.then (fn [sig]
+                 (clj->js (merge {:connectionId connection-id}
+                                 (js->clj sig :keywordize-keys true))))))))
