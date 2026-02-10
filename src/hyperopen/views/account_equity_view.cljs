@@ -1,7 +1,7 @@
 (ns hyperopen.views.account-equity-view
   (:require [clojure.string :as str]
-            [hyperopen.utils.formatting :as fmt]
-            [hyperopen.views.account-info-view :as account-info-view]))
+            [hyperopen.views.account-info.projections :as account-projections]
+            [hyperopen.utils.formatting :as fmt]))
 
 (defn parse-num [value]
   (cond
@@ -99,10 +99,10 @@
         cross-total-ntl-pos (or (parse-num (:totalNtlPos cross-summary)) total-ntl-pos)
         cross-total-margin-used (parse-num (:totalMarginUsed cross-summary))
         maintenance-margin (parse-num (:crossMaintenanceMarginUsed clearinghouse-state))
-        balance-rows (account-info-view/build-balance-rows webdata2 (:spot state))
+        balance-rows (account-projections/build-balance-rows webdata2 (:spot state))
         perps-row (first (filter #(= "perps-usdc" (:key %)) balance-rows))
         perps-row-balance (parse-num (:total-balance perps-row))
-        positions (account-info-view/collect-positions webdata2 (:perp-dex-clearinghouse state))
+        positions (account-projections/collect-positions webdata2 (:perp-dex-clearinghouse state))
         unrealized-from-positions (let [vals (keep #(parse-num (get-in % [:position :unrealizedPnl])) positions)]
                                     (when (seq vals)
                                       (reduce + vals)))

@@ -902,6 +902,43 @@
     (is (contains? (set coin-strings) "NVDA"))
     (is (contains? (set coin-strings) "10x"))))
 
+(deftest sort-positions-by-column-uses-mark-price-over-entry-price-test
+  (let [positions [{:position {:coin "AAA"
+                               :entryPx "100"
+                               :markPx "90"}}
+                   {:position {:coin "BBB"
+                               :entryPx "10"
+                               :markPx "120"}}
+                   {:position {:coin "CCC"
+                               :entryPx "75"}}]
+        asc-result (view/sort-positions-by-column positions "Mark Price" :asc)
+        desc-result (view/sort-positions-by-column positions "Mark Price" :desc)]
+    (is (= ["CCC" "AAA" "BBB"] (mapv #(get-in % [:position :coin]) asc-result)))
+    (is (= ["BBB" "AAA" "CCC"] (mapv #(get-in % [:position :coin]) desc-result)))))
+
+(deftest position-row-uses-safe-placeholders-for-invalid-pnl-and-funding-values-test
+  (let [row-node (view/position-row {:position {:coin "HYPE"
+                                                :leverage {:value 3}
+                                                :szi "1.0"
+                                                :positionValue "100"
+                                                :entryPx "10"
+                                                :markPx "11"
+                                                :unrealizedPnl "not-a-number"
+                                                :returnOnEquity "invalid"
+                                                :liquidationPx nil
+                                                :marginUsed "40"
+                                                :cumFunding {:allTime "oops"}}})
+        row-cells (vec (node-children row-node))
+        pnl-cell (nth row-cells 5)
+        funding-cell (nth row-cells 8)
+        pnl-strings (set (collect-strings pnl-cell))
+        funding-strings (set (collect-strings funding-cell))
+        funding-value-node (find-first-node funding-cell #(= :span (first %)))]
+    (is (contains? pnl-strings "--"))
+    (is (contains? funding-strings "--"))
+    (is (not-any? #(str/includes? % "NaN") (collect-strings row-node)))
+    (is (contains? (node-class-set funding-value-node) "text-trading-text"))))
+
 (deftest position-table-layout-prioritizes-coin-column-over-right-edge-actions-test
   (let [grid-template-class "grid-cols-[minmax(170px,1.9fr)_minmax(130px,1.2fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(130px,1.3fr)_minmax(110px,1fr)_minmax(100px,1fr)_minmax(100px,1fr)_minmax(80px,0.8fr)]"
         header-node (view/position-table-header default-sort-state)
@@ -957,6 +994,17 @@
       (is (contains? (node-class-set (nth header-cells idx)) "text-left")))
     (doseq [idx [8 9 10 11]]
       (is (contains? (node-class-set (nth row-cells idx)) "text-left")))))
+
+(deftest normalized-open-orders-prefers-live-source-and-includes-dex-snapshots-test
+  (let [live-orders [{:order {:coin "BTC" :oid 1 :side "B" :sz "1.0" :limitPx "100" :timestamp 1000}}]
+        snapshot-orders [{:order {:coin "ETH" :oid 2 :side "A" :sz "2.0" :limitPx "200" :timestamp 900}}]
+        snapshot-by-dex {:dex-a [{:order {:coin "SOL" :oid 3 :side "B" :sz "3.0" :limitPx "50" :timestamp 800}}]}
+        with-live (view/normalized-open-orders live-orders snapshot-orders snapshot-by-dex)
+        without-live (view/normalized-open-orders nil snapshot-orders snapshot-by-dex)]
+    (is (= #{1 3} (set (map :oid with-live))))
+    (is (= #{"BTC" "SOL"} (set (map :coin with-live))))
+    (is (= #{2 3} (set (map :oid without-live))))
+    (is (= #{"ETH" "SOL"} (set (map :coin without-live))))))
 
 (deftest open-orders-coin-labels-are-bold-and-side-colored-test
   (let [open-orders [{:oid 101

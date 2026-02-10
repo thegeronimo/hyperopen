@@ -1,6 +1,6 @@
 (ns hyperopen.views.account-info-view
   (:require [clojure.string :as str]
-            [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.views.account-info.projections :as projections]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.websocket-freshness :as ws-freshness]))
 
@@ -259,39 +259,13 @@
   "min-w-[1140px]")
 
 (defn- non-blank-text [value]
-  (let [text (some-> value str str/trim)]
-    (when (seq text) text)))
+  (projections/non-blank-text value))
 
 (defn- parse-coin-namespace [coin]
-  (let [coin* (non-blank-text coin)]
-    (when coin*
-      (if (str/includes? coin* ":")
-        (let [[prefix suffix] (str/split coin* #":" 2)]
-          {:prefix (non-blank-text prefix)
-           :base (non-blank-text suffix)})
-        {:prefix nil
-         :base coin*}))))
-
-(defn- symbol-base-label [symbol]
-  (let [symbol* (non-blank-text symbol)]
-    (when symbol*
-      (let [parts (cond
-                    (str/includes? symbol* "/") (str/split symbol* #"/" 2)
-                    (str/includes? symbol* "-") (str/split symbol* #"-" 2)
-                    :else [symbol*])]
-        (non-blank-text (first parts))))))
+  (projections/parse-coin-namespace coin))
 
 (defn- resolve-coin-display [coin market-by-key]
-  (let [coin* (non-blank-text coin)
-        parsed (parse-coin-namespace coin*)
-        market (markets/resolve-market-by-coin (or market-by-key {}) coin*)
-        market-base (or (non-blank-text (:base market))
-                        (symbol-base-label (:symbol market))
-                        (some-> (:coin market) parse-coin-namespace :base))
-        base-label (or market-base (:base parsed) coin* "-")
-        prefix-label (:prefix parsed)]
-    {:base-label base-label
-     :prefix-label prefix-label}))
+  (projections/resolve-coin-display coin market-by-key))
 
 (defn- funding-filter-coin-label [coin]
   (let [coin* (non-blank-text coin)
@@ -452,68 +426,19 @@
     (or side "-")))
 
 (defn normalize-open-order [order]
-  (let [root (or (:order order) order)
-        coin (or (:coin root) (:coin order))
-        oid (or (:oid root) (:oid order))
-        side (or (:side root) (:side order))
-        sz (or (:sz root) (:origSz root) (:sz order) (:origSz order))
-        orig-sz (or (:origSz root) (:origSz order))
-        limit-px (or (:limitPx root) (:limitPx order))
-        fallback-px (or (:px root) (:px order))
-        trigger-px (or (:triggerPx root) (:triggerPx order))
-        is-trigger? (or (:isTrigger root) (:isTrigger order))
-        trigger-condition (or (:triggerCondition root) (:triggerCondition order)
-                              (:triggerCond root) (:triggerCond order))
-        px (let [candidate (or limit-px fallback-px)]
-             (if (and is-trigger? (zero? (parse-num candidate)))
-               trigger-px
-               candidate))
-        time (or (:timestamp root) (:timestamp order) (:time root) (:time order))
-        order-type (or (:orderType root) (:orderType order) (:type root) (:type order) (:tif root) (:tif order))
-        reduce-only (or (:reduceOnly root) (:reduceOnly order))
-        is-position-tpsl (or (:isPositionTpsl root) (:isPositionTpsl order))]
-    (when (or coin oid)
-      {:coin coin
-       :oid oid
-       :side side
-       :sz sz
-       :orig-sz orig-sz
-       :px px
-       :type order-type
-       :time time
-       :reduce-only reduce-only
-       :is-trigger is-trigger?
-       :trigger-condition trigger-condition
-       :trigger-px trigger-px
-       :is-position-tpsl is-position-tpsl})))
+  (projections/normalize-open-order order))
 
 (defn open-orders-seq [orders]
-  (cond
-    (nil? orders) []
-    (sequential? orders) orders
-    (map? orders) (let [nested (or (:orders orders) (:openOrders orders) (:data orders))]
-                    (cond
-                      (sequential? nested) nested
-                      (:order orders) [orders]
-                      :else []))
-    :else []))
+  (projections/open-orders-seq orders))
 
 (defn open-orders-by-dex [orders-by-dex]
-  (->> (vals (or orders-by-dex {}))
-       (mapcat open-orders-seq)))
+  (projections/open-orders-by-dex orders-by-dex))
 
 (defn open-orders-source [orders snapshot snapshot-by-dex]
-  (let [live (open-orders-seq orders)
-        fallback (open-orders-seq snapshot)
-        dex-orders (open-orders-by-dex snapshot-by-dex)]
-    (concat (if (seq live) live fallback) dex-orders)))
+  (projections/open-orders-source orders snapshot snapshot-by-dex))
 
 (defn normalized-open-orders [orders snapshot snapshot-by-dex]
-  (->> (open-orders-source orders snapshot snapshot-by-dex)
-       (map normalize-open-order)
-       (remove nil?)
-       (filter (fn [o] (and (:coin o) (:oid o))))
-       vec))
+  (projections/normalized-open-orders orders snapshot snapshot-by-dex))
 
 (defn trigger-condition-label [trigger-condition]
   (case trigger-condition
@@ -673,20 +598,10 @@
          (or (:sort order-history-state) {})))
 
 (defn- parse-optional-num [value]
-  (let [num (cond
-              (number? value) value
-              (string? value) (js/parseFloat value)
-              :else js/NaN)]
-    (when (and (number? num) (not (js/isNaN num)))
-      num)))
+  (projections/parse-optional-num value))
 
 (defn- parse-optional-int [value]
-  (let [num (cond
-              (number? value) value
-              (string? value) (js/parseInt value 10)
-              :else js/NaN)]
-    (when (and (number? num) (not (js/isNaN num)))
-      (js/Math.floor num))))
+  (projections/parse-optional-int value))
 
 (defn- normalize-order-history-page-size [value]
   (let [page-size (parse-optional-int value)]
@@ -705,48 +620,8 @@
        (min candidate max-page*)
        candidate))))
 
-(defn- parse-time-ms [value]
-  (when-let [num (parse-optional-num value)]
-    (js/Math.floor num)))
-
-(defn- boolean-value [value]
-  (cond
-    (true? value) true
-    (false? value) false
-
-    (string? value)
-    (let [text (-> value str str/trim str/lower-case)]
-      (case text
-        "true" true
-        "false" false
-        nil))
-
-    :else nil))
-
 (defn- title-case-label [value]
-  (let [text (some-> value str str/trim)]
-    (if (seq text)
-      (->> (str/split (str/lower-case text) #"[_\s-]+")
-           (remove str/blank?)
-           (map str/capitalize)
-           (str/join " "))
-      "-")))
-
-(defn- order-history-status-key [status]
-  (let [text (some-> status str str/trim str/lower-case)]
-    (case text
-      "open" :open
-      "filled" :filled
-      "canceled" :canceled
-      "cancelled" :canceled
-      "rejected" :rejected
-      "triggered" :triggered
-      nil)))
-
-(defn- order-history-status-label [status]
-  (let [status-key (order-history-status-key status)]
-    (or (get order-history-status-labels status-key)
-        (title-case-label status))))
+  (projections/title-case-label value))
 
 (defn- order-history-coin-node
   ([coin]
@@ -767,92 +642,10 @@
         [:span {:class position-chip-classes} prefix-label])])))
 
 (defn normalize-order-history-row [row]
-  (let [root (or (:order row) row)
-        root-map (if (map? root) root {})
-        row-map (if (map? row) row {})
-        coin (or (:coin root-map) (:coin row-map))
-        oid (or (:oid root-map) (:oid row-map) (:orderId root-map) (:orderId row-map))
-        side (or (:side root-map) (:side row-map))
-        size (or (:origSz root-map) (:origSz row-map) (:sz root-map) (:sz row-map))
-        remaining-size (or (:remainingSz root-map) (:remainingSz row-map))
-        limit-px (or (:limitPx root-map) (:limitPx row-map))
-        fallback-px (or (:px root-map) (:px row-map))
-        trigger-px (or (:triggerPx root-map) (:triggerPx row-map))
-        is-trigger (true? (boolean-value (or (:isTrigger root-map) (:isTrigger row-map))))
-        trigger-condition (or (:triggerCondition root-map)
-                              (:triggerCondition row-map)
-                              (:triggerCond root-map)
-                              (:triggerCond row-map))
-        reduce-only-value (if (contains? root-map :reduceOnly)
-                            (:reduceOnly root-map)
-                            (:reduceOnly row-map))
-        reduce-only (boolean-value reduce-only-value)
-        is-position-tpsl-value (if (contains? root-map :isPositionTpsl)
-                                 (:isPositionTpsl root-map)
-                                 (:isPositionTpsl row-map))
-        is-position-tpsl (true? (boolean-value is-position-tpsl-value))
-        order-type (or (:orderType root-map)
-                       (:orderType row-map)
-                       (:type root-map)
-                       (:type row-map)
-                       (:tif root-map)
-                       (:tif row-map))
-        status (or (:status row-map)
-                   (:status root-map)
-                   (:orderStatus row-map)
-                   (:orderStatus root-map))
-        status-timestamp (or (:statusTimestamp row-map)
-                             (:statusTimestamp root-map)
-                             (:statusTime row-map)
-                             (:statusTime root-map)
-                             (:timestamp root-map)
-                             (:timestamp row-map)
-                             (:time root-map)
-                             (:time row-map))
-        size-num (parse-optional-num size)
-        remaining-size-num (parse-optional-num remaining-size)
-        market? (or (= "market" (some-> order-type str str/trim str/lower-case))
-                    (true? (boolean-value (or (:isMarket root-map) (:isMarket row-map))))
-                    (zero? (or (parse-optional-num (or limit-px fallback-px)) 0)))
-        px (when-not market?
-             (or limit-px fallback-px))
-        filled-size (when (and (number? size-num)
-                               (number? remaining-size-num))
-                      (max 0 (- size-num remaining-size-num)))
-        order-value (let [price-num (parse-optional-num px)]
-                      (when (and (not market?)
-                                 (number? size-num)
-                                 (number? price-num)
-                                 (pos? size-num)
-                                 (pos? price-num))
-                        (* size-num price-num)))
-        status-key (order-history-status-key status)]
-    (when (or (some? oid) (some? coin) (some? status-timestamp))
-      {:coin coin
-       :oid oid
-       :side side
-       :size size
-       :size-num size-num
-       :filled-size filled-size
-       :order-value order-value
-       :px px
-       :market? market?
-       :type order-type
-       :time-ms (parse-time-ms status-timestamp)
-       :reduce-only reduce-only
-       :is-trigger is-trigger
-       :trigger-condition trigger-condition
-       :trigger-px trigger-px
-       :is-position-tpsl is-position-tpsl
-       :status status
-       :status-key status-key
-       :status-label (order-history-status-label status)})))
+  (projections/normalize-order-history-row row order-history-status-labels))
 
 (defn normalized-order-history [rows]
-  (->> (or rows [])
-       (map normalize-order-history-row)
-       (remove nil?)
-       vec))
+  (projections/normalized-order-history rows order-history-status-labels))
 
 (defn- order-history-row-sort-id [row]
   (str (or (:time-ms row) 0)
@@ -1202,14 +995,8 @@
 (def ^:private balance-contract-explorer-token-base-url
   "https://app.hyperliquid.xyz/explorer/token/")
 
-(def ^:private balance-contract-id-pattern
-  #"^(?:0x)?[0-9a-zA-Z]+$")
-
 (defn- normalize-balance-contract-id [contract-id]
-  (let [contract-id* (some-> contract-id str str/trim)]
-    (when (and (seq contract-id*)
-               (re-matches balance-contract-id-pattern contract-id*))
-      contract-id*)))
+  (projections/normalize-balance-contract-id contract-id))
 
 (defn- abbreviate-contract-id [contract-id]
   (when-let [contract-id* (normalize-balance-contract-id contract-id)]
@@ -1249,82 +1036,7 @@
 
 ;; Build balances rows for perps + spot
 (defn build-balance-rows [webdata2 spot-data]
-  (let [clearinghouse-state (:clearinghouseState webdata2)
-        spot-meta (:meta spot-data)
-        spot-state (:clearinghouse-state spot-data)
-        spot-asset-ctxs (:spotAssetCtxs webdata2)
-        token-by-index (into {}
-                             (keep (fn [{:keys [index] :as token}]
-                                     (when (some? index)
-                                       [index token])))
-                             (:tokens spot-meta))
-        token-decimals (into {}
-                             (map (fn [{:keys [index weiDecimals szDecimals]}]
-                                    [index (or weiDecimals szDecimals 2)]))
-                             (:tokens spot-meta))
-        usdc-token (some #(when (= "USDC" (:name %)) %) (:tokens spot-meta))
-        usdc-token-idx (:index usdc-token)
-        price-by-token (if (and usdc-token-idx (seq (:universe spot-meta)) (seq spot-asset-ctxs))
-                         (let [ctxs (vec spot-asset-ctxs)]
-                           (reduce (fn [m {:keys [tokens index]}]
-                                     (let [[base quote] tokens
-                                           ctx (nth ctxs index nil)
-                                           mark-px (parse-num (:markPx ctx))]
-                                       (cond
-                                         (and (= quote usdc-token-idx) (pos? mark-px))
-                                         (assoc m base mark-px)
-
-                                         (and (= base usdc-token-idx) (pos? mark-px))
-                                         (assoc m quote (/ 1 mark-px))
-
-                                         :else m)))
-                                   {usdc-token-idx 1}
-                                   (:universe spot-meta)))
-                         {})
-        perps-row (when clearinghouse-state
-                    (let [account-value (parse-num (get-in clearinghouse-state [:marginSummary :accountValue]))
-                          total-margin-used (parse-num (get-in clearinghouse-state [:marginSummary :totalMarginUsed]))
-                          available (- account-value total-margin-used)]
-                      {:key "perps-usdc"
-                       :coin "USDC (Perps)"
-                       :total-balance account-value
-                       :available-balance available
-                       :usdc-value account-value
-                       :pnl-value nil
-                       :pnl-pct nil
-                       :amount-decimals nil}))
-        spot-rows (when (seq (get spot-state :balances))
-                    (map (fn [{:keys [coin token hold total entryNtl]}]
-                           (let [token-idx (if (string? token) (js/parseInt token) token)
-                                 token-meta (get token-by-index token-idx)
-                                 decimals (get token-decimals token-idx)
-                                 total-num (parse-num total)
-                                 hold-num (parse-num hold)
-                                 available-num (- total-num hold-num)
-                                 price (get price-by-token token-idx)
-                                 usdc-value (if price (* total-num price) 0)
-                                 entry-num (parse-num entryNtl)
-                                 pnl-value (when (and price (pos? entry-num))
-                                             (- usdc-value entry-num))
-                                 pnl-pct (when (and pnl-value (pos? entry-num))
-                                           (* 100 (/ pnl-value entry-num)))
-                                 coin-label (if (= coin "USDC") "USDC (Spot)" coin)
-                                 contract-id (when-not (= coin "USDC")
-                                               (normalize-balance-contract-id
-                                                (:tokenId token-meta)))]
-                             {:key (str "spot-" token-idx)
-                              :coin coin-label
-                              :total-balance total-num
-                              :available-balance available-num
-                              :usdc-value usdc-value
-                              :pnl-value pnl-value
-                              :pnl-pct pnl-pct
-                              :amount-decimals decimals
-                              :contract-id contract-id}))
-                         (get spot-state :balances)))]
-    (->> (concat (when perps-row [perps-row]) spot-rows)
-         (remove nil?)
-         vec)))
+  (projections/build-balance-rows webdata2 spot-data))
 
 ;; Sort balances by column
 (defn- usdc-balance-row? [row]
@@ -1457,10 +1169,11 @@
                            (balance-row row)))
       (empty-state "No balance data available"))))
 
-;; Calculate mark price from position data (placeholder - would need market data)
+;; Calculate mark price from position data with deterministic fallbacks.
 (defn calculate-mark-price [position-data]
-  ;; For now, use entry price as approximation - in real app would get from market data
-  (:entryPx position-data))
+  (or (:markPx position-data)
+      (:markPrice position-data)
+      (:entryPx position-data)))
 
 (defn- display-coin [position-data]
   (let [coin (:coin position-data)
@@ -1482,25 +1195,10 @@
 
 ;; Combine positions across the default DEX (webdata2) and any additional perp DEXes.
 (defn position-unique-key [position-data]
-  (str (get-in position-data [:position :coin]) "|" (or (:dex position-data) "default")))
+  (projections/position-unique-key position-data))
 
 (defn collect-positions [webdata2 perp-dex-states]
-  (let [base-positions (->> (get-in webdata2 [:clearinghouseState :assetPositions])
-                            (map #(assoc % :dex nil)))
-        extra-positions (->> perp-dex-states
-                             (mapcat (fn [[dex state]]
-                                       (->> (:assetPositions state)
-                                            (map #(assoc % :dex dex))))))
-        combined (->> (concat base-positions extra-positions)
-                      (remove nil?))]
-    (second
-      (reduce (fn [[seen acc] pos]
-                (let [k (position-unique-key pos)]
-                  (if (contains? seen k)
-                    [seen acc]
-                    [(conj seen k) (conj acc pos)])))
-              [#{} []]
-              combined))))
+  (projections/collect-positions webdata2 perp-dex-states))
 
 ;; Position row component using real data
 (defn position-row [position-data]
@@ -1512,11 +1210,19 @@
         position-value (:positionValue pos)
         entry-price (:entryPx pos)
         mark-price (calculate-mark-price pos)
-        pnl-value (:unrealizedPnl pos)
-        pnl-percent (* 100 (js/parseFloat (:returnOnEquity pos)))
+        pnl-num (parse-optional-num (:unrealizedPnl pos))
+        pnl-percent (some-> (:returnOnEquity pos) parse-optional-num (* 100))
+        pnl-color-class (cond
+                          (and (number? pnl-num) (pos? pnl-num)) "text-success"
+                          (and (number? pnl-num) (neg? pnl-num)) "text-error"
+                          :else "text-trading-text")
         liq-price (:liquidationPx pos)
         margin (:marginUsed pos)
-        funding (get-in pos [:cumFunding :allTime])]
+        funding-num (parse-optional-num (get-in pos [:cumFunding :allTime]))
+        display-funding (when (number? funding-num)
+                          (if (pos? funding-num)
+                            (- funding-num)
+                            funding-num))]
     [:div {:class ["grid"
                    positions-grid-template-class
                    "gap-2"
@@ -1545,31 +1251,31 @@
      ;; PNL (ROE %)
      [:div.text-left.font-semibold.num
       [:div
-       [:span {:class [(if (pos? (js/parseFloat pnl-value))
-                         "text-success" "text-error")
-                       "num"]}
-        "$" (format-currency pnl-value)]
+       [:span {:class [pnl-color-class "num"]}
+        (if (number? pnl-num)
+          (str "$" (format-currency pnl-num))
+          "--")]
      [:div.text-xs.opacity-70.num
-        [:span {:class (if (pos? pnl-percent)
-                        "text-success"
-                        "text-error")}
-         "(" (if (pos? pnl-percent) "+"
-               "")
-         (.toFixed pnl-percent 2) "%)"]]]]
+        (if (number? pnl-percent)
+          [:span {:class (if (pos? pnl-percent) "text-success" "text-error")}
+           "(" (if (pos? pnl-percent) "+" "")
+           (.toFixed pnl-percent 2)
+           "%)"]
+          [:span.text-trading-text "--"])]]]
      ;; Liq. Price
      [:div.text-left.font-semibold.num (if liq-price (format-trade-price liq-price) "N/A")]
      ;; Margin
      [:div.text-left.font-semibold.num "$" (format-currency margin)]
      ;; Funding
      [:div.text-left.font-semibold.num
-      (let [funding-num (js/parseFloat funding)
-            display-funding (if (pos? funding-num) (- funding-num) funding-num)
-            display-text (str "$" (format-currency (str display-funding)))]
-        [:span {:class [(if (neg? display-funding)
-                          "text-error"
-                          "text-success")
-                        "num"]}
-         display-text])]
+      [:span {:class [(cond
+                        (and (number? display-funding) (neg? display-funding)) "text-error"
+                        (and (number? display-funding) (pos? display-funding)) "text-success"
+                        :else "text-trading-text")
+                      "num"]}
+       (if (number? display-funding)
+         (str "$" (format-currency display-funding))
+         "--")]]
      ;; TP/SL
      [:div.text-left
       [:button.btn.btn-xs.btn-ghost "-- / --"]]]))
@@ -1578,15 +1284,17 @@
 (defn sort-positions-by-column [positions column direction]
   (let [sort-fn (case column
                   "Coin" (fn [pos] (:coin (:position pos)))
-                  "Size" (fn [pos] (js/parseFloat (:szi (:position pos))))
-                  "Position Value" (fn [pos] (js/parseFloat (:positionValue (:position pos))))
-                  "Entry Price" (fn [pos] (js/parseFloat (:entryPx (:position pos))))
-                  "Mark Price" (fn [pos] (js/parseFloat (:entryPx (:position pos)))) ; using entry as proxy
-                  "PNL (ROE %)" (fn [pos] (js/parseFloat (:unrealizedPnl (:position pos))))
+                  "Size" (fn [pos] (or (parse-optional-num (:szi (:position pos))) 0))
+                  "Position Value" (fn [pos] (or (parse-optional-num (:positionValue (:position pos))) 0))
+                  "Entry Price" (fn [pos] (or (parse-optional-num (:entryPx (:position pos))) 0))
+                  "Mark Price" (fn [pos] (or (parse-optional-num (calculate-mark-price (:position pos))) 0))
+                  "PNL (ROE %)" (fn [pos] (or (parse-optional-num (:unrealizedPnl (:position pos))) 0))
                   "Liq. Price" (fn [pos] (let [liq (:liquidationPx (:position pos))]
-                                          (if liq (js/parseFloat liq) js/Number.MAX_VALUE)))
-                  "Margin" (fn [pos] (js/parseFloat (:marginUsed (:position pos))))
-                  "Funding" (fn [pos] (js/parseFloat (get-in (:position pos) [:cumFunding :allTime])))
+                                          (if liq
+                                            (or (parse-optional-num liq) js/Number.MAX_VALUE)
+                                            js/Number.MAX_VALUE)))
+                  "Margin" (fn [pos] (or (parse-optional-num (:marginUsed (:position pos))) 0))
+                  "Funding" (fn [pos] (or (parse-optional-num (get-in (:position pos) [:cumFunding :allTime])) 0))
                   (fn [pos] 0)) ; default sort
         sorted-positions (sort-by sort-fn positions)]
     (if (= direction :desc)
