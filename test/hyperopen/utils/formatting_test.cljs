@@ -33,3 +33,17 @@
   (testing "plain formatter omits currency symbol"
     (is (= "0.002028" (fmt/format-trade-price-plain 0.002028 "0.002028")))
     (is (= "<0.00000001" (fmt/format-trade-price-plain 0.0000000001)))))
+
+(deftest format-fixed-number-test
+  (testing "fixed formatting handles numbers, numeric strings, nil, and invalid values"
+    (is (= "1,234.57" (fmt/format-fixed-number 1234.567 2)))
+    (is (= "1.2350" (fmt/format-fixed-number "1.235" 4)))
+    (is (= "0.00" (fmt/format-fixed-number nil 2)))
+    (is (= "0.00" (fmt/format-fixed-number "not-a-number" 2)))))
+
+(deftest format-local-date-time-test
+  (testing "returns nil for nil and local datetime text with padded time components"
+    (is (nil? (fmt/format-local-date-time nil)))
+    (let [formatted (fmt/format-local-date-time 1700000000000)]
+      (is (string? formatted))
+      (is (re-matches #"\d{1,2}/\d{1,2}/\d{4} - \d{2}:\d{2}:\d{2}" formatted)))))

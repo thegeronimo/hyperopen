@@ -1,6 +1,7 @@
 (ns hyperopen.views.account-info-view-test
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is testing]]
+            [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.account-info-view :as view]))
 
 (defn- class-values [class-attr]
@@ -247,9 +248,13 @@
     (is (contains? (node-class-set coin-header-cell) "pl-3"))))
 
 (deftest open-orders-sortable-header-uses-secondary-text-and-hover-affordance-test
-  (let [header-node (view/sortable-open-orders-header "Time" {:column "Time" :direction :asc})]
+  (let [header-node (view/sortable-open-orders-header "Time" {:column "Time" :direction :asc})
+        sort-icon-node (second (vec (node-children header-node)))]
     (is (contains? (node-class-set header-node) "text-trading-text-secondary"))
-    (is (contains? (node-class-set header-node) "hover:text-trading-text"))))
+    (is (contains? (node-class-set header-node) "hover:text-trading-text"))
+    (is (= [[:actions/sort-open-orders "Time"]]
+           (get-in header-node [1 :on :click])))
+    (is (= "↑" (last sort-icon-node)))))
 
 (deftest funding-history-sortable-header-uses-secondary-text-hover-and-action-test
   (let [header-node (view/sortable-funding-history-header "Time" {:column "Time" :direction :asc})
@@ -266,6 +271,15 @@
     (is (contains? (node-class-set header-node) "text-trading-text-secondary"))
     (is (contains? (node-class-set header-node) "hover:text-trading-text"))
     (is (= [[:actions/sort-trade-history "Time"]]
+           (get-in header-node [1 :on :click])))
+    (is (= "↑" (last sort-icon-node)))))
+
+(deftest order-history-sortable-header-uses-secondary-text-hover-and-action-test
+  (let [header-node (view/sortable-order-history-header "Time" {:column "Time" :direction :asc})
+        sort-icon-node (second (vec (node-children header-node)))]
+    (is (contains? (node-class-set header-node) "text-trading-text-secondary"))
+    (is (contains? (node-class-set header-node) "hover:text-trading-text"))
+    (is (= [[:actions/sort-order-history "Time"]]
            (get-in header-node [1 :on :click])))
     (is (= "↑" (last sort-icon-node)))))
 
@@ -1308,6 +1322,14 @@
     (is (= "noopener noreferrer" (get-in link-node [1 :rel])))
     (is (contains? strings expected-time))
     (is (some? icon-node))))
+
+(deftest time-format-wrapper-parity-test
+  (let [ms 1700000000000
+        expected (fmt/format-local-date-time ms)]
+    (is (= expected (view/format-open-orders-time ms)))
+    (is (= expected (view/format-funding-history-time ms)))
+    (is (nil? (view/format-open-orders-time nil)))
+    (is (nil? (view/format-funding-history-time nil)))))
 
 (deftest trade-history-time-cell-falls-back-to-plain-text-when-hash-missing-or-invalid-test
   (let [fills [{:tid 1

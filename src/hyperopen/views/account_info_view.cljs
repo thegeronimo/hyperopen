@@ -177,16 +177,10 @@
 
 ;; Format currency values
 (defn format-currency [value]
-  (if (and value (not= value "N/A"))
-    (let [num-val (js/parseFloat value)]
-      (if (js/isNaN num-val)
-        "0.00"
-        (.toLocaleString num-val "en-US" #js {:minimumFractionDigits 2 :maximumFractionDigits 2})))
-    "0.00"))
+  (fmt/format-fixed-number value 2))
 
 (defn parse-num [value]
-  (let [num-val (js/parseFloat (or value 0))]
-    (if (js/isNaN num-val) 0 num-val)))
+  (fmt/safe-number value))
 
 (defn format-trade-price [value]
   (if (or (nil? value) (= value "N/A"))
@@ -197,12 +191,10 @@
         (or (fmt/format-trade-price num-val value) "0.00")))))
 
 (defn format-amount [value decimals]
-  (let [num-val (parse-num value)
-        safe-decimals (-> (or decimals 2)
+  (let [safe-decimals (-> (or decimals 2)
                           (max 0)
                           (min 8))]
-    (.toLocaleString num-val "en-US" #js {:minimumFractionDigits safe-decimals
-                                          :maximumFractionDigits safe-decimals})))
+    (fmt/format-fixed-number value safe-decimals)))
 
 (defn format-balance-amount [value decimals]
   (if decimals
@@ -228,20 +220,7 @@
       (.toLocaleString d))))
 
 (defn format-funding-history-time [time-ms]
-  (when time-ms
-    (let [d (js/Date. time-ms)
-          pad2 (fn [v] (.padStart (str v) 2 "0"))]
-      (str (inc (.getMonth d))
-           "/"
-           (.getDate d)
-           "/"
-           (.getFullYear d)
-           " - "
-           (pad2 (.getHours d))
-           ":"
-           (pad2 (.getMinutes d))
-           ":"
-           (pad2 (.getSeconds d))))))
+  (fmt/format-local-date-time time-ms))
 
 (defn- datetime-local-value [time-ms]
   (when time-ms
@@ -463,17 +442,7 @@
           "Apply"]]])])))
 
 (defn format-open-orders-time [ms]
-  (when ms
-    (let [d (js/Date. ms)
-          month (inc (.getMonth d))
-          day (.getDate d)
-          year (.getFullYear d)
-          hours (.getHours d)
-          minutes (.getMinutes d)
-          seconds (.getSeconds d)
-          pad2 (fn [v] (.padStart (str v) 2 "0"))]
-      (str month "/" day "/" year " - "
-           (pad2 hours) ":" (pad2 minutes) ":" (pad2 seconds)))))
+  (fmt/format-local-date-time ms))
 
 (defn format-side [side]
   (case side
@@ -622,20 +591,29 @@
 (def sortable-header-layout-classes
   ["flex" "items-center" "space-x-1" "group"])
 
+(defn- sortable-header-button
+  ([column-name sort-state action-key]
+   (sortable-header-button column-name sort-state action-key {}))
+  ([column-name sort-state action-key {:keys [full-width? extra-classes]
+                                       :or {full-width? false
+                                            extra-classes []}}]
+   (let [current-column (:column sort-state)
+         current-direction (:direction sort-state)
+         is-active (= current-column column-name)
+         sort-icon (when is-active
+                     (if (= current-direction :asc) "↑" "↓"))]
+     [:button {:class (into (if full-width? ["w-full"] [])
+                            (concat header-base-text-classes
+                                    sortable-header-interaction-classes
+                                    sortable-header-layout-classes
+                                    extra-classes))
+               :on {:click [[action-key column-name]]}}
+      [:span column-name]
+      (when sort-icon
+        [:span.text-xs.opacity-70 sort-icon])])))
+
 (defn sortable-open-orders-header [column-name sort-state]
-  (let [current-column (:column sort-state)
-        current-direction (:direction sort-state)
-        is-active (= current-column column-name)
-        sort-icon (when is-active
-                    (if (= current-direction :asc) "↑" "↓"))]
-    [:button {:class (into []
-                           (concat header-base-text-classes
-                                   sortable-header-interaction-classes
-                                   sortable-header-layout-classes))
-              :on {:click [[:actions/sort-open-orders column-name]]}}
-     [:span column-name]
-     (when sort-icon
-       [:span.text-xs.opacity-70 sort-icon])]))
+  (sortable-header-button column-name sort-state :actions/sort-open-orders))
 
 (def default-funding-history-sort
   {:column "Time" :direction :desc})
@@ -685,19 +663,7 @@
       sorted)))
 
 (defn sortable-funding-history-header [column-name sort-state]
-  (let [current-column (:column sort-state)
-        current-direction (:direction sort-state)
-        is-active (= current-column column-name)
-        sort-icon (when is-active
-                    (if (= current-direction :asc) "↑" "↓"))]
-    [:button {:class (into []
-                           (concat header-base-text-classes
-                                   sortable-header-interaction-classes
-                                   sortable-header-layout-classes))
-              :on {:click [[:actions/sort-funding-history column-name]]}}
-     [:span column-name]
-     (when sort-icon
-       [:span.text-xs.opacity-70 sort-icon])]))
+  (sortable-header-button column-name sort-state :actions/sort-funding-history))
 
 (def default-order-history-sort
   {:column "Time" :direction :desc})
@@ -1060,175 +1026,145 @@
       sorted)))
 
 (defn sortable-order-history-header [column-name sort-state]
-  (let [current-column (:column sort-state)
-        current-direction (:direction sort-state)
-        is-active (= current-column column-name)
-        sort-icon (when is-active
-                    (if (= current-direction :asc) "↑" "↓"))]
-    [:button {:class (into []
-                           (concat header-base-text-classes
-                                   sortable-header-interaction-classes
-                                   sortable-header-layout-classes))
-              :on {:click [[:actions/sort-order-history column-name]]}}
-     [:span column-name]
-     (when sort-icon
-       [:span.text-xs.opacity-70 sort-icon])]))
+  (sortable-header-button column-name sort-state :actions/sort-order-history))
 
-(defn- trade-history-pagination-controls [{:keys [total-rows page-size page page-count page-input]}]
+(def ^:private pagination-container-classes
+  ["border-t" "border-base-300" "bg-base-100"])
+
+(def ^:private pagination-content-classes
+  ["flex" "flex-wrap" "items-center" "justify-between" "gap-3" "px-3" "py-2" "text-xs"])
+
+(def ^:private pagination-section-classes
+  ["flex" "items-center" "gap-2"])
+
+(def ^:private pagination-page-size-select-classes
+  ["select" "select-sm" "select-bordered" "h-8" "min-h-8" "w-24" "pl-2" "pr-8" "text-sm" "leading-5"])
+
+(def ^:private pagination-nav-button-classes
+  ["btn" "btn-xs" "btn-ghost" "h-6" "min-h-6" "min-w-6"])
+
+(def ^:private pagination-go-button-classes
+  ["btn" "btn-xs" "btn-primary" "h-6" "min-h-6" "min-w-6"])
+
+(defn- history-pagination-controls
+  [{:keys [total-rows page-size page page-count page-input]}
+   {:keys [page-size-id
+           page-size-aria-label
+           page-size-action
+           prev-aria-label
+           prev-action
+           next-aria-label
+           next-action
+           page-input-id
+           page-input-aria-label
+           page-input-action
+           page-input-keydown-action
+           go-aria-label
+           go-action]}]
   (let [on-first-page? (<= page 1)
         on-last-page? (>= page page-count)]
-    [:div {:class ["border-t" "border-base-300" "bg-base-100"]}
-     [:div {:class ["flex" "flex-wrap" "items-center" "justify-between" "gap-3" "px-3" "py-2" "text-xs"]}
-      [:div {:class ["flex" "items-center" "gap-2"]}
-       [:label {:for "trade-history-page-size"
+    [:div {:class pagination-container-classes}
+     [:div {:class pagination-content-classes}
+      [:div {:class pagination-section-classes}
+       [:label {:for page-size-id
                 :class ["font-medium" "text-trading-text-secondary"]}
         "Rows"]
-       [:select {:id "trade-history-page-size"
-                 :class ["select" "select-sm" "select-bordered" "h-8" "min-h-8" "w-24" "pl-2" "pr-8" "text-sm" "leading-5"]
-                 :aria-label "Trade rows per page"
+       [:select {:id page-size-id
+                 :class pagination-page-size-select-classes
+                 :aria-label page-size-aria-label
                  :value (str page-size)
-                 :on {:change [[:actions/set-trade-history-page-size [:event.target/value]]]}}
+                 :on {:change [[page-size-action [:event.target/value]]]}}
         (for [size order-history-page-size-options]
           ^{:key size}
           [:option {:value (str size)}
            (str size)])]
        [:span {:class ["text-trading-text-secondary"]}
         (str "Total: " total-rows)]]
-      [:div {:class ["flex" "items-center" "gap-2"]}
-       [:button {:class ["btn" "btn-xs" "btn-ghost" "h-6" "min-h-6" "min-w-6"]
-                 :aria-label "Previous trade page"
+      [:div {:class pagination-section-classes}
+       [:button {:class pagination-nav-button-classes
+                 :aria-label prev-aria-label
                  :disabled on-first-page?
-                 :on {:click [[:actions/prev-trade-history-page page-count]]}}
+                 :on {:click [[prev-action page-count]]}}
         "Prev"]
        [:span {:class ["min-w-[5.5rem]" "text-center" "text-trading-text-secondary"]}
         (str "Page " page " of " page-count)]
-       [:button {:class ["btn" "btn-xs" "btn-ghost" "h-6" "min-h-6" "min-w-6"]
-                 :aria-label "Next trade page"
+       [:button {:class pagination-nav-button-classes
+                 :aria-label next-aria-label
                  :disabled on-last-page?
-                 :on {:click [[:actions/next-trade-history-page page-count]]}}
+                 :on {:click [[next-action page-count]]}}
         "Next"]]
-      [:div {:class ["flex" "items-center" "gap-2"]}
-       [:label {:for "trade-history-page-input"
+      [:div {:class pagination-section-classes}
+       [:label {:for page-input-id
                 :class ["font-medium" "text-trading-text-secondary"]}
         "Jump"]
-       [:input {:id "trade-history-page-input"
+       [:input {:id page-input-id
                 :class ["input" "input-xs" "input-bordered" "h-6" "min-h-6" "w-16" "text-xs"]
                 :type "text"
                 :inputmode "numeric"
                 :pattern "[0-9]*"
-                :aria-label "Jump to trade page"
+                :aria-label page-input-aria-label
                 :value page-input
-                :on {:input [[:actions/set-trade-history-page-input [:event.target/value]]]
-                     :change [[:actions/set-trade-history-page-input [:event.target/value]]]
-                     :keydown [[:actions/handle-trade-history-page-input-keydown [:event/key] page-count]]}}]
-       [:button {:class ["btn" "btn-xs" "btn-primary" "h-6" "min-h-6" "min-w-6"]
-                 :aria-label "Go to trade page"
-                 :on {:click [[:actions/apply-trade-history-page-input page-count]]}}
+                :on {:input [[page-input-action [:event.target/value]]]
+                     :change [[page-input-action [:event.target/value]]]
+                     :keydown [[page-input-keydown-action [:event/key] page-count]]}}]
+       [:button {:class pagination-go-button-classes
+                 :aria-label go-aria-label
+                 :on {:click [[go-action page-count]]}}
         "Go"]]]]))
 
-(defn- funding-history-pagination-controls [{:keys [total-rows page-size page page-count page-input]}]
-  (let [on-first-page? (<= page 1)
-        on-last-page? (>= page page-count)]
-    [:div {:class ["border-t" "border-base-300" "bg-base-100"]}
-     [:div {:class ["flex" "flex-wrap" "items-center" "justify-between" "gap-3" "px-3" "py-2" "text-xs"]}
-      [:div {:class ["flex" "items-center" "gap-2"]}
-       [:label {:for "funding-history-page-size"
-                :class ["font-medium" "text-trading-text-secondary"]}
-        "Rows"]
-       [:select {:id "funding-history-page-size"
-                 :class ["select" "select-sm" "select-bordered" "h-8" "min-h-8" "w-24" "pl-2" "pr-8" "text-sm" "leading-5"]
-                 :aria-label "Funding rows per page"
-                 :value (str page-size)
-                 :on {:change [[:actions/set-funding-history-page-size [:event.target/value]]]}}
-        (for [size order-history-page-size-options]
-          ^{:key size}
-          [:option {:value (str size)}
-           (str size)])]
-       [:span {:class ["text-trading-text-secondary"]}
-        (str "Total: " total-rows)]]
-      [:div {:class ["flex" "items-center" "gap-2"]}
-       [:button {:class ["btn" "btn-xs" "btn-ghost" "h-6" "min-h-6" "min-w-6"]
-                 :aria-label "Previous funding page"
-                 :disabled on-first-page?
-                 :on {:click [[:actions/prev-funding-history-page page-count]]}}
-        "Prev"]
-       [:span {:class ["min-w-[5.5rem]" "text-center" "text-trading-text-secondary"]}
-        (str "Page " page " of " page-count)]
-       [:button {:class ["btn" "btn-xs" "btn-ghost" "h-6" "min-h-6" "min-w-6"]
-                 :aria-label "Next funding page"
-                 :disabled on-last-page?
-                 :on {:click [[:actions/next-funding-history-page page-count]]}}
-        "Next"]]
-      [:div {:class ["flex" "items-center" "gap-2"]}
-       [:label {:for "funding-history-page-input"
-                :class ["font-medium" "text-trading-text-secondary"]}
-        "Jump"]
-       [:input {:id "funding-history-page-input"
-                :class ["input" "input-xs" "input-bordered" "h-6" "min-h-6" "w-16" "text-xs"]
-                :type "text"
-                :inputmode "numeric"
-                :pattern "[0-9]*"
-                :aria-label "Jump to funding page"
-                :value page-input
-                :on {:input [[:actions/set-funding-history-page-input [:event.target/value]]]
-                     :change [[:actions/set-funding-history-page-input [:event.target/value]]]
-                     :keydown [[:actions/handle-funding-history-page-input-keydown [:event/key] page-count]]}}]
-       [:button {:class ["btn" "btn-xs" "btn-primary" "h-6" "min-h-6" "min-w-6"]
-                 :aria-label "Go to funding page"
-                 :on {:click [[:actions/apply-funding-history-page-input page-count]]}}
-        "Go"]]]]))
+(def ^:private trade-history-pagination-config
+  {:page-size-id "trade-history-page-size"
+   :page-size-aria-label "Trade rows per page"
+   :page-size-action :actions/set-trade-history-page-size
+   :prev-aria-label "Previous trade page"
+   :prev-action :actions/prev-trade-history-page
+   :next-aria-label "Next trade page"
+   :next-action :actions/next-trade-history-page
+   :page-input-id "trade-history-page-input"
+   :page-input-aria-label "Jump to trade page"
+   :page-input-action :actions/set-trade-history-page-input
+   :page-input-keydown-action :actions/handle-trade-history-page-input-keydown
+   :go-aria-label "Go to trade page"
+   :go-action :actions/apply-trade-history-page-input})
 
-(defn- order-history-pagination-controls [{:keys [total-rows page-size page page-count page-input]}]
-  (let [on-first-page? (<= page 1)
-        on-last-page? (>= page page-count)]
-    [:div {:class ["border-t" "border-base-300" "bg-base-100"]}
-     [:div {:class ["flex" "flex-wrap" "items-center" "justify-between" "gap-3" "px-3" "py-2" "text-xs"]}
-      [:div {:class ["flex" "items-center" "gap-2"]}
-       [:label {:for "order-history-page-size"
-                :class ["font-medium" "text-trading-text-secondary"]}
-        "Rows"]
-       [:select {:id "order-history-page-size"
-                 :class ["select" "select-sm" "select-bordered" "h-8" "min-h-8" "w-24" "pl-2" "pr-8" "text-sm" "leading-5"]
-                 :aria-label "Rows per page"
-                 :value (str page-size)
-                 :on {:change [[:actions/set-order-history-page-size [:event.target/value]]]}}
-        (for [size order-history-page-size-options]
-          ^{:key size}
-          [:option {:value (str size)}
-           (str size)])]
-       [:span {:class ["text-trading-text-secondary"]}
-        (str "Total: " total-rows)]]
-      [:div {:class ["flex" "items-center" "gap-2"]}
-       [:button {:class ["btn" "btn-xs" "btn-ghost" "h-6" "min-h-6" "min-w-6"]
-                 :aria-label "Previous page"
-                 :disabled on-first-page?
-                 :on {:click [[:actions/prev-order-history-page page-count]]}}
-        "Prev"]
-       [:span {:class ["min-w-[5.5rem]" "text-center" "text-trading-text-secondary"]}
-        (str "Page " page " of " page-count)]
-       [:button {:class ["btn" "btn-xs" "btn-ghost" "h-6" "min-h-6" "min-w-6"]
-                 :aria-label "Next page"
-                 :disabled on-last-page?
-                 :on {:click [[:actions/next-order-history-page page-count]]}}
-        "Next"]]
-      [:div {:class ["flex" "items-center" "gap-2"]}
-       [:label {:for "order-history-page-input"
-                :class ["font-medium" "text-trading-text-secondary"]}
-        "Jump"]
-       [:input {:id "order-history-page-input"
-                :class ["input" "input-xs" "input-bordered" "h-6" "min-h-6" "w-16" "text-xs"]
-                :type "text"
-                :inputmode "numeric"
-                :pattern "[0-9]*"
-                :aria-label "Jump to page"
-                :value page-input
-                :on {:input [[:actions/set-order-history-page-input [:event.target/value]]]
-                     :change [[:actions/set-order-history-page-input [:event.target/value]]]
-                     :keydown [[:actions/handle-order-history-page-input-keydown [:event/key] page-count]]}}]
-       [:button {:class ["btn" "btn-xs" "btn-primary" "h-6" "min-h-6" "min-w-6"]
-                 :aria-label "Go to page"
-                 :on {:click [[:actions/apply-order-history-page-input page-count]]}}
-        "Go"]]]]))
+(def ^:private funding-history-pagination-config
+  {:page-size-id "funding-history-page-size"
+   :page-size-aria-label "Funding rows per page"
+   :page-size-action :actions/set-funding-history-page-size
+   :prev-aria-label "Previous funding page"
+   :prev-action :actions/prev-funding-history-page
+   :next-aria-label "Next funding page"
+   :next-action :actions/next-funding-history-page
+   :page-input-id "funding-history-page-input"
+   :page-input-aria-label "Jump to funding page"
+   :page-input-action :actions/set-funding-history-page-input
+   :page-input-keydown-action :actions/handle-funding-history-page-input-keydown
+   :go-aria-label "Go to funding page"
+   :go-action :actions/apply-funding-history-page-input})
+
+(def ^:private order-history-pagination-config
+  {:page-size-id "order-history-page-size"
+   :page-size-aria-label "Rows per page"
+   :page-size-action :actions/set-order-history-page-size
+   :prev-aria-label "Previous page"
+   :prev-action :actions/prev-order-history-page
+   :next-aria-label "Next page"
+   :next-action :actions/next-order-history-page
+   :page-input-id "order-history-page-input"
+   :page-input-aria-label "Jump to page"
+   :page-input-action :actions/set-order-history-page-input
+   :page-input-keydown-action :actions/handle-order-history-page-input-keydown
+   :go-aria-label "Go to page"
+   :go-action :actions/apply-order-history-page-input})
+
+(defn- trade-history-pagination-controls [pagination]
+  (history-pagination-controls pagination trade-history-pagination-config))
+
+(defn- funding-history-pagination-controls [pagination]
+  (history-pagination-controls pagination funding-history-pagination-config))
+
+(defn- order-history-pagination-controls [pagination]
+  (history-pagination-controls pagination order-history-pagination-config))
 
 (defn format-pnl [pnl-value pnl-pct]
   (if (and (some? pnl-value) (some? pnl-pct))
@@ -1436,20 +1372,11 @@
   ([column-name sort-state]
    (sortable-balances-header column-name sort-state :left))
   ([column-name sort-state align]
-   (let [current-column (:column sort-state)
-         current-direction (:direction sort-state)
-         is-active (= current-column column-name)
-         sort-icon (when is-active
-                     (if (= current-direction :asc) "↑" "↓"))]
-     [:button {:class (into ["w-full"]
-                            (concat header-base-text-classes
-                                    sortable-header-interaction-classes
-                                    sortable-header-layout-classes
-                                    (header-alignment-classes align)))
-               :on {:click [[:actions/sort-balances column-name]]}}
-      [:span column-name]
-      (when sort-icon
-        [:span.text-xs.opacity-70 sort-icon])])))
+   (sortable-header-button column-name
+                           sort-state
+                           :actions/sort-balances
+                           {:full-width? true
+                            :extra-classes (header-alignment-classes align)})))
 
 ;; Non-sortable column header
 (defn non-sortable-header
@@ -1668,19 +1595,7 @@
 
 ;; Sortable column header component
 (defn sortable-header [column-name sort-state]
-  (let [current-column (:column sort-state)
-        current-direction (:direction sort-state)
-        is-active (= current-column column-name)
-        sort-icon (when is-active
-                    (if (= current-direction :asc) "↑" "↓"))]
-    [:button {:class (into []
-                           (concat header-base-text-classes
-                                   sortable-header-interaction-classes
-                                   sortable-header-layout-classes))
-              :on {:click [[:actions/sort-positions column-name]]}}
-     [:span column-name]
-     (when sort-icon
-       [:span.text-xs.opacity-70 sort-icon])]))
+  (sortable-header-button column-name sort-state :actions/sort-positions))
 
 ;; Position table header with sorting
 (defn position-table-header [sort-state]
@@ -2085,19 +2000,7 @@
        sorted))))
 
 (defn sortable-trade-history-header [column-name sort-state]
-  (let [current-column (:column sort-state)
-        current-direction (:direction sort-state)
-        is-active (= current-column column-name)
-        sort-icon (when is-active
-                    (if (= current-direction :asc) "↑" "↓"))]
-    [:button {:class (into []
-                           (concat header-base-text-classes
-                                   sortable-header-interaction-classes
-                                   sortable-header-layout-classes))
-              :on {:click [[:actions/sort-trade-history column-name]]}}
-     [:span column-name]
-     (when sort-icon
-       [:span.text-xs.opacity-70 sort-icon])]))
+  (sortable-header-button column-name sort-state :actions/sort-trade-history))
 
 (defn- trade-history-table [fills trade-history-state]
   (let [all-rows (vec (or fills []))

@@ -28,6 +28,14 @@
                       (when-not (js/isNaN num) num))
     :else nil))
 
+(defn- normalize-fraction-digits [digits]
+  (let [n (cond
+            (number? digits) digits
+            (string? digits) (js/parseFloat digits)
+            :else js/NaN)
+        normalized (if (js/isNaN n) 2 (js/Math.floor n))]
+    (max 0 normalized)))
+
 (defn- clamp-trade-price-decimals [decimals]
   (-> (or decimals min-trade-price-decimals)
       (max min-trade-price-decimals)
@@ -107,6 +115,30 @@
   ([delta] (format-trade-price-delta delta nil))
   ([delta raw]
    (format-trade-price-plain delta raw)))
+
+(defn format-fixed-number [value decimals]
+  (let [num (or (parse-number value) 0)
+        fraction-digits (normalize-fraction-digits decimals)]
+    (.toLocaleString (js/Number. num)
+                     "en-US"
+                     #js {:minimumFractionDigits fraction-digits
+                          :maximumFractionDigits fraction-digits})))
+
+(defn format-local-date-time [time-ms]
+  (when time-ms
+    (let [d (js/Date. time-ms)
+          pad2 (fn [v] (.padStart (str v) 2 "0"))]
+      (str (inc (.getMonth d))
+           "/"
+           (.getDate d)
+           "/"
+           (.getFullYear d)
+           " - "
+           (pad2 (.getHours d))
+           ":"
+           (pad2 (.getMinutes d))
+           ":"
+           (pad2 (.getSeconds d))))))
 
 ;; Formatting functions
 (defn format-number [n decimals]
