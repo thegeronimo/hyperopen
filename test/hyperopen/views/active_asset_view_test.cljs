@@ -148,3 +148,43 @@
                 :market-type :perp}
         view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})]
     (is (contains-class? view-node "md:grid-cols-[minmax(max-content,1.4fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,1.6fr)]"))))
+
+(deftest active-asset-row-renders-dex-and-leverage-chips-test
+  (let [ctx-data {:coin "XYZ100-USDC"
+                  :mark 87.0
+                  :oracle 86.9
+                  :change24h 1.2
+                  :change24hPct 1.4
+                  :volume24h 1000
+                  :openInterest 100
+                  :fundingRate 0.001}
+        market {:coin "XYZ100-USDC"
+                :symbol "XYZ100-USDC"
+                :base "XYZ100"
+                :dex "xyz"
+                :maxLeverage 25
+                :market-type :perp}
+        view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})
+        strings (set (collect-strings view-node))]
+    (is (contains? strings "xyz"))
+    (is (contains? strings "25x"))
+    (is (contains-class? view-node "bg-emerald-500/20"))
+    (is (not (contains-class? view-node "bg-primary")))))
+
+(deftest active-asset-row-renders-coin-namespace-chip-when-dex-missing-test
+  (let [ctx-data {:coin "xyz:XYZ100-USDC"
+                  :mark 87.0
+                  :oracle 86.9
+                  :change24h 1.2
+                  :change24hPct 1.4
+                  :volume24h 1000
+                  :openInterest 100
+                  :fundingRate 0.001}
+        market {:coin "xyz:XYZ100-USDC"
+                :symbol "XYZ100-USDC"
+                :base "XYZ100"
+                :maxLeverage 25
+                :market-type :perp}
+        view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})
+        strings (set (collect-strings view-node))]
+    (is (contains? strings "xyz"))))

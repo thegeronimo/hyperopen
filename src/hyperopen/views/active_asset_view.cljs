@@ -44,6 +44,48 @@
 (def active-asset-grid-template
   "md:grid-cols-[minmax(max-content,1.4fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,1.6fr)]")
 
+(def ^:private active-asset-chip-classes
+  ["px-1.5"
+   "py-0.5"
+   "text-xs"
+   "font-medium"
+   "rounded"
+   "border"
+   "bg-emerald-500/20"
+   "text-emerald-300"
+   "border-emerald-500/30"])
+
+(defn- non-blank-text [value]
+  (let [text (some-> value str str/trim)]
+    (when (seq text) text)))
+
+(defn- parse-optional-number [value]
+  (let [num (cond
+              (number? value) value
+              (string? value) (js/parseFloat value)
+              :else js/NaN)]
+    (when (and (number? num) (not (js/isNaN num)))
+      num)))
+
+(defn- coin-prefix [coin]
+  (let [coin* (non-blank-text coin)]
+    (when (and coin* (str/includes? coin* ":"))
+      (let [[prefix _suffix] (str/split coin* #":" 2)]
+        (non-blank-text prefix)))))
+
+(defn- market-dex-label [market]
+  (or (non-blank-text (:dex market))
+      (coin-prefix (:coin market))))
+
+(defn- leverage-chip-label [market]
+  (when-let [max-leverage (parse-optional-number (:maxLeverage market))]
+    (when (pos? max-leverage)
+      (let [whole-number? (= max-leverage (js/Math.floor max-leverage))
+            leverage-text (if whole-number?
+                            (str (js/Math.floor max-leverage))
+                            (fmt/safe-to-fixed max-leverage 1))]
+        (str leverage-text "x")))))
+
 (defn- resolve-active-market [full-state active-asset]
   (let [projected-market (:active-market full-state)
         market-by-key (get-in full-state [:asset-selector :market-by-key] {})]
@@ -62,7 +104,8 @@
   (let [coin (:coin market)
         base (or (:base market) coin)
         symbol (or (:symbol market) coin)
-        dex (:dex market)
+        dex-label (market-dex-label market)
+        leverage-label (leverage-chip-label market)
         market-type (:market-type market)
         market-key (or (:key market) (markets/coin->market-key coin))
         missing-icon? (contains? missing-icons market-key)
@@ -80,12 +123,14 @@
      [:div.flex.items-center.space-x-2.min-w-0
       [:span.font-medium.truncate symbol]
       (when (= market-type :spot)
-        [:span {:class ["px-1.5" "py-0.5" "text-xs" "font-medium" "rounded" "bg-base-300" "text-gray-200"]}
+        [:span {:class active-asset-chip-classes}
          "SPOT"])
-      (when dex
-        [:span {:class ["px-1.5" "py-0.5" "text-xs" "font-medium" "rounded"
-                        "bg-emerald-500/20" "text-emerald-300" "border" "border-emerald-500/30"]}
-         dex])]
+      (when dex-label
+        [:span {:class active-asset-chip-classes}
+         dex-label])
+      (when leverage-label
+        [:span {:class active-asset-chip-classes}
+         leverage-label])]
      [:svg {:fill "none"
             :stroke "currentColor"
             :viewBox "0 0 24 24"
