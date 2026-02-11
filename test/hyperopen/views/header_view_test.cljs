@@ -94,6 +94,16 @@
     (is (= [[:actions/disconnect-wallet]]
            (get-in disconnect-button [1 :on :click])))))
 
+(deftest wallet-menu-storage-toggle-defaults-to-device-when-mode-is-missing-test
+  (let [view (header-view/header-view {:wallet {:connected? true
+                                                 :address connected-address
+                                                 :agent {:status :not-ready}}})
+        storage-mode-toggle (find-node-by-role view "wallet-agent-storage-mode-toggle")
+        mode-value (find-node-by-role view "wallet-agent-storage-mode-value")]
+    (is (= [[:actions/set-agent-storage-mode :session]]
+           (get-in storage-mode-toggle [1 :on :click])))
+    (is (contains? (set (collect-strings mode-value)) "Device"))))
+
 (deftest wallet-menu-storage-toggle-dispatches-session-when-local-selected-test
   (let [view (header-view/header-view {:wallet {:connected? true
                                                  :address connected-address

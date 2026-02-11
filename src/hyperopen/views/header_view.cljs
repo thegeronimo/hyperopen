@@ -97,7 +97,7 @@
         (:error agent-state)])]))
 
 (defn- agent-storage-mode-row [agent-state]
-  (let [storage-mode (if (= :local (:storage-mode agent-state)) :local :session)
+  (let [storage-mode (if (= :session (:storage-mode agent-state)) :session :local)
         persistent? (= :local storage-mode)
         next-mode (if persistent? :session :local)
         disabled? (= :approving (:status agent-state))]
