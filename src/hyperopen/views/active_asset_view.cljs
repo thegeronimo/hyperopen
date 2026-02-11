@@ -41,6 +41,9 @@
           " / "
           (or (fmt/format-percentage change-pct) "--"))]))
 
+(def active-asset-grid-template
+  "md:grid-cols-[minmax(max-content,1.4fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,1.6fr)]")
+
 (defn- resolve-active-market [full-state active-asset]
   (let [projected-market (:active-market full-state)
         market-by-key (get-in full-state [:asset-selector :market-by-key] {})]
@@ -152,9 +155,9 @@
                    "items-center"
                    "px-0"
                    "py-2"
-                   "md:grid-cols-[1.4fr_0.9fr_0.9fr_1.1fr_1.1fr_1.2fr_1.6fr]"]}
+                   active-asset-grid-template]}
       ;; Asset/Pair column
-      [:div {:class ["flex" "justify-start" "app-shell-gutter-left"]}
+      [:div {:class ["flex" "justify-start" "app-shell-gutter-left" "min-w-fit"]}
        (asset-icon icon-market
                    dropdown-visible?
                    (get-in full-state [:asset-selector :missing-icons] #{}))]
@@ -227,8 +230,8 @@
                    "items-center"
                    "px-0"
                    "py-2"
-                   "md:grid-cols-[1.4fr_0.9fr_0.9fr_1.1fr_1.1fr_1.2fr_1.6fr]"]}
-     [:div {:class ["flex" "justify-start" "app-shell-gutter-left"]}
+                   active-asset-grid-template]}
+     [:div {:class ["flex" "justify-start" "app-shell-gutter-left" "min-w-fit"]}
       (asset-selector-trigger dropdown-visible?)]
 
      [:div.flex.justify-center

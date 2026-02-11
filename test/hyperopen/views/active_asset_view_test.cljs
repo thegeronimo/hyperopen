@@ -130,3 +130,21 @@
                 :market-type :perp}
         view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})]
     (is (contains-class? view-node "num"))))
+
+(deftest active-asset-row-prioritizes-symbol-column-during-resize-test
+  (let [ctx-data {:coin "SOL-USD"
+                  :mark 87.0
+                  :markRaw "87.0"
+                  :oracle 86.9
+                  :oracleRaw "86.9"
+                  :change24h 1.2
+                  :change24hPct 1.4
+                  :volume24h 1000
+                  :openInterest 100
+                  :fundingRate 0.001}
+        market {:coin "SOL-USD"
+                :symbol "SOL-USD"
+                :base "SOL"
+                :market-type :perp}
+        view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})]
+    (is (contains-class? view-node "md:grid-cols-[minmax(max-content,1.4fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,1.6fr)]"))))
