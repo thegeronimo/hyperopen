@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperopen.views.footer-view :as footer-view]
             [hyperopen.views.header-view :as header-view]
+            [hyperopen.views.notifications-view :as notifications-view]
             [hyperopen.views.trade-view :as trade-view]))
 
 (defn app-view [state]
@@ -25,4 +26,5 @@
          [:button.btn.btn-primary.w-full
           {:on {:click [[:actions/set-funding-modal nil]]}}
           "Close"]]])
+     (notifications-view/notifications-view state)
      (footer-view/footer-view state)]))

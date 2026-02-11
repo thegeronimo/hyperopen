@@ -220,3 +220,15 @@
     (is (contains? root-classes "overflow-y-auto"))
     (is (contains? root-classes "scrollbar-hide"))
     (is (not (contains? root-classes "xl:overflow-y-hidden")))))
+
+(deftest app-view-renders-global-order-feedback-toast-when-present-test
+  (let [view-node (app-view/app-view (assoc trade-view-test-state
+                                            :router {:path "/trade"}
+                                            :wallet {}
+                                            :ui {:toast {:kind :success
+                                                         :message "Order submitted."}}))
+        toast-node (find-first-node view-node
+                                    #(= "global-toast" (get-in % [1 :data-role])))]
+    (is (some? toast-node))
+    (is (contains? (set (collect-strings toast-node))
+                   "Order submitted."))))

@@ -138,6 +138,7 @@
                                :connecting? false
                                :error      nil
                                :agent (agent-session/default-agent-state)}
+                      :ui {:toast nil}
                       :account {:mode :classic
                                 :abstraction-raw nil}
                       :router {:path "/trade"}
@@ -214,10 +215,16 @@
 (def ^:private wallet-copy-feedback-duration-ms
   1500)
 
+(def ^:private order-feedback-toast-duration-ms
+  3500)
+
 (def ^:private agent-storage-mode-reset-message
   "Trading persistence updated. Enable Trading again.")
 
 (defonce ^:private wallet-copy-feedback-timeout-id
+  (atom nil))
+
+(defonce ^:private order-feedback-toast-timeout-id
   (atom nil))
 
 (defn- effective-now-ms
@@ -461,9 +468,40 @@
     (js/clearTimeout timeout-id)
     (reset! wallet-copy-feedback-timeout-id nil)))
 
+(defn- set-order-feedback-toast! [store kind message]
+  (let [message* (some-> message str str/trim)]
+    (swap! store assoc-in [:ui :toast]
+           (when (seq message*)
+             {:kind kind
+              :message message*}))))
+
+(defn- clear-order-feedback-toast! [store]
+  (swap! store assoc-in [:ui :toast] nil))
+
+(defn- clear-order-feedback-toast-timeout! []
+  (when-let [timeout-id @order-feedback-toast-timeout-id]
+    (js/clearTimeout timeout-id)
+    (reset! order-feedback-toast-timeout-id nil)))
+
+(defn- schedule-order-feedback-toast-clear! [store]
+  (clear-order-feedback-toast-timeout!)
+  (let [timeout-id (js/setTimeout
+                     (fn []
+                       (clear-order-feedback-toast! store)
+                       (reset! order-feedback-toast-timeout-id nil))
+                     order-feedback-toast-duration-ms)]
+    (reset! order-feedback-toast-timeout-id timeout-id)))
+
+(defn- show-order-feedback-toast! [store kind message]
+  (set-order-feedback-toast! store kind message)
+  (when (seq (get-in @store [:ui :toast :message]))
+    (schedule-order-feedback-toast-clear! store)))
+
 (defn disconnect-wallet [_ store]
   (println "Disconnecting wallet...")
   (clear-wallet-copy-feedback-timeout!)
+  (clear-order-feedback-toast-timeout!)
+  (clear-order-feedback-toast! store)
   (wallet/set-disconnected! store))
 
 (defn set-agent-storage-mode [_ store storage-mode]
@@ -2083,6 +2121,86 @@
         (.catch (fn [err]
                   (println "Error refreshing per-dex open orders after cancel:" err))))))
 
+(defn- submit-order-error-message
+  [resp]
+  (str "Order placement failed: " (exchange-response-error resp)))
+
+(defn- cancel-order-error-message
+  [resp]
+  (str "Order cancellation failed: " (exchange-response-error resp)))
+
+(defn api-submit-order
+  [_ store request]
+  (let [address (get-in @store [:wallet :address])
+        agent-status (get-in @store [:wallet :agent :status])]
+    (cond
+      (nil? address)
+      (do
+        (swap! store assoc-in [:order-form :error] "Connect your wallet before submitting.")
+        (show-order-feedback-toast! store :error "Connect your wallet before submitting."))
+
+      (not= :ready agent-status)
+      (do
+        (swap! store assoc-in [:order-form :error] "Enable trading before submitting orders.")
+        (show-order-feedback-toast! store :error "Enable trading before submitting orders."))
+
+      :else
+      (do
+        (swap! store assoc-in [:order-form :submitting?] true)
+        (-> (trading-api/submit-order! store address (:action request))
+            (.then (fn [resp]
+                     (swap! store assoc-in [:order-form :submitting?] false)
+                     (if (= "ok" (:status resp))
+                       (do
+                         (swap! store assoc-in [:order-form :error] nil)
+                         (show-order-feedback-toast! store :success "Order submitted.")
+                         (nxr/dispatch store nil [[:actions/refresh-order-history]]))
+                       (let [error-text (str (exchange-response-error resp))]
+                         (swap! store assoc-in [:order-form :error] error-text)
+                         (show-order-feedback-toast! store :error (submit-order-error-message resp))))))
+            (.catch (fn [err]
+                      (let [error-text (runtime-error-message err)]
+                        (swap! store assoc-in [:order-form :submitting?] false)
+                        (swap! store assoc-in [:order-form :error] error-text)
+                        (show-order-feedback-toast! store :error (str "Order placement failed: " error-text))))))))))
+
+(defn api-cancel-order
+  [_ store request]
+  (let [address (get-in @store [:wallet :address])
+        agent-status (get-in @store [:wallet :agent :status])]
+    (cond
+      (nil? address)
+      (do
+        (swap! store assoc-in [:orders :cancel-error] "Connect your wallet before cancelling.")
+        (show-order-feedback-toast! store :error "Connect your wallet before cancelling."))
+
+      (not= :ready agent-status)
+      (do
+        (swap! store assoc-in [:orders :cancel-error] "Enable trading before cancelling orders.")
+        (show-order-feedback-toast! store :error "Enable trading before cancelling orders."))
+
+      :else
+      (-> (trading-api/cancel-order! store address (:action request))
+          (.then (fn [resp]
+                   (if (= "ok" (:status resp))
+                     (do
+                       (swap! store
+                              (fn [state]
+                                (-> state
+                                    (assoc-in [:orders :cancel-error] nil)
+                                    (assoc-in [:orders :cancel-response] resp)
+                                    (prune-canceled-open-orders request))))
+                       (show-order-feedback-toast! store :success "Order canceled.")
+                       (refresh-open-orders-after-cancel! store address)
+                       (nxr/dispatch store nil [[:actions/refresh-order-history]]))
+                     (let [error-text (str (exchange-response-error resp))]
+                       (swap! store assoc-in [:orders :cancel-error] error-text)
+                       (show-order-feedback-toast! store :error (cancel-order-error-message resp))))))
+          (.catch (fn [err]
+                    (let [error-text (runtime-error-message err)]
+                      (swap! store assoc-in [:orders :cancel-error] error-text)
+                      (show-order-feedback-toast! store :error (str "Order cancellation failed: " error-text)))))))))
+
 (nxr/register-effect! :effects/api-fetch-historical-orders
   (fn [_ store request-id]
     (let [address (get-in @store [:wallet :address])]
@@ -2132,60 +2250,10 @@
           (.removeChild (.-body js/document) link)
           (.revokeObjectURL js/URL url))))))
 (nxr/register-effect! :effects/api-submit-order
-  (fn [_ store request]
-    (let [address (get-in @store [:wallet :address])
-          agent-status (get-in @store [:wallet :agent :status])]
-      (cond
-        (nil? address)
-        (swap! store assoc-in [:order-form :error] "Connect your wallet before submitting.")
-
-        (not= :ready agent-status)
-        (swap! store assoc-in [:order-form :error] "Enable trading before submitting orders.")
-
-        :else
-        (do
-          (swap! store assoc-in [:order-form :submitting?] true)
-          (-> (trading-api/submit-order! store address (:action request))
-              (.then (fn [resp]
-                       (swap! store assoc-in [:order-form :submitting?] false)
-                       (if (= "ok" (:status resp))
-                           (do
-                             (swap! store assoc-in [:order-form :error] nil)
-                             (nxr/dispatch store nil [[:actions/refresh-order-history]]))
-                           (swap! store assoc-in [:order-form :error]
-                                  (str (or (:error resp) (:response resp) resp))))))
-              (.catch (fn [err]
-                        (swap! store assoc-in [:order-form :submitting?] false)
-                        (swap! store assoc-in [:order-form :error] (str err))))))))))
+  api-submit-order)
 
 (nxr/register-effect! :effects/api-cancel-order
-  (fn [_ store request]
-    (let [address (get-in @store [:wallet :address])
-          agent-status (get-in @store [:wallet :agent :status])]
-      (cond
-        (nil? address)
-        (swap! store assoc-in [:orders :cancel-error] "Connect your wallet before cancelling.")
-
-        (not= :ready agent-status)
-        (swap! store assoc-in [:orders :cancel-error] "Enable trading before cancelling orders.")
-
-        :else
-        (-> (trading-api/cancel-order! store address (:action request))
-            (.then (fn [resp]
-                     (if (= "ok" (:status resp))
-                       (do
-                         (swap! store
-                                (fn [state]
-                                  (-> state
-                                      (assoc-in [:orders :cancel-error] nil)
-                                      (assoc-in [:orders :cancel-response] resp)
-                                      (prune-canceled-open-orders request))))
-                         (refresh-open-orders-after-cancel! store address)
-                         (nxr/dispatch store nil [[:actions/refresh-order-history]]))
-                       (swap! store assoc-in [:orders :cancel-error]
-                              (str (or (:error resp) (:response resp) resp)))))
-            (.catch (fn [err]
-                      (swap! store assoc-in [:orders :cancel-error] (str err))))))))))
+  api-cancel-order)
 
 (nxr/register-effect! :effects/api-load-user-data
   (fn [_ store address]
