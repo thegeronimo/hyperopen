@@ -1578,6 +1578,31 @@
                                                  :cancels [{:a 12 :o 307891000622}]}}]]
            effects))))
 
+(deftest prune-canceled-open-orders-removes-canceled-oid-across-all-sources-test
+  (let [state {:orders {:open-orders [{:order {:coin "BTC" :oid 101}}
+                                      {:order {:coin "ETH" :oid 102}}]
+                        :open-orders-snapshot {:orders [{:order {:coin "BTC" :oid 101}}
+                                                        {:order {:coin "SOL" :oid 103}}]}
+                        :open-orders-snapshot-by-dex {"dex-a" [{:order {:coin "BTC" :oid 101}}]
+                                                      "dex-b" [{:order {:coin "XRP" :oid 104}}]}}}
+        request {:action {:type "cancel"
+                          :cancels [{:a 0 :o 101}]}}
+        next-state (core/prune-canceled-open-orders state request)]
+    (is (= #{102}
+           (->> (get-in next-state [:orders :open-orders])
+                (map #(get-in % [:order :oid]))
+                set)))
+    (is (= #{103}
+           (->> (get-in next-state [:orders :open-orders-snapshot :orders])
+                (map #(get-in % [:order :oid]))
+                set)))
+    (is (= []
+           (get-in next-state [:orders :open-orders-snapshot-by-dex "dex-a"])))
+    (is (= #{104}
+           (->> (get-in next-state [:orders :open-orders-snapshot-by-dex "dex-b"])
+                (map #(get-in % [:order :oid]))
+                set)))))
+
 (deftest enable-agent-trading-action-emits-approving-projection-before-effect-test
   (let [state {:wallet {:connected? true
                         :address "0xabc"

@@ -1824,6 +1824,66 @@
              (get-in state [:asset-contexts coin :idx]))
            market-idx])))
 
+(defn- cancel-request-oids
+  [request]
+  (->> (get-in request [:action :cancels] [])
+       (keep (fn [cancel]
+               (some parse-int-value
+                     [(:o cancel)
+                      (:oid cancel)])))
+       set))
+
+(defn- remove-canceled-open-orders-seq
+  [orders cancel-oids]
+  (->> (or orders [])
+       (remove (fn [order]
+                 (when-let [oid (resolve-cancel-order-oid order)]
+                   (contains? cancel-oids oid))))
+       vec))
+
+(defn- remove-canceled-open-orders
+  [orders cancel-oids]
+  (cond
+    (not (seq cancel-oids))
+    orders
+
+    (sequential? orders)
+    (remove-canceled-open-orders-seq orders cancel-oids)
+
+    (map? orders)
+    (cond
+      (sequential? (:orders orders))
+      (update orders :orders remove-canceled-open-orders-seq cancel-oids)
+
+      (sequential? (:openOrders orders))
+      (update orders :openOrders remove-canceled-open-orders-seq cancel-oids)
+
+      (sequential? (:data orders))
+      (update orders :data remove-canceled-open-orders-seq cancel-oids)
+
+      :else
+      orders)
+
+    :else
+    orders))
+
+(defn prune-canceled-open-orders
+  [state request]
+  (let [cancel-oids (cancel-request-oids request)]
+    (if (seq cancel-oids)
+      (-> state
+          (update-in [:orders :open-orders] remove-canceled-open-orders cancel-oids)
+          (update-in [:orders :open-orders-snapshot] remove-canceled-open-orders cancel-oids)
+          (update-in [:orders :open-orders-snapshot-by-dex]
+                     (fn [orders-by-dex]
+                       (reduce-kv (fn [acc dex dex-orders]
+                                    (assoc acc dex (remove-canceled-open-orders dex-orders cancel-oids)))
+                                  (if (map? orders-by-dex)
+                                    (empty orders-by-dex)
+                                    {})
+                                  (or orders-by-dex {})))))
+      state)))
+
 (defn cancel-order [state order]
   (let [agent-ready? (= :ready (get-in state [:wallet :agent :status]))
         coin (normalize-cancel-order-coin order)
@@ -2012,6 +2072,17 @@
                                      (assoc-in [:account-info :funding-history :loading?] false)
                                      (assoc-in [:account-info :funding-history :error] (str err)))
                                  state))))))))))
+(defn- refresh-open-orders-after-cancel!
+  [store address]
+  (when address
+    (api/fetch-frontend-open-orders! store address {:priority :high})
+    (-> (api/ensure-perp-dexs! store {:priority :low})
+        (.then (fn [dexs]
+                 (doseq [dex (or dexs [])]
+                   (api/fetch-frontend-open-orders! store address dex {:priority :low}))))
+        (.catch (fn [err]
+                  (println "Error refreshing per-dex open orders after cancel:" err))))))
+
 (nxr/register-effect! :effects/api-fetch-historical-orders
   (fn [_ store request-id]
     (let [address (get-in @store [:wallet :address])]
@@ -2103,8 +2174,13 @@
             (.then (fn [resp]
                      (if (= "ok" (:status resp))
                        (do
-                         (swap! store assoc-in [:orders :cancel-error] nil)
-                         (swap! store assoc-in [:orders :cancel-response] resp)
+                         (swap! store
+                                (fn [state]
+                                  (-> state
+                                      (assoc-in [:orders :cancel-error] nil)
+                                      (assoc-in [:orders :cancel-response] resp)
+                                      (prune-canceled-open-orders request))))
+                         (refresh-open-orders-after-cancel! store address)
                          (nxr/dispatch store nil [[:actions/refresh-order-history]]))
                        (swap! store assoc-in [:orders :cancel-error]
                               (str (or (:error resp) (:response resp) resp)))))
