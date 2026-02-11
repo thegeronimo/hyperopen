@@ -952,10 +952,20 @@
                               (markets/resolve-market-by-coin market-by-key coin)))
         canonical-coin (or (:coin resolved-market) coin)
         current-asset (get-in state [:active-asset])
-        immediate-ui-effects [[:effects/save-many [[[:asset-selector :visible-dropdown] nil]
-                                                   [[:orderbook-ui :price-aggregation-dropdown-visible?] false]
-                                                   [[:orderbook-ui :size-unit-dropdown-visible?] false]
-                                                   [[:active-market] resolved-market]]]]
+        switched-asset? (and (seq canonical-coin)
+                             (not= canonical-coin current-asset))
+        reset-order-form (when (and switched-asset?
+                                    (map? (:order-form state)))
+                           (assoc (:order-form state)
+                                  :price ""
+                                  :price-input-focused? false))
+        immediate-ui-path-values (cond-> [[[:asset-selector :visible-dropdown] nil]
+                                          [[:orderbook-ui :price-aggregation-dropdown-visible?] false]
+                                          [[:orderbook-ui :size-unit-dropdown-visible?] false]
+                                          [[:active-market] resolved-market]]
+                                   reset-order-form
+                                   (conj [[:order-form] reset-order-form]))
+        immediate-ui-effects [[:effects/save-many immediate-ui-path-values]]
         unsubscribe-effects (if current-asset
                              [[:effects/unsubscribe-active-asset current-asset]
                               [:effects/unsubscribe-orderbook current-asset]
@@ -1741,6 +1751,26 @@
         next-form* (assoc next-form :error nil)]
     [[:effects/save-many [[[:order-form] next-form*]]]]))
 
+(defn focus-order-price-input [state]
+  (let [form (:order-form state)
+        normalized-form (trading/normalize-order-form state form)
+        raw-price (or (:price normalized-form) "")
+        fallback-price (when (and (trading/limit-like-type? (:type normalized-form))
+                                  (str/blank? raw-price))
+                         (trading/effective-limit-price-string state normalized-form))
+        should-capture-fallback? (seq fallback-price)
+        updated (cond-> (assoc form :price-input-focused? true)
+                  should-capture-fallback? (assoc :price fallback-price))
+        next-form (if (and should-capture-fallback?
+                           (pos? (or (trading/parse-num (:size-percent updated)) 0)))
+                    (trading/sync-size-from-percent state updated)
+                    updated)]
+    [[:effects/save-many [[[:order-form] next-form]]]]))
+
+(defn blur-order-price-input [state]
+  (let [form (:order-form state)]
+    [[:effects/save-many [[[:order-form] (assoc form :price-input-focused? false)]]]]))
+
 (defn set-order-price-to-mid [state]
   (let [form (:order-form state)
         normalized-form (trading/normalize-order-form state form)
@@ -2351,6 +2381,8 @@
 (nxr/register-action! :actions/set-order-ui-leverage set-order-ui-leverage)
 (nxr/register-action! :actions/set-order-size-percent set-order-size-percent)
 (nxr/register-action! :actions/set-order-size-display set-order-size-display)
+(nxr/register-action! :actions/focus-order-price-input focus-order-price-input)
+(nxr/register-action! :actions/blur-order-price-input blur-order-price-input)
 (nxr/register-action! :actions/set-order-price-to-mid set-order-price-to-mid)
 (nxr/register-action! :actions/toggle-order-tpsl-panel toggle-order-tpsl-panel)
 (nxr/register-action! :actions/update-order-form update-order-form)

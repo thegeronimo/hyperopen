@@ -737,6 +737,29 @@
     (is (= :effects/save-many (ffirst effects)))
     (is (not-any? #(= (first %) :effects/fetch-candle-snapshot) effects))))
 
+(deftest select-asset-resets-price-input-focus-lock-to-dynamic-state-test
+  (let [market {:key :perp/BTC
+                :coin "BTC"}
+        order-form (assoc (trading/default-order-form)
+                          :type :limit
+                          :price "70155"
+                          :price-input-focused? true)
+        effects (core/select-asset {:active-asset "ETH"
+                                    :order-form order-form
+                                    :asset-selector {:visible-dropdown :asset-selector}
+                                    :orderbook-ui {:price-aggregation-dropdown-visible? true
+                                                   :size-unit-dropdown-visible? true}}
+                                   market)
+        save-many-path-values (-> effects first second)
+        saved-order-form (some (fn [[path value]]
+                                 (when (= [:order-form] path)
+                                   value))
+                               save-many-path-values)]
+    (is (= :effects/save-many (ffirst effects)))
+    (is (some? saved-order-form))
+    (is (= false (:price-input-focused? saved-order-form)))
+    (is (= "" (:price saved-order-form)))))
+
 (deftest websocket-diagnostics-ui-actions-emit-deterministic-effects-test
   (is (= [[:effects/save-many [[[:websocket-ui :diagnostics-open?] true]
                                [[:websocket-ui :reveal-sensitive?] false]
@@ -1564,6 +1587,47 @@
     (is (= "2" (:size-display saved-form)))
     (is (= "0.00002" (:size saved-form)))
     (is (<= (js/Math.abs (- 1.4 (:order-value summary))) 0.01))))
+
+(deftest focus-order-price-input-locks-price-and-captures-current-fallback-test
+  (let [state {:active-asset "BTC"
+               :active-market {:coin "BTC" :mark 70000 :maxLeverage 40 :szDecimals 4}
+               :orderbooks {"BTC" {:bids [{:px "70120"} {:px "70150"} {:px "70090"}]
+                                   :asks [{:px "70240"} {:px "70160"} {:px "70210"}]}}
+               :order-form (assoc (trading/default-order-form) :type :limit :price "" :price-input-focused? false)}
+        effects (core/focus-order-price-input state)
+        saved-form (-> effects first second first second)]
+    (is (= 1 (count effects)))
+    (is (= :effects/save-many (ffirst effects)))
+    (is (= true (:price-input-focused? saved-form)))
+    (is (= "70155" (:price saved-form)))))
+
+(deftest focus-order-price-input-does-not-overwrite-manual-price-test
+  (let [state {:active-asset "BTC"
+               :active-market {:coin "BTC" :mark 70000 :maxLeverage 40 :szDecimals 4}
+               :orderbooks {"BTC" {:bids [{:px "70120"}]
+                                   :asks [{:px "70160"}]}}
+               :order-form (assoc (trading/default-order-form)
+                                  :type :limit
+                                  :price "70133.5"
+                                  :price-input-focused? false)}
+        effects (core/focus-order-price-input state)
+        saved-form (-> effects first second first second)]
+    (is (= 1 (count effects)))
+    (is (= :effects/save-many (ffirst effects)))
+    (is (= true (:price-input-focused? saved-form)))
+    (is (= "70133.5" (:price saved-form)))))
+
+(deftest blur-order-price-input-releases-focus-lock-without-mutating-price-test
+  (let [state {:order-form (assoc (trading/default-order-form)
+                                  :type :limit
+                                  :price "70155"
+                                  :price-input-focused? true)}
+        effects (core/blur-order-price-input state)
+        saved-form (-> effects first second first second)]
+    (is (= 1 (count effects)))
+    (is (= :effects/save-many (ffirst effects)))
+    (is (= false (:price-input-focused? saved-form)))
+    (is (= "70155" (:price saved-form)))))
 
 (deftest set-order-price-to-mid-uses-best-bid-ask-midpoint-test
   (let [state {:active-asset "BTC"

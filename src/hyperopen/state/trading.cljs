@@ -38,6 +38,7 @@
    :size-display ""
    :size ""
    :price ""
+   :price-input-focused? false
    :trigger-px ""
    :reduce-only false
    :post-only false
@@ -515,10 +516,12 @@
                                    :size-display (or (:size-display form) (:size form) "")
                                    :size-percent (clamp-percent (:size-percent form))
                                    :pro-order-type-dropdown-open? (boolean (:pro-order-type-dropdown-open? form))
+                                   :price-input-focused? (boolean (:price-input-focused? form))
                                    :ui-leverage (normalize-ui-leverage state (:ui-leverage form))
                                    :tpsl-panel-open? (boolean (:tpsl-panel-open? form)))
                             (assoc :scale (normalize-scale-form (:scale form))))]
     (cond-> normalized-form
+      (not (limit-like-type? final-type)) (assoc :price-input-focused? false)
       (= :scale final-type) (assoc :tpsl-panel-open? false)
       (= :scale final-type) (assoc-in [:tp :enabled?] false)
       (= :scale final-type) (assoc-in [:sl :enabled?] false))))

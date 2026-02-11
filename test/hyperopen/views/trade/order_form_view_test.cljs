@@ -321,8 +321,10 @@
                                      (fn [node]
                                        (let [attrs (when (map? (second node)) (second node))]
                                          (and (= :input (first node))
-                                              (= "Price (USDC)" (:placeholder attrs))))))
+                                             (= "Price (USDC)" (:placeholder attrs))))))
         price-attrs (second price-input)
+        price-focus (get-in price-attrs [:on :focus])
+        price-blur (get-in price-attrs [:on :blur])
         mid-button (find-first-node view-node
                                     (fn [node]
                                       (let [attrs (when (map? (second node)) (second node))]
@@ -332,8 +334,30 @@
                                                 (get-in attrs [:on :click]))))))]
     (is (some? price-input))
     (is (seq (:value price-attrs)))
+    (is (= [[:actions/focus-order-price-input]] price-focus))
+    (is (= [[:actions/blur-order-price-input]] price-blur))
     (is (contains? strings "Mid"))
     (is (some? mid-button))))
+
+(deftest price-row-pauses-midpoint-fallback-while-input-is-focused-test
+  (let [unfocused-view (view/order-form-view (base-state {:type :limit
+                                                           :price ""
+                                                           :price-input-focused? false}))
+        focused-view (view/order-form-view (base-state {:type :limit
+                                                        :price ""
+                                                        :price-input-focused? true}))
+        find-price-input (fn [view-node]
+                           (find-first-node view-node
+                                            (fn [node]
+                                              (let [attrs (when (map? (second node)) (second node))]
+                                                (and (= :input (first node))
+                                                     (= "Price (USDC)" (:placeholder attrs)))))))
+        unfocused-price-input (find-price-input unfocused-view)
+        focused-price-input (find-price-input focused-view)]
+    (is (some? unfocused-price-input))
+    (is (some? focused-price-input))
+    (is (seq (:value (second unfocused-price-input))))
+    (is (= "" (:value (second focused-price-input))))))
 
 (deftest slider-percent-input-is-editable-and-no-numeric-spinner-input-test
   (let [view-node (view/order-form-view (base-state {:type :limit :size-percent 37}))

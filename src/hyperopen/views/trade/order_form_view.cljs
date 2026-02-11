@@ -65,47 +65,50 @@
            :value (or value "")
            :on {:input on-change}}])
 
-(defn- row-input [value placeholder on-change accessory & {:keys [input-padding-right]
+(defn- row-input [value placeholder on-change accessory & {:keys [input-padding-right on-focus on-blur]
                                                            :or {input-padding-right "pr-20"}}]
-  [:div {:class ["relative" "w-full"]}
-   [:span {:class ["order-row-input-label"
-                   "pointer-events-none"
-                   "absolute"
-                   "left-3"
-                   "top-1/2"
-                   "-translate-y-1/2"
-                   "max-w-[52%]"
-                   "truncate"
-                   "text-sm"
-                   "text-gray-500"]}
-    placeholder]
-   [:input {:class (into ["w-full"
-                          "h-11"
-                          "pl-24"
-                          "bg-base-200"
-                          "border"
-                          "border-base-300"
-                          "rounded-lg"
-                          "text-sm"
-                          "text-right"
-                          "text-gray-100"
-                          "num"
-                          "placeholder:text-transparent"
-                          "appearance-none"]
-                         (concat neutral-input-focus-classes
-                                 (if accessory [input-padding-right] ["pr-3"])))
-            :type "text"
-            :aria-label placeholder
-            :placeholder placeholder
-            :value (or value "")
-            :on {:input on-change}}]
-   (when accessory
-     [:div {:class ["absolute"
-                    "right-3"
-                    "top-1/2"
-                    "-translate-y-1/2"
-                    "shrink-0"]}
-      accessory])])
+  (let [input-events (cond-> {:input on-change}
+                       on-focus (assoc :focus on-focus)
+                       on-blur (assoc :blur on-blur))]
+    [:div {:class ["relative" "w-full"]}
+     [:span {:class ["order-row-input-label"
+                     "pointer-events-none"
+                     "absolute"
+                     "left-3"
+                     "top-1/2"
+                     "-translate-y-1/2"
+                     "max-w-[52%]"
+                     "truncate"
+                     "text-sm"
+                     "text-gray-500"]}
+      placeholder]
+     [:input {:class (into ["w-full"
+                            "h-11"
+                            "pl-24"
+                            "bg-base-200"
+                            "border"
+                            "border-base-300"
+                            "rounded-lg"
+                            "text-sm"
+                            "text-right"
+                            "text-gray-100"
+                            "num"
+                            "placeholder:text-transparent"
+                            "appearance-none"]
+                           (concat neutral-input-focus-classes
+                                   (if accessory [input-padding-right] ["pr-3"])))
+              :type "text"
+              :aria-label placeholder
+              :placeholder placeholder
+              :value (or value "")
+              :on input-events}]
+     (when accessory
+       [:div {:class ["absolute"
+                      "right-3"
+                      "top-1/2"
+                      "-translate-y-1/2"
+                      "shrink-0"]}
+        accessory])]))
 
 (defn- inline-labeled-scale-input [label value on-change]
   [:div {:class ["relative" "w-full"]}
@@ -503,11 +506,18 @@
         size-percent (trading/clamp-percent (:size-percent normalized-form))
         notch-overlap-threshold 4
         raw-price (or (:price normalized-form) "")
+        price-input-focused? (boolean (:price-input-focused? normalized-form))
         fallback-limit-price (when limit-like?
                                (trading/effective-limit-price-string state normalized-form))
-        display-price (if (str/blank? raw-price)
+        display-price (cond
+                        (not (str/blank? raw-price))
+                        raw-price
+
+                        (and (not price-input-focused?) limit-like?)
                         (or fallback-limit-price "")
-                        raw-price)
+
+                        :else
+                        "")
         sz-decimals (or (:szDecimals active-market) 4)
         base-symbol (resolve-base-symbol active-asset active-market)
         quote-symbol (resolve-quote-symbol active-asset active-market)
@@ -596,7 +606,9 @@
                    (str "Price (" quote-symbol ")")
                    [[:actions/update-order-form [:price] [:event.target/value]]]
                    (price-context-accessory state normalized-form)
-                   :input-padding-right "pr-14"))
+                   :input-padding-right "pr-14"
+                   :on-focus [[:actions/focus-order-price-input]]
+                   :on-blur [[:actions/blur-order-price-input]]))
 
       (row-input size-display
                  "Size"
