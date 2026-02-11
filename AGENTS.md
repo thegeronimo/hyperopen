@@ -23,6 +23,21 @@
 - MUST keep runtime behavior deterministic where architecture depends on ordered/event-driven flows.
 - MUST NOT include machine-specific absolute paths in repo docs or agent guidance; use repo-root paths like `/hyperopen/...` instead.
 
+## Crypto Signing and Exchange API Rules (MUST)
+- MUST treat signing payload serialization as consensus-critical behavior; any wire-format change requires explicit parity tests against known vectors.
+- MUST preserve integer fidelity for signing-critical fields (`oid`, nonces, asset indexes, sizes where applicable) and MUST NOT route them through lossy float encoding.
+- MUST keep signing identity deterministic: the signing private key and persisted `agent-address` must be reconciled before signing/submit.
+- MUST fail fast or reconcile when persisted session identity drifts, and MUST NOT silently continue with mismatched key/address pairs.
+- MUST verify missing-wallet/missing-agent exchange errors before clearing local agent credentials (for example via `userRole` or equivalent info lookup).
+- MUST avoid destructive key invalidation on ambiguous errors; only clear local credentials when invalidity is confirmed.
+- MUST keep signing diagnostics non-sensitive: log hashes, action types, and derived signer metadata only; MUST NOT log raw private keys or raw secret material.
+- MUST keep protocol-shape translation and exchange error normalization centralized in ACL/API boundaries (for example `/hyperopen/src/hyperopen/api/trading.cljs` and signing utilities), not UI callbacks.
+- MUST cross-check signing and exchange action behavior against these reference SDKs whenever signing/API code is changed:
+  [nktkas/hyperliquid](https://github.com/nktkas/hyperliquid),
+  [nomeida/hyperliquid](https://github.com/nomeida/hyperliquid),
+  [hyperliquid-dex/hyperliquid-python-sdk](https://github.com/hyperliquid-dex/hyperliquid-python-sdk).
+- MUST document any intentional divergence from reference SDK behavior in PR notes and include compensating regression coverage.
+
 ## UI Interaction Runtime Rules (MUST)
 - MUST apply user-visible UI state transitions first in an action pipeline (example: close dropdown immediately before unsubscribe/subscribe/fetch effects).
 - MUST batch related UI state writes caused by one interaction into a single state projection effect when feasible.
@@ -127,6 +142,10 @@
 - MUST include no-duplicate-effects tests for selection flows (no repeated network/subscription effects caused by one action dispatch).
 - MUST include view fallback tests ensuring active symbol/icon text renders from canonical identity when market projection is partial.
 - MUST include regression tests for selection transitions from asset A -> B covering both timing and render correctness.
+- MUST include signing parity tests with known vectors for each signed exchange action touched by a change (at minimum `order` and `cancel` when modified), including large-integer boundary cases.
+- MUST include regression tests that guard signer/session reconciliation behavior when persisted `agent-address` and derived key address diverge.
+- MUST include regression tests for missing API-wallet handling that verify credential preservation vs invalidation decisions.
+- MUST validate new/changed signing vectors against at least one of the listed reference SDKs; for high-risk or ambiguous cases, use at least two references.
 - MUST pass compile gates: `npx shadow-cljs compile app` and `npx shadow-cljs compile test`.
 - MUST keep websocket-focused tests independently runnable.
 
