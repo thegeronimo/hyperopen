@@ -830,8 +830,10 @@
                 (swap! store
                        (fn [state]
                          (let [current-phase (get-in state [:asset-selector :phase])
+                               cache-hydrated? (boolean (get-in state [:asset-selector :cache-hydrated?]))
                                prefer-current? (and (= phase :bootstrap)
-                                                    (= current-phase :full))]
+                                                    (= current-phase :full)
+                                                    (not cache-hydrated?))]
                            (if prefer-current?
                              (-> state
                                  (assoc-in [:asset-selector :loaded-at-ms] loaded-at-ms))
@@ -840,7 +842,9 @@
                                  (assoc-in [:asset-selector :market-by-key] market-by-key)
                                  (assoc :active-market (or active-market (:active-market state)))
                                  (assoc-in [:asset-selector :loaded-at-ms] loaded-at-ms)
-                                 (assoc-in [:asset-selector :phase] phase)))
+                                 (assoc-in [:asset-selector :phase] phase)
+                                 (assoc-in [:asset-selector :cache-hydrated?] false)
+                                 (assoc-in [:asset-selector :error] nil)))
                            )))
                 ;; Always clear loading when this phase resolves.
                 (swap! store assoc-in [:asset-selector :loading?] false)
