@@ -6,6 +6,7 @@
             [hyperopen.order.actions :as order-actions]
             [hyperopen.orderbook.actions :as orderbook-actions]
             [hyperopen.orderbook.settings :as orderbook-settings]
+            [hyperopen.runtime.action-adapters :as action-adapters]
             [hyperopen.startup.restore :as startup-restore]
             [hyperopen.ui.preferences :as ui-preferences]))
 
@@ -48,9 +49,8 @@
 (def maybe-increase-asset-selector-render-limit
   asset-actions/maybe-increase-asset-selector-render-limit)
 
-(defn refresh-asset-markets
-  [_state]
-  [[:effects/fetch-asset-selector-markets]])
+(def refresh-asset-markets
+  action-adapters/refresh-asset-markets)
 
 (def apply-asset-icon-status-updates
   asset-actions/apply-asset-icon-status-updates)
@@ -289,10 +289,8 @@
 (def cancel-order
   order-actions/cancel-order)
 
-(defn load-user-data
-  [_state address]
-  [[:effects/api-load-user-data address]])
+(def load-user-data
+  action-adapters/load-user-data)
 
-(defn set-funding-modal
-  [_state modal]
-  [[:effects/save [:funding-ui :modal] modal]])
+(def set-funding-modal
+  action-adapters/set-funding-modal)

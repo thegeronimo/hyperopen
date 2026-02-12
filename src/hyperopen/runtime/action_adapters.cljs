@@ -1,6 +1,7 @@
 (ns hyperopen.runtime.action-adapters
   (:require [nexus.registry :as nxr]
             [hyperopen.api.trading :as trading-api]
+            [hyperopen.router :as router]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.wallet.agent-runtime :as agent-runtime]
             [hyperopen.wallet.actions :as wallet-actions]
@@ -19,6 +20,23 @@
 
 (defn subscribe-to-webdata2 [_state address]
   [[:effects/subscribe-webdata2 address]])
+
+(defn refresh-asset-markets [_state]
+  [[:effects/fetch-asset-selector-markets]])
+
+(defn load-user-data [_state address]
+  [[:effects/api-load-user-data address]])
+
+(defn set-funding-modal [_state modal]
+  [[:effects/save [:funding-ui :modal] modal]])
+
+(defn navigate
+  [_state path & [opts]]
+  (let [p (router/normalize-path path)
+        replace? (boolean (:replace? opts))]
+    (cond-> [[:effects/save [:router :path] p]]
+      replace? (conj [:effects/replace-state p])
+      (not replace?) (conj [:effects/push-state p]))))
 
 (defn connect-wallet-action [state]
   (wallet-actions/connect-wallet-action state))
