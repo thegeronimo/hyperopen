@@ -25,6 +25,7 @@
             [hyperopen.order.effects :as order-effects]
             [hyperopen.asset-selector.active-market-cache :as active-market-cache]
             [hyperopen.asset-selector.actions :as asset-actions]
+            [hyperopen.asset-selector.icon-status-runtime :as icon-status-runtime]
             [hyperopen.asset-selector.markets-cache :as markets-cache]
             [hyperopen.asset-selector.settings :as asset-selector-settings]
             [hyperopen.asset-selector.markets :as markets]
@@ -290,27 +291,22 @@
     (js/setTimeout f 16)))
 
 (defn- flush-queued-asset-icon-statuses! [store]
-  (let [status-by-market @pending-asset-icon-statuses]
-    (reset! pending-asset-icon-statuses {})
-    (reset! asset-icon-status-flush-handle nil)
-    (when (seq status-by-market)
-      (let [{:keys [loaded-icons missing-icons changed?]}
-            (asset-actions/apply-asset-icon-status-updates @store status-by-market)]
-        (when changed?
-          (save-many nil
-                     store
-                     [[[:asset-selector :loaded-icons] loaded-icons]
-                      [[:asset-selector :missing-icons] missing-icons]]))))))
+  (icon-status-runtime/flush-queued-asset-icon-statuses!
+   {:store store
+    :pending-statuses pending-asset-icon-statuses
+    :flush-handle asset-icon-status-flush-handle
+    :apply-asset-icon-status-updates-fn asset-actions/apply-asset-icon-status-updates
+    :save-many! (fn [runtime-store path-values]
+                  (save-many nil runtime-store path-values))}))
 
 (defn queue-asset-icon-status [_ store payload]
-  (let [{:keys [market-key status]} (or payload {})]
-    (when (and (seq market-key)
-               (contains? #{:loaded :missing} status))
-      (swap! pending-asset-icon-statuses assoc market-key status)
-      (when-not @asset-icon-status-flush-handle
-        (reset! asset-icon-status-flush-handle
-                (schedule-animation-frame!
-                  #(flush-queued-asset-icon-statuses! store)))))))
+  (icon-status-runtime/queue-asset-icon-status!
+   {:store store
+    :payload payload
+    :pending-statuses pending-asset-icon-statuses
+    :flush-handle asset-icon-status-flush-handle
+    :schedule-animation-frame! schedule-animation-frame!
+    :flush-queued-asset-icon-statuses! flush-queued-asset-icon-statuses!}))
 
 (defn push-state [_ _ path]
   (.pushState js/history nil "" path))
