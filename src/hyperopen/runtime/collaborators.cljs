@@ -1,0 +1,122 @@
+(ns hyperopen.runtime.collaborators
+  (:require [hyperopen.account.history.actions :as account-history-actions]
+            [hyperopen.account.history.effects :as account-history-effects]
+            [hyperopen.asset-selector.actions :as asset-actions]
+            [hyperopen.chart.actions :as chart-actions]
+            [hyperopen.chart.settings :as chart-settings]
+            [hyperopen.order.actions :as order-actions]
+            [hyperopen.orderbook.actions :as orderbook-actions]
+            [hyperopen.wallet.actions :as wallet-actions]))
+
+(defn- wallet-action-deps []
+  {:connect-wallet-action wallet-actions/connect-wallet-action
+   :disconnect-wallet-action wallet-actions/disconnect-wallet-action
+   :copy-wallet-address-action wallet-actions/copy-wallet-address-action})
+
+(defn- asset-selector-action-deps []
+  {:toggle-asset-dropdown asset-actions/toggle-asset-dropdown
+   :close-asset-dropdown asset-actions/close-asset-dropdown
+   :select-asset asset-actions/select-asset
+   :update-asset-search asset-actions/update-asset-search
+   :update-asset-selector-sort asset-actions/update-asset-selector-sort
+   :toggle-asset-selector-strict asset-actions/toggle-asset-selector-strict
+   :toggle-asset-favorite asset-actions/toggle-asset-favorite
+   :set-asset-selector-favorites-only asset-actions/set-asset-selector-favorites-only
+   :set-asset-selector-tab asset-actions/set-asset-selector-tab
+   :set-asset-selector-scroll-top asset-actions/set-asset-selector-scroll-top
+   :increase-asset-selector-render-limit asset-actions/increase-asset-selector-render-limit
+   :show-all-asset-selector-markets asset-actions/show-all-asset-selector-markets
+   :maybe-increase-asset-selector-render-limit asset-actions/maybe-increase-asset-selector-render-limit
+   :mark-loaded-asset-icon asset-actions/mark-loaded-asset-icon
+   :mark-missing-asset-icon asset-actions/mark-missing-asset-icon})
+
+(defn- chart-and-orderbook-action-deps []
+  {:toggle-timeframes-dropdown chart-actions/toggle-timeframes-dropdown
+   :select-chart-timeframe chart-actions/select-chart-timeframe
+   :toggle-chart-type-dropdown chart-actions/toggle-chart-type-dropdown
+   :select-chart-type chart-actions/select-chart-type
+   :toggle-indicators-dropdown chart-actions/toggle-indicators-dropdown
+   :toggle-orderbook-size-unit-dropdown orderbook-actions/toggle-orderbook-size-unit-dropdown
+   :select-orderbook-size-unit orderbook-actions/select-orderbook-size-unit
+   :toggle-orderbook-price-aggregation-dropdown orderbook-actions/toggle-orderbook-price-aggregation-dropdown
+   :select-orderbook-price-aggregation orderbook-actions/select-orderbook-price-aggregation
+   :select-orderbook-tab orderbook-actions/select-orderbook-tab
+   :add-indicator chart-settings/add-indicator
+   :remove-indicator chart-settings/remove-indicator
+   :update-indicator-period chart-settings/update-indicator-period})
+
+(defn- account-history-action-deps []
+  {:select-account-info-tab account-history-actions/select-account-info-tab
+   :set-funding-history-filters account-history-actions/set-funding-history-filters
+   :toggle-funding-history-filter-open account-history-actions/toggle-funding-history-filter-open
+   :toggle-funding-history-filter-coin account-history-actions/toggle-funding-history-filter-coin
+   :reset-funding-history-filter-draft account-history-actions/reset-funding-history-filter-draft
+   :apply-funding-history-filters account-history-actions/apply-funding-history-filters
+   :view-all-funding-history account-history-actions/view-all-funding-history
+   :export-funding-history-csv account-history-actions/export-funding-history-csv
+   :set-funding-history-page-size account-history-actions/set-funding-history-page-size
+   :set-funding-history-page account-history-actions/set-funding-history-page
+   :next-funding-history-page account-history-actions/next-funding-history-page
+   :prev-funding-history-page account-history-actions/prev-funding-history-page
+   :set-funding-history-page-input account-history-actions/set-funding-history-page-input
+   :apply-funding-history-page-input account-history-actions/apply-funding-history-page-input
+   :handle-funding-history-page-input-keydown account-history-actions/handle-funding-history-page-input-keydown
+   :set-trade-history-page-size account-history-actions/set-trade-history-page-size
+   :set-trade-history-page account-history-actions/set-trade-history-page
+   :next-trade-history-page account-history-actions/next-trade-history-page
+   :prev-trade-history-page account-history-actions/prev-trade-history-page
+   :set-trade-history-page-input account-history-actions/set-trade-history-page-input
+   :apply-trade-history-page-input account-history-actions/apply-trade-history-page-input
+   :handle-trade-history-page-input-keydown account-history-actions/handle-trade-history-page-input-keydown
+   :sort-trade-history account-history-actions/sort-trade-history
+   :sort-positions account-history-actions/sort-positions
+   :sort-balances account-history-actions/sort-balances
+   :sort-open-orders account-history-actions/sort-open-orders
+   :sort-funding-history account-history-actions/sort-funding-history
+   :sort-order-history account-history-actions/sort-order-history
+   :toggle-order-history-filter-open account-history-actions/toggle-order-history-filter-open
+   :set-order-history-status-filter account-history-actions/set-order-history-status-filter
+   :set-order-history-page-size account-history-actions/set-order-history-page-size
+   :set-order-history-page account-history-actions/set-order-history-page
+   :next-order-history-page account-history-actions/next-order-history-page
+   :prev-order-history-page account-history-actions/prev-order-history-page
+   :set-order-history-page-input account-history-actions/set-order-history-page-input
+   :apply-order-history-page-input account-history-actions/apply-order-history-page-input
+   :handle-order-history-page-input-keydown account-history-actions/handle-order-history-page-input-keydown
+   :refresh-order-history account-history-actions/refresh-order-history
+   :set-hide-small-balances account-history-actions/set-hide-small-balances})
+
+(defn- order-action-deps []
+  {:select-order-entry-mode order-actions/select-order-entry-mode
+   :select-pro-order-type order-actions/select-pro-order-type
+   :toggle-pro-order-type-dropdown order-actions/toggle-pro-order-type-dropdown
+   :close-pro-order-type-dropdown order-actions/close-pro-order-type-dropdown
+   :handle-pro-order-type-dropdown-keydown order-actions/handle-pro-order-type-dropdown-keydown
+   :set-order-ui-leverage order-actions/set-order-ui-leverage
+   :set-order-size-percent order-actions/set-order-size-percent
+   :set-order-size-display order-actions/set-order-size-display
+   :focus-order-price-input order-actions/focus-order-price-input
+   :blur-order-price-input order-actions/blur-order-price-input
+   :set-order-price-to-mid order-actions/set-order-price-to-mid
+   :toggle-order-tpsl-panel order-actions/toggle-order-tpsl-panel
+   :update-order-form order-actions/update-order-form
+   :submit-order order-actions/submit-order
+   :cancel-order order-actions/cancel-order})
+
+(defn runtime-effect-deps
+  [effect-overrides]
+  (merge
+   {:api-fetch-user-funding-history account-history-effects/api-fetch-user-funding-history-effect
+    :api-fetch-historical-orders account-history-effects/api-fetch-historical-orders-effect
+    :export-funding-history-csv account-history-effects/export-funding-history-csv-effect}
+   effect-overrides))
+
+(defn runtime-action-deps
+  [action-overrides]
+  (merge
+   (wallet-action-deps)
+   (asset-selector-action-deps)
+   (chart-and-orderbook-action-deps)
+   (account-history-action-deps)
+   (order-action-deps)
+   action-overrides))

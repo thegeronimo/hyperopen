@@ -49,6 +49,7 @@
             [hyperopen.startup.composition-test]
             [hyperopen.runtime.bootstrap-test]
             [hyperopen.runtime.app-effects-test]
+            [hyperopen.runtime.collaborators-test]
             [hyperopen.runtime.registry-composition-test]
             [hyperopen.state.app-defaults-test]
             [hyperopen.state.trading-test]))
@@ -105,6 +106,7 @@
              'hyperopen.startup.composition-test
              'hyperopen.runtime.bootstrap-test
              'hyperopen.runtime.app-effects-test
+             'hyperopen.runtime.collaborators-test
              'hyperopen.runtime.registry-composition-test
              'hyperopen.state.app-defaults-test
              'hyperopen.state.trading-test))
