@@ -4,6 +4,7 @@
             [nexus.registry :as nxr]
             [hyperopen.api :as api]
             [hyperopen.api.trading :as trading-api]
+            [hyperopen.account.history.effects :as account-history-effects]
             [hyperopen.core :as core]
             [hyperopen.state.trading :as trading]
             [hyperopen.wallet.agent-session :as agent-session]
@@ -229,7 +230,7 @@
           original-fetch-spot-state api/fetch-spot-clearinghouse-state!
           original-fetch-user-abstraction api/fetch-user-abstraction!
           original-ensure-perp-dexs api/ensure-perp-dexs!
-          original-fetch-and-merge-funding-history hyperopen.core/fetch-and-merge-funding-history!
+          original-fetch-and-merge-funding-history account-history-effects/fetch-and-merge-funding-history!
           original-stage-b hyperopen.core/stage-b-account-bootstrap!]
       (swap! core/store assoc-in [:wallet :address] "0xabc")
       (set! api/fetch-frontend-open-orders!
@@ -268,7 +269,7 @@
                (ensure-perp-dexs-mock store {}))
               ([_ _]
                (js/Promise.resolve ["dex-1" "dex-2"]))))
-      (set! hyperopen.core/fetch-and-merge-funding-history!
+      (set! account-history-effects/fetch-and-merge-funding-history!
             (fn [_store address opts]
               (swap! stage-a-calls conj [:fundings [address opts]])
               (js/Promise.resolve nil)))
@@ -281,7 +282,7 @@
                 (set! api/fetch-spot-clearinghouse-state! original-fetch-spot-state)
                 (set! api/fetch-user-abstraction! original-fetch-user-abstraction)
                 (set! api/ensure-perp-dexs! original-ensure-perp-dexs)
-                (set! hyperopen.core/fetch-and-merge-funding-history! original-fetch-and-merge-funding-history)
+                (set! account-history-effects/fetch-and-merge-funding-history! original-fetch-and-merge-funding-history)
                 (set! hyperopen.core/stage-b-account-bootstrap! original-stage-b))]
         (@#'hyperopen.core/bootstrap-account-data! "0xabc")
         (js/setTimeout
