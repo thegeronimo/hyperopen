@@ -25,10 +25,24 @@
                           #js {:timeout delay-ms})
     (js/setTimeout f delay-ms)))
 
+(defn- startup-state
+  [{:keys [startup-runtime runtime]}]
+  (if startup-runtime
+    @startup-runtime
+    (:startup @runtime)))
+
+(defn- swap-startup-state!
+  [{:keys [startup-runtime runtime]} update-fn & args]
+  (if startup-runtime
+    (apply swap! startup-runtime update-fn args)
+    (swap! runtime update :startup
+           (fn [state]
+             (apply update-fn state args)))))
+
 (defn schedule-startup-summary-log!
-  [{:keys [startup-runtime store get-request-stats delay-ms log-fn]}]
-  (when-not (:summary-logged? @startup-runtime)
-    (swap! startup-runtime assoc :summary-logged? true)
+  [{:keys [store get-request-stats delay-ms log-fn] :as deps}]
+  (when-not (:summary-logged? (startup-state deps))
+    (swap-startup-state! deps assoc :summary-logged? true)
     (js/setTimeout
      (fn []
        (let [stats (get-request-stats)
@@ -72,8 +86,7 @@
      (* per-dex-stagger-ms (inc idx)))))
 
 (defn bootstrap-account-data!
-  [{:keys [startup-runtime
-           store
+  [{:keys [store
            address
            fetch-frontend-open-orders!
            fetch-user-fills!
@@ -82,10 +95,11 @@
            fetch-and-merge-funding-history!
            ensure-perp-dexs!
            stage-b-account-bootstrap!
-           log-fn]}]
+           log-fn]
+    :as deps}]
   (when address
-    (when-not (= address (:bootstrapped-address @startup-runtime))
-      (swap! startup-runtime assoc :bootstrapped-address address)
+    (when-not (= address (:bootstrapped-address (startup-state deps)))
+      (swap-startup-state! deps assoc :bootstrapped-address address)
       (swap! store assoc-in [:orders :open-orders-snapshot-by-dex] {})
       (swap! store assoc-in [:orders :fundings-raw] [])
       (swap! store assoc-in [:orders :fundings] [])
@@ -106,7 +120,6 @@
 
 (defn install-address-handlers!
   [{:keys [store
-           startup-runtime
            bootstrap-account-data!
            init-with-webdata2!
            add-handler!
@@ -117,7 +130,8 @@
            subscribe-webdata2!
            unsubscribe-webdata2!
            address-handler-reify
-           address-handler-name]}]
+           address-handler-name]
+    :as deps}]
   ;; Note: WebData2 subscriptions are managed by address-watcher.
   (init-with-webdata2! store subscribe-webdata2! unsubscribe-webdata2!)
   (add-handler! (create-user-handler subscribe-user! unsubscribe-user!))
@@ -127,7 +141,7 @@
       (if new-address
         (bootstrap-account-data! new-address)
         (do
-          (swap! startup-runtime assoc :bootstrapped-address nil)
+          (swap-startup-state! deps assoc :bootstrapped-address nil)
           (swap! store assoc-in [:orders :open-orders-snapshot-by-dex] {})
           (swap! store assoc-in [:orders :fundings-raw] [])
           (swap! store assoc-in [:orders :fundings] [])
@@ -160,9 +174,9 @@
          (mark-performance! "app:full-bootstrap:ready")))))
 
 (defn schedule-deferred-bootstrap!
-  [{:keys [startup-runtime schedule-idle-or-timeout! run-deferred-bootstrap!]}]
-  (when-not (:deferred-scheduled? @startup-runtime)
-    (swap! startup-runtime assoc :deferred-scheduled? true)
+  [{:keys [schedule-idle-or-timeout! run-deferred-bootstrap!] :as deps}]
+  (when-not (:deferred-scheduled? (startup-state deps))
+    (swap-startup-state! deps assoc :deferred-scheduled? true)
     (schedule-idle-or-timeout! run-deferred-bootstrap!)))
 
 (defn initialize-remote-data-streams!

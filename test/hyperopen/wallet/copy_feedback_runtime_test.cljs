@@ -47,6 +47,32 @@
     (is (nil? (get-in @store [:wallet :copy-feedback])))
     (is (nil? @timeout-id-atom))))
 
+(deftest schedule-wallet-copy-feedback-clear-supports-runtime-timeout-storage-test
+  (let [captured-callback (atom nil)
+        cleared-timeouts (atom [])
+        store (atom {:wallet {:copy-feedback {:kind :success
+                                              :message "Address copied to clipboard"}}})
+        runtime (atom {:timeouts {:wallet-copy :old-timeout}})]
+    (copy-runtime/schedule-wallet-copy-feedback-clear!
+     {:store store
+      :runtime runtime
+      :clear-wallet-copy-feedback! clear-feedback!
+      :clear-wallet-copy-feedback-timeout!
+      (fn []
+        (copy-runtime/clear-wallet-copy-feedback-timeout-in-runtime!
+         runtime
+         (fn [timeout-id]
+           (swap! cleared-timeouts conj timeout-id))))
+      :wallet-copy-feedback-duration-ms 1500
+      :set-timeout-fn (fn [callback _delay-ms]
+                        (reset! captured-callback callback)
+                        :new-timeout)})
+    (is (= [:old-timeout] @cleared-timeouts))
+    (is (= :new-timeout (get-in @runtime [:timeouts :wallet-copy])))
+    (@captured-callback)
+    (is (nil? (get-in @store [:wallet :copy-feedback])))
+    (is (nil? (get-in @runtime [:timeouts :wallet-copy])))))
+
 (deftest copy-wallet-address-sets-success-feedback-when-clipboard-write-succeeds-test
   (async done
     (let [written (atom nil)

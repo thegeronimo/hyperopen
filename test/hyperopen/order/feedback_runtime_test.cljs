@@ -47,6 +47,32 @@
     (is (nil? (get-in @store [:ui :toast])))
     (is (nil? @timeout-id-atom))))
 
+(deftest schedule-order-feedback-toast-clear-supports-runtime-timeout-storage-test
+  (let [captured-callback (atom nil)
+        cleared-timeouts (atom [])
+        store (atom {:ui {:toast {:kind :success
+                                  :message "Order placed."}}})
+        runtime (atom {:timeouts {:order-toast :old-timeout}})]
+    (feedback-runtime/schedule-order-feedback-toast-clear!
+     {:store store
+      :runtime runtime
+      :clear-order-feedback-toast! feedback-runtime/clear-order-feedback-toast!
+      :clear-order-feedback-toast-timeout!
+      (fn []
+        (feedback-runtime/clear-order-feedback-toast-timeout-in-runtime!
+         runtime
+         (fn [timeout-id]
+           (swap! cleared-timeouts conj timeout-id))))
+      :order-feedback-toast-duration-ms 3500
+      :set-timeout-fn (fn [callback _delay-ms]
+                        (reset! captured-callback callback)
+                        :new-timeout)})
+    (is (= [:old-timeout] @cleared-timeouts))
+    (is (= :new-timeout (get-in @runtime [:timeouts :order-toast])))
+    (@captured-callback)
+    (is (nil? (get-in @store [:ui :toast])))
+    (is (nil? (get-in @runtime [:timeouts :order-toast])))))
+
 (deftest show-order-feedback-toast-schedules-clear-only-when-message-present-test
   (let [schedule-calls (atom 0)
         store (atom {:ui {:toast nil}})

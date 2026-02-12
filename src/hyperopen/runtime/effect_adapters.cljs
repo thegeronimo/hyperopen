@@ -46,21 +46,24 @@
          details
          runtime-state/diagnostics-timeline-limit))
 
-(defn sync-websocket-health!
-  [store & {:keys [force?]}]
+(defn sync-websocket-health-with-runtime!
+  [runtime store & {:keys [force?]}]
   (health-runtime/sync-websocket-health!
    {:store store
     :force? force?
     :get-health-snapshot ws-client/get-health-snapshot
     :websocket-health-fingerprint websocket-health-fingerprint
-    :projection-state runtime-state/websocket-health-projection-state
-    :sync-stats runtime-state/websocket-health-sync-stats
+    :runtime runtime
     :auto-recover-enabled-fn health-runtime/auto-recover-enabled?
     :auto-recover-severe-threshold-ms runtime-state/auto-recover-severe-threshold-ms
     :auto-recover-cooldown-ms runtime-state/auto-recover-cooldown-ms
     :dispatch! nxr/dispatch
     :append-diagnostics-event! append-diagnostics-event!
     :queue-microtask-fn js/queueMicrotask}))
+
+(defn sync-websocket-health!
+  [store & {:keys [force?]}]
+  (sync-websocket-health-with-runtime! runtime-state/runtime store :force? force?))
 
 (defn- set-copy-status!
   [store status]
@@ -83,23 +86,28 @@
     (.requestAnimationFrame js/globalThis f)
     (js/setTimeout f 16)))
 
-(defn flush-queued-asset-icon-statuses! [store]
-  (icon-status-runtime/flush-queued-asset-icon-statuses!
-   {:store store
-    :pending-statuses runtime-state/pending-asset-icon-statuses
-    :flush-handle runtime-state/asset-icon-status-flush-handle
-    :apply-asset-icon-status-updates-fn asset-actions/apply-asset-icon-status-updates
-    :save-many! (fn [runtime-store path-values]
-                  (save-many nil runtime-store path-values))}))
+(defn flush-queued-asset-icon-statuses!
+  ([store]
+   (flush-queued-asset-icon-statuses! runtime-state/runtime store))
+  ([runtime store]
+   (icon-status-runtime/flush-queued-asset-icon-statuses!
+    {:store store
+     :runtime runtime
+     :apply-asset-icon-status-updates-fn asset-actions/apply-asset-icon-status-updates
+     :save-many! (fn [runtime-store path-values]
+                   (save-many nil runtime-store path-values))})))
 
-(defn queue-asset-icon-status [_ store payload]
-  (icon-status-runtime/queue-asset-icon-status!
-   {:store store
-    :payload payload
-    :pending-statuses runtime-state/pending-asset-icon-statuses
-    :flush-handle runtime-state/asset-icon-status-flush-handle
-    :schedule-animation-frame! schedule-animation-frame!
-    :flush-queued-asset-icon-statuses! flush-queued-asset-icon-statuses!}))
+(defn queue-asset-icon-status
+  ([_ store payload]
+   (queue-asset-icon-status runtime-state/runtime nil store payload))
+  ([runtime _ store payload]
+   (icon-status-runtime/queue-asset-icon-status!
+    {:store store
+     :runtime runtime
+     :payload payload
+     :schedule-animation-frame! schedule-animation-frame!
+     :flush-queued-asset-icon-statuses! (fn [runtime-store]
+                                          (flush-queued-asset-icon-statuses! runtime runtime-store))})))
 
 (defn push-state [_ _ path]
   (app-effects/push-state! path))
@@ -234,9 +242,10 @@
 (defn- clear-wallet-copy-feedback! [store]
   (wallet-copy-runtime/clear-wallet-copy-feedback! store))
 
-(defn- clear-wallet-copy-feedback-timeout! []
-  (wallet-copy-runtime/clear-wallet-copy-feedback-timeout!
-   runtime-state/wallet-copy-feedback-timeout-id
+(defn- clear-wallet-copy-feedback-timeout!
+  [runtime]
+  (wallet-copy-runtime/clear-wallet-copy-feedback-timeout-in-runtime!
+   runtime
    js/clearTimeout))
 
 (defn- set-order-feedback-toast! [store kind message]
@@ -245,35 +254,42 @@
 (defn- clear-order-feedback-toast! [store]
   (order-feedback-runtime/clear-order-feedback-toast! store))
 
-(defn- clear-order-feedback-toast-timeout! []
-  (order-feedback-runtime/clear-order-feedback-toast-timeout!
-   runtime-state/order-feedback-toast-timeout-id
+(defn- clear-order-feedback-toast-timeout!
+  [runtime]
+  (order-feedback-runtime/clear-order-feedback-toast-timeout-in-runtime!
+   runtime
    js/clearTimeout))
 
-(defn- schedule-order-feedback-toast-clear! [store]
+(defn- schedule-order-feedback-toast-clear! [runtime store]
   (order-feedback-runtime/schedule-order-feedback-toast-clear!
    {:store store
-    :order-feedback-toast-timeout-id runtime-state/order-feedback-toast-timeout-id
+    :runtime runtime
     :clear-order-feedback-toast! clear-order-feedback-toast!
-    :clear-order-feedback-toast-timeout! clear-order-feedback-toast-timeout!
+    :clear-order-feedback-toast-timeout! #(clear-order-feedback-toast-timeout! runtime)
     :order-feedback-toast-duration-ms runtime-state/order-feedback-toast-duration-ms
     :set-timeout-fn js/setTimeout}))
 
-(defn- show-order-feedback-toast! [store kind message]
-  (order-feedback-runtime/show-order-feedback-toast!
-   store
-   kind
-   message
-   schedule-order-feedback-toast-clear!))
+(defn- show-order-feedback-toast!
+  ([store kind message]
+   (show-order-feedback-toast! runtime-state/runtime store kind message))
+  ([runtime store kind message]
+   (order-feedback-runtime/show-order-feedback-toast!
+    store
+    kind
+    message
+    #(schedule-order-feedback-toast-clear! runtime %))))
 
-(defn disconnect-wallet [_ store]
-  (wallet-connection-runtime/disconnect-wallet!
-   {:store store
-    :log-fn println
-    :clear-wallet-copy-feedback-timeout! clear-wallet-copy-feedback-timeout!
-    :clear-order-feedback-toast-timeout! clear-order-feedback-toast-timeout!
-    :clear-order-feedback-toast! clear-order-feedback-toast!
-    :set-disconnected! wallet/set-disconnected!}))
+(defn disconnect-wallet
+  ([_ store]
+   (disconnect-wallet runtime-state/runtime nil store))
+  ([runtime _ store]
+   (wallet-connection-runtime/disconnect-wallet!
+    {:store store
+     :log-fn println
+     :clear-wallet-copy-feedback-timeout! #(clear-wallet-copy-feedback-timeout! runtime)
+     :clear-order-feedback-toast-timeout! #(clear-order-feedback-toast-timeout! runtime)
+     :clear-order-feedback-toast! clear-order-feedback-toast!
+     :set-disconnected! wallet/set-disconnected!})))
 
 (defn set-agent-storage-mode [_ store storage-mode]
   (agent-runtime/set-agent-storage-mode!
@@ -285,32 +301,38 @@
     :default-agent-state agent-session/default-agent-state
     :agent-storage-mode-reset-message runtime-state/agent-storage-mode-reset-message}))
 
-(defn- schedule-wallet-copy-feedback-clear! [store]
+(defn- schedule-wallet-copy-feedback-clear! [runtime store]
   (wallet-copy-runtime/schedule-wallet-copy-feedback-clear!
    {:store store
-    :wallet-copy-feedback-timeout-id runtime-state/wallet-copy-feedback-timeout-id
+    :runtime runtime
     :clear-wallet-copy-feedback! clear-wallet-copy-feedback!
-    :clear-wallet-copy-feedback-timeout! clear-wallet-copy-feedback-timeout!
+    :clear-wallet-copy-feedback-timeout! #(clear-wallet-copy-feedback-timeout! runtime)
     :wallet-copy-feedback-duration-ms runtime-state/wallet-copy-feedback-duration-ms
     :set-timeout-fn js/setTimeout}))
 
-(defn copy-wallet-address [_ store address]
-  (wallet-copy-runtime/copy-wallet-address!
-   {:store store
-    :address address
-    :set-wallet-copy-feedback! set-wallet-copy-feedback!
-    :clear-wallet-copy-feedback! clear-wallet-copy-feedback!
-    :clear-wallet-copy-feedback-timeout! clear-wallet-copy-feedback-timeout!
-    :schedule-wallet-copy-feedback-clear! schedule-wallet-copy-feedback-clear!
-    :log-fn println}))
+(defn copy-wallet-address
+  ([_ store address]
+   (copy-wallet-address runtime-state/runtime nil store address))
+  ([runtime _ store address]
+   (wallet-copy-runtime/copy-wallet-address!
+    {:store store
+     :address address
+     :set-wallet-copy-feedback! set-wallet-copy-feedback!
+     :clear-wallet-copy-feedback! clear-wallet-copy-feedback!
+     :clear-wallet-copy-feedback-timeout! #(clear-wallet-copy-feedback-timeout! runtime)
+     :schedule-wallet-copy-feedback-clear! #(schedule-wallet-copy-feedback-clear! runtime %)
+     :log-fn println})))
 
 (defn reconnect-websocket [_ _]
   (app-effects/reconnect-websocket!
    {:log-fn println
     :force-reconnect! ws-client/force-reconnect!}))
 
-(defn refresh-websocket-health [_ store]
-  (sync-websocket-health! store :force? true))
+(defn refresh-websocket-health
+  ([_ store]
+   (refresh-websocket-health runtime-state/runtime nil store))
+  ([runtime _ store]
+   (sync-websocket-health-with-runtime! runtime store :force? true)))
 
 (defn ws-reset-subscriptions [_ store {:keys [group source]
                                        :or {group :all
@@ -353,20 +375,28 @@
   [err]
   (agent-runtime/runtime-error-message err))
 
-(defn- order-api-effect-deps []
-  {:dispatch! nxr/dispatch
-   :exchange-response-error exchange-response-error
-   :prune-canceled-open-orders-fn order-effects/prune-canceled-open-orders
-   :runtime-error-message runtime-error-message
-   :show-toast! show-order-feedback-toast!})
+(defn- order-api-effect-deps
+  ([]
+   (order-api-effect-deps runtime-state/runtime))
+  ([runtime]
+   {:dispatch! nxr/dispatch
+    :exchange-response-error exchange-response-error
+    :prune-canceled-open-orders-fn order-effects/prune-canceled-open-orders
+    :runtime-error-message runtime-error-message
+    :show-toast! (fn [store kind message]
+                   (show-order-feedback-toast! runtime store kind message))}))
 
 (defn api-submit-order
-  [ctx store request]
-  (order-effects/api-submit-order (order-api-effect-deps) ctx store request))
+  ([ctx store request]
+   (api-submit-order runtime-state/runtime ctx store request))
+  ([runtime ctx store request]
+   (order-effects/api-submit-order (order-api-effect-deps runtime) ctx store request)))
 
 (defn api-cancel-order
-  [ctx store request]
-  (order-effects/api-cancel-order (order-api-effect-deps) ctx store request))
+  ([ctx store request]
+   (api-cancel-order runtime-state/runtime ctx store request))
+  ([runtime ctx store request]
+   (order-effects/api-cancel-order (order-api-effect-deps runtime) ctx store request)))
 
 (defn fetch-asset-selector-markets-effect
   [_ store & [opts]]

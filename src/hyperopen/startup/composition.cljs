@@ -4,12 +4,14 @@
 
 (defn schedule-startup-summary-log!
   [{:keys [startup-runtime
+           runtime
            store
            get-request-stats
            delay-ms
            log-fn]}]
   (startup-runtime-lib/schedule-startup-summary-log!
    {:startup-runtime startup-runtime
+    :runtime runtime
     :store store
     :get-request-stats get-request-stats
     :delay-ms delay-ms
@@ -38,6 +40,7 @@
 
 (defn bootstrap-account-data!
   [{:keys [startup-runtime
+           runtime
            store
            fetch-frontend-open-orders!
            fetch-user-fills!
@@ -50,6 +53,7 @@
    address]
   (startup-runtime-lib/bootstrap-account-data!
    {:startup-runtime startup-runtime
+    :runtime runtime
     :store store
     :address address
     :fetch-frontend-open-orders! fetch-frontend-open-orders!
@@ -64,6 +68,7 @@
 (defn install-address-handlers!
   [{:keys [store
            startup-runtime
+           runtime
            bootstrap-account-data!
            init-with-webdata2!
            add-handler!
@@ -78,6 +83,7 @@
   (startup-runtime-lib/install-address-handlers!
    {:store store
     :startup-runtime startup-runtime
+    :runtime runtime
     :bootstrap-account-data! bootstrap-account-data!
     :init-with-webdata2! init-with-webdata2!
     :add-handler! add-handler!
@@ -112,10 +118,12 @@
 
 (defn schedule-deferred-bootstrap!
   [{:keys [startup-runtime
+           runtime
            schedule-idle-or-timeout!
            run-deferred-bootstrap!]}]
   (startup-runtime-lib/schedule-deferred-bootstrap!
    {:startup-runtime startup-runtime
+    :runtime runtime
     :schedule-idle-or-timeout! schedule-idle-or-timeout!
     :run-deferred-bootstrap! run-deferred-bootstrap!}))
 

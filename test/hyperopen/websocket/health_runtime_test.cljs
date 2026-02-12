@@ -105,3 +105,25 @@
     (is (= (+ generated-at-ms 300000)
            (get-in @store [:websocket-ui :auto-recover-cooldown-until-ms])))
     (is (= 1 (:writes @sync-stats)))))
+
+(deftest sync-websocket-health-updates-runtime-state-when-runtime-atom-provided-test
+  (let [store (atom {:websocket {:health {}}
+                     :websocket-ui {:reset-in-progress? false
+                                    :diagnostics-timeline []}})
+        runtime (atom {:websocket-health {:fingerprint nil
+                                          :writes 0}})
+        health (connected-health 1000 :live)]
+    (health-runtime/sync-websocket-health!
+     {:store store
+      :runtime runtime
+      :get-health-snapshot (constantly health)
+      :websocket-health-fingerprint health-projection/websocket-health-fingerprint
+      :auto-recover-enabled-fn (constantly false)
+      :auto-recover-severe-threshold-ms 30000
+      :auto-recover-cooldown-ms 300000
+      :dispatch! (fn [& _] nil)
+      :append-diagnostics-event! (fn [& _] nil)
+      :queue-microtask-fn (fn [f] (f))})
+    (is (= 1000 (get-in @store [:websocket :health :generated-at-ms])))
+    (is (some? (get-in @runtime [:websocket-health :fingerprint])))
+    (is (= 1 (get-in @runtime [:websocket-health :writes])))))

@@ -65,3 +65,36 @@
     (is (false? @scheduled?))
     (is (= {} @pending-statuses))
     (is (nil? @flush-handle))))
+
+(deftest queue-asset-icon-status-supports-runtime-atom-storage-test
+  (let [store (atom {:asset-selector {:loaded-icons #{}
+                                      :missing-icons #{}}})
+        runtime (atom {:asset-icons {:pending {}
+                                     :flush-handle nil}})
+        scheduled-callback (atom nil)]
+    (icon-status-runtime/queue-asset-icon-status!
+     {:store store
+      :runtime runtime
+      :payload {:market-key "perp:BTC" :status :loaded}
+      :schedule-animation-frame! (fn [f]
+                                   (reset! scheduled-callback f)
+                                   :raf-id)
+      :flush-queued-asset-icon-statuses! (fn [runtime-store]
+                                           (icon-status-runtime/flush-queued-asset-icon-statuses!
+                                            {:store runtime-store
+                                             :runtime runtime
+                                             :apply-asset-icon-status-updates-fn asset-actions/apply-asset-icon-status-updates
+                                             :save-many! (fn [store-atom path-values]
+                                                           (swap! store-atom
+                                                                  (fn [state]
+                                                                    (reduce (fn [acc [path value]]
+                                                                              (assoc-in acc path value))
+                                                                            state
+                                                                            path-values))))}))})
+    (is (= {:pending {"perp:BTC" :loaded}
+            :flush-handle :raf-id}
+           (:asset-icons @runtime)))
+    (@scheduled-callback)
+    (is (= #{"perp:BTC"} (get-in @store [:asset-selector :loaded-icons])))
+    (is (= {} (get-in @runtime [:asset-icons :pending])))
+    (is (nil? (get-in @runtime [:asset-icons :flush-handle])))))

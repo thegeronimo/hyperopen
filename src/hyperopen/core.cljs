@@ -36,16 +36,30 @@
 (def ^:private default-trade-history-state
   account-history-actions/default-trade-history-state)
 
-;; App state
-(defonce store
-  (atom
-   (app-defaults/default-app-state
-    {:websocket-health (ws-client/get-health-snapshot)
-     :default-agent-state (agent-session/default-agent-state)
-     :default-order-form (trading/default-order-form)
-     :default-trade-history (default-trade-history-state)
-     :default-funding-history (default-funding-history-state)
-     :default-order-history (default-order-history-state)})))
+(defn- default-store-state
+  []
+  (app-defaults/default-app-state
+   {:websocket-health (ws-client/get-health-snapshot)
+    :default-agent-state (agent-session/default-agent-state)
+    :default-order-form (trading/default-order-form)
+    :default-trade-history (default-trade-history-state)
+    :default-funding-history (default-funding-history-state)
+    :default-order-history (default-order-history-state)}))
+
+(defn make-system
+  ([] (make-system {}))
+  ([{:keys [store runtime]}]
+   {:store (or store (atom (default-store-state)))
+    :runtime (or runtime (runtime-state/make-runtime-state))}))
+
+(defonce system
+  (make-system {:runtime runtime-state/runtime}))
+
+(def store
+  (:store system))
+
+(def ^:private runtime
+  (:runtime system))
 
 ;; Re-export all legacy public vars from `hyperopen.core.compat`.
 ;; This keeps `hyperopen.core/*` API stable while `hyperopen.core` stays focused
@@ -62,7 +76,7 @@
 (defn- bootstrap-runtime!
   []
   (runtime-bootstrap/bootstrap-runtime!
-   {:register-runtime-deps (runtime-wiring/runtime-registration-deps)
+   {:register-runtime-deps (runtime-wiring/runtime-registration-deps runtime)
     :render-loop-deps {:store store
                        :render-watch-key ::render
                        :set-dispatch! r/set-dispatch!
@@ -82,13 +96,17 @@
                       :connection-state ws-client/connection-state
                       :stream-runtime ws-client/stream-runtime
                       :append-diagnostics-event! runtime-effect-adapters/append-diagnostics-event!
-                      :sync-websocket-health! runtime-effect-adapters/sync-websocket-health!
+                      :sync-websocket-health! (fn [runtime-store & {:keys [force?]}]
+                                                (runtime-effect-adapters/sync-websocket-health-with-runtime!
+                                                 runtime
+                                                 runtime-store
+                                                 :force? force?))
                       :on-websocket-connected! address-watcher/on-websocket-connected!
                       :on-websocket-disconnected! address-watcher/on-websocket-disconnected!})}}))
 
 (defn- ensure-runtime-bootstrapped!
   []
-  (when (compare-and-set! runtime-state/runtime-bootstrapped? false true)
+  (when (runtime-state/mark-runtime-bootstrapped! runtime)
     (bootstrap-runtime!)))
 
 (defn reload []
@@ -96,9 +114,6 @@
   (println "Reloading Hyperopen...")
   (wallet/set-on-connected-handler! runtime-action-adapters/handle-wallet-connected)
   (render-app! @store))
-
-(defonce ^:private startup-runtime
-  (atom (startup-runtime-lib/default-startup-runtime-state)))
 
 (defn- mark-performance!
   [mark-name]
@@ -111,7 +126,7 @@
 (defn- startup-base-deps
   []
   (startup-wiring/startup-base-deps
-   {:startup-runtime startup-runtime
+   {:runtime runtime
     :store store
     :icon-service-worker-path runtime-state/icon-service-worker-path
     :per-dex-stagger-ms runtime-state/per-dex-stagger-ms

@@ -19,10 +19,11 @@
             [hyperopen.websocket.webdata2 :as webdata2]))
 
 (defn- reset-startup-runtime! []
-  (reset! @#'hyperopen.core/startup-runtime
-          {:deferred-scheduled? false
-           :bootstrapped-address nil
-           :summary-logged? false}))
+  (swap! @#'hyperopen.core/runtime
+         assoc
+         :startup {:deferred-scheduled? false
+                   :bootstrapped-address nil
+                   :summary-logged? false}))
 
 (use-fixtures
   :once
@@ -82,16 +83,14 @@
           (js/Reflect.deleteProperty js/globalThis navigator-prop))))))
 
 (defn- clear-wallet-copy-feedback-timeout! []
-  (let [timeout-atom @#'runtime-state/wallet-copy-feedback-timeout-id]
-    (when-let [timeout-id @timeout-atom]
-      (js/clearTimeout timeout-id)
-      (reset! timeout-atom nil))))
+  (when-let [timeout-id (get-in @runtime-state/runtime [:timeouts :wallet-copy])]
+    (js/clearTimeout timeout-id)
+    (swap! runtime-state/runtime assoc-in [:timeouts :wallet-copy] nil)))
 
 (defn- clear-order-feedback-toast-timeout! []
-  (let [timeout-atom @#'runtime-state/order-feedback-toast-timeout-id]
-    (when-let [timeout-id @timeout-atom]
+  (when-let [timeout-id (get-in @runtime-state/runtime [:timeouts :order-toast])]
       (js/clearTimeout timeout-id)
-      (reset! timeout-atom nil))))
+      (swap! runtime-state/runtime assoc-in [:timeouts :order-toast] nil)))
 
 (deftest initialize-remote-data-streams-phased-bootstrap-test
   (let [phases (atom [])
@@ -130,15 +129,23 @@
 
 (deftest ensure-runtime-bootstrapped-runs-bootstrap-once-test
   (let [calls (atom 0)]
-    (reset! runtime-state/runtime-bootstrapped? false)
+    (swap! runtime-state/runtime assoc :runtime-bootstrapped? false)
     (with-redefs [hyperopen.core/bootstrap-runtime!
                   (fn []
                     (swap! calls inc))]
       (@#'hyperopen.core/ensure-runtime-bootstrapped!)
       (@#'hyperopen.core/ensure-runtime-bootstrapped!))
     (is (= 1 @calls))
-    (is (true? @runtime-state/runtime-bootstrapped?))
-    (reset! runtime-state/runtime-bootstrapped? true)))
+    (is (true? (runtime-state/runtime-bootstrapped? runtime-state/runtime)))
+    (swap! runtime-state/runtime assoc :runtime-bootstrapped? true)))
+
+(deftest make-system-creates-isolated-store-and-runtime-atoms-test
+  (let [system-a (core/make-system)
+        system-b (core/make-system)]
+    (swap! (:store system-a) assoc :marker :a)
+    (swap! (:runtime system-a) assoc :marker :a)
+    (is (nil? (:marker @(:store system-b))))
+    (is (nil? (:marker @(:runtime system-b))))))
 
 (deftest register-icon-service-worker-registers-when-supported-test
   (let [registered-paths (atom [])]
@@ -199,8 +206,8 @@
   (let [store (atom {:asset-selector {:loaded-icons #{}
                                       :missing-icons #{}}})
         scheduled-callback (atom nil)]
-    (reset! @#'runtime-state/pending-asset-icon-statuses {})
-    (reset! @#'runtime-state/asset-icon-status-flush-handle nil)
+    (swap! runtime-state/runtime assoc-in [:asset-icons :pending] {})
+    (swap! runtime-state/runtime assoc-in [:asset-icons :flush-handle] nil)
     (with-redefs [effect-adapters/schedule-animation-frame! (fn [f]
                                                                (reset! scheduled-callback f)
                                                                :raf-id)]
@@ -211,8 +218,8 @@
       (@scheduled-callback)
       (is (= #{"perp:ETH"} (get-in @store [:asset-selector :loaded-icons])))
       (is (= #{"perp:BTC"} (get-in @store [:asset-selector :missing-icons])))
-      (is (= {} @@#'runtime-state/pending-asset-icon-statuses))
-      (is (nil? @@#'runtime-state/asset-icon-status-flush-handle)))))
+      (is (= {} (get-in @runtime-state/runtime [:asset-icons :pending])))
+      (is (nil? (get-in @runtime-state/runtime [:asset-icons :flush-handle]))))))
 
 (deftest maybe-increase-asset-selector-render-limit-expands-near-bottom-test
   (let [state {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
@@ -1550,9 +1557,7 @@
     (let [original-connection @ws-client/connection-state
           original-runtime @ws-client/stream-runtime
           store (atom {:websocket {:health {}}
-                       :websocket-ui {:diagnostics-open? false}})
-          projection-state @#'runtime-state/websocket-health-projection-state
-          sync-stats @#'runtime-state/websocket-health-sync-stats]
+                       :websocket-ui {:diagnostics-open? false}})]
       (reset! ws-client/connection-state
               {:status :connected
                :attempt 0
@@ -1586,25 +1591,28 @@
                            :last-close nil}
                :market-coalesce {:pending {}
                                  :timer nil}})
-      (reset! projection-state {:fingerprint nil})
-      (reset! sync-stats {:writes 0})
+      (swap! runtime-state/runtime
+             (fn [state]
+               (-> state
+                   (assoc-in [:websocket-health :fingerprint] nil)
+                   (assoc-in [:websocket-health :writes] 0))))
       (@#'hyperopen.core/sync-websocket-health! store :force? true)
       (js/setTimeout
         (fn []
           (is (= 1000 (get-in @store [:websocket :health :generated-at-ms])))
-          (is (= 1 (get-in @sync-stats [:writes])))
+          (is (= 1 (get-in @runtime-state/runtime [:websocket-health :writes])))
           (swap! ws-client/stream-runtime assoc :now-ms 2000)
           (@#'hyperopen.core/sync-websocket-health! store)
           (js/setTimeout
             (fn []
               (is (= 1000 (get-in @store [:websocket :health :generated-at-ms])))
-              (is (= 1 (get-in @sync-stats [:writes])))
+              (is (= 1 (get-in @runtime-state/runtime [:websocket-health :writes])))
               (swap! ws-client/connection-state assoc :transport/freshness :delayed)
               (@#'hyperopen.core/sync-websocket-health! store)
               (js/setTimeout
                 (fn []
                   (try
-                    (is (= 2 (get-in @sync-stats [:writes])))
+                    (is (= 2 (get-in @runtime-state/runtime [:websocket-health :writes])))
                     (finally
                       (reset! ws-client/connection-state original-connection)
                       (reset! ws-client/stream-runtime original-runtime)
@@ -1615,7 +1623,6 @@
 
 (deftest sync-websocket-health-auto-recover-is-flagged-and-cooldown-protected-test
   (let [dispatches (atom [])
-        projection-state @#'runtime-state/websocket-health-projection-state
         flag-prop "ENABLE_WS_AUTO_RECOVER"
         original-flag-descriptor (js/Object.getOwnPropertyDescriptor js/globalThis flag-prop)
         health {:generated-at-ms 1700000000000
@@ -1639,7 +1646,7 @@
                                     :auto-recover-cooldown-until-ms nil
                                     :auto-recover-count 0
                                     :diagnostics-timeline []}})]
-    (reset! projection-state {:fingerprint nil})
+    (swap! runtime-state/runtime assoc-in [:websocket-health :fingerprint] nil)
     (js/Object.defineProperty js/globalThis flag-prop
                               #js {:value true
                                    :configurable true})
@@ -1661,7 +1668,6 @@
 
 (deftest sync-websocket-health-auto-recover-skips-unsupported-states-test
   (let [dispatches (atom [])
-        projection-state @#'runtime-state/websocket-health-projection-state
         flag-prop "ENABLE_WS_AUTO_RECOVER"
         original-flag-descriptor (js/Object.getOwnPropertyDescriptor js/globalThis flag-prop)
         offline-health {:generated-at-ms 1700000000000
@@ -1699,7 +1705,7 @@
                                     :auto-recover-cooldown-until-ms nil
                                     :auto-recover-count 0
                                     :diagnostics-timeline []}})]
-    (reset! projection-state {:fingerprint nil})
+    (swap! runtime-state/runtime assoc-in [:websocket-health :fingerprint] nil)
     (js/Object.defineProperty js/globalThis flag-prop
                               #js {:value true
                                    :configurable true})

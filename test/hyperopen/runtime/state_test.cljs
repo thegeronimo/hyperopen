@@ -17,11 +17,17 @@
   (is (= 120 runtime-state/per-dex-stagger-ms))
   (is (= 5000 runtime-state/startup-summary-delay-ms)))
 
-(deftest runtime-state-exposes-runtime-atoms-test
-  (is (map? @runtime-state/websocket-health-projection-state))
-  (is (contains? @runtime-state/websocket-health-projection-state :fingerprint))
-  (is (map? @runtime-state/websocket-health-sync-stats))
-  (is (number? (:writes @runtime-state/websocket-health-sync-stats)))
-  (is (map? @runtime-state/pending-asset-icon-statuses))
-  (is (nil? @runtime-state/asset-icon-status-flush-handle))
-  (is (boolean? @runtime-state/runtime-bootstrapped?)))
+(deftest runtime-state-exposes-single-runtime-atom-test
+  (let [runtime (runtime-state/make-runtime-state)]
+    (is (map? @runtime))
+    (is (contains? (:websocket-health @runtime) :fingerprint))
+    (is (number? (get-in @runtime [:websocket-health :writes])))
+    (is (map? (get-in @runtime [:asset-icons :pending])))
+    (is (nil? (get-in @runtime [:asset-icons :flush-handle])))
+    (is (false? (runtime-state/runtime-bootstrapped? runtime)))))
+
+(deftest runtime-state-mark-runtime-bootstrapped-updates-once-test
+  (let [runtime (runtime-state/make-runtime-state)]
+    (is (true? (runtime-state/mark-runtime-bootstrapped! runtime)))
+    (is (true? (runtime-state/runtime-bootstrapped? runtime)))
+    (is (false? (runtime-state/mark-runtime-bootstrapped! runtime)))))

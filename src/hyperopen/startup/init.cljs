@@ -2,10 +2,13 @@
 
 (defn reset-startup-state!
   [{:keys [startup-runtime
+           runtime
            default-startup-runtime-state
            mark-performance!
            schedule-startup-summary-log!]}]
-  (reset! startup-runtime (default-startup-runtime-state))
+  (if startup-runtime
+    (reset! startup-runtime (default-startup-runtime-state))
+    (swap! runtime assoc :startup (default-startup-runtime-state)))
   (mark-performance! "app:init:start")
   (schedule-startup-summary-log!))
 

@@ -1,4 +1,5 @@
-(ns hyperopen.runtime.state)
+(ns hyperopen.runtime.state
+  (:require [hyperopen.startup.runtime :as startup-runtime-lib]))
 
 (def diagnostics-timeline-limit
   50)
@@ -42,23 +43,40 @@
 (def startup-summary-delay-ms
   5000)
 
-(defonce websocket-health-projection-state
-  (atom {:fingerprint nil}))
+(defn default-runtime-state
+  []
+  {:websocket-health {:fingerprint nil
+                      :writes 0}
+   :timeouts {:wallet-copy nil
+              :order-toast nil}
+   :asset-icons {:pending {}
+                 :flush-handle nil}
+   :startup (startup-runtime-lib/default-startup-runtime-state)
+   :runtime-bootstrapped? false})
 
-(defonce websocket-health-sync-stats
-  (atom {:writes 0}))
+(defn make-runtime-state
+  []
+  (atom (default-runtime-state)))
 
-(defonce wallet-copy-feedback-timeout-id
-  (atom nil))
+(defonce runtime
+  (make-runtime-state))
 
-(defonce order-feedback-toast-timeout-id
-  (atom nil))
+(defn runtime-bootstrapped?
+  [runtime-state]
+  (true? (:runtime-bootstrapped? @runtime-state)))
 
-(defonce pending-asset-icon-statuses
-  (atom {}))
+(defn mark-runtime-bootstrapped!
+  [runtime-state]
+  (let [marked? (atom false)]
+    (swap! runtime-state
+           (fn [state]
+             (if (:runtime-bootstrapped? state)
+               state
+               (do
+                 (reset! marked? true)
+                 (assoc state :runtime-bootstrapped? true)))))
+    @marked?))
 
-(defonce asset-icon-status-flush-handle
-  (atom nil))
-
-(defonce runtime-bootstrapped?
-  (atom false))
+(defn reset-runtime-state!
+  [runtime-state]
+  (reset! runtime-state (default-runtime-state)))

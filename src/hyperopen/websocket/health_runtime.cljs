@@ -31,6 +31,7 @@
            force?
            get-health-snapshot
            websocket-health-fingerprint
+           runtime
            projection-state
            sync-stats
            auto-recover-enabled-fn
@@ -44,7 +45,9 @@
         auto-recover-enabled-fn* (or auto-recover-enabled-fn auto-recover-enabled?)
         health (get-health)
         generated-at-ms (or (:generated-at-ms health) 0)
-        prior-fingerprint (:fingerprint @projection-state)
+        prior-fingerprint (if runtime
+                            (get-in @runtime [:websocket-health :fingerprint])
+                            (:fingerprint @projection-state))
         fingerprint (websocket-health-fingerprint health)
         state* @store
         should-sync? (or force?
@@ -65,7 +68,14 @@
                (health-projection/gap-detected-transition? prior-fingerprint fingerprint))
       (append-diagnostics-event! store :gap-detected generated-at-ms))
     (when should-sync?
-      (reset! projection-state {:fingerprint fingerprint})
-      (swap! sync-stats update :writes (fnil inc 0))
+      (if runtime
+        (swap! runtime
+               (fn [state]
+                 (-> state
+                     (assoc-in [:websocket-health :fingerprint] fingerprint)
+                     (update-in [:websocket-health :writes] (fnil inc 0)))))
+        (do
+          (reset! projection-state {:fingerprint fingerprint})
+          (swap! sync-stats update :writes (fnil inc 0))))
       (queue-microtask
         #(swap! store assoc-in [:websocket :health] health)))))

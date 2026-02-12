@@ -15,8 +15,15 @@
     (clear-timeout-fn timeout-id)
     (reset! wallet-copy-feedback-timeout-id nil)))
 
+(defn clear-wallet-copy-feedback-timeout-in-runtime!
+  [runtime clear-timeout-fn]
+  (when-let [timeout-id (get-in @runtime [:timeouts :wallet-copy])]
+    (clear-timeout-fn timeout-id)
+    (swap! runtime assoc-in [:timeouts :wallet-copy] nil)))
+
 (defn schedule-wallet-copy-feedback-clear!
   [{:keys [store
+           runtime
            wallet-copy-feedback-timeout-id
            clear-wallet-copy-feedback!
            clear-wallet-copy-feedback-timeout!
@@ -26,9 +33,13 @@
   (let [timeout-id (set-timeout-fn
                     (fn []
                       (clear-wallet-copy-feedback! store)
-                      (reset! wallet-copy-feedback-timeout-id nil))
+                      (if runtime
+                        (swap! runtime assoc-in [:timeouts :wallet-copy] nil)
+                        (reset! wallet-copy-feedback-timeout-id nil)))
                     wallet-copy-feedback-duration-ms)]
-    (reset! wallet-copy-feedback-timeout-id timeout-id)))
+    (if runtime
+      (swap! runtime assoc-in [:timeouts :wallet-copy] timeout-id)
+      (reset! wallet-copy-feedback-timeout-id timeout-id))))
 
 (defn- resolve-clipboard
   [clipboard]
