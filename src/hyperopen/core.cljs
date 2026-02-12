@@ -22,6 +22,7 @@
             [hyperopen.chart.settings :as chart-settings]
             [hyperopen.orderbook.price-aggregation :as price-agg]
             [hyperopen.orderbook.settings :as orderbook-settings]
+            [hyperopen.startup.restore :as startup-restore]
             [hyperopen.ui.preferences :as ui-preferences]
             [hyperopen.utils.parse :as parse-utils]
             [hyperopen.wallet.core :as wallet]
@@ -1237,26 +1238,19 @@
 (def restore-orderbook-ui!
   orderbook-settings/restore-orderbook-ui!)
 
-(defn restore-agent-storage-mode! [store]
-  (let [storage-mode (agent-session/load-storage-mode-preference)]
-    (swap! store assoc-in [:wallet :agent :storage-mode] storage-mode)))
+(def restore-agent-storage-mode!
+  startup-restore/restore-agent-storage-mode!)
 
 (def restore-ui-font-preference!
   ui-preferences/restore-ui-font-preference!)
 
+(defn- restore-active-asset-deps []
+  {:connected?-fn ws-client/connected?
+   :dispatch! nxr/dispatch
+   :load-active-market-display-fn load-active-market-display})
+
 (defn restore-active-asset! [store]
-  (when (nil? (:active-asset @store))
-    (let [stored-asset (js/localStorage.getItem "active-asset")
-          asset (if (seq stored-asset) stored-asset "BTC")
-          cached-market (load-active-market-display asset)]
-      (swap! store
-             (fn [state]
-               (cond-> (assoc state :active-asset asset :selected-asset asset)
-                 (map? cached-market) (assoc :active-market cached-market))))
-      (when-not (seq stored-asset)
-        (js/localStorage.setItem "active-asset" asset))
-      (when (ws-client/connected?)
-        (nxr/dispatch store nil [[:actions/subscribe-to-asset asset]])))))
+  (startup-restore/restore-active-asset! store (restore-active-asset-deps)))
 
 (def toggle-timeframes-dropdown
   chart-actions/toggle-timeframes-dropdown)
