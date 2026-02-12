@@ -25,6 +25,7 @@
             [hyperopen.orderbook.price-aggregation :as price-agg]
             [hyperopen.orderbook.settings :as orderbook-settings]
             [hyperopen.registry.runtime :as runtime-registry]
+            [hyperopen.startup.init :as startup-init]
             [hyperopen.startup.restore :as startup-restore]
             [hyperopen.startup.runtime :as startup-runtime-lib]
             [hyperopen.startup.watchers :as startup-watchers]
@@ -1929,40 +1930,29 @@
     :schedule-deferred-bootstrap! schedule-deferred-bootstrap!}))
 
 (defn init []
-  (println "Initializing Hyperopen...")
-  (reset! startup-runtime (startup-runtime-lib/default-startup-runtime-state))
-  (mark-performance! "app:init:start")
-  (schedule-startup-summary-log!)
-  ;; Restore root typography preference (system default, optional Inter override).
-  (restore-ui-font-preference!)
-  ;; Restore asset selector sort settings from localStorage
-  (asset-selector-settings/restore-asset-selector-sort-settings! store)
-  ;; Restore chart options from localStorage
-  (restore-chart-options! store)
-  ;; Restore orderbook UI options from localStorage
-  (restore-orderbook-ui! store)
-  ;; Restore agent storage preference from localStorage
-  (restore-agent-storage-mode! store)
-  ;; Restore selected asset from localStorage (default to BTC)
-  (restore-active-asset! store)
-  ;; Restore cached selector market symbols for immediate dropdown population.
-  (restore-asset-selector-markets-cache! store)
-  ;; Restore open orders sort settings from localStorage
-  (restore-open-orders-sort-settings! store)
-  ;; Restore funding history pagination settings from localStorage
-  (restore-funding-history-pagination-settings! store)
-  ;; Restore trade history pagination settings from localStorage
-  (restore-trade-history-pagination-settings! store)
-  ;; Restore order history pagination settings from localStorage
-  (restore-order-history-pagination-settings! store)
-  (wallet/set-on-connected-handler! handle-wallet-connected)
-  ;; Initialize wallet system
-  (wallet/init-wallet! store)
-  ;; Initialize router
-  (router/init! store)
-  ;; Register icon cache service worker for cross-reload symbol icon caching.
-  (register-icon-service-worker!)
-  ;; Initialize remote data streams
-  (initialize-remote-data-streams!)
-  ;; Trigger initial render by updating the store
-  (swap! store identity))
+  (startup-init/init!
+   {:log-fn println
+    :startup-runtime startup-runtime
+    :default-startup-runtime-state startup-runtime-lib/default-startup-runtime-state
+    :mark-performance! mark-performance!
+    :schedule-startup-summary-log! schedule-startup-summary-log!
+    :store store
+    :restore-ui-font-preference! restore-ui-font-preference!
+    :restore-asset-selector-sort-settings! asset-selector-settings/restore-asset-selector-sort-settings!
+    :restore-chart-options! restore-chart-options!
+    :restore-orderbook-ui! restore-orderbook-ui!
+    :restore-agent-storage-mode! restore-agent-storage-mode!
+    :restore-active-asset! restore-active-asset!
+    :restore-asset-selector-markets-cache! restore-asset-selector-markets-cache!
+    :restore-open-orders-sort-settings! restore-open-orders-sort-settings!
+    :restore-funding-history-pagination-settings! restore-funding-history-pagination-settings!
+    :restore-trade-history-pagination-settings! restore-trade-history-pagination-settings!
+    :restore-order-history-pagination-settings! restore-order-history-pagination-settings!
+    :set-on-connected-handler! wallet/set-on-connected-handler!
+    :handle-wallet-connected handle-wallet-connected
+    :init-wallet! wallet/init-wallet!
+    :init-router! router/init!
+    :register-icon-service-worker! register-icon-service-worker!
+    :initialize-remote-data-streams! initialize-remote-data-streams!
+    :kick-render! (fn [runtime-store]
+                    (swap! runtime-store identity))}))

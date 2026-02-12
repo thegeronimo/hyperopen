@@ -29,6 +29,7 @@
             [hyperopen.views.l2-orderbook-view-test]
             [hyperopen.views.typography-scale-test]
             [hyperopen.views.trade.order-form-view-test]
+            [hyperopen.startup.init-test]
             [hyperopen.state.trading-test]))
 
 (defn run-all-tests
@@ -63,6 +64,7 @@
              'hyperopen.views.l2-orderbook-view-test
              'hyperopen.views.typography-scale-test
              'hyperopen.views.trade.order-form-view-test
+             'hyperopen.startup.init-test
              'hyperopen.state.trading-test))
 
 (defn -main
