@@ -66,6 +66,18 @@
 - MUST apply Interface Segregation Principle: keep protocols and handler interfaces focused; avoid broad interfaces that force unused methods or arguments.
 - MUST apply Dependency Inversion Principle: high-level application/domain logic must depend on abstractions and injected collaborators, not concrete browser/JS primitives.
 
+## Architecture Governance Rules (MUST)
+- MUST keep namespace dependencies acyclic (ADP); if a cycle is introduced temporarily, an ADR with an explicit removal plan is required.
+- MUST follow Stable Dependencies Principle (SDP): dependency direction must point toward more stable modules (domain/policy/core contracts), never from domain/application into UI/browser/infrastructure implementations.
+- MUST follow Stable Abstractions Principle (SAP): high fan-in or shared modules must expose abstract seams (protocols, pure data contracts, adapters), not concrete IO-heavy implementations.
+- MUST define and preserve explicit namespace API surfaces; production code MUST call public vars only and MUST NOT reach into private vars across namespaces.
+- MUST create/update an ADR for architecture-affecting changes (layer boundaries, message/effect algebra, invariant ownership, dependency direction, or public API contract changes).
+- MUST normalize errors at a single boundary into typed categories (for example `:domain`, `:validation`, `:transport`, `:protocol`, `:unexpected`) before UI/application branching.
+- MUST make startup/bootstrap and effect handlers idempotent and reentrant under retries, reconnects, and duplicate dispatch.
+- MUST add boundary contract tests for each new seam/module boundary, verifying contract shape, translation ownership, and invariant enforcement.
+- MUST keep complexity bounded: new namespaces should stay under 500 LOC and new functions under 80 LOC; exceptions require ADR justification plus targeted tests.
+- MUST include an invariant ownership note in PR notes for any changed invariant: invariant name, owning namespace/function, and enforcement boundary.
+
 ## WebSocket Runtime Architecture Rules (MUST)
 - MUST keep runtime decisions pure via `step(state, msg) -> {:state next-state :effects [...]}`.
 - MUST keep canonical websocket runtime state single-writer: only the engine loop mutates it.
