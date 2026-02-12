@@ -19,6 +19,7 @@
             [hyperopen.api.trading :as trading-api]
             [hyperopen.account.history.actions :as account-history-actions]
             [hyperopen.account.history.effects :as account-history-effects]
+            [hyperopen.order.feedback-runtime :as order-feedback-runtime]
             [hyperopen.order.effects :as order-effects]
             [hyperopen.asset-selector.active-market-cache :as active-market-cache]
             [hyperopen.asset-selector.actions :as asset-actions]
@@ -473,33 +474,31 @@
    js/clearTimeout))
 
 (defn- set-order-feedback-toast! [store kind message]
-  (let [message* (some-> message str str/trim)]
-    (swap! store assoc-in [:ui :toast]
-           (when (seq message*)
-             {:kind kind
-              :message message*}))))
+  (order-feedback-runtime/set-order-feedback-toast! store kind message))
 
 (defn- clear-order-feedback-toast! [store]
-  (swap! store assoc-in [:ui :toast] nil))
+  (order-feedback-runtime/clear-order-feedback-toast! store))
 
 (defn- clear-order-feedback-toast-timeout! []
-  (when-let [timeout-id @order-feedback-toast-timeout-id]
-    (js/clearTimeout timeout-id)
-    (reset! order-feedback-toast-timeout-id nil)))
+  (order-feedback-runtime/clear-order-feedback-toast-timeout!
+   order-feedback-toast-timeout-id
+   js/clearTimeout))
 
 (defn- schedule-order-feedback-toast-clear! [store]
-  (clear-order-feedback-toast-timeout!)
-  (let [timeout-id (js/setTimeout
-                     (fn []
-                       (clear-order-feedback-toast! store)
-                       (reset! order-feedback-toast-timeout-id nil))
-                     order-feedback-toast-duration-ms)]
-    (reset! order-feedback-toast-timeout-id timeout-id)))
+  (order-feedback-runtime/schedule-order-feedback-toast-clear!
+   {:store store
+    :order-feedback-toast-timeout-id order-feedback-toast-timeout-id
+    :clear-order-feedback-toast! clear-order-feedback-toast!
+    :clear-order-feedback-toast-timeout! clear-order-feedback-toast-timeout!
+    :order-feedback-toast-duration-ms order-feedback-toast-duration-ms
+    :set-timeout-fn js/setTimeout}))
 
 (defn- show-order-feedback-toast! [store kind message]
-  (set-order-feedback-toast! store kind message)
-  (when (seq (get-in @store [:ui :toast :message]))
-    (schedule-order-feedback-toast-clear! store)))
+  (order-feedback-runtime/show-order-feedback-toast!
+   store
+   kind
+   message
+   schedule-order-feedback-toast-clear!))
 
 (defn disconnect-wallet [_ store]
   (println "Disconnecting wallet...")

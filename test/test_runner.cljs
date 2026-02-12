@@ -18,6 +18,7 @@
             [hyperopen.utils.hl-signing-test]
             [hyperopen.utils.interval-test]
             [hyperopen.orderbook.price-aggregation-test]
+            [hyperopen.order.feedback-runtime-test]
             [hyperopen.wallet.address-watcher-test]
             [hyperopen.wallet.copy-feedback-runtime-test]
             [hyperopen.wallet.agent-runtime-test]
@@ -61,6 +62,7 @@
              'hyperopen.asset-selector.markets-cache-test
              'hyperopen.core-bootstrap-test
              'hyperopen.orderbook.price-aggregation-test
+             'hyperopen.order.feedback-runtime-test
              'hyperopen.wallet.address-watcher-test
              'hyperopen.wallet.copy-feedback-runtime-test
              'hyperopen.wallet.agent-runtime-test
