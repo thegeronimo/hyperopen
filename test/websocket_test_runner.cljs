@@ -12,6 +12,7 @@
             [hyperopen.websocket.subscriptions-runtime-test]
             [hyperopen.websocket.health-test]
             [hyperopen.websocket.health-projection-test]
+            [hyperopen.websocket.health-runtime-test]
             [hyperopen.websocket.domain.policy-test]
             [hyperopen.websocket.orderbook-policy-test]
             [hyperopen.websocket.trades-policy-test]
@@ -29,6 +30,7 @@
              'hyperopen.websocket.subscriptions-runtime-test
              'hyperopen.websocket.health-test
              'hyperopen.websocket.health-projection-test
+             'hyperopen.websocket.health-runtime-test
              'hyperopen.websocket.domain.policy-test
              'hyperopen.websocket.client-test
              'hyperopen.websocket.user-test

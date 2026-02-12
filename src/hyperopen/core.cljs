@@ -1,10 +1,10 @@
 (ns hyperopen.core
-  (:require [clojure.string :as str]
-            [replicant.dom :as r]
+  (:require [replicant.dom :as r]
             [nexus.registry :as nxr]
             [hyperopen.views.app-view :as app-view]
             [hyperopen.websocket.active-asset-ctx :as active-ctx]
             [hyperopen.websocket.client :as ws-client]
+            [hyperopen.websocket.health-runtime :as health-runtime]
             [hyperopen.websocket.orderbook :as orderbook]
             [hyperopen.websocket.trades :as trades]
             [hyperopen.websocket.webdata2 :as webdata2]
@@ -209,11 +209,7 @@
 
 (defn- effective-now-ms
   [generated-at-ms]
-  (let [generated* (or generated-at-ms 0)
-        wall-now-ms (.now js/Date)]
-    (if (>= generated* 1000000000000)
-      (max generated* wall-now-ms)
-      generated*)))
+  (health-runtime/effective-now-ms generated-at-ms))
 
 (defn- append-diagnostics-event!
   [store event at-ms & [details]]
@@ -224,54 +220,21 @@
          details
          diagnostics-timeline-limit))
 
-(defn- stream-age-ms
-  [generated-at-ms last-payload-at-ms]
-  (health-projection/stream-age-ms generated-at-ms last-payload-at-ms))
-
-(defn- delayed-market-stream-severe?
-  [health]
-  (health-projection/delayed-market-stream-severe? health auto-recover-severe-threshold-ms))
-
-(defn- auto-recover-enabled? []
-  (let [flag (some-> js/globalThis (aget "ENABLE_WS_AUTO_RECOVER"))]
-    (cond
-      (true? flag) true
-      (false? flag) false
-      (string? flag) (= "true" (str/lower-case flag))
-      :else false)))
-
-(defn- auto-recover-eligible?
-  [state health]
-  (health-projection/auto-recover-eligible?
-   state
-   health
-   {:enabled? (auto-recover-enabled?)
-    :severe-threshold-ms auto-recover-severe-threshold-ms}))
-
 (defn- sync-websocket-health!
   [store & {:keys [force?]}]
-  (let [health (ws-client/get-health-snapshot)
-        generated-at-ms (or (:generated-at-ms health) 0)
-        prior-fingerprint (:fingerprint @websocket-health-projection-state)
-        fingerprint (websocket-health-fingerprint health)
-        state* @store
-        should-sync? (or force?
-                         (not= fingerprint prior-fingerprint))]
-    (when (auto-recover-eligible? state* health)
-      (swap! store
-             (fn [state]
-               (-> state
-                   (assoc-in [:websocket-ui :auto-recover-cooldown-until-ms]
-                             (+ generated-at-ms auto-recover-cooldown-ms))
-                   (update-in [:websocket-ui :auto-recover-count] (fnil inc 0)))))
-      (nxr/dispatch store nil [[:actions/ws-diagnostics-reset-market-subscriptions :auto-recover]]))
-    (when (health-projection/gap-detected-transition? prior-fingerprint fingerprint)
-      (append-diagnostics-event! store :gap-detected generated-at-ms))
-    (when should-sync?
-      (reset! websocket-health-projection-state {:fingerprint fingerprint})
-      (swap! websocket-health-sync-stats update :writes (fnil inc 0))
-      (js/queueMicrotask
-        #(swap! store assoc-in [:websocket :health] health)))))
+  (health-runtime/sync-websocket-health!
+   {:store store
+    :force? force?
+    :get-health-snapshot ws-client/get-health-snapshot
+    :websocket-health-fingerprint websocket-health-fingerprint
+    :projection-state websocket-health-projection-state
+    :sync-stats websocket-health-sync-stats
+    :auto-recover-enabled-fn health-runtime/auto-recover-enabled?
+    :auto-recover-severe-threshold-ms auto-recover-severe-threshold-ms
+    :auto-recover-cooldown-ms auto-recover-cooldown-ms
+    :dispatch! nxr/dispatch
+    :append-diagnostics-event! append-diagnostics-event!
+    :queue-microtask-fn js/queueMicrotask}))
 
 (defn- copy-status-at-ms [health]
   (diagnostics-payload/copy-status-at-ms health))
