@@ -18,7 +18,9 @@
             [hyperopen.asset-selector.actions :as asset-actions]
             [hyperopen.asset-selector.settings :as asset-selector-settings]
             [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.chart.settings :as chart-settings]
             [hyperopen.orderbook.price-aggregation :as price-agg]
+            [hyperopen.orderbook.settings :as orderbook-settings]
             [hyperopen.utils.parse :as parse-utils]
             [hyperopen.wallet.core :as wallet]
             [hyperopen.wallet.agent-session :as agent-session]
@@ -1215,72 +1217,8 @@
 (def mark-missing-asset-icon
   asset-actions/mark-missing-asset-icon)
 
-(def chart-timeframes
-  #{:1m :3m :5m :15m :30m :1h :2h :4h :8h :12h :1d :3d :1w :1M})
-
-(def chart-types
-  #{:area :bar :baseline :candlestick :histogram :line})
-
-(def orderbook-size-units
-  #{:base :quote})
-
-(def orderbook-tabs
-  #{:orderbook :trades})
-
 (def ^:private ui-font-local-storage-key "hyperopen-ui-font")
 (def ^:private supported-ui-fonts #{"system" "inter"})
-
-(defn- load-chart-option
-  [ls-key default valid-set]
-  (let [v (keyword (or (js/localStorage.getItem ls-key) (name default)))]
-    (if (contains? valid-set v) v default)))
-
-(defn- load-orderbook-size-unit []
-  (let [v (keyword (or (js/localStorage.getItem "orderbook-size-unit") "base"))]
-    (if (contains? orderbook-size-units v) v :base)))
-
-(defn- load-orderbook-active-tab []
-  (let [v (keyword (or (js/localStorage.getItem "orderbook-active-tab") "orderbook"))]
-    (if (contains? orderbook-tabs v) v :orderbook)))
-
-(defn- normalize-price-aggregation-by-coin [raw-map]
-  (if (map? raw-map)
-    (into {}
-          (keep (fn [[coin raw-mode]]
-                  (let [mode (cond
-                               (keyword? raw-mode) raw-mode
-                               (string? raw-mode) (keyword raw-mode)
-                               :else nil)]
-                    (when (and (string? coin)
-                               (seq coin)
-                               (contains? price-agg/valid-modes mode))
-                      [coin mode]))))
-          raw-map)
-    {}))
-
-(defn- load-orderbook-price-aggregation-by-coin []
-  (try
-    (let [raw (js/localStorage.getItem "orderbook-price-aggregation-by-coin")]
-      (if (seq raw)
-        (normalize-price-aggregation-by-coin (js->clj (js/JSON.parse raw)))
-        {}))
-    (catch :default _
-      {})))
-
-(defn- serialize-indicators [indicators]
-  (into {}
-        (map (fn [[k v]] [(name k) v]))
-        (or indicators {})))
-
-(defn- load-indicators []
-  (try
-    (let [raw (js/localStorage.getItem "chart-active-indicators")]
-      (if (seq raw)
-        (let [parsed (js->clj (js/JSON.parse raw) :keywordize-keys true)]
-          (if (map? parsed) parsed {}))
-        {}))
-    (catch :default _
-      {})))
 
 (def restore-open-orders-sort-settings!
   account-history-actions/restore-open-orders-sort-settings!)
@@ -1294,20 +1232,11 @@
 (def restore-trade-history-pagination-settings!
   account-history-actions/restore-trade-history-pagination-settings!)
 
-(defn restore-chart-options! [store]
-  (let [timeframe (load-chart-option "chart-timeframe" :1d chart-timeframes)
-        chart-type (load-chart-option "chart-type" :candlestick chart-types)
-        indicators (load-indicators)]
-    (swap! store update-in [:chart-options] merge
-           {:selected-timeframe timeframe
-            :selected-chart-type chart-type
-            :active-indicators indicators})))
+(def restore-chart-options!
+  chart-settings/restore-chart-options!)
 
-(defn restore-orderbook-ui! [store]
-  (swap! store update :orderbook-ui merge
-         {:size-unit (load-orderbook-size-unit)
-          :price-aggregation-by-coin (load-orderbook-price-aggregation-by-coin)
-          :active-tab (load-orderbook-active-tab)}))
+(def restore-orderbook-ui!
+  orderbook-settings/restore-orderbook-ui!)
 
 (defn restore-agent-storage-mode! [store]
   (let [storage-mode (agent-session/load-storage-mode-preference)]
@@ -1387,60 +1316,27 @@
   (let [visible? (get-in state [:orderbook-ui :size-unit-dropdown-visible?] false)]
     [[:effects/save [:orderbook-ui :size-unit-dropdown-visible?] (not visible?)]]))
 
-(defn select-orderbook-size-unit [state unit]
-  (let [size-unit (if (= unit :quote) :quote :base)]
-    [[:effects/save [:orderbook-ui :size-unit] size-unit]
-     [:effects/save [:orderbook-ui :size-unit-dropdown-visible?] false]
-     [:effects/local-storage-set "orderbook-size-unit" (name size-unit)]]))
+(def select-orderbook-size-unit
+  orderbook-settings/select-orderbook-size-unit)
 
 (defn toggle-orderbook-price-aggregation-dropdown [state]
   (let [visible? (get-in state [:orderbook-ui :price-aggregation-dropdown-visible?] false)]
     [[:effects/save [:orderbook-ui :price-aggregation-dropdown-visible?] (not visible?)]]))
 
-(defn select-orderbook-price-aggregation [state mode]
-  (let [coin (:active-asset state)
-        mode* (price-agg/normalize-mode mode)
-        current-by-coin (get-in state [:orderbook-ui :price-aggregation-by-coin] {})
-        next-by-coin (if (seq coin)
-                       (assoc current-by-coin coin mode*)
-                       current-by-coin)]
-    (cond-> [[:effects/save [:orderbook-ui :price-aggregation-by-coin] next-by-coin]
-             [:effects/save [:orderbook-ui :price-aggregation-dropdown-visible?] false]
-             [:effects/local-storage-set-json
-              "orderbook-price-aggregation-by-coin"
-              (normalize-price-aggregation-by-coin next-by-coin)]]
-      (seq coin)
-      (conj [:effects/subscribe-orderbook coin]))))
+(def select-orderbook-price-aggregation
+  orderbook-settings/select-orderbook-price-aggregation)
 
-(defn select-orderbook-tab [state tab]
-  (let [tab* (cond
-               (keyword? tab) tab
-               (string? tab) (keyword tab)
-               :else :orderbook)
-        normalized-tab (if (contains? orderbook-tabs tab*) tab* :orderbook)]
-    [[:effects/save [:orderbook-ui :active-tab] normalized-tab]
-     [:effects/save [:orderbook-ui :size-unit-dropdown-visible?] false]
-     [:effects/save [:orderbook-ui :price-aggregation-dropdown-visible?] false]
-     [:effects/local-storage-set "orderbook-active-tab" (name normalized-tab)]]))
+(def select-orderbook-tab
+  orderbook-settings/select-orderbook-tab)
 
-(defn add-indicator [state indicator-type params]
-  (let [current-indicators (get-in state [:chart-options :active-indicators] {})
-        new-indicators (assoc current-indicators indicator-type params)]
-    [[:effects/save [:chart-options :active-indicators] new-indicators]
-     [:effects/local-storage-set-json "chart-active-indicators" (serialize-indicators new-indicators)]]))
+(def add-indicator
+  chart-settings/add-indicator)
 
-(defn remove-indicator [state indicator-type]
-  (let [current-indicators (get-in state [:chart-options :active-indicators] {})
-        new-indicators (dissoc current-indicators indicator-type)]
-    [[:effects/save [:chart-options :active-indicators] new-indicators]
-     [:effects/local-storage-set-json "chart-active-indicators" (serialize-indicators new-indicators)]]))
+(def remove-indicator
+  chart-settings/remove-indicator)
 
-(defn update-indicator-period [state indicator-type period-value]
-  (let [current-indicators (get-in state [:chart-options :active-indicators] {})
-        period (js/parseInt period-value)
-        updated-indicators (assoc-in current-indicators [indicator-type :period] period)]
-    [[:effects/save [:chart-options :active-indicators] updated-indicators]
-     [:effects/local-storage-set-json "chart-active-indicators" (serialize-indicators updated-indicators)]]))
+(def update-indicator-period
+  chart-settings/update-indicator-period)
 
 (def select-account-info-tab
   account-history-actions/select-account-info-tab)
