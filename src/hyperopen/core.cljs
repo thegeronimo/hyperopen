@@ -10,6 +10,7 @@
             [hyperopen.websocket.webdata2 :as webdata2]
             [hyperopen.websocket.user :as user-ws]
             [hyperopen.websocket.diagnostics-sanitize :as diagnostics-sanitize]
+            [hyperopen.websocket.health-projection :as health-projection]
             [hyperopen.api :as api]
             [hyperopen.api.trading :as trading-api]
             [hyperopen.account.history.actions :as account-history-actions]
@@ -150,14 +151,7 @@
   (atom {:writes 0}))
 
 (defn- websocket-health-fingerprint [health]
-  {:transport/state (get-in health [:transport :state])
-   :transport/freshness (get-in health [:transport :freshness])
-   :groups/orders_oms (get-in health [:groups :orders_oms :worst-status])
-   :groups/market_data (get-in health [:groups :market_data :worst-status])
-   :groups/account (get-in health [:groups :account :worst-status])
-   :gap/orders_oms (boolean (get-in health [:groups :orders_oms :gap-detected?]))
-   :gap/market_data (boolean (get-in health [:groups :market_data :gap-detected?]))
-   :gap/account (boolean (get-in health [:groups :account :gap-detected?]))})
+  (health-projection/websocket-health-fingerprint health))
 
 (def ^:private diagnostics-timeline-limit
   50)
@@ -212,36 +206,19 @@
 (defn- append-diagnostics-event!
   [store event at-ms & [details]]
   (swap! store
-         (fn [state]
-           (let [entry (cond-> {:event event
-                                :at-ms at-ms}
-                         (map? details) (assoc :details details))
-                 timeline (conj (vec (get-in state [:websocket-ui :diagnostics-timeline] [])) entry)
-                 max-start (max 0 (- (count timeline) diagnostics-timeline-limit))
-                 bounded (subvec timeline max-start)]
-             (assoc-in state [:websocket-ui :diagnostics-timeline] bounded)))))
+         health-projection/append-diagnostics-event
+         event
+         at-ms
+         details
+         diagnostics-timeline-limit))
 
 (defn- stream-age-ms
   [generated-at-ms last-payload-at-ms]
-  (when (and (number? generated-at-ms)
-             (number? last-payload-at-ms))
-    (max 0 (- generated-at-ms last-payload-at-ms))))
+  (health-projection/stream-age-ms generated-at-ms last-payload-at-ms))
 
 (defn- delayed-market-stream-severe?
   [health]
-  (let [generated-at-ms (:generated-at-ms health)]
-    (boolean
-      (some (fn [[_ stream]]
-              (let [group (:group stream)
-                    status (:status stream)
-                    stale-threshold-ms (:stale-threshold-ms stream)
-                    age-ms (stream-age-ms generated-at-ms (:last-payload-at-ms stream))]
-                (and (= :market_data group)
-                     (= :delayed status)
-                     (number? stale-threshold-ms)
-                     (number? age-ms)
-                     (> age-ms auto-recover-severe-threshold-ms))))
-            (get health :streams {})))))
+  (health-projection/delayed-market-stream-severe? health auto-recover-severe-threshold-ms))
 
 (defn- auto-recover-enabled? []
   (let [flag (some-> js/globalThis (aget "ENABLE_WS_AUTO_RECOVER"))]
@@ -253,18 +230,11 @@
 
 (defn- auto-recover-eligible?
   [state health]
-  (let [transport-state (get-in health [:transport :state])
-        transport-freshness (get-in health [:transport :freshness])
-        generated-at-ms (or (:generated-at-ms health) 0)
-        cooldown-until-ms (get-in state [:websocket-ui :auto-recover-cooldown-until-ms])]
-    (and (auto-recover-enabled?)
-         (= :connected transport-state)
-         (= :live transport-freshness)
-         (not (contains? #{:connecting :reconnecting} transport-state))
-         (not (true? (get-in state [:websocket-ui :reset-in-progress?])))
-         (or (not (number? cooldown-until-ms))
-             (<= cooldown-until-ms generated-at-ms))
-         (delayed-market-stream-severe? health))))
+  (health-projection/auto-recover-eligible?
+   state
+   health
+   {:enabled? (auto-recover-enabled?)
+    :severe-threshold-ms auto-recover-severe-threshold-ms}))
 
 (defn- sync-websocket-health!
   [store & {:keys [force?]}]
@@ -283,8 +253,7 @@
                              (+ generated-at-ms auto-recover-cooldown-ms))
                    (update-in [:websocket-ui :auto-recover-count] (fnil inc 0)))))
       (nxr/dispatch store nil [[:actions/ws-diagnostics-reset-market-subscriptions :auto-recover]]))
-    (when (and (not (some true? (vals (select-keys prior-fingerprint [:gap/orders_oms :gap/market_data :gap/account]))))
-               (some true? (vals (select-keys fingerprint [:gap/orders_oms :gap/market_data :gap/account]))))
+    (when (health-projection/gap-detected-transition? prior-fingerprint fingerprint)
       (append-diagnostics-event! store :gap-detected generated-at-ms))
     (when should-sync?
       (reset! websocket-health-projection-state {:fingerprint fingerprint})
