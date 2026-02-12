@@ -46,6 +46,7 @@
             [hyperopen.views.typography-scale-test]
             [hyperopen.views.trade.order-form-view-test]
             [hyperopen.startup.init-test]
+            [hyperopen.runtime.bootstrap-test]
             [hyperopen.runtime.app-effects-test]
             [hyperopen.state.trading-test]))
 
@@ -98,6 +99,7 @@
              'hyperopen.views.typography-scale-test
              'hyperopen.views.trade.order-form-view-test
              'hyperopen.startup.init-test
+             'hyperopen.runtime.bootstrap-test
              'hyperopen.runtime.app-effects-test
              'hyperopen.state.trading-test))
 
