@@ -38,6 +38,7 @@
             [hyperopen.runtime.bootstrap :as runtime-bootstrap]
             [hyperopen.runtime.collaborators :as runtime-collaborators]
             [hyperopen.runtime.registry-composition :as registry-composition]
+            [hyperopen.runtime.state :as runtime-state]
             [hyperopen.startup.collaborators :as startup-collaborators]
             [hyperopen.startup.composition :as startup-composition]
             [hyperopen.startup.restore :as startup-restore]
@@ -79,56 +80,8 @@
      :default-funding-history (default-funding-history-state)
      :default-order-history (default-order-history-state)})))
 
-(defonce ^:private websocket-health-projection-state
-  (atom {:fingerprint nil}))
-
-(defonce ^:private websocket-health-sync-stats
-  (atom {:writes 0}))
-
 (defn- websocket-health-fingerprint [health]
   (health-projection/websocket-health-fingerprint health))
-
-(def ^:private diagnostics-timeline-limit
-  50)
-
-(def ^:private reconnect-cooldown-ms
-  5000)
-
-(def ^:private reset-subscriptions-cooldown-ms
-  5000)
-
-(def ^:private auto-recover-severe-threshold-ms
-  30000)
-
-(def ^:private auto-recover-cooldown-ms
-  300000)
-
-(def ^:private icon-service-worker-path
-  "/sw.js")
-
-(def ^:private app-version
-  "0.1.0")
-
-(def ^:private wallet-copy-feedback-duration-ms
-  1500)
-
-(def ^:private order-feedback-toast-duration-ms
-  3500)
-
-(def ^:private agent-storage-mode-reset-message
-  "Trading persistence updated. Enable Trading again.")
-
-(defonce ^:private wallet-copy-feedback-timeout-id
-  (atom nil))
-
-(defonce ^:private order-feedback-toast-timeout-id
-  (atom nil))
-
-(defonce ^:private pending-asset-icon-statuses
-  (atom {}))
-
-(defonce ^:private asset-icon-status-flush-handle
-  (atom nil))
 
 (defn- effective-now-ms
   [generated-at-ms]
@@ -141,7 +94,7 @@
          event
          at-ms
          details
-         diagnostics-timeline-limit))
+         runtime-state/diagnostics-timeline-limit))
 
 (defn- sync-websocket-health!
   [store & {:keys [force?]}]
@@ -150,11 +103,11 @@
     :force? force?
     :get-health-snapshot ws-client/get-health-snapshot
     :websocket-health-fingerprint websocket-health-fingerprint
-    :projection-state websocket-health-projection-state
-    :sync-stats websocket-health-sync-stats
+    :projection-state runtime-state/websocket-health-projection-state
+    :sync-stats runtime-state/websocket-health-sync-stats
     :auto-recover-enabled-fn health-runtime/auto-recover-enabled?
-    :auto-recover-severe-threshold-ms auto-recover-severe-threshold-ms
-    :auto-recover-cooldown-ms auto-recover-cooldown-ms
+    :auto-recover-severe-threshold-ms runtime-state/auto-recover-severe-threshold-ms
+    :auto-recover-cooldown-ms runtime-state/auto-recover-cooldown-ms
     :dispatch! nxr/dispatch
     :append-diagnostics-event! append-diagnostics-event!
     :queue-microtask-fn js/queueMicrotask}))
@@ -184,8 +137,8 @@
 (defn- flush-queued-asset-icon-statuses! [store]
   (icon-status-runtime/flush-queued-asset-icon-statuses!
    {:store store
-    :pending-statuses pending-asset-icon-statuses
-    :flush-handle asset-icon-status-flush-handle
+    :pending-statuses runtime-state/pending-asset-icon-statuses
+    :flush-handle runtime-state/asset-icon-status-flush-handle
     :apply-asset-icon-status-updates-fn asset-actions/apply-asset-icon-status-updates
     :save-many! (fn [runtime-store path-values]
                   (save-many nil runtime-store path-values))}))
@@ -194,8 +147,8 @@
   (icon-status-runtime/queue-asset-icon-status!
    {:store store
     :payload payload
-    :pending-statuses pending-asset-icon-statuses
-    :flush-handle asset-icon-status-flush-handle
+    :pending-statuses runtime-state/pending-asset-icon-statuses
+    :flush-handle runtime-state/asset-icon-status-flush-handle
     :schedule-animation-frame! schedule-animation-frame!
     :flush-queued-asset-icon-statuses! flush-queued-asset-icon-statuses!}))
 
@@ -334,7 +287,7 @@
 
 (defn- clear-wallet-copy-feedback-timeout! []
   (wallet-copy-runtime/clear-wallet-copy-feedback-timeout!
-   wallet-copy-feedback-timeout-id
+   runtime-state/wallet-copy-feedback-timeout-id
    js/clearTimeout))
 
 (defn- set-order-feedback-toast! [store kind message]
@@ -345,16 +298,16 @@
 
 (defn- clear-order-feedback-toast-timeout! []
   (order-feedback-runtime/clear-order-feedback-toast-timeout!
-   order-feedback-toast-timeout-id
+   runtime-state/order-feedback-toast-timeout-id
    js/clearTimeout))
 
 (defn- schedule-order-feedback-toast-clear! [store]
   (order-feedback-runtime/schedule-order-feedback-toast-clear!
    {:store store
-    :order-feedback-toast-timeout-id order-feedback-toast-timeout-id
+    :order-feedback-toast-timeout-id runtime-state/order-feedback-toast-timeout-id
     :clear-order-feedback-toast! clear-order-feedback-toast!
     :clear-order-feedback-toast-timeout! clear-order-feedback-toast-timeout!
-    :order-feedback-toast-duration-ms order-feedback-toast-duration-ms
+    :order-feedback-toast-duration-ms runtime-state/order-feedback-toast-duration-ms
     :set-timeout-fn js/setTimeout}))
 
 (defn- show-order-feedback-toast! [store kind message]
@@ -381,15 +334,15 @@
     :clear-agent-session-by-mode! agent-session/clear-agent-session-by-mode!
     :persist-storage-mode-preference! agent-session/persist-storage-mode-preference!
     :default-agent-state agent-session/default-agent-state
-    :agent-storage-mode-reset-message agent-storage-mode-reset-message}))
+    :agent-storage-mode-reset-message runtime-state/agent-storage-mode-reset-message}))
 
 (defn- schedule-wallet-copy-feedback-clear! [store]
   (wallet-copy-runtime/schedule-wallet-copy-feedback-clear!
    {:store store
-    :wallet-copy-feedback-timeout-id wallet-copy-feedback-timeout-id
+    :wallet-copy-feedback-timeout-id runtime-state/wallet-copy-feedback-timeout-id
     :clear-wallet-copy-feedback! clear-wallet-copy-feedback!
     :clear-wallet-copy-feedback-timeout! clear-wallet-copy-feedback-timeout!
-    :wallet-copy-feedback-duration-ms wallet-copy-feedback-duration-ms
+    :wallet-copy-feedback-duration-ms runtime-state/wallet-copy-feedback-duration-ms
     :set-timeout-fn js/setTimeout}))
 
 (defn copy-wallet-address [_ store address]
@@ -419,7 +372,7 @@
     :source source
     :get-health-snapshot ws-client/get-health-snapshot
     :effective-now-ms effective-now-ms
-    :reset-subscriptions-cooldown-ms reset-subscriptions-cooldown-ms
+    :reset-subscriptions-cooldown-ms runtime-state/reset-subscriptions-cooldown-ms
     :send-message! ws-client/send-message!
     :append-diagnostics-event! append-diagnostics-event!}))
 
@@ -431,7 +384,7 @@
 (defn copy-websocket-diagnostics [_ store]
   (diagnostics-effects/copy-websocket-diagnostics!
    {:store store
-    :app-version app-version
+    :app-version runtime-state/app-version
     :set-copy-status! set-copy-status!
     :log-fn println}))
 
@@ -518,7 +471,7 @@
 
 (defn- ws-diagnostics-action-deps []
   {:effective-now-ms effective-now-ms
-   :reconnect-cooldown-ms reconnect-cooldown-ms})
+   :reconnect-cooldown-ms runtime-state/reconnect-cooldown-ms})
 
 (defn toggle-ws-diagnostics [state]
   (diagnostics-actions/toggle-ws-diagnostics state))
@@ -1021,10 +974,6 @@
   (wallet/set-on-connected-handler! handle-wallet-connected)
   (render-app! @store))
 
-(def ^:private deferred-bootstrap-delay-ms 1200)
-(def ^:private per-dex-stagger-ms 120)
-(def ^:private startup-summary-delay-ms 5000)
-
 (defonce ^:private startup-runtime
   (atom (startup-runtime-lib/default-startup-runtime-state)))
 
@@ -1034,15 +983,15 @@
 
 (defn- schedule-idle-or-timeout!
   [f]
-  (startup-runtime-lib/schedule-idle-or-timeout! deferred-bootstrap-delay-ms f))
+  (startup-runtime-lib/schedule-idle-or-timeout! runtime-state/deferred-bootstrap-delay-ms f))
 
 (defn- startup-base-deps
   []
   (startup-collaborators/startup-base-deps
    {:startup-runtime startup-runtime
     :store store
-    :icon-service-worker-path icon-service-worker-path
-    :per-dex-stagger-ms per-dex-stagger-ms
+    :icon-service-worker-path runtime-state/icon-service-worker-path
+    :per-dex-stagger-ms runtime-state/per-dex-stagger-ms
     :schedule-idle-or-timeout! schedule-idle-or-timeout!
     :mark-performance! mark-performance!}))
 
@@ -1050,7 +999,7 @@
   []
   (startup-composition/schedule-startup-summary-log!
    (assoc (startup-base-deps)
-          :delay-ms startup-summary-delay-ms)))
+          :delay-ms runtime-state/startup-summary-delay-ms)))
 
 (defn- register-icon-service-worker!
   []

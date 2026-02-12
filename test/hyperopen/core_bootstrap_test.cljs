@@ -6,6 +6,7 @@
             [hyperopen.api.trading :as trading-api]
             [hyperopen.account.history.effects :as account-history-effects]
             [hyperopen.core :as core]
+            [hyperopen.runtime.state :as runtime-state]
             [hyperopen.state.trading :as trading]
             [hyperopen.wallet.agent-session :as agent-session]
             [hyperopen.wallet.address-watcher :as address-watcher]
@@ -74,13 +75,13 @@
           (js/Reflect.deleteProperty js/globalThis navigator-prop))))))
 
 (defn- clear-wallet-copy-feedback-timeout! []
-  (let [timeout-atom @#'hyperopen.core/wallet-copy-feedback-timeout-id]
+  (let [timeout-atom @#'runtime-state/wallet-copy-feedback-timeout-id]
     (when-let [timeout-id @timeout-atom]
       (js/clearTimeout timeout-id)
       (reset! timeout-atom nil))))
 
 (defn- clear-order-feedback-toast-timeout! []
-  (let [timeout-atom @#'hyperopen.core/order-feedback-toast-timeout-id]
+  (let [timeout-atom @#'runtime-state/order-feedback-toast-timeout-id]
     (when-let [timeout-id @timeout-atom]
       (js/clearTimeout timeout-id)
       (reset! timeout-atom nil))))
@@ -179,8 +180,8 @@
   (let [store (atom {:asset-selector {:loaded-icons #{}
                                       :missing-icons #{}}})
         scheduled-callback (atom nil)]
-    (reset! @#'hyperopen.core/pending-asset-icon-statuses {})
-    (reset! @#'hyperopen.core/asset-icon-status-flush-handle nil)
+    (reset! @#'runtime-state/pending-asset-icon-statuses {})
+    (reset! @#'runtime-state/asset-icon-status-flush-handle nil)
     (with-redefs [hyperopen.core/schedule-animation-frame! (fn [f]
                                                               (reset! scheduled-callback f)
                                                               :raf-id)]
@@ -191,8 +192,8 @@
       (@scheduled-callback)
       (is (= #{"perp:ETH"} (get-in @store [:asset-selector :loaded-icons])))
       (is (= #{"perp:BTC"} (get-in @store [:asset-selector :missing-icons])))
-      (is (= {} @@#'hyperopen.core/pending-asset-icon-statuses))
-      (is (nil? @@#'hyperopen.core/asset-icon-status-flush-handle)))))
+      (is (= {} @@#'runtime-state/pending-asset-icon-statuses))
+      (is (nil? @@#'runtime-state/asset-icon-status-flush-handle)))))
 
 (deftest maybe-increase-asset-selector-render-limit-expands-near-bottom-test
   (let [state {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
@@ -1531,8 +1532,8 @@
           original-runtime @ws-client/stream-runtime
           store (atom {:websocket {:health {}}
                        :websocket-ui {:diagnostics-open? false}})
-          projection-state @#'hyperopen.core/websocket-health-projection-state
-          sync-stats @#'hyperopen.core/websocket-health-sync-stats]
+          projection-state @#'runtime-state/websocket-health-projection-state
+          sync-stats @#'runtime-state/websocket-health-sync-stats]
       (reset! ws-client/connection-state
               {:status :connected
                :attempt 0
@@ -1595,7 +1596,7 @@
 
 (deftest sync-websocket-health-auto-recover-is-flagged-and-cooldown-protected-test
   (let [dispatches (atom [])
-        projection-state @#'hyperopen.core/websocket-health-projection-state
+        projection-state @#'runtime-state/websocket-health-projection-state
         flag-prop "ENABLE_WS_AUTO_RECOVER"
         original-flag-descriptor (js/Object.getOwnPropertyDescriptor js/globalThis flag-prop)
         health {:generated-at-ms 1700000000000
@@ -1641,7 +1642,7 @@
 
 (deftest sync-websocket-health-auto-recover-skips-unsupported-states-test
   (let [dispatches (atom [])
-        projection-state @#'hyperopen.core/websocket-health-projection-state
+        projection-state @#'runtime-state/websocket-health-projection-state
         flag-prop "ENABLE_WS_AUTO_RECOVER"
         original-flag-descriptor (js/Object.getOwnPropertyDescriptor js/globalThis flag-prop)
         offline-health {:generated-at-ms 1700000000000
