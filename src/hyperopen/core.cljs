@@ -35,6 +35,7 @@
             [hyperopen.orderbook.price-aggregation :as price-agg]
             [hyperopen.orderbook.settings :as orderbook-settings]
             [hyperopen.registry.runtime :as runtime-registry]
+            [hyperopen.runtime.app-effects :as app-effects]
             [hyperopen.startup.init :as startup-init]
             [hyperopen.startup.restore :as startup-restore]
             [hyperopen.startup.runtime :as startup-runtime-lib]
@@ -261,29 +262,16 @@
 
 ;; Effects - handle side effects
 (defn save [_ store path value]
-  (swap! store assoc-in path value))
+  (app-effects/save! store path value))
 
 (defn save-many [_ store path-values]
-  (swap! store
-         (fn [state]
-           (reduce (fn [acc [path value]]
-                     (assoc-in acc path value))
-                   state
-                   path-values))))
+  (app-effects/save-many! store path-values))
 
 (defn local-storage-set [_ _ key value]
-  (try
-    (when (exists? js/localStorage)
-      (js/localStorage.setItem key (str value)))
-    (catch :default e
-      (js/console.warn "Failed to persist localStorage value:" key e))))
+  (app-effects/local-storage-set! key value))
 
 (defn local-storage-set-json [_ _ key value]
-  (try
-    (when (exists? js/localStorage)
-      (js/localStorage.setItem key (js/JSON.stringify (clj->js value))))
-    (catch :default e
-      (js/console.warn "Failed to persist localStorage JSON value:" key e))))
+  (app-effects/local-storage-set-json! key value))
 
 (defn- schedule-animation-frame! [f]
   (if (fn? (.-requestAnimationFrame js/globalThis))
@@ -309,19 +297,25 @@
     :flush-queued-asset-icon-statuses! flush-queued-asset-icon-statuses!}))
 
 (defn push-state [_ _ path]
-  (.pushState js/history nil "" path))
+  (app-effects/push-state! path))
 
 (defn replace-state [_ _ path]
-  (.replaceState js/history nil "" path))
+  (app-effects/replace-state! path))
 
 (defn fetch-candle-snapshot [_ store & {:keys [interval bars] :or {interval :1d bars 330}}]
-  (println "Fetching candle snapshot for active asset...")
-  (api/fetch-candle-snapshot! store :interval interval :bars bars))
+  (app-effects/fetch-candle-snapshot!
+   {:store store
+    :interval interval
+    :bars bars
+    :log-fn println
+    :fetch-candle-snapshot-fn api/fetch-candle-snapshot!}))
 
 (defn init-websocket [_ store]
-  (println "Initializing WebSocket connection...")
-  (ws-client/init-connection! "wss://api.hyperliquid.xyz/ws")
-  (swap! store assoc-in [:websocket :status] :connecting))
+  (app-effects/init-websocket!
+   {:store store
+    :ws-url "wss://api.hyperliquid.xyz/ws"
+    :log-fn println
+    :init-connection! ws-client/init-connection!}))
 
 (defn- normalize-market-type [value]
   (markets-cache/normalize-market-type value))
@@ -506,8 +500,9 @@
     :log-fn println}))
 
 (defn reconnect-websocket [_ _]
-  (println "Forcing WebSocket reconnect...")
-  (ws-client/force-reconnect!))
+  (app-effects/reconnect-websocket!
+   {:log-fn println
+    :force-reconnect! ws-client/force-reconnect!}))
 
 (defn refresh-websocket-health [_ store]
   (sync-websocket-health! store :force? true))
