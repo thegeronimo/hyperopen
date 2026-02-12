@@ -32,12 +32,6 @@
 (def ^:private parse-int-value
   parse-utils/parse-int-value)
 
-(def ^:private normalize-order-history-page-size
-  account-history-actions/normalize-order-history-page-size)
-
-(def ^:private normalize-order-history-page
-  account-history-actions/normalize-order-history-page)
-
 (def ^:private default-order-history-state
   account-history-actions/default-order-history-state)
 
@@ -1273,25 +1267,10 @@
     (catch :default _
       {})))
 
-(defn- persist-orderbook-price-aggregation-by-coin! [by-coin]
-  (try
-    (let [normalized (normalize-price-aggregation-by-coin by-coin)]
-      (js/localStorage.setItem "orderbook-price-aggregation-by-coin"
-                               (js/JSON.stringify (clj->js normalized))))
-    (catch :default e
-      (js/console.warn "Failed to persist orderbook price aggregation settings:" e))))
-
 (defn- serialize-indicators [indicators]
   (into {}
         (map (fn [[k v]] [(name k) v]))
         (or indicators {})))
-
-(defn- persist-indicators! [indicators]
-  (try
-    (js/localStorage.setItem "chart-active-indicators"
-                             (js/JSON.stringify (clj->js (serialize-indicators indicators))))
-    (catch :default e
-      (js/console.warn "Failed to persist chart indicators:" e))))
 
 (defn- load-indicators []
   (try
