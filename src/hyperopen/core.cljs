@@ -26,6 +26,7 @@
             [hyperopen.orderbook.settings :as orderbook-settings]
             [hyperopen.registry.runtime :as runtime-registry]
             [hyperopen.startup.restore :as startup-restore]
+            [hyperopen.startup.watchers :as startup-watchers]
             [hyperopen.ui.preferences :as ui-preferences]
             [hyperopen.utils.parse :as parse-utils]
             [hyperopen.wallet.core :as wallet]
@@ -1789,63 +1790,18 @@
 (when (exists? js/document)
   (add-watch store ::render #(r/render (.getElementById js/document "app") (app-view/app-view %4))))
 
-;; Keep startup display metadata fresh whenever active-market becomes available.
-(add-watch store ::active-market-display-cache
-  (fn [_ _ old-state new-state]
-    (let [old-market (:active-market old-state)
-          new-market (:active-market new-state)]
-      (when (not= old-market new-market)
-        (persist-active-market-display! new-market)))))
+(startup-watchers/install-store-cache-watchers!
+ store {:persist-active-market-display! persist-active-market-display!
+        :persist-asset-selector-markets-cache! persist-asset-selector-markets-cache!})
 
-;; Persist non-empty selector market lists so symbols are available on next reload.
-(add-watch store ::asset-selector-markets-cache
-  (fn [_ _ old-state new-state]
-    (let [old-markets (get-in old-state [:asset-selector :markets] [])
-          new-markets (get-in new-state [:asset-selector :markets] [])]
-      (when (not= old-markets new-markets)
-        (persist-asset-selector-markets-cache! new-markets new-state)))))
-
-(defn- status->diagnostics-event [status]
-  (case status
-    :connected :connected
-    :reconnecting :reconnecting
-    :disconnected :offline
-    nil))
-
-;; Watch for WebSocket connection status changes
-(add-watch ws-client/connection-state ::ws-status
-  (fn [_ _ old-state new-state]
-    (let [old-status (:status old-state)
-          new-status (:status new-state)
-          status-transition? (not= old-status new-status)
-          legacy-projection (select-keys new-state [:status
-                                                    :attempt
-                                                    :next-retry-at-ms
-                                                    :last-close
-                                                    :queue-size])
-          transition-event (status->diagnostics-event new-status)
-          transition-at-ms (or (:now-ms new-state) (.now js/Date))]
-      ;; Defer store update to next tick to avoid nested renders.
-      (js/queueMicrotask
-        #(do
-           (swap! store
-                  (fn [state]
-                    (cond-> (update state :websocket merge legacy-projection)
-                      (and status-transition?
-                           (= :reconnecting new-status))
-                      (update-in [:websocket-ui :reconnect-count] (fnil inc 0)))))
-           (when (and status-transition? transition-event)
-             (append-diagnostics-event! store transition-event transition-at-ms))))
-      (sync-websocket-health! store :force? status-transition?)
-      ;; Notify address watcher only on status transitions.
-      (when status-transition?
-        (if (= new-status :connected)
-          (address-watcher/on-websocket-connected!)
-          (address-watcher/on-websocket-disconnected!))))))
-
-(add-watch ws-client/stream-runtime ::ws-health
-  (fn [_ _ _ _]
-    (sync-websocket-health! store)))
+(startup-watchers/install-websocket-watchers!
+ {:store store
+  :connection-state ws-client/connection-state
+  :stream-runtime ws-client/stream-runtime
+  :append-diagnostics-event! append-diagnostics-event!
+  :sync-websocket-health! sync-websocket-health!
+  :on-websocket-connected! address-watcher/on-websocket-connected!
+  :on-websocket-disconnected! address-watcher/on-websocket-disconnected!})
 
 (defn reload []
   (println "Reloading Hyperopen...")
