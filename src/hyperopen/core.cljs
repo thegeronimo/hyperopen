@@ -36,7 +36,7 @@
             [hyperopen.runtime.app-effects :as app-effects]
             [hyperopen.runtime.api-effects :as api-effects]
             [hyperopen.runtime.bootstrap :as runtime-bootstrap]
-            [hyperopen.startup.init :as startup-init]
+            [hyperopen.startup.composition :as startup-composition]
             [hyperopen.startup.restore :as startup-restore]
             [hyperopen.startup.runtime :as startup-runtime-lib]
             [hyperopen.startup.watchers :as startup-watchers]
@@ -1237,6 +1237,7 @@
 
 (def ^:private deferred-bootstrap-delay-ms 1200)
 (def ^:private per-dex-stagger-ms 120)
+(def ^:private startup-summary-delay-ms 5000)
 
 (defonce ^:private startup-runtime
   (atom (startup-runtime-lib/default-startup-runtime-state)))
@@ -1249,45 +1250,66 @@
   [f]
   (startup-runtime-lib/schedule-idle-or-timeout! deferred-bootstrap-delay-ms f))
 
+(defn- startup-base-deps
+  []
+  {:startup-runtime startup-runtime
+   :store store
+   :log-fn println
+   :icon-service-worker-path icon-service-worker-path
+   :get-request-stats api/get-request-stats
+   :per-dex-stagger-ms per-dex-stagger-ms
+   :fetch-frontend-open-orders! api/fetch-frontend-open-orders!
+   :fetch-clearinghouse-state! api/fetch-clearinghouse-state!
+   :fetch-user-fills! api/fetch-user-fills!
+   :fetch-spot-clearinghouse-state! api/fetch-spot-clearinghouse-state!
+   :fetch-user-abstraction! api/fetch-user-abstraction!
+   :fetch-and-merge-funding-history! account-history-effects/fetch-and-merge-funding-history!
+   :ensure-perp-dexs! api/ensure-perp-dexs!
+   :fetch-asset-contexts! api/fetch-asset-contexts!
+   :fetch-asset-selector-markets! api/fetch-asset-selector-markets!
+   :schedule-idle-or-timeout! schedule-idle-or-timeout!
+   :mark-performance! mark-performance!
+   :ws-url "wss://api.hyperliquid.xyz/ws"
+   :init-connection! ws-client/init-connection!
+   :init-active-ctx! active-ctx/init!
+   :init-orderbook! orderbook/init!
+   :init-trades! trades/init!
+   :init-user-ws! user-ws/init!
+   :init-webdata2! webdata2/init!
+   :dispatch! nxr/dispatch
+   :init-with-webdata2! address-watcher/init-with-webdata2!
+   :add-handler! address-watcher/add-handler!
+   :sync-current-address! address-watcher/sync-current-address!
+   :create-user-handler user-ws/create-user-handler
+   :subscribe-user! user-ws/subscribe-user!
+   :unsubscribe-user! user-ws/unsubscribe-user!
+   :subscribe-webdata2! webdata2/subscribe-webdata2!
+   :unsubscribe-webdata2! webdata2/unsubscribe-webdata2!})
+
 (defn- schedule-startup-summary-log!
   []
-  (startup-runtime-lib/schedule-startup-summary-log!
-   {:startup-runtime startup-runtime
-    :store store
-    :get-request-stats api/get-request-stats
-    :delay-ms 5000
-    :log-fn println}))
+  (startup-composition/schedule-startup-summary-log!
+   (assoc (startup-base-deps)
+          :delay-ms startup-summary-delay-ms)))
 
 (defn- register-icon-service-worker!
   []
-  (startup-runtime-lib/register-icon-service-worker!
-   {:icon-service-worker-path icon-service-worker-path
-    :log-fn println}))
+  (startup-composition/register-icon-service-worker!
+   (startup-base-deps)))
 
 (defn- stage-b-account-bootstrap!
   [address dexs]
-  (startup-runtime-lib/stage-b-account-bootstrap!
-   {:store store
-    :address address
-    :dexs dexs
-    :per-dex-stagger-ms per-dex-stagger-ms
-    :fetch-frontend-open-orders! api/fetch-frontend-open-orders!
-    :fetch-clearinghouse-state! api/fetch-clearinghouse-state!}))
+  (startup-composition/stage-b-account-bootstrap!
+   (startup-base-deps)
+   address
+   dexs))
 
 (defn- bootstrap-account-data!
   [address]
-  (startup-runtime-lib/bootstrap-account-data!
-   {:startup-runtime startup-runtime
-    :store store
-    :address address
-    :fetch-frontend-open-orders! api/fetch-frontend-open-orders!
-    :fetch-user-fills! api/fetch-user-fills!
-    :fetch-spot-clearinghouse-state! api/fetch-spot-clearinghouse-state!
-    :fetch-user-abstraction! api/fetch-user-abstraction!
-    :fetch-and-merge-funding-history! account-history-effects/fetch-and-merge-funding-history!
-    :ensure-perp-dexs! api/ensure-perp-dexs!
-    :stage-b-account-bootstrap! stage-b-account-bootstrap!
-    :log-fn println}))
+  (startup-composition/bootstrap-account-data!
+   (assoc (startup-base-deps)
+          :stage-b-account-bootstrap! stage-b-account-bootstrap!)
+   address))
 
 (defn- reify-address-handler
   [on-address-changed-fn handler-name]
@@ -1299,84 +1321,58 @@
 
 (defn- install-address-handlers!
   []
-  (startup-runtime-lib/install-address-handlers!
-   {:store store
-    :startup-runtime startup-runtime
-    :bootstrap-account-data! bootstrap-account-data!
-    :init-with-webdata2! address-watcher/init-with-webdata2!
-    :add-handler! address-watcher/add-handler!
-    :sync-current-address! address-watcher/sync-current-address!
-    :create-user-handler user-ws/create-user-handler
-    :subscribe-user! user-ws/subscribe-user!
-    :unsubscribe-user! user-ws/unsubscribe-user!
-    :subscribe-webdata2! webdata2/subscribe-webdata2!
-    :unsubscribe-webdata2! webdata2/unsubscribe-webdata2!
-    :address-handler-reify reify-address-handler
-    :address-handler-name "startup-account-bootstrap-handler"}))
+  (startup-composition/install-address-handlers!
+   (assoc (startup-base-deps)
+          :bootstrap-account-data! bootstrap-account-data!
+          :address-handler-reify reify-address-handler
+          :address-handler-name "startup-account-bootstrap-handler")))
 
 (defn- start-critical-bootstrap!
   []
-  (startup-runtime-lib/start-critical-bootstrap!
-   {:store store
-    :fetch-asset-contexts! api/fetch-asset-contexts!
-    :fetch-asset-selector-markets! api/fetch-asset-selector-markets!
-    :mark-performance! mark-performance!}))
+  (startup-composition/start-critical-bootstrap!
+   (startup-base-deps)))
 
 (defn- run-deferred-bootstrap!
   []
-  (startup-runtime-lib/run-deferred-bootstrap!
-   {:store store
-    :fetch-asset-selector-markets! api/fetch-asset-selector-markets!
-    :mark-performance! mark-performance!}))
+  (startup-composition/run-deferred-bootstrap!
+   (startup-base-deps)))
 
 (defn- schedule-deferred-bootstrap!
   []
-  (startup-runtime-lib/schedule-deferred-bootstrap!
-   {:startup-runtime startup-runtime
-    :schedule-idle-or-timeout! schedule-idle-or-timeout!
-    :run-deferred-bootstrap! run-deferred-bootstrap!}))
+  (startup-composition/schedule-deferred-bootstrap!
+   (assoc (startup-base-deps)
+          :run-deferred-bootstrap! run-deferred-bootstrap!)))
 
 (defn initialize-remote-data-streams!
   []
-  (startup-runtime-lib/initialize-remote-data-streams!
-   {:store store
-    :ws-url "wss://api.hyperliquid.xyz/ws"
-    :log-fn println
-    :init-connection! ws-client/init-connection!
-    :init-active-ctx! active-ctx/init!
-    :init-orderbook! orderbook/init!
-    :init-trades! trades/init!
-    :init-user-ws! user-ws/init!
-    :init-webdata2! webdata2/init!
-    :dispatch! nxr/dispatch
-    :install-address-handlers! install-address-handlers!
-    :start-critical-bootstrap! start-critical-bootstrap!
-    :schedule-deferred-bootstrap! schedule-deferred-bootstrap!}))
+  (startup-composition/initialize-remote-data-streams!
+   (assoc (startup-base-deps)
+          :install-address-handlers! install-address-handlers!
+          :start-critical-bootstrap! start-critical-bootstrap!
+          :schedule-deferred-bootstrap! schedule-deferred-bootstrap!)))
 
 (defn init []
-  (startup-init/init!
-   {:log-fn println
-    :startup-runtime startup-runtime
-    :default-startup-runtime-state startup-runtime-lib/default-startup-runtime-state
-    :mark-performance! mark-performance!
-    :schedule-startup-summary-log! schedule-startup-summary-log!
-    :store store
-    :restore-ui-font-preference! restore-ui-font-preference!
-    :restore-asset-selector-sort-settings! asset-selector-settings/restore-asset-selector-sort-settings!
-    :restore-chart-options! restore-chart-options!
-    :restore-orderbook-ui! restore-orderbook-ui!
-    :restore-agent-storage-mode! restore-agent-storage-mode!
-    :restore-active-asset! restore-active-asset!
-    :restore-asset-selector-markets-cache! restore-asset-selector-markets-cache!
-    :restore-open-orders-sort-settings! restore-open-orders-sort-settings!
-    :restore-funding-history-pagination-settings! restore-funding-history-pagination-settings!
-    :restore-trade-history-pagination-settings! restore-trade-history-pagination-settings!
-    :restore-order-history-pagination-settings! restore-order-history-pagination-settings!
-    :set-on-connected-handler! wallet/set-on-connected-handler!
-    :handle-wallet-connected handle-wallet-connected
-    :init-wallet! wallet/init-wallet!
-    :init-router! router/init!
-    :register-icon-service-worker! register-icon-service-worker!
-    :initialize-remote-data-streams! initialize-remote-data-streams!
-    :kick-render! (fn [runtime-store]
-                    (swap! runtime-store identity))}))
+  (startup-composition/init!
+   (merge
+    (startup-base-deps)
+    {:default-startup-runtime-state startup-runtime-lib/default-startup-runtime-state
+     :schedule-startup-summary-log! schedule-startup-summary-log!
+     :restore-ui-font-preference! restore-ui-font-preference!
+     :restore-asset-selector-sort-settings! asset-selector-settings/restore-asset-selector-sort-settings!
+     :restore-chart-options! restore-chart-options!
+     :restore-orderbook-ui! restore-orderbook-ui!
+     :restore-agent-storage-mode! restore-agent-storage-mode!
+     :restore-active-asset! restore-active-asset!
+     :restore-asset-selector-markets-cache! restore-asset-selector-markets-cache!
+     :restore-open-orders-sort-settings! restore-open-orders-sort-settings!
+     :restore-funding-history-pagination-settings! restore-funding-history-pagination-settings!
+     :restore-trade-history-pagination-settings! restore-trade-history-pagination-settings!
+     :restore-order-history-pagination-settings! restore-order-history-pagination-settings!
+     :set-on-connected-handler! wallet/set-on-connected-handler!
+     :handle-wallet-connected handle-wallet-connected
+     :init-wallet! wallet/init-wallet!
+     :init-router! router/init!
+     :register-icon-service-worker! register-icon-service-worker!
+     :initialize-remote-data-streams! initialize-remote-data-streams!
+     :kick-render! (fn [runtime-store]
+                     (swap! runtime-store identity))})))
