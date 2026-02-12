@@ -5,6 +5,8 @@
             [hyperopen.api :as api]
             [hyperopen.api.trading :as trading-api]
             [hyperopen.account.history.effects :as account-history-effects]
+            [hyperopen.app.bootstrap :as app-bootstrap]
+            [hyperopen.app.startup :as app-startup]
             [hyperopen.core :as app-core]
             [hyperopen.core.compat :as core]
             [hyperopen.runtime.effect-adapters :as effect-adapters]
@@ -20,7 +22,7 @@
             [hyperopen.websocket.webdata2 :as webdata2]))
 
 (defn- reset-startup-runtime! []
-  (swap! @#'hyperopen.core/runtime
+  (swap! runtime-state/runtime
          assoc
          :startup {:deferred-scheduled? false
                    :bootstrapped-address nil
@@ -29,7 +31,11 @@
 (use-fixtures
   :once
   {:before (fn []
-             (@#'hyperopen.core/ensure-runtime-bootstrapped!))
+             (app-bootstrap/ensure-runtime-bootstrapped!
+              runtime-state/runtime
+              #(app-bootstrap/bootstrap-runtime!
+                {:runtime runtime-state/runtime
+                 :store app-core/store})))
    :after (fn [])})
 
 (use-fixtures
@@ -118,9 +124,9 @@
                                                       ([_ opts]
                                                        (swap! phases conj (:phase opts))
                                                        (js/Promise.resolve [])))
-                  hyperopen.core/schedule-idle-or-timeout! (fn [f]
-                                                              (reset! deferred-callback f)
-                                                              :scheduled)]
+                  app-startup/schedule-idle-or-timeout! (fn [f]
+                                                          (reset! deferred-callback f)
+                                                          :scheduled)]
       (app-core/initialize-remote-data-streams!)
       (is (= 1 @critical-fetches))
       (is (= [:bootstrap] @phases))
@@ -131,11 +137,14 @@
 (deftest ensure-runtime-bootstrapped-runs-bootstrap-once-test
   (let [calls (atom 0)]
     (swap! runtime-state/runtime assoc :runtime-bootstrapped? false)
-    (with-redefs [hyperopen.core/bootstrap-runtime!
-                  (fn []
-                    (swap! calls inc))]
-      (@#'hyperopen.core/ensure-runtime-bootstrapped!)
-      (@#'hyperopen.core/ensure-runtime-bootstrapped!))
+    (app-bootstrap/ensure-runtime-bootstrapped!
+     runtime-state/runtime
+     (fn []
+       (swap! calls inc)))
+    (app-bootstrap/ensure-runtime-bootstrapped!
+     runtime-state/runtime
+     (fn []
+       (swap! calls inc)))
     (is (= 1 @calls))
     (is (true? (runtime-state/runtime-bootstrapped? runtime-state/runtime)))
     (swap! runtime-state/runtime assoc :runtime-bootstrapped? true)))
@@ -156,14 +165,18 @@
                             (swap! registered-paths conj script-path)
                             (js/Promise.resolve #js {:scope "/"}))}}
       (fn []
-        (@#'hyperopen.core/register-icon-service-worker!)
+        (app-startup/register-icon-service-worker!
+         {:runtime runtime-state/runtime
+          :store app-core/store})
         (is (= ["/sw.js"] @registered-paths))))))
 
 (deftest register-icon-service-worker-skips-when-unsupported-test
   (with-test-navigator
     #js {}
     (fn []
-      (is (nil? (@#'hyperopen.core/register-icon-service-worker!))))))
+      (is (nil? (app-startup/register-icon-service-worker!
+                 {:runtime runtime-state/runtime
+                  :store app-core/store}))))))
 
 (deftest mark-loaded-asset-icon-promotes-key-to-loaded-and-clears-missing-test
   (let [state {:asset-selector {:loaded-icons #{}
@@ -259,7 +272,7 @@
           original-fetch-user-abstraction api/fetch-user-abstraction!
           original-ensure-perp-dexs api/ensure-perp-dexs!
           original-fetch-and-merge-funding-history account-history-effects/fetch-and-merge-funding-history!
-          original-stage-b hyperopen.core/stage-b-account-bootstrap!]
+          original-stage-b app-startup/stage-b-account-bootstrap!]
       (swap! app-core/store assoc-in [:wallet :address] "0xabc")
       (set! api/fetch-frontend-open-orders!
             (fn fetch-frontend-open-orders-mock
@@ -301,8 +314,8 @@
             (fn [_store address opts]
               (swap! stage-a-calls conj [:fundings [address opts]])
               (js/Promise.resolve nil)))
-      (set! hyperopen.core/stage-b-account-bootstrap!
-            (fn [address dexs]
+      (set! app-startup/stage-b-account-bootstrap!
+            (fn [_system address dexs]
               (swap! stage-b-calls conj [address dexs])))
         (letfn [(restore! []
                 (set! api/fetch-frontend-open-orders! original-fetch-open-orders)
@@ -311,15 +324,21 @@
                 (set! api/fetch-user-abstraction! original-fetch-user-abstraction)
                 (set! api/ensure-perp-dexs! original-ensure-perp-dexs)
                 (set! account-history-effects/fetch-and-merge-funding-history! original-fetch-and-merge-funding-history)
-                (set! hyperopen.core/stage-b-account-bootstrap! original-stage-b))]
-        (@#'hyperopen.core/bootstrap-account-data! "0xabc")
+                (set! app-startup/stage-b-account-bootstrap! original-stage-b))]
+        (app-startup/bootstrap-account-data!
+         {:runtime runtime-state/runtime
+          :store app-core/store}
+         "0xabc")
         (js/setTimeout
          (fn []
            (is (= 5 (count @stage-a-calls)))
            (is (some #(= :abstraction (first %)) @stage-a-calls))
            (is (= [["0xabc" ["dex-1" "dex-2"]]] @stage-b-calls))
            ;; Same address should not trigger stage A/B again.
-           (@#'hyperopen.core/bootstrap-account-data! "0xabc")
+           (app-startup/bootstrap-account-data!
+            {:runtime runtime-state/runtime
+             :store app-core/store}
+            "0xabc")
            (js/setTimeout
             (fn []
               (is (= 5 (count @stage-a-calls)))
@@ -339,12 +358,13 @@
                           :spot {:clearinghouse-state {:time 1}}
                           :account {:mode :unified
                                     :abstraction-raw "unifiedAccount"}})]
-    (with-redefs [hyperopen.core/store test-store
-                  address-watcher/init-with-webdata2! (fn [& _] nil)
+    (with-redefs [address-watcher/init-with-webdata2! (fn [& _] nil)
                   address-watcher/add-handler! (fn [handler]
                                                  (swap! captured-handlers conj handler))
                   address-watcher/sync-current-address! (fn [& _] nil)]
-      (@#'hyperopen.core/install-address-handlers!)
+      (app-startup/install-address-handlers!
+       {:runtime runtime-state/runtime
+        :store test-store})
       (let [startup-handler (last @captured-handlers)]
         (address-watcher/on-address-changed startup-handler "0xabc" nil)
         (is (= {:mode :classic
