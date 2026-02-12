@@ -39,6 +39,7 @@
             [hyperopen.ui.preferences :as ui-preferences]
             [hyperopen.utils.parse :as parse-utils]
             [hyperopen.wallet.agent-runtime :as agent-runtime]
+            [hyperopen.wallet.actions :as wallet-actions]
             [hyperopen.wallet.connection-runtime :as wallet-connection-runtime]
             [hyperopen.wallet.copy-feedback-runtime :as wallet-copy-runtime]
             [hyperopen.wallet.core :as wallet]
@@ -588,10 +589,10 @@
   [[:effects/subscribe-webdata2 address]])
 
 (defn connect-wallet-action [state]
-  [[:effects/connect-wallet]])
+  (wallet-actions/connect-wallet-action state))
 
 (defn disconnect-wallet-action [_state]
-  [[:effects/disconnect-wallet]])
+  (wallet-actions/disconnect-wallet-action nil))
 
 (defn- should-auto-enable-agent-trading?
   [state connected-address]
@@ -640,28 +641,19 @@
 
 (defn enable-agent-trading-action
   [state]
-  (let [wallet-address (get-in state [:wallet :address])
-        connected? (boolean (get-in state [:wallet :connected?]))
-        storage-mode (agent-session/normalize-storage-mode
-                      (get-in state [:wallet :agent :storage-mode]))]
-    (if (and connected? (seq wallet-address))
-      [[:effects/save-many [[[:wallet :agent :status] :approving]
-                            [[:wallet :agent :error] nil]]]
-       [:effects/enable-agent-trading {:storage-mode storage-mode}]]
-      [[:effects/save-many [[[:wallet :agent :status] :error]
-                            [[:wallet :agent :error] "Connect your wallet before enabling trading."]]]])))
+  (wallet-actions/enable-agent-trading-action
+   state
+   agent-session/normalize-storage-mode))
 
 (defn set-agent-storage-mode-action
   [state storage-mode]
-  (let [next-mode (agent-session/normalize-storage-mode storage-mode)
-        current-mode (agent-session/normalize-storage-mode
-                      (get-in state [:wallet :agent :storage-mode]))]
-    (if (= next-mode current-mode)
-      []
-      [[:effects/set-agent-storage-mode next-mode]])))
+  (wallet-actions/set-agent-storage-mode-action
+   state
+   storage-mode
+   agent-session/normalize-storage-mode))
 
 (defn copy-wallet-address-action [state]
-  [[:effects/copy-wallet-address (get-in state [:wallet :address])]])
+  (wallet-actions/copy-wallet-address-action state))
 
 (defn reconnect-websocket-action [state]
   [[:effects/reconnect-websocket]])
