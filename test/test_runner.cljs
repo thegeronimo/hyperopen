@@ -12,6 +12,7 @@
             [hyperopen.websocket.health-projection-test]
             [hyperopen.asset-selector.markets-test]
             [hyperopen.asset-selector.markets-cache-test]
+            [hyperopen.websocket.subscriptions-runtime-test]
             [hyperopen.core-bootstrap-test]
             [hyperopen.utils.data-normalization-test]
             [hyperopen.utils.formatting-test]
@@ -56,6 +57,7 @@
              'hyperopen.websocket.diagnostics-runtime-test
              'hyperopen.websocket.domain.policy-test
              'hyperopen.websocket.health-projection-test
+             'hyperopen.websocket.subscriptions-runtime-test
              'hyperopen.utils.data-normalization-test
              'hyperopen.utils.formatting-test
              'hyperopen.utils.hl-signing-test

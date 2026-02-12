@@ -15,6 +15,7 @@
             [hyperopen.websocket.diagnostics-runtime :as diagnostics-runtime]
             [hyperopen.websocket.diagnostics-sanitize :as diagnostics-sanitize]
             [hyperopen.websocket.health-projection :as health-projection]
+            [hyperopen.websocket.subscriptions-runtime :as subscriptions-runtime]
             [hyperopen.api :as api]
             [hyperopen.api.trading :as trading-api]
             [hyperopen.account.history.actions :as account-history-actions]
@@ -402,63 +403,65 @@
    (active-market-display-normalize-deps)))
 
 (defn subscribe-active-asset [_ store coin]
-  (println "Subscribing to active asset context for:" coin)
-  (let [market-by-key (get-in @store [:asset-selector :market-by-key] {})
-        market (markets/resolve-market-by-coin market-by-key coin)
-        canonical-coin (or (:coin market) coin)
-        resolved-market (or market
-                           (markets/resolve-market-by-coin
-                            market-by-key
-                            canonical-coin))]
-    (when (string? canonical-coin)
-      (js/localStorage.setItem "active-asset" canonical-coin))
-    (persist-active-market-display! resolved-market)
-    (swap! store
-           (fn [state]
-             (let [market (or resolved-market
-                              (markets/resolve-market-by-coin
-                               (get-in state [:asset-selector :market-by-key] {})
-                               canonical-coin))]
-               (-> state
-                   (assoc-in [:active-assets :loading] true)
-                   (assoc-in [:active-asset] canonical-coin)
-                   (assoc-in [:selected-asset] canonical-coin)
-                   (assoc :active-market (or market (:active-market state)))))))
-    (active-ctx/subscribe-active-asset-ctx! canonical-coin)
-    (fetch-candle-snapshot _ store :interval (get-in @store [:chart-options :selected-timeframe] :1d))))
+  (subscriptions-runtime/subscribe-active-asset!
+   {:store store
+    :coin coin
+    :log-fn println
+    :resolve-market-by-coin-fn markets/resolve-market-by-coin
+    :persist-active-asset! (fn [canonical-coin]
+                             (when (string? canonical-coin)
+                               (js/localStorage.setItem "active-asset" canonical-coin)))
+    :persist-active-market-display! persist-active-market-display!
+    :subscribe-active-asset-ctx! active-ctx/subscribe-active-asset-ctx!
+    :fetch-candle-snapshot! (fn [selected-timeframe]
+                              (fetch-candle-snapshot nil store :interval selected-timeframe))}))
 
 (defn unsubscribe-active-asset [_ store coin]
-  (println "Unsubscribing from active asset context for:" coin)
-  (active-ctx/unsubscribe-active-asset-ctx! coin)
-  (swap! store update-in [:active-assets :contexts] dissoc coin))
+  (subscriptions-runtime/unsubscribe-active-asset!
+   {:store store
+    :coin coin
+    :log-fn println
+    :unsubscribe-active-asset-ctx! active-ctx/unsubscribe-active-asset-ctx!}))
 
 (defn subscribe-orderbook [_ store coin]
-  (println "Subscribing to orderbook for:" coin)
-  (let [selected-mode (get-in @store [:orderbook-ui :price-aggregation-by-coin coin] :full)
-        mode (price-agg/normalize-mode selected-mode)
-        aggregation-config (price-agg/mode->subscription-config mode)]
-    (orderbook/subscribe-orderbook! coin aggregation-config)))
+  (subscriptions-runtime/subscribe-orderbook!
+   {:store store
+    :coin coin
+    :log-fn println
+    :normalize-mode-fn price-agg/normalize-mode
+    :mode->subscription-config-fn price-agg/mode->subscription-config
+    :subscribe-orderbook-fn orderbook/subscribe-orderbook!}))
 
 (defn subscribe-trades [_ store coin]
-  (println "Subscribing to trades for:" coin)
-  (trades/subscribe-trades! coin))
+  (subscriptions-runtime/subscribe-trades!
+   {:coin coin
+    :log-fn println
+    :subscribe-trades-fn trades/subscribe-trades!}))
 
 (defn unsubscribe-orderbook [_ store coin]
-  (println "Unsubscribing from orderbook for:" coin)
-  (orderbook/unsubscribe-orderbook! coin)
-  (swap! store update-in [:orderbooks] dissoc coin))
+  (subscriptions-runtime/unsubscribe-orderbook!
+   {:store store
+    :coin coin
+    :log-fn println
+    :unsubscribe-orderbook-fn orderbook/unsubscribe-orderbook!}))
 
 (defn unsubscribe-trades [_ store coin]
-  (println "Unsubscribing from trades for:" coin)
-  (trades/unsubscribe-trades! coin))
+  (subscriptions-runtime/unsubscribe-trades!
+   {:coin coin
+    :log-fn println
+    :unsubscribe-trades-fn trades/unsubscribe-trades!}))
 
 (defn subscribe-webdata2 [_ store address]
-  (println "Subscribing to WebData2 for address:" address)
-  (webdata2/subscribe-webdata2! address))
+  (subscriptions-runtime/subscribe-webdata2!
+   {:address address
+    :log-fn println
+    :subscribe-webdata2-fn webdata2/subscribe-webdata2!}))
 
 (defn unsubscribe-webdata2 [_ store address]
-  (println "Unsubscribing from WebData2 for address:" address)
-  (webdata2/unsubscribe-webdata2! address))
+  (subscriptions-runtime/unsubscribe-webdata2!
+   {:address address
+    :log-fn println
+    :unsubscribe-webdata2-fn webdata2/unsubscribe-webdata2!}))
 
 (defn connect-wallet [_ store]
   (wallet-connection-runtime/connect-wallet!

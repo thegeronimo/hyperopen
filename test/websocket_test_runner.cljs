@@ -9,6 +9,7 @@
             [hyperopen.websocket.diagnostics-copy-test]
             [hyperopen.websocket.diagnostics-payload-test]
             [hyperopen.websocket.diagnostics-runtime-test]
+            [hyperopen.websocket.subscriptions-runtime-test]
             [hyperopen.websocket.health-test]
             [hyperopen.websocket.health-projection-test]
             [hyperopen.websocket.domain.policy-test]
@@ -25,6 +26,7 @@
              'hyperopen.websocket.diagnostics-copy-test
              'hyperopen.websocket.diagnostics-payload-test
              'hyperopen.websocket.diagnostics-runtime-test
+             'hyperopen.websocket.subscriptions-runtime-test
              'hyperopen.websocket.health-test
              'hyperopen.websocket.health-projection-test
              'hyperopen.websocket.domain.policy-test
