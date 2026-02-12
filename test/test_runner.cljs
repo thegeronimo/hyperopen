@@ -8,6 +8,7 @@
             [hyperopen.websocket.domain.policy-test]
             [hyperopen.websocket.health-projection-test]
             [hyperopen.asset-selector.markets-test]
+            [hyperopen.asset-selector.markets-cache-test]
             [hyperopen.core-bootstrap-test]
             [hyperopen.utils.data-normalization-test]
             [hyperopen.utils.formatting-test]
@@ -49,6 +50,7 @@
              'hyperopen.utils.hl-signing-test
              'hyperopen.utils.interval-test
              'hyperopen.asset-selector.markets-test
+             'hyperopen.asset-selector.markets-cache-test
              'hyperopen.core-bootstrap-test
              'hyperopen.orderbook.price-aggregation-test
              'hyperopen.wallet.address-watcher-test
