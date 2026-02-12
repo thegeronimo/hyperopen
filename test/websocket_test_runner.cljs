@@ -5,6 +5,7 @@
             [hyperopen.websocket.application.runtime-test]
             [hyperopen.websocket.application.runtime-reducer-test]
             [hyperopen.websocket.client-test]
+            [hyperopen.websocket.diagnostics-payload-test]
             [hyperopen.websocket.health-test]
             [hyperopen.websocket.health-projection-test]
             [hyperopen.websocket.domain.policy-test]
@@ -17,6 +18,7 @@
   (run-tests 'hyperopen.websocket.acl.hyperliquid-test
              'hyperopen.websocket.application.runtime-test
              'hyperopen.websocket.application.runtime-reducer-test
+             'hyperopen.websocket.diagnostics-payload-test
              'hyperopen.websocket.health-test
              'hyperopen.websocket.health-projection-test
              'hyperopen.websocket.domain.policy-test
