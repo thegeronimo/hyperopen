@@ -21,6 +21,7 @@
             [hyperopen.asset-selector.markets :as markets]
             [hyperopen.chart.actions :as chart-actions]
             [hyperopen.chart.settings :as chart-settings]
+            [hyperopen.orderbook.actions :as orderbook-actions]
             [hyperopen.orderbook.price-aggregation :as price-agg]
             [hyperopen.orderbook.settings :as orderbook-settings]
             [hyperopen.startup.restore :as startup-restore]
@@ -1236,22 +1237,20 @@
 (def toggle-indicators-dropdown
   chart-actions/toggle-indicators-dropdown)
 
-(defn toggle-orderbook-size-unit-dropdown [state]
-  (let [visible? (get-in state [:orderbook-ui :size-unit-dropdown-visible?] false)]
-    [[:effects/save [:orderbook-ui :size-unit-dropdown-visible?] (not visible?)]]))
+(def toggle-orderbook-size-unit-dropdown
+  orderbook-actions/toggle-orderbook-size-unit-dropdown)
 
 (def select-orderbook-size-unit
-  orderbook-settings/select-orderbook-size-unit)
+  orderbook-actions/select-orderbook-size-unit)
 
-(defn toggle-orderbook-price-aggregation-dropdown [state]
-  (let [visible? (get-in state [:orderbook-ui :price-aggregation-dropdown-visible?] false)]
-    [[:effects/save [:orderbook-ui :price-aggregation-dropdown-visible?] (not visible?)]]))
+(def toggle-orderbook-price-aggregation-dropdown
+  orderbook-actions/toggle-orderbook-price-aggregation-dropdown)
 
 (def select-orderbook-price-aggregation
-  orderbook-settings/select-orderbook-price-aggregation)
+  orderbook-actions/select-orderbook-price-aggregation)
 
 (def select-orderbook-tab
-  orderbook-settings/select-orderbook-tab)
+  orderbook-actions/select-orderbook-tab)
 
 (def add-indicator
   chart-settings/add-indicator)
