@@ -1,4 +1,5 @@
-(ns hyperopen.chart.settings)
+(ns hyperopen.chart.settings
+  (:require [hyperopen.platform :as platform]))
 
 (def ^:private chart-timeframes
   #{:1m :3m :5m :15m :30m :1h :2h :4h :8h :12h :1d :3d :1w :1M})
@@ -8,7 +9,7 @@
 
 (defn- load-chart-option
   [ls-key default valid-set]
-  (let [v (keyword (or (js/localStorage.getItem ls-key) (name default)))]
+  (let [v (keyword (or (platform/local-storage-get ls-key) (name default)))]
     (if (contains? valid-set v) v default)))
 
 (defn- serialize-indicators
@@ -20,7 +21,7 @@
 (defn- load-indicators
   []
   (try
-    (let [raw (js/localStorage.getItem "chart-active-indicators")]
+    (let [raw (platform/local-storage-get "chart-active-indicators")]
       (if (seq raw)
         (let [parsed (js->clj (js/JSON.parse raw) :keywordize-keys true)]
           (if (map? parsed) parsed {}))

@@ -1,6 +1,7 @@
 (ns hyperopen.asset-selector.markets-cache
   (:require [clojure.string :as str]
             [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.platform :as platform]
             [hyperopen.utils.parse :as parse-utils]))
 
 (def ^:private asset-selector-markets-cache-local-storage-key
@@ -168,17 +169,15 @@
    (let [normalized (build-asset-selector-markets-cache markets state)]
      (when (seq normalized)
        (try
-         (when (exists? js/localStorage)
-           (js/localStorage.setItem asset-selector-markets-cache-local-storage-key
-                                    (js/JSON.stringify (clj->js normalized))))
+         (platform/local-storage-set! asset-selector-markets-cache-local-storage-key
+                                      (js/JSON.stringify (clj->js normalized)))
          (catch :default e
            (js/console.warn "Failed to persist asset selector market cache:" e)))))))
 
 (defn load-asset-selector-markets-cache
   []
   (try
-    (let [raw (when (exists? js/localStorage)
-                (js/localStorage.getItem asset-selector-markets-cache-local-storage-key))]
+    (let [raw (platform/local-storage-get asset-selector-markets-cache-local-storage-key)]
       (if (seq raw)
         (-> raw
             js/JSON.parse

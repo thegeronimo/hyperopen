@@ -25,6 +25,14 @@
   (when (exists? js/localStorage)
     (js/localStorage.setItem key value)))
 
+(defn local-storage-get [key]
+  (when (exists? js/localStorage)
+    (.getItem js/localStorage key)))
+
+(defn local-storage-remove! [key]
+  (when (exists? js/localStorage)
+    (.removeItem js/localStorage key)))
+
 (defn queue-microtask! [f]
   (if (fn? (.-queueMicrotask js/globalThis))
     (.queueMicrotask js/globalThis f)

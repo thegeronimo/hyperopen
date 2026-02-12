@@ -1,4 +1,5 @@
-(ns hyperopen.asset-selector.settings)
+(ns hyperopen.asset-selector.settings
+  (:require [hyperopen.platform :as platform]))
 
 (def valid-sort-keys #{:name :price :volume :change :openInterest :funding})
 (def valid-sort-directions #{:asc :desc})
@@ -8,18 +9,18 @@
   "Read `ls-key` from localStorage, default to `default`,
    coerce to keyword, and only accept it if `valid?` returns true."
   [ls-key default valid?]
-  (let [v (keyword (or (js/localStorage.getItem ls-key) default))]
+  (let [v (keyword (or (platform/local-storage-get ls-key) default))]
     (if (valid? v) v (keyword default))))
 
 (defn- load-bool-setting [ls-key default]
-  (let [v (js/localStorage.getItem ls-key)]
+  (let [v (platform/local-storage-get ls-key)]
     (if (nil? v)
       default
       (= v "true"))))
 
 (defn- load-json-set [ls-key]
   (try
-    (let [raw (js/localStorage.getItem ls-key)
+    (let [raw (platform/local-storage-get ls-key)
           parsed (when (seq raw) (js->clj (js/JSON.parse raw)))]
       (if (sequential? parsed) (set parsed) #{}))
     (catch :default _

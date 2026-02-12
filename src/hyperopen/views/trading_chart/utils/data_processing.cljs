@@ -1,4 +1,5 @@
-(ns hyperopen.views.trading-chart.utils.data-processing)
+(ns hyperopen.views.trading-chart.utils.data-processing
+  (:require [hyperopen.platform :as platform]))
 
 (defn process-candle-data [raw-data]
   "Transform raw API candle data to Lightweight.Charts format"
@@ -29,7 +30,7 @@
 
 (defn generate-mock-candles []
   "Generate mock candle data for development"
-  (let [base-time (- (js/Math.floor (/ (js/Date.now) 1000)) (* 100 60))  ; 100 minutes ago
+  (let [base-time (- (js/Math.floor (/ (platform/now-ms) 1000)) (* 100 60))  ; 100 minutes ago
         base-price 46000]
     (->> (range 100)
          (map (fn [i]

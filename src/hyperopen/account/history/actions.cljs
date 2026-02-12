@@ -1,6 +1,7 @@
 (ns hyperopen.account.history.actions
   (:require [clojure.string :as str]
             [hyperopen.api :as api]
+            [hyperopen.platform :as platform]
             [hyperopen.utils.parse :as parse-utils]))
 
 (def ^:private order-history-page-size-options
@@ -70,8 +71,8 @@
        candidate))))
 
 (defn restore-open-orders-sort-settings! [store]
-  (let [stored-column (or (js/localStorage.getItem "open-orders-sort-by") "Time")
-        stored-direction (keyword (or (js/localStorage.getItem "open-orders-sort-direction") "desc"))
+  (let [stored-column (or (platform/local-storage-get "open-orders-sort-by") "Time")
+        stored-direction (keyword (or (platform/local-storage-get "open-orders-sort-direction") "desc"))
         column (if (contains? open-orders-sortable-columns stored-column)
                  stored-column
                  "Time")
@@ -83,7 +84,7 @@
 
 (defn restore-order-history-pagination-settings! [store]
   (let [page-size (normalize-order-history-page-size
-                   (js/localStorage.getItem "order-history-page-size"))]
+                   (platform/local-storage-get "order-history-page-size"))]
     (swap! store update-in [:account-info :order-history] merge
            {:page-size page-size
             :page 1
@@ -91,7 +92,7 @@
 
 (defn restore-funding-history-pagination-settings! [store]
   (let [page-size (normalize-order-history-page-size
-                   (js/localStorage.getItem "funding-history-page-size"))]
+                   (platform/local-storage-get "funding-history-page-size"))]
     (swap! store update-in [:account-info :funding-history] merge
            {:page-size page-size
             :page 1
@@ -99,7 +100,7 @@
 
 (defn restore-trade-history-pagination-settings! [store]
   (let [page-size (normalize-order-history-page-size
-                   (js/localStorage.getItem "trade-history-page-size"))]
+                   (platform/local-storage-get "trade-history-page-size"))]
     (swap! store update-in [:account-info :trade-history] merge
            {:page-size page-size
             :page 1
@@ -235,7 +236,7 @@
   (let [current-filters (funding-history-filters state)
         next-filters (assoc current-filters
                             :start-time-ms 0
-                            :end-time-ms (.now js/Date))
+                            :end-time-ms (platform/now-ms))
         projected (filtered-funding-rows state next-filters)
         request-id (inc (funding-history-request-id state))]
     [[:effects/save-many [[[:account-info :funding-history :filters] next-filters]

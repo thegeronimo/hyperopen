@@ -1,5 +1,6 @@
 (ns hyperopen.orderbook.settings
-  (:require [hyperopen.orderbook.price-aggregation :as price-agg]))
+  (:require [hyperopen.orderbook.price-aggregation :as price-agg]
+            [hyperopen.platform :as platform]))
 
 (def ^:private orderbook-size-units
   #{:base :quote})
@@ -9,12 +10,12 @@
 
 (defn- load-orderbook-size-unit
   []
-  (let [v (keyword (or (js/localStorage.getItem "orderbook-size-unit") "base"))]
+  (let [v (keyword (or (platform/local-storage-get "orderbook-size-unit") "base"))]
     (if (contains? orderbook-size-units v) v :base)))
 
 (defn- load-orderbook-active-tab
   []
-  (let [v (keyword (or (js/localStorage.getItem "orderbook-active-tab") "orderbook"))]
+  (let [v (keyword (or (platform/local-storage-get "orderbook-active-tab") "orderbook"))]
     (if (contains? orderbook-tabs v) v :orderbook)))
 
 (defn- normalize-price-aggregation-by-coin
@@ -36,7 +37,7 @@
 (defn- load-orderbook-price-aggregation-by-coin
   []
   (try
-    (let [raw (js/localStorage.getItem "orderbook-price-aggregation-by-coin")]
+    (let [raw (platform/local-storage-get "orderbook-price-aggregation-by-coin")]
       (if (seq raw)
         (normalize-price-aggregation-by-coin (js->clj (js/JSON.parse raw)))
         {}))

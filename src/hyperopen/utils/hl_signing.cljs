@@ -1,6 +1,7 @@
 (ns hyperopen.utils.hl-signing
   (:require [clojure.string :as str]
             [clojure.walk :as walk]
+            [hyperopen.platform :as platform]
             ["@noble/secp256k1" :as secp]
             ["../vendor/msgpack" :as msgpack]
             ["../vendor/keccak" :as keccak]))
@@ -209,7 +210,7 @@
   []
   (js/Promise.
    (fn [_ reject]
-     (js/setTimeout
+     (platform/set-timeout!
       (fn []
         (reject
          (js/Error.

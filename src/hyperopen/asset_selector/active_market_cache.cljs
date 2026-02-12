@@ -1,4 +1,5 @@
-(ns hyperopen.asset-selector.active-market-cache)
+(ns hyperopen.asset-selector.active-market-cache
+  (:require [hyperopen.platform :as platform]))
 
 (def ^:private active-market-display-local-storage-key
   "active-market-display")
@@ -28,9 +29,8 @@
   [market normalize-deps]
   (when-let [normalized (normalize-active-market-display market normalize-deps)]
     (try
-      (when (exists? js/localStorage)
-        (js/localStorage.setItem active-market-display-local-storage-key
-                                 (js/JSON.stringify (clj->js normalized))))
+      (platform/local-storage-set! active-market-display-local-storage-key
+                                   (js/JSON.stringify (clj->js normalized)))
       (catch :default e
         (js/console.warn "Failed to persist active market display metadata:" e)))))
 
@@ -38,8 +38,7 @@
   [active-asset normalize-deps]
   (when (seq active-asset)
     (try
-      (let [raw (when (exists? js/localStorage)
-                  (js/localStorage.getItem active-market-display-local-storage-key))]
+      (let [raw (platform/local-storage-get active-market-display-local-storage-key)]
         (when (seq raw)
           (let [parsed (-> raw
                            js/JSON.parse

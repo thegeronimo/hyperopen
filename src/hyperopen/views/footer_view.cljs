@@ -1,5 +1,6 @@
 (ns hyperopen.views.footer-view
   (:require [clojure.string :as str]
+            [hyperopen.platform :as platform]
             [hyperopen.websocket.diagnostics-sanitize :as diagnostics-sanitize]))
 
 (def footer-link-classes
@@ -60,7 +61,7 @@
 
 (defn- view-now-ms [generated-at-ms]
   (let [generated* (or generated-at-ms 0)
-        wall-now-ms (.now js/Date)]
+        wall-now-ms (platform/now-ms)]
     (if (>= generated* 1000000000000)
       (max generated* wall-now-ms)
       generated*)))

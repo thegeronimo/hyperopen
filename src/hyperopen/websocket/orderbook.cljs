@@ -1,5 +1,6 @@
 (ns hyperopen.websocket.orderbook
-  (:require [hyperopen.websocket.client :as ws-client]
+  (:require [hyperopen.platform :as platform]
+            [hyperopen.websocket.client :as ws-client]
             [hyperopen.websocket.orderbook-policy :as policy]))
 
 (defn- send-subscribe! [subscription]
@@ -57,7 +58,7 @@
             (swap! orderbook-state assoc-in [:books coin] next-book)
             ;; Update app store
             (when store
-              (js/setTimeout
+              (platform/set-timeout!
                #(swap! store assoc-in [:orderbooks coin] next-book)
                0))))))))
 

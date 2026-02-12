@@ -1,5 +1,6 @@
 (ns hyperopen.ui.preferences
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [hyperopen.platform :as platform]))
 
 (def ^:private ui-font-local-storage-key
   "hyperopen-ui-font")
@@ -22,8 +23,7 @@
   (when (exists? js/document)
     (let [html-el (.-documentElement js/document)
           stored (try
-                   (when (exists? js/localStorage)
-                     (.getItem js/localStorage ui-font-local-storage-key))
+                   (platform/local-storage-get ui-font-local-storage-key)
                    (catch :default _
                      nil))
           normalized (normalize-ui-font stored)]

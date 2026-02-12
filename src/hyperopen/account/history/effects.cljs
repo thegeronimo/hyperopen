@@ -1,7 +1,8 @@
 (ns hyperopen.account.history.effects
   (:require [clojure.string :as str]
             [hyperopen.api :as api]
-            [hyperopen.account.history.actions :as account-history-actions]))
+            [hyperopen.account.history.actions :as account-history-actions]
+            [hyperopen.platform :as platform]))
 
 (defn- format-funding-history-time [time-ms]
   (let [d (js/Date. time-ms)
@@ -183,7 +184,7 @@
       (let [blob (js/Blob. #js [csv] #js {:type "text/csv;charset=utf-8"})
             url (.createObjectURL js/URL blob)
             link (.createElement js/document "a")
-            filename (str "funding-history-" (.now js/Date) ".csv")]
+            filename (str "funding-history-" (platform/now-ms) ".csv")]
         (set! (.-href link) url)
         (set! (.-download link) filename)
         (.appendChild (.-body js/document) link)

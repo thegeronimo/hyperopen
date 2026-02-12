@@ -1,6 +1,7 @@
 (ns hyperopen.api
   (:require [clojure.string :as str]
             [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.platform :as platform]
             [hyperopen.utils.data-normalization :refer [normalize-asset-contexts]]
             [hyperopen.utils.interval :refer [interval-to-milliseconds]]))
 
@@ -32,10 +33,10 @@
   [ms]
   (js/Promise.
    (fn [resolve _]
-     (js/setTimeout resolve ms))))
+     (platform/set-timeout! resolve ms))))
 
 (defn- now-ms []
-  (.now js/Date))
+  (platform/now-ms))
 
 (defn- finite-number?
   [value]
@@ -509,7 +510,7 @@
       (do
         (println "No active asset selected, skipping candle fetch")
         (js/Promise.resolve nil))
-      (let [now (js/Date.now)
+      (let [now (now-ms)
             ms (interval-to-milliseconds interval)
             start (- now (* bars ms))
             interval-s (name interval)

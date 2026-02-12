@@ -1,5 +1,6 @@
 (ns hyperopen.startup.restore
-  (:require [hyperopen.wallet.agent-session :as agent-session]))
+  (:require [hyperopen.platform :as platform]
+            [hyperopen.wallet.agent-session :as agent-session]))
 
 (defn restore-agent-storage-mode!
   [store]
@@ -9,7 +10,7 @@
 (defn restore-active-asset!
   [store {:keys [connected?-fn dispatch! load-active-market-display-fn]}]
   (when (nil? (:active-asset @store))
-    (let [stored-asset (js/localStorage.getItem "active-asset")
+    (let [stored-asset (platform/local-storage-get "active-asset")
           asset (if (seq stored-asset) stored-asset "BTC")
           cached-market (load-active-market-display-fn asset)]
       (swap! store
@@ -17,6 +18,6 @@
                (cond-> (assoc state :active-asset asset :selected-asset asset)
                  (map? cached-market) (assoc :active-market cached-market))))
       (when-not (seq stored-asset)
-        (js/localStorage.setItem "active-asset" asset))
+        (platform/local-storage-set! "active-asset" asset))
       (when (connected?-fn)
         (dispatch! store nil [[:actions/subscribe-to-asset asset]])))))

@@ -1,5 +1,6 @@
 (ns hyperopen.websocket.trades
-  (:require [hyperopen.websocket.client :as ws-client]
+  (:require [hyperopen.platform :as platform]
+            [hyperopen.websocket.client :as ws-client]
             [hyperopen.utils.interval :as interval]
             [hyperopen.websocket.trades-policy :as policy]))
 
@@ -62,7 +63,7 @@
 (defn- schedule-candle-update! [store trades]
   (swap! trades-buffer update :pending into trades)
   (when-not (:timer @trades-buffer)
-    (let [timeout-id (js/setTimeout
+    (let [timeout-id (platform/set-timeout!
                        (fn []
                          (let [pending (:pending @trades-buffer)]
                            (swap! trades-buffer assoc :pending [] :timer nil)

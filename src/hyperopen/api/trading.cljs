@@ -1,6 +1,7 @@
 (ns hyperopen.api.trading
   (:require [clojure.string :as str]
             [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.platform :as platform]
             [hyperopen.wallet.agent-session :as agent-session]
             [hyperopen.utils.hl-signing :as signing]))
 
@@ -123,7 +124,7 @@
       nil)))
 
 (defn- next-nonce [cursor]
-  (let [now (.now js/Date)
+  (let [now (platform/now-ms)
         cursor* (when (number? cursor)
                   (js/Math.floor cursor))
         monotonic-candidate (if (number? cursor*)

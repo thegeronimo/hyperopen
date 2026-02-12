@@ -1,5 +1,6 @@
 (ns hyperopen.websocket.active-asset-ctx
-  (:require [hyperopen.websocket.client :as ws-client]))
+  (:require [hyperopen.platform :as platform]
+            [hyperopen.websocket.client :as ws-client]))
 
 ;; Active asset context state
 (defonce active-asset-ctx-state (atom {:subscriptions #{}
@@ -49,7 +50,7 @@
                                                (* 100 funding))}]
             ;;(println "Formatted data for" coin ":" formatted-data)
             ;; Use setTimeout to avoid nested render issues
-            (js/setTimeout 
+            (platform/set-timeout!
               #(do
                  (swap! store assoc-in [:active-assets :contexts coin] formatted-data)
                  (swap! store assoc-in [:active-assets :loading] false))
