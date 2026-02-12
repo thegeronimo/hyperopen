@@ -10,6 +10,7 @@
             [hyperopen.websocket.webdata2 :as webdata2]
             [hyperopen.websocket.user :as user-ws]
             [hyperopen.websocket.diagnostics-actions :as diagnostics-actions]
+            [hyperopen.websocket.diagnostics-copy :as diagnostics-copy]
             [hyperopen.websocket.diagnostics-payload :as diagnostics-payload]
             [hyperopen.websocket.diagnostics-runtime :as diagnostics-runtime]
             [hyperopen.websocket.diagnostics-sanitize :as diagnostics-sanitize]
@@ -587,29 +588,14 @@
       (swap! store assoc-in [:websocket-ui :reveal-sensitive?] true))))
 
 (defn copy-websocket-diagnostics [_ store]
-  (let [state @store
-        health (get-in state [:websocket :health] {})
-        payload (diagnostics-sanitize/sanitize-value
-                  :redact
-                  (diagnostics-copy-payload state health))
-        diagnostics-json (.stringify js/JSON (clj->js payload) nil 2)
-        clipboard (some-> js/globalThis .-navigator .-clipboard)
-        write-text-fn (some-> clipboard .-writeText)]
-    (set-copy-status! store nil)
-    (if (and clipboard write-text-fn)
-      (try
-        (-> (.writeText clipboard diagnostics-json)
-            (.then (fn []
-                     (set-copy-status! store (copy-success-status health))))
-            (.catch (fn [err]
-                      (println "Copy diagnostics failed:" err)
-                      (set-copy-status! store (copy-error-status health diagnostics-json)))))
-        (catch :default err
-          (println "Copy diagnostics failed:" err)
-          (set-copy-status! store (copy-error-status health diagnostics-json))))
-      (do
-        (println "Clipboard API unavailable for websocket diagnostics copy")
-        (set-copy-status! store (copy-error-status health diagnostics-json))))))
+  (diagnostics-copy/copy-websocket-diagnostics!
+   {:store store
+    :diagnostics-copy-payload diagnostics-copy-payload
+    :sanitize-value diagnostics-sanitize/sanitize-value
+    :set-copy-status! set-copy-status!
+    :copy-success-status copy-success-status
+    :copy-error-status copy-error-status
+    :log-fn println}))
 
 (defn init-websockets [state]
   [[:effects/init-websocket]])
