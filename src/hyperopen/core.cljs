@@ -11,6 +11,7 @@
             [hyperopen.websocket.user :as user-ws]
             [hyperopen.websocket.diagnostics-actions :as diagnostics-actions]
             [hyperopen.websocket.diagnostics-payload :as diagnostics-payload]
+            [hyperopen.websocket.diagnostics-runtime :as diagnostics-runtime]
             [hyperopen.websocket.diagnostics-sanitize :as diagnostics-sanitize]
             [hyperopen.websocket.health-projection :as health-projection]
             [hyperopen.api :as api]
@@ -567,77 +568,18 @@
 (defn refresh-websocket-health [_ store]
   (sync-websocket-health! store :force? true))
 
-(defn- reset-group-match?
-  [stream group]
-  (case group
-    :market_data (= :market_data (:group stream))
-    :orders_oms (= :orders_oms (:group stream))
-    :all true
-    false))
-
-(defn- reset-target-descriptors
-  [health group]
-  (->> (get health :streams {})
-       vals
-       (filter (fn [stream]
-                 (and (:subscribed? stream)
-                      (map? (:descriptor stream))
-                      (reset-group-match? stream group))))
-       (map :descriptor)
-       distinct
-       (sort-by pr-str)
-       vec))
-
-(defn- reset-event
-  [group source]
-  (if (= :auto-recover source)
-    :auto-recover-market
-    (case group
-      :market_data :reset-market
-      :orders_oms :reset-oms
-      :all :reset-all
-      :reset-unknown)))
-
 (defn ws-reset-subscriptions [_ store {:keys [group source]
                                        :or {group :all
                                             source :manual}}]
-  (let [state @store
-        health (ws-client/get-health-snapshot)
-        transport-state (get-in health [:transport :state])
-        generated-at-ms (or (:generated-at-ms health) 0)
-        now-ms (effective-now-ms generated-at-ms)
-        in-progress? (boolean (get-in state [:websocket-ui :reset-in-progress?]))
-        cooldown-until-ms (get-in state [:websocket-ui :reset-cooldown-until-ms])
-        cooldown-active? (and (number? cooldown-until-ms)
-                              (> cooldown-until-ms now-ms))
-        blocked? (or in-progress?
-                     cooldown-active?
-                     (contains? #{:connecting :reconnecting} transport-state))
-        group-key (if (= group :all) :all group)
-        descriptors (reset-target-descriptors health group)]
-    (when (and (not blocked?)
-               (seq descriptors))
-      (swap! store assoc-in [:websocket-ui :reset-in-progress?] true)
-      (try
-        (doseq [descriptor descriptors]
-          (ws-client/send-message! {:method "unsubscribe"
-                                    :subscription descriptor}))
-        (doseq [descriptor descriptors]
-          (ws-client/send-message! {:method "subscribe"
-                                    :subscription descriptor}))
-        (finally
-          (swap! store assoc-in [:websocket-ui :reset-in-progress?] false)))
-      (swap! store
-             (fn [state*]
-               (-> state*
-                   (assoc-in [:websocket-ui :reset-cooldown-until-ms]
-                             (+ now-ms reset-subscriptions-cooldown-ms))
-                    (update-in [:websocket-ui :reset-counts group-key] (fnil inc 0)))))
-      (append-diagnostics-event! store
-                                 (reset-event group source)
-                                 now-ms
-                                 {:count (count descriptors)
-                                  :source source}))))
+  (diagnostics-runtime/ws-reset-subscriptions!
+   {:store store
+    :group group
+    :source source
+    :get-health-snapshot ws-client/get-health-snapshot
+    :effective-now-ms effective-now-ms
+    :reset-subscriptions-cooldown-ms reset-subscriptions-cooldown-ms
+    :send-message! ws-client/send-message!
+    :append-diagnostics-event! append-diagnostics-event!}))
 
 (defn confirm-ws-diagnostics-reveal [_ store]
   (let [confirmed? (js/confirm "Reveal sensitive diagnostics values? This may expose wallet identifiers.")]

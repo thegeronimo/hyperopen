@@ -6,6 +6,7 @@
             [hyperopen.websocket.application.runtime-reducer-test]
             [hyperopen.websocket.diagnostics-actions-test]
             [hyperopen.websocket.diagnostics-payload-test]
+            [hyperopen.websocket.diagnostics-runtime-test]
             [hyperopen.websocket.domain.policy-test]
             [hyperopen.websocket.health-projection-test]
             [hyperopen.asset-selector.markets-test]
@@ -45,6 +46,7 @@
              'hyperopen.websocket.application.runtime-reducer-test
              'hyperopen.websocket.diagnostics-actions-test
              'hyperopen.websocket.diagnostics-payload-test
+             'hyperopen.websocket.diagnostics-runtime-test
              'hyperopen.websocket.domain.policy-test
              'hyperopen.websocket.health-projection-test
              'hyperopen.utils.data-normalization-test
