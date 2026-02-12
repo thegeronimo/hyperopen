@@ -4,6 +4,6 @@
             [hyperopen.runtime.action-adapters :as action-adapters]
             [hyperopen.runtime.effect-adapters :as effect-adapters]))
 
-;; Legacy compatibility surface for `hyperopen.core/*`.
-;; Keep public aliases here so `hyperopen.core` can stay focused on bootstrapping.
+;; Legacy compatibility surface that used to be available via `hyperopen.core/*`.
+;; Keep public aliases here so `hyperopen.core` stays focused on bootstrapping.
 (def-core-compat-exports)

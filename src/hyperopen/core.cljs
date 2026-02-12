@@ -1,12 +1,10 @@
 (ns hyperopen.core
-  (:require-macros [hyperopen.core.macros :refer [def-core-legacy-exports]])
   (:require [replicant.dom :as r]
             [nexus.registry :as nxr]
             [hyperopen.views.app-view :as app-view]
             [hyperopen.websocket.client :as ws-client]
             [hyperopen.account.history.actions :as account-history-actions]
             [hyperopen.chart.settings :as chart-settings]
-            [hyperopen.core.compat :as compat]
             [hyperopen.asset-selector.settings :as asset-selector-settings]
             [hyperopen.orderbook.settings :as orderbook-settings]
             [hyperopen.runtime.action-adapters :as runtime-action-adapters]
@@ -60,12 +58,6 @@
 
 (def ^:private runtime
   (:runtime system))
-
-;; Re-export all legacy public vars from `hyperopen.core.compat`.
-;; This keeps `hyperopen.core/*` API stable while `hyperopen.core` stays focused
-;; on entrypoint and startup/runtime bootstrapping.
-;; NOTE: compat is for external legacy callers only, not internal wiring.
-(def-core-legacy-exports compat)
 
 (defn- render-app!
   [state]

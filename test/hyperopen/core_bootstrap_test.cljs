@@ -5,7 +5,8 @@
             [hyperopen.api :as api]
             [hyperopen.api.trading :as trading-api]
             [hyperopen.account.history.effects :as account-history-effects]
-            [hyperopen.core :as core]
+            [hyperopen.core :as app-core]
+            [hyperopen.core.compat :as core]
             [hyperopen.runtime.effect-adapters :as effect-adapters]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.state.trading :as trading]
@@ -35,7 +36,7 @@
   :each
   {:before (fn []
              (reset-startup-runtime!)
-             (swap! core/store assoc :active-asset nil))
+             (swap! app-core/store assoc :active-asset nil))
    :after (fn []
             (reset-startup-runtime!))})
 
@@ -120,7 +121,7 @@
                   hyperopen.core/schedule-idle-or-timeout! (fn [f]
                                                               (reset! deferred-callback f)
                                                               :scheduled)]
-      (core/initialize-remote-data-streams!)
+      (app-core/initialize-remote-data-streams!)
       (is (= 1 @critical-fetches))
       (is (= [:bootstrap] @phases))
       (is (fn? @deferred-callback))
@@ -140,8 +141,8 @@
     (swap! runtime-state/runtime assoc :runtime-bootstrapped? true)))
 
 (deftest make-system-creates-isolated-store-and-runtime-atoms-test
-  (let [system-a (core/make-system)
-        system-b (core/make-system)]
+  (let [system-a (app-core/make-system)
+        system-b (app-core/make-system)]
     (swap! (:store system-a) assoc :marker :a)
     (swap! (:runtime system-a) assoc :marker :a)
     (is (nil? (:marker @(:store system-b))))
@@ -259,7 +260,7 @@
           original-ensure-perp-dexs api/ensure-perp-dexs!
           original-fetch-and-merge-funding-history account-history-effects/fetch-and-merge-funding-history!
           original-stage-b hyperopen.core/stage-b-account-bootstrap!]
-      (swap! core/store assoc-in [:wallet :address] "0xabc")
+      (swap! app-core/store assoc-in [:wallet :address] "0xabc")
       (set! api/fetch-frontend-open-orders!
             (fn fetch-frontend-open-orders-mock
               ([store address]
@@ -870,7 +871,7 @@
 (deftest active-market-store-projection-persists-display-cache-test
   (with-test-local-storage
     (fn []
-      (let [original-state @core/store
+      (let [original-state @app-core/store
             market {:key "perp:ETH"
                     :coin "ETH"
                     :symbol "ETH-USDC"
@@ -880,8 +881,8 @@
                     :dex "hyna"
                     :maxLeverage 25}]
         (try
-          (swap! core/store assoc :active-market nil)
-          (swap! core/store assoc :active-market market)
+          (swap! app-core/store assoc :active-market nil)
+          (swap! app-core/store assoc :active-market market)
           (let [cached (js->clj (js/JSON.parse (.getItem js/localStorage "active-market-display"))
                                 :keywordize-keys true)]
             (is (= "ETH" (:coin cached)))
@@ -889,7 +890,7 @@
             (is (= "perp" (:market-type cached)))
             (is (= 25 (:maxLeverage cached))))
           (finally
-            (reset! core/store original-state)))))))
+            (reset! app-core/store original-state)))))))
 
 (deftest restore-asset-selector-markets-cache-hydrates-symbols-test
   (with-test-local-storage
@@ -956,7 +957,7 @@
 (deftest asset-selector-markets-store-projection-persists-cache-test
   (with-test-local-storage
     (fn []
-      (let [original-state @core/store
+      (let [original-state @app-core/store
             markets [{:key "perp:ETH"
                       :coin "ETH"
                       :symbol "ETH-USDC"
@@ -977,11 +978,11 @@
                       :mark 0.21
                       :volume24h 2000}]]
         (try
-          (swap! core/store assoc-in [:asset-selector :sort-by] :volume)
-          (swap! core/store assoc-in [:asset-selector :sort-direction] :desc)
-          (swap! core/store assoc-in [:asset-selector :markets] [])
-          (swap! core/store assoc-in [:asset-selector :market-by-key] {})
-          (swap! core/store assoc-in [:asset-selector :markets] markets)
+          (swap! app-core/store assoc-in [:asset-selector :sort-by] :volume)
+          (swap! app-core/store assoc-in [:asset-selector :sort-direction] :desc)
+          (swap! app-core/store assoc-in [:asset-selector :markets] [])
+          (swap! app-core/store assoc-in [:asset-selector :market-by-key] {})
+          (swap! app-core/store assoc-in [:asset-selector :markets] markets)
           (let [cached (js->clj (js/JSON.parse (.getItem js/localStorage "asset-selector-markets-cache"))
                                 :keywordize-keys true)]
             (is (= 2 (count cached)))
@@ -991,7 +992,7 @@
             (is (= [0 1] (mapv :cache-order cached)))
             (is (nil? (:mark (first cached)))))
           (finally
-            (reset! core/store original-state)))))))
+            (reset! app-core/store original-state)))))))
 
 (deftest refresh-order-history-emits-request-then-fetch-with-tab-aware-loading-test
   (let [selected-state {:account-info {:selected-tab :order-history
@@ -1193,7 +1194,7 @@
          (core/disconnect-wallet-action {}))))
 
 (deftest should-auto-enable-agent-trading-predicate-guards-connect-state-test
-  (let [predicate @#'hyperopen.core/should-auto-enable-agent-trading?]
+  (let [predicate @#'hyperopen.core.compat/should-auto-enable-agent-trading?]
     (is (true? (predicate {:wallet {:connected? true
                                     :address "0xAbC"
                                     :agent {:status :not-ready}}}
@@ -1596,19 +1597,19 @@
                (-> state
                    (assoc-in [:websocket-health :fingerprint] nil)
                    (assoc-in [:websocket-health :writes] 0))))
-      (@#'hyperopen.core/sync-websocket-health! store :force? true)
+      (core/sync-websocket-health! store :force? true)
       (js/setTimeout
         (fn []
           (is (= 1000 (get-in @store [:websocket :health :generated-at-ms])))
           (is (= 1 (get-in @runtime-state/runtime [:websocket-health :writes])))
           (swap! ws-client/stream-runtime assoc :now-ms 2000)
-          (@#'hyperopen.core/sync-websocket-health! store)
+          (core/sync-websocket-health! store)
           (js/setTimeout
             (fn []
               (is (= 1000 (get-in @store [:websocket :health :generated-at-ms])))
               (is (= 1 (get-in @runtime-state/runtime [:websocket-health :writes])))
               (swap! ws-client/connection-state assoc :transport/freshness :delayed)
-              (@#'hyperopen.core/sync-websocket-health! store)
+              (core/sync-websocket-health! store)
               (js/setTimeout
                 (fn []
                   (try
@@ -1654,8 +1655,8 @@
       (with-redefs [ws-client/get-health-snapshot (fn [] health)
                     nxr/dispatch (fn [_ _ effects]
                                    (swap! dispatches conj effects))]
-        (@#'hyperopen.core/sync-websocket-health! store)
-        (@#'hyperopen.core/sync-websocket-health! store)
+        (core/sync-websocket-health! store)
+        (core/sync-websocket-health! store)
         (is (= 1 (count @dispatches)))
         (is (= [[:actions/ws-diagnostics-reset-market-subscriptions :auto-recover]]
                (first @dispatches)))
@@ -1713,9 +1714,9 @@
       (with-redefs [nxr/dispatch (fn [_ _ effects]
                                    (swap! dispatches conj effects))]
         (with-redefs [ws-client/get-health-snapshot (fn [] offline-health)]
-          (@#'hyperopen.core/sync-websocket-health! store))
+          (core/sync-websocket-health! store))
         (with-redefs [ws-client/get-health-snapshot (fn [] event-driven-health)]
-          (@#'hyperopen.core/sync-websocket-health! store)))
+          (core/sync-websocket-health! store)))
       (is (empty? @dispatches))
       (is (= 0 (get-in @store [:websocket-ui :auto-recover-count])))
       (finally
