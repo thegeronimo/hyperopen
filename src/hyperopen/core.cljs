@@ -1168,58 +1168,58 @@
   ([state source]
    (ws-diagnostics-reset-subscriptions state :all source)))
 
-(defn toggle-asset-dropdown [state coin]
-  (asset-actions/toggle-asset-dropdown state coin))
+(def toggle-asset-dropdown
+  asset-actions/toggle-asset-dropdown)
 
-(defn close-asset-dropdown [state]
-  (asset-actions/close-asset-dropdown state))
+(def close-asset-dropdown
+  asset-actions/close-asset-dropdown)
 
-(defn select-asset [state market-or-coin]
-  (asset-actions/select-asset state market-or-coin))
+(def select-asset
+  asset-actions/select-asset)
 
-(defn update-asset-search [state value]
-  (asset-actions/update-asset-search state value))
+(def update-asset-search
+  asset-actions/update-asset-search)
 
 ;; --- asset selector sort settings logic moved to asset_selector/settings.cljs ---
 
-(defn update-asset-selector-sort [state sort-field]
-  (asset-actions/update-asset-selector-sort state sort-field))
+(def update-asset-selector-sort
+  asset-actions/update-asset-selector-sort)
 
-(defn toggle-asset-selector-strict [state]
-  (asset-actions/toggle-asset-selector-strict state))
+(def toggle-asset-selector-strict
+  asset-actions/toggle-asset-selector-strict)
 
-(defn toggle-asset-favorite [state market-key]
-  (asset-actions/toggle-asset-favorite state market-key))
+(def toggle-asset-favorite
+  asset-actions/toggle-asset-favorite)
 
-(defn set-asset-selector-favorites-only [state enabled?]
-  (asset-actions/set-asset-selector-favorites-only state enabled?))
+(def set-asset-selector-favorites-only
+  asset-actions/set-asset-selector-favorites-only)
 
-(defn set-asset-selector-tab [state tab]
-  (asset-actions/set-asset-selector-tab state tab))
+(def set-asset-selector-tab
+  asset-actions/set-asset-selector-tab)
 
-(defn set-asset-selector-scroll-top [state scroll-top]
-  (asset-actions/set-asset-selector-scroll-top state scroll-top))
+(def set-asset-selector-scroll-top
+  asset-actions/set-asset-selector-scroll-top)
 
-(defn increase-asset-selector-render-limit [state]
-  (asset-actions/increase-asset-selector-render-limit state))
+(def increase-asset-selector-render-limit
+  asset-actions/increase-asset-selector-render-limit)
 
-(defn show-all-asset-selector-markets [state]
-  (asset-actions/show-all-asset-selector-markets state))
+(def show-all-asset-selector-markets
+  asset-actions/show-all-asset-selector-markets)
 
-(defn maybe-increase-asset-selector-render-limit [state scroll-top]
-  (asset-actions/maybe-increase-asset-selector-render-limit state scroll-top))
+(def maybe-increase-asset-selector-render-limit
+  asset-actions/maybe-increase-asset-selector-render-limit)
 
 (defn refresh-asset-markets [state]
   [[:effects/fetch-asset-selector-markets]])
 
-(defn apply-asset-icon-status-updates [state status-by-market]
-  (asset-actions/apply-asset-icon-status-updates state status-by-market))
+(def apply-asset-icon-status-updates
+  asset-actions/apply-asset-icon-status-updates)
 
-(defn mark-loaded-asset-icon [state market-key]
-  (asset-actions/mark-loaded-asset-icon state market-key))
+(def mark-loaded-asset-icon
+  asset-actions/mark-loaded-asset-icon)
 
-(defn mark-missing-asset-icon [state market-key]
-  (asset-actions/mark-missing-asset-icon state market-key))
+(def mark-missing-asset-icon
+  asset-actions/mark-missing-asset-icon)
 
 (def chart-timeframes
   #{:1m :3m :5m :15m :30m :1h :2h :4h :8h :12h :1d :3d :1w :1M})
