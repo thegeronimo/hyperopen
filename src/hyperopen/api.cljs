@@ -6,7 +6,7 @@
             [hyperopen.api.info-client :as info-client]
             [hyperopen.api.market-loader :as market-loader]
             [hyperopen.api.projections :as api-projections]
-            [hyperopen.api.runtime :as api-runtime]
+            [hyperopen.api.service :as api-service]
             [hyperopen.domain.funding-history :as funding-history]
             [hyperopen.platform :as platform]))
 
@@ -17,11 +17,10 @@
   (merge info-client/default-config
          {:info-url info-url}))
 
-(defonce ^:private api-runtime-instance
-  (atom (api-runtime/make-runtime
-         {:info-client (info-client/make-info-client
-                        {:config default-info-client-config
-                         :log-fn println})})))
+(defonce ^:private api-service-instance
+  (api-service/make-service
+   {:info-client-config default-info-client-config
+    :log-fn println}))
 
 (declare request-spot-clearinghouse-state!)
 (declare request-user-abstraction!)
@@ -31,13 +30,9 @@
 (defn- now-ms []
   (platform/now-ms))
 
-(defn- active-info-client
+(defn- active-api-service
   []
-  (api-runtime/info-client @api-runtime-instance))
-
-(defn- active-api-runtime
-  []
-  @api-runtime-instance)
+  api-service-instance)
 
 (defn funding-position-side
   [signed-size]
@@ -84,21 +79,19 @@
 
 (defn get-request-stats
   []
-  ((:get-request-stats (active-info-client))))
+  (api-service/get-request-stats (active-api-service)))
 
 (defn reset-request-runtime!
   []
-  ((:reset! (active-info-client)))
-  (api-runtime/reset-runtime! (active-api-runtime))
-  nil)
+  (api-service/reset-service! (active-api-service)))
 
 (defn- post-info!
   ([body]
    (post-info! body {}))
   ([body opts]
-   ((:request-info! (active-info-client)) body opts))
+   (api-service/request-info! (active-api-service) body opts))
   ([body opts attempt]
-   ((:request-info! (active-info-client)) body opts attempt)))
+   (api-service/request-info! (active-api-service) body opts attempt)))
 
 (defn request-asset-contexts!
   ([] (request-asset-contexts! {}))
@@ -308,33 +301,21 @@
   ([store]
    (ensure-perp-dexs-data! store {}))
   ([store opts]
-   (let [runtime (active-api-runtime)
-         existing (get-in @store [:perp-dexs])]
-     (if (seq existing)
-       (js/Promise.resolve existing)
-       (if-let [inflight (api-runtime/ensure-perp-dexs-flight runtime)]
-         inflight
-         (let [tracked-ref (atom nil)
-               tracked (-> (request-perp-dexs!
-                            (merge {:dedupe-key :perp-dexs}
-                                   opts))
-                           (.finally
-                            (fn []
-                              (api-runtime/clear-ensure-perp-dexs-flight-if-tracked!
-                               runtime
-                               @tracked-ref))))]
-           (reset! tracked-ref tracked)
-           (api-runtime/set-ensure-perp-dexs-flight! runtime tracked)
-           tracked))))))
+   (api-service/ensure-perp-dexs-data!
+    (active-api-service)
+    store
+    request-perp-dexs!
+    opts)))
 
 (defn ensure-spot-meta-data!
   ([store]
    (ensure-spot-meta-data! store {}))
   ([store opts]
-   (if-let [meta (get-in @store [:spot :meta])]
-     (js/Promise.resolve meta)
-     (request-spot-meta! (merge {:dedupe-key :spot-meta}
-                                opts)))))
+   (api-service/ensure-spot-meta-data!
+    (active-api-service)
+    store
+    request-spot-meta!
+    opts)))
 
 (defn ensure-spot-meta!
   ([store]
@@ -351,17 +332,10 @@
   ([]
    (ensure-public-webdata2! {}))
   ([opts]
-   (let [runtime (active-api-runtime)
-         force? (boolean (:force? opts))
-         opts* (dissoc opts :force?)]
-     (if (and (not force?) (some? (api-runtime/public-webdata2-cache runtime)))
-       (js/Promise.resolve (api-runtime/public-webdata2-cache runtime))
-       (-> (fetch-public-webdata2!
-            (merge {:dedupe-key :public-webdata2}
-                   opts*))
-           (.then (fn [snapshot]
-                    (api-runtime/set-public-webdata2-cache! runtime snapshot)
-                    snapshot)))))))
+   (api-service/ensure-public-webdata2!
+    (active-api-service)
+    fetch-public-webdata2!
+    opts)))
 
 (defn fetch-asset-selector-markets!
   "Fetch and build a unified market list for the asset selector.
