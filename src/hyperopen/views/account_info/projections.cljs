@@ -192,6 +192,65 @@
     (and (seq coin*)
          (str/starts-with? coin* "USDC"))))
 
+(def ^:private usdc-valuation-invariant-epsilon 0.000001)
+
+(defn- build-token-usdc-price-map [spot-meta spot-asset-ctxs]
+  (let [tokens (:tokens spot-meta)
+        usdc-token (some #(when (= "USDC" (:name %)) %) tokens)
+        usdc-token-idx (:index usdc-token)
+        base-prices (if (some? usdc-token-idx)
+                      {usdc-token-idx 1}
+                      {})]
+    (if (and (some? usdc-token-idx)
+             (seq (:universe spot-meta))
+             (seq spot-asset-ctxs))
+      (let [ctxs (vec spot-asset-ctxs)]
+        (reduce (fn [m {:keys [tokens index]}]
+                  (let [[base quote] tokens
+                        ctx (nth ctxs index nil)
+                        mark-px (parse-num (:markPx ctx))]
+                    (cond
+                      (and (= quote usdc-token-idx) (pos? mark-px))
+                      (assoc m base mark-px)
+
+                      (and (= base usdc-token-idx) (pos? mark-px))
+                      (assoc m quote (/ 1 mark-px))
+
+                      :else m)))
+                base-prices
+                (:universe spot-meta)))
+      base-prices)))
+
+(defn- spot-token-usdc-price [price-by-token token-idx coin]
+  (or (get price-by-token token-idx)
+      (when (usdc-coin? coin) 1)))
+
+(defn- maybe-warn-usdc-valuation-invariant! [coin total-num usdc-value]
+  (when (and ^boolean goog.DEBUG
+             (usdc-coin? coin)
+             (pos? total-num)
+             (> (js/Math.abs (- usdc-value total-num))
+                usdc-valuation-invariant-epsilon))
+    (js/console.warn "USDC valuation invariant breach in balance row."
+                     (clj->js {:coin coin
+                               :total-balance total-num
+                               :usdc-value usdc-value}))))
+
+(defn- spot-balance-valuation [price-by-token coin token total]
+  (let [token-idx (if (string? token) (js/parseInt token) token)
+        total-num (parse-num total)
+        price (spot-token-usdc-price price-by-token token-idx coin)
+        usdc-value (if (number? price) (* total-num price) 0)]
+    (maybe-warn-usdc-valuation-invariant! coin total-num usdc-value)
+    {:token-idx token-idx
+     :total-num total-num
+     :price price
+     :usdc-value usdc-value}))
+
+(defn portfolio-usdc-value [balance-rows]
+  (when (seq balance-rows)
+    (reduce + (map #(parse-num (:usdc-value %)) balance-rows))))
+
 (defn- non-zero-balance-row? [row]
   (let [total-balance (parse-num (:total-balance row))
         available-balance (parse-num (:available-balance row))
@@ -238,6 +297,7 @@
         spot-meta (:meta spot-data)
         spot-state (:clearinghouse-state spot-data)
         spot-asset-ctxs (:spotAssetCtxs webdata2)
+        price-by-token (build-token-usdc-price-map spot-meta spot-asset-ctxs)
         token-by-index (into {}
                              (keep (fn [{:keys [index] :as token}]
                                      (when (some? index)
@@ -247,30 +307,6 @@
                              (map (fn [{:keys [index weiDecimals szDecimals]}]
                                     [index (or weiDecimals szDecimals 2)]))
                              (:tokens spot-meta))
-        usdc-token (some #(when (= "USDC" (:name %)) %) (:tokens spot-meta))
-        usdc-token-idx (:index usdc-token)
-        price-by-token (let [base-prices (if (some? usdc-token-idx)
-                                            {usdc-token-idx 1}
-                                            {})]
-                         (if (and (some? usdc-token-idx)
-                                  (seq (:universe spot-meta))
-                                  (seq spot-asset-ctxs))
-                           (let [ctxs (vec spot-asset-ctxs)]
-                             (reduce (fn [m {:keys [tokens index]}]
-                                       (let [[base quote] tokens
-                                             ctx (nth ctxs index nil)
-                                             mark-px (parse-num (:markPx ctx))]
-                                         (cond
-                                           (and (= quote usdc-token-idx) (pos? mark-px))
-                                           (assoc m base mark-px)
-
-                                           (and (= base usdc-token-idx) (pos? mark-px))
-                                           (assoc m quote (/ 1 mark-px))
-
-                                           :else m)))
-                                     base-prices
-                                     (:universe spot-meta)))
-                           base-prices))
         perps-row (when clearinghouse-state
                     (let [account-value (parse-num (get-in clearinghouse-state [:marginSummary :accountValue]))
                           total-margin-used (parse-num (get-in clearinghouse-state [:marginSummary :totalMarginUsed]))
@@ -285,15 +321,12 @@
                        :amount-decimals nil}))
         spot-rows (when (seq (get spot-state :balances))
                     (map (fn [{:keys [coin token hold total entryNtl]}]
-                           (let [token-idx (if (string? token) (js/parseInt token) token)
+                           (let [{:keys [token-idx total-num price usdc-value]}
+                                 (spot-balance-valuation price-by-token coin token total)
                                  token-meta (get token-by-index token-idx)
                                  decimals (get token-decimals token-idx)
-                                 total-num (parse-num total)
                                  hold-num (parse-num hold)
                                  available-num (- total-num hold-num)
-                                 price (or (get price-by-token token-idx)
-                                           (when (usdc-coin? coin) 1))
-                                 usdc-value (if price (* total-num price) 0)
                                  entry-num (parse-num entryNtl)
                                  pnl-value (when (and price (pos? entry-num))
                                              (- usdc-value entry-num))

@@ -502,6 +502,26 @@
     (is (= 204.419365 (view/parse-num (:usdc-value usdc-row))))
     (is (= 201.389365 (view/parse-num (:available-balance usdc-row))))))
 
+(deftest build-balance-rows-usdc-identity-invariant-holds-without-pricing-context-test
+  (let [rows (view/build-balance-rows
+              {:spotAssetCtxs nil}
+              {:meta nil
+               :clearinghouse-state {:balances [{:coin "USDC"
+                                                 :token 0
+                                                 :hold "0.0"
+                                                 :total "204.41"
+                                                 :entryNtl "0"}
+                                                {:coin "USDC.e"
+                                                 :token 1
+                                                 :hold "0.0"
+                                                 :total "0.04"
+                                                 :entryNtl "0"}]}})
+        usdc-like-rows (filter #(str/starts-with? (:coin %) "USDC") rows)]
+    (is (= 2 (count usdc-like-rows)))
+    (doseq [row usdc-like-rows]
+      (is (= (view/parse-num (:total-balance row))
+             (view/parse-num (:usdc-value row)))))))
+
 (deftest build-balance-rows-filters-zero-balance-rows-by-default-test
   (let [rows (view/build-balance-rows
               {:clearinghouseState {:marginSummary {:accountValue "0.0"

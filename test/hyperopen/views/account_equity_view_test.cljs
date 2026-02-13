@@ -1,6 +1,7 @@
 (ns hyperopen.views.account-equity-view-test
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is testing]]
+            [hyperopen.views.account-info.projections :as projections]
             [hyperopen.views.account-equity-view :as view]))
 
 (defn- class-values [class-attr]
@@ -172,5 +173,46 @@
                                                                                       :entryNtl "0"}]}}
                                              :perp-dex-clearinghouse {}})
         portfolio-value-node (find-first-node view-node #(contains? (direct-texts %) "$204.45"))]
+    (is (some? portfolio-value-node))
+    (is (contains? (node-class-set portfolio-value-node) "text-trading-text"))))
+
+(deftest unified-account-summary-portfolio-value-matches-balance-row-usdc-sum-test
+  (let [state {:account {:mode :unified}
+               :webdata2 {:clearinghouseState {:marginSummary {:accountValue "0.0"
+                                                                :totalNtlPos "0.0"
+                                                                :totalRawUsd "0.0"
+                                                                :totalMarginUsed "0.0"}
+                                                :crossMarginSummary {:accountValue "0.0"
+                                                                     :totalNtlPos "0.0"
+                                                                     :totalRawUsd "0.0"
+                                                                     :totalMarginUsed "0.0"}
+                                                :crossMaintenanceMarginUsed "0.0"
+                                                :assetPositions []}
+                          :spotAssetCtxs [{:markPx "1.0"}]}
+               :spot {:meta {:tokens [{:index 0
+                                       :name "USDC"
+                                       :weiDecimals 6}
+                                      {:index 1
+                                       :name "MEOW"
+                                       :weiDecimals 6}]
+                             :universe [{:tokens [1 0]
+                                         :index 0}]}
+                      :clearinghouse-state {:balances [{:coin "USDC"
+                                                        :token 0
+                                                        :hold "0.0"
+                                                        :total "204.41"
+                                                        :entryNtl "0"}
+                                                       {:coin "MEOW"
+                                                        :token 1
+                                                        :hold "0.0"
+                                                        :total "0.04"
+                                                        :entryNtl "0"}]}}
+               :perp-dex-clearinghouse {}}
+        balance-rows (projections/build-balance-rows (:webdata2 state) (:spot state) (:account state))
+        expected-portfolio (projections/portfolio-usdc-value balance-rows)
+        expected-portfolio-text (view/display-currency expected-portfolio)
+        view-node (view/account-equity-view state)
+        portfolio-value-node (find-first-node view-node #(contains? (direct-texts %) expected-portfolio-text))]
+    (is (= 204.45 expected-portfolio))
     (is (some? portfolio-value-node))
     (is (contains? (node-class-set portfolio-value-node) "text-trading-text"))))
