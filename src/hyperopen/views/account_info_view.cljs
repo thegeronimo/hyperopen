@@ -1,13 +1,13 @@
 (ns hyperopen.views.account-info-view
-  (:require [clojure.string :as str]
-            [hyperopen.views.account-info.projections :as projections]
-            [hyperopen.views.account-info.vm :as account-info-vm]
-            [hyperopen.views.account-info.shared :as shared]
+  (:require [hyperopen.views.account-info.shared :as shared]
             [hyperopen.views.account-info.table :as account-table]
+            [hyperopen.views.account-info.vm :as account-info-vm]
             [hyperopen.views.account-info.tabs.balances :as balances-tab]
-            [hyperopen.views.account-info.tabs.positions :as positions-tab]
+            [hyperopen.views.account-info.tabs.funding-history :as funding-history-tab]
             [hyperopen.views.account-info.tabs.open-orders :as open-orders-tab]
-            [hyperopen.utils.formatting :as fmt]))
+            [hyperopen.views.account-info.tabs.order-history :as order-history-tab]
+            [hyperopen.views.account-info.tabs.positions :as positions-tab]
+            [hyperopen.views.account-info.tabs.trade-history :as trade-history-tab]))
 
 (def ^:private tab-definitions
   (array-map
@@ -19,18 +19,15 @@
    :funding-history {:label "Funding History"}
    :order-history {:label "Order History"}))
 
-;; Available tabs for the account info component
 (def available-tabs
   (vec (keys tab-definitions)))
 
-;; Main tab labels for display
 (def tab-labels
   (into {}
         (map (fn [[tab {:keys [label]}]]
                [tab label]))
         tab-definitions))
 
-;; Tab navigation component
 (defn tab-label [tab counts]
   (let [base (get tab-labels tab (name tab))
         count (get counts tab)]
@@ -68,31 +65,14 @@
              :on {:click [[:actions/export-funding-history-csv]]}}
     "Export as CSV"]])
 
-(def ^:private order-history-status-options
-  [[:all "All"]
-   [:open "Open"]
-   [:filled "Filled"]
-   [:canceled "Canceled"]
-   [:rejected "Rejected"]
-   [:triggered "Triggered"]])
+(def order-history-status-options
+  order-history-tab/order-history-status-options)
 
-(def ^:private order-history-page-size-options
-  [25 50 100])
-
-(def ^:private order-history-page-size-option-set
-  (set order-history-page-size-options))
-
-(def ^:private default-order-history-page-size
-  50)
-
-(def ^:private order-history-status-labels
-  (into {} order-history-status-options))
+(def order-history-status-labels
+  order-history-tab/order-history-status-labels)
 
 (defn- order-history-status-filter-key [order-history-state]
-  (let [status-filter (:status-filter order-history-state)]
-    (if (contains? order-history-status-labels status-filter)
-      status-filter
-      :all)))
+  (order-history-tab/order-history-status-filter-key order-history-state))
 
 (defn- order-history-header-actions [order-history-state]
   (let [filter-open? (boolean (:filter-open? order-history-state))
@@ -171,31 +151,32 @@
 
       nil)]))
 
-;; Loading spinner component
 (defn loading-spinner []
   [:div.flex.justify-center.items-center.py-8
    [:div.animate-spin.rounded-full.h-8.w-8.border-b-2.border-primary]])
 
-;; Empty state component
 (defn empty-state [message]
   [:div.flex.flex-col.items-center.justify-center.py-12.text-base-content
    [:div.text-lg.font-medium message]
    [:div.text-sm.opacity-70.mt-2 "No data available"]])
 
-;; Error state component  
 (defn error-state [error]
   [:div.flex.flex-col.items-center.justify-center.py-12.text-error
    [:div.text-lg.font-medium "Error loading account data"]
    [:div.text-sm.opacity-70.mt-2 (str error)]])
 
-;; Shared formatting and parsing helpers
 (def format-currency shared/format-currency)
 (def parse-num shared/parse-num)
 (def format-trade-price shared/format-trade-price)
 (def format-amount shared/format-amount)
 (def format-balance-amount shared/format-balance-amount)
+(def format-funding-history-time shared/format-funding-history-time)
+(def format-open-orders-time shared/format-open-orders-time)
+(def format-pnl shared/format-pnl)
+(def non-blank-text shared/non-blank-text)
+(def parse-coin-namespace shared/parse-coin-namespace)
+(def resolve-coin-display shared/resolve-coin-display)
 
-;; Format percentage with color
 (defn format-pnl-percentage [value]
   (if (and value (not= value "N/A"))
     (let [num-val (js/parseFloat value)
@@ -204,7 +185,7 @@
                         (pos? num-val) "text-success"
                         (neg? num-val) "text-error"
                         :else "text-base-content")]
-      [:span {:class color-class} 
+      [:span {:class color-class}
        (if (pos? num-val) "+" "") formatted "%"])
     [:span.text-base-content "0.00%"]))
 
@@ -213,700 +194,6 @@
     (let [d (js/Date. ms)]
       (.toLocaleString d))))
 
-(def format-funding-history-time shared/format-funding-history-time)
-
-(defn- datetime-local-value [time-ms]
-  (when time-ms
-    (let [d (js/Date. time-ms)
-          pad2 (fn [v] (.padStart (str v) 2 "0"))]
-      (str (.getFullYear d)
-           "-"
-           (pad2 (inc (.getMonth d)))
-           "-"
-           (pad2 (.getDate d))
-           "T"
-           (pad2 (.getHours d))
-           ":"
-           (pad2 (.getMinutes d))))))
-
-(def position-chip-classes shared/position-chip-classes)
-
-(def non-blank-text shared/non-blank-text)
-(def parse-coin-namespace shared/parse-coin-namespace)
-(def resolve-coin-display shared/resolve-coin-display)
-
-(defn- funding-filter-coin-label [coin]
-  (let [coin* (non-blank-text coin)
-        parsed (parse-coin-namespace coin*)
-        base-label (or (:base parsed) coin* "-")
-        prefix-label (:prefix parsed)]
-    [:span {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
-     [:span {:class ["truncate"]} base-label]
-     (when prefix-label
-       [:span {:class position-chip-classes} prefix-label])]))
-
-(defn- funding-side-value [row]
-  (or (:position-side row)
-      (let [signed-size (parse-num (or (:position-size-raw row)
-                                       (:positionSize row)))]
-        (cond
-          (pos? signed-size) :long
-          (neg? signed-size) :short
-          :else :flat))))
-
-(defn- funding-side-label [position-side]
-  (case position-side
-    :long "Long"
-    :short "Short"
-    :flat "Flat"
-    "Flat"))
-
-(defn- funding-side-class [position-side]
-  (case position-side
-    :long "text-success"
-    :short "text-error"
-    :flat "text-base-content"
-    "text-base-content"))
-
-(defn- funding-size-text [row]
-  (let [size (js/Math.abs (parse-num (or (:position-size-raw row)
-                                         (:positionSize row)
-                                         (:size-raw row))))
-        {:keys [base-label]} (resolve-coin-display (:coin row) {})
-        coin (or (non-blank-text base-label) "-")]
-    (str (.toLocaleString (js/Number. size)
-                          "en-US"
-                          #js {:minimumFractionDigits 3
-                               :maximumFractionDigits 6})
-         " "
-         coin)))
-
-(defn- funding-payment-node [row]
-  (let [payment (parse-num (or (:payment-usdc-raw row)
-                               (:payment row)))
-        color-class (cond
-                      (neg? payment) "text-error"
-                      (pos? payment) "text-success"
-                      :else "text-base-content")]
-    [:span {:class [color-class "num"]}
-     (str (.toLocaleString (js/Number. payment)
-                           "en-US"
-                           #js {:minimumFractionDigits 4
-                                :maximumFractionDigits 6})
-          " USDC")]))
-
-(defn- funding-rate-node [row]
-  (let [rate (parse-num (or (:funding-rate-raw row)
-                            (:fundingRate row)))
-        color-class (cond
-                      (neg? rate) "text-error"
-                      (pos? rate) "text-success"
-                      :else "text-base-content")]
-    [:span {:class [color-class "num"]}
-     (str (.toFixed (* 100 rate) 4) "%")]))
-
-(defn- funding-coin-options [fundings-raw]
-  (->> fundings-raw
-       (map :coin)
-       (filter string?)
-       distinct
-       sort
-       vec))
-
-(defn- funding-history-controls [funding-history-state fundings-raw]
-  (let [filters (or (:filters funding-history-state) {})
-        draft-filters (or (:draft-filters funding-history-state) filters)
-        coin-set (or (:coin-set draft-filters) #{})
-        filter-open? (boolean (:filter-open? funding-history-state))
-        loading? (boolean (:loading? funding-history-state))
-        error (:error funding-history-state)
-        status-open? (or loading? (some? error))
-        start-time-ms (:start-time-ms draft-filters)
-        end-time-ms (:end-time-ms draft-filters)
-        coin-options (funding-coin-options fundings-raw)]
-    (when (or status-open? filter-open?)
-      [:div {:class ["border-b" "border-base-300" "bg-base-200"]}
-       (when status-open?
-         [:div {:class ["flex" "items-center" "gap-2" "px-4" "py-2" "text-sm"]}
-          (when loading?
-            [:span {:class ["text-xs" "text-trading-text-secondary"]} "Loading..."])
-          (when error
-            [:span {:class ["text-xs" "text-error"]} (str error)])])
-       (when filter-open?
-         [:div {:class (into ["grid" "grid-cols-1" "gap-3" "p-4" "text-sm" "md:grid-cols-2"]
-                             (when status-open?
-                               ["border-t" "border-base-300"]))}
-        [:div {:class ["space-y-2"]}
-         [:label {:class ["text-xs" "font-medium" "text-trading-text-secondary"]}
-          "Start Time"]
-         [:input.input.input-sm.input-bordered.w-full
-          {:type "datetime-local"
-           :value (or (datetime-local-value start-time-ms) "")
-           :on {:change [[:actions/set-funding-history-filters [:draft-filters :start-time-ms] :event.target/value]]}}]]
-        [:div {:class ["space-y-2"]}
-         [:label {:class ["text-xs" "font-medium" "text-trading-text-secondary"]}
-          "End Time"]
-         [:input.input.input-sm.input-bordered.w-full
-          {:type "datetime-local"
-           :value (or (datetime-local-value end-time-ms) "")
-           :on {:change [[:actions/set-funding-history-filters [:draft-filters :end-time-ms] :event.target/value]]}}]]
-        [:div {:class ["space-y-2" "md:col-span-2"]}
-         [:label {:class ["text-xs" "font-medium" "text-trading-text-secondary"]}
-          "Coins"]
-         (if (seq coin-options)
-           [:div {:class ["flex" "max-h-28" "flex-wrap" "gap-2" "overflow-y-auto" "rounded-md" "border" "border-base-300" "bg-base-100" "p-2"]}
-             (for [coin coin-options]
-              ^{:key coin}
-              [:label {:class ["flex" "items-center" "gap-1" "rounded-md" "px-1" "py-px" "hover:bg-base-200"]}
-               [:input {:class ["h-4"
-                                "w-4"
-                                "rounded-[3px]"
-                                "border"
-                                "border-base-300"
-                                "bg-transparent"
-                                "trade-toggle-checkbox"
-                                "transition-colors"
-                                "focus:outline-none"
-                                "focus:ring-0"
-                                "focus:ring-offset-0"
-                                "focus:shadow-none"]
-                 :type "checkbox"
-                 :checked (contains? coin-set coin)
-                 :on {:change [[:actions/toggle-funding-history-filter-coin coin]]}}]
-               (funding-filter-coin-label coin)])]
-           [:div {:class ["text-xs" "text-trading-text-secondary"]} "No coin data available for current range."])]
-        [:div {:class ["flex" "items-center" "justify-end" "gap-2" "md:col-span-2"]}
-         [:button {:class ["btn" "btn-xs" "btn-ghost" "h-8" "px-3" "text-xs" "font-medium" "min-w-[4.5rem]"]
-                   :on {:click [[:actions/reset-funding-history-filter-draft]]}}
-          "Cancel"]
-         [:button {:class ["btn" "btn-xs" "btn-primary" "h-8" "px-3" "text-xs" "font-medium" "min-w-[4.5rem]"]
-                   :on {:click [[:actions/apply-funding-history-filters]]}}
-          "Apply"]]])])))
-
-(def format-open-orders-time shared/format-open-orders-time)
-
-(defn format-side [side]
-  (case side
-    "B" "Buy"
-    "A" "Sell"
-    "S" "Sell"
-    (or side "-")))
-
-(defn normalize-open-order [order]
-  (projections/normalize-open-order order))
-
-(defn open-orders-seq [orders]
-  (projections/open-orders-seq orders))
-
-(defn open-orders-by-dex [orders-by-dex]
-  (projections/open-orders-by-dex orders-by-dex))
-
-(defn open-orders-source [orders snapshot snapshot-by-dex]
-  (projections/open-orders-source orders snapshot snapshot-by-dex))
-
-(defn normalized-open-orders [orders snapshot snapshot-by-dex]
-  (projections/normalized-open-orders orders snapshot snapshot-by-dex))
-
-(defn trigger-condition-label [trigger-condition]
-  (case trigger-condition
-    "Above" "≥"
-    "Below" "≤"
-    "N/A" nil
-    trigger-condition))
-
-(defn format-trigger-conditions [{:keys [is-trigger trigger-condition trigger-px]}]
-  (if (and is-trigger (pos? (parse-num trigger-px)))
-    (let [label (trigger-condition-label trigger-condition)
-          price (format-trade-price trigger-px)]
-      (if label
-        (str label " " price)
-        (str "Trigger @ " price)))
-    "--"))
-
-(defn format-tp-sl [{:keys [is-position-tpsl]}]
-  (if is-position-tpsl
-    "TP/SL"
-    "-- / --"))
-
-(defn order-value [{:keys [sz px]}]
-  (let [size (parse-num sz)
-        price (parse-num px)]
-    (when (and (pos? size) (pos? price))
-      (* size price))))
-
-(defn direction-label [side]
-  (case side
-    "B" "Long"
-    "A" "Short"
-    "S" "Short"
-    (or side "-")))
-
-(defn direction-class [side]
-  (case side
-    "B" "text-success"
-    "A" "text-error"
-    "S" "text-error"
-    "text-base-content"))
-
-(def order-history-long-coin-color "rgb(151, 252, 228)")
-(def order-history-sell-coin-color "rgb(234, 175, 184)")
-
-(defn- order-history-coin-style [side]
-  (case side
-    "B" {:color order-history-long-coin-color}
-    "A" {:color order-history-sell-coin-color}
-    "S" {:color order-history-sell-coin-color}
-    nil))
-
-(defn sort-open-orders-by-column [orders column direction]
-  (let [sort-fn (case column
-                  "Time" (fn [o] (parse-num (:time o)))
-                  "Type" (fn [o] (or (:type o) ""))
-                  "Coin" (fn [o] (or (:coin o) ""))
-                  "Direction" (fn [o] (direction-label (:side o)))
-                  "Size" (fn [o] (parse-num (:sz o)))
-                  "Original Size" (fn [o] (parse-num (or (:orig-sz o) (:sz o))))
-                  "Order Value" (fn [o] (or (order-value o) 0))
-                  "Price" (fn [o] (parse-num (:px o)))
-                  (fn [_] 0))
-        sorted (sort-by sort-fn orders)]
-    (if (= direction :desc)
-      (reverse sorted)
-      sorted)))
-
-(def header-base-text-classes
-  ["text-m" "font-medium" "text-trading-text-secondary" "min-h-6" "py-0.5"])
-
-(def sortable-header-interaction-classes
-  ["hover:text-trading-text" "transition-colors"])
-
-(def sortable-header-layout-classes
-  ["flex" "items-center" "space-x-1" "group"])
-
-(defn- sortable-header-button
-  ([column-name sort-state action-key]
-   (sortable-header-button column-name sort-state action-key {}))
-  ([column-name sort-state action-key {:keys [full-width? extra-classes]
-                                       :or {full-width? false
-                                            extra-classes []}}]
-   (let [current-column (:column sort-state)
-         current-direction (:direction sort-state)
-         is-active (= current-column column-name)
-         sort-icon (when is-active
-                     (if (= current-direction :asc) "↑" "↓"))]
-     [:button {:class (into (if full-width? ["w-full"] [])
-                            (concat header-base-text-classes
-                                    sortable-header-interaction-classes
-                                    sortable-header-layout-classes
-                                    extra-classes))
-               :on {:click [[action-key column-name]]}}
-      [:span column-name]
-      (when sort-icon
-        [:span.text-xs.opacity-70 sort-icon])])))
-
-(defn sortable-open-orders-header [column-name sort-state]
-  (sortable-header-button column-name sort-state :actions/sort-open-orders))
-
-(def default-funding-history-sort
-  {:column "Time" :direction :desc})
-
-(defn funding-history-sort-state [funding-history-state]
-  (merge default-funding-history-sort
-         (or (:sort funding-history-state) {})))
-
-(defn- funding-row-sort-id [row]
-  (or (:id row)
-      (str (or (:time-ms row) (:time row) 0)
-           "|"
-           (or (:coin row) "")
-           "|"
-           (or (:position-size-raw row) (:positionSize row) (:size-raw row) 0)
-           "|"
-           (or (:payment-usdc-raw row) (:payment row) 0)
-           "|"
-           (or (:funding-rate-raw row) (:fundingRate row) 0))))
-
-(defn sort-funding-history-by-column [rows column direction]
-  (let [sort-fn (case column
-                  "Time" (fn [row]
-                           (parse-num (or (:time-ms row) (:time row))))
-                  "Coin" (fn [row]
-                           (or (:coin row) ""))
-                  "Size" (fn [row]
-                           (js/Math.abs
-                            (parse-num (or (:position-size-raw row)
-                                           (:positionSize row)
-                                           (:size-raw row)))))
-                  "Position Side" (fn [row]
-                                    (name (funding-side-value row)))
-                  "Payment" (fn [row]
-                              (parse-num (or (:payment-usdc-raw row)
-                                             (:payment row))))
-                  "Rate" (fn [row]
-                           (parse-num (or (:funding-rate-raw row)
-                                          (:fundingRate row))))
-                  (fn [_] 0))
-        sorted (sort-by (fn [row]
-                          [(sort-fn row)
-                           (funding-row-sort-id row)])
-                        rows)]
-    (if (= direction :desc)
-      (reverse sorted)
-      sorted)))
-
-(defn sortable-funding-history-header [column-name sort-state]
-  (sortable-header-button column-name sort-state :actions/sort-funding-history))
-
-(def default-order-history-sort
-  {:column "Time" :direction :desc})
-
-(defn order-history-sort-state [order-history-state]
-  (merge default-order-history-sort
-         (or (:sort order-history-state) {})))
-
-(defn- parse-optional-num [value]
-  (projections/parse-optional-num value))
-
-(defn- parse-optional-int [value]
-  (projections/parse-optional-int value))
-
-(defn- normalize-order-history-page-size [value]
-  (let [page-size (parse-optional-int value)]
-    (if (contains? order-history-page-size-option-set page-size)
-      page-size
-      default-order-history-page-size)))
-
-(defn- normalize-order-history-page
-  ([value]
-   (normalize-order-history-page value nil))
-  ([value max-page]
-   (let [candidate (max 1 (or (parse-optional-int value) 1))
-         max-page* (when (some? max-page)
-                     (max 1 (or (parse-optional-int max-page) 1)))]
-     (if max-page*
-       (min candidate max-page*)
-       candidate))))
-
-(defn- title-case-label [value]
-  (projections/title-case-label value))
-
-(defn- order-history-coin-node
-  ([coin]
-   (order-history-coin-node coin {} nil))
-  ([coin market-by-key]
-   (order-history-coin-node coin market-by-key nil))
-  ([coin market-by-key side]
-   (let [{:keys [base-label prefix-label]} (resolve-coin-display coin market-by-key)
-         coin-style (order-history-coin-style side)]
-     [:span {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
-      [:span (cond-> {:class (cond-> ["truncate"]
-                               side
-                               (conj "font-semibold"))}
-               coin-style
-               (assoc :style coin-style))
-       base-label]
-      (when prefix-label
-        [:span {:class position-chip-classes} prefix-label])])))
-
-(defn normalize-order-history-row [row]
-  (projections/normalize-order-history-row row order-history-status-labels))
-
-(defn normalized-order-history [rows]
-  (projections/normalized-order-history rows order-history-status-labels))
-
-(defn- order-history-row-sort-id [row]
-  (str (or (:time-ms row) 0)
-       "|"
-       (or (:coin row) "")
-       "|"
-       (or (:oid row) "")
-       "|"
-       (or (:status-label row) "")))
-
-(defn- format-order-history-size [value]
-  (if-let [num (parse-optional-num value)]
-    (.toLocaleString (js/Number. num)
-                     "en-US"
-                     #js {:minimumFractionDigits 0
-                          :maximumFractionDigits 6})
-    "--"))
-
-(defn- format-order-history-filled-size [filled-size]
-  (if (and (number? filled-size)
-           (pos? filled-size))
-    (format-order-history-size filled-size)
-    "--"))
-
-(defn- format-order-history-value [order-value]
-  (if (and (number? order-value)
-           (pos? order-value))
-    (str (.toLocaleString (js/Number. order-value)
-                          "en-US"
-                          #js {:minimumFractionDigits 2
-                               :maximumFractionDigits 2})
-         " USDC")
-    "--"))
-
-(defn- format-order-history-price [{:keys [market? px]}]
-  (if market?
-    "Market"
-    (if-let [num (parse-optional-num px)]
-      (or (fmt/format-trade-price-plain num px) "0.00")
-      "--")))
-
-(defn- format-order-history-reduce-only [{:keys [reduce-only]}]
-  (case reduce-only
-    true "Yes"
-    false "No"
-    "--"))
-
-(defn- format-order-history-trigger [{:keys [is-trigger trigger-condition trigger-px]}]
-  (if (and is-trigger
-           (pos? (or (parse-optional-num trigger-px) 0)))
-    (let [label (trigger-condition-label trigger-condition)
-          trigger-px-num (parse-optional-num trigger-px)
-          price (if (number? trigger-px-num)
-                  (or (fmt/format-trade-price-plain trigger-px-num trigger-px) "--")
-                  "--")]
-      (if label
-        (str label " " price)
-        (str "Trigger @ " price)))
-    "N/A"))
-
-(defn- format-order-history-tp-sl [{:keys [is-position-tpsl]}]
-  (if is-position-tpsl
-    "TP/SL"
-    "--"))
-
-(defn- order-history-filter-status [rows status-filter]
-  (if (= :all status-filter)
-    rows
-    (filter (fn [row]
-              (= status-filter (:status-key row)))
-            rows)))
-
-(defn- paginate-history-rows [rows pagination-state]
-  (let [total-rows (count rows)
-        page-size (normalize-order-history-page-size (:page-size pagination-state))
-        page-count (max 1 (int (js/Math.ceil (/ total-rows page-size))))
-        requested-page (normalize-order-history-page (:page pagination-state))
-        safe-page (normalize-order-history-page requested-page page-count)
-        start-idx (* (dec safe-page) page-size)
-        end-idx (min total-rows (+ start-idx page-size))
-        page-rows (if (< start-idx total-rows)
-                    (subvec rows start-idx end-idx)
-                    [])
-        raw-page-input (some-> (:page-input pagination-state) str)
-        page-input (if (= raw-page-input (str requested-page))
-                     (str safe-page)
-                     (or raw-page-input (str safe-page)))]
-    {:rows page-rows
-     :total-rows total-rows
-     :page-size page-size
-     :page safe-page
-     :page-count page-count
-     :page-input page-input}))
-
-(defn- paginate-order-history [rows order-history-state]
-  (paginate-history-rows rows order-history-state))
-
-(defn- paginate-funding-history [rows funding-history-state]
-  (paginate-history-rows rows funding-history-state))
-
-(defn- paginate-trade-history [rows trade-history-state]
-  (paginate-history-rows rows trade-history-state))
-
-(defn sort-order-history-by-column [rows column direction]
-  (let [sort-fn (case column
-                  "Time" (fn [row] (or (:time-ms row) 0))
-                  "Type" (fn [row] (title-case-label (:type row)))
-                  "Coin" (fn [row] (or (:coin row) ""))
-                  "Direction" (fn [row] (direction-label (:side row)))
-                  "Size" (fn [row] (or (:size-num row) 0))
-                  "Filled Size" (fn [row] (or (:filled-size row) 0))
-                  "Order Value" (fn [row] (or (:order-value row) 0))
-                  "Price" (fn [row] (or (parse-optional-num (:px row)) 0))
-                  "Reduce Only" (fn [row]
-                                  (case (:reduce-only row)
-                                    true 1
-                                    false 0
-                                    -1))
-                  "Trigger Conditions" (fn [row]
-                                         (format-order-history-trigger row))
-                  "TP/SL" (fn [row] (if (:is-position-tpsl row) 1 0))
-                  "Status" (fn [row] (or (:status-label row) ""))
-                  "Order ID" (fn [row]
-                               (let [oid (:oid row)
-                                     oid-num (parse-optional-num oid)]
-                                 (if (number? oid-num)
-                                   [0 oid-num]
-                                   [1 (str (or oid ""))])))
-                  (fn [_] 0))
-        sorted (sort-by (fn [row]
-                          [(sort-fn row)
-                           (order-history-row-sort-id row)])
-                        rows)]
-    (if (= direction :desc)
-      (reverse sorted)
-      sorted)))
-
-(defn sortable-order-history-header [column-name sort-state]
-  (sortable-header-button column-name sort-state :actions/sort-order-history))
-
-(def ^:private pagination-container-classes
-  ["border-t" "border-base-300" "bg-base-100"])
-
-(def ^:private pagination-content-classes
-  ["flex" "flex-wrap" "items-center" "justify-between" "gap-3" "px-3" "py-2" "text-xs"])
-
-(def ^:private pagination-section-classes
-  ["flex" "items-center" "gap-2"])
-
-(def ^:private pagination-page-size-select-classes
-  ["select" "select-sm" "select-bordered" "h-8" "min-h-8" "w-24" "pl-2" "pr-8" "text-sm" "leading-5"])
-
-(def ^:private pagination-nav-button-classes
-  ["btn" "btn-xs" "btn-ghost" "h-6" "min-h-6" "min-w-6"])
-
-(def ^:private pagination-go-button-classes
-  ["btn" "btn-xs" "btn-primary" "h-6" "min-h-6" "min-w-6"])
-
-(defn- history-pagination-controls
-  [{:keys [total-rows page-size page page-count page-input]}
-   {:keys [page-size-id
-           page-size-aria-label
-           page-size-action
-           prev-aria-label
-           prev-action
-           next-aria-label
-           next-action
-           page-input-id
-           page-input-aria-label
-           page-input-action
-           page-input-keydown-action
-           go-aria-label
-           go-action]}]
-  (let [on-first-page? (<= page 1)
-        on-last-page? (>= page page-count)]
-    [:div {:class pagination-container-classes}
-     [:div {:class pagination-content-classes}
-      [:div {:class pagination-section-classes}
-       [:label {:for page-size-id
-                :class ["font-medium" "text-trading-text-secondary"]}
-        "Rows"]
-       [:select {:id page-size-id
-                 :class pagination-page-size-select-classes
-                 :aria-label page-size-aria-label
-                 :value (str page-size)
-                 :on {:change [[page-size-action [:event.target/value]]]}}
-        (for [size order-history-page-size-options]
-          ^{:key size}
-          [:option {:value (str size)}
-           (str size)])]
-       [:span {:class ["text-trading-text-secondary"]}
-        (str "Total: " total-rows)]]
-      [:div {:class pagination-section-classes}
-       [:button {:class pagination-nav-button-classes
-                 :aria-label prev-aria-label
-                 :disabled on-first-page?
-                 :on {:click [[prev-action page-count]]}}
-        "Prev"]
-       [:span {:class ["min-w-[5.5rem]" "text-center" "text-trading-text-secondary"]}
-        (str "Page " page " of " page-count)]
-       [:button {:class pagination-nav-button-classes
-                 :aria-label next-aria-label
-                 :disabled on-last-page?
-                 :on {:click [[next-action page-count]]}}
-        "Next"]]
-      [:div {:class pagination-section-classes}
-       [:label {:for page-input-id
-                :class ["font-medium" "text-trading-text-secondary"]}
-        "Jump"]
-       [:input {:id page-input-id
-                :class ["input" "input-xs" "input-bordered" "h-6" "min-h-6" "w-16" "text-xs"]
-                :type "text"
-                :inputmode "numeric"
-                :pattern "[0-9]*"
-                :aria-label page-input-aria-label
-                :value page-input
-                :on {:input [[page-input-action [:event.target/value]]]
-                     :change [[page-input-action [:event.target/value]]]
-                     :keydown [[page-input-keydown-action [:event/key] page-count]]}}]
-       [:button {:class pagination-go-button-classes
-                 :aria-label go-aria-label
-                 :on {:click [[go-action page-count]]}}
-        "Go"]]]]))
-
-(def ^:private trade-history-pagination-config
-  {:page-size-id "trade-history-page-size"
-   :page-size-aria-label "Trade rows per page"
-   :page-size-action :actions/set-trade-history-page-size
-   :prev-aria-label "Previous trade page"
-   :prev-action :actions/prev-trade-history-page
-   :next-aria-label "Next trade page"
-   :next-action :actions/next-trade-history-page
-   :page-input-id "trade-history-page-input"
-   :page-input-aria-label "Jump to trade page"
-   :page-input-action :actions/set-trade-history-page-input
-   :page-input-keydown-action :actions/handle-trade-history-page-input-keydown
-   :go-aria-label "Go to trade page"
-   :go-action :actions/apply-trade-history-page-input})
-
-(def ^:private funding-history-pagination-config
-  {:page-size-id "funding-history-page-size"
-   :page-size-aria-label "Funding rows per page"
-   :page-size-action :actions/set-funding-history-page-size
-   :prev-aria-label "Previous funding page"
-   :prev-action :actions/prev-funding-history-page
-   :next-aria-label "Next funding page"
-   :next-action :actions/next-funding-history-page
-   :page-input-id "funding-history-page-input"
-   :page-input-aria-label "Jump to funding page"
-   :page-input-action :actions/set-funding-history-page-input
-   :page-input-keydown-action :actions/handle-funding-history-page-input-keydown
-   :go-aria-label "Go to funding page"
-   :go-action :actions/apply-funding-history-page-input})
-
-(def ^:private order-history-pagination-config
-  {:page-size-id "order-history-page-size"
-   :page-size-aria-label "Rows per page"
-   :page-size-action :actions/set-order-history-page-size
-   :prev-aria-label "Previous page"
-   :prev-action :actions/prev-order-history-page
-   :next-aria-label "Next page"
-   :next-action :actions/next-order-history-page
-   :page-input-id "order-history-page-input"
-   :page-input-aria-label "Jump to page"
-   :page-input-action :actions/set-order-history-page-input
-   :page-input-keydown-action :actions/handle-order-history-page-input-keydown
-   :go-aria-label "Go to page"
-   :go-action :actions/apply-order-history-page-input})
-
-(defn- trade-history-pagination-controls [pagination]
-  (history-pagination-controls pagination trade-history-pagination-config))
-
-(defn- funding-history-pagination-controls [pagination]
-  (history-pagination-controls pagination funding-history-pagination-config))
-
-(defn- order-history-pagination-controls [pagination]
-  (history-pagination-controls pagination order-history-pagination-config))
-
-(def format-pnl shared/format-pnl)
-
-(defn- external-link-icon
-  ([] (external-link-icon ["h-3" "w-3" "shrink-0"]))
-  ([class-names]
-   [:svg {:class class-names
-          :viewBox "0 0 20 20"
-          :fill "none"
-          :stroke "currentColor"
-          :stroke-width "1.8"
-          :aria-hidden true}
-    [:path {:d "M8 4h8v8"}]
-    [:path {:d "M16 4 7 13"}]
-    [:path {:d "M14 10v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"}]]))
-
-;; Extracted tab implementations
 (def build-balance-rows balances-tab/build-balance-rows)
 (def build-balance-rows-for-account balances-tab/build-balance-rows-for-account)
 (def sort-balances-by-column balances-tab/sort-balances-by-column)
@@ -927,459 +214,57 @@
 (def position-table-header positions-tab/position-table-header)
 (def positions-tab-content positions-tab/positions-tab-content)
 
+(def format-side open-orders-tab/format-side)
+(def normalize-open-order open-orders-tab/normalize-open-order)
+(def open-orders-seq open-orders-tab/open-orders-seq)
+(def open-orders-by-dex open-orders-tab/open-orders-by-dex)
+(def open-orders-source open-orders-tab/open-orders-source)
+(def normalized-open-orders open-orders-tab/normalized-open-orders)
+(def trigger-condition-label open-orders-tab/trigger-condition-label)
+(def format-trigger-conditions open-orders-tab/format-trigger-conditions)
+(def format-tp-sl open-orders-tab/format-tp-sl)
+(def order-value open-orders-tab/order-value)
+(def direction-label open-orders-tab/direction-label)
+(def direction-class open-orders-tab/direction-class)
+(def sort-open-orders-by-column open-orders-tab/sort-open-orders-by-column)
+(def sortable-open-orders-header open-orders-tab/sortable-open-orders-header)
 (def open-orders-tab-content open-orders-tab/open-orders-tab-content)
+
+(def default-trade-history-sort trade-history-tab/default-trade-history-sort)
+(def trade-history-sort-state trade-history-tab/trade-history-sort-state)
+(def sort-trade-history-by-column trade-history-tab/sort-trade-history-by-column)
+(def sortable-trade-history-header trade-history-tab/sortable-trade-history-header)
+(def trade-history-table trade-history-tab/trade-history-table)
+(def trade-history-tab-content trade-history-tab/trade-history-tab-content)
+
+(def default-funding-history-sort funding-history-tab/default-funding-history-sort)
+(def funding-history-sort-state funding-history-tab/funding-history-sort-state)
+(def sort-funding-history-by-column funding-history-tab/sort-funding-history-by-column)
+(def sortable-funding-history-header funding-history-tab/sortable-funding-history-header)
+(def funding-history-controls funding-history-tab/funding-history-controls)
+(def funding-history-table funding-history-tab/funding-history-table)
+(def funding-history-tab-content funding-history-tab/funding-history-tab-content)
+
+(def default-order-history-sort order-history-tab/default-order-history-sort)
+(def order-history-sort-state order-history-tab/order-history-sort-state)
+(def normalize-order-history-page-size order-history-tab/normalize-order-history-page-size)
+(def normalize-order-history-page order-history-tab/normalize-order-history-page)
+(def normalize-order-history-row order-history-tab/normalize-order-history-row)
+(def normalized-order-history order-history-tab/normalized-order-history)
+(def sort-order-history-by-column order-history-tab/sort-order-history-by-column)
+(def sortable-order-history-header order-history-tab/sortable-order-history-header)
+(def format-order-history-filled-size order-history-tab/format-order-history-filled-size)
+(def format-order-history-price order-history-tab/format-order-history-price)
+(def format-order-history-reduce-only order-history-tab/format-order-history-reduce-only)
+(def format-order-history-trigger order-history-tab/format-order-history-trigger)
+(def order-history-long-coin-color order-history-tab/order-history-long-coin-color)
+(def order-history-tab-content order-history-tab/order-history-tab-content)
+(def order-history-table order-history-tab/order-history-table)
 
 (defn placeholder-tab-content [tab-name]
   [:div.p-4
    [:div.text-lg.font-medium.mb-4 (get tab-labels tab-name (name tab-name))]
    (empty-state (str (get tab-labels tab-name (name tab-name)) " coming soon"))])
-
-(def default-trade-history-sort
-  {:column "Time" :direction :desc})
-
-(defn trade-history-sort-state [trade-history-state]
-  (merge default-trade-history-sort
-         (or (:sort trade-history-state) {})))
-
-(defn- trade-history-coin [row]
-  (projections/trade-history-coin row))
-
-(defn- trade-history-time-ms [row]
-  (projections/trade-history-time-ms row))
-
-(def ^:private trade-history-explorer-tx-base-url
-  "https://app.hyperliquid.xyz/explorer/tx/")
-
-(def ^:private trade-history-tx-hash-pattern
-  #"^0x[0-9a-fA-F]{64}$")
-
-(defn- trade-history-tx-hash [row]
-  (non-blank-text (or (:hash row)
-                      (:txHash row)
-                      (:tx-hash row))))
-
-(defn- valid-trade-history-tx-hash? [hash-value]
-  (boolean (and hash-value
-                (re-matches trade-history-tx-hash-pattern hash-value))))
-
-(defn- trade-history-explorer-tx-url [row]
-  (let [hash-value (trade-history-tx-hash row)]
-    (when (valid-trade-history-tx-hash? hash-value)
-      (str trade-history-explorer-tx-base-url hash-value))))
-
-(defn- trade-history-time-node [row]
-  (let [formatted-time (format-open-orders-time (trade-history-time-ms row))]
-    (if-let [explorer-url (trade-history-explorer-tx-url row)]
-      [:a {:href explorer-url
-           :target "_blank"
-           :rel "noopener noreferrer"
-           :class ["inline-flex"
-                   "min-h-6"
-                   "items-center"
-                   "gap-0.5"
-                   "whitespace-nowrap"
-                   "rounded"
-                   "text-trading-green"
-                   "hover:text-trading-green/80"
-                   "focus-visible:outline-none"
-                   "focus-visible:ring-2"
-                   "focus-visible:ring-trading-green/70"
-                   "focus-visible:ring-offset-1"
-                   "focus-visible:ring-offset-base-100"]}
-       [:span formatted-time]
-       (external-link-icon)]
-      formatted-time)))
-
-(defn- format-usdc-amount [value]
-  (if-let [num (parse-optional-num value)]
-    (str (.toLocaleString (js/Number. num)
-                          "en-US"
-                          #js {:minimumFractionDigits 2
-                               :maximumFractionDigits 2})
-         " USDC")
-    "--"))
-
-(defn- trade-history-direction-base-label [row]
-  (or (non-blank-text (or (:dir row) (:direction row)))
-      (case (:side row)
-        "B" "Open Long"
-        "A" "Open Short"
-        "S" "Open Short"
-        "-")))
-
-(defn- trade-history-action-side-from-label [direction-label]
-  (let [normalized (some-> direction-label non-blank-text str/lower-case)]
-    (cond
-      (not normalized) nil
-      (str/includes? normalized "sell") :sell
-      (str/includes? normalized "open short") :sell
-      (str/includes? normalized "close long") :sell
-      (str/includes? normalized "buy") :buy
-      (str/includes? normalized "open long") :buy
-      (str/includes? normalized "close short") :buy
-      :else nil)))
-
-(defn- trade-history-action-side [row direction-label]
-  (or (trade-history-action-side-from-label direction-label)
-      (case (:side row)
-        "B" :buy
-        "A" :sell
-        "S" :sell
-        nil)))
-
-(defn- trade-history-action-class [row direction-label]
-  (case (trade-history-action-side row direction-label)
-    :buy "text-success"
-    :sell "text-error"
-    "text-trading-text"))
-
-(def ^:private trade-history-price-improved-tooltip-text
-  "This fill price was more favorable to you than the price chart at that time, because your order provided liquidity to another user's liquidation.")
-
-(defn- trade-history-liquidation-fill?
-  [row]
-  (let [liquidation (:liquidation row)]
-    (and (map? liquidation)
-         (or (some? (:markPx liquidation))
-             (some? (:method liquidation))
-             (some? (:liquidatedUser liquidation))))))
-
-(defn- trade-history-liquidation-close-label
-  [row direction-label]
-  (let [direction-label* (non-blank-text direction-label)
-        normalized (some-> direction-label* str/lower-case)]
-    (when (and (trade-history-liquidation-fill? row)
-               normalized
-               (not (str/includes? normalized "liquidation"))
-               (or (re-matches #"^close\s+long$" normalized)
-                   (re-matches #"^close\s+short$" normalized)))
-      (str "Market Order Liquidation: " direction-label*))))
-
-(defn- trade-history-price-improved?
-  [row direction-label]
-  (let [direction-label* (or (non-blank-text direction-label)
-                             (trade-history-direction-base-label row))
-        normalized (some-> direction-label* str/lower-case)
-        liquidation-fill? (trade-history-liquidation-fill? row)
-        liquidation-direction? (and normalized
-                                   (str/includes? normalized "liquidation"))
-        price-improved-text? (and normalized
-                                 (str/includes? normalized "price improved"))]
-    (boolean (or price-improved-text?
-                 (and liquidation-fill?
-                      normalized
-                      (not= normalized "-")
-                      (not liquidation-direction?))))))
-
-(defn- trade-history-direction-label [row]
-  (let [base-label (trade-history-direction-base-label row)
-        liquidation-label (trade-history-liquidation-close-label row base-label)
-        final-label (or liquidation-label base-label)
-        normalized (some-> final-label str/lower-case)]
-    (if (and (trade-history-price-improved? row final-label)
-             normalized
-             (not (str/includes? normalized "price improved")))
-      (str final-label " (Price Improved)")
-      final-label)))
-
-(defn- trade-history-direction-node [row]
-  (let [direction-label (trade-history-direction-label row)
-        direction-class (trade-history-action-class row direction-label)]
-    (if (trade-history-price-improved? row direction-label)
-      [:div {:class ["text-left" direction-class]}
-       [:div {:class ["group" "relative" "inline-flex" "min-h-6" "items-center"]}
-        [:span {:class ["cursor-help"
-                        "rounded"
-                        "underline"
-                        "decoration-dotted"
-                        "underline-offset-2"
-                        "focus-visible:outline-none"
-                        "focus-visible:ring-2"
-                        "focus-visible:ring-trading-green/70"
-                        "focus-visible:ring-offset-1"
-                        "focus-visible:ring-offset-base-100"]
-                :tab-index 0}
-         direction-label]
-        [:div {:class ["pointer-events-none"
-                       "absolute"
-                       "left-0"
-                       "bottom-full"
-                       "z-50"
-                       "mb-2"
-                       "opacity-0"
-                       "transition-opacity"
-                       "duration-200"
-                       "group-hover:opacity-100"
-                       "group-focus-within:opacity-100"]}
-         [:div {:class ["relative"
-                        "w-[520px]"
-                        "max-w-[calc(100vw-2rem)]"
-                        "min-w-[380px]"
-                        "rounded-md"
-                        "bg-gray-800"
-                        "px-3"
-                        "py-1.5"
-                        "text-xs"
-                        "leading-tight"
-                        "text-gray-100"
-                        "shadow-lg"
-                        "whitespace-normal"]}
-          trade-history-price-improved-tooltip-text
-          [:div {:class ["absolute"
-                         "top-full"
-                         "left-3"
-                         "h-0"
-                         "w-0"
-                         "border-4"
-                         "border-transparent"
-                         "border-t-gray-800"]}]]]]]
-      [:div {:class ["text-left" direction-class]}
-       direction-label])))
-
-(defn- trade-history-coin-node [row market-by-key]
-  (let [{:keys [base-label prefix-label]} (resolve-coin-display (trade-history-coin row)
-                                                                market-by-key)
-        direction-label (trade-history-direction-label row)
-        direction-class (trade-history-action-class row direction-label)]
-    [:span {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
-     [:span {:class (cond-> ["truncate"]
-                      direction-class
-                      (conj direction-class))}
-      base-label]
-     (when prefix-label
-       [:span {:class position-chip-classes} prefix-label])]))
-
-(defn- format-trade-history-price [row]
-  (let [price (or (:px row) (:price row) (:p row))]
-    (if-let [num (parse-optional-num price)]
-      (or (fmt/format-trade-price-plain num price) "--")
-      "--")))
-
-(defn- format-trade-history-size [row market-by-key]
-  (let [size-raw (or (:sz row) (:size row) (:s row))
-        size-text (if-let [size-string (non-blank-text size-raw)]
-                    size-string
-                    (format-order-history-size size-raw))
-        {:keys [base-label]} (resolve-coin-display (trade-history-coin row) market-by-key)]
-    (if (= size-text "--")
-      "--"
-      (str size-text " " base-label))))
-
-(defn- trade-history-value-number [row]
-  (projections/trade-history-value-number row))
-
-(defn- format-trade-history-value [row]
-  (format-usdc-amount (trade-history-value-number row)))
-
-(defn- format-trade-history-fee [row]
-  (format-usdc-amount (projections/trade-history-fee-number row)))
-
-(defn- format-trade-history-closed-pnl [row]
-  (format-usdc-amount (projections/trade-history-closed-pnl-number row)))
-
-(defn- trade-history-closed-pnl-class [row]
-  (let [value (projections/trade-history-closed-pnl-number row)]
-    (cond
-      (and (number? value) (pos? value)) "text-success"
-      (and (number? value) (neg? value)) "text-error"
-      :else "text-trading-text")))
-
-(defn- trade-history-row-id [row]
-  (projections/trade-history-row-id row))
-
-(defn sort-trade-history-by-column
-  ([rows column direction]
-   (sort-trade-history-by-column rows column direction {}))
-  ([rows column direction market-by-key]
-   (let [sort-fn (case column
-                   "Time" (fn [row]
-                            (or (trade-history-time-ms row) 0))
-                   "Coin" (fn [row]
-                            (or (some-> (resolve-coin-display (trade-history-coin row) market-by-key)
-                                        :base-label
-                                        str/lower-case)
-                                ""))
-                   "Direction" (fn [row]
-                                 (or (trade-history-direction-label row) ""))
-                   "Price" (fn [row]
-                             (or (parse-optional-num (or (:px row) (:price row) (:p row))) 0))
-                   "Size" (fn [row]
-                            (or (parse-optional-num (or (:sz row) (:size row) (:s row))) 0))
-                   "Trade Value" (fn [row]
-                                   (or (trade-history-value-number row) 0))
-                   "Fee" (fn [row]
-                           (or (projections/trade-history-fee-number row) 0))
-                   "Closed PNL" (fn [row]
-                                  (or (projections/trade-history-closed-pnl-number row) 0))
-                   (fn [_] 0))
-         sorted (sort-by (fn [row]
-                           [(sort-fn row)
-                            (trade-history-row-id row)])
-                         rows)]
-     (if (= direction :desc)
-       (reverse sorted)
-       sorted))))
-
-(defn sortable-trade-history-header [column-name sort-state]
-  (sortable-header-button column-name sort-state :actions/sort-trade-history))
-
-(defn- trade-history-table [fills trade-history-state]
-  (let [all-rows (vec (or fills []))
-        market-by-key (or (:market-by-key trade-history-state) {})
-        sort-state (trade-history-sort-state trade-history-state)
-        sorted-rows (vec (sort-trade-history-by-column all-rows
-                                                       (:column sort-state)
-                                                       (:direction sort-state)
-                                                       market-by-key))
-        {:keys [rows] :as pagination} (paginate-trade-history sorted-rows trade-history-state)]
-    (if (seq sorted-rows)
-      (tab-table-content
-       [:div {:class ["grid"
-                      "gap-2"
-                      "py-1"
-                      "px-3"
-                      "bg-base-200"
-                      "text-sm"
-                      "font-medium"
-                      "text-trading-text-secondary"
-                      "grid-cols-[180px_90px_160px_90px_130px_130px_110px_120px]"]}
-        [:div {:class ["text-left"]} (sortable-trade-history-header "Time" sort-state)]
-        [:div {:class ["text-left"]} (sortable-trade-history-header "Coin" sort-state)]
-        [:div {:class ["text-left"]} (sortable-trade-history-header "Direction" sort-state)]
-        [:div {:class ["text-left"]} (sortable-trade-history-header "Price" sort-state)]
-        [:div {:class ["text-left"]} (sortable-trade-history-header "Size" sort-state)]
-        [:div {:class ["text-left"]} (sortable-trade-history-header "Trade Value" sort-state)]
-        [:div {:class ["text-left"]} (sortable-trade-history-header "Fee" sort-state)]
-        [:div {:class ["text-left"]} (sortable-trade-history-header "Closed PNL" sort-state)]]
-       (for [f rows]
-         ^{:key (trade-history-row-id f)}
-         [:div {:class ["grid"
-                        "gap-2"
-                        "py-px"
-                        "px-3"
-                        "hover:bg-base-300"
-                        "text-sm"
-                        "grid-cols-[180px_90px_160px_90px_130px_130px_110px_120px]"]}
-          [:div {:class ["text-left" "text-xs" "whitespace-nowrap"]}
-           (trade-history-time-node f)]
-          [:div {:class ["text-left"]}
-           (trade-history-coin-node f market-by-key)]
-          (trade-history-direction-node f)
-          [:div {:class ["text-left" "num"]}
-           (format-trade-history-price f)]
-          [:div {:class ["text-left" "num"]}
-           (format-trade-history-size f market-by-key)]
-          [:div {:class ["text-left" "num"]}
-           (format-trade-history-value f)]
-          [:div {:class ["text-left" "num"]}
-           (format-trade-history-fee f)]
-          [:div {:class ["text-left" "num" (trade-history-closed-pnl-class f)]}
-           (format-trade-history-closed-pnl f)]])
-       (trade-history-pagination-controls pagination))
-      (empty-state "No fills"))))
-
-(defn trade-history-tab-content
-  ([fills]
-   (trade-history-table fills {}))
-  ([fills trade-history-state]
-   (trade-history-table fills trade-history-state)))
-
-(defn- funding-history-table [fundings funding-history-state]
-  (let [sort-state (funding-history-sort-state funding-history-state)
-        sorted-fundings (vec (sort-funding-history-by-column fundings
-                                                             (:column sort-state)
-                                                             (:direction sort-state)))
-        {:keys [rows] :as pagination} (paginate-funding-history sorted-fundings funding-history-state)]
-    (if (seq sorted-fundings)
-      (tab-table-content
-       [:div.grid.grid-cols-6.gap-2.py-1.px-3.bg-base-200.text-sm.font-medium
-        [:div (sortable-funding-history-header "Time" sort-state)]
-        [:div.text-left (sortable-funding-history-header "Coin" sort-state)]
-        [:div.text-left (sortable-funding-history-header "Size" sort-state)]
-        [:div.text-left (sortable-funding-history-header "Position Side" sort-state)]
-        [:div.text-left (sortable-funding-history-header "Payment" sort-state)]
-        [:div.text-left (sortable-funding-history-header "Rate" sort-state)]]
-       (for [funding-row rows]
-         ^{:key (funding-row-sort-id funding-row)}
-         [:div.grid.grid-cols-6.gap-2.py-px.px-3.hover:bg-base-300.text-sm
-          [:div (format-funding-history-time (or (:time-ms funding-row) (:time funding-row)))]
-          [:div.text-left (order-history-coin-node (:coin funding-row) {} "B")]
-          [:div.text-left.num (funding-size-text funding-row)]
-          [:div.text-left
-           (let [position-side (funding-side-value funding-row)]
-             [:span {:class (funding-side-class position-side)}
-              (funding-side-label position-side)])]
-          [:div.text-left.num (funding-payment-node funding-row)]
-          [:div.text-left.num (funding-rate-node funding-row)]])
-       (funding-history-pagination-controls pagination))
-      (if (:loading? funding-history-state)
-        (empty-state "Loading funding history...")
-        (empty-state "No funding history")))))
-
-(defn funding-history-tab-content
-  ([fundings]
-   (funding-history-table fundings {}))
-  ([fundings funding-history-state fundings-raw]
-   [:div {:class ["flex" "h-full" "min-h-0" "flex-col"]}
-    (funding-history-controls funding-history-state fundings-raw)
-    (funding-history-table fundings funding-history-state)]))
-
-(defn- order-history-table [order-history order-history-state]
-  (let [sort-state (order-history-sort-state order-history-state)
-        status-filter (order-history-status-filter-key order-history-state)
-        market-by-key (or (:market-by-key order-history-state) {})
-        normalized (normalized-order-history order-history)
-        filtered (vec (order-history-filter-status normalized status-filter))
-        sorted (vec (sort-order-history-by-column filtered
-                                                  (:column sort-state)
-                                                  (:direction sort-state)))
-        {:keys [rows] :as pagination} (paginate-order-history sorted order-history-state)]
-    (if (seq sorted)
-      (tab-table-content
-       [:div {:class ["grid" "gap-2" "py-1" "px-3" "bg-base-200" "text-xs" "font-medium" "grid-cols-[130px_70px_90px_80px_90px_90px_110px_80px_90px_140px_70px_80px_120px]"]}
-        [:div.pr-2.whitespace-nowrap (sortable-order-history-header "Time" sort-state)]
-        [:div.pl-1.text-left (sortable-order-history-header "Type" sort-state)]
-        [:div.text-left (sortable-order-history-header "Coin" sort-state)]
-        [:div.text-left (sortable-order-history-header "Direction" sort-state)]
-        [:div.text-left (sortable-order-history-header "Size" sort-state)]
-        [:div.text-left (sortable-order-history-header "Filled Size" sort-state)]
-        [:div.text-left (sortable-order-history-header "Order Value" sort-state)]
-        [:div.text-left (sortable-order-history-header "Price" sort-state)]
-        [:div.text-left.whitespace-nowrap (sortable-order-history-header "Reduce Only" sort-state)]
-        [:div.text-left.whitespace-nowrap (sortable-order-history-header "Trigger Conditions" sort-state)]
-        [:div.text-left (sortable-order-history-header "TP/SL" sort-state)]
-        [:div.text-left (sortable-order-history-header "Status" sort-state)]
-        [:div.text-left (sortable-order-history-header "Order ID" sort-state)]]
-       (for [row rows]
-         ^{:key (order-history-row-sort-id row)}
-         [:div {:class ["grid" "gap-2" "py-px" "px-3" "hover:bg-base-300" "text-xs" "grid-cols-[130px_70px_90px_80px_90px_90px_110px_80px_90px_140px_70px_80px_120px]"]}
-         [:div.pr-2.whitespace-nowrap (or (format-open-orders-time (:time-ms row)) "--")]
-         [:div.pl-1.text-left (title-case-label (:type row))]
-         [:div.text-left (order-history-coin-node (:coin row) market-by-key (:side row))]
-         [:div {:class ["text-left" (direction-class (:side row))]} (direction-label (:side row))]
-         [:div.text-left.num (format-order-history-size (:size row))]
-         [:div.text-left.num (format-order-history-filled-size (:filled-size row))]
-         [:div.text-left.num (format-order-history-value (:order-value row))]
-         [:div.text-left.num (format-order-history-price row)]
-         [:div.text-left (format-order-history-reduce-only row)]
-         [:div.text-left (format-order-history-trigger row)]
-         [:div.text-left (format-order-history-tp-sl row)]
-          [:div.text-left (:status-label row)]
-          [:div.text-left (or (some-> (:oid row) str) "--")]])
-       (order-history-pagination-controls pagination))
-      (if (:loading? order-history-state)
-        (empty-state "Loading order history...")
-        (empty-state "No order history")))))
-
-(defn order-history-tab-content
-  ([order-history]
-   (order-history-table order-history {}))
-  ([order-history order-history-state]
-   [:div {:class ["flex" "h-full" "min-h-0" "flex-col"]}
-    (when-let [error (:error order-history-state)]
-      [:div {:class ["px-4" "py-2" "text-xs" "text-error" "border-b" "border-base-300" "bg-base-200"]}
-       (str error)])
-    (order-history-table order-history order-history-state)]))
 
 (def ^:private tab-renderers
   {:balances (fn [{:keys [balance-rows hide-small? balances-sort]}]
@@ -1399,7 +284,6 @@
    :order-history (fn [{:keys [order-history-rows order-history-state]}]
                     (order-history-tab-content order-history-rows order-history-state))})
 
-;; Main tab content renderer
 (defn tab-content
   ([view-model]
    (if-let [render-tab (get tab-renderers (:selected-tab view-model))]
@@ -1423,7 +307,6 @@
                  :order-history-rows (get-in webdata2 [:order-history])
                  :order-history-state order-history-state})))
 
-;; Account info panel component
 (defn account-info-panel [state]
   (let [view-model (account-info-vm/account-info-vm state)
         {:keys [selected-tab
@@ -1435,16 +318,12 @@
                 error
                 loading?]} view-model]
     [:div {:class ["bg-base-100" "border-t" "border-base-300" "rounded-none" "shadow-none" "overflow-hidden" "w-full" "h-96" "flex" "flex-col" "min-h-0"]}
-     ;; Tab navigation
      (tab-navigation selected-tab tab-counts hide-small? funding-history-state order-history-state freshness-cues)
-
-     ;; Content area
      [:div {:class ["flex-1" "min-h-0" "overflow-hidden"]}
       (cond
         error (error-state error)
         loading? (loading-spinner)
         :else (tab-content view-model))]]))
 
-;; Main component that takes state and renders the UI
 (defn account-info-view [state]
   (account-info-panel state))
