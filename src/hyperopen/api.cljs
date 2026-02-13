@@ -34,6 +34,10 @@
   []
   api-service-instance)
 
+(defn- api-log-fn
+  []
+  (api-service/log-fn (active-api-service)))
+
 (defn funding-position-side
   [signed-size]
   (funding-history/funding-position-side signed-size))
@@ -103,7 +107,7 @@
    (fetch-asset-contexts! store {}))
   ([store opts]
    (fetch-compat/fetch-asset-contexts!
-    {:log-fn println
+    {:log-fn (api-log-fn)
      :request-asset-contexts! request-asset-contexts!
      :apply-asset-contexts-success api-projections/apply-asset-contexts-success
      :apply-asset-contexts-error api-projections/apply-asset-contexts-error}
@@ -129,7 +133,7 @@
    (fetch-perp-dexs! store {}))
   ([store opts]
    (fetch-compat/fetch-perp-dexs!
-    {:log-fn println
+    {:log-fn (api-log-fn)
      :request-perp-dexs! request-perp-dexs!
      :apply-perp-dexs-success api-projections/apply-perp-dexs-success
      :apply-perp-dexs-error api-projections/apply-perp-dexs-error}
@@ -152,7 +156,7 @@
   [store & {:keys [interval bars priority]
             :or {interval :1d bars 330 priority :high}}]
   (fetch-compat/fetch-candle-snapshot!
-   {:log-fn println
+   {:log-fn (api-log-fn)
     :request-candle-snapshot! request-candle-snapshot!
     :apply-candle-snapshot-success api-projections/apply-candle-snapshot-success
     :apply-candle-snapshot-error api-projections/apply-candle-snapshot-error}
@@ -180,7 +184,7 @@
      (fetch-frontend-open-orders! store address dex-or-opts {})))
   ([store address dex opts]
    (fetch-compat/fetch-frontend-open-orders!
-    {:log-fn println
+    {:log-fn (api-log-fn)
      :request-frontend-open-orders! request-frontend-open-orders!
      :apply-open-orders-success api-projections/apply-open-orders-success
      :apply-open-orders-error api-projections/apply-open-orders-error}
@@ -200,7 +204,7 @@
    (fetch-user-fills! store address {}))
   ([store address opts]
    (fetch-compat/fetch-user-fills!
-    {:log-fn println
+    {:log-fn (api-log-fn)
      :request-user-fills! request-user-fills!
      :apply-user-fills-success api-projections/apply-user-fills-success
      :apply-user-fills-error api-projections/apply-user-fills-error}
@@ -213,7 +217,7 @@
    (fetch-historical-orders! store address {}))
   ([_store address opts]
    (fetch-compat/fetch-historical-orders!
-    {:log-fn println
+    {:log-fn (api-log-fn)
      :request-historical-orders! (fn [requested-address request-opts]
                                    (order-endpoints/request-historical-orders! post-info!
                                                                               requested-address
@@ -258,7 +262,7 @@
    (fetch-spot-meta! store {}))
   ([store opts]
    (fetch-compat/fetch-spot-meta!
-    {:log-fn println
+    {:log-fn (api-log-fn)
      :request-spot-meta! request-spot-meta!
      :begin-spot-meta-load api-projections/begin-spot-meta-load
      :apply-spot-meta-success api-projections/apply-spot-meta-success
@@ -346,7 +350,7 @@
    (fetch-asset-selector-markets! store {:phase :full}))
   ([store opts]
    (fetch-compat/fetch-asset-selector-markets!
-    {:log-fn println
+    {:log-fn (api-log-fn)
      :request-asset-selector-markets! request-asset-selector-markets!
      :begin-asset-selector-load api-projections/begin-asset-selector-load
      :apply-asset-selector-success api-projections/apply-asset-selector-success
@@ -373,14 +377,14 @@
                                                                 spot-meta
                                                                 spot-asset-ctxs
                                                                 perp-results))
-     :log-fn println})))
+     :log-fn (api-log-fn)})))
 
 (defn fetch-spot-clearinghouse-state!
   ([store address]
    (fetch-spot-clearinghouse-state! store address {}))
   ([store address opts]
    (fetch-compat/fetch-spot-clearinghouse-state!
-    {:log-fn println
+    {:log-fn (api-log-fn)
      :request-spot-clearinghouse-state! request-spot-clearinghouse-state!
      :begin-spot-balances-load api-projections/begin-spot-balances-load
      :apply-spot-balances-success api-projections/apply-spot-balances-success
@@ -404,7 +408,7 @@
    (fetch-user-abstraction! store address {}))
   ([store address opts]
    (fetch-compat/fetch-user-abstraction!
-    {:log-fn println
+    {:log-fn (api-log-fn)
      :request-user-abstraction! request-user-abstraction!
      :normalize-user-abstraction-mode account-endpoints/normalize-user-abstraction-mode
      :apply-user-abstraction-snapshot api-projections/apply-user-abstraction-snapshot}
@@ -430,7 +434,7 @@
    (fetch-clearinghouse-state! store address dex {}))
   ([store address dex opts]
    (fetch-compat/fetch-clearinghouse-state!
-    {:log-fn println
+    {:log-fn (api-log-fn)
      :request-clearinghouse-state! request-clearinghouse-state!
      :apply-perp-dex-clearinghouse-success api-projections/apply-perp-dex-clearinghouse-success
      :apply-perp-dex-clearinghouse-error api-projections/apply-perp-dex-clearinghouse-error}
