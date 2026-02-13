@@ -303,14 +303,14 @@
                           [[:account-info :funding-history :page] 1]
                           [[:account-info :funding-history :page-input] "1"]]]]))
 
-(defn set-funding-history-page-size [state page-size]
+(defn set-funding-history-page-size [_state page-size]
   (let [page-size* (normalize-order-history-page-size page-size)]
     [[:effects/save-many [[[:account-info :funding-history :page-size] page-size*]
                           [[:account-info :funding-history :page] 1]
                           [[:account-info :funding-history :page-input] "1"]]]
      [:effects/local-storage-set "funding-history-page-size" (str page-size*)]]))
 
-(defn set-funding-history-page [state page max-page]
+(defn set-funding-history-page [_state page max-page]
   (let [page* (normalize-order-history-page page max-page)]
     [[:effects/save-many [[[:account-info :funding-history :page] page*]
                           [[:account-info :funding-history :page-input] (str page*)]]]]))
@@ -340,14 +340,14 @@
     (apply-funding-history-page-input state max-page)
     []))
 
-(defn set-trade-history-page-size [state page-size]
+(defn set-trade-history-page-size [_state page-size]
   (let [page-size* (normalize-order-history-page-size page-size)]
     [[:effects/save-many [[[:account-info :trade-history :page-size] page-size*]
                           [[:account-info :trade-history :page] 1]
                           [[:account-info :trade-history :page-input] "1"]]]
      [:effects/local-storage-set "trade-history-page-size" (str page-size*)]]))
 
-(defn set-trade-history-page [state page max-page]
+(defn set-trade-history-page [_state page max-page]
   (let [page* (normalize-order-history-page page max-page)]
     [[:effects/save-many [[[:account-info :trade-history :page] page*]
                           [[:account-info :trade-history :page-input] (str page*)]]]]))
@@ -415,21 +415,21 @@
   (let [open? (boolean (get-in state [:account-info :order-history :filter-open?]))]
     [[:effects/save [:account-info :order-history :filter-open?] (not open?)]]))
 
-(defn set-order-history-status-filter [state status-filter]
+(defn set-order-history-status-filter [_state status-filter]
   (let [status* (normalize-order-history-status-filter status-filter)]
     [[:effects/save-many [[[:account-info :order-history :status-filter] status*]
                           [[:account-info :order-history :filter-open?] false]
                           [[:account-info :order-history :page] 1]
                           [[:account-info :order-history :page-input] "1"]]]]))
 
-(defn set-order-history-page-size [state page-size]
+(defn set-order-history-page-size [_state page-size]
   (let [page-size* (normalize-order-history-page-size page-size)]
     [[:effects/save-many [[[:account-info :order-history :page-size] page-size*]
                           [[:account-info :order-history :page] 1]
                           [[:account-info :order-history :page-input] "1"]]]
      [:effects/local-storage-set "order-history-page-size" (str page-size*)]]))
 
-(defn set-order-history-page [state page max-page]
+(defn set-order-history-page [_state page max-page]
   (let [page* (normalize-order-history-page page max-page)]
     [[:effects/save-many [[[:account-info :order-history :page] page*]
                           [[:account-info :order-history :page-input] (str page*)]]]]))
