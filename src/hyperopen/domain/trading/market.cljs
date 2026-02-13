@@ -66,6 +66,36 @@
      :liquidation-price (when (and (number? liquidation) (pos? liquidation))
                           liquidation)}))
 
+(defn- estimated-maintenance-margin
+  "Approximate maintenance requirement using market max leverage.
+   This provides a deterministic liquidation estimate for new/flat positions."
+  [context order-value]
+  (let [max-lev (core/market-max-leverage context)]
+    (when (and (number? order-value)
+               (pos? order-value)
+               (number? max-lev)
+               (pos? max-lev))
+      (/ order-value max-lev))))
+
+(defn- projected-liquidation-price
+  [context form available ref-price order-value]
+  (let [size (core/parse-num (:size form))
+        side (:side form)
+        maintenance-margin (estimated-maintenance-margin context order-value)]
+    (when (and (number? available)
+               (number? ref-price)
+               (pos? ref-price)
+               (number? size)
+               (pos? size)
+               (number? maintenance-margin))
+      (let [collateral-buffer (- available maintenance-margin)
+            projected (if (= side :sell)
+                        (+ ref-price (/ collateral-buffer size))
+                        (- ref-price (/ collateral-buffer size)))]
+        (when (and (number? projected)
+                   (pos? projected))
+          projected)))))
+
 (defn- size-decimals [context]
   (let [sz-decimals (get-in context [:market :szDecimals])
         parsed (core/parse-num sz-decimals)]
@@ -335,6 +365,7 @@
 (defn order-summary [context form]
   (let [size (core/parse-num (:size form))
         ref-price (reference-price context form)
+        available (available-to-trade context)
         order-value (when (and (number? size)
                                (pos? size)
                                (number? ref-price)
@@ -344,13 +375,14 @@
         margin-required (when (and (number? order-value) (pos? leverage))
                           (/ order-value leverage))
         position (current-position-summary context)
-        liquidation-price (:liquidation-price position)
+        liquidation-price (or (:liquidation-price position)
+                              (projected-liquidation-price context form available ref-price order-value))
         requested-type (core/normalize-order-type (or (:requested-type form) (:type form)))
         market-order? (= :market requested-type)
         slippage-est (if market-order?
                        (market-slippage-estimate-pct context form)
                        0)]
-    {:available-to-trade (available-to-trade context)
+    {:available-to-trade available
      :current-position position
      :reference-price ref-price
      :order-value order-value

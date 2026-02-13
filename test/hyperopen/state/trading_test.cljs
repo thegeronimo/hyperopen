@@ -375,6 +375,36 @@
       (is (nil? (:liquidation-price summary)))
       (is (= trading/default-max-slippage-pct (:slippage-max summary))))))
 
+(deftest order-summary-projects-liquidation-price-for-flat-position-test
+  (let [state {:active-asset "SOL"
+               :active-market {:coin "SOL"
+                               :mark 100
+                               :maxLeverage 50
+                               :szDecimals 4}
+               :orderbooks {}
+               :webdata2 {:clearinghouseState {:marginSummary {:accountValue "100"
+                                                               :totalMarginUsed "0"}
+                                               :assetPositions []}}}
+        long-form (assoc (trading/default-order-form)
+                         :type :limit
+                         :side :buy
+                         :size "2"
+                         :price "100")
+        short-form (assoc long-form :side :sell)
+        long-summary (trading/order-summary state long-form)
+        short-summary (trading/order-summary state short-form)]
+    (is (approx= 52 (:liquidation-price long-summary)))
+    (is (approx= 148 (:liquidation-price short-summary)))))
+
+(deftest order-summary-prefers-position-liquidation-over-projected-liquidation-test
+  (let [form (assoc (trading/default-order-form)
+                    :type :limit
+                    :side :buy
+                    :size "2"
+                    :price "100")
+        summary (trading/order-summary base-state form)]
+    (is (= 80 (:liquidation-price summary)))))
+
 (deftest market-slippage-estimate-uses-orderbook-depth-for-buy-side-test
   (let [state {:active-asset "BTC"
                :active-market {:coin "BTC"}

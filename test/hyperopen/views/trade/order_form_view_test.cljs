@@ -748,6 +748,20 @@
     (is (contains? strings "Fees"))
     (is (contains? strings "N/A"))))
 
+(deftest liquidation-price-renders-projected-value-for-flat-position-test
+  (let [state (-> (base-state {:type :limit :side :buy :size "2" :price "100"})
+                  (assoc :active-market {:coin "SOL"
+                                         :quote "USDC"
+                                         :mark 100
+                                         :maxLeverage 50
+                                         :market-type :perp
+                                         :szDecimals 4})
+                  (assoc :webdata2 {:clearinghouseState {:marginSummary {:accountValue "100"
+                                                                         :totalMarginUsed "0"}
+                                                         :assetPositions []}}))
+        view-node (view/order-form-view state)]
+    (is (= "$52.00" (metric-value-text view-node "Liquidation Price")))))
+
 (deftest available-to-trade-prefers-unified-spot-usdc-balance-test
   (let [state (-> (base-state)
                   (assoc :account {:mode :unified})
