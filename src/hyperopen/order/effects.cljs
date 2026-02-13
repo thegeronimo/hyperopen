@@ -1,5 +1,6 @@
 (ns hyperopen.order.effects
   (:require [hyperopen.api :as api]
+            [hyperopen.api.projections :as api-projections]
             [hyperopen.api.trading :as trading-api]))
 
 (defn- cancel-request-oids
@@ -60,15 +61,29 @@
                                   (or orders-by-dex {})))))
       state)))
 
+(defn- refresh-open-orders-snapshot!
+  [store address dex opts]
+  (-> (api/request-frontend-open-orders! address dex opts)
+      (.then (fn [rows]
+               (swap! store api-projections/apply-open-orders-success dex rows)
+               rows))
+      (.catch (fn [err]
+                (swap! store api-projections/apply-open-orders-error err)
+                (js/Promise.reject err)))))
+
 (defn- refresh-open-orders-after-cancel!
   [store address]
   (when address
-    (api/fetch-frontend-open-orders! store address {:priority :high})
-    (-> (api/ensure-perp-dexs! store {:priority :low})
+    (refresh-open-orders-snapshot! store address nil {:priority :high})
+    (-> (api/ensure-perp-dexs-data! store {:priority :low})
+        (.then (fn [dexs]
+                 (swap! store api-projections/apply-perp-dexs-success dexs)
+                 dexs))
         (.then (fn [dexs]
                  (doseq [dex (or dexs [])]
-                   (api/fetch-frontend-open-orders! store address dex {:priority :low}))))
+                   (refresh-open-orders-snapshot! store address dex {:priority :low}))))
         (.catch (fn [err]
+                  (swap! store api-projections/apply-perp-dexs-error err)
                   (println "Error refreshing per-dex open orders after cancel:" err))))))
 
 (defn- submit-order-error-message

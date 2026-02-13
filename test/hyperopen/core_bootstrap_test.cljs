@@ -1388,8 +1388,8 @@
           refresh-calls (atom [])
           original-cancel-order trading-api/cancel-order!
           original-dispatch nxr/dispatch
-          original-fetch-open-orders api/fetch-frontend-open-orders!
-          original-ensure-perp-dexs api/ensure-perp-dexs!]
+          original-request-open-orders api/request-frontend-open-orders!
+          original-ensure-perp-dexs-data api/ensure-perp-dexs-data!]
       (clear-order-feedback-toast-timeout!)
       (set! trading-api/cancel-order!
             (fn [_store _address _action]
@@ -1399,21 +1399,21 @@
       (set! nxr/dispatch
             (fn [_store _evt actions]
               (swap! dispatched conj actions)))
-      (set! api/fetch-frontend-open-orders!
-            (fn fetch-frontend-open-orders-mock
-              ([_store address]
-               (fetch-frontend-open-orders-mock nil address nil {}))
-              ([_store address dex-or-opts]
+      (set! api/request-frontend-open-orders!
+            (fn request-frontend-open-orders-mock
+              ([address]
+               (request-frontend-open-orders-mock address nil {}))
+              ([address dex-or-opts]
                (if (map? dex-or-opts)
-                 (fetch-frontend-open-orders-mock nil address nil dex-or-opts)
-                 (fetch-frontend-open-orders-mock nil address dex-or-opts {})))
-              ([_store address dex opts]
+                 (request-frontend-open-orders-mock address nil dex-or-opts)
+                 (request-frontend-open-orders-mock address dex-or-opts {})))
+              ([address dex opts]
                (swap! refresh-calls conj [address dex opts])
                (js/Promise.resolve []))))
-      (set! api/ensure-perp-dexs!
-            (fn ensure-perp-dexs-mock
+      (set! api/ensure-perp-dexs-data!
+            (fn ensure-perp-dexs-data-mock
               ([_store]
-               (ensure-perp-dexs-mock nil {}))
+               (ensure-perp-dexs-data-mock nil {}))
               ([_store _opts]
                (js/Promise.resolve ["dex-a"]))))
       (core/api-cancel-order nil store {:action {:type "cancel"
@@ -1435,8 +1435,8 @@
              (clear-order-feedback-toast-timeout!)
              (set! trading-api/cancel-order! original-cancel-order)
              (set! nxr/dispatch original-dispatch)
-             (set! api/fetch-frontend-open-orders! original-fetch-open-orders)
-             (set! api/ensure-perp-dexs! original-ensure-perp-dexs)
+             (set! api/request-frontend-open-orders! original-request-open-orders)
+             (set! api/ensure-perp-dexs-data! original-ensure-perp-dexs-data)
              (done))))
        0))))
 

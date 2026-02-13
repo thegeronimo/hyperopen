@@ -1,5 +1,10 @@
 (ns hyperopen.api.projections
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [hyperopen.api.errors :as api-errors]))
+
+(defn- normalized-error
+  [err]
+  (api-errors/normalize-error err))
 
 (defn begin-spot-meta-load
   [state]
@@ -10,13 +15,16 @@
   (-> state
       (assoc-in [:spot :meta] data)
       (assoc-in [:spot :loading-meta?] false)
-      (assoc-in [:spot :error] nil)))
+      (assoc-in [:spot :error] nil)
+      (assoc-in [:spot :error-category] nil)))
 
 (defn apply-spot-meta-error
   [state err]
-  (-> state
-      (assoc-in [:spot :loading-meta?] false)
-      (assoc-in [:spot :error] (str err))))
+  (let [{:keys [message category]} (normalized-error err)]
+    (-> state
+        (assoc-in [:spot :loading-meta?] false)
+        (assoc-in [:spot :error] message)
+        (assoc-in [:spot :error-category] category))))
 
 (defn apply-asset-contexts-success
   [state rows]
@@ -24,7 +32,10 @@
 
 (defn apply-asset-contexts-error
   [state err]
-  (assoc-in state [:asset-contexts :error] (str err)))
+  (let [{:keys [message category]} (normalized-error err)]
+    (-> state
+        (assoc-in [:asset-contexts :error] message)
+        (assoc-in [:asset-contexts :error-category] category))))
 
 (defn apply-perp-dexs-success
   [state dex-names]
@@ -32,7 +43,10 @@
 
 (defn apply-perp-dexs-error
   [state err]
-  (assoc-in state [:perp-dexs-error] (str err)))
+  (let [{:keys [message category]} (normalized-error err)]
+    (-> state
+        (assoc-in [:perp-dexs-error] message)
+        (assoc-in [:perp-dexs-error-category] category))))
 
 (defn apply-candle-snapshot-success
   [state coin interval rows]
@@ -40,7 +54,10 @@
 
 (defn apply-candle-snapshot-error
   [state coin interval err]
-  (assoc-in state [:candles coin interval :error] (str err)))
+  (let [{:keys [message category]} (normalized-error err)]
+    (-> state
+        (assoc-in [:candles coin interval :error] message)
+        (assoc-in [:candles coin interval :error-category] category))))
 
 (defn apply-open-orders-success
   [state dex rows]
@@ -50,7 +67,10 @@
 
 (defn apply-open-orders-error
   [state err]
-  (assoc-in state [:orders :open-error] (str err)))
+  (let [{:keys [message category]} (normalized-error err)]
+    (-> state
+        (assoc-in [:orders :open-error] message)
+        (assoc-in [:orders :open-error-category] category))))
 
 (defn apply-user-fills-success
   [state rows]
@@ -58,7 +78,10 @@
 
 (defn apply-user-fills-error
   [state err]
-  (assoc-in state [:orders :fills-error] (str err)))
+  (let [{:keys [message category]} (normalized-error err)]
+    (-> state
+        (assoc-in [:orders :fills-error] message)
+        (assoc-in [:orders :fills-error-category] category))))
 
 (defn begin-asset-selector-load
   [state phase]
@@ -82,14 +105,17 @@
                      (assoc-in [:asset-selector :loaded-at-ms] loaded-at-ms)
                      (assoc-in [:asset-selector :phase] phase)
                      (assoc-in [:asset-selector :cache-hydrated?] false)
-                     (assoc-in [:asset-selector :error] nil)))]
+                     (assoc-in [:asset-selector :error] nil)
+                     (assoc-in [:asset-selector :error-category] nil)))]
     (assoc-in state* [:asset-selector :loading?] false)))
 
 (defn apply-asset-selector-error
   [state err]
-  (-> state
-      (assoc-in [:asset-selector :loading?] false)
-      (assoc-in [:asset-selector :error] (str err))))
+  (let [{:keys [message category]} (normalized-error err)]
+    (-> state
+        (assoc-in [:asset-selector :loading?] false)
+        (assoc-in [:asset-selector :error] message)
+        (assoc-in [:asset-selector :error-category] category))))
 
 (defn begin-spot-balances-load
   [state]
@@ -100,13 +126,16 @@
   (-> state
       (assoc-in [:spot :clearinghouse-state] data)
       (assoc-in [:spot :loading-balances?] false)
-      (assoc-in [:spot :error] nil)))
+      (assoc-in [:spot :error] nil)
+      (assoc-in [:spot :error-category] nil)))
 
 (defn apply-spot-balances-error
   [state err]
-  (-> state
-      (assoc-in [:spot :loading-balances?] false)
-      (assoc-in [:spot :error] (str err))))
+  (let [{:keys [message category]} (normalized-error err)]
+    (-> state
+        (assoc-in [:spot :loading-balances?] false)
+        (assoc-in [:spot :error] message)
+        (assoc-in [:spot :error-category] category))))
 
 (defn apply-user-abstraction-snapshot
   [state requested-address snapshot]
@@ -121,4 +150,7 @@
 
 (defn apply-perp-dex-clearinghouse-error
   [state err]
-  (assoc-in state [:perp-dex-clearinghouse-error] (str err)))
+  (let [{:keys [message category]} (normalized-error err)]
+    (-> state
+        (assoc-in [:perp-dex-clearinghouse-error] message)
+        (assoc-in [:perp-dex-clearinghouse-error-category] category))))

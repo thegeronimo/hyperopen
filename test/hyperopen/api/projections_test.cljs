@@ -12,8 +12,10 @@
     (is (= {:tokens [{:name "USDC"}]} (get-in success [:spot :meta])))
     (is (= false (get-in success [:spot :loading-meta?])))
     (is (= nil (get-in success [:spot :error])))
+    (is (= nil (get-in success [:spot :error-category])))
     (is (= false (get-in failed [:spot :loading-meta?])))
-    (is (= "Error: nope" (get-in failed [:spot :error])))))
+    (is (= "Error: nope" (get-in failed [:spot :error])))
+    (is (= :unexpected (get-in failed [:spot :error-category])))))
 
 (deftest asset-selector-success-projection-prefers-full-phase-when-bootstrap-finishes-late-test
   (let [state {:asset-selector {:phase :full
@@ -51,8 +53,10 @@
     (is (= {:coin "BTC"} (:active-market success)))
     (is (= false (get-in success [:asset-selector :loading?])))
     (is (= nil (get-in success [:asset-selector :error])))
+    (is (= nil (get-in success [:asset-selector :error-category])))
     (is (= false (get-in failed [:asset-selector :loading?])))
-    (is (= "timeout" (get-in failed [:asset-selector :error])))))
+    (is (= "timeout" (get-in failed [:asset-selector :error])))
+    (is (= :transport (get-in failed [:asset-selector :error-category])))))
 
 (deftest spot-balances-projections-update-success-and-error-paths-test
   (let [state {:spot {:loading-balances? false
@@ -64,8 +68,10 @@
     (is (= {:balances [1 2 3]} (get-in success [:spot :clearinghouse-state])))
     (is (= false (get-in success [:spot :loading-balances?])))
     (is (= nil (get-in success [:spot :error])))
+    (is (= nil (get-in success [:spot :error-category])))
     (is (= false (get-in failed [:spot :loading-balances?])))
-    (is (= "Error: unavailable" (get-in failed [:spot :error])))))
+    (is (= "Error: unavailable" (get-in failed [:spot :error])))
+    (is (= :unexpected (get-in failed [:spot :error-category])))))
 
 (deftest order-candle-and-perp-projections-target-expected-state-paths-test
   (let [state {:orders {}
@@ -88,17 +94,23 @@
         clearinghouse-error (projections/apply-perp-dex-clearinghouse-error state (js/Error. "clearinghouse"))]
     (is (= {:BTC {:idx 0}} (:asset-contexts asset-contexts)))
     (is (= "Error: asset-contexts" (get-in asset-contexts-error [:asset-contexts :error])))
+    (is (= :unexpected (get-in asset-contexts-error [:asset-contexts :error-category])))
     (is (= ["vault"] (:perp-dexs perp-dexs)))
     (is (= "Error: perp-dexs" (:perp-dexs-error perp-dexs-error)))
+    (is (= :unexpected (:perp-dexs-error-category perp-dexs-error)))
     (is (= [{:oid 1}] (get-in open-orders [:orders :open-orders-snapshot])))
     (is (= [{:oid 2}] (get-in open-orders-by-dex [:orders :open-orders-snapshot-by-dex "vault"])))
     (is (= "Error: open-orders" (get-in open-orders-error [:orders :open-error])))
+    (is (= :unexpected (get-in open-orders-error [:orders :open-error-category])))
     (is (= [{:tid 1}] (get-in fills [:orders :fills])))
     (is (= "Error: fills" (get-in fills-error [:orders :fills-error])))
+    (is (= :unexpected (get-in fills-error [:orders :fills-error-category])))
     (is (= [{:t 1}] (get-in candle [:candles "BTC" :1h])))
     (is (= "Error: candles" (get-in candle-error [:candles "BTC" :1h :error])))
+    (is (= :unexpected (get-in candle-error [:candles "BTC" :1h :error-category])))
     (is (= {:margin 10} (get-in clearinghouse [:perp-dex-clearinghouse "vault"])))
-    (is (= "Error: clearinghouse" (:perp-dex-clearinghouse-error clearinghouse-error)))))
+    (is (= "Error: clearinghouse" (:perp-dex-clearinghouse-error clearinghouse-error)))
+    (is (= :unexpected (:perp-dex-clearinghouse-error-category clearinghouse-error)))))
 
 (deftest user-abstraction-projection-ignores-stale-address-updates-test
   (let [state {:wallet {:address "0xabc"}

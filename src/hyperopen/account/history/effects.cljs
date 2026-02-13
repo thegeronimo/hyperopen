@@ -93,7 +93,7 @@
           request-opts (merge {:priority :high}
                               filters
                               (or opts {}))]
-      (-> (api/fetch-user-funding-history! store address request-opts)
+      (-> (api/request-user-funding-history! address request-opts)
           (.then
            (fn [rows]
              (swap! store
@@ -125,7 +125,7 @@
                      (assoc-in [:orders :fundings-raw] [])
                      (assoc-in [:orders :fundings] []))
                  state)))
-      (-> (api/fetch-user-funding-history! store address opts)
+      (-> (api/request-user-funding-history! address opts)
           (.then (fn [rows]
                    (swap! store
                           (fn [state]
@@ -155,7 +155,7 @@
                      (assoc-in [:account-info :order-history :error] nil)
                      (assoc-in [:orders :order-history] []))
                  state)))
-      (-> (api/fetch-historical-orders! store address {:priority :high})
+      (-> (api/request-historical-orders! address {:priority :high})
           (.then (fn [rows]
                    (swap! store
                           (fn [state]
