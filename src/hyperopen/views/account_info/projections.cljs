@@ -244,23 +244,28 @@
                              (:tokens spot-meta))
         usdc-token (some #(when (= "USDC" (:name %)) %) (:tokens spot-meta))
         usdc-token-idx (:index usdc-token)
-        price-by-token (if (and usdc-token-idx (seq (:universe spot-meta)) (seq spot-asset-ctxs))
-                         (let [ctxs (vec spot-asset-ctxs)]
-                           (reduce (fn [m {:keys [tokens index]}]
-                                     (let [[base quote] tokens
-                                           ctx (nth ctxs index nil)
-                                           mark-px (parse-num (:markPx ctx))]
-                                       (cond
-                                         (and (= quote usdc-token-idx) (pos? mark-px))
-                                         (assoc m base mark-px)
+        price-by-token (let [base-prices (if (some? usdc-token-idx)
+                                            {usdc-token-idx 1}
+                                            {})]
+                         (if (and (some? usdc-token-idx)
+                                  (seq (:universe spot-meta))
+                                  (seq spot-asset-ctxs))
+                           (let [ctxs (vec spot-asset-ctxs)]
+                             (reduce (fn [m {:keys [tokens index]}]
+                                       (let [[base quote] tokens
+                                             ctx (nth ctxs index nil)
+                                             mark-px (parse-num (:markPx ctx))]
+                                         (cond
+                                           (and (= quote usdc-token-idx) (pos? mark-px))
+                                           (assoc m base mark-px)
 
-                                         (and (= base usdc-token-idx) (pos? mark-px))
-                                         (assoc m quote (/ 1 mark-px))
+                                           (and (= base usdc-token-idx) (pos? mark-px))
+                                           (assoc m quote (/ 1 mark-px))
 
-                                         :else m)))
-                                   {usdc-token-idx 1}
-                                   (:universe spot-meta)))
-                         {})
+                                           :else m)))
+                                     base-prices
+                                     (:universe spot-meta)))
+                           base-prices))
         perps-row (when clearinghouse-state
                     (let [account-value (parse-num (get-in clearinghouse-state [:marginSummary :accountValue]))
                           total-margin-used (parse-num (get-in clearinghouse-state [:marginSummary :totalMarginUsed]))

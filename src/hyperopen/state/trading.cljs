@@ -49,6 +49,8 @@
      :orderbook (get-in state [:orderbooks active-asset])
      :market (cond-> (or (:active-market state) {})
                (some? streamed-mark) (assoc :streamed-mark streamed-mark))
+     :account (:account state)
+     :spot (:spot state)
      :clearinghouse (or (active-clearinghouse-state state) {})}))
 
 (defn market-max-leverage [state]

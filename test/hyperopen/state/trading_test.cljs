@@ -486,7 +486,7 @@
     (is (nil? (trading/base-size-string state 0.0000099)))))
 
 (deftest available-to-trade-withdrawable-precedence-and-dex-isolation-test
-  (testing "withdrawable is the canonical available balance when present"
+  (testing "classic mode uses withdrawable as the canonical available balance when present"
     (let [state (assoc-in base-state [:webdata2 :clearinghouseState :withdrawable] "170.58")]
       (is (approx= 170.58 (trading/available-to-trade state)))
       (is (= (trading/available-to-trade state)
@@ -494,6 +494,22 @@
 
   (testing "falls back to account value minus margin used when withdrawable is missing"
     (is (approx= 750 (trading/available-to-trade base-state))))
+
+  (testing "unified mode uses spot USDC available balance when present"
+    (let [state (-> base-state
+                    (assoc :account {:mode :unified})
+                    (assoc-in [:spot :clearinghouse-state :balances]
+                              [{:coin "USDC"
+                                :total "204.41936500"
+                                :hold "3.03000000"}])
+                    (assoc-in [:webdata2 :clearinghouseState :withdrawable] "0.03"))]
+      (is (approx= 201.389365 (trading/available-to-trade state)))))
+
+  (testing "unified mode falls back when spot USDC balance is unavailable"
+    (let [state (-> base-state
+                    (assoc :account {:mode :unified})
+                    (assoc-in [:webdata2 :clearinghouseState :withdrawable] "170.58"))]
+      (is (approx= 170.58 (trading/available-to-trade state)))))
 
   (testing "dex-scoped market reads only dex-scoped clearinghouse data"
     (let [state {:active-market {:coin "BTC" :dex "dex-a"}

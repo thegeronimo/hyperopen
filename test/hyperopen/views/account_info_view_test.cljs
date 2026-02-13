@@ -413,6 +413,8 @@
         by-coin (into {} (map (juxt :coin identity)) rows)]
     (is (nil? (:contract-id (get by-coin "USDC (Perps)"))))
     (is (nil? (:contract-id (get by-coin "USDC (Spot)"))))
+    (is (= 5.0
+           (view/parse-num (:usdc-value (get by-coin "USDC (Spot)")))))
     (is (= "0x22222222222222222222222222222222"
            (:contract-id (get by-coin "HYPE"))))))
 

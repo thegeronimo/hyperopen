@@ -1,8 +1,35 @@
 (ns hyperopen.domain.trading.market
-  (:require [hyperopen.domain.trading.core :as core]))
+  (:require [clojure.string :as str]
+            [hyperopen.domain.trading.core :as core]))
+
+(defn- unified-account-mode? [context]
+  (= :unified (get-in context [:account :mode])))
+
+(defn- usdc-coin? [coin]
+  (and (string? coin)
+       (str/starts-with? coin "USDC")))
+
+(defn- unified-spot-usdc-available [context]
+  (when (unified-account-mode? context)
+    (some (fn [balance]
+            (when (usdc-coin? (:coin balance))
+              (let [available-direct (or (core/parse-num (:available balance))
+                                         (core/parse-num (:availableBalance balance))
+                                         (core/parse-num (:available-balance balance)))
+                    total (core/parse-num (:total balance))
+                    hold (core/parse-num (:hold balance))
+                    available-derived (when (number? total)
+                                        (- total (or hold 0)))
+                    available (if (number? available-direct)
+                                available-direct
+                                available-derived)]
+                (when (number? available)
+                  (max 0 available)))))
+          (get-in context [:spot :clearinghouse-state :balances]))))
 
 (defn available-to-trade [context]
   (let [clearinghouse (or (:clearinghouse context) {})
+        unified-available (unified-spot-usdc-available context)
         withdrawable (core/parse-num (:withdrawable clearinghouse))
         summary (or (get-in clearinghouse [:marginSummary])
                     (get-in clearinghouse [:crossMarginSummary])
@@ -10,9 +37,10 @@
         account-value (or (core/parse-num (:accountValue summary)) 0)
         margin-used (or (core/parse-num (:totalMarginUsed summary)) 0)
         fallback-available (- account-value margin-used)]
-    (max 0 (if (number? withdrawable)
-             withdrawable
-             fallback-available))))
+    (max 0 (cond
+             (number? unified-available) unified-available
+             (number? withdrawable) withdrawable
+             :else fallback-available))))
 
 (defn position-for-active-asset [context]
   (let [active-asset (:active-asset context)

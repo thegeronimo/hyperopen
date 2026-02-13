@@ -748,6 +748,18 @@
     (is (contains? strings "Fees"))
     (is (contains? strings "N/A"))))
 
+(deftest available-to-trade-prefers-unified-spot-usdc-balance-test
+  (let [state (-> (base-state)
+                  (assoc :account {:mode :unified})
+                  (assoc-in [:spot :clearinghouse-state :balances]
+                            [{:coin "USDC"
+                              :total "204.41936500"
+                              :hold "3.03000000"}])
+                  (assoc-in [:webdata2 :clearinghouseState :withdrawable] "0.03"))
+        view-node (view/order-form-view state)]
+    (is (= "201.39 USDC"
+           (metric-value-text view-node "Available to Trade")))))
+
 (deftest submit-button-renders-before-liquidation-metrics-test
   (let [view-node (view/order-form-view (base-state {:type :limit :size "1" :price "100"}))
         tokens (vec (collect-strings view-node))
