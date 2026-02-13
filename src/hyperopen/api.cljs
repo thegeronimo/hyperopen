@@ -1,5 +1,6 @@
 (ns hyperopen.api
   (:require [clojure.string :as str]
+            [hyperopen.api.endpoints.orders :as order-endpoints]
             [hyperopen.api.info-client :as info-client]
             [hyperopen.api.projections :as api-projections]
             [hyperopen.asset-selector.markets :as markets]
@@ -248,12 +249,7 @@
      (request-frontend-open-orders! address nil dex-or-opts)
      (request-frontend-open-orders! address dex-or-opts {})))
   ([address dex opts]
-   (let [body (cond-> {"type" "frontendOpenOrders"
-                       "user" address}
-                (and dex (not= dex "")) (assoc "dex" dex))]
-     (post-info! body
-                 (merge {:priority :high}
-                        opts)))))
+   (order-endpoints/request-frontend-open-orders! post-info! address dex opts)))
 
 (defn fetch-frontend-open-orders!
   ([store address]
@@ -276,11 +272,7 @@
   ([address]
    (request-user-fills! address {}))
   ([address opts]
-   (post-info! {"type" "userFills"
-                "user" address
-                "aggregateByTime" true}
-               (merge {:priority :high}
-                      opts))))
+   (order-endpoints/request-user-fills! post-info! address opts)))
 
 (defn fetch-user-fills!
   ([store address]
@@ -295,48 +287,14 @@
                  (swap! store api-projections/apply-user-fills-error err)
                  (js/Promise.reject err))))))
 
-(defn- historical-orders-seq
-  [payload]
-  (cond
-    (sequential? payload)
-    payload
-
-    (map? payload)
-    (let [nested (or (:orders payload)
-                     (:historicalOrders payload)
-                     (:data payload))]
-      (if (sequential? nested) nested []))
-
-    :else
-    []))
-
-(defn- normalize-historical-order-row
-  [row]
-  (when (map? row)
-    (let [order (:order row)]
-      (if (map? order)
-        row
-        (assoc row :order row)))))
-
 (defn fetch-historical-orders!
   ([store address]
    (fetch-historical-orders! store address {}))
   ([_store address opts]
-   (if-not address
-     (js/Promise.resolve [])
-     (-> (post-info! {"type" "historicalOrders"
-                      "user" address}
-                     (merge {:priority :high}
-                            opts))
-         (.then (fn [payload]
-                  (->> payload
-                       historical-orders-seq
-                       (map normalize-historical-order-row)
-                       (remove nil?)
-                       vec)))
-         (.catch (fn [err]
-                   (println "Error fetching historical orders:" err)
-                   (js/Promise.reject err)))))))
+   (-> (order-endpoints/request-historical-orders! post-info! address opts)
+       (.catch (fn [err]
+                 (println "Error fetching historical orders:" err)
+                 (js/Promise.reject err))))))
 
 (defn request-historical-orders!
   ([address]
