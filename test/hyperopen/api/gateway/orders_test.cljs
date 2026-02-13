@@ -51,7 +51,21 @@
                     (is false (str "Unexpected error: " err))
                     (done)))))))
 
-(deftest request-historical-orders-delegates-to-fetch-wrapper-test
+(deftest request-historical-orders-delegates-to-request-data-wrapper-test
+  (async done
+    (let [called (atom nil)
+          deps {:request-historical-orders-data! (fn [address opts]
+                                                   (reset! called [address opts])
+                                                   (js/Promise.resolve []))}]
+      (-> (orders-gateway/request-historical-orders! deps "0xabc" {:priority :high})
+          (.then (fn [_]
+                   (is (= ["0xabc" {:priority :high}] @called))
+                   (done)))
+          (.catch (fn [err]
+                    (is false (str "Unexpected error: " err))
+                    (done)))))))
+
+(deftest request-historical-orders-supports-legacy-fetch-dependency-test
   (async done
     (let [called (atom nil)
           deps {:fetch-historical-orders! (fn [store address opts]

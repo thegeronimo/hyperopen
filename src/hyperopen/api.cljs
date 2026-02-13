@@ -24,6 +24,8 @@
 (declare request-user-abstraction!)
 (declare ensure-perp-dexs-data!)
 (declare request-asset-selector-markets!)
+(declare request-historical-orders-data!)
+(declare request-user-funding-history-data!)
 
 (defn- now-ms []
   (platform/now-ms))
@@ -102,15 +104,22 @@
     store
     opts)))
 
-(defn fetch-meta-and-asset-ctxs!
-  "Fetch metaAndAssetCtxs for the default perp DEX or a named DEX."
+(defn request-meta-and-asset-ctxs!
+  "Request metaAndAssetCtxs for the default perp DEX or a named DEX."
   ([dex]
-   (fetch-meta-and-asset-ctxs! dex {}))
+   (request-meta-and-asset-ctxs! dex {}))
   ([dex opts]
    (market-gateway/request-meta-and-asset-ctxs!
     {:post-info! post-info!}
     dex
     opts)))
+
+(defn fetch-meta-and-asset-ctxs!
+  "Deprecated compatibility alias for `request-meta-and-asset-ctxs!`."
+  ([dex]
+   (fetch-meta-and-asset-ctxs! dex {}))
+  ([dex opts]
+   (request-meta-and-asset-ctxs! dex opts)))
 
 (defn request-perp-dexs!
   ([] (request-perp-dexs! {}))
@@ -216,9 +225,16 @@
     opts)))
 
 (defn fetch-historical-orders!
+  "Deprecated compatibility wrapper; prefer `request-historical-orders!`."
   ([store address]
    (fetch-historical-orders! store address {}))
   ([_store address opts]
+   (request-historical-orders-data! address opts)))
+
+(defn- request-historical-orders-data!
+  ([address]
+   (request-historical-orders-data! address {}))
+  ([address opts]
    (api-compat/fetch-historical-orders!
     {:log-fn (api-log-fn)
      :post-info! post-info!}
@@ -230,20 +246,26 @@
    (request-historical-orders! address {}))
   ([address opts]
    (order-gateway/request-historical-orders!
-    {:fetch-historical-orders! fetch-historical-orders!}
+    {:request-historical-orders-data! request-historical-orders-data!}
     address
     opts)))
 
 (defn fetch-user-funding-history!
+  "Deprecated compatibility wrapper; prefer `request-user-funding-history!`."
   ([store address]
    (fetch-user-funding-history! store address {}))
-  ([store address opts]
-   (account-gateway/fetch-user-funding-history!
+  ([_store address opts]
+   (request-user-funding-history-data! address opts)))
+
+(defn- request-user-funding-history-data!
+  ([address]
+   (request-user-funding-history-data! address {}))
+  ([address opts]
+   (account-gateway/request-user-funding-history-data!
     {:post-info! post-info!
      :normalize-funding-history-filters normalize-funding-history-request-filters
      :normalize-info-funding-rows funding-history/normalize-info-funding-rows
      :sort-funding-history-rows funding-history/sort-funding-history-rows}
-    store
     address
     opts)))
 
@@ -252,7 +274,7 @@
    (request-user-funding-history! address {}))
   ([address opts]
    (account-gateway/request-user-funding-history!
-    {:fetch-user-funding-history! fetch-user-funding-history!}
+    {:request-user-funding-history-data! request-user-funding-history-data!}
     address
     opts)))
 
@@ -274,16 +296,14 @@
     opts)))
 
 (defn fetch-spot-meta-raw!
-  "Fetch spot meta and return the parsed response without touching state."
+  "Deprecated compatibility alias for `request-spot-meta!`."
   ([]
    (fetch-spot-meta-raw! {}))
   ([opts]
-   (market-gateway/fetch-spot-meta-raw!
-    {:request-spot-meta! request-spot-meta!}
-    opts)))
+   (request-spot-meta! opts)))
 
 (defn request-public-webdata2!
-  "Fetch a public WebData2 snapshot to access spotAssetCtxs."
+  "Request a public WebData2 snapshot to access spotAssetCtxs."
   ([]
    (request-public-webdata2! {}))
   ([opts]
@@ -292,12 +312,11 @@
     opts)))
 
 (defn fetch-public-webdata2!
+  "Deprecated compatibility alias for `request-public-webdata2!`."
   ([]
    (fetch-public-webdata2! {}))
   ([opts]
-   (market-gateway/fetch-public-webdata2!
-    {:request-public-webdata2! request-public-webdata2!}
-    opts)))
+   (request-public-webdata2! opts)))
 
 (defn ensure-perp-dexs!
   ([store]
@@ -343,7 +362,7 @@
   ([opts]
    (api-service/ensure-public-webdata2!
     (active-api-service)
-    fetch-public-webdata2!
+    request-public-webdata2!
     opts)))
 
 (defn fetch-asset-selector-markets!
@@ -370,7 +389,7 @@
      :ensure-perp-dexs-data! ensure-perp-dexs-data!
      :ensure-spot-meta-data! ensure-spot-meta-data!
      :ensure-public-webdata2! ensure-public-webdata2!
-     :fetch-meta-and-asset-ctxs! fetch-meta-and-asset-ctxs!
+     :request-meta-and-asset-ctxs! request-meta-and-asset-ctxs!
      :build-market-state (fn [runtime-store phase dexs spot-meta spot-asset-ctxs perp-results]
                            (market-gateway/build-market-state now-ms
                                                               runtime-store

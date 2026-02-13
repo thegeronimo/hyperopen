@@ -84,14 +84,14 @@
                                opts))))
 
 (defn ensure-public-webdata2!
-  [service fetch-public-webdata2! opts]
+  [service request-public-webdata2! opts]
   (let [runtime* (runtime service)
         force? (boolean (:force? opts))
         opts* (dissoc opts :force?)]
     (if (and (not force?) (some? (api-runtime/public-webdata2-cache runtime*)))
       (js/Promise.resolve (api-runtime/public-webdata2-cache runtime*))
-      (-> (fetch-public-webdata2! (merge {:dedupe-key :public-webdata2}
-                                         opts*))
+      (-> (request-public-webdata2! (merge {:dedupe-key :public-webdata2}
+                                           opts*))
           (.then (fn [snapshot]
                    (api-runtime/set-public-webdata2-cache! runtime* snapshot)
                    snapshot))))))

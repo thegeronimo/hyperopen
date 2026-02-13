@@ -80,7 +80,7 @@
   [{:keys [log-fn post-info!]}
    address
    opts]
-  (order-gateway/fetch-historical-orders!
+  (order-gateway/request-historical-orders-data!
    {:log-fn log-fn
     :post-info! post-info!}
    address

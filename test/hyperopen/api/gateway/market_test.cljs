@@ -53,7 +53,7 @@
                 :ensure-perp-dexs-data! (fn [_store _opts] (js/Promise.resolve []))
                 :ensure-spot-meta-data! (fn [_store _opts] (js/Promise.resolve {:tokens [] :universe []}))
                 :ensure-public-webdata2! (fn [_opts] (js/Promise.resolve {:spotAssetCtxs []}))
-                :fetch-meta-and-asset-ctxs! (fn [_dex _opts] (js/Promise.resolve [nil nil]))
+                :request-meta-and-asset-ctxs! (fn [_dex _opts] (js/Promise.resolve [nil nil]))
                 :build-market-state (fn [_store phase _dexs _spot-meta _spot-asset-ctxs _perp-results]
                                       {:phase phase
                                        :markets []})

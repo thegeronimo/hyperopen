@@ -46,6 +46,34 @@
                     (is false (str "Unexpected error: " err))
                     (done)))))))
 
+(deftest request-user-funding-history-delegates-to-request-data-wrapper-test
+  (async done
+    (let [called (atom nil)
+          deps {:request-user-funding-history-data! (fn [address opts]
+                                                      (reset! called [address opts])
+                                                      (js/Promise.resolve []))}]
+      (-> (account-gateway/request-user-funding-history! deps "0xabc" {:priority :high})
+          (.then (fn [_]
+                   (is (= ["0xabc" {:priority :high}] @called))
+                   (done)))
+          (.catch (fn [err]
+                    (is false (str "Unexpected error: " err))
+                    (done)))))))
+
+(deftest request-user-funding-history-supports-legacy-fetch-dependency-test
+  (async done
+    (let [called (atom nil)
+          deps {:fetch-user-funding-history! (fn [store address opts]
+                                               (reset! called [store address opts])
+                                               (js/Promise.resolve []))}]
+      (-> (account-gateway/request-user-funding-history! deps "0xabc" {:priority :high})
+          (.then (fn [_]
+                   (is (= [nil "0xabc" {:priority :high}] @called))
+                   (done)))
+          (.catch (fn [err]
+                    (is false (str "Unexpected error: " err))
+                    (done)))))))
+
 (deftest request-clearinghouse-state-includes-dex-test
   (async done
     (let [calls (atom [])

@@ -6,7 +6,7 @@
            ensure-perp-dexs-data!
            ensure-spot-meta-data!
            ensure-public-webdata2!
-           fetch-meta-and-asset-ctxs!
+           request-meta-and-asset-ctxs!
            build-market-state
            log-fn]}]
   (let [phase (if (= :bootstrap (:phase opts)) :bootstrap :full)
@@ -25,7 +25,7 @@
                                  (vec (cons nil dexs*)))
              perp-promises (->> dexs-with-default
                                 (map (fn [dex]
-                                       (fetch-meta-and-asset-ctxs!
+                                       (request-meta-and-asset-ctxs!
                                         dex
                                         {:priority priority})))
                                 (into-array))

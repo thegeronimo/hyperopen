@@ -20,9 +20,9 @@
                 :ensure-public-webdata2! (fn [opts]
                                            (swap! ensure-webdata-calls conj opts)
                                            (js/Promise.resolve {:spotAssetCtxs [{:coin "BTC"}]}))
-                :fetch-meta-and-asset-ctxs! (fn [dex opts]
-                                              (swap! meta-calls conj [dex opts])
-                                              (js/Promise.resolve [{} []]))
+                :request-meta-and-asset-ctxs! (fn [dex opts]
+                                                (swap! meta-calls conj [dex opts])
+                                                (js/Promise.resolve [{} []]))
                 :build-market-state (fn [store phase dexs spot-meta spot-asset-ctxs perp-results]
                                       (swap! build-calls conj [store phase dexs spot-meta spot-asset-ctxs perp-results])
                                       {:markets [{:coin "BTC"}]})
@@ -53,9 +53,9 @@
                                           (js/Promise.resolve {:tokens []}))
                 :ensure-public-webdata2! (fn [_opts]
                                            (js/Promise.resolve {:spotAssetCtxs []}))
-                :fetch-meta-and-asset-ctxs! (fn [dex opts]
-                                              (swap! meta-calls conj [dex opts])
-                                              (js/Promise.resolve [{} []]))
+                :request-meta-and-asset-ctxs! (fn [dex opts]
+                                                (swap! meta-calls conj [dex opts])
+                                                (js/Promise.resolve [{} []]))
                 :build-market-state (fn [_store _phase _dexs _spot-meta _spot-asset-ctxs _perp-results]
                                       {:markets []})
                 :log-fn (fn [& _] nil)}]

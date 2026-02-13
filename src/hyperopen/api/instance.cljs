@@ -80,26 +80,19 @@
             ([opts]
              (market-gateway/request-public-webdata2!
               {:post-info! post-info!}
-              opts)))
-          (fetch-public-webdata2!
-            ([] (fetch-public-webdata2! {}))
-            ([opts]
-             (market-gateway/fetch-public-webdata2!
-              {:request-public-webdata2! request-public-webdata2!}
               opts)))]
     {:request-asset-contexts! request-asset-contexts!
      :request-meta-and-asset-ctxs! request-meta-and-asset-ctxs!
      :request-perp-dexs! request-perp-dexs!
      :request-candle-snapshot! request-candle-snapshot!
      :request-spot-meta! request-spot-meta!
-     :request-public-webdata2! request-public-webdata2!
-     :fetch-public-webdata2! fetch-public-webdata2!}))
+     :request-public-webdata2! request-public-webdata2!}))
 
 (defn- make-instance-market-state-ops
   [service now-ms-fn log-fn market-ops]
   (let [{:keys [request-perp-dexs!
                 request-spot-meta!
-                fetch-public-webdata2!
+                request-public-webdata2!
                 request-meta-and-asset-ctxs!]} market-ops]
     (letfn [(ensure-perp-dexs-data!
               ([store]
@@ -115,7 +108,7 @@
               ([]
                (ensure-public-webdata2! {}))
               ([opts]
-               (api-service/ensure-public-webdata2! service fetch-public-webdata2! opts)))
+               (api-service/ensure-public-webdata2! service request-public-webdata2! opts)))
             (request-asset-selector-markets!
               ([store]
                (request-asset-selector-markets! store {:phase :full}))
@@ -126,7 +119,7 @@
                  :ensure-perp-dexs-data! ensure-perp-dexs-data!
                  :ensure-spot-meta-data! ensure-spot-meta-data!
                  :ensure-public-webdata2! ensure-public-webdata2!
-                 :fetch-meta-and-asset-ctxs! request-meta-and-asset-ctxs!
+                 :request-meta-and-asset-ctxs! request-meta-and-asset-ctxs!
                  :build-market-state (fn [runtime-store phase dexs spot-meta spot-asset-ctxs perp-results]
                                        (market-gateway/build-market-state now-ms-fn
                                                                           runtime-store
@@ -164,7 +157,7 @@
               {:post-info! post-info!}
               address
               opts)))
-          (fetch-historical-orders! [address opts]
+          (request-historical-orders-data! [address opts]
             (api-compat/fetch-historical-orders!
              {:log-fn log-fn
               :post-info! post-info!}
@@ -175,8 +168,7 @@
              (request-historical-orders! address {}))
             ([address opts]
              (order-gateway/request-historical-orders!
-              {:fetch-historical-orders! (fn [_store requested-address request-opts]
-                                           (fetch-historical-orders! requested-address request-opts))}
+              {:request-historical-orders-data! request-historical-orders-data!}
               address
               opts)))]
     {:request-frontend-open-orders! request-frontend-open-orders!
@@ -185,13 +177,12 @@
 
 (defn- make-instance-account-ops
   [post-info! normalize-funding-history-filters-fn]
-  (letfn [(fetch-user-funding-history! [address opts]
-            (account-gateway/fetch-user-funding-history!
+  (letfn [(request-user-funding-history-data! [address opts]
+            (account-gateway/request-user-funding-history-data!
              {:post-info! post-info!
               :normalize-funding-history-filters normalize-funding-history-filters-fn
               :normalize-info-funding-rows funding-history/normalize-info-funding-rows
               :sort-funding-history-rows funding-history/sort-funding-history-rows}
-             nil
              address
              opts))
           (request-user-funding-history!
@@ -199,8 +190,7 @@
              (request-user-funding-history! address {}))
             ([address opts]
              (account-gateway/request-user-funding-history!
-              {:fetch-user-funding-history! (fn [_store requested-address request-opts]
-                                              (fetch-user-funding-history! requested-address request-opts))}
+              {:request-user-funding-history-data! request-user-funding-history-data!}
               address
               opts)))
           (request-spot-clearinghouse-state!

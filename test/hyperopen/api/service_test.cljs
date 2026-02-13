@@ -60,17 +60,17 @@
                    {:info-client-instance (stub-client {:stats {}
                                                         :reset-calls reset-calls})})
           calls (atom 0)
-          fetch-public-webdata2! (fn [_opts]
-                                   (let [n (swap! calls inc)]
-                                     (js/Promise.resolve {:snapshot n})))]
-      (-> (api-service/ensure-public-webdata2! service fetch-public-webdata2! {})
+          request-public-webdata2! (fn [_opts]
+                                     (let [n (swap! calls inc)]
+                                       (js/Promise.resolve {:snapshot n})))]
+      (-> (api-service/ensure-public-webdata2! service request-public-webdata2! {})
           (.then (fn [first-snapshot]
                    (is (= {:snapshot 1} first-snapshot))
-                   (api-service/ensure-public-webdata2! service fetch-public-webdata2! {})))
+                   (api-service/ensure-public-webdata2! service request-public-webdata2! {})))
           (.then (fn [cached-snapshot]
                    (is (= {:snapshot 1} cached-snapshot))
                    (is (= 1 @calls))
-                   (api-service/ensure-public-webdata2! service fetch-public-webdata2! {:force? true})))
+                   (api-service/ensure-public-webdata2! service request-public-webdata2! {:force? true})))
           (.then (fn [forced-snapshot]
                    (is (= {:snapshot 2} forced-snapshot))
                    (is (= 2 @calls))

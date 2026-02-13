@@ -105,10 +105,16 @@
    store
    opts))
 
-(defn fetch-spot-meta-raw!
+(defn request-spot-meta-raw!
   [{:keys [request-spot-meta!]}
    opts]
   (request-spot-meta! opts))
+
+(defn fetch-spot-meta-raw!
+  "Deprecated compatibility alias for `request-spot-meta-raw!`."
+  [deps
+   opts]
+  (request-spot-meta-raw! deps opts))
 
 (defn request-public-webdata2!
   [{:keys [post-info!]}
@@ -116,6 +122,7 @@
   (market-endpoints/request-public-webdata2! post-info! opts))
 
 (defn fetch-public-webdata2!
+  "Deprecated compatibility alias for `request-public-webdata2!`."
   [{:keys [request-public-webdata2!]}
    opts]
   (request-public-webdata2! opts))
@@ -169,7 +176,7 @@
            ensure-perp-dexs-data!
            ensure-spot-meta-data!
            ensure-public-webdata2!
-           fetch-meta-and-asset-ctxs!
+           request-meta-and-asset-ctxs!
            build-market-state
            log-fn]}]
   (market-loader/request-asset-selector-markets!
@@ -178,6 +185,6 @@
     :ensure-perp-dexs-data! ensure-perp-dexs-data!
     :ensure-spot-meta-data! ensure-spot-meta-data!
     :ensure-public-webdata2! ensure-public-webdata2!
-    :fetch-meta-and-asset-ctxs! fetch-meta-and-asset-ctxs!
+    :request-meta-and-asset-ctxs! request-meta-and-asset-ctxs!
     :build-market-state build-market-state
     :log-fn log-fn}))

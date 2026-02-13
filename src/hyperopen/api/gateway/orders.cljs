@@ -51,7 +51,7 @@
    address
    opts))
 
-(defn fetch-historical-orders!
+(defn request-historical-orders-data!
   [{:keys [log-fn post-info!]}
    address
    opts]
@@ -64,8 +64,18 @@
    address
    opts))
 
-(defn request-historical-orders!
-  [{:keys [fetch-historical-orders!]}
+(defn fetch-historical-orders!
+  "Deprecated compatibility wrapper; prefer `request-historical-orders-data!`."
+  [deps
    address
    opts]
-  (fetch-historical-orders! nil address opts))
+  (request-historical-orders-data! deps address opts))
+
+(defn request-historical-orders!
+  [{:keys [request-historical-orders-data!
+           fetch-historical-orders!]}
+   address
+   opts]
+  (if request-historical-orders-data!
+    (request-historical-orders-data! address opts)
+    (fetch-historical-orders! nil address opts)))

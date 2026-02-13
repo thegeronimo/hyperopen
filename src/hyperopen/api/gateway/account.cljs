@@ -6,12 +6,11 @@
   [abstraction]
   (account-endpoints/normalize-user-abstraction-mode abstraction))
 
-(defn fetch-user-funding-history!
+(defn request-user-funding-history-data!
   [{:keys [post-info!
            normalize-funding-history-filters
            normalize-info-funding-rows
            sort-funding-history-rows]}
-   _store
    address
    opts]
   (if-not address
@@ -25,11 +24,22 @@
                                                        end-time-ms
                                                        opts))))
 
-(defn request-user-funding-history!
-  [{:keys [fetch-user-funding-history!]}
+(defn fetch-user-funding-history!
+  "Deprecated compatibility wrapper; prefer `request-user-funding-history-data!`."
+  [deps
+   _store
    address
    opts]
-  (fetch-user-funding-history! nil address opts))
+  (request-user-funding-history-data! deps address opts))
+
+(defn request-user-funding-history!
+  [{:keys [request-user-funding-history-data!
+           fetch-user-funding-history!]}
+   address
+   opts]
+  (if request-user-funding-history-data!
+    (request-user-funding-history-data! address opts)
+    (fetch-user-funding-history! nil address opts)))
 
 (defn request-spot-clearinghouse-state!
   [{:keys [post-info!]}
