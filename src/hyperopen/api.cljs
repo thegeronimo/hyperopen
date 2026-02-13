@@ -1,6 +1,7 @@
 (ns hyperopen.api
   (:require [clojure.string :as str]
             [hyperopen.api.info-runtime :as info-runtime]
+            [hyperopen.api.projections :as api-projections]
             [hyperopen.asset-selector.markets :as markets]
             [hyperopen.domain.funding-history :as funding-history]
             [hyperopen.platform :as platform]
@@ -418,21 +419,18 @@
    (fetch-spot-meta! store {}))
   ([store opts]
    (println "Fetching spot metadata...")
-   (swap! store assoc-in [:spot :loading-meta?] true)
+   (swap! store api-projections/begin-spot-meta-load)
    (-> (post-info! {"type" "spotMeta"}
                    (merge {:priority :high}
                           opts))
        (.then #(.json %))
        (.then (fn [payload]
                 (let [data (js->clj payload :keywordize-keys true)]
-                  (swap! store assoc-in [:spot :meta] data)
-                  (swap! store assoc-in [:spot :loading-meta?] false)
-                  (swap! store assoc-in [:spot :error] nil)
+                  (swap! store api-projections/apply-spot-meta-success data)
                   data)))
        (.catch (fn [err]
                  (println "Error fetching spot meta:" err)
-                 (swap! store assoc-in [:spot :loading-meta?] false)
-                 (swap! store assoc-in [:spot :error] (str err))
+                 (swap! store api-projections/apply-spot-meta-error err)
                  (js/Promise.reject err))))))
 
 (defn fetch-spot-meta-raw!
@@ -552,8 +550,7 @@
                                   (ensure-spot-meta! store {:priority priority})
                                   (ensure-public-webdata2! {:priority priority})]))]
      (println "Fetching asset selector markets. phase:" (name phase))
-     (swap! store assoc-in [:asset-selector :loading?] true)
-     (swap! store assoc-in [:asset-selector :phase] phase)
+     (swap! store api-projections/begin-asset-selector-load phase)
      (.catch
       (.then
        base-promises
@@ -572,34 +569,18 @@
            (.then
             (js/Promise.all perp-promises)
             (fn [perp-results]
-              (let [{:keys [markets market-by-key active-market loaded-at-ms]}
-                    (build-market-state store phase dexs* spot-meta-loaded spot-asset-ctxs (array-seq perp-results))]
-                (swap! store
-                       (fn [state]
-                         (let [current-phase (get-in state [:asset-selector :phase])
-                               cache-hydrated? (boolean (get-in state [:asset-selector :cache-hydrated?]))
-                               prefer-current? (and (= phase :bootstrap)
-                                                    (= current-phase :full)
-                                                    (not cache-hydrated?))]
-                           (if prefer-current?
-                             (-> state
-                                 (assoc-in [:asset-selector :loaded-at-ms] loaded-at-ms))
-                             (-> state
-                                 (assoc-in [:asset-selector :markets] markets)
-                                 (assoc-in [:asset-selector :market-by-key] market-by-key)
-                                 (assoc :active-market (or active-market (:active-market state)))
-                                 (assoc-in [:asset-selector :loaded-at-ms] loaded-at-ms)
-                                 (assoc-in [:asset-selector :phase] phase)
-                                 (assoc-in [:asset-selector :cache-hydrated?] false)
-                                 (assoc-in [:asset-selector :error] nil)))
-                           )))
-                ;; Always clear loading when this phase resolves.
-                (swap! store assoc-in [:asset-selector :loading?] false)
-                markets)))))
+              (let [market-state (build-market-state
+                                  store
+                                  phase
+                                  dexs*
+                                  spot-meta-loaded
+                                  spot-asset-ctxs
+                                  (array-seq perp-results))]
+                (swap! store api-projections/apply-asset-selector-success phase market-state)
+                (:markets market-state))))))
       (fn [err]
         (println "Error fetching asset selector markets:" err)
-        (swap! store assoc-in [:asset-selector :loading?] false)
-        (swap! store assoc-in [:asset-selector :error] (str err))
+        (swap! store api-projections/apply-asset-selector-error err)
         (js/Promise.reject err)))))))
 
 (defn fetch-spot-clearinghouse-state!
@@ -610,7 +591,7 @@
      (js/Promise.resolve nil)
      (do
        (println "Fetching spot clearinghouse state...")
-       (swap! store assoc-in [:spot :loading-balances?] true)
+       (swap! store api-projections/begin-spot-balances-load)
        (-> (post-info! {"type" "spotClearinghouseState"
                         "user" address}
                        (merge {:priority :high}
@@ -618,14 +599,11 @@
            (.then #(.json %))
            (.then (fn [payload]
                     (let [data (js->clj payload :keywordize-keys true)]
-                      (swap! store assoc-in [:spot :clearinghouse-state] data)
-                      (swap! store assoc-in [:spot :loading-balances?] false)
-                      (swap! store assoc-in [:spot :error] nil)
+                      (swap! store api-projections/apply-spot-balances-success data)
                       data)))
            (.catch (fn [err]
                      (println "Error fetching spot balances:" err)
-                     (swap! store assoc-in [:spot :loading-balances?] false)
-                     (swap! store assoc-in [:spot :error] (str err))
+                     (swap! store api-projections/apply-spot-balances-error err)
                      (js/Promise.reject err))))))))
 
 (defn- normalize-user-abstraction-mode
