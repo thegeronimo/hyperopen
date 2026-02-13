@@ -16,12 +16,58 @@
   (and (vector? path)
        (every? keyword? path)))
 
+(defn- parse-int-value
+  [value]
+  (cond
+    (integer? value) value
+
+    (and (number? value)
+         (not (js/isNaN value))
+         (= value (js/Math.floor value)))
+    value
+
+    (string? value)
+    (let [text (str/trim value)]
+      (when (re-matches #"[+-]?\\d+" text)
+        (js/parseInt text 10)))
+
+    :else nil))
+
+(defn- parseable-int?
+  [value]
+  (some? (parse-int-value value)))
+
+(defn- non-negative-int?
+  [value]
+  (when-let [parsed (parse-int-value value)]
+    (>= parsed 0)))
+
+(defn- positive-int?
+  [value]
+  (when-let [parsed (parse-int-value value)]
+    (> parsed 0)))
+
+(defn- fetch-candle-snapshot-args?
+  [args]
+  (and (vector? args)
+       (even? (count args))
+       (every? keyword? (take-nth 2 args))
+       (let [opts (apply hash-map args)]
+         (and (every? #{:interval :bars} (keys opts))
+              (or (not (contains? opts :interval))
+                  (keyword? (:interval opts)))
+              (or (not (contains? opts :bars))
+                  (positive-int? (:bars opts)))))))
+
 (s/def ::any-args vector?)
 (s/def ::non-empty-string non-empty-string?)
 (s/def ::state-path keyword-path?)
 (s/def ::path-value (s/tuple ::state-path any?))
 (s/def ::path-values (s/and vector?
                             (s/coll-of ::path-value :kind vector?)))
+(s/def ::intish parseable-int?)
+(s/def ::non-negative-int non-negative-int?)
+(s/def ::positive-int positive-int?)
 
 (s/def ::market-key ::non-empty-string)
 (s/def ::icon-status #{:loaded :missing})
@@ -64,6 +110,12 @@
            (map? (first args)))))
 
 (s/def ::fetch-asset-selector-markets-args fetch-asset-selector-markets-args?)
+(s/def ::fetch-candle-snapshot-args fetch-candle-snapshot-args?)
+(s/def ::request-id ::non-negative-int)
+(s/def ::request-id-args (s/tuple ::request-id))
+(s/def ::map-vector (s/and vector?
+                           (s/coll-of map? :kind vector?)))
+(s/def ::export-funding-history-csv-args (s/tuple ::map-vector))
 
 (s/def ::group #{:market_data :orders_oms :all})
 (s/def ::source keyword?)
@@ -72,19 +124,148 @@
 (s/def ::ws-reset-subscriptions-args (s/tuple ::ws-reset-request))
 (s/def ::no-args empty?)
 
+(s/def ::keyword-or-string (s/or :keyword keyword?
+                                 :string ::non-empty-string))
+(s/def ::tab ::keyword-or-string)
+(s/def ::market-or-coin (s/or :coin ::non-empty-string
+                              :market map?))
+(s/def ::dropdown-target (s/or :keyword keyword?
+                               :coin ::non-empty-string))
+(s/def ::dropdown-target-args (s/tuple ::dropdown-target))
+(s/def ::boolean-args (s/tuple boolean?))
+(s/def ::keyword-args (s/tuple keyword?))
+(s/def ::keyword-or-string-args (s/tuple ::keyword-or-string))
+(s/def ::single-input-args (s/tuple any?))
+(s/def ::tab-args (s/tuple ::tab))
+(s/def ::market-or-coin-args (s/tuple ::market-or-coin))
+(s/def ::market-key-args (s/tuple ::market-key))
+(s/def ::max-page-args (s/tuple (s/nilable ::intish)))
+(s/def ::page-and-max-page-args (s/tuple ::intish (s/nilable ::intish)))
+(s/def ::sort-column-args (s/tuple ::non-empty-string))
+(s/def ::key-args (s/tuple ::non-empty-string))
+(s/def ::keydown-with-max-page-args (s/tuple ::non-empty-string (s/nilable ::intish)))
+(s/def ::funding-history-filter-path (s/or :path ::state-path
+                                          :key keyword?))
+(s/def ::funding-history-filter-args (s/tuple ::funding-history-filter-path any?))
+(s/def ::add-indicator-args (s/tuple keyword? map?))
+(s/def ::update-indicator-period-args (s/tuple keyword? any?))
+(s/def ::cancel-order-args (s/tuple map?))
+(s/def ::funding-modal-args (s/tuple any?))
+(s/def ::ws-reset-source-args (s/or :none ::no-args
+                                    :source (s/tuple ::source)))
+
 (s/def ::action-id (s/and keyword?
                           #(= "actions" (namespace %))))
 (s/def ::effect-id (s/and keyword?
                           #(= "effects" (namespace %))))
 
 (def ^:private action-args-spec-by-id
-  {:actions/select-asset (s/tuple (s/or :coin ::non-empty-string
-                                        :market map?))
+  {:actions/init-websockets ::no-args
+   :actions/subscribe-to-asset ::coin-args
+   :actions/subscribe-to-webdata2 ::address-args
+   :actions/connect-wallet ::no-args
+   :actions/disconnect-wallet ::no-args
+   :actions/enable-agent-trading ::no-args
+   :actions/set-agent-storage-mode ::set-agent-storage-mode-args
+   :actions/copy-wallet-address ::no-args
+   :actions/reconnect-websocket ::no-args
+   :actions/toggle-ws-diagnostics ::no-args
+   :actions/close-ws-diagnostics ::no-args
+   :actions/toggle-ws-diagnostics-sensitive ::no-args
+   :actions/ws-diagnostics-reconnect-now ::no-args
+   :actions/ws-diagnostics-copy ::no-args
+   :actions/set-show-surface-freshness-cues ::boolean-args
+   :actions/toggle-show-surface-freshness-cues ::no-args
+   :actions/ws-diagnostics-reset-market-subscriptions ::ws-reset-source-args
+   :actions/ws-diagnostics-reset-orders-subscriptions ::ws-reset-source-args
+   :actions/ws-diagnostics-reset-all-subscriptions ::ws-reset-source-args
+   :actions/toggle-asset-dropdown ::dropdown-target-args
+   :actions/close-asset-dropdown ::no-args
+   :actions/select-asset ::market-or-coin-args
+   :actions/update-asset-search ::single-input-args
+   :actions/update-asset-selector-sort ::keyword-args
+   :actions/toggle-asset-selector-strict ::no-args
+   :actions/toggle-asset-favorite ::market-key-args
+   :actions/set-asset-selector-favorites-only ::boolean-args
+   :actions/set-asset-selector-tab ::tab-args
+   :actions/set-asset-selector-scroll-top ::single-input-args
+   :actions/increase-asset-selector-render-limit ::no-args
+   :actions/show-all-asset-selector-markets ::no-args
+   :actions/maybe-increase-asset-selector-render-limit ::single-input-args
+   :actions/refresh-asset-markets ::no-args
+   :actions/mark-loaded-asset-icon ::market-key-args
+   :actions/mark-missing-asset-icon ::market-key-args
+   :actions/toggle-timeframes-dropdown ::no-args
+   :actions/select-chart-timeframe ::keyword-args
+   :actions/toggle-chart-type-dropdown ::no-args
+   :actions/select-chart-type ::keyword-args
+   :actions/toggle-indicators-dropdown ::no-args
+   :actions/toggle-orderbook-size-unit-dropdown ::no-args
+   :actions/select-orderbook-size-unit ::keyword-or-string-args
+   :actions/toggle-orderbook-price-aggregation-dropdown ::no-args
+   :actions/select-orderbook-price-aggregation ::keyword-or-string-args
+   :actions/select-orderbook-tab ::tab-args
+   :actions/add-indicator ::add-indicator-args
+   :actions/remove-indicator ::keyword-args
+   :actions/update-indicator-period ::update-indicator-period-args
+   :actions/select-account-info-tab ::tab-args
+   :actions/set-funding-history-filters ::funding-history-filter-args
+   :actions/toggle-funding-history-filter-open ::no-args
+   :actions/toggle-funding-history-filter-coin ::coin-args
+   :actions/reset-funding-history-filter-draft ::no-args
+   :actions/apply-funding-history-filters ::no-args
+   :actions/view-all-funding-history ::no-args
+   :actions/export-funding-history-csv ::no-args
+   :actions/set-funding-history-page-size ::single-input-args
+   :actions/set-funding-history-page ::page-and-max-page-args
+   :actions/next-funding-history-page ::max-page-args
+   :actions/prev-funding-history-page ::max-page-args
+   :actions/set-funding-history-page-input ::single-input-args
+   :actions/apply-funding-history-page-input ::max-page-args
+   :actions/handle-funding-history-page-input-keydown ::keydown-with-max-page-args
+   :actions/set-trade-history-page-size ::single-input-args
+   :actions/set-trade-history-page ::page-and-max-page-args
+   :actions/next-trade-history-page ::max-page-args
+   :actions/prev-trade-history-page ::max-page-args
+   :actions/set-trade-history-page-input ::single-input-args
+   :actions/apply-trade-history-page-input ::max-page-args
+   :actions/handle-trade-history-page-input-keydown ::keydown-with-max-page-args
+   :actions/sort-trade-history ::sort-column-args
+   :actions/sort-positions ::sort-column-args
+   :actions/sort-balances ::sort-column-args
+   :actions/sort-open-orders ::sort-column-args
+   :actions/sort-funding-history ::sort-column-args
+   :actions/sort-order-history ::sort-column-args
+   :actions/toggle-order-history-filter-open ::no-args
+   :actions/set-order-history-status-filter ::keyword-or-string-args
+   :actions/set-order-history-page-size ::single-input-args
+   :actions/set-order-history-page ::page-and-max-page-args
+   :actions/next-order-history-page ::max-page-args
+   :actions/prev-order-history-page ::max-page-args
+   :actions/set-order-history-page-input ::single-input-args
+   :actions/apply-order-history-page-input ::max-page-args
+   :actions/handle-order-history-page-input-keydown ::keydown-with-max-page-args
+   :actions/refresh-order-history ::no-args
+   :actions/set-hide-small-balances ::boolean-args
+   :actions/select-order-entry-mode ::keyword-or-string-args
+   :actions/select-pro-order-type ::keyword-or-string-args
+   :actions/toggle-pro-order-type-dropdown ::no-args
+   :actions/close-pro-order-type-dropdown ::no-args
+   :actions/handle-pro-order-type-dropdown-keydown ::key-args
+   :actions/set-order-ui-leverage ::single-input-args
+   :actions/set-order-size-percent ::single-input-args
+   :actions/set-order-size-display ::single-input-args
+   :actions/focus-order-price-input ::no-args
+   :actions/blur-order-price-input ::no-args
+   :actions/set-order-price-to-mid ::no-args
+   :actions/toggle-order-tpsl-panel ::no-args
    :actions/update-order-form (s/tuple ::state-path any?)
+   :actions/submit-order ::no-args
+   :actions/cancel-order ::cancel-order-args
+   :actions/load-user-data ::address-args
+   :actions/set-funding-modal ::funding-modal-args
    :actions/navigate (s/or :path (s/tuple ::non-empty-string)
-                           :path-and-opts (s/tuple ::non-empty-string map?))
-   :actions/set-agent-storage-mode (s/tuple keyword?)
-   :actions/set-show-surface-freshness-cues (s/tuple boolean?)})
+                           :path-and-opts (s/tuple ::non-empty-string map?))})
 
 (def ^:private effect-args-spec-by-id
   {:effects/save ::save-args
@@ -99,6 +280,7 @@
    :effects/subscribe-orderbook ::coin-args
    :effects/subscribe-trades ::coin-args
    :effects/subscribe-webdata2 ::address-args
+   :effects/fetch-candle-snapshot ::fetch-candle-snapshot-args
    :effects/unsubscribe-active-asset ::coin-args
    :effects/unsubscribe-orderbook ::coin-args
    :effects/unsubscribe-trades ::coin-args
@@ -114,9 +296,28 @@
    :effects/copy-websocket-diagnostics ::no-args
    :effects/ws-reset-subscriptions ::ws-reset-subscriptions-args
    :effects/fetch-asset-selector-markets ::fetch-asset-selector-markets-args
+   :effects/api-fetch-user-funding-history ::request-id-args
+   :effects/api-fetch-historical-orders ::request-id-args
+   :effects/export-funding-history-csv ::export-funding-history-csv-args
    :effects/api-submit-order ::api-submit-order-args
    :effects/api-cancel-order ::api-cancel-order-args
    :effects/api-load-user-data ::address-args})
+
+(defn contracted-action-ids
+  []
+  (set (keys action-args-spec-by-id)))
+
+(defn contracted-effect-ids
+  []
+  (set (keys effect-args-spec-by-id)))
+
+(defn action-ids-using-any-args
+  []
+  (->> action-args-spec-by-id
+       (keep (fn [[action-id spec]]
+               (when (= spec ::any-args)
+                 action-id)))
+       set))
 
 (s/def ::coin ::non-empty-string)
 (s/def ::symbol ::non-empty-string)

@@ -38,6 +38,12 @@
    [:effects/api-cancel-order :api-cancel-order]
    [:effects/api-load-user-data :api-load-user-data]])
 
+(defn registered-effect-ids
+  []
+  (->> effect-bindings
+       (map first)
+       set))
+
 (def ^:private action-bindings
   [[:actions/init-websockets :init-websockets]
    [:actions/subscribe-to-asset :subscribe-to-asset]
@@ -144,6 +150,12 @@
    [:actions/load-user-data :load-user-data]
    [:actions/set-funding-modal :set-funding-modal]
    [:actions/navigate :navigate]])
+
+(defn registered-action-ids
+  []
+  (->> action-bindings
+       (map first)
+       set))
 
 (defn- require-handler
   [handlers handler-key kind id]
