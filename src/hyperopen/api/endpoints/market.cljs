@@ -67,7 +67,7 @@
                      opts)))
 
 (defn build-market-state
-  [now-ms-fn store phase dexs spot-meta spot-asset-ctxs perp-results]
+  [now-ms-fn active-asset phase dexs spot-meta spot-asset-ctxs perp-results]
   (let [dexs-with-default (if (= phase :bootstrap)
                             [nil]
                             (vec (cons nil (vec dexs))))
@@ -88,7 +88,6 @@
         market-by-key (into {}
                             (map (fn [m] [(:key m) m]))
                             all-markets)
-        active-asset (:active-asset @store)
         active-market (when active-asset
                         (markets/resolve-market-by-coin
                          market-by-key

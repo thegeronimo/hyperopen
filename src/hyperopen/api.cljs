@@ -378,15 +378,17 @@
    (request-asset-selector-markets! store {:phase :full}))
   ([store opts]
    (market-gateway/request-asset-selector-markets!
-    {:store store
-     :opts opts
-     :ensure-perp-dexs-data! ensure-perp-dexs-data!
-     :ensure-spot-meta-data! ensure-spot-meta-data!
+    {:opts opts
+     :active-asset (:active-asset @store)
+     :ensure-perp-dexs-data! (fn [request-opts]
+                               (ensure-perp-dexs-data! store request-opts))
+     :ensure-spot-meta-data! (fn [request-opts]
+                               (ensure-spot-meta-data! store request-opts))
      :ensure-public-webdata2! ensure-public-webdata2!
      :request-meta-and-asset-ctxs! request-meta-and-asset-ctxs!
-     :build-market-state (fn [runtime-store phase dexs spot-meta spot-asset-ctxs perp-results]
+     :build-market-state (fn [active-asset phase dexs spot-meta spot-asset-ctxs perp-results]
                            (market-gateway/build-market-state now-ms
-                                                              runtime-store
+                                                              active-asset
                                                               phase
                                                               dexs
                                                               spot-meta

@@ -9,12 +9,12 @@
           ensure-webdata-calls (atom [])
           meta-calls (atom [])
           build-calls (atom [])
-          deps {:store (atom {:active-asset "BTC"})
+          deps {:active-asset "BTC"
                 :opts {:phase :bootstrap}
-                :ensure-perp-dexs-data! (fn [_store opts]
+                :ensure-perp-dexs-data! (fn [opts]
                                           (swap! ensure-perp-calls conj opts)
                                           (js/Promise.resolve ["dex-a"]))
-                :ensure-spot-meta-data! (fn [_store opts]
+                :ensure-spot-meta-data! (fn [opts]
                                           (swap! ensure-spot-calls conj opts)
                                           (js/Promise.resolve {:tokens []}))
                 :ensure-public-webdata2! (fn [opts]
@@ -23,8 +23,8 @@
                 :request-meta-and-asset-ctxs! (fn [dex opts]
                                                 (swap! meta-calls conj [dex opts])
                                                 (js/Promise.resolve [{} []]))
-                :build-market-state (fn [store phase dexs spot-meta spot-asset-ctxs perp-results]
-                                      (swap! build-calls conj [store phase dexs spot-meta spot-asset-ctxs perp-results])
+                :build-market-state (fn [active-asset phase dexs spot-meta spot-asset-ctxs perp-results]
+                                      (swap! build-calls conj [active-asset phase dexs spot-meta spot-asset-ctxs perp-results])
                                       {:markets [{:coin "BTC"}]})
                 :log-fn (fn [& _] nil)}]
       (-> (market-loader/request-asset-selector-markets! deps)
@@ -37,6 +37,7 @@
                    (is (= [{:priority :high}] @ensure-webdata-calls))
                    (is (= [[nil {:priority :high}]] @meta-calls))
                    (is (= 1 (count @build-calls)))
+                   (is (= "BTC" (first (first @build-calls))))
                    (done)))
           (.catch (fn [err]
                     (is false (str "Unexpected error: " err))
@@ -45,18 +46,18 @@
 (deftest request-asset-selector-markets-full-phase-loads-default-and-named-dex-test
   (async done
     (let [meta-calls (atom [])
-          deps {:store (atom {:active-asset "ETH"})
+          deps {:active-asset "ETH"
                 :opts {:phase :full}
-                :ensure-perp-dexs-data! (fn [_store _opts]
+                :ensure-perp-dexs-data! (fn [_opts]
                                           (js/Promise.resolve ["dex-a" "dex-b"]))
-                :ensure-spot-meta-data! (fn [_store _opts]
+                :ensure-spot-meta-data! (fn [_opts]
                                           (js/Promise.resolve {:tokens []}))
                 :ensure-public-webdata2! (fn [_opts]
                                            (js/Promise.resolve {:spotAssetCtxs []}))
                 :request-meta-and-asset-ctxs! (fn [dex opts]
                                                 (swap! meta-calls conj [dex opts])
                                                 (js/Promise.resolve [{} []]))
-                :build-market-state (fn [_store _phase _dexs _spot-meta _spot-asset-ctxs _perp-results]
+                :build-market-state (fn [_active-asset _phase _dexs _spot-meta _spot-asset-ctxs _perp-results]
                                       {:markets []})
                 :log-fn (fn [& _] nil)}]
       (-> (market-loader/request-asset-selector-markets! deps)

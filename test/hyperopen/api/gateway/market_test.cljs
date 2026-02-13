@@ -47,14 +47,13 @@
 
 (deftest request-asset-selector-markets-delegates-to-loader-test
   (async done
-    (let [store (atom {:active-asset nil})
-          deps {:store store
+    (let [deps {:active-asset nil
                 :opts {:phase :bootstrap}
-                :ensure-perp-dexs-data! (fn [_store _opts] (js/Promise.resolve []))
-                :ensure-spot-meta-data! (fn [_store _opts] (js/Promise.resolve {:tokens [] :universe []}))
+                :ensure-perp-dexs-data! (fn [_opts] (js/Promise.resolve []))
+                :ensure-spot-meta-data! (fn [_opts] (js/Promise.resolve {:tokens [] :universe []}))
                 :ensure-public-webdata2! (fn [_opts] (js/Promise.resolve {:spotAssetCtxs []}))
                 :request-meta-and-asset-ctxs! (fn [_dex _opts] (js/Promise.resolve [nil nil]))
-                :build-market-state (fn [_store phase _dexs _spot-meta _spot-asset-ctxs _perp-results]
+                :build-market-state (fn [_active-asset phase _dexs _spot-meta _spot-asset-ctxs _perp-results]
                                       {:phase phase
                                        :markets []})
                 :log-fn (fn [& _] nil)}]

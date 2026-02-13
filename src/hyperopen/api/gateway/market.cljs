@@ -4,9 +4,9 @@
             [hyperopen.api.market-loader :as market-loader]))
 
 (defn build-market-state
-  [now-ms-fn store phase dexs spot-meta spot-asset-ctxs perp-results]
+  [now-ms-fn active-asset phase dexs spot-meta spot-asset-ctxs perp-results]
   (market-endpoints/build-market-state now-ms-fn
-                                       store
+                                       active-asset
                                        phase
                                        dexs
                                        spot-meta
@@ -171,8 +171,8 @@
    opts))
 
 (defn request-asset-selector-markets!
-  [{:keys [store
-           opts
+  [{:keys [opts
+           active-asset
            ensure-perp-dexs-data!
            ensure-spot-meta-data!
            ensure-public-webdata2!
@@ -180,8 +180,8 @@
            build-market-state
            log-fn]}]
   (market-loader/request-asset-selector-markets!
-   {:store store
-    :opts opts
+   {:opts opts
+    :active-asset active-asset
     :ensure-perp-dexs-data! ensure-perp-dexs-data!
     :ensure-spot-meta-data! ensure-spot-meta-data!
     :ensure-public-webdata2! ensure-public-webdata2!

@@ -1,8 +1,8 @@
 (ns hyperopen.api.market-loader)
 
 (defn request-asset-selector-markets!
-  [{:keys [store
-           opts
+  [{:keys [opts
+           active-asset
            ensure-perp-dexs-data!
            ensure-spot-meta-data!
            ensure-public-webdata2!
@@ -12,8 +12,8 @@
   (let [phase (if (= :bootstrap (:phase opts)) :bootstrap :full)
         priority (if (= phase :bootstrap) :high :low)
         base-promises (js/Promise.all
-                       (clj->js [(ensure-perp-dexs-data! store {:priority priority})
-                                 (ensure-spot-meta-data! store {:priority priority})
+                       (clj->js [(ensure-perp-dexs-data! {:priority priority})
+                                 (ensure-spot-meta-data! {:priority priority})
                                  (ensure-public-webdata2! {:priority priority})]))]
     (log-fn "Fetching asset selector markets. phase:" (name phase))
     (.then
@@ -33,7 +33,7 @@
          (.then
           (js/Promise.all perp-promises)
           (fn [perp-results]
-            (let [market-state (build-market-state store
+            (let [market-state (build-market-state active-asset
                                                    phase
                                                    dexs*
                                                    spot-meta-loaded
