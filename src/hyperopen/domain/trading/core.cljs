@@ -1,45 +1,68 @@
 (ns hyperopen.domain.trading.core
   (:require [clojure.string :as str]))
 
-(def order-types
-  [:market :limit :stop-market :stop-limit :take-market :take-limit :scale :twap])
-
-(def ^:private order-type-specs
-  {:market {:entry-mode :market}
+(def order-type-spec
+  (array-map
+   :market {:entry-mode :market
+            :limit-like? false
+            :requires-trigger? false
+            :validate :validate/market
+            :build :build/market}
    :limit {:entry-mode :limit
            :limit-like? true
-           :requires-price? true}
+           :requires-trigger? false
+           :validate :validate/limit
+           :build :build/limit}
    :stop-market {:entry-mode :pro
-                 :requires-trigger? true}
+                 :limit-like? false
+                 :requires-trigger? true
+                 :validate :validate/stop-market
+                 :build :build/stop-market}
    :stop-limit {:entry-mode :pro
                 :limit-like? true
-                :requires-price? true
-                :requires-trigger? true}
+                :requires-trigger? true
+                :validate :validate/stop-limit
+                :build :build/stop-limit}
    :take-market {:entry-mode :pro
-                 :requires-trigger? true}
+                 :limit-like? false
+                 :requires-trigger? true
+                 :validate :validate/take-market
+                 :build :build/take-market}
    :take-limit {:entry-mode :pro
                 :limit-like? true
-                :requires-price? true
-                :requires-trigger? true}
-   :scale {:entry-mode :pro}
-   :twap {:entry-mode :pro}})
+                :requires-trigger? true
+                :validate :validate/take-limit
+                :build :build/take-limit}
+   :scale {:entry-mode :pro
+           :limit-like? false
+           :requires-trigger? false
+           :validate :validate/scale
+           :build :build/scale}
+   :twap {:entry-mode :pro
+          :limit-like? false
+          :requires-trigger? false
+          :validate :validate/twap
+          :build :build/twap}))
+
+(def order-types
+  (vec (keys order-type-spec)))
 
 (def advanced-order-types
   (->> order-types
        (filter (fn [order-type]
-                 (= :pro (get-in order-type-specs [order-type :entry-mode]))))
+                 (= :pro (get-in order-type-spec [order-type :entry-mode]))))
        vec))
 
 (def limit-like-order-types
   (->> order-types
        (filter (fn [order-type]
-                 (true? (get-in order-type-specs [order-type :limit-like?]))))
+                 (true? (get-in order-type-spec [order-type :limit-like?]))))
        set))
 
 (def ^:private trigger-order-types
   (->> order-types
        (filter (fn [order-type]
-                 (true? (get-in order-type-specs [order-type :requires-trigger?]))))
+                 (true? (get-in order-type-spec [order-type :requires-trigger?]))))
        set))
 
 (def tif-options [:gtc :ioc :alo])
@@ -137,7 +160,7 @@
 
 (defn normalize-order-type [order-type]
   (let [candidate (if (keyword? order-type) order-type (keyword order-type))]
-    (if (some #{candidate} order-types) candidate :limit)))
+    (if (contains? order-type-spec candidate) candidate :limit)))
 
 (defn limit-like-type? [order-type]
   (contains? limit-like-order-types (normalize-order-type order-type)))
@@ -146,7 +169,13 @@
   (contains? trigger-order-types (normalize-order-type order-type)))
 
 (defn entry-mode-for-type [order-type]
-  (get-in order-type-specs [(normalize-order-type order-type) :entry-mode] :pro))
+  (get-in order-type-spec [(normalize-order-type order-type) :entry-mode] :pro))
+
+(defn order-type-validator-id [order-type]
+  (get-in order-type-spec [(normalize-order-type order-type) :validate]))
+
+(defn order-type-builder-id [order-type]
+  (get-in order-type-spec [(normalize-order-type order-type) :build]))
 
 (defn normalize-entry-mode [entry-mode order-type]
   (let [candidate (cond

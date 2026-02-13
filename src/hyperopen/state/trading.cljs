@@ -5,6 +5,7 @@
             [hyperopen.trading.order-form-state :as order-form-state]))
 
 (def order-types trading-domain/order-types)
+(def order-type-spec trading-domain/order-type-spec)
 (def advanced-order-types trading-domain/advanced-order-types)
 (def limit-like-order-types trading-domain/limit-like-order-types)
 (def tif-options trading-domain/tif-options)

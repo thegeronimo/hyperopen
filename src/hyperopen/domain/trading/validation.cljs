@@ -38,11 +38,89 @@
        (map validation-error-message)
        vec))
 
+(defn- invalid-positive? [value]
+  (or (nil? value)
+      (<= value 0)))
+
+(defn- require-size-error [{:keys [size]}]
+  (cond-> []
+    (invalid-positive? size)
+    (conj (validation-error :order/size-invalid))))
+
+(defn- require-price-error [{:keys [price]}]
+  (cond-> []
+    (invalid-positive? price)
+    (conj (validation-error :order/price-required))))
+
+(defn- require-trigger-error [{:keys [trigger]}]
+  (cond-> []
+    (invalid-positive? trigger)
+    (conj (validation-error :order/trigger-required))))
+
+(defn- validate-market [parsed]
+  (require-size-error parsed))
+
+(defn- validate-limit [parsed]
+  (into (require-size-error parsed)
+        (require-price-error parsed)))
+
+(defn- validate-stop-market [parsed]
+  (into (require-size-error parsed)
+        (require-trigger-error parsed)))
+
+(defn- validate-stop-limit [parsed]
+  (into (validate-limit parsed)
+        (require-trigger-error parsed)))
+
+(defn- validate-take-market [parsed]
+  (validate-stop-market parsed))
+
+(defn- validate-take-limit [parsed]
+  (validate-stop-limit parsed))
+
+(defn- validate-scale [{:keys [size
+                               scale-start
+                               scale-end
+                               scale-count
+                               scale-skew
+                               start-notional
+                               end-notional]}]
+  (cond-> (require-size-error {:size size})
+    (or (nil? scale-start)
+        (nil? scale-end)
+        (not (core/valid-scale-order-count? scale-count)))
+    (conj (validation-error :scale/inputs-invalid))
+
+    (not (core/valid-scale-skew? scale-skew))
+    (conj (validation-error :scale/skew-invalid))
+
+    (or (nil? start-notional)
+        (nil? end-notional)
+        (< start-notional core/scale-min-endpoint-notional)
+        (< end-notional core/scale-min-endpoint-notional))
+    (conj (validation-error :scale/endpoint-notional-too-small))))
+
+(defn- validate-twap [{:keys [twap-min] :as parsed}]
+  (cond-> (require-size-error parsed)
+    (invalid-positive? twap-min)
+    (conj (validation-error :twap/minutes-invalid))))
+
+(def ^:private type-validator-dispatch
+  {:validate/market validate-market
+   :validate/limit validate-limit
+   :validate/stop-market validate-stop-market
+   :validate/stop-limit validate-stop-limit
+   :validate/take-market validate-take-market
+   :validate/take-limit validate-take-limit
+   :validate/scale validate-scale
+   :validate/twap validate-twap})
+
 (defn validate-order-form
   ([form]
    (validate-order-form nil form))
   ([context form]
-   (let [size (core/parse-num (:size form))
+   (let [order-type (core/normalize-order-type (:type form))
+         size (core/parse-num (:size form))
          price (core/parse-num (:price form))
          trigger (core/parse-num (:trigger-px form))
          scale-start (core/parse-num (get-in form [:scale :start]))
@@ -52,7 +130,7 @@
          scale-sz-decimals (or (:sz-decimals context)
                                (:sz-decimals form)
                                (get-in form [:scale :sz-decimals]))
-         scale-legs (when (= :scale (:type form))
+         scale-legs (when (= :scale order-type)
                       (core/scale-order-legs size
                                              scale-count
                                              scale-skew
@@ -74,45 +152,27 @@
          sl-enabled? (get-in form [:sl :enabled?])
          tp-trigger (core/parse-num (get-in form [:tp :trigger]))
          sl-trigger (core/parse-num (get-in form [:sl :trigger]))
-         order-type (core/normalize-order-type (:type form))]
-     (cond-> []
-       (or (nil? size) (<= size 0))
-       (conj (validation-error :order/size-invalid))
+         parsed {:order-type order-type
+                 :size size
+                 :price price
+                 :trigger trigger
+                 :scale-start scale-start
+                 :scale-end scale-end
+                 :scale-count scale-count
+                 :scale-skew scale-skew
+                 :start-notional start-notional
+                 :end-notional end-notional
+                 :twap-min twap-min}
+         validator-id (core/order-type-validator-id order-type)
+         validator-fn (get type-validator-dispatch validator-id validate-limit)
+         type-errors (validator-fn parsed)
+         tpsl-errors (cond-> []
+                       (and tp-enabled? (invalid-positive? tp-trigger))
+                       (conj (validation-error :tpsl/tp-trigger-required))
 
-       (and (core/limit-like-type? order-type)
-            (or (nil? price) (<= price 0)))
-       (conj (validation-error :order/price-required))
-
-       (and (core/trigger-type? order-type)
-            (or (nil? trigger) (<= trigger 0)))
-       (conj (validation-error :order/trigger-required))
-
-       (and (= :scale order-type)
-            (or (nil? scale-start)
-                (nil? scale-end)
-                (not (core/valid-scale-order-count? scale-count))))
-       (conj (validation-error :scale/inputs-invalid))
-
-       (and (= :scale order-type)
-            (not (core/valid-scale-skew? scale-skew)))
-       (conj (validation-error :scale/skew-invalid))
-
-       (and (= :scale order-type)
-            (or (nil? start-notional)
-                (nil? end-notional)
-                (< start-notional core/scale-min-endpoint-notional)
-                (< end-notional core/scale-min-endpoint-notional)))
-       (conj (validation-error :scale/endpoint-notional-too-small))
-
-       (and (= :twap order-type)
-            (or (nil? twap-min) (<= twap-min 0)))
-       (conj (validation-error :twap/minutes-invalid))
-
-       (and tp-enabled? (or (nil? tp-trigger) (<= tp-trigger 0)))
-       (conj (validation-error :tpsl/tp-trigger-required))
-
-       (and sl-enabled? (or (nil? sl-trigger) (<= sl-trigger 0)))
-       (conj (validation-error :tpsl/sl-trigger-required))))))
+                       (and sl-enabled? (invalid-positive? sl-trigger))
+                       (conj (validation-error :tpsl/sl-trigger-required)))]
+     (into [] (concat type-errors tpsl-errors)))))
 
 (def ^:private required-field-rank
   {:price 0

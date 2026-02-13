@@ -4,6 +4,7 @@
             [hyperopen.domain.trading.validation :as validation]))
 
 (def order-types core/order-types)
+(def order-type-spec core/order-type-spec)
 (def advanced-order-types core/advanced-order-types)
 (def limit-like-order-types core/limit-like-order-types)
 (def tif-options core/tif-options)
@@ -21,6 +22,8 @@
 (def normalize-order-type core/normalize-order-type)
 (def limit-like-type? core/limit-like-type?)
 (def entry-mode-for-type core/entry-mode-for-type)
+(def order-type-validator-id core/order-type-validator-id)
+(def order-type-builder-id core/order-type-builder-id)
 (def normalize-entry-mode core/normalize-entry-mode)
 (def normalize-pro-order-type core/normalize-pro-order-type)
 (def market-max-leverage core/market-max-leverage)

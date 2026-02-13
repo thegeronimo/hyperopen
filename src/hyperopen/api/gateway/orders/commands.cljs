@@ -44,7 +44,7 @@
       tp-enabled? (conj (mk-trigger "tp" tp))
       sl-enabled? (conj (mk-trigger "sl" sl)))))
 
-(def ^:private order-type->builder
+(def ^:private standard-order-shape-builders
   {:limit (fn [base-order {:keys [post-only tif]}]
             (assoc base-order :t {:limit {:tif (if post-only "Alo" tif)}}))
    :market (fn [base-order _]
@@ -63,14 +63,8 @@
                  (assoc base-order
                         :t {:trigger (array-map :isMarket false :triggerPx trigger :tpsl "tp")}))})
 
-(defn- build-order [form base-order opts]
-  (let [builder (get order-type->builder (:type form)
-                     (fn [order _] order))]
-    (builder base-order opts)))
-
-(defn build-order-action
-  "Return {:action action :grouping grouping}"
-  [command-context form]
+(defn- build-standard-order-action
+  [order-type command-context form]
   (let [active-asset (:active-asset command-context)
         asset-idx (:asset-idx command-context)
         side (:side form)
@@ -80,21 +74,21 @@
         reduce-only (:reduce-only form)
         post-only (:post-only form)
         tif (tif->wire (:tif form))
+        shape-builder (get standard-order-shape-builders order-type)
         grouping (if (or (get-in form [:tp :enabled?]) (get-in form [:sl :enabled?]))
                    "normalTpsl"
                    "na")]
-    (when (and active-asset asset-idx size)
+    (when (and shape-builder active-asset asset-idx size)
       (let [base-order (array-map :a asset-idx
                                   :b (trading-domain/order-side->is-buy side)
                                   :p (str price)
                                   :s (str size)
                                   :r reduce-only)
-            order (build-order form
-                               base-order
-                               {:post-only post-only
-                                :tif tif
-                                :trigger trigger
-                                :price price})
+            order (shape-builder base-order
+                                 {:post-only post-only
+                                  :tif tif
+                                  :trigger trigger
+                                  :price price})
             tpsl-orders (build-tpsl-orders asset-idx side form)
             orders (cond-> [order]
                      (seq tpsl-orders) (into tpsl-orders))]
@@ -103,6 +97,36 @@
                             :grouping grouping)
          :asset-idx asset-idx
          :orders orders}))))
+
+(defn build-order-action
+  "Return {:action action :grouping grouping}"
+  [command-context form]
+  (let [order-type (trading-domain/normalize-order-type (:type form))]
+    (build-standard-order-action order-type command-context (assoc form :type order-type))))
+
+(defn- build-scale-request [command-context form]
+  (let [asset-idx (:asset-idx command-context)
+        side (:side form)
+        size (trading-domain/parse-num (:size form))
+        scale (get-in form [:scale])
+        orders (when (and asset-idx size)
+                 (build-scale-orders
+                  asset-idx
+                  side
+                  {:size size
+                   :count (:count scale)
+                   :skew (:skew scale)
+                   :sz-decimals (:sz-decimals command-context)}
+                  (get scale :start)
+                  (get scale :end)
+                  (:reduce-only form)
+                  (:post-only form)))]
+    (when (seq orders)
+      {:action (array-map :type "order"
+                          :orders (vec orders)
+                          :grouping "na")
+       :asset-idx asset-idx
+       :orders orders})))
 
 (defn build-twap-action [command-context form]
   (let [active-asset (:active-asset command-context)
@@ -121,29 +145,25 @@
                                            :t randomize))
        :asset-idx asset-idx})))
 
+(def ^:private order-request-builders
+  {:build/market (fn [command-context form]
+                   (build-standard-order-action :market command-context form))
+   :build/limit (fn [command-context form]
+                  (build-standard-order-action :limit command-context form))
+   :build/stop-market (fn [command-context form]
+                        (build-standard-order-action :stop-market command-context form))
+   :build/stop-limit (fn [command-context form]
+                       (build-standard-order-action :stop-limit command-context form))
+   :build/take-market (fn [command-context form]
+                        (build-standard-order-action :take-market command-context form))
+   :build/take-limit (fn [command-context form]
+                       (build-standard-order-action :take-limit command-context form))
+   :build/scale build-scale-request
+   :build/twap build-twap-action})
+
 (defn build-order-request [command-context form]
-  (case (:type form)
-    :twap (build-twap-action command-context form)
-    :scale (let [asset-idx (:asset-idx command-context)
-                 side (:side form)
-                 size (trading-domain/parse-num (:size form))
-                 scale (get-in form [:scale])
-                 orders (when (and asset-idx size)
-                          (build-scale-orders
-                           asset-idx
-                           side
-                           {:size size
-                            :count (:count scale)
-                            :skew (:skew scale)
-                            :sz-decimals (:sz-decimals command-context)}
-                           (get scale :start)
-                           (get scale :end)
-                           (:reduce-only form)
-                           (:post-only form)))]
-             (when (seq orders)
-               {:action (array-map :type "order"
-                                   :orders (vec orders)
-                                   :grouping "na")
-                :asset-idx asset-idx
-                :orders orders}))
-    (build-order-action command-context form)))
+  (let [order-type (trading-domain/normalize-order-type (:type form))
+        builder-id (trading-domain/order-type-builder-id order-type)
+        build-fn (get order-request-builders builder-id)]
+    (when build-fn
+      (build-fn command-context (assoc form :type order-type)))))
