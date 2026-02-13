@@ -1,13 +1,12 @@
 (ns hyperopen.api
   (:require [clojure.string :as str]
+            [hyperopen.api.endpoints.account :as account-endpoints]
+            [hyperopen.api.endpoints.market :as market-endpoints]
             [hyperopen.api.endpoints.orders :as order-endpoints]
             [hyperopen.api.info-client :as info-client]
             [hyperopen.api.projections :as api-projections]
-            [hyperopen.asset-selector.markets :as markets]
             [hyperopen.domain.funding-history :as funding-history]
-            [hyperopen.platform :as platform]
-            [hyperopen.utils.data-normalization :refer [normalize-asset-contexts]]
-            [hyperopen.utils.interval :refer [interval-to-milliseconds]]))
+            [hyperopen.platform :as platform]))
 
 (def info-url (:info-url info-client/default-config))
 (def default-funding-history-window-ms funding-history/default-window-ms)
@@ -130,21 +129,10 @@
   ([body opts attempt]
    ((:request-info! (active-info-client)) body opts attempt)))
 
-(defn- dex-names-from-response
-  [data]
-  (->> data
-       (keep (fn [entry]
-               (when (and (map? entry)
-                          (seq (:name entry)))
-                 (:name entry))))
-       vec))
-
 (defn request-asset-contexts!
   ([] (request-asset-contexts! {}))
   ([opts]
-   (-> (post-info! {"type" "metaAndAssetCtxs"}
-                   (merge {:priority :high} opts))
-       (.then normalize-asset-contexts))))
+   (market-endpoints/request-asset-contexts! post-info! opts)))
 
 (defn fetch-asset-contexts!
   ([store]
@@ -166,24 +154,12 @@
   ([dex]
    (fetch-meta-and-asset-ctxs! dex {}))
   ([dex opts]
-   (let [body (cond-> {"type" "metaAndAssetCtxs"}
-                (and dex (not= dex "")) (assoc "dex" dex))
-         dedupe-key (or (:dedupe-key opts)
-                        (if (seq dex)
-                          [:meta-and-asset-ctxs dex]
-                          :meta-and-asset-ctxs-default))]
-     (-> (post-info! body
-                     (merge {:priority :high
-                             :dedupe-key dedupe-key}
-                            opts))
-         (.then identity)))))
+   (market-endpoints/request-meta-and-asset-ctxs! post-info! dex opts)))
 
 (defn request-perp-dexs!
   ([] (request-perp-dexs! {}))
   ([opts]
-   (-> (post-info! {"type" "perpDexs"}
-                   (merge {:priority :high} opts))
-       (.then dex-names-from-response))))
+   (market-endpoints/request-perp-dexs! post-info! opts)))
 
 (defn fetch-perp-dexs!
   "Fetch the list of available perp DEXes. The default DEX is omitted from
@@ -204,18 +180,12 @@
 (defn request-candle-snapshot!
   [coin & {:keys [interval bars priority]
            :or {interval :1d bars 330 priority :high}}]
-  (if (nil? coin)
-    (js/Promise.resolve nil)
-    (let [now (now-ms)
-          ms (interval-to-milliseconds interval)
-          start (- now (* bars ms))
-          interval-s (name interval)
-          body {"type" "candleSnapshot"
-                "req" {"coin" coin
-                       "interval" interval-s
-                       "startTime" start
-                       "endTime" now}}]
-      (post-info! body {:priority priority}))))
+  (market-endpoints/request-candle-snapshot! post-info!
+                                             now-ms
+                                             coin
+                                             {:interval interval
+                                              :bars bars
+                                              :priority priority}))
 
 (defn fetch-candle-snapshot!
   "Fetch `bars` worth of candles for the active asset at keyword interval (e.g. :1m, :1h).
@@ -302,37 +272,6 @@
   ([address opts]
    (fetch-historical-orders! nil address opts)))
 
-(defn- user-funding-request-body
-  [address start-time-ms end-time-ms]
-  (cond-> {"type" "userFunding"
-           "user" address}
-    (number? start-time-ms) (assoc "startTime" (js/Math.floor start-time-ms))
-    (number? end-time-ms) (assoc "endTime" (js/Math.floor end-time-ms))))
-
-(defn- fetch-user-funding-page!
-  [address start-time-ms end-time-ms opts]
-  (-> (post-info! (user-funding-request-body address start-time-ms end-time-ms)
-                  (merge {:priority :high}
-                         opts))))
-
-(defn- fetch-user-funding-history-loop!
-  [address start-time-ms end-time-ms opts acc]
-  (-> (fetch-user-funding-page! address start-time-ms end-time-ms opts)
-      (.then (fn [payload]
-               (let [rows (normalize-info-funding-rows payload)]
-                 (if (seq rows)
-                   (let [max-time-ms (apply max (map :time-ms rows))
-                         next-start-ms (inc max-time-ms)
-                         acc* (into acc rows)
-                         exhausted? (or (nil? max-time-ms)
-                                        (= next-start-ms start-time-ms)
-                                        (and (number? end-time-ms)
-                                             (> next-start-ms end-time-ms)))]
-                     (if exhausted?
-                       (sort-funding-history-rows acc*)
-                       (fetch-user-funding-history-loop! address next-start-ms end-time-ms opts acc*)))
-                   (sort-funding-history-rows acc)))))))
-
 (defn fetch-user-funding-history!
   ([store address]
    (fetch-user-funding-history! store address {}))
@@ -340,12 +279,13 @@
    (if-not address
      (js/Promise.resolve [])
      (let [{:keys [start-time-ms end-time-ms]} (normalize-funding-history-filters opts)]
-       (fetch-user-funding-history-loop! address
-                                         start-time-ms
-                                         end-time-ms
-                                         (merge {:priority :high}
-                                                (or opts {}))
-                                         [])))))
+       (account-endpoints/request-user-funding-history! post-info!
+                                                        normalize-info-funding-rows
+                                                        sort-funding-history-rows
+                                                        address
+                                                        start-time-ms
+                                                        end-time-ms
+                                                        opts)))))
 
 (defn request-user-funding-history!
   ([address]
@@ -356,9 +296,7 @@
 (defn request-spot-meta!
   ([] (request-spot-meta! {}))
   ([opts]
-   (post-info! {"type" "spotMeta"}
-               (merge {:priority :high}
-                      opts))))
+   (market-endpoints/request-spot-meta! post-info! opts)))
 
 (defn fetch-spot-meta!
   ([store]
@@ -387,10 +325,7 @@
   ([]
    (request-public-webdata2! {}))
   ([opts]
-   (post-info! {"type" "webData2"
-                "user" "0x0000000000000000000000000000000000000000"}
-               (merge {:priority :high}
-                      opts))))
+   (market-endpoints/request-public-webdata2! post-info! opts)))
 
 (defn fetch-public-webdata2!
   ([]
@@ -468,38 +403,6 @@
                     (reset! public-webdata2-cache snapshot)
                     snapshot)))))))
 
-(defn- build-market-state
-  [store phase dexs spot-meta spot-asset-ctxs perp-results]
-  (let [dexs-with-default (if (= phase :bootstrap)
-                            [nil]
-                            (vec (cons nil (vec dexs))))
-        token-by-index (into {}
-                             (map (fn [{:keys [index name]}]
-                                    [index name]))
-                             (:tokens spot-meta))
-        perp-markets (->> (map vector dexs-with-default perp-results)
-                          (mapcat (fn [[dex [meta asset-ctxs]]]
-                                    (markets/build-perp-markets
-                                     meta
-                                     asset-ctxs
-                                     token-by-index
-                                     :dex dex)))
-                          vec)
-        spot-markets (markets/build-spot-markets spot-meta spot-asset-ctxs)
-        all-markets (vec (concat perp-markets spot-markets))
-        market-by-key (into {}
-                            (map (fn [m] [(:key m) m]))
-                            all-markets)
-        active-asset (:active-asset @store)
-        active-market (when active-asset
-                        (markets/resolve-market-by-coin
-                         market-by-key
-                         active-asset))]
-    {:markets all-markets
-     :market-by-key market-by-key
-     :active-market active-market
-     :loaded-at-ms (now-ms)}))
-
 (defn fetch-asset-selector-markets!
   "Fetch and build a unified market list for the asset selector.
 
@@ -546,17 +449,18 @@
                                  (into-array))
               spot-asset-ctxs (:spotAssetCtxs webdata2)]
           (.then
-           (js/Promise.all perp-promises)
-           (fn [perp-results]
-             (let [market-state (build-market-state
-                                 store
-                                 phase
-                                 dexs*
-                                 spot-meta-loaded
-                                 spot-asset-ctxs
-                                 (array-seq perp-results))]
-               {:phase phase
-                :market-state market-state})))))))))
+	           (js/Promise.all perp-promises)
+	           (fn [perp-results]
+	             (let [market-state (market-endpoints/build-market-state
+	                                 now-ms
+	                                 store
+	                                 phase
+	                                 dexs*
+	                                 spot-meta-loaded
+	                                 spot-asset-ctxs
+	                                 (array-seq perp-results))]
+	               {:phase phase
+	                :market-state market-state})))))))))
 
 (defn fetch-spot-clearinghouse-state!
   ([store address]
@@ -580,23 +484,7 @@
   ([address]
    (request-spot-clearinghouse-state! address {}))
   ([address opts]
-   (if-not address
-     (js/Promise.resolve nil)
-     (post-info! {"type" "spotClearinghouseState"
-                  "user" address}
-                 (merge {:priority :high}
-                        opts)))))
-
-(defn- normalize-user-abstraction-mode
-  [abstraction]
-  (let [abstraction* (some-> abstraction str str/trim)]
-    (case abstraction*
-      "unifiedAccount" :unified
-      "portfolioMargin" :unified
-      "dexAbstraction" :unified
-      "default" :classic
-      "disabled" :classic
-      :classic)))
+   (account-endpoints/request-spot-clearinghouse-state! post-info! address opts)))
 
 (defn fetch-user-abstraction!
   "Fetch account abstraction mode for a user and project normalized account mode.
@@ -613,7 +501,7 @@
        (-> (request-user-abstraction! address opts)
            (.then (fn [payload]
                     (let [abstraction payload
-                          mode (normalize-user-abstraction-mode abstraction)
+                          mode (account-endpoints/normalize-user-abstraction-mode abstraction)
                           snapshot {:mode mode
                                     :abstraction-raw abstraction}]
                       (swap! store api-projections/apply-user-abstraction-snapshot requested-address snapshot)
@@ -626,28 +514,13 @@
   ([address]
    (request-user-abstraction! address {}))
   ([address opts]
-   (if-not address
-     (js/Promise.resolve nil)
-     (let [requested-address (some-> address str str/lower-case)
-           opts* (merge {:priority :high
-                         :dedupe-key [:user-abstraction requested-address]}
-                        opts)]
-       (post-info! {"type" "userAbstraction"
-                    "user" address}
-                   opts*)))))
+   (account-endpoints/request-user-abstraction! post-info! address opts)))
 
 (defn request-clearinghouse-state!
   ([address dex]
    (request-clearinghouse-state! address dex {}))
   ([address dex opts]
-   (if-not address
-     (js/Promise.resolve nil)
-     (let [body (cond-> {"type" "clearinghouseState"
-                         "user" address}
-                  (and dex (not= dex "")) (assoc "dex" dex))]
-       (post-info! body
-                   (merge {:priority :high}
-                          opts))))))
+   (account-endpoints/request-clearinghouse-state! post-info! address dex opts)))
 
 (defn fetch-clearinghouse-state!
   "Fetch clearinghouse state for a specific perp DEX."
