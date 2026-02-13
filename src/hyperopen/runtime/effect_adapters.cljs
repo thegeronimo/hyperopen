@@ -1,7 +1,7 @@
 (ns hyperopen.runtime.effect-adapters
   (:require [nexus.registry :as nxr]
             [hyperopen.platform :as platform]
-            [hyperopen.api :as api]
+            [hyperopen.api.default :as api]
             [hyperopen.api.projections :as api-projections]
             [hyperopen.account.history.effects :as account-history-effects]
             [hyperopen.order.effects :as order-effects]

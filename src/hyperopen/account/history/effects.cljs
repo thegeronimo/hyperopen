@@ -1,6 +1,6 @@
 (ns hyperopen.account.history.effects
   (:require [clojure.string :as str]
-            [hyperopen.api :as api]
+            [hyperopen.api.default :as api]
             [hyperopen.account.history.actions :as account-history-actions]
             [hyperopen.domain.funding-history :as funding-history]
             [hyperopen.platform :as platform]))

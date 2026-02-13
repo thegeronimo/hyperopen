@@ -1,5 +1,5 @@
 (ns hyperopen.order.effects
-  (:require [hyperopen.api :as api]
+  (:require [hyperopen.api.default :as api]
             [hyperopen.api.projections :as api-projections]
             [hyperopen.api.trading :as trading-api]))
 

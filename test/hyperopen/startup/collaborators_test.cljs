@@ -1,6 +1,6 @@
 (ns hyperopen.startup.collaborators-test
   (:require [cljs.test :refer-macros [async deftest is]]
-            [hyperopen.api :as api]
+            [hyperopen.api.default :as api]
             [hyperopen.account.history.effects :as account-history-effects]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.startup.collaborators :as collaborators]

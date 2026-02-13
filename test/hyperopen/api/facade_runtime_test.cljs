@@ -1,6 +1,7 @@
 (ns hyperopen.api.facade-runtime-test
   (:require [cljs.test :refer-macros [async deftest is use-fixtures]]
-            [hyperopen.api :as api]
+            [hyperopen.api :as api-instance]
+            [hyperopen.api.default :as api]
             [hyperopen.api.service :as api-service]))
 
 (defn- stub-client
@@ -65,8 +66,8 @@
         service-b (api-service/make-service
                    {:info-client-instance (stub-client {:stats {:source :b}
                                                         :reset-calls reset-b})})
-        api-a (api/make-api {:service service-a})
-        api-b (api/make-api {:service service-b})]
+        api-a (api-instance/make-api {:service service-a})
+        api-b (api-instance/make-api {:service service-b})]
     (is (= {:source :a}
            ((:get-request-stats api-a))))
     (is (= {:source :b}
@@ -85,8 +86,8 @@
                                      (js/Promise.resolve [{:name "dex-b"}]))
                     :get-request-stats (fn [] {:source :b})
                     :reset! (fn [] nil)}
-          api-a (api/make-api {:service (api-service/make-service {:info-client-instance client-a})})
-          api-b (api/make-api {:service (api-service/make-service {:info-client-instance client-b})})]
+          api-a (api-instance/make-api {:service (api-service/make-service {:info-client-instance client-a})})
+          api-b (api-instance/make-api {:service (api-service/make-service {:info-client-instance client-b})})]
       (-> (js/Promise.all
            #js [((:request-perp-dexs! api-a) {})
                 ((:request-perp-dexs! api-b) {})])

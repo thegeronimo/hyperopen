@@ -1,7 +1,7 @@
 (ns hyperopen.startup.collaborators
   (:require [clojure.string :as str]
             [nexus.registry :as nxr]
-            [hyperopen.api :as api]
+            [hyperopen.api.default :as api-default]
             [hyperopen.api.endpoints.account :as account-endpoints]
             [hyperopen.api.projections :as api-projections]
             [hyperopen.account.history.effects :as account-history-effects]
@@ -22,15 +22,15 @@
 
 (defn- resolve-api-ops
   [api-instance]
-  {:get-request-stats (resolve-api-op api-instance :get-request-stats api/get-request-stats)
-   :request-frontend-open-orders! (resolve-api-op api-instance :request-frontend-open-orders! api/request-frontend-open-orders!)
-   :request-clearinghouse-state! (resolve-api-op api-instance :request-clearinghouse-state! api/request-clearinghouse-state!)
-   :request-user-fills! (resolve-api-op api-instance :request-user-fills! api/request-user-fills!)
-   :request-spot-clearinghouse-state! (resolve-api-op api-instance :request-spot-clearinghouse-state! api/request-spot-clearinghouse-state!)
-   :request-user-abstraction! (resolve-api-op api-instance :request-user-abstraction! api/request-user-abstraction!)
-   :ensure-perp-dexs-data! (resolve-api-op api-instance :ensure-perp-dexs-data! api/ensure-perp-dexs-data!)
-   :request-asset-contexts! (resolve-api-op api-instance :request-asset-contexts! api/request-asset-contexts!)
-   :request-asset-selector-markets! (resolve-api-op api-instance :request-asset-selector-markets! api/request-asset-selector-markets!)})
+  {:get-request-stats (resolve-api-op api-instance :get-request-stats api-default/get-request-stats)
+   :request-frontend-open-orders! (resolve-api-op api-instance :request-frontend-open-orders! api-default/request-frontend-open-orders!)
+   :request-clearinghouse-state! (resolve-api-op api-instance :request-clearinghouse-state! api-default/request-clearinghouse-state!)
+   :request-user-fills! (resolve-api-op api-instance :request-user-fills! api-default/request-user-fills!)
+   :request-spot-clearinghouse-state! (resolve-api-op api-instance :request-spot-clearinghouse-state! api-default/request-spot-clearinghouse-state!)
+   :request-user-abstraction! (resolve-api-op api-instance :request-user-abstraction! api-default/request-user-abstraction!)
+   :ensure-perp-dexs-data! (resolve-api-op api-instance :ensure-perp-dexs-data! api-default/ensure-perp-dexs-data!)
+   :request-asset-contexts! (resolve-api-op api-instance :request-asset-contexts! api-default/request-asset-contexts!)
+   :request-asset-selector-markets! (resolve-api-op api-instance :request-asset-selector-markets! api-default/request-asset-selector-markets!)})
 
 (defn- fetch-frontend-open-orders!
   ([api-ops store address]

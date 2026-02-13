@@ -2,7 +2,7 @@
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [async deftest is use-fixtures]]
             [nexus.registry :as nxr]
-            [hyperopen.api :as api]
+            [hyperopen.api.default :as api]
             [hyperopen.api.trading :as trading-api]
             [hyperopen.account.history.effects :as account-history-effects]
             [hyperopen.app.bootstrap :as app-bootstrap]

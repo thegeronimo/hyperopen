@@ -1,6 +1,6 @@
 (ns hyperopen.api-test
   (:require [cljs.test :refer-macros [async deftest is use-fixtures]]
-            [hyperopen.api :as api]
+            [hyperopen.api.default :as api]
             [hyperopen.domain.funding-history :as funding-history]
             [hyperopen.api.info-client :as info-client]))
 
@@ -22,8 +22,8 @@
   (async done
     (let [store (atom {:perp-dexs []})
           calls (atom 0)
-          original-post-info hyperopen.api/post-info!]
-      (set! hyperopen.api/post-info!
+          original-post-info hyperopen.api.default/post-info!]
+      (set! hyperopen.api.default/post-info!
             (fn post-info-mock
               ([body]
                (post-info-mock body {}))
@@ -45,7 +45,7 @@
                       (done)))
             (.finally
               (fn []
-                (set! hyperopen.api/post-info! original-post-info))))))))
+                (set! hyperopen.api.default/post-info! original-post-info))))))))
 
 (deftest scheduler-prioritizes-high-after-saturation-test
   (async done
@@ -149,8 +149,8 @@
 (deftest fetch-user-funding-history-paginates-until-empty-page-test
   (async done
     (let [calls (atom [])
-          original-post-info hyperopen.api/post-info!]
-      (set! hyperopen.api/post-info!
+          original-post-info hyperopen.api.default/post-info!]
+      (set! hyperopen.api.default/post-info!
             (fn post-info-mock
               ([body]
                (post-info-mock body {}))
@@ -196,13 +196,13 @@
                     (done)))
           (.finally
             (fn []
-              (set! hyperopen.api/post-info! original-post-info)))))))
+              (set! hyperopen.api.default/post-info! original-post-info)))))))
 
 (deftest fetch-historical-orders-sends-request-and-normalizes-vector-payload-test
   (async done
     (let [calls (atom [])
-          original-post-info hyperopen.api/post-info!]
-      (set! hyperopen.api/post-info!
+          original-post-info hyperopen.api.default/post-info!]
+      (set! hyperopen.api.default/post-info!
             (fn post-info-mock
               ([body]
                (post-info-mock body {}))
@@ -225,12 +225,12 @@
                     (done)))
           (.finally
             (fn []
-              (set! hyperopen.api/post-info! original-post-info)))))))
+              (set! hyperopen.api.default/post-info! original-post-info)))))))
 
 (deftest fetch-historical-orders-supports-wrapped-payload-keys-test
   (async done
-    (let [original-post-info hyperopen.api/post-info!]
-      (set! hyperopen.api/post-info!
+    (let [original-post-info hyperopen.api.default/post-info!]
+      (set! hyperopen.api.default/post-info!
             (fn post-info-mock
               ([body]
                (post-info-mock body {}))
@@ -248,14 +248,14 @@
                     (done)))
           (.finally
             (fn []
-              (set! hyperopen.api/post-info! original-post-info)))))))
+              (set! hyperopen.api.default/post-info! original-post-info)))))))
 
 (deftest fetch-user-fills-sends-aggregate-request-and-preserves-liquidation-fields-test
   (async done
     (let [store (atom {:orders {}})
           calls (atom [])
-          original-post-info hyperopen.api/post-info!]
-      (set! hyperopen.api/post-info!
+          original-post-info hyperopen.api.default/post-info!]
+      (set! hyperopen.api.default/post-info!
             (fn post-info-mock
               ([body]
                (post-info-mock body {}))
@@ -288,7 +288,7 @@
                     (done)))
           (.finally
             (fn []
-              (set! hyperopen.api/post-info! original-post-info)))))))
+              (set! hyperopen.api.default/post-info! original-post-info)))))))
 
 (deftest fetch-user-abstraction-sends-request-and-projects-unified-mode-test
   (async done
@@ -296,8 +296,8 @@
                        :account {:mode :classic
                                  :abstraction-raw nil}})
           calls (atom [])
-          original-post-info hyperopen.api/post-info!]
-      (set! hyperopen.api/post-info!
+          original-post-info hyperopen.api.default/post-info!]
+      (set! hyperopen.api.default/post-info!
             (fn post-info-mock
               ([body]
                (post-info-mock body {}))
@@ -321,15 +321,15 @@
                     (done)))
           (.finally
             (fn []
-              (set! hyperopen.api/post-info! original-post-info)))))))
+              (set! hyperopen.api.default/post-info! original-post-info)))))))
 
 (deftest fetch-user-abstraction-maps-classic-modes-test
   (async done
     (let [store (atom {:wallet {:address "0xabc"}
                        :account {:mode :unified
                                  :abstraction-raw "unifiedAccount"}})
-          original-post-info hyperopen.api/post-info!]
-      (set! hyperopen.api/post-info!
+          original-post-info hyperopen.api.default/post-info!]
+      (set! hyperopen.api.default/post-info!
             (fn post-info-mock
               ([body]
                (post-info-mock body {}))
@@ -349,15 +349,15 @@
                     (done)))
           (.finally
             (fn []
-              (set! hyperopen.api/post-info! original-post-info)))))))
+              (set! hyperopen.api.default/post-info! original-post-info)))))))
 
 (deftest fetch-user-abstraction-skips-stale-address-write-test
   (async done
     (let [store (atom {:wallet {:address "0xdef"}
                        :account {:mode :classic
                                  :abstraction-raw nil}})
-          original-post-info hyperopen.api/post-info!]
-      (set! hyperopen.api/post-info!
+          original-post-info hyperopen.api.default/post-info!]
+      (set! hyperopen.api.default/post-info!
             (fn post-info-mock
               ([body]
                (post-info-mock body {}))
@@ -379,4 +379,4 @@
                     (done)))
           (.finally
             (fn []
-              (set! hyperopen.api/post-info! original-post-info)))))))
+              (set! hyperopen.api.default/post-info! original-post-info)))))))
