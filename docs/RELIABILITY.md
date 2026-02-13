@@ -23,6 +23,12 @@ source_of_truth: true
 - Represent side effects explicitly and execute them only in interpreters.
 - Keep reducer logic deterministic and replay-safe.
 - Keep startup/bootstrap/effect handlers idempotent and reentrant.
+- Keep balance projection prerequisites hydrated: when `:spot :clearinghouse-state :balances` is present for non-USDC assets, `:spot :meta :tokens` MUST be present in the same runtime window.
+
+## Account Data Hydration Rules (MUST)
+- Asset-selector and bootstrap loaders that fetch spot metadata MUST project it into `[:spot :meta]`; fetching without projection is considered a contract violation.
+- Balance projections that depend on token metadata (for example contract ids/decimals) MUST treat `[:spot :meta :tokens]` as a required input and emit a debug invariant warning when balances are present but token metadata is empty.
+- Changes to market-loader response shapes MUST include parity updates in all callers that apply projections (`runtime api effects` and `fetch compat` paths).
 
 ## core.async / Channel Best Practices (MUST)
 - MUST define explicit channel roles and keep them stable:

@@ -282,6 +282,22 @@
     (and (seq coin*)
          (str/starts-with? coin* "USDC"))))
 
+(defn- non-usdc-balance? [balance]
+  (not (usdc-coin? (:coin balance))))
+
+(defn- maybe-warn-balance-spot-meta-invariant!
+  [spot-meta spot-state]
+  (let [spot-balances (or (get spot-state :balances) [])
+        non-usdc-count (count (filter non-usdc-balance? spot-balances))
+        token-count (count (or (:tokens spot-meta) []))]
+    (when (and ^boolean goog.DEBUG
+               (pos? non-usdc-count)
+               (zero? token-count))
+      (js/console.warn
+       "Balance contract invariant warning: spot balances include non-USDC assets but spot meta tokens are empty."
+       (clj->js {:non-usdc-balance-count non-usdc-count
+                 :spot-meta-token-count token-count})))))
+
 (defn- normalize-coin-code [coin]
   (some-> coin str str/trim str/upper-case))
 
@@ -517,6 +533,7 @@
         unified? (unified-account-mode? account)
         spot-meta (:meta spot-data)
         spot-state (:clearinghouse-state spot-data)
+        _ (maybe-warn-balance-spot-meta-invariant! spot-meta spot-state)
         spot-asset-ctxs (:spotAssetCtxs webdata2)
         spot-tokens (or (:tokens spot-meta) [])
         price-by-token (build-token-usdc-price-map spot-meta spot-asset-ctxs market-by-key)
@@ -545,43 +562,45 @@
                        :pnl-pct nil
                        :amount-decimals nil}))
         spot-rows (when (seq (get spot-state :balances))
-                    (map (fn [{:keys [coin token hold total] :as balance}]
-                           (let [{:keys [token-idx total-num price usdc-value]}
-                                 (spot-balance-valuation price-by-token price-by-coin coin token total)
-                                 token-meta (resolve-token-meta token-by-index token-by-ref token coin)
-                                 decimals (or (get token-decimals token-idx)
-                                              (get coin-decimals (normalize-coin-code coin)))
-                                 hold-num (parse-num hold)
-                                 available-num (- total-num hold-num)
-                                 entry-num (spot-entry-notional balance)
-                                 pnl-value (when (and (number? price)
-                                                      (number? entry-num)
-                                                      (pos? entry-num))
-                                             (- usdc-value entry-num))
-                                 pnl-pct (when (and pnl-value (pos? entry-num))
-                                           (* 100 (/ pnl-value entry-num)))
-                                 coin-label (if (= coin "USDC")
-                                              (if unified? "USDC" "USDC (Spot)")
-                                              coin)
-                                 contract-id (when-not (= coin "USDC")
-                                               (or (extract-balance-contract-id balance)
-                                                   (extract-balance-contract-id token-meta)))]
-                             {:key (str "spot-" (or token-idx coin))
-                              :coin coin-label
-                              :total-balance total-num
-                              :available-balance available-num
-                              :usdc-value usdc-value
-                              :pnl-value pnl-value
-                              :pnl-pct pnl-pct
-                              :amount-decimals decimals
-                              :contract-id contract-id}))
-                         (get spot-state :balances)))]
-    (if unified?
-      (merge-unified-usdc-row spot-rows perps-row)
-      (->> (concat (when perps-row [perps-row]) spot-rows)
-           (remove nil?)
-           (filter non-zero-balance-row?)
-           vec)))))
+                    (->> (get spot-state :balances)
+                         (map (fn [{:keys [coin token hold total] :as balance}]
+                                (let [{:keys [token-idx total-num price usdc-value]}
+                                      (spot-balance-valuation price-by-token price-by-coin coin token total)
+                                      token-meta (resolve-token-meta token-by-index token-by-ref token coin)
+                                      decimals (or (get token-decimals token-idx)
+                                                   (get coin-decimals (normalize-coin-code coin)))
+                                      hold-num (parse-num hold)
+                                      available-num (- total-num hold-num)
+                                      entry-num (spot-entry-notional balance)
+                                      pnl-value (when (and (number? price)
+                                                           (number? entry-num)
+                                                           (pos? entry-num))
+                                                  (- usdc-value entry-num))
+                                      pnl-pct (when (and pnl-value (pos? entry-num))
+                                                (* 100 (/ pnl-value entry-num)))
+                                      coin-label (if (= coin "USDC")
+                                                   (if unified? "USDC" "USDC (Spot)")
+                                                   coin)
+                                      contract-id (when-not (= coin "USDC")
+                                                    (or (extract-balance-contract-id balance)
+                                                        (extract-balance-contract-id token-meta)))]
+                                  {:key (str "spot-" (or token-idx coin))
+                                   :coin coin-label
+                                   :total-balance total-num
+                                   :available-balance available-num
+                                   :usdc-value usdc-value
+                                   :pnl-value pnl-value
+                                   :pnl-pct pnl-pct
+                                   :amount-decimals decimals
+                                   :contract-id contract-id})))
+                         vec))
+        rows (if unified?
+               (merge-unified-usdc-row spot-rows perps-row)
+               (->> (concat (when perps-row [perps-row]) spot-rows)
+                    (remove nil?)
+                    (filter non-zero-balance-row?)
+                    vec))]
+    rows)))
 
 (defn position-unique-key [position-data]
   (str (get-in position-data [:position :coin]) "|" (or (:dex position-data) "default")))
