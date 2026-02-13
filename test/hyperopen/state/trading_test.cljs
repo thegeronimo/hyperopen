@@ -264,6 +264,27 @@
     (is (= ["limit"] (js-object-keys (aget order-js "t"))))
     (is (= ["tif"] (js-object-keys (aget (aget order-js "t") "limit"))))))
 
+(deftest build-order-request-fails-closed-when-required-numerics-missing-test
+  (let [state (assoc base-state
+                     :asset-contexts {:BTC {:idx 5}})
+        base-form (assoc (trading/default-order-form)
+                         :side :buy
+                         :size "1")]
+    (is (nil? (trading/build-order-request state (assoc base-form :type :limit :price ""))))
+    (is (nil? (trading/build-order-request state (assoc base-form :type :market :price ""))))
+    (is (nil? (trading/build-order-request state (assoc base-form
+                                                        :type :stop-market
+                                                        :price ""
+                                                        :trigger-px ""))))
+    (is (nil? (trading/build-order-request state (-> base-form
+                                                     (assoc :type :limit :price "100")
+                                                     (assoc-in [:tp :enabled?] true)
+                                                     (assoc-in [:tp :trigger] "")))))
+    (is (nil? (trading/build-order-request state (assoc base-form
+                                                        :type :twap
+                                                        :twap {:minutes 0
+                                                               :randomize true}))))))
+
 (deftest default-order-form-uses-limit-entry-mode-test
   (is (= :limit (:entry-mode (trading/default-order-form)))))
 

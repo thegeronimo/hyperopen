@@ -7,6 +7,12 @@
     :alo "Alo"
     "Gtc"))
 
+(defn- positive-number? [value]
+  (and (number? value)
+       (not (js/isNaN value))
+       (js/isFinite value)
+       (pos? value)))
+
 (defn build-scale-orders [asset-idx side total-size start end reduce-only post-only]
   (let [legs (trading-domain/scale-order-legs (get total-size :size)
                                               (get total-size :count)
@@ -29,20 +35,57 @@
         sl (get-in form [:sl])
         tp-enabled? (:enabled? tp)
         sl-enabled? (:enabled? sl)
+        base-size (trading-domain/parse-num (:size form))
         close-side (trading-domain/opposite-side side)
         mk-trigger (fn [tpsl cfg]
-                     (array-map :a asset-idx
-                                :b (trading-domain/order-side->is-buy close-side)
-                                :p (str (or (trading-domain/parse-num (:limit cfg))
-                                            (trading-domain/parse-num (:trigger cfg))))
-                                :s (str (trading-domain/parse-num (:size form)))
-                                :r true
-                                :t {:trigger (array-map :isMarket (:is-market cfg)
-                                                        :triggerPx (trading-domain/parse-num (:trigger cfg))
-                                                        :tpsl tpsl)}))]
-    (cond-> []
-      tp-enabled? (conj (mk-trigger "tp" tp))
-      sl-enabled? (conj (mk-trigger "sl" sl)))))
+                     (let [trigger (trading-domain/parse-num (:trigger cfg))
+                           limit-price (trading-domain/parse-num (:limit cfg))
+                           order-price (or limit-price trigger)]
+                       (when (and (positive-number? base-size)
+                                  (positive-number? trigger)
+                                  (positive-number? order-price))
+                         (array-map :a asset-idx
+                                    :b (trading-domain/order-side->is-buy close-side)
+                                    :p (str order-price)
+                                    :s (str base-size)
+                                    :r true
+                                    :t {:trigger (array-map :isMarket (:is-market cfg)
+                                                            :triggerPx trigger
+                                                            :tpsl tpsl)}))))
+        tp-order (when tp-enabled?
+                   (mk-trigger "tp" tp))
+        sl-order (when sl-enabled?
+                   (mk-trigger "sl" sl))
+        valid? (and (or (not tp-enabled?) tp-order)
+                    (or (not sl-enabled?) sl-order))]
+    (when valid?
+      (cond-> []
+        tp-order (conj tp-order)
+        sl-order (conj sl-order)))))
+
+(def ^:private standard-order-required-checks
+  {:limit (fn [{:keys [size price]}]
+            (and (positive-number? size)
+                 (positive-number? price)))
+   :market (fn [{:keys [size price]}]
+             (and (positive-number? size)
+                  (positive-number? price)))
+   :stop-market (fn [{:keys [size trigger effective-price]}]
+                  (and (positive-number? size)
+                       (positive-number? trigger)
+                       (positive-number? effective-price)))
+   :stop-limit (fn [{:keys [size price trigger]}]
+                 (and (positive-number? size)
+                      (positive-number? price)
+                      (positive-number? trigger)))
+   :take-market (fn [{:keys [size trigger effective-price]}]
+                  (and (positive-number? size)
+                       (positive-number? trigger)
+                       (positive-number? effective-price)))
+   :take-limit (fn [{:keys [size price trigger]}]
+                 (and (positive-number? size)
+                      (positive-number? price)
+                      (positive-number? trigger)))})
 
 (def ^:private standard-order-shape-builders
   {:limit (fn [base-order {:keys [post-only tif]}]
@@ -75,10 +118,19 @@
         post-only (:post-only form)
         tif (tif->wire (:tif form))
         shape-builder (get standard-order-shape-builders order-type)
+        required-check (get standard-order-required-checks order-type)
+        required-values-valid? (boolean (and required-check
+                                             (required-check {:size size
+                                                              :price price
+                                                              :trigger trigger
+                                                              :effective-price (or price trigger)})))
         grouping (if (or (get-in form [:tp :enabled?]) (get-in form [:sl :enabled?]))
                    "normalTpsl"
                    "na")]
-    (when (and shape-builder active-asset asset-idx size)
+    (when (and shape-builder
+               (string? active-asset)
+               (number? asset-idx)
+               required-values-valid?)
       (let [base-order (array-map :a asset-idx
                                   :b (trading-domain/order-side->is-buy side)
                                   :p (str price)
@@ -89,14 +141,15 @@
                                   :tif tif
                                   :trigger trigger
                                   :price price})
-            tpsl-orders (build-tpsl-orders asset-idx side form)
-            orders (cond-> [order]
-                     (seq tpsl-orders) (into tpsl-orders))]
-        {:action (array-map :type "order"
-                            :orders orders
-                            :grouping grouping)
-         :asset-idx asset-idx
-         :orders orders}))))
+            tpsl-orders (build-tpsl-orders asset-idx side (assoc form :size size))]
+        (when (some? tpsl-orders)
+          (let [orders (cond-> [order]
+                         (seq tpsl-orders) (into tpsl-orders))]
+            {:action (array-map :type "order"
+                                :orders orders
+                                :grouping grouping)
+             :asset-idx asset-idx
+             :orders orders}))))))
 
 (defn build-order-action
   "Return {:action action :grouping grouping}"
@@ -110,7 +163,8 @@
         size (trading-domain/parse-num (:size form))
         scale (get-in form [:scale])
         sz-decimals (get-in command-context [:market :szDecimals])
-        orders (when (and asset-idx size)
+        orders (when (and (number? asset-idx)
+                          (positive-number? size))
                  (build-scale-orders
                   asset-idx
                   side
@@ -136,7 +190,10 @@
         size (trading-domain/parse-num (:size form))
         minutes (trading-domain/parse-num (get-in form [:twap :minutes]))
         randomize (boolean (get-in form [:twap :randomize]))]
-    (when (and active-asset asset-idx size minutes)
+    (when (and (string? active-asset)
+               (number? asset-idx)
+               (positive-number? size)
+               (positive-number? minutes))
       {:action (array-map :type "twapOrder"
                           :twap (array-map :a asset-idx
                                            :b (trading-domain/order-side->is-buy side)
