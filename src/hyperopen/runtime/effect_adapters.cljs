@@ -2,6 +2,7 @@
   (:require [nexus.registry :as nxr]
             [hyperopen.platform :as platform]
             [hyperopen.api :as api]
+            [hyperopen.api.projections :as api-projections]
             [hyperopen.account.history.effects :as account-history-effects]
             [hyperopen.order.effects :as order-effects]
             [hyperopen.order.feedback-runtime :as order-feedback-runtime]
@@ -140,16 +141,23 @@
   (effect-handler-1 #'app-effects/replace-state!))
 
 (defn make-fetch-candle-snapshot
-  [{:keys [log-fn fetch-candle-snapshot-fn]
+  [{:keys [log-fn
+           request-candle-snapshot-fn
+           apply-candle-snapshot-success
+           apply-candle-snapshot-error]
     :or {log-fn println
-         fetch-candle-snapshot-fn api/fetch-candle-snapshot!}}]
+         request-candle-snapshot-fn api/request-candle-snapshot!
+         apply-candle-snapshot-success api-projections/apply-candle-snapshot-success
+         apply-candle-snapshot-error api-projections/apply-candle-snapshot-error}}]
   (fn [_ store & {:keys [interval bars] :or {interval :1d bars 330}}]
     (app-effects/fetch-candle-snapshot!
      {:store store
       :interval interval
       :bars bars
       :log-fn log-fn
-      :fetch-candle-snapshot-fn fetch-candle-snapshot-fn})))
+      :request-candle-snapshot-fn request-candle-snapshot-fn
+      :apply-candle-snapshot-success apply-candle-snapshot-success
+      :apply-candle-snapshot-error apply-candle-snapshot-error})))
 
 (def fetch-candle-snapshot
   (make-fetch-candle-snapshot {}))
@@ -477,13 +485,20 @@
   (api-effects/fetch-asset-selector-markets!
    {:store store
     :opts opts
-    :fetch-asset-selector-markets-fn api/fetch-asset-selector-markets!}))
+    :request-asset-selector-markets-fn api/request-asset-selector-markets!
+    :begin-asset-selector-load api-projections/begin-asset-selector-load
+    :apply-asset-selector-success api-projections/apply-asset-selector-success
+    :apply-asset-selector-error api-projections/apply-asset-selector-error}))
 
 (defn api-load-user-data-effect
   [_ store address]
   (api-effects/load-user-data!
    {:store store
     :address address
-    :fetch-frontend-open-orders! api/fetch-frontend-open-orders!
-    :fetch-user-fills! api/fetch-user-fills!
+    :request-frontend-open-orders! api/request-frontend-open-orders!
+    :request-user-fills! api/request-user-fills!
+    :apply-open-orders-success api-projections/apply-open-orders-success
+    :apply-open-orders-error api-projections/apply-open-orders-error
+    :apply-user-fills-success api-projections/apply-user-fills-success
+    :apply-user-fills-error api-projections/apply-user-fills-error
     :fetch-and-merge-funding-history! account-history-effects/fetch-and-merge-funding-history!}))

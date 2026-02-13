@@ -41,11 +41,22 @@
            interval
            bars
            log-fn
-           fetch-candle-snapshot-fn]}]
+           request-candle-snapshot-fn
+           apply-candle-snapshot-success
+           apply-candle-snapshot-error]}]
   (let [interval* (or interval :1d)
-        bars* (or bars 330)]
+        bars* (or bars 330)
+        active-asset (:active-asset @store)]
     (log-fn "Fetching candle snapshot for active asset...")
-    (fetch-candle-snapshot-fn store :interval interval* :bars bars*)))
+    (if-not active-asset
+      (js/Promise.resolve nil)
+      (-> (request-candle-snapshot-fn active-asset :interval interval* :bars bars*)
+          (.then (fn [rows]
+                   (swap! store apply-candle-snapshot-success active-asset interval* rows)
+                   rows))
+          (.catch (fn [err]
+                    (swap! store apply-candle-snapshot-error active-asset interval* err)
+                    (js/Promise.reject err)))))))
 
 (defn init-websocket!
   [{:keys [store

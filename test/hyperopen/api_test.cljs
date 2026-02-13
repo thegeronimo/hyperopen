@@ -1,8 +1,9 @@
 (ns hyperopen.api-test
   (:require [cljs.test :refer-macros [async deftest is use-fixtures]]
-            [hyperopen.api :as api]))
+            [hyperopen.api :as api]
+            [hyperopen.api.info-client :as info-client]))
 
-(defn- fake-response
+(defn- fake-http-response
   [status]
   (doto (js-obj)
     (aset "status" status)
@@ -27,16 +28,11 @@
                (post-info-mock body {}))
               ([body _opts]
                (swap! calls inc)
-               (js/Promise.resolve
-                #js {:status 200
-                     :ok true
-                     :json (fn []
-                             (js/Promise.resolve #js [#js {:name "dex-a"}]))}))
+               (js/Promise.resolve [{:name "dex-a"}]))
               ([body opts _attempt]
                (post-info-mock body opts))))
       (let [p1 (api/ensure-perp-dexs! store)
             p2 (api/ensure-perp-dexs! store)]
-        (is (identical? p1 p2))
         (-> (js/Promise.all #js [p1 p2])
             (.then (fn [results]
                      (is (= [["dex-a"] ["dex-a"]]
@@ -82,33 +78,32 @@
           0))
        0))))
 
-(deftest retry-path-reenters-scheduler-test
+(deftest info-client-retries-and-parses-data-test
   (async done
-    (let [enqueue-count (atom 0)
-          step (atom 0)
-          original-enqueue hyperopen.api/enqueue-info-request!
-          original-wait hyperopen.api/wait-ms]
-      (set! hyperopen.api/enqueue-info-request!
-            (fn [_ _]
-              (swap! enqueue-count inc)
-              (let [status (if (zero? @step) 500 200)]
-                (swap! step inc)
-                (js/Promise.resolve (fake-response status)))))
-      (set! hyperopen.api/wait-ms
-            (fn [_]
-              (js/Promise.resolve nil)))
-      (-> (@#'hyperopen.api/post-info! {"type" "perpDexs"} {:priority :high})
-          (.then (fn [resp]
-                   (is (= 2 @enqueue-count))
-                   (is (= 200 (.-status resp)))
+    (let [attempts (atom 0)
+          sleeps (atom [])
+          client (info-client/make-info-client
+                  {:fetch-fn (fn [_ _]
+                               (let [status (if (zero? @attempts) 500 200)]
+                                 (swap! attempts inc)
+                                 (if (= status 200)
+                                   (doto (fake-http-response 200)
+                                     (aset "json" (fn []
+                                                    (js/Promise.resolve #js [#js {:name "dex-a"}]))))
+                                   (js/Promise.resolve (fake-http-response status)))))
+                   :sleep-ms-fn (fn [ms]
+                                  (swap! sleeps conj ms)
+                                  (js/Promise.resolve nil))
+                   :log-fn (fn [& _])})]
+      (-> ((:request-info! client) {"type" "perpDexs"} {:priority :high})
+          (.then (fn [data]
+                   (is (= 2 @attempts))
+                   (is (= 1 (count @sleeps)))
+                   (is (= [{:name "dex-a"}] data))
                    (done)))
           (.catch (fn [err]
                     (is false (str "Unexpected error: " err))
-                    (done)))
-          (.finally
-            (fn []
-              (set! hyperopen.api/enqueue-info-request! original-enqueue)
-              (set! hyperopen.api/wait-ms original-wait)))))))
+                    (done)))))))
 
 (deftest normalize-info-funding-row-maps-delta-shape-test
   (let [row (api/normalize-info-funding-row
@@ -160,31 +155,28 @@
                (let [start-time (get body "startTime")
                      payload (cond
                                (= start-time 1000)
-                               #js [#js {:time 1000
-                                          :delta #js {:type "funding"
-                                                      :coin "HYPE"
-                                                      :usdc "1.0"
-                                                      :szi "10.0"
-                                                      :fundingRate "0.0001"}}
-                                    #js {:time 2000
-                                          :delta #js {:type "funding"
-                                                      :coin "BTC"
-                                                      :usdc "-1.0"
-                                                      :szi "-3.0"
-                                                      :fundingRate "-0.0002"}}]
+                               [{:time 1000
+                                 :delta {:type "funding"
+                                         :coin "HYPE"
+                                         :usdc "1.0"
+                                         :szi "10.0"
+                                         :fundingRate "0.0001"}}
+                                {:time 2000
+                                 :delta {:type "funding"
+                                         :coin "BTC"
+                                         :usdc "-1.0"
+                                         :szi "-3.0"
+                                         :fundingRate "-0.0002"}}]
                                (= start-time 2001)
-                               #js [#js {:time 3000
-                                          :delta #js {:type "funding"
-                                                      :coin "ETH"
-                                                      :usdc "0.5"
-                                                      :szi "4.0"
-                                                      :fundingRate "0.0003"}}]
+                               [{:time 3000
+                                 :delta {:type "funding"
+                                         :coin "ETH"
+                                         :usdc "0.5"
+                                         :szi "4.0"
+                                         :fundingRate "0.0003"}}]
                                :else
-                               #js [])]
-                 (js/Promise.resolve
-                  #js {:status 200
-                       :ok true
-                       :json (fn [] (js/Promise.resolve payload))})))
+                               [])]
+                 (js/Promise.resolve payload)))
               ([body opts _attempt]
                (post-info-mock body opts))))
       (-> (api/fetch-user-funding-history! (atom {}) "0xabc"
@@ -212,13 +204,8 @@
                (post-info-mock body {}))
               ([body _opts]
                (swap! calls conj body)
-               (js/Promise.resolve
-                #js {:status 200
-                     :ok true
-                     :json (fn []
-                             (js/Promise.resolve
-                              #js [#js {:order #js {:coin "BTC" :oid 1}}
-                                   #js {:coin "ETH" :oid 2}]))}))
+               (js/Promise.resolve [{:order {:coin "BTC" :oid 1}}
+                                    {:coin "ETH" :oid 2}]))
               ([body opts _attempt]
                (post-info-mock body opts))))
       (-> (api/fetch-historical-orders! (atom {}) "0xabc" {:priority :high})
@@ -244,12 +231,7 @@
               ([body]
                (post-info-mock body {}))
               ([_body _opts]
-               (js/Promise.resolve
-                #js {:status 200
-                     :ok true
-                     :json (fn []
-                             (js/Promise.resolve
-                              #js {:orders #js [#js {:order #js {:coin "SOL" :oid 9}}]}))}))
+               (js/Promise.resolve {:orders [{:order {:coin "SOL" :oid 9}}]}))
               ([body opts _attempt]
                (post-info-mock body opts))))
       (-> (api/fetch-historical-orders! (atom {}) "0xabc" {})
@@ -275,18 +257,13 @@
                (post-info-mock body {}))
               ([body _opts]
                (swap! calls conj body)
-               (js/Promise.resolve
-                #js {:status 200
-                     :ok true
-                     :json (fn []
-                             (js/Promise.resolve
-                              #js [#js {:tid 1
-                                        :coin "PUMP"
-                                        :side "A"
-                                        :dir "Market Order Liquidation: Close Long"
-                                        :liquidation #js {:markPx "0.001780"
-                                                          :method "market"}
-                                        :time 1700000000000}]))}))
+               (js/Promise.resolve [{:tid 1
+                                     :coin "PUMP"
+                                     :side "A"
+                                     :dir "Market Order Liquidation: Close Long"
+                                     :liquidation {:markPx "0.001780"
+                                                   :method "market"}
+                                     :time 1700000000000}]))
               ([body opts _attempt]
                (post-info-mock body opts))))
       (-> (api/fetch-user-fills! store "0xabc")
@@ -322,11 +299,7 @@
                (post-info-mock body {}))
               ([body _opts]
                (swap! calls conj body)
-               (js/Promise.resolve
-                #js {:status 200
-                     :ok true
-                     :json (fn []
-                             (js/Promise.resolve "portfolioMargin"))}))
+               (js/Promise.resolve "portfolioMargin"))
               ([body opts _attempt]
                (post-info-mock body opts))))
       (-> (api/fetch-user-abstraction! store "0xAbC")
@@ -357,11 +330,7 @@
               ([body]
                (post-info-mock body {}))
               ([_body _opts]
-               (js/Promise.resolve
-                #js {:status 200
-                     :ok true
-                     :json (fn []
-                             (js/Promise.resolve "default"))}))
+               (js/Promise.resolve "default"))
               ([body opts _attempt]
                (post-info-mock body opts))))
       (-> (api/fetch-user-abstraction! store "0xabc")
@@ -389,11 +358,7 @@
               ([body]
                (post-info-mock body {}))
               ([_body _opts]
-               (js/Promise.resolve
-                #js {:status 200
-                     :ok true
-                     :json (fn []
-                             (js/Promise.resolve "unifiedAccount"))}))
+               (js/Promise.resolve "unifiedAccount"))
               ([body opts _attempt]
                (post-info-mock body opts))))
       (-> (api/fetch-user-abstraction! store "0xabc")

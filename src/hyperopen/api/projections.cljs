@@ -1,4 +1,5 @@
-(ns hyperopen.api.projections)
+(ns hyperopen.api.projections
+  (:require [clojure.string :as str]))
 
 (defn begin-spot-meta-load
   [state]
@@ -16,6 +17,48 @@
   (-> state
       (assoc-in [:spot :loading-meta?] false)
       (assoc-in [:spot :error] (str err))))
+
+(defn apply-asset-contexts-success
+  [state rows]
+  (assoc-in state [:asset-contexts] rows))
+
+(defn apply-asset-contexts-error
+  [state err]
+  (assoc-in state [:asset-contexts :error] (str err)))
+
+(defn apply-perp-dexs-success
+  [state dex-names]
+  (assoc-in state [:perp-dexs] dex-names))
+
+(defn apply-perp-dexs-error
+  [state err]
+  (assoc-in state [:perp-dexs-error] (str err)))
+
+(defn apply-candle-snapshot-success
+  [state coin interval rows]
+  (assoc-in state [:candles coin interval] rows))
+
+(defn apply-candle-snapshot-error
+  [state coin interval err]
+  (assoc-in state [:candles coin interval :error] (str err)))
+
+(defn apply-open-orders-success
+  [state dex rows]
+  (if (and dex (not= dex ""))
+    (assoc-in state [:orders :open-orders-snapshot-by-dex dex] rows)
+    (assoc-in state [:orders :open-orders-snapshot] rows)))
+
+(defn apply-open-orders-error
+  [state err]
+  (assoc-in state [:orders :open-error] (str err)))
+
+(defn apply-user-fills-success
+  [state rows]
+  (assoc-in state [:orders :fills] rows))
+
+(defn apply-user-fills-error
+  [state err]
+  (assoc-in state [:orders :fills-error] (str err)))
 
 (defn begin-asset-selector-load
   [state phase]
@@ -64,3 +107,18 @@
   (-> state
       (assoc-in [:spot :loading-balances?] false)
       (assoc-in [:spot :error] (str err))))
+
+(defn apply-user-abstraction-snapshot
+  [state requested-address snapshot]
+  (let [active-address (some-> (get-in state [:wallet :address]) str str/lower-case)]
+    (if (= requested-address active-address)
+      (assoc state :account snapshot)
+      state)))
+
+(defn apply-perp-dex-clearinghouse-success
+  [state dex data]
+  (assoc-in state [:perp-dex-clearinghouse dex] data))
+
+(defn apply-perp-dex-clearinghouse-error
+  [state err]
+  (assoc-in state [:perp-dex-clearinghouse-error] (str err)))

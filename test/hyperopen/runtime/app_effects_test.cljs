@@ -14,23 +14,32 @@
 
 (deftest fetch-candle-snapshot-uses-defaults-and-custom-options-test
   (let [calls (atom [])
-        fetch-fn (fn [store & {:keys [interval bars]}]
-                   (swap! calls conj {:store store
-                                      :interval interval
-                                      :bars bars}))
-        store (atom {})]
+        request-fn (fn [coin & {:keys [interval bars]}]
+                     (swap! calls conj {:coin coin
+                                        :interval interval
+                                        :bars bars})
+                     (js/Promise.resolve [{:t 1}]))
+        store (atom {:active-asset "BTC"})]
     (app-effects/fetch-candle-snapshot!
      {:store store
       :log-fn (fn [& _] nil)
-      :fetch-candle-snapshot-fn fetch-fn})
+      :request-candle-snapshot-fn request-fn
+      :apply-candle-snapshot-success (fn [state coin interval rows]
+                                       (assoc-in state [:candles coin interval] rows))
+      :apply-candle-snapshot-error (fn [state coin interval err]
+                                     (assoc-in state [:candles coin interval :error] (str err)))})
     (app-effects/fetch-candle-snapshot!
      {:store store
       :interval :4h
       :bars 100
       :log-fn (fn [& _] nil)
-      :fetch-candle-snapshot-fn fetch-fn})
-    (is (= [{:store store :interval :1d :bars 330}
-            {:store store :interval :4h :bars 100}]
+      :request-candle-snapshot-fn request-fn
+      :apply-candle-snapshot-success (fn [state coin interval rows]
+                                       (assoc-in state [:candles coin interval] rows))
+      :apply-candle-snapshot-error (fn [state coin interval err]
+                                     (assoc-in state [:candles coin interval :error] (str err)))})
+    (is (= [{:coin "BTC" :interval :1d :bars 330}
+            {:coin "BTC" :interval :4h :bars 100}]
            @calls))))
 
 (deftest init-and-reconnect-websocket-effects-forward-runtime-dependencies-test

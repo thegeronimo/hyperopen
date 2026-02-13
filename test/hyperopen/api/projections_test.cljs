@@ -66,3 +66,46 @@
     (is (= nil (get-in success [:spot :error])))
     (is (= false (get-in failed [:spot :loading-balances?])))
     (is (= "Error: unavailable" (get-in failed [:spot :error])))))
+
+(deftest order-candle-and-perp-projections-target-expected-state-paths-test
+  (let [state {:orders {}
+               :candles {}
+               :perp-dex-clearinghouse {}
+               :perp-dexs []
+               :asset-contexts {}}
+        asset-contexts (projections/apply-asset-contexts-success state {:BTC {:idx 0}})
+        asset-contexts-error (projections/apply-asset-contexts-error state (js/Error. "asset-contexts"))
+        perp-dexs (projections/apply-perp-dexs-success state ["vault"])
+        perp-dexs-error (projections/apply-perp-dexs-error state (js/Error. "perp-dexs"))
+        open-orders (projections/apply-open-orders-success state nil [{:oid 1}])
+        open-orders-by-dex (projections/apply-open-orders-success state "vault" [{:oid 2}])
+        open-orders-error (projections/apply-open-orders-error state (js/Error. "open-orders"))
+        fills (projections/apply-user-fills-success state [{:tid 1}])
+        fills-error (projections/apply-user-fills-error state (js/Error. "fills"))
+        candle (projections/apply-candle-snapshot-success state "BTC" :1h [{:t 1}])
+        candle-error (projections/apply-candle-snapshot-error state "BTC" :1h (js/Error. "candles"))
+        clearinghouse (projections/apply-perp-dex-clearinghouse-success state "vault" {:margin 10})
+        clearinghouse-error (projections/apply-perp-dex-clearinghouse-error state (js/Error. "clearinghouse"))]
+    (is (= {:BTC {:idx 0}} (:asset-contexts asset-contexts)))
+    (is (= "Error: asset-contexts" (get-in asset-contexts-error [:asset-contexts :error])))
+    (is (= ["vault"] (:perp-dexs perp-dexs)))
+    (is (= "Error: perp-dexs" (:perp-dexs-error perp-dexs-error)))
+    (is (= [{:oid 1}] (get-in open-orders [:orders :open-orders-snapshot])))
+    (is (= [{:oid 2}] (get-in open-orders-by-dex [:orders :open-orders-snapshot-by-dex "vault"])))
+    (is (= "Error: open-orders" (get-in open-orders-error [:orders :open-error])))
+    (is (= [{:tid 1}] (get-in fills [:orders :fills])))
+    (is (= "Error: fills" (get-in fills-error [:orders :fills-error])))
+    (is (= [{:t 1}] (get-in candle [:candles "BTC" :1h])))
+    (is (= "Error: candles" (get-in candle-error [:candles "BTC" :1h :error])))
+    (is (= {:margin 10} (get-in clearinghouse [:perp-dex-clearinghouse "vault"])))
+    (is (= "Error: clearinghouse" (:perp-dex-clearinghouse-error clearinghouse-error)))))
+
+(deftest user-abstraction-projection-ignores-stale-address-updates-test
+  (let [state {:wallet {:address "0xabc"}
+               :account {:mode :classic}}
+        snapshot {:mode :unified
+                  :abstraction-raw "unifiedAccount"}
+        matched (projections/apply-user-abstraction-snapshot state "0xabc" snapshot)
+        stale (projections/apply-user-abstraction-snapshot state "0xdef" snapshot)]
+    (is (= snapshot (:account matched)))
+    (is (= {:mode :classic} (:account stale)))))
