@@ -66,13 +66,15 @@
 
 (deftest balances-tab-uses-12px-typography-for-toggle-and-rows-test
   (let [account-info-path (join-path (project-root) "src" "hyperopen" "views" "account_info_view.cljs")
-        account-info-source (read-text account-info-path)]
+        balances-tab-path (join-path (project-root) "src" "hyperopen" "views" "account_info" "tabs" "balances.cljs")
+        account-info-source (read-text account-info-path)
+        balances-tab-source (read-text balances-tab-path)]
     (testing "hide small balances label uses text-sm"
       (is (re-find #"\[:label\.text-sm\.text-trading-text(?:\.[A-Za-z0-9_-]+)*\s+\{:for \"hide-small-balances\"\}\s+\"Hide Small Balances\"\]"
                    account-info-source)))
     (testing "balance row wrapper includes text-sm for 12px baseline"
       (is (re-find #"\[:div\.grid\.grid-cols-8\.gap-2\.py-px\.px-3\.hover:bg-base-300\.items-center\.text-sm(?:\.[A-Za-z0-9_-]+)*"
-                   account-info-source)))))
+                   balances-tab-source)))))
 
 (deftest header-nav-link-css-uses-14px-and-600-weight-test
   (let [styles-path (join-path (project-root) "src" "styles" "main.css")

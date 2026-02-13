@@ -2,6 +2,11 @@
   (:require [clojure.string :as str]
             [hyperopen.views.account-info.projections :as projections]
             [hyperopen.views.account-info.vm :as account-info-vm]
+            [hyperopen.views.account-info.shared :as shared]
+            [hyperopen.views.account-info.table :as account-table]
+            [hyperopen.views.account-info.tabs.balances :as balances-tab]
+            [hyperopen.views.account-info.tabs.positions :as positions-tab]
+            [hyperopen.views.account-info.tabs.open-orders :as open-orders-tab]
             [hyperopen.utils.formatting :as fmt]))
 
 (def ^:private tab-definitions
@@ -183,91 +188,12 @@
    [:div.text-lg.font-medium "Error loading account data"]
    [:div.text-sm.opacity-70.mt-2 (str error)]])
 
-;; Format currency values
-(defn format-currency [value]
-  (fmt/format-fixed-number value 2))
-
-(defn parse-num [value]
-  (fmt/safe-number value))
-
-(defn format-trade-price [value]
-  (if (or (nil? value) (= value "N/A"))
-    "0.00"
-    (let [num-val (js/parseFloat value)]
-      (if (js/isNaN num-val)
-        "0.00"
-        (or (fmt/format-trade-price num-val value) "0.00")))))
-
-(defn format-amount [value decimals]
-  (let [safe-decimals (-> (or decimals 2)
-                          (max 0)
-                          (min 8))]
-    (fmt/format-fixed-number value safe-decimals)))
-
-(defn format-balance-amount [value decimals]
-  (if decimals
-    (format-amount value decimals)
-    (format-currency value)))
-
-(def ^:private unified-available-balance-tooltip-suffix
-  " is available to withdraw or transfer. Some perps may have a larger available to trade amount, which can be seen in the order form for that asset.")
-
-(defn- unified-available-balance-tooltip-text [coin available-balance amount-decimals]
-  (str (format-balance-amount available-balance amount-decimals)
-       " "
-       (or coin "USDC")
-       unified-available-balance-tooltip-suffix))
-
-(defn- available-balance-value-node [{:keys [coin available-balance amount-decimals transfer-disabled?]}]
-  (let [value-text (format-balance-amount available-balance amount-decimals)]
-    (if transfer-disabled?
-      [:div {:class ["group" "relative" "inline-flex" "min-h-6" "items-center" "justify-end"]}
-       [:span {:class ["cursor-help"
-                       "rounded"
-                       "underline"
-                       "decoration-dashed"
-                       "underline-offset-2"
-                       "focus-visible:outline-none"
-                       "focus-visible:ring-2"
-                       "focus-visible:ring-trading-green/70"
-                       "focus-visible:ring-offset-1"
-                       "focus-visible:ring-offset-base-100"]
-               :tab-index 0}
-        value-text]
-       [:div {:class ["pointer-events-none"
-                      "absolute"
-                      "right-0"
-                      "bottom-full"
-                      "z-50"
-                      "mb-2"
-                      "opacity-0"
-                      "transition-opacity"
-                      "duration-200"
-                      "group-hover:opacity-100"
-                      "group-focus-within:opacity-100"]}
-        [:div {:class ["relative"
-                       "w-[420px]"
-                       "max-w-[calc(100vw-2rem)]"
-                       "min-w-[280px]"
-                       "rounded-md"
-                       "bg-gray-800"
-                       "px-3"
-                       "py-1.5"
-                       "text-xs"
-                       "leading-tight"
-                       "text-gray-100"
-                       "shadow-lg"
-                       "whitespace-normal"]}
-         (unified-available-balance-tooltip-text coin available-balance amount-decimals)
-         [:div {:class ["absolute"
-                        "top-full"
-                        "right-3"
-                        "h-0"
-                        "w-0"
-                        "border-4"
-                        "border-transparent"
-                        "border-t-gray-800"]}]]]]
-      value-text)))
+;; Shared formatting and parsing helpers
+(def format-currency shared/format-currency)
+(def parse-num shared/parse-num)
+(def format-trade-price shared/format-trade-price)
+(def format-amount shared/format-amount)
+(def format-balance-amount shared/format-balance-amount)
 
 ;; Format percentage with color
 (defn format-pnl-percentage [value]
@@ -287,8 +213,7 @@
     (let [d (js/Date. ms)]
       (.toLocaleString d))))
 
-(defn format-funding-history-time [time-ms]
-  (fmt/format-local-date-time time-ms))
+(def format-funding-history-time shared/format-funding-history-time)
 
 (defn- datetime-local-value [time-ms]
   (when time-ms
@@ -304,36 +229,11 @@
            ":"
            (pad2 (.getMinutes d))))))
 
-(def ^:private position-chip-classes
-  ["px-1.5"
-   "py-0.5"
-   "text-xs"
-   "leading-none"
-   "font-medium"
-   "rounded"
-   "border"
-   "bg-emerald-500/20"
-   "text-emerald-300"
-   "border-emerald-500/30"])
+(def position-chip-classes shared/position-chip-classes)
 
-(def ^:private position-coin-cell-style
-  {:background "linear-gradient(90deg, rgb(31, 166, 125) 0px, rgb(31, 166, 125) 4px, rgb(11, 50, 38) 4px, transparent 100%) transparent"
-   :padding-left "12px"})
-
-(def ^:private positions-grid-template-class
-  "grid-cols-[minmax(170px,1.9fr)_minmax(130px,1.2fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(130px,1.3fr)_minmax(110px,1fr)_minmax(100px,1fr)_minmax(100px,1fr)_minmax(80px,0.8fr)]")
-
-(def ^:private positions-grid-min-width-class
-  "min-w-[1140px]")
-
-(defn- non-blank-text [value]
-  (projections/non-blank-text value))
-
-(defn- parse-coin-namespace [coin]
-  (projections/parse-coin-namespace coin))
-
-(defn- resolve-coin-display [coin market-by-key]
-  (projections/resolve-coin-display coin market-by-key))
+(def non-blank-text shared/non-blank-text)
+(def parse-coin-namespace shared/parse-coin-namespace)
+(def resolve-coin-display shared/resolve-coin-display)
 
 (defn- funding-filter-coin-label [coin]
   (let [coin* (non-blank-text coin)
@@ -483,8 +383,7 @@
                    :on {:click [[:actions/apply-funding-history-filters]]}}
           "Apply"]]])])))
 
-(defn format-open-orders-time [ms]
-  (fmt/format-local-date-time ms))
+(def format-open-orders-time shared/format-open-orders-time)
 
 (defn format-side [side]
   (case side
@@ -992,25 +891,7 @@
 (defn- order-history-pagination-controls [pagination]
   (history-pagination-controls pagination order-history-pagination-config))
 
-(defn format-pnl [pnl-value pnl-pct]
-  (if (and (some? pnl-value) (some? pnl-pct))
-    (let [pnl-num (parse-num pnl-value)
-          pct-num (parse-num pnl-pct)
-          color-class (cond
-                        (pos? pnl-num) "text-success"
-                        (neg? pnl-num) "text-error"
-                        :else "text-trading-text")]
-      [:span {:class [color-class "num"]}
-       (str (if (pos? pnl-num) "+" "")
-            "$" (format-currency pnl-num)
-            " (" (if (pos? pct-num) "+" "") (.toFixed pct-num 2) "%)")])
-    [:span.text-trading-text "--"]))
-
-(defn- header-alignment-classes [align]
-  (case align
-    :right ["justify-end" "text-right"]
-    :center ["justify-center" "text-center"]
-    ["justify-start" "text-left"]))
+(def format-pnl shared/format-pnl)
 
 (defn- external-link-icon
   ([] (external-link-icon ["h-3" "w-3" "shrink-0"]))
@@ -1025,417 +906,33 @@
     [:path {:d "M16 4 7 13"}]
     [:path {:d "M14 10v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"}]]))
 
-(def ^:private balance-contract-explorer-token-base-url
-  "https://app.hyperliquid.xyz/explorer/token/")
+;; Extracted tab implementations
+(def build-balance-rows balances-tab/build-balance-rows)
+(def build-balance-rows-for-account balances-tab/build-balance-rows-for-account)
+(def sort-balances-by-column balances-tab/sort-balances-by-column)
+(def sortable-balances-header balances-tab/sortable-balances-header)
+(def non-sortable-header account-table/non-sortable-header)
+(def tab-table-content account-table/tab-table-content)
+(def balance-row balances-tab/balance-row)
+(def balance-table-header balances-tab/balance-table-header)
+(def balances-tab-content balances-tab/balances-tab-content)
 
-(defn- normalize-balance-contract-id [contract-id]
-  (projections/normalize-balance-contract-id contract-id))
+(def calculate-mark-price positions-tab/calculate-mark-price)
+(def format-position-size positions-tab/format-position-size)
+(def position-unique-key positions-tab/position-unique-key)
+(def collect-positions positions-tab/collect-positions)
+(def position-row positions-tab/position-row)
+(def sort-positions-by-column positions-tab/sort-positions-by-column)
+(def sortable-header positions-tab/sortable-header)
+(def position-table-header positions-tab/position-table-header)
+(def positions-tab-content positions-tab/positions-tab-content)
 
-(defn- abbreviate-contract-id [contract-id]
-  (when-let [contract-id* (normalize-balance-contract-id contract-id)]
-    (if (> (count contract-id*) 10)
-      (let [prefix-len (if (str/starts-with? contract-id* "0x") 6 4)
-            safe-prefix-len (min prefix-len (count contract-id*))]
-        (str (subs contract-id* 0 safe-prefix-len)
-             "..."
-             (subs contract-id* (- (count contract-id*) 4))))
-      contract-id*)))
+(def open-orders-tab-content open-orders-tab/open-orders-tab-content)
 
-(defn- balance-contract-explorer-url [contract-id]
-  (when-let [contract-id* (normalize-balance-contract-id contract-id)]
-    (str balance-contract-explorer-token-base-url contract-id*)))
-
-(defn- balance-contract-node [contract-id]
-  (let [display-contract-id (abbreviate-contract-id contract-id)]
-    (when-let [explorer-url (balance-contract-explorer-url contract-id)]
-      [:a {:href explorer-url
-           :target "_blank"
-           :rel "noopener noreferrer"
-           :class ["inline-flex"
-                   "min-h-6"
-                   "items-center"
-                   "gap-0.5"
-                   "whitespace-nowrap"
-                   "rounded"
-                   "text-trading-text"
-                   "hover:text-trading-text/80"
-                   "focus-visible:outline-none"
-                   "focus-visible:ring-2"
-                   "focus-visible:ring-trading-green/70"
-                   "focus-visible:ring-offset-1"
-                   "focus-visible:ring-offset-base-100"]}
-       [:span display-contract-id]
-       (external-link-icon ["h-3" "w-3" "shrink-0" "text-trading-green"])])))
-
-;; Build balances rows for perps + spot
-(defn build-balance-rows [webdata2 spot-data]
-  (projections/build-balance-rows webdata2 spot-data nil))
-
-(defn build-balance-rows-for-account [webdata2 spot-data account]
-  (projections/build-balance-rows webdata2 spot-data account))
-
-;; Sort balances by column
-(defn- usdc-balance-row? [row]
-  (str/starts-with? (or (:coin row) "") "USDC"))
-
-(defn- balance-sort-value [column row]
-  (case column
-    "Coin" (or (:coin row) "")
-    "Total Balance" (parse-num (:total-balance row))
-    "Available Balance" (parse-num (:available-balance row))
-    "USDC Value" (parse-num (:usdc-value row))
-    "PNL (ROE %)" (parse-num (:pnl-value row))
-    0))
-
-(defn- compare-balance-rows [column direction row-a row-b]
-  (let [value-a (balance-sort-value column row-a)
-        value-b (balance-sort-value column row-b)
-        primary-cmp (if (= direction :desc)
-                      (compare value-b value-a)
-                      (compare value-a value-b))]
-    (if (zero? primary-cmp)
-      (let [coin-cmp (compare (or (:coin row-a) "")
-                              (or (:coin row-b) ""))]
-        (if (zero? coin-cmp)
-          (compare (or (:key row-a) "")
-                   (or (:key row-b) ""))
-          coin-cmp))
-      primary-cmp)))
-
-(defn sort-balances-by-column [rows column direction]
-  (let [[usdc-rows non-usdc-rows]
-        (reduce (fn [[usdc* non-usdc*] row]
-                  (if (usdc-balance-row? row)
-                    [(conj usdc* row) non-usdc*]
-                    [usdc* (conj non-usdc* row)]))
-                [[] []]
-                rows)
-        compare-rows (partial compare-balance-rows column direction)]
-    (->> (concat (sort compare-rows usdc-rows)
-                 (sort compare-rows non-usdc-rows))
-         vec)))
-
-;; Sortable balances header
-(defn sortable-balances-header
-  ([column-name sort-state]
-   (sortable-balances-header column-name sort-state :left))
-  ([column-name sort-state align]
-   (sortable-header-button column-name
-                           sort-state
-                           :actions/sort-balances
-                           {:full-width? true
-                            :extra-classes (header-alignment-classes align)})))
-
-;; Non-sortable column header
-(defn non-sortable-header
-  ([column-name]
-   (non-sortable-header column-name :left))
-  ([column-name align]
-   [:div {:class (into ["w-full"]
-                       (concat header-base-text-classes
-                               (header-alignment-classes align)))}
-    column-name]))
-
-(defn tab-table-content
-  ([header rows]
-   (tab-table-content header rows nil))
-  ([header rows footer]
-   [:div {:class ["flex" "h-full" "min-h-0" "flex-col"]}
-    header
-    (into [:div {:class ["flex-1" "min-h-0" "overflow-y-auto" "scrollbar-hide"]}]
-          rows)
-    (when footer
-      footer)]))
-
-;; Balance row component
-(defn balance-row [{:keys [coin
-                           total-balance
-                           available-balance
-                           usdc-value
-                           pnl-value
-                           pnl-pct
-                           amount-decimals
-                           contract-id
-                           transfer-disabled?]}]
-  (let [coin-attrs (when-not (usdc-balance-row? {:coin coin})
-                     {:style {:color "rgb(151, 252, 228)"}})]
-    [:div.grid.grid-cols-8.gap-2.py-px.px-3.hover:bg-base-300.items-center.text-sm.text-trading-text
-     ;; Coin
-     (if coin-attrs
-       [:div.font-semibold coin-attrs coin]
-       [:div.font-semibold coin])
-     ;; Total Balance  
-     [:div.text-right.font-semibold.num.num-right (format-balance-amount total-balance amount-decimals)]
-     ;; Available Balance
-     [:div.text-right.font-semibold.num.num-right
-      (available-balance-value-node {:coin coin
-                                     :available-balance available-balance
-                                     :amount-decimals amount-decimals
-                                     :transfer-disabled? transfer-disabled?})]
-     ;; USDC Value
-     [:div.text-right.font-semibold.num.num-right "$" (format-currency usdc-value)]
-     ;; PNL (ROE %)
-     [:div.text-right.font-semibold.num.num-right (format-pnl pnl-value pnl-pct)]
-     ;; Send
-     [:div.text-left
-      [:button {:class ["btn" "btn-xs" "btn-ghost" "text-trading-text"]} "Send"]]
-     ;; Transfer/Contract
-     [:div.text-left
-      (if transfer-disabled?
-        [:span {:class ["text-xs" "text-trading-text-secondary"]} "Unified"]
-        [:button {:class ["btn" "btn-xs" "btn-ghost" "text-trading-text"]} "Transfer"])]
-     ;; Contract
-     [:div.text-left
-      (balance-contract-node contract-id)]]))
-
-;; Balance table header
-(defn balance-table-header [sort-state]
-  [:div.grid.grid-cols-8.gap-2.py-1.px-3.bg-base-200.text-sm.font-medium.text-trading-text
-   [:div (sortable-balances-header "Coin" sort-state :left)]
-   [:div (sortable-balances-header "Total Balance" sort-state :right)]
-   [:div (sortable-balances-header "Available Balance" sort-state :right)]
-   [:div (sortable-balances-header "USDC Value" sort-state :right)]
-   [:div (sortable-balances-header "PNL (ROE %)" sort-state :right)]
-   [:div (non-sortable-header "Send" :left)]
-   [:div (non-sortable-header "Transfer" :left)]
-   [:div (non-sortable-header "Contract" :left)]])
-
-;; Balances tab content
-(defn balances-tab-content [balance-rows hide-small? sort-state]
-  (let [visible-rows (if hide-small?
-                       (filter (fn [row]
-                                 (>= (parse-num (:usdc-value row)) 1))
-                               balance-rows)
-                       balance-rows)
-        sorted-rows (if (:column sort-state)
-                      (sort-balances-by-column visible-rows
-                                               (:column sort-state)
-                                               (:direction sort-state))
-                      visible-rows)]
-    (if (seq visible-rows)
-      (tab-table-content (balance-table-header sort-state)
-                         (for [row sorted-rows]
-                           ^{:key (:key row)}
-                           (balance-row row)))
-      (empty-state "No balance data available"))))
-
-;; Calculate mark price from position data with deterministic fallbacks.
-(defn calculate-mark-price [position-data]
-  (or (:markPx position-data)
-      (:markPrice position-data)
-      (:entryPx position-data)))
-
-(defn- display-coin [position-data]
-  (let [coin (:coin position-data)
-        parsed (parse-coin-namespace coin)]
-    (or (:base parsed)
-        (non-blank-text coin)
-        "-")))
-
-(defn- dex-chip-label [position-data]
-  (let [explicit-dex (non-blank-text (:dex position-data))
-        parsed-prefix (some-> (:coin position-data) parse-coin-namespace :prefix)]
-    (or explicit-dex parsed-prefix)))
-
-;; Format position size display
-(defn format-position-size [position-data]
-  (let [size (or (:szi position-data) "0")
-        coin (display-coin position-data)]
-    (str size " " coin)))
-
-;; Combine positions across the default DEX (webdata2) and any additional perp DEXes.
-(defn position-unique-key [position-data]
-  (projections/position-unique-key position-data))
-
-(defn collect-positions [webdata2 perp-dex-states]
-  (projections/collect-positions webdata2 perp-dex-states))
-
-;; Position row component using real data
-(defn position-row [position-data]
-  (let [pos (:position position-data)
-        coin-label (display-coin pos)
-        dex-label (dex-chip-label {:coin (:coin pos)
-                                   :dex (:dex position-data)})
-        leverage (get-in pos [:leverage :value])
-        position-value (:positionValue pos)
-        entry-price (:entryPx pos)
-        mark-price (calculate-mark-price pos)
-        pnl-num (parse-optional-num (:unrealizedPnl pos))
-        pnl-percent (some-> (:returnOnEquity pos) parse-optional-num (* 100))
-        pnl-color-class (cond
-                          (and (number? pnl-num) (pos? pnl-num)) "text-success"
-                          (and (number? pnl-num) (neg? pnl-num)) "text-error"
-                          :else "text-trading-text")
-        liq-price (:liquidationPx pos)
-        margin (:marginUsed pos)
-        funding-num (parse-optional-num (get-in pos [:cumFunding :allTime]))
-        display-funding (when (number? funding-num)
-                          (if (pos? funding-num)
-                            (- funding-num)
-                            funding-num))]
-    [:div {:class ["grid"
-                   positions-grid-template-class
-                   "gap-2"
-                   "py-0"
-                   "pr-3"
-                   positions-grid-min-width-class
-                   "hover:bg-base-300"
-                   "items-center"
-                   "text-sm"]}
-     ;; Coin with leverage and dex chips
-     [:div {:class ["flex" "items-center" "gap-1.5" "self-stretch" "min-w-[170px]"]
-            :style position-coin-cell-style}
-     [:span {:class ["font-medium" "whitespace-nowrap" "shrink-0"]} coin-label]
-      (when (some? leverage)
-        [:span {:class position-chip-classes} (str leverage "x")])
-      (when dex-label
-        [:span {:class position-chip-classes} dex-label])]
-     ;; Size
-     [:div.text-left.font-semibold.num (format-position-size pos)]
-     ;; Position Value  
-     [:div.text-left.font-semibold.num "$" (format-currency position-value)]
-     ;; Entry Price
-     [:div.text-left.font-semibold.num (format-trade-price entry-price)]
-     ;; Mark Price
-     [:div.text-left.font-semibold.num (format-trade-price mark-price)]
-     ;; PNL (ROE %)
-     [:div.text-left.font-semibold.num
-      [:div
-       [:span {:class [pnl-color-class "num"]}
-        (if (number? pnl-num)
-          (str "$" (format-currency pnl-num))
-          "--")]
-     [:div.text-xs.opacity-70.num
-        (if (number? pnl-percent)
-          [:span {:class (if (pos? pnl-percent) "text-success" "text-error")}
-           "(" (if (pos? pnl-percent) "+" "")
-           (.toFixed pnl-percent 2)
-           "%)"]
-          [:span.text-trading-text "--"])]]]
-     ;; Liq. Price
-     [:div.text-left.font-semibold.num (if liq-price (format-trade-price liq-price) "N/A")]
-     ;; Margin
-     [:div.text-left.font-semibold.num "$" (format-currency margin)]
-     ;; Funding
-     [:div.text-left.font-semibold.num
-      [:span {:class [(cond
-                        (and (number? display-funding) (neg? display-funding)) "text-error"
-                        (and (number? display-funding) (pos? display-funding)) "text-success"
-                        :else "text-trading-text")
-                      "num"]}
-       (if (number? display-funding)
-         (str "$" (format-currency display-funding))
-         "--")]]
-     ;; TP/SL
-     [:div.text-left
-      [:button.btn.btn-xs.btn-ghost "-- / --"]]]))
-
-;; Sort positions by column
-(defn sort-positions-by-column [positions column direction]
-  (let [sort-fn (case column
-                  "Coin" (fn [pos] (:coin (:position pos)))
-                  "Size" (fn [pos] (or (parse-optional-num (:szi (:position pos))) 0))
-                  "Position Value" (fn [pos] (or (parse-optional-num (:positionValue (:position pos))) 0))
-                  "Entry Price" (fn [pos] (or (parse-optional-num (:entryPx (:position pos))) 0))
-                  "Mark Price" (fn [pos] (or (parse-optional-num (calculate-mark-price (:position pos))) 0))
-                  "PNL (ROE %)" (fn [pos] (or (parse-optional-num (:unrealizedPnl (:position pos))) 0))
-                  "Liq. Price" (fn [pos] (let [liq (:liquidationPx (:position pos))]
-                                          (if liq
-                                            (or (parse-optional-num liq) js/Number.MAX_VALUE)
-                                            js/Number.MAX_VALUE)))
-                  "Margin" (fn [pos] (or (parse-optional-num (:marginUsed (:position pos))) 0))
-                  "Funding" (fn [pos] (or (parse-optional-num (get-in (:position pos) [:cumFunding :allTime])) 0))
-                  (fn [pos] 0)) ; default sort
-        sorted-positions (sort-by sort-fn positions)]
-    (if (= direction :desc)
-      (reverse sorted-positions)
-      sorted-positions)))
-
-;; Sortable column header component
-(defn sortable-header [column-name sort-state]
-  (sortable-header-button column-name sort-state :actions/sort-positions))
-
-;; Position table header with sorting
-(defn position-table-header [sort-state]
-  [:div {:class ["grid"
-                 positions-grid-template-class
-                 "gap-2"
-                 "py-1"
-                 "pr-3"
-                 positions-grid-min-width-class
-                 "bg-base-200"]}
-   [:div.text-left.pl-3 (sortable-header "Coin" sort-state)]
-   [:div.text-left (sortable-header "Size" sort-state)]
-   [:div.text-left (sortable-header "Position Value" sort-state)]
-   [:div.text-left (sortable-header "Entry Price" sort-state)]
-   [:div.text-left (sortable-header "Mark Price" sort-state)]
-   [:div.text-left (sortable-header "PNL (ROE %)" sort-state)]
-   [:div.text-left (sortable-header "Liq. Price" sort-state)]
-   [:div.text-left (sortable-header "Margin" sort-state)]
-   [:div.text-left (sortable-header "Funding" sort-state)]
-   [:div.text-left (non-sortable-header "TP/SL")]])
-
-;; Positions tab content
-(defn positions-tab-content [webdata2 sort-state perp-dex-states]
-  (let [positions (collect-positions webdata2 perp-dex-states)
-        sorted-positions (if positions
-                          (sort-positions-by-column positions 
-                                                   (:column sort-state) 
-                                                   (:direction sort-state))
-                          [])]
-    (if (and positions (seq positions))
-      (tab-table-content (position-table-header sort-state)
-                         (for [position sorted-positions]
-                           ^{:key (position-unique-key position)}
-                           (position-row position)))
-      (empty-state "No active positions"))))
-
-;; Placeholder tab content for other tabs
 (defn placeholder-tab-content [tab-name]
   [:div.p-4
    [:div.text-lg.font-medium.mb-4 (get tab-labels tab-name (name tab-name))]
    (empty-state (str (get tab-labels tab-name (name tab-name)) " coming soon"))])
-
-(defn open-orders-tab-content [normalized sort-state]
-  (let [sorted (sort-open-orders-by-column normalized
-                                           (:column sort-state)
-                                           (:direction sort-state))]
-    (if (seq sorted)
-      (tab-table-content
-        [:div {:class ["grid" "gap-2" "py-1" "px-3" "bg-base-200" "text-xs" "font-medium" "grid-cols-[130px_70px_60px_70px_60px_80px_100px_70px_70px_120px_50px_70px]"]}
-        [:div.pr-2.whitespace-nowrap (sortable-open-orders-header "Time" sort-state)]
-        [:div.pl-1 (sortable-open-orders-header "Type" sort-state)]
-        [:div (sortable-open-orders-header "Coin" sort-state)]
-        [:div (sortable-open-orders-header "Direction" sort-state)]
-        [:div.text-right (sortable-open-orders-header "Size" sort-state)]
-        [:div.text-right (sortable-open-orders-header "Original Size" sort-state)]
-        [:div.text-right (sortable-open-orders-header "Order Value" sort-state)]
-        [:div.text-right (sortable-open-orders-header "Price" sort-state)]
-        [:div.text-left.whitespace-nowrap "Reduce Only"]
-        [:div.text-left.whitespace-nowrap "Trigger Conditions"]
-        [:div.text-left "TP/SL"]
-         [:div.text-left "Cancel All"]]
-        (for [o sorted]
-          ^{:key (str (:oid o) "-" (:coin o))}
-          [:div {:class ["grid" "gap-2" "py-px" "px-3" "hover:bg-base-300" "text-xs" "grid-cols-[130px_70px_60px_70px_60px_80px_100px_70px_70px_120px_50px_70px]"]}
-          [:div.pr-2.whitespace-nowrap (format-open-orders-time (:time o))]
-          [:div.pl-1 (or (:type o) "Order")]
-          [:div (order-history-coin-node (:coin o) {} (:side o))]
-          [:div {:class (direction-class (:side o))} (direction-label (:side o))]
-          [:div.text-right.num.num-right (format-currency (:sz o))]
-          [:div.text-right.num.num-right (format-currency (or (:orig-sz o) (:sz o)))]
-          [:div.text-right.num.num-right (if-let [val (order-value o)]
-                                            (str (format-currency val) " USDC")
-                                            "--")]
-          [:div.text-right.num.num-right (format-trade-price (:px o))]
-          [:div.text-left (if (:reduce-only o) "Yes" "No")]
-          [:div.text-left (format-trigger-conditions o)]
-          [:div.text-left (format-tp-sl o)]
-           [:div.text-left
-            [:button {:class ["btn" "btn-xs" "btn-ghost"]
-                      :on {:click [[:actions/cancel-order o]]}}
-             "Cancel"]]]))
-      (empty-state "No open orders"))))
 
 (def default-trade-history-sort
   {:column "Time" :direction :desc})
