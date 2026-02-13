@@ -1,21 +1,29 @@
 (ns hyperopen.views.account-info-view
   (:require [clojure.string :as str]
             [hyperopen.views.account-info.projections :as projections]
-            [hyperopen.utils.formatting :as fmt]
-            [hyperopen.views.websocket-freshness :as ws-freshness]))
+            [hyperopen.views.account-info.vm :as account-info-vm]
+            [hyperopen.utils.formatting :as fmt]))
+
+(def ^:private tab-definitions
+  (array-map
+   :balances {:label "Balances"}
+   :positions {:label "Positions"}
+   :open-orders {:label "Open Orders"}
+   :twap {:label "TWAP"}
+   :trade-history {:label "Trade History"}
+   :funding-history {:label "Funding History"}
+   :order-history {:label "Order History"}))
 
 ;; Available tabs for the account info component
-(def available-tabs [:balances :positions :open-orders :twap :trade-history :funding-history :order-history])
+(def available-tabs
+  (vec (keys tab-definitions)))
 
 ;; Main tab labels for display
 (def tab-labels
-  {:balances "Balances"
-   :positions "Positions" 
-   :open-orders "Open Orders"
-   :twap "TWAP"
-   :trade-history "Trade History"
-   :funding-history "Funding History"
-   :order-history "Order History"})
+  (into {}
+        (map (fn [[tab {:keys [label]}]]
+               [tab label]))
+        tab-definitions))
 
 ;; Tab navigation component
 (defn tab-label [tab counts]
@@ -778,18 +786,18 @@
               (= status-filter (:status-key row)))
             rows)))
 
-(defn- paginate-order-history [rows order-history-state]
+(defn- paginate-history-rows [rows pagination-state]
   (let [total-rows (count rows)
-        page-size (normalize-order-history-page-size (:page-size order-history-state))
+        page-size (normalize-order-history-page-size (:page-size pagination-state))
         page-count (max 1 (int (js/Math.ceil (/ total-rows page-size))))
-        requested-page (normalize-order-history-page (:page order-history-state))
+        requested-page (normalize-order-history-page (:page pagination-state))
         safe-page (normalize-order-history-page requested-page page-count)
         start-idx (* (dec safe-page) page-size)
         end-idx (min total-rows (+ start-idx page-size))
         page-rows (if (< start-idx total-rows)
                     (subvec rows start-idx end-idx)
                     [])
-        raw-page-input (some-> (:page-input order-history-state) str)
+        raw-page-input (some-> (:page-input pagination-state) str)
         page-input (if (= raw-page-input (str requested-page))
                      (str safe-page)
                      (or raw-page-input (str safe-page)))]
@@ -799,50 +807,15 @@
      :page safe-page
      :page-count page-count
      :page-input page-input}))
+
+(defn- paginate-order-history [rows order-history-state]
+  (paginate-history-rows rows order-history-state))
 
 (defn- paginate-funding-history [rows funding-history-state]
-  (let [total-rows (count rows)
-        page-size (normalize-order-history-page-size (:page-size funding-history-state))
-        page-count (max 1 (int (js/Math.ceil (/ total-rows page-size))))
-        requested-page (normalize-order-history-page (:page funding-history-state))
-        safe-page (normalize-order-history-page requested-page page-count)
-        start-idx (* (dec safe-page) page-size)
-        end-idx (min total-rows (+ start-idx page-size))
-        page-rows (if (< start-idx total-rows)
-                    (subvec rows start-idx end-idx)
-                    [])
-        raw-page-input (some-> (:page-input funding-history-state) str)
-        page-input (if (= raw-page-input (str requested-page))
-                     (str safe-page)
-                     (or raw-page-input (str safe-page)))]
-    {:rows page-rows
-     :total-rows total-rows
-     :page-size page-size
-     :page safe-page
-     :page-count page-count
-     :page-input page-input}))
+  (paginate-history-rows rows funding-history-state))
 
 (defn- paginate-trade-history [rows trade-history-state]
-  (let [total-rows (count rows)
-        page-size (normalize-order-history-page-size (:page-size trade-history-state))
-        page-count (max 1 (int (js/Math.ceil (/ total-rows page-size))))
-        requested-page (normalize-order-history-page (:page trade-history-state))
-        safe-page (normalize-order-history-page requested-page page-count)
-        start-idx (* (dec safe-page) page-size)
-        end-idx (min total-rows (+ start-idx page-size))
-        page-rows (if (< start-idx total-rows)
-                    (subvec rows start-idx end-idx)
-                    [])
-        raw-page-input (some-> (:page-input trade-history-state) str)
-        page-input (if (= raw-page-input (str requested-page))
-                     (str safe-page)
-                     (or raw-page-input (str safe-page)))]
-    {:rows page-rows
-     :total-rows total-rows
-     :page-size page-size
-     :page safe-page
-     :page-count page-count
-     :page-input page-input}))
+  (paginate-history-rows rows trade-history-state))
 
 (defn sort-order-history-by-column [rows column direction]
   (let [sort-fn (case column
@@ -1471,24 +1444,11 @@
   (merge default-trade-history-sort
          (or (:sort trade-history-state) {})))
 
-(def ^:private trade-history-trade-value-keys
-  [:tradeValue :trade-value :tradeValueUsd :tradeValueUSDC :notional :notionalValue :value :quoteValue])
-
-(def ^:private trade-history-fee-keys
-  [:fee :feePaid :feeUsd :feeUSDC])
-
-(def ^:private trade-history-closed-pnl-keys
-  [:closedPnl :closed-pnl :closed_pnl :closedPnlUsd :closedPnlUSDC :realizedPnl])
-
 (defn- trade-history-coin [row]
-  (or (:coin row) (:symbol row) (:asset row)))
+  (projections/trade-history-coin row))
 
 (defn- trade-history-time-ms [row]
-  (when-let [raw-time (parse-optional-num (or (:time row) (:timestamp row) (:ts row) (:t row)))]
-    (let [rounded (js/Math.floor raw-time)]
-      (if (< rounded 1000000000000)
-        (* rounded 1000)
-        rounded))))
+  (projections/trade-history-time-ms row))
 
 (def ^:private trade-history-explorer-tx-base-url
   "https://app.hyperliquid.xyz/explorer/tx/")
@@ -1708,48 +1668,27 @@
       "--"
       (str size-text " " base-label))))
 
-(defn- first-parseable-row-value [row keys]
-  (some (fn [k]
-          (let [value (get row k)]
-            (when (number? (parse-optional-num value))
-              value)))
-        keys))
-
 (defn- trade-history-value-number [row]
-  (let [explicit-value (first-parseable-row-value row trade-history-trade-value-keys)]
-    (or (parse-optional-num explicit-value)
-        (let [size (parse-optional-num (or (:sz row) (:size row) (:s row)))
-              price (parse-optional-num (or (:px row) (:price row) (:p row)))]
-          (when (and (number? size)
-                     (number? price))
-            (* size price))))))
+  (projections/trade-history-value-number row))
 
 (defn- format-trade-history-value [row]
   (format-usdc-amount (trade-history-value-number row)))
 
 (defn- format-trade-history-fee [row]
-  (format-usdc-amount (first-parseable-row-value row trade-history-fee-keys)))
+  (format-usdc-amount (projections/trade-history-fee-number row)))
 
 (defn- format-trade-history-closed-pnl [row]
-  (format-usdc-amount (first-parseable-row-value row trade-history-closed-pnl-keys)))
+  (format-usdc-amount (projections/trade-history-closed-pnl-number row)))
 
 (defn- trade-history-closed-pnl-class [row]
-  (let [value (parse-optional-num (first-parseable-row-value row trade-history-closed-pnl-keys))]
+  (let [value (projections/trade-history-closed-pnl-number row)]
     (cond
       (and (number? value) (pos? value)) "text-success"
       (and (number? value) (neg? value)) "text-error"
       :else "text-trading-text")))
 
 (defn- trade-history-row-id [row]
-  (str (or (:tid row) (:id row) "")
-       "|"
-       (or (trade-history-time-ms row) 0)
-       "|"
-       (or (trade-history-coin row) "")
-       "|"
-       (or (:px row) (:price row) (:p row) "")
-       "|"
-       (or (:sz row) (:size row) (:s row) "")))
+  (projections/trade-history-row-id row))
 
 (defn sort-trade-history-by-column
   ([rows column direction]
@@ -1772,9 +1711,9 @@
                    "Trade Value" (fn [row]
                                    (or (trade-history-value-number row) 0))
                    "Fee" (fn [row]
-                           (or (parse-optional-num (first-parseable-row-value row trade-history-fee-keys)) 0))
+                           (or (projections/trade-history-fee-number row) 0))
                    "Closed PNL" (fn [row]
-                                  (or (parse-optional-num (first-parseable-row-value row trade-history-closed-pnl-keys)) 0))
+                                  (or (projections/trade-history-closed-pnl-number row) 0))
                    (fn [_] 0))
          sorted (sort-by (fn [row]
                            [(sort-fn row)
@@ -1945,82 +1884,69 @@
        (str error)])
     (order-history-table order-history order-history-state)]))
 
+(def ^:private tab-renderers
+  {:balances (fn [{:keys [balance-rows hide-small? balances-sort]}]
+               (balances-tab-content balance-rows hide-small? balances-sort))
+   :positions (fn [{:keys [webdata2 positions-sort perp-dex-states]}]
+                (positions-tab-content webdata2 positions-sort perp-dex-states))
+   :open-orders (fn [{:keys [open-orders open-orders-sort]}]
+                  (open-orders-tab-content open-orders open-orders-sort))
+   :twap (fn [_]
+           (placeholder-tab-content :twap))
+   :trade-history (fn [{:keys [trade-history-rows trade-history-state]}]
+                    (trade-history-tab-content trade-history-rows trade-history-state))
+   :funding-history (fn [{:keys [funding-history-rows funding-history-state funding-history-raw]}]
+                      (funding-history-tab-content funding-history-rows
+                                                   funding-history-state
+                                                   funding-history-raw))
+   :order-history (fn [{:keys [order-history-rows order-history-state]}]
+                    (order-history-tab-content order-history-rows order-history-state))})
+
 ;; Main tab content renderer
-(defn tab-content [selected-tab webdata2 sort-state hide-small? perp-dex-states open-orders open-orders-sort balance-rows balances-sort trade-history-state funding-history-state order-history-state]
-  (case selected-tab
-    :balances (balances-tab-content balance-rows hide-small? balances-sort)
-    :positions (positions-tab-content webdata2 sort-state perp-dex-states)
-    :open-orders (open-orders-tab-content open-orders open-orders-sort)
-    :twap (placeholder-tab-content :twap)
-    :trade-history (trade-history-tab-content (get-in webdata2 [:fills]) trade-history-state)
-    :funding-history (funding-history-tab-content (get-in webdata2 [:fundings])
-                                                  funding-history-state
-                                                  (get-in webdata2 [:fundings-raw]))
-    :order-history (order-history-tab-content (get-in webdata2 [:order-history])
-                                              order-history-state)
-    (empty-state "Unknown tab")))
+(defn tab-content
+  ([view-model]
+   (if-let [render-tab (get tab-renderers (:selected-tab view-model))]
+     (render-tab view-model)
+     (empty-state "Unknown tab")))
+  ([selected-tab webdata2 sort-state hide-small? perp-dex-states open-orders open-orders-sort balance-rows balances-sort trade-history-state funding-history-state order-history-state]
+   (tab-content {:selected-tab selected-tab
+                 :webdata2 webdata2
+                 :positions-sort sort-state
+                 :hide-small? hide-small?
+                 :perp-dex-states perp-dex-states
+                 :open-orders open-orders
+                 :open-orders-sort open-orders-sort
+                 :balance-rows balance-rows
+                 :balances-sort balances-sort
+                 :trade-history-rows (get-in webdata2 [:fills])
+                 :trade-history-state trade-history-state
+                 :funding-history-rows (get-in webdata2 [:fundings])
+                 :funding-history-state funding-history-state
+                 :funding-history-raw (get-in webdata2 [:fundings-raw])
+                 :order-history-rows (get-in webdata2 [:order-history])
+                 :order-history-state order-history-state})))
 
 ;; Account info panel component
 (defn account-info-panel [state]
-  (let [selected-tab (get-in state [:account-info :selected-tab] :balances)
-        webdata2 (merge (:webdata2 state) (get state :orders))
-        loading? (get-in state [:account-info :loading] false)
-        error (get-in state [:account-info :error])
-        sort-state (get-in state [:account-info :positions-sort] {:column nil :direction :asc})
-        balances-sort (get-in state [:account-info :balances-sort] {:column nil :direction :asc})
-        spot-data (:spot state)
-        balance-rows (build-balance-rows-for-account webdata2 spot-data (:account state))
-        hide-small? (get-in state [:account-info :hide-small-balances?] false)
-        perp-dex-states (:perp-dex-clearinghouse state)
-        positions (collect-positions webdata2 perp-dex-states)
-        open-orders (normalized-open-orders (get-in webdata2 [:open-orders])
-                                            (get-in webdata2 [:open-orders-snapshot])
-                                            (get-in webdata2 [:open-orders-snapshot-by-dex]))
-        trade-history-state (assoc (get-in state [:account-info :trade-history] {})
-                                   :market-by-key (get-in state [:asset-selector :market-by-key] {}))
-        funding-history-state (get-in state [:account-info :funding-history] {})
-        order-history-state (assoc (get-in state [:account-info :order-history] {})
-                                   :market-by-key (get-in state [:asset-selector :market-by-key] {}))
-        tab-counts {:open-orders (count open-orders)
-                    :positions (count positions)
-                    :balances (count balance-rows)}
-        open-orders-sort (get-in state [:account-info :open-orders-sort] {:column "Time" :direction :desc})
-        websocket-health (or (:websocket-health state)
-                             (get-in state [:websocket :health]))
-        wallet-address (get-in state [:wallet :address])
-        freshness-cues {:positions (ws-freshness/surface-cue websocket-health
-                                                             {:topic "webData2"
-                                                              :selector (when wallet-address
-                                                                          {:user wallet-address})
-                                                              :live-prefix "Updated"
-                                                              :na-prefix "Last update"})
-                        :open-orders (ws-freshness/surface-cue websocket-health
-                                                               {:topic "openOrders"
-                                                                :selector (when wallet-address
-                                                                            {:user wallet-address})
-                                                                :live-prefix "Updated"
-                                                                :na-prefix "Last update"})}]
+  (let [view-model (account-info-vm/account-info-vm state)
+        {:keys [selected-tab
+                tab-counts
+                hide-small?
+                funding-history-state
+                order-history-state
+                freshness-cues
+                error
+                loading?]} view-model]
     [:div {:class ["bg-base-100" "border-t" "border-base-300" "rounded-none" "shadow-none" "overflow-hidden" "w-full" "h-96" "flex" "flex-col" "min-h-0"]}
      ;; Tab navigation
      (tab-navigation selected-tab tab-counts hide-small? funding-history-state order-history-state freshness-cues)
-     
+
      ;; Content area
      [:div {:class ["flex-1" "min-h-0" "overflow-hidden"]}
       (cond
         error (error-state error)
         loading? (loading-spinner)
-        :else (tab-content selected-tab
-                           webdata2
-                           sort-state
-                           hide-small?
-                           perp-dex-states
-                           open-orders
-                           open-orders-sort
-                           balance-rows
-                           balances-sort
-                           trade-history-state
-                           funding-history-state
-                           order-history-state))]]))
+        :else (tab-content view-model))]]))
 
 ;; Main component that takes state and renders the UI
 (defn account-info-view [state]
