@@ -482,6 +482,26 @@
     (is (= 3.03 (view/parse-num (:usdc-value usdc-row))))
     (is (true? (:transfer-disabled? usdc-row)))))
 
+(deftest build-balance-rows-usdc-value-falls-back-to-coin-identity-when-meta-missing-test
+  (let [rows (view/build-balance-rows-for-account
+              {:clearinghouseState {:marginSummary {:accountValue "0.0"
+                                                    :totalMarginUsed "0.0"}}
+               :spotAssetCtxs []}
+              {:meta {:tokens []
+                      :universe []}
+               :clearinghouse-state {:balances [{:coin "USDC"
+                                                 :token 0
+                                                 :hold "3.03000000"
+                                                 :total "204.41936500"
+                                                 :entryNtl "0"}]}}
+              {:mode :unified
+               :abstraction-raw "unifiedAccount"})
+        usdc-row (first rows)]
+    (is (= 1 (count rows)))
+    (is (= "USDC" (:coin usdc-row)))
+    (is (= 204.419365 (view/parse-num (:usdc-value usdc-row))))
+    (is (= 201.389365 (view/parse-num (:available-balance usdc-row))))))
+
 (deftest build-balance-rows-filters-zero-balance-rows-by-default-test
   (let [rows (view/build-balance-rows
               {:clearinghouseState {:marginSummary {:accountValue "0.0"

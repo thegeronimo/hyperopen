@@ -149,3 +149,28 @@
     (is (some? portfolio-value-node))
     (is (nil? overcount-node))
     (is (contains? (node-class-set portfolio-value-node) "text-trading-text"))))
+
+(deftest unified-account-summary-portfolio-value-uses-usdc-fallback-when-meta-missing-test
+  (let [view-node (view/account-equity-view {:account {:mode :unified}
+                                             :webdata2 {:clearinghouseState {:marginSummary {:accountValue "0.0"
+                                                                                              :totalNtlPos "0.0"
+                                                                                              :totalRawUsd "0.0"
+                                                                                              :totalMarginUsed "0.0"}
+                                                                              :crossMarginSummary {:accountValue "0.0"
+                                                                                                   :totalNtlPos "0.0"
+                                                                                                   :totalRawUsd "0.0"
+                                                                                                   :totalMarginUsed "0.0"}
+                                                                              :crossMaintenanceMarginUsed "0.0"
+                                                                              :assetPositions []}
+                                                        :spotAssetCtxs []}
+                                             :spot {:meta {:tokens []
+                                                           :universe []}
+                                                    :clearinghouse-state {:balances [{:coin "USDC"
+                                                                                      :token 0
+                                                                                      :hold "0.0"
+                                                                                      :total "204.45"
+                                                                                      :entryNtl "0"}]}}
+                                             :perp-dex-clearinghouse {}})
+        portfolio-value-node (find-first-node view-node #(contains? (direct-texts %) "$204.45"))]
+    (is (some? portfolio-value-node))
+    (is (contains? (node-class-set portfolio-value-node) "text-trading-text"))))

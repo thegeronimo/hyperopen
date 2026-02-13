@@ -187,6 +187,11 @@
 (defn- unified-account-mode? [account]
   (= :unified (:mode account)))
 
+(defn- usdc-coin? [coin]
+  (let [coin* (some-> coin str str/trim str/upper-case)]
+    (and (seq coin*)
+         (str/starts-with? coin* "USDC"))))
+
 (defn- non-zero-balance-row? [row]
   (let [total-balance (parse-num (:total-balance row))
         available-balance (parse-num (:available-balance row))
@@ -286,7 +291,8 @@
                                  total-num (parse-num total)
                                  hold-num (parse-num hold)
                                  available-num (- total-num hold-num)
-                                 price (get price-by-token token-idx)
+                                 price (or (get price-by-token token-idx)
+                                           (when (usdc-coin? coin) 1))
                                  usdc-value (if price (* total-num price) 0)
                                  entry-num (parse-num entryNtl)
                                  pnl-value (when (and price (pos? entry-num))
