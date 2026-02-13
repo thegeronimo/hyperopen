@@ -2,8 +2,8 @@
 
 ## Purpose and Scope
 - This guide applies to trading UI work in `/hyperopen/src/hyperopen/views/**` and `/hyperopen/src/styles/**`.
-- Use this guide with `/hyperopen/AGENTS.md` and `/hyperopen/docs/agent-guides/ui-foundations.md`.
-- If guidance conflicts, `/hyperopen/AGENTS.md` wins.
+- Use this guide with `/hyperopen/docs/FRONTEND.md` and `/hyperopen/docs/agent-guides/ui-foundations.md`.
+- If guidance conflicts, `/hyperopen/docs/FRONTEND.md` wins.
 
 ## Prime Directive (MUST)
 - MUST prevent expensive mistakes (wrong account, instrument, side, size, or order type).

@@ -1,243 +1,65 @@
+---
+owner: platform
+status: canonical
+last_reviewed: 2026-02-13
+review_cycle_days: 90
+source_of_truth: true
+---
+
 # Hyperopen AGENTS
 
-## Scope and Precedence
-- This file is the canonical instruction source for coding agents working in this repository.
-- Precedence order for repository guidance is: `AGENTS.md` > task-specific user/developer instructions > `.cursorrules` and `GUIDELINES.md` references.
-- `.cursorrules` and `GUIDELINES.md` remain important context documents, but they are not the primary agent contract.
-- This document is repo-wide and includes strict websocket runtime standards.
+## Purpose
+This file is the agent entry point for this repository. It is a table of contents, not an encyclopedia.
 
-## ExecPlans
-- When writing complex features or significant refactors, use an ExecPlan (as described in `.agents/PLANS.md`) from design to implementation.
+## Source of Truth and Precedence
+- Canonical requirements live in `/hyperopen/ARCHITECTURE.md` and `/hyperopen/docs/**`.
+- Task-specific user/developer instructions override repository docs for the current task.
+- `.cursorrules` and `/hyperopen/GUIDELINES.md` remain supporting context.
 
-## UI Guidance (UI Tasks Only)
-- Apply UI guidance only when tasks touch UI-facing code such as `/hyperopen/src/hyperopen/views/**`, `/hyperopen/src/styles/**`, or user interaction flows (selectors/modals/dropdowns/forms/tables).
-- For UI-facing tasks, this file remains the primary contract and runtime authority.
-- For UI-facing tasks, apply additional guidance in this order:
-- `/hyperopen/docs/agent-guides/ui-foundations.md`
-- `/hyperopen/docs/agent-guides/trading-ui-policy.md`
-- If any UI-guide instruction conflicts with this file (especially websocket/runtime invariants), `AGENTS.md` wins.
-- Keep detailed design rationale and examples in `/hyperopen/docs/agent-guides/...`; keep `AGENTS.md` concise and enforceable.
+## Start Here
+1. [Architecture Map](/hyperopen/ARCHITECTURE.md)
+2. [Reliability Invariants](/hyperopen/docs/RELIABILITY.md)
+3. [Security and Signing Safety](/hyperopen/docs/SECURITY.md)
+4. [Quality Scorecard](/hyperopen/docs/QUALITY_SCORE.md)
+5. [Planning and Execution](/hyperopen/docs/PLANS.md)
 
-## Repo-Wide Engineering Rules (MUST)
-- MUST keep changes scoped to the task and avoid unrelated edits.
-- MUST preserve existing public APIs unless explicitly requested to change them.
-- MUST avoid duplicate logic; extend existing code where feasible.
-- MUST add or update tests for all behavioral changes.
-- MUST keep runtime behavior deterministic where architecture depends on ordered/event-driven flows.
-- MUST NOT include machine-specific absolute paths in repo docs or agent guidance; use repo-root paths like `/hyperopen/...` instead.
+## Domain Guides
+- Architecture boundaries: [ARCHITECTURE.md](/hyperopen/ARCHITECTURE.md)
+- Design foundations and beliefs: [DESIGN.md](/hyperopen/docs/DESIGN.md) and [design docs index](/hyperopen/docs/design-docs/index.md)
+- Prior AGENTS section map: [AGENTS Section Reindex Map](/hyperopen/docs/design-docs/agents-section-index.md)
+- Frontend policy: [FRONTEND.md](/hyperopen/docs/FRONTEND.md)
+- Product specs and roadmap intent: [PRODUCT_SENSE.md](/hyperopen/docs/PRODUCT_SENSE.md) and [product specs index](/hyperopen/docs/product-specs/index.md)
+- Reliability invariants and runtime behavior: [RELIABILITY.md](/hyperopen/docs/RELIABILITY.md)
+- Security and signing invariants: [SECURITY.md](/hyperopen/docs/SECURITY.md)
+- Quality posture and test expectations: [QUALITY_SCORE.md](/hyperopen/docs/QUALITY_SCORE.md)
+- Planning and execution artifacts: [PLANS.md](/hyperopen/docs/PLANS.md)
+- References and external anchors: [references index](/hyperopen/docs/references/index.md)
 
-## Crypto Signing and Exchange API Rules (MUST)
-- MUST treat signing payload serialization as consensus-critical behavior; any wire-format change requires explicit parity tests against known vectors.
-- MUST preserve integer fidelity for signing-critical fields (`oid`, nonces, asset indexes, sizes where applicable) and MUST NOT route them through lossy float encoding.
-- MUST keep signing identity deterministic: the signing private key and persisted `agent-address` must be reconciled before signing/submit.
-- MUST fail fast or reconcile when persisted session identity drifts, and MUST NOT silently continue with mismatched key/address pairs.
-- MUST verify missing-wallet/missing-agent exchange errors before clearing local agent credentials (for example via `userRole` or equivalent info lookup).
-- MUST avoid destructive key invalidation on ambiguous errors; only clear local credentials when invalidity is confirmed.
-- MUST keep signing diagnostics non-sensitive: log hashes, action types, and derived signer metadata only; MUST NOT log raw private keys or raw secret material.
-- MUST keep protocol-shape translation and exchange error normalization centralized in ACL/API boundaries (for example `/hyperopen/src/hyperopen/api/trading.cljs` and signing utilities), not UI callbacks.
-- MUST cross-check signing and exchange action behavior against these reference SDKs whenever signing/API code is changed:
-  [nktkas/hyperliquid](https://github.com/nktkas/hyperliquid),
-  [nomeida/hyperliquid](https://github.com/nomeida/hyperliquid),
-  [hyperliquid-dex/hyperliquid-python-sdk](https://github.com/hyperliquid-dex/hyperliquid-python-sdk).
-- MUST document any intentional divergence from reference SDK behavior in PR notes and include compensating regression coverage.
+## Hard Guardrails
+- Keep changes scoped; preserve public Application Programming Interfaces unless explicitly requested.
+- Keep websocket runtime decisions pure and deterministic.
+- Keep side effects in interpreters/infrastructure boundaries only.
+- Keep signing payload behavior consensus-safe and covered by parity tests when changed.
+- Keep interaction responsiveness deterministic: user-visible state updates must precede heavy subscription/fetch work.
 
-## UI Interaction Runtime Rules (MUST)
-- MUST apply user-visible UI state transitions first in an action pipeline (example: close dropdown immediately before unsubscribe/subscribe/fetch effects).
-- MUST batch related UI state writes caused by one interaction into a single state projection effect when feasible.
-- MUST batch logically related writes to the same atom/store into a single `swap!` (or equivalent single transition) when intermediate states are not intentionally observable.
-- MUST NOT emit multiple sequential `swap!` calls for one logical UI/domain transition when a single atomic update can represent the same transition.
-- If staged intermediate states are intentional, MUST document the reason and add ordering/regression tests that cover the staged behavior.
-- MUST avoid duplicate side-effect issuance in one interaction flow (example: only one candle snapshot trigger per asset selection).
-- MUST define a single owner per projection path in a flow (`:active-asset`, `:selected-asset`, `:active-market`) and avoid redundant writers unless explicitly documented and tested.
-- MUST represent multi-token Replicant `:class` values as collections (for example `["opacity-0" "scale-y-95"]`) and MUST NOT use space-separated class strings in `:class` (for example `"opacity-0 scale-y-95"`), to avoid Replicant warnings and normalization overhead.
-- MUST represent Hiccup `:style` map keys as keywords (including CSS custom properties, for example `:--order-size-slider-progress`) and MUST NOT use string keys (for example `"--order-size-slider-progress"`), to avoid Replicant style-key warnings.
-- MUST render namespaced instrument identifiers in UI tables as base symbol text plus a prefix/type chip (for example `xyz:NVDA` -> `NVDA` + `xyz` chip), and MUST NOT render the raw concatenated identifier as the primary display label.
-- MUST render quantity/size symbol suffixes using the base symbol only (for example `0.500 NVDA`), and MUST NOT include namespace/type prefixes in size strings.
+## UI Tasks
+When work touches `/hyperopen/src/hyperopen/views/**`, `/hyperopen/src/styles/**`, or user interaction flows:
+1. Follow `/hyperopen/docs/FRONTEND.md`.
+2. Then apply `/hyperopen/docs/agent-guides/ui-foundations.md`.
+3. Then apply `/hyperopen/docs/agent-guides/trading-ui-policy.md`.
 
-## Domain-Driven Design Rules (MUST)
-- MUST use ubiquitous language aligned to Hyperliquid protocol and product concepts.
-- MUST keep domain decision logic pure and deterministic (no IO, no hidden mutable state).
-- MUST model business transitions through explicit domain messages/effects, not ad hoc maps/calls.
-- MUST enforce invariants in a single domain decision point (reducer/domain policy), not duplicated across UI/infrastructure.
-- MUST isolate external protocol payloads behind ACL translation before they become domain envelopes.
-- MUST keep domain models and policies implementation-agnostic (framework/runtime-independent where practical).
-- MUST preserve lossless ordering rules for account/order/funding flows as a domain invariant.
+## Planning Workflow
+- Complex work must use an ExecPlan shaped by `/hyperopen/.agents/PLANS.md`.
+- Store active plans in `/hyperopen/docs/exec-plans/active/`.
+- Move completed plans to `/hyperopen/docs/exec-plans/completed/`.
+- Track known debt in `/hyperopen/docs/exec-plans/tech-debt-tracker.md`.
 
-## S.O.L.I.D. Design Rules (MUST)
-- MUST apply Single Responsibility Principle: each module/function should have one reason to change.
-- MUST keep websocket responsibilities separated: reducer (pure decisions), engine (single-writer orchestration), effect interpreters (IO), ACL (schema translation), client (public API seam).
-- MUST apply Open-Closed Principle: extend behavior through `RuntimeMsg`, `RuntimeEffect`, policy maps, and adapters before modifying stable core flows.
-- MUST preserve stable public interfaces unless explicitly requested, especially `/hyperopen/src/hyperopen/websocket/client.cljs`.
-- MUST apply Liskov Substitution Principle: replacement transport/scheduler/clock/router implementations must preserve contract shape and semantics (ordering, timing units, and return behavior).
-- MUST apply Interface Segregation Principle: keep protocols and handler interfaces focused; avoid broad interfaces that force unused methods or arguments.
-- MUST apply Dependency Inversion Principle: high-level application/domain logic must depend on abstractions and injected collaborators, not concrete browser/JS primitives.
+## Required Validation Gates
+- `npm run check`
+- `npm test`
+- `npm run test:websocket`
 
-## Architecture Governance Rules (MUST)
-- MUST keep namespace dependencies acyclic (ADP); if a cycle is introduced temporarily, an ADR with an explicit removal plan is required.
-- MUST follow Stable Dependencies Principle (SDP): dependency direction must point toward more stable modules (domain/policy/core contracts), never from domain/application into UI/browser/infrastructure implementations.
-- MUST follow Stable Abstractions Principle (SAP): high fan-in or shared modules must expose abstract seams (protocols, pure data contracts, adapters), not concrete IO-heavy implementations.
-- MUST define and preserve explicit namespace API surfaces; production code MUST call public vars only and MUST NOT reach into private vars across namespaces.
-- MUST create/update an ADR for architecture-affecting changes (layer boundaries, message/effect algebra, invariant ownership, dependency direction, or public API contract changes).
-- MUST normalize errors at a single boundary into typed categories (for example `:domain`, `:validation`, `:transport`, `:protocol`, `:unexpected`) before UI/application branching.
-- MUST make startup/bootstrap and effect handlers idempotent and reentrant under retries, reconnects, and duplicate dispatch.
-- MUST add boundary contract tests for each new seam/module boundary, verifying contract shape, translation ownership, and invariant enforcement.
-- MUST keep complexity bounded: new namespaces should stay under 500 LOC and new functions under 80 LOC; exceptions require ADR justification plus targeted tests.
-- MUST include an invariant ownership note in PR notes for any changed invariant: invariant name, owning namespace/function, and enforcement boundary.
-
-## WebSocket Runtime Architecture Rules (MUST)
-- MUST keep runtime decisions pure via `step(state, msg) -> {:state next-state :effects [...]}`.
-- MUST keep canonical websocket runtime state single-writer: only the engine loop mutates it.
-- MUST execute IO only through effect interpreters (transport, timers, lifecycle hooks, logging, routing, state projections).
-- MUST NOT perform direct transport/timer/dom/log side effects inside reducers or domain message handling.
-- MUST NOT use multi-loop shared mutable writes for connection/metrics runtime ownership.
-- MUST preserve existing websocket public APIs in `/hyperopen/src/hyperopen/websocket/client.cljs` unless explicitly requested.
-- MUST maintain message/effect algebra using `RuntimeMsg` and `RuntimeEffect` style contracts.
-
-## DDD Layer Boundaries (MUST)
-- Domain model/policy ownership:
-- `/hyperopen/src/hyperopen/websocket/domain/model.cljs`
-- `/hyperopen/src/hyperopen/websocket/domain/policy.cljs`
-- Application orchestration/decision flow ownership:
-- `/hyperopen/src/hyperopen/websocket/application/runtime_reducer.cljs`
-- `/hyperopen/src/hyperopen/websocket/application/runtime.cljs`
-- `/hyperopen/src/hyperopen/websocket/application/runtime_engine.cljs`
-- Infrastructure IO/effect interpretation ownership:
-- `/hyperopen/src/hyperopen/websocket/infrastructure/runtime_effects.cljs`
-- `/hyperopen/src/hyperopen/websocket/infrastructure/transport.cljs`
-- ACL/adapters/public client seam ownership:
-- `/hyperopen/src/hyperopen/websocket/acl/hyperliquid.cljs`
-- `/hyperopen/src/hyperopen/websocket/client.cljs`
-- MUST keep dependency direction intentional: domain -> application -> infrastructure, with ACL adapters at system boundaries.
-- MUST ensure domain decisions never directly perform transport/timer/dom/log side effects.
-- MUST absorb external schema changes in ACL mapping and keep domain contracts stable.
-
-## core.async / Channel Best Practices (MUST)
-- MUST define explicit channel roles and keep them stable:
-- `mailbox`: runtime command/event ingress, lossless, bounded.
-- `effects`: effect execution queue, bounded.
-- `router-bus`: topic fanout for decoded envelopes.
-- `metrics`: best-effort telemetry (dropping allowed).
-- `dead-letter`: diagnostics/error sink (dropping allowed).
-- MUST keep control and lossless domain flows lossless and bounded.
-- MUST only use sliding or dropping buffers where loss policy is explicitly intended and documented.
-- MUST define overflow behavior for bounded queues (drop policy, dead-letter, and metric/log signal).
-- MUST isolate handlers behind dedicated channels/workers so slow handlers do not stall core runtime loops.
-- MUST document tiering and backpressure rationale for market vs user/account/order flows.
-
-## Purity and IO Boundary Checklist
-- [ ] Yes/No: reducer code has no `swap!`, `reset!`, `println`, JS interop side effects, or `infra/*` IO calls.
-- [ ] Yes/No: all side effects are represented as `RuntimeEffect` values.
-- [ ] Yes/No: effect interpreters are the only place where socket/timer/dom/log IO executes.
-- [ ] Yes/No: canonical runtime state has a single writer (engine loop).
-- [ ] Yes/No: connection and stream projections are applied as explicit projection effects.
-- [ ] Yes/No: new websocket behaviors are introduced through message/effect algebra, not ad hoc direct calls.
-
-## DDD Modeling Checklist
-- [ ] Yes/No: ubiquitous language is consistent in message/effect names.
-- [ ] Yes/No: new behavior is expressed as domain message/effect variants.
-- [ ] Yes/No: invariants are enforced in reducer/domain policy, not split across layers.
-- [ ] Yes/No: external payload normalization/mapping is handled in ACL/interpreter boundaries.
-- [ ] Yes/No: domain changes include determinism, ordering, and replay safety tests.
-- [ ] Yes/No: projection entities used by views (for example `:active-market`) are either fully shaped or deterministically derived from canonical state.
-- [ ] Yes/No: canonical identity fields (for example `:active-asset`) have deterministic fallback rendering paths when denormalized projections are absent/incomplete.
-
-## S.O.L.I.D. Checklist
-- [ ] Yes/No: SRP is preserved (no mixed domain decision + IO + projection responsibilities in one unit).
-- [ ] Yes/No: OCP is preserved (behavior added via extension seams before core flow rewrites).
-- [ ] Yes/No: LSP is preserved (substitutable implementations satisfy existing contracts and invariants).
-- [ ] Yes/No: ISP is preserved (interfaces/protocols remain minimal and purpose-specific).
-- [ ] Yes/No: DIP is preserved (high-level logic depends on abstractions/injection, not concrete infra types).
-
-## Testing Requirements (MUST)
-- MUST include reducer determinism tests (same state + same msg => same state/effects).
-- MUST include single-writer invariant tests for runtime ownership.
-- MUST include FIFO and replay correctness tests under reconnect.
-- MUST include market coalescing correctness tests under burst traffic.
-- MUST include lossless ordering tests for `openOrders`, `userFills`, `userFundings`, and `userNonFundingLedgerUpdates`.
-- MUST include lifecycle and watchdog behavior tests.
-- MUST include address-watcher compatibility tests for websocket status transitions.
-- MUST include effect-order tests for user-interaction actions where responsiveness is critical (UI-close/save projection effects must precede heavy subscription/fetch effects).
-- MUST include no-duplicate-effects tests for selection flows (no repeated network/subscription effects caused by one action dispatch).
-- MUST include view fallback tests ensuring active symbol/icon text renders from canonical identity when market projection is partial.
-- MUST include regression tests for selection transitions from asset A -> B covering both timing and render correctness.
-- MUST include signing parity tests with known vectors for each signed exchange action touched by a change (at minimum `order` and `cancel` when modified), including large-integer boundary cases.
-- MUST include regression tests that guard signer/session reconciliation behavior when persisted `agent-address` and derived key address diverge.
-- MUST include regression tests for missing API-wallet handling that verify credential preservation vs invalidation decisions.
-- MUST validate new/changed signing vectors against at least one of the listed reference SDKs; for high-risk or ambiguous cases, use at least two references.
-- MUST pass compile gates: `npx shadow-cljs compile app` and `npx shadow-cljs compile test`.
-- MUST keep websocket-focused tests independently runnable.
-
-## TDD Workflow (MUST)
-- MUST follow Red -> Green -> Refactor for behavior changes.
-- MUST add a failing regression test first for bug fixes before implementing code changes.
-- MUST test pure decision logic directly without IO dependencies.
-- MUST test IO boundaries with fakes/stubs and deterministic assertions.
-- MUST keep tests deterministic (no uncontrolled wall-clock, randomness, or network).
-
-## Tests As Documentation (MUST)
-- MUST use behavior-oriented test names that describe invariants and expected outcomes.
-- MUST encode fallback behavior explicitly in tests when projections can be partial.
-- MUST encode ordering guarantees in tests for interaction-critical and websocket flows.
-- MUST prefer focused tests that document one invariant each instead of broad opaque fixtures.
-
-## Definition Of Done (MUST)
-- MUST pass `npm run check`.
-- MUST pass `npm test`.
-- MUST pass `npm run test:websocket`.
-- MUST keep `/hyperopen/.github/workflows/tests.yml` required in branch protection.
-
-## Interaction Regression Scenarios (MUST)
-- Asset select emits immediate close/projection update before unsubscribe/subscribe effects.
-- Asset select emits no duplicate fetch/subscription effects.
-- Active asset bar still renders symbol if `:active-market` is partial.
-- Transition from one active asset to another preserves visible symbol and closes selector instantly.
-- Funding/order/trade rows display namespaced coins as base symbol + chip, and size fields never include namespace/type prefixes.
-
-## Interaction Assumptions and Defaults
-- Assume existing Nexus/Replicant synchronous dispatch model remains unchanged.
-- Assume `:active-asset` is canonical identity and `:active-market` is a denormalized projection.
-- Default policy style is strict `MUST` / `DO NOT` guidance for interaction flow constraints.
-
-## Anti-Patterns (DO NOT)
-- DO NOT perform side effects inside reducer transitions.
-- DO NOT allow multiple writers to mutate canonical runtime state.
-- DO NOT add hidden synchronous fallback paths that bypass the channel model.
-- DO NOT use unbounded queues for lossless flows.
-- DO NOT bypass message/effect contracts with direct infrastructure calls from domain logic.
-- DO NOT put business rules in effect interpreters, transport handlers, or UI callbacks.
-- DO NOT leak raw exchange payload shapes directly into domain consumers without ACL mapping.
-- DO NOT introduce new behavior via direct infrastructure calls that bypass runtime message/effect algebra.
-- DO NOT mix domain decision logic and infrastructure IO concerns in the same function/module.
-- DO NOT modify stable interfaces for one-off behavior when existing extension points can satisfy the change.
-- DO NOT couple high-level runtime logic directly to concrete browser/JS infrastructure primitives.
-- DO NOT design broad protocols/handlers that force consumers to implement unused methods or accept unused arguments.
-- DO NOT place UI-close/visibility effects after subscription or fetch effects in the same synchronous interaction pipeline.
-- DO NOT write the same semantic state in multiple layers of one flow (action + effect) unless idempotency and intent are documented.
-- DO NOT persist partial denormalized market projections without required identity/display fields (`:coin`, `:symbol`) when non-nil.
-- DO NOT pass space-separated class strings to `:class` in Hiccup attrs.
-- DO NOT use string keys in Hiccup `:style` maps; use keyword keys (including keyword CSS custom properties like `:--foo`).
-
-## Change Workflow for Agents
-- Read websocket runtime files before editing:
-- `/hyperopen/src/hyperopen/websocket/application/runtime_reducer.cljs`
-- `/hyperopen/src/hyperopen/websocket/application/runtime_engine.cljs`
-- `/hyperopen/src/hyperopen/websocket/infrastructure/runtime_effects.cljs`
-- `/hyperopen/src/hyperopen/websocket/client.cljs`
-- Validate SRP/OCP/LSP/ISP/DIP impact before editing websocket runtime components; document intentional tradeoffs in PR notes.
-- Add or adjust tests before finalizing large runtime behavior changes.
-- When changing interaction flows (selector/modals/dropdowns), explicitly document intended effect order in PR notes.
-- Require at least one targeted regression test that validates both responsiveness ordering and rendering fallback behavior.
-- Keep compatibility adapter behavior explicit and documented.
-- Document any intentional invariant deviations in PR notes.
-
-## Mini-Template: Add a New WebSocket Event
-- Define or update the domain concept/invariant and ubiquitous term first.
-- Validate the intended extension seam (OCP) and responsibility split (SRP) before adding message/effect branches.
-- Add a `RuntimeMsg` variant in domain model (constructor/predicate coverage).
-- Extend reducer `step` with pure state transition and emitted effects.
-- Add or extend interpreter handling for any new effect type.
-- Follow the RuntimeMsg -> reducer -> interpreter -> tests sequence.
-- Add tests for:
-- reducer branch determinism,
-- expected effect emission,
-- integration path through engine + interpreter.
+## Documentation Hygiene
+- Use repo-root paths in docs (for example `/hyperopen/docs/RELIABILITY.md`), never machine-specific absolute paths.
+- Keep governed docs current with front matter ownership and review metadata.
+- Keep index docs updated when adding/moving canonical documents.

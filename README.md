@@ -6,7 +6,7 @@ A ClojureScript trading interface built with [Replicant](https://github.com/cjoh
 
 ## Architecture
 
-This project follows a pure functional architecture with strict separation between components and side effects. For detailed information about the design philosophy, data flow architecture, and implementation patterns, see the [Technical Implementation Guide](PRDs/technical-implementation-guide.md).
+This project follows a pure functional architecture with strict separation between components and side effects. For the top-level architecture map, see [ARCHITECTURE.md](ARCHITECTURE.md). For detailed implementation patterns, see the [Technical Implementation Guide](docs/product-specs/technical-implementation-guide.md).
 
 Key architectural principles:
 

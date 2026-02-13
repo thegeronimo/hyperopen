@@ -2,7 +2,7 @@
 
 ## Purpose and Scope
 - This guide applies only when tasks touch UI-facing code.
-- Use this guide with `/hyperopen/AGENTS.md`.
+- Use this guide with `/hyperopen/docs/FRONTEND.md`.
 - Out of scope for this guide: AR/VR, voice UI, adaptive AI interface behavior, and platform-specific iOS/Android conventions.
 
 ## Ethical Design and User Agency (MUST)

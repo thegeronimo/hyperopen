@@ -1,3 +1,11 @@
+---
+owner: product
+status: supporting
+last_reviewed: 2026-02-13
+review_cycle_days: 90
+source_of_truth: true
+---
+
 # Hyperopen Parity Roadmap vs app.hyperliquid.xyz
 
 ## Scope and Sources

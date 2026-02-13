@@ -1,3 +1,11 @@
+---
+owner: product
+status: supporting
+last_reviewed: 2026-02-13
+review_cycle_days: 90
+source_of_truth: true
+---
+
 # WebSocket Subscription Architecture Product Review
 
 ## Executive Summary
@@ -20,12 +28,12 @@ Locked constraints for this review and recommendation:
 Non-goals:
 
 - No websocket server protocol changes.
-- No immediate rewrite of store schema or broad state-model refactor in `/Users//projects/hyperopen/src/hyperopen/core.cljs`.
+- No immediate rewrite of store schema or broad state-model refactor in `/hyperopen/src/hyperopen/core.cljs`.
 
 Assumptions and defaults:
 
 - Audience is Engineering + Product.
-- Output is a standalone PRD in `PRDs/`.
+- Output is a standalone PRD in `/hyperopen/docs/product-specs/`.
 - Migration must preserve user-visible behavior during transition.
 - Existing reconnect safety behavior must remain intact while internals evolve.
 
@@ -35,12 +43,12 @@ Current runtime behavior is callback-first with centralized connection managemen
 
 End-to-end flow:
 
-1. Application startup initializes websocket runtime and stream modules in `/Users//projects/hyperopen/src/hyperopen/core.cljs:824`.
-2. Connection bootstrap begins through `init-connection!` in `/Users//projects/hyperopen/src/hyperopen/websocket/client.cljs:399`.
-3. Outbound subscribe/unsubscribe and other websocket payloads are sent through `send-message!` in `/Users//projects/hyperopen/src/hyperopen/websocket/client.cljs:432`.
-4. Incoming websocket frames are parsed and routed by `handle-message!` in `/Users//projects/hyperopen/src/hyperopen/websocket/client.cljs:386`.
-5. On reconnect, desired subscription intent is replayed by `replay-desired-subscriptions!` in `/Users//projects/hyperopen/src/hyperopen/websocket/client.cljs:234`.
-6. Address-based subscription changes are deferred if websocket is disconnected and replayed later via address watcher logic at `/Users//projects/hyperopen/src/hyperopen/wallet/address_watcher.cljs:61`.
+1. Application startup initializes websocket runtime and stream modules in `/hyperopen/src/hyperopen/core.cljs:824`.
+2. Connection bootstrap begins through `init-connection!` in `/hyperopen/src/hyperopen/websocket/client.cljs:399`.
+3. Outbound subscribe/unsubscribe and other websocket payloads are sent through `send-message!` in `/hyperopen/src/hyperopen/websocket/client.cljs:432`.
+4. Incoming websocket frames are parsed and routed by `handle-message!` in `/hyperopen/src/hyperopen/websocket/client.cljs:386`.
+5. On reconnect, desired subscription intent is replayed by `replay-desired-subscriptions!` in `/hyperopen/src/hyperopen/websocket/client.cljs:234`.
+6. Address-based subscription changes are deferred if websocket is disconnected and replayed later via address watcher logic at `/hyperopen/src/hyperopen/wallet/address_watcher.cljs:61`.
 
 Current runtime properties:
 
@@ -94,7 +102,7 @@ Public stability commitments:
 
 - Feature-module APIs remain stable: `subscribe-*`, `unsubscribe-*`, `init!`.
 - `register-handler!` remains available during migration through adapter semantics.
-- No immediate breaking store-key changes in `/Users//projects/hyperopen/src/hyperopen/core.cljs`.
+- No immediate breaking store-key changes in `/hyperopen/src/hyperopen/core.cljs`.
 
 Internal runtime additions:
 
