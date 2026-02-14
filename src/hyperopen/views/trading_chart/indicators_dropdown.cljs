@@ -64,18 +64,28 @@
          (if (seq filtered-indicators)
            (for [indicator filtered-indicators]
              (let [indicator-id (:id indicator)
-                   active? (contains? active-indicators indicator-id)]
+                   active? (contains? active-indicators indicator-id)
+                   click-action (if active?
+                                  [:actions/remove-indicator indicator-id]
+                                  [:actions/add-indicator indicator-id (or (:default-config indicator) {})])]
                [:button
                 {:key indicator-id
                  :type "button"
                  :class (into ["w-full" "px-4" "py-2.5" "text-left" "text-sm" "transition-colors"
+                               "flex" "items-center" "justify-between" "gap-3"
                                "focus:outline-none" "focus-visible:ring-1" "focus-visible:ring-base-content/40"]
                               (if active?
-                                ["text-trading-green" "bg-base-200/30"]
+                                ["text-trading-green" "bg-base-200/40" "hover:bg-base-200/60"]
                                 ["text-white" "hover:bg-base-200/70"]))
-                 :on {:click [[:actions/add-indicator indicator-id (or (:default-config indicator) {})]]}
-                 :aria-label (str "Add " (:name indicator) " indicator")}
-                (:name indicator)]))
+                 :on {:click [click-action]}
+                 :aria-label (if active?
+                               (str "Remove " (:name indicator) " indicator")
+                               (str "Add " (:name indicator) " indicator"))
+                 :aria-pressed active?}
+                [:span (:name indicator)]
+                (when active?
+                  [:span {:class ["text-xs" "font-medium" "text-trading-green" "tracking-wide"]}
+                   "Added"])]))
            [:div
             {:class ["px-4" "py-6" "text-sm" "text-gray-400"]}
             "No indicators match your search."])]
@@ -83,8 +93,11 @@
           [:div
            {:class ["border-t" "border-base-300" "px-4" "py-3"]}
            [:div
-            {:class ["mb-2" "text-xs" "font-semibold" "uppercase" "tracking-wide" "text-gray-500"]}
+            {:class ["mb-1" "text-xs" "font-semibold" "uppercase" "tracking-wide" "text-gray-500"]}
             "Active Indicators"]
+           [:div
+            {:class ["mb-2" "text-xs" "text-gray-400"]}
+            "Click an added indicator above to remove it quickly."]
            [:div
             {:class ["space-y-2"]}
             (for [[indicator-id config] (sort-by (comp name key) active-indicators)]

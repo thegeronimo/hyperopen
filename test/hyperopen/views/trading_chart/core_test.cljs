@@ -168,6 +168,19 @@
     (is (some? add-node))
     (is (= :button (first add-node)))))
 
+(deftest chart-top-menu-active-indicator-rows-toggle-to-remove-action-test
+  (let [menu (chart-core/chart-top-menu {:chart-options {:timeframes-dropdown-visible false
+                                                          :selected-timeframe :1d
+                                                          :chart-type-dropdown-visible false
+                                                          :selected-chart-type :candlestick
+                                                          :indicators-dropdown-visible true
+                                                          :indicators-search-term ""
+                                                          :active-indicators {:sma {:period 20}}}})
+        remove-node (find-first-node menu #(= [[:actions/remove-indicator :sma]]
+                                               (get-in % [1 :on :click])))]
+    (is (some? remove-node))
+    (is (= true (get-in remove-node [1 :aria-pressed])))))
+
 (deftest chart-top-menu-renders-trades-freshness-cue-from-health-snapshot-test
   (let [menu (chart-core/chart-top-menu {:active-asset "BTC"
                                          :websocket-ui {:show-surface-freshness-cues? true}
