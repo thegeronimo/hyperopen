@@ -1,5 +1,4 @@
-(ns hyperopen.views.trading-chart.utils.indicators-wave3
-  (:require [clojure.string :as str]))
+(ns hyperopen.views.trading-chart.utils.indicators-wave3)
 
 (def ^:private wave3-indicator-definitions
   [{:id :chaikin-volatility
@@ -631,10 +630,15 @@
    :data (histogram-points-from-values time-values indicator-values)})
 
 (defn- indicator-result
-  [indicator-type pane series]
-  {:type indicator-type
-   :pane pane
-   :series series})
+  ([indicator-type pane series]
+   {:type indicator-type
+    :pane pane
+    :series series})
+  ([indicator-type pane series markers]
+   (cond-> {:type indicator-type
+            :pane pane
+            :series series}
+     (seq markers) (assoc :markers markers))))
 
 (defn- streak-values
   [close-values]
@@ -1583,29 +1587,46 @@
   (let [high-values (highs data)
         low-values (lows data)
         size (count data)
-        fractal-highs (mapv (fn [idx]
-                              (when (and (>= idx 2) (< idx (- size 2)))
-                                (let [window (subvec high-values (- idx 2) (+ idx 3))
-                                      center (nth high-values idx)]
-                                  (when (and (finite-number? center)
-                                             (= center (apply max window))
-                                             (= 1 (count (filter #(= % center) window))))
-                                    center))))
-                            (range size))
-        fractal-lows (mapv (fn [idx]
-                             (when (and (>= idx 2) (< idx (- size 2)))
-                               (let [window (subvec low-values (- idx 2) (+ idx 3))
-                                     center (nth low-values idx)]
-                                 (when (and (finite-number? center)
-                                            (= center (apply min window))
-                                            (= 1 (count (filter #(= % center) window))))
-                                   center))))
-                           (range size))
-        time-values (times data)]
+        time-values (times data)
+        markers (->> (range size)
+                     (reduce (fn [acc idx]
+                               (if (or (< idx 2) (>= idx (- size 2)))
+                                 acc
+                                 (let [time (nth time-values idx)
+                                       high-window (subvec high-values (- idx 2) (+ idx 3))
+                                       low-window (subvec low-values (- idx 2) (+ idx 3))
+                                       center-high (nth high-values idx)
+                                       center-low (nth low-values idx)
+                                       bearish? (and (finite-number? center-high)
+                                                     (= center-high (apply max high-window))
+                                                     (= 1 (count (filter #(= % center-high) high-window))))
+                                       bullish? (and (finite-number? center-low)
+                                                     (= center-low (apply min low-window))
+                                                     (= 1 (count (filter #(= % center-low) low-window))))
+                                       with-bearish (if bearish?
+                                                      (conj acc {:id (str "fractal-high-" time)
+                                                                 :time time
+                                                                 :position "aboveBar"
+                                                                 :shape "arrowDown"
+                                                                 :color "#22c55e"
+                                                                 :text "▲"
+                                                                 :size 0})
+                                                      acc)]
+                                   (if bullish?
+                                     (conj with-bearish {:id (str "fractal-low-" time)
+                                                         :time time
+                                                         :position "belowBar"
+                                                         :shape "arrowUp"
+                                                         :color "#ef4444"
+                                                         :text "▼"
+                                                         :size 0})
+                                     with-bearish))))
+                             [])
+                     vec)]
     (indicator-result :williams-fractal
                       :overlay
-                      [(line-series :fractal-high "Fractal High" "#22c55e" time-values fractal-highs)
-                       (line-series :fractal-low "Fractal Low" "#ef4444" time-values fractal-lows)])))
+                      []
+                      markers)))
 
 (defn- zigzag-pivots
   [close-values threshold]

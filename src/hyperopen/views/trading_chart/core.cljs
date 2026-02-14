@@ -97,6 +97,10 @@
   [indicators-data]
   (vec (mapcat :series indicators-data)))
 
+(defn- flatten-indicator-markers
+  [indicators-data]
+  (vec (mapcat :markers indicators-data)))
+
 (defn chart-canvas [candle-data chart-type active-indicators legend-meta]
   (let [;; Calculate indicators data
         indicators-data-vec (->> (sorted-active-indicator-configs active-indicators)
@@ -104,6 +108,7 @@
                                          (indicators/calculate-indicator indicator-type candle-data config)))
                                  vec)
         indicator-series-data-vec (flatten-indicator-series indicators-data-vec)
+        indicator-marker-data-vec (flatten-indicator-markers indicators-data-vec)
         legend-key (str (or (:symbol legend-meta) "")
                         "-"
                         (or (:timeframe-label legend-meta) "")
@@ -121,6 +126,7 @@
                            legend-control (ci/create-legend! node chart legend-meta)]
                        (set! (.-legendControl ^js chart-obj) legend-control)
                        (set! (.-__chartType ^js chart-obj) chart-type)
+                       (ci/set-main-series-markers! chart-obj indicator-marker-data-vec)
                        (set! (.-__hyperopenChart ^js node) chart-obj))
                      (catch :default e
                        (js/console.error "Error in chart:" e)))
@@ -151,6 +157,8 @@
                        (ci/set-series-data! main-series candle-data chart-type))
                      (when volume-series
                        (ci/set-volume-data! volume-series candle-data))
+                     (when chart-obj
+                       (ci/set-main-series-markers! chart-obj indicator-marker-data-vec))
                      (when (and indicator-series (seq indicator-series-data-vec))
                        (doseq [[idx series-entry] (map-indexed vector indicator-series-data-vec)]
                          (when-let [^js indicator-series-entry (aget ^js indicator-series idx)]

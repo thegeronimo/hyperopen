@@ -1,5 +1,5 @@
 (ns hyperopen.views.trading-chart.utils.chart-interop
-  (:require ["lightweight-charts" :refer [createChart AreaSeries BarSeries BaselineSeries CandlestickSeries HistogramSeries LineSeries]]
+  (:require ["lightweight-charts" :refer [createChart AreaSeries BarSeries BaselineSeries CandlestickSeries HistogramSeries LineSeries createSeriesMarkers]]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.trading-chart.utils.chart-options :as chart-options]))
 
@@ -300,6 +300,21 @@
 (defn set-indicator-data! [series data]
   "Set indicator data and preserve whitespace points."
   (.setData series (clj->js data)))
+
+(defn set-main-series-markers!
+  [chart-obj markers]
+  "Attach/update markers on the main price series."
+  (when-let [main-series (when chart-obj (.-mainSeries ^js chart-obj))]
+    (let [existing-plugin (.-mainSeriesMarkersPlugin ^js chart-obj)
+          existing-series (.-mainSeriesMarkersSeries ^js chart-obj)
+          plugin (if (and existing-plugin (identical? existing-series main-series))
+                   existing-plugin
+                   (let [created (createSeriesMarkers main-series #js [])]
+                     (set! (.-mainSeriesMarkersPlugin ^js chart-obj) created)
+                     (set! (.-mainSeriesMarkersSeries ^js chart-obj) main-series)
+                     created))
+          marker-data (if (sequential? markers) markers [])]
+      (.setMarkers ^js plugin (clj->js marker-data)))))
 
 ;; Chart with volume support using separate panes
 (defn create-chart-with-volume-and-series! [container chart-type data]

@@ -20,6 +20,17 @@
 (def sample-candles
   (mapv sample-candle (range 60)))
 
+(def fractal-candles
+  [{:time 1 :open 8 :high 10 :low 6 :close 9 :volume 100}
+   {:time 2 :open 10 :high 12 :low 7 :close 11 :volume 110}
+   {:time 3 :open 11 :high 16 :low 9 :close 12 :volume 120}
+   {:time 4 :open 12 :high 13 :low 8 :close 10 :volume 115}
+   {:time 5 :open 10 :high 11 :low 7 :close 9 :volume 108}
+   {:time 6 :open 9 :high 12 :low 6 :close 10 :volume 125}
+   {:time 7 :open 10 :high 10 :low 3 :close 8 :volume 130}
+   {:time 8 :open 8 :high 13 :low 5 :close 11 :volume 122}
+   {:time 9 :open 11 :high 12 :low 6 :close 10 :volume 118}])
+
 (defn- indicator-series-by-id
   [indicator id]
   (some (fn [series]
@@ -264,8 +275,11 @@
 (deftest calculate-indicator-wave3-regression-and-williams-shape-test
   (let [stderr-bands (indicators/calculate-indicator :standard-error-bands sample-candles {:period 10 :multiplier 2})
         alligator (indicators/calculate-indicator :williams-alligator sample-candles {})
-        fractal (indicators/calculate-indicator :williams-fractal sample-candles {})
+        fractal (indicators/calculate-indicator :williams-fractal fractal-candles {})
         zig-zag (indicators/calculate-indicator :zig-zag sample-candles {:threshold-percent 3})
+        markers (:markers fractal)
+        bearish (first (filter #(= "aboveBar" (:position %)) markers))
+        bullish (first (filter #(= "belowBar" (:position %)) markers))
         upper (indicator-series-by-id stderr-bands :upper)
         center (indicator-series-by-id stderr-bands :center)
         lower (indicator-series-by-id stderr-bands :lower)]
@@ -277,7 +291,18 @@
     (is (= :overlay (:pane alligator)))
     (is (= 3 (count (:series alligator))))
     (is (= :overlay (:pane fractal)))
-    (is (= 2 (count (:series fractal))))
+    (is (= 0 (count (:series fractal))))
+    (is (= 2 (count markers)))
+    (is (= "arrowDown" (:shape bearish)))
+    (is (= 3 (:time bearish)))
+    (is (= "▲" (:text bearish)))
+    (is (= "#22c55e" (:color bearish)))
+    (is (= 0 (:size bearish)))
+    (is (= "arrowUp" (:shape bullish)))
+    (is (= 7 (:time bullish)))
+    (is (= "▼" (:text bullish)))
+    (is (= "#ef4444" (:color bullish)))
+    (is (= 0 (:size bullish)))
     (is (= :overlay (:pane zig-zag)))
     (is (= 1 (count (:series zig-zag))))
     (is (some finite-number? (map :value (:data (first (:series zig-zag))))))))
