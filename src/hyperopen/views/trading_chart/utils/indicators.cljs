@@ -2,8 +2,7 @@
   (:require [hyperopen.domain.trading.indicators.math :as imath]
             [hyperopen.domain.trading.indicators.registry :as domain-registry]
             [hyperopen.domain.trading.indicators.trend :as domain-trend]
-            [hyperopen.views.trading-chart.utils.indicator-view-adapter :as view-adapter]
-            [hyperopen.views.trading-chart.utils.indicators-wave2 :as wave2]))
+            [hyperopen.views.trading-chart.utils.indicator-view-adapter :as view-adapter]))
 
 (defn calculate-sma
   "Calculate Simple Moving Average for given data and period"
@@ -28,14 +27,12 @@
   "Return list of available indicators"
   []
   (dedupe-indicators
-   (concat (domain-registry/get-domain-indicators)
-           (wave2/get-wave2-indicators))))
+   (domain-registry/get-domain-indicators)))
 
 (defn calculate-indicator
   "Calculate indicator based on type and parameters"
   [indicator-type data params]
   (let [config (or params {})
         domain-result (domain-registry/calculate-domain-indicator indicator-type data config)]
-    (or (when domain-result
-          (view-adapter/project-domain-indicator data domain-result))
-        (wave2/calculate-wave2-indicator indicator-type data config))))
+    (when domain-result
+      (view-adapter/project-domain-indicator data domain-result))))

@@ -8,6 +8,21 @@
    [:bollinger-bands :upper] {:name "BB Upper" :color "#22c55e"}
    [:bollinger-bands :basis] {:name "BB Basis" :color "#f59e0b"}
    [:bollinger-bands :lower] {:name "BB Lower" :color "#ef4444"}
+   [:bollinger-bands-percent-b :percent-b] {:name "%B" :color "#38bdf8"}
+   [:bollinger-bands-width :bbw] {:name "BBW" :color "#0ea5e9"}
+   [:donchian-channels :upper] {:name "Donchian Upper" :color "#22c55e"}
+   [:donchian-channels :middle] {:name "Donchian Mid" :color "#f59e0b"}
+   [:donchian-channels :lower] {:name "Donchian Lower" :color "#ef4444"}
+   [:price-channel :upper] {:name "Price Ch Upper" :color "#22c55e"}
+   [:price-channel :middle] {:name "Price Ch Mid" :color "#f59e0b"}
+   [:price-channel :lower] {:name "Price Ch Lower" :color "#ef4444"}
+   [:historical-volatility :hv] {:name "HV" :color "#a855f7"}
+   [:keltner-channels :upper] {:name "KC Upper" :color "#22c55e"}
+   [:keltner-channels :middle] {:name "KC Middle" :color "#f59e0b"}
+   [:keltner-channels :lower] {:name "KC Lower" :color "#ef4444"}
+   [:moving-average-channel :upper] {:name "MAC Upper" :color "#22c55e"}
+   [:moving-average-channel :basis] {:name "MAC Mid" :color "#f59e0b"}
+   [:moving-average-channel :lower] {:name "MAC Lower" :color "#ef4444"}
    [:sma :sma] {:name "MA" :color "#38bdf8"}
    [:alma :alma] {:name "ALMA" :color "#f59e0b"}
    [:aroon :aroon-up] {:name "Aroon Up" :color "#22c55e"}
@@ -21,6 +36,11 @@
    [:true-strength-index :tsi] {:name "TSI" :color "#22d3ee"}
    [:trend-strength-index :trend-si] {:name "Trend SI" :color "#22d3ee"}
    [:trend-strength-index :signal] {:name "Signal" :color "#f97316"}
+   [:choppiness-index :chop] {:name "CHOP" :color "#f97316"}
+   [:commodity-channel-index :cci] {:name "CCI" :color "#f59e0b"}
+   [:macd :macd] {:name "MACD" :color "#38bdf8"}
+   [:macd :signal] {:name "Signal" :color "#f59e0b"}
+   [:mass-index :mi] {:name "Mass Index" :color "#f59e0b"}
    [:standard-deviation :stddev] {:name "StdDev" :color "#a855f7"}
    [:standard-error :stderr] {:name "StdErr" :color "#22d3ee"}
    [:standard-error-bands :upper] {:name "SE Upper" :color "#22c55e"}
@@ -36,6 +56,42 @@
    [:majority-rule :majority] {:name "Majority %" :color "#4ade80"}
    [:ratio :ratio] {:name "Ratio" :color "#22d3ee"}
    [:spread :spread] {:name "Spread" :color "#f97316"}
+   [:chande-momentum-oscillator :cmo] {:name "CMO" :color "#eab308"}
+   [:detrended-price-oscillator :dpo] {:name "DPO" :color "#3b82f6"}
+   [:price-oscillator :apo] {:name "APO" :color "#eab308"}
+   [:chaikin-money-flow :cmf] {:name "CMF" :color "#22d3ee"}
+   [:chaikin-oscillator :chaikin-osc] {:name "Chaikin Osc" :color "#f97316"}
+   [:chaikin-oscillator :ad-line] {:name "A/D Line" :color "#6b7280"}
+   [:directional-movement :plus-di] {:name "+DI" :color "#22c55e"}
+   [:directional-movement :minus-di] {:name "-DI" :color "#ef4444"}
+   [:ease-of-movement :eom] {:name "EOM" :color "#06b6d4"}
+   [:elders-force-index :efi] {:name "EFI" :color "#e879f9"}
+   [:envelopes :upper] {:name "Env Upper" :color "#22c55e"}
+   [:envelopes :basis] {:name "Env Basis" :color "#f59e0b"}
+   [:envelopes :lower] {:name "Env Lower" :color "#ef4444"}
+   [:ichimoku-cloud :tenkan] {:name "Tenkan" :color "#22c55e"}
+   [:ichimoku-cloud :kijun] {:name "Kijun" :color "#ef4444"}
+   [:ichimoku-cloud :ssa] {:name "Senkou A" :color "#38bdf8"}
+   [:ichimoku-cloud :ssb] {:name "Senkou B" :color "#f59e0b"}
+   [:ichimoku-cloud :lagging] {:name "Lagging" :color "#a855f7"}
+   [:money-flow-index :mfi] {:name "MFI" :color "#14b8a6"}
+   [:moving-average-multiple :ma-5] {:name "MA 5" :color "#22c55e"}
+   [:moving-average-multiple :ma-10] {:name "MA 10" :color "#38bdf8"}
+   [:moving-average-multiple :ma-20] {:name "MA 20" :color "#f59e0b"}
+   [:moving-average-multiple :ma-50] {:name "MA 50" :color "#ef4444"}
+   [:parabolic-sar :psar] {:name "PSAR" :color "#f97316"}
+   [:stochastic :k] {:name "%K" :color "#22c55e"}
+   [:stochastic :d] {:name "%D" :color "#ef4444"}
+   [:stochastic-rsi :k] {:name "StochRSI %K" :color "#22c55e"}
+   [:stochastic-rsi :d] {:name "StochRSI %D" :color "#ef4444"}
+   [:supertrend :up] {:name "SuperTrend Up" :color "#22c55e"}
+   [:supertrend :down] {:name "SuperTrend Down" :color "#ef4444"}
+   [:trix :trix] {:name "TRIX" :color "#f59e0b"}
+   [:vortex-indicator :plus] {:name "+VI" :color "#22c55e"}
+   [:vortex-indicator :minus] {:name "-VI" :color "#ef4444"}
+   [:vwap :vwap] {:name "VWAP" :color "#22d3ee"}
+   [:vwma :vwma] {:name "VWMA" :color "#38bdf8"}
+   [:williams-r :williams-r] {:name "%R" :color "#e879f9"}
    [:relative-vigor-index :rvi] {:name "RVI" :color "#22d3ee"}
    [:relative-vigor-index :signal] {:name "Signal" :color "#f97316"}
    [:relative-volatility-index :rvi-vol] {:name "RVI" :color "#a855f7"}
@@ -62,6 +118,9 @@
    [:ma-cross :slow] {:name "MA Slow" :color "#ef4444"}
    [:ma-with-ema-cross :ma] {:name "MA" :color "#22c55e"}
    [:ma-with-ema-cross :ema] {:name "EMA" :color "#ef4444"}
+   [:least-squares-moving-average :lsma] {:name "LSMA" :color "#22d3ee"}
+   [:linear-regression-curve :lrc] {:name "LRC" :color "#60a5fa"}
+   [:linear-regression-slope :slope] {:name "LRS" :color "#c084fc"}
    [:on-balance-volume :obv] {:name "OBV" :color "#22c55e"}
    [:price-volume-trend :pvt] {:name "PVT" :color "#06b6d4"}
    [:volume-oscillator :pvo] {:name "PVO" :color "#38bdf8"}
@@ -119,6 +178,9 @@
    [:klinger-oscillator :hist] {:name "KVO Hist"
                                  :positive-color "#22c55e"
                                  :negative-color "#ef4444"}
+   [:macd :hist] {:name "MACD Hist"
+                  :positive-color "#22c55e"
+                  :negative-color "#ef4444"}
    [:net-volume :net-volume] {:name "Net Vol"
                               :positive-color "#22c55e"
                               :negative-color "#ef4444"}

@@ -1,7 +1,7 @@
 (ns hyperopen.domain.trading.indicators.flow
   (:require [hyperopen.domain.trading.indicators.math :as imath]
             [hyperopen.domain.trading.indicators.result :as result]
-            ["indicatorts" :refer [obv pvo vpt]]))
+            ["indicatorts" :refer [cmf cmo emv fi mfi obv pvo vpt]]))
 
 (def ^:private flow-indicator-definitions
   [{:id :accumulation-distribution
@@ -50,10 +50,58 @@
     :name "Volume Oscillator"
     :short-name "PVO"
     :description "Percentage volume oscillator"
-   :supports-period? false
-   :default-config {:fast 12
+    :supports-period? false
+    :default-config {:fast 12
                      :slow 26
                      :signal 9}
+    :migrated-from :wave2}
+   {:id :chaikin-money-flow
+    :name "Chaikin Money Flow"
+    :short-name "CMF"
+    :description "Volume-weighted accumulation/distribution over a period"
+    :supports-period? true
+    :default-period 20
+    :min-period 2
+    :max-period 200
+    :default-config {:period 20}
+    :migrated-from :wave2}
+   {:id :chaikin-oscillator
+    :name "Chaikin Oscillator"
+    :short-name "CHO"
+    :description "EMA difference of accumulation/distribution"
+    :supports-period? false
+    :default-config {:fast 3
+                     :slow 10}
+    :migrated-from :wave2}
+   {:id :ease-of-movement
+    :name "Ease Of Movement"
+    :short-name "EOM"
+    :description "Volume-adjusted distance moved"
+    :supports-period? true
+    :default-period 14
+    :min-period 2
+    :max-period 200
+    :default-config {:period 14}
+    :migrated-from :wave2}
+   {:id :elders-force-index
+    :name "Elder's Force Index"
+    :short-name "EFI"
+    :description "EMA of price change multiplied by volume"
+    :supports-period? true
+    :default-period 13
+    :min-period 2
+    :max-period 200
+    :default-config {:period 13}
+    :migrated-from :wave2}
+   {:id :money-flow-index
+    :name "Money Flow Index"
+    :short-name "MFI"
+    :description "Volume-weighted RSI-style oscillator"
+    :supports-period? true
+    :default-period 14
+    :min-period 2
+    :max-period 200
+    :default-config {:period 14}
     :migrated-from :wave2}])
 
 (defn get-flow-indicators
@@ -207,6 +255,73 @@
                               (result/line-series :pvo pvo-line)
                               (result/line-series :signal signal-line)])))
 
+(defn- calculate-chaikin-money-flow
+  [data params]
+  (let [period (parse-period (:period params) 20 2 200)
+        values (normalize-values
+                (cmf (into-array (field-values data :high))
+                     (into-array (field-values data :low))
+                     (into-array (field-values data :close))
+                     (into-array (field-values data :volume))
+                     #js {:period period}))]
+    (result/indicator-result :chaikin-money-flow
+                             :separate
+                             [(result/line-series :cmf values)])))
+
+(defn- calculate-chaikin-oscillator
+  [data params]
+  (let [fast (parse-period (:fast params) 3 1 200)
+        slow (parse-period (:slow params) 10 2 400)
+        result (js->clj
+                (cmo (into-array (field-values data :high))
+                     (into-array (field-values data :low))
+                     (into-array (field-values data :close))
+                     (into-array (field-values data :volume))
+                     #js {:fast fast :slow slow})
+                :keywordize-keys true)
+        ad-line (normalize-values (:adResult result))
+        osc-line (normalize-values (:cmoResult result))]
+    (result/indicator-result :chaikin-oscillator
+                             :separate
+                             [(result/line-series :chaikin-osc osc-line)
+                              (result/line-series :ad-line ad-line)])))
+
+(defn- calculate-ease-of-movement
+  [data params]
+  (let [period (parse-period (:period params) 14 2 200)
+        values (normalize-values
+                (emv (into-array (field-values data :high))
+                     (into-array (field-values data :low))
+                     (into-array (field-values data :volume))
+                     #js {:period period}))]
+    (result/indicator-result :ease-of-movement
+                             :separate
+                             [(result/line-series :eom values)])))
+
+(defn- calculate-elders-force-index
+  [data params]
+  (let [period (parse-period (:period params) 13 2 200)
+        values (normalize-values
+                (fi (into-array (field-values data :close))
+                    (into-array (field-values data :volume))
+                    #js {:period period}))]
+    (result/indicator-result :elders-force-index
+                             :separate
+                             [(result/line-series :efi values)])))
+
+(defn- calculate-money-flow-index
+  [data params]
+  (let [period (parse-period (:period params) 14 2 200)
+        values (normalize-values
+                (mfi (into-array (field-values data :high))
+                     (into-array (field-values data :low))
+                     (into-array (field-values data :close))
+                     (into-array (field-values data :volume))
+                     #js {:period period}))]
+    (result/indicator-result :money-flow-index
+                             :separate
+                             [(result/line-series :mfi values)])))
+
 (def ^:private flow-calculators
   {:accumulation-distribution calculate-accumulation-distribution
    :accumulative-swing-index calculate-accumulative-swing-index
@@ -214,7 +329,12 @@
    :net-volume calculate-net-volume
    :on-balance-volume calculate-on-balance-volume
    :price-volume-trend calculate-price-volume-trend
-   :volume-oscillator calculate-volume-oscillator})
+   :volume-oscillator calculate-volume-oscillator
+   :chaikin-money-flow calculate-chaikin-money-flow
+   :chaikin-oscillator calculate-chaikin-oscillator
+   :ease-of-movement calculate-ease-of-movement
+   :elders-force-index calculate-elders-force-index
+   :money-flow-index calculate-money-flow-index})
 
 (defn calculate-flow-indicator
   [indicator-type data params]

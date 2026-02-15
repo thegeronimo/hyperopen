@@ -1,7 +1,7 @@
 (ns hyperopen.domain.trading.indicators.trend
   (:require [hyperopen.domain.trading.indicators.math :as imath]
             [hyperopen.domain.trading.indicators.result :as result]
-            ["indicatorts" :refer [dema ema rma tema]]))
+            ["indicatorts" :refer [dema ema ichimokuCloud movingLeastSquare movingLinearRegressionUsingLeastSquare psar rma tema vortex vwap vwma]]))
 
 (def ^:private trend-indicator-definitions
   [{:id :alma
@@ -147,6 +147,123 @@
     :default-config {:ma-period 20
                      :ema-period 50}
     :migrated-from :wave2}
+   {:id :least-squares-moving-average
+    :name "Least Squares Moving Average"
+    :short-name "LSMA"
+    :description "Moving linear-regression line"
+    :supports-period? true
+    :default-period 25
+    :min-period 2
+    :max-period 400
+    :default-config {:period 25}
+    :migrated-from :wave2}
+   {:id :linear-regression-curve
+    :name "Linear Regression Curve"
+    :short-name "LRC"
+    :description "Moving least-squares regression curve"
+    :supports-period? true
+    :default-period 25
+    :min-period 2
+    :max-period 400
+    :default-config {:period 25}
+    :migrated-from :wave2}
+   {:id :linear-regression-slope
+    :name "Linear Regression Slope"
+    :short-name "LRS"
+    :description "Slope of moving linear regression"
+    :supports-period? true
+    :default-period 25
+    :min-period 2
+    :max-period 400
+    :default-config {:period 25}
+    :migrated-from :wave2}
+   {:id :directional-movement
+    :name "Directional Movement"
+    :short-name "DMI"
+    :description "+DI and -DI directional strength lines"
+    :supports-period? true
+    :default-period 14
+    :min-period 2
+    :max-period 200
+    :default-config {:period 14}
+    :migrated-from :wave2}
+   {:id :envelopes
+    :name "Envelopes"
+    :short-name "ENV"
+    :description "SMA with percentage envelope bands"
+    :supports-period? true
+    :default-period 20
+    :min-period 2
+    :max-period 400
+    :default-config {:period 20
+                     :percent 0.025}
+    :migrated-from :wave2}
+   {:id :ichimoku-cloud
+    :name "Ichimoku Cloud"
+    :short-name "ICHI"
+    :description "Tenkan, Kijun, Senkou spans, and lagging span"
+    :supports-period? false
+    :default-config {:short 9
+                     :medium 26
+                     :long 52
+                     :close 26}
+    :migrated-from :wave2}
+   {:id :moving-average-multiple
+    :name "Moving Average Multiple"
+    :short-name "MA Multi"
+    :description "Multiple moving averages (5, 10, 20, 50)"
+    :supports-period? false
+    :default-config {:periods [5 10 20 50]}
+    :migrated-from :wave2}
+   {:id :parabolic-sar
+    :name "Parabolic SAR"
+    :short-name "PSAR"
+    :description "Trend-following stop and reverse points"
+    :supports-period? false
+    :default-config {:step 0.02
+                     :max 0.2}
+    :migrated-from :wave2}
+   {:id :supertrend
+    :name "SuperTrend"
+    :short-name "SuperTrend"
+    :description "ATR-based trend-following overlay"
+    :supports-period? true
+    :default-period 10
+    :min-period 2
+    :max-period 200
+    :default-config {:period 10
+                     :multiplier 3}
+    :migrated-from :wave2}
+   {:id :vortex-indicator
+    :name "Vortex Indicator"
+    :short-name "VI"
+    :description "+VI and -VI trend oscillators"
+    :supports-period? true
+    :default-period 14
+    :min-period 2
+    :max-period 200
+    :default-config {:period 14}
+    :migrated-from :wave2}
+   {:id :vwap
+    :name "VWAP"
+    :short-name "VWAP"
+    :description "Volume weighted average price"
+    :supports-period? true
+    :default-period 20
+    :min-period 2
+    :max-period 400
+    :default-config {:period 20}
+    :migrated-from :wave2}
+   {:id :vwma
+    :name "VWMA"
+    :short-name "VWMA"
+    :description "Volume weighted moving average"
+    :supports-period? true
+    :default-period 20
+    :min-period 2
+    :max-period 400
+    :default-config {:period 20}
+    :migrated-from :wave2}
    {:id :guppy-multiple-moving-average
     :name "Guppy Multiple Moving Average"
     :short-name "GMMA"
@@ -205,6 +322,7 @@
 
 (def ^:private finite-number? imath/finite-number?)
 (def ^:private parse-period imath/parse-period)
+(def ^:private parse-number imath/parse-number)
 (def ^:private field-values imath/field-values)
 (def ^:private normalize-values imath/normalize-values)
 
@@ -237,6 +355,10 @@
   (let [length (parse-period period 20 2 1000)
         closes (field-values data :close)]
     (sma-values closes length)))
+
+(defn- indices
+  [n]
+  (vec (range n)))
 
 (defn- shift-right
   [values shift]
@@ -377,6 +499,53 @@
                    (js/Math.abs (- low prev-close)))))
           (range size))))
 
+(defn- plus-minus-di-values
+  [data period]
+  (let [high-values (field-values data :high)
+        low-values (field-values data :low)
+        close-values (field-values data :close)
+        size (count high-values)
+        plus-dm (mapv (fn [idx]
+                        (if (zero? idx)
+                          0
+                          (let [up-move (- (nth high-values idx) (nth high-values (dec idx)))
+                                down-move (- (nth low-values (dec idx)) (nth low-values idx))]
+                            (if (and (> up-move down-move) (> up-move 0))
+                              up-move
+                              0))))
+                      (range size))
+        minus-dm (mapv (fn [idx]
+                         (if (zero? idx)
+                           0
+                           (let [up-move (- (nth high-values idx) (nth high-values (dec idx)))
+                                 down-move (- (nth low-values (dec idx)) (nth low-values idx))]
+                             (if (and (> down-move up-move) (> down-move 0))
+                               down-move
+                               0))))
+                       (range size))
+        tr-values (true-range-values high-values low-values close-values)
+        atr-values (rma-values tr-values period)
+        plus-rma (rma-values plus-dm period)
+        minus-rma (rma-values minus-dm period)
+        plus-di (mapv (fn [idx]
+                        (let [atr (nth atr-values idx)
+                              value (nth plus-rma idx)]
+                          (when (and (finite-number? atr)
+                                     (finite-number? value)
+                                     (pos? atr))
+                            (* 100 (/ value atr)))))
+                      (range size))
+        minus-di (mapv (fn [idx]
+                         (let [atr (nth atr-values idx)
+                               value (nth minus-rma idx)]
+                           (when (and (finite-number? atr)
+                                      (finite-number? value)
+                                      (pos? atr))
+                             (* 100 (/ value atr)))))
+                       (range size))]
+    {:plus-di plus-di
+     :minus-di minus-di}))
+
 (defn- calculate-adx
   [data params]
   (let [period (parse-period (:period params) 14 2 200)
@@ -443,6 +612,219 @@
     (result/indicator-result :adx
                              :separate
                              [(result/line-series :adx adx-values)])))
+
+(defn- calculate-directional-movement
+  [data params]
+  (let [period (parse-period (:period params) 14 2 200)
+        {:keys [plus-di minus-di]} (plus-minus-di-values data period)]
+    (result/indicator-result :directional-movement
+                             :separate
+                             [(result/line-series :plus-di plus-di)
+                              (result/line-series :minus-di minus-di)])))
+
+(defn- calculate-envelopes
+  [data params]
+  (let [period (parse-period (:period params) 20 2 400)
+        percent (parse-number (:percent params) 0.025)
+        close-values (field-values data :close)
+        basis (sma-aligned-values close-values period)
+        upper (mapv (fn [value]
+                      (when (finite-number? value)
+                        (* value (+ 1 percent))))
+                    basis)
+        lower (mapv (fn [value]
+                      (when (finite-number? value)
+                        (* value (- 1 percent))))
+                    basis)]
+    (result/indicator-result :envelopes
+                             :overlay
+                             [(result/line-series :upper upper)
+                              (result/line-series :basis basis)
+                              (result/line-series :lower lower)])))
+
+(defn- calculate-ichimoku-cloud
+  [data params]
+  (let [short (parse-period (:short params) 9 2 200)
+        medium (parse-period (:medium params) 26 2 300)
+        long (parse-period (:long params) 52 2 400)
+        close-shift (parse-period (:close params) 26 1 300)
+        result (js->clj
+                (ichimokuCloud (into-array (field-values data :high))
+                               (into-array (field-values data :low))
+                               (into-array (field-values data :close))
+                               #js {:short short
+                                    :medium medium
+                                    :long long
+                                    :close close-shift})
+                :keywordize-keys true)
+        tenkan (normalize-values (:tenkan result) {:zero-as-nil? true})
+        kijun (normalize-values (:kijun result) {:zero-as-nil? true})
+        ssa (normalize-values (:ssa result) {:zero-as-nil? true})
+        ssb (normalize-values (:ssb result) {:zero-as-nil? true})
+        lagging-span (normalize-values (:laggingSpan result) {:zero-as-nil? true})]
+    (result/indicator-result :ichimoku-cloud
+                             :overlay
+                             [(result/line-series :tenkan tenkan)
+                              (result/line-series :kijun kijun)
+                              (result/line-series :ssa ssa)
+                              (result/line-series :ssb ssb)
+                              (result/line-series :lagging lagging-span)])))
+
+(defn- calculate-moving-average-multiple
+  [data params]
+  (let [periods (or (:periods params) [5 10 20 50])
+        close-values (field-values data :close)
+        series (mapv (fn [period]
+                       (let [length (parse-period period period 1 400)
+                             values (sma-aligned-values close-values length)]
+                         (result/line-series (keyword (str "ma-" length)) values)))
+                     periods)]
+    (result/indicator-result :moving-average-multiple
+                             :overlay
+                             series)))
+
+(defn- calculate-parabolic-sar
+  [data params]
+  (let [step (parse-number (:step params) 0.02)
+        max-value (parse-number (:max params) 0.2)
+        result (js->clj
+                (psar (into-array (field-values data :high))
+                      (into-array (field-values data :low))
+                      (into-array (field-values data :close))
+                      #js {:step step :max max-value})
+                :keywordize-keys true)
+        values (normalize-values (:psarResult result))]
+    (result/indicator-result :parabolic-sar
+                             :overlay
+                             [(result/line-series :psar values)])))
+
+(defn- calculate-supertrend
+  [data params]
+  (let [period (parse-period (:period params) 10 2 200)
+        multiplier (parse-number (:multiplier params) 3)
+        high-values (field-values data :high)
+        low-values (field-values data :low)
+        close-values (field-values data :close)
+        tr-values (true-range-values high-values low-values close-values)
+        atr-values (rma-values tr-values period)
+        size (count close-values)
+        hl2 (mapv (fn [idx]
+                    (/ (+ (nth high-values idx)
+                          (nth low-values idx))
+                       2))
+                  (range size))
+        basic-upper (mapv (fn [idx]
+                            (let [mid (nth hl2 idx)
+                                  atr (nth atr-values idx)]
+                              (when (and (finite-number? mid)
+                                         (finite-number? atr))
+                                (+ mid (* multiplier atr)))))
+                          (range size))
+        basic-lower (mapv (fn [idx]
+                            (let [mid (nth hl2 idx)
+                                  atr (nth atr-values idx)]
+                              (when (and (finite-number? mid)
+                                         (finite-number? atr))
+                                (- mid (* multiplier atr)))))
+                          (range size))
+        [final-upper final-lower supertrend trend-up]
+        (loop [idx 0
+               prev-final-upper nil
+               prev-final-lower nil
+               prev-supertrend nil
+               upper-result []
+               lower-result []
+               supertrend-result []
+               trend-result []]
+          (if (= idx size)
+            [upper-result lower-result supertrend-result trend-result]
+            (let [current-upper (nth basic-upper idx)
+                  current-lower (nth basic-lower idx)
+                  prev-close (when (pos? idx) (nth close-values (dec idx)))
+                  final-up (if (or (nil? prev-final-upper)
+                                   (nil? current-upper)
+                                   (nil? prev-close)
+                                   (< current-upper prev-final-upper)
+                                   (> prev-close prev-final-upper))
+                             current-upper
+                             prev-final-upper)
+                  final-low (if (or (nil? prev-final-lower)
+                                    (nil? current-lower)
+                                    (nil? prev-close)
+                                    (> current-lower prev-final-lower)
+                                    (< prev-close prev-final-lower))
+                              current-lower
+                              prev-final-lower)
+                  next-supertrend (cond
+                                    (nil? prev-supertrend) final-up
+                                    (= prev-supertrend prev-final-upper)
+                                    (if (<= (nth close-values idx) final-up)
+                                      final-up
+                                      final-low)
+                                    :else
+                                    (if (>= (nth close-values idx) final-low)
+                                      final-low
+                                      final-up))
+                  next-trend-up (when (finite-number? next-supertrend)
+                                  (<= next-supertrend (nth close-values idx)))]
+              (recur (inc idx)
+                     final-up
+                     final-low
+                     next-supertrend
+                     (conj upper-result final-up)
+                     (conj lower-result final-low)
+                     (conj supertrend-result next-supertrend)
+                     (conj trend-result next-trend-up)))))
+        up-line (mapv (fn [idx]
+                        (when (true? (nth trend-up idx))
+                          (nth supertrend idx)))
+                      (range size))
+        down-line (mapv (fn [idx]
+                          (when (false? (nth trend-up idx))
+                            (nth supertrend idx)))
+                        (range size))]
+    (result/indicator-result :supertrend
+                             :overlay
+                             [(result/line-series :up up-line)
+                              (result/line-series :down down-line)])))
+
+(defn- calculate-vortex-indicator
+  [data params]
+  (let [period (parse-period (:period params) 14 2 200)
+        result (js->clj
+                (vortex (into-array (field-values data :high))
+                        (into-array (field-values data :low))
+                        (into-array (field-values data :close))
+                        #js {:period period})
+                :keywordize-keys true)
+        plus-values (normalize-values (:plus result))
+        minus-values (normalize-values (:minus result))]
+    (result/indicator-result :vortex-indicator
+                             :separate
+                             [(result/line-series :plus plus-values)
+                              (result/line-series :minus minus-values)])))
+
+(defn- calculate-vwap
+  [data params]
+  (let [period (parse-period (:period params) 20 2 400)
+        values (normalize-values
+                (vwap (into-array (field-values data :close))
+                      (into-array (field-values data :volume))
+                      #js {:period period}))]
+    (result/indicator-result :vwap
+                             :overlay
+                             [(result/line-series :vwap values)])))
+
+(defn- calculate-vwma
+  [data params]
+  (let [period (parse-period (:period params) 20 2 400)
+        values (normalize-values
+                (vwma (into-array (field-values data :close))
+                      (into-array (field-values data :volume))
+                      #js {:period period}))]
+    (result/indicator-result :vwma
+                             :overlay
+                             [(result/line-series :vwma values)])))
 
 (defn- calculate-double-ema
   [data params]
@@ -555,6 +937,47 @@
                              :overlay
                              [(result/line-series :ma ma-line)
                               (result/line-series :ema ema-line)])))
+
+(defn- calculate-least-squares-moving-average
+  [data params]
+  (let [period (parse-period (:period params) 25 2 400)
+        close-values (field-values data :close)
+        x-values (indices (count close-values))
+        regression (normalize-values
+                    (movingLinearRegressionUsingLeastSquare period
+                                                            (into-array x-values)
+                                                            (into-array close-values)))]
+    (result/indicator-result :least-squares-moving-average
+                             :overlay
+                             [(result/line-series :lsma regression)])))
+
+(defn- calculate-linear-regression-curve
+  [data params]
+  (let [period (parse-period (:period params) 25 2 400)
+        close-values (field-values data :close)
+        x-values (indices (count close-values))
+        regression (normalize-values
+                    (movingLinearRegressionUsingLeastSquare period
+                                                            (into-array x-values)
+                                                            (into-array close-values)))]
+    (result/indicator-result :linear-regression-curve
+                             :overlay
+                             [(result/line-series :lrc regression)])))
+
+(defn- calculate-linear-regression-slope
+  [data params]
+  (let [period (parse-period (:period params) 25 2 400)
+        close-values (field-values data :close)
+        x-values (indices (count close-values))
+        result (js->clj
+                (movingLeastSquare period
+                                   (into-array x-values)
+                                   (into-array close-values))
+                :keywordize-keys true)
+        slope (normalize-values (:m result))]
+    (result/indicator-result :linear-regression-slope
+                             :separate
+                             [(result/line-series :slope slope)])))
 
 (defn- calculate-guppy-multiple-moving-average
   [data _params]
@@ -669,9 +1092,15 @@
    :aroon calculate-aroon
    :adx calculate-adx
    :double-ema calculate-double-ema
+   :directional-movement calculate-directional-movement
    :ema-cross calculate-ema-cross
+   :envelopes calculate-envelopes
    :guppy-multiple-moving-average calculate-guppy-multiple-moving-average
    :hull-moving-average calculate-hull-moving-average
+   :ichimoku-cloud calculate-ichimoku-cloud
+   :least-squares-moving-average calculate-least-squares-moving-average
+   :linear-regression-curve calculate-linear-regression-curve
+   :linear-regression-slope calculate-linear-regression-slope
    :ma-cross calculate-ma-cross
    :ma-with-ema-cross calculate-ma-with-ema-cross
    :mcginley-dynamic calculate-mcginley-dynamic
@@ -679,15 +1108,21 @@
    :moving-average-double calculate-moving-average-double
    :moving-average-exponential calculate-moving-average-exponential
    :moving-average-hamming calculate-moving-average-hamming
+   :moving-average-multiple calculate-moving-average-multiple
    :moving-average-triple calculate-moving-average-triple
    :moving-average-weighted calculate-moving-average-weighted
+   :parabolic-sar calculate-parabolic-sar
    :sma (fn [data params]
           (result/indicator-result :sma
                                    :overlay
                                    [(result/line-series :sma
                                                         (calculate-sma-values data (:period params 20)))]))
    :smoothed-moving-average calculate-smoothed-moving-average
+   :supertrend calculate-supertrend
    :triple-ema calculate-triple-ema
+   :vortex-indicator calculate-vortex-indicator
+   :vwap calculate-vwap
+   :vwma calculate-vwma
    :williams-alligator calculate-williams-alligator})
 
 (defn calculate-trend-indicator

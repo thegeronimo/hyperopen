@@ -1,6 +1,7 @@
 (ns hyperopen.domain.trading.indicators.volatility
   (:require [hyperopen.domain.trading.indicators.math :as imath]
-            [hyperopen.domain.trading.indicators.result :as result]))
+            [hyperopen.domain.trading.indicators.result :as result]
+            ["indicatorts" :refer [kc]]))
 
 (def ^:private seconds-per-week (* 7 24 60 60))
 
@@ -33,6 +34,80 @@
     :max-period 200
     :default-config {:period 20
                      :multiplier 2}}
+   {:id :bollinger-bands-percent-b
+    :name "Bollinger Bands %B"
+    :short-name "%B"
+    :description "Position of price within Bollinger Bands"
+    :supports-period? true
+    :default-period 20
+    :min-period 2
+    :max-period 200
+    :default-config {:period 20
+                     :multiplier 2}
+    :migrated-from :wave2}
+   {:id :bollinger-bands-width
+    :name "Bollinger Bands Width"
+    :short-name "BBW"
+    :description "Normalized width of Bollinger Bands"
+    :supports-period? true
+    :default-period 20
+    :min-period 2
+    :max-period 200
+    :default-config {:period 20
+                     :multiplier 2}
+    :migrated-from :wave2}
+   {:id :donchian-channels
+    :name "Donchian Channels"
+    :short-name "DONCH"
+    :description "Highest-high and lowest-low rolling channels"
+    :supports-period? true
+    :default-period 20
+    :min-period 2
+    :max-period 400
+    :default-config {:period 20}
+    :migrated-from :wave2}
+   {:id :price-channel
+    :name "Price Channel"
+    :short-name "PChannel"
+    :description "Highest-high and lowest-low channel"
+    :supports-period? true
+    :default-period 20
+    :min-period 2
+    :max-period 400
+    :default-config {:period 20}
+    :migrated-from :wave2}
+   {:id :historical-volatility
+    :name "Historical Volatility"
+    :short-name "HV"
+    :description "Annualized volatility from log close-to-close returns"
+    :supports-period? true
+    :default-period 20
+    :min-period 2
+    :max-period 400
+    :default-config {:period 20
+                     :annualization 365}
+    :migrated-from :wave2}
+   {:id :keltner-channels
+    :name "Keltner Channels"
+    :short-name "KC"
+    :description "EMA centerline with ATR-based bands"
+    :supports-period? true
+    :default-period 20
+    :min-period 2
+    :max-period 200
+    :default-config {:period 20}
+    :migrated-from :wave2}
+   {:id :moving-average-channel
+    :name "Moving Average Channel"
+    :short-name "MA Channel"
+    :description "SMA center with standard-deviation channel"
+    :supports-period? true
+    :default-period 20
+    :min-period 2
+    :max-period 400
+    :default-config {:period 20
+                     :multiplier 1.5}
+    :migrated-from :wave2}
    {:id :standard-deviation
     :name "Standard Deviation"
     :short-name "StdDev"
@@ -114,7 +189,9 @@
 
 (def ^:private finite-number? imath/finite-number?)
 (def ^:private parse-period imath/parse-period)
+(def ^:private parse-number imath/parse-number)
 (def ^:private field-values imath/field-values)
+(def ^:private normalize-values imath/normalize-values)
 
 (defn- sma-values
   [values period]
@@ -124,9 +201,39 @@
   [values period]
   (imath/stddev-values values period :lagged))
 
+(defn- sma-aligned-values
+  [values period]
+  (imath/sma-values values period :aligned))
+
+(defn- stddev-aligned-values
+  [values period]
+  (imath/stddev-values values period :aligned))
+
 (defn- rma-values
   [values period]
   (imath/rma-values values period :lagged))
+
+(defn- rolling-max-aligned
+  [values period]
+  (imath/rolling-max values period :aligned))
+
+(defn- rolling-min-aligned
+  [values period]
+  (imath/rolling-min values period :aligned))
+
+(defn- log-return-values
+  [close-values]
+  (mapv (fn [idx]
+          (if (zero? idx)
+            nil
+            (let [current (nth close-values idx)
+                  prev (nth close-values (dec idx))]
+              (when (and (finite-number? current)
+                         (finite-number? prev)
+                         (pos? current)
+                         (pos? prev))
+                (js/Math.log (/ current prev))))))
+        (range (count close-values))))
 
 (defn- calculate-52-week-high-low
   [data params]
@@ -210,6 +317,147 @@
                              [(result/line-series :upper upper-values)
                               (result/line-series :basis basis-values)
                               (result/line-series :lower lower-values)])))
+
+(defn- bollinger-components-aligned
+  [close-values period multiplier]
+  (let [basis (sma-aligned-values close-values period)
+        stdev-values (stddev-aligned-values close-values period)
+        upper (mapv (fn [b s]
+                      (when (and (finite-number? b)
+                                 (finite-number? s))
+                        (+ b (* multiplier s))))
+                    basis stdev-values)
+        lower (mapv (fn [b s]
+                      (when (and (finite-number? b)
+                                 (finite-number? s))
+                        (- b (* multiplier s))))
+                    basis stdev-values)]
+    {:basis basis
+     :upper upper
+     :lower lower}))
+
+(defn- calculate-bollinger-bands-percent-b
+  [data params]
+  (let [period (parse-period (:period params) 20 2 200)
+        multiplier (parse-number (:multiplier params) 2)
+        close-values (field-values data :close)
+        {:keys [upper lower]} (bollinger-components-aligned close-values period multiplier)
+        percent-b (mapv (fn [close u l]
+                          (let [spread (- (or u 0) (or l 0))]
+                            (when (and (finite-number? close)
+                                       (finite-number? u)
+                                       (finite-number? l)
+                                       (not (zero? spread)))
+                              (/ (- close l) spread))))
+                        close-values upper lower)]
+    (result/indicator-result :bollinger-bands-percent-b
+                             :separate
+                             [(result/line-series :percent-b percent-b)])))
+
+(defn- calculate-bollinger-bands-width
+  [data params]
+  (let [period (parse-period (:period params) 20 2 200)
+        multiplier (parse-number (:multiplier params) 2)
+        close-values (field-values data :close)
+        {:keys [basis upper lower]} (bollinger-components-aligned close-values period multiplier)
+        width (mapv (fn [b u l]
+                      (when (and (finite-number? b)
+                                 (finite-number? u)
+                                 (finite-number? l)
+                                 (not (zero? b)))
+                        (/ (- u l) b)))
+                    basis upper lower)]
+    (result/indicator-result :bollinger-bands-width
+                             :separate
+                             [(result/line-series :bbw width)])))
+
+(defn- calculate-donchian-channels
+  [data params]
+  (let [period (parse-period (:period params) 20 2 400)
+        high-values (field-values data :high)
+        low-values (field-values data :low)
+        upper (rolling-max-aligned high-values period)
+        lower (rolling-min-aligned low-values period)
+        middle (mapv (fn [u l]
+                       (when (and (finite-number? u)
+                                  (finite-number? l))
+                         (/ (+ u l) 2)))
+                     upper lower)]
+    (result/indicator-result :donchian-channels
+                             :overlay
+                             [(result/line-series :upper upper)
+                              (result/line-series :middle middle)
+                              (result/line-series :lower lower)])))
+
+(defn- calculate-price-channel
+  [data params]
+  (let [period (parse-period (:period params) 20 2 400)
+        high-values (field-values data :high)
+        low-values (field-values data :low)
+        upper (rolling-max-aligned high-values period)
+        lower (rolling-min-aligned low-values period)
+        middle (mapv (fn [u l]
+                       (when (and (finite-number? u)
+                                  (finite-number? l))
+                         (/ (+ u l) 2)))
+                     upper lower)]
+    (result/indicator-result :price-channel
+                             :overlay
+                             [(result/line-series :upper upper)
+                              (result/line-series :middle middle)
+                              (result/line-series :lower lower)])))
+
+(defn- calculate-historical-volatility
+  [data params]
+  (let [period (parse-period (:period params) 20 2 400)
+        annualization (parse-number (:annualization params) 365)
+        returns (log-return-values (field-values data :close))
+        std-values (stddev-aligned-values returns period)
+        hv-values (mapv (fn [value]
+                          (when (finite-number? value)
+                            (* value (js/Math.sqrt annualization) 100)))
+                        std-values)]
+    (result/indicator-result :historical-volatility
+                             :separate
+                             [(result/line-series :hv hv-values)])))
+
+(defn- calculate-keltner-channels
+  [data params]
+  (let [period (parse-period (:period params) 20 2 200)
+        result (js->clj
+                (kc (into-array (field-values data :high))
+                    (into-array (field-values data :low))
+                    (into-array (field-values data :close))
+                    #js {:period period})
+                :keywordize-keys true)]
+    (result/indicator-result :keltner-channels
+                             :overlay
+                             [(result/line-series :upper (normalize-values (:upper result)))
+                              (result/line-series :middle (normalize-values (:middle result)))
+                              (result/line-series :lower (normalize-values (:lower result)))])))
+
+(defn- calculate-moving-average-channel
+  [data params]
+  (let [period (parse-period (:period params) 20 2 400)
+        multiplier (parse-number (:multiplier params) 1.5)
+        close-values (field-values data :close)
+        basis (sma-aligned-values close-values period)
+        spread (stddev-aligned-values close-values period)
+        upper (mapv (fn [b s]
+                      (when (and (finite-number? b)
+                                 (finite-number? s))
+                        (+ b (* multiplier s))))
+                    basis spread)
+        lower (mapv (fn [b s]
+                      (when (and (finite-number? b)
+                                 (finite-number? s))
+                        (- b (* multiplier s))))
+                    basis spread)]
+    (result/indicator-result :moving-average-channel
+                             :overlay
+                             [(result/line-series :upper upper)
+                              (result/line-series :basis basis)
+                              (result/line-series :lower lower)])))
 
 (defn- calculate-standard-deviation
   [data params]
@@ -391,6 +639,13 @@
   {:week-52-high-low calculate-52-week-high-low
    :atr calculate-atr
    :bollinger-bands calculate-bollinger-bands
+   :bollinger-bands-percent-b calculate-bollinger-bands-percent-b
+   :bollinger-bands-width calculate-bollinger-bands-width
+   :donchian-channels calculate-donchian-channels
+   :price-channel calculate-price-channel
+   :historical-volatility calculate-historical-volatility
+   :keltner-channels calculate-keltner-channels
+   :moving-average-channel calculate-moving-average-channel
    :standard-deviation calculate-standard-deviation
    :standard-error calculate-standard-error
    :standard-error-bands calculate-standard-error-bands

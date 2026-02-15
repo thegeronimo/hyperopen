@@ -27,8 +27,12 @@ The indicator system still has domain math in view namespaces, fallback dispatch
 - [x] (2026-02-15 15:54Z) Validated Milestone 3 batch C with required gates: `npm run check`, `npm test`, `npm run test:websocket`.
 - [x] (2026-02-15 15:58Z) Milestone 3 batch D completed: migrated wave2 crossover family (`:ema-cross`, `:ma-cross`, `:ma-with-ema-cross`) into domain trend and removed wave2 duplicates.
 - [x] (2026-02-15 15:58Z) Validated Milestone 3 batch D with required gates: `npm run check`, `npm test`, `npm run test:websocket`.
-- [ ] Milestone 3 in progress: continue wave2 family-by-family extraction (trend/volume/channel groups) until wave2 fallback can be retired.
-- [ ] Milestone 4 pending: harden boundaries (math adapter isolation, contract validation, parity/performance tests), then retire wave fallbacks.
+- [x] (2026-02-15 16:18Z) Milestone 3 batch E completed: migrated wave2 channel/volatility family (`:donchian-channels`, `:price-channel`, `:keltner-channels`, `:historical-volatility`, `:moving-average-channel`, `:bollinger-bands-percent-b`, `:bollinger-bands-width`) into domain volatility and removed wave2 duplicates.
+- [x] (2026-02-15 16:18Z) Milestone 3 batch F completed: migrated wave2 oscillator family (`:stochastic`, `:stochastic-rsi`, `:williams-r`, `:chande-momentum-oscillator`, `:detrended-price-oscillator`, `:price-oscillator`, `:trix`, plus `:choppiness-index`, `:commodity-channel-index`, `:macd`, `:mass-index`) into domain oscillators and removed wave2 duplicates.
+- [x] (2026-02-15 16:18Z) Milestone 3 batch G completed: migrated wave2 regression family (`:least-squares-moving-average`, `:linear-regression-curve`, `:linear-regression-slope`) into domain trend and removed wave2 duplicates.
+- [x] (2026-02-15 16:18Z) Milestone 3 completed: migrated all remaining wave2 families, removed coordinator wave2 fallback path, and deleted `indicators_wave2.cljs`.
+- [x] (2026-02-15 16:18Z) Validated Milestone 3 batches E/F/G and wave2 retirement with required gates: `npm run check`, `npm test`, `npm run test:websocket`.
+- [ ] Milestone 4 pending: harden boundaries (math adapter isolation, contract validation, parity/performance tests) and move this plan to completed.
 
 ## Surprises & Discoveries
 
@@ -50,6 +54,8 @@ The indicator system still has domain math in view namespaces, fallback dispatch
   Evidence: migrated eight MA-variant IDs into domain trend, updated adapter style mappings, removed wave2 calculators, and required suites remained green.
 - Observation: Crossover indicators require aligned SMA windows to preserve wave2 output parity.
   Evidence: `:ma-cross` and `:ma-with-ema-cross` domain implementations use aligned SMA windows, and required suites remained green after migration.
+- Observation: Full wave2 retirement was achievable without changing public coordinator APIs once all residual IDs were redistributed into existing semantic domain modules.
+  Evidence: `indicators.cljs` now orchestrates only domain registry + adapter projection, `indicators_wave2.cljs` was deleted, and full required suites remained green.
 
 ## Decision Log
 
@@ -80,17 +86,19 @@ The indicator system still has domain math in view namespaces, fallback dispatch
 - Decision: Migrate the crossover family as a separate trend batch after moving-average variants.
   Rationale: Crossovers reuse existing trend primitives (EMA/SMA) but required explicit alignment semantics, so isolating them reduced regression scope.
   Date/Author: 2026-02-15 / Codex
+- Decision: Complete wave2 retirement in the same slice by migrating all remaining IDs to semantic domain namespaces instead of creating an intermediate legacy namespace.
+  Rationale: This removes the last procedural fallback and closes the bounded-context leak while keeping extension points centralized in domain registry code.
+  Date/Author: 2026-02-15 / Codex
 
 ## Outcomes & Retrospective
 
-Milestone 1 achieved the immediate separation-of-concerns target. Milestone 2 is fully complete with wave3 retired from runtime wiring. Milestone 3 is now active with four completed wave2 batches (starter + flow + moving-average variants + crossovers) validated; remaining migration scope is the rest of wave2 plus boundary-hardening tasks.
+Milestone 1 achieved the immediate separation-of-concerns target. Milestone 2 is fully complete with wave3 retired from runtime wiring. Milestone 3 is now complete with wave2 fully retired from runtime wiring. Remaining scope is Milestone 4 boundary hardening (math adapter isolation, explicit contracts, parity/performance coverage).
 
 ## Context and Orientation
 
 Indicator code is currently split across these paths:
 
-- `/hyperopen/src/hyperopen/views/trading_chart/utils/indicators.cljs` is the chart-facing coordinator and still contains legacy calculator code.
-- `/hyperopen/src/hyperopen/views/trading_chart/utils/indicators_wave2.cljs` and `/hyperopen/src/hyperopen/views/trading_chart/utils/indicators_wave3.cljs` are fallback calculation pools with many unmigrated indicators.
+- `/hyperopen/src/hyperopen/views/trading_chart/utils/indicators.cljs` is the chart-facing coordinator and now performs orchestration/projection only.
 - `/hyperopen/src/hyperopen/domain/trading/indicators/*.cljs` holds the new semantic domain calculators (trend, oscillators, volatility, shared math/result contracts).
 - `/hyperopen/src/hyperopen/views/trading_chart/utils/indicator_view_adapter.cljs` is the style projection layer and should be the only source of series names/colors/line styles.
 
@@ -104,7 +112,7 @@ Milestone 2 continues wave3 migration by semantic families. For each family, por
 
 Milestone 3 repeats the same pattern for wave2 families. The order will prioritize low-coupling, high-reuse indicators first, followed by heavier or externally-backed indicators.
 
-Milestone 4 finalizes architecture boundaries. Isolate third-party math adapters behind domain math interfaces, add explicit parameter/result contract checks, add parity and performance tests for heavy algorithms, and remove wave fallbacks once all IDs are domain-owned.
+Milestone 4 finalizes architecture boundaries. Isolate third-party math adapters behind domain math interfaces, add explicit parameter/result contract checks, and add parity/performance tests for heavy algorithms now that wave fallbacks are retired.
 
 ## Concrete Steps
 
@@ -170,3 +178,4 @@ Plan revision note: 2026-02-15 15:32Z - Updated living sections after completing
 Plan revision note: 2026-02-15 15:48Z - Updated living sections after completing Milestone 3 wave2 flow-family batch and validation.
 Plan revision note: 2026-02-15 15:54Z - Updated living sections after completing Milestone 3 wave2 moving-average-variants batch and validation.
 Plan revision note: 2026-02-15 15:58Z - Updated living sections after completing Milestone 3 wave2 crossover batch and validation.
+Plan revision note: 2026-02-15 16:18Z - Updated living sections after completing Milestone 3 wave2 channel/oscillator/regression batches and retiring wave2 runtime fallback.

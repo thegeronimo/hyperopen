@@ -1,6 +1,7 @@
 (ns hyperopen.domain.trading.indicators.oscillators
   (:require [hyperopen.domain.trading.indicators.math :as imath]
-            [hyperopen.domain.trading.indicators.result :as result]))
+            [hyperopen.domain.trading.indicators.result :as result]
+            ["indicatorts" :refer [apo cci macd mi rsi stoch trix willr]]))
 
 (def ^:private oscillator-indicator-definitions
   [{:id :accelerator-oscillator
@@ -45,6 +46,109 @@
     :min-period 1
     :max-period 400
     :default-config {:period 10}
+    :migrated-from :wave2}
+   {:id :chande-momentum-oscillator
+    :name "Chande Momentum Oscillator"
+    :short-name "CMO"
+    :description "Momentum oscillator using rolling gains and losses"
+    :supports-period? true
+    :default-period 14
+    :min-period 2
+    :max-period 200
+    :default-config {:period 14}
+    :migrated-from :wave2}
+   {:id :detrended-price-oscillator
+    :name "Detrended Price Oscillator"
+    :short-name "DPO"
+    :description "Price minus displaced moving average"
+    :supports-period? true
+    :default-period 20
+    :min-period 2
+    :max-period 200
+    :default-config {:period 20}
+    :migrated-from :wave2}
+   {:id :price-oscillator
+    :name "Price Oscillator"
+    :short-name "APO"
+    :description "Absolute difference between fast and slow EMA"
+    :supports-period? false
+    :default-config {:fast 12
+                     :slow 26}
+    :migrated-from :wave2}
+   {:id :stochastic
+    :name "Stochastic"
+    :short-name "Stoch"
+    :description "%K and %D stochastic oscillator"
+    :supports-period? false
+    :default-config {:kPeriod 14
+                     :dPeriod 3}
+    :migrated-from :wave2}
+   {:id :stochastic-rsi
+    :name "Stochastic RSI"
+    :short-name "Stoch RSI"
+    :description "Stochastic oscillator applied to RSI"
+    :supports-period? false
+    :default-config {:rsiPeriod 14
+                     :stochPeriod 14
+                     :kSmoothing 3
+                     :dSmoothing 3}
+    :migrated-from :wave2}
+   {:id :trix
+    :name "TRIX"
+    :short-name "TRIX"
+    :description "Triple-smoothed EMA rate of change"
+    :supports-period? true
+    :default-period 15
+    :min-period 2
+    :max-period 400
+    :default-config {:period 15}
+    :migrated-from :wave2}
+   {:id :williams-r
+    :name "Williams %R"
+    :short-name "%R"
+    :description "Overbought and oversold momentum oscillator"
+    :supports-period? true
+    :default-period 14
+    :min-period 2
+    :max-period 200
+    :default-config {:period 14}
+    :migrated-from :wave2}
+   {:id :choppiness-index
+    :name "Choppiness Index"
+    :short-name "CHOP"
+    :description "Log-scaled range efficiency oscillator"
+    :supports-period? true
+    :default-period 14
+    :min-period 2
+    :max-period 200
+    :default-config {:period 14}
+    :migrated-from :wave2}
+   {:id :commodity-channel-index
+    :name "Commodity Channel Index"
+    :short-name "CCI"
+    :description "Typical-price deviation from moving average"
+    :supports-period? true
+    :default-period 20
+    :min-period 2
+    :max-period 200
+    :default-config {:period 20}
+    :migrated-from :wave2}
+   {:id :macd
+    :name "MACD"
+    :short-name "MACD"
+    :description "MACD line, signal line, and histogram"
+    :supports-period? false
+    :default-config {:fast 12
+                     :slow 26
+                     :signal 9}
+    :migrated-from :wave2}
+   {:id :mass-index
+    :name "Mass Index"
+    :short-name "MI"
+    :description "Range expansion/contraction trend reversal indicator"
+    :supports-period? false
+    :default-config {:emaPeriod 9
+                     :miPeriod 25}
     :migrated-from :wave2}
    {:id :relative-strength-index
     :name "Relative Strength Index"
@@ -258,6 +362,7 @@
 (def ^:private parse-number imath/parse-number)
 (def ^:private field-values imath/field-values)
 (def ^:private mean imath/mean)
+(def ^:private normalize-values imath/normalize-values)
 
 (defn- sma-values
   [values period]
@@ -575,6 +680,203 @@
     (result/indicator-result :momentum
                              :separate
                              [(result/line-series :momentum values)])))
+
+(defn- calculate-chande-momentum-oscillator
+  [data params]
+  (let [period (parse-period (:period params) 14 2 200)
+        close-values (field-values data :close)
+        diffs (mapv (fn [idx]
+                      (if (zero? idx)
+                        0
+                        (- (nth close-values idx) (nth close-values (dec idx)))))
+                    (range (count close-values)))
+        gains (mapv (fn [value] (max value 0)) diffs)
+        losses (mapv (fn [value] (max (- value) 0)) diffs)
+        sum-gains (rolling-sum-aligned gains period)
+        sum-losses (rolling-sum-aligned losses period)
+        values (mapv (fn [g l]
+                       (let [total (+ (or g 0) (or l 0))]
+                         (when (and (finite-number? g)
+                                    (finite-number? l)
+                                    (pos? total))
+                           (* 100 (/ (- g l) total)))))
+                     sum-gains sum-losses)]
+    (result/indicator-result :chande-momentum-oscillator
+                             :separate
+                             [(result/line-series :cmo values)])))
+
+(defn- calculate-detrended-price-oscillator
+  [data params]
+  (let [period (parse-period (:period params) 20 2 400)
+        close-values (field-values data :close)
+        sma-line (sma-aligned-values close-values period)
+        shift (+ (int (js/Math.floor (/ period 2))) 1)
+        size (count close-values)
+        values (mapv (fn [idx]
+                       (let [shifted-idx (- idx shift)]
+                         (when (>= shifted-idx 0)
+                           (let [price (nth close-values shifted-idx)
+                                 avg (nth sma-line shifted-idx)]
+                             (when (and (finite-number? price)
+                                        (finite-number? avg))
+                               (- price avg))))))
+                     (range size))]
+    (result/indicator-result :detrended-price-oscillator
+                             :separate
+                             [(result/line-series :dpo values)])))
+
+(defn- calculate-price-oscillator
+  [data params]
+  (let [fast (parse-period (:fast params) 12 1 200)
+        slow (parse-period (:slow params) 26 2 400)
+        values (normalize-values
+                (apo (into-array (field-values data :close))
+                     #js {:fast fast :slow slow}))]
+    (result/indicator-result :price-oscillator
+                             :separate
+                             [(result/line-series :apo values)])))
+
+(defn- calculate-stochastic
+  [data params]
+  (let [k-period (parse-period (:kPeriod params) 14 1 200)
+        d-period (parse-period (:dPeriod params) 3 1 200)
+        result (js->clj
+                (stoch (into-array (field-values data :high))
+                       (into-array (field-values data :low))
+                       (into-array (field-values data :close))
+                       #js {:kPeriod k-period :dPeriod d-period})
+                :keywordize-keys true)
+        k-values (normalize-values (:k result))
+        d-values (normalize-values (:d result))]
+    (result/indicator-result :stochastic
+                             :separate
+                             [(result/line-series :k k-values)
+                              (result/line-series :d d-values)])))
+
+(defn- calculate-stochastic-rsi
+  [data params]
+  (let [rsi-period (parse-period (:rsiPeriod params) 14 2 200)
+        stoch-period (parse-period (:stochPeriod params) 14 2 200)
+        k-smoothing (parse-period (:kSmoothing params) 3 1 50)
+        d-smoothing (parse-period (:dSmoothing params) 3 1 50)
+        rsi-series (normalize-values
+                    (rsi (into-array (field-values data :close))
+                         #js {:period rsi-period}))
+        min-rsi (rolling-min-aligned rsi-series stoch-period)
+        max-rsi (rolling-max-aligned rsi-series stoch-period)
+        raw-k (mapv (fn [idx]
+                      (let [r (nth rsi-series idx)
+                            mn (nth min-rsi idx)
+                            mx (nth max-rsi idx)
+                            range-value (- (or mx 0) (or mn 0))]
+                        (when (and (finite-number? r)
+                                   (finite-number? mn)
+                                   (finite-number? mx)
+                                   (pos? range-value))
+                          (* 100 (/ (- r mn) range-value)))))
+                    (range (count rsi-series)))
+        k-values (sma-aligned-values raw-k k-smoothing)
+        d-values (sma-aligned-values k-values d-smoothing)]
+    (result/indicator-result :stochastic-rsi
+                             :separate
+                             [(result/line-series :k k-values)
+                              (result/line-series :d d-values)])))
+
+(defn- calculate-trix
+  [data params]
+  (let [period (parse-period (:period params) 15 2 400)
+        values (normalize-values
+                (trix (into-array (field-values data :close))
+                      #js {:period period}))]
+    (result/indicator-result :trix
+                             :separate
+                             [(result/line-series :trix values)])))
+
+(defn- calculate-williams-r
+  [data params]
+  (let [period (parse-period (:period params) 14 2 200)
+        values (normalize-values
+                (willr (into-array (field-values data :high))
+                       (into-array (field-values data :low))
+                       (into-array (field-values data :close))
+                       #js {:period period}))]
+    (result/indicator-result :williams-r
+                             :separate
+                             [(result/line-series :williams-r values)])))
+
+(defn- calculate-choppiness-index
+  [data params]
+  (let [period (parse-period (:period params) 14 2 200)
+        high-values (field-values data :high)
+        low-values (field-values data :low)
+        tr-values (true-range-values data)
+        tr-sum (rolling-sum-aligned tr-values period)
+        high-max (rolling-max-aligned high-values period)
+        low-min (rolling-min-aligned low-values period)
+        denom-log (js/Math.log10 period)
+        values (mapv (fn [sum-tr hh ll]
+                       (let [range-value (- (or hh 0) (or ll 0))]
+                         (when (and (finite-number? sum-tr)
+                                    (finite-number? hh)
+                                    (finite-number? ll)
+                                    (pos? sum-tr)
+                                    (pos? range-value)
+                                    (not (zero? denom-log)))
+                           (* 100 (/ (js/Math.log10 (/ sum-tr range-value))
+                                     denom-log)))))
+                     tr-sum high-max low-min)]
+    (result/indicator-result :choppiness-index
+                             :separate
+                             [(result/line-series :chop values)])))
+
+(defn- calculate-commodity-channel-index
+  [data params]
+  (let [period (parse-period (:period params) 20 2 200)
+        values (normalize-values
+                (cci (into-array (field-values data :high))
+                     (into-array (field-values data :low))
+                     (into-array (field-values data :close))
+                     #js {:period period}))]
+    (result/indicator-result :commodity-channel-index
+                             :separate
+                             [(result/line-series :cci values)])))
+
+(defn- calculate-macd
+  [data params]
+  (let [fast (parse-period (:fast params) 12 1 200)
+        slow (parse-period (:slow params) 26 2 400)
+        signal (parse-period (:signal params) 9 1 200)
+        result (js->clj
+                (macd (into-array (field-values data :close))
+                      #js {:fast fast
+                           :slow slow
+                           :signal signal})
+                :keywordize-keys true)
+        macd-line (normalize-values (:macdLine result))
+        signal-line (normalize-values (:signalLine result))
+        histogram (mapv (fn [m s]
+                          (when (and (finite-number? m)
+                                     (finite-number? s))
+                            (- m s)))
+                        macd-line signal-line)]
+    (result/indicator-result :macd
+                             :separate
+                             [(result/histogram-series :hist histogram)
+                              (result/line-series :macd macd-line)
+                              (result/line-series :signal signal-line)])))
+
+(defn- calculate-mass-index
+  [data params]
+  (let [ema-period (parse-period (:emaPeriod params) 9 1 200)
+        mi-period (parse-period (:miPeriod params) 25 2 400)
+        values (normalize-values
+                (mi (into-array (field-values data :high))
+                    (into-array (field-values data :low))
+                    #js {:emaPeriod ema-period
+                         :miPeriod mi-period}))]
+    (result/indicator-result :mass-index
+                             :separate
+                             [(result/line-series :mi values)])))
 
 (defn- calculate-relative-strength-index
   [data params]
@@ -1075,7 +1377,13 @@
    :awesome-oscillator calculate-awesome-oscillator
    :balance-of-power calculate-balance-of-power
    :coppock-curve calculate-coppock-curve
+   :chande-momentum-oscillator calculate-chande-momentum-oscillator
+   :choppiness-index calculate-choppiness-index
+   :commodity-channel-index calculate-commodity-channel-index
+   :detrended-price-oscillator calculate-detrended-price-oscillator
    :fisher-transform calculate-fisher-transform
+   :macd calculate-macd
+   :mass-index calculate-mass-index
    :majority-rule calculate-majority-rule
    :chaikin-volatility calculate-chaikin-volatility
    :chande-kroll-stop calculate-chande-kroll-stop
@@ -1085,6 +1393,7 @@
    :klinger-oscillator calculate-klinger-oscillator
    :know-sure-thing calculate-know-sure-thing
    :momentum calculate-momentum
+   :price-oscillator calculate-price-oscillator
    :rate-of-change calculate-rate-of-change
    :relative-strength-index calculate-relative-strength-index
    :ratio calculate-ratio
@@ -1093,8 +1402,12 @@
    :relative-volatility-index calculate-relative-volatility-index
    :smi-ergodic calculate-smi-ergodic
    :spread calculate-spread
+   :stochastic calculate-stochastic
+   :stochastic-rsi calculate-stochastic-rsi
+   :trix calculate-trix
    :true-strength-index calculate-true-strength-index
    :trend-strength-index calculate-trend-strength-index
+   :williams-r calculate-williams-r
    :ultimate-oscillator calculate-ultimate-oscillator})
 
 (defn calculate-oscillator-indicator
