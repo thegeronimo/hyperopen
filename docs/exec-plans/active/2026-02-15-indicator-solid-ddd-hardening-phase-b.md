@@ -18,7 +18,7 @@ The indicator architecture has improved, but there are still gaps against SOLID/
 - [x] (2026-02-15 19:30Z) Milestone 5 completed: required validation gates passed (`npm run check`, `npm test`, `npm run test:websocket`).
 - [x] (2026-02-15 19:32Z) Milestone 6 completed: phase evidence recorded; plan kept active for follow-on SOLID/DDD slices.
 - [x] (2026-02-15 20:10Z) Milestone 7 completed: moved style metadata from view adapter into dedicated style catalog namespace with semantic family projections.
-- [ ] Milestone 8: break large family modules into smaller semantic domain namespaces while preserving registry routing (completed: extracted momentum + statistics oscillators into `/hyperopen/src/hyperopen/domain/trading/indicators/oscillators/{momentum,statistics}.cljs`; remaining: split additional oscillator/trend/volatility semantic slices).
+- [ ] Milestone 8: break large family modules into smaller semantic domain namespaces while preserving registry routing (completed: extracted momentum + statistics oscillators into `/hyperopen/src/hyperopen/domain/trading/indicators/oscillators/{momentum,statistics}.cljs` and extracted trend regression calculators into `/hyperopen/src/hyperopen/domain/trading/indicators/trend/regression.cljs`; remaining: split additional oscillator/trend/volatility semantic slices).
 - [ ] Milestone 9: remove remaining dual-maintenance coupling between catalog definitions and calculator maps.
 - [ ] Milestone 10: extract remaining heavy private math/stat helpers to dedicated reusable math/statistics namespaces.
 
@@ -36,6 +36,8 @@ The indicator architecture has improved, but there are still gaps against SOLID/
   Evidence: momentum-family calculators now live in `/hyperopen/src/hyperopen/domain/trading/indicators/oscillators/momentum.cljs` while `/hyperopen/src/hyperopen/domain/trading/indicators/oscillators.cljs` preserves public entrypoints.
 - Observation: extracting correlation/TSI/SMI logic into a statistics module removed complex helper math from the main oscillators namespace without changing caller contracts.
   Evidence: `/hyperopen/src/hyperopen/domain/trading/indicators/oscillators/statistics.cljs` now owns Pearson/rolling-correlation/TSI helpers and related calculators.
+- Observation: trend regression indicators can be extracted cleanly as a cohesive semantic unit with no registry/public API changes.
+  Evidence: LSMA/LRC/LRS calculators now live in `/hyperopen/src/hyperopen/domain/trading/indicators/trend/regression.cljs` and are referenced through the existing trend calculator map.
 
 ## Decision Log
 
@@ -53,6 +55,9 @@ The indicator architecture has improved, but there are still gaps against SOLID/
   Date/Author: 2026-02-15 / Codex
 - Decision: start Milestone 8 decomposition with momentum oscillators first.
   Rationale: momentum calculators are cohesive and low-risk to move, enabling safe incremental decomposition of the largest family module.
+  Date/Author: 2026-02-15 / Codex
+- Decision: continue Milestone 8 by extracting trend regression as a second family slice.
+  Rationale: regression calculators have clear cohesion and minimal dependencies, making them an effective next extraction target.
   Date/Author: 2026-02-15 / Codex
 
 ## Outcomes & Retrospective
@@ -126,6 +131,7 @@ Validation evidence from `/hyperopen`:
 - `npm run test:websocket` passed (`Ran 86 tests containing 267 assertions. 0 failures, 0 errors.`).
 - After style-catalog extraction, gates passed again: `npm run check`, `npm test`, and `npm run test:websocket` with zero failures.
 - After momentum sub-namespace extraction, gates passed again: `npm run check`, `npm test`, and `npm run test:websocket` with zero failures.
+- After trend regression extraction, gates passed again: `npm run check`, `npm test`, and `npm run test:websocket` with zero failures.
 
 ## Interfaces and Dependencies
 
@@ -142,3 +148,4 @@ Plan revision note: 2026-02-15 19:32Z - Completed Milestones 1-6, recorded valid
 Plan revision note: 2026-02-15 20:10Z - Completed Milestone 7 by extracting style metadata into a dedicated style catalog and revalidating all required gates.
 Plan revision note: 2026-02-15 20:25Z - Started Milestone 8 with momentum oscillator extraction and revalidated all required gates.
 Plan revision note: 2026-02-15 20:45Z - Extended Milestone 8 with statistics oscillator extraction and revalidated all required gates.
+Plan revision note: 2026-02-15 21:00Z - Extended Milestone 8 with trend regression extraction and revalidated all required gates.

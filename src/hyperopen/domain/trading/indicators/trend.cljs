@@ -3,6 +3,7 @@
             [hyperopen.domain.trading.indicators.contracts :as contracts]
             [hyperopen.domain.trading.indicators.math-adapter :as math-adapter]
             [hyperopen.domain.trading.indicators.math :as imath]
+            [hyperopen.domain.trading.indicators.trend.regression :as regression]
             [hyperopen.domain.trading.indicators.result :as result]))
 
 (def ^:private trend-indicator-definitions catalog/trend-indicator-definitions)
@@ -46,10 +47,6 @@
   (let [length (parse-period period 20 2 1000)
         closes (field-values data :close)]
     (sma-values closes length)))
-
-(defn- indices
-  [n]
-  (vec (range n)))
 
 (defn- shift-right
   [values shift]
@@ -633,45 +630,6 @@
                              [(result/line-series :ma ma-line)
                               (result/line-series :ema ema-line)])))
 
-(defn- calculate-least-squares-moving-average
-  [data params]
-  (let [period (parse-period (:period params) 25 2 400)
-        close-values (field-values data :close)
-        x-values (indices (count close-values))
-        regression (normalize-values
-                    (math-adapter/moving-linear-regression period
-                                                           x-values
-                                                           close-values))]
-    (result/indicator-result :least-squares-moving-average
-                             :overlay
-                             [(result/line-series :lsma regression)])))
-
-(defn- calculate-linear-regression-curve
-  [data params]
-  (let [period (parse-period (:period params) 25 2 400)
-        close-values (field-values data :close)
-        x-values (indices (count close-values))
-        regression (normalize-values
-                    (math-adapter/moving-linear-regression period
-                                                           x-values
-                                                           close-values))]
-    (result/indicator-result :linear-regression-curve
-                             :overlay
-                             [(result/line-series :lrc regression)])))
-
-(defn- calculate-linear-regression-slope
-  [data params]
-  (let [period (parse-period (:period params) 25 2 400)
-        close-values (field-values data :close)
-        x-values (indices (count close-values))
-        result (math-adapter/moving-least-square period
-                                                 x-values
-                                                 close-values)
-        slope (normalize-values (:m result))]
-    (result/indicator-result :linear-regression-slope
-                             :separate
-                             [(result/line-series :slope slope)])))
-
 (defn- calculate-guppy-multiple-moving-average
   [data _params]
   (let [close-values (field-values data :close)
@@ -791,9 +749,9 @@
    :guppy-multiple-moving-average calculate-guppy-multiple-moving-average
    :hull-moving-average calculate-hull-moving-average
    :ichimoku-cloud calculate-ichimoku-cloud
-   :least-squares-moving-average calculate-least-squares-moving-average
-   :linear-regression-curve calculate-linear-regression-curve
-   :linear-regression-slope calculate-linear-regression-slope
+   :least-squares-moving-average regression/calculate-least-squares-moving-average
+   :linear-regression-curve regression/calculate-linear-regression-curve
+   :linear-regression-slope regression/calculate-linear-regression-slope
    :ma-cross calculate-ma-cross
    :ma-with-ema-cross calculate-ma-with-ema-cross
    :mcginley-dynamic calculate-mcginley-dynamic
