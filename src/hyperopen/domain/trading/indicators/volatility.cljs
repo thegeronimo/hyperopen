@@ -1,6 +1,6 @@
-(ns hyperopen.views.trading-chart.utils.indicators-volatility
+(ns hyperopen.domain.trading.indicators.volatility
   (:require [hyperopen.domain.trading.indicators.math :as imath]
-            [hyperopen.views.trading-chart.utils.indicator-view-adapter :as view]))
+            [hyperopen.domain.trading.indicators.result :as result]))
 
 (def ^:private seconds-per-week (* 7 24 60 60))
 
@@ -40,7 +40,6 @@
 
 (def ^:private finite-number? imath/finite-number?)
 (def ^:private parse-period imath/parse-period)
-(def ^:private times imath/times)
 (def ^:private field-values imath/field-values)
 
 (defn- sma-values
@@ -59,7 +58,7 @@
   [data params]
   (let [weeks (parse-period (:period params) 52 1 260)
         lookback-seconds (* weeks seconds-per-week)
-        time-values (times data)
+        time-values (imath/times data)
         highs (field-values data :high)
         lows (field-values data :low)
         size (count data)
@@ -82,10 +81,10 @@
                      next-start
                      (conj high-result (apply max high-window))
                      (conj low-result (apply min low-window))))))]
-    (view/indicator-result :week-52-high-low
-                           :overlay
-                           [(view/line-series :week-52-high-low :high time-values high-line)
-                            (view/line-series :week-52-high-low :low time-values low-line)])))
+    (result/indicator-result :week-52-high-low
+                             :overlay
+                             [(result/line-series :high high-line)
+                              (result/line-series :low low-line)])))
 
 (defn- true-range-values
   [highs lows closes]
@@ -102,21 +101,19 @@
 (defn- calculate-atr
   [data params]
   (let [period (parse-period (:period params) 14 2 200)
-        time-values (times data)
         highs (field-values data :high)
         lows (field-values data :low)
         closes (field-values data :close)
         tr-values (true-range-values highs lows closes)
         values (rma-values tr-values period)]
-    (view/indicator-result :atr
-                           :separate
-                           [(view/line-series :atr :atr time-values values)])))
+    (result/indicator-result :atr
+                             :separate
+                             [(result/line-series :atr values)])))
 
 (defn- calculate-bollinger-bands
   [data params]
   (let [period (parse-period (:period params) 20 2 200)
         multiplier (or (:multiplier params) 2)
-        time-values (times data)
         closes (field-values data :close)
         basis-values (sma-values closes period)
         std-values (stddev-values closes period)
@@ -134,11 +131,11 @@
                                           (finite-number? stdev))
                                  (- basis (* multiplier stdev)))))
                            (range (count closes)))]
-    (view/indicator-result :bollinger-bands
-                           :overlay
-                           [(view/line-series :bollinger-bands :upper time-values upper-values)
-                            (view/line-series :bollinger-bands :basis time-values basis-values)
-                            (view/line-series :bollinger-bands :lower time-values lower-values)])))
+    (result/indicator-result :bollinger-bands
+                             :overlay
+                             [(result/line-series :upper upper-values)
+                              (result/line-series :basis basis-values)
+                              (result/line-series :lower lower-values)])))
 
 (def ^:private volatility-calculators
   {:week-52-high-low calculate-52-week-high-low

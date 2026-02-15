@@ -84,3 +84,19 @@
             :pane pane
             :series series}
      (seq markers) (assoc :markers markers))))
+
+(defn- project-series
+  [indicator-type time-values {:keys [id series-type values]}]
+  (case series-type
+    :histogram (histogram-series indicator-type id time-values values)
+    :line (line-series indicator-type id time-values values)
+    nil))
+
+(defn project-domain-indicator
+  [data {:keys [type pane series markers]}]
+  (let [time-values (imath/times data)
+        projected-series (->> series
+                              (keep (fn [series-def]
+                                      (project-series type time-values series-def)))
+                              vec)]
+    (indicator-result type pane projected-series markers)))

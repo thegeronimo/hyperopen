@@ -1,6 +1,6 @@
-(ns hyperopen.views.trading-chart.utils.indicators-oscillators
+(ns hyperopen.domain.trading.indicators.oscillators
   (:require [hyperopen.domain.trading.indicators.math :as imath]
-            [hyperopen.views.trading-chart.utils.indicator-view-adapter :as view]))
+            [hyperopen.domain.trading.indicators.result :as result]))
 
 (def ^:private oscillator-indicator-definitions
   [{:id :accelerator-oscillator
@@ -33,7 +33,6 @@
   oscillator-indicator-definitions)
 
 (def ^:private finite-number? imath/finite-number?)
-(def ^:private times imath/times)
 (def ^:private field-values imath/field-values)
 (def ^:private mean imath/mean)
 
@@ -47,8 +46,7 @@
 
 (defn- calculate-awesome-oscillator
   [data _params]
-  (let [time-values (times data)
-        highs (field-values data :high)
+  (let [highs (field-values data :high)
         lows (field-values data :low)
         size (count data)
         median-values (mapv (fn [idx]
@@ -63,14 +61,13 @@
                                     (finite-number? slow))
                            (- fast slow))))
                      (range size))]
-    (view/indicator-result :awesome-oscillator
-                           :separate
-                           [(view/histogram-series :awesome-oscillator :ao time-values values)])))
+    (result/indicator-result :awesome-oscillator
+                             :separate
+                             [(result/histogram-series :ao values)])))
 
 (defn- calculate-accelerator-oscillator
   [data _params]
-  (let [time-values (times data)
-        highs (field-values data :high)
+  (let [highs (field-values data :high)
         lows (field-values data :low)
         size (count data)
         median-values (mapv (fn [idx]
@@ -93,14 +90,13 @@
                                     (finite-number? signal))
                            (- ao signal))))
                      (range size))]
-    (view/indicator-result :accelerator-oscillator
-                           :separate
-                           [(view/histogram-series :accelerator-oscillator :ac time-values values)])))
+    (result/indicator-result :accelerator-oscillator
+                             :separate
+                             [(result/histogram-series :ac values)])))
 
 (defn- calculate-balance-of-power
   [data _params]
-  (let [time-values (times data)
-        opens (field-values data :open)
+  (let [opens (field-values data :open)
         highs (field-values data :high)
         lows (field-values data :low)
         closes (field-values data :close)
@@ -115,31 +111,30 @@
                            0
                            (/ (- close open) denominator))))
                      (range size))]
-    (view/indicator-result :balance-of-power
-                           :separate
-                           [(view/line-series :balance-of-power :bop time-values values)])))
+    (result/indicator-result :balance-of-power
+                             :separate
+                             [(result/line-series :bop values)])))
 
 (defn- calculate-advance-decline
   [data _params]
-  (let [time-values (times data)
-        closes (field-values data :close)
+  (let [closes (field-values data :close)
         size (count data)
         values (loop [idx 0
                       running 0
-                      result []]
+                      out []]
                  (if (= idx size)
-                   result
+                   out
                    (if (zero? idx)
-                     (recur (inc idx) 0 (conj result 0))
+                     (recur (inc idx) 0 (conj out 0))
                      (let [change (cond
                                     (> (nth closes idx) (nth closes (dec idx))) 1
                                     (< (nth closes idx) (nth closes (dec idx))) -1
                                     :else 0)
                            next-value (+ running change)]
-                       (recur (inc idx) next-value (conj result next-value))))))]
-    (view/indicator-result :advance-decline
-                           :separate
-                           [(view/line-series :advance-decline :ad-bars time-values values)])))
+                       (recur (inc idx) next-value (conj out next-value))))))]
+    (result/indicator-result :advance-decline
+                             :separate
+                             [(result/line-series :ad-bars values)])))
 
 (def ^:private oscillator-calculators
   {:accelerator-oscillator calculate-accelerator-oscillator

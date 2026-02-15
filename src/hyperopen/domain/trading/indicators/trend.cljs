@@ -1,6 +1,6 @@
-(ns hyperopen.views.trading-chart.utils.indicators-trend
+(ns hyperopen.domain.trading.indicators.trend
   (:require [hyperopen.domain.trading.indicators.math :as imath]
-            [hyperopen.views.trading-chart.utils.indicator-view-adapter :as view]))
+            [hyperopen.domain.trading.indicators.result :as result]))
 
 (def ^:private trend-indicator-definitions
   [{:id :alma
@@ -49,9 +49,7 @@
 
 (def ^:private finite-number? imath/finite-number?)
 (def ^:private parse-period imath/parse-period)
-(def ^:private times imath/times)
 (def ^:private field-values imath/field-values)
-(def ^:private mean imath/mean)
 
 (defn- window-for-index
   [values idx period]
@@ -65,14 +63,11 @@
   [values period]
   (imath/rma-values values period :lagged))
 
-(defn calculate-sma
-  "Calculate Simple Moving Average for given data and period"
+(defn calculate-sma-values
   [data period]
   (let [length (parse-period period 20 2 1000)
-        time-values (times data)
-        closes (field-values data :close)
-        values (sma-values closes length)]
-    (view/points-from-values time-values values)))
+        closes (field-values data :close)]
+    (sma-values closes length)))
 
 (defn- alma-weights
   [period offset sigma]
@@ -91,7 +86,6 @@
         sigma (or (:sigma params) 6)
         weights (alma-weights period offset sigma)
         denominator (reduce + 0 weights)
-        time-values (times data)
         closes (field-values data :close)
         size (count data)
         values (mapv (fn [idx]
@@ -100,9 +94,9 @@
                            (/ (reduce + 0 (map * window weights))
                               denominator))))
                      (range size))]
-    (view/indicator-result :alma
-                           :overlay
-                           [(view/line-series :alma :alma time-values values)])))
+    (result/indicator-result :alma
+                             :overlay
+                             [(result/line-series :alma values)])))
 
 (defn- last-index-of
   [values target]
@@ -115,7 +109,6 @@
 (defn- calculate-aroon
   [data params]
   (let [period (parse-period (:period params) 14 2 200)
-        time-values (times data)
         highs (field-values data :high)
         lows (field-values data :low)
         size (count data)
@@ -142,10 +135,10 @@
                 (recur (inc idx)
                        (conj up-result up)
                        (conj down-result down))))))]
-    (view/indicator-result :aroon
-                           :separate
-                           [(view/line-series :aroon :aroon-up time-values up-values)
-                            (view/line-series :aroon :aroon-down time-values down-values)])))
+    (result/indicator-result :aroon
+                             :separate
+                             [(result/line-series :aroon-up up-values)
+                              (result/line-series :aroon-down down-values)])))
 
 (defn- true-range-values
   [highs lows closes]
@@ -163,7 +156,6 @@
   [data params]
   (let [period (parse-period (:period params) 14 2 200)
         smoothing (parse-period (:smoothing params) 14 2 200)
-        time-values (times data)
         highs (field-values data :high)
         lows (field-values data :low)
         closes (field-values data :close)
@@ -223,20 +215,19 @@
                              value))
                          (range size)
                          adx-raw)]
-    (view/indicator-result :adx
-                           :separate
-                           [(view/line-series :adx :adx time-values adx-values)])))
+    (result/indicator-result :adx
+                             :separate
+                             [(result/line-series :adx adx-values)])))
 
 (def ^:private trend-calculators
   {:alma calculate-alma
    :aroon calculate-aroon
    :adx calculate-adx
    :sma (fn [data params]
-          (let [time-values (times data)
-                values (mapv :value (calculate-sma data (:period params 20)))]
-            (view/indicator-result :sma
+          (result/indicator-result :sma
                                    :overlay
-                                   [(view/line-series :sma :sma time-values values)])))})
+                                   [(result/line-series :sma
+                                                        (calculate-sma-values data (:period params 20)))]))})
 
 (defn calculate-trend-indicator
   [indicator-type data params]

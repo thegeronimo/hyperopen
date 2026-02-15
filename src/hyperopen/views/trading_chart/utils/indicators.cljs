@@ -1,8 +1,9 @@
 (ns hyperopen.views.trading-chart.utils.indicators
   (:require [hyperopen.domain.trading.indicators.math :as imath]
-            [hyperopen.views.trading-chart.utils.indicators-oscillators :as oscillators]
-            [hyperopen.views.trading-chart.utils.indicators-trend :as trend]
-            [hyperopen.views.trading-chart.utils.indicators-volatility :as volatility]
+            [hyperopen.domain.trading.indicators.oscillators :as domain-oscillators]
+            [hyperopen.domain.trading.indicators.trend :as domain-trend]
+            [hyperopen.domain.trading.indicators.volatility :as domain-volatility]
+            [hyperopen.views.trading-chart.utils.indicator-view-adapter :as view-adapter]
             [hyperopen.views.trading-chart.utils.indicators-wave2 :as wave2]
             [hyperopen.views.trading-chart.utils.indicators-wave3 :as wave3]))
 
@@ -101,7 +102,9 @@
 (defn calculate-sma
   "Calculate Simple Moving Average for given data and period"
   [data period]
-  (trend/calculate-sma data period))
+  (let [time-values (times data)
+        values (domain-trend/calculate-sma-values data period)]
+    (view-adapter/points-from-values time-values values)))
 
 (defn- calculate-52-week-high-low
   [data params]
@@ -531,9 +534,9 @@
   "Return list of available indicators"
   []
   (vec (concat indicator-definitions
-               (trend/get-trend-indicators)
-               (oscillators/get-oscillator-indicators)
-               (volatility/get-volatility-indicators)
+               (domain-trend/get-trend-indicators)
+               (domain-oscillators/get-oscillator-indicators)
+               (domain-volatility/get-volatility-indicators)
                (wave2/get-wave2-indicators)
                (wave3/get-wave3-indicators))))
 
@@ -546,11 +549,13 @@
   "Calculate indicator based on type and parameters"
   [indicator-type data params]
   (let [config (or params {})
-        calculator (get indicator-calculators indicator-type)]
+        calculator (get indicator-calculators indicator-type)
+        domain-result (or (domain-trend/calculate-trend-indicator indicator-type data config)
+                          (domain-oscillators/calculate-oscillator-indicator indicator-type data config)
+                          (domain-volatility/calculate-volatility-indicator indicator-type data config))]
     (or (when calculator
           (calculator data config))
-        (trend/calculate-trend-indicator indicator-type data config)
-        (oscillators/calculate-oscillator-indicator indicator-type data config)
-        (volatility/calculate-volatility-indicator indicator-type data config)
+        (when domain-result
+          (view-adapter/project-domain-indicator data domain-result))
         (wave2/calculate-wave2-indicator indicator-type data config)
         (wave3/calculate-wave3-indicator indicator-type data config))))
