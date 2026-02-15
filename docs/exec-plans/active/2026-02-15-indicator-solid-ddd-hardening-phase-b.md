@@ -18,7 +18,7 @@ The indicator architecture has improved, but there are still gaps against SOLID/
 - [x] (2026-02-15 19:30Z) Milestone 5 completed: required validation gates passed (`npm run check`, `npm test`, `npm run test:websocket`).
 - [x] (2026-02-15 19:32Z) Milestone 6 completed: phase evidence recorded; plan kept active for follow-on SOLID/DDD slices.
 - [x] (2026-02-15 20:10Z) Milestone 7 completed: moved style metadata from view adapter into dedicated style catalog namespace with semantic family projections.
-- [ ] Milestone 8: break large family modules into smaller semantic domain namespaces while preserving registry routing (completed: extracted momentum oscillators into `/hyperopen/src/hyperopen/domain/trading/indicators/oscillators/momentum.cljs`; remaining: split additional oscillator/trend/volatility semantic slices).
+- [ ] Milestone 8: break large family modules into smaller semantic domain namespaces while preserving registry routing (completed: extracted momentum + statistics oscillators into `/hyperopen/src/hyperopen/domain/trading/indicators/oscillators/{momentum,statistics}.cljs`; remaining: split additional oscillator/trend/volatility semantic slices).
 - [ ] Milestone 9: remove remaining dual-maintenance coupling between catalog definitions and calculator maps.
 - [ ] Milestone 10: extract remaining heavy private math/stat helpers to dedicated reusable math/statistics namespaces.
 
@@ -34,6 +34,8 @@ The indicator architecture has improved, but there are still gaps against SOLID/
   Evidence: `/hyperopen/src/hyperopen/views/trading_chart/utils/indicator_view_adapter.cljs` previously contained line/histogram/marker style maps plus projection logic in one namespace.
 - Observation: oscillator semantic splitting can be done incrementally without registry/interface churn by extracting focused calculator namespaces and delegating through the existing calculator map.
   Evidence: momentum-family calculators now live in `/hyperopen/src/hyperopen/domain/trading/indicators/oscillators/momentum.cljs` while `/hyperopen/src/hyperopen/domain/trading/indicators/oscillators.cljs` preserves public entrypoints.
+- Observation: extracting correlation/TSI/SMI logic into a statistics module removed complex helper math from the main oscillators namespace without changing caller contracts.
+  Evidence: `/hyperopen/src/hyperopen/domain/trading/indicators/oscillators/statistics.cljs` now owns Pearson/rolling-correlation/TSI helpers and related calculators.
 
 ## Decision Log
 
@@ -139,3 +141,4 @@ Plan revision note: 2026-02-15 19:05Z - Initial Phase B plan created for contrac
 Plan revision note: 2026-02-15 19:32Z - Completed Milestones 1-6, recorded validation evidence, and extended plan with follow-on structural milestones 7-10.
 Plan revision note: 2026-02-15 20:10Z - Completed Milestone 7 by extracting style metadata into a dedicated style catalog and revalidating all required gates.
 Plan revision note: 2026-02-15 20:25Z - Started Milestone 8 with momentum oscillator extraction and revalidated all required gates.
+Plan revision note: 2026-02-15 20:45Z - Extended Milestone 8 with statistics oscillator extraction and revalidated all required gates.

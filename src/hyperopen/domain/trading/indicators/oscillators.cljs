@@ -3,6 +3,7 @@
             [hyperopen.domain.trading.indicators.contracts :as contracts]
             [hyperopen.domain.trading.indicators.math-adapter :as math-adapter]
             [hyperopen.domain.trading.indicators.oscillators.momentum :as momentum]
+            [hyperopen.domain.trading.indicators.oscillators.statistics :as statistics]
             [hyperopen.domain.trading.indicators.math :as imath]
             [hyperopen.domain.trading.indicators.result :as result]))
 
@@ -187,61 +188,6 @@
                             range-1)]
               (max range-1 range-2 range-3)))
           (range size))))
-
-(defn- pearson-correlation
-  [xs ys]
-  (when (and (= (count xs) (count ys))
-             (seq xs)
-             (every? finite-number? xs)
-             (every? finite-number? ys))
-    (let [mx (imath/mean xs)
-          my (imath/mean ys)
-          cov (reduce + 0 (map (fn [x y]
-                                 (* (- x mx) (- y my)))
-                               xs ys))
-          sx (reduce + 0 (map (fn [x]
-                                (let [d (- x mx)]
-                                  (* d d)))
-                              xs))
-          sy (reduce + 0 (map (fn [y]
-                                (let [d (- y my)]
-                                  (* d d)))
-                              ys))
-          denom (js/Math.sqrt (* sx sy))]
-      (when (and (finite-number? denom) (> denom 0))
-        (/ cov denom)))))
-
-(defn- rolling-correlation-with-time
-  [values period]
-  (let [time-axis (vec (range 1 (inc period)))
-        size (count values)]
-    (mapv (fn [idx]
-            (when-let [window (imath/window-for-index values idx period :aligned)]
-              (pearson-correlation window time-axis)))
-          (range size))))
-
-(defn- tsi-core
-  [close-values short-period long-period]
-  (let [size (count close-values)
-        mtm (mapv (fn [idx]
-                    (if (pos? idx)
-                      (- (nth close-values idx) (nth close-values (dec idx)))
-                      nil))
-                  (range size))
-        abs-mtm (mapv (fn [v]
-                        (when (finite-number? v)
-                          (js/Math.abs v)))
-                      mtm)
-        ema1 (imath/ema-values mtm short-period)
-        ema2 (imath/ema-values ema1 long-period)
-        abs-ema1 (imath/ema-values abs-mtm short-period)
-        abs-ema2 (imath/ema-values abs-ema1 long-period)]
-    (mapv (fn [a b]
-            (when (and (finite-number? a)
-                       (finite-number? b)
-                       (not= b 0))
-              (* 100 (/ a b))))
-          ema2 abs-ema2)))
 
 (defn- calculate-awesome-oscillator
   [data _params]
@@ -437,53 +383,6 @@
     (result/indicator-result :relative-strength-index
                              :separate
                              [(result/line-series :rsi values)])))
-
-(defn- calculate-correlation-coefficient
-  [data params]
-  (let [period (parse-period (:period params) 20 3 400)
-        values (rolling-correlation-with-time (field-values data :close) period)]
-    (result/indicator-result :correlation-coefficient
-                             :separate
-                             [(result/line-series :correlation values)])))
-
-(defn- calculate-correlation-log
-  [data params]
-  (let [period (parse-period (:period params) 20 3 400)
-        close-values (field-values data :close)
-        logged (mapv (fn [price]
-                       (when (and (finite-number? price)
-                                  (pos? price))
-                         (js/Math.log price)))
-                     close-values)
-        values (rolling-correlation-with-time logged period)]
-    (result/indicator-result :correlation-log
-                             :separate
-                             [(result/line-series :correlation-log values)])))
-
-(defn- calculate-true-strength-index
-  [data params]
-  (let [short-period (parse-period (:short params) 13 2 200)
-        long-period (parse-period (:long params) 25 2 200)
-        tsi (tsi-core (field-values data :close) short-period long-period)]
-    (result/indicator-result :true-strength-index
-                             :separate
-                             [(result/line-series :tsi tsi)])))
-
-(defn- calculate-trend-strength-index
-  [data params]
-  (let [short-period (parse-period (:short params) 13 2 200)
-        long-period (parse-period (:long params) 25 2 200)
-        signal-period (parse-period (:signal params) 13 2 200)
-        tsi (tsi-core (field-values data :close) short-period long-period)
-        trend (mapv (fn [value]
-                      (when (finite-number? value)
-                        (js/Math.abs value)))
-                    tsi)
-        signal (imath/ema-values trend signal-period)]
-    (result/indicator-result :trend-strength-index
-                             :separate
-                             [(result/line-series :trend-si trend)
-                              (result/line-series :signal signal)])))
 
 (defn- calculate-advance-decline
   [data _params]
@@ -860,24 +759,6 @@
                              :separate
                              [(result/line-series :rvi-vol values)])))
 
-(defn- calculate-smi-ergodic
-  [data params]
-  (let [short-period (parse-period (:short params) 13 2 200)
-        long-period (parse-period (:long params) 25 2 200)
-        signal-period (parse-period (:signal params) 13 2 200)
-        tsi (tsi-core (field-values data :close) short-period long-period)
-        signal (imath/ema-values tsi signal-period)
-        osc (mapv (fn [t s]
-                    (when (and (finite-number? t)
-                               (finite-number? s))
-                      (- t s)))
-                  tsi signal)]
-    (result/indicator-result :smi-ergodic
-                             :separate
-                             [(result/histogram-series :osc osc)
-                              (result/line-series :indicator tsi)
-                              (result/line-series :signal signal)])))
-
 (defn- calculate-ultimate-oscillator
   [data params]
   (let [short-period (parse-period (:short params) 7 2 100)
@@ -941,7 +822,7 @@
    :chande-kroll-stop calculate-chande-kroll-stop
    :chop-zone calculate-chop-zone
    :connors-rsi calculate-connors-rsi
-   :correlation-log calculate-correlation-log
+   :correlation-log statistics/calculate-correlation-log
    :klinger-oscillator calculate-klinger-oscillator
    :know-sure-thing calculate-know-sure-thing
    :momentum momentum/calculate-momentum
@@ -949,16 +830,16 @@
    :rate-of-change momentum/calculate-rate-of-change
    :relative-strength-index calculate-relative-strength-index
    :ratio calculate-ratio
-   :correlation-coefficient calculate-correlation-coefficient
+   :correlation-coefficient statistics/calculate-correlation-coefficient
    :relative-vigor-index calculate-relative-vigor-index
    :relative-volatility-index calculate-relative-volatility-index
-   :smi-ergodic calculate-smi-ergodic
+   :smi-ergodic statistics/calculate-smi-ergodic
    :spread calculate-spread
    :stochastic calculate-stochastic
    :stochastic-rsi calculate-stochastic-rsi
    :trix momentum/calculate-trix
-   :true-strength-index calculate-true-strength-index
-   :trend-strength-index calculate-trend-strength-index
+   :true-strength-index statistics/calculate-true-strength-index
+   :trend-strength-index statistics/calculate-trend-strength-index
    :williams-r momentum/calculate-williams-r
    :ultimate-oscillator calculate-ultimate-oscillator})
 
