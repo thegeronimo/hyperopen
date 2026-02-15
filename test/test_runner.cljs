@@ -7,9 +7,13 @@
             [hyperopen.domain.trading.indicators.math-adapter-test]
             [hyperopen.domain.trading.indicators.contracts-test]
             [hyperopen.domain.trading.indicators.family-parity-test]
+            [hyperopen.domain.trading.indicators.flow-family-coverage-test]
             [hyperopen.domain.trading.indicators.registry-test]
             [hyperopen.domain.trading.indicators.heavy-algorithms-test]
+            [hyperopen.domain.trading.indicators.oscillators-family-coverage-test]
             [hyperopen.domain.trading.indicators.structure-test]
+            [hyperopen.domain.trading.indicators.trend-family-coverage-test]
+            [hyperopen.domain.trading.indicators.volatility-family-coverage-test]
             [hyperopen.domain.funding-history-test]
             [hyperopen.domain.market.instrument-test]
             [hyperopen.domain.trading.order-values-test]
@@ -89,9 +93,13 @@
              'hyperopen.domain.trading.indicators.math-adapter-test
              'hyperopen.domain.trading.indicators.contracts-test
              'hyperopen.domain.trading.indicators.family-parity-test
+             'hyperopen.domain.trading.indicators.flow-family-coverage-test
              'hyperopen.domain.trading.indicators.registry-test
              'hyperopen.domain.trading.indicators.heavy-algorithms-test
+             'hyperopen.domain.trading.indicators.oscillators-family-coverage-test
              'hyperopen.domain.trading.indicators.structure-test
+             'hyperopen.domain.trading.indicators.trend-family-coverage-test
+             'hyperopen.domain.trading.indicators.volatility-family-coverage-test
              'hyperopen.domain.funding-history-test
              'hyperopen.domain.market.instrument-test
              'hyperopen.domain.trading.order-values-test
