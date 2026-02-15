@@ -14,7 +14,18 @@
    [:aroon :aroon-down] {:name "Aroon Down" :color "#ef4444"}
    [:adx :adx] {:name "ADX" :color "#a855f7"}
    [:balance-of-power :bop] {:name "BOP" :color "#22c55e"}
-   [:advance-decline :ad-bars] {:name "A/D" :color "#06b6d4"}})
+   [:advance-decline :ad-bars] {:name "A/D" :color "#06b6d4"}
+   [:rate-of-change :roc] {:name "ROC" :color "#22d3ee"}
+   [:relative-strength-index :rsi] {:name "RSI" :color "#f97316"}
+   [:correlation-coefficient :correlation] {:name "Correlation" :color "#22d3ee"}
+   [:true-strength-index :tsi] {:name "TSI" :color "#22d3ee"}
+   [:trend-strength-index :trend-si] {:name "Trend SI" :color "#22d3ee"}
+   [:trend-strength-index :signal] {:name "Signal" :color "#f97316"}
+   [:standard-deviation :stddev] {:name "StdDev" :color "#a855f7"}
+   [:standard-error :stderr] {:name "StdErr" :color "#22d3ee"}
+   [:standard-error-bands :upper] {:name "SE Upper" :color "#22c55e"}
+   [:standard-error-bands :center] {:name "SE Mid" :color "#f59e0b"}
+   [:standard-error-bands :lower] {:name "SE Lower" :color "#ef4444"}})
 
 (def ^:private histogram-series-meta
   {[:awesome-oscillator :ao] {:name "AO"

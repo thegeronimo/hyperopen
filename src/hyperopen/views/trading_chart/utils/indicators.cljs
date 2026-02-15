@@ -533,12 +533,21 @@
 (defn get-available-indicators
   "Return list of available indicators"
   []
-  (vec (concat indicator-definitions
-               (domain-trend/get-trend-indicators)
-               (domain-oscillators/get-oscillator-indicators)
-               (domain-volatility/get-volatility-indicators)
-               (wave2/get-wave2-indicators)
-               (wave3/get-wave3-indicators))))
+  (let [all (concat indicator-definitions
+                    (domain-trend/get-trend-indicators)
+                    (domain-oscillators/get-oscillator-indicators)
+                    (domain-volatility/get-volatility-indicators)
+                    (wave2/get-wave2-indicators)
+                    (wave3/get-wave3-indicators))]
+    (loop [remaining all
+           seen #{}
+           out []]
+      (if-let [indicator (first remaining)]
+        (let [indicator-id (:id indicator)]
+          (if (contains? seen indicator-id)
+            (recur (rest remaining) seen out)
+            (recur (rest remaining) (conj seen indicator-id) (conj out indicator))))
+        (vec out)))))
 
 (def ^:private indicator-calculators
   {:accumulation-distribution calculate-accumulation-distribution

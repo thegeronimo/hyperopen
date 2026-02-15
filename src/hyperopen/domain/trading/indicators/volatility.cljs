@@ -32,7 +32,38 @@
     :min-period 2
     :max-period 200
     :default-config {:period 20
-                     :multiplier 2}}])
+                     :multiplier 2}}
+   {:id :standard-deviation
+    :name "Standard Deviation"
+    :short-name "StdDev"
+    :description "Rolling standard deviation of close"
+    :supports-period? true
+    :default-period 20
+    :min-period 2
+    :max-period 400
+    :default-config {:period 20}
+    :migrated-from :wave2}
+   {:id :standard-error
+    :name "Standard Error"
+    :short-name "StdErr"
+    :description "Standard error of rolling linear regression"
+    :supports-period? true
+    :default-period 20
+    :min-period 3
+    :max-period 400
+    :default-config {:period 20}
+    :migrated-from :wave3}
+   {:id :standard-error-bands
+    :name "Standard Error Bands"
+    :short-name "SE Bands"
+    :description "Linear-regression centerline plus/minus standard error"
+    :supports-period? true
+    :default-period 20
+    :min-period 3
+    :max-period 400
+    :default-config {:period 20
+                     :multiplier 2}
+    :migrated-from :wave3}])
 
 (defn get-volatility-indicators
   []
@@ -137,10 +168,83 @@
                               (result/line-series :basis basis-values)
                               (result/line-series :lower lower-values)])))
 
+(defn- calculate-standard-deviation
+  [data params]
+  (let [period (parse-period (:period params) 20 2 400)
+        values (stddev-values (field-values data :close) period)]
+    (result/indicator-result :standard-deviation
+                             :separate
+                             [(result/line-series :stddev values)])))
+
+(defn- rs-rolling
+  [values period]
+  (let [size (count values)]
+    (mapv (fn [idx]
+            (when-let [window (imath/window-for-index values idx period :aligned)]
+              (when (every? finite-number? window)
+                (let [x-values (vec (range period))
+                      x-mean (/ (reduce + 0 x-values) period)
+                      y-mean (imath/mean window)
+                      sxx (reduce + 0 (map (fn [x]
+                                             (let [dx (- x x-mean)]
+                                               (* dx dx)))
+                                           x-values))
+                      sxy (reduce + 0 (map (fn [x y]
+                                             (* (- x x-mean)
+                                                (- y y-mean)))
+                                           x-values window))
+                      slope (if (zero? sxx) 0 (/ sxy sxx))
+                      intercept (- y-mean (* slope x-mean))
+                      residuals (map (fn [x y]
+                                       (- y (+ intercept (* slope x))))
+                                     x-values window)
+                      rss (reduce + 0 (map #(* % %) residuals))
+                      denom (max 1 (- period 2))]
+                  {:slope slope
+                   :intercept intercept
+                   :standard-error (js/Math.sqrt (/ rss denom))
+                   :center (+ intercept (* slope (dec period)))}))))
+          (range size))))
+
+(defn- calculate-standard-error
+  [data params]
+  (let [period (parse-period (:period params) 20 3 400)
+        regressions (rs-rolling (field-values data :close) period)
+        values (mapv :standard-error regressions)]
+    (result/indicator-result :standard-error
+                             :separate
+                             [(result/line-series :stderr values)])))
+
+(defn- calculate-standard-error-bands
+  [data params]
+  (let [period (parse-period (:period params) 20 3 400)
+        multiplier (or (:multiplier params) 2)
+        regressions (rs-rolling (field-values data :close) period)
+        center (mapv :center regressions)
+        se (mapv :standard-error regressions)
+        upper (mapv (fn [c s]
+                      (when (and (finite-number? c)
+                                 (finite-number? s))
+                        (+ c (* multiplier s))))
+                    center se)
+        lower (mapv (fn [c s]
+                      (when (and (finite-number? c)
+                                 (finite-number? s))
+                        (- c (* multiplier s))))
+                    center se)]
+    (result/indicator-result :standard-error-bands
+                             :overlay
+                             [(result/line-series :upper upper)
+                              (result/line-series :center center)
+                              (result/line-series :lower lower)])))
+
 (def ^:private volatility-calculators
   {:week-52-high-low calculate-52-week-high-low
    :atr calculate-atr
-   :bollinger-bands calculate-bollinger-bands})
+   :bollinger-bands calculate-bollinger-bands
+   :standard-deviation calculate-standard-deviation
+   :standard-error calculate-standard-error
+   :standard-error-bands calculate-standard-error-bands})
 
 (defn calculate-volatility-indicator
   [indicator-type data params]
