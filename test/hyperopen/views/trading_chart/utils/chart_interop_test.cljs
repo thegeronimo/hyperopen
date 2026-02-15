@@ -123,3 +123,48 @@
             {:time 2 :value 14.666666666666666}]
            @applied-data))
     (is (= "price" (get-in @applied-options [:priceFormat :type])))))
+
+(deftest set-series-data-baseline-applies-midpoint-base-level-test
+  (let [applied-options (atom nil)
+        applied-data (atom nil)
+        series #js {:applyOptions (fn [opts]
+                                    (reset! applied-options (js->clj opts :keywordize-keys true)))
+                    :setData (fn [data]
+                               (reset! applied-data (js->clj data :keywordize-keys true)))}
+        raw-candles [{:time 1 :open 10 :high 14 :low 9 :close 12}
+                     {:time 2 :open 12 :high 16 :low 11 :close 15}
+                     {:time 3 :open 15 :high 18 :low 14 :close 18}]]
+    (chart-interop/set-series-data! series raw-candles :baseline)
+    (is (= [{:time 1 :value 12}
+            {:time 2 :value 15}
+            {:time 3 :value 18}]
+           @applied-data))
+    (is (= "price" (get-in @applied-options [:priceFormat :type])))
+    (is (= "price" (get-in @applied-options [:baseValue :type])))
+    (is (= 15 (get-in @applied-options [:baseValue :price])))))
+
+(deftest baseline-subscription-refreshes-base-value-on-visible-range-change-test
+  (let [visible-range* (atom {:from 10 :to 30})
+        subscribed-handler* (atom nil)
+        unsubscribed?* (atom false)
+        applied-options* (atom [])
+        time-scale #js {:subscribeVisibleLogicalRangeChange (fn [handler]
+                                                              (reset! subscribed-handler* handler))
+                        :unsubscribeVisibleLogicalRangeChange (fn [handler]
+                                                                (when (identical? handler @subscribed-handler*)
+                                                                  (reset! unsubscribed?* true)))}
+        price-scale #js {:getVisibleRange (fn []
+                                            (clj->js @visible-range*))}
+        main-series #js {:priceScale (fn [] price-scale)
+                         :applyOptions (fn [opts]
+                                         (swap! applied-options* conj (js->clj opts :keywordize-keys true)))}
+        chart #js {:timeScale (fn [] time-scale)}
+        chart-obj #js {:chart chart
+                       :mainSeries main-series}]
+    (chart-interop/sync-baseline-base-value-subscription! chart-obj :baseline)
+    (is (= 20 (get-in (first @applied-options*) [:baseValue :price])))
+    (reset! visible-range* {:from 30 :to 50})
+    (@subscribed-handler* #js {})
+    (is (= 40 (get-in (last @applied-options*) [:baseValue :price])))
+    (chart-interop/sync-baseline-base-value-subscription! chart-obj :line)
+    (is @unsubscribed?*)))

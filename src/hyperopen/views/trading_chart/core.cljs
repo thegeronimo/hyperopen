@@ -145,6 +145,7 @@
                          (set! (.-__visibleRangeCleanup ^js chart-obj)
                                (ci/subscribe-visible-range-persistence! chart selected-timeframe))
                          (set! (.-__visibleRangePersistenceSubscribed ^js chart-obj) true))
+                       (ci/sync-baseline-base-value-subscription! chart-obj chart-type)
                        (set! (.-__hyperopenChart ^js node) chart-obj))
                      (catch :default e
                        (js/console.error "Error in chart:" e)))
@@ -169,12 +170,15 @@
                          (set! (.-mainSeries ^js chart-obj) new-series)
                          (set! (.-__chartType ^js chart-obj) chart-type)
                          (ci/set-series-data! new-series candle-data chart-type)
+                         (ci/sync-baseline-base-value-subscription! chart-obj chart-type)
                          (when visible-range
                            (try
                              (.setVisibleLogicalRange ^js time-scale visible-range)
                              (catch :default _ nil)))))
                      (when (and main-series (or (nil? previous-chart-type) (= previous-chart-type chart-type)))
                        (ci/set-series-data! main-series candle-data chart-type))
+                     (when chart-obj
+                       (ci/sync-baseline-base-value-subscription! chart-obj chart-type))
                      (when volume-series
                        (ci/set-volume-data! volume-series candle-data))
                      (when (and chart-obj chart (seq candle-data) (not visible-range-restore-tried?))
@@ -200,6 +204,7 @@
                          chart (when chart-obj (.-chart ^js chart-obj))]
                      (when legend-control
                        (.destroy ^js legend-control))
+                     (ci/clear-baseline-base-value-subscription! chart-obj)
                      (when visible-range-cleanup
                        (try
                          (visible-range-cleanup)

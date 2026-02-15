@@ -5,6 +5,7 @@
             [hyperopen.views.trading-chart.utils.chart-options :as chart-options]))
 
 (def ^:private line-type-with-steps 1)
+(def ^:private baseline-default-level-percent 0.5)
 
 ;; Generic chart creation with volume support
 (defn create-chart-with-volume! [container]
@@ -52,8 +53,7 @@
 
 (defn add-baseline-series! [chart]
   "Add a baseline series to the chart"
-  (let [seriesOptions #js {:baseValue #js {:type "price" :price 25}
-                           :topLineColor "rgba(38, 166, 154, 1)"
+  (let [seriesOptions #js {:topLineColor "rgba(38, 166, 154, 1)"
                            :topFillColor1 "rgba(38, 166, 154, 0.28)"
                            :topFillColor2 "rgba(38, 166, 154, 0.05)"
                            :bottomLineColor "rgba(239, 83, 80, 1)"
@@ -277,11 +277,113 @@
          :precision decimals
          :minMove min-move}))
 
+(defn- infer-baseline-base-value
+  "Infer a baseline split level from data range.
+   A 50% level matches Hyperliquid/TradingView baseline behavior more closely
+   than a fixed absolute price."
+  [transformed-data]
+  (let [values (->> transformed-data
+                    (map :value)
+                    (map (fn [v]
+                           (if (number? v) v (js/parseFloat v))))
+                    (filter (fn [v]
+                              (and (number? v) (not (js/isNaN v)))))
+                    vec)]
+    (when (seq values)
+      (let [low (apply min values)
+            high (apply max values)]
+        (+ low (* (- high low) baseline-default-level-percent))))))
+
+(defn- visible-range->baseline-price
+  [visible-range level-percent]
+  (when (and visible-range
+             (number? (:from visible-range))
+             (number? (:to visible-range)))
+    (let [low (min (:from visible-range) (:to visible-range))
+          high (max (:from visible-range) (:to visible-range))]
+      (+ low (* (- high low) level-percent)))))
+
+(defn- refresh-baseline-base-value!
+  [main-series]
+  (when main-series
+    (let [price-scale (.priceScale ^js main-series)
+          visible-range (when (and price-scale (fn? (.-getVisibleRange ^js price-scale)))
+                          (some-> (.getVisibleRange ^js price-scale)
+                                  (js->clj :keywordize-keys true)))
+          base-value (visible-range->baseline-price visible-range baseline-default-level-percent)]
+      (when (number? base-value)
+        (.applyOptions ^js main-series
+                       (clj->js {:baseValue {:type "price"
+                                             :price base-value}}))))))
+
+(defn- subscribe-baseline-base-value!
+  [chart main-series]
+  (let [time-scale (.timeScale ^js chart)]
+    (refresh-baseline-base-value! main-series)
+    (if-not time-scale
+      (fn [] nil)
+      (let [handler (fn [_]
+                      (refresh-baseline-base-value! main-series))]
+        (if (fn? (.-subscribeVisibleLogicalRangeChange ^js time-scale))
+          (do
+            (.subscribeVisibleLogicalRangeChange ^js time-scale handler)
+            (fn []
+              (try
+                (.unsubscribeVisibleLogicalRangeChange ^js time-scale handler)
+                (catch :default _
+                  nil))))
+          (if (fn? (.-subscribeVisibleTimeRangeChange ^js time-scale))
+            (do
+              (.subscribeVisibleTimeRangeChange ^js time-scale handler)
+              (fn []
+                (try
+                  (.unsubscribeVisibleTimeRangeChange ^js time-scale handler)
+                  (catch :default _
+                    nil))))
+            (fn [] nil)))))))
+
+(defn sync-baseline-base-value-subscription!
+  [chart-obj chart-type]
+  (when chart-obj
+    (let [chart-type* (normalize-main-chart-type chart-type)
+          chart (.-chart ^js chart-obj)
+          main-series (.-mainSeries ^js chart-obj)
+          existing-cleanup (.-__baselineBaseCleanup ^js chart-obj)
+          existing-series (.-__baselineBaseSeries ^js chart-obj)]
+      (if (= chart-type* :baseline)
+        (if (or (nil? existing-cleanup)
+                (not (identical? existing-series main-series)))
+          (do
+            (when existing-cleanup
+              (existing-cleanup))
+            (set! (.-__baselineBaseCleanup ^js chart-obj)
+                  (subscribe-baseline-base-value! chart main-series))
+            (set! (.-__baselineBaseSeries ^js chart-obj) main-series))
+          (refresh-baseline-base-value! main-series))
+        (when existing-cleanup
+          (existing-cleanup)
+          (set! (.-__baselineBaseCleanup ^js chart-obj) nil)
+          (set! (.-__baselineBaseSeries ^js chart-obj) nil))))))
+
+(defn clear-baseline-base-value-subscription!
+  [chart-obj]
+  (when chart-obj
+    (when-let [cleanup (.-__baselineBaseCleanup ^js chart-obj)]
+      (cleanup))
+    (set! (.-__baselineBaseCleanup ^js chart-obj) nil)
+    (set! (.-__baselineBaseSeries ^js chart-obj) nil)))
+
 ;; Generic data setting function
 (defn set-series-data! [series data chart-type]
   "Set data for any series type with appropriate transformation."
-  (let [transformed-data (transform-main-series-data data chart-type)]
-    (.applyOptions ^js series #js {:priceFormat (infer-series-price-format transformed-data chart-type)})
+  (let [chart-type* (normalize-main-chart-type chart-type)
+        transformed-data (transform-main-series-data data chart-type*)
+        base-value (when (= chart-type* :baseline)
+                     (infer-baseline-base-value transformed-data))
+        series-options (cond-> {:priceFormat (infer-series-price-format transformed-data chart-type*)}
+                         (some? base-value)
+                         (assoc :baseValue {:type "price" :price base-value}))]
+    (.applyOptions ^js series (clj->js series-options))
     (.setData series (clj->js transformed-data))))
 
 (defn set-volume-data! [volume-series data]
