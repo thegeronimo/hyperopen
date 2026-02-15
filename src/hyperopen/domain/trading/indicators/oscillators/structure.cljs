@@ -1,36 +1,22 @@
 (ns hyperopen.domain.trading.indicators.oscillators.structure
   (:require [hyperopen.domain.trading.indicators.math :as imath]
+            [hyperopen.domain.trading.indicators.oscillators.helpers :as helpers]
             [hyperopen.domain.trading.indicators.result :as result]))
 
-(def ^:private finite-number? imath/finite-number?)
+(def ^:private finite-number? helpers/finite-number?)
 (def ^:private clamp imath/clamp)
-(def ^:private parse-period imath/parse-period)
-(def ^:private parse-number imath/parse-number)
-(def ^:private field-values imath/field-values)
-
-(defn- sma-aligned-values
-  [values period]
-  (imath/sma-values values period :aligned))
-
-(defn- rolling-sum-aligned
-  [values period]
-  (imath/rolling-sum values period :aligned))
-
-(defn- rolling-max-aligned
-  [values period]
-  (imath/rolling-max values period :aligned))
-
-(defn- rolling-min-aligned
-  [values period]
-  (imath/rolling-min values period :aligned))
-
-(defn- rma-aligned-values
-  [values period]
-  (imath/rma-values values period :aligned))
-
-(defn- stddev-aligned-values
-  [values period]
-  (imath/stddev-values values period :aligned))
+(def ^:private parse-period helpers/parse-period)
+(def ^:private parse-number helpers/parse-number)
+(def ^:private field-values helpers/field-values)
+(def ^:private sma-aligned-values helpers/sma-aligned-values)
+(def ^:private rolling-sum-aligned helpers/rolling-sum-aligned)
+(def ^:private rolling-max-aligned helpers/rolling-max-aligned)
+(def ^:private rolling-min-aligned helpers/rolling-min-aligned)
+(def ^:private rma-aligned-values helpers/rma-aligned-values)
+(def ^:private stddev-aligned-values helpers/stddev-aligned-values)
+(def ^:private roc-percent-values helpers/roc-percent-values)
+(def ^:private rsi-aligned-values helpers/rsi-aligned-values)
+(def ^:private true-range-values helpers/true-range-values)
 
 (defn- wma-aligned-values
   [values period]
@@ -42,46 +28,6 @@
                            (/ (reduce + 0 (map * window weights))
                               weight-sum))
                          :aligned)))
-
-(defn- roc-percent-values
-  [values period]
-  (let [size (count values)]
-    (mapv (fn [idx]
-            (if (< idx period)
-              nil
-              (let [current (nth values idx)
-                    base (nth values (- idx period))]
-                (when (and (finite-number? current)
-                           (finite-number? base)
-                           (not= base 0))
-                  (* 100 (/ (- current base) base))))))
-          (range size))))
-
-(defn- rsi-aligned-values
-  [values period]
-  (let [size (count values)
-        diffs (mapv (fn [idx]
-                      (if (pos? idx)
-                        (- (nth values idx) (nth values (dec idx)))
-                        nil))
-                    (range size))
-        gains (mapv (fn [d]
-                      (when (finite-number? d)
-                        (max d 0)))
-                    diffs)
-        losses (mapv (fn [d]
-                       (when (finite-number? d)
-                         (max (- d) 0)))
-                     diffs)
-        avg-gains (rma-aligned-values gains period)
-        avg-losses (rma-aligned-values losses period)]
-    (mapv (fn [g l]
-            (when (and (finite-number? g)
-                       (finite-number? l))
-              (if (zero? l)
-                100
-                (- 100 (/ 100 (+ 1 (/ g l)))))))
-          avg-gains avg-losses)))
 
 (defn- streak-values
   [close-values]
@@ -115,27 +61,6 @@
                         below (count (filter #(< % current) comparable))
                         denom (max 1 (count comparable))]
                     (* 100 (/ below denom)))))))
-          (range size))))
-
-(defn- true-range-values
-  [data]
-  (let [high-values (field-values data :high)
-        low-values (field-values data :low)
-        close-values (field-values data :close)
-        size (count data)]
-    (mapv (fn [idx]
-            (let [high (nth high-values idx)
-                  low (nth low-values idx)
-                  prev-close (when (pos? idx)
-                               (nth close-values (dec idx)))
-                  range-1 (- high low)
-                  range-2 (if (finite-number? prev-close)
-                            (js/Math.abs (- high prev-close))
-                            range-1)
-                  range-3 (if (finite-number? prev-close)
-                            (js/Math.abs (- low prev-close))
-                            range-1)]
-              (max range-1 range-2 range-3)))
           (range size))))
 
 (defn calculate-advance-decline

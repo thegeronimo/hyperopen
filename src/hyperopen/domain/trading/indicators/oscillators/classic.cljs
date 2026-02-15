@@ -1,67 +1,20 @@
 (ns hyperopen.domain.trading.indicators.oscillators.classic
   (:require [hyperopen.domain.trading.indicators.math-adapter :as math-adapter]
-            [hyperopen.domain.trading.indicators.math :as imath]
+            [hyperopen.domain.trading.indicators.oscillators.helpers :as helpers]
             [hyperopen.domain.trading.indicators.result :as result]))
 
-(def ^:private finite-number? imath/finite-number?)
-(def ^:private parse-period imath/parse-period)
-(def ^:private field-values imath/field-values)
-(def ^:private mean imath/mean)
-(def ^:private normalize-values imath/normalize-values)
-
-(defn- sma-values
-  [values period]
-  (imath/sma-values values period :lagged))
-
-(defn- rolling-apply
-  [values period f]
-  (imath/rolling-apply values period f :lagged))
-
-(defn- rma-values
-  [values period]
-  (imath/rma-values values period :lagged))
-
-(defn- sma-aligned-values
-  [values period]
-  (imath/sma-values values period :aligned))
-
-(defn- rolling-sum-aligned
-  [values period]
-  (imath/rolling-sum values period :aligned))
-
-(defn- rolling-max-aligned
-  [values period]
-  (imath/rolling-max values period :aligned))
-
-(defn- rolling-min-aligned
-  [values period]
-  (imath/rolling-min values period :aligned))
-
-(defn- rsi-values
-  [values period]
-  (let [size (count values)
-        diffs (mapv (fn [idx]
-                      (if (pos? idx)
-                        (- (nth values idx) (nth values (dec idx)))
-                        nil))
-                    (range size))
-        gains (mapv (fn [d]
-                      (when (finite-number? d)
-                        (max d 0)))
-                    diffs)
-        losses (mapv (fn [d]
-                       (when (finite-number? d)
-                         (max (- d) 0)))
-                     diffs)
-        avg-gains (rma-values gains period)
-        avg-losses (rma-values losses period)]
-    (mapv (fn [g l]
-            (when (and (finite-number? g)
-                       (finite-number? l))
-              (if (zero? l)
-                100
-                (- 100 (/ 100 (+ 1 (/ g l)))))))
-          avg-gains avg-losses)))
+(def ^:private finite-number? helpers/finite-number?)
+(def ^:private parse-period helpers/parse-period)
+(def ^:private field-values helpers/field-values)
+(def ^:private mean helpers/mean)
+(def ^:private normalize-values helpers/normalize-values)
+(def ^:private sma-values helpers/sma-values)
+(def ^:private rolling-apply helpers/rolling-apply-lagged)
+(def ^:private sma-aligned-values helpers/sma-aligned-values)
+(def ^:private rolling-sum-aligned helpers/rolling-sum-aligned)
+(def ^:private rolling-max-aligned helpers/rolling-max-aligned)
+(def ^:private rolling-min-aligned helpers/rolling-min-aligned)
+(def ^:private rsi-values helpers/rsi-values)
 
 (defn calculate-awesome-oscillator
   [data _params]
