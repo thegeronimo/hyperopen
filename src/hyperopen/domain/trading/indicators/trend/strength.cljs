@@ -1,5 +1,5 @@
 (ns hyperopen.domain.trading.indicators.trend.strength
-  (:require [hyperopen.domain.trading.indicators.math-adapter :as math-adapter]
+  (:require [hyperopen.domain.trading.indicators.math-engine :as math-engine]
             [hyperopen.domain.trading.indicators.math :as imath]
             [hyperopen.domain.trading.indicators.result :as result]))
 
@@ -287,7 +287,7 @@
 (defn calculate-vortex-indicator
   [data params]
   (let [period (parse-period (:period params) 14 2 200)
-        result (math-adapter/vortex (field-values data :high)
+        result (math-engine/vortex (field-values data :high)
                                     (field-values data :low)
                                     (field-values data :close)
                                     {:period period})

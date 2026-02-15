@@ -49,7 +49,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 20}
-    :migrated-from :wave2}
+}
    {:id :hull-moving-average
     :name "Hull Moving Average"
     :short-name "HMA"
@@ -59,7 +59,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 21}
-    :migrated-from :wave2}
+}
    {:id :moving-average-double
     :name "Moving Average Double"
     :short-name "MA Double"
@@ -69,7 +69,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 20}
-    :migrated-from :wave2}
+}
    {:id :moving-average-exponential
     :name "Moving Average Exponential"
     :short-name "EMA"
@@ -79,7 +79,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 20}
-    :migrated-from :wave2}
+}
    {:id :moving-average-triple
     :name "Moving Average Triple"
     :short-name "MA Triple"
@@ -89,7 +89,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 20}
-    :migrated-from :wave2}
+}
    {:id :moving-average-weighted
     :name "Moving Average Weighted"
     :short-name "WMA"
@@ -99,7 +99,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 20}
-    :migrated-from :wave2}
+}
    {:id :smoothed-moving-average
     :name "Smoothed Moving Average"
     :short-name "SMMA"
@@ -109,7 +109,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 14}
-    :migrated-from :wave2}
+}
    {:id :triple-ema
     :name "Triple EMA"
     :short-name "TEMA"
@@ -119,7 +119,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 20}
-    :migrated-from :wave2}
+}
    {:id :ema-cross
     :name "EMA Cross"
     :short-name "EMA X"
@@ -127,7 +127,7 @@
     :supports-period? false
     :default-config {:fast 12
                      :slow 26}
-    :migrated-from :wave2}
+}
    {:id :ma-cross
     :name "MA Cross"
     :short-name "MA X"
@@ -135,7 +135,7 @@
     :supports-period? false
     :default-config {:fast 9
                      :slow 21}
-    :migrated-from :wave2}
+}
    {:id :ma-with-ema-cross
     :name "MA with EMA Cross"
     :short-name "MA/EMA X"
@@ -143,7 +143,7 @@
     :supports-period? false
     :default-config {:ma-period 20
                      :ema-period 50}
-    :migrated-from :wave2}
+}
    {:id :least-squares-moving-average
     :name "Least Squares Moving Average"
     :short-name "LSMA"
@@ -153,7 +153,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 25}
-    :migrated-from :wave2}
+}
    {:id :linear-regression-curve
     :name "Linear Regression Curve"
     :short-name "LRC"
@@ -163,7 +163,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 25}
-    :migrated-from :wave2}
+}
    {:id :linear-regression-slope
     :name "Linear Regression Slope"
     :short-name "LRS"
@@ -173,7 +173,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 25}
-    :migrated-from :wave2}
+}
    {:id :directional-movement
     :name "Directional Movement"
     :short-name "DMI"
@@ -183,7 +183,7 @@
     :min-period 2
     :max-period 200
     :default-config {:period 14}
-    :migrated-from :wave2}
+}
    {:id :envelopes
     :name "Envelopes"
     :short-name "ENV"
@@ -194,7 +194,7 @@
     :max-period 400
     :default-config {:period 20
                      :percent 0.025}
-    :migrated-from :wave2}
+}
    {:id :ichimoku-cloud
     :name "Ichimoku Cloud"
     :short-name "ICHI"
@@ -204,14 +204,14 @@
                      :medium 26
                      :long 52
                      :close 26}
-    :migrated-from :wave2}
+}
    {:id :moving-average-multiple
     :name "Moving Average Multiple"
     :short-name "MA Multi"
     :description "Multiple moving averages (5, 10, 20, 50)"
     :supports-period? false
     :default-config {:periods [5 10 20 50]}
-    :migrated-from :wave2}
+}
    {:id :parabolic-sar
     :name "Parabolic SAR"
     :short-name "PSAR"
@@ -219,7 +219,7 @@
     :supports-period? false
     :default-config {:step 0.02
                      :max 0.2}
-    :migrated-from :wave2}
+}
    {:id :supertrend
     :name "SuperTrend"
     :short-name "SuperTrend"
@@ -230,7 +230,7 @@
     :max-period 200
     :default-config {:period 10
                      :multiplier 3}
-    :migrated-from :wave2}
+}
    {:id :vortex-indicator
     :name "Vortex Indicator"
     :short-name "VI"
@@ -240,7 +240,7 @@
     :min-period 2
     :max-period 200
     :default-config {:period 14}
-    :migrated-from :wave2}
+}
    {:id :vwap
     :name "VWAP"
     :short-name "VWAP"
@@ -250,7 +250,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 20}
-    :migrated-from :wave2}
+}
    {:id :vwma
     :name "VWMA"
     :short-name "VWMA"
@@ -260,14 +260,14 @@
     :min-period 2
     :max-period 400
     :default-config {:period 20}
-    :migrated-from :wave2}
+}
    {:id :guppy-multiple-moving-average
     :name "Guppy Multiple Moving Average"
     :short-name "GMMA"
     :description "Short and long EMA ribbon"
     :supports-period? false
     :default-config {}
-    :migrated-from :wave3}
+}
    {:id :mcginley-dynamic
     :name "McGinley Dynamic"
     :short-name "MGD"
@@ -277,7 +277,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 14}
-    :migrated-from :wave3}
+}
    {:id :moving-average-adaptive
     :name "Moving Average Adaptive"
     :short-name "KAMA"
@@ -289,7 +289,7 @@
     :default-config {:period 10
                      :fast 2
                      :slow 30}
-    :migrated-from :wave3}
+}
    {:id :moving-average-hamming
     :name "Moving Average Hamming"
     :short-name "HAMMA"
@@ -299,7 +299,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 20}
-    :migrated-from :wave3}
+}
    {:id :williams-alligator
     :name "Williams Alligator"
     :short-name "Alligator"
@@ -311,5 +311,5 @@
                      :teeth-shift 5
                      :lips-period 5
                      :lips-shift 3}
-    :migrated-from :wave3}])
+}])
 

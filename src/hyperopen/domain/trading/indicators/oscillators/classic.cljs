@@ -1,5 +1,5 @@
 (ns hyperopen.domain.trading.indicators.oscillators.classic
-  (:require [hyperopen.domain.trading.indicators.math-adapter :as math-adapter]
+  (:require [hyperopen.domain.trading.indicators.math-engine :as math-engine]
             [hyperopen.domain.trading.indicators.oscillators.helpers :as helpers]
             [hyperopen.domain.trading.indicators.result :as result]))
 
@@ -91,7 +91,7 @@
   [data params]
   (let [k-period (parse-period (:kPeriod params) 14 1 200)
         d-period (parse-period (:dPeriod params) 3 1 200)
-        result (math-adapter/stochastic (field-values data :high)
+        result (math-engine/stochastic (field-values data :high)
                                         (field-values data :low)
                                         (field-values data :close)
                                         {:k-period k-period :d-period d-period})
@@ -109,7 +109,7 @@
         k-smoothing (parse-period (:kSmoothing params) 3 1 50)
         d-smoothing (parse-period (:dSmoothing params) 3 1 50)
         rsi-series (normalize-values
-                    (math-adapter/relative-strength-index (field-values data :close)
+                    (math-engine/relative-strength-index (field-values data :close)
                                                           {:period rsi-period}))
         min-rsi (rolling-min-aligned rsi-series stoch-period)
         max-rsi (rolling-max-aligned rsi-series stoch-period)
@@ -135,7 +135,7 @@
   [data params]
   (let [period (parse-period (:period params) 20 2 200)
         values (normalize-values
-                (math-adapter/commodity-channel-index (field-values data :high)
+                (math-engine/commodity-channel-index (field-values data :high)
                                                       (field-values data :low)
                                                       (field-values data :close)
                                                       {:period period}))]
@@ -148,7 +148,7 @@
   (let [fast (parse-period (:fast params) 12 1 200)
         slow (parse-period (:slow params) 26 2 400)
         signal (parse-period (:signal params) 9 1 200)
-        result (math-adapter/macd (field-values data :close)
+        result (math-engine/macd (field-values data :close)
                                   {:fast fast
                                    :slow slow
                                    :signal signal})
@@ -170,7 +170,7 @@
   (let [ema-period (parse-period (:emaPeriod params) 9 1 200)
         mi-period (parse-period (:miPeriod params) 25 2 400)
         values (normalize-values
-                (math-adapter/mass-index (field-values data :high)
+                (math-engine/mass-index (field-values data :high)
                                          (field-values data :low)
                                          {:ema-period ema-period
                                           :mi-period mi-period}))]

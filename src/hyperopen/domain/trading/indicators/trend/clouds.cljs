@@ -1,5 +1,5 @@
 (ns hyperopen.domain.trading.indicators.trend.clouds
-  (:require [hyperopen.domain.trading.indicators.math-adapter :as math-adapter]
+  (:require [hyperopen.domain.trading.indicators.math-engine :as math-engine]
             [hyperopen.domain.trading.indicators.math :as imath]
             [hyperopen.domain.trading.indicators.result :as result]))
 
@@ -23,7 +23,7 @@
         long (parse-period (:long params) 52 2 400)
         close-shift (parse-period (:close params) 26 1 300)
         size (count data)
-        result (math-adapter/ichimoku-cloud (field-values data :high)
+        result (math-engine/ichimoku-cloud (field-values data :high)
                                             (field-values data :low)
                                             (field-values data :close)
                                             {:short short

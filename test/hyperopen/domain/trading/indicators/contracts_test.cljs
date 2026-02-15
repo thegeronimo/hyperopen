@@ -8,9 +8,10 @@
     (is (true? (contracts/valid-indicator-input? :sma [ohlc-candle] {})))
     (is (true? (contracts/valid-indicator-input? :sma [ohlc-candle] {:period 14})))
     (is (true? (contracts/valid-indicator-input? :sma [ohlc-candle] {:period "14"})))
+    (is (true? (contracts/valid-indicator-input? :sma [ohlc-candle] {:period " 14.0 "})))
     (is (true? (contracts/valid-indicator-input? :sma [ohlc-candle] {:unknown 123})))
     (is (true? (contracts/valid-indicator-input? :on-balance-volume [ohlcv-candle] {})))
-    (is (true? (contracts/valid-indicator-input? :unknown-indicator [ohlc-candle] {})))
+    (is (false? (contracts/valid-indicator-input? :unknown-indicator [ohlc-candle] {})))
     (is (false? (contracts/valid-indicator-input? [] [ohlc-candle] {})))
     (is (false? (contracts/valid-indicator-input? :sma nil {})))
     (is (false? (contracts/valid-indicator-input? :sma [1 2] {})))
@@ -33,6 +34,13 @@
         bad-pane (assoc ok-result :pane :main)
         bad-series-shape (assoc-in ok-result [:series 0 :values] '(1.0))
         bad-series-length (assoc-in ok-result [:series 0 :values] [1.0])
+        bad-series-non-finite (assoc-in ok-result [:series 0 :values] [js/Number.POSITIVE_INFINITY 1.0])
+        bad-series-duplicate-ids (assoc ok-result :series [{:id :up
+                                                            :series-type :line
+                                                            :values [nil 1.0]}
+                                                           {:id :up
+                                                            :series-type :line
+                                                            :values [2.0 nil]}])
         semantic-markers (assoc ok-result :markers [{:id "fractal-high-1"
                                                      :time 1
                                                      :kind :fractal-high
@@ -55,4 +63,7 @@
     (is (false? (contracts/valid-indicator-result? bad-pane :supertrend 2)))
     (is (false? (contracts/valid-indicator-result? bad-series-shape :supertrend 2)))
     (is (false? (contracts/valid-indicator-result? bad-series-length :supertrend 2)))
+    (is (false? (contracts/valid-indicator-result? bad-series-non-finite :supertrend 2)))
+    (is (false? (contracts/valid-indicator-result? bad-series-duplicate-ids :supertrend 2)))
+    (is (false? (contracts/valid-indicator-result? ok-result :unknown-indicator 2)))
     (is (false? (contracts/valid-indicator-result? invalid-markers :supertrend 2)))))

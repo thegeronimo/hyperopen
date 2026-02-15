@@ -39,7 +39,7 @@
     :max-period 200
     :default-config {:period 20
                      :multiplier 2}
-    :migrated-from :wave2}
+}
    {:id :bollinger-bands-width
     :name "Bollinger Bands Width"
     :short-name "BBW"
@@ -50,7 +50,7 @@
     :max-period 200
     :default-config {:period 20
                      :multiplier 2}
-    :migrated-from :wave2}
+}
    {:id :donchian-channels
     :name "Donchian Channels"
     :short-name "DONCH"
@@ -60,7 +60,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 20}
-    :migrated-from :wave2}
+}
    {:id :price-channel
     :name "Price Channel"
     :short-name "PChannel"
@@ -70,7 +70,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 20}
-    :migrated-from :wave2}
+}
    {:id :historical-volatility
     :name "Historical Volatility"
     :short-name "HV"
@@ -81,7 +81,7 @@
     :max-period 400
     :default-config {:period 20
                      :annualization 365}
-    :migrated-from :wave2}
+}
    {:id :keltner-channels
     :name "Keltner Channels"
     :short-name "KC"
@@ -91,7 +91,7 @@
     :min-period 2
     :max-period 200
     :default-config {:period 20}
-    :migrated-from :wave2}
+}
    {:id :moving-average-channel
     :name "Moving Average Channel"
     :short-name "MA Channel"
@@ -102,7 +102,7 @@
     :max-period 400
     :default-config {:period 20
                      :multiplier 1.5}
-    :migrated-from :wave2}
+}
    {:id :standard-deviation
     :name "Standard Deviation"
     :short-name "StdDev"
@@ -112,7 +112,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 20}
-    :migrated-from :wave2}
+}
    {:id :standard-error
     :name "Standard Error"
     :short-name "StdErr"
@@ -122,7 +122,7 @@
     :min-period 3
     :max-period 400
     :default-config {:period 20}
-    :migrated-from :wave3}
+}
    {:id :standard-error-bands
     :name "Standard Error Bands"
     :short-name "SE Bands"
@@ -133,7 +133,7 @@
     :max-period 400
     :default-config {:period 20
                      :multiplier 2}
-    :migrated-from :wave3}
+}
    {:id :volatility-close-to-close
     :name "Volatility Close-to-Close"
     :short-name "Vol C-C"
@@ -144,7 +144,7 @@
     :max-period 400
     :default-config {:period 20
                      :annualization 365}
-    :migrated-from :wave3}
+}
    {:id :volatility-index
     :name "Volatility Index"
     :short-name "VolIdx"
@@ -154,7 +154,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 14}
-    :migrated-from :wave3}
+}
    {:id :volatility-ohlc
     :name "Volatility O-H-L-C"
     :short-name "Vol OHLC"
@@ -165,7 +165,7 @@
     :max-period 400
     :default-config {:period 20
                      :annualization 365}
-    :migrated-from :wave3}
+}
    {:id :volatility-zero-trend-close-to-close
     :name "Volatility Zero Trend Close-to-Close"
     :short-name "Vol ZT C-C"
@@ -176,5 +176,5 @@
     :max-period 400
     :default-config {:period 20
                      :annualization 365}
-    :migrated-from :wave3}])
+}])
 

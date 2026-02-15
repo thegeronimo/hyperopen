@@ -1,5 +1,5 @@
 (ns hyperopen.domain.trading.indicators.trend.moving-averages
-  (:require [hyperopen.domain.trading.indicators.math-adapter :as math-adapter]
+  (:require [hyperopen.domain.trading.indicators.math-engine :as math-engine]
             [hyperopen.domain.trading.indicators.math :as imath]
             [hyperopen.domain.trading.indicators.result :as result]))
 
@@ -127,7 +127,7 @@
   [data params]
   (let [period (parse-period (:period params) 20 2 400)
         values (normalize-values
-                (math-adapter/dema (field-values data :close)
+                (math-engine/dema (field-values data :close)
                                    {:period period}))]
     (result/indicator-result :double-ema
                              :overlay
@@ -145,7 +145,7 @@
   [data params]
   (let [period (parse-period (:period params) 20 2 400)
         values (normalize-values
-                (math-adapter/dema (field-values data :close)
+                (math-engine/dema (field-values data :close)
                                    {:period period}))]
     (result/indicator-result :moving-average-double
                              :overlay
@@ -155,7 +155,7 @@
   [data params]
   (let [period (parse-period (:period params) 20 2 400)
         values (normalize-values
-                (math-adapter/ema (field-values data :close)
+                (math-engine/ema (field-values data :close)
                                   {:period period}))]
     (result/indicator-result :moving-average-exponential
                              :overlay
@@ -165,7 +165,7 @@
   [data params]
   (let [period (parse-period (:period params) 20 2 400)
         values (normalize-values
-                (math-adapter/tema (field-values data :close)
+                (math-engine/tema (field-values data :close)
                                    {:period period}))]
     (result/indicator-result :moving-average-triple
                              :overlay
@@ -183,7 +183,7 @@
   [data params]
   (let [period (parse-period (:period params) 14 2 400)
         values (normalize-values
-                (math-adapter/rma (field-values data :close)
+                (math-engine/rma (field-values data :close)
                                   {:period period}))]
     (result/indicator-result :smoothed-moving-average
                              :overlay
@@ -193,7 +193,7 @@
   [data params]
   (let [period (parse-period (:period params) 20 2 400)
         values (normalize-values
-                (math-adapter/tema (field-values data :close)
+                (math-engine/tema (field-values data :close)
                                    {:period period}))]
     (result/indicator-result :triple-ema
                              :overlay
@@ -204,8 +204,8 @@
   (let [fast (parse-period (:fast params) 12 1 200)
         slow (parse-period (:slow params) 26 2 400)
         close-values (field-values data :close)
-        fast-line (normalize-values (math-adapter/ema close-values {:period fast}))
-        slow-line (normalize-values (math-adapter/ema close-values {:period slow}))]
+        fast-line (normalize-values (math-engine/ema close-values {:period fast}))
+        slow-line (normalize-values (math-engine/ema close-values {:period slow}))]
     (result/indicator-result :ema-cross
                              :overlay
                              [(result/line-series :fast fast-line)
@@ -229,7 +229,7 @@
         ema-period (parse-period (:ema-period params) 50 2 400)
         close-values (field-values data :close)
         ma-line (sma-aligned-values close-values ma-period)
-        ema-line (normalize-values (math-adapter/ema close-values {:period ema-period}))]
+        ema-line (normalize-values (math-engine/ema close-values {:period ema-period}))]
     (result/indicator-result :ma-with-ema-cross
                              :overlay
                              [(result/line-series :ma ma-line)

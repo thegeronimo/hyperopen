@@ -1,10 +1,12 @@
 (ns hyperopen.domain.trading.indicators.contracts
-  (:require [hyperopen.domain.trading.indicators.schema :as schema]))
+  (:require [clojure.string :as string]
+            [hyperopen.domain.trading.indicators.schema :as schema]))
 
 (def ^:private valid-panes #{:overlay :separate})
 (def ^:private valid-series-types #{:line :histogram})
 (def ^:private valid-marker-kinds #{:fractal-high :fractal-low})
 (def ^:private required-ohlc-fields #{:time :open :high :low :close})
+(def ^:private numeric-string-pattern #"^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$")
 
 (def ^:private volume-required-indicators
   #{:accumulation-distribution
@@ -32,16 +34,16 @@
   [value]
   (or (finite-number? value)
       (and (string? value)
-           (let [parsed (js/parseFloat value)]
-             (and (not (js/isNaN parsed))
-                  (js/isFinite parsed))))))
+           (let [trimmed (string/trim value)]
+             (and (not (string/blank? trimmed))
+                  (re-matches numeric-string-pattern trimmed))))))
 
 (defn- numeric-like->number
   [value]
   (cond
     (finite-number? value) value
     (and (string? value)
-         (numeric-like? value)) (js/parseFloat value)
+         (numeric-like? value)) (js/parseFloat (string/trim value))
     :else nil))
 
 (defn- required-candle-fields
@@ -87,6 +89,7 @@
 (defn valid-indicator-input?
   [indicator-type data params]
   (and (keyword? indicator-type)
+       (schema/known-indicator? indicator-type)
        (sequential? data)
        (every? #(valid-candle? indicator-type %) data)
        (valid-params? indicator-type params)))
@@ -97,7 +100,17 @@
        (keyword? (:id series))
        (contains? valid-series-types (:series-type series))
        (vector? (:values series))
-       (= expected-length (count (:values series)))))
+       (= expected-length (count (:values series)))
+       (every? (fn [value]
+                 (or (nil? value)
+                     (finite-number? value)))
+               (:values series))))
+
+(defn- unique-series-ids?
+  [series]
+  (let [ids (map :id series)]
+    (= (count ids)
+       (count (set ids)))))
 
 (defn- valid-marker?
   [marker]
@@ -112,9 +125,11 @@
 (defn valid-indicator-result?
   [result indicator-type expected-length]
   (and (map? result)
+       (schema/known-indicator? indicator-type)
        (= indicator-type (:type result))
        (contains? valid-panes (:pane result))
        (vector? (:series result))
+       (unique-series-ids? (:series result))
        (every? #(valid-series? % expected-length) (:series result))
        (or (nil? (:markers result))
            (and (vector? (:markers result))

@@ -67,3 +67,16 @@ Track quality posture by product domain and architectural layer, including known
 - `npm run check`
 - `npm test`
 - `npm run test:websocket`
+
+## Indicator Kernel Benchmark Governance
+- Benchmark trend snapshot source is `test/hyperopen/domain/trading/indicators/math_kernel_bench_baselines.cljs`.
+- Kernel parity and micro-bench assertions run in `test/hyperopen/domain/trading/indicators/math_kernels_test.cljs`.
+- Default behavior is soft tracking: tests always log `[kernel-bench]` elapsed vs baseline and warn on soft-threshold regressions.
+- Strict behavior is opt-in: set `HYPEROPEN_STRICT_KERNEL_BENCH=1` when running tests to fail on baseline threshold regressions.
+
+### Baseline Refresh Workflow
+1. Run `npm test` at least 3 times on a stable machine and collect `[kernel-bench]` logs for each kernel.
+2. Update `:baseline-ms` values in `test/hyperopen/domain/trading/indicators/math_kernel_bench_baselines.cljs` to conservative medians (not best-case minima).
+3. Re-run `npm test` to verify parity tests remain green and micro-bench logs track near baseline.
+4. Run `HYPEROPEN_STRICT_KERNEL_BENCH=1 npm test` once to verify strict threshold behavior with updated snapshot.
+5. Include the before/after elapsed values and rationale in the active ExecPlan evidence section for traceability.

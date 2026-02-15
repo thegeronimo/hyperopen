@@ -1,7 +1,7 @@
 (ns hyperopen.domain.trading.indicators.trend
   (:require [hyperopen.domain.trading.indicators.catalog.trend :as catalog]
             [hyperopen.domain.trading.indicators.family-runtime :as family-runtime]
-            [hyperopen.domain.trading.indicators.math-adapter :as math-adapter]
+            [hyperopen.domain.trading.indicators.math-engine :as math-engine]
             [hyperopen.domain.trading.indicators.math :as imath]
             [hyperopen.domain.trading.indicators.trend.clouds :as clouds]
             [hyperopen.domain.trading.indicators.trend.moving-averages :as moving-averages]
@@ -61,7 +61,7 @@
   [data params]
   (let [step (parse-number (:step params) 0.02)
         max-value (parse-number (:max params) 0.2)
-        result (math-adapter/parabolic-sar (field-values data :high)
+        result (math-engine/parabolic-sar (field-values data :high)
                                            (field-values data :low)
                                            (field-values data :close)
                                            {:step step :max-value max-value})
@@ -74,7 +74,7 @@
   [data params]
   (let [period (parse-period (:period params) 20 2 400)
         values (normalize-values
-                (math-adapter/vwap (field-values data :close)
+                (math-engine/vwap (field-values data :close)
                                    (field-values data :volume)
                                    {:period period}))]
     (result/indicator-result :vwap
@@ -85,7 +85,7 @@
   [data params]
   (let [period (parse-period (:period params) 20 2 400)
         values (normalize-values
-                (math-adapter/vwma (field-values data :close)
+                (math-engine/vwma (field-values data :close)
                                    (field-values data :volume)
                                    {:period period}))]
     (result/indicator-result :vwma

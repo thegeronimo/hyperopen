@@ -1,5 +1,5 @@
 (ns hyperopen.domain.trading.indicators.oscillators.momentum
-  (:require [hyperopen.domain.trading.indicators.math-adapter :as math-adapter]
+  (:require [hyperopen.domain.trading.indicators.math-engine :as math-engine]
             [hyperopen.domain.trading.indicators.math :as imath]
             [hyperopen.domain.trading.indicators.result :as result]))
 
@@ -102,7 +102,7 @@
   (let [fast (parse-period (:fast params) 12 1 200)
         slow (parse-period (:slow params) 26 2 400)
         values (normalize-values
-                (math-adapter/absolute-price-oscillator (field-values data :close)
+                (math-engine/absolute-price-oscillator (field-values data :close)
                                                         {:fast fast :slow slow}))]
     (result/indicator-result :price-oscillator
                              :separate
@@ -112,7 +112,7 @@
   [data params]
   (let [period (parse-period (:period params) 15 2 400)
         values (normalize-values
-                (math-adapter/trix (field-values data :close)
+                (math-engine/trix (field-values data :close)
                                    {:period period}))]
     (result/indicator-result :trix
                              :separate
@@ -122,7 +122,7 @@
   [data params]
   (let [period (parse-period (:period params) 14 2 200)
         values (normalize-values
-                (math-adapter/williams-r (field-values data :high)
+                (math-engine/williams-r (field-values data :high)
                                          (field-values data :low)
                                          (field-values data :close)
                                          {:period period}))]

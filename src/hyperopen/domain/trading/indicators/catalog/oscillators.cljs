@@ -43,7 +43,7 @@
     :min-period 1
     :max-period 400
     :default-config {:period 10}
-    :migrated-from :wave2}
+}
    {:id :chande-momentum-oscillator
     :name "Chande Momentum Oscillator"
     :short-name "CMO"
@@ -53,7 +53,7 @@
     :min-period 2
     :max-period 200
     :default-config {:period 14}
-    :migrated-from :wave2}
+}
    {:id :detrended-price-oscillator
     :name "Detrended Price Oscillator"
     :short-name "DPO"
@@ -63,7 +63,7 @@
     :min-period 2
     :max-period 200
     :default-config {:period 20}
-    :migrated-from :wave2}
+}
    {:id :price-oscillator
     :name "Price Oscillator"
     :short-name "APO"
@@ -71,7 +71,7 @@
     :supports-period? false
     :default-config {:fast 12
                      :slow 26}
-    :migrated-from :wave2}
+}
    {:id :stochastic
     :name "Stochastic"
     :short-name "Stoch"
@@ -79,7 +79,7 @@
     :supports-period? false
     :default-config {:kPeriod 14
                      :dPeriod 3}
-    :migrated-from :wave2}
+}
    {:id :stochastic-rsi
     :name "Stochastic RSI"
     :short-name "Stoch RSI"
@@ -89,7 +89,7 @@
                      :stochPeriod 14
                      :kSmoothing 3
                      :dSmoothing 3}
-    :migrated-from :wave2}
+}
    {:id :trix
     :name "TRIX"
     :short-name "TRIX"
@@ -99,7 +99,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 15}
-    :migrated-from :wave2}
+}
    {:id :williams-r
     :name "Williams %R"
     :short-name "%R"
@@ -109,7 +109,7 @@
     :min-period 2
     :max-period 200
     :default-config {:period 14}
-    :migrated-from :wave2}
+}
    {:id :choppiness-index
     :name "Choppiness Index"
     :short-name "CHOP"
@@ -119,7 +119,7 @@
     :min-period 2
     :max-period 200
     :default-config {:period 14}
-    :migrated-from :wave2}
+}
    {:id :commodity-channel-index
     :name "Commodity Channel Index"
     :short-name "CCI"
@@ -129,7 +129,7 @@
     :min-period 2
     :max-period 200
     :default-config {:period 20}
-    :migrated-from :wave2}
+}
    {:id :macd
     :name "MACD"
     :short-name "MACD"
@@ -138,7 +138,7 @@
     :default-config {:fast 12
                      :slow 26
                      :signal 9}
-    :migrated-from :wave2}
+}
    {:id :mass-index
     :name "Mass Index"
     :short-name "MI"
@@ -146,7 +146,7 @@
     :supports-period? false
     :default-config {:emaPeriod 9
                      :miPeriod 25}
-    :migrated-from :wave2}
+}
    {:id :relative-strength-index
     :name "Relative Strength Index"
     :short-name "RSI"
@@ -156,7 +156,7 @@
     :min-period 2
     :max-period 200
     :default-config {:period 14}
-    :migrated-from :wave2}
+}
    {:id :correlation-coefficient
     :name "Correlation Coefficient"
     :short-name "Corr"
@@ -166,7 +166,7 @@
     :min-period 3
     :max-period 400
     :default-config {:period 20}
-    :migrated-from :wave3}
+}
    {:id :correlation-log
     :name "Correlation - Log"
     :short-name "Corr Log"
@@ -176,7 +176,7 @@
     :min-period 3
     :max-period 400
     :default-config {:period 20}
-    :migrated-from :wave3}
+}
    {:id :true-strength-index
     :name "True Strength Index"
     :short-name "TSI"
@@ -184,7 +184,7 @@
     :supports-period? false
     :default-config {:short 13
                      :long 25}
-    :migrated-from :wave3}
+}
    {:id :trend-strength-index
     :name "Trend Strength Index"
     :short-name "TrendSI"
@@ -193,7 +193,7 @@
     :default-config {:short 13
                      :long 25
                      :signal 13}
-    :migrated-from :wave3}
+}
    {:id :smi-ergodic
     :name "SMI Ergodic Indicator/Oscillator"
     :short-name "SMI Ergodic"
@@ -202,7 +202,7 @@
     :default-config {:short 13
                      :long 25
                      :signal 13}
-    :migrated-from :wave3}
+}
    {:id :ultimate-oscillator
     :name "Ultimate Oscillator"
     :short-name "UO"
@@ -211,7 +211,7 @@
     :default-config {:short 7
                      :medium 14
                      :long 28}
-    :migrated-from :wave3}
+}
    {:id :connors-rsi
     :name "Connors RSI"
     :short-name "CRSI"
@@ -220,7 +220,7 @@
     :default-config {:rsi-period 3
                      :streak-period 2
                      :rank-period 100}
-    :migrated-from :wave3}
+}
    {:id :chop-zone
     :name "Chop Zone"
     :short-name "CZ"
@@ -230,7 +230,7 @@
     :min-period 2
     :max-period 200
     :default-config {:period 14}
-    :migrated-from :wave3}
+}
    {:id :klinger-oscillator
     :name "Klinger Oscillator"
     :short-name "KVO"
@@ -239,7 +239,7 @@
     :default-config {:fast 34
                      :slow 55
                      :signal 13}
-    :migrated-from :wave3}
+}
    {:id :know-sure-thing
     :name "Know Sure Thing"
     :short-name "KST"
@@ -254,7 +254,7 @@
                      :sma3 10
                      :sma4 15
                      :signal 9}
-    :migrated-from :wave3}
+}
    {:id :relative-vigor-index
     :name "Relative Vigor Index"
     :short-name "RVI"
@@ -264,7 +264,7 @@
     :min-period 2
     :max-period 200
     :default-config {:period 10}
-    :migrated-from :wave3}
+}
    {:id :relative-volatility-index
     :name "Relative Volatility Index"
     :short-name "RVI Vol"
@@ -274,7 +274,7 @@
     :min-period 2
     :max-period 200
     :default-config {:period 14}
-    :migrated-from :wave3}
+}
    {:id :spread
     :name "Spread"
     :short-name "Spread"
@@ -284,7 +284,7 @@
     :min-period 1
     :max-period 400
     :default-config {:period 1}
-    :migrated-from :wave3}
+}
    {:id :ratio
     :name "Ratio"
     :short-name "Ratio"
@@ -294,7 +294,7 @@
     :min-period 1
     :max-period 400
     :default-config {:period 1}
-    :migrated-from :wave3}
+}
    {:id :majority-rule
     :name "Majority Rule"
     :short-name "Majority"
@@ -304,7 +304,7 @@
     :min-period 2
     :max-period 400
     :default-config {:period 14}
-    :migrated-from :wave3}
+}
    {:id :fisher-transform
     :name "Fisher Transform"
     :short-name "Fisher"
@@ -314,7 +314,7 @@
     :min-period 2
     :max-period 200
     :default-config {:period 10}
-    :migrated-from :wave3}
+}
    {:id :coppock-curve
     :name "Coppock Curve"
     :short-name "COPP"
@@ -323,7 +323,7 @@
     :default-config {:long-roc 14
                      :short-roc 11
                      :wma-period 10}
-    :migrated-from :wave3}
+}
    {:id :chaikin-volatility
     :name "Chaikin Volatility"
     :short-name "CHV"
@@ -334,7 +334,7 @@
     :max-period 200
     :default-config {:period 10
                      :roc-period 10}
-    :migrated-from :wave3}
+}
    {:id :chande-kroll-stop
     :name "Chande Kroll Stop"
     :short-name "CKS"
@@ -346,6 +346,6 @@
     :default-config {:period 10
                      :atr-period 10
                      :multiplier 1.0}
-    :migrated-from :wave3}
+}
    ])
 

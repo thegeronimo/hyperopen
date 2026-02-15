@@ -1,5 +1,5 @@
 (ns hyperopen.domain.trading.indicators.trend.regression
-  (:require [hyperopen.domain.trading.indicators.math-adapter :as math-adapter]
+  (:require [hyperopen.domain.trading.indicators.math-engine :as math-engine]
             [hyperopen.domain.trading.indicators.math :as imath]
             [hyperopen.domain.trading.indicators.result :as result]))
 
@@ -17,7 +17,7 @@
         close-values (field-values data :close)
         x-values (indices (count close-values))
         regression (normalize-values
-                    (math-adapter/moving-linear-regression period
+                    (math-engine/moving-linear-regression period
                                                            x-values
                                                            close-values))]
     (result/indicator-result :least-squares-moving-average
@@ -30,7 +30,7 @@
         close-values (field-values data :close)
         x-values (indices (count close-values))
         regression (normalize-values
-                    (math-adapter/moving-linear-regression period
+                    (math-engine/moving-linear-regression period
                                                            x-values
                                                            close-values))]
     (result/indicator-result :linear-regression-curve
@@ -42,7 +42,7 @@
   (let [period (parse-period (:period params) 25 2 400)
         close-values (field-values data :close)
         x-values (indices (count close-values))
-        result (math-adapter/moving-least-square period
+        result (math-engine/moving-least-square period
                                                  x-values
                                                  close-values)
         slope (normalize-values (:m result))]

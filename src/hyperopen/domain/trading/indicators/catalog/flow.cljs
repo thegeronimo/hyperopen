@@ -7,42 +7,42 @@
     :description "Cumulative money flow volume line"
     :supports-period? false
     :default-config {}
-    :migrated-from :indicators}
+}
    {:id :accumulative-swing-index
     :name "Accumulative Swing Index"
     :short-name "ASI"
     :description "Wilder swing index accumulated over time"
     :supports-period? false
     :default-config {}
-    :migrated-from :indicators}
+}
    {:id :volume
     :name "Volume"
     :short-name "VOL"
     :description "Raw traded volume"
     :supports-period? false
     :default-config {}
-    :migrated-from :wave3}
+}
    {:id :net-volume
     :name "Net Volume"
     :short-name "Net Vol"
     :description "Signed per-bar volume based on price direction"
     :supports-period? false
     :default-config {}
-    :migrated-from :wave2}
+}
    {:id :on-balance-volume
     :name "On Balance Volume"
     :short-name "OBV"
     :description "Cumulative signed volume"
     :supports-period? false
     :default-config {}
-    :migrated-from :wave2}
+}
    {:id :price-volume-trend
     :name "Price Volume Trend"
     :short-name "PVT"
     :description "Cumulative volume scaled by price change"
     :supports-period? false
     :default-config {}
-    :migrated-from :wave2}
+}
    {:id :volume-oscillator
     :name "Volume Oscillator"
     :short-name "PVO"
@@ -51,7 +51,7 @@
     :default-config {:fast 12
                      :slow 26
                      :signal 9}
-    :migrated-from :wave2}
+}
    {:id :chaikin-money-flow
     :name "Chaikin Money Flow"
     :short-name "CMF"
@@ -61,7 +61,7 @@
     :min-period 2
     :max-period 200
     :default-config {:period 20}
-    :migrated-from :wave2}
+}
    {:id :chaikin-oscillator
     :name "Chaikin Oscillator"
     :short-name "CHO"
@@ -69,7 +69,7 @@
     :supports-period? false
     :default-config {:fast 3
                      :slow 10}
-    :migrated-from :wave2}
+}
    {:id :ease-of-movement
     :name "Ease Of Movement"
     :short-name "EOM"
@@ -79,7 +79,7 @@
     :min-period 2
     :max-period 200
     :default-config {:period 14}
-    :migrated-from :wave2}
+}
    {:id :elders-force-index
     :name "Elder's Force Index"
     :short-name "EFI"
@@ -89,7 +89,7 @@
     :min-period 2
     :max-period 200
     :default-config {:period 13}
-    :migrated-from :wave2}
+}
    {:id :money-flow-index
     :name "Money Flow Index"
     :short-name "MFI"
@@ -99,5 +99,5 @@
     :min-period 2
     :max-period 200
     :default-config {:period 14}
-    :migrated-from :wave2}])
+}])
 

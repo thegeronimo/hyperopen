@@ -3,6 +3,7 @@
             [hyperopen.domain.trading.indicators.family-runtime :as family-runtime]
             [hyperopen.domain.trading.indicators.oscillators.classic :as classic]
             [hyperopen.domain.trading.indicators.oscillators.momentum :as momentum]
+            [hyperopen.domain.trading.indicators.oscillators.patterns :as patterns]
             [hyperopen.domain.trading.indicators.oscillators.statistics :as statistics]
             [hyperopen.domain.trading.indicators.oscillators.structure :as structure]))
 
@@ -19,22 +20,22 @@
    :advance-decline structure/calculate-advance-decline
    :awesome-oscillator classic/calculate-awesome-oscillator
    :balance-of-power classic/calculate-balance-of-power
-   :coppock-curve structure/calculate-coppock-curve
+   :coppock-curve patterns/calculate-coppock-curve
    :chande-momentum-oscillator momentum/calculate-chande-momentum-oscillator
    :choppiness-index structure/calculate-choppiness-index
    :commodity-channel-index classic/calculate-commodity-channel-index
    :detrended-price-oscillator momentum/calculate-detrended-price-oscillator
-   :fisher-transform structure/calculate-fisher-transform
+   :fisher-transform patterns/calculate-fisher-transform
    :macd classic/calculate-macd
    :mass-index classic/calculate-mass-index
    :majority-rule structure/calculate-majority-rule
    :chaikin-volatility structure/calculate-chaikin-volatility
    :chande-kroll-stop structure/calculate-chande-kroll-stop
    :chop-zone structure/calculate-chop-zone
-   :connors-rsi structure/calculate-connors-rsi
+   :connors-rsi patterns/calculate-connors-rsi
    :correlation-log statistics/calculate-correlation-log
-   :klinger-oscillator structure/calculate-klinger-oscillator
-   :know-sure-thing structure/calculate-know-sure-thing
+   :klinger-oscillator patterns/calculate-klinger-oscillator
+   :know-sure-thing patterns/calculate-know-sure-thing
    :momentum momentum/calculate-momentum
    :price-oscillator momentum/calculate-price-oscillator
    :rate-of-change momentum/calculate-rate-of-change
