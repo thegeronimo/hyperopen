@@ -1,5 +1,6 @@
 (ns hyperopen.domain.trading.indicators.oscillators
-  (:require [hyperopen.domain.trading.indicators.math :as imath]
+  (:require [hyperopen.domain.trading.indicators.contracts :as contracts]
+            [hyperopen.domain.trading.indicators.math :as imath]
             [hyperopen.domain.trading.indicators.result :as result]
             ["indicatorts" :refer [apo cci macd mi rsi stoch trix willr]]))
 
@@ -1414,5 +1415,8 @@
   [indicator-type data params]
   (let [config (or params {})
         calculator (get oscillator-calculators indicator-type)]
-    (when calculator
-      (calculator data config))))
+    (when (and calculator
+               (contracts/valid-indicator-input? data config))
+      (contracts/enforce-indicator-result indicator-type
+                                          (count data)
+                                          (calculator data config)))))

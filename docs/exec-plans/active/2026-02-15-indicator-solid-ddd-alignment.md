@@ -32,7 +32,10 @@ The indicator system still has domain math in view namespaces, fallback dispatch
 - [x] (2026-02-15 16:18Z) Milestone 3 batch G completed: migrated wave2 regression family (`:least-squares-moving-average`, `:linear-regression-curve`, `:linear-regression-slope`) into domain trend and removed wave2 duplicates.
 - [x] (2026-02-15 16:18Z) Milestone 3 completed: migrated all remaining wave2 families, removed coordinator wave2 fallback path, and deleted `indicators_wave2.cljs`.
 - [x] (2026-02-15 16:18Z) Validated Milestone 3 batches E/F/G and wave2 retirement with required gates: `npm run check`, `npm test`, `npm run test:websocket`.
-- [ ] Milestone 4 pending: harden boundaries (math adapter isolation, contract validation, parity/performance tests) and move this plan to completed.
+- [x] (2026-02-15 16:29Z) Milestone 4 batch A completed: added explicit domain indicator input/result contracts and applied fail-closed enforcement at all domain family entrypoints.
+- [x] (2026-02-15 16:29Z) Milestone 4 batch B completed: added focused heavy-indicator determinism/performance-smoke coverage and invalid-input fail-closed checks.
+- [x] (2026-02-15 16:29Z) Validated Milestone 4 batches A+B with required gates: `npm run check`, `npm test`, `npm run test:websocket`.
+- [ ] Milestone 4 batch C pending: finalize explicit third-party math adapter boundary isolation and then move this plan to completed.
 
 ## Surprises & Discoveries
 
@@ -56,6 +59,8 @@ The indicator system still has domain math in view namespaces, fallback dispatch
   Evidence: `:ma-cross` and `:ma-with-ema-cross` domain implementations use aligned SMA windows, and required suites remained green after migration.
 - Observation: Full wave2 retirement was achievable without changing public coordinator APIs once all residual IDs were redistributed into existing semantic domain modules.
   Evidence: `indicators.cljs` now orchestrates only domain registry + adapter projection, `indicators_wave2.cljs` was deleted, and full required suites remained green.
+- Observation: Strict result-length contracts are not valid for all overlay indicators (for example Ichimoku cloud series can be shorter/shifted while still structurally valid).
+  Evidence: Initial strict-length check caused `:ichimoku-cloud` to fail-closed; relaxing to shape contracts restored parity while retaining boundary validation.
 
 ## Decision Log
 
@@ -89,10 +94,13 @@ The indicator system still has domain math in view namespaces, fallback dispatch
 - Decision: Complete wave2 retirement in the same slice by migrating all remaining IDs to semantic domain namespaces instead of creating an intermediate legacy namespace.
   Rationale: This removes the last procedural fallback and closes the bounded-context leak while keeping extension points centralized in domain registry code.
   Date/Author: 2026-02-15 / Codex
+- Decision: Enforce indicator output contracts at domain family boundaries using structural validation (type/pane/series shape) instead of strict value-vector length equality.
+  Rationale: Some indicators intentionally use shifted or reduced output windows, so shape contracts preserve correctness without rejecting valid domain results.
+  Date/Author: 2026-02-15 / Codex
 
 ## Outcomes & Retrospective
 
-Milestone 1 achieved the immediate separation-of-concerns target. Milestone 2 is fully complete with wave3 retired from runtime wiring. Milestone 3 is now complete with wave2 fully retired from runtime wiring. Remaining scope is Milestone 4 boundary hardening (math adapter isolation, explicit contracts, parity/performance coverage).
+Milestone 1 achieved the immediate separation-of-concerns target. Milestone 2 is fully complete with wave3 retired from runtime wiring. Milestone 3 is complete with wave2 fully retired from runtime wiring. Milestone 4 is partially complete: explicit contracts and focused heavy-indicator parity/performance hardening are in place; remaining scope is final math-adapter boundary isolation and plan completion.
 
 ## Context and Orientation
 
@@ -179,3 +187,4 @@ Plan revision note: 2026-02-15 15:48Z - Updated living sections after completing
 Plan revision note: 2026-02-15 15:54Z - Updated living sections after completing Milestone 3 wave2 moving-average-variants batch and validation.
 Plan revision note: 2026-02-15 15:58Z - Updated living sections after completing Milestone 3 wave2 crossover batch and validation.
 Plan revision note: 2026-02-15 16:18Z - Updated living sections after completing Milestone 3 wave2 channel/oscillator/regression batches and retiring wave2 runtime fallback.
+Plan revision note: 2026-02-15 16:29Z - Updated living sections after Milestone 4 contract hardening and heavy-indicator parity/performance test coverage.

@@ -306,3 +306,35 @@
     (is (= :overlay (:pane zig-zag)))
     (is (= 1 (count (:series zig-zag))))
     (is (some finite-number? (map :value (:data (first (:series zig-zag))))))))
+
+(deftest calculate-indicator-heavy-parity-determinism-test
+  (let [candles (mapv sample-candle (range 500))
+        cases [[:supertrend {:period 10 :multiplier 3}]
+               [:ichimoku-cloud {:short 9 :medium 26 :long 52 :close 26}]
+               [:linear-regression-slope {:period 25}]
+               [:standard-error-bands {:period 20 :multiplier 2}]]]
+    (doseq [[indicator-id params] cases]
+      (let [result-a (indicators/calculate-indicator indicator-id candles params)
+            result-b (indicators/calculate-indicator indicator-id candles params)]
+        (is (some? result-a) (str "missing result for " indicator-id))
+        (is (= result-a result-b) (str "non-deterministic result for " indicator-id))))))
+
+(deftest calculate-indicator-heavy-performance-smoke-test
+  (let [candles (mapv sample-candle (range 800))
+        start-ms (js/Date.now)
+        cases [[:supertrend {:period 10 :multiplier 3}]
+               [:ichimoku-cloud {:short 9 :medium 26 :long 52 :close 26}]
+               [:linear-regression-curve {:period 25}]
+               [:standard-error-bands {:period 20 :multiplier 2}]
+               [:correlation-log {:period 20}]]]
+    (doseq [[indicator-id params] cases]
+      (is (some? (indicators/calculate-indicator indicator-id candles params))
+          (str "expected heavy indicator result for " indicator-id)))
+    (let [elapsed-ms (- (js/Date.now) start-ms)]
+      (is (< elapsed-ms 7000)
+          (str "heavy indicator suite took too long: " elapsed-ms "ms")))))
+
+(deftest calculate-indicator-invalid-data-fails-closed-test
+  (is (nil? (indicators/calculate-indicator :supertrend [1 2 3] {})))
+  (is (nil? (indicators/calculate-indicator :stochastic-rsi [nil] {})))
+  (is (nil? (indicators/calculate-indicator :macd sample-candles []))))

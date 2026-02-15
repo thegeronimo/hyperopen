@@ -1,5 +1,6 @@
 (ns hyperopen.domain.trading.indicators.price
-  (:require [hyperopen.domain.trading.indicators.math :as imath]
+  (:require [hyperopen.domain.trading.indicators.contracts :as contracts]
+            [hyperopen.domain.trading.indicators.math :as imath]
             [hyperopen.domain.trading.indicators.result :as result]))
 
 (def ^:private price-indicator-definitions
@@ -86,5 +87,8 @@
   [indicator-type data params]
   (let [config (or params {})
         calculator (get price-calculators indicator-type)]
-    (when calculator
-      (calculator data config))))
+    (when (and calculator
+               (contracts/valid-indicator-input? data config))
+      (contracts/enforce-indicator-result indicator-type
+                                          (count data)
+                                          (calculator data config)))))
