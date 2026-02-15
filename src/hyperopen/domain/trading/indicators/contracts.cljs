@@ -2,6 +2,7 @@
 
 (def ^:private valid-panes #{:overlay :separate})
 (def ^:private valid-series-types #{:line :histogram})
+(def ^:private valid-marker-kinds #{:fractal-high :fractal-low})
 
 (defn valid-indicator-input?
   [data params]
@@ -16,6 +17,18 @@
        (contains? valid-series-types (:series-type series))
        (vector? (:values series))))
 
+(defn- valid-marker?
+  [marker]
+  (and (map? marker)
+       (string? (:id marker))
+       (number? (:time marker))
+       (or (and (keyword? (:kind marker))
+                (contains? valid-marker-kinds (:kind marker))
+                (or (nil? (:price marker))
+                    (number? (:price marker))))
+           (and (string? (:position marker))
+                (string? (:shape marker))))))
+
 (defn valid-indicator-result?
   [result indicator-type expected-length]
   (and (map? result)
@@ -24,7 +37,8 @@
        (vector? (:series result))
        (every? #(valid-series? % expected-length) (:series result))
        (or (nil? (:markers result))
-           (vector? (:markers result)))))
+           (and (vector? (:markers result))
+                (every? valid-marker? (:markers result))))))
 
 (defn enforce-indicator-result
   [indicator-type expected-length result]

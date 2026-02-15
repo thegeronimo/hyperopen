@@ -191,6 +191,18 @@
                       :positive-color "#22c55e"
                       :negative-color "#ef4444"}})
 
+(def ^:private marker-meta
+  {[:williams-fractal :fractal-high] {:position "aboveBar"
+                                      :shape "arrowDown"
+                                      :color "#22c55e"
+                                      :text "▲"
+                                      :size 0}
+   [:williams-fractal :fractal-low] {:position "belowBar"
+                                     :shape "arrowUp"
+                                     :color "#ef4444"
+                                     :text "▼"
+                                     :size 0}})
+
 (defn point
   [time value]
   (if (imath/finite-number? value)
@@ -259,11 +271,24 @@
     :line (line-series indicator-type id time-values values)
     nil))
 
+(defn- project-marker
+  [indicator-type marker]
+  (let [kind (:kind marker)]
+    (if (keyword? kind)
+      (if-let [style (get marker-meta [indicator-type kind])]
+        (merge {:id (:id marker)
+                :time (:time marker)}
+               style)
+        marker)
+      marker)))
+
 (defn project-domain-indicator
   [data {:keys [type pane series markers]}]
   (let [time-values (imath/times data)
         projected-series (->> series
                               (keep (fn [series-def]
                                       (project-series type time-values series-def)))
-                              vec)]
-    (indicator-result type pane projected-series markers)))
+                              vec)
+        projected-markers (when (seq markers)
+                            (mapv #(project-marker type %) markers))]
+    (indicator-result type pane projected-series projected-markers)))

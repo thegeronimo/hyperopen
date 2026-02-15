@@ -6,21 +6,78 @@
             [hyperopen.domain.trading.indicators.trend :as trend]
             [hyperopen.domain.trading.indicators.volatility :as volatility]))
 
+(def ^:private built-in-families
+  [{:id :trend
+    :get-indicators trend/get-trend-indicators
+    :calculate-indicator trend/calculate-trend-indicator}
+   {:id :structure
+    :get-indicators structure/get-structure-indicators
+    :calculate-indicator structure/calculate-structure-indicator}
+   {:id :oscillators
+    :get-indicators oscillators/get-oscillator-indicators
+    :calculate-indicator oscillators/calculate-oscillator-indicator}
+   {:id :volatility
+    :get-indicators volatility/get-volatility-indicators
+    :calculate-indicator volatility/calculate-volatility-indicator}
+   {:id :flow
+    :get-indicators flow/get-flow-indicators
+    :calculate-indicator flow/calculate-flow-indicator}
+   {:id :price
+    :get-indicators price/get-price-indicators
+    :calculate-indicator price/calculate-price-indicator}])
+
+(defonce ^:private registered-families (atom []))
+
+(defn register-domain-family!
+  "Register an additional indicator family descriptor.
+
+  Family descriptor shape:
+  {:id keyword
+   :get-indicators (fn [] [indicator-def ...])
+   :calculate-indicator (fn [indicator-type data params] -> result-or-nil)}"
+  [{:keys [id get-indicators calculate-indicator] :as family}]
+  (when (and (keyword? id)
+             (fn? get-indicators)
+             (fn? calculate-indicator))
+    (swap! registered-families
+           (fn [families]
+             (let [without-id (remove #(= id (:id %)) families)]
+               (conj (vec without-id) family)))))
+  nil)
+
+(defn reset-registered-domain-families!
+  "Clear dynamically registered indicator families.
+  Intended for tests and deterministic startup."
+  []
+  (reset! registered-families [])
+  nil)
+
+(defn- all-families
+  []
+  (concat built-in-families @registered-families))
+
+(defn- dedupe-indicators
+  [definitions]
+  (loop [remaining definitions
+         seen #{}
+         out []]
+    (if-let [indicator (first remaining)]
+      (let [indicator-id (:id indicator)]
+        (if (contains? seen indicator-id)
+          (recur (rest remaining) seen out)
+          (recur (rest remaining) (conj seen indicator-id) (conj out indicator))))
+      (vec out))))
+
 (defn get-domain-indicators
   []
-  (vec (concat (trend/get-trend-indicators)
-               (structure/get-structure-indicators)
-               (oscillators/get-oscillator-indicators)
-               (volatility/get-volatility-indicators)
-               (flow/get-flow-indicators)
-               (price/get-price-indicators))))
+  (->> (all-families)
+       (mapcat (fn [{:keys [get-indicators]}]
+                 (get-indicators)))
+       dedupe-indicators))
 
 (defn calculate-domain-indicator
   [indicator-type data params]
   (let [config (or params {})]
-    (or (trend/calculate-trend-indicator indicator-type data config)
-        (structure/calculate-structure-indicator indicator-type data config)
-        (oscillators/calculate-oscillator-indicator indicator-type data config)
-        (volatility/calculate-volatility-indicator indicator-type data config)
-        (flow/calculate-flow-indicator indicator-type data config)
-        (price/calculate-price-indicator indicator-type data config))))
+    (some (fn [{:keys [calculate-indicator]}]
+            (calculate-indicator indicator-type data config))
+          (all-families))))

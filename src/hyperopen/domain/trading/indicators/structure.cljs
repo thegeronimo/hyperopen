@@ -156,20 +156,14 @@
                                        with-bearish (if bearish?
                                                       (conj acc {:id (str "fractal-high-" time)
                                                                  :time time
-                                                                 :position "aboveBar"
-                                                                 :shape "arrowDown"
-                                                                 :color "#22c55e"
-                                                                 :text "▲"
-                                                                 :size 0})
+                                                                 :kind :fractal-high
+                                                                 :price center-high})
                                                       acc)]
                                    (if bullish?
                                      (conj with-bearish {:id (str "fractal-low-" time)
                                                          :time time
-                                                         :position "belowBar"
-                                                         :shape "arrowUp"
-                                                         :color "#ef4444"
-                                                         :text "▼"
-                                                         :size 0})
+                                                         :kind :fractal-low
+                                                         :price center-low})
                                      with-bearish))))
                              [])
                      vec)]

@@ -6,6 +6,8 @@
             [hyperopen.account.history.effects-test]
             [hyperopen.domain.trading.indicators.math-adapter-test]
             [hyperopen.domain.trading.indicators.contracts-test]
+            [hyperopen.domain.trading.indicators.registry-test]
+            [hyperopen.domain.trading.indicators.structure-test]
             [hyperopen.domain.funding-history-test]
             [hyperopen.websocket.acl.hyperliquid-test]
             [hyperopen.websocket.application.runtime-test]
@@ -80,6 +82,8 @@
              'hyperopen.account.history.effects-test
              'hyperopen.domain.trading.indicators.math-adapter-test
              'hyperopen.domain.trading.indicators.contracts-test
+             'hyperopen.domain.trading.indicators.registry-test
+             'hyperopen.domain.trading.indicators.structure-test
              'hyperopen.domain.funding-history-test
              'hyperopen.config-test
              'hyperopen.websocket.acl.hyperliquid-test

@@ -20,8 +20,26 @@
                              :values [2.0 nil]}]}
         bad-type (assoc ok-result :type :other)
         bad-pane (assoc ok-result :pane :main)
-        bad-series-shape (assoc-in ok-result [:series 0 :values] '(1.0))]
+        bad-series-shape (assoc-in ok-result [:series 0 :values] '(1.0))
+        semantic-markers (assoc ok-result :markers [{:id "fractal-high-1"
+                                                     :time 1
+                                                     :kind :fractal-high
+                                                     :price 123.4}
+                                                    {:id "fractal-low-2"
+                                                     :time 2
+                                                     :kind :fractal-low
+                                                     :price 122.1}])
+        rendered-markers (assoc ok-result :markers [{:id "marker-1"
+                                                     :time 1
+                                                     :position "aboveBar"
+                                                     :shape "arrowDown"}])
+        invalid-markers (assoc ok-result :markers [{:id "x"
+                                                    :time 1
+                                                    :kind :unknown-kind}])]
     (is (true? (contracts/valid-indicator-result? ok-result :supertrend 2)))
+    (is (true? (contracts/valid-indicator-result? semantic-markers :supertrend 2)))
+    (is (true? (contracts/valid-indicator-result? rendered-markers :supertrend 2)))
     (is (nil? (contracts/enforce-indicator-result :supertrend 2 bad-type)))
     (is (false? (contracts/valid-indicator-result? bad-pane :supertrend 2)))
-    (is (false? (contracts/valid-indicator-result? bad-series-shape :supertrend 2)))))
+    (is (false? (contracts/valid-indicator-result? bad-series-shape :supertrend 2)))
+    (is (false? (contracts/valid-indicator-result? invalid-markers :supertrend 2)))))
