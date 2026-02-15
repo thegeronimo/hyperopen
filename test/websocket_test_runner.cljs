@@ -1,5 +1,9 @@
 (ns websocket-test-runner
   (:require [cljs.test :refer-macros [run-tests]]
+            [hyperopen.platform-test]
+            [hyperopen.schema.contracts-coverage-test]
+            [hyperopen.schema.contracts-test]
+            [hyperopen.telemetry-test]
             [hyperopen.wallet.address-watcher-test]
             [hyperopen.websocket.acl.hyperliquid-test]
             [hyperopen.websocket.application.runtime-test]
@@ -36,6 +40,10 @@
              'hyperopen.websocket.health-runtime-test
              'hyperopen.websocket.domain.policy-test
              'hyperopen.websocket.client-test
+             'hyperopen.platform-test
+             'hyperopen.telemetry-test
+             'hyperopen.schema.contracts-test
+             'hyperopen.schema.contracts-coverage-test
              'hyperopen.websocket.user-test
              'hyperopen.wallet.address-watcher-test
              'hyperopen.websocket.orderbook-policy-test

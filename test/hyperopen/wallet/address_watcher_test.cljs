@@ -41,3 +41,37 @@
     (watcher/on-websocket-connected!)
     (is (= [[nil "0xabc"]] @calls))
     (watcher/remove-handler! handler-name)))
+
+(deftest webdata2-handler-record-and-protocol-dispatch-test
+  (let [calls (atom [])
+        handler (watcher/create-webdata2-handler
+                 (fn [address]
+                   (swap! calls conj [:subscribe address]))
+                 (fn [address]
+                   (swap! calls conj [:unsubscribe address])))]
+    (is (satisfies? watcher/IAddressChangeHandler handler))
+    (is (= "webdata2-subscription-handler"
+           (watcher/get-handler-name handler)))
+    (watcher/on-address-changed handler "0xold" "0xnew")
+    (is (= [[:unsubscribe "0xold"]
+            [:subscribe "0xnew"]]
+           @calls))
+    (is (satisfies? watcher/IAddressChangeHandler
+                    (watcher/map->WebData2Handler {:unsubscribe-fn (fn [_] nil)
+                                                   :subscribe-fn (fn [_] nil)})))))
+
+(deftest start-watching-processes-address-change-through-listener-test
+  (let [store (atom {:wallet {:address nil}})
+        calls (atom [])
+        handler-name "address-watcher-listener-test"
+        handler (reify watcher/IAddressChangeHandler
+                  (on-address-changed [_ old-address new-address]
+                    (swap! calls conj [old-address new-address]))
+                  (get-handler-name [_] handler-name))]
+    (watcher/add-handler! handler)
+    (watcher/on-websocket-connected!)
+    (watcher/start-watching! store)
+    (swap! store assoc-in [:wallet :address] "0xdef")
+    (is (= [[nil "0xdef"]] @calls))
+    (watcher/stop-watching! store)
+    (watcher/remove-handler! handler-name)))

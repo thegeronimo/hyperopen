@@ -17,6 +17,9 @@
             [hyperopen.domain.funding-history-test]
             [hyperopen.domain.market.instrument-test]
             [hyperopen.domain.trading.order-values-test]
+            [hyperopen.platform-test]
+            [hyperopen.telemetry-test]
+            [hyperopen.telemetry.console-warning-test]
             [hyperopen.websocket.acl.hyperliquid-test]
             [hyperopen.websocket.application.runtime-test]
             [hyperopen.websocket.application.runtime-reducer-test]
@@ -82,7 +85,8 @@
             [hyperopen.schema.contracts-coverage-test]
             [hyperopen.runtime.validation-test]
             [hyperopen.state.app-defaults-test]
-            [hyperopen.state.trading-test]))
+            [hyperopen.state.trading-test]
+            [hyperopen.ui.preferences-test]))
 
 (defn run-all-tests
   "Run all test namespaces and return the results"
@@ -103,6 +107,9 @@
              'hyperopen.domain.funding-history-test
              'hyperopen.domain.market.instrument-test
              'hyperopen.domain.trading.order-values-test
+             'hyperopen.platform-test
+             'hyperopen.telemetry-test
+             'hyperopen.telemetry.console-warning-test
              'hyperopen.config-test
              'hyperopen.websocket.acl.hyperliquid-test
              'hyperopen.websocket.application.runtime-test
@@ -169,7 +176,8 @@
              'hyperopen.schema.contracts-coverage-test
              'hyperopen.runtime.validation-test
              'hyperopen.state.app-defaults-test
-             'hyperopen.state.trading-test))
+             'hyperopen.state.trading-test
+             'hyperopen.ui.preferences-test))
 
 (defn -main
   "Entry point for test runner"
