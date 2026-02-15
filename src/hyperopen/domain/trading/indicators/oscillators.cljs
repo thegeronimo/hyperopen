@@ -1,8 +1,8 @@
 (ns hyperopen.domain.trading.indicators.oscillators
   (:require [hyperopen.domain.trading.indicators.contracts :as contracts]
+            [hyperopen.domain.trading.indicators.math-adapter :as math-adapter]
             [hyperopen.domain.trading.indicators.math :as imath]
-            [hyperopen.domain.trading.indicators.result :as result]
-            ["indicatorts" :refer [apo cci macd mi rsi stoch trix willr]]))
+            [hyperopen.domain.trading.indicators.result :as result]))
 
 (def ^:private oscillator-indicator-definitions
   [{:id :accelerator-oscillator
@@ -731,8 +731,8 @@
   (let [fast (parse-period (:fast params) 12 1 200)
         slow (parse-period (:slow params) 26 2 400)
         values (normalize-values
-                (apo (into-array (field-values data :close))
-                     #js {:fast fast :slow slow}))]
+                (math-adapter/absolute-price-oscillator (field-values data :close)
+                                                        {:fast fast :slow slow}))]
     (result/indicator-result :price-oscillator
                              :separate
                              [(result/line-series :apo values)])))
@@ -741,12 +741,10 @@
   [data params]
   (let [k-period (parse-period (:kPeriod params) 14 1 200)
         d-period (parse-period (:dPeriod params) 3 1 200)
-        result (js->clj
-                (stoch (into-array (field-values data :high))
-                       (into-array (field-values data :low))
-                       (into-array (field-values data :close))
-                       #js {:kPeriod k-period :dPeriod d-period})
-                :keywordize-keys true)
+        result (math-adapter/stochastic (field-values data :high)
+                                        (field-values data :low)
+                                        (field-values data :close)
+                                        {:k-period k-period :d-period d-period})
         k-values (normalize-values (:k result))
         d-values (normalize-values (:d result))]
     (result/indicator-result :stochastic
@@ -761,8 +759,8 @@
         k-smoothing (parse-period (:kSmoothing params) 3 1 50)
         d-smoothing (parse-period (:dSmoothing params) 3 1 50)
         rsi-series (normalize-values
-                    (rsi (into-array (field-values data :close))
-                         #js {:period rsi-period}))
+                    (math-adapter/relative-strength-index (field-values data :close)
+                                                          {:period rsi-period}))
         min-rsi (rolling-min-aligned rsi-series stoch-period)
         max-rsi (rolling-max-aligned rsi-series stoch-period)
         raw-k (mapv (fn [idx]
@@ -787,8 +785,8 @@
   [data params]
   (let [period (parse-period (:period params) 15 2 400)
         values (normalize-values
-                (trix (into-array (field-values data :close))
-                      #js {:period period}))]
+                (math-adapter/trix (field-values data :close)
+                                   {:period period}))]
     (result/indicator-result :trix
                              :separate
                              [(result/line-series :trix values)])))
@@ -797,10 +795,10 @@
   [data params]
   (let [period (parse-period (:period params) 14 2 200)
         values (normalize-values
-                (willr (into-array (field-values data :high))
-                       (into-array (field-values data :low))
-                       (into-array (field-values data :close))
-                       #js {:period period}))]
+                (math-adapter/williams-r (field-values data :high)
+                                         (field-values data :low)
+                                         (field-values data :close)
+                                         {:period period}))]
     (result/indicator-result :williams-r
                              :separate
                              [(result/line-series :williams-r values)])))
@@ -834,10 +832,10 @@
   [data params]
   (let [period (parse-period (:period params) 20 2 200)
         values (normalize-values
-                (cci (into-array (field-values data :high))
-                     (into-array (field-values data :low))
-                     (into-array (field-values data :close))
-                     #js {:period period}))]
+                (math-adapter/commodity-channel-index (field-values data :high)
+                                                      (field-values data :low)
+                                                      (field-values data :close)
+                                                      {:period period}))]
     (result/indicator-result :commodity-channel-index
                              :separate
                              [(result/line-series :cci values)])))
@@ -847,12 +845,10 @@
   (let [fast (parse-period (:fast params) 12 1 200)
         slow (parse-period (:slow params) 26 2 400)
         signal (parse-period (:signal params) 9 1 200)
-        result (js->clj
-                (macd (into-array (field-values data :close))
-                      #js {:fast fast
-                           :slow slow
-                           :signal signal})
-                :keywordize-keys true)
+        result (math-adapter/macd (field-values data :close)
+                                  {:fast fast
+                                   :slow slow
+                                   :signal signal})
         macd-line (normalize-values (:macdLine result))
         signal-line (normalize-values (:signalLine result))
         histogram (mapv (fn [m s]
@@ -871,10 +867,10 @@
   (let [ema-period (parse-period (:emaPeriod params) 9 1 200)
         mi-period (parse-period (:miPeriod params) 25 2 400)
         values (normalize-values
-                (mi (into-array (field-values data :high))
-                    (into-array (field-values data :low))
-                    #js {:emaPeriod ema-period
-                         :miPeriod mi-period}))]
+                (math-adapter/mass-index (field-values data :high)
+                                         (field-values data :low)
+                                         {:ema-period ema-period
+                                          :mi-period mi-period}))]
     (result/indicator-result :mass-index
                              :separate
                              [(result/line-series :mi values)])))

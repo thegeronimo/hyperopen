@@ -1,8 +1,8 @@
 (ns hyperopen.domain.trading.indicators.flow
   (:require [hyperopen.domain.trading.indicators.contracts :as contracts]
+            [hyperopen.domain.trading.indicators.math-adapter :as math-adapter]
             [hyperopen.domain.trading.indicators.math :as imath]
-            [hyperopen.domain.trading.indicators.result :as result]
-            ["indicatorts" :refer [cmf cmo emv fi mfi obv pvo vpt]]))
+            [hyperopen.domain.trading.indicators.result :as result]))
 
 (def ^:private flow-indicator-definitions
   [{:id :accumulation-distribution
@@ -221,8 +221,8 @@
 (defn- calculate-on-balance-volume
   [data _params]
   (let [values (normalize-values
-                (obv (into-array (field-values data :close))
-                     (into-array (field-values data :volume))))]
+                (math-adapter/on-balance-volume (field-values data :close)
+                                                (field-values data :volume)))]
     (result/indicator-result :on-balance-volume
                              :separate
                              [(result/line-series :obv values)])))
@@ -230,8 +230,8 @@
 (defn- calculate-price-volume-trend
   [data _params]
   (let [values (normalize-values
-                (vpt (into-array (field-values data :close))
-                     (into-array (field-values data :volume))))]
+                (math-adapter/price-volume-trend (field-values data :close)
+                                                 (field-values data :volume)))]
     (result/indicator-result :price-volume-trend
                              :separate
                              [(result/line-series :pvt values)])))
@@ -241,12 +241,10 @@
   (let [fast (parse-period (:fast params) 12 1 200)
         slow (parse-period (:slow params) 26 2 400)
         signal (parse-period (:signal params) 9 1 200)
-        result (js->clj
-                (pvo (into-array (field-values data :volume))
-                     #js {:fast fast
-                          :slow slow
-                          :signal signal})
-                :keywordize-keys true)
+        result (math-adapter/percentage-volume-oscillator (field-values data :volume)
+                                                          {:fast fast
+                                                           :slow slow
+                                                           :signal signal})
         pvo-line (normalize-values (:pvoResult result))
         signal-line (normalize-values (:signal result))
         histogram (normalize-values (:histogram result))]
@@ -260,11 +258,11 @@
   [data params]
   (let [period (parse-period (:period params) 20 2 200)
         values (normalize-values
-                (cmf (into-array (field-values data :high))
-                     (into-array (field-values data :low))
-                     (into-array (field-values data :close))
-                     (into-array (field-values data :volume))
-                     #js {:period period}))]
+                (math-adapter/chaikin-money-flow (field-values data :high)
+                                                 (field-values data :low)
+                                                 (field-values data :close)
+                                                 (field-values data :volume)
+                                                 {:period period}))]
     (result/indicator-result :chaikin-money-flow
                              :separate
                              [(result/line-series :cmf values)])))
@@ -273,13 +271,11 @@
   [data params]
   (let [fast (parse-period (:fast params) 3 1 200)
         slow (parse-period (:slow params) 10 2 400)
-        result (js->clj
-                (cmo (into-array (field-values data :high))
-                     (into-array (field-values data :low))
-                     (into-array (field-values data :close))
-                     (into-array (field-values data :volume))
-                     #js {:fast fast :slow slow})
-                :keywordize-keys true)
+        result (math-adapter/chaikin-oscillator (field-values data :high)
+                                                (field-values data :low)
+                                                (field-values data :close)
+                                                (field-values data :volume)
+                                                {:fast fast :slow slow})
         ad-line (normalize-values (:adResult result))
         osc-line (normalize-values (:cmoResult result))]
     (result/indicator-result :chaikin-oscillator
@@ -291,10 +287,10 @@
   [data params]
   (let [period (parse-period (:period params) 14 2 200)
         values (normalize-values
-                (emv (into-array (field-values data :high))
-                     (into-array (field-values data :low))
-                     (into-array (field-values data :volume))
-                     #js {:period period}))]
+                (math-adapter/ease-of-movement (field-values data :high)
+                                               (field-values data :low)
+                                               (field-values data :volume)
+                                               {:period period}))]
     (result/indicator-result :ease-of-movement
                              :separate
                              [(result/line-series :eom values)])))
@@ -303,9 +299,9 @@
   [data params]
   (let [period (parse-period (:period params) 13 2 200)
         values (normalize-values
-                (fi (into-array (field-values data :close))
-                    (into-array (field-values data :volume))
-                    #js {:period period}))]
+                (math-adapter/elders-force-index (field-values data :close)
+                                                 (field-values data :volume)
+                                                 {:period period}))]
     (result/indicator-result :elders-force-index
                              :separate
                              [(result/line-series :efi values)])))
@@ -314,11 +310,11 @@
   [data params]
   (let [period (parse-period (:period params) 14 2 200)
         values (normalize-values
-                (mfi (into-array (field-values data :high))
-                     (into-array (field-values data :low))
-                     (into-array (field-values data :close))
-                     (into-array (field-values data :volume))
-                     #js {:period period}))]
+                (math-adapter/money-flow-index (field-values data :high)
+                                               (field-values data :low)
+                                               (field-values data :close)
+                                               (field-values data :volume)
+                                               {:period period}))]
     (result/indicator-result :money-flow-index
                              :separate
                              [(result/line-series :mfi values)])))

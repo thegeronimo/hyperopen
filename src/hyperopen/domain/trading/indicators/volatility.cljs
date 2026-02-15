@@ -1,8 +1,8 @@
 (ns hyperopen.domain.trading.indicators.volatility
   (:require [hyperopen.domain.trading.indicators.contracts :as contracts]
+            [hyperopen.domain.trading.indicators.math-adapter :as math-adapter]
             [hyperopen.domain.trading.indicators.math :as imath]
-            [hyperopen.domain.trading.indicators.result :as result]
-            ["indicatorts" :refer [kc]]))
+            [hyperopen.domain.trading.indicators.result :as result]))
 
 (def ^:private seconds-per-week (* 7 24 60 60))
 
@@ -425,12 +425,10 @@
 (defn- calculate-keltner-channels
   [data params]
   (let [period (parse-period (:period params) 20 2 200)
-        result (js->clj
-                (kc (into-array (field-values data :high))
-                    (into-array (field-values data :low))
-                    (into-array (field-values data :close))
-                    #js {:period period})
-                :keywordize-keys true)]
+        result (math-adapter/keltner-channels (field-values data :high)
+                                              (field-values data :low)
+                                              (field-values data :close)
+                                              {:period period})]
     (result/indicator-result :keltner-channels
                              :overlay
                              [(result/line-series :upper (normalize-values (:upper result)))

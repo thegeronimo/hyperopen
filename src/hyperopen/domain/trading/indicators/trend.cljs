@@ -1,8 +1,8 @@
 (ns hyperopen.domain.trading.indicators.trend
   (:require [hyperopen.domain.trading.indicators.contracts :as contracts]
+            [hyperopen.domain.trading.indicators.math-adapter :as math-adapter]
             [hyperopen.domain.trading.indicators.math :as imath]
-            [hyperopen.domain.trading.indicators.result :as result]
-            ["indicatorts" :refer [dema ema ichimokuCloud movingLeastSquare movingLinearRegressionUsingLeastSquare psar rma tema vortex vwap vwma]]))
+            [hyperopen.domain.trading.indicators.result :as result]))
 
 (def ^:private trend-indicator-definitions
   [{:id :alma
@@ -649,15 +649,13 @@
         medium (parse-period (:medium params) 26 2 300)
         long (parse-period (:long params) 52 2 400)
         close-shift (parse-period (:close params) 26 1 300)
-        result (js->clj
-                (ichimokuCloud (into-array (field-values data :high))
-                               (into-array (field-values data :low))
-                               (into-array (field-values data :close))
-                               #js {:short short
-                                    :medium medium
-                                    :long long
-                                    :close close-shift})
-                :keywordize-keys true)
+        result (math-adapter/ichimoku-cloud (field-values data :high)
+                                            (field-values data :low)
+                                            (field-values data :close)
+                                            {:short short
+                                             :medium medium
+                                             :long long
+                                             :close close-shift})
         tenkan (normalize-values (:tenkan result) {:zero-as-nil? true})
         kijun (normalize-values (:kijun result) {:zero-as-nil? true})
         ssa (normalize-values (:ssa result) {:zero-as-nil? true})
@@ -688,12 +686,10 @@
   [data params]
   (let [step (parse-number (:step params) 0.02)
         max-value (parse-number (:max params) 0.2)
-        result (js->clj
-                (psar (into-array (field-values data :high))
-                      (into-array (field-values data :low))
-                      (into-array (field-values data :close))
-                      #js {:step step :max max-value})
-                :keywordize-keys true)
+        result (math-adapter/parabolic-sar (field-values data :high)
+                                           (field-values data :low)
+                                           (field-values data :close)
+                                           {:step step :max-value max-value})
         values (normalize-values (:psarResult result))]
     (result/indicator-result :parabolic-sar
                              :overlay
@@ -792,12 +788,10 @@
 (defn- calculate-vortex-indicator
   [data params]
   (let [period (parse-period (:period params) 14 2 200)
-        result (js->clj
-                (vortex (into-array (field-values data :high))
-                        (into-array (field-values data :low))
-                        (into-array (field-values data :close))
-                        #js {:period period})
-                :keywordize-keys true)
+        result (math-adapter/vortex (field-values data :high)
+                                    (field-values data :low)
+                                    (field-values data :close)
+                                    {:period period})
         plus-values (normalize-values (:plus result))
         minus-values (normalize-values (:minus result))]
     (result/indicator-result :vortex-indicator
@@ -809,9 +803,9 @@
   [data params]
   (let [period (parse-period (:period params) 20 2 400)
         values (normalize-values
-                (vwap (into-array (field-values data :close))
-                      (into-array (field-values data :volume))
-                      #js {:period period}))]
+                (math-adapter/vwap (field-values data :close)
+                                   (field-values data :volume)
+                                   {:period period}))]
     (result/indicator-result :vwap
                              :overlay
                              [(result/line-series :vwap values)])))
@@ -820,9 +814,9 @@
   [data params]
   (let [period (parse-period (:period params) 20 2 400)
         values (normalize-values
-                (vwma (into-array (field-values data :close))
-                      (into-array (field-values data :volume))
-                      #js {:period period}))]
+                (math-adapter/vwma (field-values data :close)
+                                   (field-values data :volume)
+                                   {:period period}))]
     (result/indicator-result :vwma
                              :overlay
                              [(result/line-series :vwma values)])))
@@ -831,8 +825,8 @@
   [data params]
   (let [period (parse-period (:period params) 20 2 400)
         values (normalize-values
-                (dema (into-array (field-values data :close))
-                      #js {:period period}))]
+                (math-adapter/dema (field-values data :close)
+                                   {:period period}))]
     (result/indicator-result :double-ema
                              :overlay
                              [(result/line-series :dema values)])))
@@ -849,8 +843,8 @@
   [data params]
   (let [period (parse-period (:period params) 20 2 400)
         values (normalize-values
-                (dema (into-array (field-values data :close))
-                      #js {:period period}))]
+                (math-adapter/dema (field-values data :close)
+                                   {:period period}))]
     (result/indicator-result :moving-average-double
                              :overlay
                              [(result/line-series :double values)])))
@@ -859,8 +853,8 @@
   [data params]
   (let [period (parse-period (:period params) 20 2 400)
         values (normalize-values
-                (ema (into-array (field-values data :close))
-                     #js {:period period}))]
+                (math-adapter/ema (field-values data :close)
+                                  {:period period}))]
     (result/indicator-result :moving-average-exponential
                              :overlay
                              [(result/line-series :ema values)])))
@@ -869,8 +863,8 @@
   [data params]
   (let [period (parse-period (:period params) 20 2 400)
         values (normalize-values
-                (tema (into-array (field-values data :close))
-                      #js {:period period}))]
+                (math-adapter/tema (field-values data :close)
+                                   {:period period}))]
     (result/indicator-result :moving-average-triple
                              :overlay
                              [(result/line-series :triple values)])))
@@ -887,8 +881,8 @@
   [data params]
   (let [period (parse-period (:period params) 14 2 400)
         values (normalize-values
-                (rma (into-array (field-values data :close))
-                     #js {:period period}))]
+                (math-adapter/rma (field-values data :close)
+                                  {:period period}))]
     (result/indicator-result :smoothed-moving-average
                              :overlay
                              [(result/line-series :smma values)])))
@@ -897,8 +891,8 @@
   [data params]
   (let [period (parse-period (:period params) 20 2 400)
         values (normalize-values
-                (tema (into-array (field-values data :close))
-                      #js {:period period}))]
+                (math-adapter/tema (field-values data :close)
+                                   {:period period}))]
     (result/indicator-result :triple-ema
                              :overlay
                              [(result/line-series :tema values)])))
@@ -908,8 +902,8 @@
   (let [fast (parse-period (:fast params) 12 1 200)
         slow (parse-period (:slow params) 26 2 400)
         close-values (field-values data :close)
-        fast-line (normalize-values (ema (into-array close-values) #js {:period fast}))
-        slow-line (normalize-values (ema (into-array close-values) #js {:period slow}))]
+        fast-line (normalize-values (math-adapter/ema close-values {:period fast}))
+        slow-line (normalize-values (math-adapter/ema close-values {:period slow}))]
     (result/indicator-result :ema-cross
                              :overlay
                              [(result/line-series :fast fast-line)
@@ -933,7 +927,7 @@
         ema-period (parse-period (:ema-period params) 50 2 400)
         close-values (field-values data :close)
         ma-line (sma-aligned-values close-values ma-period)
-        ema-line (normalize-values (ema (into-array close-values) #js {:period ema-period}))]
+        ema-line (normalize-values (math-adapter/ema close-values {:period ema-period}))]
     (result/indicator-result :ma-with-ema-cross
                              :overlay
                              [(result/line-series :ma ma-line)
@@ -945,9 +939,9 @@
         close-values (field-values data :close)
         x-values (indices (count close-values))
         regression (normalize-values
-                    (movingLinearRegressionUsingLeastSquare period
-                                                            (into-array x-values)
-                                                            (into-array close-values)))]
+                    (math-adapter/moving-linear-regression period
+                                                           x-values
+                                                           close-values))]
     (result/indicator-result :least-squares-moving-average
                              :overlay
                              [(result/line-series :lsma regression)])))
@@ -958,9 +952,9 @@
         close-values (field-values data :close)
         x-values (indices (count close-values))
         regression (normalize-values
-                    (movingLinearRegressionUsingLeastSquare period
-                                                            (into-array x-values)
-                                                            (into-array close-values)))]
+                    (math-adapter/moving-linear-regression period
+                                                           x-values
+                                                           close-values))]
     (result/indicator-result :linear-regression-curve
                              :overlay
                              [(result/line-series :lrc regression)])))
@@ -970,11 +964,9 @@
   (let [period (parse-period (:period params) 25 2 400)
         close-values (field-values data :close)
         x-values (indices (count close-values))
-        result (js->clj
-                (movingLeastSquare period
-                                   (into-array x-values)
-                                   (into-array close-values))
-                :keywordize-keys true)
+        result (math-adapter/moving-least-square period
+                                                 x-values
+                                                 close-values)
         slope (normalize-values (:m result))]
     (result/indicator-result :linear-regression-slope
                              :separate

@@ -35,7 +35,9 @@ The indicator system still has domain math in view namespaces, fallback dispatch
 - [x] (2026-02-15 16:29Z) Milestone 4 batch A completed: added explicit domain indicator input/result contracts and applied fail-closed enforcement at all domain family entrypoints.
 - [x] (2026-02-15 16:29Z) Milestone 4 batch B completed: added focused heavy-indicator determinism/performance-smoke coverage and invalid-input fail-closed checks.
 - [x] (2026-02-15 16:29Z) Validated Milestone 4 batches A+B with required gates: `npm run check`, `npm test`, `npm run test:websocket`.
-- [ ] Milestone 4 batch C pending: finalize explicit third-party math adapter boundary isolation and then move this plan to completed.
+- [x] (2026-02-15 17:08Z) Milestone 4 batch C completed: introduced a dedicated `math-adapter` boundary for all `indicatorts` calls and rewired domain calculators to depend only on adapter functions.
+- [x] (2026-02-15 17:08Z) Added adapter-focused parity tests covering series-returning and map-returning adapter functions.
+- [x] (2026-02-15 17:08Z) Validated Milestone 4 batch C with required gates: `npm run check`, `npm test`, `npm run test:websocket`.
 
 ## Surprises & Discoveries
 
@@ -61,6 +63,8 @@ The indicator system still has domain math in view namespaces, fallback dispatch
   Evidence: `indicators.cljs` now orchestrates only domain registry + adapter projection, `indicators_wave2.cljs` was deleted, and full required suites remained green.
 - Observation: Strict result-length contracts are not valid for all overlay indicators (for example Ichimoku cloud series can be shorter/shifted while still structurally valid).
   Evidence: Initial strict-length check caused `:ichimoku-cloud` to fail-closed; relaxing to shape contracts restored parity while retaining boundary validation.
+- Observation: Adapter parity must treat `NaN` warmup slots as equivalent values.
+  Evidence: direct `=` comparison failed for parity on `:commodity-channel-index` because `NaN` does not equal itself; parity tests now canonicalize `NaN`.
 
 ## Decision Log
 
@@ -97,10 +101,13 @@ The indicator system still has domain math in view namespaces, fallback dispatch
 - Decision: Enforce indicator output contracts at domain family boundaries using structural validation (type/pane/series shape) instead of strict value-vector length equality.
   Rationale: Some indicators intentionally use shifted or reduced output windows, so shape contracts preserve correctness without rejecting valid domain results.
   Date/Author: 2026-02-15 / Codex
+- Decision: Isolate all `indicatorts` integration in a single `math-adapter` namespace and keep domain families dependent on adapter functions only.
+  Rationale: This enforces a stable Anti-Corruption seam, reduces coupling to third-party details, and enables adapter-level parity testing.
+  Date/Author: 2026-02-15 / Codex
 
 ## Outcomes & Retrospective
 
-Milestone 1 achieved the immediate separation-of-concerns target. Milestone 2 is fully complete with wave3 retired from runtime wiring. Milestone 3 is complete with wave2 fully retired from runtime wiring. Milestone 4 is partially complete: explicit contracts and focused heavy-indicator parity/performance hardening are in place; remaining scope is final math-adapter boundary isolation and plan completion.
+Milestone 1 achieved the immediate separation-of-concerns target. Milestone 2 fully retired wave3 from runtime wiring. Milestone 3 fully retired wave2 from runtime wiring. Milestone 4 completed boundary hardening with explicit contracts, heavy-indicator parity/performance coverage, and a dedicated `indicatorts` adapter seam with parity tests.
 
 ## Context and Orientation
 
@@ -188,3 +195,4 @@ Plan revision note: 2026-02-15 15:54Z - Updated living sections after completing
 Plan revision note: 2026-02-15 15:58Z - Updated living sections after completing Milestone 3 wave2 crossover batch and validation.
 Plan revision note: 2026-02-15 16:18Z - Updated living sections after completing Milestone 3 wave2 channel/oscillator/regression batches and retiring wave2 runtime fallback.
 Plan revision note: 2026-02-15 16:29Z - Updated living sections after Milestone 4 contract hardening and heavy-indicator parity/performance test coverage.
+Plan revision note: 2026-02-15 17:08Z - Updated living sections after completing Milestone 4 math-adapter isolation and adapter parity tests.

@@ -4,6 +4,7 @@
             [hyperopen.api-test]
             [hyperopen.api.projections-test]
             [hyperopen.account.history.effects-test]
+            [hyperopen.domain.trading.indicators.math-adapter-test]
             [hyperopen.domain.trading.indicators.contracts-test]
             [hyperopen.domain.funding-history-test]
             [hyperopen.websocket.acl.hyperliquid-test]
@@ -77,6 +78,7 @@
   (run-tests 'hyperopen.api-test
              'hyperopen.api.projections-test
              'hyperopen.account.history.effects-test
+             'hyperopen.domain.trading.indicators.math-adapter-test
              'hyperopen.domain.trading.indicators.contracts-test
              'hyperopen.domain.funding-history-test
              'hyperopen.config-test
