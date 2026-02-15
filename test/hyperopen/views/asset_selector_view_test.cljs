@@ -277,7 +277,7 @@
     (is (contains? full-strings "Loading markets..."))
     (is (contains? bootstrap-strings "Loading markets (bootstrap)..."))))
 
-(deftest asset-list-item-applies-numeric-alignment-utilities-test
+(deftest asset-list-item-applies-left-aligned-numeric-utilities-test
   (let [asset {:key "perp:SOL"
                :symbol "SOL-USDC"
                :coin "SOL"
@@ -293,7 +293,8 @@
         row (view/asset-list-item asset false #{} #{} #{})
         classes (set (collect-all-classes row))]
     (is (contains? classes "num"))
-    (is (contains? classes "num-right"))))
+    (is (contains? classes "text-left"))
+    (is (not (contains? classes "num-right")))))
 
 (deftest asset-list-item-uses-fixed-row-height-and-single-line-symbol-test
   (let [asset {:key "perp:xyz:GOOGL"

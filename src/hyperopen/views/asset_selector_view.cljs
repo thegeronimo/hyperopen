@@ -101,11 +101,11 @@
                  "border-b" "border-base-300" "text-xs" "uppercase"
                  "tracking-wide" "text-gray-400" "bg-base-100"]}
    [:div.col-span-3 (sort-button "Symbol" (= sort-by :name) sort-direction :name)]
-   [:div.col-span-2.text-right (sort-button "Last Price" (= sort-by :price) sort-direction :price)]
-   [:div.col-span-2.text-right (sort-button "24H Change" (= sort-by :change) sort-direction :change)]
-   [:div.col-span-1.text-right (sort-button "8H Funding" (= sort-by :funding) sort-direction :funding)]
-   [:div.col-span-2.text-right (sort-button "Volume" (= sort-by :volume) sort-direction :volume)]
-   [:div.col-span-2.text-right (sort-button "Open Interest" (= sort-by :openInterest) sort-direction :openInterest)]])
+   [:div.col-span-2.text-left (sort-button "Last Price" (= sort-by :price) sort-direction :price)]
+   [:div.col-span-2.text-left (sort-button "24H Change" (= sort-by :change) sort-direction :change)]
+   [:div.col-span-1.text-left (sort-button "8H Funding" (= sort-by :funding) sort-direction :funding)]
+   [:div.col-span-2.text-left (sort-button "Volume" (= sort-by :volume) sort-direction :volume)]
+   [:div.col-span-2.text-left (sort-button "Open Interest" (= sort-by :openInterest) sort-direction :openInterest)]])
 
 (defn favorite-button [favorite? market-key]
   [:button.w-4.h-4.text-gray-400.hover:text-yellow-400.transition-colors
@@ -212,31 +212,31 @@
        (when (and maxLeverage (> maxLeverage 0))
          (chip (str maxLeverage "x") ["bg-primary" "text-primary-content" "border-primary" "shrink-0"]))]]
      ;; Last Price
-     [:div.col-span-2.text-sm.text-gray-400.num.num-right
+     [:div.col-span-2.text-left.text-sm.text-gray-400.num
       (or (fmt/format-trade-price mark markRaw) "—")]
      ;; 24H Change
-     [:div.col-span-2.num-right
+     [:div.col-span-2.text-left
       (if change-available?
         [:div {:class [change-color "text-sm" "num"]}
          (str (if is-positive "+" "") (or (fmt/format-trade-price-delta safe-change) "0.00")
               " (" (fmt/safe-to-fixed safe-change-pct 2) "%)")]
         [:div.text-sm.text-gray-400.num "—"])]
      ;; 8H Funding
-     [:div.col-span-1.num-right
+     [:div.col-span-1.text-left
       (if is-spot
         [:div.text-sm.text-gray-400.num "—"]
         (if funding-available?
           (tooltip
-            [[:div {:class [funding-color "text-sm" "cursor-help" "num" "num-right"]
+            [[:div {:class [funding-color "text-sm" "cursor-help" "num" "text-left"]
                     :style {:min-width "max-content"}}
               (str (if funding-positive "+" "") (fmt/safe-to-fixed (* safe-funding-rate 100) 4) "%")]
              (str "Annualized: " (fmt/format-percentage (fmt/annualized-funding-rate (* safe-funding-rate 100)) 2))]
             "bottom")
           [:div.text-sm.text-gray-400.num "—"]))]
      ;; Volume
-     [:div.col-span-2.text-sm.font-medium.num.num-right (format-or-dash volume24h fmt/format-large-currency)]
+     [:div.col-span-2.text-left.text-sm.font-medium.num (format-or-dash volume24h fmt/format-large-currency)]
      ;; Open Interest
-     [:div.col-span-2.text-sm.font-medium.num.num-right
+     [:div.col-span-2.text-left.text-sm.font-medium.num
       (if is-spot
         "—"
         (format-or-dash openInterest fmt/format-large-currency))]]))
