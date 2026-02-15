@@ -4,6 +4,10 @@
             [hyperopen.views.trade.order-form-handlers :as handlers]
             [hyperopen.views.trade.order-form-vm :as order-form-vm]))
 
+(defn- unsupported-market-banner [message]
+  [:div {:class ["px-3" "py-2" "bg-base-200" "border" "border-base-300" "rounded-lg" "text-xs" "text-gray-300"]}
+   message])
+
 (defn- price-context-accessory [{:keys [label mid-available?]} on-set-to-mid]
   [:button {:type "button"
             :disabled (not mid-available?)
@@ -14,6 +18,181 @@
             :on (when mid-available?
                   {:click on-set-to-mid})}
    (or label "Ref")])
+
+(defn- leverage-row [ui-leverage next-leverage leverage-handlers]
+  [:div {:class ["grid" "grid-cols-3" "gap-2"]}
+   (primitives/chip-button "Cross" true :disabled? true)
+   (primitives/chip-button (str ui-leverage "x")
+                           true
+                           :on-click ((:on-next-leverage leverage-handlers) next-leverage))
+   (primitives/chip-button "Classic" true :disabled? true)])
+
+(defn- side-row [side side-handlers]
+  [:div {:class ["flex" "items-center" "gap-2" "bg-base-200" "rounded-md" "p-1"]}
+   (primitives/side-button "Buy / Long"
+                           :buy
+                           (= side :buy)
+                           ((:on-select-side side-handlers) :buy))
+   (primitives/side-button "Sell / Short"
+                           :sell
+                           (= side :sell)
+                           ((:on-select-side side-handlers) :sell))])
+
+(defn- balances-row [display]
+  [:div {:class ["space-y-1.5"]}
+   [:div {:class ["flex" "items-center" "justify-between"]}
+    [:span {:class ["text-sm" "text-gray-400"]} "Available to Trade"]
+    [:span {:class ["text-sm" "font-semibold" "text-gray-100" "num"]}
+     (:available-to-trade display)]]
+   [:div {:class ["flex" "items-center" "justify-between"]}
+    [:span {:class ["text-sm" "text-gray-400"]} "Current position"]
+    [:span {:class ["text-sm" "font-semibold" "text-gray-100" "num"]}
+     (:current-position display)]]])
+
+(defn- size-row [{:keys [size-display
+                         quote-symbol
+                         display-size-percent
+                         size-percent
+                         notch-overlap-threshold]}
+                 size-handlers]
+  [:div {:class ["space-y-2"]}
+   (primitives/row-input size-display
+                         "Size"
+                         (:on-change-display size-handlers)
+                         (primitives/quote-accessory quote-symbol))
+   [:div {:class ["flex" "items-center" "gap-2"]}
+    [:div {:class ["relative" "flex-1"]}
+     [:input {:class ["order-size-slider" "range" "range-sm" "w-full" "relative" "z-20"]
+              :type "range"
+              :min 0
+              :max 100
+              :step 1
+              :style {:--order-size-slider-progress (str size-percent "%")}
+              :value size-percent
+              :on {:input (:on-change-percent size-handlers)}}]
+     [:div {:class ["order-size-slider-notches"
+                    "pointer-events-none"
+                    "absolute"
+                    "inset-x-0"
+                    "top-1/2"
+                    "z-30"
+                    "flex"
+                    "items-center"
+                    "justify-between"
+                    "px-0.5"]}
+      (for [pct [0 25 50 75 100]]
+        ^{:key (str "size-slider-notch-" pct)}
+        [:span {:class (into ["order-size-slider-notch"
+                              "block"
+                              "h-[7px]"
+                              "w-[7px]"
+                              "-translate-y-1/2"
+                              "rounded-full"]
+                             (remove nil?
+                                     [(if (>= size-percent pct)
+                                        "order-size-slider-notch-active"
+                                        "order-size-slider-notch-inactive")
+                                      (when (<= (js/Math.abs (- size-percent pct))
+                                                notch-overlap-threshold)
+                                        "opacity-0")]))}])]]
+    [:div {:class ["relative" "w-[82px]"]}
+     [:input {:class (into ["order-size-percent-input"
+                            "h-10"
+                            "w-full"
+                            "bg-base-200/80"
+                            "border"
+                            "border-base-300"
+                            "rounded-lg"
+                            "text-right"
+                            "text-sm"
+                            "font-semibold"
+                            "text-gray-100"
+                            "num"
+                            "appearance-none"
+                            "pl-2.5"
+                            "pr-6"]
+                           primitives/neutral-input-focus-classes)
+              :type "text"
+              :inputmode "numeric"
+              :pattern "[0-9]*"
+              :value display-size-percent
+              :on {:input (:on-change-percent size-handlers)}}]
+     [:span {:class ["pointer-events-none"
+                     "absolute"
+                     "right-2.5"
+                     "top-1/2"
+                     "-translate-y-1/2"
+                     "text-sm"
+                     "font-semibold"
+                     "text-gray-300"]}
+      "%"]]]])
+
+(defn- submit-row [{:keys [submitting? submit-disabled? submit-tooltip on-submit]}]
+  [:div {:class ["relative" "group"]
+         :tabindex (when (seq submit-tooltip) 0)}
+   [:button {:type "button"
+             :class (into ["w-full"
+                           "h-11"
+                           "rounded-lg"
+                           "text-sm"
+                           "font-semibold"
+                           "transition-colors"
+                           "focus:outline-none"
+                           "focus:ring-1"
+                           "focus:ring-[#8a96a6]/40"
+                           "focus:ring-offset-0"]
+                          (if submit-disabled?
+                            ["bg-[rgb(23,69,63)]"
+                             "text-[#7f9f9a]"
+                             "cursor-not-allowed"]
+                            ["bg-primary"
+                             "text-primary-content"
+                             "hover:bg-primary/90"]))
+             :disabled submit-disabled?
+             :on {:click on-submit}}
+    (if submitting? "Submitting..." "Place Order")]
+   (when (seq submit-tooltip)
+     [:div {:class ["order-submit-tooltip"
+                    "pointer-events-none"
+                    "absolute"
+                    "left-0"
+                    "right-0"
+                    "bottom-full"
+                    "mb-2"
+                    "rounded-md"
+                    "border"
+                    "border-base-300"
+                    "bg-base-200"
+                    "px-2.5"
+                    "py-2"
+                    "text-xs"
+                    "text-gray-200"
+                    "shadow-lg"
+                    "opacity-0"
+                    "translate-y-1"
+                    "transition-all"
+                    "duration-150"
+                    "group-hover:opacity-100"
+                    "group-hover:translate-y-0"
+                    "group-focus:opacity-100"
+                    "group-focus:translate-y-0"]}
+      submit-tooltip])])
+
+(defn- footer-metrics [display show-liquidation-row? show-slippage-row?]
+  [:div {:class ["border-t" "border-base-300" "pt-3" "space-y-2"]}
+   (when show-liquidation-row?
+     (primitives/metric-row "Liquidation Price"
+                            (:liquidation-price display)))
+   (primitives/metric-row "Order Value"
+                          (:order-value display))
+   (primitives/metric-row "Margin Required"
+                          (:margin-required display))
+   (when show-slippage-row?
+     (primitives/metric-row "Slippage"
+                            (:slippage display)
+                            "text-primary"))
+   (primitives/metric-row "Fees"
+                          (:fees display))])
 
 (defn order-form-view [state]
   (let [{:keys [form
@@ -59,13 +238,7 @@
                 show-scale-preview?
                 show-liquidation-row?
                 show-slippage-row?]}
-        controls
-        display-price (:display price)
-        price-context (:context price)
-        start-preview-line (:start scale-preview-lines)
-        end-preview-line (:end scale-preview-lines)
-        submit-tooltip (:tooltip submit)
-        submit-disabled? (:disabled? submit)]
+        controls]
     [:div {:class ["bg-base-100"
                    "border"
                    "border-base-300"
@@ -79,20 +252,13 @@
                    "flex-col"
                    "gap-3"]}
      (when spot?
-       [:div {:class ["px-3" "py-2" "bg-base-200" "border" "border-base-300" "rounded-lg" "text-xs" "text-gray-300"]}
-        "Spot trading is not supported yet. You can still view spot charts and order books."])
+       (unsupported-market-banner "Spot trading is not supported yet. You can still view spot charts and order books."))
      (when hip3?
-       [:div {:class ["px-3" "py-2" "bg-base-200" "border" "border-base-300" "rounded-lg" "text-xs" "text-gray-300"]}
-        "HIP-3 trading is not supported yet. You can still view these markets."])
+       (unsupported-market-banner "HIP-3 trading is not supported yet. You can still view these markets."))
 
      [:div {:class (into ["flex" "flex-col" "flex-1" "gap-3"]
                          (when read-only? ["opacity-60" "pointer-events-none"]))}
-     [:div {:class ["grid" "grid-cols-3" "gap-2"]}
-      (primitives/chip-button "Cross" true :disabled? true)
-       (primitives/chip-button (str ui-leverage "x")
-                               true
-                               :on-click ((:on-next-leverage leverage-handlers) next-leverage))
-       (primitives/chip-button "Classic" true :disabled? true)]
+      (leverage-row ui-leverage next-leverage leverage-handlers)
 
       (sections/entry-mode-tabs {:entry-mode entry-mode
                                  :type type
@@ -102,106 +268,25 @@
                                  :order-type-label order-form-vm/order-type-label}
                                 entry-mode-handlers)
 
-      [:div {:class ["flex" "items-center" "gap-2" "bg-base-200" "rounded-md" "p-1"]}
-       (primitives/side-button "Buy / Long"
-                               :buy
-                               (= side :buy)
-                               ((:on-select-side side-handlers) :buy))
-       (primitives/side-button "Sell / Short"
-                               :sell
-                               (= side :sell)
-                               ((:on-select-side side-handlers) :sell))]
-
-      [:div {:class ["space-y-1.5"]}
-       [:div {:class ["flex" "items-center" "justify-between"]}
-        [:span {:class ["text-sm" "text-gray-400"]} "Available to Trade"]
-        [:span {:class ["text-sm" "font-semibold" "text-gray-100" "num"]}
-         (:available-to-trade display)]]
-       [:div {:class ["flex" "items-center" "justify-between"]}
-        [:span {:class ["text-sm" "text-gray-400"]} "Current position"]
-        [:span {:class ["text-sm" "font-semibold" "text-gray-100" "num"]}
-         (:current-position display)]]]
+      (side-row side side-handlers)
+      (balances-row display)
 
       (when show-limit-like-controls?
-        (primitives/row-input display-price
+        (primitives/row-input (:display price)
                               (str "Price (" quote-symbol ")")
                               (:on-change price-handlers)
-                              (price-context-accessory price-context (:on-set-to-mid price-handlers))
+                              (price-context-accessory (:context price)
+                                                       (:on-set-to-mid price-handlers))
                               :input-padding-right "pr-14"
                               :on-focus (:on-focus price-handlers)
                               :on-blur (:on-blur price-handlers)))
 
-      (primitives/row-input size-display
-                            "Size"
-                            (:on-change-display size-handlers)
-                            (primitives/quote-accessory quote-symbol))
-
-      [:div {:class ["flex" "items-center" "gap-2"]}
-       [:div {:class ["relative" "flex-1"]}
-        [:input {:class ["order-size-slider" "range" "range-sm" "w-full" "relative" "z-20"]
-                 :type "range"
-                 :min 0
-                 :max 100
-                 :step 1
-                 :style {:--order-size-slider-progress (str size-percent "%")}
-                 :value size-percent
-                 :on {:input (:on-change-percent size-handlers)}}]
-        [:div {:class ["order-size-slider-notches"
-                       "pointer-events-none"
-                       "absolute"
-                       "inset-x-0"
-                       "top-1/2"
-                       "z-30"
-                       "flex"
-                       "items-center"
-                       "justify-between"
-                       "px-0.5"]}
-         (for [pct [0 25 50 75 100]]
-           ^{:key (str "size-slider-notch-" pct)}
-           [:span {:class (into ["order-size-slider-notch"
-                                 "block"
-                                 "h-[7px]"
-                                 "w-[7px]"
-                                 "-translate-y-1/2"
-                                 "rounded-full"]
-                                (remove nil?
-                                        [(if (>= size-percent pct)
-                                           "order-size-slider-notch-active"
-                                           "order-size-slider-notch-inactive")
-                                         (when (<= (js/Math.abs (- size-percent pct))
-                                                   notch-overlap-threshold)
-                                           "opacity-0")]))}])]]
-       [:div {:class ["relative" "w-[82px]"]}
-        [:input {:class (into ["order-size-percent-input"
-                               "h-10"
-                               "w-full"
-                               "bg-base-200/80"
-                               "border"
-                               "border-base-300"
-                               "rounded-lg"
-                               "text-right"
-                               "text-sm"
-                               "font-semibold"
-                               "text-gray-100"
-                               "num"
-                               "appearance-none"
-                               "pl-2.5"
-                               "pr-6"]
-                              primitives/neutral-input-focus-classes)
-                 :type "text"
-                 :inputmode "numeric"
-                 :pattern "[0-9]*"
-                 :value display-size-percent
-                 :on {:input (:on-change-percent size-handlers)}}]
-        [:span {:class ["pointer-events-none"
-                        "absolute"
-                        "right-2.5"
-                        "top-1/2"
-                        "-translate-y-1/2"
-                        "text-sm"
-                        "font-semibold"
-                        "text-gray-300"]}
-         "%"]]]
+      (size-row {:size-display size-display
+                 :quote-symbol quote-symbol
+                 :display-size-percent display-size-percent
+                 :size-percent size-percent
+                 :notch-overlap-threshold notch-overlap-threshold}
+                size-handlers)
 
       (sections/render-order-type-sections type
                                            form
@@ -232,73 +317,15 @@
 
       (when show-scale-preview?
         [:div {:class ["space-y-1.5"]}
-         (primitives/metric-row "Start" start-preview-line)
-         (primitives/metric-row "End" end-preview-line)])
+         (primitives/metric-row "Start" (:start scale-preview-lines))
+         (primitives/metric-row "End" (:end scale-preview-lines))])
 
       (when error
         [:div {:class ["text-xs" "text-red-400"]} error])
 
-      [:div {:class ["relative" "group"]
-             :tabindex (when (seq submit-tooltip) 0)}
-       [:button {:type "button"
-                 :class (into ["w-full"
-                               "h-11"
-                               "rounded-lg"
-                               "text-sm"
-                               "font-semibold"
-                               "transition-colors"
-                               "focus:outline-none"
-                               "focus:ring-1"
-                               "focus:ring-[#8a96a6]/40"
-                               "focus:ring-offset-0"]
-                              (if submit-disabled?
-                                ["bg-[rgb(23,69,63)]"
-                                 "text-[#7f9f9a]"
-                                 "cursor-not-allowed"]
-                                ["bg-primary"
-                                 "text-primary-content"
-                                 "hover:bg-primary/90"]))
-                 :disabled submit-disabled?
-                 :on {:click (:on-submit submit-handlers)}}
-        (if submitting? "Submitting..." "Place Order")]
-       (when (seq submit-tooltip)
-         [:div {:class ["order-submit-tooltip"
-                        "pointer-events-none"
-                        "absolute"
-                        "left-0"
-                        "right-0"
-                        "bottom-full"
-                        "mb-2"
-                        "rounded-md"
-                        "border"
-                        "border-base-300"
-                        "bg-base-200"
-                        "px-2.5"
-                        "py-2"
-                        "text-xs"
-                        "text-gray-200"
-                        "shadow-lg"
-                        "opacity-0"
-                        "translate-y-1"
-                        "transition-all"
-                        "duration-150"
-                        "group-hover:opacity-100"
-                        "group-hover:translate-y-0"
-                        "group-focus:opacity-100"
-                        "group-focus:translate-y-0"]}
-          submit-tooltip])]
+      (submit-row {:submitting? submitting?
+                   :submit-disabled? (:disabled? submit)
+                   :submit-tooltip (:tooltip submit)
+                   :on-submit (:on-submit submit-handlers)})
 
-      [:div {:class ["border-t" "border-base-300" "pt-3" "space-y-2"]}
-       (when show-liquidation-row?
-         (primitives/metric-row "Liquidation Price"
-                                (:liquidation-price display)))
-       (primitives/metric-row "Order Value"
-                              (:order-value display))
-       (primitives/metric-row "Margin Required"
-                              (:margin-required display))
-       (when show-slippage-row?
-         (primitives/metric-row "Slippage"
-                                (:slippage display)
-                                "text-primary"))
-       (primitives/metric-row "Fees"
-                              (:fees display))]]]))
+      (footer-metrics display show-liquidation-row? show-slippage-row?)]]))

@@ -226,6 +226,51 @@
   [state form]
   (trading-domain/mid-price-string (trading-context state) form))
 
+(defn order-price-policy
+  "Return deterministic order-price behavior for view rendering and transitions.
+   {:raw-price string
+    :display-price string
+    :focused? boolean
+    :limit-like? boolean
+    :fallback-price string|nil
+    :capture-on-focus-price string|nil
+    :mid-available? boolean
+    :context-label string
+    :mid-price string|nil}"
+  ([state form]
+   (order-price-policy state form (order-form-ui-state state)))
+  ([state form ui-state]
+   (let [normalized-form (normalize-order-form state form)
+         raw-price (or (:price normalized-form) "")
+         focused? (boolean (:price-input-focused? ui-state))
+         limit-like? (limit-like-type? (:type normalized-form))
+         fallback-price (when limit-like?
+                          (effective-limit-price-string state normalized-form))
+         display-price (cond
+                         (not (str/blank? raw-price))
+                         raw-price
+
+                         (and (not focused?) limit-like?)
+                         (or fallback-price "")
+
+                         :else
+                         "")
+         mid-context (mid-price-summary state normalized-form)
+         mid-available? (= :mid (:source mid-context))
+         capture-on-focus-price (when (and limit-like?
+                                           (str/blank? raw-price)
+                                           (seq fallback-price))
+                                  fallback-price)]
+     {:raw-price raw-price
+      :display-price display-price
+      :focused? focused?
+      :limit-like? limit-like?
+      :fallback-price fallback-price
+      :capture-on-focus-price capture-on-focus-price
+      :mid-available? mid-available?
+      :context-label (if mid-available? "Mid" "Ref")
+      :mid-price (mid-price-string state normalized-form)})))
+
 (defn size-from-percent [state form percent]
   (trading-domain/size-from-percent (trading-context state) form percent))
 

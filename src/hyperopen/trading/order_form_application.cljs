@@ -1,6 +1,7 @@
 (ns hyperopen.trading.order-form-application
   (:require [hyperopen.state.trading :as trading]
-            [hyperopen.trading.order-type-registry :as order-types]))
+            [hyperopen.trading.order-type-registry :as order-types]
+            [hyperopen.utils.formatting :as fmt]))
 
 (def ^:private order-type-capability-keys
   [:limit-like?
@@ -26,11 +27,42 @@
    :sizing {:ui-leverage (:ui-leverage ui-state)
             :size-display (:size-display ui-state)}})
 
+(defn- format-scale-preview-line
+  [state edge raw-price base-symbol quote-symbol]
+  (let [size (when (map? edge) (:size edge))
+        price (when (map? edge) (:price edge))
+        formatted-size (when (number? size)
+                         (trading/base-size-string state size))
+        formatted-price (when (number? price)
+                          (fmt/format-trade-price-plain price raw-price))]
+    (if (and (seq formatted-size) (seq formatted-price))
+      (str formatted-size " " base-symbol " @ " formatted-price " " quote-symbol)
+      "N/A")))
+
+(defn- projected-scale-preview-lines
+  [state draft market-info]
+  (let [{:keys [type scale]} draft
+        {:keys [base-symbol quote-symbol sz-decimals]} market-info
+        preview (when (= :scale type)
+                  (trading/scale-preview-boundaries draft {:sz-decimals sz-decimals}))]
+    {:start (format-scale-preview-line state
+                                       (:start preview)
+                                       (:start scale)
+                                       base-symbol
+                                       quote-symbol)
+     :end (format-scale-preview-line state
+                                     (:end preview)
+                                     (:end scale)
+                                     base-symbol
+                                     quote-symbol)}))
+
 (defn build-order-form-context
   [state {:keys [draft ui-state runtime-state market-info]}]
   (let [order-type (:type draft)
         capabilities (select-keys (order-types/order-type-entry order-type)
                                   order-type-capability-keys)
+        pricing-policy (trading/order-price-policy state draft ui-state)
+        scale-preview-lines (projected-scale-preview-lines state draft market-info)
         summary (trading/order-summary state draft)
         submitting? (:submitting? runtime-state)
         submit-policy (trading/submit-policy state draft {:mode :view
@@ -41,6 +73,8 @@
      :runtime-state runtime-state
      :market-info market-info
      :order-type-capabilities capabilities
+     :pricing-policy pricing-policy
+     :scale-preview-lines scale-preview-lines
      :summary summary
      :submitting? submitting?
      :submit-policy submit-policy}))

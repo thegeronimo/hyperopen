@@ -159,11 +159,8 @@
 (defn focus-order-price-input [state]
   (let [form (trading/order-form-draft state)
         ui-state (trading/order-form-ui-state state)
-        normalized-form (trading/normalize-order-form state form)
-        raw-price (or (:price normalized-form) "")
-        fallback-price (when (and (trading/limit-like-type? (:type normalized-form))
-                                  (str/blank? raw-price))
-                         (trading/effective-limit-price-string state normalized-form))
+        pricing-policy (trading/order-price-policy state form ui-state)
+        fallback-price (:capture-on-focus-price pricing-policy)
         should-capture-fallback? (seq fallback-price)
         updated (cond-> form
                   should-capture-fallback? (assoc :price fallback-price))
@@ -193,8 +190,8 @@
 
 (defn set-order-price-to-mid [state]
   (let [form (trading/order-form-draft state)
-        normalized-form (trading/normalize-order-form state form)
-        mid-price-string (trading/mid-price-string state normalized-form)
+        pricing-policy (trading/order-price-policy state form (trading/order-form-ui-state state))
+        mid-price-string (:mid-price pricing-policy)
         updated (if (seq mid-price-string)
                   (assoc form :price mid-price-string)
                   form)

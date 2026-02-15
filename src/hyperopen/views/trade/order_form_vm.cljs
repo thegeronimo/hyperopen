@@ -24,18 +24,18 @@
 
 (defn order-form-vm [state]
   (let [{:keys [draft
-                ui-state
                 ui
                 runtime-state
                 market-info
                 order-type-capabilities
+                pricing-policy
+                scale-preview-lines
                 summary
                 submitting?
                 submit-policy]}
         (application/order-form-context state)
         normalized-form draft
-        {:keys [base-symbol
-                quote-symbol
+        {:keys [quote-symbol
                 spot?
                 hip3?
                 read-only?
@@ -52,16 +52,10 @@
                                                  :pro-mode? pro-mode?
                                                  :tpsl-panel-open? tpsl-panel-open?
                                                  :order-type-capabilities order-type-capabilities})
-        limit-like? (:limit-like? controls)
         summary-display (selectors/summary-display summary sz-decimals)
         ui-leverage (:ui-leverage normalized-form)
         size-percent (trading/clamp-percent (:size-percent normalized-form))
-        price (selectors/price-model state normalized-form ui-state limit-like?)
-        scale-preview-lines (selectors/scale-preview-lines state
-                                                          normalized-form
-                                                          base-symbol
-                                                          quote-symbol
-                                                          sz-decimals)
+        price (selectors/price-model pricing-policy)
         submit-form (:form submit-policy)
         submit-errors (:errors submit-policy)
         required-submit-fields (:required-fields submit-policy)

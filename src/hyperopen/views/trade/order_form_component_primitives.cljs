@@ -16,6 +16,28 @@
    "focus:shadow-none"
    "focus:border-[#8a96a6]"])
 
+(defn- dom-event-attr [event-id]
+  (keyword (str "on-" (name event-id))))
+
+(defn- bind-event
+  "Bind either runtime DSL event payloads or plain callback functions.
+   - vector/keyword payloads use {:on {event-id payload}}
+   - functions use the native DOM attribute (:on-click, :on-input, etc)
+   - maps are merged into :on directly"
+  [attrs event-id handler]
+  (cond
+    (nil? handler)
+    attrs
+
+    (map? handler)
+    (update attrs :on (fnil merge {}) handler)
+
+    (fn? handler)
+    (assoc attrs (dom-event-attr event-id) handler)
+
+    :else
+    (update attrs :on (fnil merge {}) {event-id handler})))
+
 (defn section-label [text]
   [:div {:class ["text-xs" "text-gray-400" "mb-1"]} text])
 
@@ -34,50 +56,73 @@
    (let [checkbox-id (or toggle-id
                          (str "trade-toggle-" (label->stable-id label-text)))]
      [:div {:class ["inline-flex" "items-center" "gap-2" "text-sm" "text-gray-100"]}
-      [:input {:id checkbox-id
-               :class ["h-4"
-                       "w-4"
-                       "rounded-[3px]"
-                       "border"
-                       "border-base-300"
-                       "bg-transparent"
-                       "trade-toggle-checkbox"
-                       "transition-colors"
-                       "focus:outline-none"
-                       "focus:ring-0"
-                       "focus:ring-offset-0"
-                       "focus:shadow-none"]
-               :type "checkbox"
-               :checked (boolean checked?)
-               :on {:change on-change}}]
+      [:input (bind-event
+               {:id checkbox-id
+                :class ["h-4"
+                        "w-4"
+                        "rounded-[3px]"
+                        "border"
+                        "border-base-300"
+                        "bg-transparent"
+                        "trade-toggle-checkbox"
+                        "transition-colors"
+                        "focus:outline-none"
+                        "focus:ring-0"
+                        "focus:ring-offset-0"
+                        "focus:shadow-none"]
+                :type "checkbox"
+                :checked (boolean checked?)}
+               :change
+               on-change)]
       [:label {:for checkbox-id
                :class ["cursor-pointer" "select-none"]}
        label-text]])))
 
 (defn input [value on-change & {:keys [type placeholder]}]
-  [:input {:class (into ["w-full"
-                         "h-10"
-                         "px-3"
-                         "bg-base-200"
-                         "border"
-                         "border-base-300"
-                         "rounded-lg"
-                         "text-sm"
-                         "text-right"
-                         "text-gray-100"
-                         "num"
-                         "placeholder:text-gray-500"]
-                        neutral-input-focus-classes)
-           :type (or type "text")
-           :placeholder (or placeholder "")
-           :value (or value "")
-           :on {:input on-change}}])
+  [:input (bind-event
+           {:class (into ["w-full"
+                          "h-10"
+                          "px-3"
+                          "bg-base-200"
+                          "border"
+                          "border-base-300"
+                          "rounded-lg"
+                          "text-sm"
+                          "text-right"
+                          "text-gray-100"
+                          "num"
+                          "placeholder:text-gray-500"]
+                         neutral-input-focus-classes)
+            :type (or type "text")
+            :placeholder (or placeholder "")
+            :value (or value "")}
+           :input
+           on-change)])
 
 (defn row-input [value placeholder on-change accessory & {:keys [input-padding-right on-focus on-blur]
                                                            :or {input-padding-right "pr-20"}}]
-  (let [input-events (cond-> {:input on-change}
-                       on-focus (assoc :focus on-focus)
-                       on-blur (assoc :blur on-blur))]
+  (let [input-attrs (-> {:class (into ["w-full"
+                                       "h-11"
+                                       "pl-24"
+                                       "bg-base-200"
+                                       "border"
+                                       "border-base-300"
+                                       "rounded-lg"
+                                       "text-sm"
+                                       "text-right"
+                                       "text-gray-100"
+                                       "num"
+                                       "placeholder:text-transparent"
+                                       "appearance-none"]
+                                      (concat neutral-input-focus-classes
+                                              (if accessory [input-padding-right] ["pr-3"])))
+                         :type "text"
+                         :aria-label placeholder
+                         :placeholder placeholder
+                         :value (or value "")}
+                        (bind-event :input on-change)
+                        (bind-event :focus on-focus)
+                        (bind-event :blur on-blur))]
     [:div {:class ["relative" "w-full"]}
      [:span {:class ["order-row-input-label"
                      "pointer-events-none"
@@ -90,26 +135,7 @@
                      "text-sm"
                      "text-gray-500"]}
       placeholder]
-     [:input {:class (into ["w-full"
-                            "h-11"
-                            "pl-24"
-                            "bg-base-200"
-                            "border"
-                            "border-base-300"
-                            "rounded-lg"
-                            "text-sm"
-                            "text-right"
-                            "text-gray-100"
-                            "num"
-                            "placeholder:text-transparent"
-                            "appearance-none"]
-                           (concat neutral-input-focus-classes
-                                   (if accessory [input-padding-right] ["pr-3"])))
-              :type "text"
-              :aria-label placeholder
-              :placeholder placeholder
-              :value (or value "")
-              :on input-events}]
+     [:input input-attrs]
      (when accessory
        [:div {:class ["absolute"
                       "right-3"
@@ -130,54 +156,58 @@
                    "truncate"
                    "max-w-[55%]"]}
     label]
-   [:input {:class (into ["w-full"
-                          "h-10"
-                          "bg-base-200"
-                          "border"
-                          "border-base-300"
-                          "rounded-lg"
-                          "text-right"
-                          "text-sm"
-                          "font-semibold"
-                          "text-gray-100"
-                          "num"
-                          "appearance-none"
-                          "pl-24"
-                          "pr-3"]
-                         neutral-input-focus-classes)
-            :type "text"
-            :aria-label label
-            :value (or value "")
-            :on {:input on-change}}]])
+   [:input (bind-event
+            {:class (into ["w-full"
+                           "h-10"
+                           "bg-base-200"
+                           "border"
+                           "border-base-300"
+                           "rounded-lg"
+                           "text-right"
+                           "text-sm"
+                           "font-semibold"
+                           "text-gray-100"
+                           "num"
+                           "appearance-none"
+                           "pl-24"
+                           "pr-3"]
+                          neutral-input-focus-classes)
+             :type "text"
+             :aria-label label
+             :value (or value "")}
+            :input
+            on-change)]])
 
 (defn chip-button [label active? & {:keys [on-click disabled?]}]
-  [:button {:type "button"
-            :disabled (boolean disabled?)
-            :class (into ["flex-1"
-                          "h-10"
-                          "rounded-lg"
-                          "text-sm"
-                          "font-semibold"
-                          "transition-colors"]
-                         (if active?
-                           ["bg-base-200" "text-gray-100" "border" "border-base-300"]
-                           ["bg-base-200/60" "text-gray-300" "border" "border-base-300/80"]))
-            :on (when (and on-click (not disabled?))
-                  {:click on-click})}
+  [:button (cond-> {:type "button"
+                    :disabled (boolean disabled?)
+             :class (into ["flex-1"
+                                  "h-10"
+                                  "rounded-lg"
+                                  "text-sm"
+                                  "font-semibold"
+                                  "transition-colors"]
+                                 (if active?
+                                   ["bg-base-200" "text-gray-100" "border" "border-base-300"]
+                                   ["bg-base-200/60" "text-gray-300" "border" "border-base-300/80"]))}
+             (and on-click (not disabled?))
+             (bind-event :click on-click))
    label])
 
 (defn mode-button [label active? on-click]
-  [:button {:type "button"
-            :class (into ["flex-1"
-                          "h-10"
-                          "text-sm"
-                          "font-medium"
-                          "border-b-2"
-                          "transition-colors"]
-                         (if active?
-                           ["text-gray-100" "border-primary"]
-                           ["text-gray-400" "border-transparent" "hover:text-gray-200"]))
-            :on {:click on-click}}
+  [:button (bind-event
+            {:type "button"
+             :class (into ["flex-1"
+                           "h-10"
+                           "text-sm"
+                           "font-medium"
+                           "border-b-2"
+                           "transition-colors"]
+                          (if active?
+                            ["text-gray-100" "border-primary"]
+                            ["text-gray-400" "border-transparent" "hover:text-gray-200"]))}
+            :click
+            on-click)
    label])
 
 (defn side-button [label side active? on-click]
@@ -185,17 +215,19 @@
                          :buy ["bg-[#50D2C1]" "text-[#0F1A1F]"]
                          :sell ["bg-[#ED7088]" "text-[#F6FEFD]"]
                          ["bg-primary" "text-primary-content"])]
-    [:button {:type "button"
-              :class (into ["flex-1"
-                            "h-10"
-                            "text-sm"
-                            "font-semibold"
-                            "rounded-md"
-                            "transition-colors"]
-                           (if active?
-                             active-classes
-                             ["bg-[#273035]" "text-[#F6FEFD]"]))
-              :on {:click on-click}}
+    [:button (bind-event
+              {:type "button"
+               :class (into ["flex-1"
+                             "h-10"
+                             "text-sm"
+                             "font-semibold"
+                             "rounded-md"
+                             "transition-colors"]
+                            (if active?
+                              active-classes
+                              ["bg-[#273035]" "text-[#F6FEFD]"]))}
+              :click
+              on-click)
      label]))
 
 (defn metric-row
