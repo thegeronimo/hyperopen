@@ -57,15 +57,6 @@
     :min-period 3
     :max-period 400
     :default-config {:period 20}}
-   {:id :correlation-coefficient
-    :name "Correlation Coefficient"
-    :short-name "Corr"
-    :description "Rolling Pearson correlation of price and time"
-    :supports-period? true
-    :default-period 20
-    :min-period 3
-    :max-period 400
-    :default-config {:period 20}}
    {:id :fisher-transform
     :name "Fisher Transform"
     :short-name "Fisher"
@@ -203,40 +194,6 @@
     :min-period 1
     :max-period 400
     :default-config {:period 1}}
-   {:id :standard-error
-    :name "Standard Error"
-    :short-name "StdErr"
-    :description "Standard error of rolling linear regression"
-    :supports-period? true
-    :default-period 20
-    :min-period 3
-    :max-period 400
-    :default-config {:period 20}}
-   {:id :standard-error-bands
-    :name "Standard Error Bands"
-    :short-name "SE Bands"
-    :description "Linear-regression centerline plus/minus standard error"
-    :supports-period? true
-    :default-period 20
-    :min-period 3
-    :max-period 400
-    :default-config {:period 20
-                     :multiplier 2}}
-   {:id :trend-strength-index
-    :name "Trend Strength Index"
-    :short-name "TrendSI"
-    :description "Absolute TSI with smoothing"
-    :supports-period? false
-    :default-config {:short 13
-                     :long 25
-                     :signal 13}}
-   {:id :true-strength-index
-    :name "True Strength Index"
-    :short-name "TSI"
-    :description "Double-smoothed momentum oscillator"
-    :supports-period? false
-    :default-config {:short 13
-                     :long 25}}
    {:id :ultimate-oscillator
     :name "Ultimate Oscillator"
     :short-name "UO"
@@ -769,15 +726,6 @@
                       :separate
                       [(line-series :correlation-log "Corr Log" "#a78bfa" time-values values)])))
 
-(defn- calculate-correlation-coefficient
-  [data params]
-  (let [period (parse-period (:period params) 20 3 400)
-        values (rolling-correlation-with-time (closes data) period)
-        time-values (times data)]
-    (indicator-result :correlation-coefficient
-                      :separate
-                      [(line-series :correlation "Correlation" "#22d3ee" time-values values)])))
-
 (defn- calculate-fisher-transform
   [data params]
   (let [period (parse-period (:period params) 10 2 200)
@@ -1229,67 +1177,6 @@
                       :separate
                       [(line-series :spread "Spread" "#f97316" time-values values)])))
 
-(defn- calculate-standard-error
-  [data params]
-  (let [period (parse-period (:period params) 20 3 400)
-        regressions (rs-rolling (closes data) period)
-        values (mapv :standard-error regressions)
-        time-values (times data)]
-    (indicator-result :standard-error
-                      :separate
-                      [(line-series :stderr "StdErr" "#22d3ee" time-values values)])))
-
-(defn- calculate-standard-error-bands
-  [data params]
-  (let [period (parse-period (:period params) 20 3 400)
-        multiplier (parse-number (:multiplier params) 2)
-        regressions (rs-rolling (closes data) period)
-        center (mapv :center regressions)
-        se (mapv :standard-error regressions)
-        upper (mapv (fn [c s]
-                      (when (and (finite-number? c)
-                                 (finite-number? s))
-                        (+ c (* multiplier s))))
-                    center se)
-        lower (mapv (fn [c s]
-                      (when (and (finite-number? c)
-                                 (finite-number? s))
-                        (- c (* multiplier s))))
-                    center se)
-        time-values (times data)]
-    (indicator-result :standard-error-bands
-                      :overlay
-                      [(line-series :upper "SE Upper" "#22c55e" time-values upper)
-                       (line-series :center "SE Mid" "#f59e0b" time-values center)
-                       (line-series :lower "SE Lower" "#ef4444" time-values lower)])))
-
-(defn- calculate-trend-strength-index
-  [data params]
-  (let [short-period (parse-period (:short params) 13 2 200)
-        long-period (parse-period (:long params) 25 2 200)
-        signal-period (parse-period (:signal params) 13 2 200)
-        tsi (tsi-core (closes data) short-period long-period)
-        trend (mapv (fn [value]
-                      (when (finite-number? value)
-                        (js/Math.abs value)))
-                    tsi)
-        signal (ema-values trend signal-period)
-        time-values (times data)]
-    (indicator-result :trend-strength-index
-                      :separate
-                      [(line-series :trend-si "Trend SI" "#22d3ee" time-values trend)
-                       (line-series :signal "Signal" "#f97316" time-values signal)])))
-
-(defn- calculate-true-strength-index
-  [data params]
-  (let [short-period (parse-period (:short params) 13 2 200)
-        long-period (parse-period (:long params) 25 2 200)
-        tsi (tsi-core (closes data) short-period long-period)
-        time-values (times data)]
-    (indicator-result :true-strength-index
-                      :separate
-                      [(line-series :tsi "TSI" "#22d3ee" time-values tsi)])))
-
 (defn- calculate-ultimate-oscillator
   [data params]
   (let [short-period (parse-period (:short params) 7 2 100)
@@ -1637,7 +1524,6 @@
    :connors-rsi calculate-connors-rsi
    :coppock-curve calculate-coppock-curve
    :correlation-log calculate-correlation-log
-   :correlation-coefficient calculate-correlation-coefficient
    :fisher-transform calculate-fisher-transform
    :guppy-multiple-moving-average calculate-guppy-multiple-moving-average
    :klinger-oscillator calculate-klinger-oscillator
@@ -1653,10 +1539,6 @@
    :relative-volatility-index calculate-relative-volatility-index
    :smi-ergodic calculate-smi-ergodic
    :spread calculate-spread
-   :standard-error calculate-standard-error
-   :standard-error-bands calculate-standard-error-bands
-   :trend-strength-index calculate-trend-strength-index
-   :true-strength-index calculate-true-strength-index
    :ultimate-oscillator calculate-ultimate-oscillator
    :volatility-close-to-close calculate-volatility-close-to-close
    :volatility-index calculate-volatility-index

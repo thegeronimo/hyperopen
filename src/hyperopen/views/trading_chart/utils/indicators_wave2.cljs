@@ -1,6 +1,6 @@
 (ns hyperopen.views.trading-chart.utils.indicators-wave2
   (:require [hyperopen.domain.trading.indicators.math :as imath]
-            ["indicatorts" :refer [apo cci cmf cmo dema ema emv fi ichimokuCloud kc macd mfi mi mstd movingLeastSquare movingLinearRegressionUsingLeastSquare obv pvo psar rma roc rsi stoch tema trix typprice vpt vortex vwap vwma willr]]))
+            ["indicatorts" :refer [apo cci cmf cmo dema ema emv fi ichimokuCloud kc macd mfi mi movingLeastSquare movingLinearRegressionUsingLeastSquare obv pvo psar rma rsi stoch tema trix typprice vpt vortex vwap vwma willr]]))
 
 (def ^:private wave2-indicator-definitions
   [{:id :bollinger-bands-percent-b
@@ -347,24 +347,6 @@
     :description "Cumulative volume scaled by price change"
     :supports-period? false
     :default-config {}}
-   {:id :rate-of-change
-    :name "Rate Of Change"
-    :short-name "ROC"
-    :description "Percent change over n periods"
-    :supports-period? true
-    :default-period 9
-    :min-period 1
-    :max-period 400
-    :default-config {:period 9}}
-   {:id :relative-strength-index
-    :name "Relative Strength Index"
-    :short-name "RSI"
-    :description "Momentum oscillator of gains vs losses"
-    :supports-period? true
-    :default-period 14
-    :min-period 2
-    :max-period 200
-    :default-config {:period 14}}
    {:id :smoothed-moving-average
     :name "Smoothed Moving Average"
     :short-name "SMMA"
@@ -374,15 +356,6 @@
     :min-period 2
     :max-period 400
     :default-config {:period 14}}
-   {:id :standard-deviation
-    :name "Standard Deviation"
-    :short-name "StdDev"
-    :description "Rolling standard deviation of close"
-    :supports-period? true
-    :default-period 20
-    :min-period 2
-    :max-period 400
-    :default-config {:period 20}}
    {:id :stochastic
     :name "Stochastic"
     :short-name "Stoch"
@@ -1368,28 +1341,6 @@
                       :separate
                       [(line-series :pvt "PVT" "#06b6d4" time-values values)])))
 
-(defn- calculate-rate-of-change
-  [data params]
-  (let [period (parse-period (:period params) 9 1 400)
-        values (normalize-values
-                (roc (js-array (closes data))
-                     #js {:period period}))
-        time-values (times data)]
-    (indicator-result :rate-of-change
-                      :separate
-                      [(line-series :roc "ROC" "#22d3ee" time-values values)])))
-
-(defn- calculate-relative-strength-index
-  [data params]
-  (let [period (parse-period (:period params) 14 2 200)
-        values (normalize-values
-                (rsi (js-array (closes data))
-                     #js {:period period}))
-        time-values (times data)]
-    (indicator-result :relative-strength-index
-                      :separate
-                      [(line-series :rsi "RSI" "#f97316" time-values values)])))
-
 (defn- calculate-smoothed-moving-average
   [data params]
   (let [period (parse-period (:period params) 14 2 400)
@@ -1400,17 +1351,6 @@
     (indicator-result :smoothed-moving-average
                       :overlay
                       [(line-series :smma "SMMA" "#22d3ee" time-values values)])))
-
-(defn- calculate-standard-deviation
-  [data params]
-  (let [period (parse-period (:period params) 20 2 400)
-        values (normalize-values
-                (mstd (js-array (closes data))
-                      #js {:period period}))
-        time-values (times data)]
-    (indicator-result :standard-deviation
-                      :separate
-                      [(line-series :stddev "StdDev" "#a855f7" time-values values)])))
 
 (defn- calculate-stochastic
   [data params]
@@ -1701,10 +1641,7 @@
    :price-channel calculate-price-channel
    :price-oscillator calculate-price-oscillator
    :price-volume-trend calculate-price-volume-trend
-   :rate-of-change calculate-rate-of-change
-   :relative-strength-index calculate-relative-strength-index
    :smoothed-moving-average calculate-smoothed-moving-average
-   :standard-deviation calculate-standard-deviation
    :stochastic calculate-stochastic
    :stochastic-rsi calculate-stochastic-rsi
    :supertrend calculate-supertrend
