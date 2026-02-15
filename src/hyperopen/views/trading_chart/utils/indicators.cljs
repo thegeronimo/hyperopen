@@ -1,5 +1,6 @@
 (ns hyperopen.views.trading-chart.utils.indicators
-  (:require [hyperopen.domain.trading.indicators.math :as imath]
+  (:require [clojure.string :as str]
+            [hyperopen.domain.trading.indicators.math :as imath]
             [hyperopen.domain.trading.indicators.registry :as domain-registry]
             [hyperopen.domain.trading.indicators.trend :as domain-trend]
             [hyperopen.views.trading-chart.utils.indicator-view-adapter :as view-adapter]))
@@ -26,8 +27,12 @@
 (defn get-available-indicators
   "Return list of available indicators"
   []
-  (dedupe-indicators
-   (domain-registry/get-domain-indicators)))
+  (->> (domain-registry/get-domain-indicators)
+       dedupe-indicators
+       (sort-by (fn [{:keys [id] :as indicator}]
+                  [(str/lower-case (or (:name indicator) ""))
+                   (clojure.core/name id)]))
+       vec))
 
 (defn calculate-indicator
   "Calculate indicator based on type and parameters"

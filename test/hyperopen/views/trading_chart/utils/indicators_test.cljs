@@ -1,5 +1,6 @@
 (ns hyperopen.views.trading-chart.utils.indicators-test
-  (:require [cljs.test :refer-macros [deftest is testing]]
+  (:require [clojure.string :as str]
+            [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.views.trading-chart.utils.indicators :as indicators]))
 
 (defn- finite-number?
@@ -135,7 +136,12 @@
     (is (> (count available) 70))
     (is (true? (:supports-period? (get by-id :sma))))
     (is (false? (:supports-period? (get by-id :awesome-oscillator))))
-    (is (false? (:supports-period? (get by-id :macd))))))
+    (is (false? (:supports-period? (get by-id :macd))))
+    (is (= (mapv :name available)
+           (->> available
+                (map :name)
+                (sort-by str/lower-case)
+                vec)))))
 
 (deftest calculate-indicator-sma-shape-test
   (let [result (indicators/calculate-indicator :sma sample-candles {:period 5})
