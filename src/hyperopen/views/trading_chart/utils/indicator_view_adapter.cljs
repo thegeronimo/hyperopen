@@ -48,6 +48,10 @@
    [:median-price :median] {:name "Median" :color "#a3e635"}
    [:typical-price :typical] {:name "Typical Price" :color "#a3e635"}
    [:momentum :momentum] {:name "Momentum" :color "#f97316"}
+   [:on-balance-volume :obv] {:name "OBV" :color "#22c55e"}
+   [:price-volume-trend :pvt] {:name "PVT" :color "#06b6d4"}
+   [:volume-oscillator :pvo] {:name "PVO" :color "#38bdf8"}
+   [:volume-oscillator :signal] {:name "Signal" :color "#f59e0b"}
    [:guppy-multiple-moving-average :ema-short-3] {:name "EMA 3" :color "#22c55e"}
    [:guppy-multiple-moving-average :ema-short-5] {:name "EMA 5" :color "#4ade80"}
    [:guppy-multiple-moving-average :ema-short-8] {:name "EMA 8" :color "#86efac"}
@@ -101,6 +105,12 @@
    [:klinger-oscillator :hist] {:name "KVO Hist"
                                  :positive-color "#22c55e"
                                  :negative-color "#ef4444"}
+   [:net-volume :net-volume] {:name "Net Vol"
+                              :positive-color "#22c55e"
+                              :negative-color "#ef4444"}
+   [:volume-oscillator :hist] {:name "PVO Hist"
+                               :positive-color "#22c55e"
+                               :negative-color "#ef4444"}
    [:volume :volume] {:name "Volume"
                       :positive-color "#22c55e"
                       :negative-color "#ef4444"}})

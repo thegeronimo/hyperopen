@@ -1,6 +1,7 @@
 (ns hyperopen.domain.trading.indicators.flow
   (:require [hyperopen.domain.trading.indicators.math :as imath]
-            [hyperopen.domain.trading.indicators.result :as result]))
+            [hyperopen.domain.trading.indicators.result :as result]
+            ["indicatorts" :refer [obv pvo vpt]]))
 
 (def ^:private flow-indicator-definitions
   [{:id :accumulation-distribution
@@ -23,13 +24,45 @@
     :description "Raw traded volume"
     :supports-period? false
     :default-config {}
-    :migrated-from :wave3}])
+    :migrated-from :wave3}
+   {:id :net-volume
+    :name "Net Volume"
+    :short-name "Net Vol"
+    :description "Signed per-bar volume based on price direction"
+    :supports-period? false
+    :default-config {}
+    :migrated-from :wave2}
+   {:id :on-balance-volume
+    :name "On Balance Volume"
+    :short-name "OBV"
+    :description "Cumulative signed volume"
+    :supports-period? false
+    :default-config {}
+    :migrated-from :wave2}
+   {:id :price-volume-trend
+    :name "Price Volume Trend"
+    :short-name "PVT"
+    :description "Cumulative volume scaled by price change"
+    :supports-period? false
+    :default-config {}
+    :migrated-from :wave2}
+   {:id :volume-oscillator
+    :name "Volume Oscillator"
+    :short-name "PVO"
+    :description "Percentage volume oscillator"
+   :supports-period? false
+   :default-config {:fast 12
+                     :slow 26
+                     :signal 9}
+    :migrated-from :wave2}])
 
 (defn get-flow-indicators
   []
   flow-indicator-definitions)
 
 (def ^:private field-values imath/field-values)
+(def ^:private parse-period imath/parse-period)
+(def ^:private normalize-values imath/normalize-values)
 
 (defn- calculate-accumulation-distribution
   [data _params]
@@ -119,10 +152,69 @@
                              :separate
                              [(result/histogram-series :volume values)])))
 
+(defn- calculate-net-volume
+  [data _params]
+  (let [close-values (field-values data :close)
+        volume-values (field-values data :volume)
+        values (mapv (fn [idx]
+                       (if (zero? idx)
+                         0
+                         (let [volume (nth volume-values idx)]
+                           (cond
+                             (> (nth close-values idx) (nth close-values (dec idx))) volume
+                             (< (nth close-values idx) (nth close-values (dec idx))) (- volume)
+                             :else 0))))
+                     (range (count close-values)))]
+    (result/indicator-result :net-volume
+                             :separate
+                             [(result/histogram-series :net-volume values)])))
+
+(defn- calculate-on-balance-volume
+  [data _params]
+  (let [values (normalize-values
+                (obv (into-array (field-values data :close))
+                     (into-array (field-values data :volume))))]
+    (result/indicator-result :on-balance-volume
+                             :separate
+                             [(result/line-series :obv values)])))
+
+(defn- calculate-price-volume-trend
+  [data _params]
+  (let [values (normalize-values
+                (vpt (into-array (field-values data :close))
+                     (into-array (field-values data :volume))))]
+    (result/indicator-result :price-volume-trend
+                             :separate
+                             [(result/line-series :pvt values)])))
+
+(defn- calculate-volume-oscillator
+  [data params]
+  (let [fast (parse-period (:fast params) 12 1 200)
+        slow (parse-period (:slow params) 26 2 400)
+        signal (parse-period (:signal params) 9 1 200)
+        result (js->clj
+                (pvo (into-array (field-values data :volume))
+                     #js {:fast fast
+                          :slow slow
+                          :signal signal})
+                :keywordize-keys true)
+        pvo-line (normalize-values (:pvoResult result))
+        signal-line (normalize-values (:signal result))
+        histogram (normalize-values (:histogram result))]
+    (result/indicator-result :volume-oscillator
+                             :separate
+                             [(result/histogram-series :hist histogram)
+                              (result/line-series :pvo pvo-line)
+                              (result/line-series :signal signal-line)])))
+
 (def ^:private flow-calculators
   {:accumulation-distribution calculate-accumulation-distribution
    :accumulative-swing-index calculate-accumulative-swing-index
-   :volume calculate-volume})
+   :volume calculate-volume
+   :net-volume calculate-net-volume
+   :on-balance-volume calculate-on-balance-volume
+   :price-volume-trend calculate-price-volume-trend
+   :volume-oscillator calculate-volume-oscillator})
 
 (defn calculate-flow-indicator
   [indicator-type data params]

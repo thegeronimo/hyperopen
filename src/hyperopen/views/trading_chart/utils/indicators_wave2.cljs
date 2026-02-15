@@ -1,6 +1,6 @@
 (ns hyperopen.views.trading-chart.utils.indicators-wave2
   (:require [hyperopen.domain.trading.indicators.math :as imath]
-            ["indicatorts" :refer [apo cci cmf cmo dema ema emv fi ichimokuCloud kc macd mfi mi movingLeastSquare movingLinearRegressionUsingLeastSquare obv pvo psar rma rsi stoch tema trix vpt vortex vwap vwma willr]]))
+            ["indicatorts" :refer [apo cci cmf cmo dema ema emv fi ichimokuCloud kc macd mfi mi movingLeastSquare movingLinearRegressionUsingLeastSquare psar rma rsi stoch tema trix vortex vwap vwma willr]]))
 
 (def ^:private wave2-indicator-definitions
   [{:id :bollinger-bands-percent-b
@@ -291,18 +291,6 @@
     :min-period 2
     :max-period 400
     :default-config {:period 20}}
-   {:id :net-volume
-    :name "Net Volume"
-    :short-name "Net Vol"
-    :description "Signed per-bar volume based on price direction"
-    :supports-period? false
-    :default-config {}}
-   {:id :on-balance-volume
-    :name "On Balance Volume"
-    :short-name "OBV"
-    :description "Cumulative signed volume"
-    :supports-period? false
-    :default-config {}}
    {:id :parabolic-sar
     :name "Parabolic SAR"
     :short-name "PSAR"
@@ -326,12 +314,6 @@
     :supports-period? false
     :default-config {:fast 12
                      :slow 26}}
-   {:id :price-volume-trend
-    :name "Price Volume Trend"
-    :short-name "PVT"
-    :description "Cumulative volume scaled by price change"
-    :supports-period? false
-    :default-config {}}
    {:id :smoothed-moving-average
     :name "Smoothed Moving Average"
     :short-name "SMMA"
@@ -385,14 +367,6 @@
     :min-period 2
     :max-period 400
     :default-config {:period 15}}
-   {:id :volume-oscillator
-    :name "Volume Oscillator"
-    :short-name "PVO"
-    :description "Percentage volume oscillator"
-    :supports-period? false
-    :default-config {:fast 12
-                     :slow 26
-                     :signal 9}}
    {:id :vortex-indicator
     :name "Vortex Indicator"
     :short-name "VI"
@@ -1205,34 +1179,6 @@
                       :overlay
                       [(line-series :wma "WMA" "#38bdf8" time-values values)])))
 
-(defn- calculate-net-volume
-  [data _params]
-  (let [close-values (closes data)
-        volume-values (volumes data)
-        values (mapv (fn [idx]
-                       (if (zero? idx)
-                         0
-                         (let [volume (nth volume-values idx)]
-                           (cond
-                             (> (nth close-values idx) (nth close-values (dec idx))) volume
-                             (< (nth close-values idx) (nth close-values (dec idx))) (- volume)
-                             :else 0))))
-                     (range (count close-values)))
-        time-values (times data)]
-    (indicator-result :net-volume
-                      :separate
-                      [(histogram-series :net-volume "Net Vol" time-values values)])))
-
-(defn- calculate-on-balance-volume
-  [data _params]
-  (let [values (normalize-values
-                (obv (js-array (closes data))
-                     (js-array (volumes data))))
-        time-values (times data)]
-    (indicator-result :on-balance-volume
-                      :separate
-                      [(line-series :obv "OBV" "#22c55e" time-values values)])))
-
 (defn- calculate-parabolic-sar
   [data params]
   (let [step (parse-number (:step params) 0.02)
@@ -1280,16 +1226,6 @@
     (indicator-result :price-oscillator
                       :separate
                       [(line-series :apo "APO" "#eab308" time-values values)])))
-
-(defn- calculate-price-volume-trend
-  [data _params]
-  (let [values (normalize-values
-                (vpt (js-array (closes data))
-                     (js-array (volumes data))))
-        time-values (times data)]
-    (indicator-result :price-volume-trend
-                      :separate
-                      [(line-series :pvt "PVT" "#06b6d4" time-values values)])))
 
 (defn- calculate-smoothed-moving-average
   [data params]
@@ -1463,27 +1399,6 @@
                       :separate
                       [(line-series :trix "TRIX" "#f59e0b" time-values values)])))
 
-(defn- calculate-volume-oscillator
-  [data params]
-  (let [fast (parse-period (:fast params) 12 1 200)
-        slow (parse-period (:slow params) 26 2 400)
-        signal (parse-period (:signal params) 9 1 200)
-        result (js->clj
-                (pvo (js-array (volumes data))
-                     #js {:fast fast
-                          :slow slow
-                          :signal signal})
-                :keywordize-keys true)
-        pvo-line (normalize-values (:pvoResult result))
-        signal-line (normalize-values (:signal result))
-        histogram (normalize-values (:histogram result))
-        time-values (times data)]
-    (indicator-result :volume-oscillator
-                      :separate
-                      [(histogram-series :hist "PVO Hist" time-values histogram)
-                       (line-series :pvo "PVO" "#38bdf8" time-values pvo-line)
-                       (line-series :signal "Signal" "#f59e0b" time-values signal-line)])))
-
 (defn- calculate-vortex-indicator
   [data params]
   (let [period (parse-period (:period params) 14 2 200)
@@ -1572,19 +1487,15 @@
    :moving-average-multiple calculate-moving-average-multiple
    :moving-average-triple calculate-moving-average-triple
    :moving-average-weighted calculate-moving-average-weighted
-   :net-volume calculate-net-volume
-   :on-balance-volume calculate-on-balance-volume
    :parabolic-sar calculate-parabolic-sar
    :price-channel calculate-price-channel
    :price-oscillator calculate-price-oscillator
-   :price-volume-trend calculate-price-volume-trend
    :smoothed-moving-average calculate-smoothed-moving-average
    :stochastic calculate-stochastic
    :stochastic-rsi calculate-stochastic-rsi
    :supertrend calculate-supertrend
    :triple-ema calculate-triple-ema
    :trix calculate-trix
-   :volume-oscillator calculate-volume-oscillator
    :vortex-indicator calculate-vortex-indicator
    :vwap calculate-vwap
    :vwma calculate-vwma
