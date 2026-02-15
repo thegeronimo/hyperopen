@@ -57,23 +57,29 @@
    
      ;; Chart type and indicators section
      [:div.flex.items-center.space-x-2
-      ;; Chart type dropdown
+     ;; Chart type dropdown
       (chart-type-dropdown {:selected-chart-type selected-chart-type
                            :chart-type-dropdown-visible chart-type-dropdown-visible})
       ;; Indicators dropdown
       [:div.relative
-       [:button.flex.items-center.space-x-1.px-3.py-1.text-sm.font-medium.rounded.transition-colors
-        {:class (if (seq active-indicators)
-                  ["text-white" "bg-blue-600"]
-                  ["text-gray-300" "hover:text-white" "hover:bg-gray-700"])
-         :on {:click [[:actions/toggle-indicators-dropdown]]}}
-        [:span "📈"]
-        [:span (str "fx Indicators" 
-                   (when (seq active-indicators) 
-                     (str " (" (count active-indicators) ")")))]
-       [:span.inline-block.transition-transform.duration-200.ease-in-out
-         {:class (if indicators-dropdown-visible ["rotate-180"] ["rotate-0"])}
-         "▼"]]
+       (let [active-count (count active-indicators)
+             has-active-indicators? (pos? active-count)]
+         [:button
+          {:class (cond-> ["flex" "items-center" "gap-1.5" "h-8" "px-3" "text-base" "font-medium"
+                           "rounded-none" "transition-colors"
+                           "text-gray-300" "bg-gray-900/40"
+                           "hover:text-white" "hover:bg-gray-800/70"
+                           "focus:outline-none" "focus-visible:ring-2" "focus-visible:ring-slate-500/70"
+                           "focus-visible:ring-offset-1" "focus-visible:ring-offset-base-100"]
+                    indicators-dropdown-visible (into ["text-white" "bg-gray-800"])
+                    has-active-indicators? (conj "text-gray-100"))
+           :on {:click [[:actions/toggle-indicators-dropdown]]}
+           :aria-label (if has-active-indicators?
+                         (str "Indicators (" active-count " active)")
+                         "Indicators")}
+          [:span "Indicators"]
+          (when has-active-indicators?
+            [:span {:class ["text-xs" "text-gray-400"]} (str "(" active-count ")")])])
        (indicators-dropdown {:indicators-dropdown-visible indicators-dropdown-visible
                             :active-indicators active-indicators
                             :search-term indicators-search-term})]]
