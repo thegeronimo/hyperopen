@@ -106,6 +106,7 @@
   [{:keys [websocket-health
            default-agent-state
            default-order-form
+           default-order-form-ui
            default-trade-history
            default-funding-history
            default-order-history]}]
@@ -130,7 +131,8 @@
    :account {:mode :classic
              :abstraction-raw nil}
    :router {:path "/trade"}
-   :order-form default-order-form
+   :order-form (or default-order-form {})
+   :order-form-ui (or default-order-form-ui {})
    :funding-ui {:modal nil}
    :asset-selector (default-asset-selector-state)
    :chart-options (default-chart-options-state)

@@ -1,5 +1,6 @@
 (ns hyperopen.views.l2-orderbook-view
   (:require [clojure.string :as str]
+            [hyperopen.domain.market.instrument :as instrument]
             [hyperopen.orderbook.price-aggregation :as price-agg]
             [hyperopen.websocket.trades :as trades]
             [hyperopen.utils.formatting :as fmt]
@@ -83,29 +84,19 @@
   (if (= size-unit :quote) :quote :base))
 
 (defn base-symbol-from-coin [coin]
-  (cond
-    (and (string? coin) (str/includes? coin "/"))
-    (first (str/split coin #"/" 2))
-
-    (and (string? coin) (str/includes? coin ":"))
-    (second (str/split coin #":" 2))
-
-    :else coin))
+  (instrument/base-symbol-from-value coin))
 
 (defn quote-symbol-from-coin [coin]
-  (if (and (string? coin) (str/includes? coin "/"))
-    (second (str/split coin #"/" 2))
-    "USDC"))
+  (or (instrument/quote-symbol-from-value coin) "USDC"))
 
 (defn resolve-base-symbol [coin market]
-  (or (:base market) (base-symbol-from-coin coin) "Asset"))
+  (instrument/resolve-base-symbol coin market "Asset"))
 
 (defn resolve-quote-symbol [coin market]
-  (or (:quote market) (quote-symbol-from-coin coin) "USDC"))
+  (instrument/resolve-quote-symbol coin market "USDC"))
 
 (defn infer-market-type [coin market]
-  (or (:market-type market)
-      (if (and (string? coin) (str/includes? coin "/")) :spot :perp)))
+  (instrument/infer-market-type coin market))
 
 (defn midpoint-price [best-bid best-ask]
   (let [bid (some-> best-bid :px parse-number)

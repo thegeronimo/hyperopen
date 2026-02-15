@@ -60,6 +60,19 @@
                 (nth effect 2)))
             effects)))
 
+(defn- extract-saved-order-form-ui [effects]
+  (or (some (fn [effect]
+              (when (= :effects/save-many (first effect))
+                (some (fn [[path value]]
+                        (when (= [:order-form-ui] path) value))
+                      (second effect))))
+            effects)
+      (some (fn [effect]
+              (when (and (= :effects/save (first effect))
+                         (= [:order-form-ui] (second effect)))
+                (nth effect 2)))
+            effects)))
+
 (defn- with-test-local-storage [f]
   (let [original-local-storage (.-localStorage js/globalThis)
         storage (atom {})]
@@ -1080,7 +1093,8 @@
                                  [[:asset-selector :render-limit] 120]
                                  [[:orderbook-ui :price-aggregation-dropdown-visible?] false]
                                  [[:orderbook-ui :size-unit-dropdown-visible?] false]
-                                 [[:active-market] market]]]
+                                 [[:active-market] market]
+                                 [[:order-form-ui] {:price-input-focused? false}]]]
             [:effects/unsubscribe-active-asset "ETH"]
             [:effects/unsubscribe-orderbook "ETH"]
             [:effects/unsubscribe-trades "ETH"]
@@ -1102,7 +1116,8 @@
                                  [[:asset-selector :render-limit] 120]
                                  [[:orderbook-ui :price-aggregation-dropdown-visible?] false]
                                  [[:orderbook-ui :size-unit-dropdown-visible?] false]
-                                 [[:active-market] market]]]
+                                 [[:active-market] market]
+                                 [[:order-form-ui] {:price-input-focused? false}]]]
             [:effects/subscribe-active-asset "SOL"]
             [:effects/subscribe-orderbook "SOL"]
             [:effects/subscribe-trades "SOL"]]
@@ -1124,7 +1139,8 @@
                                  [[:asset-selector :render-limit] 120]
                                  [[:orderbook-ui :price-aggregation-dropdown-visible?] false]
                                  [[:orderbook-ui :size-unit-dropdown-visible?] false]
-                                 [[:active-market] resolved-market]]]
+                                 [[:active-market] resolved-market]
+                                 [[:order-form-ui] {:price-input-focused? false}]]]
             [:effects/unsubscribe-active-asset "ETH"]
             [:effects/unsubscribe-orderbook "ETH"]
             [:effects/unsubscribe-trades "ETH"]
@@ -1140,10 +1156,10 @@
                 :coin "BTC"}
         order-form (assoc (trading/default-order-form)
                           :type :limit
-                          :price "70155"
-                          :price-input-focused? true)
+                          :price "70155")
         effects (core/select-asset {:active-asset "ETH"
                                     :order-form order-form
+                                    :order-form-ui {:price-input-focused? true}
                                     :asset-selector {:visible-dropdown :asset-selector}
                                     :orderbook-ui {:price-aggregation-dropdown-visible? true
                                                    :size-unit-dropdown-visible? true}}
@@ -1152,10 +1168,15 @@
         saved-order-form (some (fn [[path value]]
                                  (when (= [:order-form] path)
                                    value))
-                               save-many-path-values)]
+                               save-many-path-values)
+        saved-order-form-ui (some (fn [[path value]]
+                                    (when (= [:order-form-ui] path)
+                                      value))
+                                  save-many-path-values)]
     (is (= :effects/save-many (ffirst effects)))
     (is (some? saved-order-form))
-    (is (= false (:price-input-focused? saved-order-form)))
+    (is (some? saved-order-form-ui))
+    (is (= false (:price-input-focused? saved-order-form-ui)))
     (is (= "" (:price saved-order-form)))))
 
 (deftest websocket-diagnostics-ui-actions-emit-deterministic-effects-test
@@ -1886,30 +1907,32 @@
 (deftest select-order-entry-mode-market-emits-single-batched-projection-test
   (let [state {:order-form (assoc (trading/default-order-form)
                                   :entry-mode :pro
-                                  :type :stop-market
-                                  :pro-order-type-dropdown-open? true)}
+                                  :type :stop-market)
+               :order-form-ui {:pro-order-type-dropdown-open? true}}
         effects (core/select-order-entry-mode state :market)
-        saved-form (extract-saved-order-form effects)]
+        saved-form (extract-saved-order-form effects)
+        saved-ui (extract-saved-order-form-ui effects)]
     (is (= 1 (count effects)))
     (is (= :effects/save-many (ffirst effects)))
     (is (map? saved-form))
     (is (= :market (:entry-mode saved-form)))
     (is (= :market (:type saved-form)))
-    (is (= false (:pro-order-type-dropdown-open? saved-form)))))
+    (is (= false (:pro-order-type-dropdown-open? saved-ui)))))
 
 (deftest select-order-entry-mode-limit-forces-limit-type-test
   (let [state {:order-form (assoc (trading/default-order-form)
                                   :type :stop-limit
-                                  :entry-mode :pro
-                                  :pro-order-type-dropdown-open? true)}
+                                  :entry-mode :pro)
+               :order-form-ui {:pro-order-type-dropdown-open? true}}
         effects (core/select-order-entry-mode state :limit)
-        saved-form (extract-saved-order-form effects)]
+        saved-form (extract-saved-order-form effects)
+        saved-ui (extract-saved-order-form-ui effects)]
     (is (= 1 (count effects)))
     (is (= :effects/save-many (ffirst effects)))
     (is (map? saved-form))
     (is (= :limit (:entry-mode saved-form)))
     (is (= :limit (:type saved-form)))
-    (is (= false (:pro-order-type-dropdown-open? saved-form)))))
+    (is (= false (:pro-order-type-dropdown-open? saved-ui)))))
 
 (deftest select-order-entry-mode-pro-sets-pro-entry-and-normalized-pro-type-test
   (let [state {:order-form (assoc (trading/default-order-form) :type :limit)}
@@ -1924,45 +1947,50 @@
 (deftest select-pro-order-type-closes-dropdown-and-persists-pro-selection-test
   (let [state {:order-form (assoc (trading/default-order-form)
                                   :entry-mode :pro
-                                  :type :stop-market
-                                  :pro-order-type-dropdown-open? true)}
+                                  :type :stop-market)
+               :order-form-ui {:pro-order-type-dropdown-open? true}}
         effects (core/select-pro-order-type state :scale)
-        saved-form (extract-saved-order-form effects)]
+        saved-form (extract-saved-order-form effects)
+        saved-ui (extract-saved-order-form-ui effects)]
     (is (= 1 (count effects)))
     (is (= :effects/save-many (ffirst effects)))
     (is (= :pro (:entry-mode saved-form)))
     (is (= :scale (:type saved-form)))
-    (is (= false (:pro-order-type-dropdown-open? saved-form)))))
+    (is (= false (:pro-order-type-dropdown-open? saved-ui)))))
 
 (deftest toggle-pro-order-type-dropdown-flips-open-flag-test
-  (let [closed-state {:order-form (assoc (trading/default-order-form) :pro-order-type-dropdown-open? false)}
-        open-state {:order-form (assoc (trading/default-order-form) :pro-order-type-dropdown-open? true)}
+  (let [closed-state {:order-form (trading/default-order-form)
+                      :order-form-ui {:pro-order-type-dropdown-open? false}}
+        open-state {:order-form (trading/default-order-form)
+                    :order-form-ui {:pro-order-type-dropdown-open? true}}
         closed-effects (core/toggle-pro-order-type-dropdown closed-state)
         open-effects (core/toggle-pro-order-type-dropdown open-state)]
-    (is (= [[:effects/save-many [[[:order-form :pro-order-type-dropdown-open?] true]]]]
+    (is (= [[:effects/save-many [[[:order-form-ui :pro-order-type-dropdown-open?] true]]]]
            closed-effects))
-    (is (= [[:effects/save-many [[[:order-form :pro-order-type-dropdown-open?] false]]]]
+    (is (= [[:effects/save-many [[[:order-form-ui :pro-order-type-dropdown-open?] false]]]]
            open-effects))))
 
 (deftest close-pro-order-type-dropdown-forces-open-flag-false-test
-  (let [state {:order-form (assoc (trading/default-order-form) :pro-order-type-dropdown-open? true)}
+  (let [state {:order-form (trading/default-order-form)
+               :order-form-ui {:pro-order-type-dropdown-open? true}}
         effects (core/close-pro-order-type-dropdown state)]
-    (is (= [[:effects/save-many [[[:order-form :pro-order-type-dropdown-open?] false]]]]
+    (is (= [[:effects/save-many [[[:order-form-ui :pro-order-type-dropdown-open?] false]]]]
            effects))))
 
 (deftest handle-pro-order-type-dropdown-keydown-closes-only-on-escape-test
-  (let [state {:order-form (assoc (trading/default-order-form) :pro-order-type-dropdown-open? true)}
+  (let [state {:order-form (trading/default-order-form)
+               :order-form-ui {:pro-order-type-dropdown-open? true}}
         escape-effects (core/handle-pro-order-type-dropdown-keydown state "Escape")
         enter-effects (core/handle-pro-order-type-dropdown-keydown state "Enter")]
-    (is (= [[:effects/save-many [[[:order-form :pro-order-type-dropdown-open?] false]]]]
+    (is (= [[:effects/save-many [[[:order-form-ui :pro-order-type-dropdown-open?] false]]]]
            escape-effects))
     (is (= [] enter-effects))))
 
 (deftest toggle-order-tpsl-panel-noops-for-scale-test
   (let [state {:order-form (assoc (trading/default-order-form)
                                   :entry-mode :pro
-                                  :type :scale
-                                  :tpsl-panel-open? false)}
+                                  :type :scale)
+               :order-form-ui {:tpsl-panel-open? false}}
         effects (core/toggle-order-tpsl-panel state)]
     (is (= [] effects))))
 
@@ -2018,12 +2046,14 @@
                :active-market {:coin "BTC" :mark 70000 :maxLeverage 40 :szDecimals 4}
                :orderbooks {"BTC" {:bids [{:px "70120"} {:px "70150"} {:px "70090"}]
                                    :asks [{:px "70240"} {:px "70160"} {:px "70210"}]}}
-               :order-form (assoc (trading/default-order-form) :type :limit :price "" :price-input-focused? false)}
+               :order-form (assoc (trading/default-order-form) :type :limit :price "")
+               :order-form-ui {:price-input-focused? false}}
         effects (core/focus-order-price-input state)
-        saved-form (-> effects first second first second)]
+        saved-form (extract-saved-order-form effects)
+        saved-ui (extract-saved-order-form-ui effects)]
     (is (= 1 (count effects)))
     (is (= :effects/save-many (ffirst effects)))
-    (is (= true (:price-input-focused? saved-form)))
+    (is (= true (:price-input-focused? saved-ui)))
     (is (= "70155" (:price saved-form)))))
 
 (deftest focus-order-price-input-does-not-overwrite-manual-price-test
@@ -2033,26 +2063,26 @@
                                    :asks [{:px "70160"}]}}
                :order-form (assoc (trading/default-order-form)
                                   :type :limit
-                                  :price "70133.5"
-                                  :price-input-focused? false)}
+                                  :price "70133.5")
+               :order-form-ui {:price-input-focused? false}}
         effects (core/focus-order-price-input state)
-        saved-form (-> effects first second first second)]
+        saved-form (extract-saved-order-form effects)
+        saved-ui (extract-saved-order-form-ui effects)]
     (is (= 1 (count effects)))
     (is (= :effects/save-many (ffirst effects)))
-    (is (= true (:price-input-focused? saved-form)))
+    (is (= true (:price-input-focused? saved-ui)))
     (is (= "70133.5" (:price saved-form)))))
 
 (deftest blur-order-price-input-releases-focus-lock-without-mutating-price-test
   (let [state {:order-form (assoc (trading/default-order-form)
                                   :type :limit
-                                  :price "70155"
-                                  :price-input-focused? true)}
+                                  :price "70155")
+               :order-form-ui {:price-input-focused? true}}
         effects (core/blur-order-price-input state)
-        saved-form (-> effects first second first second)]
+        saved-ui (extract-saved-order-form-ui effects)]
     (is (= 1 (count effects)))
     (is (= :effects/save-many (ffirst effects)))
-    (is (= false (:price-input-focused? saved-form)))
-    (is (= "70155" (:price saved-form)))))
+    (is (= false (:price-input-focused? saved-ui)))))
 
 (deftest set-order-price-to-mid-uses-best-bid-ask-midpoint-test
   (let [state {:active-asset "BTC"

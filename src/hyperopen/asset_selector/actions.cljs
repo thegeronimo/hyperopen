@@ -91,8 +91,10 @@
         reset-order-form (when (and switched-asset?
                                     (map? (:order-form state)))
                            (assoc (:order-form state)
-                                  :price ""
-                                  :price-input-focused? false))
+                                  :price ""))
+        reset-order-form-ui (when switched-asset?
+                              (assoc (or (:order-form-ui state) {})
+                                     :price-input-focused? false))
         immediate-ui-path-values (cond-> [[[:asset-selector :visible-dropdown] nil]
                                           [[:asset-selector :scroll-top] 0]
                                           [[:asset-selector :render-limit] asset-selector-default-render-limit]
@@ -100,7 +102,9 @@
                                           [[:orderbook-ui :size-unit-dropdown-visible?] false]
                                           [[:active-market] resolved-market]]
                                    reset-order-form
-                                   (conj [[:order-form] reset-order-form]))
+                                   (conj [[:order-form] reset-order-form])
+                                   reset-order-form-ui
+                                   (conj [[:order-form-ui] reset-order-form-ui]))
         immediate-ui-effects [[:effects/save-many immediate-ui-path-values]]
         unsubscribe-effects (if current-asset
                              [[:effects/unsubscribe-active-asset current-asset]

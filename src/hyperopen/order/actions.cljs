@@ -13,9 +13,13 @@
       candidate
       :market)))
 
+(defn- current-order-form-ui [state]
+  (trading/order-form-ui-state state))
+
 (defn select-order-entry-mode [state mode]
   (let [mode* (normalize-order-entry-mode mode)
         form (:order-form state)
+        ui-state (current-order-form-ui state)
         close-pro-dropdown? (contains? #{:market :limit} mode*)
         next-type (case mode*
                     :market :market
@@ -24,33 +28,42 @@
         normalized (trading/normalize-order-form state
                                                  (assoc form
                                                         :entry-mode mode*
-                                                        :type next-type
-                                                        :pro-order-type-dropdown-open?
-                                                        (if close-pro-dropdown?
-                                                          false
-                                                          (boolean (:pro-order-type-dropdown-open? form)))))
+                                                        :type next-type))
         next-form (-> (trading/sync-size-from-percent state normalized)
-                      (assoc :error nil))]
-    [[:effects/save-many [[[:order-form] next-form]]]]))
+                      (assoc :error nil))
+        next-ui (trading/effective-order-form-ui
+                 next-form
+                 (assoc ui-state
+                        :pro-order-type-dropdown-open?
+                        (if close-pro-dropdown?
+                          false
+                          (boolean (:pro-order-type-dropdown-open? ui-state)))))]
+    [[:effects/save-many [[[:order-form] next-form]
+                          [[:order-form-ui] next-ui]]]]))
 
 (defn select-pro-order-type [state order-type]
   (let [form (:order-form state)
+        ui-state (current-order-form-ui state)
         next-type (trading/normalize-pro-order-type order-type)
         normalized (trading/normalize-order-form state
                                                  (assoc form
                                                         :entry-mode :pro
-                                                        :type next-type
-                                                        :pro-order-type-dropdown-open? false))
+                                                        :type next-type))
         next-form (-> (trading/sync-size-from-percent state normalized)
-                      (assoc :error nil))]
-    [[:effects/save-many [[[:order-form] next-form]]]]))
+                      (assoc :error nil))
+        next-ui (trading/effective-order-form-ui
+                 next-form
+                 (assoc ui-state :pro-order-type-dropdown-open? false))]
+    [[:effects/save-many [[[:order-form] next-form]
+                          [[:order-form-ui] next-ui]]]]))
 
 (defn toggle-pro-order-type-dropdown [state]
-  (let [open? (boolean (get-in state [:order-form :pro-order-type-dropdown-open?]))]
-    [[:effects/save-many [[[:order-form :pro-order-type-dropdown-open?] (not open?)]]]]))
+  (let [ui-state (current-order-form-ui state)
+        open? (boolean (:pro-order-type-dropdown-open? ui-state))]
+    [[:effects/save-many [[[:order-form-ui :pro-order-type-dropdown-open?] (not open?)]]]]))
 
 (defn close-pro-order-type-dropdown [_state]
-  [[:effects/save-many [[[:order-form :pro-order-type-dropdown-open?] false]]]])
+  [[:effects/save-many [[[:order-form-ui :pro-order-type-dropdown-open?] false]]]])
 
 (defn handle-pro-order-type-dropdown-keydown [state key]
   (if (= key "Escape")
@@ -99,23 +112,32 @@
 
 (defn focus-order-price-input [state]
   (let [form (:order-form state)
+        ui-state (current-order-form-ui state)
         normalized-form (trading/normalize-order-form state form)
         raw-price (or (:price normalized-form) "")
         fallback-price (when (and (trading/limit-like-type? (:type normalized-form))
                                   (str/blank? raw-price))
                          (trading/effective-limit-price-string state normalized-form))
         should-capture-fallback? (seq fallback-price)
-        updated (cond-> (assoc form :price-input-focused? true)
+        updated (cond-> form
                   should-capture-fallback? (assoc :price fallback-price))
         next-form (if (and should-capture-fallback?
                            (pos? (or (trading/parse-num (:size-percent updated)) 0)))
                     (trading/sync-size-from-percent state updated)
-                    updated)]
-    [[:effects/save-many [[[:order-form] next-form]]]]))
+                    updated)
+        next-ui (trading/effective-order-form-ui
+                 next-form
+                 (assoc ui-state :price-input-focused? true))]
+    [[:effects/save-many [[[:order-form] next-form]
+                          [[:order-form-ui] next-ui]]]]))
 
 (defn blur-order-price-input [state]
-  (let [form (:order-form state)]
-    [[:effects/save-many [[[:order-form] (assoc form :price-input-focused? false)]]]]))
+  (let [form (:order-form state)
+        ui-state (current-order-form-ui state)
+        next-ui (trading/effective-order-form-ui
+                 form
+                 (assoc ui-state :price-input-focused? false))]
+    [[:effects/save-many [[[:order-form-ui] next-ui]]]]))
 
 (defn set-order-price-to-mid [state]
   (let [form (:order-form state)
@@ -133,15 +155,20 @@
 
 (defn toggle-order-tpsl-panel [state]
   (let [form (:order-form state)
+        ui-state (current-order-form-ui state)
         normalized-form (trading/normalize-order-form state form)]
     (if (= :scale (:type normalized-form))
       []
-      (let [next-open? (not (boolean (:tpsl-panel-open? form)))
-            next-form (cond-> (assoc form :tpsl-panel-open? next-open?)
+      (let [next-open? (not (boolean (:tpsl-panel-open? ui-state)))
+            next-form (cond-> form
                         (not next-open?) (assoc-in [:tp :enabled?] false)
                         (not next-open?) (assoc-in [:sl :enabled?] false))
-            next-form* (assoc next-form :error nil)]
-        [[:effects/save-many [[[:order-form] next-form*]]]]))))
+            next-form* (assoc next-form :error nil)
+            next-ui (trading/effective-order-form-ui
+                     next-form*
+                     (assoc ui-state :tpsl-panel-open? next-open?))]
+        [[:effects/save-many [[[:order-form] next-form*]
+                              [[:order-form-ui] next-ui]]]]))))
 
 (defn update-order-form [state path value]
   (let [v (cond
@@ -174,33 +201,16 @@
 
 (defn submit-order [state]
   (let [raw-form (:order-form state)
-        submit-prep (trading/prepare-order-form-for-submit state raw-form)
-        form (:form submit-prep)
-        market-price-missing? (:market-price-missing? submit-prep)
         agent-ready? (= :ready (get-in state [:wallet :agent :status]))
-        market-identity (trading/market-identity state)
-        spot? (:spot? market-identity)
-        hip3? (:hip3? market-identity)
-        errors (trading/validate-order-form state form)
-        request (trading/build-order-request state form)]
+        submit-policy (trading/submit-policy state raw-form {:mode :submit
+                                                             :agent-ready? agent-ready?})
+        form (:form submit-policy)
+        request (:request submit-policy)
+        reason (:reason submit-policy)
+        error-message (:error-message submit-policy)]
     (cond
-      spot?
-      [[:effects/save [:order-form :error] "Spot trading is not supported yet."]]
-
-      hip3?
-      [[:effects/save [:order-form :error] "HIP-3 trading is not supported yet."]]
-
-      market-price-missing?
-      [[:effects/save [:order-form :error] "Market price unavailable. Load order book first."]]
-
-      (seq errors)
-      [[:effects/save [:order-form :error] (trading/validation-error-message (first errors))]]
-
-      (nil? request)
-      [[:effects/save [:order-form :error] "Select an asset and ensure market data is loaded."]]
-
-      (not agent-ready?)
-      [[:effects/save [:order-form :error] "Enable trading before submitting orders."]]
+      reason
+      [[:effects/save [:order-form :error] error-message]]
 
       :else
       [[:effects/save [:order-form :error] nil]

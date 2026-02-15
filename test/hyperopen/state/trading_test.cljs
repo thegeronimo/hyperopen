@@ -103,13 +103,17 @@
 (deftest normalize-order-form-disables-tpsl-for-scale-test
   (let [form (-> (trading/default-order-form)
                  (assoc :entry-mode :pro
-                        :type :scale
-                        :tpsl-panel-open? true)
+                        :type :scale)
                  (assoc-in [:tp :enabled?] true)
                  (assoc-in [:sl :enabled?] true))
-        normalized (trading/normalize-order-form base-state form)]
+        state (assoc base-state
+                     :order-form form
+                     :order-form-ui (assoc (trading/default-order-form-ui)
+                                           :tpsl-panel-open? true))
+        normalized (trading/normalize-order-form state form)
+        ui-state (trading/order-form-ui-state state)]
     (is (= :scale (:type normalized)))
-    (is (false? (:tpsl-panel-open? normalized)))
+    (is (false? (:tpsl-panel-open? ui-state)))
     (is (false? (get-in normalized [:tp :enabled?])))
     (is (false? (get-in normalized [:sl :enabled?])))))
 
@@ -288,14 +292,20 @@
 (deftest default-order-form-uses-limit-entry-mode-test
   (is (= :limit (:entry-mode (trading/default-order-form)))))
 
-(deftest normalize-order-form-defaults-pro-order-type-dropdown-open-flag-to-false-test
-  (let [without-flag (-> (trading/default-order-form)
-                         (dissoc :pro-order-type-dropdown-open?))
-        nil-flag (assoc (trading/default-order-form) :pro-order-type-dropdown-open? nil)
-        normalized-without-flag (trading/normalize-order-form base-state without-flag)
-        normalized-nil-flag (trading/normalize-order-form base-state nil-flag)]
-    (is (= false (:pro-order-type-dropdown-open? normalized-without-flag)))
-    (is (= false (:pro-order-type-dropdown-open? normalized-nil-flag)))))
+(deftest order-form-ui-state-defaults-and-legacy-fallback-test
+  (let [no-ui-state (assoc base-state
+                           :order-form (trading/default-order-form)
+                           :order-form-ui nil)
+        legacy-flag-state (assoc base-state
+                                 :order-form (assoc (trading/default-order-form)
+                                                    :pro-order-type-dropdown-open? true)
+                                 :order-form-ui nil)
+        normalized-no-ui (trading/order-form-ui-state no-ui-state)
+        normalized-legacy (trading/order-form-ui-state legacy-flag-state)]
+    (is (false? (:pro-order-type-dropdown-open? normalized-no-ui)))
+    (is (false? (:price-input-focused? normalized-no-ui)))
+    (is (false? (:tpsl-panel-open? normalized-no-ui)))
+    (is (true? (:pro-order-type-dropdown-open? normalized-legacy)))))
 
 (deftest normalize-order-form-keeps-entry-mode-and-type-consistent-test
   (let [market-form (trading/normalize-order-form base-state {:entry-mode :market
@@ -660,3 +670,24 @@
       (is (true? (:read-only? asset-identity)))
       (is (true? (:hip3? dex-identity)))
       (is (true? (:read-only? dex-identity))))))
+
+(deftest submit-policy-reasons-test
+  (testing "view mode reports validation reason and required fields"
+    (let [form (assoc (trading/default-order-form) :type :limit :size "" :price "")
+          policy (trading/submit-policy base-state form {:mode :view})]
+      (is (= :validation-errors (:reason policy)))
+      (is (true? (:disabled? policy)))
+      (is (= ["Size"] (:required-fields policy)))))
+
+  (testing "submit mode reports agent readiness after request validation"
+    (let [state (assoc base-state
+                       :asset-contexts {:BTC {:idx 0}})
+          form (assoc (trading/default-order-form)
+                      :type :limit
+                      :side :buy
+                      :size "1"
+                      :price "100")
+          policy (trading/submit-policy state form {:mode :submit
+                                                    :agent-ready? false})]
+      (is (= :agent-not-ready (:reason policy)))
+      (is (= "Enable trading before submitting orders." (:error-message policy))))))

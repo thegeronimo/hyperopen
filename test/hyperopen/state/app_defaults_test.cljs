@@ -6,6 +6,7 @@
   (let [websocket-health {:transport {:state :connected}}
         default-agent-state {:status :ready :address "0xabc"}
         default-order-form {:side :buy}
+        default-order-form-ui {:price-input-focused? false}
         default-trade-history {:rows [1 2]}
         default-funding-history {:rows [3]}
         default-order-history {:rows [4 5]}
@@ -13,12 +14,14 @@
                {:websocket-health websocket-health
                 :default-agent-state default-agent-state
                 :default-order-form default-order-form
+                :default-order-form-ui default-order-form-ui
                 :default-trade-history default-trade-history
                 :default-funding-history default-funding-history
                 :default-order-history default-order-history})]
     (is (= websocket-health (get-in state [:websocket :health])))
     (is (= default-agent-state (get-in state [:wallet :agent])))
     (is (= default-order-form (get state :order-form)))
+    (is (= default-order-form-ui (get state :order-form-ui)))
     (is (= default-trade-history (get-in state [:account-info :trade-history])))
     (is (= default-funding-history (get-in state [:account-info :funding-history])))
     (is (= default-order-history (get-in state [:account-info :order-history])))
@@ -31,6 +34,7 @@
                {:websocket-health {}
                 :default-agent-state {}
                 :default-order-form {}
+                :default-order-form-ui {}
                 :default-trade-history {}
                 :default-funding-history {}
                 :default-order-history {}})]

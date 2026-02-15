@@ -13,12 +13,9 @@
    :side :buy
    :ui-leverage default-ui-leverage
    :size-percent 0
-   :pro-order-type-dropdown-open? false
-   :tpsl-panel-open? false
    :size-display ""
    :size ""
    :price ""
-   :price-input-focused? false
    :trigger-px ""
    :reduce-only false
    :post-only false
@@ -41,6 +38,11 @@
    :submitting? false
    :error nil})
 
+(defn default-order-form-ui []
+  {:pro-order-type-dropdown-open? false
+   :tpsl-panel-open? false
+   :price-input-focused? false})
+
 (defn normalize-scale-form [scale]
   (let [raw-scale (or scale {})
         raw-skew (:skew raw-scale)
@@ -58,9 +60,12 @@
      :count (or (:count raw-scale) default-scale-order-count)
      :skew normalized-skew}))
 
-(defn normalize-ui-flags [form]
+(defn normalize-order-form [form]
   (-> form
-      (assoc :pro-order-type-dropdown-open? (boolean (:pro-order-type-dropdown-open? form))
-             :price-input-focused? (boolean (:price-input-focused? form))
-             :tpsl-panel-open? (boolean (:tpsl-panel-open? form)))
       (assoc :scale (normalize-scale-form (:scale form)))))
+
+(defn normalize-order-form-ui [ui]
+  (assoc (default-order-form-ui)
+         :pro-order-type-dropdown-open? (boolean (:pro-order-type-dropdown-open? ui))
+         :price-input-focused? (boolean (:price-input-focused? ui))
+         :tpsl-panel-open? (boolean (:tpsl-panel-open? ui))))

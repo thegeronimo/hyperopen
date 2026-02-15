@@ -61,6 +61,7 @@
             [hyperopen.views.trading-chart.utils.indicators-test]
             [hyperopen.views.l2-orderbook-view-test]
             [hyperopen.views.typography-scale-test]
+            [hyperopen.views.trade.order-form-vm-test]
             [hyperopen.views.trade.order-form-view-test]
             [hyperopen.startup.init-test]
             [hyperopen.startup.collaborators-test]
@@ -140,6 +141,7 @@
              'hyperopen.views.trading-chart.utils.indicators-test
              'hyperopen.views.l2-orderbook-view-test
              'hyperopen.views.typography-scale-test
+             'hyperopen.views.trade.order-form-vm-test
              'hyperopen.views.trade.order-form-view-test
              'hyperopen.startup.init-test
              'hyperopen.startup.collaborators-test

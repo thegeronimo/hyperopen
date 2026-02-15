@@ -355,6 +355,7 @@
          #(contains? % :websocket-ui)
          #(contains? % :router)
          #(contains? % :order-form)
+         #(contains? % :order-form-ui)
          #(s/valid? ::active-asset (:active-asset %))
          #(s/valid? ::active-market (:active-market %))
          #(s/valid? ::asset-selector-state (:asset-selector %))
@@ -362,7 +363,8 @@
          #(s/valid? ::websocket-state (:websocket %))
          #(s/valid? ::websocket-ui-state (:websocket-ui %))
          #(s/valid? ::router-state (:router %))
-         #(map? (:order-form %))))
+         #(map? (:order-form %))
+         #(map? (:order-form-ui %))))
 
 (defn- assertion-error
   [label spec value context]

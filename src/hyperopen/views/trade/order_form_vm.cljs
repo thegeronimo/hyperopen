@@ -65,6 +65,10 @@
 
     :else nil))
 
+(defn- submit-tooltip-from-policy [submit-policy]
+  (submit-tooltip-message (:required-fields submit-policy)
+                          (:market-price-missing? submit-policy)))
+
 (defn- format-scale-preview-line [state edge raw-price base-symbol quote-symbol]
   (let [size (when (map? edge) (:size edge))
         price (when (map? edge) (:price edge))
@@ -79,12 +83,13 @@
 (defn order-form-vm [state]
   (let [form (:order-form state)
         normalized-form (trading/normalize-order-form state form)
+        ui-state (trading/order-form-ui-state state)
         {:keys [base-symbol quote-symbol spot? hip3? read-only?] :as market-identity}
         (trading/market-identity state)
         side (:side normalized-form)
         type (:type normalized-form)
         entry-mode (:entry-mode normalized-form)
-        pro-dropdown-open? (boolean (:pro-order-type-dropdown-open? normalized-form))
+        pro-dropdown-open? (boolean (:pro-order-type-dropdown-open? ui-state))
         market-mode? (= entry-mode :market)
         pro-mode? (= entry-mode :pro)
         limit-like? (trading/limit-like-type? type)
@@ -94,7 +99,7 @@
         max-leverage (trading/market-max-leverage state)
         size-percent (trading/clamp-percent (:size-percent normalized-form))
         raw-price (or (:price normalized-form) "")
-        price-input-focused? (boolean (:price-input-focused? normalized-form))
+        price-input-focused? (boolean (:price-input-focused? ui-state))
         fallback-limit-price (when limit-like?
                                (trading/effective-limit-price-string state normalized-form))
         display-price (cond
@@ -120,23 +125,26 @@
                                                     (get-in normalized-form [:scale :end])
                                                     base-symbol
                                                     quote-symbol)
+        price-context-summary (trading/mid-price-summary state normalized-form)
+        mid-available? (= :mid (:source price-context-summary))
+        price-context {:label (if mid-available? "Mid" "Ref")
+                       :mid-available? mid-available?}
         submitting? (:submitting? normalized-form)
-        submit-prep (trading/prepare-order-form-for-submit state normalized-form)
-        submit-form (:form submit-prep)
-        market-price-missing? (:market-price-missing? submit-prep)
-        submit-errors (trading/validate-order-form state submit-form)
-        required-submit-fields (trading/submit-required-fields submit-errors)
-        submit-tooltip (submit-tooltip-message required-submit-fields market-price-missing?)
-        submit-disabled? (boolean (or submitting?
-                                      read-only?
-                                      market-price-missing?
-                                      (seq submit-errors)))]
+        submit-policy (trading/submit-policy state normalized-form {:mode :view
+                                                                    :submitting? submitting?})
+        submit-form (:form submit-policy)
+        submit-errors (:errors submit-policy)
+        required-submit-fields (:required-fields submit-policy)
+        submit-tooltip (submit-tooltip-from-policy submit-policy)
+        submit-disabled? (:disabled? submit-policy)]
     {:form normalized-form
+     :ui-state ui-state
      :identity market-identity
      :side side
      :type type
      :entry-mode entry-mode
      :pro-dropdown-open? pro-dropdown-open?
+     :tpsl-panel-open? (boolean (:tpsl-panel-open? ui-state))
      :pro-dropdown-options (pro-dropdown-options)
      :pro-tab-label (pro-tab-label entry-mode type)
      :order-type-sections (order-type-sections type)
@@ -157,7 +165,8 @@
      :price {:raw raw-price
              :display display-price
              :focused? price-input-focused?
-             :fallback fallback-limit-price}
+             :fallback fallback-limit-price
+             :context price-context}
      :base-symbol base-symbol
      :quote-symbol quote-symbol
      :scale-preview-lines {:start start-preview-line
@@ -173,6 +182,8 @@
      :submit {:form submit-form
               :errors submit-errors
               :required-fields required-submit-fields
+              :reason (:reason submit-policy)
+              :error-message (:error-message submit-policy)
               :tooltip submit-tooltip
-              :market-price-missing? market-price-missing?
+              :market-price-missing? (:market-price-missing? submit-policy)
               :disabled? submit-disabled?}}))

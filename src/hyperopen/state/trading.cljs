@@ -35,6 +35,37 @@
 (defn default-order-form []
   (order-form-state/default-order-form))
 
+(defn default-order-form-ui []
+  (order-form-state/default-order-form-ui))
+
+(def ^:private order-form-ui-flag-keys
+  [:pro-order-type-dropdown-open?
+   :price-input-focused?
+   :tpsl-panel-open?])
+
+(declare normalize-order-form build-order-request)
+
+(defn normalize-order-form-ui [ui]
+  (order-form-state/normalize-order-form-ui ui))
+
+(defn effective-order-form-ui
+  "Return normalized order-form UI flags with type-based invariants."
+  [form ui]
+  (let [normalized-form (or form {})
+        normalized-ui (normalize-order-form-ui ui)
+        order-type (normalize-order-type (:type normalized-form))]
+    (cond-> normalized-ui
+      (not (limit-like-type? order-type)) (assoc :price-input-focused? false)
+      (= :scale order-type) (assoc :tpsl-panel-open? false))))
+
+(defn order-form-ui-state
+  "Return effective UI flags for order form from :order-form-ui with legacy fallback."
+  [state]
+  (let [legacy-flags (select-keys (:order-form state) order-form-ui-flag-keys)
+        ui-state (merge legacy-flags (:order-form-ui state))
+        normalized-form (normalize-order-form state (:order-form state))]
+    (effective-order-form-ui normalized-form ui-state)))
+
 (defn market-identity [state]
   (trading-domain/market-identity {:active-asset (:active-asset state)
                                    :market (:active-market state)}))
@@ -132,16 +163,14 @@
                      :market :market
                      :limit :limit
                      (normalize-pro-order-type normalized-type))
-        normalized-form (-> form
-                            (order-form-state/normalize-ui-flags)
+        normalized-form (-> (reduce dissoc form order-form-ui-flag-keys)
+                            (order-form-state/normalize-order-form)
                             (assoc :entry-mode entry-mode
                                    :type final-type
                                    :size-display (or (:size-display form) (:size form) "")
                                    :size-percent (clamp-percent (:size-percent form))
                                    :ui-leverage (trading-domain/normalize-ui-leverage context (:ui-leverage form))))]
     (cond-> normalized-form
-      (not (limit-like-type? final-type)) (assoc :price-input-focused? false)
-      (= :scale final-type) (assoc :tpsl-panel-open? false)
       (= :scale final-type) (assoc-in [:tp :enabled?] false)
       (= :scale final-type) (assoc-in [:sl :enabled?] false))))
 
@@ -195,6 +224,73 @@
     {:form form*
      :market-price-missing? (and (= :market (:type normalized-form))
                                  (nil? market-form))}))
+
+(defn submit-policy
+  "Return deterministic submit policy for order-form view and submit action.
+   mode :view -> use read-only/validation/market-price/submitting gates.
+   mode :submit -> use read-only/validation/market-price/request/agent gates.
+   {:form prepared-form
+    :request request|nil
+    :errors vector
+    :required-fields vector
+    :market-price-missing? boolean
+    :identity market-identity-map
+    :reason keyword|nil
+    :disabled? boolean
+    :error-message string|nil}"
+  ([state form]
+   (submit-policy state form {}))
+  ([state form {:keys [mode submitting? agent-ready?]
+                :or {mode :view
+                     submitting? false}}]
+   (let [submit-prep (prepare-order-form-for-submit state form)
+         prepared-form (:form submit-prep)
+         market-price-missing? (:market-price-missing? submit-prep)
+         identity (market-identity state)
+         spot? (:spot? identity)
+         hip3? (:hip3? identity)
+         errors (validate-order-form state prepared-form)
+         required-fields (submit-required-fields errors)
+         request (when (= mode :submit)
+                   (build-order-request state prepared-form))
+         reason (case mode
+                  :submit
+                  (cond
+                    spot? :spot-read-only
+                    hip3? :hip3-read-only
+                    market-price-missing? :market-price-missing
+                    (seq errors) :validation-errors
+                    (nil? request) :request-unavailable
+                    (false? agent-ready?) :agent-not-ready
+                    :else nil)
+
+                  :view
+                  (cond
+                    submitting? :submitting
+                    spot? :spot-read-only
+                    hip3? :hip3-read-only
+                    market-price-missing? :market-price-missing
+                    (seq errors) :validation-errors
+                    :else nil)
+
+                  nil)
+         error-message (case reason
+                         :spot-read-only "Spot trading is not supported yet."
+                         :hip3-read-only "HIP-3 trading is not supported yet."
+                         :market-price-missing "Market price unavailable. Load order book first."
+                         :validation-errors (validation-error-message (first errors))
+                         :request-unavailable "Select an asset and ensure market data is loaded."
+                         :agent-not-ready "Enable trading before submitting orders."
+                         nil)]
+     {:form prepared-form
+      :request request
+      :errors errors
+      :required-fields required-fields
+      :market-price-missing? market-price-missing?
+      :identity identity
+      :reason reason
+      :disabled? (boolean reason)
+      :error-message error-message})))
 
 (defn build-order-request [state form]
   (order-commands/build-order-request (trading-context state) form))
