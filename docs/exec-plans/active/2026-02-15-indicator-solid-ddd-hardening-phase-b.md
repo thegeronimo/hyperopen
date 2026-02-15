@@ -19,7 +19,7 @@ The indicator architecture has improved, but there are still gaps against SOLID/
 - [x] (2026-02-15 19:32Z) Milestone 6 completed: phase evidence recorded; plan kept active for follow-on SOLID/DDD slices.
 - [x] (2026-02-15 20:10Z) Milestone 7 completed: moved style metadata from view adapter into dedicated style catalog namespace with semantic family projections.
 - [ ] Milestone 8: break large family modules into smaller semantic domain namespaces while preserving registry routing (completed: extracted momentum + statistics oscillators into `/hyperopen/src/hyperopen/domain/trading/indicators/oscillators/{momentum,statistics}.cljs` and extracted trend regression calculators into `/hyperopen/src/hyperopen/domain/trading/indicators/trend/regression.cljs`; remaining: split additional oscillator/trend/volatility semantic slices).
-- [ ] Milestone 9: remove remaining dual-maintenance coupling between catalog definitions and calculator maps.
+- [ ] Milestone 9: remove remaining dual-maintenance coupling between catalog definitions and calculator maps (completed: added family parity guards and tests; remaining: move from guardrails to single-source declaration model).
 - [ ] Milestone 10: extract remaining heavy private math/stat helpers to dedicated reusable math/statistics namespaces.
 
 ## Surprises & Discoveries
@@ -38,6 +38,8 @@ The indicator architecture has improved, but there are still gaps against SOLID/
   Evidence: `/hyperopen/src/hyperopen/domain/trading/indicators/oscillators/statistics.cljs` now owns Pearson/rolling-correlation/TSI helpers and related calculators.
 - Observation: trend regression indicators can be extracted cleanly as a cohesive semantic unit with no registry/public API changes.
   Evidence: LSMA/LRC/LRS calculators now live in `/hyperopen/src/hyperopen/domain/trading/indicators/trend/regression.cljs` and are referenced through the existing trend calculator map.
+- Observation: parity guardrails can catch catalog/calculator drift immediately with minimal runtime impact.
+  Evidence: `test/hyperopen/domain/trading/indicators/family_parity_test.cljs` asserts equality between catalog IDs and supported calculator IDs for all six families.
 
 ## Decision Log
 
@@ -58,6 +60,9 @@ The indicator architecture has improved, but there are still gaps against SOLID/
   Date/Author: 2026-02-15 / Codex
 - Decision: continue Milestone 8 by extracting trend regression as a second family slice.
   Rationale: regression calculators have clear cohesion and minimal dependencies, making them an effective next extraction target.
+  Date/Author: 2026-02-15 / Codex
+- Decision: implement interim family parity guardrails as the first Milestone 9 step.
+  Rationale: this prevents silent drift while larger single-source calculator/metadata unification is still in progress.
   Date/Author: 2026-02-15 / Codex
 
 ## Outcomes & Retrospective
@@ -132,6 +137,7 @@ Validation evidence from `/hyperopen`:
 - After style-catalog extraction, gates passed again: `npm run check`, `npm test`, and `npm run test:websocket` with zero failures.
 - After momentum sub-namespace extraction, gates passed again: `npm run check`, `npm test`, and `npm run test:websocket` with zero failures.
 - After trend regression extraction, gates passed again: `npm run check`, `npm test`, and `npm run test:websocket` with zero failures.
+- After family parity guardrails were added, gates passed again: `npm run check`, `npm test`, and `npm run test:websocket` with zero failures.
 
 ## Interfaces and Dependencies
 
@@ -149,3 +155,4 @@ Plan revision note: 2026-02-15 20:10Z - Completed Milestone 7 by extracting styl
 Plan revision note: 2026-02-15 20:25Z - Started Milestone 8 with momentum oscillator extraction and revalidated all required gates.
 Plan revision note: 2026-02-15 20:45Z - Extended Milestone 8 with statistics oscillator extraction and revalidated all required gates.
 Plan revision note: 2026-02-15 21:00Z - Extended Milestone 8 with trend regression extraction and revalidated all required gates.
+Plan revision note: 2026-02-15 21:15Z - Started Milestone 9 with catalog/calculator parity guardrails and revalidated all required gates.

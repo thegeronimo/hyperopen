@@ -478,6 +478,10 @@
    :volatility-ohlc calculate-volatility-ohlc
    :volatility-zero-trend-close-to-close calculate-volatility-zero-trend-close-to-close})
 
+(defn supported-volatility-indicator-ids
+  []
+  (set (keys volatility-calculators)))
+
 (defn calculate-volatility-indicator
   [indicator-type data params]
   (let [config (or params {})

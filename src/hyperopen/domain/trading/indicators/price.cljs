@@ -63,6 +63,10 @@
    :median-price calculate-median-price
    :typical-price calculate-typical-price})
 
+(defn supported-price-indicator-ids
+  []
+  (set (keys price-calculators)))
+
 (defn calculate-price-indicator
   [indicator-type data params]
   (let [config (or params {})

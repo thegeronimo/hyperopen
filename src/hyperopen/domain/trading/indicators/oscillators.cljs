@@ -843,6 +843,10 @@
    :williams-r momentum/calculate-williams-r
    :ultimate-oscillator calculate-ultimate-oscillator})
 
+(defn supported-oscillator-indicator-ids
+  []
+  (set (keys oscillator-calculators)))
+
 (defn calculate-oscillator-indicator
   [indicator-type data params]
   (let [config (or params {})

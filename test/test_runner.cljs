@@ -6,6 +6,7 @@
             [hyperopen.account.history.effects-test]
             [hyperopen.domain.trading.indicators.math-adapter-test]
             [hyperopen.domain.trading.indicators.contracts-test]
+            [hyperopen.domain.trading.indicators.family-parity-test]
             [hyperopen.domain.trading.indicators.registry-test]
             [hyperopen.domain.trading.indicators.heavy-algorithms-test]
             [hyperopen.domain.trading.indicators.structure-test]
@@ -83,6 +84,7 @@
              'hyperopen.account.history.effects-test
              'hyperopen.domain.trading.indicators.math-adapter-test
              'hyperopen.domain.trading.indicators.contracts-test
+             'hyperopen.domain.trading.indicators.family-parity-test
              'hyperopen.domain.trading.indicators.registry-test
              'hyperopen.domain.trading.indicators.heavy-algorithms-test
              'hyperopen.domain.trading.indicators.structure-test

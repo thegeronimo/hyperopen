@@ -255,6 +255,10 @@
    :williams-fractal calculate-williams-fractal
    :zig-zag calculate-zig-zag})
 
+(defn supported-structure-indicator-ids
+  []
+  (set (keys structure-calculators)))
+
 (defn calculate-structure-indicator
   [indicator-type data params]
   (let [config (or params {})

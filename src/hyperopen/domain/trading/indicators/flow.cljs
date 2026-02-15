@@ -235,6 +235,10 @@
    :elders-force-index calculate-elders-force-index
    :money-flow-index calculate-money-flow-index})
 
+(defn supported-flow-indicator-ids
+  []
+  (set (keys flow-calculators)))
+
 (defn calculate-flow-indicator
   [indicator-type data params]
   (let [config (or params {})

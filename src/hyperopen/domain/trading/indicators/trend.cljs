@@ -776,6 +776,10 @@
    :vwma calculate-vwma
    :williams-alligator calculate-williams-alligator})
 
+(defn supported-trend-indicator-ids
+  []
+  (set (keys trend-calculators)))
+
 (defn calculate-trend-indicator
   [indicator-type data params]
   (let [config (or params {})
