@@ -123,6 +123,30 @@
     :max-period 400
     :default-config {:period 20}
     :migrated-from :wave2}
+   {:id :ema-cross
+    :name "EMA Cross"
+    :short-name "EMA X"
+    :description "Fast and slow EMA crossover lines"
+    :supports-period? false
+    :default-config {:fast 12
+                     :slow 26}
+    :migrated-from :wave2}
+   {:id :ma-cross
+    :name "MA Cross"
+    :short-name "MA X"
+    :description "Fast and slow simple moving average crossover"
+    :supports-period? false
+    :default-config {:fast 9
+                     :slow 21}
+    :migrated-from :wave2}
+   {:id :ma-with-ema-cross
+    :name "MA with EMA Cross"
+    :short-name "MA/EMA X"
+    :description "Simple moving average crossed with exponential moving average"
+    :supports-period? false
+    :default-config {:ma-period 20
+                     :ema-period 50}
+    :migrated-from :wave2}
    {:id :guppy-multiple-moving-average
     :name "Guppy Multiple Moving Average"
     :short-name "GMMA"
@@ -191,6 +215,10 @@
 (defn- sma-values
   [values period]
   (imath/sma-values values period :lagged))
+
+(defn- sma-aligned-values
+  [values period]
+  (imath/sma-values values period :aligned))
 
 (defn- rma-values
   [values period]
@@ -492,6 +520,42 @@
                              :overlay
                              [(result/line-series :tema values)])))
 
+(defn- calculate-ema-cross
+  [data params]
+  (let [fast (parse-period (:fast params) 12 1 200)
+        slow (parse-period (:slow params) 26 2 400)
+        close-values (field-values data :close)
+        fast-line (normalize-values (ema (into-array close-values) #js {:period fast}))
+        slow-line (normalize-values (ema (into-array close-values) #js {:period slow}))]
+    (result/indicator-result :ema-cross
+                             :overlay
+                             [(result/line-series :fast fast-line)
+                              (result/line-series :slow slow-line)])))
+
+(defn- calculate-ma-cross
+  [data params]
+  (let [fast (parse-period (:fast params) 9 1 200)
+        slow (parse-period (:slow params) 21 2 400)
+        close-values (field-values data :close)
+        fast-line (sma-aligned-values close-values fast)
+        slow-line (sma-aligned-values close-values slow)]
+    (result/indicator-result :ma-cross
+                             :overlay
+                             [(result/line-series :fast fast-line)
+                              (result/line-series :slow slow-line)])))
+
+(defn- calculate-ma-with-ema-cross
+  [data params]
+  (let [ma-period (parse-period (:ma-period params) 20 2 400)
+        ema-period (parse-period (:ema-period params) 50 2 400)
+        close-values (field-values data :close)
+        ma-line (sma-aligned-values close-values ma-period)
+        ema-line (normalize-values (ema (into-array close-values) #js {:period ema-period}))]
+    (result/indicator-result :ma-with-ema-cross
+                             :overlay
+                             [(result/line-series :ma ma-line)
+                              (result/line-series :ema ema-line)])))
+
 (defn- calculate-guppy-multiple-moving-average
   [data _params]
   (let [close-values (field-values data :close)
@@ -605,8 +669,11 @@
    :aroon calculate-aroon
    :adx calculate-adx
    :double-ema calculate-double-ema
+   :ema-cross calculate-ema-cross
    :guppy-multiple-moving-average calculate-guppy-multiple-moving-average
    :hull-moving-average calculate-hull-moving-average
+   :ma-cross calculate-ma-cross
+   :ma-with-ema-cross calculate-ma-with-ema-cross
    :mcginley-dynamic calculate-mcginley-dynamic
    :moving-average-adaptive calculate-moving-average-adaptive
    :moving-average-double calculate-moving-average-double

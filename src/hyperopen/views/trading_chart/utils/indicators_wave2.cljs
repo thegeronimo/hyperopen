@@ -1,6 +1,6 @@
 (ns hyperopen.views.trading-chart.utils.indicators-wave2
   (:require [hyperopen.domain.trading.indicators.math :as imath]
-            ["indicatorts" :refer [apo cci cmf cmo ema emv fi ichimokuCloud kc macd mfi mi movingLeastSquare movingLinearRegressionUsingLeastSquare psar rsi stoch trix vortex vwap vwma willr]]))
+            ["indicatorts" :refer [apo cci cmf cmo emv fi ichimokuCloud kc macd mfi mi movingLeastSquare movingLinearRegressionUsingLeastSquare psar rsi stoch trix vortex vwap vwma willr]]))
 
 (def ^:private wave2-indicator-definitions
   [{:id :bollinger-bands-percent-b
@@ -111,13 +111,6 @@
     :min-period 2
     :max-period 200
     :default-config {:period 13}}
-   {:id :ema-cross
-    :name "EMA Cross"
-    :short-name "EMA X"
-    :description "Fast and slow EMA crossover lines"
-    :supports-period? false
-    :default-config {:fast 12
-                     :slow 26}}
    {:id :envelopes
     :name "Envelopes"
     :short-name "ENV"
@@ -183,20 +176,6 @@
     :min-period 2
     :max-period 400
     :default-config {:period 25}}
-   {:id :ma-cross
-    :name "MA Cross"
-    :short-name "MA X"
-    :description "Fast and slow simple moving average crossover"
-    :supports-period? false
-    :default-config {:fast 9
-                     :slow 21}}
-   {:id :ma-with-ema-cross
-    :name "MA with EMA Cross"
-    :short-name "MA/EMA X"
-    :description "Simple moving average crossed with exponential moving average"
-    :supports-period? false
-    :default-config {:ma-period 20
-                     :ema-period 50}}
    {:id :macd
     :name "MACD"
     :short-name "MACD"
@@ -756,19 +735,6 @@
                       :separate
                       [(line-series :efi "EFI" "#e879f9" time-values values)])))
 
-(defn- calculate-ema-cross
-  [data params]
-  (let [fast (parse-period (:fast params) 12 1 200)
-        slow (parse-period (:slow params) 26 2 400)
-        time-values (times data)
-        close-values (closes data)
-        fast-line (normalize-values (ema (js-array close-values) #js {:period fast}))
-        slow-line (normalize-values (ema (js-array close-values) #js {:period slow}))]
-    (indicator-result :ema-cross
-                      :overlay
-                      [(line-series :fast "EMA Fast" "#22c55e" time-values fast-line)
-                       (line-series :slow "EMA Slow" "#ef4444" time-values slow-line)])))
-
 (defn- calculate-envelopes
   [data params]
   (let [period (parse-period (:period params) 20 2 400)
@@ -893,32 +859,6 @@
     (indicator-result :linear-regression-slope
                       :separate
                       [(line-series :slope "LRS" "#c084fc" time-values slope)])))
-
-(defn- calculate-ma-cross
-  [data params]
-  (let [fast (parse-period (:fast params) 9 1 200)
-        slow (parse-period (:slow params) 21 2 400)
-        close-values (closes data)
-        fast-line (sma-values close-values fast)
-        slow-line (sma-values close-values slow)
-        time-values (times data)]
-    (indicator-result :ma-cross
-                      :overlay
-                      [(line-series :fast "MA Fast" "#22c55e" time-values fast-line)
-                       (line-series :slow "MA Slow" "#ef4444" time-values slow-line)])))
-
-(defn- calculate-ma-with-ema-cross
-  [data params]
-  (let [ma-period (parse-period (:ma-period params) 20 2 400)
-        ema-period (parse-period (:ema-period params) 50 2 400)
-        close-values (closes data)
-        ma-line (sma-values close-values ma-period)
-        ema-line (normalize-values (ema (js-array close-values) #js {:period ema-period}))
-        time-values (times data)]
-    (indicator-result :ma-with-ema-cross
-                      :overlay
-                      [(line-series :ma "MA" "#22c55e" time-values ma-line)
-                       (line-series :ema "EMA" "#ef4444" time-values ema-line)])))
 
 (defn- calculate-macd
   [data params]
@@ -1286,7 +1226,6 @@
    :donchian-channels calculate-donchian-channels
    :ease-of-movement calculate-ease-of-movement
    :elders-force-index calculate-elders-force-index
-   :ema-cross calculate-ema-cross
    :envelopes calculate-envelopes
    :historical-volatility calculate-historical-volatility
    :ichimoku-cloud calculate-ichimoku-cloud
@@ -1294,8 +1233,6 @@
    :least-squares-moving-average calculate-least-squares-moving-average
    :linear-regression-curve calculate-linear-regression-curve
    :linear-regression-slope calculate-linear-regression-slope
-   :ma-cross calculate-ma-cross
-   :ma-with-ema-cross calculate-ma-with-ema-cross
    :macd calculate-macd
    :mass-index calculate-mass-index
    :money-flow-index calculate-money-flow-index

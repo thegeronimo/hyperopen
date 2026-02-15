@@ -56,6 +56,12 @@
    [:moving-average-weighted :wma] {:name "WMA" :color "#38bdf8"}
    [:smoothed-moving-average :smma] {:name "SMMA" :color "#22d3ee"}
    [:triple-ema :tema] {:name "TEMA" :color "#22d3ee"}
+   [:ema-cross :fast] {:name "EMA Fast" :color "#22c55e"}
+   [:ema-cross :slow] {:name "EMA Slow" :color "#ef4444"}
+   [:ma-cross :fast] {:name "MA Fast" :color "#22c55e"}
+   [:ma-cross :slow] {:name "MA Slow" :color "#ef4444"}
+   [:ma-with-ema-cross :ma] {:name "MA" :color "#22c55e"}
+   [:ma-with-ema-cross :ema] {:name "EMA" :color "#ef4444"}
    [:on-balance-volume :obv] {:name "OBV" :color "#22c55e"}
    [:price-volume-trend :pvt] {:name "PVT" :color "#06b6d4"}
    [:volume-oscillator :pvo] {:name "PVO" :color "#38bdf8"}
