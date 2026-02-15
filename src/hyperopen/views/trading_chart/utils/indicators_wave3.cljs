@@ -202,45 +202,6 @@
     :default-config {:short 7
                      :medium 14
                      :long 28}}
-   {:id :volatility-close-to-close
-    :name "Volatility Close-to-Close"
-    :short-name "Vol C-C"
-    :description "Annualized volatility of log close returns"
-    :supports-period? true
-    :default-period 20
-    :min-period 2
-    :max-period 400
-    :default-config {:period 20
-                     :annualization 365}}
-   {:id :volatility-index
-    :name "Volatility Index"
-    :short-name "VolIdx"
-    :description "ATR as percent of close"
-    :supports-period? true
-    :default-period 14
-    :min-period 2
-    :max-period 400
-    :default-config {:period 14}}
-   {:id :volatility-ohlc
-    :name "Volatility O-H-L-C"
-    :short-name "Vol OHLC"
-    :description "Annualized Garman-Klass volatility"
-    :supports-period? true
-    :default-period 20
-    :min-period 2
-    :max-period 400
-    :default-config {:period 20
-                     :annualization 365}}
-   {:id :volatility-zero-trend-close-to-close
-    :name "Volatility Zero Trend Close-to-Close"
-    :short-name "Vol ZT C-C"
-    :description "Detrended annualized close-to-close volatility"
-    :supports-period? true
-    :default-period 20
-    :min-period 2
-    :max-period 400
-    :default-config {:period 20
-                     :annualization 365}}
    {:id :volume
     :name "Volume"
     :short-name "VOL"
@@ -1223,113 +1184,6 @@
                       :separate
                       [(line-series :uo "Ultimate Osc" "#a78bfa" time-values values)])))
 
-(defn- calculate-volatility-close-to-close
-  [data params]
-  (let [period (parse-period (:period params) 20 2 400)
-        annualization (parse-number (:annualization params) 365)
-        close-values (closes data)
-        size (count data)
-        log-returns (mapv (fn [idx]
-                            (if (zero? idx)
-                              nil
-                              (let [current (nth close-values idx)
-                                    previous (nth close-values (dec idx))]
-                                (when (and (finite-number? current)
-                                           (finite-number? previous)
-                                           (pos? current)
-                                           (pos? previous))
-                                  (js/Math.log (/ current previous))))))
-                          (range size))
-        values (mapv (fn [stdev]
-                       (when (finite-number? stdev)
-                         (* 100 stdev (js/Math.sqrt annualization))))
-                     (stddev-values log-returns period))
-        time-values (times data)]
-    (indicator-result :volatility-close-to-close
-                      :separate
-                      [(line-series :vol-cc "Vol C-C" "#22d3ee" time-values values)])))
-
-(defn- calculate-volatility-index
-  [data params]
-  (let [period (parse-period (:period params) 14 2 400)
-        atr (rma-values (true-range-values data) period)
-        close-values (closes data)
-        values (mapv (fn [a c]
-                       (when (and (finite-number? a)
-                                  (finite-number? c)
-                                  (not= c 0))
-                         (* 100 (/ a c))))
-                     atr close-values)
-        time-values (times data)]
-    (indicator-result :volatility-index
-                      :separate
-                      [(line-series :vol-index "Vol Index" "#f97316" time-values values)])))
-
-(defn- calculate-volatility-ohlc
-  [data params]
-  (let [period (parse-period (:period params) 20 2 400)
-        annualization (parse-number (:annualization params) 365)
-        opens-v (opens data)
-        highs-v (highs data)
-        lows-v (lows data)
-        closes-v (closes data)
-        size (count data)
-        rs (mapv (fn [idx]
-                   (let [open (nth opens-v idx)
-                         high (nth highs-v idx)
-                         low (nth lows-v idx)
-                         close (nth closes-v idx)]
-                     (when (every? finite-number? [open high low close])
-                       (let [log-hl (when (and (> high 0) (> low 0))
-                                      (js/Math.log (/ high low)))
-                             log-co (when (and (> close 0) (> open 0))
-                                      (js/Math.log (/ close open)))]
-                         (when (and (finite-number? log-hl)
-                                    (finite-number? log-co))
-                           (- (* 0.5 (* log-hl log-hl))
-                              (* (- (* 2 (js/Math.log 2)) 1)
-                                 (* log-co log-co))))))))
-                 (range size))
-        values (mapv (fn [avg]
-                       (when (and (finite-number? avg)
-                                  (not (neg? avg)))
-                         (* 100 (js/Math.sqrt (* annualization avg)))))
-                     (sma-values rs period))
-        time-values (times data)]
-    (indicator-result :volatility-ohlc
-                      :separate
-                      [(line-series :vol-ohlc "Vol OHLC" "#22d3ee" time-values values)])))
-
-(defn- calculate-volatility-zero-trend-close-to-close
-  [data params]
-  (let [period (parse-period (:period params) 20 2 400)
-        annualization (parse-number (:annualization params) 365)
-        close-values (closes data)
-        trend (sma-values close-values period)
-        size (count data)
-        detrended (mapv (fn [close avg]
-                          (when (and (finite-number? close)
-                                     (finite-number? avg))
-                            (- close avg)))
-                        close-values trend)
-        returns (mapv (fn [idx]
-                        (if (zero? idx)
-                          nil
-                          (let [current (nth detrended idx)
-                                previous (nth detrended (dec idx))]
-                            (when (and (finite-number? current)
-                                       (finite-number? previous))
-                              (- current previous)))))
-                      (range size))
-        values (mapv (fn [stdev]
-                       (when (finite-number? stdev)
-                         (* 100 stdev (js/Math.sqrt annualization))))
-                     (stddev-values returns period))
-        time-values (times data)]
-    (indicator-result :volatility-zero-trend-close-to-close
-                      :separate
-                      [(line-series :vol-zt-cc "Vol ZT C-C" "#a855f7" time-values values)])))
-
 (defn- calculate-volume
   [data _params]
   (let [time-values (times data)
@@ -1540,10 +1394,6 @@
    :smi-ergodic calculate-smi-ergodic
    :spread calculate-spread
    :ultimate-oscillator calculate-ultimate-oscillator
-   :volatility-close-to-close calculate-volatility-close-to-close
-   :volatility-index calculate-volatility-index
-   :volatility-ohlc calculate-volatility-ohlc
-   :volatility-zero-trend-close-to-close calculate-volatility-zero-trend-close-to-close
    :volume calculate-volume
    :williams-alligator calculate-williams-alligator
    :williams-fractal calculate-williams-fractal

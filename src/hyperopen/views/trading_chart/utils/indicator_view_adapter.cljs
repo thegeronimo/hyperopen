@@ -25,7 +25,11 @@
    [:standard-error :stderr] {:name "StdErr" :color "#22d3ee"}
    [:standard-error-bands :upper] {:name "SE Upper" :color "#22c55e"}
    [:standard-error-bands :center] {:name "SE Mid" :color "#f59e0b"}
-   [:standard-error-bands :lower] {:name "SE Lower" :color "#ef4444"}})
+   [:standard-error-bands :lower] {:name "SE Lower" :color "#ef4444"}
+   [:volatility-close-to-close :vol-cc] {:name "Vol C-C" :color "#22d3ee"}
+   [:volatility-index :vol-index] {:name "Vol Index" :color "#f97316"}
+   [:volatility-ohlc :vol-ohlc] {:name "Vol OHLC" :color "#22d3ee"}
+   [:volatility-zero-trend-close-to-close :vol-zt-cc] {:name "Vol ZT C-C" :color "#a855f7"}})
 
 (def ^:private histogram-series-meta
   {[:awesome-oscillator :ao] {:name "AO"
