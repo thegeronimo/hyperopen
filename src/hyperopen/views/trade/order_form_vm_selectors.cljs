@@ -25,9 +25,22 @@
 (defn display-size-percent [size-percent]
   (str (int (js/Math.round size-percent))))
 
-(defn show-limit-like-controls? [entry-mode order-type]
-  (and (not= entry-mode :market)
-       (trading/limit-like-type? order-type)))
+(defn order-type-controls
+  [{:keys [entry-mode
+           pro-mode?
+           tpsl-panel-open?
+           order-type-capabilities]}]
+  (let [limit-like? (boolean (:limit-like? order-type-capabilities))
+        supports-tpsl? (boolean (:supports-tpsl? order-type-capabilities))
+        supports-post-only? (boolean (:supports-post-only? order-type-capabilities))]
+    {:limit-like? limit-like?
+     :show-limit-like-controls? (and (not= entry-mode :market) limit-like?)
+     :show-tpsl-toggle? supports-tpsl?
+     :show-tpsl-panel? (and supports-tpsl? tpsl-panel-open?)
+     :show-post-only? (and pro-mode? supports-post-only?)
+     :show-scale-preview? (boolean (:show-scale-preview? order-type-capabilities))
+     :show-liquidation-row? (boolean (:show-liquidation-row? order-type-capabilities))
+     :show-slippage-row? (boolean (:show-slippage-row? order-type-capabilities))}))
 
 (defn price-model [state normalized-form ui-state limit-like?]
   (let [raw-price (or (:price normalized-form) "")

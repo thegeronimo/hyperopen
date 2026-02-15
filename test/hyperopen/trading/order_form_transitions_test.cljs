@@ -1,6 +1,6 @@
 (ns hyperopen.trading.order-form-transitions-test
   (:require [cljs.test :refer-macros [deftest is testing]]
-            [hyperopen.trading.order-form-contracts :as contracts]
+            [hyperopen.schema.order-form-contracts :as contracts]
             [hyperopen.trading.order-type-registry :as order-type-registry]
             [hyperopen.state.trading :as trading]
             [hyperopen.trading.order-form-transitions :as transitions]))
@@ -38,7 +38,7 @@
                         (transitions/set-order-price-to-mid state)
                         (transitions/update-order-form state [:side] :sell)]]
       (is (map? transition))
-      (is (contracts/transition-valid? transition))
+      (is (contracts/order-form-transition-valid? transition))
       (when-let [runtime (:order-form-runtime transition)]
         (is (boolean? (:submitting? runtime)))
         (is (nil? (:error runtime)))))))
@@ -75,7 +75,7 @@
       (let [transition (transitions/select-entry-mode state mode)
             form (:order-form transition)
             order-type (:type form)]
-        (is (contracts/transition-valid? transition))
+        (is (contracts/order-form-transition-valid? transition))
         (is (= mode (:entry-mode form)))
         (cond
           (= mode :market) (is (= :market order-type))
@@ -84,14 +84,129 @@
     (doseq [order-type (order-type-registry/pro-order-types)]
       (let [transition (transitions/select-pro-order-type state order-type)
             form (:order-form transition)]
-        (is (contracts/transition-valid? transition))
+        (is (contracts/order-form-transition-valid? transition))
         (is (= :pro (:entry-mode form)))
         (is (= order-type (:type form)))))))
 
 (deftest update-order-form-rejects-ui-and-runtime-paths-test
   (let [state (base-state {:type :limit :size "1" :price "100"})
         transition (transitions/update-order-form state [:price-input-focused?] true)]
-    (is (contracts/transition-valid? transition))
+    (is (contracts/order-form-transition-valid? transition))
     (is (nil? (:order-form transition)))
     (is (nil? (:order-form-ui transition)))
     (is (= nil (get-in transition [:order-form-runtime :error])))))
+
+(def ^:private ui-only-form-paths
+  #{:pro-order-type-dropdown-open?
+    :price-input-focused?
+    :tpsl-panel-open?
+    :submitting?
+    :error})
+
+(defn- next-seed [seed]
+  (mod (+ (* 1103515245 seed) 12345) 2147483648))
+
+(def ^:private simulation-intents
+  [:select-entry-market
+   :select-entry-limit
+   :select-entry-pro
+   :select-pro-order-type
+   :set-ui-leverage
+   :set-size-percent
+   :set-size-display
+   :focus-price
+   :blur-price
+   :set-mid-price
+   :toggle-tpsl
+   :set-side
+   :set-price
+   :set-tif
+   :keydown-pro-dropdown])
+
+(defn- run-intent [state intent seed]
+  (let [pro-types (vec (order-type-registry/pro-order-types))]
+    (case intent
+      :select-entry-market
+      (transitions/select-entry-mode state :market)
+
+      :select-entry-limit
+      (transitions/select-entry-mode state :limit)
+
+      :select-entry-pro
+      (transitions/select-entry-mode state :pro)
+
+      :select-pro-order-type
+      (transitions/select-pro-order-type state (nth pro-types (mod seed (count pro-types))))
+
+      :set-ui-leverage
+      (transitions/set-order-ui-leverage state (+ 1 (mod seed 80)))
+
+      :set-size-percent
+      (transitions/set-order-size-percent state (- (mod seed 180) 40))
+
+      :set-size-display
+      (transitions/set-order-size-display state (str (/ (mod seed 5000) 10)))
+
+      :focus-price
+      (transitions/focus-order-price-input state)
+
+      :blur-price
+      (transitions/blur-order-price-input state)
+
+      :set-mid-price
+      (transitions/set-order-price-to-mid state)
+
+      :toggle-tpsl
+      (transitions/toggle-order-tpsl-panel state)
+
+      :set-side
+      (transitions/update-order-form state [:side] (if (odd? seed) :buy :sell))
+
+      :set-price
+      (transitions/update-order-form state [:price] (str (/ (mod seed 3000) 10)))
+
+      :set-tif
+      (transitions/update-order-form state [:tif] (if (odd? seed) :gtc :ioc))
+
+      :keydown-pro-dropdown
+      (transitions/handle-pro-order-type-dropdown-keydown state (if (odd? seed) "Escape" "Enter"))
+
+      nil)))
+
+(defn- apply-transition [state transition]
+  (if (map? transition)
+    (merge state transition)
+    state))
+
+(deftest transition-state-machine-sequence-invariants-test
+  (let [base (base-state {:entry-mode :limit
+                          :type :limit
+                          :price "100"
+                          :size "1"
+                          :size-percent 10})
+        seeds [7 13 42 99 2026 4096]]
+    (doseq [seed0 seeds]
+      (loop [seed seed0
+             step 0
+             state base]
+        (when (< step 80)
+          (let [seed* (next-seed seed)
+                intent (nth simulation-intents (mod seed* (count simulation-intents)))
+                transition (run-intent state intent seed*)
+                _ (when (map? transition)
+                    (is (contracts/order-form-transition-valid? transition)
+                        (str "invalid transition at step " step " intent " intent)))
+                next-state (apply-transition state transition)
+                form (:order-form next-state)
+                normalized-form (trading/normalize-order-form next-state form)
+                effective-ui (trading/order-form-ui-state next-state)
+                size-percent (:size-percent normalized-form)]
+            (is (map? form))
+            (is (= (:entry-mode normalized-form) (:entry-mode form)))
+            (is (= (:type normalized-form) (:type form)))
+            (is (every? #(not (contains? form %)) ui-only-form-paths))
+            (when (number? size-percent)
+              (is (<= 0 size-percent 100)))
+            (when (= :scale (:type normalized-form))
+              (is (false? (:tpsl-panel-open? effective-ui))))
+            (recur seed* (inc step) next-state)))))))

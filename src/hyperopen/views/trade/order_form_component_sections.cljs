@@ -1,5 +1,6 @@
 (ns hyperopen.views.trade.order-form-component-sections
-  (:require [hyperopen.views.trade.order-form-component-primitives :as primitives]))
+  (:require [hyperopen.views.trade.order-form-component-primitives :as primitives]
+            [hyperopen.views.trade.order-form-type-extensions :as type-extensions]))
 
 (defn entry-mode-tabs
   [{:keys [entry-mode
@@ -155,52 +156,8 @@
             :clip-rule "evenodd"
             :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"}]]])
 
-(def ^:private order-type-section-renderers
-  {:trigger
-   (fn [form {:keys [on-set-trigger-price]}]
-     [:div
-      (primitives/section-label "Trigger")
-      (primitives/input (:trigger-px form)
-                        on-set-trigger-price
-                        :placeholder "Trigger price")])
-
-   :scale
-   (fn [form {:keys [on-set-scale-start
-                     on-set-scale-end
-                     on-set-scale-count
-                     on-set-scale-skew]}]
-     [:div {:class ["space-y-2"]}
-      (primitives/section-label "Scale")
-      (primitives/input (get-in form [:scale :start])
-                        on-set-scale-start
-                        :placeholder "Start price")
-      (primitives/input (get-in form [:scale :end])
-                        on-set-scale-end
-                        :placeholder "End price")
-      [:div {:class ["grid" "grid-cols-2" "gap-2"]}
-       (primitives/inline-labeled-scale-input "Total Orders"
-                                              (get-in form [:scale :count])
-                                              on-set-scale-count)
-       (primitives/inline-labeled-scale-input "Size Skew"
-                                              (get-in form [:scale :skew])
-                                              on-set-scale-skew)]])
-
-   :twap
-   (fn [form {:keys [on-set-twap-minutes
-                     on-toggle-twap-randomize]}]
-     [:div {:class ["space-y-2"]}
-      (primitives/section-label "TWAP")
-      (primitives/input (get-in form [:twap :minutes])
-                        on-set-twap-minutes
-                        :placeholder "Minutes")
-      (primitives/row-toggle "Randomize"
-                             (get-in form [:twap :randomize])
-                             on-toggle-twap-randomize
-                             "trade-toggle-twap-randomize")])})
-
-(defn render-order-type-section [section form callbacks]
-  (when-let [renderer (get order-type-section-renderers section)]
-    (renderer form callbacks)))
+(defn render-order-type-sections [order-type form callbacks]
+  (type-extensions/render-order-type-sections order-type form callbacks))
 
 (defn supported-order-type-sections []
-  (set (keys order-type-section-renderers)))
+  (type-extensions/supported-order-type-sections))

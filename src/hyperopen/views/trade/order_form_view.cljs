@@ -23,11 +23,7 @@
                 pro-dropdown-open?
                 pro-dropdown-options
                 pro-tab-label
-                order-type-sections
-                pro-mode?
-                tpsl-panel-open?
-                show-limit-like-controls?
-                limit-like?
+                controls
                 spot?
                 hip3?
                 read-only?
@@ -56,6 +52,14 @@
         tif-handlers (:tif handler-map)
         tp-sl-handlers (:tp-sl handler-map)
         submit-handlers (:submit handler-map)
+        {:keys [show-limit-like-controls?
+                show-tpsl-toggle?
+                show-tpsl-panel?
+                show-post-only?
+                show-scale-preview?
+                show-liquidation-row?
+                show-slippage-row?]}
+        controls
         display-price (:display price)
         price-context (:context price)
         start-preview-line (:start scale-preview-lines)
@@ -199,11 +203,9 @@
                         "text-gray-300"]}
          "%"]]]
 
-      (for [section order-type-sections]
-        ^{:key (str "order-type-section-" (name section))}
-        (sections/render-order-type-section section
-                                            form
-                                            section-handlers))
+      (sections/render-order-type-sections type
+                                           form
+                                           section-handlers)
 
       [:div {:class ["flex" "items-center" "justify-between" "gap-3"]}
        (primitives/row-toggle "Reduce Only"
@@ -213,22 +215,22 @@
          (sections/tif-inline-control form
                                       tif-handlers))]
 
-      (when (not= :scale type)
+      (when show-tpsl-toggle?
         (primitives/row-toggle "Take Profit / Stop Loss"
-                               tpsl-panel-open?
+                               show-tpsl-panel?
                                (:on-toggle-tpsl-panel toggle-handlers)))
 
-      (when (and (not= :scale type) tpsl-panel-open?)
+      (when show-tpsl-panel?
         (sections/tp-sl-panel form tp-sl-handlers))
 
-      (when (and pro-mode? limit-like?)
+      (when show-post-only?
         (primitives/row-toggle "Post Only"
                                (:post-only form)
                                (:on-toggle-post-only toggle-handlers)))
 
       [:div {:class ["flex-1"]}]
 
-      (when (= :scale type)
+      (when show-scale-preview?
         [:div {:class ["space-y-1.5"]}
          (primitives/metric-row "Start" start-preview-line)
          (primitives/metric-row "End" end-preview-line)])
@@ -287,14 +289,14 @@
           submit-tooltip])]
 
       [:div {:class ["border-t" "border-base-300" "pt-3" "space-y-2"]}
-       (when (not= :scale type)
+       (when show-liquidation-row?
          (primitives/metric-row "Liquidation Price"
                                 (:liquidation-price display)))
        (primitives/metric-row "Order Value"
                               (:order-value display))
        (primitives/metric-row "Margin Required"
                               (:margin-required display))
-       (when (= :market type)
+       (when show-slippage-row?
          (primitives/metric-row "Slippage"
                                 (:slippage display)
                                 "text-primary"))

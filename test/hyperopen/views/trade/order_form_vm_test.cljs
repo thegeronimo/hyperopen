@@ -1,6 +1,6 @@
 (ns hyperopen.views.trade.order-form-vm-test
   (:require [cljs.test :refer-macros [deftest is testing]]
-            [hyperopen.trading.order-form-contracts :as contracts]
+            [hyperopen.schema.order-form-contracts :as contracts]
             [hyperopen.trading.order-type-registry :as order-type-registry]
             [hyperopen.state.trading :as trading]
             [hyperopen.views.trade.order-form-component-sections :as sections]
@@ -86,7 +86,9 @@
         pro-types (set (order-type-registry/pro-order-types))
         advanced-types (set trading/advanced-order-types)
         rendered-sections (sections/supported-order-type-sections)]
-    (is (= pro-types (set (keys config))))
+    (is (every? #(contains? (set (keys config)) %) pro-types))
+    (is (contains? config :market))
+    (is (contains? config :limit))
     (is (= advanced-types pro-types))
     (doseq [order-type (order-type-registry/pro-order-types)]
       (let [entry (get config order-type)
@@ -123,3 +125,23 @@
         (if (= entry-mode :pro)
           (is (contains? pro-types (:type view-model)))
           (is (= entry-mode (:entry-mode view-model))))))))
+
+(deftest order-form-vm-controls-are-registry-driven-test
+  (testing "scale disables tpsl and liquidation row while enabling scale preview"
+    (let [view-model (vm/order-form-vm (base-state {:entry-mode :pro :type :scale} {}))
+          controls (:controls view-model)]
+      (is (false? (:show-tpsl-toggle? controls)))
+      (is (false? (:show-liquidation-row? controls)))
+      (is (true? (:show-scale-preview? controls)))))
+
+  (testing "market enables slippage row and hides limit-like controls"
+    (let [view-model (vm/order-form-vm (base-state {:entry-mode :market :type :market} {}))
+          controls (:controls view-model)]
+      (is (true? (:show-slippage-row? controls)))
+      (is (false? (:show-limit-like-controls? controls)))))
+
+  (testing "pro limit-like type enables post-only capability"
+    (let [view-model (vm/order-form-vm (base-state {:entry-mode :pro :type :stop-limit} {}))
+          controls (:controls view-model)]
+      (is (true? (:show-post-only? controls)))
+      (is (true? (:show-limit-like-controls? controls))))))
