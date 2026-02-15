@@ -42,12 +42,12 @@
     series))
 
 (defn add-high-low-series! [chart]
-  "Add a high-low bar series to the chart"
-  (let [seriesOptions #js {:upColor "#26a69a"
-                           :downColor "#ef5350"
-                           :openVisible false
-                           :thinBars true}
-        series (.addSeries ^js chart BarSeries seriesOptions)]
+  "Add a high-low series rendered as solid floating range bars."
+  (let [seriesOptions #js {:upColor "#2962FF"
+                           :downColor "#2962FF"
+                           :wickVisible false
+                           :borderVisible false}
+        series (.addSeries ^js chart CandlestickSeries seriesOptions)]
     series))
 
 (defn add-baseline-series! [chart]
@@ -204,6 +204,17 @@
                           :low ha-low
                           :close ha-close}))))))
 
+(defn transform-data-for-high-low
+  [data]
+  "Transform candles into solid high-low range bars."
+  (map (fn [candle]
+         {:time (:time candle)
+          :open (:low candle)
+          :high (:high candle)
+          :low (:low candle)
+          :close (:high candle)})
+       data))
+
 (defn transform-data-for-volume [data]
   "Transform OHLC data to volume data for volume chart"
   (map (fn [candle]
@@ -226,7 +237,10 @@
     :heikin-ashi
     (transform-data-for-heikin-ashi data)
 
-    (:bar :high-low :candlestick :hollow-candles)
+    :high-low
+    (transform-data-for-high-low data)
+
+    (:bar :candlestick :hollow-candles)
     data
 
     ;; Default fallback keeps the chart rendering resilient.

@@ -101,6 +101,14 @@
             {:time 2 :value 10 :color "#ef5350"}]
            transformed))))
 
+(deftest transform-data-for-high-low-builds-floating-range-bars-test
+  (let [raw-candles [{:time 1 :open 10 :high 16 :low 8 :close 12}
+                     {:time 2 :open 12 :high 18 :low 10 :close 16}]
+        transformed (vec (chart-interop/transform-data-for-high-low raw-candles))]
+    (is (= [{:time 1 :open 8 :high 16 :low 8 :close 16}
+            {:time 2 :open 10 :high 18 :low 10 :close 18}]
+           transformed))))
+
 (deftest set-series-data-applies-hlc-area-transform-test
   (let [applied-options (atom nil)
         applied-data (atom nil)
