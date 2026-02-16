@@ -327,7 +327,8 @@
         active-market (resolve-active-market full-state active-asset)
         selected-key (or (:key active-market)
                          (when active-asset (markets/coin->market-key active-asset)))]
-    [:div {:class ["relative" "bg-base-200" "border-b" "border-base-300" "rounded-none" "shadow-none"]}
+    [:div {:class ["relative" "bg-base-200" "border-b" "border-base-300" "rounded-none" "shadow-none"]
+           :data-parity-id "market-strip"}
      [:div
       (if (:active-asset full-state)
         (active-asset-list contexts dropdown-state full-state)

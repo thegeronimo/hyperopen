@@ -250,7 +250,8 @@
                    "xl:min-h-[640px]"
                    "flex"
                    "flex-col"
-                   "gap-3"]}
+                   "gap-3"]
+           :data-parity-id "order-form"}
      (when spot?
        (unsupported-market-banner "Spot trading is not supported yet. You can still view spot charts and order books."))
      (when hip3?

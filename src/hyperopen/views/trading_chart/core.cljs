@@ -31,6 +31,7 @@
                                                    :selector {:coin (:active-asset state)}
                                                    :live-prefix "Last tick"}))]
     [:div.flex.items-center.border-b.border-gray-700.px-4.py-2.w-full.space-x-4.bg-base-100
+     {:data-parity-id "chart-toolbar"}
      ;; Left side - Favorite timeframes + dropdown
      [:div.flex.items-center.space-x-1
       ;; Main timeframe buttons
@@ -208,6 +209,7 @@
                      (chart-runtime/clear-state! node))
                    nil))]
     [:div {:class ["w-full" "relative" "flex-1" "h-full" "min-h-[360px]" "bg-base-100" "trading-chart-host"]
+           :data-parity-id "chart-canvas"
            :replicant/key (str "chart-" (hash active-indicators) "-" legend-key)
            :replicant/on-render mount!}]))
 
@@ -241,7 +243,8 @@
                      :timeframe-label timeframe-label
                      :venue "Hyperopen"
                      :candle-data candle-data}]
-    [:div {:class ["w-full" "h-full"]}
+    [:div {:class ["w-full" "h-full"]
+           :data-parity-id "chart-panel"}
      ;; Chart container with consistent width for both menu and chart
      [:div {:class ["w-full" "h-full" "flex" "flex-col"]}
       ;; Add the top menu above the chart

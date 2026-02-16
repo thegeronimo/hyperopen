@@ -321,7 +321,8 @@
                 freshness-cues
                 error
                 loading?]} view-model]
-    [:div {:class ["bg-base-100" "border-t" "border-base-300" "rounded-none" "shadow-none" "overflow-hidden" "w-full" "h-96" "flex" "flex-col" "min-h-0"]}
+    [:div {:class ["bg-base-100" "border-t" "border-base-300" "rounded-none" "shadow-none" "overflow-hidden" "w-full" "h-96" "flex" "flex-col" "min-h-0"]
+           :data-parity-id "account-tables"}
      (tab-navigation selected-tab tab-counts hide-small? funding-history-state order-history-state freshness-cues)
      [:div {:class ["flex-1" "min-h-0" "overflow-hidden"]}
       (cond

@@ -516,7 +516,8 @@
         loading? (:loading state)
         active-tab (normalize-orderbook-tab (:active-tab orderbook-ui))
         base-symbol (resolve-base-symbol coin market)]
-    [:div {:class ["w-full" "h-full" "min-h-0" "overflow-hidden" "flex" "flex-col"]}
+    [:div {:class ["w-full" "h-full" "min-h-0" "overflow-hidden" "flex" "flex-col"]
+           :data-parity-id "orderbook-panel"}
      (orderbook-tabs-row active-tab)
      [:div {:class ["flex-1" "h-full" "min-h-0" "overflow-hidden" "bg-base-100"]}
       (if (= active-tab :trades)

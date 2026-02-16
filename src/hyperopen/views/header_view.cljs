@@ -270,6 +270,7 @@
 (defn header-view [state]
   (let [wallet-state (get-in state [:wallet] {})]
     [:header.bg-base-200.border-b.border-base-300.w-full
+     {:data-parity-id "header"}
      [:div {:class ["w-full" "app-shell-gutter" "py-3"]}
       [:div.flex.items-center
        ;; Logo and Brand
@@ -278,6 +279,7 @@
 
        ;; Navigation Links
        [:nav.hidden.md:flex.flex-1.items-center.justify-start.space-x-8.ml-8
+        {:data-parity-id "header-nav"}
         (nav-link "Trade" "/trade" true)
         (nav-link "Vaults" "/vaults" false)
         (nav-link "Portfolio" "/portfolio" false)
@@ -296,6 +298,7 @@
 
        ;; Right Section - Wallet Control and Icons
        [:div.flex.items-center.space-x-4
+        {:data-parity-id "header-wallet-control"}
         (wallet-control wallet-state)
 
         ;; Utility Icons

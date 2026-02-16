@@ -12,6 +12,12 @@ Repository build and test entry points:
 - `npm run check`
 - `npm test`
 - `npm run test:websocket`
+- `npm run test:browser-inspection`
+
+Browser inspection and parity commands:
+- `npm run browser:inspect -- --url <target-url> --target <label>`
+- `npm run browser:compare`
+- `npm run browser:mcp`
 
 CI workflow reference:
 - `/hyperopen/.github/workflows/tests.yml`

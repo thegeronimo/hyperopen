@@ -155,7 +155,8 @@
                                             cross-margin-ratio
                                             cross-account-leverage
                                             pnl-info]}]
-  [:div {:class ["bg-base-100" "rounded-none" "shadow-none" "p-3" "space-y-4" "w-full" "h-full"]}
+  [:div {:class ["bg-base-100" "rounded-none" "shadow-none" "p-3" "space-y-4" "w-full" "h-full"]
+         :data-parity-id "account-equity"}
    [:div.text-sm.font-semibold.text-trading-text "Account Equity"]
 
    [:div.space-y-2
@@ -181,7 +182,8 @@
                                              maintenance-margin
                                              unified-account-leverage
                                              pnl-info]}]
-  [:div {:class ["bg-base-100" "rounded-none" "shadow-none" "p-3" "space-y-4" "w-full" "h-full"]}
+  [:div {:class ["bg-base-100" "rounded-none" "shadow-none" "p-3" "space-y-4" "w-full" "h-full"]
+         :data-parity-id "account-equity"}
    [:div.text-sm.font-semibold.text-trading-text "Unified Account Summary"]
 
    [:div.space-y-2

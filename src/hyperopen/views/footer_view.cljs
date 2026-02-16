@@ -508,7 +508,8 @@
         diagnostics-open? (boolean (get-in state [:websocket-ui :diagnostics-open?] false))
         footer-z-class (if diagnostics-open? "z-[260]" "z-40")
         banner (banner-model state health)]
-    [:footer {:class ["fixed" "inset-x-0" "bottom-0" footer-z-class "isolate" "w-full" "shrink-0" "bg-base-200" "border-t" "border-base-300"]}
+    [:footer {:class ["fixed" "inset-x-0" "bottom-0" footer-z-class "isolate" "w-full" "shrink-0" "bg-base-200" "border-t" "border-base-300"]
+              :data-parity-id "footer"}
      [:div {:class ["w-full" "app-shell-gutter" "py-2" "relative"]}
       (when banner
         [:div {:class (into ["mb-2"

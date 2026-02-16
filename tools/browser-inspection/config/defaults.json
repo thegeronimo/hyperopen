@@ -1,0 +1,141 @@
+{
+  "artifactRoot": "tmp/browser-inspection",
+  "retentionHours": 72,
+  "maxArtifacts": 120,
+  "chrome": {
+    "path": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "pathEnvVar": "BROWSER_INSPECTION_CHROME_PATH",
+    "headless": true,
+    "ephemeralProfile": true,
+    "extraArgs": [
+      "--disable-background-networking",
+      "--disable-component-update",
+      "--disable-renderer-backgrounding",
+      "--disable-ipc-flooding-protection",
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--disable-features=Translate,MediaRouter"
+    ]
+  },
+  "targets": {
+    "local": {
+      "label": "hyperopen-local",
+      "url": "http://localhost:8080/trade"
+    },
+    "remote": {
+      "label": "hyperliquid",
+      "url": "https://app.hyperliquid.xyz/trade"
+    }
+  },
+  "viewports": {
+    "desktop": {
+      "width": 1440,
+      "height": 900,
+      "mobile": false,
+      "deviceScaleFactor": 1
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "mobile": true,
+      "deviceScaleFactor": 3
+    }
+  },
+  "readOnly": {
+    "enabled": true,
+    "blockedSchemes": [
+      "chrome:",
+      "devtools:",
+      "file:",
+      "javascript:",
+      "data:"
+    ],
+    "blockedEvalPatterns": [
+      "\\bclick\\s*\\(",
+      "\\bsubmit\\s*\\(",
+      "dispatchEvent\\s*\\(",
+      "\\.value\\s*=",
+      "document\\.cookie\\s*=",
+      "localStorage\\.setItem\\s*\\(",
+      "sessionStorage\\.setItem\\s*\\("
+    ]
+  },
+  "masking": {
+    "selectors": [
+      "[aria-live]",
+      "time",
+      "[data-role='global-toast-region']",
+      "[data-role='global-toast']",
+      "[data-role='chart-freshness-cue']",
+      "[data-role='orderbook-freshness-cue']",
+      "[data-role='account-tab-freshness-cue']",
+      "[data-role='surface-freshness-toggle']",
+      "[role='status']",
+      ".toast",
+      ".Toastify"
+    ],
+    "maxSemanticNodes": 2500,
+    "computedStyleKeys": [
+      "display",
+      "position",
+      "color",
+      "backgroundColor",
+      "fontSize",
+      "fontWeight",
+      "lineHeight",
+      "borderColor",
+      "borderRadius"
+    ],
+    "textRules": [
+      {
+        "pattern": "\\b\\d{1,2}:\\d{2}:\\d{2}\\b",
+        "flags": "g",
+        "replace": "<time>"
+      },
+      {
+        "pattern": "\\b\\d{4}-\\d{2}-\\d{2}\\b",
+        "flags": "g",
+        "replace": "<date>"
+      },
+      {
+        "pattern": "\\b\\d+(?:\\.\\d+)?%\\b",
+        "flags": "g",
+        "replace": "<percent>"
+      },
+      {
+        "pattern": "\\$?\\b\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?\\b",
+        "flags": "g",
+        "replace": "<number>"
+      },
+      {
+        "pattern": "0x[a-fA-F0-9]{8,}",
+        "flags": "g",
+        "replace": "<hex>"
+      }
+    ]
+  },
+  "capture": {
+    "networkEventLimit": 1500,
+    "consoleEventLimit": 500,
+    "navigationTimeoutMs": 30000,
+    "networkIdleQuietMs": 1000,
+    "networkIdleMaxWaitMs": 12000
+  },
+  "compare": {
+    "nodeDiffLimit": 300,
+    "visualDiffThreshold": 0.1,
+    "visualAlpha": 0.1,
+    "severity": {
+      "high": 0.12,
+      "medium": 0.04,
+      "low": 0.01
+    }
+  },
+  "localApp": {
+    "command": "npm run dev",
+    "cwd": ".",
+    "url": "http://localhost:8080/trade",
+    "startupTimeoutMs": 120000,
+    "pollIntervalMs": 1000
+  }
+}

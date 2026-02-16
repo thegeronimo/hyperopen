@@ -15,7 +15,8 @@
         websocket-health (or (:websocket-health state)
                              (ws-client/get-health-snapshot))
         state* (assoc state :websocket-health websocket-health)]
-    [:div {:class ["flex-1" "flex" "flex-col" "min-h-0"]}
+    [:div {:class ["flex-1" "flex" "flex-col" "min-h-0"]
+           :data-parity-id "trade-root"}
      [:div {:class ["w-full" "h-full" "px-0" "py-0" "space-y-0" "flex" "flex-col" "min-h-0"]}
       [:div {:class ["relative" "flex-1" "min-h-0"]}
        [:div {:class ["hidden" "xl:block" "absolute" "top-0" "bottom-0" "right-[340px]" "w-px" "bg-base-300" "pointer-events-none" "z-10"]}]
@@ -30,12 +31,14 @@
                         "lg:grid-rows-[minmax(580px,1fr)_auto_auto]"
                         "xl:grid-cols-[minmax(0,1fr)_340px_340px]"
                         "xl:grid-rows-[minmax(580px,1fr)_auto]"]}
-        [:div {:class ["bg-base-100" "border-r" "border-base-300" "flex" "flex-col" "min-h-0"]}
+        [:div {:class ["bg-base-100" "border-r" "border-base-300" "flex" "flex-col" "min-h-0"]
+               :data-parity-id "trade-chart-panel"}
          (active-asset-view/active-asset-view state*)
          [:div {:class ["overflow-hidden" "flex-1" "min-h-0"]}
           (trading-chart/trading-chart-view state*)]]
 
-        [:div {:class ["bg-base-100" "w-full" "h-full" "min-h-0" "overflow-hidden"]}
+        [:div {:class ["bg-base-100" "w-full" "h-full" "min-h-0" "overflow-hidden"]
+               :data-parity-id "trade-orderbook-panel"}
          (l2-orderbook-view/l2-orderbook-view
            {:coin (or active-asset "No Asset Selected")
            :market (:active-market state)
@@ -45,10 +48,12 @@
             :websocket-health websocket-health
             :loading (and active-asset (nil? orderbook-data))})]
 
-        [:div {:class ["bg-base-100" "lg:col-span-2" "xl:col-span-1" "xl:col-start-3" "xl:row-span-2" "overflow-visible" "flex" "flex-col"]}
+        [:div {:class ["bg-base-100" "lg:col-span-2" "xl:col-span-1" "xl:col-start-3" "xl:row-span-2" "overflow-visible" "flex" "flex-col"]
+               :data-parity-id "trade-order-entry-panel"}
          (order-form-view/order-form-view state*)
          [:div {:class ["border-t" "border-base-300"]}
           (account-equity-view/account-equity-view state*)]]
 
-        [:div {:class ["bg-base-100" "lg:col-span-2" "xl:col-span-2" "border-t" "border-base-300" "flex" "flex-col" "min-h-0" "overflow-hidden"]}
+        [:div {:class ["bg-base-100" "lg:col-span-2" "xl:col-span-2" "border-t" "border-base-300" "flex" "flex-col" "min-h-0" "overflow-hidden"]
+               :data-parity-id "trade-account-tables-panel"}
          (account-info-view/account-info-view state*)]]]]]))

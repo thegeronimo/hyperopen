@@ -10,9 +10,11 @@
         root-classes (into ["h-screen" "bg-base-100" "flex" "flex-col" "overflow-y-auto" "scrollbar-hide"]
                            (when (= route "/trade")
                              ["xl:overflow-y-hidden"]))]
-    [:div {:class root-classes}
+    [:div {:class root-classes
+           :data-parity-id "app-root"}
      (header-view/header-view state)
-     [:div {:class ["flex-1" "min-h-0" "pb-12" "flex" "flex-col"]}
+     [:div {:class ["flex-1" "min-h-0" "pb-12" "flex" "flex-col"]
+            :data-parity-id "app-main"}
       (case route
         "/trade" (trade-view/trade-view state)
         (trade-view/trade-view state))]

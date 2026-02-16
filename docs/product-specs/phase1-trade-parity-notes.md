@@ -9,8 +9,9 @@ source_of_truth: true
 # Phase 1 Trade Parity Notes
 
 ## App UI Inspection Status
-- Attempted to inspect `app.hyperliquid.xyz` via automated browsing, but the site is a client-side app that did not render usable DOM content in the inspection environment.
-- Action: Using official Hyperliquid documentation to define order types, options, and API payloads. App UI parity should be validated manually in a browser.
+- App UI parity can now be validated with the browser inspection subsystem in `/hyperopen/tools/browser-inspection/`.
+- Action: use `npm run browser:compare` for semantic + screenshot parity capture against `app.hyperliquid.xyz/trade` and local `/trade`.
+- Manual browser checks remain useful for subjective UX polish and authenticated flows not covered in read-only automation.
 
 ## Order Types and Options (Docs)
 Source: Hyperliquid order types docs.
