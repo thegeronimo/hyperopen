@@ -229,6 +229,7 @@
 (def sort-open-orders-by-column open-orders-tab/sort-open-orders-by-column)
 (def sortable-open-orders-header open-orders-tab/sortable-open-orders-header)
 (def open-orders-tab-content open-orders-tab/open-orders-tab-content)
+(def reset-open-orders-sort-cache! open-orders-tab/reset-open-orders-sort-cache!)
 
 (def default-trade-history-sort trade-history-tab/default-trade-history-sort)
 (def trade-history-sort-state trade-history-tab/trade-history-sort-state)
@@ -236,6 +237,7 @@
 (def sortable-trade-history-header trade-history-tab/sortable-trade-history-header)
 (def trade-history-table trade-history-tab/trade-history-table)
 (def trade-history-tab-content trade-history-tab/trade-history-tab-content)
+(def reset-trade-history-sort-cache! trade-history-tab/reset-trade-history-sort-cache!)
 
 (def default-funding-history-sort funding-history-tab/default-funding-history-sort)
 (def funding-history-sort-state funding-history-tab/funding-history-sort-state)
@@ -269,8 +271,10 @@
 (def ^:private tab-renderers
   {:balances (fn [{:keys [balance-rows hide-small? balances-sort]}]
                (balances-tab-content balance-rows hide-small? balances-sort))
-   :positions (fn [{:keys [webdata2 positions-sort perp-dex-states]}]
-                (positions-tab-content webdata2 positions-sort perp-dex-states))
+   :positions (fn [{:keys [positions webdata2 positions-sort perp-dex-states]}]
+                (if (some? positions)
+                  (positions-tab-content positions positions-sort)
+                  (positions-tab-content webdata2 positions-sort perp-dex-states)))
    :open-orders (fn [{:keys [open-orders open-orders-sort]}]
                   (open-orders-tab-content open-orders open-orders-sort))
    :twap (fn [_]

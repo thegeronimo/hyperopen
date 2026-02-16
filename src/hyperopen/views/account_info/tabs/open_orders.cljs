@@ -110,13 +110,33 @@
       (reverse sorted)
       sorted)))
 
+(defonce ^:private sorted-open-orders-cache (atom nil))
+
+(defn reset-open-orders-sort-cache! []
+  (reset! sorted-open-orders-cache nil))
+
+(defn- memoized-sorted-open-orders [orders sort-state]
+  (let [column (:column sort-state)
+        direction (:direction sort-state)
+        cache @sorted-open-orders-cache
+        cache-hit? (and (map? cache)
+                        (identical? orders (:orders cache))
+                        (= column (:column cache))
+                        (= direction (:direction cache)))]
+    (if cache-hit?
+      (:result cache)
+      (let [result (vec (sort-open-orders-by-column orders column direction))]
+        (reset! sorted-open-orders-cache {:orders orders
+                                          :column column
+                                          :direction direction
+                                          :result result})
+        result))))
+
 (defn sortable-open-orders-header [column-name sort-state]
   (table/sortable-header-button column-name sort-state :actions/sort-open-orders))
 
 (defn open-orders-tab-content [normalized sort-state]
-  (let [sorted (sort-open-orders-by-column normalized
-                                           (:column sort-state)
-                                           (:direction sort-state))]
+  (let [sorted (memoized-sorted-open-orders normalized sort-state)]
     (if (seq sorted)
       (table/tab-table-content
        [:div {:class ["grid" "gap-2" "py-1" "px-3" "bg-base-200" "text-xs" "font-medium" "grid-cols-[130px_70px_60px_70px_60px_80px_100px_70px_70px_120px_50px_70px]"]}

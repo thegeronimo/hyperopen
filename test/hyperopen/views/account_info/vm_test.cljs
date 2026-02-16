@@ -1,6 +1,7 @@
 (ns hyperopen.views.account-info.vm-test
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is]]
+            [hyperopen.views.account-info.derived-cache :as derived-cache]
             [hyperopen.views.account-info.vm :as vm]))
 
 (defn- base-orders []
@@ -39,7 +40,7 @@
     (is (= 1 (count (:trade-history-rows view-model))))
     (is (= 1 (count (:funding-history-rows view-model))))
     (is (= 1 (count (:order-history-rows view-model))))
-    (is (= 1 (count (:open-orders view-model))))
+    (is (empty? (:open-orders view-model)))
     (is (= {"xyz:NVDA" {:coin "xyz:NVDA"
                         :symbol "NVDA/USDC"}}
            (get-in view-model [:trade-history-state :market-by-key])))
@@ -47,6 +48,69 @@
                         :symbol "NVDA/USDC"}}
            (get-in view-model [:order-history-state :market-by-key])))
     (is (= 1 (get-in view-model [:tab-counts :open-orders])))))
+
+(deftest account-info-vm-computes-heavy-derivations-only-for-selected-tab-test
+  (let [base-state {:account-info {}
+                    :webdata2 {:fills [{:tid 1}]}
+                    :orders {:open-orders [{:coin "ETH" :oid 11}]
+                             :open-orders-snapshot []
+                             :open-orders-snapshot-by-dex {}}
+                    :spot {:meta nil
+                           :clearinghouse-state nil}
+                    :account {:mode :classic}
+                    :perp-dex-clearinghouse {}}
+        calls (atom {:balances 0 :positions 0 :open-orders 0})]
+    (binding [derived-cache/*build-balance-rows* (fn [_webdata2 _spot-data _account _market-by-key]
+                                                   (swap! calls update :balances inc)
+                                                   [])
+              derived-cache/*collect-positions* (fn [_webdata2 _perp-dex-states]
+                                                 (swap! calls update :positions inc)
+                                                 [])
+              derived-cache/*normalized-open-orders* (fn [_orders _snapshot _snapshot-by-dex]
+                                                      (swap! calls update :open-orders inc)
+                                                      [])]
+      (vm/reset-account-info-vm-cache!)
+      (vm/account-info-vm (assoc-in base-state [:account-info :selected-tab] :trade-history))
+      (is (= {:balances 0 :positions 0 :open-orders 0} @calls))
+
+      (vm/reset-account-info-vm-cache!)
+      (vm/account-info-vm (assoc-in base-state [:account-info :selected-tab] :balances))
+      (is (= {:balances 1 :positions 0 :open-orders 0} @calls))
+
+      (vm/reset-account-info-vm-cache!)
+      (vm/account-info-vm (assoc-in base-state [:account-info :selected-tab] :positions))
+      (is (= {:balances 1 :positions 1 :open-orders 0} @calls))
+
+      (vm/reset-account-info-vm-cache!)
+      (vm/account-info-vm (assoc-in base-state [:account-info :selected-tab] :open-orders))
+      (is (= {:balances 1 :positions 1 :open-orders 1} @calls)))))
+
+(deftest account-info-vm-memoizes-selected-tab-derived-rows-by-input-identity-test
+  (let [state {:account-info {:selected-tab :open-orders}
+               :webdata2 {}
+               :orders {:open-orders [{:coin "ETH" :oid 11}]
+                        :open-orders-snapshot []
+                        :open-orders-snapshot-by-dex {}}
+               :spot {:meta nil
+                      :clearinghouse-state nil}
+               :account {:mode :classic}
+               :perp-dex-clearinghouse {}}
+        normalize-calls (atom 0)]
+    (binding [derived-cache/*normalized-open-orders* (fn [_orders _snapshot _snapshot-by-dex]
+                                                        (swap! normalize-calls inc)
+                                                        [{:coin "ETH" :oid 11}])]
+      (vm/reset-account-info-vm-cache!)
+      (vm/account-info-vm state)
+      (vm/account-info-vm state)
+      (is (= 1 @normalize-calls))
+
+      ;; Sort-state churn should not invalidate derived row identity cache.
+      (vm/account-info-vm (assoc-in state [:account-info :open-orders-sort :direction] :asc))
+      (is (= 1 @normalize-calls))
+
+      ;; Input identity change should invalidate cache.
+      (vm/account-info-vm (assoc state :orders (assoc (:orders state) :open-orders [{:coin "ETH" :oid 12}])))
+      (is (= 2 @normalize-calls)))))
 
 (deftest account-info-vm-derives-freshness-cues-from-websocket-health-test
   (let [state {:account-info {:selected-tab :open-orders}

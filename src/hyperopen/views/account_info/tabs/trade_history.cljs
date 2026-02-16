@@ -315,17 +315,41 @@
        (reverse sorted)
        sorted))))
 
+(defonce ^:private sorted-trade-history-cache (atom nil))
+
+(defn reset-trade-history-sort-cache! []
+  (reset! sorted-trade-history-cache nil))
+
+(defn- memoized-sorted-trade-history [rows sort-state market-by-key]
+  (let [column (:column sort-state)
+        direction (:direction sort-state)
+        cache @sorted-trade-history-cache
+        cache-hit? (and (map? cache)
+                        (identical? rows (:rows cache))
+                        (identical? market-by-key (:market-by-key cache))
+                        (= column (:column cache))
+                        (= direction (:direction cache)))]
+    (if cache-hit?
+      (:result cache)
+      (let [result (vec (sort-trade-history-by-column rows column direction market-by-key))]
+        (reset! sorted-trade-history-cache {:rows rows
+                                            :column column
+                                            :direction direction
+                                            :market-by-key market-by-key
+                                            :result result})
+        result))))
+
 (defn sortable-trade-history-header [column-name sort-state]
   (table/sortable-header-button column-name sort-state :actions/sort-trade-history))
 
 (defn trade-history-table [fills trade-history-state]
-  (let [all-rows (vec (or fills []))
+  (let [all-rows (cond
+                   (vector? fills) fills
+                   (seq fills) (vec fills)
+                   :else [])
         market-by-key (or (:market-by-key trade-history-state) {})
         sort-state (trade-history-sort-state trade-history-state)
-        sorted-rows (vec (sort-trade-history-by-column all-rows
-                                                       (:column sort-state)
-                                                       (:direction sort-state)
-                                                       market-by-key))
+        sorted-rows (memoized-sorted-trade-history all-rows sort-state market-by-key)
         {:keys [rows] :as pagination} (history-pagination/paginate-history-rows sorted-rows trade-history-state)]
     (if (seq sorted-rows)
       (table/tab-table-content

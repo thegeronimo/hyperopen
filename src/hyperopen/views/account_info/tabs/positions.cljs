@@ -147,16 +147,20 @@
    [:div.text-left (sortable-header "Funding" sort-state)]
    [:div.text-left (table/non-sortable-header "TP/SL")]])
 
-(defn positions-tab-content [webdata2 sort-state perp-dex-states]
-  (let [positions (collect-positions webdata2 perp-dex-states)
-        sorted-positions (if positions
-                           (sort-positions-by-column positions
-                                                     (:column sort-state)
-                                                     (:direction sort-state))
-                           [])]
-    (if (and positions (seq positions))
-      (table/tab-table-content (position-table-header sort-state)
-                               (for [position sorted-positions]
-                                 ^{:key (position-unique-key position)}
-                                 (position-row position)))
-      (empty-state "No active positions"))))
+(defn positions-tab-content
+  ([positions sort-state]
+   (let [positions* (or positions [])
+         sorted-positions (if (seq positions*)
+                            (sort-positions-by-column positions*
+                                                      (:column sort-state)
+                                                      (:direction sort-state))
+                            [])]
+     (if (seq positions*)
+       (table/tab-table-content (position-table-header sort-state)
+                                (for [position sorted-positions]
+                                  ^{:key (position-unique-key position)}
+                                  (position-row position)))
+       (empty-state "No active positions"))))
+  ([webdata2 sort-state perp-dex-states]
+   (positions-tab-content (collect-positions webdata2 perp-dex-states)
+                          sort-state)))

@@ -2,6 +2,8 @@
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.utils.formatting :as fmt]
+            [hyperopen.views.account-info.tabs.open-orders :as open-orders-tab]
+            [hyperopen.views.account-info.tabs.trade-history :as trade-history-tab]
             [hyperopen.views.account-info-view :as view]))
 
 (defn- class-values [class-attr]
@@ -313,6 +315,74 @@
     (is (= [1 2 3] (mapv :tid time-asc)))
     (is (= [3 2 1] (mapv :tid value-desc)))
     (is (= [2 3 1] (mapv :tid direction-asc)))))
+
+(deftest open-orders-tab-content-memoizes-sorting-by-input-identity-and-sort-state-test
+  (let [rows [{:oid 1001
+               :coin "ETH"
+               :side "B"
+               :sz "2.0"
+               :orig-sz "2.0"
+               :px "100.0"
+               :type "Limit"
+               :time 1700000000000
+               :reduce-only false
+               :is-trigger false
+               :trigger-condition nil
+               :is-position-tpsl false}]
+        sort-state {:column "Time" :direction :desc}
+        sort-calls (atom 0)]
+    (open-orders-tab/reset-open-orders-sort-cache!)
+    (with-redefs [open-orders-tab/sort-open-orders-by-column
+                  (fn [orders _column _direction]
+                    (swap! sort-calls inc)
+                    orders)]
+      (view/open-orders-tab-content rows sort-state)
+      (view/open-orders-tab-content rows sort-state)
+      (is (= 1 @sort-calls))
+
+      (let [sort-state-asc (assoc sort-state :direction :asc)]
+        (view/open-orders-tab-content rows sort-state-asc)
+        (view/open-orders-tab-content rows sort-state-asc)
+        (is (= 2 @sort-calls))
+
+        (view/open-orders-tab-content (into [] rows) sort-state-asc)
+        (is (= 3 @sort-calls))))))
+
+(deftest trade-history-tab-content-memoizes-sorting-by-input-identity-sort-and-market-map-test
+  (let [fills [{:tid 1
+                :coin "ETH"
+                :side "B"
+                :sz "1.0"
+                :px "100.0"
+                :fee "0.1"
+                :time 1700000000000}]
+        trade-history-state {:sort {:column "Time" :direction :desc}
+                             :market-by-key {}}
+        sort-calls (atom 0)]
+    (trade-history-tab/reset-trade-history-sort-cache!)
+    (with-redefs [trade-history-tab/sort-trade-history-by-column
+                  (fn
+                    ([rows _column _direction]
+                     (swap! sort-calls inc)
+                     rows)
+                    ([rows _column _direction _market-by-key]
+                     (swap! sort-calls inc)
+                     rows))]
+      (view/trade-history-tab-content fills trade-history-state)
+      (view/trade-history-tab-content fills trade-history-state)
+      (is (= 1 @sort-calls))
+
+      (let [sort-state-asc (assoc-in trade-history-state [:sort :direction] :asc)]
+        (view/trade-history-tab-content fills sort-state-asc)
+        (view/trade-history-tab-content fills sort-state-asc)
+        (is (= 2 @sort-calls))
+
+        (view/trade-history-tab-content fills
+                                        (assoc sort-state-asc
+                                               :market-by-key
+                                               {"spot:ETH/USDC" {:coin "spot:ETH/USDC"
+                                                                 :symbol "ETH/USDC"}}))
+        (is (= 3 @sort-calls))))))
 
 (deftest sort-funding-history-by-column-respects-direction-and-deterministic-fallback-test
   (let [rows [{:id "2"
