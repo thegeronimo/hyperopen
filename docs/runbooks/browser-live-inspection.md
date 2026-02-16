@@ -28,6 +28,8 @@ Run from `/hyperopen`:
   - `node tools/browser-inspection/src/cli.mjs session list`
 - Start a persistent session:
   - `node tools/browser-inspection/src/cli.mjs session start`
+- Attach to an existing Chrome DevTools endpoint:
+  - `node tools/browser-inspection/src/cli.mjs session attach --attach-port 9222`
 - Stop a session:
   - `node tools/browser-inspection/src/cli.mjs session stop --session-id <id>`
 
@@ -79,6 +81,18 @@ Read-only guardrails block:
 - `npm run test:browser-inspection:smoke`
 
 This is opt-in and uses real Chrome.
+
+## Attach to Your Own Browser
+
+1. Start Chrome with remote debugging enabled:
+   - `/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/hyperopen-cdp`
+2. Start an attached session:
+   - `node tools/browser-inspection/src/cli.mjs session attach --attach-port 9222`
+3. Reuse the returned `sessionId` for `navigate`, `eval`, `inspect`, or `compare`.
+4. Stop only the tool session when done:
+   - `node tools/browser-inspection/src/cli.mjs session stop --session-id <id>`
+
+Attached mode does not terminate your Chrome process.
 
 ## Troubleshooting
 

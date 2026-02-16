@@ -27,7 +27,10 @@ function validateEvalForReadOnly(config, expression, allowUnsafeEval = false) {
 }
 
 async function openClientForSession(session) {
-  const wsUrl = await getBrowserWsUrl(session.chrome.port);
+  const wsUrl = await getBrowserWsUrl({
+    host: session.chrome.host || "127.0.0.1",
+    port: session.chrome.port
+  });
   const client = new CDPClient(wsUrl);
   await client.connect();
   return client;
@@ -44,9 +47,33 @@ export class SessionManager {
     await this.cleanupDeadSessions();
   }
 
+  async isSessionAlive(session) {
+    const mode = session?.chrome?.controlMode || "launched";
+    if (mode === "attached") {
+      try {
+        await getBrowserWsUrl({
+          host: session.chrome.host || "127.0.0.1",
+          port: session.chrome.port,
+          timeoutMs: 1500,
+          pollIntervalMs: 150
+        });
+        return true;
+      } catch (_err) {
+        return false;
+      }
+    }
+    return processIsAlive(session?.chrome?.pid);
+  }
+
   async cleanupDeadSessions() {
     const sessions = await this.store.listSessions();
-    const live = sessions.filter((session) => processIsAlive(session.chrome?.pid));
+    const statuses = await Promise.all(
+      sessions.map(async (session) => ({
+        session,
+        alive: await this.isSessionAlive(session)
+      }))
+    );
+    const live = statuses.filter((entry) => entry.alive).map((entry) => entry.session);
     if (live.length !== sessions.length) {
       await this.store.writeSessionRegistry(live);
     }
@@ -64,7 +91,7 @@ export class SessionManager {
     if (!session) {
       throw new Error(`Session not found: ${sessionId}`);
     }
-    if (!processIsAlive(session.chrome?.pid)) {
+    if (!(await this.isSessionAlive(session))) {
       await this.store.removeSession(sessionId);
       throw new Error(`Session is not alive: ${sessionId}`);
     }
@@ -72,6 +99,13 @@ export class SessionManager {
   }
 
   async startSession(options = {}) {
+    const hasAttachPort = options.attachPort !== undefined && options.attachPort !== null;
+    const attachPort = hasAttachPort ? Number(options.attachPort) : null;
+    if (hasAttachPort && (!Number.isInteger(attachPort) || attachPort <= 0)) {
+      throw new Error(`Invalid attach port: ${options.attachPort}`);
+    }
+    const attachHost = options.attachHost || "127.0.0.1";
+
     const localApp = await maybeStartLocalApp(this.config.localApp, {
       manageLocalApp: Boolean(options.manageLocalApp),
       command: options.localAppCommand,
@@ -81,19 +115,47 @@ export class SessionManager {
       pollIntervalMs: options.localAppPollIntervalMs || this.config.localApp.pollIntervalMs
     });
 
-    const launched = await launchChrome({
-      chromePath: options.chromePath || this.config.chrome.path,
-      headless: options.headless ?? this.config.chrome.headless,
-      extraArgs: [...(this.config.chrome.extraArgs || []), ...(options.extraArgs || [])],
-      ephemeralProfile: options.ephemeralProfile ?? this.config.chrome.ephemeralProfile,
-      userDataDir: options.userDataDir,
-      detached: true
-    });
+    let chromeRuntime;
+    if (attachPort) {
+      await getBrowserWsUrl({
+        host: attachHost,
+        port: attachPort
+      });
+      chromeRuntime = {
+        pid: null,
+        port: attachPort,
+        host: attachHost,
+        path: null,
+        headless: null,
+        userDataDir: null,
+        ephemeralProfile: false,
+        controlMode: "attached"
+      };
+    } else {
+      const launched = await launchChrome({
+        chromePath: options.chromePath || this.config.chrome.path,
+        headless: options.headless ?? this.config.chrome.headless,
+        extraArgs: [...(this.config.chrome.extraArgs || []), ...(options.extraArgs || [])],
+        ephemeralProfile: options.ephemeralProfile ?? this.config.chrome.ephemeralProfile,
+        userDataDir: options.userDataDir,
+        detached: true
+      });
+      chromeRuntime = {
+        pid: launched.pid,
+        port: launched.port,
+        host: "127.0.0.1",
+        path: options.chromePath || this.config.chrome.path,
+        headless: options.headless ?? this.config.chrome.headless,
+        userDataDir: launched.userDataDir,
+        ephemeralProfile: options.ephemeralProfile ?? this.config.chrome.ephemeralProfile,
+        controlMode: "launched"
+      };
+    }
 
     const sessionId = options.id || `sess-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
     let targetId = null;
 
-    const client = await openClientForSession({ chrome: launched });
+    const client = await openClientForSession({ chrome: chromeRuntime });
     try {
       const created = await client.send("Target.createTarget", { url: options.initialUrl || "about:blank" });
       targetId = created.targetId;
@@ -105,14 +167,7 @@ export class SessionManager {
       id: sessionId,
       createdAt: safeNowIso(),
       readOnly: options.readOnly ?? this.config.readOnly.enabled,
-      chrome: {
-        pid: launched.pid,
-        port: launched.port,
-        path: options.chromePath || this.config.chrome.path,
-        headless: options.headless ?? this.config.chrome.headless,
-        userDataDir: launched.userDataDir,
-        ephemeralProfile: options.ephemeralProfile ?? this.config.chrome.ephemeralProfile
-      },
+      chrome: chromeRuntime,
       localApp,
       targetId
     };
@@ -124,9 +179,15 @@ export class SessionManager {
 
   async stopSession(sessionId) {
     const session = await this.getSession(sessionId);
-    await killProcess(session.chrome.pid);
+    if ((session.chrome.controlMode || "launched") === "launched" && session.chrome.pid) {
+      await killProcess(session.chrome.pid);
+    }
     await maybeStopLocalApp(session.localApp);
-    if (session.chrome.ephemeralProfile && session.chrome.userDataDir) {
+    if (
+      (session.chrome.controlMode || "launched") === "launched" &&
+      session.chrome.ephemeralProfile &&
+      session.chrome.userDataDir
+    ) {
       await fs.rm(session.chrome.userDataDir, { recursive: true, force: true }).catch(() => null);
     }
     await this.store.removeSession(sessionId);

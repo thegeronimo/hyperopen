@@ -43,15 +43,19 @@ export async function buildServer() {
       inputSchema: {
         headless: z.boolean().optional(),
         manageLocalApp: z.boolean().optional(),
-        localUrl: z.string().optional()
+        localUrl: z.string().optional(),
+        attachPort: z.number().int().positive().optional(),
+        attachHost: z.string().optional()
       }
     },
-    async ({ headless, manageLocalApp, localUrl }) => {
+    async ({ headless, manageLocalApp, localUrl, attachPort, attachHost }) => {
       try {
         const session = await service.startSession({
           headless,
           manageLocalApp,
           localAppUrl: localUrl,
+          attachPort,
+          attachHost,
           readOnly: true
         });
         return textResult(session);
@@ -147,10 +151,22 @@ export async function buildServer() {
         viewports: z.array(z.string()).optional(),
         headless: z.boolean().optional(),
         manageLocalApp: z.boolean().optional(),
-        localUrl: z.string().optional()
+        localUrl: z.string().optional(),
+        attachPort: z.number().int().positive().optional(),
+        attachHost: z.string().optional()
       }
     },
-    async ({ sessionId, url, targetLabel, viewports, headless, manageLocalApp, localUrl }) => {
+    async ({
+      sessionId,
+      url,
+      targetLabel,
+      viewports,
+      headless,
+      manageLocalApp,
+      localUrl,
+      attachPort,
+      attachHost
+    }) => {
       try {
         const result = await service.capture({
           sessionId,
@@ -159,7 +175,9 @@ export async function buildServer() {
           viewports,
           headless,
           manageLocalApp,
-          localAppUrl: localUrl
+          localAppUrl: localUrl,
+          attachPort,
+          attachHost
         });
         return textResult(result);
       } catch (error) {
@@ -182,7 +200,9 @@ export async function buildServer() {
         viewports: z.array(z.string()).optional(),
         headless: z.boolean().optional(),
         manageLocalApp: z.boolean().optional(),
-        localUrl: z.string().optional()
+        localUrl: z.string().optional(),
+        attachPort: z.number().int().positive().optional(),
+        attachHost: z.string().optional()
       }
     },
     async ({
@@ -194,7 +214,9 @@ export async function buildServer() {
       viewports,
       headless,
       manageLocalApp,
-      localUrl
+      localUrl,
+      attachPort,
+      attachHost
     }) => {
       try {
         const result = await service.compare({
@@ -206,7 +228,9 @@ export async function buildServer() {
           viewports,
           headless,
           manageLocalApp,
-          localAppUrl: localUrl
+          localAppUrl: localUrl,
+          attachPort,
+          attachHost
         });
         return textResult(result);
       } catch (error) {

@@ -40,5 +40,25 @@ test("ArtifactStore creates runs and tracks session registry", async () => {
   const sessionsAfter = await store.listSessions();
   assert.equal(sessionsAfter.length, 0);
 
+  const attachedSession = {
+    id: "sess-attached",
+    createdAt: new Date().toISOString(),
+    readOnly: true,
+    chrome: {
+      pid: null,
+      port: 9222,
+      host: "127.0.0.1",
+      path: null,
+      headless: null,
+      userDataDir: null,
+      ephemeralProfile: false,
+      controlMode: "attached"
+    },
+    targetId: "target-2"
+  };
+  await store.upsertSession(attachedSession);
+  const attachedSessions = await store.listSessions();
+  assert.equal(attachedSessions.length, 1);
+
   await fs.rm(root, { recursive: true, force: true });
 });

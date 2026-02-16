@@ -103,6 +103,8 @@ export class BrowserInspectionService {
           headless: options.headless,
           manageLocalApp: Boolean(options.manageLocalApp),
           localAppUrl: options.localAppUrl,
+          attachPort: options.attachPort,
+          attachHost: options.attachHost,
           readOnly: true
         });
         sessionId = tempSession.id;
@@ -183,6 +185,8 @@ export class BrowserInspectionService {
           headless: options.headless,
           manageLocalApp: Boolean(options.manageLocalApp),
           localAppUrl: options.localAppUrl,
+          attachPort: options.attachPort,
+          attachHost: options.attachHost,
           readOnly: true
         });
         sessionId = tempSession.id;

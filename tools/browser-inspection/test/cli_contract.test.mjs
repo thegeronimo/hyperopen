@@ -24,3 +24,15 @@ test("cli inspect without url exits non-zero", async () => {
     }
   );
 });
+
+test("cli session attach without attach-port exits non-zero", async () => {
+  await assert.rejects(
+    async () => {
+      await execFileAsync(process.execPath, [cliPath, "session", "attach"]);
+    },
+    (error) => {
+      assert.notEqual(error.code, 0);
+      return true;
+    }
+  );
+});

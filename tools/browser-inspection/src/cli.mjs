@@ -45,11 +45,12 @@ function asJson(value) {
 
 function usage() {
   process.stdout.write(`Usage:
-  inspect --url <url> [--target <label>] [--viewports desktop,mobile] [--session-id <id>] [--headed] [--manage-local-app]
-  compare [--left-url <url>] [--right-url <url>] [--left-label <label>] [--right-label <label>] [--viewports desktop,mobile] [--session-id <id>] [--headed] [--manage-local-app]
+  inspect --url <url> [--target <label>] [--viewports desktop,mobile] [--session-id <id>] [--headed] [--manage-local-app] [--attach-port <port>] [--attach-host <host>]
+  compare [--left-url <url>] [--right-url <url>] [--left-label <label>] [--right-label <label>] [--viewports desktop,mobile] [--session-id <id>] [--headed] [--manage-local-app] [--attach-port <port>] [--attach-host <host>]
   navigate --session-id <id> --url <url> [--viewport desktop]
   eval --session-id <id> --expression <js>
-  session start [--headed] [--manage-local-app]
+  session start [--headed] [--manage-local-app] [--attach-port <port>] [--attach-host <host>]
+  session attach --attach-port <port> [--attach-host <host>] [--manage-local-app]
   session stop --session-id <id>
   session list
 `);
@@ -67,11 +68,16 @@ async function run() {
 
   const service = await BrowserInspectionService.create();
 
-  if (command === "session" && subcommand === "start") {
+  if (command === "session" && (subcommand === "start" || subcommand === "attach")) {
+    if (subcommand === "attach" && !args["attach-port"]) {
+      throw new Error("session attach requires --attach-port");
+    }
     const session = await service.startSession({
       headless: !Boolean(args.headed),
       manageLocalApp: Boolean(args["manage-local-app"]),
-      localAppUrl: args["local-url"]
+      localAppUrl: args["local-url"],
+      attachPort: args["attach-port"] || null,
+      attachHost: args["attach-host"] || null
     });
     asJson(session);
     return;
@@ -129,7 +135,9 @@ async function run() {
       viewports: parseViewportList(args.viewports),
       headless: !Boolean(args.headed),
       manageLocalApp: Boolean(args["manage-local-app"]),
-      localAppUrl: args["local-url"]
+      localAppUrl: args["local-url"],
+      attachPort: args["attach-port"] || null,
+      attachHost: args["attach-host"] || null
     });
     asJson(result);
     return;
@@ -145,7 +153,9 @@ async function run() {
       viewports: parseViewportList(args.viewports),
       headless: !Boolean(args.headed),
       manageLocalApp: Boolean(args["manage-local-app"]),
-      localAppUrl: args["local-url"]
+      localAppUrl: args["local-url"],
+      attachPort: args["attach-port"] || null,
+      attachHost: args["attach-host"] || null
     });
     asJson(result);
     return;

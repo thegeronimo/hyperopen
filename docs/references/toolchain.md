@@ -18,6 +18,7 @@ Browser inspection and parity commands:
 - `npm run browser:inspect -- --url <target-url> --target <label>`
 - `npm run browser:compare`
 - `npm run browser:mcp`
+- `node tools/browser-inspection/src/cli.mjs session attach --attach-port <cdp-port>`
 
 CI workflow reference:
 - `/hyperopen/.github/workflows/tests.yml`

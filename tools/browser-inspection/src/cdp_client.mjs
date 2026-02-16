@@ -188,14 +188,41 @@ export class CDPClient {
   }
 }
 
-export async function getBrowserWsUrl(port) {
-  const response = await fetch(`http://127.0.0.1:${port}/json/version`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch browser version for port ${port}: ${response.status}`);
+export async function getBrowserWsUrl(options) {
+  const normalized =
+    typeof options === "number"
+      ? {
+          host: "127.0.0.1",
+          port: options
+        }
+      : {
+          host: options?.host || "127.0.0.1",
+          port: options?.port,
+          timeoutMs: options?.timeoutMs,
+          pollIntervalMs: options?.pollIntervalMs
+        };
+
+  const { host, port, timeoutMs = 10000, pollIntervalMs = 200 } = normalized;
+  if (!port || typeof port !== "number") {
+    throw new Error("getBrowserWsUrl requires a numeric port");
   }
-  const payload = await response.json();
-  if (!payload.webSocketDebuggerUrl) {
-    throw new Error(`No webSocketDebuggerUrl returned for port ${port}`);
+
+  const deadline = Date.now() + timeoutMs;
+  const url = `http://${host}:${port}/json/version`;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        const payload = await response.json();
+        if (payload.webSocketDebuggerUrl) {
+          return payload.webSocketDebuggerUrl;
+        }
+      }
+    } catch (_err) {
+      // retry until timeout
+    }
+    await sleep(pollIntervalMs);
   }
-  return payload.webSocketDebuggerUrl;
+
+  throw new Error(`Failed to fetch webSocketDebuggerUrl from ${url}`);
 }

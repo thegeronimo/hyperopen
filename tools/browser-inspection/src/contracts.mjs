@@ -28,6 +28,27 @@ function assertObject(value, key) {
   }
 }
 
+function assertOptionalString(value, key) {
+  if (value === null || value === undefined) {
+    return;
+  }
+  assertString(value, key);
+}
+
+function assertOptionalNumber(value, key) {
+  if (value === null || value === undefined) {
+    return;
+  }
+  assertNumber(value, key);
+}
+
+function assertOptionalBoolean(value, key) {
+  if (value === null || value === undefined) {
+    return;
+  }
+  assertBoolean(value, key);
+}
+
 export function assertConfig(config) {
   assertObject(config, "config");
   assertString(config.artifactRoot, "config.artifactRoot");
@@ -49,8 +70,14 @@ export function assertSessionState(value) {
   assertString(value.id, "sessionState.id");
   assertString(value.createdAt, "sessionState.createdAt");
   assertObject(value.chrome, "sessionState.chrome");
-  assertNumber(value.chrome.pid, "sessionState.chrome.pid");
+  assertOptionalNumber(value.chrome.pid, "sessionState.chrome.pid");
   assertNumber(value.chrome.port, "sessionState.chrome.port");
+  assertString(value.chrome.host || "127.0.0.1", "sessionState.chrome.host");
+  assertOptionalString(value.chrome.path, "sessionState.chrome.path");
+  assertOptionalBoolean(value.chrome.headless, "sessionState.chrome.headless");
+  assertOptionalString(value.chrome.userDataDir, "sessionState.chrome.userDataDir");
+  assertBoolean(value.chrome.ephemeralProfile, "sessionState.chrome.ephemeralProfile");
+  assertString(value.chrome.controlMode || "launched", "sessionState.chrome.controlMode");
   assertString(value.targetId, "sessionState.targetId");
   assertBoolean(value.readOnly, "sessionState.readOnly");
 }
