@@ -18,7 +18,12 @@ Browser inspection and parity commands:
 - `npm run browser:inspect -- --url <target-url> --target <label>`
 - `npm run browser:compare`
 - `npm run browser:mcp`
+- `node tools/browser-inspection/src/cli.mjs session targets --attach-port <cdp-port>`
 - `node tools/browser-inspection/src/cli.mjs session attach --attach-port <cdp-port>`
+- `node tools/browser-inspection/src/cli.mjs session attach --attach-port <cdp-port> --target-id <cdp-target-id>`
+
+Deterministic target selection workflow:
+- `/hyperopen/docs/runbooks/browser-live-inspection.md` (Attach to Your Own Browser and Deterministic Tab Identification)
 
 CI workflow reference:
 - `/hyperopen/.github/workflows/tests.yml`

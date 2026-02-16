@@ -45,12 +45,13 @@ function asJson(value) {
 
 function usage() {
   process.stdout.write(`Usage:
-  inspect --url <url> [--target <label>] [--viewports desktop,mobile] [--session-id <id>] [--headed] [--manage-local-app] [--attach-port <port>] [--attach-host <host>]
-  compare [--left-url <url>] [--right-url <url>] [--left-label <label>] [--right-label <label>] [--viewports desktop,mobile] [--session-id <id>] [--headed] [--manage-local-app] [--attach-port <port>] [--attach-host <host>]
+  inspect --url <url> [--target <label>] [--viewports desktop,mobile] [--session-id <id>] [--headed] [--manage-local-app] [--attach-port <port>] [--attach-host <host>] [--target-id <cdp-target-id>]
+  compare [--left-url <url>] [--right-url <url>] [--left-label <label>] [--right-label <label>] [--viewports desktop,mobile] [--session-id <id>] [--headed] [--manage-local-app] [--attach-port <port>] [--attach-host <host>] [--target-id <cdp-target-id>]
   navigate --session-id <id> --url <url> [--viewport desktop]
   eval --session-id <id> --expression <js>
-  session start [--headed] [--manage-local-app] [--attach-port <port>] [--attach-host <host>]
-  session attach --attach-port <port> [--attach-host <host>] [--manage-local-app]
+  session start [--headed] [--manage-local-app] [--attach-port <port>] [--attach-host <host>] [--target-id <cdp-target-id>]
+  session attach --attach-port <port> [--attach-host <host>] [--manage-local-app] [--target-id <cdp-target-id>]
+  session targets (--session-id <id> | --attach-port <port>) [--attach-host <host>]
   session stop --session-id <id>
   session list
 `);
@@ -77,9 +78,23 @@ async function run() {
       manageLocalApp: Boolean(args["manage-local-app"]),
       localAppUrl: args["local-url"],
       attachPort: args["attach-port"] || null,
-      attachHost: args["attach-host"] || null
+      attachHost: args["attach-host"] || null,
+      targetId: args["target-id"] || null
     });
     asJson(session);
+    return;
+  }
+
+  if (command === "session" && subcommand === "targets") {
+    if (!args["session-id"] && !args["attach-port"]) {
+      throw new Error("session targets requires --session-id or --attach-port");
+    }
+    const result = await service.listTargets({
+      sessionId: args["session-id"] || null,
+      attachPort: args["attach-port"] || null,
+      attachHost: args["attach-host"] || null
+    });
+    asJson(result);
     return;
   }
 
@@ -137,7 +152,8 @@ async function run() {
       manageLocalApp: Boolean(args["manage-local-app"]),
       localAppUrl: args["local-url"],
       attachPort: args["attach-port"] || null,
-      attachHost: args["attach-host"] || null
+      attachHost: args["attach-host"] || null,
+      targetId: args["target-id"] || null
     });
     asJson(result);
     return;
@@ -155,7 +171,8 @@ async function run() {
       manageLocalApp: Boolean(args["manage-local-app"]),
       localAppUrl: args["local-url"],
       attachPort: args["attach-port"] || null,
-      attachHost: args["attach-host"] || null
+      attachHost: args["attach-host"] || null,
+      targetId: args["target-id"] || null
     });
     asJson(result);
     return;

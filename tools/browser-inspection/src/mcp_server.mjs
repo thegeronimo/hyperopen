@@ -45,10 +45,11 @@ export async function buildServer() {
         manageLocalApp: z.boolean().optional(),
         localUrl: z.string().optional(),
         attachPort: z.number().int().positive().optional(),
-        attachHost: z.string().optional()
+        attachHost: z.string().optional(),
+        targetId: z.string().optional()
       }
     },
-    async ({ headless, manageLocalApp, localUrl, attachPort, attachHost }) => {
+    async ({ headless, manageLocalApp, localUrl, attachPort, attachHost, targetId }) => {
       try {
         const session = await service.startSession({
           headless,
@@ -56,6 +57,7 @@ export async function buildServer() {
           localAppUrl: localUrl,
           attachPort,
           attachHost,
+          targetId,
           readOnly: true
         });
         return textResult(session);
@@ -93,6 +95,31 @@ export async function buildServer() {
       try {
         const sessions = await service.listSessions();
         return textResult({ sessions });
+      } catch (error) {
+        return errorResult(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "browser_targets_list",
+    {
+      description:
+        "List page targets (tabs) from an existing session or directly from a Chrome DevTools endpoint.",
+      inputSchema: {
+        sessionId: z.string().optional(),
+        attachPort: z.number().int().positive().optional(),
+        attachHost: z.string().optional()
+      }
+    },
+    async ({ sessionId, attachPort, attachHost }) => {
+      try {
+        const targets = await service.listTargets({
+          sessionId,
+          attachPort,
+          attachHost
+        });
+        return textResult(targets);
       } catch (error) {
         return errorResult(error);
       }
@@ -153,7 +180,8 @@ export async function buildServer() {
         manageLocalApp: z.boolean().optional(),
         localUrl: z.string().optional(),
         attachPort: z.number().int().positive().optional(),
-        attachHost: z.string().optional()
+        attachHost: z.string().optional(),
+        targetId: z.string().optional()
       }
     },
     async ({
@@ -165,7 +193,8 @@ export async function buildServer() {
       manageLocalApp,
       localUrl,
       attachPort,
-      attachHost
+      attachHost,
+      targetId
     }) => {
       try {
         const result = await service.capture({
@@ -177,7 +206,8 @@ export async function buildServer() {
           manageLocalApp,
           localAppUrl: localUrl,
           attachPort,
-          attachHost
+          attachHost,
+          targetId
         });
         return textResult(result);
       } catch (error) {
@@ -202,7 +232,8 @@ export async function buildServer() {
         manageLocalApp: z.boolean().optional(),
         localUrl: z.string().optional(),
         attachPort: z.number().int().positive().optional(),
-        attachHost: z.string().optional()
+        attachHost: z.string().optional(),
+        targetId: z.string().optional()
       }
     },
     async ({
@@ -216,7 +247,8 @@ export async function buildServer() {
       manageLocalApp,
       localUrl,
       attachPort,
-      attachHost
+      attachHost,
+      targetId
     }) => {
       try {
         const result = await service.compare({
@@ -230,7 +262,8 @@ export async function buildServer() {
           manageLocalApp,
           localAppUrl: localUrl,
           attachPort,
-          attachHost
+          attachHost,
+          targetId
         });
         return textResult(result);
       } catch (error) {

@@ -68,6 +68,10 @@ export class BrowserInspectionService {
     return this.sessionManager.listSessions();
   }
 
+  async listTargets(options = {}) {
+    return this.sessionManager.listTargets(options);
+  }
+
   async navigate(options) {
     const viewport = options.viewportName
       ? this.config.viewports[options.viewportName]
@@ -105,6 +109,7 @@ export class BrowserInspectionService {
           localAppUrl: options.localAppUrl,
           attachPort: options.attachPort,
           attachHost: options.attachHost,
+          targetId: options.targetId,
           readOnly: true
         });
         sessionId = tempSession.id;
@@ -187,6 +192,7 @@ export class BrowserInspectionService {
           localAppUrl: options.localAppUrl,
           attachPort: options.attachPort,
           attachHost: options.attachHost,
+          targetId: options.targetId,
           readOnly: true
         });
         sessionId = tempSession.id;

@@ -36,6 +36,33 @@ async function openClientForSession(session) {
   return client;
 }
 
+function normalizeAttachEndpoint(options = {}) {
+  const hasAttachPort = options.attachPort !== undefined && options.attachPort !== null;
+  if (!hasAttachPort) {
+    return null;
+  }
+  const port = Number(options.attachPort);
+  if (!Number.isInteger(port) || port <= 0) {
+    throw new Error(`Invalid attach port: ${options.attachPort}`);
+  }
+  return {
+    host: options.attachHost || "127.0.0.1",
+    port
+  };
+}
+
+function normalizeTargetInfo(targetInfo) {
+  return {
+    targetId: targetInfo.targetId,
+    type: targetInfo.type,
+    title: targetInfo.title || "",
+    url: targetInfo.url || "",
+    attached: Boolean(targetInfo.attached),
+    openerId: targetInfo.openerId || null,
+    browserContextId: targetInfo.browserContextId || null
+  };
+}
+
 export class SessionManager {
   constructor(config) {
     this.config = config;
@@ -85,6 +112,48 @@ export class SessionManager {
     return sessions;
   }
 
+  async listTargets(options = {}) {
+    if (options.sessionId && (options.attachPort !== undefined && options.attachPort !== null)) {
+      throw new Error("listTargets accepts either sessionId or attach-port, not both");
+    }
+
+    let attach;
+    if (options.sessionId) {
+      const session = await this.getSession(options.sessionId);
+      attach = {
+        host: session.chrome.host || "127.0.0.1",
+        port: session.chrome.port
+      };
+    } else {
+      attach = normalizeAttachEndpoint(options);
+      if (!attach) {
+        throw new Error("listTargets requires --session-id or --attach-port");
+      }
+    }
+
+    const client = await openClientForSession({ chrome: attach });
+    try {
+      const targets = await client.send("Target.getTargets", {});
+      const pageTargets = (targets.targetInfos || [])
+        .filter((target) => target.type === "page")
+        .map(normalizeTargetInfo)
+        .sort((a, b) => {
+          if (a.url !== b.url) {
+            return a.url.localeCompare(b.url);
+          }
+          return a.title.localeCompare(b.title);
+        });
+
+      return {
+        host: attach.host,
+        port: attach.port,
+        targets: pageTargets
+      };
+    } finally {
+      await client.close();
+    }
+  }
+
   async getSession(sessionId) {
     const sessions = await this.store.listSessions();
     const session = sessions.find((item) => item.id === sessionId);
@@ -99,12 +168,11 @@ export class SessionManager {
   }
 
   async startSession(options = {}) {
-    const hasAttachPort = options.attachPort !== undefined && options.attachPort !== null;
-    const attachPort = hasAttachPort ? Number(options.attachPort) : null;
-    if (hasAttachPort && (!Number.isInteger(attachPort) || attachPort <= 0)) {
-      throw new Error(`Invalid attach port: ${options.attachPort}`);
+    const attach = normalizeAttachEndpoint(options);
+    const requestedTargetId = options.targetId ? String(options.targetId) : null;
+    if (requestedTargetId && !attach) {
+      throw new Error("targetId can only be provided when attaching to an existing Chrome endpoint");
     }
-    const attachHost = options.attachHost || "127.0.0.1";
 
     const localApp = await maybeStartLocalApp(this.config.localApp, {
       manageLocalApp: Boolean(options.manageLocalApp),
@@ -116,15 +184,15 @@ export class SessionManager {
     });
 
     let chromeRuntime;
-    if (attachPort) {
+    if (attach) {
       await getBrowserWsUrl({
-        host: attachHost,
-        port: attachPort
+        host: attach.host,
+        port: attach.port
       });
       chromeRuntime = {
         pid: null,
-        port: attachPort,
-        host: attachHost,
+        port: attach.port,
+        host: attach.host,
         path: null,
         headless: null,
         userDataDir: null,
@@ -157,8 +225,17 @@ export class SessionManager {
 
     const client = await openClientForSession({ chrome: chromeRuntime });
     try {
-      const created = await client.send("Target.createTarget", { url: options.initialUrl || "about:blank" });
-      targetId = created.targetId;
+      if (requestedTargetId) {
+        const targets = await client.send("Target.getTargets", {});
+        const exists = (targets.targetInfos || []).some((target) => target.targetId === requestedTargetId);
+        if (!exists) {
+          throw new Error(`Target not found on attach endpoint: ${requestedTargetId}`);
+        }
+        targetId = requestedTargetId;
+      } else {
+        const created = await client.send("Target.createTarget", { url: options.initialUrl || "about:blank" });
+        targetId = created.targetId;
+      }
     } finally {
       await client.close();
     }

@@ -36,3 +36,15 @@ test("cli session attach without attach-port exits non-zero", async () => {
     }
   );
 });
+
+test("cli session targets without selector exits non-zero", async () => {
+  await assert.rejects(
+    async () => {
+      await execFileAsync(process.execPath, [cliPath, "session", "targets"]);
+    },
+    (error) => {
+      assert.notEqual(error.code, 0);
+      return true;
+    }
+  );
+});
