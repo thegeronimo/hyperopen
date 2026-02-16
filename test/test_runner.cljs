@@ -46,6 +46,8 @@
             [hyperopen.utils.hl-signing-test]
             [hyperopen.utils.interval-test]
             [hyperopen.websocket.interval-coverage-test]
+            [hyperopen.orderbook.actions-test]
+            [hyperopen.orderbook.settings-test]
             [hyperopen.orderbook.price-aggregation-test]
             [hyperopen.order.feedback-runtime-test]
             [hyperopen.app.effects-test]
@@ -147,6 +149,8 @@
              'hyperopen.asset-selector.icon-status-runtime-test
              'hyperopen.core-public-actions-test
              'hyperopen.core-bootstrap-test
+             'hyperopen.orderbook.actions-test
+             'hyperopen.orderbook.settings-test
              'hyperopen.orderbook.price-aggregation-test
              'hyperopen.order.feedback-runtime-test
              'hyperopen.app.effects-test
