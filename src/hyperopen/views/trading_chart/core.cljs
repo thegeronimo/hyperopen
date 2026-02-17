@@ -1,6 +1,8 @@
 (ns hyperopen.views.trading-chart.core
   (:require [clojure.string :as str]
+            [replicant.core :as replicant-core]
             [hyperopen.utils.formatting :as fmt]
+            [hyperopen.views.account-info.projections :as account-projections]
             [hyperopen.views.trading-chart.runtime-state :as chart-runtime]
             [hyperopen.views.trading-chart.utils.chart-interop :as ci]
             [hyperopen.views.trading-chart.derived-cache :as derived-cache]
@@ -11,6 +13,32 @@
 
 ;; Main timeframes for quick access buttons
 (def main-timeframes [:5m :1h :1d])
+
+(defn- preferred-orders-value
+  [state k]
+  (if (contains? (or (:orders state) {}) k)
+    (get-in state [:orders k])
+    (get-in state [:webdata2 k])))
+
+(defn- chart-open-orders
+  [state]
+  (let [active-asset (:active-asset state)
+        open-orders-source (preferred-orders-value state :open-orders)
+        open-orders-snapshot-source (preferred-orders-value state :open-orders-snapshot)
+        open-orders-snapshot-by-dex-source (preferred-orders-value state :open-orders-snapshot-by-dex)]
+    (account-projections/normalized-open-orders-for-active-asset
+     open-orders-source
+     open-orders-snapshot-source
+     open-orders-snapshot-by-dex-source
+     active-asset)))
+
+(defn- dispatch-chart-cancel-order!
+  [order]
+  (let [dispatch-fn replicant-core/*dispatch*]
+    (when (and (ifn? dispatch-fn)
+               (map? order))
+      (dispatch-fn {:replicant/trigger :chart-order-overlay-cancel}
+                   [[:actions/cancel-order order]]))))
 
 ;; Top menu component with timeframe selection and bars indicator
 (defn chart-top-menu [state]
@@ -97,124 +125,135 @@
          (:text freshness-cue)]])]))
 
 ;; Generic chart component that supports all chart types with volume
-(defn chart-canvas [candle-data chart-type active-indicators legend-meta selected-timeframe chart-runtime-options]
-  (let [{:keys [indicators-data indicator-markers]
-         indicator-series-data :indicator-series}
-        (derived-cache/memoized-indicator-outputs candle-data selected-timeframe active-indicators)
-        series-options (:series-options chart-runtime-options)
-        legend-deps (:legend-deps chart-runtime-options)
-        persistence-deps (:persistence-deps chart-runtime-options)
-        legend-key (str (or (:symbol legend-meta) "")
-                        "-"
-                        (or (:timeframe-label legend-meta) "")
-                        "-"
-                        (or (:venue legend-meta) ""))
-        mount! (fn [{:keys [:replicant/life-cycle :replicant/node]}]
-                 (case life-cycle
-                   :replicant.life-cycle/mount
-                   (try
-                     ;; Create chart with indicators support
-                     (let [chart-obj (if (seq indicators-data)
-                                       (ci/create-chart-with-indicators! node chart-type candle-data indicators-data
-                                                                         {:series-options series-options})
-                                       (ci/create-chart-with-volume-and-series! node chart-type candle-data
-                                                                                {:series-options series-options}))
-                           chart (.-chart chart-obj)
-                           legend-control (ci/create-legend! node chart legend-meta legend-deps)
-                           data-ready? (boolean (seq candle-data))
-                           restored-now? (when (seq candle-data)
-                                           (ci/apply-persisted-visible-range! chart selected-timeframe persistence-deps))
-                           visible-range-cleanup (when data-ready?
-                                                  (ci/subscribe-visible-range-persistence! chart selected-timeframe persistence-deps))]
-                       (ci/set-main-series-markers! chart-obj indicator-markers)
-                       (ci/sync-baseline-base-value-subscription! chart-obj chart-type)
-                       (chart-runtime/set-state! node {:chart-obj chart-obj
-                                                       :legend-control legend-control
-                                                       :chart-type chart-type
-                                                       :visible-range-restore-tried? (boolean (or restored-now?
-                                                                                                  (seq candle-data)))
-                                                       :visible-range-persistence-subscribed? (boolean data-ready?)
-                                                       :visible-range-cleanup visible-range-cleanup}))
-                     (catch :default e
-                       (js/console.error "Error in chart:" e)))
-                   :replicant.life-cycle/update
-                   (try
-                     (let [runtime-state (chart-runtime/get-state node)
-                           chart-obj (:chart-obj runtime-state)
-                           legend-control (:legend-control runtime-state)
-                           previous-chart-type (:chart-type runtime-state)
-                           visible-range-restore-tried? (boolean (:visible-range-restore-tried? runtime-state))
-                           visible-range-persistence-subscribed? (boolean (:visible-range-persistence-subscribed? runtime-state))
-                           main-series (when chart-obj (.-mainSeries ^js chart-obj))
-                           volume-series (when chart-obj (.-volumeSeries ^js chart-obj))
-                           indicator-series (when chart-obj (.-indicatorSeries ^js chart-obj))
-                           chart (when chart-obj (.-chart ^js chart-obj))]
-                       (when (and chart previous-chart-type (not= previous-chart-type chart-type))
-                         (let [time-scale (.timeScale ^js chart)
-                               visible-range (.getVisibleLogicalRange ^js time-scale)
-                               new-series (ci/add-series! chart chart-type)]
-                           (when main-series
-                             (try
-                               (.removeSeries ^js chart main-series)
-                               (catch :default _ nil)))
-                           (set! (.-mainSeries ^js chart-obj) new-series)
-                           (ci/set-series-data! new-series candle-data chart-type series-options)
-                           (ci/sync-baseline-base-value-subscription! chart-obj chart-type)
-                           (when visible-range
-                             (try
-                               (.setVisibleLogicalRange ^js time-scale visible-range)
-                               (catch :default _ nil)))))
-                       (when (and main-series (or (nil? previous-chart-type) (= previous-chart-type chart-type)))
-                         (ci/set-series-data! main-series candle-data chart-type series-options))
-                       (when chart-obj
-                         (ci/sync-baseline-base-value-subscription! chart-obj chart-type))
-                       (when volume-series
-                         (ci/set-volume-data! volume-series candle-data))
-                       (when (and chart-obj chart (seq candle-data) (not visible-range-restore-tried?))
-                         (ci/apply-persisted-visible-range! chart selected-timeframe persistence-deps)
-                         (chart-runtime/assoc-state! node :visible-range-restore-tried? true))
-                       (when (and chart-obj chart (seq candle-data) (not visible-range-persistence-subscribed?))
-                         (chart-runtime/assoc-state! node
-                                                    :visible-range-cleanup
-                                                    (ci/subscribe-visible-range-persistence! chart selected-timeframe persistence-deps)
-                                                    :visible-range-persistence-subscribed? true))
-                       (when chart-obj
-                         (ci/set-main-series-markers! chart-obj indicator-markers))
-                       (when (and indicator-series (seq indicator-series-data))
-                         (doseq [[idx series-entry] (map-indexed vector indicator-series-data)]
-                           (when-let [^js indicator-series-entry (aget ^js indicator-series idx)]
-                             (when-let [series (.-series indicator-series-entry)]
-                               (ci/set-indicator-data! series (:data series-entry))))))
-                       (when legend-control
-                         (.update ^js legend-control legend-meta))
-                       (when (and chart-obj (not= previous-chart-type chart-type))
-                         (chart-runtime/assoc-state! node :chart-type chart-type)))
-                     (catch :default e
-                       (js/console.error "Error updating chart:" e)))
-                   :replicant.life-cycle/unmount
-                   (let [{:keys [chart-obj legend-control visible-range-cleanup]} (chart-runtime/get-state node)
-                         chart (when chart-obj (.-chart ^js chart-obj))]
-                     (when legend-control
-                       (.destroy ^js legend-control))
-                     (ci/clear-baseline-base-value-subscription! chart-obj)
-                     (when visible-range-cleanup
-                       (try
-                         (visible-range-cleanup)
-                         (catch :default _
-                           nil)))
-                     (when chart
-                       (try
-                         (.remove ^js chart)
-                         (catch :default _ nil)))
-                     (chart-runtime/clear-state! node))
-                   nil))]
-    [:div {:class ["w-full" "relative" "flex-1" "h-full" "min-h-[360px]" "bg-base-100" "trading-chart-host"]
-           :data-parity-id "chart-canvas"
-           :replicant/key (str "chart-" (hash active-indicators) "-" legend-key)
-           :replicant/on-render mount!}]))
+(defn chart-canvas
+  ([candle-data chart-type active-indicators legend-meta selected-timeframe chart-runtime-options]
+   (chart-canvas candle-data chart-type active-indicators legend-meta selected-timeframe chart-runtime-options [] nil))
+  ([candle-data chart-type active-indicators legend-meta selected-timeframe chart-runtime-options open-order-overlays on-cancel-order]
+   (let [{:keys [indicators-data indicator-markers]
+          indicator-series-data :indicator-series}
+         (derived-cache/memoized-indicator-outputs candle-data selected-timeframe active-indicators)
+         series-options (:series-options chart-runtime-options)
+         legend-deps (:legend-deps chart-runtime-options)
+         persistence-deps (:persistence-deps chart-runtime-options)
+         overlay-deps {:on-cancel-order on-cancel-order
+                       :format-price fmt/format-trade-price-plain
+                       :format-size (fn [value]
+                                      (fmt/format-fixed-number value 2))}
+         legend-key (str (or (:symbol legend-meta) "")
+                         "-"
+                         (or (:timeframe-label legend-meta) "")
+                         "-"
+                         (or (:venue legend-meta) ""))
+         mount! (fn [{:keys [:replicant/life-cycle :replicant/node]}]
+                  (case life-cycle
+                    :replicant.life-cycle/mount
+                    (try
+                      ;; Create chart with indicators support
+                      (let [chart-obj (if (seq indicators-data)
+                                        (ci/create-chart-with-indicators! node chart-type candle-data indicators-data
+                                                                          {:series-options series-options})
+                                        (ci/create-chart-with-volume-and-series! node chart-type candle-data
+                                                                                 {:series-options series-options}))
+                            chart (.-chart chart-obj)
+                            legend-control (ci/create-legend! node chart legend-meta legend-deps)
+                            data-ready? (boolean (seq candle-data))
+                            restored-now? (when (seq candle-data)
+                                            (ci/apply-persisted-visible-range! chart selected-timeframe persistence-deps))
+                            visible-range-cleanup (when data-ready?
+                                                   (ci/subscribe-visible-range-persistence! chart selected-timeframe persistence-deps))]
+                        (ci/set-main-series-markers! chart-obj indicator-markers)
+                        (ci/sync-baseline-base-value-subscription! chart-obj chart-type)
+                        (ci/sync-open-order-overlays! chart-obj node open-order-overlays overlay-deps)
+                        (chart-runtime/set-state! node {:chart-obj chart-obj
+                                                        :legend-control legend-control
+                                                        :chart-type chart-type
+                                                        :visible-range-restore-tried? (boolean (or restored-now?
+                                                                                                   (seq candle-data)))
+                                                        :visible-range-persistence-subscribed? (boolean data-ready?)
+                                                        :visible-range-cleanup visible-range-cleanup}))
+                      (catch :default e
+                        (js/console.error "Error in chart:" e)))
+                    :replicant.life-cycle/update
+                    (try
+                      (let [runtime-state (chart-runtime/get-state node)
+                            chart-obj (:chart-obj runtime-state)
+                            legend-control (:legend-control runtime-state)
+                            previous-chart-type (:chart-type runtime-state)
+                            visible-range-restore-tried? (boolean (:visible-range-restore-tried? runtime-state))
+                            visible-range-persistence-subscribed? (boolean (:visible-range-persistence-subscribed? runtime-state))
+                            main-series (when chart-obj (.-mainSeries ^js chart-obj))
+                            volume-series (when chart-obj (.-volumeSeries ^js chart-obj))
+                            indicator-series (when chart-obj (.-indicatorSeries ^js chart-obj))
+                            chart (when chart-obj (.-chart ^js chart-obj))]
+                        (when (and chart previous-chart-type (not= previous-chart-type chart-type))
+                          (let [time-scale (.timeScale ^js chart)
+                                visible-range (.getVisibleLogicalRange ^js time-scale)
+                                new-series (ci/add-series! chart chart-type)]
+                            (when main-series
+                              (try
+                                (.removeSeries ^js chart main-series)
+                                (catch :default _ nil)))
+                            (set! (.-mainSeries ^js chart-obj) new-series)
+                            (ci/set-series-data! new-series candle-data chart-type series-options)
+                            (ci/sync-baseline-base-value-subscription! chart-obj chart-type)
+                            (when visible-range
+                              (try
+                                (.setVisibleLogicalRange ^js time-scale visible-range)
+                                (catch :default _ nil)))))
+                        (when (and main-series (or (nil? previous-chart-type) (= previous-chart-type chart-type)))
+                          (ci/set-series-data! main-series candle-data chart-type series-options))
+                        (when chart-obj
+                          (ci/sync-baseline-base-value-subscription! chart-obj chart-type))
+                        (when volume-series
+                          (ci/set-volume-data! volume-series candle-data))
+                        (when (and chart-obj chart (seq candle-data) (not visible-range-restore-tried?))
+                          (ci/apply-persisted-visible-range! chart selected-timeframe persistence-deps)
+                          (chart-runtime/assoc-state! node :visible-range-restore-tried? true))
+                        (when (and chart-obj chart (seq candle-data) (not visible-range-persistence-subscribed?))
+                          (chart-runtime/assoc-state! node
+                                                     :visible-range-cleanup
+                                                     (ci/subscribe-visible-range-persistence! chart selected-timeframe persistence-deps)
+                                                     :visible-range-persistence-subscribed? true))
+                        (when chart-obj
+                          (ci/set-main-series-markers! chart-obj indicator-markers)
+                          (ci/sync-open-order-overlays! chart-obj node open-order-overlays overlay-deps))
+                        (when (and indicator-series (seq indicator-series-data))
+                          (doseq [[idx series-entry] (map-indexed vector indicator-series-data)]
+                            (when-let [^js indicator-series-entry (aget ^js indicator-series idx)]
+                              (when-let [series (.-series indicator-series-entry)]
+                                (ci/set-indicator-data! series (:data series-entry))))))
+                        (when legend-control
+                          (.update ^js legend-control legend-meta))
+                        (when (and chart-obj (not= previous-chart-type chart-type))
+                          (chart-runtime/assoc-state! node :chart-type chart-type)))
+                      (catch :default e
+                        (js/console.error "Error updating chart:" e)))
+                    :replicant.life-cycle/unmount
+                    (let [{:keys [chart-obj legend-control visible-range-cleanup]} (chart-runtime/get-state node)
+                          chart (when chart-obj (.-chart ^js chart-obj))]
+                      (when legend-control
+                        (.destroy ^js legend-control))
+                      (ci/clear-open-order-overlays! chart-obj)
+                      (ci/clear-baseline-base-value-subscription! chart-obj)
+                      (when visible-range-cleanup
+                        (try
+                          (visible-range-cleanup)
+                          (catch :default _
+                            nil)))
+                      (when chart
+                        (try
+                          (.remove ^js chart)
+                          (catch :default _ nil)))
+                      (chart-runtime/clear-state! node))
+                    nil))]
+     [:div {:class ["w-full" "relative" "flex-1" "h-full" "min-h-[360px]" "bg-base-100" "trading-chart-host"]
+            :data-parity-id "chart-canvas"
+            :replicant/key (str "chart-" (hash active-indicators) "-" legend-key)
+            :replicant/on-render mount!}])))
 
 (defn trading-chart-view [state]
   (let [active-asset (:active-asset state)
+        active-open-orders (chart-open-orders state)
         candles-map (:candles state)
         active-market (or (:active-market state) {})
         ;; Use selected timeframe from state
@@ -256,4 +295,6 @@
                       (get-in state [:chart-options :active-indicators] {})
                       legend-meta
                       selected-timeframe
-                      chart-runtime-options))]]))
+                      chart-runtime-options
+                      active-open-orders
+                      dispatch-chart-cancel-order!))]]))

@@ -5,6 +5,7 @@
             [hyperopen.views.trading-chart.utils.chart-interop.indicators :as indicator-interop]
             [hyperopen.views.trading-chart.utils.chart-interop.legend :as legend]
             [hyperopen.views.trading-chart.utils.chart-interop.markers :as markers]
+            [hyperopen.views.trading-chart.utils.chart-interop.open-order-overlays :as open-order-overlays]
             [hyperopen.views.trading-chart.utils.chart-interop.price-format :as price-format]
             [hyperopen.views.trading-chart.utils.chart-interop.series :as series]
             [hyperopen.views.trading-chart.utils.chart-interop.transforms :as transforms]
@@ -230,6 +231,24 @@
      (chart-contracts/assert-chart-handle! chart-obj
                                            {:boundary :chart-interop/set-main-series-markers}))
    (markers/set-main-series-markers! chart-obj markers deps)))
+
+(defn sync-open-order-overlays!
+  "Attach/update chart open-order overlays aligned to order price coordinates."
+  ([chart-obj container orders]
+   (sync-open-order-overlays! chart-obj container orders {}))
+  ([chart-obj container orders opts]
+   (when chart-obj
+     (chart-contracts/assert-chart-handle! chart-obj
+                                           {:boundary :chart-interop/sync-open-order-overlays}))
+   (open-order-overlays/sync-open-order-overlays! chart-obj container orders opts)))
+
+(defn clear-open-order-overlays!
+  "Clear chart open-order overlays and remove overlay listeners/DOM."
+  [chart-obj]
+  (when chart-obj
+    (chart-contracts/assert-chart-handle! chart-obj
+                                          {:boundary :chart-interop/clear-open-order-overlays}))
+  (open-order-overlays/clear-open-order-overlays! chart-obj))
 
 (defn create-chart-with-volume-and-series!
   "Create a chart with main series and volume series in separate panes."

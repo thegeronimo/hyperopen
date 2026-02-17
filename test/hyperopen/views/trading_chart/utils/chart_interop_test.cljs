@@ -15,20 +15,47 @@
 
 (defn- make-fake-element [tag]
   (let [children (array)
+        listeners (js-obj)
         element #js {:tagName tag
                      :style #js {}
                      :children children
+                     :listeners listeners
                      :parentNode nil
+                     :firstChild nil
+                     :className ""
+                     :innerHTML ""
                      :textContent ""}]
-    (set! (.-appendChild element)
-          (fn [child]
-            (.push children child)
-            (set! (.-parentNode child) element)
-            child))
-    (set! (.-removeChild element)
-          (fn [child]
-            (set! (.-parentNode child) nil)
-            child))
+    (letfn [(refresh-first-child! []
+              (set! (.-firstChild element)
+                    (when (pos? (alength children))
+                      (aget children 0))))]
+      (set! (.-appendChild element)
+            (fn [child]
+              (.push children child)
+              (set! (.-parentNode child) element)
+              (refresh-first-child!)
+              child))
+      (set! (.-removeChild element)
+            (fn [child]
+              (let [idx (.indexOf children child)]
+                (when (>= idx 0)
+                  (.splice children idx 1)))
+              (set! (.-parentNode child) nil)
+              (refresh-first-child!)
+              child))
+      (set! (.-setAttribute element)
+            (fn [attr value]
+              (aset element attr value)))
+      (set! (.-addEventListener element)
+            (fn [event-name handler]
+              (aset listeners event-name handler)))
+      (set! (.-removeEventListener element)
+            (fn [event-name _handler]
+              (js-delete listeners event-name)))
+      (set! (.-dispatchEvent element)
+            (fn [event-name payload]
+              (when-let [handler (aget listeners event-name)]
+                (handler payload)))))
     element))
 
 (defn- make-fake-document []
@@ -42,6 +69,21 @@
         children (or (some-> node .-children array-seq) [])]
     (into (vec own)
           (mapcat collect-text-content children))))
+
+(defn- find-dom-node [node pred]
+  (when node
+    (let [children (or (some-> node .-children array-seq) [])]
+      (or (when (pred node) node)
+          (some #(find-dom-node % pred) children)))))
+
+(defn- click-dom-node! [node]
+  (when node
+    (let [listeners (.-listeners ^js node)
+          handler (when listeners
+                    (aget listeners "click"))]
+      (when (fn? handler)
+        (handler #js {:preventDefault (fn [] nil)
+                      :stopPropagation (fn [] nil)})))))
 
 (deftest apply-persisted-visible-range-applies-stored-time-range-test
   (let [requested-key (atom nil)
@@ -734,7 +776,7 @@
       (is (str/includes? text "-- (--)")))
     (.destroy ^js legend-control)
     (is (identical? @crosshair-handler* @unsubscribed-handler*))
-    (is (nil? (.-parentNode (aget (.-children container) 0))))))
+    (is (zero? (alength (.-children container))))))
 
 (deftest markers-module-normalizes-marker-input-and-reuses-plugin-test
   (let [create-calls (atom 0)
@@ -798,3 +840,65 @@
     (is (nil? (baseline/clear-baseline-base-value-subscription! nil)))
     (is (some? baseline-result))
     (is (true? clear-result))))
+
+(deftest open-order-overlays-render-lines-and-inline-cancel-test
+  (let [document (make-fake-document)
+        container (make-fake-element "div")
+        unsubscribes* (atom 0)
+        subscribe-fn (fn [_] nil)
+        unsubscribe-fn (fn [_]
+                         (swap! unsubscribes* inc))
+        time-scale #js {:subscribeVisibleTimeRangeChange subscribe-fn
+                        :unsubscribeVisibleTimeRangeChange unsubscribe-fn
+                        :subscribeVisibleLogicalRangeChange subscribe-fn
+                        :unsubscribeVisibleLogicalRangeChange unsubscribe-fn
+                        :subscribeSizeChange subscribe-fn
+                        :unsubscribeSizeChange unsubscribe-fn}
+        chart #js {:timeScale (fn [] time-scale)
+                   :subscribeCrosshairMove subscribe-fn
+                   :unsubscribeCrosshairMove unsubscribe-fn
+                   :subscribeClick subscribe-fn
+                   :unsubscribeClick unsubscribe-fn}
+        main-series #js {:priceToCoordinate (fn [price]
+                                              (* 2 price))
+                         :subscribeDataChanged subscribe-fn
+                         :unsubscribeDataChanged unsubscribe-fn}
+        chart-obj #js {:chart chart
+                       :mainSeries main-series}
+        canceled-oids* (atom [])
+        orders [{:coin "SOL"
+                 :oid 11
+                 :side "B"
+                 :type "limit"
+                 :sz "1.00"
+                 :px "60.0"}
+                {:coin "SOL"
+                 :oid 12
+                 :side "A"
+                 :type "limit"
+                 :sz "2.25"
+                 :px "61.5"}]]
+    (chart-interop/sync-open-order-overlays!
+     chart-obj
+     container
+     orders
+     {:document document
+      :on-cancel-order (fn [order]
+                         (swap! canceled-oids* conj (:oid order)))
+      :format-price (fn [price _raw]
+                      (str "P" price))
+      :format-size (fn [size]
+                     (str "S" size))})
+    (is (= 1 (alength (.-children container))))
+    (let [overlay-root (aget (.-children container) 0)
+          text (str/join " " (collect-text-content overlay-root))
+          cancel-button (find-dom-node overlay-root
+                                       #(= "button" (some-> (.-tagName %) str/lower-case)))]
+      (is (str/includes? text "Limit S1.00 at $P60.0"))
+      (is (str/includes? text "Limit S2.25 at $P61.5"))
+      (is (some? cancel-button))
+      (click-dom-node! cancel-button))
+    (is (= [12] @canceled-oids*))
+    (chart-interop/clear-open-order-overlays! chart-obj)
+    (is (= 0 (alength (.-children container))))
+    (is (= 6 @unsubscribes*))))
