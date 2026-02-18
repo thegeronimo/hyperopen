@@ -20,8 +20,8 @@
 (deftest process-volume-data-test
   (let [volume-data (dp/process-volume-data [{:time 1 :open 10 :close 12 :volume 100}
                                              {:time 2 :open 12 :close 11 :volume 90}])]
-    (is (= [{:time 1 :value 100 :color "#10b981"}
-            {:time 2 :value 90 :color "#ef4444"}]
+    (is (= [{:time 1 :value 100 :color "rgba(34, 171, 148, 0.5)"}
+            {:time 2 :value 90 :color "rgba(247, 82, 95, 0.5)"}]
            (vec volume-data)))))
 
 (deftest update-last-candle-test

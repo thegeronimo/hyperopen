@@ -20,7 +20,7 @@
         volume-series (.addSeries chart HistogramSeries #js {:priceFormat #js {:type "volume"}
                                                              :priceScaleId ""
                                                              :scaleMargins #js {:top 0.8 :bottom 0}
-                                                             :color "#26a69a"})]
+                                                             :color transforms/hyperliquid-volume-up-color})]
     #js {:chart chart :volumeSeries volume-series}))
 
 (defn create-chart!
@@ -378,7 +378,7 @@
    (let [chart (create-chart! container)
          main-series (add-series! chart chart-type)
          volume-series (.addSeries ^js chart HistogramSeries
-                                   #js {:color "#26a69a"
+                                   #js {:color transforms/hyperliquid-volume-up-color
                                         :priceFormat #js {:type "volume"}}
                                    1)]
      (set-series-data! main-series data chart-type series-options)
@@ -410,7 +410,7 @@
                                 assignments)
          main-series (add-series! chart chart-type)
          volume-series (.addSeries ^js chart HistogramSeries
-                                   #js {:color "#26a69a"
+                                   #js {:color transforms/hyperliquid-volume-up-color
                                         :priceFormat #js {:type "volume"}}
                                    next-pane-index)]
      (set-series-data! main-series data chart-type series-options)

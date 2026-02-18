@@ -375,9 +375,9 @@
     (chart-interop/set-volume-data! volume-series appended)
     (is (= :set (ffirst @calls*)))
     (is (= 3 (count @calls*)))
-    (is (= [:update {:value 140 :time 2 :color "#26a69a"}]
+    (is (= [:update {:value 140 :time 2 :color "rgba(34, 171, 148, 0.5)"}]
            (second @calls*)))
-    (is (= [:update {:value 90 :time 3 :color "#26a69a"}]
+    (is (= [:update {:value 90 :time 3 :color "rgba(34, 171, 148, 0.5)"}]
            (nth @calls* 2)))))
 
 (deftest set-main-series-markers-reuses-plugin-for-same-series-and-recreates-for-new-series-test
@@ -515,8 +515,8 @@
         candles [{:time 1 :open 10 :high 12 :low 9 :close 11 :volume 50}
                  {:time 2 :open 11 :high 12 :low 8 :close 9 :volume 35}]]
     (chart-interop/set-volume-data! volume-series candles)
-    (is (= [{:time 1 :value 50 :color "#26a69a"}
-            {:time 2 :value 35 :color "#ef5350"}]
+    (is (= [{:time 1 :value 50 :color "rgba(34, 171, 148, 0.5)"}
+            {:time 2 :value 35 :color "rgba(247, 82, 95, 0.5)"}]
            @applied-data))))
 
 (deftest fit-content-calls-time-scale-fit-content-test

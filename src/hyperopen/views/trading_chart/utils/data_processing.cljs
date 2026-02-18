@@ -1,6 +1,9 @@
 (ns hyperopen.views.trading-chart.utils.data-processing
   (:require [hyperopen.platform :as platform]))
 
+(def ^:private hyperliquid-volume-up-color "rgba(34, 171, 148, 0.5)")
+(def ^:private hyperliquid-volume-down-color "rgba(247, 82, 95, 0.5)")
+
 (defn process-candle-data [raw-data]
   "Transform raw API candle data to Lightweight.Charts format"
   (if (seq raw-data)
@@ -27,7 +30,9 @@
   (->> candle-data
        (map #(hash-map :time (:time %)
                        :value (:volume %)
-                       :color (if (>= (:close %) (:open %)) "#10b981" "#ef4444")))))
+                       :color (if (>= (:close %) (:open %))
+                                hyperliquid-volume-up-color
+                                hyperliquid-volume-down-color)))))
 
 (defn generate-mock-candles []
   "Generate mock candle data for development"

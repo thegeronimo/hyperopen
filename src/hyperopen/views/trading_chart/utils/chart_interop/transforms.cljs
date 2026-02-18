@@ -1,5 +1,13 @@
 (ns hyperopen.views.trading-chart.utils.chart-interop.transforms)
 
+(def hyperliquid-volume-up-color
+  "Hyperliquid volume up-bar color from TradingView Volume study defaults."
+  "rgba(34, 171, 148, 0.5)")
+
+(def hyperliquid-volume-down-color
+  "Hyperliquid volume down-bar color from TradingView Volume study defaults."
+  "rgba(247, 82, 95, 0.5)")
+
 (defn normalize-main-chart-type
   "Normalize aliases to canonical chart-type keywords."
   [chart-type]
@@ -87,5 +95,7 @@
   (map (fn [candle]
          {:value (:volume candle)
           :time (:time candle)
-          :color (if (>= (:close candle) (:open candle)) "#26a69a" "#ef5350")})
+          :color (if (>= (:close candle) (:open candle))
+                   hyperliquid-volume-up-color
+                   hyperliquid-volume-down-color)})
        data))
