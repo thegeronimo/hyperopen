@@ -78,13 +78,13 @@ jobs:
       - name: Commit Coverage Badge
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
         run: |
-          if git diff --quiet -- .github/badges/coverage.json; then
+          if git diff --quiet -- .github/badges/coverage.json .github/badges/coverage.svg; then
             echo "Coverage badge unchanged."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/badges/coverage.json
+          git add .github/badges/coverage.json .github/badges/coverage.svg
           git commit -m "chore: update coverage badge [skip ci]"
           git push origin "HEAD:${GITHUB_REF#refs/heads/}"

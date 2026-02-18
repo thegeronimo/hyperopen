@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="118" height="20" role="img" aria-label="coverage: 91.16%">
+  <linearGradient id="s" x2="0" y2="100%">
+    <stop offset="0" stop-color="#fff" stop-opacity=".7"/>
+    <stop offset=".1" stop-color="#aaa" stop-opacity=".1"/>
+    <stop offset=".9" stop-opacity=".3"/>
+    <stop offset="1" stop-opacity=".5"/>
+  </linearGradient>
+  <mask id="m">
+    <rect width="118" height="20" rx="3" fill="#fff"/>
+  </mask>
+  <g mask="url(#m)">
+    <rect width="66" height="20" fill="#555"/>
+    <rect x="66" width="52" height="20" fill="#4c1"/>
+    <rect width="118" height="20" fill="url(#s)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110">
+    <text aria-hidden="true" x="330" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="560">coverage</text>
+    <text x="330" y="140" transform="scale(.1)" fill="#fff" textLength="560">coverage</text>
+    <text aria-hidden="true" x="920" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="420">91.16%</text>
+    <text x="920" y="140" transform="scale(.1)" fill="#fff" textLength="420">91.16%</text>
+  </g>
+</svg>

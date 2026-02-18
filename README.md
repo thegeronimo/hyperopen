@@ -3,7 +3,7 @@
 > An open source hyperliquid client
 
 [![Tests](https://github.com/thegeronimo/hyperopen/actions/workflows/tests.yml/badge.svg)](https://github.com/thegeronimo/hyperopen/actions/workflows/tests.yml)
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/thegeronimo/hyperopen/main/.github/badges/coverage.json)](https://github.com/thegeronimo/hyperopen/actions/workflows/tests.yml)
+[![Coverage](.github/badges/coverage.svg)](https://github.com/thegeronimo/hyperopen/actions/workflows/tests.yml)
 
 A ClojureScript trading interface built with [Replicant](https://github.com/cjohansen/replicant) for data-driven rendering and [Nexus](https://github.com/cjohansen/nexus) for action-based state management.
 
