@@ -164,15 +164,19 @@
       (runtime/publish-transport-event! rt {:event/type :socket/message
                                             :socket-id 1
                                             :raw "{\"channel\":\"trades\",\"seq\":2,\"data\":[{\"coin\":\"BTC\"}]}"})
-      (js/setTimeout
-        (fn []
-          (is (= 1 (count @routed)))
-          (is (= 2 (get-in (first @routed) [:payload :seq])))
-          (is (>= (get-in @stream-runtime [:metrics :market-coalesced]) 1))
-          (is (= 1 (get-in @stream-runtime [:metrics :market-dispatched])))
-          (runtime/stop-runtime! rt)
-          (done))
-        10))))
+      (let [deadline-ms (+ (.now js/Date) 250)]
+        (letfn [(check! []
+                  (if (or (= 1 (count @routed))
+                          (>= (.now js/Date) deadline-ms))
+                    (do
+                      (is (= 1 (count @routed)))
+                      (is (= 2 (get-in (first @routed) [:payload :seq])))
+                      (is (>= (get-in @stream-runtime [:metrics :market-coalesced]) 1))
+                      (is (= 1 (get-in @stream-runtime [:metrics :market-dispatched])))
+                      (runtime/stop-runtime! rt)
+                      (done))
+                    (js/setTimeout check! 5)))]
+          (check!))))))
 
 (deftest lossless-ordering-invariant-test
   (async done
