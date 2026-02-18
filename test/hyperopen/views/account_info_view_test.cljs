@@ -1042,6 +1042,12 @@
       (is (contains? rows-viewport-classes "overflow-y-auto"))
       (is (contains? rows-viewport-classes "scrollbar-hide")))))
 
+(deftest balances-tab-viewport-has-no-artificial-top-gap-test
+  (let [content (view/balances-tab-content [sample-balance-row] false default-sort-state)
+        rows-viewport-classes (node-class-set (tab-rows-viewport-node content))]
+    (is (not (contains? rows-viewport-classes "-mt-8")))
+    (is (not (contains? rows-viewport-classes "pt-12")))))
+
 (deftest account-info-table-rows-use-hover-highlight-without-divider-lines-test
   (let [open-orders [{:oid 101
                       :coin "HYPE"
@@ -1205,12 +1211,46 @@
                                                               (contains? (direct-texts %) "201.38936500")))
         tooltip-panel-node (find-first-node row-node #(and (= :div (first %))
                                                            (contains? (node-class-set %) "group-hover:opacity-100")))
+        tooltip-panel-classes (node-class-set tooltip-panel-node)
+        tooltip-bubble-node (find-first-node tooltip-panel-node #(and (= :div (first %))
+                                                                      (contains? (node-class-set %) "w-[520px]")))
+        tooltip-bubble-classes (node-class-set tooltip-bubble-node)
         tooltip-text (str/join " " (collect-strings tooltip-panel-node))]
     (is (some? tooltip-trigger-node))
     (is (contains? (node-class-set tooltip-trigger-node) "underline"))
     (is (contains? (node-class-set tooltip-trigger-node) "underline-offset-2"))
     (is (some? tooltip-panel-node))
+    (is (contains? tooltip-panel-classes "left-1/2"))
+    (is (contains? tooltip-panel-classes "-translate-x-1/2"))
+    (is (not (contains? tooltip-panel-classes "right-0")))
+    (is (contains? tooltip-panel-classes "bottom-full"))
+    (is (contains? tooltip-panel-classes "mb-2"))
+    (is (contains? tooltip-panel-classes "z-[120]"))
+    (is (not (contains? tooltip-panel-classes "top-full")))
+    (is (some? tooltip-bubble-node))
+    (is (contains? tooltip-bubble-classes "text-left"))
     (is (str/includes? tooltip-text "201.38936500 USDC is available to withdraw or transfer."))))
+
+(deftest balances-tab-content-first-row-tooltip-falls-back-below-test
+  (let [rows [{:key "unified-usdc"
+               :coin "USDC"
+               :total-balance 204.419365
+               :available-balance 201.389365
+               :usdc-value 204.41
+               :pnl-value nil
+               :pnl-pct nil
+               :amount-decimals 8
+               :transfer-disabled? true}
+              (assoc sample-balance-row :key "spot-usdc" :coin "USDC (Spot)")]
+        content (view/balances-tab-content rows false default-sort-state)
+        first-row (first-viewport-row content)
+        tooltip-panel-node (find-first-node first-row #(and (= :div (first %))
+                                                            (contains? (node-class-set %) "group-hover:opacity-100")))
+        tooltip-panel-classes (node-class-set tooltip-panel-node)]
+    (is (some? tooltip-panel-node))
+    (is (contains? tooltip-panel-classes "top-full"))
+    (is (contains? tooltip-panel-classes "mt-2"))
+    (is (not (contains? tooltip-panel-classes "bottom-full")))))
 
 (deftest balance-row-contract-cell-renders-explorer-link-with-abbreviated-id-test
   (let [contract-id "0x1234567890abcdef"

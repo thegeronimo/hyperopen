@@ -21,10 +21,21 @@
        (or coin "USDC")
        unified-available-balance-tooltip-suffix))
 
-(defn- available-balance-value-node [{:keys [coin available-balance amount-decimals transfer-disabled?]}]
+(defn- available-balance-value-node [{:keys [coin
+                                             available-balance
+                                             amount-decimals
+                                             transfer-disabled?
+                                             tooltip-position]}]
   (let [value-text (shared/format-balance-amount available-balance amount-decimals)]
     (if transfer-disabled?
-      [:div {:class ["group" "relative" "inline-flex" "min-h-6" "items-center" "justify-end"]}
+      (let [position (or tooltip-position :top)
+            panel-position-classes (case position
+                                     :bottom ["top-full" "mt-2"]
+                                     ["bottom-full" "mb-2"])
+            caret-position-classes (case position
+                                     :bottom ["bottom-full" "border-b-gray-800"]
+                                     ["top-full" "border-t-gray-800"])]
+        [:div {:class ["group" "relative" "inline-flex" "min-h-6" "items-center" "justify-end"]}
        [:span {:class ["cursor-help"
                        "rounded"
                        "underline"
@@ -37,39 +48,40 @@
                        "focus-visible:ring-offset-base-100"]
                :tab-index 0}
         value-text]
-       [:div {:class ["pointer-events-none"
-                      "absolute"
-                      "right-0"
-                      "bottom-full"
-                      "z-50"
-                      "mb-2"
-                      "opacity-0"
-                      "transition-opacity"
-                      "duration-200"
-                      "group-hover:opacity-100"
-                      "group-focus-within:opacity-100"]}
+       [:div {:class (into ["pointer-events-none"
+                            "absolute"
+                            "left-1/2"
+                            "-translate-x-1/2"
+                            "z-[120]"
+                            "opacity-0"
+                            "transition-opacity"
+                            "duration-200"
+                            "group-hover:opacity-100"
+                            "group-focus-within:opacity-100"]
+                           panel-position-classes)}
         [:div {:class ["relative"
-                       "w-[420px]"
+                       "w-[520px]"
                        "max-w-[calc(100vw-2rem)]"
-                       "min-w-[280px]"
+                       "min-w-[320px]"
                        "rounded-md"
                        "bg-gray-800"
                        "px-3"
                        "py-1.5"
                        "text-xs"
                        "leading-tight"
+                       "text-left"
                        "text-gray-100"
                        "shadow-lg"
                        "whitespace-normal"]}
          (unified-available-balance-tooltip-text coin available-balance amount-decimals)
-         [:div {:class ["absolute"
-                        "top-full"
-                        "right-3"
-                        "h-0"
-                        "w-0"
-                        "border-4"
-                        "border-transparent"
-                        "border-t-gray-800"]}]]]]
+         [:div {:class (into ["absolute"
+                              "left-1/2"
+                              "-translate-x-1/2"
+                              "h-0"
+                              "w-0"
+                              "border-4"
+                              "border-transparent"]
+                             caret-position-classes)}]]]])
       value-text)))
 
 (defn- external-link-icon
@@ -188,7 +200,8 @@
                            pnl-pct
                            amount-decimals
                            contract-id
-                           transfer-disabled?]}]
+                           transfer-disabled?
+                           available-balance-tooltip-position]}]
   (let [coin-attrs (when-not (usdc-balance-row? {:coin coin})
                      {:style {:color "rgb(151, 252, 228)"}})]
     [:div.grid.grid-cols-8.gap-2.py-px.px-3.hover:bg-base-300.items-center.text-sm.text-trading-text
@@ -200,7 +213,8 @@
       (available-balance-value-node {:coin coin
                                      :available-balance available-balance
                                      :amount-decimals amount-decimals
-                                     :transfer-disabled? transfer-disabled?})]
+                                     :transfer-disabled? transfer-disabled?
+                                     :tooltip-position available-balance-tooltip-position})]
      [:div.text-right.font-semibold.num.num-right "$" (shared/format-currency usdc-value)]
      [:div.text-right.font-medium.num.num-right (shared/format-pnl pnl-value pnl-pct)]
      [:div.text-left
@@ -235,8 +249,15 @@
                                                (:direction sort-state))
                       visible-rows)]
     (if (seq visible-rows)
-      (table/tab-table-content (balance-table-header sort-state)
-                               (for [row sorted-rows]
-                                 ^{:key (:key row)}
-                                 (balance-row row)))
+      [:div {:class ["flex" "h-full" "min-h-0" "flex-col"]}
+       (balance-table-header sort-state)
+       (into [:div {:class ["flex-1"
+                            "min-h-0"
+                            "overflow-y-auto"
+                            "scrollbar-hide"]}]
+             (map-indexed (fn [idx row]
+                            (let [tooltip-position (if (zero? idx) :bottom :top)]
+                              ^{:key (:key row)}
+                              (balance-row (assoc row :available-balance-tooltip-position tooltip-position))))
+                          sorted-rows))]
       (empty-state "No balance data available"))))
