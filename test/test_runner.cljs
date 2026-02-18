@@ -36,6 +36,9 @@
             [hyperopen.websocket.health-runtime-test]
             [hyperopen.websocket.infrastructure.runtime-effects-test]
             [hyperopen.websocket.infrastructure.transport-test]
+            [hyperopen.asset-selector.actions-test]
+            [hyperopen.asset-selector.active-market-cache-test]
+            [hyperopen.asset-selector.settings-test]
             [hyperopen.asset-selector.markets-test]
             [hyperopen.asset-selector.markets-cache-test]
             [hyperopen.asset-selector.icon-status-runtime-test]
@@ -152,6 +155,9 @@
              'hyperopen.utils.hl-signing-test
              'hyperopen.utils.interval-test
              'hyperopen.websocket.interval-coverage-test
+             'hyperopen.asset-selector.actions-test
+             'hyperopen.asset-selector.active-market-cache-test
+             'hyperopen.asset-selector.settings-test
              'hyperopen.asset-selector.markets-test
              'hyperopen.asset-selector.markets-cache-test
              'hyperopen.asset-selector.icon-status-runtime-test
