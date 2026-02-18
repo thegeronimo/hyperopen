@@ -71,23 +71,35 @@
    :metrics-ch (chan (async/dropping-buffer (or metrics-buffer-size 1024)))
    :dead-letter-ch (chan (async/dropping-buffer (or dead-letter-buffer-size 512)))})
 
+(defn- unsupported-command->runtime-msg [command]
+  (model/make-runtime-msg :evt/parse-error
+                          (:ts command)
+                          {:error (js/Error. (str "Unsupported connection command: " (:op command)))
+                           :raw command}))
+
+(def ^:private connection-command-handlers
+  {:runtime/stop (fn [command]
+                   (model/make-runtime-msg :cmd/disconnect (:ts command)))
+   :outbound/intent (fn [command]
+                      (model/make-runtime-msg :cmd/send-message (:ts command) {:data (:data command)}))
+   :connection/connect (fn [command]
+                         (if (:force? command)
+                           (model/make-runtime-msg :cmd/force-reconnect (:ts command))
+                           (model/make-runtime-msg :cmd/init-connection (:ts command)
+                                                   {:ws-url (:ws-url command)})))})
+
+(defn- connection-command->runtime-msg [command]
+  (if-let [handler (get connection-command-handlers (:op command))]
+    (handler command)
+    (unsupported-command->runtime-msg command)))
+
 (defn- command->runtime-msg [command now-ms]
   (cond
     (model/runtime-msg? command)
     command
 
     (model/connection-command? command)
-    (case (:op command)
-      :runtime/stop (model/make-runtime-msg :cmd/disconnect (:ts command))
-      :outbound/intent (model/make-runtime-msg :cmd/send-message (:ts command) {:data (:data command)})
-      :connection/connect (if (:force? command)
-                            (model/make-runtime-msg :cmd/force-reconnect (:ts command))
-                            (model/make-runtime-msg :cmd/init-connection (:ts command)
-                                                    {:ws-url (:ws-url command)}))
-      (model/make-runtime-msg :evt/parse-error
-                              (:ts command)
-                              {:error (js/Error. (str "Unsupported connection command: " (:op command)))
-                               :raw command}))
+    (connection-command->runtime-msg command)
 
     (and (map? command) (keyword? (:op command)))
     (command->runtime-msg (model/make-connection-command (:op command)
@@ -101,39 +113,60 @@
                             {:error (js/Error. "Unsupported command payload")
                              :raw command})))
 
+(defn- unsupported-transport-event->runtime-msg [event]
+  (model/make-runtime-msg :evt/parse-error (:ts event)
+                          {:error (js/Error. (str "Unsupported transport event: " (:event/type event)))
+                           :raw event}))
+
+(def ^:private transport-event-handlers
+  {:socket/open (fn [event]
+                  (model/make-runtime-msg :evt/socket-open (:ts event) {:socket-id (:socket-id event)}))
+   :socket/message (fn [event]
+                     (model/make-runtime-msg :evt/socket-message (:ts event)
+                                             {:socket-id (:socket-id event)
+                                              :recv-at-ms (or (:recv-at-ms event) (:ts event))
+                                              :raw (:raw event)}))
+   :socket/close (fn [event]
+                   (model/make-runtime-msg :evt/socket-close (:ts event)
+                                           {:socket-id (:socket-id event)
+                                            :code (:code event)
+                                            :reason (:reason event)
+                                            :at-ms (or (:at-ms event) (:ts event))
+                                            :was-clean? (:was-clean? event)}))
+   :socket/error (fn [event]
+                   (model/make-runtime-msg :evt/socket-error (:ts event)
+                                           {:socket-id (:socket-id event)
+                                            :error (:error event)}))
+   :lifecycle/focus (fn [event]
+                      (model/make-runtime-msg :evt/lifecycle-focus (:ts event)))
+   :lifecycle/online (fn [event]
+                       (model/make-runtime-msg :evt/lifecycle-online (:ts event)))
+   :lifecycle/offline (fn [event]
+                        (model/make-runtime-msg :evt/lifecycle-offline (:ts event)))
+   :lifecycle/visible (fn [event]
+                        (model/make-runtime-msg :evt/lifecycle-visible (:ts event)))
+   :timer/retry (fn [event]
+                  (model/make-runtime-msg :evt/timer-retry-fired (:ts event)))
+   :timer/watchdog (fn [event]
+                     (model/make-runtime-msg :evt/timer-watchdog-fired (:ts event)))
+   :timer/health (fn [event]
+                   (model/make-runtime-msg :evt/timer-health-tick (:ts event)
+                                           {:now-ms (or (:now-ms event) (:ts event))}))
+   :timer/market-flush (fn [event]
+                         (model/make-runtime-msg :evt/timer-market-flush-fired (:ts event)))})
+
+(defn- transport-event->normalized-msg [event]
+  (if-let [handler (get transport-event-handlers (:event/type event))]
+    (handler event)
+    (unsupported-transport-event->runtime-msg event)))
+
 (defn- transport-event->runtime-msg [event now-ms]
   (cond
     (model/runtime-msg? event)
     event
 
     (model/transport-event? event)
-    (case (:event/type event)
-      :socket/open (model/make-runtime-msg :evt/socket-open (:ts event) {:socket-id (:socket-id event)})
-      :socket/message (model/make-runtime-msg :evt/socket-message (:ts event)
-                                              {:socket-id (:socket-id event)
-                                               :recv-at-ms (or (:recv-at-ms event) (:ts event))
-                                               :raw (:raw event)})
-      :socket/close (model/make-runtime-msg :evt/socket-close (:ts event)
-                                            {:socket-id (:socket-id event)
-                                             :code (:code event)
-                                             :reason (:reason event)
-                                             :at-ms (or (:at-ms event) (:ts event))
-                                             :was-clean? (:was-clean? event)})
-      :socket/error (model/make-runtime-msg :evt/socket-error (:ts event)
-                                            {:socket-id (:socket-id event)
-                                             :error (:error event)})
-      :lifecycle/focus (model/make-runtime-msg :evt/lifecycle-focus (:ts event))
-      :lifecycle/online (model/make-runtime-msg :evt/lifecycle-online (:ts event))
-      :lifecycle/offline (model/make-runtime-msg :evt/lifecycle-offline (:ts event))
-      :lifecycle/visible (model/make-runtime-msg :evt/lifecycle-visible (:ts event))
-      :timer/retry (model/make-runtime-msg :evt/timer-retry-fired (:ts event))
-      :timer/watchdog (model/make-runtime-msg :evt/timer-watchdog-fired (:ts event))
-      :timer/health (model/make-runtime-msg :evt/timer-health-tick (:ts event)
-                                            {:now-ms (or (:now-ms event) (:ts event))})
-      :timer/market-flush (model/make-runtime-msg :evt/timer-market-flush-fired (:ts event))
-      (model/make-runtime-msg :evt/parse-error (:ts event)
-                              {:error (js/Error. (str "Unsupported transport event: " (:event/type event)))
-                               :raw event}))
+    (transport-event->normalized-msg event)
 
     (and (map? event) (keyword? (:event/type event)))
     (transport-event->runtime-msg (model/make-transport-event (:event/type event)
