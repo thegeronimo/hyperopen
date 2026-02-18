@@ -18,7 +18,7 @@
   
   :test {:target :node-test
          :output-to "out/test.js"
-         :ns-regexp "^(hyperopen\\.(?!websocket\\.).*-test|hyperopen\\.websocket\\.application\\..*-test|hyperopen\\.websocket\\.(active-asset-ctx|client|market-projection-runtime|orderbook|orderbook-policy|subscriptions-runtime|trades|trades-policy|user|webdata2)-test)$"
+         :ns-regexp "^(hyperopen\\.(?!websocket\\.).*-test|hyperopen\\.websocket\\.application\\..*-test|hyperopen\\.websocket\\.(active-asset-ctx|client|market-projection-runtime|orderbook|orderbook-policy|subscriptions-runtime|trades|trades-policy|user|webdata2)-test|hyperopen\\.websocket\\.(acl\\.hyperliquid|domain\\.(model|policy)|infrastructure\\.(runtime-effects|transport))-test)$"
          :compiler-options {:source-map true}
          :js-options {:resolve {"lightweight-charts" {:target :file
                                                       :file "test/shims/lightweight_charts_stub.cjs"}}}}
