@@ -1,10 +1,9 @@
 (ns hyperopen.domain.trading.indicators.contracts
   (:require [clojure.string :as string]
+            [hyperopen.domain.trading.indicators.polymorphism :as poly]
             [hyperopen.domain.trading.indicators.schema :as schema]))
 
 (def ^:private valid-panes #{:overlay :separate})
-(def ^:private valid-series-types #{:line :histogram})
-(def ^:private valid-marker-kinds #{:fractal-high :fractal-low})
 (def ^:private required-ohlc-fields #{:time :open :high :low :close})
 (def ^:private numeric-string-pattern #"^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$")
 
@@ -46,6 +45,43 @@
          (numeric-like? value)) (js/parseFloat (string/trim value))
     :else nil))
 
+(defmethod poly/validate-param-value :number
+  [_ {:keys [min max]} value {:keys [numeric-like->number]}]
+  (let [parsed (numeric-like->number value)]
+    (and (some? parsed)
+         (if (some? min) (<= min parsed) true)
+         (if (some? max) (<= parsed max) true))))
+
+(defmethod poly/validate-param-value :number-vector
+  [_ _ value {:keys [numeric-like?]}]
+  (and (sequential? value)
+       (every? numeric-like? value)))
+
+(defn- finite-values?
+  [values expected-length]
+  (and (vector? values)
+       (= expected-length (count values))
+       (every? (fn [value]
+                 (or (nil? value)
+                     (finite-number? value)))
+               values)))
+
+(defmethod poly/series-operation [:contracts/valid-series? :line]
+  [_ _ series expected-length]
+  (finite-values? (:values series) expected-length))
+
+(defmethod poly/series-operation [:contracts/valid-series? :histogram]
+  [_ _ series expected-length]
+  (finite-values? (:values series) expected-length))
+
+(defmethod poly/marker-operation [:contracts/valid-marker-kind? :fractal-high]
+  [_ _ _]
+  true)
+
+(defmethod poly/marker-operation [:contracts/valid-marker-kind? :fractal-low]
+  [_ _ _]
+  true)
+
 (defn- required-candle-fields
   [indicator-type]
   (cond-> required-ohlc-fields
@@ -63,21 +99,15 @@
 
 (defn- valid-params?
   [indicator-type params]
-  (let [specs (schema/indicator-param-specs indicator-type)
-        valid-value?
-        (fn [{:keys [kind min max]} value]
-          (case kind
-            :number (let [parsed (numeric-like->number value)]
-                      (and (some? parsed)
-                           (if (some? min) (<= min parsed) true)
-                           (if (some? max) (<= parsed max) true)))
-            :number-vector (and (sequential? value)
-                                (every? numeric-like? value))
-            true))]
+  (let [specs (schema/indicator-param-specs indicator-type)]
     (and (map? params)
          (every? (fn [[key value]]
                    (if-let [spec (get specs key)]
-                     (valid-value? spec value)
+                     (poly/validate-param-value (:kind spec)
+                                                spec
+                                                value
+                                                {:numeric-like? numeric-like?
+                                                 :numeric-like->number numeric-like->number})
                      true))
                  params)
          (every? (fn [[key {:keys [required?]}]]
@@ -98,13 +128,10 @@
   [series expected-length]
   (and (map? series)
        (keyword? (:id series))
-       (contains? valid-series-types (:series-type series))
-       (vector? (:values series))
-       (= expected-length (count (:values series)))
-       (every? (fn [value]
-                 (or (nil? value)
-                     (finite-number? value)))
-               (:values series))))
+       (true? (poly/series-operation :contracts/valid-series?
+                                     (:series-type series)
+                                     series
+                                     expected-length))))
 
 (defn- unique-series-ids?
   [series]
@@ -114,13 +141,14 @@
 
 (defn- valid-marker?
   [marker]
-  (and (map? marker)
-       (string? (:id marker))
-       (numeric-like? (:time marker))
-       (keyword? (:kind marker))
-       (contains? valid-marker-kinds (:kind marker))
-       (or (nil? (:price marker))
-           (numeric-like? (:price marker)))))
+  (let [kind (:kind marker)]
+    (and (map? marker)
+         (string? (:id marker))
+         (numeric-like? (:time marker))
+         (keyword? kind)
+         (true? (poly/marker-operation :contracts/valid-marker-kind? kind marker))
+         (or (nil? (:price marker))
+             (numeric-like? (:price marker))))))
 
 (defn valid-indicator-result?
   [result indicator-type expected-length]

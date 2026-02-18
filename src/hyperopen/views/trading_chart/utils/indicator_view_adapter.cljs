@@ -1,5 +1,6 @@
 (ns hyperopen.views.trading-chart.utils.indicator-view-adapter
   (:require [hyperopen.domain.trading.indicators.math :as imath]
+            [hyperopen.domain.trading.indicators.polymorphism :as poly]
             [hyperopen.views.trading-chart.utils.indicator-style-catalog :as styles]))
 
 (defn point
@@ -52,6 +53,29 @@
                  time-values
                  indicator-values)}))
 
+(defmethod poly/series-operation [:view/project :line]
+  [_ _ indicator-type series-id time-values indicator-values]
+  (line-series indicator-type series-id time-values indicator-values))
+
+(defmethod poly/series-operation [:view/project :histogram]
+  [_ _ indicator-type series-id time-values indicator-values]
+  (histogram-series indicator-type series-id time-values indicator-values))
+
+(defn- project-marker-with-kind
+  [indicator-type kind marker]
+  (when-let [style (get styles/marker-meta [indicator-type kind])]
+    (merge {:id (:id marker)
+            :time (:time marker)}
+           style)))
+
+(defmethod poly/marker-operation [:view/project :fractal-high]
+  [_ _ indicator-type marker]
+  (project-marker-with-kind indicator-type :fractal-high marker))
+
+(defmethod poly/marker-operation [:view/project :fractal-low]
+  [_ _ indicator-type marker]
+  (project-marker-with-kind indicator-type :fractal-low marker))
+
 (defn indicator-result
   ([indicator-type pane series]
    {:type indicator-type
@@ -65,18 +89,16 @@
 
 (defn- project-series
   [indicator-type time-values {:keys [id series-type values]}]
-  (case series-type
-    :histogram (histogram-series indicator-type id time-values values)
-    :line (line-series indicator-type id time-values values)
-    nil))
+  (poly/series-operation :view/project
+                         series-type
+                         indicator-type
+                         id
+                         time-values
+                         values))
 
 (defn- project-marker
   [indicator-type marker]
-  (let [kind (:kind marker)]
-    (when-let [style (get styles/marker-meta [indicator-type kind])]
-      (merge {:id (:id marker)
-              :time (:time marker)}
-             style))))
+  (poly/marker-operation :view/project (:kind marker) indicator-type marker))
 
 (defn project-domain-indicator
   [data {:keys [type pane series markers]}]
