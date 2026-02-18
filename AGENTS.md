@@ -14,7 +14,6 @@ This file is the agent entry point for this repository. It is a table of content
 ## Source of Truth and Precedence
 - Canonical requirements live in `/hyperopen/ARCHITECTURE.md` and `/hyperopen/docs/**`.
 - Task-specific user/developer instructions override repository docs for the current task.
-- `.cursorrules` and `/hyperopen/GUIDELINES.md` remain supporting context.
 
 ## Start Here
 1. [Architecture Map](/hyperopen/ARCHITECTURE.md)
