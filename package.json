@@ -14,6 +14,7 @@
     "coverage:check": "c8 check-coverage --temp-directory .coverage --lines 80 --functions 80 --branches 70 --statements 80",
     "coverage:ci": "npm run coverage && npm run coverage:check",
     "coverage:badge": "node tools/coverage/write-badge-json.mjs",
+    "test-metrics:badge": "node tools/coverage/write-test-metrics-badges.mjs",
     "lint:test": "bb -m dev.hiccup-lint-test",
     "lint:hiccup": "bb -m dev.check-hiccup-attrs",
     "lint:class-attrs": "bb -m dev.check-class-attrs",

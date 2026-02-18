@@ -56,16 +56,23 @@ jobs:
         run: npm ci
 
       - name: Run CI Test Gate
-        run: npm run test:ci
+        run: |
+          set -o pipefail
+          npm run test:ci | tee .github/badges/test-main.log
 
       - name: Run WebSocket Test Gate
-        run: npm run test:websocket
+        run: |
+          set -o pipefail
+          npm run test:websocket | tee .github/badges/test-websocket.log
 
       - name: Generate Coverage Report
         run: npm run coverage
 
       - name: Generate Coverage Badge Data
         run: npm run coverage:badge
+
+      - name: Generate Test Metrics Badge Data
+        run: npm run test-metrics:badge
 
       - name: Upload Coverage Artifact
         if: always()
@@ -78,13 +85,25 @@ jobs:
       - name: Commit Coverage Badge
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
         run: |
-          if git diff --quiet -- .github/badges/coverage.json .github/badges/coverage.svg; then
-            echo "Coverage badge unchanged."
+          if git diff --quiet -- \
+            .github/badges/coverage.json \
+            .github/badges/coverage.svg \
+            .github/badges/tests-total.json \
+            .github/badges/tests-total.svg \
+            .github/badges/assertions-total.json \
+            .github/badges/assertions-total.svg; then
+            echo "Badges unchanged."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/badges/coverage.json .github/badges/coverage.svg
-          git commit -m "chore: update coverage badge [skip ci]"
+          git add \
+            .github/badges/coverage.json \
+            .github/badges/coverage.svg \
+            .github/badges/tests-total.json \
+            .github/badges/tests-total.svg \
+            .github/badges/assertions-total.json \
+            .github/badges/assertions-total.svg
+          git commit -m "chore: update test and coverage badges [skip ci]"
           git push origin "HEAD:${GITHUB_REF#refs/heads/}"

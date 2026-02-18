@@ -4,6 +4,8 @@
 
 [![Tests](https://github.com/thegeronimo/hyperopen/actions/workflows/tests.yml/badge.svg)](https://github.com/thegeronimo/hyperopen/actions/workflows/tests.yml)
 [![Coverage](.github/badges/coverage.svg)](https://github.com/thegeronimo/hyperopen/actions/workflows/tests.yml)
+[![Tests Total](.github/badges/tests-total.svg)](https://github.com/thegeronimo/hyperopen/actions/workflows/tests.yml)
+[![Assertions Total](.github/badges/assertions-total.svg)](https://github.com/thegeronimo/hyperopen/actions/workflows/tests.yml)
 
 A ClojureScript trading interface built with [Replicant](https://github.com/cjohansen/replicant) for data-driven rendering and [Nexus](https://github.com/cjohansen/nexus) for action-based state management.
 
