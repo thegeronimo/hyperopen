@@ -150,3 +150,17 @@
     (is (= 1 (count rows)))
     (is (= "MYST" (:coin row)))
     (is (nil? (:usdc-value row)))))
+
+(deftest normalize-order-history-row-returns-status-key-without-status-label-test
+  (let [row {:order {:coin "SOL"
+                     :oid 1
+                     :side "B"
+                     :origSz "1.0"
+                     :remainingSz "0.0"
+                     :limitPx "100.0"
+                     :timestamp 1710000000}
+             :status "filled"
+             :statusTimestamp 1710000000}
+        normalized (projections/normalize-order-history-row row)]
+    (is (= :filled (:status-key normalized)))
+    (is (not (contains? normalized :status-label)))))

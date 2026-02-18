@@ -189,8 +189,8 @@
 
 (defn normalize-order-history-row
   ([row]
-   (normalize-order-history-row row default-order-history-status-labels))
-  ([row order-history-status-labels]
+   (normalize-order-history-row row nil))
+  ([row _order-history-status-labels]
    (let [root (or (:order row) row)
          root-map (if (map? root) root {})
          row-map (if (map? row) row {})
@@ -270,12 +270,11 @@
         :trigger-px trigger-px
         :is-position-tpsl is-position-tpsl
         :status status
-        :status-key status-key
-        :status-label (order-history-status-label status order-history-status-labels)}))))
+        :status-key status-key}))))
 
 (defn normalized-order-history
   ([rows]
-   (normalized-order-history rows default-order-history-status-labels))
+   (normalized-order-history rows nil))
   ([rows order-history-status-labels]
    (->> (or rows [])
         (map #(normalize-order-history-row % order-history-status-labels))

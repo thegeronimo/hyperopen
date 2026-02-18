@@ -694,6 +694,33 @@
     (is (= "0x6666666666666666666666666666666666666666"
            (:contract-id (get by-coin "BOLT"))))))
 
+(deftest build-balance-rows-ignores-generic-address-keys-for-contract-id-test
+  (let [rows (view/build-balance-rows
+              {:clearinghouseState {:marginSummary {:accountValue "1.0"
+                                                    :totalMarginUsed "0.0"}}
+               :spotAssetCtxs []}
+              {:meta {:tokens [{:index 0
+                                :name "USDC"
+                                :weiDecimals 8}
+                               {:index 1
+                                :name "HYPE"
+                                :weiDecimals 5
+                                :address "0x7777777777777777777777777777777777777777"}]
+                      :universe []}
+               :clearinghouse-state {:balances [{:coin "USDC"
+                                                 :token 0
+                                                 :hold "0.0"
+                                                 :total "5.0"
+                                                 :entryNtl "0"}
+                                                {:coin "HYPE"
+                                                 :token 1
+                                                 :address "0x8888888888888888888888888888888888888888"
+                                                 :hold "0.0"
+                                                 :total "7.0"
+                                                 :entryNtl "0"}]}})
+        by-coin (into {} (map (juxt :coin identity)) rows)]
+    (is (nil? (:contract-id (get by-coin "HYPE"))))))
+
 (deftest build-balance-rows-unified-mode-prefers-spot-usdc-without-perps-double-count-test
   (let [rows (view/build-balance-rows-for-account
               {:clearinghouseState {:marginSummary {:accountValue "3.03"

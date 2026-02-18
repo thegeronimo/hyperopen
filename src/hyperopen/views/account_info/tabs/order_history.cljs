@@ -49,10 +49,17 @@
    (history-pagination/normalize-order-history-page value max-page)))
 
 (defn normalize-order-history-row [row]
-  (projections/normalize-order-history-row row order-history-status-labels))
+  (when-let [normalized (projections/normalize-order-history-row row)]
+    (assoc normalized
+           :status-label (projections/order-history-status-label (:status normalized)
+                                                                 order-history-status-labels))))
 
 (defn normalized-order-history [rows]
-  (projections/normalized-order-history rows order-history-status-labels))
+  (->> (projections/normalized-order-history rows)
+       (mapv (fn [row]
+               (assoc row
+                      :status-label (projections/order-history-status-label (:status row)
+                                                                            order-history-status-labels))))))
 
 (defn- empty-state [message]
   [:div.flex.flex-col.items-center.justify-center.py-12.text-base-content

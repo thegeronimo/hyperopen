@@ -32,39 +32,64 @@
    :evmContract :evm-contract :evm_contract
    :tokenInfo :token-info :token_info
    :tokenMetadata :token-metadata :token_metadata
-   :metadata :meta :details
-   :address])
+   :metadata :meta :details])
 
 (def ^:private non-contract-address-key-exact
   #{"user" "wallet" "owner" "account" "maker" "taker" "from" "to"})
 
-(defn- map-entry-contract-key? [k]
+(def ^:private contract-context-key-fragments
+  ["contract" "token" "erc20" "evm"])
+
+(def ^:private contract-wrapper-key-exact
+  #{"metadata" "meta" "details"})
+
+(defn- contract-context-key? [k]
   (let [key-name (some-> k name str/lower-case)]
     (and (seq key-name)
-         (or (str/includes? key-name "contract")
-             (str/includes? key-name "token")
-             (str/includes? key-name "address"))
-         (not (contains? non-contract-address-key-exact key-name)))))
+         (not (contains? non-contract-address-key-exact key-name))
+         (boolean (some #(str/includes? key-name %)
+                        contract-context-key-fragments)))))
+
+(defn- contract-wrapper-key? [k]
+  (contains? contract-wrapper-key-exact
+             (some-> k name str/lower-case)))
+
+(defn- map-entry-contract-key? [k]
+  (or (contract-context-key? k)
+      (contract-wrapper-key? k)))
 
 (defn- extract-balance-contract-id [value]
-  (letfn [(walk [node depth]
+  (letfn [(address-field-value [node]
+            (some (fn [[k v]]
+                    (when (= "address" (some-> k name str/lower-case))
+                      v))
+                  node))
+          (walk [node depth contract-context?]
             (when (and (some? node) (<= depth 4))
               (cond
                 (map? node)
-                (or (some (fn [k]
-                            (walk (get node k) (inc depth)))
+                (or (when contract-context?
+                      (walk (address-field-value node) (inc depth) true))
+                    (some (fn [k]
+                            (walk (get node k)
+                                  (inc depth)
+                                  (or contract-context?
+                                      (contract-context-key? k))))
                           balance-contract-id-candidate-keys)
                     (some (fn [[k v]]
                             (when (map-entry-contract-key? k)
-                              (walk v (inc depth))))
+                              (walk v
+                                    (inc depth)
+                                    (or contract-context?
+                                        (contract-context-key? k)))))
                           node))
 
                 (sequential? node)
-                (some #(walk % (inc depth)) node)
+                (some #(walk % (inc depth) contract-context?) node)
 
                 :else
                 (normalize-balance-contract-id node))))]
-    (walk value 0)))
+    (walk value 0 false)))
 
 (defn- parse-spot-token-index [token]
   (cond
