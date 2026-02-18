@@ -3,8 +3,7 @@ name: Tests
 on:
   pull_request:
   push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   tests:
@@ -19,7 +18,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: package.json
+          cache-dependency-path: package-lock.json
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -49,7 +48,7 @@ jobs:
             ${{ runner.os }}-clojure-
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run CI Test Gate
         run: npm run test:ci
