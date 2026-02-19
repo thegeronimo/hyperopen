@@ -5,10 +5,10 @@
 (deftest build-perp-markets-test
   (testing "build-perp-markets builds symbols and dex correctly"
     (let [meta {:universe [{:name "BTC" :maxLeverage 40 :szDecimals 5}
-                           {:name "hyna:ETH" :maxLeverage 25 :szDecimals 4}]
+                           {:name "hyna:ETH" :maxLeverage 25 :szDecimals 4 :isDelisted false}]
                 :collateralToken 0}
           asset-ctxs [{:markPx "100" :prevDayPx "90" :dayNtlVlm "1000" :openInterest "2" :funding "0.0001"}
-                      {:markPx "200" :prevDayPx "100" :dayNtlVlm "500" :openInterest "1" :funding "-0.0002"}]
+                      {:markPx "200" :prevDayPx "100" :dayNtlVlm "500" :openInterest "6000" :funding "-0.0002"}]
           token-map {0 "USDC"}
           default-markets (markets/build-perp-markets meta asset-ctxs token-map)
           hyna-markets (markets/build-perp-markets (assoc meta :collateralToken 235)
@@ -20,9 +20,12 @@
       (is (= 5 (:szDecimals (first default-markets))))
       (is (= "100" (:markRaw (first default-markets))))
       (is (= "90" (:prevDayRaw (first default-markets))))
+      (is (false? (:hip3-eligible? (first default-markets))))
       (is (= "ETH-USDE" (:symbol (second hyna-markets))))
       (is (= 4 (:szDecimals (second hyna-markets))))
-      (is (= "hyna" (:dex (second hyna-markets)))))))
+      (is (= "hyna" (:dex (second hyna-markets))))
+      (is (false? (:delisted? (second hyna-markets))))
+      (is (true? (:hip3-eligible? (second hyna-markets)))))))
 
 (deftest build-spot-markets-test
   (testing "build-spot-markets maps base/quote and symbol"
@@ -50,16 +53,19 @@
 
 (deftest classify-market-test
   (testing "classify-market assigns crypto/tradfi/hip3"
-    (let [default (markets/classify-market {:market-type :perp :dex nil})
-          hyna (markets/classify-market {:market-type :perp :dex "hyna"})
-          xyz (markets/classify-market {:market-type :perp :dex "xyz"})
+    (let [default (markets/classify-market {:market-type :perp :dex nil :openInterest 5000000})
+          hyna (markets/classify-market {:market-type :perp :dex "hyna" :openInterest 1500000 :delisted? false})
+          xyz (markets/classify-market {:market-type :perp :dex "xyz" :openInterest 1500000 :delisted? true})
           spot (markets/classify-market {:market-type :spot :dex nil})]
       (is (= :crypto (:category default)))
       (is (false? (:hip3? default)))
+      (is (false? (:hip3-eligible? default)))
       (is (= :crypto (:category hyna)))
       (is (true? (:hip3? hyna)))
+      (is (true? (:hip3-eligible? hyna)))
       (is (= :tradfi (:category xyz)))
       (is (true? (:hip3? xyz)))
+      (is (false? (:hip3-eligible? xyz)))
       (is (= :spot (:category spot))))))
 
 (deftest coin->market-key-spot-id-test

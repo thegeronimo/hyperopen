@@ -10,6 +10,8 @@
                   :base "ETH"
                   :quote "USDC"
                   :market-type :perp
+                  :hip3? true
+                  :hip3-eligible? false
                   :volume24h 1000
                   :mark 1900.1}
                  {:key "spot:PURR/USDC"
@@ -26,7 +28,8 @@
     (is (= ["PURR/USDC" "ETH-USDC"] (mapv :symbol cached)))
     (is (= [:spot :perp] (mapv :market-type cached)))
     (is (= [0 1] (mapv :cache-order cached)))
-    (is (nil? (:mark (first cached))))))
+    (is (nil? (:mark (first cached))))
+    (is (false? (:hip3-eligible? (second cached))))))
 
 (deftest restore-asset-selector-markets-cache-state-hydrates-when-empty-test
   (let [cached-markets [{:key "perp:ETH"

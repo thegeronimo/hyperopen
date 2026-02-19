@@ -67,6 +67,7 @@
           market-type (normalize-market-type (:market-type market))
           category (normalize-market-category (:category market))
           hip3? (parse-optional-boolean (:hip3? market))
+          hip3-eligible? (parse-optional-boolean (:hip3-eligible? market))
           max-leverage (parse-max-leverage (:maxLeverage market))
           cache-order (parse-utils/parse-int-value (:cache-order market))]
       (when (and (seq market-key) (seq coin) (seq symbol))
@@ -79,6 +80,7 @@
           market-type (assoc :market-type market-type)
           category (assoc :category category)
           (some? hip3?) (assoc :hip3? hip3?)
+          (some? hip3-eligible?) (assoc :hip3-eligible? hip3-eligible?)
           (some? max-leverage) (assoc :maxLeverage max-leverage)
           (some? cache-order) (assoc :cache-order cache-order))))))
 

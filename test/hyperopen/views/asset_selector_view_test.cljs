@@ -17,13 +17,14 @@
    {:key "perp:xyz:GOLD"
     :symbol "GOLD-USDC"
     :coin "xyz:GOLD"
-    :base "GOLD"
-    :market-type :perp
-    :category :tradfi
-    :hip3? true
-    :mark 2
-    :volume24h 20
-    :change24hPct 2}
+   :base "GOLD"
+   :market-type :perp
+   :category :tradfi
+   :hip3? true
+    :hip3-eligible? true
+   :mark 2
+   :volume24h 20
+   :change24hPct 2}
    {:key "spot:PURR/USDC"
     :symbol "PURR/USDC"
     :coin "PURR/USDC"
@@ -49,7 +50,42 @@
   (testing "tab filter for spot"
     (let [results (view/filter-and-sort-assets sample-markets "" :name :asc #{} false false :spot)]
       (is (= 1 (count results)))
-      (is (= :spot (:market-type (first results)))))))
+      (is (= :spot (:market-type (first results))))))
+
+  (testing "hip3 tab applies eligibility gate when available and keeps legacy cached rows visible"
+    (let [assets [{:key "perp:xyz:USA500"
+                   :symbol "USA500-USDT"
+                   :coin "xyz:USA500"
+                   :base "USA500"
+                   :market-type :perp
+                   :category :tradfi
+                   :hip3? true
+                   :hip3-eligible? true}
+                  {:key "perp:xyz:ILLQ"
+                   :symbol "ILLQ-USDC"
+                   :coin "xyz:ILLQ"
+                   :base "ILLQ"
+                   :market-type :perp
+                   :category :tradfi
+                   :hip3? true
+                   :hip3-eligible? false}
+                  {:key "perp:xyz:LEGACY"
+                   :symbol "LEGACY-USDC"
+                   :coin "xyz:LEGACY"
+                   :base "LEGACY"
+                   :market-type :perp
+                   :category :tradfi
+                   :hip3? true}
+                  {:key "perp:BTC"
+                   :symbol "BTC-USDC"
+                   :coin "BTC"
+                   :base "BTC"
+                   :market-type :perp
+                   :category :crypto
+                   :hip3? false}]
+          results (view/filter-and-sort-assets assets "" :name :asc #{} false false :hip3)]
+      (is (= ["perp:xyz:LEGACY" "perp:xyz:USA500"]
+             (mapv :key results))))))
 
 (deftest filter-and-sort-assets-preserves-cache-order-when-sort-values-missing-test
   (let [cached-markets [{:key "spot:AAA/USDC"

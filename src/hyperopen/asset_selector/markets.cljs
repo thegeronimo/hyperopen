@@ -72,6 +72,17 @@
   (let [n (fmt/safe-number v)]
     (if (js/isNaN n) 0 n)))
 
+(def ^:private hip3-min-open-interest-usd
+  1000000)
+
+(defn- hip3-eligible-market?
+  [market]
+  (let [open-interest-usd (safe-num (:openInterest market))]
+    (and (= :perp (:market-type market))
+         (some? (:dex market))
+         (not (true? (:delisted? market)))
+         (>= open-interest-usd hip3-min-open-interest-usd))))
+
 (defn- pct-change [mark prev]
   (when (and prev (not= prev 0))
     (* 100 (/ (- mark prev) prev))))
@@ -81,16 +92,16 @@
   [market]
   (cond
     (= :spot (:market-type market))
-    (assoc market :category :spot :hip3? false)
+    (assoc market :category :spot :hip3? false :hip3-eligible? false)
 
     (nil? (:dex market))
-    (assoc market :category :crypto :hip3? false)
+    (assoc market :category :crypto :hip3? false :hip3-eligible? false)
 
     (= "hyna" (:dex market))
-    (assoc market :category :crypto :hip3? true)
+    (assoc market :category :crypto :hip3? true :hip3-eligible? (hip3-eligible-market? market))
 
     :else
-    (assoc market :category :tradfi :hip3? true)))
+    (assoc market :category :tradfi :hip3? true :hip3-eligible? (hip3-eligible-market? market))))
 
 (defn build-perp-markets
   "Build normalized perp market entries from metaAndAssetCtxs data.
@@ -127,6 +138,7 @@
                                    :quote quote
                                    :market-type :perp
                                    :dex dex-name
+                                   :delisted? (boolean (:isDelisted info))
                                    :idx idx
                                    :mark mark
                                    :markRaw mark-raw

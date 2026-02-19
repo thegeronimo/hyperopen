@@ -391,6 +391,12 @@
           (str/includes? coin query)
           (str/includes? base query)))))
 
+(defn- hip3-tab-eligible?
+  [asset]
+  (if (contains? asset :hip3-eligible?)
+    (true? (:hip3-eligible? asset))
+    true))
+
 (defn tab-match? [asset active-tab]
   (case active-tab
     :all true
@@ -398,7 +404,9 @@
     :spot (= :spot (:market-type asset))
     :crypto (and (= :perp (:market-type asset)) (= :crypto (:category asset)))
     :tradfi (and (= :perp (:market-type asset)) (= :tradfi (:category asset)))
-    :hip3 (and (= :perp (:market-type asset)) (:hip3? asset))
+    :hip3 (and (= :perp (:market-type asset))
+               (:hip3? asset)
+               (hip3-tab-eligible? asset))
     true))
 
 (defn filter-and-sort-assets
