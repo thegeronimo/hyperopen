@@ -198,7 +198,7 @@
                        :base (str "T" n)
                        :market-type :perp}))
         top-hiccup (view/asset-list assets nil nil #{} #{} #{} 120 0)
-        deep-hiccup (view/asset-list assets nil nil #{} #{} #{} 120 4300)
+        deep-hiccup (view/asset-list assets nil nil #{} #{} #{} 120 2200)
         top-strings (set (collect-strings top-hiccup))
         deep-strings (set (collect-strings deep-hiccup))]
     (is (contains? top-strings "T0-USDC"))
@@ -243,7 +243,7 @@
                :market-type :perp}
         row (view/asset-list-item asset false true #{} #{} #{})
         classes (set (collect-all-classes row))]
-    (is (contains? classes "bg-base-200"))
+    (is (contains? classes "bg-base-200/70"))
     (is (not (contains? classes "ring-primary")))))
 
 (deftest asset-selector-loading-state-test
@@ -330,9 +330,9 @@
                :change24hPct 1}
         row (view/asset-list-item asset false false #{} #{} #{})
         classes (set (collect-all-classes row))]
-    (is (contains? classes "h-12"))
+    (is (contains? classes "h-6"))
     (is (contains? classes "box-border"))
-    (is (contains? classes "border-b"))
+    (is (not (contains? classes "border-b")))
     (is (contains? classes "truncate"))
     (is (contains? classes "whitespace-nowrap"))))
 

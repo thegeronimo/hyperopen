@@ -54,9 +54,9 @@
     "Favs"]])
 
 (defn search-controls [search-term strict? favorites-only?]
-  [:div.flex.items-center.gap-2.mb-3
+  [:div.flex.items-center.gap-2.mb-4
    [:div.relative.flex-1
-    [:input.w-full.px-3.py-2.bg-base-200.border.border-base-300.rounded-lg.text-sm.placeholder-gray-400
+    [:input.w-full.px-3.py-1.5.bg-base-200.border.border-base-300.rounded-md.text-sm.placeholder-gray-400
      {:type "text"
       :placeholder "Search"
       :value search-term
@@ -77,7 +77,7 @@
    label])
 
 (defn tab-row [active-tab]
-  [:div.flex.items-center.gap-2.mb-3
+  [:div.flex.items-center.gap-2.mb-4
    (tab-button "All" (= active-tab :all) :all)
    (tab-button "Perps" (= active-tab :perps) :perps)
    (tab-button "Spot" (= active-tab :spot) :spot)
@@ -86,7 +86,7 @@
    (tab-button "HIP-3" (= active-tab :hip3) :hip3)])
 
 (defn sort-button [label active? direction sort-field]
-  [:button.flex.items-center.space-x-1.text-xs.font-medium.rounded.transition-colors
+  [:button.flex.items-center.space-x-1.text-xs.transition-colors
    {:class (if active? ["text-primary"] ["text-gray-400" "hover:text-gray-300"])
     :on {:click [[:actions/update-asset-selector-sort sort-field]]}}
    [:span label]
@@ -97,9 +97,8 @@
         [:path {:stroke-linecap "round" :stroke-linejoin "round" :stroke-width 2 :d "M19 9l-7 7-7-7"}])])])
 
 (defn sort-controls [sort-by sort-direction]
-  [:div {:class ["grid" "grid-cols-12" "gap-3" "items-center" "px-4" "pb-2"
-                 "border-b" "border-base-300" "text-xs" "uppercase"
-                 "tracking-wide" "text-gray-400" "bg-base-100"]}
+  [:div {:class ["grid" "grid-cols-12" "gap-2" "items-center" "px-2" "h-6"
+                 "text-xs" "text-gray-400" "bg-base-100"]}
    [:div.col-span-3 (sort-button "Symbol" (= sort-by :name) sort-direction :name)]
    [:div.col-span-2.text-left (sort-button "Last Price" (= sort-by :price) sort-direction :price)]
    [:div.col-span-2.text-left (sort-button "24H Change" (= sort-by :change) sort-direction :change)]
@@ -108,9 +107,9 @@
    [:div.col-span-2.text-left (sort-button "Open Interest" (= sort-by :openInterest) sort-direction :openInterest)]])
 
 (defn favorite-button [favorite? market-key]
-  [:button.w-4.h-4.text-gray-400.hover:text-yellow-400.transition-colors
+  [:button.w-3.h-3.text-gray-400.hover:text-yellow-400.transition-colors
    {:on {:click [[:actions/toggle-asset-favorite market-key]]}}
-   [:svg.w-4.h-4 {:viewBox "0 0 24 24"
+   [:svg.w-3.h-3 {:viewBox "0 0 24 24"
                  :fill (if favorite? "currentColor" "none")
                  :stroke "currentColor"
                  :stroke-width 1.5}
@@ -185,22 +184,22 @@
         is-spot (= market-type :spot)
         favorite? (contains? favorites key)
         row-highlight-classes (cond-> []
-                                highlighted? (into ["bg-base-200"])
-                                selected? (into ["ring-1" "ring-inset" "ring-primary"]))]
-    [:div.grid.grid-cols-12.gap-3.items-center.px-4.h-12.box-border.cursor-pointer.bg-base-100.hover:bg-base-200.transition-colors.border-b.border-base-300
+                                highlighted? (into ["bg-base-200/70"])
+                                selected? (into ["bg-base-200"]))]
+    [:div.grid.grid-cols-12.gap-2.items-center.px-2.h-6.box-border.cursor-pointer.bg-base-100.hover:bg-base-200.transition-colors
      {:class row-highlight-classes
       :on {:click [[:actions/select-asset asset]]}}
      ;; Symbol column
-     [:div.col-span-3.flex.items-center.space-x-2.min-w-0
+     [:div.col-span-3.flex.items-center.space-x-1.5.min-w-0
       (favorite-button favorite? key)
-      [:div.flex.items-center.space-x-2.min-w-0.overflow-hidden
-       [:div.font-medium.text-sm.truncate.whitespace-nowrap symbol]
+      [:div.flex.items-center.space-x-1.5.min-w-0.overflow-hidden
+       [:div.text-sm.truncate.whitespace-nowrap symbol]
        (when is-spot
-         (chip "SPOT" ["bg-base-300" "text-gray-200" "shrink-0"]))
+         (chip "SPOT" ["bg-gray-500/20" "text-gray-200" "border-gray-500/30" "shrink-0"]))
        (when dex
          (chip dex ["bg-emerald-500/20" "text-emerald-300" "border-emerald-500/30" "shrink-0"]))
        (when (and maxLeverage (> maxLeverage 0))
-         (chip (str maxLeverage "x") ["bg-primary" "text-primary-content" "border-primary" "shrink-0"]))]]
+         (chip (str maxLeverage "x") ["bg-primary/20" "text-primary" "border-primary/30" "shrink-0"]))]]
      ;; Last Price
      [:div.col-span-2.text-left.text-sm.text-gray-400.num
       (or (fmt/format-trade-price mark markRaw) "—")]
@@ -224,9 +223,9 @@
             "bottom")
           [:div.text-sm.text-gray-400.num "—"]))]
      ;; Volume
-     [:div.col-span-2.text-left.text-sm.font-medium.num (format-or-dash volume24h fmt/format-large-currency)]
+     [:div.col-span-2.text-left.text-sm.num (format-or-dash volume24h fmt/format-large-currency)]
      ;; Open Interest
-     [:div.col-span-2.text-left.text-sm.font-medium.num
+     [:div.col-span-2.text-left.text-sm.num
       (if is-spot
         "—"
         (format-or-dash openInterest fmt/format-large-currency))]]))
@@ -235,10 +234,10 @@
   120)
 
 (def ^:private asset-list-row-height-px
-  48)
+  24)
 
 (def ^:private asset-list-viewport-height-px
-  384)
+  256)
 
 (def ^:private asset-list-overscan-rows
   6)
@@ -336,7 +335,7 @@
   (let [assets* (if (vector? assets) assets (vec assets))
         total (count assets*)]
     (if (zero? total)
-      [:div.max-h-96.overflow-y-auto.scrollbar-hide
+      [:div.max-h-64.overflow-y-auto.scrollbar-hide
        [:div.text-center.py-8.text-gray-400
         [:div "No assets found"]
         [:div.text-xs "Try adjusting your search"]]]
@@ -354,7 +353,7 @@
                                           missing-icons
                                           loaded-icons))
                        visible-assets)]
-        [:div.max-h-96.overflow-y-auto.scrollbar-hide
+        [:div.max-h-64.overflow-y-auto.scrollbar-hide
          {:style {:overflow-anchor "none"}
           :on {:scroll [[:actions/maybe-increase-asset-selector-render-limit
                          [:event.target/scrollTop]
