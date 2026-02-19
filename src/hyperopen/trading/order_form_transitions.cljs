@@ -21,6 +21,7 @@
     [:size-input-source]
     [:size-display]
     [:pro-order-type-dropdown-open?]
+    [:size-unit-dropdown-open?]
     [:price-input-focused?]
     [:tpsl-panel-open?]
     [:submitting?]
@@ -146,7 +147,8 @@
                         :pro-order-type-dropdown-open?
                         (if close-pro-dropdown?
                           false
-                          (boolean (:pro-order-type-dropdown-open? ui-state)))))]
+                          (boolean (:pro-order-type-dropdown-open? ui-state)))
+                        :size-unit-dropdown-open? false))]
     (enforce-field-ownership
      state
      {:order-form next-form
@@ -164,7 +166,9 @@
         next-form (reconcile-size-after-context-change state normalized)
         next-ui (trading/effective-order-form-ui
                  next-form
-                 (assoc ui-state :pro-order-type-dropdown-open? false))]
+                 (assoc ui-state
+                        :pro-order-type-dropdown-open? false
+                        :size-unit-dropdown-open? false))]
     (enforce-field-ownership
      state
      {:order-form next-form
@@ -187,6 +191,23 @@
 (defn handle-pro-order-type-dropdown-keydown [state key]
   (when (= key "Escape")
     (close-pro-order-type-dropdown state)))
+
+(defn toggle-size-unit-dropdown [state]
+  (let [ui-state (trading/order-form-ui-state state)
+        open? (boolean (:size-unit-dropdown-open? ui-state))]
+    (enforce-field-ownership
+     state
+     {:order-form-ui (assoc ui-state :size-unit-dropdown-open? (not open?))})))
+
+(defn close-size-unit-dropdown [state]
+  (enforce-field-ownership
+   state
+   {:order-form-ui (assoc (trading/order-form-ui-state state)
+                          :size-unit-dropdown-open? false)}))
+
+(defn handle-size-unit-dropdown-keydown [state key]
+  (when (= key "Escape")
+    (close-size-unit-dropdown state)))
 
 (defn set-order-ui-leverage [state leverage]
   (let [form (trading/order-form-draft state)
@@ -220,14 +241,19 @@
 
 (defn set-order-size-input-mode [state mode]
   (let [form (trading/order-form-draft state)
+        ui-state (trading/order-form-ui-state state)
         mode* (trading/normalize-size-input-mode mode)
         updated (assoc form :size-input-mode mode*)
         next-form (if (str/blank? (str (or (:size updated) "")))
                     (assoc updated :size-display "")
-                    (trading/sync-size-display-for-input-mode state updated))]
+                    (trading/sync-size-display-for-input-mode state updated))
+        next-ui (trading/effective-order-form-ui
+                 next-form
+                 (assoc ui-state :size-unit-dropdown-open? false))]
     (enforce-field-ownership
      state
      {:order-form next-form
+      :order-form-ui next-ui
       :order-form-runtime (cleared-runtime-state state)})))
 
 (defn focus-order-price-input [state]

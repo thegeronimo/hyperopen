@@ -10,6 +10,9 @@
    :order-form/toggle-pro-order-type-dropdown :actions/toggle-pro-order-type-dropdown
    :order-form/close-pro-order-type-dropdown :actions/close-pro-order-type-dropdown
    :order-form/handle-pro-order-type-dropdown-keydown :actions/handle-pro-order-type-dropdown-keydown
+   :order-form/toggle-size-unit-dropdown :actions/toggle-size-unit-dropdown
+   :order-form/close-size-unit-dropdown :actions/close-size-unit-dropdown
+   :order-form/handle-size-unit-dropdown-keydown :actions/handle-size-unit-dropdown-keydown
    :order-form/select-pro-order-type :actions/select-pro-order-type
    :order-form/set-order-ui-leverage :actions/set-order-ui-leverage
    :order-form/update-order-form :actions/update-order-form

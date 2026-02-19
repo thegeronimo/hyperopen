@@ -296,6 +296,9 @@
            toggle-pro-order-type-dropdown
            close-pro-order-type-dropdown
            handle-pro-order-type-dropdown-keydown
+           toggle-size-unit-dropdown
+           close-size-unit-dropdown
+           handle-size-unit-dropdown-keydown
            set-order-ui-leverage
            set-order-size-percent
            set-order-size-display
@@ -314,6 +317,9 @@
    :toggle-pro-order-type-dropdown toggle-pro-order-type-dropdown
    :close-pro-order-type-dropdown close-pro-order-type-dropdown
    :handle-pro-order-type-dropdown-keydown handle-pro-order-type-dropdown-keydown
+   :toggle-size-unit-dropdown toggle-size-unit-dropdown
+   :close-size-unit-dropdown close-size-unit-dropdown
+   :handle-size-unit-dropdown-keydown handle-size-unit-dropdown-keydown
    :set-order-ui-leverage set-order-ui-leverage
    :set-order-size-percent set-order-size-percent
    :set-order-size-display set-order-size-display

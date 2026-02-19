@@ -152,6 +152,7 @@
     :size-input-source
     :size-display
     :pro-order-type-dropdown-open?
+    :size-unit-dropdown-open?
     :price-input-focused?
     :tpsl-panel-open?
     :submitting?

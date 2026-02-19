@@ -19,41 +19,91 @@
                   {:click on-set-to-mid})}
    (or label "Ref")])
 
+(defn- size-unit-option [mode label selected? on-select-mode]
+  [:button {:type "button"
+            :class (into ["w-full"
+                          "rounded-md"
+                          "px-3"
+                          "py-1.5"
+                          "text-left"
+                          "text-xs"
+                          "font-semibold"
+                          "transition-colors"]
+                         (if selected?
+                           ["bg-[#273035]" "text-[#50D2C1]"]
+                           ["text-[#D2DAD7]" "hover:bg-[#273035]" "hover:text-[#F6FEFD]"]))
+            :role "option"
+            :aria-selected (boolean selected?)
+            :on {:click (on-select-mode mode)}}
+   label])
+
 (defn- size-unit-accessory [{:keys [size-input-mode quote-symbol base-symbol]}
-                            on-change-mode]
-  [:div {:class ["relative"]}
-   [:select {:class ["appearance-none"
-                     "bg-transparent"
-                     "border-0"
-                     "shadow-none"
-                     "text-sm"
-                     "font-semibold"
-                     "text-gray-100"
-                     "outline-none"
-                     "focus:outline-none"
-                     "focus:border-0"
-                     "focus:ring-0"
-                     "focus:ring-offset-0"
-                     "focus:shadow-none"
-                     "pr-4"]
-             :aria-label "Size unit"
-             :value (name size-input-mode)
-             :on {:change on-change-mode}}
-    [:option {:value "quote"} quote-symbol]
-    [:option {:value "base"} base-symbol]]
-   [:svg {:class ["pointer-events-none"
-                  "absolute"
-                  "right-0"
-                  "top-1/2"
-                  "-translate-y-1/2"
-                  "w-3.5"
-                  "h-3.5"
-                  "text-gray-400"]
-          :viewBox "0 0 20 20"
-          :fill "currentColor"}
-    [:path {:fill-rule "evenodd"
-            :clip-rule "evenodd"
-            :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"}]]])
+                            {:keys [dropdown-open?
+                                    on-toggle-dropdown
+                                    on-close-dropdown
+                                    on-dropdown-keydown
+                                    on-select-mode]}]
+  (let [selected-mode (if (= size-input-mode :base) :base :quote)
+        selected-label (if (= selected-mode :base) base-symbol quote-symbol)]
+    [:div {:class ["relative"]
+           :style (when dropdown-open?
+                    {:z-index 1200})}
+     (when dropdown-open?
+       [:button {:type "button"
+                 :class ["absolute" "bg-transparent" "cursor-default"]
+                 :style {:left "-100vmax"
+                         :top "-100vmax"
+                         :width "200vmax"
+                         :height "200vmax"
+                         :z-index 1200}
+                 :aria-label "Close size unit menu"
+                 :on {:click on-close-dropdown}}])
+     [:button {:type "button"
+               :class ["relative"
+                       "flex"
+                       "items-center"
+                       "gap-1"
+                       "bg-transparent"
+                       "text-sm"
+                       "font-semibold"
+                       "text-gray-100"
+                       "outline-none"
+                       "focus:outline-none"
+                       "focus:ring-0"
+                       "focus:ring-offset-0"
+                       "focus:shadow-none"]
+               :aria-label "Size unit"
+               :aria-haspopup "listbox"
+               :aria-expanded (boolean dropdown-open?)
+               :style (when dropdown-open?
+                        {:z-index 1201})
+               :on {:click on-toggle-dropdown
+                    :keydown on-dropdown-keydown}}
+      [:span selected-label]
+      [:svg {:class ["pointer-events-none" "h-3.5" "w-3.5" "text-gray-400"]
+             :viewBox "0 0 20 20"
+             :fill "currentColor"}
+       [:path {:fill-rule "evenodd"
+               :clip-rule "evenodd"
+               :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"}]]]
+     (when dropdown-open?
+       [:div {:class ["absolute"
+                      "right-0"
+                      "top-full"
+                      "mt-1"
+                      "min-w-[88px]"
+                      "rounded-lg"
+                      "border"
+                      "border-[#273035]"
+                      "bg-[#1B2429]"
+                      "p-1"
+                      "shadow-[0_10px_24px_rgba(0,0,0,0.35)]"]
+              :style {:z-index 1202}
+              :role "listbox"
+              :aria-label "Size unit options"
+              :on {:keydown on-dropdown-keydown}}
+        (size-unit-option :quote quote-symbol (= selected-mode :quote) on-select-mode)
+        (size-unit-option :base base-symbol (= selected-mode :base) on-select-mode)])]))
 
 (defn- leverage-row [ui-leverage next-leverage leverage-handlers]
   [:div {:class ["grid" "grid-cols-3" "gap-2"]}
@@ -89,6 +139,7 @@
                          size-input-mode
                          quote-symbol
                          base-symbol
+                         size-unit-dropdown-open?
                          display-size-percent
                          size-percent
                          notch-overlap-threshold]}
@@ -100,7 +151,11 @@
                          (size-unit-accessory {:size-input-mode size-input-mode
                                                :quote-symbol quote-symbol
                                                :base-symbol base-symbol}
-                                              (:on-change-mode size-handlers)))
+                                              {:dropdown-open? size-unit-dropdown-open?
+                                               :on-toggle-dropdown (:on-toggle-dropdown size-handlers)
+                                               :on-close-dropdown (:on-close-dropdown size-handlers)
+                                               :on-dropdown-keydown (:on-dropdown-keydown size-handlers)
+                                               :on-select-mode (:on-select-mode size-handlers)}))
    [:div {:class ["flex" "items-center" "gap-2"]}
     [:div {:class ["relative" "flex-1"]}
      [:input {:class ["order-size-slider" "range" "range-sm" "w-full" "relative" "z-20"]
@@ -271,6 +326,7 @@
                 submit]}
         (order-form-vm/order-form-vm state)
         handler-map (handlers/build-handlers)
+        size-unit-dropdown-open? (boolean (get-in state [:order-form-ui :size-unit-dropdown-open?]))
         entry-mode-handlers (:entry-mode handler-map)
         leverage-handlers (:leverage handler-map)
         side-handlers (:side handler-map)
@@ -334,6 +390,7 @@
                  :size-input-mode size-input-mode
                  :quote-symbol quote-symbol
                  :base-symbol base-symbol
+                 :size-unit-dropdown-open? size-unit-dropdown-open?
                  :display-size-percent display-size-percent
                  :size-percent size-percent
                  :notch-overlap-threshold notch-overlap-threshold}

@@ -31,6 +31,7 @@
   (let [supported-ids (runtime-gateway/supported-command-ids)]
     (is (set? supported-ids))
     (is (contains? supported-ids :order-form/select-entry-mode))
+    (is (contains? supported-ids :order-form/toggle-size-unit-dropdown))
     (is (contains? supported-ids :order-form/set-order-size-input-mode))
     (is (contains? supported-ids :order-form/update-order-form))
     (is (contains? supported-ids :order-form/submit-order))))

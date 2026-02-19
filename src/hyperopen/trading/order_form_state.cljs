@@ -61,6 +61,7 @@
 
 (defn default-order-form-ui []
   {:pro-order-type-dropdown-open? false
+   :size-unit-dropdown-open? false
    :tpsl-panel-open? false
    :price-input-focused? false
    :entry-mode :limit
@@ -118,6 +119,7 @@
         size-input-source (normalize-size-input-source (:size-input-source ui))]
     (assoc (default-order-form-ui)
            :pro-order-type-dropdown-open? (boolean (:pro-order-type-dropdown-open? ui))
+           :size-unit-dropdown-open? (boolean (:size-unit-dropdown-open? ui))
            :price-input-focused? (boolean (:price-input-focused? ui))
            :tpsl-panel-open? (boolean (:tpsl-panel-open? ui))
            :entry-mode entry-mode

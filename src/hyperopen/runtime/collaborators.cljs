@@ -106,6 +106,9 @@
    :toggle-pro-order-type-dropdown order-actions/toggle-pro-order-type-dropdown
    :close-pro-order-type-dropdown order-actions/close-pro-order-type-dropdown
    :handle-pro-order-type-dropdown-keydown order-actions/handle-pro-order-type-dropdown-keydown
+   :toggle-size-unit-dropdown order-actions/toggle-size-unit-dropdown
+   :close-size-unit-dropdown order-actions/close-size-unit-dropdown
+   :handle-size-unit-dropdown-keydown order-actions/handle-size-unit-dropdown-keydown
    :set-order-ui-leverage order-actions/set-order-ui-leverage
    :set-order-size-percent order-actions/set-order-size-percent
    :set-order-size-display order-actions/set-order-size-display

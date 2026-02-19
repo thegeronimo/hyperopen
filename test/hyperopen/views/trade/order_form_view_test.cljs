@@ -128,6 +128,7 @@
     :size-input-mode
     :size-input-source
     :size-display
+    :size-unit-dropdown-open?
     :pro-order-type-dropdown-open?
     :price-input-focused?
     :tpsl-panel-open?})
@@ -560,25 +561,60 @@
     (is (contains? strings "USDT"))
     (is (= "1" size-value))))
 
-(deftest size-row-renders-size-unit-select-and-dispatches-mode-action-test
+(deftest size-row-renders-styled-size-unit-dropdown-and-dispatches-mode-actions-test
   (let [view-node (view/order-form-view (base-state {:type :limit
-                                                      :size-input-mode :quote}))
-        unit-select (find-first-node view-node
-                                     (fn [node]
-                                       (let [attrs (when (map? (second node)) (second node))]
-                                         (and (= :select (first node))
-                                              (= "Size unit" (:aria-label attrs))))))
-        select-attrs (second unit-select)
-        option-values (->> (drop 2 unit-select)
-                           (filter vector?)
-                           (map second)
-                           (map :value)
-                           set)]
-    (is (some? unit-select))
-    (is (= "quote" (:value select-attrs)))
-    (is (= [[:actions/set-order-size-input-mode [:event.target/value]]]
-           (get-in select-attrs [:on :change])))
-    (is (= #{"quote" "base"} option-values))))
+                                                      :size-input-mode :quote}
+                                                     {:size-unit-dropdown-open? true}))
+        unit-trigger (find-first-node view-node
+                                      (fn [node]
+                                        (let [attrs (when (map? (second node)) (second node))]
+                                          (and (= :button (first node))
+                                               (= "Size unit" (:aria-label attrs))))))
+        option-buttons (find-all-nodes view-node
+                                       (fn [node]
+                                         (and (= :button (first node))
+                                              (= :actions/set-order-size-input-mode
+                                                 (ffirst (get-in node [1 :on :click]))))))
+        quote-option (first (filter #(some #{"USDC"} (collect-strings %)) option-buttons))
+        quote-option-classes (set (get-in quote-option [1 :class]))
+        click-payloads (->> option-buttons
+                            (map #(get-in % [1 :on :click]))
+                            set)]
+    (is (some? unit-trigger))
+    (is (some #{"USDC"} (collect-strings unit-trigger)))
+    (is (= #{[[:actions/set-order-size-input-mode :quote]]
+             [[:actions/set-order-size-input-mode :base]]}
+           click-payloads))
+    (is (contains? quote-option-classes "bg-[#273035]"))
+    (is (contains? quote-option-classes "text-[#50D2C1]"))))
+
+(deftest size-row-size-unit-dropdown-toggle-and-overlay-actions-test
+  (let [closed-view (view/order-form-view (base-state {:type :limit}
+                                                       {:size-unit-dropdown-open? false}))
+        open-view (view/order-form-view (base-state {:type :limit}
+                                                     {:size-unit-dropdown-open? true}))
+        trigger-button (find-first-node closed-view
+                                        (fn [node]
+                                          (let [attrs (when (map? (second node)) (second node))]
+                                            (and (= :button (first node))
+                                                 (= "Size unit" (:aria-label attrs))))))
+        overlay-button (find-first-node open-view
+                                        (fn [node]
+                                          (let [attrs (when (map? (second node)) (second node))]
+                                            (and (= :button (first node))
+                                                 (= "Close size unit menu" (:aria-label attrs))))))
+        listbox (find-first-node open-view
+                                 (fn [node]
+                                   (let [attrs (when (map? (second node)) (second node))]
+                                     (and (= :div (first node))
+                                          (= "Size unit options" (:aria-label attrs))))))]
+    (is (= [[:actions/toggle-size-unit-dropdown]]
+           (get-in trigger-button [1 :on :click])))
+    (is (= [[:actions/handle-size-unit-dropdown-keydown [:event/key]]]
+           (get-in trigger-button [1 :on :keydown])))
+    (is (= [[:actions/close-size-unit-dropdown]]
+           (get-in overlay-button [1 :on :click])))
+    (is (= 1202 (get-in listbox [1 :style :z-index])))))
 
 (deftest pro-mode-renders-advanced-controls-test
   (let [view-node (view/order-form-view (base-state {:type :stop-market}))

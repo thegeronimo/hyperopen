@@ -53,6 +53,7 @@
 
 (def ^:private legacy-order-form-ui-flag-keys
   [:pro-order-type-dropdown-open?
+   :size-unit-dropdown-open?
    :price-input-focused?
    :tpsl-panel-open?])
 

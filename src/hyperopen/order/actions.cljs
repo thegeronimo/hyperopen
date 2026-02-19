@@ -51,6 +51,23 @@
                              (boolean (:pro-order-type-dropdown-open? ui-state))]]]])
     []))
 
+(defn toggle-size-unit-dropdown [state]
+  (let [ui-state (:order-form-ui (transitions/toggle-size-unit-dropdown state))
+        next-open? (boolean (:size-unit-dropdown-open? ui-state))]
+    [[:effects/save-many [[[:order-form-ui :size-unit-dropdown-open?] next-open?]]]]))
+
+(defn close-size-unit-dropdown [state]
+  (let [ui-state (:order-form-ui (transitions/close-size-unit-dropdown state))]
+    [[:effects/save-many [[[:order-form-ui :size-unit-dropdown-open?]
+                           (boolean (:size-unit-dropdown-open? ui-state))]]]]))
+
+(defn handle-size-unit-dropdown-keydown [state key]
+  (if-let [transition (transitions/handle-size-unit-dropdown-keydown state key)]
+    (let [ui-state (:order-form-ui transition)]
+      [[:effects/save-many [[[:order-form-ui :size-unit-dropdown-open?]
+                             (boolean (:size-unit-dropdown-open? ui-state))]]]])
+    []))
+
 (defn set-order-ui-leverage [state leverage]
   (transition-save-many state (transitions/set-order-ui-leverage state leverage)))
 

@@ -28,6 +28,11 @@
 
    :size {:on-change-display (dispatch-command (cmd/set-order-size-display-input))
           :on-change-mode (dispatch-command (cmd/set-order-size-input-mode-input))
+          :on-toggle-dropdown (dispatch-command (cmd/toggle-size-unit-dropdown))
+          :on-close-dropdown (dispatch-command (cmd/close-size-unit-dropdown))
+          :on-dropdown-keydown (dispatch-command (cmd/handle-size-unit-dropdown-keydown cmd/event-key))
+          :on-select-mode (fn [mode]
+                            (dispatch-command (cmd/set-order-size-input-mode mode)))
           :on-change-percent (dispatch-command (cmd/set-order-size-percent-input))}
 
    :order-type-sections {:on-set-trigger-price (dispatch-command (cmd/set-trigger-price-input))
