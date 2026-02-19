@@ -158,11 +158,12 @@
 (deftest build-market-state-bootstrap-uses-default-dex-and-skips-active-market-resolution-test
   (let [perp-calls (atom [])
         now-ms-fn (fn [] 4242)]
-    (with-redefs [markets/build-perp-markets (fn [meta asset-ctxs token-by-index & {:keys [dex]}]
+    (with-redefs [markets/build-perp-markets (fn [meta asset-ctxs token-by-index & {:keys [dex perp-dex-index]}]
                                                (swap! perp-calls conj {:meta meta
                                                                        :asset-ctxs asset-ctxs
                                                                        :token-by-index token-by-index
-                                                                       :dex dex})
+                                                                       :dex dex
+                                                                       :perp-dex-index perp-dex-index})
                                                [{:key [:perp dex] :coin (or dex "DEFAULT")}])
                   markets/build-spot-markets (fn [_spot-meta _spot-asset-ctxs]
                                                [{:key [:spot "HYPE"] :coin "HYPE"}])
@@ -177,6 +178,7 @@
                                               [[{:meta "m0"} {:ctx "c0"}]])]
         (is (= 1 (count @perp-calls)))
         (is (= nil (:dex (first @perp-calls))))
+        (is (= 0 (:perp-dex-index (first @perp-calls))))
         (is (= {0 "HYPE"} (:token-by-index (first @perp-calls))))
         (is (= nil (:active-market result)))
         (is (= 2 (count (:markets result))))
@@ -187,8 +189,9 @@
   (let [perp-calls (atom [])
         resolve-calls (atom [])
         now-ms-fn (fn [] 999)]
-    (with-redefs [markets/build-perp-markets (fn [_meta _asset-ctxs _token-by-index & {:keys [dex]}]
-                                               (swap! perp-calls conj {:dex dex})
+    (with-redefs [markets/build-perp-markets (fn [_meta _asset-ctxs _token-by-index & {:keys [dex perp-dex-index]}]
+                                               (swap! perp-calls conj {:dex dex
+                                                                       :perp-dex-index perp-dex-index})
                                                [{:key [:perp dex] :coin (or dex "DEFAULT")}])
                   markets/build-spot-markets (fn [_spot-meta _spot-asset-ctxs]
                                                [{:key [:spot "SOL"] :coin "SOL"}])
@@ -205,6 +208,7 @@
                                                [{:meta :m1} {:ctx :c1}]
                                                [{:meta :m2} {:ctx :c2}]])]
         (is (= [nil "vault" "partner"] (mapv :dex @perp-calls)))
+        (is (= [0 1 2] (mapv :perp-dex-index @perp-calls)))
         (is (= 1 (count @resolve-calls)))
         (is (= "BTC" (second (first @resolve-calls))))
         (is (= [:perp "vault"] (:key (:active-market result))))

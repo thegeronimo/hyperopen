@@ -5,15 +5,27 @@
   "active-market-display")
 
 (defn normalize-active-market-display
-  [market {:keys [normalize-display-text normalize-market-type parse-max-leverage]}]
+  [market {:keys [normalize-display-text normalize-market-type parse-max-leverage parse-market-index]}]
   (when (map? market)
-    (let [coin (normalize-display-text (:coin market))
+    (let [parse-index (or parse-market-index (fn [_] nil))
+          coin (normalize-display-text (:coin market))
           key (normalize-display-text (:key market))
           symbol (normalize-display-text (:symbol market))
           base (normalize-display-text (:base market))
           quote (normalize-display-text (:quote market))
           dex (normalize-display-text (:dex market))
           market-type (normalize-market-type (:market-type market))
+          market-idx (parse-index (:idx market))
+          perp-dex-index (some parse-index
+                               [(:perp-dex-index market)
+                                (:perpDexIndex market)])
+          explicit-asset-id (some parse-index
+                                  [(:asset-id market)
+                                   (:assetId market)])
+          asset-id (or explicit-asset-id
+                       (when (and (some? market-idx)
+                                  (not (seq dex)))
+                         market-idx))
           max-leverage (parse-max-leverage (:maxLeverage market))]
       (when (seq coin)
         (cond-> {:coin coin}
@@ -23,6 +35,9 @@
           (seq quote) (assoc :quote quote)
           (seq dex) (assoc :dex dex)
           market-type (assoc :market-type market-type)
+          (some? market-idx) (assoc :idx market-idx)
+          (some? perp-dex-index) (assoc :perp-dex-index perp-dex-index)
+          (some? asset-id) (assoc :asset-id asset-id)
           (some? max-leverage) (assoc :maxLeverage max-leverage))))))
 
 (defn persist-active-market-display!

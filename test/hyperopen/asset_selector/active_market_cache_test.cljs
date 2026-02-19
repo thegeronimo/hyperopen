@@ -28,6 +28,11 @@
                          (let [n (js/parseInt (str value) 10)]
                            (when (and (number? n)
                                       (not (js/isNaN n)))
+                             n)))
+   :parse-market-index (fn [value]
+                         (let [n (js/parseInt (str value) 10)]
+                           (when (and (number? n)
+                                      (not (js/isNaN n)))
                              n)))})
 
 (deftest normalize-active-market-display-covers-required-and-optional-fields-test
@@ -44,6 +49,9 @@
           :quote "USDC"
           :dex "hyna"
           :market-type :perp
+          :idx 3
+          :perp-dex-index 1
+          :asset-id 110003
           :maxLeverage 25}
          (cache/normalize-active-market-display
            {:coin " BTC "
@@ -53,6 +61,9 @@
             :quote " USDC "
             :dex " hyna "
             :market-type " perp "
+            :idx "3"
+            :perp-dex-index "1"
+            :asset-id "110003"
             :maxLeverage "25"}
            normalize-deps))))
 
@@ -64,6 +75,8 @@
         (cache/persist-active-market-display!
           {:coin " ETH "
            :symbol " ETH-USDC "
+           :dex " hyna "
+           :asset-id "110000"
            :market-type :perp
            :maxLeverage "30"}
           normalize-deps))
@@ -72,6 +85,8 @@
         (is (= "active-market-display" k))
         (is (= "ETH" (:coin payload)))
         (is (= "ETH-USDC" (:symbol payload)))
+        (is (= "hyna" (:dex payload)))
+        (is (= 110000 (:asset-id payload)))
         (is (= "perp" (:market-type payload)))
         (is (= 30 (:maxLeverage payload))))))
 
@@ -109,10 +124,12 @@
                     (js/JSON.stringify
                       (clj->js {:coin "ETH"
                                 :symbol "ETH-USDC"
+                                :asset-id "7"
                                 :market-type "perp"
                                 :maxLeverage "25"})))]
       (is (= {:coin "ETH"
               :symbol "ETH-USDC"
+              :asset-id 7
               :market-type :perp
               :maxLeverage 25}
              (cache/load-active-market-display "ETH" normalize-deps)))))

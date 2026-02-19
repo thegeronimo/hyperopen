@@ -41,6 +41,25 @@
            (trading/build-cancel-order-request context-fallback-state {:coin "BTC"
                                                                        :oid "88"})))))
 
+(deftest build-cancel-order-request-uses-canonical-hip3-asset-id-test
+  (let [state-with-asset-id {:asset-contexts {:hyna:GOLD {:idx 5}}
+                             :asset-selector {:market-by-key {"perp:hyna:GOLD" {:coin "hyna:GOLD"
+                                                                                 :dex "hyna"
+                                                                                 :market-type :perp
+                                                                                 :idx 5
+                                                                                 :asset-id 110005}}}}
+        state-missing-asset-id {:asset-contexts {:hyna:GOLD {:idx 5}}
+                                :asset-selector {:market-by-key {"perp:hyna:GOLD" {:coin "hyna:GOLD"
+                                                                                    :dex "hyna"
+                                                                                    :market-type :perp
+                                                                                    :idx 5}}}}]
+    (is (= {:action {:type "cancel"
+                     :cancels [{:a 110005 :o 88}]}}
+           (trading/build-cancel-order-request state-with-asset-id {:coin "hyna:GOLD"
+                                                                    :oid "88"})))
+    (is (nil? (trading/build-cancel-order-request state-missing-asset-id {:coin "hyna:GOLD"
+                                                                           :oid "88"})))))
+
 (deftest build-cancel-order-request-returns-nil-when-required-fields-are-missing-test
   (is (nil? (trading/build-cancel-order-request {:asset-contexts {}
                                                  :asset-selector {:market-by-key {}}}

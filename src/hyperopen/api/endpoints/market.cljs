@@ -75,13 +75,14 @@
                              (map (fn [{:keys [index name]}]
                                     [index name]))
                              (:tokens spot-meta))
-        perp-markets (->> (map vector dexs-with-default perp-results)
-                          (mapcat (fn [[dex [meta asset-ctxs]]]
+        perp-markets (->> (map-indexed vector (map vector dexs-with-default perp-results))
+                          (mapcat (fn [[perp-dex-index [dex [meta asset-ctxs]]]]
                                     (markets/build-perp-markets
                                      meta
                                      asset-ctxs
                                      token-by-index
-                                     :dex dex)))
+                                     :dex dex
+                                     :perp-dex-index perp-dex-index)))
                           vec)
         spot-markets (markets/build-spot-markets spot-meta spot-asset-ctxs)
         all-markets (vec (concat perp-markets spot-markets))

@@ -105,4 +105,4 @@
      :quote-symbol (resolve-quote-symbol instrument market)
      :spot? (boolean spot?)
      :hip3? (boolean hip3?)
-     :read-only? (boolean (or spot? hip3?))}))
+     :read-only? (boolean spot?)}))

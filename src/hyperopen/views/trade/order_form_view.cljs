@@ -204,7 +204,6 @@
                 pro-tab-label
                 controls
                 spot?
-                hip3?
                 read-only?
                 display
                 ui-leverage
@@ -254,8 +253,6 @@
            :data-parity-id "order-form"}
      (when spot?
        (unsupported-market-banner "Spot trading is not supported yet. You can still view spot charts and order books."))
-     (when hip3?
-       (unsupported-market-banner "HIP-3 trading is not supported yet. You can still view these markets."))
 
      [:div {:class (into ["flex" "flex-col" "flex-1" "gap-3"]
                          (when read-only? ["opacity-60" "pointer-events-none"]))}

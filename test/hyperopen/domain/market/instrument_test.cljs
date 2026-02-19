@@ -51,7 +51,7 @@
 
     (is (= "GOLD" (:base-symbol hip3-identity)))
     (is (true? (:hip3? hip3-identity)))
-    (is (true? (:read-only? hip3-identity)))
+    (is (false? (:read-only? hip3-identity)))
 
     (is (= "BTC" (:base-symbol perp-identity)))
     (is (= "USDC" (:quote-symbol perp-identity)))

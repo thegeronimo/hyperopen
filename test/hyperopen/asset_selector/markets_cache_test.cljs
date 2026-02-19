@@ -10,6 +10,10 @@
                   :base "ETH"
                   :quote "USDC"
                   :market-type :perp
+                  :dex "hyna"
+                  :idx 3
+                  :perp-dex-index 1
+                  :asset-id 110003
                   :hip3? true
                   :hip3-eligible? false
                   :volume24h 1000
@@ -20,6 +24,8 @@
                   :base "PURR"
                   :quote "USDC"
                   :market-type :spot
+                  :idx 0
+                  :asset-id 0
                   :volume24h 2000
                   :mark 0.21}]
         state {:asset-selector {:sort-by :volume
@@ -27,6 +33,7 @@
         cached (markets-cache/build-asset-selector-markets-cache markets state)]
     (is (= ["PURR/USDC" "ETH-USDC"] (mapv :symbol cached)))
     (is (= [:spot :perp] (mapv :market-type cached)))
+    (is (= [0 110003] (mapv :asset-id cached)))
     (is (= [0 1] (mapv :cache-order cached)))
     (is (nil? (:mark (first cached))))
     (is (false? (:hip3-eligible? (second cached))))))
@@ -36,7 +43,8 @@
                          :coin "ETH"
                          :symbol "ETH-USDC"
                          :base "ETH"
-                         :market-type :perp}
+                         :market-type :perp
+                         :asset-id 7}
                         {:key "spot:PURR/USDC"
                          :coin "PURR/USDC"
                          :symbol "PURR/USDC"
@@ -53,6 +61,7 @@
                 markets/resolve-market-by-coin)]
     (is (= cached-markets (get-in result [:asset-selector :markets])))
     (is (= "ETH" (get-in result [:active-market :coin])))
+    (is (= 7 (get-in result [:active-market :asset-id])))
     (is (= true (get-in result [:asset-selector :cache-hydrated?])))))
 
 (deftest restore-asset-selector-markets-cache-state-keeps-existing-markets-test

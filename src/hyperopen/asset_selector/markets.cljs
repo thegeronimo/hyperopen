@@ -72,6 +72,40 @@
   (let [n (fmt/safe-number v)]
     (if (js/isNaN n) 0 n)))
 
+(def ^:private builder-deployed-perp-asset-id-base
+  100000)
+
+(def ^:private builder-deployed-perp-asset-id-stride
+  10000)
+
+(defn- parse-int-value [value]
+  (let [num (cond
+              (number? value) value
+              (string? value) (js/parseInt value 10)
+              :else js/NaN)]
+    (when (and (number? num)
+               (not (js/isNaN num)))
+      (js/Math.floor num))))
+
+(defn- canonical-perp-dex-index
+  [meta dex perp-dex-index]
+  (some parse-int-value
+        [perp-dex-index
+         (:perp-dex-index meta)
+         (:perpDexIndex meta)
+         (when (nil? dex) 0)]))
+
+(defn- perp-asset-id
+  [perp-dex-index idx]
+  (let [dex-idx (parse-int-value perp-dex-index)
+        idx* (parse-int-value idx)]
+    (cond
+      (or (nil? dex-idx) (nil? idx*)) nil
+      (zero? dex-idx) idx*
+      :else (+ builder-deployed-perp-asset-id-base
+               (* dex-idx builder-deployed-perp-asset-id-stride)
+               idx*))))
+
 (def ^:private hip3-min-open-interest-usd
   1000000)
 
@@ -107,11 +141,12 @@
   "Build normalized perp market entries from metaAndAssetCtxs data.
    Accepts the meta map, asset ctxs vector, a token index->symbol map,
    and optional dex name (string)."
-  [meta asset-ctxs collateral-token->symbol & {:keys [dex]}]
+  [meta asset-ctxs collateral-token->symbol & {:keys [dex perp-dex-index]}]
   (let [universe (:universe meta)
         collateral-token (:collateralToken meta)
         quote (or (get collateral-token->symbol collateral-token) "USDC")
-        ctxs (vec (or asset-ctxs []))]
+        ctxs (vec (or asset-ctxs []))
+        resolved-perp-dex-index (canonical-perp-dex-index meta dex perp-dex-index)]
     (->> (map-indexed vector (or universe []))
          (keep (fn [[idx info]]
                  (let [ctx (nth ctxs idx nil)]
@@ -140,6 +175,8 @@
                                    :dex dex-name
                                    :delisted? (boolean (:isDelisted info))
                                    :idx idx
+                                   :perp-dex-index resolved-perp-dex-index
+                                   :asset-id (perp-asset-id resolved-perp-dex-index idx)
                                    :mark mark
                                    :markRaw mark-raw
                                    :volume24h volume
@@ -217,6 +254,7 @@
                                    :market-type :spot
                                    :dex nil
                                    :idx idx
+                                   :asset-id idx
                                    :mark mark
                                    :markRaw mark-raw
                                    :volume24h volume

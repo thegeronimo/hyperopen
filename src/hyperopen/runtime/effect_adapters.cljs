@@ -188,6 +188,9 @@
 (defn- parse-max-leverage [value]
   (markets-cache/parse-max-leverage value))
 
+(defn- parse-market-index [value]
+  (markets-cache/parse-market-index value))
+
 (defn- normalize-display-text [value]
   (markets-cache/normalize-display-text value))
 
@@ -209,7 +212,8 @@
 (defn- active-market-display-normalize-deps []
   {:normalize-display-text normalize-display-text
    :normalize-market-type normalize-market-type
-   :parse-max-leverage parse-max-leverage})
+   :parse-max-leverage parse-max-leverage
+   :parse-market-index parse-market-index})
 
 (defn persist-active-market-display! [market]
   (active-market-cache/persist-active-market-display!

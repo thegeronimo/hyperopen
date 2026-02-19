@@ -14,16 +14,21 @@
           hyna-markets (markets/build-perp-markets (assoc meta :collateralToken 235)
                                                    asset-ctxs
                                                    (assoc token-map 235 "USDE")
-                                                   :dex "hyna")]
+                                                   :dex "hyna"
+                                                   :perp-dex-index 1)]
       (is (= "BTC-USDC" (:symbol (first default-markets))))
       (is (= "perp:BTC" (:key (first default-markets))))
       (is (= 5 (:szDecimals (first default-markets))))
+      (is (= 0 (:perp-dex-index (first default-markets))))
+      (is (= 0 (:asset-id (first default-markets))))
       (is (= "100" (:markRaw (first default-markets))))
       (is (= "90" (:prevDayRaw (first default-markets))))
       (is (false? (:hip3-eligible? (first default-markets))))
       (is (= "ETH-USDE" (:symbol (second hyna-markets))))
       (is (= 4 (:szDecimals (second hyna-markets))))
       (is (= "hyna" (:dex (second hyna-markets))))
+      (is (= 1 (:perp-dex-index (second hyna-markets))))
+      (is (= 110001 (:asset-id (second hyna-markets))))
       (is (false? (:delisted? (second hyna-markets))))
       (is (true? (:hip3-eligible? (second hyna-markets)))))))
 
@@ -43,13 +48,15 @@
       (is (= "PURR" (:base purr-market)))
       (is (= "USDC" (:quote purr-market)))
       (is (= 0 (:szDecimals purr-market)))
+      (is (= 0 (:asset-id purr-market)))
       (is (= :spot (:market-type purr-market)))
       (is (= "0.5" (:markRaw purr-market)))
       (is (= "0.4" (:prevDayRaw purr-market)))
       (is (= "HYPE/USDC" (:symbol hype-market)))
       (is (= "HYPE" (:base hype-market)))
       (is (= "USDC" (:quote hype-market)))
-      (is (= 2 (:szDecimals hype-market))))))
+      (is (= 2 (:szDecimals hype-market)))
+      (is (= 1 (:asset-id hype-market))))))
 
 (deftest classify-market-test
   (testing "classify-market assigns crypto/tradfi/hip3"

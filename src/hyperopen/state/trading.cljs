@@ -162,11 +162,55 @@
       (get-in state [:perp-dex-clearinghouse dex])
       (get-in state [:webdata2 :clearinghouseState]))))
 
+(defn- parse-int-value
+  [value]
+  (let [num (cond
+              (number? value) value
+              (string? value) (js/parseInt value 10)
+              :else js/NaN)]
+    (when (and (number? num)
+               (not (js/isNaN num)))
+      (js/Math.floor num))))
+
+(defn- named-dex-market?
+  [market]
+  (let [dex (some-> (:dex market) str str/trim)]
+    (seq dex)))
+
+(defn- market-asset-id
+  [market]
+  (let [market* (or market {})
+        explicit-asset-id (some parse-int-value
+                                [(:asset-id market*)
+                                 (:assetId market*)])
+        idx (some parse-int-value [(:idx market*)])
+        named-dex? (named-dex-market? market*)]
+    (or explicit-asset-id
+        (when (and (some? idx)
+                   (not named-dex?))
+          idx))))
+
+(defn- asset-context-idx
+  [state active-asset]
+  (some parse-int-value
+        [(get-in state [:asset-contexts (keyword active-asset) :idx])
+         (get-in state [:asset-contexts active-asset :idx])]))
+
+(defn- resolve-trading-asset-idx
+  [state]
+  (let [active-market (or (:active-market state) {})
+        active-asset (:active-asset state)
+        market-idx (market-asset-id active-market)
+        named-dex? (named-dex-market? active-market)]
+    (or market-idx
+        (when-not named-dex?
+          (asset-context-idx state active-asset)))))
+
 (defn- trading-context [state]
   (let [active-asset (:active-asset state)
         streamed-mark (get-in state [:active-assets :contexts active-asset :mark])]
     {:active-asset active-asset
-     :asset-idx (get-in state [:asset-contexts (keyword active-asset) :idx])
+     :asset-idx (resolve-trading-asset-idx state)
      :orderbook (get-in state [:orderbooks active-asset])
      :market (cond-> (or (:active-market state) {})
                (some? streamed-mark) (assoc :streamed-mark streamed-mark))
@@ -392,7 +436,6 @@
          market-price-missing? (:market-price-missing? submit-prep)
          identity (market-identity state)
          spot? (:spot? identity)
-         hip3? (:hip3? identity)
          errors (validate-order-form state prepared-form)
          required-fields (submit-required-fields errors)
          request (when (= mode :submit)
@@ -401,7 +444,6 @@
                   :submit
                   (cond
                     spot? :spot-read-only
-                    hip3? :hip3-read-only
                     market-price-missing? :market-price-missing
                     (seq errors) :validation-errors
                     (nil? request) :request-unavailable
@@ -412,7 +454,6 @@
                   (cond
                     submitting? :submitting
                     spot? :spot-read-only
-                    hip3? :hip3-read-only
                     market-price-missing? :market-price-missing
                     (seq errors) :validation-errors
                     :else nil)
@@ -420,7 +461,6 @@
                   nil)
          error-message (case reason
                          :spot-read-only "Spot trading is not supported yet."
-                         :hip3-read-only "HIP-3 trading is not supported yet."
                          :market-price-missing "Market price unavailable. Load order book first."
                          :validation-errors (validation-error-message (first errors))
                          :request-unavailable "Select an asset and ensure market data is loaded."

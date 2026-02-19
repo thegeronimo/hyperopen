@@ -31,6 +31,10 @@
                         num))
     :else nil))
 
+(defn parse-market-index
+  [value]
+  (parse-utils/parse-int-value value))
+
 (defn- normalize-market-category
   [value]
   (let [category (cond
@@ -68,6 +72,17 @@
           category (normalize-market-category (:category market))
           hip3? (parse-optional-boolean (:hip3? market))
           hip3-eligible? (parse-optional-boolean (:hip3-eligible? market))
+          market-idx (parse-market-index (:idx market))
+          perp-dex-index (some parse-market-index
+                               [(:perp-dex-index market)
+                                (:perpDexIndex market)])
+          explicit-asset-id (some parse-market-index
+                                  [(:asset-id market)
+                                   (:assetId market)])
+          asset-id (or explicit-asset-id
+                       (when (and (some? market-idx)
+                                  (not (seq dex)))
+                         market-idx))
           max-leverage (parse-max-leverage (:maxLeverage market))
           cache-order (parse-utils/parse-int-value (:cache-order market))]
       (when (and (seq market-key) (seq coin) (seq symbol))
@@ -81,6 +96,9 @@
           category (assoc :category category)
           (some? hip3?) (assoc :hip3? hip3?)
           (some? hip3-eligible?) (assoc :hip3-eligible? hip3-eligible?)
+          (some? market-idx) (assoc :idx market-idx)
+          (some? perp-dex-index) (assoc :perp-dex-index perp-dex-index)
+          (some? asset-id) (assoc :asset-id asset-id)
           (some? max-leverage) (assoc :maxLeverage max-leverage)
           (some? cache-order) (assoc :cache-order cache-order))))))
 

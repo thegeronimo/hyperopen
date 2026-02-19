@@ -289,6 +289,44 @@
                                                         :twap {:minutes 0
                                                                :randomize true}))))))
 
+(deftest build-order-request-resolves-canonical-asset-id-for-hip3-test
+  (let [form (-> (trading/default-order-form)
+                 (assoc :type :limit
+                        :side :buy
+                        :size "1"
+                        :price "100"))]
+    (testing "named-dex perp uses active-market canonical asset-id"
+      (let [state {:active-asset "hyna:GOLD"
+                   :active-market {:coin "hyna:GOLD"
+                                   :dex "hyna"
+                                   :market-type :perp
+                                   :asset-id 110005
+                                   :mark 100
+                                   :szDecimals 2}
+                   :orderbooks {"hyna:GOLD" {:bids [{:px "99"}]
+                                             :asks [{:px "101"}]}}
+                   :webdata2 {:clearinghouseState {:marginSummary {:accountValue "1000"
+                                                                   :totalMarginUsed "250"}}}
+                   :asset-contexts {}}
+            request (trading/build-order-request state form)]
+        (is (= 110005 (get-in request [:action :orders 0 :a])))))
+
+    (testing "named-dex perp fails closed when canonical asset-id is unavailable"
+      (let [state {:active-asset "hyna:GOLD"
+                   :active-market {:coin "hyna:GOLD"
+                                   :dex "hyna"
+                                   :market-type :perp
+                                   :idx 5
+                                   :mark 100
+                                   :szDecimals 2}
+                   :orderbooks {"hyna:GOLD" {:bids [{:px "99"}]
+                                             :asks [{:px "101"}]}}
+                   :webdata2 {:clearinghouseState {:marginSummary {:accountValue "1000"
+                                                                   :totalMarginUsed "250"}}}
+                   :asset-contexts {:hyna:GOLD {:idx 5}}}
+            request (trading/build-order-request state form)]
+        (is (nil? request))))))
+
 (deftest default-order-form-and-ui-field-ownership-test
   (is (nil? (:entry-mode (trading/default-order-form))))
   (is (nil? (:ui-leverage (trading/default-order-form))))
@@ -678,7 +716,7 @@
       (is (false? (:spot? identity)))
       (is (false? (:read-only? identity)))))
 
-  (testing "infers hip3 and read-only from namespaced asset and dex market"
+  (testing "infers hip3 from namespaced asset and dex market"
     (let [asset-only-state {:active-asset "hyna:GOLD"
                             :active-market {:symbol "hyna:GOLD"}}
           dex-state {:active-asset "BTC"
@@ -688,9 +726,9 @@
           dex-identity (trading/market-identity dex-state)]
       (is (= "GOLD" (:base-symbol asset-identity)))
       (is (true? (:hip3? asset-identity)))
-      (is (true? (:read-only? asset-identity)))
+      (is (false? (:read-only? asset-identity)))
       (is (true? (:hip3? dex-identity)))
-      (is (true? (:read-only? dex-identity))))))
+      (is (false? (:read-only? dex-identity))))))
 
 (deftest market-info-and-order-draft-selectors-test
   (let [state {:active-asset "BTC"
@@ -739,4 +777,33 @@
           policy (trading/submit-policy state form {:mode :submit
                                                     :agent-ready? false})]
       (is (= :agent-not-ready (:reason policy)))
-      (is (= "Enable trading before submitting orders." (:error-message policy))))))
+      (is (= "Enable trading before submitting orders." (:error-message policy)))))
+
+  (testing "hip3 markets are submit-eligible when canonical asset id is present"
+    (let [state {:active-asset "hyna:GOLD"
+                 :active-market {:coin "hyna:GOLD"
+                                 :symbol "hyna:GOLD-USDC"
+                                 :quote "USDC"
+                                 :dex "hyna"
+                                 :market-type :perp
+                                 :asset-id 110005
+                                 :mark 100
+                                 :maxLeverage 20
+                                 :szDecimals 2}
+                 :orderbooks {"hyna:GOLD" {:bids [{:px "99"}]
+                                           :asks [{:px "101"}]}}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue "1000"
+                                                                 :totalMarginUsed "250"}}}
+                 :asset-contexts {}
+                 :order-form (trading/default-order-form)
+                 :order-form-ui (trading/default-order-form-ui)}
+          form (assoc (trading/default-order-form)
+                      :type :limit
+                      :side :buy
+                      :size "1"
+                      :price "100")
+          policy (trading/submit-policy state form {:mode :submit
+                                                    :agent-ready? true})]
+      (is (nil? (:reason policy)))
+      (is (false? (:disabled? policy)))
+      (is (= 110005 (get-in policy [:request :action :orders 0 :a]))))))

@@ -73,6 +73,29 @@
                (not (js/isNaN num)))
       (js/Math.floor num))))
 
+(defn- normalize-display-text
+  [value]
+  (let [text (some-> value str str/trim)]
+    (when (seq text)
+      text)))
+
+(defn- named-dex-market?
+  [market]
+  (seq (normalize-display-text (:dex market))))
+
+(defn- market-asset-id
+  [market]
+  (let [market* (or market {})
+        explicit-asset-id (some parse-int-value
+                                [(:asset-id market*)
+                                 (:assetId market*)])
+        idx (some parse-int-value [(:idx market*)])
+        named-dex? (named-dex-market? market*)]
+    (or explicit-asset-id
+        (when (and (some? idx)
+                   (not named-dex?))
+          idx))))
+
 (defn- normalize-cancel-order-coin
   [order]
   (let [coin (some-> (or (:coin order)
@@ -84,30 +107,43 @@
 (defn resolve-cancel-order-oid
   [order]
   (some parse-int-value
-        [(:oid order)
-         (:o order)
-         (get-in order [:order :oid])
-         (get-in order [:order :o])]))
+       [(:oid order)
+        (:o order)
+        (get-in order [:order :oid])
+        (get-in order [:order :o])]))
+
+(defn- normalize-cancel-order-dex
+  [order]
+  (normalize-display-text
+   (or (:dex order)
+       (get-in order [:order :dex]))))
 
 (defn- resolve-cancel-order-asset-idx
   [state order coin]
   (let [market-by-key (get-in state [:asset-selector :market-by-key] {})
-        market-idx (some-> (markets/resolve-market-by-coin market-by-key coin)
-                           :idx)]
+        market (markets/resolve-market-by-coin market-by-key coin)
+        resolved-market-asset-id (market-asset-id market)
+        named-dex-cancel? (or (seq (normalize-cancel-order-dex order))
+                              (named-dex-market? market))
+        context-asset-idx (when (and coin (not named-dex-cancel?))
+                            (some parse-int-value
+                                  [(get-in state [:asset-contexts (keyword coin) :idx])
+                                   (get-in state [:asset-contexts coin :idx])]))]
     (some parse-int-value
-          [(:asset-idx order)
+          [(:asset-id order)
+           (:assetId order)
+           (:asset-idx order)
            (:assetIdx order)
            (:asset order)
            (:a order)
+           (get-in order [:order :asset-id])
+           (get-in order [:order :assetId])
            (get-in order [:order :asset-idx])
            (get-in order [:order :assetIdx])
            (get-in order [:order :asset])
            (get-in order [:order :a])
-           (when coin
-             (get-in state [:asset-contexts (keyword coin) :idx]))
-           (when coin
-             (get-in state [:asset-contexts coin :idx]))
-           market-idx])))
+           resolved-market-asset-id
+           context-asset-idx])))
 
 (defn build-cancel-order-request
   "Normalize heterogeneous order row payloads into exchange cancel action shape.
