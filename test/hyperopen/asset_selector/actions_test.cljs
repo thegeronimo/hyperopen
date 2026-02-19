@@ -283,38 +283,38 @@
                              :render-limit 120}}
            0)))
   (is (= [[:effects/save-many [[[:asset-selector :render-limit] 200]
-                               [[:asset-selector :scroll-top] 5088]]]]
+                               [[:asset-selector :scroll-top] 2304]]]]
          (actions/maybe-increase-asset-selector-render-limit
            {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                              :render-limit 120}}
-           "5100"))))
+           "2304"))))
 
 (deftest maybe-increase-asset-selector-render-limit-throttles-when-event-time-is-too-close-test
   (is (= [[:effects/save-many [[[:asset-selector :render-limit] 200]
                                [[:asset-selector :last-render-limit-increase-ms] 1000]
-                               [[:asset-selector :scroll-top] 5088]]]]
+                               [[:asset-selector :scroll-top] 2304]]]]
          (actions/maybe-increase-asset-selector-render-limit
            {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                              :render-limit 120}}
-           5100
+           2304
            1000)))
 
-  (is (= [[:effects/save [:asset-selector :scroll-top] 5088]]
+  (is (= [[:effects/save [:asset-selector :scroll-top] 2304]]
          (actions/maybe-increase-asset-selector-render-limit
            {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                              :render-limit 120
                              :last-render-limit-increase-ms 1000}}
-           5100
+           2304
            1050)))
 
   (is (= [[:effects/save-many [[[:asset-selector :render-limit] 200]
                                [[:asset-selector :last-render-limit-increase-ms] 1095]
-                               [[:asset-selector :scroll-top] 5088]]]]
+                               [[:asset-selector :scroll-top] 2304]]]]
          (actions/maybe-increase-asset-selector-render-limit
            {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                              :render-limit 120
                              :last-render-limit-increase-ms 1000}}
-           5100
+           2304
            1095))))
 
 (deftest icon-status-actions-cover-unknown-and-idempotent-branches-test

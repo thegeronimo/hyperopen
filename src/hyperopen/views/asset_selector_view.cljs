@@ -1,7 +1,8 @@
 (ns hyperopen.views.asset-selector-view
   (:require [clojure.string :as str]
-            [replicant.dom :as r]
-            [hyperopen.utils.formatting :as fmt]))
+            [hyperopen.asset-selector.list-metrics :as list-metrics]
+            [hyperopen.utils.formatting :as fmt]
+            [replicant.dom :as r]))
 
 ;; Asset selector dropdown component
 
@@ -231,13 +232,13 @@
         (format-or-dash openInterest fmt/format-large-currency))]]))
 
 (def ^:private asset-list-default-render-limit
-  120)
+  list-metrics/default-render-limit)
 
 (def ^:private asset-list-row-height-px
-  24)
+  list-metrics/row-height-px)
 
 (def ^:private asset-list-viewport-height-px
-  256)
+  list-metrics/viewport-height-px)
 
 (def ^:private asset-list-overscan-rows
   6)

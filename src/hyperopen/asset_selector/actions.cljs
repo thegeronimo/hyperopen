@@ -1,5 +1,6 @@
 (ns hyperopen.asset-selector.actions
   (:require [clojure.string :as str]
+            [hyperopen.asset-selector.list-metrics :as list-metrics]
             [hyperopen.asset-selector.markets :as markets]
             [hyperopen.state.trading :as trading]))
 
@@ -19,7 +20,7 @@
   "asset-selector-active-tab")
 
 (def asset-selector-default-render-limit
-  120)
+  list-metrics/default-render-limit)
 
 (def ^:private asset-selector-render-limit-step
   80)
@@ -28,10 +29,10 @@
   320)
 
 (def ^:private asset-selector-row-height-px
-  48)
+  list-metrics/row-height-px)
 
 (def ^:private asset-selector-viewport-height-px
-  384)
+  list-metrics/viewport-height-px)
 
 (def ^:private asset-selector-scroll-throttle-ms
   90)
