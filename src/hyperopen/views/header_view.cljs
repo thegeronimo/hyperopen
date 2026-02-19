@@ -1,5 +1,6 @@
 (ns hyperopen.views.header-view
-  (:require [hyperopen.wallet.core :as wallet]))
+  (:require [clojure.string :as str]
+            [hyperopen.wallet.core :as wallet]))
 
 (def header-nav-link-base-classes
   ["header-nav-link"
@@ -25,6 +26,9 @@
        :href "#"
        :on {:click [[:actions/navigate route]]}}
    label])
+
+(defn- route-active? [current-route target-route]
+  (str/starts-with? (or current-route "") target-route))
 
 (defn- wallet-chevron-icon []
   [:svg {:viewBox "0 0 20 20"
@@ -268,7 +272,8 @@
       (connect-wallet-button is-connecting))))
 
 (defn header-view [state]
-  (let [wallet-state (get-in state [:wallet] {})]
+  (let [wallet-state (get-in state [:wallet] {})
+        route (get-in state [:router :path] "/trade")]
     [:header.bg-base-200.border-b.border-base-300.w-full
      {:data-parity-id "header"}
      [:div {:class ["w-full" "app-shell-gutter" "py-3"]}
@@ -280,8 +285,8 @@
        ;; Navigation Links
        [:nav.hidden.md:flex.flex-1.items-center.justify-start.space-x-8.ml-8
         {:data-parity-id "header-nav"}
-        (nav-link "Trade" "/trade" true)
-        (nav-link "Portfolio" "/portfolio" false)
+        (nav-link "Trade" "/trade" (route-active? route "/trade"))
+        (nav-link "Portfolio" "/portfolio" (route-active? route "/portfolio"))
         (nav-link "Earn" "/earn" false)
         (nav-link "Vaults" "/vaults" false)
         (nav-link "Staking" "/staking" false)

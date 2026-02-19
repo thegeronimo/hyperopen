@@ -148,6 +148,9 @@
      :portfolio-value portfolio-value
      :pnl-info pnl-info}))
 
+(defn account-equity-metrics [state]
+  (derive-account-equity-metrics state))
+
 (defn- classic-account-equity-view [{:keys [spot-equity
                                             perps-value
                                             base-balance

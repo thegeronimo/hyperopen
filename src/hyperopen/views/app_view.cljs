@@ -3,21 +3,25 @@
             [hyperopen.views.footer-view :as footer-view]
             [hyperopen.views.header-view :as header-view]
             [hyperopen.views.notifications-view :as notifications-view]
+            [hyperopen.views.portfolio-view :as portfolio-view]
             [hyperopen.views.trade-view :as trade-view]))
 
 (defn app-view [state]
   (let [route (get-in state [:router :path] "/trade")
+        trade-route? (str/starts-with? route "/trade")
+        portfolio-route? (str/starts-with? route "/portfolio")
         root-classes (into ["h-screen" "bg-base-100" "flex" "flex-col" "overflow-y-auto" "scrollbar-hide"]
-                           (when (= route "/trade")
+                           (when trade-route?
                              ["xl:overflow-y-hidden"]))]
     [:div {:class root-classes
            :data-parity-id "app-root"}
      (header-view/header-view state)
      [:div {:class ["flex-1" "min-h-0" "pb-12" "flex" "flex-col"]
             :data-parity-id "app-main"}
-      (case route
-        "/trade" (trade-view/trade-view state)
-        (trade-view/trade-view state))]
+      (cond
+        trade-route? (trade-view/trade-view state)
+        portfolio-route? (portfolio-view/portfolio-view state)
+        :else (trade-view/trade-view state))]
      (when-let [modal (get-in state [:funding-ui :modal])]
        [:div.fixed.inset-0.z-50.flex.items-center.justify-center
         [:div.absolute.inset-0.bg-black.opacity-50

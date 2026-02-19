@@ -150,3 +150,19 @@
     (is (sequential? (get-in panel [1 :class])))
     (is (contains? (set (class-values (get-in chevron [1 :class])))
                    "group-open:rotate-180"))))
+
+(deftest header-highlights-portfolio-link-when-portfolio-route-is-active-test
+  (let [view (header-view/header-view {:wallet {}
+                                       :router {:path "/portfolio"}})
+        portfolio-link (find-node (fn [candidate]
+                                    (and (= :a (first candidate))
+                                         (some #{"Portfolio"} (collect-strings candidate))))
+                                  view)
+        trade-link (find-node (fn [candidate]
+                                (and (= :a (first candidate))
+                                     (some #{"Trade"} (collect-strings candidate))))
+                              view)
+        portfolio-classes (set (class-values (get-in portfolio-link [1 :class])))
+        trade-classes (set (class-values (get-in trade-link [1 :class])))]
+    (is (contains? portfolio-classes "header-nav-link-active"))
+    (is (not (contains? trade-classes "header-nav-link-active")))))

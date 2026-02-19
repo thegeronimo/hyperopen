@@ -84,6 +84,8 @@
             [hyperopen.views.trading-chart.utils.data-processing-test]
             [hyperopen.views.trading-chart.utils.indicators-test]
             [hyperopen.views.l2-orderbook-view-test]
+            [hyperopen.views.portfolio-view-test]
+            [hyperopen.views.portfolio.vm-test]
             [hyperopen.views.typography-scale-test]
             [hyperopen.views.trade.order-form-commands-test]
             [hyperopen.views.trade.order-form-component-primitives-test]
@@ -197,6 +199,8 @@
              'hyperopen.views.trading-chart.utils.data-processing-test
              'hyperopen.views.trading-chart.utils.indicators-test
              'hyperopen.views.l2-orderbook-view-test
+             'hyperopen.views.portfolio-view-test
+             'hyperopen.views.portfolio.vm-test
              'hyperopen.views.typography-scale-test
              'hyperopen.views.trade.order-form-commands-test
              'hyperopen.views.trade.order-form-component-primitives-test

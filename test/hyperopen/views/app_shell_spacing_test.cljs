@@ -221,6 +221,19 @@
     (is (contains? root-classes "scrollbar-hide"))
     (is (not (contains? root-classes "xl:overflow-y-hidden")))))
 
+(deftest app-view-renders-portfolio-route-with-portfolio-root-test
+  (let [view-node (app-view/app-view (assoc trade-view-test-state
+                                            :router {:path "/portfolio"}
+                                            :wallet {}))
+        portfolio-root (find-first-node view-node
+                                        #(= "portfolio-root"
+                                            (get-in % [1 :data-parity-id])))
+        trade-root (find-first-node view-node
+                                    #(= "trade-root"
+                                        (get-in % [1 :data-parity-id])))]
+    (is (some? portfolio-root))
+    (is (nil? trade-root))))
+
 (deftest app-view-renders-global-order-feedback-toast-when-present-test
   (let [view-node (app-view/app-view (assoc trade-view-test-state
                                             :router {:path "/trade"}
