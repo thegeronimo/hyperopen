@@ -153,14 +153,6 @@
 
     :else []))
 
-(defn- find-first-img-node [node]
-  (find-first-node
-    node
-    (fn [candidate]
-      (and (vector? candidate)
-           (keyword? (first candidate))
-           (str/starts-with? (name (first candidate)) "img")))))
-
 (defn- count-selectable-asset-rows [node]
   (cond
     (vector? node)
@@ -315,7 +307,7 @@
     (is (contains? classes "truncate"))
     (is (contains? classes "whitespace-nowrap"))))
 
-(deftest asset-list-item-renders-icon-immediately-and-wires-load-events-test
+(deftest asset-list-item-does-not-render-market-icon-image-test
   (let [asset {:key "perp:BTC"
                :symbol "BTC-USDC"
                :coin "BTC"
@@ -325,47 +317,10 @@
                :volume24h 10
                :change24hPct 1}
         row (view/asset-list-item asset false #{} #{} #{})
-        img-node (find-first-img-node row)
-        attrs (second img-node)
-        classes (set (class-values (:class attrs)))]
-    (is (some? img-node))
-    (is (not (contains? classes "hidden")))
-    (is (not (contains? classes "opacity-0")))
-    (is (= [[:actions/mark-loaded-asset-icon "perp:BTC"]]
-           (get-in attrs [:on :load])))
-    (is (= [[:actions/mark-missing-asset-icon "perp:BTC"]]
-           (get-in attrs [:on :error])))))
-
-(deftest asset-list-item-renders-namespaced-icon-for-component-markets-test
-  (let [asset {:key "perp:xyz:XYZ100"
-               :symbol "XYZ100-USDC"
-               :coin "xyz:XYZ100"
-               :base "XYZ100"
-               :dex "xyz"
-               :market-type :perp
-               :mark 1
-               :volume24h 10
-               :change24hPct 1}
-        row (view/asset-list-item asset false #{} #{} #{})
-        img-node (find-first-img-node row)
-        attrs (second img-node)]
-    (is (some? img-node))
-    (is (= "https://app.hyperliquid.xyz/coins/xyz:XYZ100.svg"
-           (:src attrs)))))
-
-(deftest asset-list-item-renders-cross-dex-alias-icon-when-primary-key-missing-test
-  (let [asset {:key "perp:xyz:COPPER"
-               :symbol "COPPER-USDC"
-               :coin "xyz:COPPER"
-               :base "COPPER"
-               :dex "xyz"
-               :market-type :perp
-               :mark 1
-               :volume24h 10
-               :change24hPct 1}
-        row (view/asset-list-item asset false #{} #{} #{})
-        img-node (find-first-img-node row)
-        attrs (second img-node)]
-    (is (some? img-node))
-    (is (= "https://app.hyperliquid.xyz/coins/flx:COPPER.svg"
-           (:src attrs)))))
+        img-node (find-first-node
+                   row
+                   (fn [candidate]
+                     (and (vector? candidate)
+                          (keyword? (first candidate))
+                          (str/starts-with? (name (first candidate)) "img"))))]
+    (is (nil? img-node))))
