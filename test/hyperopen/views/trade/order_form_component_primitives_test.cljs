@@ -83,6 +83,13 @@
         with-accessory-input-attrs (-> (collect-nodes-by-tag with-accessory :input)
                                        first
                                        second)
+        with-accessory-wrapper-classes (->> (collect-nodes-by-tag with-accessory :div)
+                                            (map second)
+                                            (map :class)
+                                            (filter #(and (coll? %)
+                                                          (some #{"right-3"} %)))
+                                            first
+                                            set)
         no-accessory-input-attrs (-> (collect-nodes-by-tag no-accessory :input)
                                      first
                                      second)
@@ -93,7 +100,11 @@
     (is (= {:input [[:actions/set-size-display [:event.target/value]]]}
            (:on with-accessory-input-attrs)))
     (is (fn? (:on-focus with-accessory-input-attrs)))
-    (is (fn? (:on-blur with-accessory-input-attrs)))))
+    (is (fn? (:on-blur with-accessory-input-attrs)))
+    (is (contains? with-accessory-wrapper-classes "inset-y-0"))
+    (is (contains? with-accessory-wrapper-classes "flex"))
+    (is (contains? with-accessory-wrapper-classes "items-center"))
+    (is (not (contains? with-accessory-wrapper-classes "-translate-y-1/2")))))
 
 (deftest chip-button-active-and-disabled-branches-test
   (let [enabled-node (apply primitives/chip-button

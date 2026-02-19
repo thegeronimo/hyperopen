@@ -139,8 +139,9 @@
      (when accessory
        [:div {:class ["absolute"
                       "right-3"
-                      "top-1/2"
-                      "-translate-y-1/2"
+                      "inset-y-0"
+                      "flex"
+                      "items-center"
                       "shrink-0"]}
         accessory])]))
 
