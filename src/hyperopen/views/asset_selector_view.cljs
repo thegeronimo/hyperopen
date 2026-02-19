@@ -57,9 +57,18 @@
 (defn search-controls [search-term strict? favorites-only?]
   [:div.flex.items-center.gap-2.mb-4
    [:div.relative.flex-1
-    [:input.w-full.px-3.py-1.5.bg-base-200.border.border-base-300.rounded-md.text-sm.placeholder-gray-400
-     {:type "text"
+    [:input
+     {:class ["asset-selector-search-input"
+              "w-full"
+              "pr-9"
+              "text-sm"
+              "transition-colors"
+              "duration-200"
+              "focus:outline-none"
+              "focus:ring-0"]
+      :type "text"
       :placeholder "Search"
+      :aria-label "Search assets"
       :value search-term
       :on {:input [[:actions/update-asset-search [:event.target/value]]]}}]
     [:div.absolute.inset-y-0.right-0.flex.items-center.pr-3

@@ -288,6 +288,22 @@
     (is (contains? classes "bg-base-200/70"))
     (is (not (contains? classes "ring-primary")))))
 
+(deftest search-controls-use-parity-input-styling-test
+  (let [controls (view/search-controls "" false false)
+        search-input (find-first-node controls
+                                      (fn [candidate]
+                                        (and (vector? candidate)
+                                             (= :input (first candidate))
+                                             (= "Search" (get-in candidate [1 :placeholder])))))
+        attrs (second search-input)
+        classes (set (collect-all-classes search-input))]
+    (is (some? search-input))
+    (is (= "Search assets" (:aria-label attrs)))
+    (is (contains? classes "asset-selector-search-input"))
+    (is (contains? classes "focus:outline-none"))
+    (is (contains? classes "focus:ring-0"))
+    (is (not (contains? classes "ring-primary")))))
+
 (deftest asset-selector-loading-state-test
   (let [base-props {:visible? true
                     :markets sample-markets

@@ -76,6 +76,31 @@
     @apply input input-sm bg-trading-surface border-trading-border text-trading-text;
   }
 
+  .asset-selector-search-input {
+    height: 33px;
+    border: 1px solid #273035;
+    border-radius: 8px;
+    padding: 5px 12px 5px 10px;
+    background: transparent;
+    color: #f6fefd;
+    caret-color: #f6fefd;
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out,
+      border-color 0.2s ease-in-out;
+  }
+
+  .asset-selector-search-input:hover,
+  .asset-selector-search-input:focus,
+  .asset-selector-search-input:focus-visible {
+    outline: none;
+    box-shadow: none;
+    border-color: #9aa3a4;
+    background: transparent;
+  }
+
+  .asset-selector-search-input::placeholder {
+    color: rgb(246 254 253 / 0.6);
+  }
+
   .header-nav-link {
     font-family: var(--font-ui);
     font-style: normal;
