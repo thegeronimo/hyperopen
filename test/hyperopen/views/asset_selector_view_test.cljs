@@ -199,11 +199,15 @@
         hiccup (view/asset-list assets nil #{} #{} #{} 40 0)
         scroll-container (first (node-children hiccup))
         attrs (second scroll-container)
+        inner-wrapper (first (node-children scroll-container))
+        inner-attrs (second inner-wrapper)
         strings (set (collect-strings hiccup))]
     (is (= [[:actions/maybe-increase-asset-selector-render-limit
              [:event.target/scrollTop]
              [:event/timeStamp]]]
            (get-in attrs [:on :scroll])))
+    (is (= "none" (get-in attrs [:style :overflow-anchor])))
+    (is (= "none" (get-in inner-attrs [:style :overflow-anchor])))
     (is (< (count-selectable-asset-rows hiccup) 40))
     (is (>= (count-selectable-asset-rows hiccup) 8))
     (is (contains? strings "Showing 40 of 150 markets"))

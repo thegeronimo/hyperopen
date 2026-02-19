@@ -183,7 +183,8 @@
            {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                              :render-limit 120}}
            0)))
-  (is (= [[:effects/save [:asset-selector :render-limit] 200]]
+  (is (= [[:effects/save-many [[[:asset-selector :render-limit] 200]
+                               [[:asset-selector :scroll-top] 5088]]]]
          (actions/maybe-increase-asset-selector-render-limit
            {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                              :render-limit 120}}

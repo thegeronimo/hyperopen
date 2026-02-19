@@ -295,11 +295,12 @@
                        visible-assets)]
         [:div
          [:div.max-h-96.overflow-y-auto.scrollbar-hide
-          {:on {:scroll [[:actions/maybe-increase-asset-selector-render-limit
+          {:style {:overflow-anchor "none"}
+           :on {:scroll [[:actions/maybe-increase-asset-selector-render-limit
                           [:event.target/scrollTop]
                           [:event/timeStamp]]]}}
           (into
-            [:div]
+            [:div {:style {:overflow-anchor "none"}}]
             (concat
               (when (pos? top-spacer-px)
                 [[:div {:style {:height (str top-spacer-px "px")}}]])

@@ -251,3 +251,29 @@
         view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})
         strings (set (collect-strings view-node))]
     (is (contains? strings "xyz"))))
+
+(deftest active-asset-panel-passes-scroll-top-to-selector-wrapper-test
+  (let [captured-props (atom nil)
+        dropdown-state {:visible-dropdown :asset-selector
+                        :search-term ""
+                        :sort-by :volume
+                        :sort-direction :desc
+                        :favorites #{}
+                        :favorites-only? false
+                        :missing-icons #{}
+                        :loaded-icons #{}
+                        :scroll-top 144
+                        :render-limit 120
+                        :strict? false
+                        :active-tab :all}
+        full-state {:active-asset nil
+                    :asset-selector {:markets [{:key "perp:BTC"
+                                                :coin "BTC"
+                                                :symbol "BTC-USDC"
+                                                :market-type :perp}]}}]
+    (with-redefs [hyperopen.views.asset-selector-view/asset-selector-wrapper
+                  (fn [props]
+                    (reset! captured-props props)
+                    [:div])]
+      (view/active-asset-panel {} false dropdown-state full-state))
+    (is (= 144 (:scroll-top @captured-props)))))

@@ -244,10 +244,8 @@
                              js/Math.floor
                              (* asset-selector-row-height-px))
          current-scroll-top (get-in state [:asset-selector :scroll-top] 0)
+         scroll-changed? (not= next-scroll-top current-scroll-top)
          current-event-ms (parse-time-ms event-time-ms)
-         scroll-sync-enabled? (some? current-event-ms)
-         scroll-changed? (and scroll-sync-enabled?
-                              (not= next-scroll-top current-scroll-top))
          rendered-height (* current-limit asset-selector-row-height-px)
          near-bottom? (and (pos? rendered-height)
                            (>= (+ scroll-top*
@@ -263,12 +261,11 @@
                       (min total (+ current-limit asset-selector-render-limit-step))
                       current-limit)]
      (if (> next-limit current-limit)
-       (if (some? current-event-ms)
-         [[:effects/save-many (cond-> [[[:asset-selector :render-limit] next-limit]
-                                       [[:asset-selector :last-render-limit-increase-ms] current-event-ms]]
-                                scroll-changed?
-                                (conj [[:asset-selector :scroll-top] next-scroll-top]))]]
-         [[:effects/save [:asset-selector :render-limit] next-limit]])
+       [[:effects/save-many (cond-> [[[:asset-selector :render-limit] next-limit]]
+                              (some? current-event-ms)
+                              (conj [[:asset-selector :last-render-limit-increase-ms] current-event-ms])
+                              scroll-changed?
+                              (conj [[:asset-selector :scroll-top] next-scroll-top]))]]
        (if scroll-changed?
          [[:effects/save [:asset-selector :scroll-top] next-scroll-top]]
          [])))))
