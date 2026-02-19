@@ -21,7 +21,7 @@
   120)
 
 (def ^:private asset-selector-render-limit-step
-  40)
+  80)
 
 (def ^:private asset-selector-render-prefetch-px
   320)
@@ -196,7 +196,10 @@
 
 (defn set-asset-selector-scroll-top
   [state scroll-top]
-  (let [next-scroll-top (max 0 (or (parse-int-value scroll-top) 0))]
+  (let [raw-scroll-top (max 0 (or (parse-int-value scroll-top) 0))
+        next-scroll-top (-> (/ raw-scroll-top asset-selector-row-height-px)
+                            js/Math.floor
+                            (* asset-selector-row-height-px))]
     (if (= next-scroll-top (get-in state [:asset-selector :scroll-top] 0))
       []
       [[:effects/save [:asset-selector :scroll-top] next-scroll-top]])))
@@ -237,6 +240,14 @@
          total (count markets)
          current-limit (current-asset-selector-render-limit state total)
          scroll-top* (max 0 (or (parse-int-value scroll-top) 0))
+         next-scroll-top (-> (/ scroll-top* asset-selector-row-height-px)
+                             js/Math.floor
+                             (* asset-selector-row-height-px))
+         current-scroll-top (get-in state [:asset-selector :scroll-top] 0)
+         current-event-ms (parse-time-ms event-time-ms)
+         scroll-sync-enabled? (some? current-event-ms)
+         scroll-changed? (and scroll-sync-enabled?
+                              (not= next-scroll-top current-scroll-top))
          rendered-height (* current-limit asset-selector-row-height-px)
          near-bottom? (and (pos? rendered-height)
                            (>= (+ scroll-top*
@@ -244,7 +255,6 @@
                                   asset-selector-render-prefetch-px)
                                rendered-height))
          last-increase-ms (parse-time-ms (get-in state [:asset-selector :last-render-limit-increase-ms]))
-         current-event-ms (parse-time-ms event-time-ms)
          throttle-open? (or (nil? current-event-ms)
                             (nil? last-increase-ms)
                             (>= (- current-event-ms last-increase-ms)
@@ -254,10 +264,14 @@
                       current-limit)]
      (if (> next-limit current-limit)
        (if (some? current-event-ms)
-         [[:effects/save-many [[[:asset-selector :render-limit] next-limit]
-                               [[:asset-selector :last-render-limit-increase-ms] current-event-ms]]]]
+         [[:effects/save-many (cond-> [[[:asset-selector :render-limit] next-limit]
+                                       [[:asset-selector :last-render-limit-increase-ms] current-event-ms]]
+                                scroll-changed?
+                                (conj [[:asset-selector :scroll-top] next-scroll-top]))]]
          [[:effects/save [:asset-selector :render-limit] next-limit]])
-       []))))
+       (if scroll-changed?
+         [[:effects/save [:asset-selector :scroll-top] next-scroll-top]]
+         [])))))
 
 (defn apply-asset-icon-status-updates
   [state status-by-market]

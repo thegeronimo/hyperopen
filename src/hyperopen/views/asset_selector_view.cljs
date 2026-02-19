@@ -231,6 +231,15 @@
 (def ^:private asset-list-default-render-limit
   120)
 
+(def ^:private asset-list-row-height-px
+  48)
+
+(def ^:private asset-list-viewport-height-px
+  384)
+
+(def ^:private asset-list-overscan-rows
+  6)
+
 (defn- normalize-render-limit [render-limit total]
   (let [candidate (parse-cache-order render-limit)
         default-limit (min total asset-list-default-render-limit)]
@@ -241,7 +250,32 @@
           (min total))
       default-limit)))
 
-(defn asset-list [assets selected-market-key favorites missing-icons loaded-icons render-limit]
+(defn- normalize-scroll-top [scroll-top]
+  (max 0 (or (parse-cache-order scroll-top) 0)))
+
+(defn- virtual-window [limit scroll-top]
+  (let [rows-in-view (-> (/ asset-list-viewport-height-px asset-list-row-height-px)
+                         js/Math.ceil
+                         int)
+        window-size (+ rows-in-view (* 2 asset-list-overscan-rows))
+        first-visible-row (-> (/ scroll-top asset-list-row-height-px)
+                              js/Math.floor
+                              int)
+        start-index (-> first-visible-row
+                        (- asset-list-overscan-rows)
+                        (max 0)
+                        (min limit))
+        end-index (-> (+ start-index window-size)
+                      (min limit)
+                      (max start-index))
+        top-spacer-px (* start-index asset-list-row-height-px)
+        bottom-spacer-px (* (- limit end-index) asset-list-row-height-px)]
+    {:start-index start-index
+     :end-index end-index
+     :top-spacer-px top-spacer-px
+     :bottom-spacer-px bottom-spacer-px}))
+
+(defn asset-list [assets selected-market-key favorites missing-icons loaded-icons render-limit scroll-top]
   (let [assets* (if (vector? assets) assets (vec assets))
         total (count assets*)]
     (if (zero? total)
@@ -250,7 +284,10 @@
         [:div "No assets found"]
         [:div.text-xs "Try adjusting your search"]]]
       (let [limit (normalize-render-limit render-limit total)
-            visible-assets (subvec assets* 0 limit)
+            scroll-top* (normalize-scroll-top scroll-top)
+            {:keys [start-index end-index top-spacer-px bottom-spacer-px]}
+            (virtual-window limit scroll-top*)
+            visible-assets (subvec assets* start-index end-index)
             has-more? (< limit total)
             rows (mapv (fn [asset]
                          ^{:key (:key asset)}
@@ -261,7 +298,14 @@
           {:on {:scroll [[:actions/maybe-increase-asset-selector-render-limit
                           [:event.target/scrollTop]
                           [:event/timeStamp]]]}}
-          (into [:div] rows)]
+          (into
+            [:div]
+            (concat
+              (when (pos? top-spacer-px)
+                [[:div {:style {:height (str top-spacer-px "px")}}]])
+              rows
+              (when (pos? bottom-spacer-px)
+                [[:div {:style {:height (str bottom-spacer-px "px")}}]])))]
          (when has-more?
            [:div.py-3.text-center.text-xs.text-gray-500.border-t.border-base-300
             [:div.mb-2 (str "Showing " limit " of " total " markets")]
@@ -364,11 +408,12 @@
    - :missing-icons - set of market keys with missing icons
    - :loaded-icons - set of market keys with loaded icons
    - :render-limit - max rows currently rendered in list
+   - :scroll-top - current row-viewport scroll offset
    - :loading? - whether market refresh is in flight
    - :phase - :bootstrap | :full"
   [{:keys [visible? markets selected-market-key search-term sort-by sort-direction
            favorites favorites-only? strict? active-tab missing-icons loaded-icons
-           render-limit loading? phase]}]
+           render-limit scroll-top loading? phase]}]
   (when visible?
     (let [processed-assets-list (processed-assets markets search-term sort-by sort-direction
                                                   favorites favorites-only? strict? active-tab)]
@@ -393,7 +438,7 @@
         (search-controls search-term strict? favorites-only?)
         (tab-row active-tab)
         (sort-controls sort-by sort-direction)
-        (asset-list processed-assets-list selected-market-key favorites missing-icons loaded-icons render-limit)]])))
+        (asset-list processed-assets-list selected-market-key favorites missing-icons loaded-icons render-limit scroll-top)]])))
 
 ;; Wrapper component that can be used in active-asset-view
 (defn asset-selector-wrapper [props]

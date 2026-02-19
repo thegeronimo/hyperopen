@@ -288,7 +288,7 @@
   (let [state {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                                 :render-limit 120}}
         effects (core/maybe-increase-asset-selector-render-limit state 5100)]
-    (is (= [[:effects/save [:asset-selector :render-limit] 160]]
+    (is (= [[:effects/save [:asset-selector :render-limit] 200]]
            effects))))
 
 (deftest maybe-increase-asset-selector-render-limit-noop-when-not-near-bottom-test
@@ -301,7 +301,7 @@
   (let [state {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                                 :render-limit 120}}
         effects (core/increase-asset-selector-render-limit state)]
-    (is (= [[:effects/save [:asset-selector :render-limit] 160]]
+    (is (= [[:effects/save [:asset-selector :render-limit] 200]]
            effects))))
 
 (deftest show-all-asset-selector-markets-expands-to-total-test

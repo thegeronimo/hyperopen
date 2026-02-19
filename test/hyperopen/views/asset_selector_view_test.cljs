@@ -175,7 +175,7 @@
                        :coin (str "T" n)
                        :base (str "T" n)
                        :market-type :perp}))
-        hiccup (view/asset-list assets nil #{} #{} #{} 40)
+        hiccup (view/asset-list assets nil #{} #{} #{} 40 0)
         children (vec (node-children hiccup))
         scroll-container (first children)
         footer-container (second children)
@@ -196,7 +196,7 @@
                        :coin (str "T" n)
                        :base (str "T" n)
                        :market-type :perp}))
-        hiccup (view/asset-list assets nil #{} #{} #{} 40)
+        hiccup (view/asset-list assets nil #{} #{} #{} 40 0)
         scroll-container (first (node-children hiccup))
         attrs (second scroll-container)
         strings (set (collect-strings hiccup))]
@@ -204,7 +204,8 @@
              [:event.target/scrollTop]
              [:event/timeStamp]]]
            (get-in attrs [:on :scroll])))
-    (is (= 40 (count-selectable-asset-rows hiccup)))
+    (is (< (count-selectable-asset-rows hiccup) 40))
+    (is (>= (count-selectable-asset-rows hiccup) 8))
     (is (contains? strings "Showing 40 of 150 markets"))
     (is (contains? strings "Load more"))
     (is (contains? strings "Show all"))))
@@ -216,10 +217,25 @@
                        :coin (str "T" n)
                        :base (str "T" n)
                        :market-type :perp}))
-        hiccup (view/asset-list assets nil #{} #{} #{} 120)
+        hiccup (view/asset-list assets nil #{} #{} #{} 120 0)
         strings (set (collect-strings hiccup))]
     (is (= 8 (count-selectable-asset-rows hiccup)))
     (is (not (contains? strings "Showing 120 of 8 markets")))))
+
+(deftest asset-list-virtual-window-tracks-scroll-position-test
+  (let [assets (vec (for [n (range 200)]
+                      {:key (str "perp:T" n)
+                       :symbol (str "T" n "-USDC")
+                       :coin (str "T" n)
+                       :base (str "T" n)
+                       :market-type :perp}))
+        top-hiccup (view/asset-list assets nil #{} #{} #{} 120 0)
+        deep-hiccup (view/asset-list assets nil #{} #{} #{} 120 4300)
+        top-strings (set (collect-strings top-hiccup))
+        deep-strings (set (collect-strings deep-hiccup))]
+    (is (contains? top-strings "T0-USDC"))
+    (is (not (contains? deep-strings "T0-USDC")))
+    (is (contains? deep-strings "T90-USDC"))))
 
 (deftest asset-list-item-sub-cent-formatting-test
   (testing "last price renders adaptive decimals for tiny assets"

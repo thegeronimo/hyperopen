@@ -153,8 +153,8 @@
 (deftest scroll-and-render-limit-actions-cover-noop-and-growth-branches-test
   (is (= []
          (actions/set-asset-selector-scroll-top
-           {:asset-selector {:scroll-top 10}}
-           "10.9")))
+           {:asset-selector {:scroll-top 48}}
+           "63.9")))
   (is (= [[:effects/save [:asset-selector :scroll-top] 0]]
          (actions/set-asset-selector-scroll-top
            {:asset-selector {:scroll-top 10}}
@@ -183,22 +183,23 @@
            {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                              :render-limit 120}}
            0)))
-  (is (= [[:effects/save [:asset-selector :render-limit] 160]]
+  (is (= [[:effects/save [:asset-selector :render-limit] 200]]
          (actions/maybe-increase-asset-selector-render-limit
            {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                              :render-limit 120}}
            "5100"))))
 
 (deftest maybe-increase-asset-selector-render-limit-throttles-when-event-time-is-too-close-test
-  (is (= [[:effects/save-many [[[:asset-selector :render-limit] 160]
-                               [[:asset-selector :last-render-limit-increase-ms] 1000]]]]
+  (is (= [[:effects/save-many [[[:asset-selector :render-limit] 200]
+                               [[:asset-selector :last-render-limit-increase-ms] 1000]
+                               [[:asset-selector :scroll-top] 5088]]]]
          (actions/maybe-increase-asset-selector-render-limit
            {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                              :render-limit 120}}
            5100
            1000)))
 
-  (is (= []
+  (is (= [[:effects/save [:asset-selector :scroll-top] 5088]]
          (actions/maybe-increase-asset-selector-render-limit
            {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                              :render-limit 120
@@ -206,8 +207,9 @@
            5100
            1050)))
 
-  (is (= [[:effects/save-many [[[:asset-selector :render-limit] 160]
-                               [[:asset-selector :last-render-limit-increase-ms] 1095]]]]
+  (is (= [[:effects/save-many [[[:asset-selector :render-limit] 200]
+                               [[:asset-selector :last-render-limit-increase-ms] 1095]
+                               [[:asset-selector :scroll-top] 5088]]]]
          (actions/maybe-increase-asset-selector-render-limit
            {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                              :render-limit 120
