@@ -162,13 +162,17 @@
   (let [normalized-chart-type (normalize-chart-type selected-chart-type)
         selected-type (resolve-selected-type normalized-chart-type)]
     [:div.relative
-     [:button.flex.items-center.space-x-1.px-3.py-1.text-sm.font-medium.text-gray-300.hover:text-white.hover:bg-gray-700.rounded.transition-colors
-      {:on {:click [[:actions/toggle-chart-type-dropdown]]}}
-      (:icon selected-type)
-      [:span (:label selected-type)]
-      [:span.inline-block.transition-transform.duration-200.ease-in-out
-       {:class (if chart-type-dropdown-visible "rotate-180" "rotate-0")}
-       "▼"]]
+     [:button
+      {:class ["flex" "items-center" "justify-center"
+               "h-6" "w-6" "p-0"
+               "text-gray-300" "hover:text-white" "hover:bg-gray-700"
+               "rounded" "transition-colors"
+               "[&_svg]:w-[1.1rem]" "[&_svg]:h-[1.1rem]"]
+       :aria-label "Chart type"
+       :on {:click [[:actions/toggle-chart-type-dropdown]]}}
+      [:span.inline-flex.items-center.justify-center.leading-none
+       (:icon selected-type)]
+      [:span.sr-only (:label selected-type)]]
      [:div
       {:class (into ["absolute" "top-full" "left-0" "mt-1"
                      "bg-base-100" "border" "border-base-300" "rounded" "shadow-lg"
