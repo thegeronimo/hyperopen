@@ -277,6 +277,9 @@
 (def set-order-size-display
   order-actions/set-order-size-display)
 
+(def set-order-size-input-mode
+  order-actions/set-order-size-input-mode)
+
 (def focus-order-price-input
   order-actions/focus-order-price-input)
 

@@ -36,6 +36,7 @@
         (application/order-form-context state)
         normalized-form draft
         {:keys [quote-symbol
+                base-symbol
                 spot?
                 hip3?
                 read-only?
@@ -79,9 +80,11 @@
      :size-percent size-percent
      :display-size-percent (selectors/display-size-percent size-percent)
      :notch-overlap-threshold selectors/notch-overlap-threshold
+     :size-input-mode (:size-input-mode normalized-form)
      :size-display (:size-display normalized-form)
      :price price
      :quote-symbol quote-symbol
+     :base-symbol base-symbol
      :scale-preview-lines scale-preview-lines
      :error (:error runtime-state)
      :submitting? submitting?

@@ -267,6 +267,7 @@
    :actions/set-order-ui-leverage ::single-input-args
    :actions/set-order-size-percent ::single-input-args
    :actions/set-order-size-display ::single-input-args
+   :actions/set-order-size-input-mode ::keyword-or-string-args
    :actions/focus-order-price-input ::no-args
    :actions/blur-order-price-input ::no-args
    :actions/set-order-price-to-mid ::no-args
@@ -359,6 +360,8 @@
 (def ^:private ui-owned-order-form-keys
   #{:entry-mode
     :ui-leverage
+    :size-input-mode
+    :size-input-source
     :size-display})
 
 (def ^:private legacy-ui-and-runtime-order-form-keys
@@ -374,6 +377,8 @@
     :tpsl-panel-open?
     :entry-mode
     :ui-leverage
+    :size-input-mode
+    :size-input-source
     :size-display})
 
 (s/def ::order-form-state
@@ -389,6 +394,8 @@
          #(boolean? (:tpsl-panel-open? %))
          #(contains? #{:market :limit :pro} (:entry-mode %))
          #(number? (:ui-leverage %))
+         #(contains? #{:quote :base} (:size-input-mode %))
+         #(contains? #{:manual :percent} (:size-input-source %))
          #(string? (:size-display %))))
 
 (s/def ::order-form-runtime-state

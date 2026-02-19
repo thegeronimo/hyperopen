@@ -60,6 +60,9 @@
 (defn set-order-size-display [state value]
   (transition-save-many state (transitions/set-order-size-display state value)))
 
+(defn set-order-size-input-mode [state mode]
+  (transition-save-many state (transitions/set-order-size-input-mode state mode)))
+
 (defn focus-order-price-input [state]
   (transition-save-many state (transitions/focus-order-price-input state)))
 

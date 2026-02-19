@@ -299,6 +299,7 @@
            set-order-ui-leverage
            set-order-size-percent
            set-order-size-display
+           set-order-size-input-mode
            focus-order-price-input
            blur-order-price-input
            set-order-price-to-mid
@@ -316,6 +317,7 @@
    :set-order-ui-leverage set-order-ui-leverage
    :set-order-size-percent set-order-size-percent
    :set-order-size-display set-order-size-display
+   :set-order-size-input-mode set-order-size-input-mode
    :focus-order-price-input focus-order-price-input
    :blur-order-price-input blur-order-price-input
    :set-order-price-to-mid set-order-price-to-mid

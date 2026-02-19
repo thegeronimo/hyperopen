@@ -16,6 +16,7 @@
    (commands/set-order-side :sell)
    (commands/set-limit-price-input)
    (commands/set-order-size-display-input)
+   (commands/set-order-size-input-mode :base)
    (commands/set-order-size-percent-input)
    (commands/focus-order-price-input)
    (commands/blur-order-price-input)
@@ -59,6 +60,9 @@
   (is (= [[:actions/update-order-form [:price] [:event.target/value]]]
          (intent-adapter/command->actions
           (commands/set-limit-price-input))))
+  (is (= [[:actions/set-order-size-input-mode :base]]
+         (intent-adapter/command->actions
+          (commands/set-order-size-input-mode :base))))
   (is (= [[:actions/update-order-form [:reduce-only] [:event.target/checked]]]
          (intent-adapter/command->actions
           (commands/toggle-reduce-only)))))

@@ -125,6 +125,8 @@
 (def ^:private order-form-ui-keys
   #{:entry-mode
     :ui-leverage
+    :size-input-mode
+    :size-input-source
     :size-display
     :pro-order-type-dropdown-open?
     :price-input-focused?
@@ -557,6 +559,26 @@
     (is (some? price-input))
     (is (contains? strings "USDT"))
     (is (= "1" size-value))))
+
+(deftest size-row-renders-size-unit-select-and-dispatches-mode-action-test
+  (let [view-node (view/order-form-view (base-state {:type :limit
+                                                      :size-input-mode :quote}))
+        unit-select (find-first-node view-node
+                                     (fn [node]
+                                       (let [attrs (when (map? (second node)) (second node))]
+                                         (and (= :select (first node))
+                                              (= "Size unit" (:aria-label attrs))))))
+        select-attrs (second unit-select)
+        option-values (->> (drop 2 unit-select)
+                           (filter vector?)
+                           (map second)
+                           (map :value)
+                           set)]
+    (is (some? unit-select))
+    (is (= "quote" (:value select-attrs)))
+    (is (= [[:actions/set-order-size-input-mode [:event.target/value]]]
+           (get-in select-attrs [:on :change])))
+    (is (= #{"quote" "base"} option-values))))
 
 (deftest pro-mode-renders-advanced-controls-test
   (let [view-node (view/order-form-view (base-state {:type :stop-market}))

@@ -1102,6 +1102,8 @@
                                                     :price-input-focused? false
                                                     :entry-mode :limit
                                                     :ui-leverage 20
+                                                    :size-input-mode :quote
+                                                    :size-input-source :manual
                                                     :size-display ""}]]]
             [:effects/unsubscribe-active-asset "ETH"]
             [:effects/unsubscribe-orderbook "ETH"]
@@ -1132,6 +1134,8 @@
                                                     :price-input-focused? false
                                                     :entry-mode :limit
                                                     :ui-leverage 20
+                                                    :size-input-mode :quote
+                                                    :size-input-source :manual
                                                     :size-display ""}]]]
             [:effects/subscribe-active-asset "SOL"]
             [:effects/subscribe-orderbook "SOL"]
@@ -1162,6 +1166,8 @@
                                                     :price-input-focused? false
                                                     :entry-mode :limit
                                                     :ui-leverage 20
+                                                    :size-input-mode :quote
+                                                    :size-input-source :manual
                                                     :size-display ""}]]]
             [:effects/unsubscribe-active-asset "ETH"]
             [:effects/unsubscribe-orderbook "ETH"]

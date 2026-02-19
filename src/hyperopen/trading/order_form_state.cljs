@@ -6,6 +6,32 @@
 (def default-ui-leverage 20)
 (def default-slippage 0.5)
 (def default-twap-minutes 5)
+(def default-size-input-mode :quote)
+(def default-size-input-source :manual)
+
+(def valid-size-input-modes
+  #{:quote :base})
+
+(def valid-size-input-sources
+  #{:manual :percent})
+
+(defn normalize-size-input-mode [mode]
+  (let [candidate (cond
+                    (keyword? mode) mode
+                    (string? mode) (keyword mode)
+                    :else default-size-input-mode)]
+    (if (contains? valid-size-input-modes candidate)
+      candidate
+      default-size-input-mode)))
+
+(defn normalize-size-input-source [source]
+  (let [candidate (cond
+                    (keyword? source) source
+                    (string? source) (keyword source)
+                    :else default-size-input-source)]
+    (if (contains? valid-size-input-sources candidate)
+      candidate
+      default-size-input-source)))
 
 (defn default-order-form []
   {:type :limit
@@ -39,6 +65,8 @@
    :price-input-focused? false
    :entry-mode :limit
    :ui-leverage default-ui-leverage
+   :size-input-mode default-size-input-mode
+   :size-input-source default-size-input-source
    :size-display ""})
 
 (defn normalize-scale-form [scale]
@@ -85,11 +113,15 @@
         parsed-leverage (trading-domain/parse-num (:ui-leverage ui))
         normalized-leverage (if (number? parsed-leverage)
                               (-> parsed-leverage js/Math.round int (max 1))
-                              default-ui-leverage)]
+                              default-ui-leverage)
+        size-input-mode (normalize-size-input-mode (:size-input-mode ui))
+        size-input-source (normalize-size-input-source (:size-input-source ui))]
     (assoc (default-order-form-ui)
            :pro-order-type-dropdown-open? (boolean (:pro-order-type-dropdown-open? ui))
            :price-input-focused? (boolean (:price-input-focused? ui))
            :tpsl-panel-open? (boolean (:tpsl-panel-open? ui))
            :entry-mode entry-mode
            :ui-leverage normalized-leverage
+           :size-input-mode size-input-mode
+           :size-input-source size-input-source
            :size-display (str (or (:size-display ui) "")))))

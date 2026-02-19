@@ -49,6 +49,12 @@
 (defn set-order-size-display-input []
   (command :order-form/set-order-size-display event-target-value))
 
+(defn set-order-size-input-mode [mode]
+  (command :order-form/set-order-size-input-mode mode))
+
+(defn set-order-size-input-mode-input []
+  (command :order-form/set-order-size-input-mode event-target-value))
+
 (defn set-order-size-percent-input []
   (command :order-form/set-order-size-percent event-target-value))
 

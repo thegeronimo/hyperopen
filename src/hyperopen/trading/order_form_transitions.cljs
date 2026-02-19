@@ -17,6 +17,8 @@
 (def ^:private ui-only-form-paths
   #{[:entry-mode]
     [:ui-leverage]
+    [:size-input-mode]
+    [:size-input-source]
     [:size-display]
     [:pro-order-type-dropdown-open?]
     [:price-input-focused?]
@@ -48,6 +50,82 @@
         (map? persisted-ui) (assoc :order-form-ui persisted-ui)
         (map? order-form-runtime) (assoc :order-form-runtime order-form-runtime)))))
 
+(defn- size-input-mode [form]
+  (trading/normalize-size-input-mode (:size-input-mode form)))
+
+(defn- size-input-source [form]
+  (trading/normalize-size-input-source (:size-input-source form)))
+
+(defn- percent-sized? [form]
+  (= :percent (size-input-source form)))
+
+(defn- manual-sized? [form]
+  (= :manual (size-input-source form)))
+
+(defn- positive-size-percent? [form]
+  (pos? (or (trading/parse-num (:size-percent form)) 0)))
+
+(defn- sync-size-percent-preserving-manual-display
+  [state form]
+  (let [raw-size-display (str (or (:size-display form) ""))]
+    (-> (trading/sync-size-percent-from-size state form)
+        (assoc :size-display raw-size-display
+               :size-input-source :manual))))
+
+(defn- apply-size-display-input
+  [state form raw-value]
+  (let [raw* (str (or raw-value ""))
+        normalized-form (trading/normalize-order-form state form)
+        mode (size-input-mode normalized-form)
+        reference-price (trading/reference-price state normalized-form)
+        parsed-display-size (trading/parse-num raw*)
+        canonical-size (case mode
+                         :quote
+                         (when (and (number? parsed-display-size)
+                                    (pos? parsed-display-size)
+                                    (number? reference-price)
+                                    (pos? reference-price))
+                           (trading/base-size-string state (/ parsed-display-size reference-price)))
+
+                         :base
+                         (when (and (number? parsed-display-size)
+                                    (pos? parsed-display-size))
+                           (trading/base-size-string state parsed-display-size))
+
+                         nil)
+        updated (assoc form
+                       :size-input-source :manual
+                       :size-display raw*
+                       :size (or canonical-size ""))]
+    (cond
+      (str/blank? raw*)
+      (assoc updated :size "" :size-percent 0)
+
+      (seq canonical-size)
+      (sync-size-percent-preserving-manual-display state updated)
+
+      :else
+      (assoc updated :size-percent 0))))
+
+(defn- reconcile-size-after-context-change
+  [state form]
+  (cond
+    (and (percent-sized? form)
+         (positive-size-percent? form))
+    (-> (trading/sync-size-from-percent state form)
+        (assoc :size-input-source :percent))
+
+    (and (manual-sized? form)
+         (= :quote (size-input-mode form))
+         (not (str/blank? (str (or (:size-display form) "")))))
+    (apply-size-display-input state form (:size-display form))
+
+    (manual-sized? form)
+    (sync-size-percent-preserving-manual-display state form)
+
+    :else
+    form))
+
 (defn select-entry-mode [state mode]
   (let [mode* (normalize-order-entry-mode mode)
         form (trading/order-form-draft state)
@@ -61,7 +139,7 @@
                                                  (assoc form
                                                         :entry-mode mode*
                                                         :type next-type))
-        next-form (trading/sync-size-from-percent state normalized)
+        next-form (reconcile-size-after-context-change state normalized)
         next-ui (trading/effective-order-form-ui
                  next-form
                  (assoc ui-state
@@ -83,7 +161,7 @@
                                                  (assoc form
                                                         :entry-mode :pro
                                                         :type next-type))
-        next-form (trading/sync-size-from-percent state normalized)
+        next-form (reconcile-size-after-context-change state normalized)
         next-ui (trading/effective-order-form-ui
                  next-form
                  (assoc ui-state :pro-order-type-dropdown-open? false))]
@@ -114,7 +192,7 @@
   (let [form (trading/order-form-draft state)
         normalized (trading/normalize-ui-leverage state leverage)
         updated (assoc form :ui-leverage normalized)
-        next-form (trading/sync-size-from-percent state updated)]
+        next-form (reconcile-size-after-context-change state updated)]
     (enforce-field-ownership
      state
      {:order-form next-form
@@ -122,7 +200,10 @@
 
 (defn set-order-size-percent [state percent]
   (let [form (trading/order-form-draft state)
-        next-form (trading/apply-size-percent state form percent)]
+        next-form (-> (trading/apply-size-percent state
+                                                  (assoc form :size-input-source :percent)
+                                                  percent)
+                      (assoc :size-input-source :percent))]
     (enforce-field-ownership
      state
      {:order-form next-form
@@ -131,26 +212,19 @@
 (defn set-order-size-display [state value]
   (let [raw-value (str (or value ""))
         form (trading/order-form-draft state)
-        normalized-form (trading/normalize-order-form state form)
-        reference-price (trading/reference-price state normalized-form)
-        parsed-display-size (trading/parse-num raw-value)
-        canonical-size (when (and (number? parsed-display-size)
-                                  (pos? parsed-display-size)
-                                  (number? reference-price)
-                                  (pos? reference-price))
-                         (trading/base-size-string state (/ parsed-display-size reference-price)))
-        updated (assoc form
-                       :size-display raw-value
-                       :size (or canonical-size ""))
-        next-form (cond
-                    (str/blank? raw-value)
-                    (assoc updated :size "" :size-percent 0)
+        next-form (apply-size-display-input state form raw-value)]
+    (enforce-field-ownership
+     state
+     {:order-form next-form
+      :order-form-runtime (cleared-runtime-state state)})))
 
-                    (seq canonical-size)
-                    (trading/sync-size-percent-from-size state updated)
-
-                    :else
-                    (assoc updated :size-percent 0))]
+(defn set-order-size-input-mode [state mode]
+  (let [form (trading/order-form-draft state)
+        mode* (trading/normalize-size-input-mode mode)
+        updated (assoc form :size-input-mode mode*)
+        next-form (if (str/blank? (str (or (:size updated) "")))
+                    (assoc updated :size-display "")
+                    (trading/sync-size-display-for-input-mode state updated))]
     (enforce-field-ownership
      state
      {:order-form next-form
@@ -164,9 +238,8 @@
         should-capture-fallback? (seq fallback-price)
         updated (cond-> form
                   should-capture-fallback? (assoc :price fallback-price))
-        next-form (if (and should-capture-fallback?
-                           (pos? (or (trading/parse-num (:size-percent updated)) 0)))
-                    (trading/sync-size-from-percent state updated)
+        next-form (if should-capture-fallback?
+                    (reconcile-size-after-context-change state updated)
                     updated)
         next-ui (trading/effective-order-form-ui
                  next-form
@@ -195,9 +268,8 @@
         updated (if (seq mid-price-string)
                   (assoc form :price mid-price-string)
                   form)
-        next-form (if (and (seq mid-price-string)
-                           (pos? (or (trading/parse-num (:size-percent updated)) 0)))
-                    (trading/sync-size-from-percent state updated)
+        next-form (if (seq mid-price-string)
+                    (reconcile-size-after-context-change state updated)
                     updated)]
     (enforce-field-ownership
      state
@@ -240,15 +312,14 @@
                                       (update :type trading/normalize-order-type)
                                       (assoc :entry-mode (trading/entry-mode-for-type (:type updated))))
                             normalized (trading/normalize-order-form state typed)]
-                        (trading/sync-size-from-percent state normalized))
+                        (reconcile-size-after-context-change state normalized))
 
                       (= path [:size])
-                      (trading/sync-size-percent-from-size state updated)
+                      (-> (trading/sync-size-percent-from-size state updated)
+                          (assoc :size-input-source :manual))
 
                       (or (= path [:price]) (= path [:side]))
-                      (if (pos? (or (trading/parse-num (:size-percent updated)) 0))
-                        (trading/sync-size-from-percent state updated)
-                        updated)
+                      (reconcile-size-after-context-change state updated)
 
                       :else
                       updated)]

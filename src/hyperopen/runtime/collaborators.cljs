@@ -109,6 +109,7 @@
    :set-order-ui-leverage order-actions/set-order-ui-leverage
    :set-order-size-percent order-actions/set-order-size-percent
    :set-order-size-display order-actions/set-order-size-display
+   :set-order-size-input-mode order-actions/set-order-size-input-mode
    :focus-order-price-input order-actions/focus-order-price-input
    :blur-order-price-input order-actions/blur-order-price-input
    :set-order-price-to-mid order-actions/set-order-price-to-mid

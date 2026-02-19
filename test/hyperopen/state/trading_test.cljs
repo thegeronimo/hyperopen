@@ -330,9 +330,13 @@
 (deftest default-order-form-and-ui-field-ownership-test
   (is (nil? (:entry-mode (trading/default-order-form))))
   (is (nil? (:ui-leverage (trading/default-order-form))))
+  (is (nil? (:size-input-mode (trading/default-order-form))))
+  (is (nil? (:size-input-source (trading/default-order-form))))
   (is (nil? (:size-display (trading/default-order-form))))
   (is (= :limit (:entry-mode (trading/default-order-form-ui))))
   (is (number? (:ui-leverage (trading/default-order-form-ui))))
+  (is (= :quote (:size-input-mode (trading/default-order-form-ui))))
+  (is (= :manual (:size-input-source (trading/default-order-form-ui))))
   (is (= "" (:size-display (trading/default-order-form-ui)))))
 
 (deftest order-form-ui-state-defaults-without-legacy-fallback-test
@@ -354,6 +358,8 @@
     (is (false? (:tpsl-panel-open? normalized-no-ui)))
     (is (= :limit (:entry-mode normalized-no-ui)))
     (is (number? (:ui-leverage normalized-no-ui)))
+    (is (= :quote (:size-input-mode normalized-no-ui)))
+    (is (= :manual (:size-input-source normalized-no-ui)))
     (is (= "" (:size-display normalized-no-ui)))
     (is (false? (:pro-order-type-dropdown-open? normalized-legacy)))
     (is (true? (:pro-order-type-dropdown-open? normalized-explicit)))))
@@ -409,6 +415,24 @@
         reset-form (trading/apply-size-percent base-state form 0)]
     (is (= 0 (:size-percent reset-form)))
     (is (= "" (:size reset-form)))))
+
+(deftest percent-and-size-sync-projections-follow-size-input-mode-test
+  (let [quote-form (assoc (trading/default-order-form)
+                          :type :limit
+                          :price "100"
+                          :ui-leverage 20
+                          :size-input-mode :quote)
+        base-form (assoc quote-form :size-input-mode :base)
+        quote-from-percent (trading/apply-size-percent base-state quote-form 50)
+        base-from-percent (trading/apply-size-percent base-state base-form 50)
+        quote-from-size (trading/sync-size-percent-from-size base-state
+                                                             (assoc quote-form :size "2"))
+        base-from-size (trading/sync-size-percent-from-size base-state
+                                                            (assoc base-form :size "2"))]
+    (is (= "7500" (:size-display quote-from-percent)))
+    (is (= "75" (:size-display base-from-percent)))
+    (is (= "200" (:size-display quote-from-size)))
+    (is (= "2" (:size-display base-from-size)))))
 
 (deftest order-summary-and-fallbacks-test
   (testing "summary uses available account data"

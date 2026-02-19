@@ -57,6 +57,50 @@
         (when (zero? pct)
           (is (= "" (:size form))))))))
 
+(deftest size-input-mode-toggle-converts-display-without-changing-canonical-size-test
+  (let [state (base-state {:type :limit
+                           :price "100"
+                           :size "2"
+                           :size-input-mode :quote
+                           :size-display "200"})
+        to-base (transitions/set-order-size-input-mode state :base)
+        base-form (:order-form to-base)
+        base-ui (:order-form-ui to-base)
+        next-state (merge state to-base)
+        to-quote (transitions/set-order-size-input-mode next-state :quote)
+        quote-form (:order-form to-quote)
+        quote-ui (:order-form-ui to-quote)]
+    (is (= :base (:size-input-mode base-ui)))
+    (is (= "2" (:size base-form)))
+    (is (= "2" (:size-display base-ui)))
+    (is (= :quote (:size-input-mode quote-ui)))
+    (is (= "2" (:size quote-form)))
+    (is (= "200" (:size-display quote-ui)))))
+
+(deftest manual-size-behavior-on-price-change-respects-active-size-input-mode-test
+  (let [quote-state (base-state {:type :limit
+                                 :price "100"
+                                 :size-input-mode :quote})
+        quote-after-size (merge quote-state
+                                (transitions/set-order-size-display quote-state "200"))
+        quote-after-price (transitions/update-order-form quote-after-size [:price] "50")
+        quote-form (:order-form quote-after-price)
+        quote-ui (:order-form-ui quote-after-price)
+        base-state* (base-state {:type :limit
+                                 :price "100"
+                                 :size-input-mode :base})
+        base-after-size (merge base-state*
+                               (transitions/set-order-size-display base-state* "2"))
+        base-after-price (transitions/update-order-form base-after-size [:price] "50")
+        base-form (:order-form base-after-price)
+        base-ui (:order-form-ui base-after-price)]
+    (is (= "200" (:size-display quote-ui)))
+    (is (= "4" (:size quote-form)))
+    (is (= :manual (:size-input-source quote-ui)))
+    (is (= "2" (:size-display base-ui)))
+    (is (= "2" (:size base-form)))
+    (is (= :manual (:size-input-source base-ui)))))
+
 (deftest submit-policy-disabled-reason-invariant-test
   (let [state (base-state)
         forms [(assoc (:order-form state) :type :limit :size "" :price "")
@@ -104,6 +148,8 @@
 (def ^:private ui-only-form-paths
   #{:entry-mode
     :ui-leverage
+    :size-input-mode
+    :size-input-source
     :size-display
     :pro-order-type-dropdown-open?
     :price-input-focused?

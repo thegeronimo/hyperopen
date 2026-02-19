@@ -10,6 +10,8 @@
 (def ^:private ui-owned-order-form-keys
   #{:entry-mode
     :ui-leverage
+    :size-input-mode
+    :size-input-source
     :size-display})
 
 (defn- base-state
@@ -92,6 +94,8 @@
         view-model (vm/order-form-vm state)]
     (is (true? (:spot? view-model)))
     (is (true? (:read-only? view-model)))
+    (is (= "ETH" (:base-symbol view-model)))
+    (is (= :quote (:size-input-mode view-model)))
     (is (= "USDC" (:quote-symbol view-model)))))
 
 (deftest order-type-plugin-config-contract-test

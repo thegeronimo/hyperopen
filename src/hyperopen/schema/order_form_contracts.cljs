@@ -20,8 +20,10 @@
     :size-percent
     :display-size-percent
     :notch-overlap-threshold
+    :size-input-mode
     :size-display
     :price
+    :base-symbol
     :quote-symbol
     :scale-preview-lines
     :error
@@ -88,7 +90,9 @@
 (s/def :order-form-vm/size-percent number?)
 (s/def :order-form-vm/display-size-percent string?)
 (s/def :order-form-vm/notch-overlap-threshold number?)
+(s/def :order-form-vm/size-input-mode keyword?)
 (s/def :order-form-vm/size-display string?)
+(s/def :order-form-vm/base-symbol string?)
 (s/def :order-form-vm/quote-symbol string?)
 (s/def :order-form-vm/error (s/nilable string?))
 (s/def :order-form-vm/submitting? boolean?)
@@ -201,8 +205,10 @@
                     :order-form-vm/size-percent
                     :order-form-vm/display-size-percent
                     :order-form-vm/notch-overlap-threshold
+                    :order-form-vm/size-input-mode
                     :order-form-vm/size-display
                     :order-form-vm/price
+                    :order-form-vm/base-symbol
                     :order-form-vm/quote-symbol
                     :order-form-vm/scale-preview-lines
                     :order-form-vm/error

@@ -39,6 +39,8 @@
 (def opposite-side trading-domain/opposite-side)
 (def scale-weights trading-domain/scale-weights)
 (def scale-preview-boundaries trading-domain/scale-preview-boundaries)
+(def normalize-size-input-mode order-form-state/normalize-size-input-mode)
+(def normalize-size-input-source order-form-state/normalize-size-input-source)
 
 (defn default-order-form []
   (order-form-state/default-order-form))
@@ -57,6 +59,8 @@
 (def ^:private ui-owned-order-form-keys
   [:entry-mode
    :ui-leverage
+   :size-input-mode
+   :size-input-source
    :size-display])
 
 (def ^:private legacy-order-form-runtime-keys
@@ -94,6 +98,12 @@
       true (assoc :entry-mode (entry-mode-for-type order-type)
                   :ui-leverage (or (:ui-leverage normalized-form)
                                    (:ui-leverage normalized-ui))
+                  :size-input-mode (normalize-size-input-mode
+                                    (or (:size-input-mode normalized-form)
+                                        (:size-input-mode normalized-ui)))
+                  :size-input-source (normalize-size-input-source
+                                      (or (:size-input-source normalized-form)
+                                          (:size-input-source normalized-ui)))
                   :size-display (if (contains? normalized-form :size-display)
                                   (or (:size-display normalized-form) "")
                                   (or (:size-display normalized-ui) "")))
@@ -111,12 +121,16 @@
   (let [base (or form {})
         entry-mode (or (:entry-mode base) (:entry-mode ui))
         ui-leverage (or (:ui-leverage base) (:ui-leverage ui))
+        size-input-mode (or (:size-input-mode base) (:size-input-mode ui))
+        size-input-source (or (:size-input-source base) (:size-input-source ui))
         size-display (if (contains? base :size-display)
                        (:size-display base)
                        (:size-display ui))]
     (assoc base
            :entry-mode entry-mode
            :ui-leverage ui-leverage
+           :size-input-mode size-input-mode
+           :size-input-source size-input-source
            :size-display (or size-display ""))))
 
 (defn order-form-draft
@@ -270,6 +284,37 @@
   [state form]
   (trading-domain/mid-price-string (trading-context state) form))
 
+(defn size-display-for-input-mode
+  "Project :size-display from canonical :size based on :size-input-mode."
+  [state form]
+  (let [normalized-form (normalize-order-form state form)
+        mode (normalize-size-input-mode (:size-input-mode normalized-form))
+        size (parse-num (:size normalized-form))
+        ref-price (reference-price state normalized-form)]
+    (cond
+      (or (nil? size) (<= size 0))
+      ""
+
+      (= mode :base)
+      (or (:size normalized-form)
+          (base-size-string state size)
+          "")
+
+      (and (number? ref-price) (pos? ref-price))
+      (trading-domain/number->clean-string (* size ref-price) 2)
+
+      :else
+      "")))
+
+(defn sync-size-display-for-input-mode
+  "Return form with :size-display synchronized to :size-input-mode."
+  [state form]
+  (let [mode (normalize-size-input-mode (:size-input-mode form))]
+    (assoc form
+           :size-input-mode mode
+           :size-display (size-display-for-input-mode state
+                                                      (assoc form :size-input-mode mode)))))
+
 (defn order-price-policy
   "Return deterministic order-price behavior for view rendering and transitions.
    {:raw-price string
@@ -322,13 +367,19 @@
   (trading-domain/percent-from-size (trading-context state) form size))
 
 (defn apply-size-percent [state form percent]
-  (trading-domain/apply-size-percent (trading-context state) form percent))
+  (sync-size-display-for-input-mode
+   state
+   (trading-domain/apply-size-percent (trading-context state) form percent)))
 
 (defn sync-size-from-percent [state form]
-  (trading-domain/sync-size-from-percent (trading-context state) form))
+  (sync-size-display-for-input-mode
+   state
+   (trading-domain/sync-size-from-percent (trading-context state) form)))
 
 (defn sync-size-percent-from-size [state form]
-  (trading-domain/sync-size-percent-from-size (trading-context state) form))
+  (sync-size-display-for-input-mode
+   state
+   (trading-domain/sync-size-percent-from-size (trading-context state) form)))
 
 (defn normalize-order-form [state form]
   (let [context (trading-context state)
@@ -342,6 +393,8 @@
         normalized-tif (:value (trading-domain/tif-value (:tif form)))
         normalized-percent (:value (trading-domain/percent-value (:size-percent form)))
         normalized-leverage (:value (trading-domain/leverage-value context (:ui-leverage form)))
+        normalized-size-input-mode (normalize-size-input-mode (:size-input-mode form))
+        normalized-size-input-source (normalize-size-input-source (:size-input-source form))
         stripped-form (reduce dissoc
                               (reduce dissoc form legacy-order-form-ui-flag-keys)
                               legacy-order-form-runtime-keys)
@@ -351,6 +404,8 @@
                                    :type final-type
                                    :side normalized-side
                                    :tif normalized-tif
+                                   :size-input-mode normalized-size-input-mode
+                                   :size-input-source normalized-size-input-source
                                    :size-display (or (:size-display form) (:size form) "")
                                    :size-percent normalized-percent
                                    :ui-leverage normalized-leverage))]

@@ -19,6 +19,39 @@
                   {:click on-set-to-mid})}
    (or label "Ref")])
 
+(defn- size-unit-accessory [{:keys [size-input-mode quote-symbol base-symbol]}
+                            on-change-mode]
+  [:div {:class ["relative"]}
+   [:select {:class ["appearance-none"
+                     "bg-transparent"
+                     "text-sm"
+                     "font-semibold"
+                     "text-gray-100"
+                     "outline-none"
+                     "focus:outline-none"
+                     "focus:ring-0"
+                     "focus:ring-offset-0"
+                     "focus:shadow-none"
+                     "pr-4"]
+             :aria-label "Size unit"
+             :value (name size-input-mode)
+             :on {:change on-change-mode}}
+    [:option {:value "quote"} quote-symbol]
+    [:option {:value "base"} base-symbol]]
+   [:svg {:class ["pointer-events-none"
+                  "absolute"
+                  "right-0"
+                  "top-1/2"
+                  "-translate-y-1/2"
+                  "w-3.5"
+                  "h-3.5"
+                  "text-gray-400"]
+          :viewBox "0 0 20 20"
+          :fill "currentColor"}
+    [:path {:fill-rule "evenodd"
+            :clip-rule "evenodd"
+            :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"}]]])
+
 (defn- leverage-row [ui-leverage next-leverage leverage-handlers]
   [:div {:class ["grid" "grid-cols-3" "gap-2"]}
    (primitives/chip-button "Cross" true :disabled? true)
@@ -50,7 +83,9 @@
      (:current-position display)]]])
 
 (defn- size-row [{:keys [size-display
+                         size-input-mode
                          quote-symbol
+                         base-symbol
                          display-size-percent
                          size-percent
                          notch-overlap-threshold]}
@@ -59,7 +94,10 @@
    (primitives/row-input size-display
                          "Size"
                          (:on-change-display size-handlers)
-                         (primitives/quote-accessory quote-symbol))
+                         (size-unit-accessory {:size-input-mode size-input-mode
+                                               :quote-symbol quote-symbol
+                                               :base-symbol base-symbol}
+                                              (:on-change-mode size-handlers)))
    [:div {:class ["flex" "items-center" "gap-2"]}
     [:div {:class ["relative" "flex-1"]}
      [:input {:class ["order-size-slider" "range" "range-sm" "w-full" "relative" "z-20"]
@@ -219,9 +257,11 @@
                 size-percent
                 display-size-percent
                 notch-overlap-threshold
+                size-input-mode
                 size-display
                 price
                 quote-symbol
+                base-symbol
                 scale-preview-lines
                 error
                 submitting?
@@ -288,7 +328,9 @@
                               :on-blur (:on-blur price-handlers)))
 
       (size-row {:size-display size-display
+                 :size-input-mode size-input-mode
                  :quote-symbol quote-symbol
+                 :base-symbol base-symbol
                  :display-size-percent display-size-percent
                  :size-percent size-percent
                  :notch-overlap-threshold notch-overlap-threshold}

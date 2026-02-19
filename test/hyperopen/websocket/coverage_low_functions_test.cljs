@@ -100,6 +100,8 @@
                                      :tpsl-panel-open? false
                                      :entry-mode :limit
                                      :ui-leverage 20
+                                     :size-input-mode :quote
+                                     :size-input-source :manual
                                      :size-display ""}
                      :order-form-runtime {:submitting? false
                                           :error nil}}

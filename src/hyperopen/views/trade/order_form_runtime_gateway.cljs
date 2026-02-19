@@ -14,6 +14,7 @@
    :order-form/set-order-ui-leverage :actions/set-order-ui-leverage
    :order-form/update-order-form :actions/update-order-form
    :order-form/set-order-size-display :actions/set-order-size-display
+   :order-form/set-order-size-input-mode :actions/set-order-size-input-mode
    :order-form/set-order-size-percent :actions/set-order-size-percent
    :order-form/focus-order-price-input :actions/focus-order-price-input
    :order-form/blur-order-price-input :actions/blur-order-price-input

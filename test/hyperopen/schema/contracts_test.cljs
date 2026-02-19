@@ -10,6 +10,8 @@
    :tpsl-panel-open? false
    :entry-mode :limit
    :ui-leverage 20
+   :size-input-mode :quote
+   :size-input-source :manual
    :size-display ""})
 
 (deftest assert-app-state-rejects-active-market-without-symbol-test
@@ -27,6 +29,8 @@
                                      :tpsl-panel-open? false
                                      :entry-mode :limit
                                      :ui-leverage 20
+                                     :size-input-mode :quote
+                                     :size-input-source :manual
                                      :size-display ""})]
     (is (thrown-with-msg?
          js/Error
@@ -171,6 +175,7 @@
                   :size-percent 0
                   :display-size-percent "0"
                   :notch-overlap-threshold 4
+                  :size-input-mode :quote
                   :size-display ""
                   :price {:raw ""
                           :display ""
@@ -178,6 +183,7 @@
                           :fallback nil
                           :context {:label "Ref"
                                     :mid-available? false}}
+                  :base-symbol "BTC"
                   :quote-symbol "USDC"
                   :scale-preview-lines {:start "N/A"
                                         :end "N/A"}
