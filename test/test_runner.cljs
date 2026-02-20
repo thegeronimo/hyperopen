@@ -102,6 +102,16 @@
             [hyperopen.views.trading-chart.core-test]
             [hyperopen.views.trading-chart.timeframe-dropdown-test]
             [hyperopen.views.trading-chart.utils.chart-interop-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.visible-range-persistence-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.transforms-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.series-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.price-format-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.baseline-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.legend-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.markers-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.indicators-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.volume-indicator-overlay-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.open-order-overlays-test]
             [hyperopen.views.trading-chart.utils.chart-options-test]
             [hyperopen.views.trading-chart.utils.data-processing-test]
             [hyperopen.views.trading-chart.utils.indicators-test]
@@ -239,6 +249,16 @@
              'hyperopen.views.trading-chart.core-test
              'hyperopen.views.trading-chart.timeframe-dropdown-test
              'hyperopen.views.trading-chart.utils.chart-interop-test
+             'hyperopen.views.trading-chart.utils.chart-interop.visible-range-persistence-test
+             'hyperopen.views.trading-chart.utils.chart-interop.transforms-test
+             'hyperopen.views.trading-chart.utils.chart-interop.series-test
+             'hyperopen.views.trading-chart.utils.chart-interop.price-format-test
+             'hyperopen.views.trading-chart.utils.chart-interop.baseline-test
+             'hyperopen.views.trading-chart.utils.chart-interop.legend-test
+             'hyperopen.views.trading-chart.utils.chart-interop.markers-test
+             'hyperopen.views.trading-chart.utils.chart-interop.indicators-test
+             'hyperopen.views.trading-chart.utils.chart-interop.volume-indicator-overlay-test
+             'hyperopen.views.trading-chart.utils.chart-interop.open-order-overlays-test
              'hyperopen.views.trading-chart.utils.chart-options-test
              'hyperopen.views.trading-chart.utils.data-processing-test
              'hyperopen.views.trading-chart.utils.indicators-test
