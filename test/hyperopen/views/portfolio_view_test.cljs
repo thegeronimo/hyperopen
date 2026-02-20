@@ -27,10 +27,25 @@
     (seq? node) (mapcat collect-strings node)
     :else []))
 
+(defn- class-values [node]
+  (let [class-attr (get-in node [1 :class])]
+    (cond
+      (vector? class-attr) class-attr
+      (seq? class-attr) (vec class-attr)
+      (string? class-attr) (str/split class-attr #"\s+")
+      :else [])))
+
+(defn- px-width [value]
+  (some->> value
+           (re-matches #"^([0-9]+)px$")
+           second
+           (#(js/Number.parseInt % 10))))
+
 (def sample-state
   {:account {:mode :classic}
    :portfolio-ui {:summary-scope :all
                   :summary-time-range :month
+                  :chart-tab :account-value
                   :summary-scope-dropdown-open? false
                   :summary-time-range-dropdown-open? false}
    :portfolio {:summary-by-key {:month {:pnlHistory [[1 10] [2 15]]
@@ -74,7 +89,10 @@
         summary-card (find-first-node view-node #(= "portfolio-account-summary-card" (get-in % [1 :data-role])))
         scope-selector (find-first-node view-node #(= "portfolio-summary-scope-selector" (get-in % [1 :data-role])))
         time-range-selector (find-first-node view-node #(= "portfolio-summary-time-range-selector" (get-in % [1 :data-role])))
+        chart-account-value-tab (find-first-node view-node #(= "portfolio-chart-tab-account-value" (get-in % [1 :data-role])))
+        chart-pnl-tab (find-first-node view-node #(= "portfolio-chart-tab-pnl" (get-in % [1 :data-role])))
         chart-shell (find-first-node view-node #(= "portfolio-chart-shell" (get-in % [1 :data-role])))
+        chart-path (find-first-node view-node #(= "portfolio-chart-path" (get-in % [1 :data-role])))
         account-table (find-first-node view-node #(= "portfolio-account-table" (get-in % [1 :data-role])))
         all-text (set (collect-strings view-node))]
     (is (some? root-node))
@@ -84,14 +102,44 @@
     (is (some? summary-card))
     (is (some? scope-selector))
     (is (some? time-range-selector))
+    (is (some? chart-account-value-tab))
+    (is (some? chart-pnl-tab))
     (is (some? chart-shell))
+    (is (some? chart-path))
     (is (some? account-table))
     (is (contains? all-text "Portfolio"))
     (is (contains? all-text "14 Day Volume"))
     (is (contains? all-text "Fees (Taker / Maker)"))
     (is (contains? all-text "Perps + Spot + Vaults"))
     (is (contains? all-text "30D"))
+    (is (contains? all-text "Account Value"))
+    (is (contains? all-text "PNL"))
     (is (contains? all-text "Max Drawdown"))
     (is (contains? all-text "Vault Equity"))
     (is (contains? all-text "Staking Account"))
     (is (some #(str/includes? % "Open Orders") all-text))))
+
+(deftest portfolio-view-chart-y-axis-allocates-readable-gutter-for-large-values-test
+  (let [state (-> sample-state
+                  (assoc-in [:portfolio-ui :chart-tab] :pnl)
+                  (assoc-in [:portfolio :summary-by-key :month :pnlHistory]
+                            [[1 -2500000] [2 1500000] [3 3750000]]))
+        view-node (portfolio-view/portfolio-view state)
+        y-axis-node (find-first-node view-node #(= "portfolio-chart-y-axis" (get-in % [1 :data-role])))
+        y-axis-width-px (some-> y-axis-node
+                                (get-in [1 :style :width])
+                                px-width)
+        y-axis-label-node (find-first-node
+                           view-node
+                           (fn [candidate]
+                             (let [classes (set (class-values candidate))
+                                   text-values (collect-strings candidate)]
+                               (and (contains? classes "num")
+                                    (contains? classes "text-right")
+                                    (some #(re-find #"," %) text-values)))))
+        all-text (collect-strings view-node)]
+    (is (some? y-axis-node))
+    (is (number? y-axis-width-px))
+    (is (> y-axis-width-px 56))
+    (is (some? y-axis-label-node))
+    (is (some #(re-find #"[0-9],[0-9]" %) all-text))))

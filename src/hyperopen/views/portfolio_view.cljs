@@ -58,6 +58,45 @@
   (let [n (if (number? value) value 0)]
     (str (.format integer-formatter n) " HYPE")))
 
+(defn- format-axis-number [value]
+  (let [n (if (number? value) value 0)]
+    (.format integer-formatter (js/Math.round n))))
+
+(def ^:private axis-label-fallback-char-width-px
+  7.5)
+
+(def ^:private axis-label-horizontal-padding-px
+  30)
+
+(def ^:private axis-label-min-gutter-width-px
+  56)
+
+(def ^:private axis-label-measure-context
+  (delay
+    (when (and (exists? js/document)
+               (some? js/document))
+      (let [canvas (.createElement js/document "canvas")]
+        (.getContext canvas "2d")))))
+
+(defn- axis-label-width-px [text]
+  (let [context @axis-label-measure-context]
+    (if context
+      (do
+        ;; Keep axis width in sync with actual rendered 12px label metrics.
+        (set! (.-font context) "12px \"Inter Variable\", system-ui, -apple-system, \"Segoe UI\", sans-serif")
+        (-> context
+            (.measureText text)
+            .-width))
+      (* axis-label-fallback-char-width-px (count text)))))
+
+(defn- y-axis-gutter-width [y-ticks]
+  (let [widest-label-px (->> y-ticks
+                             (map (fn [{:keys [value]}]
+                                    (axis-label-width-px (format-axis-number value))))
+                             (reduce max 0))
+        gutter-width (+ widest-label-px axis-label-horizontal-padding-px)]
+    (js/Math.ceil (max axis-label-min-gutter-width-px gutter-width))))
+
 (defn- action-button [{:keys [label action primary?]}]
   [:button {:type "button"
             :class (into ["btn" "btn-sm" "rounded-lg" "border" "border-base-300" "bg-base-100" "text-trading-text-secondary" "hover:text-trading-text" "hover:bg-base-200"]
@@ -188,23 +227,77 @@
       (when (:show-staking-account? summary)
         (summary-row "Staking Account" (format-hype (:staking-account-hype summary))))])))
 
-(defn- chart-card []
-  (section-card
-   "portfolio-chart-card"
-   [:div {:class ["grid" "grid-cols-[auto_auto_1fr]" "items-center" "border-b" "border-base-300"]}
-    [:button {:class ["border-b" "border-base-300" "px-4" "py-3" "text-sm" "text-trading-text-secondary"]}
-     "Account Value"]
-    [:button {:class ["border-b-2" "border-primary" "px-4" "py-3" "text-sm" "text-trading-text"]}
-     "PNL"]
-    [:div {:class ["border-b" "border-base-300" "h-full"]}]]
-   [:div {:class ["h-[182px]" "px-4" "py-3" "relative"]
-          :data-role "portfolio-chart-shell"}
-    [:div {:class ["absolute" "left-4" "right-4" "bottom-7" "border-b" "border-base-300"]}]
-    [:div {:class ["absolute" "left-4" "top-5" "bottom-7" "border-l" "border-base-300"]}]
-    [:div {:class ["absolute" "left-0" "top-4" "text-xs" "text-trading-text-secondary"]} "3"]
-    [:div {:class ["absolute" "left-0" "top-[35%]" "text-xs" "text-trading-text-secondary"]} "2"]
-    [:div {:class ["absolute" "left-0" "top-[56%]" "text-xs" "text-trading-text-secondary"]} "1"]
-    [:div {:class ["absolute" "left-0" "bottom-6" "text-xs" "text-trading-text-secondary"]} "0"]]))
+(defn- chart-card [{:keys [chart]}]
+  (let [{:keys [tabs selected-tab y-ticks path]} chart
+        y-axis-width (y-axis-gutter-width y-ticks)
+        plot-left (+ y-axis-width 10)]
+    (section-card
+     "portfolio-chart-card"
+     [:div {:class ["grid" "grid-cols-[auto_auto_1fr]" "items-center"]}
+      (for [{tab-value :value
+             tab-label :label} tabs]
+        ^{:key (str "portfolio-chart-tab-" (name tab-value))}
+        [:button {:type "button"
+                  :class (into ["px-4" "py-3" "text-sm" "transition-colors"]
+                               (if (= tab-value selected-tab)
+                                 ["border-b-2" "border-primary" "text-trading-text"]
+                                 ["border-b" "border-base-300" "text-trading-text-secondary" "hover:text-trading-text"]))
+                  :data-role (str "portfolio-chart-tab-" (name tab-value))
+                  :aria-pressed (= tab-value selected-tab)
+                  :on {:click [[:actions/select-portfolio-chart-tab tab-value]]}}
+         tab-label])
+      [:div {:class ["border-b" "border-base-300" "h-full"]}]]
+     [:div {:class ["h-[182px]" "px-4" "py-3" "relative"]
+            :data-role "portfolio-chart-shell"}
+      [:div {:class ["absolute" "left-0" "top-3" "bottom-3"]
+             :data-role "portfolio-chart-y-axis"
+             :style {:width (str y-axis-width "px")}}
+       (for [{:keys [value y-ratio]} y-ticks]
+         ^{:key (str "portfolio-chart-tick-" y-ratio "-" value)}
+         [:span {:class ["absolute"
+                         "right-2"
+                         "-translate-y-1/2"
+                         "num"
+                         "text-right"
+                         "text-xs"
+                         "text-trading-text-secondary"]
+                 :style {:top (str (* 100 y-ratio) "%")}}
+          (format-axis-number value)])
+       [:div {:class ["absolute"
+                      "right-0"
+                      "top-0"
+                      "bottom-0"
+                      "border-l"
+                      "border-base-300"]}]
+       (for [{:keys [y-ratio]} y-ticks]
+         ^{:key (str "portfolio-chart-axis-tick-" y-ratio)}
+         [:div {:class ["absolute"
+                        "right-0"
+                        "w-1.5"
+                        "border-t"
+                        "border-base-300"]
+                :style {:top (str (* 100 y-ratio) "%")}}])]
+      [:div {:class ["absolute" "right-2" "top-3" "bottom-3"]
+             :style {:left (str plot-left "px")}}
+       [:svg {:viewBox "0 0 100 100"
+              :preserveAspectRatio "none"
+              :class ["h-full" "w-full"]}
+        [:line {:x1 0
+                :y1 100
+                :x2 100
+                :y2 100
+                :stroke "#28414a"
+                :stroke-width 0.8
+                :vector-effect "non-scaling-stroke"}]
+        (when (seq path)
+          [:path {:d path
+                  :fill "none"
+                  :stroke "#f5f7f8"
+                  :stroke-width 1.4
+                  :vector-effect "non-scaling-stroke"
+                  :stroke-linecap "square"
+                  :stroke-linejoin "miter"
+                  :data-role "portfolio-chart-path"}])]]])))
 
 (defn- metric-cards [{:keys [volume-14d-usd fees]}]
   [:div {:class ["grid" "grid-cols-1" "gap-3" "md:grid-cols-2" "xl:grid-cols-1"]}
@@ -258,7 +351,7 @@
                     "xl:grid-cols-[320px_minmax(340px,1fr)_minmax(420px,1.35fr)]"]}
       (metric-cards view-model)
       (summary-card view-model)
-      (chart-card)]
+      (chart-card view-model)]
      [:div {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "overflow-hidden"]
             :data-role "portfolio-account-table"}
       (account-info-view/account-info-view state)]]))
