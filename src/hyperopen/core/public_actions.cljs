@@ -119,6 +119,9 @@
 (def select-portfolio-summary-time-range
   portfolio-actions/select-portfolio-summary-time-range)
 
+(def select-portfolio-chart-tab
+  portfolio-actions/select-portfolio-chart-tab)
+
 (def toggle-orderbook-size-unit-dropdown
   orderbook-actions/toggle-orderbook-size-unit-dropdown)
 

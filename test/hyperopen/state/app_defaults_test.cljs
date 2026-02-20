@@ -33,6 +33,7 @@
     (is (= :orderbook (get-in state [:orderbook-ui :active-tab])))
     (is (= :all (get-in state [:portfolio-ui :summary-scope])))
     (is (= :month (get-in state [:portfolio-ui :summary-time-range])))
+    (is (= :account-value (get-in state [:portfolio-ui :chart-tab])))
     (is (= true (get-in state [:chart-options :volume-visible?])))))
 
 (deftest default-app-state-initializes-empty-runtime-collections-test

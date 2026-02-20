@@ -153,6 +153,25 @@
         [5100 1234.5 9999]
         {:phase :test}))))
 
+(deftest assert-action-args-validates-portfolio-chart-tab-selection-test
+  (is (= [:pnl]
+         (contracts/assert-action-args!
+          :actions/select-portfolio-chart-tab
+          [:pnl]
+          {:phase :test})))
+  (is (= ["accountValue"]
+         (contracts/assert-action-args!
+          :actions/select-portfolio-chart-tab
+          ["accountValue"]
+          {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"action payload"
+       (contracts/assert-action-args!
+        :actions/select-portfolio-chart-tab
+        [[]]
+        {:phase :test}))))
+
 (deftest order-form-vm-schema-contracts-test
   (let [valid-vm {:form {:type :limit}
                   :side :buy

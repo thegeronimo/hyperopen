@@ -110,6 +110,7 @@
     select-portfolio-summary-scope
     toggle-portfolio-summary-time-range-dropdown
     select-portfolio-summary-time-range
+    select-portfolio-chart-tab
     toggle-orderbook-size-unit-dropdown
     select-orderbook-size-unit
     toggle-orderbook-price-aggregation-dropdown

@@ -94,6 +94,7 @@
   []
   {:summary-scope :all
    :summary-time-range :month
+   :chart-tab :account-value
    :summary-scope-dropdown-open? false
    :summary-time-range-dropdown-open? false})
 

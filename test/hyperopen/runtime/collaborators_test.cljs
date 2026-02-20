@@ -33,6 +33,8 @@
                     (get-in deps [:chart :select-chart-type])))
     (is (identical? portfolio-actions/toggle-portfolio-summary-scope-dropdown
                     (get-in deps [:chart :toggle-portfolio-summary-scope-dropdown])))
+    (is (identical? portfolio-actions/select-portfolio-chart-tab
+                    (get-in deps [:chart :select-portfolio-chart-tab])))
     (is (identical? chart-settings/hide-volume-indicator
                     (get-in deps [:chart :hide-volume-indicator])))
     (is (identical? account-history-actions/select-account-info-tab

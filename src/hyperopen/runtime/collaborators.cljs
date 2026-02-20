@@ -53,6 +53,7 @@
    :select-portfolio-summary-scope portfolio-actions/select-portfolio-summary-scope
    :toggle-portfolio-summary-time-range-dropdown portfolio-actions/toggle-portfolio-summary-time-range-dropdown
    :select-portfolio-summary-time-range portfolio-actions/select-portfolio-summary-time-range
+   :select-portfolio-chart-tab portfolio-actions/select-portfolio-chart-tab
    :toggle-orderbook-size-unit-dropdown orderbook-actions/toggle-orderbook-size-unit-dropdown
    :select-orderbook-size-unit orderbook-actions/select-orderbook-size-unit
    :toggle-orderbook-price-aggregation-dropdown orderbook-actions/toggle-orderbook-price-aggregation-dropdown

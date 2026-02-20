@@ -214,6 +214,7 @@
    :actions/select-portfolio-summary-scope ::keyword-or-string-args
    :actions/toggle-portfolio-summary-time-range-dropdown ::no-args
    :actions/select-portfolio-summary-time-range ::keyword-or-string-args
+   :actions/select-portfolio-chart-tab ::keyword-or-string-args
    :actions/toggle-orderbook-size-unit-dropdown ::no-args
    :actions/select-orderbook-size-unit ::keyword-or-string-args
    :actions/toggle-orderbook-price-aggregation-dropdown ::no-args

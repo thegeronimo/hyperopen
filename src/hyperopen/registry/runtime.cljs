@@ -91,6 +91,7 @@
    [:actions/select-portfolio-summary-scope :select-portfolio-summary-scope]
    [:actions/toggle-portfolio-summary-time-range-dropdown :toggle-portfolio-summary-time-range-dropdown]
    [:actions/select-portfolio-summary-time-range :select-portfolio-summary-time-range]
+   [:actions/select-portfolio-chart-tab :select-portfolio-chart-tab]
    [:actions/toggle-orderbook-size-unit-dropdown :toggle-orderbook-size-unit-dropdown]
    [:actions/select-orderbook-size-unit :select-orderbook-size-unit]
    [:actions/toggle-orderbook-price-aggregation-dropdown :toggle-orderbook-price-aggregation-dropdown]
