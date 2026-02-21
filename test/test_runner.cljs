@@ -126,6 +126,11 @@
             [hyperopen.views.trade.order-form-runtime-gateway-test]
             [hyperopen.views.trade.order-form-vm-submit-test]
             [hyperopen.views.trade.order-form-vm-test]
+            [hyperopen.views.trade.order-form-view.entry-mode-test]
+            [hyperopen.views.trade.order-form-view.size-and-slider-test]
+            [hyperopen.views.trade.order-form-view.scale-preview-test]
+            [hyperopen.views.trade.order-form-view.metrics-and-submit-test]
+            [hyperopen.views.trade.order-form-view.styling-contract-test]
             [hyperopen.views.trade.order-form-view-test]
             [hyperopen.trading.order-form-transitions-test]
             [hyperopen.startup.init-test]
@@ -274,6 +279,11 @@
              'hyperopen.views.trade.order-form-runtime-gateway-test
              'hyperopen.views.trade.order-form-vm-submit-test
              'hyperopen.views.trade.order-form-vm-test
+             'hyperopen.views.trade.order-form-view.entry-mode-test
+             'hyperopen.views.trade.order-form-view.size-and-slider-test
+             'hyperopen.views.trade.order-form-view.scale-preview-test
+             'hyperopen.views.trade.order-form-view.metrics-and-submit-test
+             'hyperopen.views.trade.order-form-view.styling-contract-test
              'hyperopen.views.trade.order-form-view-test
              'hyperopen.trading.order-form-transitions-test
              'hyperopen.startup.init-test
