@@ -147,6 +147,11 @@
             [hyperopen.schema.contracts-coverage-test]
             [hyperopen.runtime.validation-test]
             [hyperopen.state.app-defaults-test]
+            [hyperopen.state.trading.validation-and-scale-test]
+            [hyperopen.state.trading.order-request-test]
+            [hyperopen.state.trading.order-form-state-test]
+            [hyperopen.state.trading.market-summary-test]
+            [hyperopen.state.trading.identity-and-submit-policy-test]
             [hyperopen.state.trading-test]
             [hyperopen.ui.preferences-test]))
 
@@ -300,6 +305,11 @@
              'hyperopen.schema.contracts-coverage-test
              'hyperopen.runtime.validation-test
              'hyperopen.state.app-defaults-test
+             'hyperopen.state.trading.validation-and-scale-test
+             'hyperopen.state.trading.order-request-test
+             'hyperopen.state.trading.order-form-state-test
+             'hyperopen.state.trading.market-summary-test
+             'hyperopen.state.trading.identity-and-submit-policy-test
              'hyperopen.state.trading-test
              'hyperopen.ui.preferences-test))
 
