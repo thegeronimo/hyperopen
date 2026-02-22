@@ -63,6 +63,22 @@ Track quality posture by product domain and architectural layer, including known
 - MUST pass `npm run test:websocket`.
 - MUST keep `/hyperopen/.github/workflows/tests.yml` required in branch protection.
 
+## Refactor Completion Confidence Gate (Required)
+- Before declaring a refactor complete, MUST reach at least `84.7%` completion confidence.
+- Completion confidence MUST be scored from:
+- Testing evidence (pass/fail quality and relevance to changed behavior).
+- Code review evidence (bugs, regressions, security/trust-boundary risk scan).
+- Logical inspection evidence (call-path consistency, state transitions, error/rollback handling).
+- Scoring weights MUST be:
+- Testing: `40%`
+- Code review: `30%`
+- Logical inspection: `30%`
+- If confidence is below `84.7%`, MUST NOT declare completion.
+- If confidence is below `84.7%`, MUST report:
+- current confidence score,
+- top gaps,
+- minimum next checks needed to cross the threshold.
+
 ## Required Gates
 - `npm run check`
 - `npm test`
