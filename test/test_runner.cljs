@@ -4,6 +4,7 @@
             [hyperopen.api-test]
             [hyperopen.api.projections-test]
             [hyperopen.api.market-metadata.perp-dexs-test]
+            [hyperopen.api.gateway.market-test]
             [hyperopen.api.gateway.orders.commands-test]
             [hyperopen.api.endpoints.account-test]
             [hyperopen.account.history.actions-test]
@@ -145,6 +146,7 @@
             [hyperopen.runtime.collaborators-test]
             [hyperopen.runtime.registry-composition-test]
             [hyperopen.runtime.state-test]
+            [hyperopen.schema.api-market-contracts-test]
             [hyperopen.schema.chart-interop-contracts-test]
             [hyperopen.schema.contracts-test]
             [hyperopen.schema.contracts-coverage-test]
@@ -164,6 +166,7 @@
   (run-tests 'hyperopen.api-test
              'hyperopen.api.projections-test
              'hyperopen.api.market-metadata.perp-dexs-test
+             'hyperopen.api.gateway.market-test
              'hyperopen.api.gateway.orders.commands-test
              'hyperopen.api.endpoints.account-test
              'hyperopen.account.history.actions-test
@@ -306,6 +309,7 @@
              'hyperopen.runtime.collaborators-test
              'hyperopen.runtime.registry-composition-test
              'hyperopen.runtime.state-test
+             'hyperopen.schema.api-market-contracts-test
              'hyperopen.schema.chart-interop-contracts-test
              'hyperopen.schema.contracts-test
              'hyperopen.schema.contracts-coverage-test

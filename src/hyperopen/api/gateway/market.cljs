@@ -1,7 +1,34 @@
 (ns hyperopen.api.gateway.market
   (:require [hyperopen.api.endpoints.market :as market-endpoints]
             [hyperopen.api.fetch-compat :as fetch-compat]
-            [hyperopen.api.market-loader :as market-loader]))
+            [hyperopen.api.market-loader :as market-loader]
+            [hyperopen.schema.api-market-contracts :as api-market-contracts]))
+
+(defn- assert-perp-dex-metadata!
+  [payload context]
+  (api-market-contracts/assert-normalized-perp-dex-metadata! payload context))
+
+(defn- with-validated-perp-dex-metadata
+  [payload-promise context]
+  (-> payload-promise
+      (.then (fn [payload]
+               (assert-perp-dex-metadata! payload context)))))
+
+(defn- contract-checked-request-perp-dexs!
+  [request-perp-dexs! boundary]
+  (fn [opts]
+    (with-validated-perp-dex-metadata
+      (request-perp-dexs! opts)
+      {:boundary boundary
+       :opts opts})))
+
+(defn- contract-checked-ensure-perp-dexs-data!
+  [ensure-perp-dexs-data! boundary]
+  (fn [store opts]
+    (with-validated-perp-dex-metadata
+      (ensure-perp-dexs-data! store opts)
+      {:boundary boundary
+       :opts opts})))
 
 (defn build-market-state
   [now-ms-fn active-asset phase dexs spot-meta spot-asset-ctxs perp-results]
@@ -42,7 +69,10 @@
 (defn request-perp-dexs!
   [{:keys [post-info!]}
    opts]
-  (market-endpoints/request-perp-dexs! post-info! opts))
+  ((contract-checked-request-perp-dexs!
+     (partial market-endpoints/request-perp-dexs! post-info!)
+     :api.gateway.market/request-perp-dexs)
+   opts))
 
 (defn fetch-perp-dexs!
   [{:keys [log-fn
@@ -53,7 +83,9 @@
    opts]
   (fetch-compat/fetch-perp-dexs!
    {:log-fn log-fn
-    :request-perp-dexs! request-perp-dexs!
+    :request-perp-dexs! (contract-checked-request-perp-dexs!
+                         request-perp-dexs!
+                         :api.gateway.market/fetch-perp-dexs)
     :apply-perp-dexs-success apply-perp-dexs-success
     :apply-perp-dexs-error apply-perp-dexs-error}
    store
@@ -134,7 +166,9 @@
    store
    opts]
   (fetch-compat/ensure-perp-dexs!
-   {:ensure-perp-dexs-data! ensure-perp-dexs-data!
+   {:ensure-perp-dexs-data! (contract-checked-ensure-perp-dexs-data!
+                             ensure-perp-dexs-data!
+                             :api.gateway.market/ensure-perp-dexs)
     :apply-perp-dexs-success apply-perp-dexs-success
     :apply-perp-dexs-error apply-perp-dexs-error}
    store

@@ -47,6 +47,19 @@
                     (is false (str "Unexpected error: " err))
                     (done)))))))
 
+(deftest request-perp-dexs-rejects-non-canonical-payload-test
+  (async done
+    (with-redefs [market-endpoints/request-perp-dexs! (fn [_post-info! _opts]
+                                                        (js/Promise.resolve {:dex-names ["vault"]
+                                                                             :fee-config-by-name {"scaled" {:deployer-fee-scale 0.5}}}))]
+      (-> (market-gateway/request-perp-dexs! {:post-info! (fn [& _] nil)} {:priority :high})
+          (.then (fn [_]
+                   (is false "Expected request-perp-dexs! to reject")
+                   (done)))
+          (.catch (fn [err]
+                    (is (re-find #"perp DEX metadata contract validation failed" (str err)))
+                    (done)))))))
+
 (deftest request-asset-selector-markets-delegates-to-loader-test
   (async done
     (let [deps {:active-asset nil
@@ -69,6 +82,59 @@
                     (is false (str "Unexpected error: " err))
                     (done)))))))
 
+(deftest fetch-perp-dexs-rejects-invalid-payload-before-success-projection-test
+  (async done
+    (let [store (atom {})
+          success-calls (atom 0)
+          error-calls (atom 0)]
+      (-> (market-gateway/fetch-perp-dexs!
+           {:log-fn (fn [& _] nil)
+            :request-perp-dexs! (fn [_opts]
+                                  (js/Promise.resolve {:dex-names [""]
+                                                       :fee-config-by-name {}}))
+            :apply-perp-dexs-success (fn [state payload]
+                                       (swap! success-calls inc)
+                                       (assoc state :perp-dexs payload))
+            :apply-perp-dexs-error (fn [state err]
+                                     (swap! error-calls inc)
+                                     (assoc state :perp-dexs-error (.-message err)))}
+           store
+           {:priority :high})
+          (.then (fn [_]
+                   (is false "Expected fetch-perp-dexs! to reject")
+                   (done)))
+          (.catch (fn [err]
+                    (is (re-find #"perp DEX metadata contract validation failed" (str err)))
+                    (is (= 0 @success-calls))
+                    (is (= 1 @error-calls))
+                    (done)))))))
+
+(deftest ensure-perp-dexs-rejects-invalid-payload-before-success-projection-test
+  (async done
+    (let [store (atom {})
+          success-calls (atom 0)
+          error-calls (atom 0)]
+      (-> (market-gateway/ensure-perp-dexs!
+           {:ensure-perp-dexs-data! (fn [_store _opts]
+                                      (js/Promise.resolve {:dex-names ["vault"]
+                                                           :fee-config-by-name {"vault" {:deployer-fee-scale "0.2"}}}))
+            :apply-perp-dexs-success (fn [state payload]
+                                       (swap! success-calls inc)
+                                       (assoc state :perp-dexs payload))
+            :apply-perp-dexs-error (fn [state err]
+                                     (swap! error-calls inc)
+                                     (assoc state :perp-dexs-error (.-message err)))}
+           store
+           {:priority :low})
+          (.then (fn [_]
+                   (is false "Expected ensure-perp-dexs! to reject")
+                   (done)))
+          (.catch (fn [err]
+                    (is (re-find #"perp DEX metadata contract validation failed" (str err)))
+                    (is (= 0 @success-calls))
+                    (is (= 1 @error-calls))
+                    (done)))))))
+
 (deftest market-gateway-wrapper-delegation-coverage-test
   (let [called (atom [])
         post-info! (fn [& _] nil)]
@@ -83,7 +149,8 @@
                                                                   {:ok :meta-ctx})
                   market-endpoints/request-perp-dexs! (fn [& args]
                                                         (swap! called conj [:perp-dexs args])
-                                                        {:ok :perp-dexs})
+                                                        (js/Promise.resolve {:dex-names ["dex-a"]
+                                                                             :fee-config-by-name {}}))
                   market-endpoints/request-spot-meta! (fn [& args]
                                                         (swap! called conj [:spot-meta args])
                                                         {:ok :spot-meta})
@@ -126,8 +193,7 @@
              (market-gateway/request-meta-and-asset-ctxs! {:post-info! post-info!}
                                                           "dex-a"
                                                           {:priority :low})))
-      (is (= {:ok :perp-dexs}
-             (market-gateway/request-perp-dexs! {:post-info! post-info!} {:priority :high})))
+      (is (some? (market-gateway/request-perp-dexs! {:post-info! post-info!} {:priority :high})))
       (is (= {:ok :fetch-perp-dexs}
              (market-gateway/fetch-perp-dexs! {:log-fn identity
                                                :request-perp-dexs! identity
