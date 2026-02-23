@@ -1,14 +1,16 @@
 (ns hyperopen.api.endpoints.account-test
   (:require [cljs.test :refer-macros [async deftest is]]
+            [hyperopen.test-support.api-stubs :as api-stubs]
+            [hyperopen.test-support.async :as async-support]
             [hyperopen.api.endpoints.account :as account]))
 
 (deftest request-user-funding-history-paginates-forward-by-time-test
   (async done
     (let [calls (atom [])
-          post-info! (fn [body _opts]
-                       (swap! calls conj body)
-                       (let [start-time (get body "startTime")]
-                         (js/Promise.resolve
+          post-info! (api-stubs/post-info-body-stub
+                      calls
+                      (fn [body _opts]
+                        (let [start-time (get body "startTime")]
                           (cond
                             (= start-time 1000)
                             [{:time-ms 1000} {:time-ms 2000}]
@@ -34,15 +36,13 @@
                    (is (= [3000 2000 1000] (mapv :time-ms rows)))
                    (is (= [1000 2001 3001] (mapv #(get % "startTime") @calls)))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-user-funding-history-supports-wrapped-payloads-test
   (async done
-    (let [post-info! (fn [body _opts]
-                       (let [start-time (get body "startTime")]
-                         (js/Promise.resolve
+    (let [post-info! (api-stubs/post-info-stub
+                      (fn [body _opts]
+                        (let [start-time (get body "startTime")]
                           (if (= start-time 0)
                             {:data {:fundings [{:time 1000
                                                 :delta {:type "funding"
@@ -70,16 +70,15 @@
                             :coin "HYPE"}]
                           rows))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-user-funding-history-short-circuits-without-address-test
   (async done
     (let [calls (atom 0)
-          post-info! (fn [_body _opts]
-                       (swap! calls inc)
-                       (js/Promise.resolve []))]
+          post-info! (api-stubs/post-info-stub
+                      (fn [_body _opts]
+                        (swap! calls inc)
+                        []))]
       (-> (account/request-user-funding-history! post-info!
                                                  identity
                                                  identity
@@ -91,16 +90,12 @@
                    (is (= [] rows))
                    (is (= 0 @calls))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-user-funding-history-omits-non-numeric-time-bounds-test
   (async done
     (let [calls (atom [])
-          post-info! (fn [body opts]
-                       (swap! calls conj [body opts])
-                       (js/Promise.resolve []))]
+          post-info! (api-stubs/post-info-stub calls [])]
       (-> (account/request-user-funding-history! post-info!
                                                  identity
                                                  identity
@@ -117,16 +112,13 @@
                      (is (= {:priority :high}
                             opts)))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-user-funding-history-supports-several-payload-shapes-test
   (async done
     (let [run-request (fn [payload]
                         (account/request-user-funding-history!
-                         (fn [_body _opts]
-                           (js/Promise.resolve payload))
+                         (api-stubs/post-info-stub payload)
                          identity
                          identity
                          "0xabc"
@@ -158,16 +150,12 @@
                (is (= [] (nth results* 8)))
                (is (= [] (nth results* 9))))
              (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-user-funding-history-stops-when-next-page-start-does-not-advance-test
   (async done
     (let [calls (atom [])
-          post-info! (fn [body _opts]
-                       (swap! calls conj body)
-                       (js/Promise.resolve [{:time-ms 999}]))]
+          post-info! (api-stubs/post-info-body-stub calls [{:time-ms 999}])]
       (-> (account/request-user-funding-history! post-info!
                                                  identity
                                                  identity
@@ -179,22 +167,19 @@
                    (is (= [{:time-ms 999}] rows))
                    (is (= [1000] (mapv #(get % "startTime") @calls)))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-user-funding-history-warns-on-non-empty-page-when-normalization-drops-all-rows-test
   (async done
     (let [warnings (atom [])
           console-object (or (.-console js/globalThis) #js {})
           original-warn (.-warn console-object)
-          post-info! (fn [_body _opts]
-                       (js/Promise.resolve [{:time 1000
-                                             :delta {:type "funding"
-                                                     :coin "HYPE"
-                                                     :usdc "1.0"
-                                                     :szi "2.0"
-                                                     :fundingRate "0.0001"}}]))
+          post-info! (api-stubs/post-info-stub [{:time 1000
+                                                 :delta {:type "funding"
+                                                         :coin "HYPE"
+                                                         :usdc "1.0"
+                                                         :szi "2.0"
+                                                         :fundingRate "0.0001"}}])
           normalize-rows-fn (fn [_rows] [])
           sort-rows-fn identity]
       (set! (.-warn console-object)
@@ -219,9 +204,7 @@
                      (is (= 0 (:start-time-ms payload*)))
                      (is (= 5000 (:end-time-ms payload*))))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))
+          (.catch (async-support/unexpected-error done))
           (.finally (fn []
                       (set! (.-warn console-object) original-warn)))))))
 
@@ -229,8 +212,7 @@
   (async done
     (let [console-object (or (.-console js/globalThis) #js {})
           original-warn (.-warn console-object)
-          post-info! (fn [_body _opts]
-                       (js/Promise.resolve [{:time-ms 1000}]))
+          post-info! (api-stubs/post-info-stub [{:time-ms 1000}])
           normalize-rows-fn (fn [_rows] [])]
       (set! (.-warn console-object) nil)
       (-> (account/request-user-funding-history! post-info!
@@ -243,32 +225,27 @@
           (.then (fn [rows]
                    (is (= [] rows))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))
+          (.catch (async-support/unexpected-error done))
           (.finally (fn []
                       (set! (.-warn console-object) original-warn)))))))
 
 (deftest request-spot-clearinghouse-state-short-circuits-without-address-test
   (async done
     (let [calls (atom 0)
-          post-info! (fn [_body _opts]
-                       (swap! calls inc)
-                       (js/Promise.resolve {}))]
+          post-info! (api-stubs/post-info-stub
+                      (fn [_body _opts]
+                        (swap! calls inc)
+                        {}))]
       (-> (account/request-spot-clearinghouse-state! post-info! nil {})
           (.then (fn [result]
                    (is (nil? result))
                    (is (= 0 @calls))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-spot-clearinghouse-state-builds-request-body-test
   (let [calls (atom [])
-        post-info! (fn [body opts]
-                     (swap! calls conj [body opts])
-                     (js/Promise.resolve {}))]
+        post-info! (api-stubs/post-info-stub calls {})]
     (account/request-spot-clearinghouse-state! post-info! "0xabc" {:priority :low})
     (is (= {"type" "spotClearinghouseState"
             "user" "0xabc"}
@@ -279,9 +256,7 @@
 (deftest request-user-abstraction-builds-dedupe-key-per-address-test
   (async done
     (let [calls (atom [])
-          post-info! (fn [body opts]
-                       (swap! calls conj [body opts])
-                       (js/Promise.resolve "unifiedAccount"))]
+          post-info! (api-stubs/post-info-stub calls "unifiedAccount")]
       (-> (account/request-user-abstraction! post-info! "0xAbC" {})
           (.then (fn [_]
                    (let [[body opts] (first @calls)]
@@ -290,30 +265,25 @@
                             body))
                      (is (= [:user-abstraction "0xabc"] (:dedupe-key opts)))
                      (done))))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-user-abstraction-short-circuits-without-address-test
   (async done
     (let [calls (atom 0)
-          post-info! (fn [_body _opts]
-                       (swap! calls inc)
-                       (js/Promise.resolve nil))]
+          post-info! (api-stubs/post-info-stub
+                      (fn [_body _opts]
+                        (swap! calls inc)
+                        nil))]
       (-> (account/request-user-abstraction! post-info! nil {})
           (.then (fn [result]
                    (is (nil? result))
                    (is (= 0 @calls))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-user-abstraction-allows-explicit-dedupe-key-override-test
   (let [calls (atom [])
-        post-info! (fn [body opts]
-                     (swap! calls conj [body opts])
-                     (js/Promise.resolve "default"))]
+        post-info! (api-stubs/post-info-stub calls "default")]
     (account/request-user-abstraction! post-info!
                                        "0xabc"
                                        {:priority :low
@@ -336,9 +306,7 @@
 
 (deftest request-clearinghouse-state-uses-optional-dex-test
   (let [calls (atom [])
-        post-info! (fn [body opts]
-                     (swap! calls conj [body opts])
-                     (js/Promise.resolve {}))]
+        post-info! (api-stubs/post-info-stub calls {})]
     (account/request-clearinghouse-state! post-info! "0xabc" nil {})
     (account/request-clearinghouse-state! post-info! "0xabc" "" {})
     (account/request-clearinghouse-state! post-info! "0xabc" "vault" {:priority :low})
@@ -358,24 +326,21 @@
 (deftest request-clearinghouse-state-short-circuits-without-address-test
   (async done
     (let [calls (atom 0)
-          post-info! (fn [_body _opts]
-                       (swap! calls inc)
-                       (js/Promise.resolve {}))]
+          post-info! (api-stubs/post-info-stub
+                      (fn [_body _opts]
+                        (swap! calls inc)
+                        {}))]
       (-> (account/request-clearinghouse-state! post-info! nil "vault" {})
           (.then (fn [result]
                    (is (nil? result))
                    (is (= 0 @calls))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-user-funding-history-stops-when-next-page-start-exceeds-end-time-test
   (async done
     (let [calls (atom [])
-          post-info! (fn [body _opts]
-                       (swap! calls conj body)
-                       (js/Promise.resolve [{:time-ms 1001}]))]
+          post-info! (api-stubs/post-info-body-stub calls [{:time-ms 1001}])]
       (-> (account/request-user-funding-history! post-info!
                                                  identity
                                                  identity
@@ -387,9 +352,7 @@
                    (is (= [{:time-ms 1001}] rows))
                    (is (= [1000] (mapv #(get % "startTime") @calls)))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest normalize-portfolio-summary-supports-shape-variants-test
   (is (= {:day {:account "day" :equity "1"}
@@ -441,25 +404,22 @@
 (deftest request-portfolio-short-circuits-without-address-test
   (async done
     (let [calls (atom 0)
-          post-info! (fn [_body _opts]
-                       (swap! calls inc)
-                       (js/Promise.resolve {:data {"day" {:equity "1"}}}))]
+          post-info! (api-stubs/post-info-stub
+                      (fn [_body _opts]
+                        (swap! calls inc)
+                        {:data {"day" {:equity "1"}}}))]
       (-> (account/request-portfolio! post-info! nil {})
           (.then (fn [result]
                    (is (= {} result))
                    (is (= 0 @calls))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-portfolio-builds-dedupe-key-and-normalizes-response-test
   (async done
     (let [calls (atom [])
-          post-info! (fn [body opts]
-                       (swap! calls conj [body opts])
-                       (js/Promise.resolve {:data {"day" {:equity "1"}
-                                                  "perpAllTime" {:equity "2"}}}))]
+          post-info! (api-stubs/post-info-stub calls {:data {"day" {:equity "1"}
+                                                             "perpAllTime" {:equity "2"}}})]
       (-> (account/request-portfolio! post-info! "0xAbC" {:priority :low})
           (.then (fn [summary]
                    (let [[body opts] (first @calls)]
@@ -473,16 +433,12 @@
                              :perp-all-time {:equity "2"}}
                             summary))
                      (done))))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-portfolio-defaults-priority-and-dedupe-when-opts-are-nil-test
   (async done
     (let [calls (atom [])
-          post-info! (fn [body opts]
-                       (swap! calls conj [body opts])
-                       (js/Promise.resolve {:data {"month" {:equity "10"}}}))]
+          post-info! (api-stubs/post-info-stub calls {:data {"month" {:equity "10"}}})]
       (-> (account/request-portfolio! post-info! "0xAbC" nil)
           (.then (fn [summary]
                    (is (= {"type" "portfolio"
@@ -494,16 +450,12 @@
                    (is (= {:month {:equity "10"}}
                           summary))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-portfolio-allows-explicit-dedupe-key-override-test
   (async done
     (let [calls (atom [])
-          post-info! (fn [body opts]
-                       (swap! calls conj [body opts])
-                       (js/Promise.resolve {:data {"day" {:equity "1"}}}))]
+          post-info! (api-stubs/post-info-stub calls {:data {"day" {:equity "1"}}})]
       (-> (account/request-portfolio! post-info!
                                       "0xAbC"
                                       {:priority :low
@@ -516,30 +468,25 @@
                            :dedupe-key :explicit}
                           (second (first @calls))))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-user-fees-short-circuits-without-address-test
   (async done
     (let [calls (atom 0)
-          post-info! (fn [_body _opts]
-                       (swap! calls inc)
-                       (js/Promise.resolve {:fees []}))]
+          post-info! (api-stubs/post-info-stub
+                      (fn [_body _opts]
+                        (swap! calls inc)
+                        {:fees []}))]
       (-> (account/request-user-fees! post-info! nil {})
           (.then (fn [result]
                    (is (nil? result))
                    (is (= 0 @calls))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-user-fees-builds-dedupe-key-and-honors-override-test
   (let [calls (atom [])
-        post-info! (fn [body opts]
-                     (swap! calls conj [body opts])
-                     (js/Promise.resolve {:fees []}))]
+        post-info! (api-stubs/post-info-stub calls {:fees []})]
     (account/request-user-fees! post-info! "0xAbC" {:priority :low})
     (account/request-user-fees! post-info! "0xAbC"
                                 {:priority :low
@@ -557,9 +504,7 @@
 
 (deftest request-user-fees-defaults-priority-and-dedupe-when-opts-are-nil-test
   (let [calls (atom [])
-        post-info! (fn [body opts]
-                     (swap! calls conj [body opts])
-                     (js/Promise.resolve {:fees []}))]
+        post-info! (api-stubs/post-info-stub calls {:fees []})]
     (account/request-user-fees! post-info! "0xAbC" nil)
     (is (= {"type" "userFees"
             "user" "0xAbC"}

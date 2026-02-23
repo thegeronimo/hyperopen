@@ -1,13 +1,13 @@
 (ns hyperopen.api.endpoints.market-test
   (:require [cljs.test :refer-macros [async deftest is]]
             [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.test-support.api-stubs :as api-stubs]
+            [hyperopen.test-support.async :as async-support]
             [hyperopen.api.endpoints.market :as market]))
 
 (deftest request-meta-and-asset-ctxs-builds-dedupe-keys-by-dex-test
   (let [calls (atom [])
-        post-info! (fn [body opts]
-                     (swap! calls conj [body opts])
-                     (js/Promise.resolve []))]
+        post-info! (api-stubs/post-info-stub calls [])]
     (market/request-meta-and-asset-ctxs! post-info! nil {})
     (market/request-meta-and-asset-ctxs! post-info! "vault" {})
     (is (= [{"type" "metaAndAssetCtxs"}
@@ -19,9 +19,7 @@
 
 (deftest request-meta-and-asset-ctxs-respects-explicit-dedupe-key-test
   (let [calls (atom [])
-        post-info! (fn [body opts]
-                     (swap! calls conj [body opts])
-                     (js/Promise.resolve []))]
+        post-info! (api-stubs/post-info-stub calls [])]
     (market/request-meta-and-asset-ctxs! post-info! ""
                                          {:priority :low
                                           :dedupe-key :explicit})
@@ -33,29 +31,24 @@
 
 (deftest request-perp-dexs-parses-named-dexes-test
   (async done
-    (let [post-info! (fn [_body _opts]
-                       (js/Promise.resolve [{:name "vault"}
-                                            {:name "scaled"
-                                             :deployerFeeScale 0.25}
-                                            {:name ""}
-                                            {:foo "bar"}
-                                            {:name "partner"}]))]
+    (let [post-info! (api-stubs/post-info-stub [{:name "vault"}
+                                                {:name "scaled"
+                                                 :deployerFeeScale 0.25}
+                                                {:name ""}
+                                                {:foo "bar"}
+                                                {:name "partner"}])]
       (-> (market/request-perp-dexs! post-info! {})
           (.then (fn [payload]
                    (is (= ["vault" "scaled" "partner"] (:dex-names payload)))
                    (is (= {"scaled" {:deployer-fee-scale 0.25}}
                           (:fee-config-by-name payload)))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-candle-snapshot-builds-time-window-and-skips-missing-coin-test
   (async done
     (let [calls (atom [])
-          post-info! (fn [body opts]
-                       (swap! calls conj [body opts])
-                       (js/Promise.resolve []))
+          post-info! (api-stubs/post-info-stub calls [])
           now-ms-fn (fn [] 10000)]
       (-> (market/request-candle-snapshot! post-info!
                                            now-ms-fn
@@ -78,19 +71,13 @@
                           (is (nil? result))
                           (is (= 1 (count @calls)))
                           (done)))
-                 (.catch (fn [err]
-                           (is false (str "Unexpected error: " err))
-                           (done))))))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+                 (.catch (async-support/unexpected-error done)))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-candle-snapshot-uses-default-interval-bars-and-priority-test
   (async done
     (let [calls (atom [])
-          post-info! (fn [body opts]
-                       (swap! calls conj [body opts])
-                       (js/Promise.resolve []))
+          post-info! (api-stubs/post-info-stub calls [])
           now-ms-fn (fn [] 1000)]
       (-> (market/request-candle-snapshot! post-info! now-ms-fn "ETH" nil)
           (.then
@@ -105,50 +92,39 @@
                (is (= {:priority :high}
                       opts))
                (done))))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-asset-contexts-normalizes-response-shape-test
   (async done
-    (let [post-info! (fn [_body _opts]
-                       (js/Promise.resolve [{:universe [{:name "BTC" :marginTableId 1}
-                                                        {:name "ETH" :marginTableId 1}]
-                                             :marginTables [[1 {:max-leverage 5}]]}
-                                            [{:dayNtlVlm "10" :openInterest "20"}
-                                             {:dayNtlVlm "0" :openInterest "20"}]]))]
+    (let [post-info! (api-stubs/post-info-stub [{:universe [{:name "BTC" :marginTableId 1}
+                                                             {:name "ETH" :marginTableId 1}]
+                                                 :marginTables [[1 {:max-leverage 5}]]}
+                                                [{:dayNtlVlm "10" :openInterest "20"}
+                                                 {:dayNtlVlm "0" :openInterest "20"}]])]
       (-> (market/request-asset-contexts! post-info! {})
           (.then (fn [contexts]
                    (is (= #{:BTC} (set (keys contexts))))
                    (is (= 0 (get-in contexts [:BTC :idx])))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-asset-contexts-uses-default-priority-when-opts-missing-test
   (async done
     (let [calls (atom [])
-          post-info! (fn [body opts]
-                       (swap! calls conj [body opts])
-                       (js/Promise.resolve [{:universe []
-                                             :marginTables []}
-                                            []]))]
+          post-info! (api-stubs/post-info-stub calls [{:universe []
+                                                       :marginTables []}
+                                                      []])]
       (-> (market/request-asset-contexts! post-info! nil)
           (.then (fn [_]
                    (let [[body opts] (first @calls)]
                      (is (= {"type" "metaAndAssetCtxs"} body))
                      (is (= {:priority :high} opts)))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))))))
+          (.catch (async-support/unexpected-error done))))))
 
 (deftest request-spot-meta-and-public-webdata2-use-default-priority-test
   (let [calls (atom [])
-        post-info! (fn [body opts]
-                     (swap! calls conj [body opts])
-                     (js/Promise.resolve {}))]
+        post-info! (api-stubs/post-info-stub calls {})]
     (market/request-spot-meta! post-info! nil)
     (market/request-public-webdata2! post-info! {})
     (is (= [{"type" "spotMeta"}

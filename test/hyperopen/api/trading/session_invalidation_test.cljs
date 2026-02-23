@@ -1,6 +1,8 @@
 (ns hyperopen.api.trading.session-invalidation-test
   (:require [cljs.test :refer-macros [async deftest is]]
             [hyperopen.api.trading :as trading]
+            [hyperopen.test-support.api-stubs :as api-stubs]
+            [hyperopen.test-support.async :as async-support]
             [hyperopen.api.trading.test-support :as support]
             [hyperopen.wallet.agent-session :as agent-session]
             [hyperopen.utils.hl-signing :as signing]))
@@ -33,12 +35,7 @@
             (fn [_wallet-address _storage-mode _session]
               (swap! persisted inc)
               true))
-      (set! signing/sign-l1-action-with-private-key!
-            (fn [_private-key _action _nonce & _]
-              (js/Promise.resolve
-               (clj->js {:r "0x01"
-                         :s "0x02"
-                         :v 27}))))
+      (set! signing/sign-l1-action-with-private-key! (api-stubs/signing-stub))
       (-> (trading/submit-order! store
                                  support/owner-address
                                  {:type "order"
@@ -54,9 +51,7 @@
                    (is (re-find #"Enable Trading again"
                                 (str (get-in @store [:wallet :agent :error]))))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))
+          (.catch (async-support/unexpected-error done))
           (.finally
            (fn []
              (set! agent-session/load-agent-session-by-mode original-load)
@@ -93,12 +88,7 @@
             (fn [_wallet-address _storage-mode _session]
               (swap! persisted inc)
               true))
-      (set! signing/sign-l1-action-with-private-key!
-            (fn [_private-key _action _nonce & _]
-              (js/Promise.resolve
-               (clj->js {:r "0x01"
-                         :s "0x02"
-                         :v 27}))))
+      (set! signing/sign-l1-action-with-private-key! (api-stubs/signing-stub))
       (-> (trading/cancel-order! store
                                  support/owner-address
                                  {:type "cancel"
@@ -113,9 +103,7 @@
                    (is (re-find #"Enable Trading again"
                                 (str (get-in @store [:wallet :agent :error]))))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))
+          (.catch (async-support/unexpected-error done))
           (.finally
            (fn []
              (set! agent-session/load-agent-session-by-mode original-load)
@@ -159,12 +147,7 @@
             (fn [_wallet-address _storage-mode _session]
               (swap! persisted inc)
               true))
-      (set! signing/sign-l1-action-with-private-key!
-            (fn [_private-key _action _nonce & _]
-              (js/Promise.resolve
-               (clj->js {:r "0x01"
-                         :s "0x02"
-                         :v 27}))))
+      (set! signing/sign-l1-action-with-private-key! (api-stubs/signing-stub))
       (-> (trading/cancel-order! store
                                  support/owner-address
                                  {:type "cancel"
@@ -178,9 +161,7 @@
                    (is (= 0 @persisted))
                    (is (= :ready (get-in @store [:wallet :agent :status])))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))
+          (.catch (async-support/unexpected-error done))
           (.finally
            (fn []
              (set! agent-session/load-agent-session-by-mode original-load)
@@ -222,12 +203,7 @@
             (fn [_wallet-address _storage-mode _session]
               (swap! persisted inc)
               true))
-      (set! signing/sign-l1-action-with-private-key!
-            (fn [_private-key _action _nonce & _]
-              (js/Promise.resolve
-               (clj->js {:r "0x01"
-                         :s "0x02"
-                         :v 27}))))
+      (set! signing/sign-l1-action-with-private-key! (api-stubs/signing-stub))
       (-> (trading/cancel-order! store
                                  support/owner-address
                                  {:type "cancel"
@@ -241,9 +217,7 @@
                    (is (= 0 @persisted))
                    (is (= :ready (get-in @store [:wallet :agent :status])))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))
+          (.catch (async-support/unexpected-error done))
           (.finally
            (fn []
              (set! agent-session/load-agent-session-by-mode original-load)
@@ -260,6 +234,4 @@
         (.then (fn [invalidate?]
                  (is (true? invalidate?))
                  (done)))
-        (.catch (fn [err]
-                  (is false (str "Unexpected error: " err))
-                  (done))))))
+        (.catch (async-support/unexpected-error done)))))

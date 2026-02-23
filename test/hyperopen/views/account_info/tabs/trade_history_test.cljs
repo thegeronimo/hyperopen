@@ -1,6 +1,7 @@
 (ns hyperopen.views.account-info.tabs.trade-history-test
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is testing use-fixtures]]
+            [hyperopen.test-support.hiccup-selectors :as selectors]
             [hyperopen.views.account-info.test-support.fixtures :as fixtures]
             [hyperopen.views.account-info.test-support.hiccup :as hiccup]
             [hyperopen.utils.formatting :as fmt]
@@ -430,17 +431,13 @@
         first-page (@#'view/trade-history-table rows {:page-size 25
                                                       :page 1
                                                       :page-input "1"})
-        first-prev (hiccup/find-first-node first-page #(and (= :button (first %))
-                                                     (contains? (hiccup/direct-texts %) "Prev")))
-        first-next (hiccup/find-first-node first-page #(and (= :button (first %))
-                                                     (contains? (hiccup/direct-texts %) "Next")))
+        first-prev (hiccup/find-first-node first-page selectors/prev-button-predicate)
+        first-next (hiccup/find-first-node first-page selectors/next-button-predicate)
         last-page (@#'view/trade-history-table rows {:page-size 25
                                                      :page 3
                                                      :page-input "3"})
-        last-prev (hiccup/find-first-node last-page #(and (= :button (first %))
-                                                   (contains? (hiccup/direct-texts %) "Prev")))
-        last-next (hiccup/find-first-node last-page #(and (= :button (first %))
-                                                   (contains? (hiccup/direct-texts %) "Next")))]
+        last-prev (hiccup/find-first-node last-page selectors/prev-button-predicate)
+        last-next (hiccup/find-first-node last-page selectors/next-button-predicate)]
     (is (= true (get-in first-prev [1 :disabled])))
     (is (not= true (get-in first-next [1 :disabled])))
     (is (not= true (get-in last-prev [1 :disabled])))
@@ -451,12 +448,9 @@
         content (@#'view/trade-history-table rows {:page-size 25
                                                    :page 1
                                                    :page-input "4"})
-        page-size-select (hiccup/find-first-node content #(and (= :select (first %))
-                                                        (= "trade-history-page-size" (get-in % [1 :id]))))
-        jump-input (hiccup/find-first-node content #(and (= :input (first %))
-                                                  (= "trade-history-page-input" (get-in % [1 :id]))))
-        go-button (hiccup/find-first-node content #(and (= :button (first %))
-                                                 (contains? (hiccup/direct-texts %) "Go")))]
+        page-size-select (hiccup/find-first-node content (selectors/select-id-predicate "trade-history-page-size"))
+        jump-input (hiccup/find-first-node content (selectors/input-id-predicate "trade-history-page-input"))
+        go-button (hiccup/find-first-node content selectors/go-button-predicate)]
     (is (= [[:actions/set-trade-history-page-size [:event.target/value]]]
            (get-in page-size-select [1 :on :change])))
     (is (= [[:actions/set-trade-history-page-input [:event.target/value]]]
@@ -474,8 +468,7 @@
                                                    :page 4
                                                    :page-input "4"})
         viewport (hiccup/tab-rows-viewport-node content)
-        jump-input (hiccup/find-first-node content #(and (= :input (first %))
-                                                  (= "trade-history-page-input" (get-in % [1 :id]))))
+        jump-input (hiccup/find-first-node content (selectors/input-id-predicate "trade-history-page-input"))
         all-strings (set (hiccup/collect-strings content))]
     (is (= 10 (count (vec (hiccup/node-children viewport)))))
     (is (contains? all-strings "Page 1 of 1"))

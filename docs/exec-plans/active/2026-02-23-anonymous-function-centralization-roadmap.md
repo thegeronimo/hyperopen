@@ -19,10 +19,11 @@ After implementing this plan, a developer should be able to change shared sortin
 - [x] (2026-02-23 18:51Z) Implemented Milestone 2 by extending `/hyperopen/src/hyperopen/domain/trading/indicators/math.cljs` with shared kernels (`finite-subtract`, band helpers, guarded ratio helpers, true-range helpers, ROC% helpers, HL2 helpers), migrating indicator families to consume those kernels, and adding parity coverage in `/hyperopen/test/hyperopen/domain/trading/indicators/math_kernels_test.cljs`, `/hyperopen/test/hyperopen/domain/trading/indicators/heavy_algorithms_test.cljs`, and `/hyperopen/test/hyperopen/domain/trading/indicators/family_parity_test.cljs`.
 - [x] (2026-02-23 19:00Z) Implemented Milestone 3 by adding `/hyperopen/src/hyperopen/api/promise_effects.cljs`, migrating repeated promise success/error callback lambdas in `/hyperopen/src/hyperopen/api/fetch_compat.cljs`, `/hyperopen/src/hyperopen/runtime/api_effects.cljs`, `/hyperopen/src/hyperopen/startup/collaborators.cljs`, `/hyperopen/src/hyperopen/order/effects.cljs`, and `/hyperopen/src/hyperopen/api/market_metadata/facade.cljs`, and adding helper coverage in `/hyperopen/test/hyperopen/api/promise_effects_test.cljs`.
 - [x] (2026-02-23 19:13Z) Implemented Milestone 4 by centralizing shared `pad2` time formatting helpers in `/hyperopen/src/hyperopen/utils/formatting.cljs`, migrating duplicated call-site lambdas in `/hyperopen/src/hyperopen/account/history/effects.cljs`, `/hyperopen/src/hyperopen/views/account_info/tabs/funding_history.cljs`, and `/hyperopen/src/hyperopen/views/l2_orderbook_view.cljs`, extracting chart interop numeric coercion helpers into `/hyperopen/src/hyperopen/views/trading_chart/utils/chart_interop/numeric.cljs`, centralizing websocket descriptor matcher builders in `/hyperopen/src/hyperopen/websocket/health.cljs`, centralizing repeated websocket tier lambdas in `/hyperopen/src/hyperopen/websocket/client.cljs`, and centralizing wallet accounts-list connection branching in `/hyperopen/src/hyperopen/wallet/core.cljs`.
-- [ ] Milestone 5 complete: test-suite lambda helpers centralized and reused.
+- [x] (2026-02-23 19:33Z) Implemented Milestone 5 by adding shared test-support helpers in `/hyperopen/test/hyperopen/test_support/async.cljs`, `/hyperopen/test/hyperopen/test_support/api_stubs.cljs`, `/hyperopen/test/hyperopen/test_support/hiccup_selectors.cljs`, and `/hyperopen/test/hyperopen/views/trading_chart/test_support/series.cljs`; refactoring the targeted endpoint/trading/tab/chart tests to use shared async catch handlers, API/signing stubs, pagination predicates, and chart-series spies; and capturing a post-milestone duplication snapshot at `/hyperopen/docs/exec-plans/active/artifacts/2026-02-23-anonymous-function-centralization-test-post-milestone5.txt`.
 - [x] (2026-02-23 18:53Z) Required validation gates pass after Milestone 2 changes (`npm run check`, `npm test`, `npm run test:websocket`).
 - [x] (2026-02-23 19:00Z) Required validation gates pass after Milestone 3 changes (`npm run check`, `npm test`, `npm run test:websocket`).
 - [x] (2026-02-23 19:13Z) Required validation gates pass after Milestone 4 changes (`npm run check`, `npm test`, `npm run test:websocket`).
+- [x] (2026-02-23 19:33Z) Required validation gates pass after Milestone 5 changes (`npm run check`, `npm test`, `npm run test:websocket`).
 
 ## Surprises & Discoveries
 
@@ -44,6 +45,8 @@ After implementing this plan, a developer should be able to change shared sortin
   Evidence: `/hyperopen/src/hyperopen/domain/trading/indicators/math.cljs` now provides `true-range-at`, `true-range-index`, and `true-range-values`; `/hyperopen/src/hyperopen/domain/trading/indicators/oscillators/helpers.cljs` preserves its first-candle behavior while `/hyperopen/src/hyperopen/domain/trading/indicators/trend/strength.cljs` and `/hyperopen/src/hyperopen/domain/trading/indicators/volatility/range.cljs` use the canonical indexed variant.
 - Observation: Time formatting and chart numeric coercion already had stable behavior contracts in tests, so milestone 4 centralization could be done by extracting helpers and rewiring call sites without changing user-visible output.
   Evidence: `/hyperopen/test/hyperopen/utils/formatting_test.cljs`, `/hyperopen/test/hyperopen/views/l2_orderbook_view_test.cljs`, `/hyperopen/test/hyperopen/views/trading_chart/utils/chart_interop/baseline_test.cljs`, and `/hyperopen/test/hyperopen/views/trading_chart/utils/chart_interop/price_format_test.cljs` remained green after helper extraction.
+- Observation: Milestone 5 reduced test-scope anonymous-function duplication metrics while keeping the full suite green.
+  Evidence: `/hyperopen/docs/exec-plans/active/artifacts/2026-02-23-anonymous-function-centralization-test-post-milestone5.txt` reports `total_lambda_arities=2296` (from `2369` baseline), `duplicate_groups=310` (from `322`), `duplicate_occurrences=1161` (from `1239`), `cross_file_duplicate_groups=133` (from `139`), and `large_duplicate_groups_size_ge_10=104` (from `115`).
 
 ## Decision Log
 
@@ -80,16 +83,21 @@ After implementing this plan, a developer should be able to change shared sortin
 - Decision: Place Milestone 4 numeric coercion helpers in `/hyperopen/src/hyperopen/views/trading_chart/utils/chart_interop/numeric.cljs` and reuse them from both baseline and price-format modules.
   Rationale: This keeps chart-interop parsing behavior consistent across modules while avoiding dependencies from chart code into unrelated namespaces.
   Date/Author: 2026-02-23 / Codex
+- Decision: Place Milestone 5 helper surfaces in `/hyperopen/test/hyperopen/test_support/` and keep chart-series construction helpers in `/hyperopen/test/hyperopen/views/trading_chart/test_support/series.cljs`.
+  Rationale: Cross-domain test helpers (`async`, `api_stubs`, `hiccup_selectors`) stay globally reusable while chart-specific JS spy scaffolding remains close to chart tests.
+  Date/Author: 2026-02-23 / Codex
 
 ## Outcomes & Retrospective
 
-Milestones 0, 1, 2, 3, and 4 are complete. The repository now contains a reusable baseline generator at `/hyperopen/tools/anonymous_function_duplication_report.clj`, checked-in baseline outputs at `/hyperopen/docs/exec-plans/active/artifacts/2026-02-23-anonymous-function-centralization-*.txt`, a shared account-info sorting kernel at `/hyperopen/src/hyperopen/views/account_info/sort_kernel.cljs`, a centralized indicator-math kernel surface in `/hyperopen/src/hyperopen/domain/trading/indicators/math.cljs`, a shared promise branch helper surface in `/hyperopen/src/hyperopen/api/promise_effects.cljs`, and new formatting/parsing/matcher helpers for milestone 4.
+Milestones 0, 1, 2, 3, 4, and 5 are complete. The repository now contains a reusable baseline generator at `/hyperopen/tools/anonymous_function_duplication_report.clj`, checked-in baseline outputs at `/hyperopen/docs/exec-plans/active/artifacts/2026-02-23-anonymous-function-centralization-*.txt`, a shared account-info sorting kernel at `/hyperopen/src/hyperopen/views/account_info/sort_kernel.cljs`, a centralized indicator-math kernel surface in `/hyperopen/src/hyperopen/domain/trading/indicators/math.cljs`, a shared promise branch helper surface in `/hyperopen/src/hyperopen/api/promise_effects.cljs`, formatting/parsing/matcher helpers from milestone 4, and centralized test helper surfaces for milestone 5.
 
 Milestone 2 migrated indicator arithmetic duplicates across oscillators, trend, volatility, and price modules to shared helpers for finite subtraction, band arithmetic, safe percent ratios, true-range calculation, ROC-percent derivation, and HL2 median derivation. The parity harness now includes explicit kernel tests in `/hyperopen/test/hyperopen/domain/trading/indicators/math_kernels_test.cljs` plus deterministic integration checks in `/hyperopen/test/hyperopen/domain/trading/indicators/heavy_algorithms_test.cljs` and `/hyperopen/test/hyperopen/domain/trading/indicators/family_parity_test.cljs`. Required validation gates are green for this milestone (`npm run check`, `npm test`, `npm run test:websocket`).
 
 Milestone 3 migrated repeated promise `.then`/`.catch` callback lambdas to shared combinators (`apply-success-and-return`, `apply-error-and-reject`, `log-error-and-reject`, `log-apply-error-and-reject`, `reject-error`) in `/hyperopen/src/hyperopen/api/promise_effects.cljs`. API/runtime/startup/order/market-metadata flows now reuse these helpers while preserving existing signatures and return payload behavior. New coverage in `/hyperopen/test/hyperopen/api/promise_effects_test.cljs` validates helper behavior directly, and required validation gates are green for this milestone (`npm run check`, `npm test`, `npm run test:websocket`).
 
 Milestone 4 centralized repeated formatting/time/parsing and websocket/wallet matcher lambdas by introducing shared time helpers in `/hyperopen/src/hyperopen/utils/formatting.cljs`, chart interop numeric coercion helpers in `/hyperopen/src/hyperopen/views/trading_chart/utils/chart_interop/numeric.cljs`, reusable websocket descriptor matcher builders in `/hyperopen/src/hyperopen/websocket/health.cljs`, and a shared wallet accounts-connection branch helper in `/hyperopen/src/hyperopen/wallet/core.cljs`. Target call sites in account history, funding history, L2 orderbook, chart baseline/price format, and websocket client now reuse named helpers while preserving behavior. Required validation gates are green for this milestone (`npm run check`, `npm test`, `npm run test:websocket`).
+
+Milestone 5 centralized repeated test lambdas through new helper modules: async catch handler helpers in `/hyperopen/test/hyperopen/test_support/async.cljs`, endpoint/signing stub helpers in `/hyperopen/test/hyperopen/test_support/api_stubs.cljs`, pagination selector predicates in `/hyperopen/test/hyperopen/test_support/hiccup_selectors.cljs`, and chart-series JS stub builders in `/hyperopen/test/hyperopen/views/trading_chart/test_support/series.cljs`. Refactors in `/hyperopen/test/hyperopen/api/endpoints/account_test.cljs`, `/hyperopen/test/hyperopen/api/endpoints/market_test.cljs`, `/hyperopen/test/hyperopen/api/endpoints/orders_test.cljs`, `/hyperopen/test/hyperopen/api/trading/session_invalidation_test.cljs`, `/hyperopen/test/hyperopen/api/trading/sign_and_submit_test.cljs`, `/hyperopen/test/hyperopen/views/account_info/tabs/funding_history_test.cljs`, `/hyperopen/test/hyperopen/views/account_info/tabs/order_history_test.cljs`, `/hyperopen/test/hyperopen/views/account_info/tabs/trade_history_test.cljs`, and `/hyperopen/test/hyperopen/views/trading_chart/utils/chart_interop/series_test.cljs` now reuse those helpers while keeping assertions explicit. Required validation gates are green for this milestone (`npm run check`, `npm test`, `npm run test:websocket`), and post-milestone duplication counts in test scope decreased versus baseline.
 
 ## Context and Orientation
 
@@ -346,6 +354,16 @@ Checked-in baseline outputs:
 
     /hyperopen/docs/exec-plans/active/artifacts/2026-02-23-anonymous-function-centralization-src-baseline.txt
     /hyperopen/docs/exec-plans/active/artifacts/2026-02-23-anonymous-function-centralization-test-baseline.txt
+
+Post-Milestone 5 duplication snapshot:
+
+    /hyperopen/docs/exec-plans/active/artifacts/2026-02-23-anonymous-function-centralization-test-post-milestone5.txt
+
+    test lambda arities: 2296
+    test duplicate groups: 310
+    test duplicate occurrences: 1161
+    test cross-file duplicate groups: 133
+    test large duplicate groups (size >= 10): 104
 
 ## Interfaces and Dependencies
 

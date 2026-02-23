@@ -1,15 +1,17 @@
 (ns hyperopen.views.trading-chart.utils.chart-interop.series-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.views.trading-chart.test-support.series :as series-support]
             [hyperopen.views.trading-chart.utils.chart-interop :as chart-interop]
             [hyperopen.views.trading-chart.utils.chart-interop.series :as series]))
 
 (deftest set-series-data-applies-hlc-area-transform-test
   (let [applied-options (atom nil)
         applied-data (atom nil)
-        series #js {:applyOptions (fn [opts]
-                                    (reset! applied-options (js->clj opts :keywordize-keys true)))
-                    :setData (fn [data]
-                               (reset! applied-data (js->clj data :keywordize-keys true)))}
+        series (series-support/make-series
+                :apply-options (fn [opts]
+                                 (reset! applied-options (js->clj opts :keywordize-keys true)))
+                :set-data (fn [data]
+                            (reset! applied-data (js->clj data :keywordize-keys true))))
         raw-candles [{:time 1 :open 10 :high 16 :low 8 :close 12}
                      {:time 2 :open 12 :high 18 :low 10 :close 16}]]
     (chart-interop/set-series-data! series raw-candles :hlc-area)
@@ -21,10 +23,11 @@
 (deftest set-series-data-baseline-applies-midpoint-base-level-test
   (let [applied-options (atom nil)
         applied-data (atom nil)
-        series #js {:applyOptions (fn [opts]
-                                    (reset! applied-options (js->clj opts :keywordize-keys true)))
-                    :setData (fn [data]
-                               (reset! applied-data (js->clj data :keywordize-keys true)))}
+        series (series-support/make-series
+                :apply-options (fn [opts]
+                                 (reset! applied-options (js->clj opts :keywordize-keys true)))
+                :set-data (fn [data]
+                            (reset! applied-data (js->clj data :keywordize-keys true))))
         raw-candles [{:time 1 :open 10 :high 14 :low 9 :close 12}
                      {:time 2 :open 12 :high 16 :low 11 :close 15}
                      {:time 3 :open 15 :high 18 :low 14 :close 18}]]
@@ -39,9 +42,10 @@
 
 (deftest set-series-data-prefers-metadata-price-decimals-test
   (let [applied-options (atom nil)
-        series #js {:applyOptions (fn [opts]
-                                    (reset! applied-options (js->clj opts :keywordize-keys true)))
-                    :setData (fn [_] nil)}
+        series (series-support/make-series
+                :apply-options (fn [opts]
+                                 (reset! applied-options (js->clj opts :keywordize-keys true)))
+                :set-data (fn [_] nil))
         raw-candles [{:time 1 :open 0.01 :high 0.02 :low 0.009 :close 0.015}
                      {:time 2 :open 0.015 :high 0.025 :low 0.014 :close 0.02}]]
     (chart-interop/set-series-data! series raw-candles :line {:price-decimals 5})
@@ -50,9 +54,10 @@
 
 (deftest set-series-data-unknown-chart-type-falls-back-to-candlestick-test
   (let [applied-data (atom nil)
-        series #js {:applyOptions (fn [_] nil)
-                    :setData (fn [data]
-                               (reset! applied-data (js->clj data :keywordize-keys true)))}
+        series (series-support/make-series
+                :apply-options (fn [_] nil)
+                :set-data (fn [data]
+                            (reset! applied-data (js->clj data :keywordize-keys true))))
         raw-candles [{:time 1 :open 10 :high 12 :low 9 :close 11}
                      {:time 2 :open 11 :high 13 :low 10 :close 12}]]
     (chart-interop/set-series-data! series raw-candles :unknown-chart-type)
@@ -60,9 +65,10 @@
 
 (deftest set-series-data-accepts-sequential-candle-collections-test
   (let [applied-data (atom nil)
-        series #js {:applyOptions (fn [_] nil)
-                    :setData (fn [data]
-                               (reset! applied-data (js->clj data :keywordize-keys true)))}
+        series (series-support/make-series
+                :apply-options (fn [_] nil)
+                :set-data (fn [data]
+                            (reset! applied-data (js->clj data :keywordize-keys true))))
         vector-candles [{:time 1 :open 10 :high 11 :low 9 :close 10.5}
                         {:time 2 :open 10.5 :high 12 :low 10 :close 11.5}]
         list-candles (apply list vector-candles)
@@ -77,11 +83,12 @@
         update-calls* (atom 0)
         candles [{:time 1 :open 10 :high 11 :low 9 :close 10.5}
                  {:time 2 :open 10.5 :high 12 :low 10 :close 11.5}]
-        series #js {:applyOptions (fn [_] nil)
-                    :setData (fn [_]
-                               (swap! set-calls* inc))
-                    :update (fn [_]
-                              (swap! update-calls* inc))}]
+        series (series-support/make-series
+                :apply-options (fn [_] nil)
+                :set-data (fn [_]
+                            (swap! set-calls* inc))
+                :update (fn [_]
+                          (swap! update-calls* inc)))]
     (chart-interop/set-series-data! series candles :candlestick)
     (chart-interop/set-series-data! series candles :candlestick)
     (is (= 1 @set-calls*))
@@ -94,11 +101,12 @@
         updated-last [{:time 1 :open 10 :high 11 :low 9 :close 10.5}
                       {:time 2 :open 10.5 :high 12.5 :low 10 :close 12.0}]
         appended (conj updated-last {:time 3 :open 12.0 :high 12.2 :low 11.6 :close 11.8})
-        series #js {:applyOptions (fn [_] nil)
-                    :setData (fn [data]
-                               (swap! calls* conj [:set (js->clj data :keywordize-keys true)]))
-                    :update (fn [point]
-                              (swap! calls* conj [:update (js->clj point :keywordize-keys true)]))}]
+        series (series-support/make-series
+                :apply-options (fn [_] nil)
+                :set-data (fn [data]
+                            (swap! calls* conj [:set (js->clj data :keywordize-keys true)]))
+                :update (fn [point]
+                          (swap! calls* conj [:update (js->clj point :keywordize-keys true)])))]
     (chart-interop/set-series-data! series candles :candlestick)
     (chart-interop/set-series-data! series updated-last :candlestick)
     (chart-interop/set-series-data! series appended :candlestick)
@@ -114,11 +122,12 @@
                  {:time 2 :open 10.5 :high 12 :low 10 :close 11.5}]
         mutated-prefix [{:time 1 :open 10 :high 13 :low 9 :close 12.5}
                         {:time 2 :open 10.5 :high 12 :low 10 :close 11.5}]
-        series #js {:applyOptions (fn [_] nil)
-                    :setData (fn [_]
-                               (swap! calls* conj :set))
-                    :update (fn [_]
-                              (swap! calls* conj :update))}]
+        series (series-support/make-series
+                :apply-options (fn [_] nil)
+                :set-data (fn [_]
+                            (swap! calls* conj :set))
+                :update (fn [_]
+                          (swap! calls* conj :update)))]
     (chart-interop/set-series-data! series candles :candlestick)
     (chart-interop/set-series-data! series mutated-prefix :candlestick)
     (is (= [:set :set] @calls*))))
@@ -130,10 +139,11 @@
         updated-last [{:time 1 :open 10 :high 11 :low 9 :close 10.5 :volume 100}
                       {:time 2 :open 10.5 :high 12 :low 10 :close 11.0 :volume 140}]
         appended (conj updated-last {:time 3 :open 11.0 :high 11.4 :low 10.9 :close 11.2 :volume 90})
-        volume-series #js {:setData (fn [data]
-                                      (swap! calls* conj [:set (js->clj data :keywordize-keys true)]))
-                           :update (fn [point]
-                                     (swap! calls* conj [:update (js->clj point :keywordize-keys true)]))}]
+        volume-series (series-support/make-series
+                       :set-data (fn [data]
+                                   (swap! calls* conj [:set (js->clj data :keywordize-keys true)]))
+                       :update (fn [point]
+                                 (swap! calls* conj [:update (js->clj point :keywordize-keys true)])))]
     (chart-interop/set-volume-data! volume-series candles)
     (chart-interop/set-volume-data! volume-series candles)
     (chart-interop/set-volume-data! volume-series updated-last)
@@ -147,8 +157,9 @@
 
 (deftest set-volume-data-applies-transformed-volume-points-test
   (let [applied-data (atom nil)
-        volume-series #js {:setData (fn [data]
-                                      (reset! applied-data (js->clj data :keywordize-keys true)))}
+        volume-series (series-support/make-series
+                       :set-data (fn [data]
+                                   (reset! applied-data (js->clj data :keywordize-keys true))))
         candles [{:time 1 :open 10 :high 12 :low 9 :close 11 :volume 50}
                  {:time 2 :open 11 :high 12 :low 8 :close 9 :volume 35}]]
     (chart-interop/set-volume-data! volume-series candles)
@@ -158,11 +169,12 @@
 
 (deftest series-module-add-functions-call-chart-add-series-test
   (let [calls (atom [])
-        chart #js {:addSeries (fn [kind options & [pane-index]]
-                                (swap! calls conj {:kind kind
-                                                   :pane-index pane-index
-                                                   :options (js->clj options :keywordize-keys true)})
-                                #js {:kind kind :paneIndex pane-index})}]
+        chart (series-support/make-chart
+               :add-series (fn [kind options & [pane-index]]
+                             (swap! calls conj {:kind kind
+                                                :pane-index pane-index
+                                                :options (js->clj options :keywordize-keys true)})
+                             #js {:kind kind :paneIndex pane-index}))]
     (series/add-area-series! chart)
     (series/add-bar-series! chart)
     (series/add-high-low-series! chart)
@@ -198,9 +210,10 @@
   (let [candles [{:time 1 :open 10 :high 12 :low 9 :close 11}
                  {:time 2 :open 11 :high 13 :low 10 :close 12}]
         add-calls (atom [])
-        chart #js {:addSeries (fn [_kind options & _]
-                                (swap! add-calls conj (js->clj options :keywordize-keys true))
-                                #js {})}
+        chart (series-support/make-chart
+               :add-series (fn [_kind options & _]
+                             (swap! add-calls conj (js->clj options :keywordize-keys true))
+                             #js {}))
         columns (vec (series/transform-main-series-data candles :histogram))
         columns-direct (vec (series/transform-main-series-data candles :columns))
         fallback (vec (series/transform-main-series-data candles :unknown))
@@ -221,4 +234,3 @@
     (let [opts (first @add-calls)]
       (is (= false (:borderVisible opts)))
       (is (= "#26a69a" (:wickUpColor opts))))))
-

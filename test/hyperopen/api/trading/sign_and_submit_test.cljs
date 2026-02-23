@@ -1,6 +1,8 @@
 (ns hyperopen.api.trading.sign-and-submit-test
   (:require [cljs.test :refer-macros [async deftest is]]
             [hyperopen.api.trading :as trading]
+            [hyperopen.test-support.api-stubs :as api-stubs]
+            [hyperopen.test-support.async :as async-support]
             [hyperopen.api.trading.test-support :as support]
             [hyperopen.wallet.agent-session :as agent-session]
             [hyperopen.utils.hl-signing :as signing]))
@@ -28,13 +30,7 @@
             (fn [wallet-address storage-mode session]
               (swap! persist-calls conj [wallet-address storage-mode session])
               true))
-      (set! signing/sign-l1-action-with-private-key!
-            (fn [private-key action nonce & opts]
-              (swap! sign-calls conj [private-key action nonce opts])
-              (js/Promise.resolve
-               (clj->js {:r "0x01"
-                         :s "0x02"
-                         :v 27}))))
+      (set! signing/sign-l1-action-with-private-key! (api-stubs/signing-stub sign-calls))
       (-> (trading/submit-order! store
                                  support/owner-address
                                  {:type "order"
@@ -53,9 +49,7 @@
                      (is (false? (contains? payload :vaultAddress))))
                    (is (number? (get-in @store [:wallet :agent :nonce-cursor])))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))
+          (.catch (async-support/unexpected-error done))
           (.finally
            (fn []
              (set! agent-session/load-agent-session-by-mode original-load)
@@ -106,9 +100,7 @@
                    (is (= 2 (count @sign-nonces)))
                    (is (> (second @sign-nonces) (first @sign-nonces)))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))
+          (.catch (async-support/unexpected-error done))
           (.finally
            (fn []
              (set! agent-session/load-agent-session-by-mode original-load)
@@ -158,12 +150,7 @@
             (fn [wallet-address storage-mode session]
               (swap! persisted conj [wallet-address storage-mode session])
               true))
-      (set! signing/sign-l1-action-with-private-key!
-            (fn [_private-key _action _nonce & _]
-              (js/Promise.resolve
-               (clj->js {:r "0x01"
-                         :s "0x02"
-                         :v 27}))))
+      (set! signing/sign-l1-action-with-private-key! (api-stubs/signing-stub))
       (-> (trading/submit-order! store
                                  support/owner-address
                                  {:type "order"
@@ -177,9 +164,7 @@
                    (is (= "0x8fd379246834eac74b8419ffda202cf8051f7a03"
                           (get-in @store [:wallet :agent :agent-address])))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))
+          (.catch (async-support/unexpected-error done))
           (.finally
            (fn []
              (set! agent-session/load-agent-session-by-mode original-load)
@@ -214,12 +199,7 @@
             (fn [wallet-address storage-mode session]
               (swap! persisted conj [wallet-address storage-mode session])
               true))
-      (set! signing/sign-l1-action-with-private-key!
-            (fn [_private-key _action _nonce & _]
-              (js/Promise.resolve
-               (clj->js {:r "0x01"
-                         :s "0x02"
-                         :v 27}))))
+      (set! signing/sign-l1-action-with-private-key! (api-stubs/signing-stub))
       (-> (trading/submit-order! store
                                  support/owner-address
                                  {:type "order"
@@ -233,9 +213,7 @@
                    (is (= :ready (get-in @store [:wallet :agent :status])))
                    (is (number? (get-in @store [:wallet :agent :nonce-cursor])))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))
+          (.catch (async-support/unexpected-error done))
           (.finally
            (fn []
              (set! agent-session/load-agent-session-by-mode original-load)
@@ -267,13 +245,7 @@
             (fn [wallet-address storage-mode session]
               (swap! persisted conj [wallet-address storage-mode session])
               true))
-      (set! signing/sign-l1-action-with-private-key!
-            (fn [private-key action nonce & opts]
-              (swap! sign-calls conj [private-key action nonce opts])
-              (js/Promise.resolve
-               (clj->js {:r "0x01"
-                         :s "0x02"
-                         :v 27}))))
+      (set! signing/sign-l1-action-with-private-key! (api-stubs/signing-stub sign-calls))
       (-> (@#'hyperopen.api.trading/sign-and-post-agent-action!
            store
            support/owner-address
@@ -299,9 +271,7 @@
                      (is (= "0xabcdef1234" (:vaultAddress payload)))
                      (is (= 1700000019000 (:expiresAfter payload))))
                    (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))
+          (.catch (async-support/unexpected-error done))
           (.finally
            (fn []
              (set! agent-session/load-agent-session-by-mode original-load)
