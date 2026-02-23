@@ -130,18 +130,21 @@
         websocket-health (or (:websocket-health state)
                              (get-in state [:websocket :health]))
         wallet-address (get-in state [:wallet :address])
-        freshness-cues {:positions (ws-freshness/surface-cue websocket-health
+        show-surface-freshness-cues?
+        (boolean (get-in state [:websocket-ui :show-surface-freshness-cues?] false))
+        freshness-cues (when show-surface-freshness-cues?
+                        {:positions (ws-freshness/surface-cue websocket-health
                                                              {:topic "webData2"
                                                               :selector (when wallet-address
                                                                           {:user wallet-address})
                                                               :live-prefix "Updated"
                                                               :na-prefix "Last update"})
-                        :open-orders (ws-freshness/surface-cue websocket-health
+                         :open-orders (ws-freshness/surface-cue websocket-health
                                                                {:topic "openOrders"
                                                                 :selector (when wallet-address
                                                                             {:user wallet-address})
                                                                 :live-prefix "Updated"
-                                                                :na-prefix "Last update"})}]
+                                                                :na-prefix "Last update"})})]
     {:selected-tab selected-tab
      :loading? loading?
      :error error

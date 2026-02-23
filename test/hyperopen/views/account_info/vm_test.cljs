@@ -119,6 +119,7 @@
                :spot {:meta nil
                       :clearinghouse-state nil}
                :perp-dex-clearinghouse {}
+               :websocket-ui {:show-surface-freshness-cues? true}
                :wallet {:address "0xabc"}
                :websocket-health {:generated-at-ms 20000
                                   :streams {["openOrders" nil "0xabc" nil nil]
@@ -136,6 +137,25 @@
     (is (= :warning (get-in view-model [:freshness-cues :open-orders :tone])))
     (is (str/includes? (get-in view-model [:freshness-cues :open-orders :text]) "Stale 12s"))
     (is (str/includes? (get-in view-model [:freshness-cues :positions :text]) "Last update 3s ago"))))
+
+(deftest account-info-vm-hides-freshness-cues-when-toggle-disabled-test
+  (let [state {:account-info {:selected-tab :open-orders}
+               :webdata2 {}
+               :orders (base-orders)
+               :spot {:meta nil
+                      :clearinghouse-state nil}
+               :perp-dex-clearinghouse {}
+               :websocket-ui {:show-surface-freshness-cues? false}
+               :wallet {:address "0xabc"}
+               :websocket-health {:generated-at-ms 20000
+                                  :streams {["openOrders" nil "0xabc" nil nil]
+                                            {:topic "openOrders"
+                                             :status :delayed
+                                             :subscribed? true
+                                             :last-payload-at-ms 8000
+                                             :stale-threshold-ms 5000}}}}
+        view-model (vm/account-info-vm state)]
+    (is (nil? (:freshness-cues view-model)))))
 
 (deftest account-info-vm-builds-balance-pnl-from-asset-selector-spot-prices-when-webdata2-spot-ctxs-missing-test
   (let [state {:account-info {:selected-tab :balances}

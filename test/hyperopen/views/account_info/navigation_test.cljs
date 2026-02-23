@@ -112,6 +112,7 @@
 (deftest account-info-panel-derives-positions-freshness-cue-from-websocket-health-test
   (let [state (-> fixtures/sample-account-info-state
                   (assoc-in [:account-info :selected-tab] :positions)
+                  (assoc-in [:websocket-ui :show-surface-freshness-cues?] true)
                   (assoc :wallet {:address "0xabc"})
                   (assoc :websocket-health
                          {:generated-at-ms 5000
@@ -129,6 +130,7 @@
 (deftest account-info-panel-derives-open-orders-stale-cue-from-websocket-health-test
   (let [state (-> fixtures/sample-account-info-state
                   (assoc-in [:account-info :selected-tab] :open-orders)
+                  (assoc-in [:websocket-ui :show-surface-freshness-cues?] true)
                   (assoc :wallet {:address "0xabc"})
                   (assoc :websocket-health
                          {:generated-at-ms 20000
@@ -143,3 +145,34 @@
         cue-text (str/join " " (hiccup/collect-strings cue-node))]
     (is (some? cue-node))
     (is (str/includes? cue-text "Stale 12s"))))
+
+(deftest account-info-panel-hides-freshness-cues-when-toggle-disabled-test
+  (let [positions-state (-> fixtures/sample-account-info-state
+                            (assoc-in [:account-info :selected-tab] :positions)
+                            (assoc-in [:websocket-ui :show-surface-freshness-cues?] false)
+                            (assoc :wallet {:address "0xabc"})
+                            (assoc :websocket-health
+                                   {:generated-at-ms 5000
+                                    :streams {["webData2" nil "0xabc" nil nil]
+                                              {:topic "webData2"
+                                               :status :n-a
+                                               :subscribed? true
+                                               :last-payload-at-ms 3000}}}))
+        open-orders-state (-> fixtures/sample-account-info-state
+                              (assoc-in [:account-info :selected-tab] :open-orders)
+                              (assoc-in [:websocket-ui :show-surface-freshness-cues?] false)
+                              (assoc :wallet {:address "0xabc"})
+                              (assoc :websocket-health
+                                     {:generated-at-ms 20000
+                                      :streams {["openOrders" nil "0xabc" nil nil]
+                                                {:topic "openOrders"
+                                                 :status :delayed
+                                                 :subscribed? true
+                                                 :last-payload-at-ms 8000
+                                                 :stale-threshold-ms 5000}}}))
+        positions-panel (view/account-info-panel positions-state)
+        open-orders-panel (view/account-info-panel open-orders-state)
+        positions-cue (hiccup/find-first-node positions-panel #(= "account-tab-freshness-cue" (get-in % [1 :data-role])))
+        open-orders-cue (hiccup/find-first-node open-orders-panel #(= "account-tab-freshness-cue" (get-in % [1 :data-role])))]
+    (is (nil? positions-cue))
+    (is (nil? open-orders-cue))))
