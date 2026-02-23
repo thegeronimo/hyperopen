@@ -1,5 +1,6 @@
 (ns hyperopen.views.trading-chart.utils.chart-interop.price-format
-  (:require [hyperopen.utils.formatting :as fmt]))
+  (:require [hyperopen.utils.formatting :as fmt]
+            [hyperopen.views.trading-chart.utils.chart-interop.numeric :as numeric]))
 
 (defn- normalize-decimals
   [value]
@@ -27,11 +28,7 @@
    (let [metadata-decimals (normalize-decimals price-decimals)
          prices (when (nil? metadata-decimals)
                   (->> (extract-prices transformed-data)
-                       (map (fn [v]
-                              (if (number? v) v (js/parseFloat v))))
-                       (filter (fn [v]
-                                 (and (number? v) (not (js/isNaN v)))))
-                       vec))
+                       (numeric/coerce-number-values)))
          positive-prices (when (seq prices) (filter pos? prices))
          reference-price (when (seq prices)
                            (or (when (seq positive-prices)

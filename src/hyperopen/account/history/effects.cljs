@@ -3,22 +3,11 @@
             [hyperopen.api.default :as api]
             [hyperopen.account.history.actions :as account-history-actions]
             [hyperopen.domain.funding-history :as funding-history]
-            [hyperopen.platform :as platform]))
+            [hyperopen.platform :as platform]
+            [hyperopen.utils.formatting :as fmt]))
 
 (defn- format-funding-history-time [time-ms]
-  (let [d (js/Date. time-ms)
-        pad2 (fn [v] (.padStart (str v) 2 "0"))]
-    (str (inc (.getMonth d))
-         "/"
-         (.getDate d)
-         "/"
-         (.getFullYear d)
-         " - "
-         (pad2 (.getHours d))
-         ":"
-         (pad2 (.getMinutes d))
-         ":"
-         (pad2 (.getSeconds d)))))
+  (fmt/format-local-date-time (or time-ms 0)))
 
 (defn- funding-position-side-label
   [position-side]

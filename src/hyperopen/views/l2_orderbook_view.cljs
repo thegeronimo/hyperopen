@@ -115,9 +115,7 @@
 
 (defn format-trade-time [value]
   (when-let [time-ms (trade-time->ms value)]
-    (let [d (js/Date. time-ms)
-          pad2 (fn [v] (.padStart (str v) 2 "0"))]
-      (str (pad2 (.getHours d)) ":" (pad2 (.getMinutes d)) ":" (pad2 (.getSeconds d))))))
+    (fmt/format-local-time-hh-mm-ss time-ms)))
 
 (defn trade-side->price-class [side]
   (case (some-> side str str/upper-case)

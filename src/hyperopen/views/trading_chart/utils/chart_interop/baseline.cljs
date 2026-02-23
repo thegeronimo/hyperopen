@@ -1,5 +1,6 @@
 (ns hyperopen.views.trading-chart.utils.chart-interop.baseline
-  (:require [hyperopen.views.trading-chart.utils.chart-interop.transforms :as transforms]))
+  (:require [hyperopen.views.trading-chart.utils.chart-interop.numeric :as numeric]
+            [hyperopen.views.trading-chart.utils.chart-interop.transforms :as transforms]))
 
 (def ^:private baseline-default-level-percent 0.5)
 (defonce ^:private baseline-sidecar (js/WeakMap.))
@@ -9,11 +10,7 @@
   [transformed-data]
   (let [values (->> transformed-data
                     (map :value)
-                    (map (fn [v]
-                           (if (number? v) v (js/parseFloat v))))
-                    (filter (fn [v]
-                              (and (number? v) (not (js/isNaN v)))))
-                    vec)]
+                    (numeric/coerce-number-values))]
     (when (seq values)
       (let [low (apply min values)
             high (apply max values)]

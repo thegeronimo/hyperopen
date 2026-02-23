@@ -224,33 +224,34 @@
          (get-in payload [:data :walletAddress])
          (get-in payload [:data :wallet])]))
 
+(defn- coin->descriptor [coin]
+  {:coin coin})
+
+(defn- user->descriptor [user]
+  {:user user})
+
+(defn- single-coin-descriptor-candidates [payload]
+  (if-let [coin (extract-single-coin payload)]
+    [(coin->descriptor coin)]
+    []))
+
+(defn- trades-descriptor-candidates [payload]
+  (->> (extract-trades-coins payload)
+       (mapv coin->descriptor)))
+
+(defn- user-descriptor-candidates [payload]
+  (->> (extract-user-candidates payload)
+       (mapv user->descriptor)))
+
 (def ^:private topic->matcher
-  {"l2Book" (fn [payload]
-               (if-let [coin (extract-single-coin payload)]
-                 [{:coin coin}]
-                 []))
-   "trades" (fn [payload]
-               (->> (extract-trades-coins payload)
-                    (mapv (fn [coin] {:coin coin}))))
-   "activeAssetCtx" (fn [payload]
-                       (if-let [coin (extract-single-coin payload)]
-                         [{:coin coin}]
-                         []))
-   "webData2" (fn [payload]
-                 (->> (extract-user-candidates payload)
-                      (mapv (fn [user] {:user user}))))
-   "openOrders" (fn [payload]
-                   (->> (extract-user-candidates payload)
-                        (mapv (fn [user] {:user user}))))
-   "userFills" (fn [payload]
-                  (->> (extract-user-candidates payload)
-                       (mapv (fn [user] {:user user}))))
-   "userFundings" (fn [payload]
-                     (->> (extract-user-candidates payload)
-                          (mapv (fn [user] {:user user}))))
-   "userNonFundingLedgerUpdates" (fn [payload]
-                                    (->> (extract-user-candidates payload)
-                                         (mapv (fn [user] {:user user}))))})
+  {"l2Book" single-coin-descriptor-candidates
+   "trades" trades-descriptor-candidates
+   "activeAssetCtx" single-coin-descriptor-candidates
+   "webData2" user-descriptor-candidates
+   "openOrders" user-descriptor-candidates
+   "userFills" user-descriptor-candidates
+   "userFundings" user-descriptor-candidates
+   "userNonFundingLedgerUpdates" user-descriptor-candidates})
 
 (defn descriptor-candidates
   [{:keys [topic payload]}]

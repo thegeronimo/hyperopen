@@ -92,6 +92,16 @@
   (swap! store update-in [:wallet] merge {:error (.-message e)
                                           :connecting? false}))
 
+(defn- apply-accounts-connection!
+  ([store accounts]
+   (apply-accounts-connection! store accounts nil))
+  ([store accounts notify-connected?]
+   (if (seq accounts)
+     (if (some? notify-connected?)
+       (set-connected! store (first accounts) :notify-connected? notify-connected?)
+       (set-connected! store (first accounts)))
+     (set-disconnected! store))))
+
 (defn ->js [m] (clj->js m))
 
 (defn check-connection! [store]
@@ -99,9 +109,7 @@
     (set-disconnected! store)
     (-> (.request (provider) (->js {:method "eth_accounts"}))
         (.then (fn [accounts]
-                 (if (seq accounts)
-                   (set-connected! store (first accounts))
-                   (set-disconnected! store))))
+                 (apply-accounts-connection! store accounts)))
         (.catch #(set-error! store %)))))
 
 ;; Only call this from a user gesture (button click)
@@ -114,9 +122,7 @@
       ;; Request accounts
       (-> (.request (provider) (->js {:method "eth_requestAccounts"}))
           (.then (fn [accounts]
-                   (if (seq accounts)
-                     (set-connected! store (first accounts) :notify-connected? true)
-                     (set-disconnected! store))))
+                   (apply-accounts-connection! store accounts true)))
           (.catch #(set-error! store %))))))
 
 ;; ---------- Event listeners (accounts/chain) --------------------------------
@@ -128,9 +134,7 @@
     (reset! listeners-installed? true)
     (.on (provider) "accountsChanged"
          (fn [accounts]
-           (if (seq accounts)
-             (set-connected! store (first accounts))
-             (set-disconnected! store))))
+           (apply-accounts-connection! store accounts)))
     (.on (provider) "chainChanged"
          (fn [chain-id]
            ;; chainId comes as hex string per EIP-1193, e.g. "0x1"

@@ -133,9 +133,13 @@
 (defn- build-transport []
   (infra/make-function-transport create-websocket))
 
+(defn- configured-topic->tier
+  [topic]
+  (policy/topic->tier (:channel-tier-policy @connection-config) topic))
+
 (defn- make-router []
   (app-runtime/make-handler-router
-    {:topic->tier #(policy/topic->tier (:channel-tier-policy @connection-config) %)
+    {:topic->tier configured-topic->tier
      :config @connection-config}))
 
 (defn- ensure-runtime-dependencies! []
@@ -167,9 +171,7 @@
                            :socket-id socket-id
                            :source :hyperliquid/ws
                            :now-ms #(infra/now-ms* (current-clock))
-                           :topic->tier #(policy/topic->tier
-                                           (:channel-tier-policy @connection-config)
-                                           %)}))
+                           :topic->tier configured-topic->tier}))
 
 (defn calculate-retry-delay-ms
   ([attempt hidden?]
@@ -196,7 +198,7 @@
                     {:config @connection-config
                      :parse-raw-envelope parse-raw-envelope
                      :hydrate-envelope acl/hydrate-envelope
-                     :topic->tier #(policy/topic->tier (:channel-tier-policy @connection-config) %)
+                     :topic->tier configured-topic->tier
                      :router (current-router)
                      :connection-state connection-state
                      :stream-runtime stream-runtime

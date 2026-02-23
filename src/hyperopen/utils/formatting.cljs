@@ -21,6 +21,9 @@
 (def ^:private min-trade-price-decimals 2)
 (def ^:private max-trade-price-decimals 8)
 
+(defn pad2 [value]
+  (.padStart (str value) 2 "0"))
+
 (defn- parse-number [value]
   (cond
     (number? value) (when-not (js/isNaN value) value)
@@ -126,8 +129,7 @@
 
 (defn format-local-date-time [time-ms]
   (when time-ms
-    (let [d (js/Date. time-ms)
-          pad2 (fn [v] (.padStart (str v) 2 "0"))]
+    (let [d (js/Date. time-ms)]
       (str (inc (.getMonth d))
            "/"
            (.getDate d)
@@ -139,6 +141,28 @@
            (pad2 (.getMinutes d))
            ":"
            (pad2 (.getSeconds d))))))
+
+(defn format-local-time-hh-mm-ss [time-ms]
+  (when time-ms
+    (let [d (js/Date. time-ms)]
+      (str (pad2 (.getHours d))
+           ":"
+           (pad2 (.getMinutes d))
+           ":"
+           (pad2 (.getSeconds d))))))
+
+(defn format-local-datetime-input-value [time-ms]
+  (when time-ms
+    (let [d (js/Date. time-ms)]
+      (str (.getFullYear d)
+           "-"
+           (pad2 (inc (.getMonth d)))
+           "-"
+           (pad2 (.getDate d))
+           "T"
+           (pad2 (.getHours d))
+           ":"
+           (pad2 (.getMinutes d))))))
 
 ;; Formatting functions
 (defn format-number [n decimals]

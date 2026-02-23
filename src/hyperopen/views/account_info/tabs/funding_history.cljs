@@ -1,5 +1,6 @@
 (ns hyperopen.views.account-info.tabs.funding-history
-  (:require [hyperopen.views.account-info.history-pagination :as history-pagination]
+  (:require [hyperopen.utils.formatting :as fmt]
+            [hyperopen.views.account-info.history-pagination :as history-pagination]
             [hyperopen.views.account-info.shared :as shared]
             [hyperopen.views.account-info.sort-kernel :as sort-kernel]
             [hyperopen.views.account-info.table :as table]))
@@ -17,18 +18,7 @@
    [:div.text-sm.opacity-70.mt-2 "No data available"]])
 
 (defn- datetime-local-value [time-ms]
-  (when time-ms
-    (let [d (js/Date. time-ms)
-          pad2 (fn [v] (.padStart (str v) 2 "0"))]
-      (str (.getFullYear d)
-           "-"
-           (pad2 (inc (.getMonth d)))
-           "-"
-           (pad2 (.getDate d))
-           "T"
-           (pad2 (.getHours d))
-           ":"
-           (pad2 (.getMinutes d))))))
+  (fmt/format-local-datetime-input-value time-ms))
 
 (defn- funding-filter-coin-label [coin]
   (let [coin* (shared/non-blank-text coin)
