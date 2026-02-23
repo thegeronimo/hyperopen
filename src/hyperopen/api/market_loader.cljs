@@ -1,23 +1,5 @@
-(ns hyperopen.api.market-loader)
-
-(defn- perp-dex-names
-  [payload]
-  (cond
-    (map? payload)
-    (vec (or (:dex-names payload)
-             (:perp-dexs payload)
-             []))
-
-    (sequential? payload)
-    (vec (keep (fn [entry]
-                 (cond
-                   (string? entry) entry
-                   (map? entry) (:name entry)
-                   :else nil))
-               payload))
-
-    :else
-    []))
+(ns hyperopen.api.market-loader
+  (:require [hyperopen.api.market-metadata.perp-dexs :as perp-dexs]))
 
 (defn request-asset-selector-markets!
   [{:keys [opts
@@ -38,7 +20,7 @@
     (.then
      base-promises
      (fn [[perp-dexs-payload spot-meta-loaded webdata2]]
-       (let [dexs* (->> (perp-dex-names perp-dexs-payload)
+       (let [dexs* (->> (perp-dexs/payload->dex-names perp-dexs-payload)
                         (remove nil?)
                         vec)
              dexs-with-default (if (= phase :bootstrap)

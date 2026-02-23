@@ -1,6 +1,7 @@
 (ns hyperopen.api.projections
   (:require [clojure.string :as str]
-            [hyperopen.api.errors :as api-errors]))
+            [hyperopen.api.errors :as api-errors]
+            [hyperopen.api.market-metadata.perp-dexs :as perp-dexs]))
 
 (defn- normalized-error
   [err]
@@ -37,56 +38,9 @@
         (assoc-in [:asset-contexts :error] message)
         (assoc-in [:asset-contexts :error-category] category))))
 
-(defn- parse-number
-  [value]
-  (cond
-    (number? value) value
-    (string? value) (let [parsed (js/parseFloat value)]
-                      (when (not (js/isNaN parsed))
-                        parsed))
-    :else nil))
-
-(defn- normalize-perp-dexs-payload
-  [payload]
-  (cond
-    (map? payload)
-    {:dex-names (vec (or (:dex-names payload)
-                         (:perp-dexs payload)
-                         []))
-     :fee-config-by-name (or (:fee-config-by-name payload)
-                             (:perp-dex-fee-config-by-name payload)
-                             {})}
-
-    (sequential? payload)
-    (reduce (fn [acc entry]
-              (cond
-                (string? entry)
-                (update acc :dex-names conj entry)
-
-                (map? entry)
-                (let [name (:name entry)
-                      scale (parse-number (or (:deployerFeeScale entry)
-                                              (:deployer-fee-scale entry)))]
-                  (if (seq name)
-                    (cond-> (update acc :dex-names conj name)
-                      (number? scale)
-                      (assoc-in [:fee-config-by-name name]
-                                {:deployer-fee-scale scale}))
-                    acc))
-
-                :else
-                acc))
-            {:dex-names []
-             :fee-config-by-name {}}
-            payload)
-
-    :else
-    {:dex-names []
-     :fee-config-by-name {}}))
-
 (defn apply-perp-dexs-success
   [state payload]
-  (let [{:keys [dex-names fee-config-by-name]} (normalize-perp-dexs-payload payload)]
+  (let [{:keys [dex-names fee-config-by-name]} (perp-dexs/normalize-perp-dex-payload payload)]
     (-> state
         (assoc-in [:perp-dexs] dex-names)
         (assoc-in [:perp-dex-fee-config-by-name] fee-config-by-name))))

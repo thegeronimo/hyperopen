@@ -1,5 +1,6 @@
 (ns hyperopen.order.effects
   (:require [hyperopen.api.default :as api]
+            [hyperopen.api.market-metadata.perp-dexs :as perp-dexs]
             [hyperopen.api.projections :as api-projections]
             [hyperopen.telemetry :as telemetry]
             [hyperopen.api.trading :as trading-api]))
@@ -98,25 +99,6 @@
                 (swap! store api-projections/apply-open-orders-error err)
                 (js/Promise.reject err)))))
 
-(defn- perp-dex-names
-  [payload]
-  (cond
-    (map? payload)
-    (vec (or (:dex-names payload)
-             (:perp-dexs payload)
-             []))
-
-    (sequential? payload)
-    (vec (keep (fn [entry]
-                 (cond
-                   (string? entry) entry
-                   (map? entry) (:name entry)
-                   :else nil))
-               payload))
-
-    :else
-    []))
-
 (defn- refresh-open-orders-after-order-mutation!
   [store address]
   (when address
@@ -126,7 +108,7 @@
                  (swap! store api-projections/apply-perp-dexs-success dexs)
                  dexs))
         (.then (fn [dexs]
-                 (doseq [dex (perp-dex-names dexs)]
+                 (doseq [dex (perp-dexs/payload->dex-names dexs)]
                    (refresh-open-orders-snapshot! store address dex {:priority :low}))))
         (.catch (fn [err]
                   (swap! store api-projections/apply-perp-dexs-error err)

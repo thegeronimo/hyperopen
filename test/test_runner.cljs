@@ -3,6 +3,7 @@
             [hyperopen.config-test]
             [hyperopen.api-test]
             [hyperopen.api.projections-test]
+            [hyperopen.api.market-metadata.perp-dexs-test]
             [hyperopen.api.gateway.orders.commands-test]
             [hyperopen.api.endpoints.account-test]
             [hyperopen.account.history.actions-test]
@@ -162,6 +163,7 @@
   []
   (run-tests 'hyperopen.api-test
              'hyperopen.api.projections-test
+             'hyperopen.api.market-metadata.perp-dexs-test
              'hyperopen.api.gateway.orders.commands-test
              'hyperopen.api.endpoints.account-test
              'hyperopen.account.history.actions-test

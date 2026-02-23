@@ -1,33 +1,8 @@
 (ns hyperopen.api.endpoints.market
   (:require [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.api.market-metadata.perp-dexs :as perp-dexs]
             [hyperopen.utils.data-normalization :refer [normalize-asset-contexts]]
             [hyperopen.utils.interval :refer [interval-to-milliseconds]]))
-
-(defn- parse-number
-  [value]
-  (cond
-    (number? value) value
-    (string? value) (let [parsed (js/parseFloat value)]
-                      (when (not (js/isNaN parsed))
-                        parsed))
-    :else nil))
-
-(defn- dex-payload-from-response
-  [data]
-  (reduce (fn [acc entry]
-            (let [name (when (and (map? entry)
-                                  (seq (:name entry)))
-                         (:name entry))
-                  deployer-fee-scale (parse-number (:deployerFeeScale entry))]
-              (if (seq name)
-                (cond-> (update acc :dex-names conj name)
-                  (number? deployer-fee-scale)
-                  (assoc-in [:fee-config-by-name name]
-                            {:deployer-fee-scale deployer-fee-scale}))
-                acc)))
-          {:dex-names []
-           :fee-config-by-name {}}
-          (or data [])))
 
 (defn request-asset-contexts!
   [post-info! opts]
@@ -52,7 +27,7 @@
   [post-info! opts]
   (-> (post-info! {"type" "perpDexs"}
                   (merge {:priority :high} opts))
-      (.then dex-payload-from-response)))
+      (.then perp-dexs/normalize-perp-dex-payload)))
 
 (defn request-candle-snapshot!
   [post-info! now-ms-fn coin {:keys [interval bars priority]

@@ -1,24 +1,6 @@
 (ns hyperopen.api.fetch-compat
-  (:require [clojure.string :as str]))
-
-(defn- perp-dex-names
-  [payload]
-  (cond
-    (map? payload)
-    (vec (or (:dex-names payload)
-             (:perp-dexs payload)
-             []))
-
-    (sequential? payload)
-    (vec (keep (fn [entry]
-                 (cond
-                   (string? entry) entry
-                   (map? entry) (:name entry)
-                   :else nil))
-               payload))
-
-    :else
-    []))
+  (:require [clojure.string :as str]
+            [hyperopen.api.market-metadata.perp-dexs :as perp-dexs]))
 
 (defn fetch-asset-contexts!
   [{:keys [log-fn
@@ -49,7 +31,7 @@
   (-> (request-perp-dexs! opts)
       (.then (fn [payload]
                (swap! store apply-perp-dexs-success payload)
-               (perp-dex-names payload)))
+               (perp-dexs/payload->dex-names payload)))
       (.catch (fn [err]
                 (log-fn "Error fetching perp DEX list:" err)
                 (swap! store apply-perp-dexs-error err)
@@ -154,7 +136,7 @@
   (-> (ensure-perp-dexs-data! store opts)
       (.then (fn [payload]
                (swap! store apply-perp-dexs-success payload)
-               (perp-dex-names payload)))
+               (perp-dexs/payload->dex-names payload)))
       (.catch (fn [err]
                 (swap! store apply-perp-dexs-error err)
                 (js/Promise.reject err)))))
