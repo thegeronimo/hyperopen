@@ -1,5 +1,5 @@
 (ns hyperopen.api.market-loader
-  (:require [hyperopen.api.market-metadata.perp-dexs :as perp-dexs]))
+  (:require [hyperopen.api.market-metadata.facade :as market-metadata]))
 
 (defn request-asset-selector-markets!
   [{:keys [opts
@@ -13,17 +13,16 @@
   (let [phase (if (= :bootstrap (:phase opts)) :bootstrap :full)
         priority (if (= phase :bootstrap) :high :low)
         base-promises (js/Promise.all
-                       (clj->js [(ensure-perp-dexs-data! {:priority priority})
+                       (clj->js [(market-metadata/ensure-perp-dex-names!
+                                  {:ensure-perp-dexs-data! ensure-perp-dexs-data!}
+                                  {:priority priority})
                                  (ensure-spot-meta-data! {:priority priority})
                                  (ensure-public-webdata2! {:priority priority})]))]
     (log-fn "Fetching asset selector markets. phase:" (name phase))
     (.then
      base-promises
-     (fn [[perp-dexs-payload spot-meta-loaded webdata2]]
-       (let [dexs* (->> (perp-dexs/payload->dex-names perp-dexs-payload)
-                        (remove nil?)
-                        vec)
-             dexs-with-default (if (= phase :bootstrap)
+     (fn [[dexs* spot-meta-loaded webdata2]]
+       (let [dexs-with-default (if (= phase :bootstrap)
                                  [nil]
                                  (vec (cons nil dexs*)))
              perp-promises (->> dexs-with-default

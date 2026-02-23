@@ -1,6 +1,6 @@
 (ns hyperopen.order.effects
   (:require [hyperopen.api.default :as api]
-            [hyperopen.api.market-metadata.perp-dexs :as perp-dexs]
+            [hyperopen.api.market-metadata.facade :as market-metadata]
             [hyperopen.api.projections :as api-projections]
             [hyperopen.telemetry :as telemetry]
             [hyperopen.api.trading :as trading-api]))
@@ -103,15 +103,16 @@
   [store address]
   (when address
     (refresh-open-orders-snapshot! store address nil {:priority :high})
-    (-> (api/ensure-perp-dexs-data! store {:priority :low})
-        (.then (fn [dexs]
-                 (swap! store api-projections/apply-perp-dexs-success dexs)
-                 dexs))
-        (.then (fn [dexs]
-                 (doseq [dex (perp-dexs/payload->dex-names dexs)]
+    (-> (market-metadata/ensure-and-apply-perp-dex-metadata!
+         {:store store
+          :ensure-perp-dexs-data! api/ensure-perp-dexs-data!
+          :apply-perp-dexs-success api-projections/apply-perp-dexs-success
+          :apply-perp-dexs-error api-projections/apply-perp-dexs-error}
+         {:priority :low})
+        (.then (fn [dex-names]
+                 (doseq [dex dex-names]
                    (refresh-open-orders-snapshot! store address dex {:priority :low}))))
         (.catch (fn [err]
-                  (swap! store api-projections/apply-perp-dexs-error err)
                   (telemetry/log! "Error refreshing per-dex open orders after cancel:" err))))))
 
 (defn- submit-order-error-message

@@ -16,11 +16,12 @@ After this work, a developer should be able to change fee display behavior by ed
 - [x] (2026-02-23 16:41Z) Implemented canonical perp DEX normalization in `/hyperopen/src/hyperopen/api/market_metadata/perp_dexs.cljs` and removed duplicate parsing helpers from service/projections/fetch-compat/market-loader/order-effects/endpoints.
 - [x] (2026-02-23 16:50Z) Introduced `/hyperopen/src/hyperopen/state/trading/fee_context.cljs`, delegated fee input extraction from `/hyperopen/src/hyperopen/state/trading.cljs`, and passed explicit fee-context into `/hyperopen/src/hyperopen/domain/trading/market.cljs` order-summary fee quote computation.
 - [x] (2026-02-23 17:03Z) Added `/hyperopen/src/hyperopen/schema/api_market_contracts.cljs`, enforced canonical perp DEX metadata assertions in `/hyperopen/src/hyperopen/api/gateway/market.cljs` request/fetch/ensure paths, and added coverage in `/hyperopen/test/hyperopen/schema/api_market_contracts_test.cljs` plus `/hyperopen/test/hyperopen/api/gateway/market_test.cljs`.
-- [ ] Collapse compatibility parsing/wiring behind one market-metadata facade.
+- [x] (2026-02-23 17:17Z) Added `/hyperopen/src/hyperopen/api/market_metadata/facade.cljs` as the compatibility seam for perp DEX metadata and refactored `/hyperopen/src/hyperopen/api/fetch_compat.cljs`, `/hyperopen/src/hyperopen/api/market_loader.cljs`, and `/hyperopen/src/hyperopen/order/effects.cljs` to delegate ensure/fetch/project/name extraction through the facade.
 - [ ] Remove manual test registration friction from `/hyperopen/test/test_runner.cljs`.
 - [ ] Add a feature module boundary for order-summary display models.
 - [x] (2026-02-23 16:51Z) Ran validation gates `npm run check`, `npm test`, and `npm run test:websocket`; all commands passed with zero failures.
 - [x] (2026-02-23 17:03Z) Re-ran validation gates `npm run check`, `npm test`, and `npm run test:websocket` after Milestone 3 changes; all commands passed with zero failures.
+- [x] (2026-02-23 17:17Z) Re-ran validation gates `npm run check`, `npm test`, and `npm run test:websocket` after Milestone 4 facade wiring; all commands passed with zero failures.
 - [x] (2026-02-23 16:41Z) Ran `npm test` after Milestone 1 refactor; suite passed with zero failures.
 - [x] (2026-02-23 16:50Z) Ran `npm test` after Milestone 2 fee-context selector refactor; suite passed with zero failures.
 
@@ -36,6 +37,8 @@ After this work, a developer should be able to change fee display behavior by ed
   Evidence: `/hyperopen/src/hyperopen/views/trade/order_form_presenter.cljs` and `/hyperopen/src/hyperopen/views/trade/order_form_vm_selectors.cljs`.
 - Observation: Endpoint payload parsing was also a duplicate normalization branch and needed to be folded into the same canonical path to avoid drift.
   Evidence: `/hyperopen/src/hyperopen/api/endpoints/market.cljs` had a separate `dex-payload-from-response` implementation before this milestone.
+- Observation: Adding facade-focused tests still required manual registration in two places in the current runner, confirming Milestone 5 remains valuable after the Milestone 4 refactor.
+  Evidence: `/hyperopen/test/test_runner.cljs` needed both a new `:require` entry and a new `run-tests` symbol for `/hyperopen/test/hyperopen/api/market_metadata/facade_test.cljs`.
 
 ## Decision Log
 
@@ -54,12 +57,15 @@ After this work, a developer should be able to change fee display behavior by ed
 - Decision: Enforce perp DEX payload contracts at market gateway boundaries (`request-perp-dexs!`, `fetch-perp-dexs!`, and `ensure-perp-dexs!`).
   Rationale: Asserting canonical shape before compatibility/projection layers prevents malformed payloads from propagating and localizes boundary validation to one API seam.
   Date/Author: 2026-02-23 / Codex
+- Decision: Keep compatibility projection input shape unchanged while centralizing perp DEX name extraction and error/success wiring in the new facade.
+  Rationale: Existing compatibility delegates and projection functions continue receiving the same payload form while Milestone 4 still eliminates duplicated payload->dex-name parsing and wiring branches.
+  Date/Author: 2026-02-23 / Codex
 
 ## Outcomes & Retrospective
 
-Milestones 1 through 3 are complete. Perp DEX normalization now lives in one canonical module and duplicated payload-shape helpers were removed from the targeted API and order-effect call sites. The canonical module is now used by endpoint response parsing, service single-flight normalization, store projections, compat fetch helpers, market-loader dex extraction, and per-dex open-order refresh logic.
+Milestones 1 through 4 are complete. Perp DEX normalization now lives in one canonical module and duplicated payload-shape helpers were removed from the targeted API and order-effect call sites. Milestone 4 added `/hyperopen/src/hyperopen/api/market_metadata/facade.cljs` as the single compatibility seam for perp DEX metadata fetch/ensure projection and downstream dex-name extraction, and rewired `/hyperopen/src/hyperopen/api/fetch_compat.cljs`, `/hyperopen/src/hyperopen/api/market_loader.cljs`, and `/hyperopen/src/hyperopen/order/effects.cljs` to delegate through that facade.
 
-Fee inputs for order-summary are now extracted through dedicated selector `/hyperopen/src/hyperopen/state/trading/fee_context.cljs` and passed as an explicit fee-context object into `/hyperopen/src/hyperopen/domain/trading/market.cljs` order-summary computation. Market gateway perp DEX payload boundaries are now covered by explicit schema contracts in `/hyperopen/src/hyperopen/schema/api_market_contracts.cljs`, enforced in `/hyperopen/src/hyperopen/api/gateway/market.cljs`, and verified by new schema/gateway tests. Validation at this checkpoint passed for `npm run check`, `npm test`, and `npm run test:websocket` with zero failures. Remaining milestones in this plan are still pending.
+Fee inputs for order-summary are now extracted through dedicated selector `/hyperopen/src/hyperopen/state/trading/fee_context.cljs` and passed as an explicit fee-context object into `/hyperopen/src/hyperopen/domain/trading/market.cljs` order-summary computation. Market gateway perp DEX payload boundaries are now covered by explicit schema contracts in `/hyperopen/src/hyperopen/schema/api_market_contracts.cljs`, enforced in `/hyperopen/src/hyperopen/api/gateway/market.cljs`, and verified by schema/gateway tests. Milestone 4 also added coverage in `/hyperopen/test/hyperopen/api/market_metadata/facade_test.cljs`. Validation at this checkpoint passed for `npm run check`, `npm test`, and `npm run test:websocket` with zero failures. Remaining milestones in this plan are Milestone 5 (test runner generation) and Milestone 6 (order-summary display module boundary).
 
 ## Context and Orientation
 
@@ -139,21 +145,29 @@ From `/Users//projects/hyperopen`:
    Expected indicator: contract tests and gateway tests fail before contract wiring and pass after.
    Result: completed (2026-02-23 17:03Z); added `/hyperopen/src/hyperopen/schema/api_market_contracts.cljs`, enforced gateway assertions in `/hyperopen/src/hyperopen/api/gateway/market.cljs`, and added tests in `/hyperopen/test/hyperopen/schema/api_market_contracts_test.cljs` and `/hyperopen/test/hyperopen/api/gateway/market_test.cljs`.
 
-4. Implement Milestones 4 and 5 (market-metadata facade and generated test runner flow).
+4. Implement Milestone 4 (market-metadata facade).
 
    cd /Users//projects/hyperopen
    npm test
 
-   Expected indicator: compatibility paths still pass, and adding a new `_test.cljs` file only requires running generator, not hand-editing `test_runner.cljs`.
+   Expected indicator: compatibility paths still pass with perp DEX metadata wiring delegated to one facade.
+   Result: completed (2026-02-23 17:17Z); added `/hyperopen/src/hyperopen/api/market_metadata/facade.cljs`, rewired fetch/loader/order-effects call sites, and added `/hyperopen/test/hyperopen/api/market_metadata/facade_test.cljs`.
 
-5. Implement Milestone 6 summary display boundary extraction.
+5. Implement Milestone 5 generated test-runner flow.
+
+   cd /Users//projects/hyperopen
+   npm test
+
+   Expected indicator: adding a new `_test.cljs` file only requires running the generator, not hand-editing `test_runner.cljs`.
+
+6. Implement Milestone 6 summary display boundary extraction.
 
    cd /Users//projects/hyperopen
    npm test
 
    Expected indicator: order-form presenter/VM/view tests pass with no behavior regression.
 
-6. Run required validation gates.
+7. Run required validation gates.
 
    cd /Users//projects/hyperopen
    npm run check
@@ -194,6 +208,14 @@ Milestone 1 migration notes:
     src/hyperopen/api/market_loader.cljs     ; uses perp-dexs/payload->dex-names
     src/hyperopen/order/effects.cljs         ; uses perp-dexs/payload->dex-names
     src/hyperopen/api/endpoints/market.cljs  ; uses perp-dexs/normalize-perp-dex-payload
+
+Milestone 4 facade migration notes:
+
+    src/hyperopen/api/market_metadata/facade.cljs ; compatibility seam for perp DEX metadata ensure/fetch/apply/name extraction
+    src/hyperopen/api/fetch_compat.cljs           ; delegates perp DEX fetch/ensure wiring to facade
+    src/hyperopen/api/market_loader.cljs          ; resolves named dex list via facade ensure helper
+    src/hyperopen/order/effects.cljs              ; refresh path delegates ensure+projection+dex extraction to facade
+    test/hyperopen/api/market_metadata/facade_test.cljs ; direct facade behavior coverage
 
 Current friction snapshot for test registration:
 
@@ -249,3 +271,4 @@ Dependencies to preserve:
 
 Plan revision note: 2026-02-23 16:33Z - Initial plan created to execute six-item refactor reducing change amplification from fee crossout parity follow-up work.
 Plan revision note: 2026-02-23 16:41Z - Completed Milestone 1 by introducing canonical perp DEX normalization and migrating duplicate parser call sites; recorded passing `npm test` evidence.
+Plan revision note: 2026-02-23 17:17Z - Completed Milestone 4 by introducing `/hyperopen/src/hyperopen/api/market_metadata/facade.cljs`, rewiring compat/market-loader/order-effects call sites, adding facade tests, and recording passing validation gates.

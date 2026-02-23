@@ -1,6 +1,6 @@
 (ns hyperopen.api.fetch-compat
   (:require [clojure.string :as str]
-            [hyperopen.api.market-metadata.perp-dexs :as perp-dexs]))
+            [hyperopen.api.market-metadata.facade :as market-metadata]))
 
 (defn fetch-asset-contexts!
   [{:keys [log-fn
@@ -28,14 +28,13 @@
    store
    opts]
   (log-fn "Fetching perp DEX list...")
-  (-> (request-perp-dexs! opts)
-      (.then (fn [payload]
-               (swap! store apply-perp-dexs-success payload)
-               (perp-dexs/payload->dex-names payload)))
-      (.catch (fn [err]
-                (log-fn "Error fetching perp DEX list:" err)
-                (swap! store apply-perp-dexs-error err)
-                (js/Promise.reject err)))))
+  (market-metadata/fetch-and-apply-perp-dex-metadata!
+   {:store store
+    :log-fn log-fn
+    :request-perp-dexs! request-perp-dexs!
+    :apply-perp-dexs-success apply-perp-dexs-success
+    :apply-perp-dexs-error apply-perp-dexs-error}
+   opts))
 
 (defn fetch-candle-snapshot!
   [{:keys [log-fn
@@ -133,13 +132,12 @@
            apply-perp-dexs-error]}
    store
    opts]
-  (-> (ensure-perp-dexs-data! store opts)
-      (.then (fn [payload]
-               (swap! store apply-perp-dexs-success payload)
-               (perp-dexs/payload->dex-names payload)))
-      (.catch (fn [err]
-                (swap! store apply-perp-dexs-error err)
-                (js/Promise.reject err)))))
+  (market-metadata/ensure-and-apply-perp-dex-metadata!
+   {:store store
+    :ensure-perp-dexs-data! ensure-perp-dexs-data!
+    :apply-perp-dexs-success apply-perp-dexs-success
+    :apply-perp-dexs-error apply-perp-dexs-error}
+   opts))
 
 (defn ensure-spot-meta!
   [{:keys [ensure-spot-meta-data!
