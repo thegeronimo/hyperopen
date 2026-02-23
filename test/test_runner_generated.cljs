@@ -132,8 +132,8 @@
             [hyperopen.views.trade.order-form-commands-test]
             [hyperopen.views.trade.order-form-component-primitives-test]
             [hyperopen.views.trade.order-form-component-sections-test]
-            [hyperopen.views.trade.order-form-presenter-test]
             [hyperopen.views.trade.order-form-runtime-gateway-test]
+            [hyperopen.views.trade.order-form-summary-display-test]
             [hyperopen.views.trade.order-form-view-test]
             [hyperopen.views.trade.order-form-view.entry-mode-test]
             [hyperopen.views.trade.order-form-view.metrics-and-submit-test]
@@ -331,8 +331,8 @@
              'hyperopen.views.trade.order-form-commands-test
              'hyperopen.views.trade.order-form-component-primitives-test
              'hyperopen.views.trade.order-form-component-sections-test
-             'hyperopen.views.trade.order-form-presenter-test
              'hyperopen.views.trade.order-form-runtime-gateway-test
+             'hyperopen.views.trade.order-form-summary-display-test
              'hyperopen.views.trade.order-form-view-test
              'hyperopen.views.trade.order-form-view.entry-mode-test
              'hyperopen.views.trade.order-form-view.metrics-and-submit-test

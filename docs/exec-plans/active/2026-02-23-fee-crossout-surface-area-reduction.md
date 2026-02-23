@@ -18,11 +18,12 @@ After this work, a developer should be able to change fee display behavior by ed
 - [x] (2026-02-23 17:03Z) Added `/hyperopen/src/hyperopen/schema/api_market_contracts.cljs`, enforced canonical perp DEX metadata assertions in `/hyperopen/src/hyperopen/api/gateway/market.cljs` request/fetch/ensure paths, and added coverage in `/hyperopen/test/hyperopen/schema/api_market_contracts_test.cljs` plus `/hyperopen/test/hyperopen/api/gateway/market_test.cljs`.
 - [x] (2026-02-23 17:17Z) Added `/hyperopen/src/hyperopen/api/market_metadata/facade.cljs` as the compatibility seam for perp DEX metadata and refactored `/hyperopen/src/hyperopen/api/fetch_compat.cljs`, `/hyperopen/src/hyperopen/api/market_loader.cljs`, and `/hyperopen/src/hyperopen/order/effects.cljs` to delegate ensure/fetch/project/name extraction through the facade.
 - [x] (2026-02-23 17:24Z) Implemented generated test-runner flow by adding `/hyperopen/tools/generate-test-runner.mjs`, generating `/hyperopen/test/test_runner_generated.cljs`, reducing `/hyperopen/test/test_runner.cljs` to a delegate wrapper, and wiring generator execution into `package.json` test/check/coverage scripts.
-- [ ] Add a feature module boundary for order-summary display models.
+- [x] (2026-02-23 17:33Z) Added `/hyperopen/src/hyperopen/views/trade/order_form_summary_display.cljs` as the order-summary display-model boundary, converted `/hyperopen/src/hyperopen/views/trade/order_form_presenter.cljs` into a compatibility facade, rewired `/hyperopen/src/hyperopen/views/trade/order_form_vm_selectors.cljs` to consume the new module directly, and moved formatting coverage to `/hyperopen/test/hyperopen/views/trade/order_form_summary_display_test.cljs`.
 - [x] (2026-02-23 16:51Z) Ran validation gates `npm run check`, `npm test`, and `npm run test:websocket`; all commands passed with zero failures.
 - [x] (2026-02-23 17:03Z) Re-ran validation gates `npm run check`, `npm test`, and `npm run test:websocket` after Milestone 3 changes; all commands passed with zero failures.
 - [x] (2026-02-23 17:17Z) Re-ran validation gates `npm run check`, `npm test`, and `npm run test:websocket` after Milestone 4 facade wiring; all commands passed with zero failures.
 - [x] (2026-02-23 17:26Z) Re-ran validation gates `npm run check`, `npm test`, and `npm run test:websocket` after Milestone 5 generated runner wiring; all commands passed with zero failures.
+- [x] (2026-02-23 17:33Z) Re-ran validation gates `npm run check`, `npm test`, and `npm run test:websocket` after Milestone 6 summary-display boundary extraction; all commands passed with zero failures.
 - [x] (2026-02-23 16:41Z) Ran `npm test` after Milestone 1 refactor; suite passed with zero failures.
 - [x] (2026-02-23 16:50Z) Ran `npm test` after Milestone 2 fee-context selector refactor; suite passed with zero failures.
 
@@ -42,6 +43,8 @@ After this work, a developer should be able to change fee display behavior by ed
   Evidence: `/hyperopen/test/test_runner.cljs` needed both a new `:require` entry and a new `run-tests` symbol for `/hyperopen/test/hyperopen/api/market_metadata/facade_test.cljs`.
 - Observation: The generated runner can include every `_test.cljs` namespace without manual curation and remain deterministic.
   Evidence: `/hyperopen/tools/generate-test-runner.mjs` now emits sorted namespace entries in `/hyperopen/test/test_runner_generated.cljs`, and repeated `npm run test:runner:generate` runs produce identical output.
+- Observation: `order_form_presenter` had a narrow call surface, making it safe to keep as a thin compatibility facade while moving display-model ownership into a dedicated feature module.
+  Evidence: Direct usage was limited to `/hyperopen/src/hyperopen/views/trade/order_form_vm_selectors.cljs` and presenter-specific tests before Milestone 6.
 
 ## Decision Log
 
@@ -66,14 +69,19 @@ After this work, a developer should be able to change fee display behavior by ed
 - Decision: Derive runner namespaces from filesystem paths (`test/hyperopen/**/*_test.cljs`) using underscore-to-hyphen normalization and lexical sort.
   Rationale: Path-derived namespace generation removes manual runner registration in both `:require` and `run-tests` lists while keeping output deterministic and reviewable.
   Date/Author: 2026-02-23 / Codex
+- Decision: Keep `order_form_presenter` as a compatibility facade that delegates to `order_form_summary_display`.
+  Rationale: This introduces the intended feature boundary without forcing import churn for any downstream namespace that still references presenter symbols.
+  Date/Author: 2026-02-23 / Codex
 
 ## Outcomes & Retrospective
 
-Milestones 1 through 5 are complete. Perp DEX normalization now lives in one canonical module and duplicated payload-shape helpers were removed from the targeted API and order-effect call sites. Milestone 4 added `/hyperopen/src/hyperopen/api/market_metadata/facade.cljs` as the single compatibility seam for perp DEX metadata fetch/ensure projection and downstream dex-name extraction, and rewired `/hyperopen/src/hyperopen/api/fetch_compat.cljs`, `/hyperopen/src/hyperopen/api/market_loader.cljs`, and `/hyperopen/src/hyperopen/order/effects.cljs` to delegate through that facade.
+Milestones 1 through 6 are complete. Perp DEX normalization now lives in one canonical module and duplicated payload-shape helpers were removed from the targeted API and order-effect call sites. Milestone 4 added `/hyperopen/src/hyperopen/api/market_metadata/facade.cljs` as the single compatibility seam for perp DEX metadata fetch/ensure projection and downstream dex-name extraction, and rewired `/hyperopen/src/hyperopen/api/fetch_compat.cljs`, `/hyperopen/src/hyperopen/api/market_loader.cljs`, and `/hyperopen/src/hyperopen/order/effects.cljs` to delegate through that facade.
 
 Fee inputs for order-summary are now extracted through dedicated selector `/hyperopen/src/hyperopen/state/trading/fee_context.cljs` and passed as an explicit fee-context object into `/hyperopen/src/hyperopen/domain/trading/market.cljs` order-summary computation. Market gateway perp DEX payload boundaries are now covered by explicit schema contracts in `/hyperopen/src/hyperopen/schema/api_market_contracts.cljs`, enforced in `/hyperopen/src/hyperopen/api/gateway/market.cljs`, and verified by schema/gateway tests. Milestone 4 also added coverage in `/hyperopen/test/hyperopen/api/market_metadata/facade_test.cljs`.
 
-Milestone 5 replaced manual test-runner namespace curation with generated wiring. `/hyperopen/tools/generate-test-runner.mjs` now scans `/hyperopen/test/hyperopen/**/*_test.cljs`, writes sorted require and `run-tests` entries to `/hyperopen/test/test_runner_generated.cljs`, and `/hyperopen/test/test_runner.cljs` now delegates to the generated runner function. Generation is wired into `npm` test/check/coverage scripts, and validation after this change passed for `npm run check`, `npm test`, and `npm run test:websocket` with zero failures. Remaining milestone in this plan is Milestone 6 (order-summary display module boundary).
+Milestone 5 replaced manual test-runner namespace curation with generated wiring. `/hyperopen/tools/generate-test-runner.mjs` now scans `/hyperopen/test/hyperopen/**/*_test.cljs`, writes sorted require and `run-tests` entries to `/hyperopen/test/test_runner_generated.cljs`, and `/hyperopen/test/test_runner.cljs` now delegates to the generated runner function. Generation is wired into `npm` test/check/coverage scripts.
+
+Milestone 6 extracted order-summary display-model formatting into `/hyperopen/src/hyperopen/views/trade/order_form_summary_display.cljs`, rewired `/hyperopen/src/hyperopen/views/trade/order_form_vm_selectors.cljs` to call this feature module directly, and retained `/hyperopen/src/hyperopen/views/trade/order_form_presenter.cljs` as a compatibility facade. Summary display formatting tests now live at `/hyperopen/test/hyperopen/views/trade/order_form_summary_display_test.cljs`. Final validation (`npm run check`, `npm test`, and `npm run test:websocket`) passed with zero failures.
 
 ## Context and Orientation
 
@@ -83,7 +91,7 @@ Perp DEX payloads originate at `/hyperopen/src/hyperopen/api/endpoints/market.cl
 
 Order summary now uses `/hyperopen/src/hyperopen/state/trading/fee_context.cljs` to extract fee-specific inputs (`:user-fees`, market growth mode, stable-pair flag, perp dex fee scale, and special quote adjustment), and `/hyperopen/src/hyperopen/domain/trading/market.cljs` consumes that explicit fee-context object during summary computation.
 
-Display formatting for order summary lives in `/hyperopen/src/hyperopen/views/trade/order_form_presenter.cljs`, with selector passthrough in `/hyperopen/src/hyperopen/views/trade/order_form_vm_selectors.cljs`, and contracts in `/hyperopen/src/hyperopen/schema/order_form_contracts.cljs`.
+Display formatting for order summary now lives in `/hyperopen/src/hyperopen/views/trade/order_form_summary_display.cljs`, with `/hyperopen/src/hyperopen/views/trade/order_form_presenter.cljs` retained as a compatibility facade and VM selector passthrough in `/hyperopen/src/hyperopen/views/trade/order_form_vm_selectors.cljs`. Contracts remain in `/hyperopen/src/hyperopen/schema/order_form_contracts.cljs`.
 
 Main test-runner wiring now delegates through `/hyperopen/test/test_runner_generated.cljs` so namespace registration is generated rather than hand-maintained in `/hyperopen/test/test_runner.cljs`.
 
@@ -176,6 +184,7 @@ From `/Users//projects/hyperopen`:
    npm test
 
    Expected indicator: order-form presenter/VM/view tests pass with no behavior regression.
+   Result: completed (2026-02-23 17:33Z); added `/hyperopen/src/hyperopen/views/trade/order_form_summary_display.cljs`, rewired VM selectors to call it directly, retained presenter as a compatibility delegate, and moved summary display tests to `/hyperopen/test/hyperopen/views/trade/order_form_summary_display_test.cljs`.
 
 7. Run required validation gates.
 
@@ -185,6 +194,7 @@ From `/Users//projects/hyperopen`:
    npm run test:websocket
 
    Expected indicator: all three commands exit successfully.
+   Result: completed (2026-02-23 17:33Z); `npm run check`, `npm test`, and `npm run test:websocket` all passed with zero failures.
 
 ## Validation and Acceptance
 

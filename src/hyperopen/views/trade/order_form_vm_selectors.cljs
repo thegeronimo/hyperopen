@@ -1,5 +1,5 @@
 (ns hyperopen.views.trade.order-form-vm-selectors
-  (:require [hyperopen.views.trade.order-form-presenter :as presenter]))
+  (:require [hyperopen.views.trade.order-form-summary-display :as summary-display]))
 
 (def leverage-presets [2 5 10 20 25 40 50])
 (def notch-overlap-threshold 4)
@@ -17,7 +17,7 @@
     (nth options* next-idx)))
 
 (defn summary-display [summary sz-decimals]
-  (presenter/summary-display summary sz-decimals))
+  (summary-display/summary-display summary sz-decimals))
 
 (defn display-size-percent [size-percent]
   (str (int (js/Math.round size-percent))))
