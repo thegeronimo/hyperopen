@@ -1,7 +1,8 @@
 (ns hyperopen.domain.trading.market
   (:require [clojure.string :as str]
             [hyperopen.domain.market.instrument :as instrument]
-            [hyperopen.domain.trading.core :as core]))
+            [hyperopen.domain.trading.core :as core]
+            [hyperopen.domain.trading.fees :as fees]))
 
 (defn- unified-account-mode? [context]
   (= :unified (get-in context [:account :mode])))
@@ -373,6 +374,19 @@
              :size-percent (core/clamp-percent (:size-percent form))
              :ui-leverage leverage))))
 
+(defn- fee-quote
+  [context]
+  (let [market (or (:market context) {})
+        user-fees (:user-fees context)
+        dex (:dex market)
+        deployer-fee-scale (get-in context [:perp-dex-fee-config-by-name dex :deployer-fee-scale])]
+    (or (fees/quote-fees user-fees {:market-type (:market-type market)
+                                    :stable-pair? (boolean (:stable-pair? market))
+                                    :deployer-fee-scale deployer-fee-scale
+                                    :growth-mode? (boolean (:growth-mode? market))
+                                    :extra-adjustment? (boolean (:special-quote-fee-adjustment? context))})
+        (fees/default-fee-quote))))
+
 (defn order-summary [context form]
   (let [size (core/parse-num (:size form))
         ref-price (reference-price context form)
@@ -401,7 +415,7 @@
      :liquidation-price liquidation-price
      :slippage-est slippage-est
      :slippage-max core/default-max-slippage-pct
-     :fees core/default-fees}))
+     :fees (fee-quote context)}))
 
 (defn best-price [context side]
   (if (= side :buy)

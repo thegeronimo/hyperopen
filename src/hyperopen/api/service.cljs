@@ -56,18 +56,68 @@
   (api-runtime/reset-runtime! (runtime service))
   nil)
 
+(defn- parse-number
+  [value]
+  (cond
+    (number? value) value
+    (string? value) (let [parsed (js/parseFloat value)]
+                      (when (not (js/isNaN parsed))
+                        parsed))
+    :else nil))
+
+(defn- normalize-perp-dexs-payload
+  [payload]
+  (cond
+    (map? payload)
+    {:dex-names (vec (or (:dex-names payload)
+                         (:perp-dexs payload)
+                         []))
+     :fee-config-by-name (or (:fee-config-by-name payload)
+                             (:perp-dex-fee-config-by-name payload)
+                             {})}
+
+    (sequential? payload)
+    (reduce (fn [acc entry]
+              (cond
+                (string? entry)
+                (update acc :dex-names conj entry)
+
+                (map? entry)
+                (let [name (:name entry)
+                      scale (parse-number (or (:deployerFeeScale entry)
+                                              (:deployer-fee-scale entry)))]
+                  (if (seq name)
+                    (cond-> (update acc :dex-names conj name)
+                      (number? scale)
+                      (assoc-in [:fee-config-by-name name]
+                                {:deployer-fee-scale scale}))
+                    acc))
+
+                :else
+                acc))
+            {:dex-names []
+             :fee-config-by-name {}}
+            payload)
+
+    :else
+    {:dex-names []
+     :fee-config-by-name {}}))
+
 (defn ensure-perp-dexs-data!
   [service store request-perp-dexs! opts]
   (let [runtime* (runtime service)
         existing (get-in @store [:perp-dexs])]
     (if (seq existing)
-      (js/Promise.resolve existing)
+      (js/Promise.resolve {:dex-names (vec existing)
+                           :fee-config-by-name (or (get-in @store [:perp-dex-fee-config-by-name])
+                                                   {})})
       (if-let [inflight (api-runtime/ensure-perp-dexs-flight runtime*)]
         inflight
         (let [tracked-ref (atom nil)
               tracked (-> (request-perp-dexs!
                            (merge {:dedupe-key :perp-dexs}
                                   opts))
+                          (.then normalize-perp-dexs-payload)
                           (.finally
                            (fn []
                              (api-runtime/clear-ensure-perp-dexs-flight-if-tracked!

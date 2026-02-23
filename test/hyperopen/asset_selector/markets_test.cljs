@@ -5,7 +5,11 @@
 (deftest build-perp-markets-test
   (testing "build-perp-markets builds symbols and dex correctly"
     (let [meta {:universe [{:name "BTC" :maxLeverage 40 :szDecimals 5}
-                           {:name "hyna:ETH" :maxLeverage 25 :szDecimals 4 :isDelisted false}]
+                           {:name "hyna:ETH"
+                            :maxLeverage 25
+                            :szDecimals 4
+                            :isDelisted false
+                            :growthMode "enabled"}]
                 :collateralToken 0}
           asset-ctxs [{:markPx "100" :prevDayPx "90" :dayNtlVlm "1000" :openInterest "2" :funding "0.0001"}
                       {:markPx "200" :prevDayPx "100" :dayNtlVlm "500" :openInterest "6000" :funding "-0.0002"}]
@@ -23,10 +27,12 @@
       (is (= 0 (:asset-id (first default-markets))))
       (is (= "100" (:markRaw (first default-markets))))
       (is (= "90" (:prevDayRaw (first default-markets))))
+      (is (false? (:growth-mode? (first default-markets))))
       (is (false? (:hip3-eligible? (first default-markets))))
       (is (= "ETH-USDE" (:symbol (second hyna-markets))))
       (is (= 4 (:szDecimals (second hyna-markets))))
       (is (= "hyna" (:dex (second hyna-markets))))
+      (is (true? (:growth-mode? (second hyna-markets))))
       (is (= 1 (:perp-dex-index (second hyna-markets))))
       (is (= 110001 (:asset-id (second hyna-markets))))
       (is (false? (:delisted? (second hyna-markets))))
@@ -36,17 +42,22 @@
   (testing "build-spot-markets maps base/quote and symbol"
     (let [spot-meta {:tokens [{:index 0 :name "USDC" :szDecimals 8}
                               {:index 1 :name "PURR" :szDecimals 0}
-                              {:index 2 :name "HYPE" :szDecimals 2}]
+                              {:index 2 :name "HYPE" :szDecimals 2}
+                              {:index 3 :name "USDT" :szDecimals 6}]
                      :universe [{:name "PURR/USDC" :index 0 :tokens [1 0]}
-                                {:name "@107" :index 1 :tokens [2 0]}]}
+                                {:name "@107" :index 1 :tokens [2 0]}
+                                {:name "USDT/USDC" :index 2 :tokens [3 0]}]}
           spot-ctxs [{:markPx "0.5" :prevDayPx "0.4" :dayNtlVlm "100"}
-                     {:markPx "10" :prevDayPx "9" :dayNtlVlm "250"}]
+                     {:markPx "10" :prevDayPx "9" :dayNtlVlm "250"}
+                     {:markPx "1.0" :prevDayPx "1.0" :dayNtlVlm "500"}]
           markets (markets/build-spot-markets spot-meta spot-ctxs)
           purr-market (first markets)
-          hype-market (second markets)]
+          hype-market (second markets)
+          stable-market (nth markets 2)]
       (is (= "PURR/USDC" (:symbol purr-market)))
       (is (= "PURR" (:base purr-market)))
       (is (= "USDC" (:quote purr-market)))
+      (is (false? (:stable-pair? purr-market)))
       (is (= 0 (:szDecimals purr-market)))
       (is (= 0 (:asset-id purr-market)))
       (is (= :spot (:market-type purr-market)))
@@ -56,7 +67,10 @@
       (is (= "HYPE" (:base hype-market)))
       (is (= "USDC" (:quote hype-market)))
       (is (= 2 (:szDecimals hype-market)))
-      (is (= 1 (:asset-id hype-market))))))
+      (is (false? (:stable-pair? hype-market)))
+      (is (= 1 (:asset-id hype-market)))
+      (is (= "USDT/USDC" (:symbol stable-market)))
+      (is (true? (:stable-pair? stable-market))))))
 
 (deftest classify-market-test
   (testing "classify-market assigns crypto/tradfi/hip3"

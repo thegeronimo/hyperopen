@@ -35,12 +35,16 @@
   (async done
     (let [post-info! (fn [_body _opts]
                        (js/Promise.resolve [{:name "vault"}
+                                            {:name "scaled"
+                                             :deployerFeeScale 0.25}
                                             {:name ""}
                                             {:foo "bar"}
                                             {:name "partner"}]))]
       (-> (market/request-perp-dexs! post-info! {})
-          (.then (fn [dexs]
-                   (is (= ["vault" "partner"] dexs))
+          (.then (fn [payload]
+                   (is (= ["vault" "scaled" "partner"] (:dex-names payload)))
+                   (is (= {"scaled" {:deployer-fee-scale 0.25}}
+                          (:fee-config-by-name payload)))
                    (done)))
           (.catch (fn [err]
                     (is false (str "Unexpected error: " err))

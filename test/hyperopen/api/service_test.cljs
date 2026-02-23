@@ -45,7 +45,10 @@
       (@resolve! ["dex-a"])
       (-> (js/Promise.all #js [p1 p2])
           (.then (fn [results]
-                   (is (= [["dex-a"] ["dex-a"]]
+                   (is (= [{:dex-names ["dex-a"]
+                            :fee-config-by-name {}}
+                           {:dex-names ["dex-a"]
+                            :fee-config-by-name {}}]
                           (js->clj results)))
                    (is (nil? (api-runtime/ensure-perp-dexs-flight (api-service/runtime service))))
                    (done)))

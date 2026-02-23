@@ -89,10 +89,13 @@
           api-a (api-instance/make-api {:service (api-service/make-service {:info-client-instance client-a})})
           api-b (api-instance/make-api {:service (api-service/make-service {:info-client-instance client-b})})]
       (-> (js/Promise.all
-           #js [((:request-perp-dexs! api-a) {})
+          #js [((:request-perp-dexs! api-a) {})
                 ((:request-perp-dexs! api-b) {})])
           (.then (fn [results]
-                   (is (= [["dex-a"] ["dex-b"]]
+                   (is (= [{:dex-names ["dex-a"]
+                            :fee-config-by-name {}}
+                           {:dex-names ["dex-b"]
+                            :fee-config-by-name {}}]
                           (js->clj results)))
                    (done)))
           (.catch (fn [err]

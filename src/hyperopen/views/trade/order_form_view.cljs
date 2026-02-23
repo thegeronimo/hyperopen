@@ -277,6 +277,22 @@
 (def ^:private liquidation-price-tooltip
   "Position risk is low, so there is no liquidation price for the time being. Note that increasing the position or reducing the margin will increase the risk.")
 
+(defn- fees-row
+  [{:keys [effective baseline]}]
+  [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
+   [:span {:class ["text-sm" "text-gray-400"]} "Fees"]
+   [:div {:class ["text-right" "leading-tight" "space-y-0.5"]}
+    [:span {:class ["block" "text-sm" "font-semibold" "num" "text-gray-100"]}
+     (or effective "N/A")]
+    (when (seq baseline)
+      [:span {:class ["block"
+                      "text-xs"
+                      "font-semibold"
+                      "num"
+                      "text-gray-400"
+                      "line-through"]}
+       baseline])]])
+
 (defn- footer-metrics [display show-liquidation-row? show-slippage-row?]
   (let [liquidation-price (:liquidation-price display)
         liquidation-tooltip (when (= liquidation-price "N/A")
@@ -295,8 +311,7 @@
      (primitives/metric-row "Slippage"
                             (:slippage display)
                             "text-primary"))
-   (primitives/metric-row "Fees"
-                          (:fees display))]))
+   (fees-row (:fees display))]))
 
 (defn order-form-view [state]
   (let [{:keys [form

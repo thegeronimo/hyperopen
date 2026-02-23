@@ -3,14 +3,31 @@
             [hyperopen.utils.data-normalization :refer [normalize-asset-contexts]]
             [hyperopen.utils.interval :refer [interval-to-milliseconds]]))
 
-(defn- dex-names-from-response
+(defn- parse-number
+  [value]
+  (cond
+    (number? value) value
+    (string? value) (let [parsed (js/parseFloat value)]
+                      (when (not (js/isNaN parsed))
+                        parsed))
+    :else nil))
+
+(defn- dex-payload-from-response
   [data]
-  (->> data
-       (keep (fn [entry]
-               (when (and (map? entry)
-                          (seq (:name entry)))
-                 (:name entry))))
-       vec))
+  (reduce (fn [acc entry]
+            (let [name (when (and (map? entry)
+                                  (seq (:name entry)))
+                         (:name entry))
+                  deployer-fee-scale (parse-number (:deployerFeeScale entry))]
+              (if (seq name)
+                (cond-> (update acc :dex-names conj name)
+                  (number? deployer-fee-scale)
+                  (assoc-in [:fee-config-by-name name]
+                            {:deployer-fee-scale deployer-fee-scale}))
+                acc)))
+          {:dex-names []
+           :fee-config-by-name {}}
+          (or data [])))
 
 (defn request-asset-contexts!
   [post-info! opts]
@@ -35,7 +52,7 @@
   [post-info! opts]
   (-> (post-info! {"type" "perpDexs"}
                   (merge {:priority :high} opts))
-      (.then dex-names-from-response)))
+      (.then dex-payload-from-response)))
 
 (defn request-candle-snapshot!
   [post-info! now-ms-fn coin {:keys [interval bars priority]

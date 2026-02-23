@@ -1,6 +1,25 @@
 (ns hyperopen.api.fetch-compat
   (:require [clojure.string :as str]))
 
+(defn- perp-dex-names
+  [payload]
+  (cond
+    (map? payload)
+    (vec (or (:dex-names payload)
+             (:perp-dexs payload)
+             []))
+
+    (sequential? payload)
+    (vec (keep (fn [entry]
+                 (cond
+                   (string? entry) entry
+                   (map? entry) (:name entry)
+                   :else nil))
+               payload))
+
+    :else
+    []))
+
 (defn fetch-asset-contexts!
   [{:keys [log-fn
            request-asset-contexts!
@@ -28,9 +47,9 @@
    opts]
   (log-fn "Fetching perp DEX list...")
   (-> (request-perp-dexs! opts)
-      (.then (fn [dex-names]
-               (swap! store apply-perp-dexs-success dex-names)
-               dex-names))
+      (.then (fn [payload]
+               (swap! store apply-perp-dexs-success payload)
+               (perp-dex-names payload)))
       (.catch (fn [err]
                 (log-fn "Error fetching perp DEX list:" err)
                 (swap! store apply-perp-dexs-error err)
@@ -133,9 +152,9 @@
    store
    opts]
   (-> (ensure-perp-dexs-data! store opts)
-      (.then (fn [dex-names]
-               (swap! store apply-perp-dexs-success dex-names)
-               dex-names))
+      (.then (fn [payload]
+               (swap! store apply-perp-dexs-success payload)
+               (perp-dex-names payload)))
       (.catch (fn [err]
                 (swap! store apply-perp-dexs-error err)
                 (js/Promise.reject err)))))

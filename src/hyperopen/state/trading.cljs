@@ -187,6 +187,23 @@
                (not (js/isNaN num)))
       (js/Math.floor num))))
 
+(def ^:private special-quote-adjustment-quotes
+  #{"HORSE"
+    "USDH"
+    "USDL"
+    "USDZZ"})
+
+(defn- growth-mode-enabled?
+  [value]
+  (or (= true value)
+      (= :enabled value)
+      (= "enabled" (some-> value str str/trim str/lower-case))))
+
+(defn- special-quote-fee-adjustment?
+  [market]
+  (let [quote (some-> (:quote market) str str/trim str/upper-case)]
+    (contains? special-quote-adjustment-quotes quote)))
+
 (defn- named-dex-market?
   [market]
   (let [dex (some-> (:dex market) str str/trim)]
@@ -223,15 +240,27 @@
 
 (defn- trading-context [state]
   (let [active-asset (:active-asset state)
-        streamed-mark (get-in state [:active-assets :contexts active-asset :mark])]
+        streamed-mark (get-in state [:active-assets :contexts active-asset :mark])
+        active-market (or (:active-market state) {})
+        growth-mode? (if (contains? active-market :growth-mode?)
+                       (boolean (:growth-mode? active-market))
+                       (growth-mode-enabled? (:growthMode active-market)))
+        market* (cond-> active-market
+                  (some? streamed-mark) (assoc :streamed-mark streamed-mark)
+                  true (assoc :growth-mode? growth-mode?))]
     {:active-asset active-asset
      :asset-idx (resolve-trading-asset-idx state)
      :orderbook (get-in state [:orderbooks active-asset])
-     :market (cond-> (or (:active-market state) {})
-               (some? streamed-mark) (assoc :streamed-mark streamed-mark))
+     :market market*
      :account (:account state)
      :spot (:spot state)
-     :clearinghouse (or (active-clearinghouse-state state) {})}))
+     :clearinghouse (or (active-clearinghouse-state state) {})
+     :user-fees (get-in state [:portfolio :user-fees])
+     :perp-dex-fee-config-by-name (or (:perp-dex-fee-config-by-name state) {})
+     :special-quote-fee-adjustment?
+     (if (contains? active-market :special-quote-fee-adjustment?)
+       (boolean (:special-quote-fee-adjustment? active-market))
+       (special-quote-fee-adjustment? active-market))}))
 
 (defn market-max-leverage [state]
   (trading-domain/market-max-leverage (trading-context state)))

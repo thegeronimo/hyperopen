@@ -98,6 +98,25 @@
                 (swap! store api-projections/apply-open-orders-error err)
                 (js/Promise.reject err)))))
 
+(defn- perp-dex-names
+  [payload]
+  (cond
+    (map? payload)
+    (vec (or (:dex-names payload)
+             (:perp-dexs payload)
+             []))
+
+    (sequential? payload)
+    (vec (keep (fn [entry]
+                 (cond
+                   (string? entry) entry
+                   (map? entry) (:name entry)
+                   :else nil))
+               payload))
+
+    :else
+    []))
+
 (defn- refresh-open-orders-after-order-mutation!
   [store address]
   (when address
@@ -107,7 +126,7 @@
                  (swap! store api-projections/apply-perp-dexs-success dexs)
                  dexs))
         (.then (fn [dexs]
-                 (doseq [dex (or dexs [])]
+                 (doseq [dex (perp-dex-names dexs)]
                    (refresh-open-orders-snapshot! store address dex {:priority :low}))))
         (.catch (fn [err]
                   (swap! store api-projections/apply-perp-dexs-error err)

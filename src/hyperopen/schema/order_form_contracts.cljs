@@ -45,6 +45,10 @@
     :slippage
     :fees})
 
+(def ^:private required-display-fees-keys
+  #{:effective
+    :baseline})
+
 (def ^:private required-scale-preview-keys
   #{:start :end})
 
@@ -125,7 +129,13 @@
 (s/def :order-form-vm.display/order-value string?)
 (s/def :order-form-vm.display/margin-required string?)
 (s/def :order-form-vm.display/slippage string?)
-(s/def :order-form-vm.display/fees string?)
+(s/def :order-form-vm.display.fees/effective string?)
+(s/def :order-form-vm.display.fees/baseline (s/nilable string?))
+(s/def :order-form-vm.display/fees
+  (s/and
+   (s/keys :req-un [:order-form-vm.display.fees/effective
+                    :order-form-vm.display.fees/baseline])
+   #(exact-keys? % required-display-fees-keys)))
 (s/def :order-form-vm/display
   (s/and
    (s/keys :req-un [:order-form-vm.display/available-to-trade

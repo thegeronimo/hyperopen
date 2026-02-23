@@ -38,13 +38,20 @@
     (or (fmt/format-trade-price value) "N/A")
     "N/A"))
 
-(defn format-fees [fees]
-  (if (and (number? (:taker fees)) (number? (:maker fees)))
-    (str (fmt/safe-to-fixed (:taker fees) 3)
+(defn- format-fee-line [fees]
+  (when (and (map? fees)
+             (number? (:taker fees))
+             (number? (:maker fees)))
+    (str (fmt/safe-to-fixed (:taker fees) 4)
          "% / "
-         (fmt/safe-to-fixed (:maker fees) 3)
-         "%")
-    "N/A"))
+         (fmt/safe-to-fixed (:maker fees) 4)
+         "%")))
+
+(defn format-fees [fees]
+  (let [effective (or (format-fee-line (:effective fees))
+                      (format-fee-line fees))]
+    {:effective (or effective "N/A")
+     :baseline (format-fee-line (:baseline fees))}))
 
 (defn format-slippage [est max]
   (str "Est " (format-percent est 4)

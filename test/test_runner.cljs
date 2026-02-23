@@ -20,6 +20,7 @@
             [hyperopen.domain.trading.indicators.volatility-family-coverage-test]
             [hyperopen.domain.funding-history-test]
             [hyperopen.domain.market.instrument-test]
+            [hyperopen.domain.trading.fees-test]
             [hyperopen.domain.trading.order-values-test]
             [hyperopen.platform-test]
             [hyperopen.telemetry-test]
@@ -120,6 +121,7 @@
             [hyperopen.views.portfolio-view-test]
             [hyperopen.views.portfolio.vm-test]
             [hyperopen.views.typography-scale-test]
+            [hyperopen.views.trade.order-form-presenter-test]
             [hyperopen.views.trade.order-form-commands-test]
             [hyperopen.views.trade.order-form-component-primitives-test]
             [hyperopen.views.trade.order-form-component-sections-test]
@@ -177,6 +179,7 @@
              'hyperopen.domain.trading.indicators.volatility-family-coverage-test
              'hyperopen.domain.funding-history-test
              'hyperopen.domain.market.instrument-test
+             'hyperopen.domain.trading.fees-test
              'hyperopen.domain.trading.order-values-test
              'hyperopen.platform-test
              'hyperopen.telemetry-test
@@ -278,6 +281,7 @@
              'hyperopen.views.portfolio-view-test
              'hyperopen.views.portfolio.vm-test
              'hyperopen.views.typography-scale-test
+             'hyperopen.views.trade.order-form-presenter-test
              'hyperopen.views.trade.order-form-commands-test
              'hyperopen.views.trade.order-form-component-primitives-test
              'hyperopen.views.trade.order-form-component-sections-test

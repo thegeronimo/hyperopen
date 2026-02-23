@@ -47,6 +47,29 @@
     (is (contains? strings "Fees"))
     (is (contains? strings "N/A"))))
 
+(deftest fees-row-renders-crossed-baseline-when-effective-fee-is-discounted-test
+  (let [state (-> (base-state {:type :limit :size "1" :price "1"})
+                  (assoc :active-market {:coin "USDT/USDC"
+                                         :quote "USDC"
+                                         :mark 1
+                                         :market-type :spot
+                                         :stable-pair? true
+                                         :szDecimals 4})
+                  (assoc :portfolio {:user-fees {:userSpotCrossRate 0.0003
+                                                 :userSpotAddRate 0.00012
+                                                 :activeReferralDiscount 0.1
+                                                 :activeStakingDiscount {:discount 0.25}}}))
+        view-node (view/order-form-view state)
+        strings (set (collect-strings view-node))
+        crossed-node (find-first-node view-node
+                                      (fn [node]
+                                        (let [attrs (when (map? (second node)) (second node))
+                                              classes (set (:class attrs))]
+                                          (contains? classes "line-through"))))]
+    (is (contains? strings "0.0054% / 0.0022%"))
+    (is (contains? strings "0.0400% / 0.0160%"))
+    (is (some? crossed-node))))
+
 (deftest liquidation-price-renders-projected-value-for-flat-position-test
   (let [state (-> (base-state {:type :limit :side :buy :size "2" :price "100"})
                   (assoc :active-market {:coin "SOL"

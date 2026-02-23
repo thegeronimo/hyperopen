@@ -142,6 +142,7 @@
    :orderbooks {}
    :webdata2 {}
    :perp-dexs []
+   :perp-dex-fee-config-by-name {}
    :perp-dex-clearinghouse {}
    :spot {:meta nil
           :clearinghouse-state nil

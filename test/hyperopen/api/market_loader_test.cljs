@@ -13,7 +13,8 @@
                 :opts {:phase :bootstrap}
                 :ensure-perp-dexs-data! (fn [opts]
                                           (swap! ensure-perp-calls conj opts)
-                                          (js/Promise.resolve ["dex-a"]))
+                                          (js/Promise.resolve {:dex-names ["dex-a"]
+                                                               :fee-config-by-name {"dex-a" {:deployer-fee-scale 0.1}}}))
                 :ensure-spot-meta-data! (fn [opts]
                                           (swap! ensure-spot-calls conj opts)
                                           (js/Promise.resolve {:tokens []}))

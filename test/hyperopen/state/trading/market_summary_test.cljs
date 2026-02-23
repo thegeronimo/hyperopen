@@ -8,6 +8,10 @@
 (defn- approx= [a b]
   (support/approx= a b))
 
+(def ^:private default-fee-quote
+  {:effective trading/default-fees
+   :baseline nil})
+
 (deftest order-summary-and-fallbacks-test
   (testing "summary uses available account data"
     (let [form (assoc (trading/default-order-form)
@@ -20,7 +24,7 @@
       (is (= 200 (:order-value summary)))
       (is (= 10 (:margin-required summary)))
       (is (= 80 (:liquidation-price summary)))
-      (is (= trading/default-fees (:fees summary)))))
+      (is (= default-fee-quote (:fees summary)))))
 
   (testing "summary falls back deterministically when data is missing"
     (let [state {:active-asset "BTC"
@@ -32,7 +36,57 @@
       (is (nil? (:order-value summary)))
       (is (nil? (:margin-required summary)))
       (is (nil? (:liquidation-price summary)))
+      (is (= default-fee-quote (:fees summary)))
       (is (= trading/default-max-slippage-pct (:slippage-max summary))))))
+
+(deftest order-summary-computes-perp-fees-from-user-fees-test
+  (let [state (-> base-state
+                  (assoc :portfolio {:user-fees {:userCrossRate 0.00045
+                                                 :userAddRate 0.00015
+                                                 :activeReferralDiscount 0.1
+                                                 :activeStakingDiscount {:discount 0.25}}})
+                  (assoc :perp-dex-fee-config-by-name {"dex-a" {:deployer-fee-scale 0.5}})
+                  (assoc :active-market {:coin "BTC"
+                                         :mark 100
+                                         :quote "USDC"
+                                         :market-type :perp
+                                         :dex "dex-a"
+                                         :growth-mode? false
+                                         :maxLeverage 40
+                                         :szDecimals 4}))
+        form (assoc (trading/default-order-form)
+                    :type :limit
+                    :size "2"
+                    :price "100")
+        summary (trading/order-summary state form)
+        fees (:fees summary)]
+    (is (approx= 0.06075 (get-in fees [:effective :taker])))
+    (is (approx= 0.02025 (get-in fees [:effective :maker])))
+    (is (nil? (:baseline fees)))))
+
+(deftest order-summary-computes-spot-stable-pair-baseline-fees-test
+  (let [state (-> base-state
+                  (assoc :portfolio {:user-fees {:userSpotCrossRate 0.0003
+                                                 :userSpotAddRate 0.00012
+                                                 :activeReferralDiscount 0.1
+                                                 :activeStakingDiscount {:discount 0.25}}})
+                  (assoc :active-market {:coin "USDT/USDC"
+                                         :mark 1
+                                         :quote "USDC"
+                                         :market-type :spot
+                                         :stable-pair? true
+                                         :maxLeverage nil
+                                         :szDecimals 4}))
+        form (assoc (trading/default-order-form)
+                    :type :limit
+                    :size "2"
+                    :price "1")
+        summary (trading/order-summary state form)
+        fees (:fees summary)]
+    (is (approx= 0.0054 (get-in fees [:effective :taker])))
+    (is (approx= 0.00216 (get-in fees [:effective :maker])))
+    (is (approx= 0.04 (get-in fees [:baseline :taker])))
+    (is (approx= 0.016 (get-in fees [:baseline :maker])))))
 
 (deftest order-summary-projects-liquidation-price-for-flat-position-test
   (let [state {:active-asset "SOL"

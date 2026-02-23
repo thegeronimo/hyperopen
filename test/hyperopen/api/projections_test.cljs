@@ -78,10 +78,15 @@
                :candles {}
                :perp-dex-clearinghouse {}
                :perp-dexs []
+               :perp-dex-fee-config-by-name {}
                :asset-contexts {}}
         asset-contexts (projections/apply-asset-contexts-success state {:BTC {:idx 0}})
         asset-contexts-error (projections/apply-asset-contexts-error state (js/Error. "asset-contexts"))
         perp-dexs (projections/apply-perp-dexs-success state ["vault"])
+        perp-dexs-with-config (projections/apply-perp-dexs-success
+                               state
+                               {:dex-names ["vault" "scaled"]
+                                :fee-config-by-name {"scaled" {:deployer-fee-scale 0.1}}})
         perp-dexs-error (projections/apply-perp-dexs-error state (js/Error. "perp-dexs"))
         open-orders (projections/apply-open-orders-success state nil [{:oid 1}])
         open-orders-by-dex (projections/apply-open-orders-success state "vault" [{:oid 2}])
@@ -96,6 +101,10 @@
     (is (= "Error: asset-contexts" (get-in asset-contexts-error [:asset-contexts :error])))
     (is (= :unexpected (get-in asset-contexts-error [:asset-contexts :error-category])))
     (is (= ["vault"] (:perp-dexs perp-dexs)))
+    (is (= {} (:perp-dex-fee-config-by-name perp-dexs)))
+    (is (= ["vault" "scaled"] (:perp-dexs perp-dexs-with-config)))
+    (is (= {"scaled" {:deployer-fee-scale 0.1}}
+           (:perp-dex-fee-config-by-name perp-dexs-with-config)))
     (is (= "Error: perp-dexs" (:perp-dexs-error perp-dexs-error)))
     (is (= :unexpected (:perp-dexs-error-category perp-dexs-error)))
     (is (= [{:oid 1}] (get-in open-orders [:orders :open-orders-snapshot])))

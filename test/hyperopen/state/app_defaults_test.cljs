@@ -52,4 +52,5 @@
     (is (= #{} (get-in state [:asset-selector :loaded-icons])))
     (is (= #{} (get-in state [:asset-selector :missing-icons])))
     (is (= {} (get-in state [:portfolio :summary-by-key])))
+    (is (= {} (get-in state [:perp-dex-fee-config-by-name])))
     (is (nil? (get-in state [:portfolio :user-fees])))))

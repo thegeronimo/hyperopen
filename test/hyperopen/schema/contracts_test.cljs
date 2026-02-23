@@ -190,7 +190,8 @@
                             :order-value "N/A"
                             :margin-required "N/A"
                             :slippage "Est 0.0000% / Max 8.00%"
-                            :fees "0.045% / 0.015%"}
+                            :fees {:effective "0.0450% / 0.0150%"
+                                   :baseline nil}}
                   :ui-leverage 20
                   :next-leverage 25
                   :size-percent 0

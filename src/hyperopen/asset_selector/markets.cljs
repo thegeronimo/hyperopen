@@ -72,6 +72,41 @@
   (let [n (fmt/safe-number v)]
     (if (js/isNaN n) 0 n)))
 
+(def ^:private stable-coin-symbols
+  #{"DAI"
+    "FDUSD"
+    "GHO"
+    "LUSD"
+    "MIM"
+    "PYUSD"
+    "TUSD"
+    "USDBC"
+    "USDC"
+    "USDE"
+    "USDH"
+    "USDL"
+    "USDS"
+    "USDT"})
+
+(defn- normalized-symbol
+  [value]
+  (some-> value str str/trim str/upper-case))
+
+(defn- stable-coin-symbol?
+  [symbol]
+  (contains? stable-coin-symbols (normalized-symbol symbol)))
+
+(defn- stable-pair?
+  [base quote]
+  (and (stable-coin-symbol? base)
+       (stable-coin-symbol? quote)))
+
+(defn- growth-mode-enabled?
+  [value]
+  (or (= true value)
+      (= :enabled value)
+      (= "enabled" (some-> value str str/trim str/lower-case))))
+
 (def ^:private builder-deployed-perp-asset-id-base
   100000)
 
@@ -173,6 +208,7 @@
                                    :quote quote
                                    :market-type :perp
                                    :dex dex-name
+                                   :growth-mode? (growth-mode-enabled? (:growthMode info))
                                    :delisted? (boolean (:isDelisted info))
                                    :idx idx
                                    :perp-dex-index resolved-perp-dex-index
@@ -253,6 +289,7 @@
                                    :quote quote
                                    :market-type :spot
                                    :dex nil
+                                   :stable-pair? (stable-pair? base quote)
                                    :idx idx
                                    :asset-id idx
                                    :mark mark
