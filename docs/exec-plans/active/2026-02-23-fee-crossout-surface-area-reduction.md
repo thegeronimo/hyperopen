@@ -14,13 +14,14 @@ After this work, a developer should be able to change fee display behavior by ed
 
 - [x] (2026-02-23 16:33Z) Authored this ExecPlan and mapped all six requested refactor items to concrete repository files.
 - [x] (2026-02-23 16:41Z) Implemented canonical perp DEX normalization in `/hyperopen/src/hyperopen/api/market_metadata/perp_dexs.cljs` and removed duplicate parsing helpers from service/projections/fetch-compat/market-loader/order-effects/endpoints.
-- [ ] Introduce a dedicated fee-context selector from app state for order-summary computation.
+- [x] (2026-02-23 16:50Z) Introduced `/hyperopen/src/hyperopen/state/trading/fee_context.cljs`, delegated fee input extraction from `/hyperopen/src/hyperopen/state/trading.cljs`, and passed explicit fee-context into `/hyperopen/src/hyperopen/domain/trading/market.cljs` order-summary fee quote computation.
 - [ ] Add API payload models and boundary contracts for market gateway perp DEX payloads.
 - [ ] Collapse compatibility parsing/wiring behind one market-metadata facade.
 - [ ] Remove manual test registration friction from `/hyperopen/test/test_runner.cljs`.
 - [ ] Add a feature module boundary for order-summary display models.
-- [ ] Run remaining validation gates (`npm run check`, `npm run test:websocket`) and document outcomes.
+- [x] (2026-02-23 16:51Z) Ran validation gates `npm run check`, `npm test`, and `npm run test:websocket`; all commands passed with zero failures.
 - [x] (2026-02-23 16:41Z) Ran `npm test` after Milestone 1 refactor; suite passed with zero failures.
+- [x] (2026-02-23 16:50Z) Ran `npm test` after Milestone 2 fee-context selector refactor; suite passed with zero failures.
 
 ## Surprises & Discoveries
 
@@ -52,9 +53,9 @@ After this work, a developer should be able to change fee display behavior by ed
 
 ## Outcomes & Retrospective
 
-Milestone 1 is complete. Perp DEX normalization now lives in one canonical module and duplicated payload-shape helpers were removed from the targeted API and order-effect call sites. The canonical module is now used by endpoint response parsing, service single-flight normalization, store projections, compat fetch helpers, market-loader dex extraction, and per-dex open-order refresh logic.
+Milestones 1 and 2 are complete. Perp DEX normalization now lives in one canonical module and duplicated payload-shape helpers were removed from the targeted API and order-effect call sites. The canonical module is now used by endpoint response parsing, service single-flight normalization, store projections, compat fetch helpers, market-loader dex extraction, and per-dex open-order refresh logic.
 
-Validation for this milestone passed via `npm test` with zero failures. Remaining milestones in this plan are still pending.
+Fee inputs for order-summary are now extracted through dedicated selector `/hyperopen/src/hyperopen/state/trading/fee_context.cljs` and passed as an explicit fee-context object into `/hyperopen/src/hyperopen/domain/trading/market.cljs` order-summary computation. Validation at this checkpoint passed for `npm run check`, `npm test`, and `npm run test:websocket` with zero failures. Remaining milestones in this plan are still pending.
 
 ## Context and Orientation
 
@@ -62,7 +63,7 @@ The current fee pipeline crosses API payload shaping, app-state context assembly
 
 Perp DEX payloads originate at `/hyperopen/src/hyperopen/api/endpoints/market.cljs` (`request-perp-dexs!`), then are re-normalized in multiple places as either vectors of names or maps with fee metadata. Because each consumer has its own parsing helper, small payload-shape evolution propagates broadly.
 
-Order summary uses `/hyperopen/src/hyperopen/state/trading.cljs` to build a large context map and `/hyperopen/src/hyperopen/domain/trading/market.cljs` to compute fee quote and summary. The fee-specific inputs (`:user-fees`, market growth mode, stable-pair flag, perp dex fee scale, and special quote adjustment) are not isolated behind a dedicated selector.
+Order summary now uses `/hyperopen/src/hyperopen/state/trading/fee_context.cljs` to extract fee-specific inputs (`:user-fees`, market growth mode, stable-pair flag, perp dex fee scale, and special quote adjustment), and `/hyperopen/src/hyperopen/domain/trading/market.cljs` consumes that explicit fee-context object during summary computation.
 
 Display formatting for order summary lives in `/hyperopen/src/hyperopen/views/trade/order_form_presenter.cljs`, with selector passthrough in `/hyperopen/src/hyperopen/views/trade/order_form_vm_selectors.cljs`, and contracts in `/hyperopen/src/hyperopen/schema/order_form_contracts.cljs`.
 

@@ -1,5 +1,8 @@
 (ns hyperopen.state.trading.market-summary-test
   (:require [cljs.test :refer-macros [deftest is testing]]
+            [hyperopen.domain.trading :as trading-domain]
+            [hyperopen.domain.trading.fees :as trading-fees]
+            [hyperopen.state.trading.fee-context :as fee-context-selector]
             [hyperopen.state.trading :as trading]
             [hyperopen.state.trading.test-support :as support]))
 
@@ -11,6 +14,72 @@
 (def ^:private default-fee-quote
   {:effective trading/default-fees
    :baseline nil})
+
+(deftest select-fee-context-normalizes-fee-inputs-test
+  (testing "selector normalizes market metadata and state payloads"
+    (let [state {:active-market {:market-type "perp"
+                                 :dex " dex-a "
+                                 :growthMode "enabled"
+                                 :quote "usdh"}
+                 :portfolio {:user-fees {:userCrossRate 0.00045}}
+                 :perp-dex-fee-config-by-name {"dex-a" {:deployer-fee-scale "0.5"}}}
+          fee-context (fee-context-selector/select-fee-context state)]
+      (is (= :perp (:market-type fee-context)))
+      (is (= "dex-a" (:dex fee-context)))
+      (is (true? (:growth-mode? fee-context)))
+      (is (true? (:special-quote-fee-adjustment? fee-context)))
+      (is (= 0.5 (:deployer-fee-scale fee-context)))
+      (is (= {:userCrossRate 0.00045} (:user-fees fee-context)))))
+
+  (testing "explicit market flags override inferred defaults"
+    (let [state {:active-market {:market-type :perp
+                                 :dex "dex-a"
+                                 :growthMode "enabled"
+                                 :growth-mode? false
+                                 :quote "USDH"
+                                 :special-quote-fee-adjustment? false}
+                 :portfolio {:user-fees {:userCrossRate 0.00045}}
+                 :perp-dex-fee-config-by-name {"dex-a" {:deployer-fee-scale 0.4}}}
+          fee-context (fee-context-selector/select-fee-context state)]
+      (is (false? (:growth-mode? fee-context)))
+      (is (false? (:special-quote-fee-adjustment? fee-context))))))
+
+(deftest domain-order-summary-consumes-explicit-fee-context-test
+  (let [context {:active-asset "BTC"
+                 :market {:coin "BTC"
+                          :mark 100
+                          :market-type :perp
+                          :growth-mode? false}
+                 :orderbook {:bids [{:px "99" :sz "1"}]
+                             :asks [{:px "101" :sz "1"}]}
+                 :clearinghouse {:marginSummary {:accountValue "1000"
+                                                 :totalMarginUsed "0"}
+                                 :assetPositions []}}
+        fee-context {:market-type :spot
+                     :stable-pair? true
+                     :growth-mode? false
+                     :dex nil
+                     :deployer-fee-scale nil
+                     :special-quote-fee-adjustment? false
+                     :user-fees {:userSpotCrossRate 0.0003
+                                 :userSpotAddRate 0.00012
+                                 :activeReferralDiscount 0.1
+                                 :activeStakingDiscount {:discount 0.25}}}
+        fee-params {:market-type (:market-type fee-context)
+                    :stable-pair? (:stable-pair? fee-context)
+                    :deployer-fee-scale (:deployer-fee-scale fee-context)
+                    :growth-mode? (:growth-mode? fee-context)
+                    :extra-adjustment? (:special-quote-fee-adjustment? fee-context)}
+        expected-fees (or (trading-fees/quote-fees (:user-fees fee-context) fee-params)
+                          (trading-fees/default-fee-quote))
+        form (assoc (trading/default-order-form)
+                    :type :limit
+                    :side :buy
+                    :size "2"
+                    :price "100")
+        summary (trading-domain/order-summary context form fee-context)]
+    (is (= expected-fees (:fees summary)))
+    (is (not= default-fee-quote (:fees summary)))))
 
 (deftest order-summary-and-fallbacks-test
   (testing "summary uses available account data"

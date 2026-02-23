@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperopen.api.gateway.orders.commands :as order-commands]
             [hyperopen.domain.trading :as trading-domain]
+            [hyperopen.state.trading.fee-context :as trading-fee-context]
             [hyperopen.trading.order-form-state :as order-form-state]))
 
 (def order-types trading-domain/order-types)
@@ -187,23 +188,6 @@
                (not (js/isNaN num)))
       (js/Math.floor num))))
 
-(def ^:private special-quote-adjustment-quotes
-  #{"HORSE"
-    "USDH"
-    "USDL"
-    "USDZZ"})
-
-(defn- growth-mode-enabled?
-  [value]
-  (or (= true value)
-      (= :enabled value)
-      (= "enabled" (some-> value str str/trim str/lower-case))))
-
-(defn- special-quote-fee-adjustment?
-  [market]
-  (let [quote (some-> (:quote market) str str/trim str/upper-case)]
-    (contains? special-quote-adjustment-quotes quote)))
-
 (defn- named-dex-market?
   [market]
   (let [dex (some-> (:dex market) str str/trim)]
@@ -238,29 +222,23 @@
         (when-not named-dex?
           (asset-context-idx state active-asset)))))
 
-(defn- trading-context [state]
-  (let [active-asset (:active-asset state)
-        streamed-mark (get-in state [:active-assets :contexts active-asset :mark])
-        active-market (or (:active-market state) {})
-        growth-mode? (if (contains? active-market :growth-mode?)
-                       (boolean (:growth-mode? active-market))
-                       (growth-mode-enabled? (:growthMode active-market)))
-        market* (cond-> active-market
-                  (some? streamed-mark) (assoc :streamed-mark streamed-mark)
-                  true (assoc :growth-mode? growth-mode?))]
-    {:active-asset active-asset
-     :asset-idx (resolve-trading-asset-idx state)
-     :orderbook (get-in state [:orderbooks active-asset])
-     :market market*
-     :account (:account state)
-     :spot (:spot state)
-     :clearinghouse (or (active-clearinghouse-state state) {})
-     :user-fees (get-in state [:portfolio :user-fees])
-     :perp-dex-fee-config-by-name (or (:perp-dex-fee-config-by-name state) {})
-     :special-quote-fee-adjustment?
-     (if (contains? active-market :special-quote-fee-adjustment?)
-       (boolean (:special-quote-fee-adjustment? active-market))
-       (special-quote-fee-adjustment? active-market))}))
+(defn- trading-context
+  ([state]
+   (trading-context state (trading-fee-context/select-fee-context state)))
+  ([state fee-context]
+   (let [active-asset (:active-asset state)
+         streamed-mark (get-in state [:active-assets :contexts active-asset :mark])
+         active-market (or (:active-market state) {})
+         market* (cond-> active-market
+                   (some? streamed-mark) (assoc :streamed-mark streamed-mark)
+                   true (assoc :growth-mode? (boolean (:growth-mode? fee-context))))]
+     {:active-asset active-asset
+      :asset-idx (resolve-trading-asset-idx state)
+      :orderbook (get-in state [:orderbooks active-asset])
+      :market market*
+      :account (:account state)
+      :spot (:spot state)
+      :clearinghouse (or (active-clearinghouse-state state) {})})))
 
 (defn market-max-leverage [state]
   (trading-domain/market-max-leverage (trading-context state)))
@@ -444,10 +422,13 @@
       (= :scale final-type) (assoc-in [:sl :enabled?] false))))
 
 (defn order-summary [state form]
-  (let [requested-type (normalize-order-type (:type form))
+  (let [fee-context (trading-fee-context/select-fee-context state)
+        requested-type (normalize-order-type (:type form))
         normalized-form (-> (normalize-order-form state form)
                             (assoc :requested-type requested-type))]
-    (trading-domain/order-summary (trading-context state) normalized-form)))
+    (trading-domain/order-summary (trading-context state fee-context)
+                                  normalized-form
+                                  fee-context)))
 
 (defn validate-order-form
   ([form]

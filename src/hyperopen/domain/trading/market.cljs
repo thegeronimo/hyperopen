@@ -374,48 +374,62 @@
              :size-percent (core/clamp-percent (:size-percent form))
              :ui-leverage leverage))))
 
-(defn- fee-quote
+(defn- context->fee-context
   [context]
   (let [market (or (:market context) {})
-        user-fees (:user-fees context)
-        dex (:dex market)
-        deployer-fee-scale (get-in context [:perp-dex-fee-config-by-name dex :deployer-fee-scale])]
-    (or (fees/quote-fees user-fees {:market-type (:market-type market)
-                                    :stable-pair? (boolean (:stable-pair? market))
-                                    :deployer-fee-scale deployer-fee-scale
-                                    :growth-mode? (boolean (:growth-mode? market))
-                                    :extra-adjustment? (boolean (:special-quote-fee-adjustment? context))})
+        dex (:dex market)]
+    {:market-type (:market-type market)
+     :stable-pair? (boolean (:stable-pair? market))
+     :growth-mode? (boolean (:growth-mode? market))
+     :dex dex
+     :deployer-fee-scale (get-in context [:perp-dex-fee-config-by-name dex :deployer-fee-scale])
+     :special-quote-fee-adjustment? (boolean (:special-quote-fee-adjustment? context))
+     :user-fees (:user-fees context)}))
+
+(defn- fee-quote
+  [fee-context]
+  (let [fee-context* (or fee-context {})
+        user-fees (:user-fees fee-context*)]
+    (or (fees/quote-fees user-fees {:market-type (:market-type fee-context*)
+                                    :stable-pair? (boolean (:stable-pair? fee-context*))
+                                    :deployer-fee-scale (:deployer-fee-scale fee-context*)
+                                    :growth-mode? (boolean (:growth-mode? fee-context*))
+                                    :extra-adjustment? (boolean (:special-quote-fee-adjustment? fee-context*))})
         (fees/default-fee-quote))))
 
-(defn order-summary [context form]
-  (let [size (core/parse-num (:size form))
-        ref-price (reference-price context form)
-        available (available-to-trade context)
-        order-value (when (and (number? size)
-                               (pos? size)
-                               (number? ref-price)
-                               (pos? ref-price))
-                      (* size ref-price))
-        leverage (core/normalize-ui-leverage context (:ui-leverage form))
-        margin-required (when (and (number? order-value) (pos? leverage))
-                          (/ order-value leverage))
-        position (current-position-summary context)
-        liquidation-price (or (:liquidation-price position)
-                              (projected-liquidation-price context form available ref-price order-value))
-        requested-type (core/normalize-order-type (or (:requested-type form) (:type form)))
-        market-order? (= :market requested-type)
-        slippage-est (if market-order?
-                       (market-slippage-estimate-pct context form)
-                       0)]
-    {:available-to-trade available
-     :current-position position
-     :reference-price ref-price
-     :order-value order-value
-     :margin-required margin-required
-     :liquidation-price liquidation-price
-     :slippage-est slippage-est
-     :slippage-max core/default-max-slippage-pct
-     :fees (fee-quote context)}))
+(defn order-summary
+  ([context form]
+   (order-summary context form (context->fee-context context)))
+  ([context form fee-context]
+   (let [fee-context* (or fee-context (context->fee-context context))
+         size (core/parse-num (:size form))
+         ref-price (reference-price context form)
+         available (available-to-trade context)
+         order-value (when (and (number? size)
+                                (pos? size)
+                                (number? ref-price)
+                                (pos? ref-price))
+                       (* size ref-price))
+         leverage (core/normalize-ui-leverage context (:ui-leverage form))
+         margin-required (when (and (number? order-value) (pos? leverage))
+                           (/ order-value leverage))
+         position (current-position-summary context)
+         liquidation-price (or (:liquidation-price position)
+                               (projected-liquidation-price context form available ref-price order-value))
+         requested-type (core/normalize-order-type (or (:requested-type form) (:type form)))
+         market-order? (= :market requested-type)
+         slippage-est (if market-order?
+                        (market-slippage-estimate-pct context form)
+                        0)]
+     {:available-to-trade available
+      :current-position position
+      :reference-price ref-price
+      :order-value order-value
+      :margin-required margin-required
+      :liquidation-price liquidation-price
+      :slippage-est slippage-est
+      :slippage-max core/default-max-slippage-pct
+      :fees (fee-quote fee-context*)})))
 
 (defn best-price [context side]
   (if (= side :buy)
