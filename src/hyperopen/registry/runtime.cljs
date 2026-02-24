@@ -36,6 +36,7 @@
    [:effects/export-funding-history-csv :export-funding-history-csv]
    [:effects/api-submit-order :api-submit-order]
    [:effects/api-cancel-order :api-cancel-order]
+   [:effects/api-submit-position-tpsl :api-submit-position-tpsl]
    [:effects/api-load-user-data :api-load-user-data]])
 
 (defn registered-effect-ids
@@ -141,6 +142,13 @@
    [:actions/handle-order-history-page-input-keydown :handle-order-history-page-input-keydown]
    [:actions/refresh-order-history :refresh-order-history]
    [:actions/set-hide-small-balances :set-hide-small-balances]
+   [:actions/open-position-tpsl-modal :open-position-tpsl-modal]
+   [:actions/close-position-tpsl-modal :close-position-tpsl-modal]
+   [:actions/handle-position-tpsl-modal-keydown :handle-position-tpsl-modal-keydown]
+   [:actions/set-position-tpsl-modal-field :set-position-tpsl-modal-field]
+   [:actions/set-position-tpsl-configure-amount :set-position-tpsl-configure-amount]
+   [:actions/set-position-tpsl-limit-price :set-position-tpsl-limit-price]
+   [:actions/submit-position-tpsl :submit-position-tpsl]
    [:actions/select-order-entry-mode :select-order-entry-mode]
    [:actions/select-pro-order-type :select-pro-order-type]
    [:actions/toggle-pro-order-type-dropdown :toggle-pro-order-type-dropdown]

@@ -102,6 +102,7 @@
 (s/def ::api-submit-request (s/keys :req-un [::action]))
 (s/def ::api-submit-order-args (s/tuple ::api-submit-request))
 (s/def ::api-cancel-order-args (s/tuple ::api-submit-request))
+(s/def ::api-submit-position-tpsl-args (s/tuple ::api-submit-request))
 
 (defn- fetch-asset-selector-markets-args?
   [args]
@@ -159,6 +160,8 @@
 (s/def ::update-indicator-period-args (s/tuple keyword? any?))
 (s/def ::cancel-order-args (s/tuple map?))
 (s/def ::funding-modal-args (s/tuple any?))
+(s/def ::position-tpsl-open-args (s/tuple map?))
+(s/def ::position-tpsl-modal-field-args (s/tuple ::state-path any?))
 (s/def ::ws-reset-source-args (s/or :none ::no-args
                                     :source (s/tuple ::source)))
 
@@ -264,6 +267,13 @@
    :actions/handle-order-history-page-input-keydown ::keydown-with-max-page-args
    :actions/refresh-order-history ::no-args
    :actions/set-hide-small-balances ::boolean-args
+   :actions/open-position-tpsl-modal ::position-tpsl-open-args
+   :actions/close-position-tpsl-modal ::no-args
+   :actions/handle-position-tpsl-modal-keydown ::key-args
+   :actions/set-position-tpsl-modal-field ::position-tpsl-modal-field-args
+   :actions/set-position-tpsl-configure-amount ::boolean-args
+   :actions/set-position-tpsl-limit-price ::boolean-args
+   :actions/submit-position-tpsl ::no-args
    :actions/select-order-entry-mode ::keyword-or-string-args
    :actions/select-pro-order-type ::keyword-or-string-args
    :actions/toggle-pro-order-type-dropdown ::no-args
@@ -325,6 +335,7 @@
    :effects/export-funding-history-csv ::export-funding-history-csv-args
    :effects/api-submit-order ::api-submit-order-args
    :effects/api-cancel-order ::api-cancel-order-args
+   :effects/api-submit-position-tpsl ::api-submit-position-tpsl-args
    :effects/api-load-user-data ::address-args})
 
 (defn contracted-action-ids

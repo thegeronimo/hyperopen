@@ -104,7 +104,14 @@
    :apply-order-history-page-input account-history-actions/apply-order-history-page-input
    :handle-order-history-page-input-keydown account-history-actions/handle-order-history-page-input-keydown
    :refresh-order-history account-history-actions/refresh-order-history
-   :set-hide-small-balances account-history-actions/set-hide-small-balances})
+   :set-hide-small-balances account-history-actions/set-hide-small-balances
+   :open-position-tpsl-modal account-history-actions/open-position-tpsl-modal
+   :close-position-tpsl-modal account-history-actions/close-position-tpsl-modal
+   :handle-position-tpsl-modal-keydown account-history-actions/handle-position-tpsl-modal-keydown
+   :set-position-tpsl-modal-field account-history-actions/set-position-tpsl-modal-field
+   :set-position-tpsl-configure-amount account-history-actions/set-position-tpsl-configure-amount
+   :set-position-tpsl-limit-price account-history-actions/set-position-tpsl-limit-price
+   :submit-position-tpsl account-history-actions/submit-position-tpsl})
 
 (defn- order-action-deps []
   {:select-order-entry-mode order-actions/select-order-entry-mode

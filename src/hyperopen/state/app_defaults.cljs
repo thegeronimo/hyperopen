@@ -1,4 +1,5 @@
-(ns hyperopen.state.app-defaults)
+(ns hyperopen.state.app-defaults
+  (:require [hyperopen.account.history.position-tpsl :as position-tpsl]))
 
 (defn default-websocket-state
   [websocket-health]
@@ -158,6 +159,7 @@
    :order-form (or default-order-form {})
    :order-form-ui (or default-order-form-ui {})
    :order-form-runtime (or default-order-form-runtime {})
+   :positions-ui {:tpsl-modal (position-tpsl/default-modal-state)}
    :funding-ui {:modal nil}
    :asset-selector (default-asset-selector-state)
    :chart-options (default-chart-options-state)

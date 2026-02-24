@@ -62,9 +62,11 @@
 
 (defn- trading-effect-handlers
   [{:keys [api-submit-order
-           api-cancel-order]}]
+           api-cancel-order
+           api-submit-position-tpsl]}]
   {:api-submit-order api-submit-order
-   :api-cancel-order api-cancel-order})
+   :api-cancel-order api-cancel-order
+   :api-submit-position-tpsl api-submit-position-tpsl})
 
 (defn- api-effect-handlers
   [{:keys [fetch-asset-selector-markets
@@ -259,7 +261,14 @@
            apply-order-history-page-input
            handle-order-history-page-input-keydown
            refresh-order-history
-           set-hide-small-balances]}]
+           set-hide-small-balances
+           open-position-tpsl-modal
+           close-position-tpsl-modal
+           handle-position-tpsl-modal-keydown
+           set-position-tpsl-modal-field
+           set-position-tpsl-configure-amount
+           set-position-tpsl-limit-price
+           submit-position-tpsl]}]
   {:select-account-info-tab select-account-info-tab
    :set-funding-history-filters set-funding-history-filters
    :toggle-funding-history-filter-open toggle-funding-history-filter-open
@@ -298,7 +307,14 @@
    :apply-order-history-page-input apply-order-history-page-input
    :handle-order-history-page-input-keydown handle-order-history-page-input-keydown
    :refresh-order-history refresh-order-history
-   :set-hide-small-balances set-hide-small-balances})
+   :set-hide-small-balances set-hide-small-balances
+   :open-position-tpsl-modal open-position-tpsl-modal
+   :close-position-tpsl-modal close-position-tpsl-modal
+   :handle-position-tpsl-modal-keydown handle-position-tpsl-modal-keydown
+   :set-position-tpsl-modal-field set-position-tpsl-modal-field
+   :set-position-tpsl-configure-amount set-position-tpsl-configure-amount
+   :set-position-tpsl-limit-price set-position-tpsl-limit-price
+   :submit-position-tpsl submit-position-tpsl})
 
 (defn- order-action-handlers
   [{:keys [select-order-entry-mode

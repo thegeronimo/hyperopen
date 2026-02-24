@@ -203,7 +203,8 @@
        funding-tooltip)]
      [:div.text-left
       [:button {:class ["btn" "btn-xs" "btn-ghost" "gap-1" "px-1.5" "font-normal" "text-trading-text"]
-                :type "button"}
+                :type "button"
+                :on {:click [[:actions/open-position-tpsl-modal position-data]]}}
        [:span "-- / --"]
        (edit-icon)]]]))
 

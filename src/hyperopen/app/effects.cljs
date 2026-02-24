@@ -34,7 +34,8 @@
                  :copy-websocket-diagnostics effect-adapters/copy-websocket-diagnostics
                  :ws-reset-subscriptions effect-adapters/ws-reset-subscriptions}
    :orders {:api-submit-order (effect-adapters/make-api-submit-order runtime)
-            :api-cancel-order (effect-adapters/make-api-cancel-order runtime)}
+            :api-cancel-order (effect-adapters/make-api-cancel-order runtime)
+            :api-submit-position-tpsl (effect-adapters/make-api-submit-position-tpsl runtime)}
    :api {:fetch-asset-selector-markets effect-adapters/fetch-asset-selector-markets-effect
          :api-load-user-data effect-adapters/api-load-user-data-effect}})
 

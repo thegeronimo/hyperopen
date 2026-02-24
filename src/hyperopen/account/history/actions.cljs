@@ -1,5 +1,6 @@
 (ns hyperopen.account.history.actions
   (:require [clojure.string :as str]
+            [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.domain.funding-history :as funding-history]
             [hyperopen.platform :as platform]
             [hyperopen.utils.parse :as parse-utils]))
@@ -475,3 +476,46 @@
 
 (defn set-hide-small-balances [_state checked]
   [[:effects/save [:account-info :hide-small-balances?] checked]])
+
+(defn open-position-tpsl-modal [_state position-data]
+  [[:effects/save [:positions-ui :tpsl-modal]
+    (position-tpsl/from-position-row position-data)]])
+
+(defn close-position-tpsl-modal [_state]
+  [[:effects/save [:positions-ui :tpsl-modal]
+    (position-tpsl/default-modal-state)]])
+
+(defn handle-position-tpsl-modal-keydown [state key]
+  (if (= key "Escape")
+    (close-position-tpsl-modal state)
+    []))
+
+(defn set-position-tpsl-modal-field [state path value]
+  (let [modal (or (get-in state [:positions-ui :tpsl-modal])
+                  (position-tpsl/default-modal-state))
+        path* (if (vector? path) path [path])]
+    [[:effects/save [:positions-ui :tpsl-modal]
+      (position-tpsl/set-modal-field modal path* value)]]))
+
+(defn set-position-tpsl-configure-amount [state checked]
+  (let [modal (or (get-in state [:positions-ui :tpsl-modal])
+                  (position-tpsl/default-modal-state))]
+    [[:effects/save [:positions-ui :tpsl-modal]
+      (position-tpsl/set-configure-amount modal checked)]]))
+
+(defn set-position-tpsl-limit-price [state checked]
+  (let [modal (or (get-in state [:positions-ui :tpsl-modal])
+                  (position-tpsl/default-modal-state))]
+    [[:effects/save [:positions-ui :tpsl-modal]
+      (position-tpsl/set-limit-price modal checked)]]))
+
+(defn submit-position-tpsl [state]
+  (let [modal (or (get-in state [:positions-ui :tpsl-modal])
+                  (position-tpsl/default-modal-state))
+        result (position-tpsl/prepare-submit state modal)]
+    (if-not (:ok? result)
+      [[:effects/save-many [[[:positions-ui :tpsl-modal :submitting?] false]
+                            [[:positions-ui :tpsl-modal :error] (:display-message result)]]]]
+      [[:effects/save-many [[[:positions-ui :tpsl-modal :submitting?] true]
+                            [[:positions-ui :tpsl-modal :error] nil]]]
+       [:effects/api-submit-position-tpsl (:request result)]])))

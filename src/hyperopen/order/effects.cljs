@@ -5,6 +5,7 @@
             [hyperopen.api.promise-effects :as promise-effects]
             [hyperopen.api.projections :as api-projections]
             [hyperopen.telemetry :as telemetry]
+            [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.api.trading :as trading-api]))
 
 (defn- cancel-request-oids
@@ -222,6 +223,78 @@
                         (swap! store assoc-in [:order-form-runtime :submitting?] false)
                         (swap! store assoc-in [:order-form-runtime :error] error-text)
                         (show-toast! store :error (str "Order placement failed: " error-text))))))))))
+
+(defn- update-position-tpsl-modal-error
+  [state error-text]
+  (-> state
+      (assoc-in [:positions-ui :tpsl-modal :submitting?] false)
+      (assoc-in [:positions-ui :tpsl-modal :error] error-text)))
+
+(defn- set-position-tpsl-modal-error!
+  [store error-text]
+  (swap! store update-position-tpsl-modal-error error-text))
+
+(defn- refresh-order-surfaces-after-submit!
+  [store dispatch! address]
+  (refresh-open-orders-after-order-mutation! store address)
+  (dispatch! store nil [[:actions/refresh-order-history]]))
+
+(defn- position-tpsl-submit-precondition-error
+  [address agent-status]
+  (cond
+    (nil? address)
+    "Connect your wallet before submitting."
+
+    (not= :ready agent-status)
+    "Enable trading before submitting orders."
+
+    :else
+    nil))
+
+(defn- reject-position-tpsl-submit!
+  [store show-toast! error-text]
+  (set-position-tpsl-modal-error! store error-text)
+  (show-toast! store :error error-text))
+
+(defn- handle-position-tpsl-submit-response!
+  [store dispatch! exchange-response-error show-toast! address resp]
+  (let [{:keys [ok? success-count error-text toast-message]}
+        (submit-outcome exchange-response-error resp)]
+    (if ok?
+      (do
+        (swap! store assoc-in [:positions-ui :tpsl-modal]
+               (position-tpsl/default-modal-state))
+        (show-toast! store :success "TP/SL orders submitted.")
+        (refresh-order-surfaces-after-submit! store dispatch! address))
+      (do
+        (set-position-tpsl-modal-error! store error-text)
+        (show-toast! store :error toast-message)
+        (when (pos? success-count)
+          (refresh-order-surfaces-after-submit! store dispatch! address))))))
+
+(defn- handle-position-tpsl-submit-runtime-error!
+  [store runtime-error-message show-toast! err]
+  (let [error-text (runtime-error-message err)]
+    (set-position-tpsl-modal-error! store error-text)
+    (show-toast! store :error (str "Order placement failed: " error-text))))
+
+(defn api-submit-position-tpsl
+  [{:keys [dispatch! exchange-response-error runtime-error-message show-toast!]} _ store request]
+  (let [address (get-in @store [:wallet :address])
+        agent-status (get-in @store [:wallet :agent :status])]
+    (if-let [error-text (position-tpsl-submit-precondition-error address agent-status)]
+      (reject-position-tpsl-submit! store show-toast! error-text)
+      (-> (trading-api/submit-order! store address (:action request))
+          (.then (partial handle-position-tpsl-submit-response!
+                          store
+                          dispatch!
+                          exchange-response-error
+                          show-toast!
+                          address))
+          (.catch (partial handle-position-tpsl-submit-runtime-error!
+                           store
+                           runtime-error-message
+                           show-toast!))))))
 
 (defn api-cancel-order
   [{:keys [dispatch!

@@ -231,6 +231,19 @@
     (is (contains? tpsl-strings "-- / --"))
     (is (some? edit-icon-node))))
 
+(deftest position-row-tpsl-cell-dispatches-open-modal-action-test
+  (let [row-data (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
+        row-node (view/position-row row-data)
+        row-cells (vec (hiccup/node-children row-node))
+        tpsl-cell (nth row-cells 9)
+        action-button (hiccup/find-first-node tpsl-cell #(= :button (first %)))
+        click-actions (get-in action-button [1 :on :click])]
+    (is (vector? click-actions))
+    (is (= :actions/open-position-tpsl-modal
+           (first (first click-actions))))
+    (is (= row-data
+           (second (first click-actions))))))
+
 (deftest position-table-layout-prioritizes-coin-column-over-right-edge-actions-test
   (let [grid-template-class "grid-cols-[minmax(170px,1.9fr)_minmax(130px,1.2fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(130px,1.3fr)_minmax(110px,1fr)_minmax(100px,1fr)_minmax(100px,1fr)_minmax(80px,0.8fr)]"
         header-node (view/position-table-header fixtures/default-sort-state)

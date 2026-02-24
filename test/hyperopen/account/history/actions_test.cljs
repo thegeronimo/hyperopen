@@ -1,8 +1,10 @@
 (ns hyperopen.account.history.actions-test
   (:require [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.account.history.actions :as history-actions]
+            [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.domain.funding-history :as funding-history]
-            [hyperopen.platform :as platform]))
+            [hyperopen.platform :as platform]
+            [hyperopen.views.account-info.test-support.fixtures :as fixtures]))
 
 (defn- info-funding-row
   [time-ms coin usdc signed-size funding-rate]
@@ -181,3 +183,58 @@
 (deftest set-hide-small-balances-updates-flag-test
   (is (= [[:effects/save [:account-info :hide-small-balances?] true]]
          (history-actions/set-hide-small-balances nil true))))
+
+(deftest position-tpsl-modal-actions-open-update-close-test
+  (let [row (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
+        open-effects (history-actions/open-position-tpsl-modal {} row)
+        opened-modal (nth (first open-effects) 2)
+        updated-effects (history-actions/set-position-tpsl-modal-field
+                         {:positions-ui {:tpsl-modal opened-modal}}
+                         [:tp-price]
+                         "20.25")
+        closed-effects (history-actions/close-position-tpsl-modal {})]
+    (is (= [:effects/save [:positions-ui :tpsl-modal]]
+           (subvec (first open-effects) 0 2)))
+    (is (true? (:open? opened-modal)))
+    (is (= "xyz:NVDA" (:coin opened-modal)))
+    (is (= "20.25"
+           (get-in (nth (first updated-effects) 2) [:tp-price])))
+    (is (= [[:effects/save [:positions-ui :tpsl-modal]
+             (position-tpsl/default-modal-state)]]
+           closed-effects))
+    (is (= [[:effects/save [:positions-ui :tpsl-modal]
+             (position-tpsl/default-modal-state)]]
+           (history-actions/handle-position-tpsl-modal-keydown {} "Escape")))
+    (is (= []
+           (history-actions/handle-position-tpsl-modal-keydown {} "Enter")))))
+
+(deftest submit-position-tpsl-validates-and-emits-submit-effect-test
+  (let [row (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
+        modal (-> (position-tpsl/from-position-row row)
+                  (assoc :tp-price "11.0"))
+        state {:positions-ui {:tpsl-modal modal}
+               :asset-selector {:market-by-key {"perp:xyz:NVDA"
+                                                {:coin "xyz:NVDA"
+                                                 :market-type :perp
+                                                 :asset-id 123}}}}
+        valid-effects (history-actions/submit-position-tpsl state)
+        invalid-effects (history-actions/submit-position-tpsl
+                         {:positions-ui {:tpsl-modal (position-tpsl/from-position-row row)}
+                          :asset-selector {:market-by-key {"perp:xyz:NVDA"
+                                                           {:coin "xyz:NVDA"
+                                                            :market-type :perp
+                                                            :asset-id 123}}}})]
+    (is (= :effects/save-many
+           (ffirst valid-effects)))
+    (is (= [[:positions-ui :tpsl-modal :submitting?] true]
+           (first (second (first valid-effects)))))
+    (is (= :effects/api-submit-position-tpsl
+           (first (second valid-effects))))
+    (is (= "order"
+           (get-in (second (second valid-effects)) [:action :type])))
+    (is (= "tp"
+           (get-in (second (second valid-effects))
+                   [:action :orders 0 :t :trigger :tpsl])))
+    (is (= [[:effects/save-many [[[:positions-ui :tpsl-modal :submitting?] false]
+                                 [[:positions-ui :tpsl-modal :error] "Place Order"]]]]
+           invalid-effects))))
