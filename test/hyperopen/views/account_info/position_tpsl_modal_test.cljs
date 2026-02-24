@@ -80,7 +80,8 @@
                           (contains? (hiccup/direct-texts %) "MAX")))
         modal-strings (vec (hiccup/collect-strings modal-view))
         configure-label-index (first-index-of modal-strings "Configure Amount")
-        amount-label-index (first-index-of modal-strings "Amount")]
+        amount-label-index (first-index-of modal-strings "Amount")
+        limit-price-label-index (first-index-of modal-strings "Limit Price")]
     (is (= 50 (get-in slider-input [1 :value])))
     (is (= [[:actions/set-position-tpsl-modal-field
              [:size-percent-input]
@@ -98,9 +99,12 @@
              [:size-percent-input]
              "100"]]
            (get-in max-button [1 :on :click])))
+    (is (contains? (hiccup/node-class-set max-button) "min-w-6"))
     (is (some? configure-label-index))
     (is (some? amount-label-index))
-    (is (> amount-label-index configure-label-index))))
+    (is (some? limit-price-label-index))
+    (is (> amount-label-index configure-label-index))
+    (is (> limit-price-label-index amount-label-index))))
 
 (deftest position-tpsl-modal-size-metric-stays-at-full-position-size-test
   (let [modal (-> (position-tpsl/from-position-row
