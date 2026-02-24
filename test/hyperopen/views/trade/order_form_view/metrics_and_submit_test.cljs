@@ -66,9 +66,21 @@
                                         (let [attrs (when (map? (second node)) (second node))
                                               classes (set (:class attrs))]
                                           (contains? classes "line-through"))))]
+    (is (contains? strings "Current fee:"))
+    (is (contains? strings "Base tier fee:"))
     (is (contains? strings "0.0054% / 0.0022%"))
     (is (contains? strings "0.0400% / 0.0160%"))
+    (is (contains? strings "Taker orders pay a 0.0054% fee. Maker orders pay a 0.0022% fee."))
     (is (some? crossed-node))))
+
+(deftest fees-row-omits-current-label-when-no-baseline-fee-test
+  (let [view-node (view/order-form-view (base-state {:type :limit :size "1" :price "100"}))
+        strings (set (collect-strings view-node))]
+    (is (contains? strings "Fees"))
+    (is (contains? strings "0.0450% / 0.0150%"))
+    (is (contains? strings "Taker orders pay a 0.0450% fee. Maker orders pay a 0.0150% fee."))
+    (is (not (contains? strings "Current fee:")))
+    (is (not (contains? strings "Base tier fee:")))))
 
 (deftest liquidation-price-renders-projected-value-for-flat-position-test
   (let [state (-> (base-state {:type :limit :side :buy :size "2" :price "100"})

@@ -277,23 +277,88 @@
 (def ^:private liquidation-price-tooltip
   "Position risk is low, so there is no liquidation price for the time being. Note that increasing the position or reducing the margin will increase the risk.")
 
-(defn- fees-row
-  [{:keys [effective baseline]}]
-  [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
-   [:span {:class ["text-sm" "text-gray-400"]} "Fees"]
-   [:div {:class ["text-right" "leading-tight" "space-y-0.5"]}
-    [:span {:class ["block" "text-sm" "font-semibold" "num" "text-gray-100"]}
-     (or effective "N/A")]
-    (when (seq baseline)
-      [:span {:class ["block"
-                      "text-xs"
-                      "font-semibold"
-                      "num"
-                      "text-gray-400"
-                      "line-through"]}
-       baseline])]])
+(defn- fees-label [tooltip]
+  (if (seq tooltip)
+    [:div {:class ["group" "relative" "inline-flex" "items-center"]
+           :tabindex 0}
+     [:span {:class ["text-sm"
+                     "text-gray-400"
+                     "underline"
+                     "decoration-dashed"
+                     "underline-offset-2"]}
+      "Fees"]
+     [:div {:class ["pointer-events-none"
+                    "absolute"
+                    "right-0"
+                    "bottom-full"
+                    "mb-1"
+                    "z-[100]"
+                    "w-max"
+                    "opacity-0"
+                    "transition-opacity"
+                    "duration-150"
+                    "group-hover:opacity-100"
+                    "group-focus:opacity-100"]}
+      [:div {:class ["relative"
+                     "rounded-[5px]"
+                     "bg-[rgb(39,48,53)]"
+                     "px-[10px]"
+                     "py-[6px]"
+                     "text-left"
+                     "whitespace-nowrap"
+                     "font-normal"
+                     "leading-[1.35]"
+                     "text-white"]
+             :style {:font-size "11px"}}
+       tooltip
+       [:div {:class ["absolute"
+                      "left-1/2"
+                      "-translate-x-1/2"
+                      "top-full"
+                      "h-0"
+                      "w-0"
+                      "border-x-4"
+                      "border-x-transparent"
+                      "border-t-4"
+                      "border-t-[rgb(39,48,53)]"]}]]]]
+    [:span {:class ["text-sm" "text-gray-400"]} "Fees"]))
 
-(defn- footer-metrics [display show-liquidation-row? show-slippage-row?]
+(defn- fee-tooltip [effective]
+  (if-let [[_ taker maker] (re-matches #"([^ ]+%) / ([^ ]+%)" (or effective ""))]
+    (str "Taker orders pay a " taker " fee. Maker orders pay a " maker " fee.")
+    "Taker orders pay a fee. Maker orders pay a fee."))
+
+(defn- fee-row-copy [fees-display]
+  (let [effective (:effective fees-display)
+        tooltip (fee-tooltip effective)]
+    {:current-label "Current fee"
+     :baseline-label "Base tier fee"
+     :tooltip tooltip}))
+
+(defn- fees-row
+  [{:keys [effective baseline]}
+   {:keys [current-label baseline-label tooltip]}]
+  [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
+   (fees-label tooltip)
+   [:div {:class ["max-w-[260px]" "text-right" "leading-tight" "space-y-1"]}
+    (if (seq baseline)
+      [:div {:class ["flex" "items-center" "justify-end" "gap-1.5" "flex-wrap"]}
+       [:span {:class ["text-xs" "text-gray-400"]} (str (or current-label "Current fee") ":")]
+       [:span {:class ["text-sm" "font-semibold" "num" "text-gray-100"]}
+        (or effective "N/A")]]
+      [:span {:class ["block" "text-sm" "font-semibold" "num" "text-gray-100"]}
+       (or effective "N/A")])
+    (when (seq baseline)
+      [:div {:class ["flex" "items-center" "justify-end" "gap-1.5" "flex-wrap"]}
+       [:span {:class ["text-xs" "text-gray-500"]} (str (or baseline-label "Base tier fee") ":")]
+       [:span {:class ["text-xs"
+                       "font-semibold"
+                       "num"
+                       "text-gray-400"
+                       "line-through"]}
+        baseline]])]])
+
+(defn- footer-metrics [display show-liquidation-row? show-slippage-row? fee-copy]
   (let [liquidation-price (:liquidation-price display)
         liquidation-tooltip (when (= liquidation-price "N/A")
                               liquidation-price-tooltip)]
@@ -311,7 +376,7 @@
      (primitives/metric-row "Slippage"
                             (:slippage display)
                             "text-primary"))
-   (fees-row (:fees display))]))
+   (fees-row (:fees display) fee-copy)]))
 
 (defn order-form-view [state]
   (let [{:keys [form
@@ -353,6 +418,7 @@
         tif-handlers (:tif handler-map)
         tp-sl-handlers (:tp-sl handler-map)
         submit-handlers (:submit handler-map)
+        fee-copy (fee-row-copy (:fees display))
         {:keys [show-limit-like-controls?
                 show-tpsl-toggle?
                 show-tpsl-panel?
@@ -453,4 +519,4 @@
                    :submit-tooltip (:tooltip submit)
                    :on-submit (:on-submit submit-handlers)})
 
-      (footer-metrics display show-liquidation-row? show-slippage-row?)]]))
+      (footer-metrics display show-liquidation-row? show-slippage-row? fee-copy)]]))
