@@ -357,13 +357,15 @@
          :display-message "Select an asset and ensure market data is loaded."}
         (let [orders (order-commands/build-tpsl-orders asset-id
                                                        (:side (submit-form modal))
-                                                       (submit-form modal))]
+                                                       (submit-form modal)
+                                                       {:active-asset (:coin modal)
+                                                        :market market})]
           (if (seq orders)
             {:ok? true
              :display-message (:display-message validation)
              :request {:action {:type "order"
                                 :orders orders
-                                :grouping "normalTpsl"}}}
+                                :grouping "positionTpsl"}}}
             {:ok? false
              :display-message "Place Order"}))))))
 

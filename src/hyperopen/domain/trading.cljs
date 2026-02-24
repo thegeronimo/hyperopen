@@ -44,6 +44,7 @@
 (def position-for-active-asset market/position-for-active-asset)
 (def current-position-summary market/current-position-summary)
 (def base-size-string market/base-size-string)
+(def canonical-order-price-string market/canonical-order-price-string)
 (def best-bid-price market/best-bid-price)
 (def best-ask-price market/best-ask-price)
 (def reference-price market/reference-price)

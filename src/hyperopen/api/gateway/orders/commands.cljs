@@ -13,6 +13,16 @@
        (js/isFinite value)
        (pos? value)))
 
+(defn- canonical-price-text
+  [command-context value]
+  (let [parsed (trading-domain/parse-num value)]
+    (when (positive-number? parsed)
+      (or (trading-domain/canonical-order-price-string
+           {:active-asset (:active-asset command-context)
+            :market (:market command-context)}
+           parsed)
+          (trading-domain/number->clean-string parsed 8)))))
+
 (defn build-scale-orders [asset-idx side total-size start end reduce-only post-only]
   (let [legs (trading-domain/scale-order-legs (get total-size :size)
                                               (get total-size :count)
@@ -30,38 +40,45 @@
                        :t {:limit {:tif tif}}))
           legs)))
 
-(defn build-tpsl-orders [asset-idx side form]
-  (let [tp (get-in form [:tp])
-        sl (get-in form [:sl])
-        tp-enabled? (:enabled? tp)
-        sl-enabled? (:enabled? sl)
-        base-size (trading-domain/parse-num (:size form))
-        close-side (trading-domain/opposite-side side)
-        mk-trigger (fn [tpsl cfg]
-                     (let [trigger (trading-domain/parse-num (:trigger cfg))
-                           limit-price (trading-domain/parse-num (:limit cfg))
-                           order-price (or limit-price trigger)]
-                       (when (and (positive-number? base-size)
-                                  (positive-number? trigger)
-                                  (positive-number? order-price))
-                         (array-map :a asset-idx
-                                    :b (trading-domain/order-side->is-buy close-side)
-                                    :p (str order-price)
-                                    :s (str base-size)
-                                    :r true
-                                    :t {:trigger (array-map :isMarket (:is-market cfg)
-                                                            :triggerPx trigger
-                                                            :tpsl tpsl)}))))
-        tp-order (when tp-enabled?
-                   (mk-trigger "tp" tp))
-        sl-order (when sl-enabled?
-                   (mk-trigger "sl" sl))
-        valid? (and (or (not tp-enabled?) tp-order)
-                    (or (not sl-enabled?) sl-order))]
-    (when valid?
-      (cond-> []
-        tp-order (conj tp-order)
-        sl-order (conj sl-order)))))
+(defn build-tpsl-orders
+  ([asset-idx side form]
+   (build-tpsl-orders asset-idx side form nil))
+  ([asset-idx side form command-context]
+   (let [tp (get-in form [:tp])
+         sl (get-in form [:sl])
+         tp-enabled? (:enabled? tp)
+         sl-enabled? (:enabled? sl)
+         base-size (trading-domain/parse-num (:size form))
+         close-side (trading-domain/opposite-side side)
+         mk-trigger (fn [tpsl cfg]
+                      (let [trigger (trading-domain/parse-num (:trigger cfg))
+                            limit-price (trading-domain/parse-num (:limit cfg))
+                            order-price (or limit-price trigger)
+                            trigger-text (canonical-price-text command-context trigger)
+                            order-price-text (canonical-price-text command-context order-price)]
+                        (when (and (positive-number? base-size)
+                                   (positive-number? trigger)
+                                   (positive-number? order-price)
+                                   (seq trigger-text)
+                                   (seq order-price-text))
+                          (array-map :a asset-idx
+                                     :b (trading-domain/order-side->is-buy close-side)
+                                     :p order-price-text
+                                     :s (str base-size)
+                                     :r true
+                                     :t {:trigger (array-map :isMarket (:is-market cfg)
+                                                             :triggerPx trigger-text
+                                                             :tpsl tpsl)}))))
+         tp-order (when tp-enabled?
+                    (mk-trigger "tp" tp))
+         sl-order (when sl-enabled?
+                    (mk-trigger "sl" sl))
+         valid? (and (or (not tp-enabled?) tp-order)
+                     (or (not sl-enabled?) sl-order))]
+     (when valid?
+       (cond-> []
+         tp-order (conj tp-order)
+         sl-order (conj sl-order))))))
 
 (def ^:private standard-order-required-checks
   {:limit (fn [{:keys [size price]}]
@@ -87,24 +104,35 @@
                       (positive-number? price)
                       (positive-number? trigger)))})
 
+(defn- order-wire-values-valid?
+  [order-type {:keys [price-text trigger-text]}]
+  (case order-type
+    :limit (seq price-text)
+    :market (seq price-text)
+    :stop-market (seq trigger-text)
+    :stop-limit (and (seq price-text) (seq trigger-text))
+    :take-market (seq trigger-text)
+    :take-limit (and (seq price-text) (seq trigger-text))
+    true))
+
 (def ^:private standard-order-shape-builders
   {:limit (fn [base-order {:keys [post-only tif]}]
             (assoc base-order :t {:limit {:tif (if post-only "Alo" tif)}}))
    :market (fn [base-order _]
              (assoc base-order :t {:limit {:tif "Ioc"}}))
-   :stop-market (fn [base-order {:keys [price trigger]}]
+   :stop-market (fn [base-order {:keys [price-text trigger-text]}]
                   (assoc base-order
-                         :p (str (or price trigger))
-                         :t {:trigger (array-map :isMarket true :triggerPx trigger :tpsl "sl")}))
-   :stop-limit (fn [base-order {:keys [trigger]}]
-                 (assoc base-order :t {:trigger (array-map :isMarket false :triggerPx trigger :tpsl "sl")}))
-   :take-market (fn [base-order {:keys [price trigger]}]
+                         :p (or price-text trigger-text)
+                         :t {:trigger (array-map :isMarket true :triggerPx trigger-text :tpsl "sl")}))
+   :stop-limit (fn [base-order {:keys [trigger-text]}]
+                 (assoc base-order :t {:trigger (array-map :isMarket false :triggerPx trigger-text :tpsl "sl")}))
+   :take-market (fn [base-order {:keys [price-text trigger-text]}]
                   (assoc base-order
-                         :p (str (or price trigger))
-                         :t {:trigger (array-map :isMarket true :triggerPx trigger :tpsl "tp")}))
-   :take-limit (fn [base-order {:keys [trigger]}]
+                         :p (or price-text trigger-text)
+                         :t {:trigger (array-map :isMarket true :triggerPx trigger-text :tpsl "tp")}))
+   :take-limit (fn [base-order {:keys [trigger-text]}]
                  (assoc base-order
-                        :t {:trigger (array-map :isMarket false :triggerPx trigger :tpsl "tp")}))})
+                        :t {:trigger (array-map :isMarket false :triggerPx trigger-text :tpsl "tp")}))})
 
 (defn- build-standard-order-action
   [order-type command-context form]
@@ -117,6 +145,8 @@
         reduce-only (:reduce-only form)
         post-only (:post-only form)
         tif (tif->wire (:tif form))
+        price-text (canonical-price-text command-context price)
+        trigger-text (canonical-price-text command-context trigger)
         shape-builder (get standard-order-shape-builders order-type)
         required-check (get standard-order-required-checks order-type)
         required-values-valid? (boolean (and required-check
@@ -124,24 +154,28 @@
                                                               :price price
                                                               :trigger trigger
                                                               :effective-price (or price trigger)})))
+        wire-values-valid? (order-wire-values-valid? order-type
+                                                     {:price-text price-text
+                                                      :trigger-text trigger-text})
         grouping (if (or (get-in form [:tp :enabled?]) (get-in form [:sl :enabled?]))
                    "normalTpsl"
                    "na")]
     (when (and shape-builder
                (string? active-asset)
                (number? asset-idx)
-               required-values-valid?)
+               required-values-valid?
+               wire-values-valid?)
       (let [base-order (array-map :a asset-idx
                                   :b (trading-domain/order-side->is-buy side)
-                                  :p (str price)
+                                  :p (or price-text "")
                                   :s (str size)
                                   :r reduce-only)
             order (shape-builder base-order
                                  {:post-only post-only
                                   :tif tif
-                                  :trigger trigger
-                                  :price price})
-            tpsl-orders (build-tpsl-orders asset-idx side (assoc form :size size))]
+                                  :trigger-text trigger-text
+                                  :price-text price-text})
+            tpsl-orders (build-tpsl-orders asset-idx side (assoc form :size size) command-context)]
         (when (some? tpsl-orders)
           (let [orders (cond-> [order]
                          (seq tpsl-orders) (into tpsl-orders))]

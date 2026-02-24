@@ -173,8 +173,8 @@
             (* (js/Math.floor (/ value factor)) factor))))
       0)))
 
-(defn- canonical-market-price-string
-  "Format market IOC prices according to Hyperliquid tick+sig-fig constraints."
+(defn canonical-order-price-string
+  "Format order prices according to Hyperliquid tick+sig-fig constraints."
   [context price]
   (when (finite-positive-number? price)
     (let [decimals (max-price-decimals context)
@@ -522,5 +522,5 @@
         adj (if (= side :buy) (+ 1 (/ slippage 100)) (- 1 (/ slippage 100)))
         adjusted-price (when (finite-positive-number? px)
                          (* px adj))]
-    (when-let [market-price (canonical-market-price-string context adjusted-price)]
+    (when-let [market-price (canonical-order-price-string context adjusted-price)]
       (assoc form :price market-price))))

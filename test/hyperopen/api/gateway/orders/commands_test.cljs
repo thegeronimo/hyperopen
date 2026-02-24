@@ -5,7 +5,14 @@
 (def command-context
   {:active-asset "BTC"
    :asset-idx 5
-   :market {:szDecimals 4}})
+   :market {:market-type :perp
+            :szDecimals 4}})
+
+(def mon-command-context
+  {:active-asset "MON"
+   :asset-idx 215
+   :market {:market-type :perp
+            :szDecimals 0}})
 
 (deftest build-scale-orders-respects-post-only-and-side-test
   (let [base-size {:size 9
@@ -39,11 +46,11 @@
     (is (= "2.5" (get-in orders [0 :s])))
     (is (= true (get-in orders [0 :r])))
     (is (= false (get-in orders [0 :t :trigger :isMarket])))
-    (is (= 110 (get-in orders [0 :t :trigger :triggerPx])))
+    (is (= "110" (get-in orders [0 :t :trigger :triggerPx])))
     (is (= "tp" (get-in orders [0 :t :trigger :tpsl])))
     (is (= "90" (get-in orders [1 :p])))
     (is (= true (get-in orders [1 :t :trigger :isMarket])))
-    (is (= 90 (get-in orders [1 :t :trigger :triggerPx])))
+    (is (= "90" (get-in orders [1 :t :trigger :triggerPx])))
     (is (= "sl" (get-in orders [1 :t :trigger :tpsl])))))
 
 (deftest build-tpsl-orders-fails-closed-for-invalid-enabled-leg-test
@@ -51,6 +58,19 @@
   (is (nil? (commands/build-tpsl-orders 5 :buy {:size "1"
                                                 :tp {:enabled? true
                                                      :trigger ""}}))))
+
+(deftest build-tpsl-orders-canonicalizes-trigger-price-to-exchange-precision-test
+  (let [orders (commands/build-tpsl-orders
+                215
+                :sell
+                {:size "965"
+                 :tp {:enabled? true
+                      :trigger "0.01969873"
+                      :is-market true}}
+                mon-command-context)]
+    (is (= 1 (count orders)))
+    (is (= "0.019698" (get-in orders [0 :p])))
+    (is (= "0.019698" (get-in orders [0 :t :trigger :triggerPx])))))
 
 (deftest build-order-action-normalizes-type-and-tif-test
   (let [action (commands/build-order-action command-context {:type :unsupported
@@ -113,13 +133,17 @@
       (is (= "Ioc" (get-in market [:orders 0 :t :limit :tif])))
       (is (= "95" (get-in stop-market [:orders 0 :p])))
       (is (= true (get-in stop-market [:orders 0 :t :trigger :isMarket])))
+      (is (= "95" (get-in stop-market [:orders 0 :t :trigger :triggerPx])))
       (is (= "sl" (get-in stop-market [:orders 0 :t :trigger :tpsl])))
       (is (= false (get-in stop-limit [:orders 0 :t :trigger :isMarket])))
+      (is (= "98" (get-in stop-limit [:orders 0 :t :trigger :triggerPx])))
       (is (= "sl" (get-in stop-limit [:orders 0 :t :trigger :tpsl])))
       (is (= "105" (get-in take-market [:orders 0 :p])))
       (is (= true (get-in take-market [:orders 0 :t :trigger :isMarket])))
+      (is (= "105" (get-in take-market [:orders 0 :t :trigger :triggerPx])))
       (is (= "tp" (get-in take-market [:orders 0 :t :trigger :tpsl])))
       (is (= false (get-in take-limit [:orders 0 :t :trigger :isMarket])))
+      (is (= "105" (get-in take-limit [:orders 0 :t :trigger :triggerPx])))
       (is (= "tp" (get-in take-limit [:orders 0 :t :trigger :tpsl])))))
 
   (testing "invalid TP/SL fails closed"
@@ -128,7 +152,23 @@
                                                               :size "1"
                                                               :price "100"
                                                               :tp {:enabled? true
-                                                                   :trigger ""}})))))
+                                                                   :trigger ""}}))))
+
+  (testing "stop/take trigger prices are canonicalized to exchange precision"
+    (let [stop-market (commands/build-order-request mon-command-context {:type :stop-market
+                                                                         :side :buy
+                                                                         :size "1"
+                                                                         :price ""
+                                                                         :trigger-px "0.01969873"})
+          take-limit (commands/build-order-request mon-command-context {:type :take-limit
+                                                                        :side :buy
+                                                                        :size "1"
+                                                                        :price "0.01969873"
+                                                                        :trigger-px "0.01969873"})]
+      (is (= "0.019698" (get-in stop-market [:orders 0 :p])))
+      (is (= "0.019698" (get-in stop-market [:orders 0 :t :trigger :triggerPx])))
+      (is (= "0.019698" (get-in take-limit [:orders 0 :p])))
+      (is (= "0.019698" (get-in take-limit [:orders 0 :t :trigger :triggerPx]))))))
 
 (deftest build-order-request-builds-scale-and-twap-requests-test
   (let [scale-request (commands/build-order-request command-context {:type :scale

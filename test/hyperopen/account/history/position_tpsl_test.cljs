@@ -71,13 +71,29 @@
     (is (true? (:ok? success)))
     (is (= "order"
            (get-in success [:request :action :type])))
-    (is (= "normalTpsl"
+    (is (= "positionTpsl"
            (get-in success [:request :action :grouping])))
     (is (= "tp"
            (get-in success [:request :action :orders 0 :t :trigger :tpsl])))
     (is (= {:ok? false
             :display-message "Select an asset and ensure market data is loaded."}
            missing-market))))
+
+(deftest prepare-submit-canonicalizes-trigger-prices-to-exchange-precision-test
+  (let [modal (-> (position-tpsl/from-position-row
+                   (fixtures/sample-position-row "MON" 10 "-965"))
+                  (assoc :tp-price "0.01969873"))
+        state {:asset-selector {:market-by-key {"perp:MON"
+                                                {:coin "MON"
+                                                 :market-type :perp
+                                                 :szDecimals 0
+                                                 :asset-id 215}}}}
+        success (position-tpsl/prepare-submit state modal)]
+    (is (true? (:ok? success)))
+    (is (= "0.019698"
+           (get-in success [:request :action :orders 0 :p])))
+    (is (= "0.019698"
+           (get-in success [:request :action :orders 0 :t :trigger :triggerPx])))))
 
 (deftest gain-and-loss-estimates-use-active-size-test
   (let [modal (-> (position-tpsl/from-position-row
