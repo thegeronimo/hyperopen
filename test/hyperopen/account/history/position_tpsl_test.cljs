@@ -82,3 +82,26 @@
                          :sl-price "9"))]
     (is (= 0.5 (position-tpsl/estimated-gain-usd modal)))
     (is (= 0.25 (position-tpsl/estimated-loss-usd modal)))))
+
+(deftest set-modal-field-accepts-gain-and-loss-inputs-test
+  (let [long-modal (position-tpsl/from-position-row
+                    (fixtures/sample-position-row "xyz:NVDA" 10 "0.500"))
+        short-modal (position-tpsl/from-position-row
+                     (fixtures/sample-position-row "xyz:NVDA" 10 "-0.500"))
+        tp-from-gain (position-tpsl/set-modal-field long-modal [:tp-gain] "1")
+        sl-from-loss (position-tpsl/set-modal-field long-modal [:sl-loss] "1")
+        short-tp-from-gain (position-tpsl/set-modal-field short-modal [:tp-gain] "1")
+        short-sl-from-loss (position-tpsl/set-modal-field short-modal [:sl-loss] "1")
+        configured-size-modal (assoc long-modal :configure-amount? true :size-input "0.25")
+        configured-tp-from-gain (position-tpsl/set-modal-field configured-size-modal [:tp-gain] "1")
+        cleared-tp (position-tpsl/set-modal-field (assoc long-modal :tp-price "12") [:tp-gain] "")
+        invalid-sl (position-tpsl/set-modal-field (assoc long-modal :sl-price "8") [:sl-loss] "invalid")
+        cleared-error (position-tpsl/set-modal-field (assoc long-modal :error "old") [:tp-gain] "1")]
+    (is (= "12" (:tp-price tp-from-gain)))
+    (is (= "8" (:sl-price sl-from-loss)))
+    (is (= "8" (:tp-price short-tp-from-gain)))
+    (is (= "12" (:sl-price short-sl-from-loss)))
+    (is (= "14" (:tp-price configured-tp-from-gain)))
+    (is (= "" (:tp-price cleared-tp)))
+    (is (= "" (:sl-price invalid-sl)))
+    (is (nil? (:error cleared-error)))))

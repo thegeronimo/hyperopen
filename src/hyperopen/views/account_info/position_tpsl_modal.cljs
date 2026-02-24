@@ -143,7 +143,7 @@
                :role "dialog"
                :aria-label "Position TP/SL"
                :data-position-tpsl-surface "true"
-               :on {:keydown [[:actions/handle-position-tpsl-modal-keydown :event/key]]}}
+               :on {:keydown [[:actions/handle-position-tpsl-modal-keydown [:event/key]]]}}
           [:div {:class ["flex" "items-center" "justify-between"]}
            [:h2 {:class ["text-2xl" "font-semibold" "text-gray-100"]} "Position TP/SL"]
            [:button {:type "button"
@@ -161,47 +161,47 @@
           [:div {:class ["grid" "grid-cols-2" "gap-2"]}
            (input-row "TP Price"
                       (:tp-price modal*)
-                      [[:actions/set-position-tpsl-modal-field [:tp-price] :event.target/value]])
+                      [[:actions/set-position-tpsl-modal-field [:tp-price] [:event.target/value]]])
            (input-row "Gain"
-                      (str (shared/format-currency gain) " $")
-                      nil)]
+                      (shared/format-currency gain)
+                      [[:actions/set-position-tpsl-modal-field [:tp-gain] [:event.target/value]]])]
 
           (when (boolean (:limit-price? modal*))
             [:div {:class ["grid" "grid-cols-2" "gap-2"]}
              (input-row "TP Limit"
                         (:tp-limit modal*)
-                        [[:actions/set-position-tpsl-modal-field [:tp-limit] :event.target/value]])
+                        [[:actions/set-position-tpsl-modal-field [:tp-limit] [:event.target/value]]])
              [:div]])
 
           [:div {:class ["grid" "grid-cols-2" "gap-2"]}
            (input-row "SL Price"
                       (:sl-price modal*)
-                      [[:actions/set-position-tpsl-modal-field [:sl-price] :event.target/value]])
+                      [[:actions/set-position-tpsl-modal-field [:sl-price] [:event.target/value]]])
            (input-row "Loss"
-                      (str (shared/format-currency loss) " $")
-                      nil)]
+                      (shared/format-currency loss)
+                      [[:actions/set-position-tpsl-modal-field [:sl-loss] [:event.target/value]]])]
 
           (when (boolean (:limit-price? modal*))
             [:div {:class ["grid" "grid-cols-2" "gap-2"]}
              (input-row "SL Limit"
                         (:sl-limit modal*)
-                        [[:actions/set-position-tpsl-modal-field [:sl-limit] :event.target/value]])
+                        [[:actions/set-position-tpsl-modal-field [:sl-limit] [:event.target/value]]])
              [:div]])
 
           (when (boolean (:configure-amount? modal*))
             (input-row "Amount"
                        (:size-input modal*)
-                       [[:actions/set-position-tpsl-modal-field [:size-input] :event.target/value]]))
+                       [[:actions/set-position-tpsl-modal-field [:size-input] [:event.target/value]]]))
 
           [:div {:class ["space-y-1"]}
            (checkbox-row "position-tpsl-configure-amount"
                          "Configure Amount"
                          (:configure-amount? modal*)
-                         [[:actions/set-position-tpsl-configure-amount :event.target/checked]])
+                         [[:actions/set-position-tpsl-configure-amount [:event.target/checked]]])
            (checkbox-row "position-tpsl-limit-price"
                          "Limit Price"
                          (:limit-price? modal*)
-                         [[:actions/set-position-tpsl-limit-price :event.target/checked]])]
+                         [[:actions/set-position-tpsl-limit-price [:event.target/checked]]])]
 
           (when (seq (:error modal*))
             [:div {:class ["text-xs" "text-[#ED7088]"]} (:error modal*)])

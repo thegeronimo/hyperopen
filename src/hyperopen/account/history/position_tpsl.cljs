@@ -337,12 +337,56 @@
     [:sl-price]
     [:sl-limit]})
 
+(defn- normalize-input-text [value]
+  (str (or value "")))
+
+(defn- pnl->price
+  [modal pnl-value mode]
+  (let [{:keys [active-size]} (parsed-inputs modal)
+        entry (parse-num (:entry-price modal))
+        side (:position-side modal)]
+    (when (and (non-negative-number? pnl-value)
+               (positive-number? active-size)
+               (positive-number? entry))
+      (let [delta (/ pnl-value active-size)]
+        (case [mode side]
+          [:tp :long] (+ entry delta)
+          [:tp :short] (- entry delta)
+          [:sl :long] (- entry delta)
+          [:sl :short] (+ entry delta)
+          nil)))))
+
+(defn- pnl-input->price-text
+  [modal raw-value mode]
+  (let [raw-text (normalize-input-text raw-value)
+        pnl-value (parse-num raw-text)]
+    (if (and (not (str/blank? raw-text))
+             (number? pnl-value))
+      (if-let [price (pnl->price modal pnl-value mode)]
+        (trading-domain/number->clean-string price 8)
+        "")
+      "")))
+
 (defn set-modal-field [modal path value]
-  (let [path* (if (vector? path) path [path])]
-    (if (contains? updatable-paths path*)
+  (let [path* (if (vector? path) path [path])
+        value* (normalize-input-text value)]
+    (cond
+      (contains? updatable-paths path*)
       (-> modal
-          (assoc-in path* (str (or value "")))
+          (assoc-in path* value*)
           (assoc :error nil))
+
+      (= path* [:tp-gain])
+      (-> modal
+          (assoc :tp-price (pnl-input->price-text modal value* :tp))
+          (assoc :error nil))
+
+      (= path* [:sl-loss])
+      (-> modal
+          (assoc :sl-price (pnl-input->price-text modal value* :sl))
+          (assoc :error nil))
+
+      :else
       modal)))
 
 (defn set-configure-amount [modal checked]
