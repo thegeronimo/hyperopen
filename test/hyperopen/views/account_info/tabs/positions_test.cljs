@@ -80,6 +80,10 @@
   (is (= "0.500 NVDA"
          (view/format-position-size {:coin "NVDA"
                                      :szi "0.500"
+                                     :leverage {:value 10}})))
+  (is (= "0.500 NVDA"
+         (view/format-position-size {:coin "xyz:NVDA"
+                                     :szi "-0.500"
                                      :leverage {:value 10}}))))
 
 (deftest position-row-renders-green-leverage-and-dex-chips-test
@@ -96,8 +100,27 @@
     (is (contains? coin-strings "xyz"))
     (is (not (contains? coin-strings "xyz:NVDA")))
     (is (= #{"0.500 NVDA"} (set (hiccup/collect-strings size-cell))))
+    (is (contains? (hiccup/node-class-set size-cell) "text-success"))
     (is (every? #(contains? (hiccup/node-class-set leverage-chip) %) expected-chip-classes))
     (is (every? #(contains? (hiccup/node-class-set dex-chip) %) expected-chip-classes))))
+
+(deftest position-row-renders-red-gradient-and-absolute-size-for-shorts-test
+  (let [row-node (view/position-row (fixtures/sample-position-row "xyz:NVDA" 10 "-0.500"))
+        row-cells (vec (hiccup/node-children row-node))
+        coin-cell (nth row-cells 0)
+        size-cell (nth row-cells 1)
+        coin-label-node (hiccup/find-first-node coin-cell #(contains? (hiccup/direct-texts %) "NVDA"))
+        leverage-chip (hiccup/find-first-node coin-cell #(contains? (hiccup/direct-texts %) "10x"))
+        expected-background "transparent linear-gradient(90deg, rgb(237, 112, 136) 0px, rgb(237, 112, 136) 4px, rgba(52, 36, 46, 1) 0%, transparent 100%)"
+        expected-chip-classes #{"bg-red-500/20" "text-red-300" "border-red-500/30"}]
+    (is (= expected-background
+           (get-in coin-cell [1 :style :background])))
+    (is (= "12px" (get-in coin-cell [1 :style :padding-left])))
+    (is (contains? (hiccup/node-class-set coin-label-node) "text-red-300"))
+    (is (contains? (hiccup/node-class-set size-cell) "text-error"))
+    (is (= #{"0.500 NVDA"} (set (hiccup/collect-strings size-cell))))
+    (is (not-any? #(str/includes? % "-0.500") (hiccup/collect-strings size-cell)))
+    (is (every? #(contains? (hiccup/node-class-set leverage-chip) %) expected-chip-classes))))
 
 (deftest position-row-coin-cell-uses-hyperliquid-gradient-background-test
   (let [row-node (view/position-row (fixtures/sample-position-row "xyz:NVDA" 10 "0.500"))
@@ -154,6 +177,39 @@
     (is (contains? funding-strings "--"))
     (is (not-any? #(str/includes? % "NaN") (hiccup/collect-strings row-node)))
     (is (contains? (hiccup/node-class-set funding-value-node) "text-trading-text"))))
+
+(deftest position-row-renders-pnl-on-one-line-with-inline-percent-test
+  (let [row-node (view/position-row (fixtures/sample-position-row "xyz:NVDA" 10 "0.500"))
+        row-cells (vec (hiccup/node-children row-node))
+        pnl-cell (nth row-cells 5)
+        pnl-texts (set (hiccup/collect-strings pnl-cell))]
+    (is (contains? pnl-texts "+$1.25 (+10.0%)"))
+    (is (nil? (hiccup/find-first-node pnl-cell #(contains? (hiccup/node-class-set %) "text-xs"))))))
+
+(deftest position-headers-render-tooltip-affordance-for-pnl-margin-and-funding-test
+  (let [header-node (view/position-table-header fixtures/default-sort-state)
+        pnl-header-label (hiccup/find-first-node header-node #(and (contains? (hiccup/direct-texts %) "PNL (ROE %)")
+                                                                   (contains? (hiccup/node-class-set %) "underline")))
+        margin-header-label (hiccup/find-first-node header-node #(and (contains? (hiccup/direct-texts %) "Margin")
+                                                                      (contains? (hiccup/node-class-set %) "underline")))
+        funding-header-label (hiccup/find-first-node header-node #(and (contains? (hiccup/direct-texts %) "Funding")
+                                                                       (contains? (hiccup/node-class-set %) "underline")))
+        header-strings (set (hiccup/collect-strings header-node))]
+    (is (some? pnl-header-label))
+    (is (some? margin-header-label))
+    (is (some? funding-header-label))
+    (is (contains? header-strings "Unrealized PNL with return on equity (ROE) shown in parentheses."))
+    (is (contains? header-strings "Margin currently allocated to this position."))
+    (is (contains? header-strings "Funding paid or received for this position."))))
+
+(deftest position-row-tpsl-cell-includes-edit-affordance-icon-test
+  (let [row-node (view/position-row (fixtures/sample-position-row "xyz:NVDA" 10 "0.500"))
+        row-cells (vec (hiccup/node-children row-node))
+        tpsl-cell (nth row-cells 9)
+        edit-icon-node (hiccup/find-first-node tpsl-cell #(= :svg (first %)))
+        tpsl-strings (set (hiccup/collect-strings tpsl-cell))]
+    (is (contains? tpsl-strings "-- / --"))
+    (is (some? edit-icon-node))))
 
 (deftest position-table-layout-prioritizes-coin-column-over-right-edge-actions-test
   (let [grid-template-class "grid-cols-[minmax(170px,1.9fr)_minmax(130px,1.2fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(130px,1.3fr)_minmax(110px,1fr)_minmax(100px,1fr)_minmax(100px,1fr)_minmax(80px,0.8fr)]"

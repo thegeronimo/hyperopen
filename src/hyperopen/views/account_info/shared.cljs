@@ -83,9 +83,47 @@
    "text-emerald-300"
    "border-emerald-500/30"])
 
+(def position-short-chip-classes
+  ["px-1.5"
+   "py-0.5"
+   "text-xs"
+   "leading-none"
+   "font-medium"
+   "rounded"
+   "border"
+   "bg-red-500/20"
+   "text-red-300"
+   "border-red-500/30"])
+
+(defn position-chip-classes-for-side [side]
+  (case side
+    :short position-short-chip-classes
+    position-chip-classes))
+
 (def position-coin-cell-style
   {:background "linear-gradient(90deg, rgb(31, 166, 125) 0px, rgb(31, 166, 125) 4px, rgb(11, 50, 38) 4px, transparent 100%) transparent"
    :padding-left "12px"})
+
+(def position-short-coin-cell-style
+  {:background "transparent linear-gradient(90deg, rgb(237, 112, 136) 0px, rgb(237, 112, 136) 4px, rgba(52, 36, 46, 1) 0%, transparent 100%)"
+   :padding-left "12px"})
+
+(defn position-coin-cell-style-for-side [side]
+  (case side
+    :short position-short-coin-cell-style
+    position-coin-cell-style))
+
+(defn position-side-tone-class [side]
+  (case side
+    :short "text-red-300"
+    :long "text-emerald-300"
+    "text-trading-text"))
+
+(defn position-side-size-class [side]
+  (case side
+    :short "text-error"
+    :long "text-success"
+    "text-trading-text"))
 
 (def positions-grid-template-class
   "grid-cols-[minmax(170px,1.9fr)_minmax(130px,1.2fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(130px,1.3fr)_minmax(110px,1fr)_minmax(100px,1fr)_minmax(100px,1fr)_minmax(80px,0.8fr)]")

@@ -1,5 +1,6 @@
 (ns hyperopen.views.account-info.tabs.positions
-  (:require [hyperopen.views.account-info.projections :as projections]
+  (:require [clojure.string :as str]
+            [hyperopen.views.account-info.projections :as projections]
             [hyperopen.views.account-info.shared :as shared]
             [hyperopen.views.account-info.sort-kernel :as sort-kernel]
             [hyperopen.views.account-info.table :as table]))
@@ -26,10 +27,82 @@
         parsed-prefix (some-> (:coin position-data) shared/parse-coin-namespace :prefix)]
     (or explicit-dex parsed-prefix)))
 
+(defn- position-side [position-data]
+  (let [size-num (shared/parse-optional-num (:szi position-data))]
+    (cond
+      (and (number? size-num) (neg? size-num)) :short
+      (and (number? size-num) (pos? size-num)) :long
+      :else :flat)))
+
+(defn- absolute-size-text [size]
+  (let [size-text (shared/non-blank-text size)]
+    (cond
+      (and size-text (str/starts-with? size-text "-")) (subs size-text 1)
+      (and size-text (str/starts-with? size-text "+")) (subs size-text 1)
+      size-text size-text
+      :else (if-let [size-num (shared/parse-optional-num size)]
+              (str (js/Math.abs size-num))
+              "0"))))
+
 (defn format-position-size [position-data]
-  (let [size (or (:szi position-data) "0")
+  (let [size (absolute-size-text (:szi position-data))
         coin (display-coin position-data)]
     (str size " " coin)))
+
+(defn- explainable-value-node [value-node explanation]
+  (if explanation
+    [:span {:class ["group" "relative" "inline-flex" "items-center" "underline" "decoration-dashed" "underline-offset-2"]}
+     value-node
+     [:span {:class ["pointer-events-none"
+                     "absolute"
+                     "left-1/2"
+                     "-translate-x-1/2"
+                     "top-full"
+                     "z-[120]"
+                     "mt-2"
+                     "w-56"
+                     "rounded-md"
+                     "bg-gray-800"
+                     "px-2.5"
+                     "py-1.5"
+                     "text-left"
+                     "text-xs"
+                     "leading-tight"
+                     "text-gray-100"
+                     "whitespace-normal"
+                     "shadow-lg"
+                     "opacity-0"
+                     "transition-opacity"
+                     "duration-200"
+                     "group-hover:opacity-100"
+                     "group-focus-within:opacity-100"]}
+      explanation]]
+    value-node))
+
+(defn- format-pnl-inline [pnl-num pnl-percent]
+  (if (and (number? pnl-num) (number? pnl-percent))
+    (let [value-prefix (cond
+                         (pos? pnl-num) "+$"
+                         (neg? pnl-num) "-$"
+                         :else "$")
+          pct-prefix (cond
+                       (pos? pnl-percent) "+"
+                       (neg? pnl-percent) "-"
+                       :else "")
+          value-text (str value-prefix (shared/format-currency (js/Math.abs pnl-num)))
+          pct-text (str "(" pct-prefix (.toFixed (js/Math.abs pnl-percent) 1) "%)")]
+      (str value-text " " pct-text))
+    "--"))
+
+(defn- edit-icon []
+  [:svg {:class ["h-3" "w-3" "shrink-0" "text-trading-green"]
+         :viewBox "0 0 20 20"
+         :fill "none"
+         :stroke "currentColor"
+         :stroke-width "1.8"
+         :aria-hidden true}
+   [:path {:d "M4 13.5V16h2.5L14 8.5 11.5 6 4 13.5Z"}]
+   [:path {:d "M10.5 7 13 9.5"}]])
 
 (defn position-unique-key [position-data]
   (projections/position-unique-key position-data))
@@ -39,11 +112,17 @@
 
 (defn position-row [position-data]
   (let [pos (:position position-data)
+        side (position-side pos)
+        chip-classes (shared/position-chip-classes-for-side side)
+        coin-cell-style (shared/position-coin-cell-style-for-side side)
+        coin-tone-class (shared/position-side-tone-class side)
+        size-tone-class (shared/position-side-size-class side)
         coin-label (display-coin pos)
         dex-label (dex-chip-label {:coin (:coin pos)
                                    :dex (:dex position-data)})
         leverage (get-in pos [:leverage :value])
         position-value (:positionValue pos)
+        position-value-num (shared/parse-optional-num position-value)
         entry-price (:entryPx pos)
         mark-price (calculate-mark-price pos)
         pnl-num (shared/parse-optional-num (:unrealizedPnl pos))
@@ -58,7 +137,13 @@
         display-funding (when (number? funding-num)
                           (if (pos? funding-num)
                             (- funding-num)
-                            funding-num))]
+                            funding-num))
+        funding-tooltip (when (number? funding-num)
+                          (str "All-time funding: $"
+                               (shared/format-currency display-funding)))
+        liq-explanation (or (shared/non-blank-text (:liquidationExplanation pos))
+                            (shared/non-blank-text (:liquidation-explanation pos))
+                            (shared/non-blank-text (:liquidation-explanation position-data)))]
     [:div {:class ["grid"
                    shared/positions-grid-template-class
                    "gap-2"
@@ -69,42 +154,42 @@
                    "items-center"
                    "text-sm"]}
      [:div {:class ["flex" "items-center" "gap-1.5" "self-stretch" "min-w-[170px]"]
-            :style shared/position-coin-cell-style}
-      [:span {:class ["font-medium" "whitespace-nowrap" "shrink-0"]} coin-label]
+            :style coin-cell-style}
+      [:span {:class ["font-medium" "whitespace-nowrap" "shrink-0" coin-tone-class]} coin-label]
       (when (some? leverage)
-        [:span {:class shared/position-chip-classes} (str leverage "x")])
+        [:span {:class chip-classes} (str leverage "x")])
       (when dex-label
-        [:span {:class shared/position-chip-classes} dex-label])]
-     [:div.text-left.font-semibold.num (format-position-size pos)]
-     [:div.text-left.font-semibold.num "$" (shared/format-currency position-value)]
+        [:span {:class chip-classes} dex-label])]
+     [:div {:class ["text-left" "font-semibold" "num" size-tone-class]} (format-position-size pos)]
+     [:div.text-left.font-semibold.num
+      (if (number? position-value-num)
+        (str (shared/format-currency position-value-num) " USDC")
+        "--")]
      [:div.text-left.font-semibold.num (shared/format-trade-price entry-price)]
      [:div.text-left.font-semibold.num (shared/format-trade-price mark-price)]
+     [:div {:class ["text-left" "font-semibold" "num" pnl-color-class]}
+      (format-pnl-inline pnl-num pnl-percent)]
      [:div.text-left.font-semibold.num
-      [:div
-       [:span {:class [pnl-color-class "num"]}
-        (if (number? pnl-num)
-          (str "$" (shared/format-currency pnl-num))
-          "--")]
-       [:div.text-xs.opacity-70.num
-        (if (number? pnl-percent)
-          [:span {:class (if (pos? pnl-percent) "text-success" "text-error")}
-           "(" (if (pos? pnl-percent) "+" "")
-           (.toFixed pnl-percent 2)
-           "%)"]
-          [:span.text-trading-text "--"])]]]
-     [:div.text-left.font-semibold.num (if liq-price (shared/format-trade-price liq-price) "N/A")]
+      (explainable-value-node
+       (if liq-price (shared/format-trade-price liq-price) "N/A")
+       liq-explanation)]
      [:div.text-left.font-semibold.num "$" (shared/format-currency margin)]
      [:div.text-left.font-semibold.num
-      [:span {:class [(cond
-                        (and (number? display-funding) (neg? display-funding)) "text-error"
-                        (and (number? display-funding) (pos? display-funding)) "text-success"
-                        :else "text-trading-text")
-                      "num"]}
-       (if (number? display-funding)
-         (str "$" (shared/format-currency display-funding))
-         "--")]]
+      (explainable-value-node
+       [:span {:class [(cond
+                         (and (number? display-funding) (neg? display-funding)) "text-error"
+                         (and (number? display-funding) (pos? display-funding)) "text-success"
+                         :else "text-trading-text")
+                       "num"]}
+        (if (number? display-funding)
+          (str "$" (shared/format-currency display-funding))
+          "--")]
+       funding-tooltip)]
      [:div.text-left
-      [:button.btn.btn-xs.btn-ghost "-- / --"]]]))
+      [:button {:class ["btn" "btn-xs" "btn-ghost" "gap-1" "px-1.5" "font-normal" "text-trading-text"]
+                :type "button"}
+       [:span "-- / --"]
+       (edit-icon)]]]))
 
 (defn sort-positions-by-column [positions column direction]
   (sort-kernel/sort-rows-by-column
@@ -147,8 +232,23 @@
                                         :result result})
         result))))
 
-(defn sortable-header [column-name sort-state]
-  (table/sortable-header-button column-name sort-state :actions/sort-positions))
+(def ^:private pnl-header-explanation
+  "Unrealized PNL with return on equity (ROE) shown in parentheses.")
+
+(def ^:private margin-header-explanation
+  "Margin currently allocated to this position.")
+
+(def ^:private funding-header-explanation
+  "Funding paid or received for this position.")
+
+(defn sortable-header
+  ([column-name sort-state]
+   (sortable-header column-name sort-state nil))
+  ([column-name sort-state explanation]
+   (table/sortable-header-button column-name
+                                 sort-state
+                                 :actions/sort-positions
+                                 {:explanation explanation})))
 
 (defn position-table-header [sort-state]
   [:div {:class ["grid"
@@ -163,10 +263,10 @@
    [:div.text-left (sortable-header "Position Value" sort-state)]
    [:div.text-left (sortable-header "Entry Price" sort-state)]
    [:div.text-left (sortable-header "Mark Price" sort-state)]
-   [:div.text-left (sortable-header "PNL (ROE %)" sort-state)]
+   [:div.text-left (sortable-header "PNL (ROE %)" sort-state pnl-header-explanation)]
    [:div.text-left (sortable-header "Liq. Price" sort-state)]
-   [:div.text-left (sortable-header "Margin" sort-state)]
-   [:div.text-left (sortable-header "Funding" sort-state)]
+   [:div.text-left (sortable-header "Margin" sort-state margin-header-explanation)]
+   [:div.text-left (sortable-header "Funding" sort-state funding-header-explanation)]
    [:div.text-left (table/non-sortable-header "TP/SL")]])
 
 (defn positions-tab-content
