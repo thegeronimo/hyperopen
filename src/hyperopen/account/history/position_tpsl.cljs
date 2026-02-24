@@ -16,6 +16,8 @@
    :mark-price 0
    :position-size 0
    :position-value 0
+   :margin-used 0
+   :leverage 0
    :size-input ""
    :configure-amount? false
    :limit-price? false
@@ -23,6 +25,8 @@
    :tp-limit ""
    :sl-price ""
    :sl-limit ""
+   :tp-gain-mode :usd
+   :sl-loss-mode :usd
    :submitting? false
    :error nil})
 
@@ -89,11 +93,33 @@
       (parse-num (:entryPx position))
       0))
 
+(defn- extract-leverage [position]
+  (or (parse-num (get-in position [:leverage :value]))
+      (parse-num (:leverage position))
+      0))
+
 (defn- positive-number? [value]
   (and (number? value) (pos? value)))
 
 (defn- non-negative-number? [value]
   (and (number? value) (>= value 0)))
+
+(def ^:private pnl-input-mode-default :usd)
+
+(defn- normalize-pnl-input-mode [value]
+  (let [as-keyword (cond
+                     (keyword? value) value
+                     (string? value) (keyword (str/lower-case (str/trim value)))
+                     :else nil)]
+    (if (= as-keyword :percent)
+      :percent
+      pnl-input-mode-default)))
+
+(defn tp-gain-mode [modal]
+  (normalize-pnl-input-mode (:tp-gain-mode modal)))
+
+(defn sl-loss-mode [modal]
+  (normalize-pnl-input-mode (:sl-loss-mode modal)))
 
 (defn- close-enough?
   [x y]
@@ -312,9 +338,15 @@
          size (absolute-position-size (:szi position))
          entry-price (or (parse-num (:entryPx position)) 0)
          mark-price (calculate-mark-price position)
+         leverage (extract-leverage position)
          position-value (or (parse-num (:positionValue position))
                             (* size entry-price)
-                            0)]
+                            0)
+         margin-used (or (parse-num (:marginUsed position))
+                         (when (and (positive-number? position-value)
+                                    (positive-number? leverage))
+                           (/ position-value leverage))
+                         0)]
      (assoc (default-modal-state)
             :open? true
             :position-key (projections/position-unique-key position-data)
@@ -326,6 +358,8 @@
             :mark-price mark-price
             :position-size size
             :position-value position-value
+            :margin-used margin-used
+            :leverage leverage
             :size-input (if (positive-number? size)
                           (trading-domain/number->clean-string size 8)
                           "")))))
@@ -356,6 +390,28 @@
           [:sl :short] (+ entry delta)
           nil)))))
 
+(defn- base-margin-basis
+  [modal]
+  (let [margin-used (parse-num (:margin-used modal))
+        position-value (parse-num (:position-value modal))
+        leverage (parse-num (:leverage modal))]
+    (cond
+      (positive-number? margin-used) margin-used
+      (and (positive-number? position-value)
+           (positive-number? leverage)) (/ position-value leverage)
+      (positive-number? position-value) position-value
+      :else nil)))
+
+(defn- active-margin-basis
+  [modal]
+  (let [base (base-margin-basis modal)
+        {:keys [active-size position-size]} (parsed-inputs modal)]
+    (when (and (positive-number? base)
+               (positive-number? active-size))
+      (if (positive-number? position-size)
+        (* base (/ active-size position-size))
+        base))))
+
 (defn- pnl-input->price-text
   [modal raw-value mode]
   (let [raw-text (normalize-input-text raw-value)
@@ -367,6 +423,49 @@
         "")
       "")))
 
+(defn- pnl-percent->usd
+  [modal pnl-percent]
+  (when (non-negative-number? pnl-percent)
+    (when-let [margin-basis (active-margin-basis modal)]
+      (* margin-basis (/ pnl-percent 100)))))
+
+(defn- pnl-percent-input->price-text
+  [modal raw-value mode]
+  (let [raw-text (normalize-input-text raw-value)
+        percent-value (parse-num raw-text)]
+    (if (and (not (str/blank? raw-text))
+             (number? percent-value))
+      (if-let [pnl-usd (pnl-percent->usd modal percent-value)]
+        (if-let [price (pnl->price modal pnl-usd mode)]
+          (trading-domain/number->clean-string price 8)
+          "")
+        "")
+      "")))
+
+(defn- parse-pnl-mode-command [value]
+  (let [as-keyword (cond
+                     (keyword? value) value
+                     (string? value) (keyword (str/lower-case (str/trim value)))
+                     :else nil)]
+    (case as-keyword
+      :toggle :toggle
+      :usd :usd
+      :percent :percent
+      nil)))
+
+(defn- toggle-pnl-input-mode [mode]
+  (if (= (normalize-pnl-input-mode mode) :percent)
+    :usd
+    :percent))
+
+(defn- resolve-next-pnl-input-mode [current-mode raw-command]
+  (let [command (parse-pnl-mode-command raw-command)]
+    (case command
+      :toggle (toggle-pnl-input-mode current-mode)
+      :usd :usd
+      :percent :percent
+      (normalize-pnl-input-mode current-mode))))
+
 (defn set-modal-field [modal path value]
   (let [path* (if (vector? path) path [path])
         value* (normalize-input-text value)]
@@ -376,14 +475,34 @@
           (assoc-in path* value*)
           (assoc :error nil))
 
+      (= path* [:tp-gain-mode])
+      (-> modal
+          (assoc :tp-gain-mode (resolve-next-pnl-input-mode (tp-gain-mode modal) value))
+          (assoc :error nil))
+
+      (= path* [:sl-loss-mode])
+      (-> modal
+          (assoc :sl-loss-mode (resolve-next-pnl-input-mode (sl-loss-mode modal) value))
+          (assoc :error nil))
+
       (= path* [:tp-gain])
       (-> modal
-          (assoc :tp-price (pnl-input->price-text modal value* :tp))
+          (assoc :tp-price ((if (= (tp-gain-mode modal) :percent)
+                              pnl-percent-input->price-text
+                              pnl-input->price-text)
+                            modal
+                            value*
+                            :tp))
           (assoc :error nil))
 
       (= path* [:sl-loss])
       (-> modal
-          (assoc :sl-price (pnl-input->price-text modal value* :sl))
+          (assoc :sl-price ((if (= (sl-loss-mode modal) :percent)
+                              pnl-percent-input->price-text
+                              pnl-input->price-text)
+                            modal
+                            value*
+                            :sl))
           (assoc :error nil))
 
       :else
@@ -439,6 +558,22 @@
            (case side
              :short (* size (- sl entry))
              (* size (- entry sl))))
+      0)))
+
+(defn estimated-gain-percent [modal]
+  (let [gain-usd (estimated-gain-usd modal)
+        margin-basis (active-margin-basis modal)]
+    (if (and (positive-number? gain-usd)
+             (positive-number? margin-basis))
+      (* 100 (/ gain-usd margin-basis))
+      0)))
+
+(defn estimated-loss-percent [modal]
+  (let [loss-usd (estimated-loss-usd modal)
+        margin-basis (active-margin-basis modal)]
+    (if (and (positive-number? loss-usd)
+             (positive-number? margin-basis))
+      (* 100 (/ loss-usd margin-basis))
       0)))
 
 (defn valid-size?

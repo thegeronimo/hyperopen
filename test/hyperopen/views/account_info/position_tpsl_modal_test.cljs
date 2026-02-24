@@ -43,3 +43,27 @@
     (doseq [checkbox-node checkbox-inputs]
       (is (= [:event.target/checked]
              (last (first (get-in checkbox-node [1 :on :change]))))))))
+
+(deftest position-tpsl-modal-unit-toggle-buttons-dispatch-mode-toggle-actions-test
+  (let [modal-view (sample-modal-view)
+        gain-toggle (hiccup/find-first-node
+                     modal-view
+                     #(= "Toggle gain unit" (get-in % [1 :aria-label])))
+        loss-toggle (hiccup/find-first-node
+                     modal-view
+                     #(= "Toggle loss unit" (get-in % [1 :aria-label])))]
+    (is (= [[:actions/set-position-tpsl-modal-field [:tp-gain-mode] :toggle]]
+           (get-in gain-toggle [1 :on :click])))
+    (is (= [[:actions/set-position-tpsl-modal-field [:sl-loss-mode] :toggle]]
+           (get-in loss-toggle [1 :on :click])))))
+
+(deftest position-tpsl-modal-expected-profit-swaps-between-percent-and-usdc-test
+  (let [base-modal (-> (position-tpsl/from-position-row
+                        (fixtures/sample-position-row "xyz:NVDA" 10 "0.500"))
+                       (assoc :tp-price "12"))
+        percent-mode-modal (position-tpsl/set-modal-field base-modal [:tp-gain-mode] :toggle)
+        usd-mode-strings (set (hiccup/collect-strings (position-tpsl-modal/position-tpsl-modal-view base-modal)))
+        percent-mode-strings (set (hiccup/collect-strings (position-tpsl-modal/position-tpsl-modal-view percent-mode-modal)))]
+    (is (contains? usd-mode-strings "Expected profit:"))
+    (is (contains? usd-mode-strings "8.33%"))
+    (is (contains? percent-mode-strings "1.00 USDC"))))

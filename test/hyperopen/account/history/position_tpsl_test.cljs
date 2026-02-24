@@ -14,6 +14,10 @@
     (is (= "0.5" (:size-input long-modal)))
     (is (= 10 (:entry-price long-modal)))
     (is (= 10 (:mark-price long-modal)))
+    (is (= 12 (:margin-used long-modal)))
+    (is (= 10 (:leverage long-modal)))
+    (is (= :usd (position-tpsl/tp-gain-mode long-modal)))
+    (is (= :usd (position-tpsl/sl-loss-mode long-modal)))
     (is (= :short (:position-side short-modal)))
     (is (= 0.75 (:position-size short-modal)))
     (is (= "0.75" (:size-input short-modal)))))
@@ -83,6 +87,19 @@
     (is (= 0.5 (position-tpsl/estimated-gain-usd modal)))
     (is (= 0.25 (position-tpsl/estimated-loss-usd modal)))))
 
+(deftest gain-and-loss-percent-estimates-use-margin-basis-test
+  (let [base-modal (-> (position-tpsl/from-position-row
+                        (fixtures/sample-position-row "xyz:NVDA" 10 "0.500"))
+                       (assoc :tp-price "12"
+                              :sl-price "9"))
+        configured-size-modal (assoc base-modal :configure-amount? true :size-input "0.25")
+        gain-pct (position-tpsl/estimated-gain-percent base-modal)
+        configured-gain-pct (position-tpsl/estimated-gain-percent configured-size-modal)
+        loss-pct (position-tpsl/estimated-loss-percent base-modal)]
+    (is (< (js/Math.abs (- gain-pct 8.333333333333334)) 0.000001))
+    (is (< (js/Math.abs (- configured-gain-pct gain-pct)) 0.000001))
+    (is (< (js/Math.abs (- loss-pct 4.166666666666667)) 0.000001))))
+
 (deftest set-modal-field-accepts-gain-and-loss-inputs-test
   (let [long-modal (position-tpsl/from-position-row
                     (fixtures/sample-position-row "xyz:NVDA" 10 "0.500"))
@@ -105,3 +122,22 @@
     (is (= "" (:tp-price cleared-tp)))
     (is (= "" (:sl-price invalid-sl)))
     (is (nil? (:error cleared-error)))))
+
+(deftest set-modal-field-supports-percent-gain-and-loss-modes-test
+  (let [long-modal (position-tpsl/from-position-row
+                    (fixtures/sample-position-row "xyz:NVDA" 10 "0.500"))
+        short-modal (position-tpsl/from-position-row
+                     (fixtures/sample-position-row "xyz:NVDA" 10 "-0.500"))
+        long-gain-percent-mode (position-tpsl/set-modal-field long-modal [:tp-gain-mode] :toggle)
+        long-gain-percent->tp (position-tpsl/set-modal-field long-gain-percent-mode [:tp-gain] "10")
+        short-gain-percent-mode (position-tpsl/set-modal-field short-modal [:tp-gain-mode] :toggle)
+        short-gain-percent->tp (position-tpsl/set-modal-field short-gain-percent-mode [:tp-gain] "10")
+        long-loss-percent-mode (position-tpsl/set-modal-field long-modal [:sl-loss-mode] :toggle)
+        long-loss-percent->sl (position-tpsl/set-modal-field long-loss-percent-mode [:sl-loss] "10")
+        gain-mode-reset (position-tpsl/set-modal-field long-gain-percent-mode [:tp-gain-mode] :toggle)]
+    (is (= :percent (position-tpsl/tp-gain-mode long-gain-percent-mode)))
+    (is (= :percent (position-tpsl/sl-loss-mode long-loss-percent-mode)))
+    (is (= "12.4" (:tp-price long-gain-percent->tp)))
+    (is (= "7.6" (:tp-price short-gain-percent->tp)))
+    (is (= "7.6" (:sl-price long-loss-percent->sl)))
+    (is (= :usd (position-tpsl/tp-gain-mode gain-mode-reset)))))

@@ -8,6 +8,11 @@
     (trading-domain/number->clean-string value 8)
     "0"))
 
+(defn- percent-text [value]
+  (if (and (number? value) (not (js/isNaN value)))
+    (trading-domain/number->clean-string value 2)
+    "0"))
+
 (defn- coin-label [coin]
   (let [parsed (shared/parse-coin-namespace coin)]
     (or (:base parsed)
@@ -41,36 +46,77 @@
             :class ["cursor-pointer" "select-none" "text-sm" "text-gray-100"]}
     label]])
 
-(defn- input-row [label value action]
-  [:div {:class ["relative" "w-full"]}
-   [:span {:class ["pointer-events-none"
-                   "absolute"
-                   "left-3"
-                   "top-1/2"
-                   "-translate-y-1/2"
-                   "text-sm"
-                   "text-gray-500"]}
-    label]
-   [:input (cond-> {:class ["h-10"
-                            "w-full"
-                            "rounded-lg"
-                            "border"
-                            "border-base-300"
-                            "bg-base-200"
-                            "pl-24"
-                            "pr-3"
-                            "text-right"
-                            "text-sm"
-                            "font-semibold"
-                            "text-gray-100"
-                            "num"
-                            "focus:outline-none"
-                            "focus:ring-1"
-                            "focus:ring-[#8a96a6]/40"]
-                    :type "text"
-                    :value (or value "")}
-             (some? action) (assoc :on {:input action})
-             (nil? action) (assoc :readonly true))]])
+(defn- reverse-icon []
+  [:svg {:class ["h-3.5" "w-3.5"]
+         :viewBox "0 0 16 16"
+         :fill "none"
+         :stroke "currentColor"
+         :stroke-width "1.5"
+         :aria-hidden "true"}
+   [:path {:d "M2 4h9"}]
+   [:path {:d "M9.5 2.5L11 4 9.5 5.5"}]
+   [:path {:d "M14 12H5"}]
+   [:path {:d "M6.5 10.5L5 12l1.5 1.5"}]])
+
+(defn- input-row
+  ([label value action]
+   (input-row label value action {}))
+  ([label value action {:keys [unit toggle-action toggle-aria-label]}]
+   [:div {:class ["relative" "w-full"]}
+    [:span {:class ["pointer-events-none"
+                    "absolute"
+                    "left-3"
+                    "top-1/2"
+                    "-translate-y-1/2"
+                    "text-sm"
+                    "text-gray-500"]}
+     label]
+    [:input (cond-> {:class ["h-10"
+                             "w-full"
+                             "rounded-lg"
+                             "border"
+                             "border-base-300"
+                             "bg-base-200"
+                             "pl-24"
+                             (if unit "pr-20" "pr-3")
+                             "text-right"
+                             "text-sm"
+                             "font-semibold"
+                             "text-gray-100"
+                             "num"
+                             "focus:outline-none"
+                             "focus:ring-1"
+                             "focus:ring-[#8a96a6]/40"]
+                     :type "text"
+                     :value (or value "")}
+              (some? action) (assoc :on {:input action})
+              (nil? action) (assoc :readonly true))]
+    (when unit
+      [:div {:class ["absolute"
+                     "right-2"
+                     "top-1/2"
+                     "-translate-y-1/2"
+                     "flex"
+                     "items-center"
+                     "gap-1.5"]}
+       [:span {:class ["text-sm" "font-semibold" "text-gray-400"]} unit]
+       (when toggle-action
+         [:button {:type "button"
+                   :class ["inline-flex"
+                           "h-6"
+                           "w-6"
+                           "items-center"
+                           "justify-center"
+                           "rounded-md"
+                           "text-gray-400"
+                           "hover:bg-base-300"
+                           "hover:text-gray-200"
+                           "focus:outline-none"
+                           "focus:ring-1"
+                           "focus:ring-[#8a96a6]/40"]
+                   :aria-label (or toggle-aria-label "Reverse input mode")
+                   :on {:click toggle-action}}
+          (reverse-icon)])])]))
 
 (def ^:private panel-gap-px 8)
 (def ^:private panel-margin-px 16)
@@ -127,6 +173,19 @@
             active-size (position-tpsl/active-size modal*)
             gain (position-tpsl/estimated-gain-usd modal*)
             loss (position-tpsl/estimated-loss-usd modal*)
+            gain-percent (position-tpsl/estimated-gain-percent modal*)
+            loss-percent (position-tpsl/estimated-loss-percent modal*)
+            gain-mode (position-tpsl/tp-gain-mode modal*)
+            loss-mode (position-tpsl/sl-loss-mode modal*)
+            gain-input-value (if (= gain-mode :percent)
+                               (percent-text gain-percent)
+                               (shared/format-currency gain))
+            loss-input-value (if (= loss-mode :percent)
+                               (percent-text loss-percent)
+                               (shared/format-currency loss))
+            expected-profit-value (if (= gain-mode :percent)
+                                    (str (shared/format-currency gain) " USDC")
+                                    (str (percent-text gain-percent) "%"))
             layout-style (modal-layout-style modal*)]
         [:div {:class ["fixed"
                        "z-[260]"
@@ -163,8 +222,16 @@
                       (:tp-price modal*)
                       [[:actions/set-position-tpsl-modal-field [:tp-price] [:event.target/value]]])
            (input-row "Gain"
-                      (shared/format-currency gain)
-                      [[:actions/set-position-tpsl-modal-field [:tp-gain] [:event.target/value]]])]
+                      gain-input-value
+                      [[:actions/set-position-tpsl-modal-field [:tp-gain] [:event.target/value]]]
+                      {:unit (if (= gain-mode :percent) "%" "$")
+                       :toggle-action [[:actions/set-position-tpsl-modal-field [:tp-gain-mode] :toggle]]
+                       :toggle-aria-label "Toggle gain unit"})]
+
+          [:div {:class ["flex" "justify-end" "pr-1" "text-sm"]}
+           [:span {:class ["text-gray-400"]} "Expected profit:"]
+           [:span {:class ["ml-1" "font-semibold" "text-gray-100" "num"]}
+            expected-profit-value]]
 
           (when (boolean (:limit-price? modal*))
             [:div {:class ["grid" "grid-cols-2" "gap-2"]}
@@ -178,8 +245,11 @@
                       (:sl-price modal*)
                       [[:actions/set-position-tpsl-modal-field [:sl-price] [:event.target/value]]])
            (input-row "Loss"
-                      (shared/format-currency loss)
-                      [[:actions/set-position-tpsl-modal-field [:sl-loss] [:event.target/value]]])]
+                      loss-input-value
+                      [[:actions/set-position-tpsl-modal-field [:sl-loss] [:event.target/value]]]
+                      {:unit (if (= loss-mode :percent) "%" "$")
+                       :toggle-action [[:actions/set-position-tpsl-modal-field [:sl-loss-mode] :toggle]]
+                       :toggle-aria-label "Toggle loss unit"})]
 
           (when (boolean (:limit-price? modal*))
             [:div {:class ["grid" "grid-cols-2" "gap-2"]}
