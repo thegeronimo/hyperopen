@@ -13,6 +13,21 @@
     (trading-domain/number->clean-string value 2)
     "0"))
 
+(defn- usd-input-text [value]
+  (let [num-value (js/parseFloat value)]
+    (if (or (js/isNaN num-value)
+            (< (js/Math.abs num-value) 0.00000001))
+      "0"
+      (shared/format-currency num-value))))
+
+(defn- select-input-value!
+  [event]
+  (let [target (or (some-> event .-currentTarget)
+                   (some-> event .-target))]
+    (when (and target (fn? (.-select target)))
+      ;; Defer to the next tick so the browser's click caret placement doesn't win.
+      (js/setTimeout #(.select target) 0))))
+
 (defn- coin-label [coin]
   (let [parsed (shared/parse-coin-namespace coin)]
     (or (:base parsed)
@@ -76,7 +91,7 @@
 (defn- input-row
   ([label value action]
    (input-row label value action {}))
-  ([label value action {:keys [unit toggle-action toggle-aria-label]}]
+  ([label value action {:keys [unit toggle-action toggle-aria-label select-on-focus?]}]
    [:div {:class ["relative" "w-full"]}
     [:span {:class ["pointer-events-none"
                     "absolute"
@@ -103,7 +118,10 @@
                      :type "text"
                      :value (or value "")}
               (some? action) (assoc :on {:input action})
-              (nil? action) (assoc :readonly true))]
+              (nil? action) (assoc :readonly true)
+              select-on-focus? (update :on (fnil merge {})
+                                       {:focus select-input-value!
+                                        :click select-input-value!}))]
     (when unit
       [:div {:class ["absolute"
                      "right-2"
@@ -194,10 +212,10 @@
             loss-mode (position-tpsl/sl-loss-mode modal*)
             gain-input-value (if (= gain-mode :percent)
                                (percent-text gain-percent)
-                               (shared/format-currency gain))
+                               (usd-input-text gain))
             loss-input-value (if (= loss-mode :percent)
                                (percent-text loss-percent)
-                               (shared/format-currency loss))
+                               (usd-input-text loss))
             expected-profit-value (if (= gain-mode :percent)
                                     (str (shared/format-currency gain) " USDC")
                                     (str (percent-text gain-percent) "%"))
@@ -243,6 +261,7 @@
                       gain-input-value
                       [[:actions/set-position-tpsl-modal-field [:tp-gain] [:event.target/value]]]
                       {:unit (if (= gain-mode :percent) "%" "$")
+                       :select-on-focus? true
                        :toggle-action [[:actions/set-position-tpsl-modal-field [:tp-gain-mode] :toggle]]
                        :toggle-aria-label "Toggle gain unit"})]
 
@@ -267,6 +286,7 @@
                       loss-input-value
                       [[:actions/set-position-tpsl-modal-field [:sl-loss] [:event.target/value]]]
                       {:unit (if (= loss-mode :percent) "%" "$")
+                       :select-on-focus? true
                        :toggle-action [[:actions/set-position-tpsl-modal-field [:sl-loss-mode] :toggle]]
                        :toggle-aria-label "Toggle loss unit"})]
 

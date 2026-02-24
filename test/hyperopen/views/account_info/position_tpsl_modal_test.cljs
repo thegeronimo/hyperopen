@@ -44,6 +44,21 @@
       (is (= [:event.target/checked]
              (last (first (get-in checkbox-node [1 :on :change]))))))))
 
+(deftest position-tpsl-modal-gain-and-loss-inputs-default-to-zero-and-select-on-entry-test
+  (let [modal-view (sample-modal-view)
+        editable-text-inputs (filter #(and (= :input (first %))
+                                           (= "text" (get-in % [1 :type]))
+                                           (contains? (get-in % [1 :on]) :input))
+                                     (hiccup/find-all-nodes modal-view vector?))
+        zero-inputs (filter #(= "0" (get-in % [1 :value])) editable-text-inputs)]
+    (is (= 2 (count zero-inputs)))
+    (is (not-any? #(= "0.00" (get-in % [1 :value])) editable-text-inputs))
+    (doseq [input-node zero-inputs]
+      (is (fn? (get-in input-node [1 :on :focus])))
+      (is (fn? (get-in input-node [1 :on :click])))
+      (is (nil? (get-in input-node [1 :on-focus])))
+      (is (nil? (get-in input-node [1 :on-click]))))))
+
 (deftest position-tpsl-modal-unit-toggle-buttons-dispatch-mode-toggle-actions-test
   (let [modal-view (sample-modal-view)
         gain-toggle (hiccup/find-first-node
