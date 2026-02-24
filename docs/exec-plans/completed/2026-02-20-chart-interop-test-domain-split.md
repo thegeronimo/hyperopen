@@ -4,7 +4,7 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
 
 This document is maintained in accordance with `/hyperopen/.agents/PLANS.md`.
 
-This plan builds on the production-side chart interop modularization documented in `/hyperopen/docs/exec-plans/active/2026-02-16-chart-interop-solid-ddd-split.md` and `/hyperopen/docs/exec-plans/active/2026-02-16-chart-interop-solid-ddd-followup-wave.md`.
+This plan builds on the production-side chart interop modularization documented in `/hyperopen/docs/exec-plans/completed/2026-02-16-chart-interop-solid-ddd-split.md` and `/hyperopen/docs/exec-plans/completed/2026-02-16-chart-interop-solid-ddd-followup-wave.md`.
 
 ## Purpose / Big Picture
 

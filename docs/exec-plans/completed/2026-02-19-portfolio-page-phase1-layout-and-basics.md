@@ -80,7 +80,7 @@ What was achieved:
   - `/hyperopen/test/test_runner.cljs`
 - Added product artifacts:
   - `/hyperopen/docs/product-specs/portfolio-page-parity-prd.md`
-  - `/hyperopen/docs/exec-plans/active/2026-02-19-portfolio-page-phase1-layout-and-basics.md`
+  - `/hyperopen/docs/exec-plans/completed/2026-02-19-portfolio-page-phase1-layout-and-basics.md`
   - `/hyperopen/docs/product-specs/index.md` updated with the new PRD entry.
 
 Validation evidence:

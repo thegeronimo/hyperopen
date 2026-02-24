@@ -125,7 +125,7 @@ Planned changed files:
 - `/hyperopen/src/hyperopen/views/trading_chart/core.cljs`
 - `/hyperopen/test/hyperopen/views/account_info/projections_test.cljs` (new)
 - `/hyperopen/test/hyperopen/views/trading_chart/utils/chart_interop_test.cljs`
-- `/hyperopen/docs/exec-plans/active/2026-02-16-chart-open-order-overlays-inline-cancel.md`
+- `/hyperopen/docs/exec-plans/completed/2026-02-16-chart-open-order-overlays-inline-cancel.md`
 
 ## Interfaces and Dependencies
 

@@ -116,7 +116,7 @@ Planned changed paths:
 - `/hyperopen/src/hyperopen/views/trading_chart/utils/chart_interop.cljs`
 - `/hyperopen/src/hyperopen/views/trading_chart/utils/chart_interop/*.cljs` (new modules)
 - `/hyperopen/test/hyperopen/views/trading_chart/utils/chart_interop_test.cljs`
-- `/hyperopen/docs/exec-plans/active/2026-02-16-chart-interop-solid-ddd-split.md` (living updates)
+- `/hyperopen/docs/exec-plans/completed/2026-02-16-chart-interop-solid-ddd-split.md` (living updates)
 
 ## Interfaces and Dependencies
 

@@ -160,7 +160,7 @@ Planned changed paths:
 - `/hyperopen/test/hyperopen/websocket/market_projection_runtime_test.cljs` (new)
 - `/hyperopen/test/hyperopen/websocket/orderbook_test.cljs` (new)
 - `/hyperopen/test/hyperopen/websocket/active_asset_ctx_test.cljs` (new)
-- `/hyperopen/docs/exec-plans/active/2026-02-16-websocket-store-write-coalescing.md` (living updates)
+- `/hyperopen/docs/exec-plans/completed/2026-02-16-websocket-store-write-coalescing.md` (living updates)
 
 Evidence to capture during implementation:
 

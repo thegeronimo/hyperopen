@@ -4,7 +4,7 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
 
 This document is maintained in accordance with `/hyperopen/.agents/PLANS.md`.
 
-This plan builds on `/hyperopen/docs/exec-plans/active/2026-02-16-chart-interop-solid-ddd-split.md`, which completed the initial namespace split, registry extraction, and legend XSS hardening.
+This plan builds on `/hyperopen/docs/exec-plans/completed/2026-02-16-chart-interop-solid-ddd-split.md`, which completed the initial namespace split, registry extraction, and legend XSS hardening.
 
 ## Purpose / Big Picture
 
@@ -146,7 +146,7 @@ Planned changed files:
 - `/hyperopen/src/hyperopen/views/trading_chart/utils/chart_interop/price_format.cljs`
 - `/hyperopen/test/hyperopen/views/trading_chart/utils/chart_interop_test.cljs`
 - `/hyperopen/test/hyperopen/views/trading_chart/core_test.cljs`
-- `/hyperopen/docs/exec-plans/active/2026-02-16-chart-interop-solid-ddd-followup-wave.md`
+- `/hyperopen/docs/exec-plans/completed/2026-02-16-chart-interop-solid-ddd-followup-wave.md`
 
 ## Interfaces and Dependencies
 
