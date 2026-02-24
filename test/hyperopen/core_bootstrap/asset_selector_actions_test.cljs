@@ -100,6 +100,7 @@
                                                    :size-unit-dropdown-visible? true}}
                                    market)]
     (is (= [[:effects/save-many [[[:asset-selector :visible-dropdown] nil]
+                                 [[:asset-selector :search-term] ""]
                                  [[:asset-selector :scroll-top] 0]
                                  [[:asset-selector :render-limit] 120]
                                  [[:asset-selector :last-render-limit-increase-ms] nil]
@@ -134,6 +135,7 @@
                 :coin "SOL"}
         effects (core/select-asset {:active-asset nil} market)]
     (is (= [[:effects/save-many [[[:asset-selector :visible-dropdown] nil]
+                                 [[:asset-selector :search-term] ""]
                                  [[:asset-selector :scroll-top] 0]
                                  [[:asset-selector :render-limit] 120]
                                  [[:asset-selector :last-render-limit-increase-ms] nil]
@@ -168,6 +170,7 @@
                                                    :size-unit-dropdown-visible? true}}
                                    "1")]
     (is (= [[:effects/save-many [[[:asset-selector :visible-dropdown] nil]
+                                 [[:asset-selector :search-term] ""]
                                  [[:asset-selector :scroll-top] 0]
                                  [[:asset-selector :render-limit] 120]
                                  [[:asset-selector :last-render-limit-increase-ms] nil]

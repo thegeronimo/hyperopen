@@ -66,6 +66,7 @@
   (testing "invalid market input still emits deterministic save-many envelope"
     (let [effects (actions/select-asset {:active-asset nil} :unsupported)]
       (is (= [[:effects/save-many [[[:asset-selector :visible-dropdown] nil]
+                                   [[:asset-selector :search-term] ""]
                                    [[:asset-selector :scroll-top] 0]
                                    [[:asset-selector :render-limit]
                                     actions/asset-selector-default-render-limit]

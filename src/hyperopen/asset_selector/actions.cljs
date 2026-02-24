@@ -231,6 +231,7 @@
                                             (or (:order-form-ui state) {}))
                                      :price-input-focused? false))
         immediate-ui-path-values (cond-> [[[:asset-selector :visible-dropdown] nil]
+                                          [[:asset-selector :search-term] ""]
                                           [[:asset-selector :scroll-top] 0]
                                           [[:asset-selector :render-limit] asset-selector-default-render-limit]
                                           [[:asset-selector :last-render-limit-increase-ms] nil]
