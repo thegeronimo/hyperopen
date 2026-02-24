@@ -199,7 +199,9 @@
               ([store]
                (ensure-perp-dexs-data-mock store {}))
               ([_ _]
-               (js/Promise.resolve ["dex-1" "dex-2"]))))
+               (js/Promise.resolve {:dex-names ["dex-1" "dex-2"]
+                                    :fee-config-by-name {"dex-1" {:deployer-fee-scale 0.1}
+                                                         "dex-2" {:deployer-fee-scale 0.2}}}))))
       (set! account-history-effects/fetch-and-merge-funding-history!
             (fn [_store address opts]
               (swap! stage-a-calls conj [:fundings [address opts]])

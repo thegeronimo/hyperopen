@@ -74,6 +74,28 @@
 (defonce ^:private asset-selector-shortcuts-cleanup
   (atom nil))
 
+(defn- non-blank-text
+  [value]
+  (let [text (some-> value str str/trim)]
+    (when (seq text) text)))
+
+(defn- normalize-stage-b-dex-names
+  [dexs]
+  (let [raw (cond
+              (map? dexs)
+              (or (:dex-names dexs)
+                  (:perp-dexs dexs)
+                  [])
+
+              (sequential? dexs)
+              dexs
+
+              :else
+              [])]
+    (->> raw
+         (keep non-blank-text)
+         vec)))
+
 (defn install-asset-selector-shortcuts!
   [{:keys [store dispatch!]}]
   (let [window-object (when (exists? js/window) js/window)
@@ -117,7 +139,7 @@
            per-dex-stagger-ms
            fetch-frontend-open-orders!
            fetch-clearinghouse-state!]}]
-  (doseq [[idx dex] (map-indexed vector (or dexs []))]
+  (doseq [[idx dex] (map-indexed vector (normalize-stage-b-dex-names dexs))]
     (platform/set-timeout!
      (fn []
        ;; Guard against stale async callbacks for an old address.
@@ -168,7 +190,8 @@
       ;; Stage B: low-priority, staggered per-dex data.
       (-> (ensure-perp-dexs! store {:priority :low})
           (.then (fn [dexs]
-                   (stage-b-account-bootstrap! address dexs)))
+                   (stage-b-account-bootstrap! address
+                                               (normalize-stage-b-dex-names dexs))))
           (.catch (fn [err]
                     (log-fn "Error bootstrapping per-dex account data:" err)))))))
 

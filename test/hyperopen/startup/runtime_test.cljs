@@ -183,7 +183,7 @@
             :dispatch! dispatch!})
           (is (= 1 (count @removed-handlers))))))))
 
-(deftest stage-b-account-bootstrap-covers-guarded-and-empty-dex-branches-test
+(deftest stage-b-account-bootstrap-covers-shape-guard-and-empty-dex-branches-test
   (let [timeouts (atom [])
         open-orders-calls (atom [])
         clearinghouse-calls (atom [])
@@ -208,6 +208,28 @@
       (is (= [["0xabc" "dex-a" {:priority :low}]
               ["0xabc" "dex-b" {:priority :low}]]
              @clearinghouse-calls))
+      (startup-runtime/stage-b-account-bootstrap!
+       {:store store
+        :address "0xabc"
+        :dexs {:dex-names ["dex-c" " " nil "dex-d"]
+               :fee-config-by-name {"dex-c" {:deployer-fee-scale 0.1}
+                                    "dex-d" {:deployer-fee-scale 0.2}}}
+        :per-dex-stagger-ms 25
+        :fetch-frontend-open-orders! (fn [_store address opts]
+                                       (swap! open-orders-calls conj [address opts]))
+        :fetch-clearinghouse-state! (fn [_store address dex opts]
+                                      (swap! clearinghouse-calls conj [address dex opts]))})
+      (is (= [25 50 25 50] @timeouts))
+      (is (= [["0xabc" {:dex "dex-a" :priority :low}]
+              ["0xabc" {:dex "dex-b" :priority :low}]
+              ["0xabc" {:dex "dex-c" :priority :low}]
+              ["0xabc" {:dex "dex-d" :priority :low}]]
+             @open-orders-calls))
+      (is (= [["0xabc" "dex-a" {:priority :low}]
+              ["0xabc" "dex-b" {:priority :low}]
+              ["0xabc" "dex-c" {:priority :low}]
+              ["0xabc" "dex-d" {:priority :low}]]
+             @clearinghouse-calls))
       (swap! store assoc-in [:wallet :address] "0xnew")
       (startup-runtime/stage-b-account-bootstrap!
        {:store store
@@ -218,8 +240,8 @@
                                        (swap! open-orders-calls conj [address opts]))
         :fetch-clearinghouse-state! (fn [_store address dex opts]
                                       (swap! clearinghouse-calls conj [address dex opts]))})
-      (is (= 2 (count @open-orders-calls)))
-      (is (= 2 (count @clearinghouse-calls)))
+      (is (= 4 (count @open-orders-calls)))
+      (is (= 4 (count @clearinghouse-calls)))
       (startup-runtime/stage-b-account-bootstrap!
        {:store store
         :address "0xnew"
@@ -227,7 +249,7 @@
         :per-dex-stagger-ms 25
         :fetch-frontend-open-orders! (fn [& _] (throw (js/Error. "should not run")))
         :fetch-clearinghouse-state! (fn [& _] (throw (js/Error. "should not run")))})
-      (is (= [25 50 25] @timeouts)))))
+      (is (= [25 50 25 50 25] @timeouts)))))
 
 (deftest bootstrap-account-data-covers-nil-repeat-success-and-error-branches-test
   (async done
@@ -260,7 +282,9 @@
                                                     (swap! stage-a-calls conj [:fundings address opts]))
                 :ensure-perp-dexs! (fn [_store _opts]
                                      (if (= :resolve @ensure-mode)
-                                       (js/Promise.resolve ["dex-a" "dex-b"])
+                                       (js/Promise.resolve {:dex-names ["dex-a" "dex-b"]
+                                                            :fee-config-by-name {"dex-a" {:deployer-fee-scale 0.1}
+                                                                                 "dex-b" {:deployer-fee-scale 0.2}}})
                                        (js/Promise.reject (js/Error. "ensure-failed"))))
                 :stage-b-account-bootstrap! (fn [address dexs]
                                              (swap! stage-b-calls conj [address dexs]))
