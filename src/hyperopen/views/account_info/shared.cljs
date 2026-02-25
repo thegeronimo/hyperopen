@@ -157,7 +157,7 @@
     "text-trading-text"))
 
 (def positions-grid-template-class
-  "grid-cols-[minmax(150px,1.65fr)_minmax(108px,1.05fr)_minmax(98px,0.95fr)_minmax(98px,0.95fr)_minmax(98px,0.95fr)_minmax(115px,1.15fr)_minmax(92px,0.9fr)_minmax(84px,0.85fr)_minmax(84px,0.85fr)_minmax(165px,1.3fr)]")
+  "grid-cols-[minmax(150px,1.65fr)_minmax(108px,1.05fr)_minmax(98px,0.95fr)_minmax(98px,0.95fr)_minmax(98px,0.95fr)_minmax(115px,1.15fr)_minmax(92px,0.9fr)_minmax(84px,0.85fr)_minmax(84px,0.85fr)_minmax(110px,0.95fr)_minmax(165px,1.3fr)]")
 
 (def positions-grid-min-width-class
-  "min-w-[1170px]")
+  "min-w-[1285px]")

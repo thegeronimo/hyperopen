@@ -1,5 +1,6 @@
 (ns hyperopen.account.history.actions
   (:require [clojure.string :as str]
+            [hyperopen.account.history.position-reduce :as position-reduce]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.domain.funding-history :as funding-history]
             [hyperopen.platform :as platform]
@@ -549,11 +550,15 @@
 
 (defn open-position-tpsl-modal
   ([_state position-data]
-   [[:effects/save [:positions-ui :tpsl-modal]
-     (position-tpsl/from-position-row position-data)]])
+   [[:effects/save-many [[[:positions-ui :tpsl-modal]
+                          (position-tpsl/from-position-row position-data)]
+                         [[:positions-ui :reduce-popover]
+                          (position-reduce/default-popover-state)]]]])
   ([_state position-data trigger-bounds]
-   [[:effects/save [:positions-ui :tpsl-modal]
-     (position-tpsl/from-position-row position-data trigger-bounds)]]))
+   [[:effects/save-many [[[:positions-ui :tpsl-modal]
+                          (position-tpsl/from-position-row position-data trigger-bounds)]
+                         [[:positions-ui :reduce-popover]
+                          (position-reduce/default-popover-state)]]]]))
 
 (defn close-position-tpsl-modal [_state]
   [[:effects/save [:positions-ui :tpsl-modal]
@@ -582,6 +587,46 @@
                   (position-tpsl/default-modal-state))]
     [[:effects/save [:positions-ui :tpsl-modal]
       (position-tpsl/set-limit-price modal checked)]]))
+
+(defn trigger-close-all-positions [_state]
+  [])
+
+(defn open-position-reduce-popover
+  ([_state position-data]
+   [[:effects/save-many [[[:positions-ui :reduce-popover]
+                          (position-reduce/from-position-row position-data)]
+                         [[:positions-ui :tpsl-modal]
+                          (position-tpsl/default-modal-state)]]]])
+  ([_state position-data trigger-bounds]
+   [[:effects/save-many [[[:positions-ui :reduce-popover]
+                          (position-reduce/from-position-row position-data trigger-bounds)]
+                         [[:positions-ui :tpsl-modal]
+                          (position-tpsl/default-modal-state)]]]]))
+
+(defn close-position-reduce-popover [_state]
+  [[:effects/save [:positions-ui :reduce-popover]
+    (position-reduce/default-popover-state)]])
+
+(defn handle-position-reduce-popover-keydown [state key]
+  (if (= key "Escape")
+    (close-position-reduce-popover state)
+    []))
+
+(defn set-position-reduce-popover-field [state path value]
+  (let [popover (or (get-in state [:positions-ui :reduce-popover])
+                    (position-reduce/default-popover-state))
+        path* (if (vector? path) path [path])]
+    [[:effects/save [:positions-ui :reduce-popover]
+      (position-reduce/set-popover-field popover path* value)]]))
+
+(defn set-position-reduce-size-percent [state percent]
+  (let [popover (or (get-in state [:positions-ui :reduce-popover])
+                    (position-reduce/default-popover-state))]
+    [[:effects/save [:positions-ui :reduce-popover]
+      (position-reduce/set-size-percent popover percent)]]))
+
+(defn submit-position-reduce-close [_state]
+  [])
 
 (defn submit-position-tpsl [state]
   (let [modal (or (get-in state [:positions-ui :tpsl-modal])

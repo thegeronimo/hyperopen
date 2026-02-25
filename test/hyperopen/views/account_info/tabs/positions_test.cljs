@@ -1,6 +1,7 @@
 (ns hyperopen.views.account-info.tabs.positions-test
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is testing use-fixtures]]
+            [hyperopen.account.history.position-reduce :as position-reduce]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.views.account-info.test-support.fixtures :as fixtures]
             [hyperopen.views.account-info.test-support.hiccup :as hiccup]
@@ -108,10 +109,20 @@
       (is (contains? (hiccup/node-class-set (nth header-cells idx)) "text-left")))
     (doseq [idx (range 1 9)]
       (is (contains? (hiccup/node-class-set (nth row-cells idx)) "text-left")))
-    (doseq [idx [9]]
+    (doseq [idx [9 10]]
       (is (contains? (hiccup/node-class-set (nth header-cells idx)) "text-left")))
-    (doseq [idx [9]]
+    (doseq [idx [9 10]]
       (is (contains? (hiccup/node-class-set (nth row-cells idx)) "text-left")))))
+
+(deftest position-table-header-close-all-dispatches-placeholder-action-test
+  (let [header-node (view/position-table-header fixtures/default-sort-state)
+        close-all-button (hiccup/find-first-node
+                          header-node
+                          #(and (= :button (first %))
+                                (contains? (hiccup/direct-texts %) "Close All")))]
+    (is (some? close-all-button))
+    (is (= [[:actions/trigger-close-all-positions]]
+           (get-in close-all-button [1 :on :click])))))
 
 (deftest position-size-format-removes-leverage-and-uses-base-symbol-test
   (is (= "0.500 NVDA"
@@ -274,7 +285,7 @@
 (deftest position-row-tpsl-cell-includes-edit-affordance-icon-test
   (let [row-node (view/position-row (fixtures/sample-position-row "xyz:NVDA" 10 "0.500"))
         row-cells (vec (hiccup/node-children row-node))
-        tpsl-cell (nth row-cells 9)
+        tpsl-cell (nth row-cells 10)
         edit-icon-node (hiccup/find-first-node tpsl-cell #(= :svg (first %)))
         action-button (hiccup/find-first-node tpsl-cell #(= :button (first %)))
         tpsl-strings (set (hiccup/collect-strings tpsl-cell))]
@@ -289,7 +300,7 @@
                             :position-sl-trigger-px "9.5"))
         row-node (view/position-row row-data)
         row-cells (vec (hiccup/node-children row-node))
-        tpsl-cell (nth row-cells 9)
+        tpsl-cell (nth row-cells 10)
         expected-copy (str (view/format-trade-price "12.5")
                            " / "
                            (view/format-trade-price "9.5"))
@@ -301,7 +312,7 @@
   (let [row-data (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
         row-node (view/position-row row-data)
         row-cells (vec (hiccup/node-children row-node))
-        tpsl-cell (nth row-cells 9)
+        tpsl-cell (nth row-cells 10)
         action-button (hiccup/find-first-node tpsl-cell #(= :button (first %)))
         click-actions (get-in action-button [1 :on :click])]
     (is (vector? click-actions))
@@ -312,6 +323,34 @@
     (is (= :event.currentTarget/bounds
            (nth (first click-actions) 2)))
     (is (= "true" (get-in action-button [1 :data-position-tpsl-trigger])))))
+
+(deftest position-row-reduce-cell-dispatches-open-popover-action-test
+  (let [row-data (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
+        row-node (view/position-row row-data)
+        row-cells (vec (hiccup/node-children row-node))
+        reduce-cell (nth row-cells 9)
+        action-button (hiccup/find-first-node reduce-cell #(= :button (first %)))
+        click-actions (get-in action-button [1 :on :click])]
+    (is (= #{"Reduce"} (set (hiccup/collect-strings reduce-cell))))
+    (is (vector? click-actions))
+    (is (= :actions/open-position-reduce-popover
+           (first (first click-actions))))
+    (is (= row-data
+           (second (first click-actions))))
+    (is (= :event.currentTarget/bounds
+           (nth (first click-actions) 2)))
+    (is (= "true" (get-in action-button [1 :data-position-reduce-trigger])))))
+
+(deftest position-row-renders-inline-reduce-popover-for-active-row-key-test
+  (let [row-data (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
+        popover (position-reduce/from-position-row row-data)
+        row-node (view/position-row row-data nil popover)
+        panel-node (hiccup/find-first-node
+                    row-node
+                    #(= "true" (get-in % [1 :data-position-reduce-surface])))]
+    (is (some? panel-node))
+    (is (contains? (hiccup/node-class-set panel-node) "fixed"))
+    (is (contains? (hiccup/node-class-set panel-node) "space-y-3"))))
 
 (deftest position-row-renders-inline-position-tpsl-panel-for-active-row-key-test
   (let [row-data (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
@@ -337,14 +376,14 @@
     (is (nil? panel-node))))
 
 (deftest position-table-layout-prioritizes-coin-column-over-right-edge-actions-test
-  (let [grid-template-class "grid-cols-[minmax(150px,1.65fr)_minmax(108px,1.05fr)_minmax(98px,0.95fr)_minmax(98px,0.95fr)_minmax(98px,0.95fr)_minmax(115px,1.15fr)_minmax(92px,0.9fr)_minmax(84px,0.85fr)_minmax(84px,0.85fr)_minmax(165px,1.3fr)]"
+  (let [grid-template-class "grid-cols-[minmax(150px,1.65fr)_minmax(108px,1.05fr)_minmax(98px,0.95fr)_minmax(98px,0.95fr)_minmax(98px,0.95fr)_minmax(115px,1.15fr)_minmax(92px,0.9fr)_minmax(84px,0.85fr)_minmax(84px,0.85fr)_minmax(110px,0.95fr)_minmax(165px,1.3fr)]"
         header-node (view/position-table-header fixtures/default-sort-state)
         row-node (view/position-row (fixtures/sample-position-row "xyz:NVDA" 10 "0.500"))
         coin-cell (first (vec (hiccup/node-children row-node)))
         coin-label-node (hiccup/find-first-node coin-cell #(contains? (hiccup/direct-texts %) "NVDA"))]
     (is (contains? (hiccup/node-class-set header-node) grid-template-class))
-    (is (contains? (hiccup/node-class-set header-node) "min-w-[1170px]"))
+    (is (contains? (hiccup/node-class-set header-node) "min-w-[1285px]"))
     (is (contains? (hiccup/node-class-set row-node) grid-template-class))
-    (is (contains? (hiccup/node-class-set row-node) "min-w-[1170px]"))
+    (is (contains? (hiccup/node-class-set row-node) "min-w-[1285px]"))
     (is (contains? (hiccup/node-class-set coin-label-node) "whitespace-nowrap"))
     (is (not (contains? (hiccup/node-class-set coin-label-node) "truncate")))))

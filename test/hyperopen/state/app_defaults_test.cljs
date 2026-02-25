@@ -34,7 +34,9 @@
     (is (= :all (get-in state [:portfolio-ui :summary-scope])))
     (is (= :month (get-in state [:portfolio-ui :summary-time-range])))
     (is (= :account-value (get-in state [:portfolio-ui :chart-tab])))
-    (is (= true (get-in state [:chart-options :volume-visible?])))))
+    (is (= true (get-in state [:chart-options :volume-visible?])))
+    (is (= false (get-in state [:positions-ui :tpsl-modal :open?])))
+    (is (= false (get-in state [:positions-ui :reduce-popover :open?])))))
 
 (deftest default-app-state-initializes-empty-runtime-collections-test
   (let [state (app-defaults/default-app-state

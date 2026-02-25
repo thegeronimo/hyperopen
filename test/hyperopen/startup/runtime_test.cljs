@@ -187,7 +187,8 @@
   (let [registered-handlers (atom {})
         removed-handlers (atom [])
         dispatch-calls (atom [])
-        store (atom {:positions-ui {:tpsl-modal {:open? true}}})
+        store (atom {:positions-ui {:tpsl-modal {:open? true}
+                                    :reduce-popover {:open? true}}})
         dispatch! (fn [store-arg _ctx effects]
                     (swap! dispatch-calls conj {:store store-arg
                                                 :effects effects}))
@@ -197,6 +198,12 @@
         inside-trigger-target #js {:closest (fn [selector]
                                               (when (= selector "[data-position-tpsl-trigger='true']")
                                                 #js {}))}
+        inside-reduce-panel-target #js {:closest (fn [selector]
+                                                   (when (= selector "[data-position-reduce-surface='true']")
+                                                     #js {}))}
+        inside-reduce-trigger-target #js {:closest (fn [selector]
+                                                     (when (= selector "[data-position-reduce-trigger='true']")
+                                                       #js {}))}
         outside-target #js {:closest (fn [_selector] nil)}]
     (with-global-property
       "window"
@@ -212,12 +219,16 @@
           (is (fn? mousedown-handler))
           (mousedown-handler #js {:target inside-panel-target})
           (mousedown-handler #js {:target inside-trigger-target})
+          (mousedown-handler #js {:target inside-reduce-panel-target})
+          (mousedown-handler #js {:target inside-reduce-trigger-target})
           (is (empty? @dispatch-calls))
           (mousedown-handler #js {:target outside-target})
-          (is (= [[:actions/close-position-tpsl-modal]]
+          (is (= [[:actions/close-position-tpsl-modal]
+                  [:actions/close-position-reduce-popover]]
                  (-> @dispatch-calls first :effects)))
           (reset! dispatch-calls [])
           (swap! store assoc-in [:positions-ui :tpsl-modal :open?] false)
+          (swap! store assoc-in [:positions-ui :reduce-popover :open?] false)
           (mousedown-handler #js {:target outside-target})
           (is (empty? @dispatch-calls))
           (startup-runtime/install-position-tpsl-clickaway!

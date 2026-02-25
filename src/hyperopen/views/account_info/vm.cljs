@@ -263,6 +263,7 @@
      :positions-state positions-state
      :open-orders-state open-orders-state
      :position-tpsl-modal (get-in state [:positions-ui :tpsl-modal])
+     :position-reduce-popover (get-in state [:positions-ui :reduce-popover])
      :hide-small? hide-small?
      :perp-dex-states perp-dex-states
      :webdata2 webdata2

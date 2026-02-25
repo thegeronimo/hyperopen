@@ -181,6 +181,10 @@
   (s/or :position-only (s/tuple map?)
         :position-and-anchor (s/tuple map? any?)))
 (s/def ::position-tpsl-modal-field-args (s/tuple ::state-path any?))
+(s/def ::position-reduce-open-args
+  (s/or :position-only (s/tuple map?)
+        :position-and-anchor (s/tuple map? any?)))
+(s/def ::position-reduce-popover-field-args (s/tuple ::state-path any?))
 (s/def ::ws-reset-source-args (s/or :none ::no-args
                                     :source (s/tuple ::source)))
 
@@ -299,6 +303,13 @@
    :actions/set-position-tpsl-configure-amount ::boolean-args
    :actions/set-position-tpsl-limit-price ::boolean-args
    :actions/submit-position-tpsl ::no-args
+   :actions/trigger-close-all-positions ::no-args
+   :actions/open-position-reduce-popover ::position-reduce-open-args
+   :actions/close-position-reduce-popover ::no-args
+   :actions/handle-position-reduce-popover-keydown ::key-args
+   :actions/set-position-reduce-popover-field ::position-reduce-popover-field-args
+   :actions/set-position-reduce-size-percent ::single-input-args
+   :actions/submit-position-reduce-close ::no-args
    :actions/select-order-entry-mode ::keyword-or-string-args
    :actions/select-pro-order-type ::keyword-or-string-args
    :actions/toggle-pro-order-type-dropdown ::no-args

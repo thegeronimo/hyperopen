@@ -1,6 +1,8 @@
 (ns hyperopen.views.account-info.tabs.positions
   (:require [clojure.string :as str]
+            [hyperopen.account.history.position-reduce :as position-reduce]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
+            [hyperopen.views.account-info.position-reduce-popover :as position-reduce-popover]
             [hyperopen.views.account-info.projections :as projections]
             [hyperopen.views.account-info.position-tpsl-modal :as position-tpsl-modal]
             [hyperopen.views.account-info.shared :as shared]
@@ -211,8 +213,10 @@
 
 (defn position-row
   ([position-data]
-   (position-row position-data nil))
+   (position-row position-data nil nil))
   ([position-data modal]
+   (position-row position-data modal nil))
+  ([position-data modal reduce-popover]
    (let [pos (:position position-data)
          side (position-side pos)
          chip-classes (shared/position-chip-classes-for-side side)
@@ -251,7 +255,11 @@
          active-modal?
          (and (position-tpsl/open? modal)
               (= (projections/position-unique-key position-data)
-                 (:position-key modal)))]
+                 (:position-key modal)))
+         active-reduce-popover?
+         (and (position-reduce/open? reduce-popover)
+              (= (projections/position-unique-key position-data)
+                 (:position-key reduce-popover)))]
      [:div {:class ["grid"
                     shared/positions-grid-template-class
                     "gap-2"
@@ -298,6 +306,23 @@
            "--")]
         funding-tooltip
         {:underlined? false})]
+      [:div {:class ["text-left" "relative"]}
+       [:button {:class ["btn"
+                         "btn-xs"
+                         "btn-ghost"
+                         "w-full"
+                         "justify-start"
+                         "px-1"
+                         "font-semibold"
+                         "text-trading-green"
+                         "flex-nowrap"
+                         "whitespace-nowrap"]
+                 :type "button"
+                 :data-position-reduce-trigger "true"
+                 :on {:click [[:actions/open-position-reduce-popover position-data :event.currentTarget/bounds]]}}
+        "Reduce"]
+       (when active-reduce-popover?
+         (position-reduce-popover/position-reduce-popover-view reduce-popover))]
       [:div {:class ["text-left" "relative"]}
        [:button {:class ["btn"
                          "btn-xs"
@@ -397,10 +422,23 @@
    [:div.text-left (sortable-header "Liq. Price" sort-state)]
    [:div.text-left (sortable-header "Margin" sort-state margin-header-explanation)]
    [:div.text-left (sortable-header "Funding" sort-state funding-header-explanation)]
+   [:div.text-left
+    [:button {:class (into ["w-full"
+                            "text-left"
+                            "focus:outline-none"
+                            "focus:ring-1"
+                            "focus:ring-[#8a96a6]/40"
+                            "focus:ring-offset-0"
+                            "focus:shadow-none"]
+                           (concat table/header-base-text-classes
+                                   table/sortable-header-interaction-classes))
+              :type "button"
+              :on {:click [[:actions/trigger-close-all-positions]]}}
+     "Close All"]]
    [:div.text-left (table/non-sortable-header "TP/SL")]])
 
 (defn- positions-tab-content-from-rows
-  [positions sort-state modal positions-state]
+  [positions sort-state modal reduce-popover positions-state]
   (let [positions* (or positions [])
         direction-filter (positions-direction-filter-key positions-state)
         sorted-positions (if (seq positions*)
@@ -410,12 +448,12 @@
       (table/tab-table-content (position-table-header sort-state)
                                (for [position sorted-positions]
                                  ^{:key (position-unique-key position)}
-                                 (position-row position modal)))
+                                 (position-row position modal reduce-popover)))
       (empty-state "No active positions"))))
 
 (defn positions-tab-content
   ([positions sort-state]
-   (positions-tab-content-from-rows positions sort-state nil {}))
+   (positions-tab-content-from-rows positions sort-state nil nil {}))
   ([positions-or-webdata2 sort-state modal-or-perp-dex-states]
    (if (and (map? positions-or-webdata2)
             (contains? positions-or-webdata2 :clearinghouseState))
@@ -423,8 +461,9 @@
       (collect-positions positions-or-webdata2 modal-or-perp-dex-states)
       sort-state
       nil
+      nil
       {})
-     (positions-tab-content-from-rows positions-or-webdata2 sort-state modal-or-perp-dex-states {})))
+     (positions-tab-content-from-rows positions-or-webdata2 sort-state modal-or-perp-dex-states nil {})))
   ([positions-or-webdata2 sort-state modal-or-perp-dex-states modal-or-positions-state]
    (if (and (map? positions-or-webdata2)
             (contains? positions-or-webdata2 :clearinghouseState))
@@ -432,15 +471,33 @@
       (collect-positions positions-or-webdata2 modal-or-perp-dex-states)
       sort-state
       modal-or-positions-state
+      nil
       {})
      (positions-tab-content-from-rows
       positions-or-webdata2
       sort-state
       modal-or-perp-dex-states
+      nil
       modal-or-positions-state)))
-  ([webdata2 sort-state perp-dex-states modal positions-state]
+  ([positions-or-webdata2 sort-state modal-or-perp-dex-states reduce-popover-or-modal positions-state]
+   (if (and (map? positions-or-webdata2)
+            (contains? positions-or-webdata2 :clearinghouseState))
+     (positions-tab-content-from-rows
+      (collect-positions positions-or-webdata2 modal-or-perp-dex-states)
+      sort-state
+      reduce-popover-or-modal
+      nil
+      positions-state)
+     (positions-tab-content-from-rows
+      positions-or-webdata2
+      sort-state
+      modal-or-perp-dex-states
+      reduce-popover-or-modal
+      positions-state)))
+  ([webdata2 sort-state perp-dex-states modal reduce-popover positions-state]
    (positions-tab-content-from-rows
     (collect-positions webdata2 perp-dex-states)
     sort-state
     modal
+    reduce-popover
     positions-state)))

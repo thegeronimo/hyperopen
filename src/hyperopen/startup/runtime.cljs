@@ -143,11 +143,13 @@
       (fn? (some-> target .-parentElement .-closest)) (.-parentElement target)
       :else nil)))
 
-(defn- within-position-tpsl-surface?
+(defn- within-position-overlay-surface?
   [target]
   (boolean
    (or (some-> target (.closest "[data-position-tpsl-surface='true']"))
-       (some-> target (.closest "[data-position-tpsl-trigger='true']")))))
+       (some-> target (.closest "[data-position-tpsl-trigger='true']"))
+       (some-> target (.closest "[data-position-reduce-surface='true']"))
+       (some-> target (.closest "[data-position-reduce-trigger='true']")))))
 
 (defn install-position-tpsl-clickaway!
   [{:keys [store dispatch!]}]
@@ -162,11 +164,17 @@
         (cleanup)
         (reset! position-tpsl-clickaway-cleanup nil))
       (let [handler (fn [event]
-                      (let [open? (true? (get-in @store [:positions-ui :tpsl-modal :open?]))]
-                        (when open?
+                      (let [tpsl-open? (true? (get-in @store [:positions-ui :tpsl-modal :open?]))
+                            reduce-open? (true? (get-in @store [:positions-ui :reduce-popover :open?]))
+                            any-open? (or tpsl-open? reduce-open?)]
+                        (when any-open?
                           (let [target (event-target-with-closest event)]
-                            (when-not (within-position-tpsl-surface? target)
-                              (dispatch! store nil [[:actions/close-position-tpsl-modal]]))))))]
+                            (when-not (within-position-overlay-surface? target)
+                              (let [close-actions (cond-> []
+                                                    tpsl-open? (conj [:actions/close-position-tpsl-modal])
+                                                    reduce-open? (conj [:actions/close-position-reduce-popover]))]
+                                (when (seq close-actions)
+                                  (dispatch! store nil close-actions))))))))]
         (.addEventListener window-object "mousedown" handler)
         (reset! position-tpsl-clickaway-cleanup
                 (fn []

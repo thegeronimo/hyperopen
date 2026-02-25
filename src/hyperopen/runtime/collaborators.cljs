@@ -117,7 +117,14 @@
    :set-position-tpsl-modal-field account-history-actions/set-position-tpsl-modal-field
    :set-position-tpsl-configure-amount account-history-actions/set-position-tpsl-configure-amount
    :set-position-tpsl-limit-price account-history-actions/set-position-tpsl-limit-price
-   :submit-position-tpsl account-history-actions/submit-position-tpsl})
+   :submit-position-tpsl account-history-actions/submit-position-tpsl
+   :trigger-close-all-positions account-history-actions/trigger-close-all-positions
+   :open-position-reduce-popover account-history-actions/open-position-reduce-popover
+   :close-position-reduce-popover account-history-actions/close-position-reduce-popover
+   :handle-position-reduce-popover-keydown account-history-actions/handle-position-reduce-popover-keydown
+   :set-position-reduce-popover-field account-history-actions/set-position-reduce-popover-field
+   :set-position-reduce-size-percent account-history-actions/set-position-reduce-size-percent
+   :submit-position-reduce-close account-history-actions/submit-position-reduce-close})
 
 (defn- order-action-deps []
   {:select-order-entry-mode order-actions/select-order-entry-mode

@@ -1,6 +1,7 @@
 (ns hyperopen.account.history.actions-test
   (:require [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.account.history.actions :as history-actions]
+            [hyperopen.account.history.position-reduce :as position-reduce]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.domain.funding-history :as funding-history]
             [hyperopen.platform :as platform]
@@ -233,16 +234,18 @@
 (deftest position-tpsl-modal-actions-open-update-close-test
   (let [row (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
         open-effects (history-actions/open-position-tpsl-modal {} row)
-        opened-modal (nth (first open-effects) 2)
+        opened-modal (get-in (first open-effects) [1 0 1])
+        reset-reduce-popover (get-in (first open-effects) [1 1 1])
         updated-effects (history-actions/set-position-tpsl-modal-field
                          {:positions-ui {:tpsl-modal opened-modal}}
                          [:tp-price]
                          "20.25")
         closed-effects (history-actions/close-position-tpsl-modal {})]
-    (is (= [:effects/save [:positions-ui :tpsl-modal]]
-           (subvec (first open-effects) 0 2)))
+    (is (= :effects/save-many
+           (ffirst open-effects)))
     (is (true? (:open? opened-modal)))
     (is (= "xyz:NVDA" (:coin opened-modal)))
+    (is (= (position-reduce/default-popover-state) reset-reduce-popover))
     (is (= "20.25"
            (get-in (nth (first updated-effects) 2) [:tp-price])))
     (is (= [[:effects/save [:positions-ui :tpsl-modal]
@@ -253,6 +256,41 @@
            (history-actions/handle-position-tpsl-modal-keydown {} "Escape")))
     (is (= []
            (history-actions/handle-position-tpsl-modal-keydown {} "Enter")))))
+
+(deftest position-reduce-popover-actions-open-update-close-test
+  (let [row (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
+        open-effects (history-actions/open-position-reduce-popover {} row)
+        opened-popover (get-in (first open-effects) [1 0 1])
+        reset-tpsl-modal (get-in (first open-effects) [1 1 1])
+        updated-effects (history-actions/set-position-reduce-popover-field
+                         {:positions-ui {:reduce-popover opened-popover}}
+                         [:size-percent-input]
+                         "75")
+        preset-effects (history-actions/set-position-reduce-size-percent
+                        {:positions-ui {:reduce-popover opened-popover}}
+                        25)
+        closed-effects (history-actions/close-position-reduce-popover {})
+        submit-effects (history-actions/submit-position-reduce-close {})
+        close-all-effects (history-actions/trigger-close-all-positions {})]
+    (is (= :effects/save-many
+           (ffirst open-effects)))
+    (is (true? (:open? opened-popover)))
+    (is (= "xyz:NVDA" (:coin opened-popover)))
+    (is (= (position-tpsl/default-modal-state) reset-tpsl-modal))
+    (is (= "75"
+           (get-in (nth (first updated-effects) 2) [:size-percent-input])))
+    (is (= "25"
+           (get-in (nth (first preset-effects) 2) [:size-percent-input])))
+    (is (= [[:effects/save [:positions-ui :reduce-popover]
+             (position-reduce/default-popover-state)]]
+           closed-effects))
+    (is (= [[:effects/save [:positions-ui :reduce-popover]
+             (position-reduce/default-popover-state)]]
+           (history-actions/handle-position-reduce-popover-keydown {} "Escape")))
+    (is (= []
+           (history-actions/handle-position-reduce-popover-keydown {} "Enter")))
+    (is (= [] submit-effects))
+    (is (= [] close-all-effects))))
 
 (deftest submit-position-tpsl-validates-and-emits-submit-effect-test
   (let [row (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")

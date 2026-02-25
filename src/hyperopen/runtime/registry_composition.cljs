@@ -274,7 +274,14 @@
            set-position-tpsl-modal-field
            set-position-tpsl-configure-amount
            set-position-tpsl-limit-price
-           submit-position-tpsl]}]
+           submit-position-tpsl
+           trigger-close-all-positions
+           open-position-reduce-popover
+           close-position-reduce-popover
+           handle-position-reduce-popover-keydown
+           set-position-reduce-popover-field
+           set-position-reduce-size-percent
+           submit-position-reduce-close]}]
   {:select-account-info-tab select-account-info-tab
    :set-funding-history-filters set-funding-history-filters
    :toggle-funding-history-filter-open toggle-funding-history-filter-open
@@ -326,7 +333,14 @@
    :set-position-tpsl-modal-field set-position-tpsl-modal-field
    :set-position-tpsl-configure-amount set-position-tpsl-configure-amount
    :set-position-tpsl-limit-price set-position-tpsl-limit-price
-   :submit-position-tpsl submit-position-tpsl})
+   :submit-position-tpsl submit-position-tpsl
+   :trigger-close-all-positions trigger-close-all-positions
+   :open-position-reduce-popover open-position-reduce-popover
+   :close-position-reduce-popover close-position-reduce-popover
+   :handle-position-reduce-popover-keydown handle-position-reduce-popover-keydown
+   :set-position-reduce-popover-field set-position-reduce-popover-field
+   :set-position-reduce-size-percent set-position-reduce-size-percent
+   :submit-position-reduce-close submit-position-reduce-close})
 
 (defn- order-action-handlers
   [{:keys [select-order-entry-mode
