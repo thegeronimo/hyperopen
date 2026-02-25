@@ -11,7 +11,9 @@ source_of_truth: true
 ## WebSocket Runtime Architecture Rules (MUST)
 - MUST keep runtime decisions pure via `step(state, msg) -> {:state next-state :effects [...]}`.
 - MUST keep canonical websocket runtime state single-writer: only the engine loop mutates it.
-- MUST keep websocket projection ownership single-source: interpreters write one runtime-view projection atom, and compatibility projections are derived-only.
+- MUST keep websocket projection ownership single-source: interpreters write one `runtime-view` projection atom.
+- MUST treat websocket client canonical read API as `runtime-view` plus accessor functions in `/hyperopen/src/hyperopen/websocket/client.cljs` (`connected?`, `get-connection-status`, `get-runtime-metrics`, `get-tier-depths`, `get-health-snapshot`).
+- MUST keep compatibility reads explicit and read-only through `/hyperopen/src/hyperopen/websocket/client_compat.cljs`; do not expose mutable compatibility projection atoms on the primary websocket client API.
 - MUST execute input and output operations only through effect interpreters (transport, timers, lifecycle hooks, logging, routing, state projections).
 - MUST NOT perform direct transport/timer/dom/log side effects inside reducers or domain message handling.
 - MUST NOT use multi-loop shared mutable writes for connection/metrics runtime ownership.
@@ -90,6 +92,7 @@ source_of_truth: true
 - DO NOT add hidden synchronous fallback paths that bypass the channel model.
 - DO NOT use unbounded queues for lossless flows.
 - DO NOT bypass message/effect contracts with direct infrastructure calls from domain logic.
+- DO NOT read deprecated websocket compatibility fields (`ws-client/connection-state`, `ws-client/stream-runtime`) from production code.
 - DO NOT put business rules in effect interpreters, transport handlers, or UI callbacks.
 - DO NOT leak raw exchange payload shapes directly into domain consumers without Anti-Corruption Layer mapping.
 - DO NOT introduce new behavior via direct infrastructure calls that bypass runtime message/effect algebra.

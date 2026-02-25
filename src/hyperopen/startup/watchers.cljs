@@ -41,15 +41,6 @@
   [runtime-view]
   (get-in runtime-view [:stream :health-fingerprint]))
 
-(defn- legacy-websocket-projection
-  [runtime-view]
-  (select-keys (get runtime-view :connection {})
-               [:status
-                :attempt
-                :next-retry-at-ms
-                :last-close
-                :queue-size]))
-
 (defn install-websocket-watchers!
   [{:keys [store
            runtime-view
@@ -66,24 +57,17 @@
             old-status (:status old-connection)
             new-status (:status new-connection)
             status-transition? (not= old-status new-status)
-            old-legacy-projection (legacy-websocket-projection old-view)
-            new-legacy-projection (legacy-websocket-projection new-view)
-            legacy-projection-transition? (not= old-legacy-projection new-legacy-projection)
             old-fingerprint (projected-health-fingerprint old-view)
             new-fingerprint (projected-health-fingerprint new-view)
             transition-event (status->diagnostics-event new-status)
             transition-at-ms (or (:now-ms new-connection) (platform/now-ms))]
-        (when legacy-projection-transition?
+        (when status-transition?
           ;; Defer store update to next tick to avoid nested renders.
           (platform/queue-microtask!
            #(do
-              (swap! store
-                     (fn [state]
-                       (cond-> (update state :websocket merge new-legacy-projection)
-                         (and status-transition?
-                              (= :reconnecting new-status))
-                         (update-in [:websocket-ui :reconnect-count] (fnil inc 0)))))
-              (when (and status-transition? transition-event)
+              (when (= :reconnecting new-status)
+                (swap! store update-in [:websocket-ui :reconnect-count] (fnil inc 0)))
+              (when transition-event
                 (append-diagnostics-event! store transition-event transition-at-ms)))))
         (when status-transition?
           (sync-websocket-health! store :force? true))

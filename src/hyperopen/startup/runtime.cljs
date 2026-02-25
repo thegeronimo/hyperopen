@@ -60,7 +60,7 @@
     (platform/set-timeout!
      (fn []
        (let [stats (get-request-stats)
-             ws-status (get-in @store [:websocket :status])
+             ws-status (get-in @store [:websocket :health :transport :state])
              selector (select-keys (get @store :asset-selector)
                                    [:loading? :phase :loaded-at-ms])]
          (log-fn "Startup summary (+5s):"

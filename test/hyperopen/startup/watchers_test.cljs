@@ -43,6 +43,7 @@
                             :stream {:health-fingerprint nil}})
         queue-microtask-calls (atom 0)
         sync-calls (atom [])
+        diagnostics-events (atom [])
         connected-calls (atom 0)
         disconnected-calls (atom 0)]
     (with-redefs [platform/queue-microtask! (fn [f]
@@ -52,28 +53,28 @@
       (watchers/install-websocket-watchers!
        {:store store
         :runtime-view runtime-view
-        :append-diagnostics-event! (fn [& _] nil)
+        :append-diagnostics-event! (fn [_store event at-ms]
+                                     (swap! diagnostics-events conj {:event event
+                                                                     :at-ms at-ms}))
         :sync-websocket-health! (fn [_ & {:as opts}]
                                   (swap! sync-calls conj opts))
         :on-websocket-connected! #(swap! connected-calls inc)
         :on-websocket-disconnected! #(swap! disconnected-calls inc)})
       (swap! runtime-view assoc-in [:connection :attempt] 1)
-      (testing "Non-status legacy projection updates do not force health sync"
+      (testing "Non-status updates do not force health sync"
         (is (empty? @sync-calls)))
       (swap! runtime-view assoc-in [:connection :status] :connected)
       (testing "Status transitions force sync and notify connected callback"
         (is (= [{:force? true}] @sync-calls))
         (is (= 1 @connected-calls))
         (is (= 0 @disconnected-calls))
-        (is (= 2 @queue-microtask-calls))
-        (is (= {:status :connected
-                :attempt 1
-                :next-retry-at-ms nil
-                :last-close nil
-                :queue-size 0}
-               (:websocket @store)))))))
+        (is (= 1 @queue-microtask-calls))
+        (is (= [{:event :connected
+                 :at-ms 2000}]
+               @diagnostics-events))
+        (is (= {} (:websocket @store)))))))
 
-(deftest connection-watch-skips-store-merge-for-now-only-churn-test
+(deftest connection-watch-ignores-legacy-projection-field-churn-and-tracks-reconnect-transition-test
   (let [store (atom (base-store))
         runtime-view (atom {:connection {:status :connected
                                          :attempt 0
@@ -83,7 +84,9 @@
                                          :now-ms 1000
                                          :last-activity-at-ms 900}
                             :stream {:health-fingerprint nil}})
-        queue-microtask-calls (atom 0)]
+        queue-microtask-calls (atom 0)
+        sync-calls (atom [])
+        diagnostics-events (atom [])]
     (with-redefs [platform/queue-microtask! (fn [f]
                                               (swap! queue-microtask-calls inc)
                                               (f))
@@ -91,14 +94,27 @@
       (watchers/install-websocket-watchers!
        {:store store
         :runtime-view runtime-view
-        :append-diagnostics-event! (fn [& _] nil)
-        :sync-websocket-health! (fn [& _] nil)
+        :append-diagnostics-event! (fn [_store event at-ms]
+                                     (swap! diagnostics-events conj {:event event
+                                                                     :at-ms at-ms}))
+        :sync-websocket-health! (fn [_ & {:as opts}]
+                                  (swap! sync-calls conj opts))
         :on-websocket-connected! (fn [] nil)
         :on-websocket-disconnected! (fn [] nil)})
       (swap! runtime-view assoc-in [:connection :now-ms] 2000)
       (swap! runtime-view assoc-in [:connection :last-activity-at-ms] 1900)
-      (is (= 0 @queue-microtask-calls))
-      (is (= {} (:websocket @store)))
       (swap! runtime-view assoc-in [:connection :queue-size] 1)
-      (is (= 1 @queue-microtask-calls))
-      (is (= 1 (get-in @store [:websocket :queue-size]))))))
+      (swap! runtime-view assoc-in [:connection :attempt] 2)
+      (testing "Legacy projection field churn does not enqueue store writes or force sync"
+        (is (= 0 @queue-microtask-calls))
+        (is (empty? @sync-calls))
+        (is (empty? @diagnostics-events))
+        (is (= {} (:websocket @store))))
+      (swap! runtime-view assoc-in [:connection :status] :reconnecting)
+      (testing "Reconnect transition still updates diagnostics/reconnect counters"
+        (is (= 1 @queue-microtask-calls))
+        (is (= [{:force? true}] @sync-calls))
+        (is (= [{:event :reconnecting
+                 :at-ms 2000}]
+               @diagnostics-events))
+        (is (= 1 (get-in @store [:websocket-ui :reconnect-count])))))))

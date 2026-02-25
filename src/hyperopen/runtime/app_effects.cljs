@@ -59,13 +59,11 @@
                     (js/Promise.reject err)))))))
 
 (defn init-websocket!
-  [{:keys [store
-           ws-url
+  [{:keys [ws-url
            log-fn
            init-connection!]}]
   (log-fn "Initializing WebSocket connection...")
-  (init-connection! ws-url)
-  (swap! store assoc-in [:websocket :status] :connecting))
+  (init-connection! ws-url))
 
 (defn reconnect-websocket!
   [{:keys [log-fn force-reconnect!]}]

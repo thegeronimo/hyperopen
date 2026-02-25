@@ -57,5 +57,5 @@
       :force-reconnect! (fn []
                           (swap! reconnect-calls inc))})
     (is (= ["wss://example.test/ws"] @init-calls))
-    (is (= :connecting (get-in @store [:websocket :status])))
+    (is (= :disconnected (get-in @store [:websocket :status])))
     (is (= 1 @reconnect-calls))))

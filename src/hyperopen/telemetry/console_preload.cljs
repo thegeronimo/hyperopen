@@ -2,6 +2,7 @@
   (:require [hyperopen.platform :as platform]
             [hyperopen.system :as app-system]
             [hyperopen.telemetry :as telemetry]
+            [hyperopen.websocket.client-compat :as ws-client-compat]
             [hyperopen.websocket.client :as ws-client]))
 
 (def ^:private debug-api-key
@@ -13,8 +14,7 @@
    :app-state @app-system/store
    :runtime-state @app-system/runtime
    :websocket {:runtime-view @ws-client/runtime-view
-               :compat-projections {:connection-state @ws-client/connection-state
-                                    :stream-runtime @ws-client/stream-runtime}
+               :compat-projections (ws-client-compat/compat-projections)
                :client-runtime-state @ws-client/runtime-state
                :flight-recording (ws-client/get-flight-recording-redacted)}
    :telemetry {:event-count (count (telemetry/events))

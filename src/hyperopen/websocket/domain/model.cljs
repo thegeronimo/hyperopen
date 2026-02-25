@@ -132,8 +132,6 @@
     :fx/router-dispatch-envelope
     :fx/parse-raw-message
     :fx/project-runtime-view
-    :fx/project-connection-state
-    :fx/project-stream-metrics
     :fx/log
     :fx/dead-letter})
 

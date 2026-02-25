@@ -80,10 +80,6 @@
 (defonce runtime-view
   (atom (default-runtime-view)))
 
-;; Compatibility projection atoms retained as public seams. They are derived from runtime-view.
-(defonce connection-state (atom (:connection (default-runtime-view))))
-(defonce stream-runtime (atom (:stream (default-runtime-view))))
-
 (defonce message-handlers (atom {}))
 
 (defonce runtime-state
@@ -105,30 +101,6 @@
 (defonce websocket-health-projection-state
   (atom {:fingerprint nil
          :writes 0}))
-
-(def ^:private runtime-view->compat-watch-key
-  ::runtime-view->compat)
-
-(defn- sync-compat-projections!
-  [old-view new-view]
-  (let [old-connection (:connection old-view)
-        new-connection (:connection new-view)
-        old-stream (:stream old-view)
-        new-stream (:stream new-view)]
-    (when (not= old-connection new-connection)
-      (reset! connection-state new-connection))
-    (when (not= old-stream new-stream)
-      (reset! stream-runtime new-stream))))
-
-(defn- install-runtime-view-compat-watch!
-  []
-  (remove-watch runtime-view runtime-view->compat-watch-key)
-  (add-watch runtime-view runtime-view->compat-watch-key
-             (fn [_ _ old-view new-view]
-               (sync-compat-projections! old-view new-view)))
-  (sync-compat-projections! nil @runtime-view))
-
-(install-runtime-view-compat-watch!)
 
 ;; Wrappers retained as stable seams for tests and adapters.
 (defn now-ms []

@@ -1,6 +1,60 @@
 (ns hyperopen.websocket.client-test
-  (:require [cljs.test :refer-macros [async deftest is testing use-fixtures]]
-            [hyperopen.websocket.client :as ws-client]))
+  (:require [clojure.string :as str]
+            [cljs.test :refer-macros [async deftest is testing use-fixtures]]
+            [hyperopen.websocket.client :as ws-client]
+            [hyperopen.websocket.client-compat :as ws-client-compat]))
+
+(def fs (js/require "fs"))
+(def path (js/require "path"))
+
+(def ^:private forbidden-compat-client-usage-patterns
+  [{:label "ws-client/connection-state"
+    :pattern #"ws-client/connection-state"}
+   {:label "ws-client/stream-runtime"
+    :pattern #"ws-client/stream-runtime"}])
+
+(defn- project-root []
+  (.cwd js/process))
+
+(defn- join-path [& parts]
+  (reduce (fn [acc part]
+            (.join path acc part))
+          (first parts)
+          (rest parts)))
+
+(defn- read-text [file-path]
+  (.readFileSync fs file-path "utf8"))
+
+(defn- relative-path [file-path]
+  (.relative path (project-root) file-path))
+
+(defn- cljs-files-under [dir-path]
+  (let [entries (.readdirSync fs dir-path #js {:withFileTypes true})]
+    (->> (array-seq entries)
+         (mapcat (fn [entry]
+                   (let [entry-name (.-name entry)
+                         entry-path (.join path dir-path entry-name)]
+                     (cond
+                       (.isDirectory entry) (cljs-files-under entry-path)
+                       (and (.isFile entry) (.endsWith entry-name ".cljs")) [entry-path]
+                       :else []))))
+         sort
+         vec)))
+
+(defn- compat-client-usage-violations []
+  (let [src-dir (join-path (project-root) "src" "hyperopen")]
+    (->> (cljs-files-under src-dir)
+         (keep (fn [file-path]
+                 (let [contents (read-text file-path)
+                       hits (->> forbidden-compat-client-usage-patterns
+                                 (keep (fn [{:keys [label pattern]}]
+                                         (when (re-find pattern contents)
+                                           label)))
+                                 vec)]
+                   (when (seq hits)
+                     {:file (relative-path file-path)
+                      :hits hits}))))
+         vec)))
 
 (defn- make-fake-socket [sent-payloads close-events]
   (let [socket (js-obj)]
@@ -66,12 +120,27 @@
            :connection connection
            :stream stream}))
 
+(defn- current-connection []
+  (get-in @ws-client/runtime-view [:connection]))
+
+(defn- current-stream []
+  (get-in @ws-client/runtime-view [:stream]))
+
 (use-fixtures
   :each
   {:before (fn []
              (ws-client/reset-manager-state!))
    :after (fn []
             (ws-client/reset-manager-state!))})
+
+(deftest production-code-does-not-reference-removed-websocket-client-compat-atoms-test
+  (let [violations (compat-client-usage-violations)]
+    (is (empty? violations)
+        (str "Deprecated websocket client compatibility atom usage found: "
+             (str/join ", "
+                       (map (fn [{:keys [file hits]}]
+                              (str file " => " hits))
+                            violations))))))
 
 (deftest init-connection-idempotent-test
   (async done
@@ -90,7 +159,7 @@
         (js/setTimeout
           (fn []
             (is (= 1 (count @created)))
-            (is (= :connecting (:status @ws-client/connection-state)))
+            (is (= :connecting (:status (current-connection))))
             (done))
           0)))))
 
@@ -122,11 +191,11 @@
               ((aget socket "onclose") (js-obj "code" 1006 "reason" "abnormal" "wasClean" false)))
             (js/setTimeout
               (fn []
-                (is (= :reconnecting (:status @ws-client/connection-state)))
-                (is (= 1 (:attempt @ws-client/connection-state)))
+                (is (= :reconnecting (:status (current-connection))))
+                (is (= 1 (:attempt (current-connection))))
                 (is (= 1 (count @timeouts)))
                 (is (= 500 (:delay-ms (first @timeouts))))
-                (is (= 1500 (:next-retry-at-ms @ws-client/connection-state)))
+                (is (= 1500 (:next-retry-at-ms (current-connection))))
                 (done))
               0))
           0)))))
@@ -214,14 +283,14 @@
         (ws-client/send-message! {:type "beta" :n 2})
         (js/setTimeout
           (fn []
-            (is (= 2 (:queue-size @ws-client/connection-state)))
+            (is (= 2 (:queue-size (current-connection))))
             (let [socket (:socket (first @created))]
               (aset socket "readyState" 1)
               ((aget socket "onopen") (js-obj)))
             (js/setTimeout
               (fn []
-                (is (= :connected (:status @ws-client/connection-state)))
-                (is (= 0 (:queue-size @ws-client/connection-state)))
+                (is (= :connected (:status (current-connection))))
+                (is (= 0 (:queue-size (current-connection))))
                 (is (= [{:type "alpha" :n 1}
                         {:type "beta" :n 2}]
                        (mapv decode-payload @sent)))
@@ -317,7 +386,7 @@
             (js/setTimeout
               (fn []
                 (is (seq @closes))
-                (is (= :reconnecting (:status @ws-client/connection-state)))
+                (is (= :reconnecting (:status (current-connection))))
                 (is (= 1 (count @timeouts)))
                 (done))
               0))
@@ -350,7 +419,7 @@
             (ws-client/disconnect!)
             (js/setTimeout
               (fn []
-                (is (= :disconnected (:status @ws-client/connection-state)))
+                (is (= :disconnected (:status (current-connection))))
                 (is (empty? @timeouts))
                 (done))
               0))
@@ -483,7 +552,7 @@
              (get-in snapshot [:streams sub-key :last-gap])))
       (is (true? (get-in snapshot [:groups :market_data :gap-detected?]))))))
 
-(deftest compatibility-projection-mutations-do-not-change-canonical-health-test
+(deftest compatibility-adapter-is-read-only-and-derived-from-runtime-view-test
   (let [sub-key ["trades" "BTC" nil nil nil]
         connection (assoc (base-connection-projection)
                           :status :connected
@@ -503,15 +572,16 @@
                                          :subscribed? true
                                          :last-payload-at-ms 19990}})
         _ (set-runtime-view! connection stream)
-        snapshot-before (ws-client/get-health-snapshot)]
-    (reset! ws-client/connection-state
-            (assoc @ws-client/connection-state :transport/freshness :delayed))
-    (reset! ws-client/stream-runtime
-            (assoc @ws-client/stream-runtime :now-ms 999999))
+        compat (ws-client-compat/compat-projections)
+        snapshot-before (ws-client/get-health-snapshot)
+        _ (assoc (:connection-state compat) :transport/freshness :delayed)
+        _ (assoc (:stream-runtime compat) :now-ms 999999)]
+    (is (= connection (:connection-state compat)))
+    (is (= stream (:stream-runtime compat)))
     (is (= snapshot-before
            (ws-client/get-health-snapshot)))
-    (is (= connection (get-in @ws-client/runtime-view [:connection])))
-    (is (= stream (get-in @ws-client/runtime-view [:stream])))))
+    (is (= connection (current-connection)))
+    (is (= stream (current-stream)))))
 
 (deftest flight-recording-api-captures-clears-and-replays-test
   (async done
