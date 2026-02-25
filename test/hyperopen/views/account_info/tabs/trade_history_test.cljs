@@ -66,6 +66,7 @@
                 :time 1700000000000}]
         trade-history-state {:sort {:column "Time" :direction :desc}
                              :direction-filter :all
+                             :coin-search ""
                              :market-by-key {}}
         sort-calls (atom 0)]
     (trade-history-tab/reset-trade-history-sort-cache!)
@@ -95,7 +96,11 @@
 
         (view/trade-history-tab-content fills (assoc sort-state-asc :direction-filter :short))
         (view/trade-history-tab-content fills (assoc sort-state-asc :direction-filter :short))
-        (is (= 4 @sort-calls))))))
+        (is (= 4 @sort-calls))
+
+        (view/trade-history-tab-content fills (assoc sort-state-asc :coin-search "et"))
+        (view/trade-history-tab-content fills (assoc sort-state-asc :coin-search "et"))
+        (is (= 5 @sort-calls))))))
 
 (deftest trade-history-tab-content-filters-rows-by-direction-filter-test
   (let [fills [{:tid 1
@@ -136,6 +141,37 @@
     (is (contains? short-text "SHORTA"))
     (is (contains? short-text "SHORTS"))
     (is (not (contains? short-text "LONGCOIN")))))
+
+(deftest trade-history-tab-content-filters-rows-by-coin-search-test
+  (let [fills [{:tid 1
+                :coin "xyz:NVDA"
+                :side "B"
+                :sz "1.0"
+                :px "100.0"
+                :fee "0.1"
+                :time 1700000002000}
+               {:tid 2
+                :coin "HYPE"
+                :side "A"
+                :sz "2.0"
+                :px "99.0"
+                :fee "0.1"
+                :time 1700000001000}]
+        all-content (view/trade-history-tab-content fills {:coin-search ""})
+        symbol-search-content (view/trade-history-tab-content fills {:coin-search "nv"})
+        prefix-search-content (view/trade-history-tab-content fills {:coin-search "xyz"})
+        all-row-count (count (vec (hiccup/node-children (hiccup/tab-rows-viewport-node all-content))))
+        symbol-row-count (count (vec (hiccup/node-children (hiccup/tab-rows-viewport-node symbol-search-content))))
+        prefix-row-count (count (vec (hiccup/node-children (hiccup/tab-rows-viewport-node prefix-search-content))))
+        symbol-text (set (hiccup/collect-strings symbol-search-content))
+        prefix-text (set (hiccup/collect-strings prefix-search-content))]
+    (is (= 2 all-row-count))
+    (is (= 1 symbol-row-count))
+    (is (= 1 prefix-row-count))
+    (is (contains? symbol-text "NVDA"))
+    (is (not (contains? symbol-text "HYPE")))
+    (is (contains? prefix-text "NVDA"))
+    (is (contains? prefix-text "xyz"))))
 
 (deftest trade-history-headers-match-hyperliquid-order-and-contrast-test
   (let [fills [{:tid 1
@@ -544,6 +580,7 @@
                         (assoc-in [:account-info :trade-history]
                                   {:sort {:column "Time" :direction :desc}
                                    :direction-filter :short
+                                   :coin-search "nv"
                                    :filter-open? true
                                    :page-size 25
                                    :page 1
@@ -553,6 +590,8 @@
         filter-button (hiccup/find-first-node panel #(and (contains? (hiccup/direct-texts %) "Short")
                                                            (= [[:actions/toggle-trade-history-direction-filter-open]]
                                                               (get-in % [1 :on :click]))))
+        search-input (hiccup/find-first-node panel #(= [[:actions/set-account-info-coin-search :trade-history [:event.target/value]]]
+                                                        (get-in % [1 :on :input])))
         short-option (hiccup/find-first-node panel #(and (contains? (hiccup/direct-texts %) "Short")
                                                           (= [[:actions/set-trade-history-direction-filter :short]]
                                                              (get-in % [1 :on :click]))))
@@ -560,6 +599,8 @@
                                                          (= [[:actions/set-trade-history-direction-filter :long]]
                                                             (get-in % [1 :on :click]))))]
     (is (some? filter-button))
+    (is (some? search-input))
+    (is (= "nv" (get-in search-input [1 :value])))
     (is (some? short-option))
     (is (some? long-option))
     (is (= [[:actions/toggle-trade-history-direction-filter-open]]

@@ -127,6 +127,7 @@
                :filter-open? false}
    :open-orders-sort {:column "Time" :direction :desc}
    :open-orders {:direction-filter :all
+                 :coin-search ""
                  :filter-open? false}
    :trade-history default-trade-history
    :funding-history default-funding-history

@@ -159,6 +159,48 @@
     (is (contains? short-text "SHORTS"))
     (is (not (contains? short-text "LONGCOIN")))))
 
+(deftest open-orders-tab-content-filters-rows-by-coin-search-test
+  (let [rows [{:oid 1001
+               :coin "xyz:NVDA"
+               :side "B"
+               :sz "1.0"
+               :orig-sz "1.0"
+               :px "100.0"
+               :type "Limit"
+               :time 1700000002000
+               :reduce-only false
+               :is-trigger false
+               :trigger-condition nil
+               :is-position-tpsl false}
+              {:oid 1002
+               :coin "HYPE"
+               :side "A"
+               :sz "2.0"
+               :orig-sz "2.0"
+               :px "99.0"
+               :type "Limit"
+               :time 1700000001000
+               :reduce-only false
+               :is-trigger false
+               :trigger-condition nil
+               :is-position-tpsl false}]
+        sort-state {:column "Time" :direction :desc}
+        all-content (view/open-orders-tab-content rows sort-state {:coin-search ""})
+        symbol-search-content (view/open-orders-tab-content rows sort-state {:coin-search "nv"})
+        prefix-search-content (view/open-orders-tab-content rows sort-state {:coin-search "xyz"})
+        all-row-count (count (vec (hiccup/node-children (hiccup/tab-rows-viewport-node all-content))))
+        symbol-row-count (count (vec (hiccup/node-children (hiccup/tab-rows-viewport-node symbol-search-content))))
+        prefix-row-count (count (vec (hiccup/node-children (hiccup/tab-rows-viewport-node prefix-search-content))))
+        symbol-text (set (hiccup/collect-strings symbol-search-content))
+        prefix-text (set (hiccup/collect-strings prefix-search-content))]
+    (is (= 2 all-row-count))
+    (is (= 1 symbol-row-count))
+    (is (= 1 prefix-row-count))
+    (is (contains? symbol-text "NVDA"))
+    (is (not (contains? symbol-text "HYPE")))
+    (is (contains? prefix-text "NVDA"))
+    (is (contains? prefix-text "xyz"))))
+
 (deftest open-orders-tab-content-re-sorts-when-direction-filter-changes-test
   (let [rows [{:oid 1001
                :coin "ETH"
@@ -196,7 +238,12 @@
       (is (= 1 @sort-calls))
       (view/open-orders-tab-content rows sort-state {:direction-filter :short})
       (view/open-orders-tab-content rows sort-state {:direction-filter :short})
-      (is (= 2 @sort-calls)))))
+      (is (= 2 @sort-calls))
+      (view/open-orders-tab-content rows sort-state {:direction-filter :short
+                                                     :coin-search "eth"})
+      (view/open-orders-tab-content rows sort-state {:direction-filter :short
+                                                     :coin-search "eth"})
+      (is (= 3 @sort-calls)))))
 
 (deftest open-orders-columns-use-left-alignment-test
   (let [open-orders [{:oid 101

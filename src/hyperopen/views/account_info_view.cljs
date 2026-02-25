@@ -215,13 +215,15 @@
 (defn- open-orders-header-actions [open-orders-state freshness-cue]
   (let [filter-open? (boolean (:filter-open? open-orders-state))
         direction-filter (open-orders-direction-filter-key open-orders-state)
-        direction-label (get open-orders-direction-filter-labels direction-filter "All")]
+        direction-label (get open-orders-direction-filter-labels direction-filter "All")
+        coin-search (:coin-search open-orders-state "")]
     [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2"]}
      (when (map? freshness-cue)
        [:div {:class ["px-1" "py-1"]
               :data-role "account-tab-freshness-cue"}
         [:span {:class (freshness-cue-text-classes (:tone freshness-cue))}
          (:text freshness-cue)]])
+     (account-info-coin-search-control :open-orders coin-search)
      [:button {:class filter-trigger-button-classes
                :style {:--btn-focus-scale "1"}
                :on {:click [[:actions/toggle-open-orders-direction-filter-open]]}}
@@ -252,8 +254,10 @@
 (defn- trade-history-header-actions [trade-history-state]
   (let [filter-open? (boolean (:filter-open? trade-history-state))
         direction-filter (trade-history-direction-filter-key trade-history-state)
-        direction-label (get trade-history-direction-filter-labels direction-filter "All")]
+        direction-label (get trade-history-direction-filter-labels direction-filter "All")
+        coin-search (:coin-search trade-history-state "")]
     [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2"]}
+     (account-info-coin-search-control :trade-history coin-search)
      [:button {:class filter-trigger-button-classes
                :style {:--btn-focus-scale "1"}
                :on {:click [[:actions/toggle-trade-history-direction-filter-open]]}}

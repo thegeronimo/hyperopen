@@ -31,7 +31,7 @@
   #{:all :long :short})
 
 (def ^:private account-info-coin-search-tabs
-  #{:balances :positions :order-history})
+  #{:balances :positions :open-orders :trade-history :order-history})
 
 (defn- default-funding-history-filters []
   (let [now (platform/now-ms)]
@@ -68,6 +68,7 @@
 (defn default-trade-history-state []
   {:sort {:column "Time" :direction :desc}
    :direction-filter :all
+   :coin-search ""
    :filter-open? false
    :page-size default-order-history-page-size
    :page 1
@@ -526,6 +527,14 @@
     (case tab*
       :positions
       [[:effects/save [:account-info :positions :coin-search] search*]]
+
+      :open-orders
+      [[:effects/save [:account-info :open-orders :coin-search] search*]]
+
+      :trade-history
+      [[:effects/save-many [[[:account-info :trade-history :coin-search] search*]
+                            [[:account-info :trade-history :page] 1]
+                            [[:account-info :trade-history :page-input] "1"]]]]
 
       :order-history
       [[:effects/save-many [[[:account-info :order-history :coin-search] search*]

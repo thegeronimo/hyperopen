@@ -236,6 +236,12 @@
          (history-actions/set-account-info-coin-search nil :balances "ETH")))
   (is (= [[:effects/save [:account-info :positions :coin-search] "nv"]]
          (history-actions/set-account-info-coin-search nil "PoSiTiOnS" "nv")))
+  (is (= [[:effects/save [:account-info :open-orders :coin-search] "sol"]]
+         (history-actions/set-account-info-coin-search nil :open-orders "sol")))
+  (is (= [[:effects/save-many [[[:account-info :trade-history :coin-search] "123"]
+                               [[:account-info :trade-history :page] 1]
+                               [[:account-info :trade-history :page-input] "1"]]]]
+         (history-actions/set-account-info-coin-search nil :trade-history 123)))
   (is (= [[:effects/save-many [[[:account-info :order-history :coin-search] "42"]
                                [[:account-info :order-history :page] 1]
                                [[:account-info :order-history :page-input] "1"]]]]

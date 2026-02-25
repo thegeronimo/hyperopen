@@ -354,22 +354,40 @@
                       rows*)
       (vec rows*))))
 
-(defn- memoized-sorted-trade-history [rows direction-filter sort-state market-by-key]
+(defn- trade-history-row-matches-coin-search?
+  [row market-by-key query]
+  (let [{:keys [base-label prefix-label]} (shared/resolve-coin-display (trade-history-coin row) market-by-key)]
+    (or (shared/coin-matches-search? (trade-history-coin row) query)
+        (shared/coin-matches-search? base-label query)
+        (shared/coin-matches-search? prefix-label query))))
+
+(defn- filter-trade-history-by-coin-search
+  [rows market-by-key coin-search]
+  (let [query (shared/normalize-coin-search-query coin-search)
+        rows* (or rows [])]
+    (if (str/blank? query)
+      (vec rows*)
+      (filterv #(trade-history-row-matches-coin-search? % market-by-key query) rows*))))
+
+(defn- memoized-sorted-trade-history [rows direction-filter sort-state market-by-key coin-search]
   (let [column (:column sort-state)
         direction (:direction sort-state)
         cache @sorted-trade-history-cache
         cache-hit? (and (map? cache)
                         (identical? rows (:rows cache))
                         (= direction-filter (:direction-filter cache))
+                        (= coin-search (:coin-search cache))
                         (identical? market-by-key (:market-by-key cache))
                         (= column (:column cache))
                         (= direction (:direction cache)))]
     (if cache-hit?
       (:result cache)
-      (let [filtered-rows (filter-trade-history-by-direction rows direction-filter)
-            result (vec (sort-trade-history-by-column filtered-rows column direction market-by-key))]
+      (let [direction-filtered-rows (filter-trade-history-by-direction rows direction-filter)
+            coin-filtered-rows (filter-trade-history-by-coin-search direction-filtered-rows market-by-key coin-search)
+            result (vec (sort-trade-history-by-column coin-filtered-rows column direction market-by-key))]
         (reset! sorted-trade-history-cache {:rows rows
                                             :direction-filter direction-filter
+                                            :coin-search coin-search
                                             :column column
                                             :direction direction
                                             :market-by-key market-by-key
@@ -386,8 +404,13 @@
                    :else [])
         market-by-key (or (:market-by-key trade-history-state) {})
         direction-filter (trade-history-direction-filter-key trade-history-state)
+        coin-search (:coin-search trade-history-state "")
         sort-state (trade-history-sort-state trade-history-state)
-        sorted-rows (memoized-sorted-trade-history all-rows direction-filter sort-state market-by-key)
+        sorted-rows (memoized-sorted-trade-history all-rows
+                                                   direction-filter
+                                                   sort-state
+                                                   market-by-key
+                                                   coin-search)
         {:keys [rows] :as pagination} (history-pagination/paginate-history-rows sorted-rows trade-history-state)]
     (if (seq sorted-rows)
       (table/tab-table-content

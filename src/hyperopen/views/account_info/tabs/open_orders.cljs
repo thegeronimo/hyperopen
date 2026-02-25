@@ -117,6 +117,21 @@
       :short (filterv #(contains? short-order-side-values (:side %)) orders*)
       (vec orders*))))
 
+(defn- open-order-matches-coin-search?
+  [row query]
+  (let [{:keys [base-label prefix-label]} (shared/resolve-coin-display (:coin row) {})]
+    (or (shared/coin-matches-search? (:coin row) query)
+        (shared/coin-matches-search? base-label query)
+        (shared/coin-matches-search? prefix-label query))))
+
+(defn- filter-open-orders-by-coin-search
+  [rows coin-search]
+  (let [query (shared/normalize-coin-search-query coin-search)
+        rows* (or rows [])]
+    (if (str/blank? query)
+      (vec rows*)
+      (filterv #(open-order-matches-coin-search? % query) rows*))))
+
 (defn- coin-style [side]
   (case side
     "B" {:color long-coin-color}
@@ -160,21 +175,24 @@
 (defn reset-open-orders-sort-cache! []
   (reset! sorted-open-orders-cache nil))
 
-(defn- memoized-sorted-open-orders [orders direction-filter sort-state]
+(defn- memoized-sorted-open-orders [orders direction-filter sort-state coin-search]
   (let [column (:column sort-state)
         direction (:direction sort-state)
         cache @sorted-open-orders-cache
         cache-hit? (and (map? cache)
                         (identical? orders (:orders cache))
                         (= direction-filter (:direction-filter cache))
+                        (= coin-search (:coin-search cache))
                         (= column (:column cache))
                         (= direction (:direction cache)))]
     (if cache-hit?
       (:result cache)
-      (let [filtered (filter-open-orders-by-direction orders direction-filter)
-            result (vec (sort-open-orders-by-column filtered column direction))]
+      (let [direction-filtered (filter-open-orders-by-direction orders direction-filter)
+            search-filtered (filter-open-orders-by-coin-search direction-filtered coin-search)
+            result (vec (sort-open-orders-by-column search-filtered column direction))]
         (reset! sorted-open-orders-cache {:orders orders
                                           :direction-filter direction-filter
+                                          :coin-search coin-search
                                           :column column
                                           :direction direction
                                           :result result})
@@ -191,7 +209,8 @@
    (open-orders-tab-content normalized sort-state {}))
   ([normalized sort-state open-orders-state]
    (let [direction-filter (open-orders-direction-filter-key open-orders-state)
-         sorted (memoized-sorted-open-orders normalized direction-filter sort-state)]
+         coin-search (:coin-search open-orders-state "")
+         sorted (memoized-sorted-open-orders normalized direction-filter sort-state coin-search)]
      (if (seq sorted)
        (table/tab-table-content
         [:div {:class ["grid" "gap-2" "py-1" "px-3" "bg-base-200" "text-xs" "font-medium" open-orders-grid-template-class]}

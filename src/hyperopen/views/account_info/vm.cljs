@@ -218,6 +218,7 @@
                                                                                 pending-cancel-oids
                                                                                 market-by-key)
         trade-history-state (-> (merge {:direction-filter :all
+                                        :coin-search ""
                                         :filter-open? false}
                                        (get-in state [:account-info :trade-history] {}))
                                 (assoc :market-by-key market-by-key))
@@ -239,6 +240,7 @@
                                 :filter-open? false}
                                (get-in state [:account-info :positions] {}))
         open-orders-state (merge {:direction-filter :all
+                                  :coin-search ""
                                   :filter-open? false}
                                  (get-in state [:account-info :open-orders] {}))
         websocket-health (get-in state [:websocket :health])

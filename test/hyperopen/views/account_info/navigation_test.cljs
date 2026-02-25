@@ -90,12 +90,15 @@
                                  {}
                                  {}
                                  {:direction-filter :short
+                                  :coin-search "eth"
                                   :filter-open? true}
                                  nil)
         filter-button (hiccup/find-first-node nav #(and (contains? (hiccup/direct-texts %) "Short")
                                                          (= [[:actions/toggle-open-orders-direction-filter-open]]
                                                             (get-in % [1 :on :click]))))
         filter-button-classes (hiccup/node-class-set filter-button)
+        search-input (hiccup/find-first-node nav #(= [[:actions/set-account-info-coin-search :open-orders [:event.target/value]]]
+                                                     (get-in % [1 :on :input])))
         all-option (hiccup/find-first-node nav #(and (contains? (hiccup/direct-texts %) "All")
                                                      (= [[:actions/set-open-orders-direction-filter :all]]
                                                         (get-in % [1 :on :click]))))
@@ -106,8 +109,41 @@
     (is (= "1" (get-in filter-button [1 :style :--btn-focus-scale])))
     (is (contains? filter-button-classes "focus:outline-none"))
     (is (contains? filter-button-classes "focus-visible:outline-none"))
+    (is (some? search-input))
+    (is (= "eth" (get-in search-input [1 :value])))
     (is (some? all-option))
     (is (some? short-option))))
+
+(deftest tab-navigation-renders-trade-history-direction-filter-actions-test
+  (let [counts {:balances 2 :positions 4 :open-orders 3}
+        nav (view/tab-navigation :trade-history
+                                 counts
+                                 false
+                                 {}
+                                 {:direction-filter :short
+                                  :coin-search "nv"
+                                  :filter-open? true}
+                                 {}
+                                 {}
+                                 {}
+                                 nil
+                                 "")
+        filter-button (hiccup/find-first-node nav #(and (contains? (hiccup/direct-texts %) "Short")
+                                                         (= [[:actions/toggle-trade-history-direction-filter-open]]
+                                                            (get-in % [1 :on :click]))))
+        search-input (hiccup/find-first-node nav #(= [[:actions/set-account-info-coin-search :trade-history [:event.target/value]]]
+                                                     (get-in % [1 :on :input])))
+        short-option (hiccup/find-first-node nav #(and (contains? (hiccup/direct-texts %) "Short")
+                                                        (= [[:actions/set-trade-history-direction-filter :short]]
+                                                           (get-in % [1 :on :click]))))
+        long-option (hiccup/find-first-node nav #(and (contains? (hiccup/direct-texts %) "Long")
+                                                       (= [[:actions/set-trade-history-direction-filter :long]]
+                                                          (get-in % [1 :on :click]))))]
+    (is (some? filter-button))
+    (is (some? search-input))
+    (is (= "nv" (get-in search-input [1 :value])))
+    (is (some? short-option))
+    (is (some? long-option))))
 
 (deftest tab-navigation-renders-positions-direction-filter-actions-test
   (let [counts {:balances 2 :positions 4 :open-orders 3}

@@ -13,7 +13,9 @@
 (deftest account-info-vm-projects-global-state-into-tab-view-model-test
   (let [state {:account-info {:selected-tab :trade-history
                               :balances-coin-search "btc"
-                              :trade-history {:sort {:column "Time" :direction :desc}}
+                              :trade-history {:sort {:column "Time" :direction :desc}
+                                              :coin-search "liq"}
+                              :open-orders {:coin-search "nv"}
                               :funding-history {:page-size 25}
                               :order-history {:status-filter :all
                                               :coin-search "nv"}}
@@ -48,7 +50,9 @@
     (is (= "" (get-in view-model [:positions-state :coin-search])))
     (is (false? (get-in view-model [:positions-state :filter-open?])))
     (is (= :all (get-in view-model [:open-orders-state :direction-filter])))
+    (is (= "nv" (get-in view-model [:open-orders-state :coin-search])))
     (is (false? (get-in view-model [:open-orders-state :filter-open?])))
+    (is (= "liq" (get-in view-model [:trade-history-state :coin-search])))
     (is (= {"xyz:NVDA" {:coin "xyz:NVDA"
                         :symbol "NVDA/USDC"}}
            (get-in view-model [:trade-history-state :market-by-key])))
