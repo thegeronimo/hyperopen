@@ -168,6 +168,16 @@
     (is (= :percent (get-in unit-form [:tpsl :unit])))
     (is (false? (:tpsl-unit-dropdown-open? unit-ui)))))
 
+(deftest tpsl-unit-dropdown-toggle-allows-market-mode-when-panel-open-test
+  (let [state (assoc (base-state {:type :market
+                                  :tpsl {:unit :usd}})
+                     :order-form-ui (assoc (trading/default-order-form-ui)
+                                           :entry-mode :market
+                                           :tpsl-panel-open? true))
+        toggled (transitions/toggle-tpsl-unit-dropdown state)
+        open-ui (:order-form-ui toggled)]
+    (is (true? (:tpsl-unit-dropdown-open? open-ui)))))
+
 (deftest tpsl-and-reduce-only-are-mutually-exclusive-test
   (let [state (base-state {:type :limit
                            :price "100"
@@ -407,8 +417,7 @@
       (assoc model :tif-dropdown-open? false))
 
     :toggle-tpsl-unit-dropdown
-    (if (and (trading/limit-like-type? (:type model))
-             (:tpsl-panel-open? model))
+    (if (:tpsl-panel-open? model)
       (update model :tpsl-unit-dropdown-open? not)
       (assoc model :tpsl-unit-dropdown-open? false))
 

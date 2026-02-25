@@ -113,7 +113,6 @@
                                   (or (:size-display normalized-form) "")
                                   (or (:size-display normalized-ui) "")))
       (not (limit-like-type? order-type)) (assoc :price-input-focused? false)
-      (not (limit-like-type? order-type)) (assoc :tpsl-unit-dropdown-open? false)
       (not (limit-like-type? order-type)) (assoc :tif-dropdown-open? false)
       (= :scale order-type) (assoc :tpsl-panel-open? false
                                    :tpsl-unit-dropdown-open? false)

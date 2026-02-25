@@ -76,6 +76,18 @@
     (is (false? (:pro-order-type-dropdown-open? normalized-legacy)))
     (is (true? (:pro-order-type-dropdown-open? normalized-explicit)))))
 
+(deftest order-form-ui-state-keeps-tpsl-unit-dropdown-open-in-market-mode-when-panel-open-test
+  (let [state (assoc base-state
+                     :order-form (assoc (trading/default-order-form)
+                                        :type :market)
+                     :order-form-ui (assoc (trading/default-order-form-ui)
+                                           :entry-mode :market
+                                           :tpsl-panel-open? true
+                                           :tpsl-unit-dropdown-open? true))
+        normalized-ui (trading/order-form-ui-state state)]
+    (is (true? (:tpsl-panel-open? normalized-ui)))
+    (is (true? (:tpsl-unit-dropdown-open? normalized-ui)))))
+
 (deftest normalize-order-form-keeps-entry-mode-and-type-consistent-test
   (let [market-form (trading/normalize-order-form base-state {:entry-mode :market
                                                                :type :limit

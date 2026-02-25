@@ -282,13 +282,9 @@
 
 (defn toggle-tpsl-unit-dropdown [state]
   (let [ui-state (trading/order-form-ui-state state)
-        form (trading/order-form-draft state)
-        order-type (trading/normalize-order-type (:type form))
         open? (boolean (:tpsl-unit-dropdown-open? ui-state))
         panel-open? (boolean (:tpsl-panel-open? ui-state))
-        toggle-allowed? (and panel-open?
-                             (trading/limit-like-type? order-type))
-        next-open? (if toggle-allowed?
+        next-open? (if panel-open?
                      (not open?)
                      false)]
     (enforce-field-ownership
