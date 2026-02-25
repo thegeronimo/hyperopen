@@ -79,33 +79,59 @@
 (def ^:private pnl-mode-options
   [:usd :roe-percent :position-percent])
 
+(defn- immediate-tooltip
+  [trigger tooltip-text]
+  [:div {:class ["relative" "group" "inline-flex" "w-full"]}
+   trigger
+   [:div {:class ["pointer-events-none"
+                  "absolute"
+                  "right-0"
+                  "top-full"
+                  "z-20"
+                  "mt-1.5"
+                  "opacity-0"
+                  "group-hover:opacity-100"]
+          :style {:min-width "max-content"}}
+    [:div {:class ["max-w-[16rem]"
+                   "rounded"
+                   "border"
+                   "border-base-300"
+                   "bg-base-100"
+                   "px-2"
+                   "py-1"
+                   "text-xs"
+                   "leading-4"
+                   "text-gray-100"
+                   "shadow-lg"]}
+     tooltip-text]]])
+
 (defn- pnl-mode-select
   [mode path aria-label]
-  [:div {:class ["relative" "w-[58px]"]}
-   [:select {:class ["h-7"
-                     "w-full"
-                     "border-0"
-                     "bg-transparent"
-                     "pl-1"
-                     "pr-5"
-                     "text-xs"
-                     "font-semibold"
-                     "text-left"
-                     "truncate"
-                     "text-gray-100"
-                     "focus:outline-none"
-                     "focus:ring-0"
-                     "focus:ring-offset-0"
-                     "focus:shadow-none"]
-             :aria-label aria-label
-             :title (position-tpsl/pnl-mode-menu-label mode)
-             :value (name mode)
-             :on {:change [[:actions/set-position-tpsl-modal-field path [:event.target/value]]]}}
-    (for [option-mode pnl-mode-options]
-      ^{:key (name option-mode)}
-      [:option {:value (name option-mode)
-                :title (position-tpsl/pnl-mode-menu-label option-mode)}
-       (position-tpsl/pnl-mode-option-label option-mode)])]])
+  (immediate-tooltip
+   [:div {:class ["relative" "w-[58px]"]}
+    [:select {:class ["h-7"
+                      "w-full"
+                      "border-0"
+                      "bg-transparent"
+                      "pl-1"
+                      "pr-5"
+                      "text-xs"
+                      "font-semibold"
+                      "text-left"
+                      "truncate"
+                      "text-gray-100"
+                      "focus:outline-none"
+                      "focus:ring-0"
+                      "focus:ring-offset-0"
+                      "focus:shadow-none"]
+              :aria-label aria-label
+              :value (name mode)
+              :on {:change [[:actions/set-position-tpsl-modal-field path [:event.target/value]]]}}
+     (for [option-mode pnl-mode-options]
+       ^{:key (name option-mode)}
+       [:option {:value (name option-mode)}
+        (position-tpsl/pnl-mode-option-label option-mode)])]]
+   (position-tpsl/pnl-mode-menu-label mode)))
 
 (defn- input-row
   ([label value action]

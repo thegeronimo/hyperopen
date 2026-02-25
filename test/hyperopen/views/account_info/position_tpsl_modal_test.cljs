@@ -144,7 +144,11 @@
                      modal-view
                      #(and (= :select (first %))
                            (= "Loss unit" (get-in % [1 :aria-label]))))
-        option-labels (set (hiccup/collect-strings gain-select))]
+        option-labels (set (hiccup/collect-strings gain-select))
+        tooltip-nodes (hiccup/find-all-nodes
+                       modal-view
+                       #(contains? (hiccup/node-class-set %) "group-hover:opacity-100"))
+        modal-strings (set (hiccup/collect-strings modal-view))]
     (is (= [[:actions/set-position-tpsl-modal-field [:tp-gain-mode] [:event.target/value]]]
            (get-in gain-select [1 :on :change])))
     (is (= [[:actions/set-position-tpsl-modal-field [:sl-loss-mode] [:event.target/value]]]
@@ -152,8 +156,9 @@
     (is (contains? option-labels "$"))
     (is (contains? option-labels "%(E)"))
     (is (contains? option-labels "%(P)"))
-    (is (= "$: profit/loss in USDC."
-           (get-in gain-select [1 :title])))))
+    (is (nil? (get-in gain-select [1 :title])))
+    (is (= 2 (count tooltip-nodes)))
+    (is (contains? modal-strings "$: profit/loss in USDC."))))
 
 (deftest position-tpsl-modal-unit-selectors-are-borderless-and-focus-neutral-test
   (let [modal-view (sample-modal-view)
