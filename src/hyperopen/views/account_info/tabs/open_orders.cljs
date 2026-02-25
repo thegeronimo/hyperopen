@@ -127,15 +127,18 @@
 (defn- open-orders-coin-node [coin side]
   (let [{:keys [base-label prefix-label]} (shared/resolve-coin-display coin {})
         node-style (coin-style side)]
-    [:span {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
-     [:span (cond-> {:class (cond-> ["truncate"]
-                               side
-                               (conj "font-semibold"))}
-              node-style
-              (assoc :style node-style))
-      base-label]
-     (when prefix-label
-       [:span {:class shared/position-chip-classes} prefix-label])]))
+    (shared/coin-select-control
+     coin
+     [:span {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
+      [:span (cond-> {:class (cond-> ["truncate"]
+                                side
+                                (conj "font-semibold"))}
+               node-style
+               (assoc :style node-style))
+       base-label]
+      (when prefix-label
+        [:span {:class shared/position-chip-classes} prefix-label])]
+     {:extra-classes ["w-full" "justify-start" "text-left"]})))
 
 (defn sort-open-orders-by-column [orders column direction]
   (sort-kernel/sort-rows-by-column

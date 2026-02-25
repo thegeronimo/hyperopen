@@ -416,6 +416,15 @@
     (is (contains? (hiccup/node-class-set send-button-node) "text-trading-text"))
     (is (contains? (hiccup/node-class-set transfer-button-node) "text-trading-text"))))
 
+(deftest balance-row-coin-cell-dispatches-select-asset-action-test
+  (let [row-node (view/balance-row (assoc fixtures/sample-balance-row
+                                          :coin "USDC (Spot)"
+                                          :selection-coin "USDC"))
+        coin-cell (first (vec (hiccup/node-children row-node)))]
+    (is (= :button (first coin-cell)))
+    (is (= [[:actions/select-asset "USDC"]]
+           (get-in coin-cell [1 :on :click])))))
+
 (deftest balance-row-renders-unified-transfer-disabled-label-test
   (let [row-node (view/balance-row (assoc fixtures/sample-balance-row
                                           :coin "USDC"

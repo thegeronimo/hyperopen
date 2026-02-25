@@ -271,6 +271,23 @@
     (is (contains? (set (hiccup/collect-strings hype-direction-cell))
                    "Market Order Liquidation: Close Long"))))
 
+(deftest trade-history-coin-cell-dispatches-select-asset-action-test
+  (let [fills [{:tid 1
+                :coin "xyz:NVDA"
+                :side "B"
+                :dir "Open Long"
+                :sz "0.500"
+                :px "187.88"
+                :fee "0.01"
+                :time 1700000000000}]
+        content (view/trade-history-tab-content fills)
+        row-node (hiccup/first-viewport-row content)
+        coin-cell (nth (vec (hiccup/node-children row-node)) 1)
+        coin-button (hiccup/find-first-node coin-cell #(= :button (first %)))]
+    (is (some? coin-button))
+    (is (= [[:actions/select-asset "xyz:NVDA"]]
+           (get-in coin-button [1 :on :click])))))
+
 (deftest trade-history-price-improved-direction-renders-liquidation-tooltip-test
   (let [tooltip-copy "This fill price was more favorable to you than the price chart at that time, because your order provided liquidity to another user's liquidation."
         fills [{:tid 1

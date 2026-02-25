@@ -150,6 +150,21 @@
     (is (some? xyz-chip))
     (is (contains? (hiccup/node-class-set xyz-chip) "bg-emerald-500/20"))))
 
+(deftest funding-history-coin-cell-dispatches-select-asset-action-test
+  (let [rows [{:id "1700000000000|xyz:NVDA|0.5|-0.42|0.0006"
+               :time-ms 1700000000000
+               :coin "xyz:NVDA"
+               :position-size-raw 0.5
+               :payment-usdc-raw -0.42
+               :funding-rate-raw 0.0006}]
+        content (@#'view/funding-history-table rows {:sort {:column "Time" :direction :desc}})
+        row-node (hiccup/first-viewport-row content)
+        coin-cell (nth (vec (hiccup/node-children row-node)) 1)
+        coin-button (hiccup/find-first-node coin-cell #(= :button (first %)))]
+    (is (some? coin-button))
+    (is (= [[:actions/select-asset "xyz:NVDA"]]
+           (get-in coin-button [1 :on :click])))))
+
 (deftest funding-history-pagination-renders-only-current-page-rows-test
   (let [rows (mapv fixtures/funding-history-row (range 55))
         content (@#'view/funding-history-table rows {:sort {:column "Time" :direction :desc}

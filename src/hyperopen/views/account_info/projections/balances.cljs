@@ -398,6 +398,7 @@
                            total-margin-used (parse-num (get-in clearinghouse-state [:marginSummary :totalMarginUsed]))
                            available (- account-value total-margin-used)]
                        {:key "perps-usdc"
+                        :selection-coin "USDC"
                         :coin (if unified? "USDC" "USDC (Perps)")
                         :total-balance account-value
                         :available-balance available
@@ -429,6 +430,7 @@
                                                      (or (extract-balance-contract-id balance)
                                                          (extract-balance-contract-id token-meta)))]
                                    {:key (str "spot-" (or token-idx coin))
+                                    :selection-coin coin
                                     :coin coin-label
                                     :total-balance total-num
                                     :available-balance available-num

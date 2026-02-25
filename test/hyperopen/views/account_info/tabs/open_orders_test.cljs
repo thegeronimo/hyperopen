@@ -278,6 +278,27 @@
     (is (= "rgb(234, 175, 184)"
            (get-in short-coin-base [1 :style :color])))))
 
+(deftest open-orders-coin-cell-dispatches-select-asset-action-test
+  (let [open-orders [{:oid 101
+                      :coin "xyz:NVDA"
+                      :side "B"
+                      :sz "1.0"
+                      :orig-sz "1.0"
+                      :px "100.0"
+                      :type "Limit"
+                      :time 1700000001000
+                      :reduce-only false
+                      :is-trigger false
+                      :trigger-condition nil
+                      :is-position-tpsl false}]
+        content (view/open-orders-tab-content open-orders {:column "Time" :direction :desc})
+        row-node (hiccup/first-viewport-row content)
+        coin-cell (nth (vec (hiccup/node-children row-node)) 2)
+        coin-button (hiccup/find-first-node coin-cell #(= :button (first %)))]
+    (is (some? coin-button))
+    (is (= [[:actions/select-asset "xyz:NVDA"]]
+           (get-in coin-button [1 :on :click])))))
+
 (deftest format-tp-sl-treats-reduce-only-take-profit-orders-as-position-tpsl-test
   (is (= "TP/SL"
          (view/format-tp-sl {:is-position-tpsl false

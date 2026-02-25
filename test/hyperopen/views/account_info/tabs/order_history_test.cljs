@@ -162,6 +162,29 @@
     (is (= "rgb(234, 175, 184)"
            (get-in sell-coin-base [1 :style :color])))))
 
+(deftest order-history-coin-cell-dispatches-select-asset-action-test
+  (let [rows [{:order {:coin "xyz:NVDA"
+                       :oid 307891000622
+                       :side "B"
+                       :origSz "0.500"
+                       :remainingSz "0.000"
+                       :limitPx "0"
+                       :orderType "Market"
+                       :reduceOnly false
+                       :isTrigger false
+                       :timestamp 1700000000000}
+               :status "filled"
+               :statusTimestamp 1700000000500}]
+        content (@#'view/order-history-table rows {:sort {:column "Time" :direction :desc}
+                                                   :status-filter :all
+                                                   :loading? false})
+        row-node (hiccup/first-viewport-row content)
+        coin-cell (nth (vec (hiccup/node-children row-node)) 2)
+        coin-button (hiccup/find-first-node coin-cell #(= :button (first %)))]
+    (is (some? coin-button))
+    (is (= [[:actions/select-asset "xyz:NVDA"]]
+           (get-in coin-button [1 :on :click])))))
+
 (deftest order-history-coin-label-prefers-market-base-for-spot-id-test
   (let [rows [{:order {:coin "@230"
                        :oid 307891000622

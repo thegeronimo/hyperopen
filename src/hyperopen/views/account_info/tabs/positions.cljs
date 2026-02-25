@@ -263,11 +263,15 @@
                     "text-sm"]}
       [:div {:class ["flex" "items-center" "gap-1.5" "self-stretch" "min-w-[150px]"]
              :style coin-cell-style}
-       [:span {:class ["font-medium" "whitespace-nowrap" "shrink-0" coin-tone-class]} coin-label]
-       (when (some? leverage)
-         [:span {:class chip-classes} (str leverage "x")])
-       (when dex-label
-         [:span {:class chip-classes} dex-label])]
+       (shared/coin-select-control
+        (:coin pos)
+        [:span {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
+         [:span {:class ["font-medium" "whitespace-nowrap" "shrink-0" coin-tone-class]} coin-label]
+         (when (some? leverage)
+           [:span {:class chip-classes} (str leverage "x")])
+         (when dex-label
+           [:span {:class chip-classes} dex-label])]
+        {:extra-classes ["w-full" "justify-start" "text-left"]})]
       [:div {:class ["text-left" "font-semibold" "num" size-tone-class]} (format-position-size pos)]
       [:div.text-left.font-semibold.num
        (if (number? position-value-num)

@@ -247,13 +247,16 @@
                                                                         market-by-key)
         direction-label (trade-history-direction-label row)
         direction-class (trade-history-action-class row direction-label)]
-    [:span {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
-     [:span {:class (cond-> ["truncate"]
-                      direction-class
-                      (conj direction-class))}
-      base-label]
-     (when prefix-label
-       [:span {:class shared/position-chip-classes} prefix-label])]))
+    (shared/coin-select-control
+     (trade-history-coin row)
+     [:span {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
+      [:span {:class (cond-> ["truncate"]
+                       direction-class
+                       (conj direction-class))}
+       base-label]
+      (when prefix-label
+        [:span {:class shared/position-chip-classes} prefix-label])]
+     {:extra-classes ["w-full" "justify-start" "text-left"]})))
 
 (defn- format-trade-history-price [row]
   (let [price (or (:px row) (:price row) (:p row))]

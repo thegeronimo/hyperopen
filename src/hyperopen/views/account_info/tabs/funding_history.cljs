@@ -233,12 +233,15 @@
 
 (defn- funding-coin-node [coin]
   (let [{:keys [base-label prefix-label]} (shared/resolve-coin-display coin {})]
-    [:span {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
-     [:span {:class ["truncate" "font-semibold"]
-             :style {:color "rgb(151, 252, 228)"}}
-      base-label]
-     (when prefix-label
-       [:span {:class shared/position-chip-classes} prefix-label])]))
+    (shared/coin-select-control
+     coin
+     [:span {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
+      [:span {:class ["truncate" "font-semibold"]
+              :style {:color "rgb(151, 252, 228)"}}
+       base-label]
+      (when prefix-label
+        [:span {:class shared/position-chip-classes} prefix-label])]
+     {:extra-classes ["w-full" "justify-start" "text-left"]})))
 
 (defn funding-history-table [fundings funding-history-state]
   (let [sort-state (funding-history-sort-state funding-history-state)

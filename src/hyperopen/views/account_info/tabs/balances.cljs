@@ -193,6 +193,7 @@
                                   :extra-classes (table/header-alignment-classes align)})))
 
 (defn balance-row [{:keys [coin
+                           selection-coin
                            total-balance
                            available-balance
                            usdc-value
@@ -202,12 +203,18 @@
                            contract-id
                            transfer-disabled?
                            available-balance-tooltip-position]}]
-  (let [coin-attrs (when-not (usdc-balance-row? {:coin coin})
-                     {:style {:color "rgb(151, 252, 228)"}})]
+  (let [coin-style (when-not (usdc-balance-row? {:coin coin})
+                     {:color "rgb(151, 252, 228)"})
+        selectable-coin (or selection-coin coin)]
     [:div.grid.grid-cols-8.gap-2.py-px.px-3.hover:bg-base-300.items-center.text-sm.text-trading-text
-     (if coin-attrs
-       [:div.font-semibold coin-attrs coin]
-       [:div.font-semibold coin])
+     (shared/coin-select-control selectable-coin
+                                 (or coin "")
+                                 {:style coin-style
+                                  :extra-classes ["w-full"
+                                                  "justify-start"
+                                                  "text-left"
+                                                  "font-semibold"
+                                                  "truncate"]})
      [:div.text-right.font-semibold.num.num-right (shared/format-balance-amount total-balance amount-decimals)]
      [:div.text-right.font-semibold.num.num-right
       (available-balance-value-node {:coin coin

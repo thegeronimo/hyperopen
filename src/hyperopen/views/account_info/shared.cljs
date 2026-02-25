@@ -29,6 +29,37 @@
 (defn resolve-coin-display [coin market-by-key]
   (projections/resolve-coin-display coin market-by-key))
 
+(def ^:private coin-select-control-classes
+  ["inline-flex"
+   "min-h-6"
+   "min-w-0"
+   "max-w-full"
+   "items-center"
+   "rounded"
+   "focus:outline-none"
+   "focus-visible:outline-none"
+   "focus-visible:ring-2"
+   "focus-visible:ring-trading-green/70"
+   "focus-visible:ring-offset-1"
+   "focus-visible:ring-offset-base-100"])
+
+(defn coin-select-control
+  ([coin content]
+   (coin-select-control coin content {}))
+  ([coin content {:keys [extra-classes style]
+                  :or {extra-classes []}}]
+   (let [coin* (non-blank-text coin)
+         classes (into coin-select-control-classes extra-classes)
+         attrs (cond-> {:class classes}
+                 style (assoc :style style))]
+     (if (seq coin*)
+       [:button (assoc attrs
+                       :type "button"
+                       :on {:click [[:actions/select-asset coin*]]})
+        content]
+       [:span attrs
+        content]))))
+
 (defn format-currency [value]
   (fmt/format-fixed-number value fallback-decimals))
 

@@ -83,15 +83,18 @@
   ([coin market-by-key side]
    (let [{:keys [base-label prefix-label]} (shared/resolve-coin-display coin market-by-key)
          coin-style (order-history-coin-style side)]
-     [:span {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
-      [:span (cond-> {:class (cond-> ["truncate"]
-                               side
-                               (conj "font-semibold"))}
-               coin-style
-               (assoc :style coin-style))
-       base-label]
-      (when prefix-label
-        [:span {:class shared/position-chip-classes} prefix-label])])))
+     (shared/coin-select-control
+      coin
+      [:span {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
+       [:span (cond-> {:class (cond-> ["truncate"]
+                                side
+                                (conj "font-semibold"))}
+                coin-style
+                (assoc :style coin-style))
+        base-label]
+       (when prefix-label
+         [:span {:class shared/position-chip-classes} prefix-label])]
+      {:extra-classes ["w-full" "justify-start" "text-left"]}))))
 
 (defn- order-history-row-sort-id [row]
   (str (or (:time-ms row) 0)

@@ -182,6 +182,14 @@
     (is (contains? (set coin-strings) "NVDA"))
     (is (contains? (set coin-strings) "10x"))))
 
+(deftest position-row-coin-cell-dispatches-select-asset-action-test
+  (let [row-node (view/position-row (fixtures/sample-position-row "xyz:NVDA" 10 "0.500"))
+        coin-cell (first (vec (hiccup/node-children row-node)))
+        coin-button (hiccup/find-first-node coin-cell #(= :button (first %)))]
+    (is (some? coin-button))
+    (is (= [[:actions/select-asset "xyz:NVDA"]]
+           (get-in coin-button [1 :on :click])))))
+
 (deftest sort-positions-by-column-uses-mark-price-over-entry-price-test
   (let [positions [{:position {:coin "AAA"
                                :entryPx "100"
