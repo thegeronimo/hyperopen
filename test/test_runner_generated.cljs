@@ -89,6 +89,7 @@
             [hyperopen.schema.chart-interop-contracts-test]
             [hyperopen.schema.contracts-coverage-test]
             [hyperopen.schema.contracts-test]
+            [hyperopen.schema.order-form-command-catalog-test]
             [hyperopen.startup.collaborators-test]
             [hyperopen.startup.composition-test]
             [hyperopen.startup.init-test]
@@ -297,6 +298,7 @@
              'hyperopen.schema.chart-interop-contracts-test
              'hyperopen.schema.contracts-coverage-test
              'hyperopen.schema.contracts-test
+             'hyperopen.schema.order-form-command-catalog-test
              'hyperopen.startup.collaborators-test
              'hyperopen.startup.composition-test
              'hyperopen.startup.init-test

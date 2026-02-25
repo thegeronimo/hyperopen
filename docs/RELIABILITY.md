@@ -61,6 +61,12 @@ source_of_truth: true
   `/hyperopen/src/hyperopen/runtime/validation.cljs`.
 - New interaction-critical actions MUST opt into the centralized effect-order contract and add regression tests that prove projection-before-heavy ordering and no duplicate heavy effects.
 
+## Order-Form Command Mapping Rules (MUST)
+- Command-driven order-form mapping authority MUST live in one canonical catalog:
+  `/hyperopen/src/hyperopen/schema/order_form_command_catalog.cljs`.
+- The order-form runtime gateway and runtime action registration MUST derive command-driven order-form mappings from that catalog.
+- DO NOT maintain duplicate command-id -> action-id tables in gateway and registry modules.
+
 ## Anti-Patterns (DO NOT)
 - DO NOT perform side effects inside reducer transitions.
 - DO NOT allow multiple writers to mutate canonical runtime state.

@@ -1,6 +1,7 @@
 (ns hyperopen.views.trade.order-form-runtime-gateway-test
   (:require [cljs.test :refer-macros [deftest is]]
             [goog.object :as gobj]
+            [hyperopen.schema.order-form-command-catalog :as command-catalog]
             [hyperopen.views.trade.order-form-commands :as commands]
             [hyperopen.views.trade.order-form-intent-adapter :as intent-adapter]
             [hyperopen.views.trade.order-form-runtime-gateway :as runtime-gateway]))
@@ -30,6 +31,8 @@
 (deftest runtime-gateway-supported-command-ids-expose-core-actions-test
   (let [supported-ids (runtime-gateway/supported-command-ids)]
     (is (set? supported-ids))
+    (is (= supported-ids
+           (command-catalog/supported-command-ids)))
     (is (contains? supported-ids :order-form/select-entry-mode))
     (is (contains? supported-ids :order-form/toggle-size-unit-dropdown))
     (is (contains? supported-ids :order-form/toggle-tpsl-unit-dropdown))

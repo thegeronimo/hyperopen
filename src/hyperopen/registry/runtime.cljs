@@ -1,5 +1,6 @@
 (ns hyperopen.registry.runtime
   (:require [nexus.registry :as nxr]
+            [hyperopen.schema.order-form-command-catalog :as order-form-command-catalog]
             [hyperopen.runtime.validation :as runtime-validation]))
 
 (def ^:private effect-bindings
@@ -46,7 +47,9 @@
        set))
 
 (def ^:private action-bindings
-  [[:actions/init-websockets :init-websockets]
+  (vec
+   (concat
+    [[:actions/init-websockets :init-websockets]
    [:actions/subscribe-to-asset :subscribe-to-asset]
    [:actions/subscribe-to-webdata2 :subscribe-to-webdata2]
    [:actions/connect-wallet :connect-wallet-action]
@@ -162,35 +165,12 @@
    [:actions/set-position-reduce-popover-field :set-position-reduce-popover-field]
    [:actions/set-position-reduce-size-percent :set-position-reduce-size-percent]
    [:actions/set-position-reduce-limit-price-to-mid :set-position-reduce-limit-price-to-mid]
-   [:actions/submit-position-reduce-close :submit-position-reduce-close]
-   [:actions/select-order-entry-mode :select-order-entry-mode]
-   [:actions/select-pro-order-type :select-pro-order-type]
-   [:actions/toggle-pro-order-type-dropdown :toggle-pro-order-type-dropdown]
-   [:actions/close-pro-order-type-dropdown :close-pro-order-type-dropdown]
-   [:actions/handle-pro-order-type-dropdown-keydown :handle-pro-order-type-dropdown-keydown]
-   [:actions/toggle-size-unit-dropdown :toggle-size-unit-dropdown]
-   [:actions/close-size-unit-dropdown :close-size-unit-dropdown]
-   [:actions/handle-size-unit-dropdown-keydown :handle-size-unit-dropdown-keydown]
-   [:actions/toggle-tpsl-unit-dropdown :toggle-tpsl-unit-dropdown]
-   [:actions/close-tpsl-unit-dropdown :close-tpsl-unit-dropdown]
-   [:actions/handle-tpsl-unit-dropdown-keydown :handle-tpsl-unit-dropdown-keydown]
-   [:actions/toggle-tif-dropdown :toggle-tif-dropdown]
-   [:actions/close-tif-dropdown :close-tif-dropdown]
-   [:actions/handle-tif-dropdown-keydown :handle-tif-dropdown-keydown]
-   [:actions/set-order-ui-leverage :set-order-ui-leverage]
-   [:actions/set-order-size-percent :set-order-size-percent]
-   [:actions/set-order-size-display :set-order-size-display]
-   [:actions/set-order-size-input-mode :set-order-size-input-mode]
-   [:actions/focus-order-price-input :focus-order-price-input]
-   [:actions/blur-order-price-input :blur-order-price-input]
-   [:actions/set-order-price-to-mid :set-order-price-to-mid]
-   [:actions/toggle-order-tpsl-panel :toggle-order-tpsl-panel]
-   [:actions/update-order-form :update-order-form]
-   [:actions/submit-order :submit-order]
-   [:actions/cancel-order :cancel-order]
-   [:actions/load-user-data :load-user-data]
-   [:actions/set-funding-modal :set-funding-modal]
-   [:actions/navigate :navigate]])
+   [:actions/submit-position-reduce-close :submit-position-reduce-close]]
+    (order-form-command-catalog/runtime-action-bindings)
+    [[:actions/cancel-order :cancel-order]
+     [:actions/load-user-data :load-user-data]
+     [:actions/set-funding-modal :set-funding-modal]
+     [:actions/navigate :navigate]])))
 
 (defn registered-action-ids
   []

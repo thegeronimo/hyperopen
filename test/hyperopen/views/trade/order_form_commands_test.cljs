@@ -1,8 +1,8 @@
 (ns hyperopen.views.trade.order-form-commands-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.schema.order-form-command-catalog :as command-catalog]
             [hyperopen.views.trade.order-form-commands :as commands]
-            [hyperopen.views.trade.order-form-intent-adapter :as intent-adapter]
-            [hyperopen.views.trade.order-form-runtime-gateway :as runtime-gateway]))
+            [hyperopen.views.trade.order-form-intent-adapter :as intent-adapter]))
 
 (def ^:private representative-command-builders
   [(commands/select-entry-market)
@@ -87,12 +87,12 @@
          (intent-adapter/command->actions
           (commands/toggle-reduce-only)))))
 
-(deftest runtime-gateway-covers-all-command-builders-test
-  (let [supported-ids (runtime-gateway/supported-command-ids)]
+(deftest command-catalog-covers-all-command-builders-test
+  (let [supported-ids (command-catalog/supported-command-ids)]
     (is (seq supported-ids))
     (doseq [command representative-command-builders]
       (is (contains? supported-ids (:command-id command))
-          (str "missing command id in runtime gateway map: " (pr-str command)))
+          (str "missing command id in order-form command catalog: " (pr-str command)))
       (let [runtime-actions (intent-adapter/command->actions command)]
         (is (vector? runtime-actions))
         (is (seq runtime-actions))
