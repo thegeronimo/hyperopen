@@ -1,11 +1,11 @@
 (ns hyperopen.core-bootstrap.runtime-startup-test
   (:require [cljs.test :refer-macros [async deftest is use-fixtures]]
             [hyperopen.api.default :as api]
-            [hyperopen.account.history.effects :as account-history-effects]
             [hyperopen.app.bootstrap :as app-bootstrap]
             [hyperopen.app.startup :as app-startup]
             [hyperopen.core :as app-core]
             [hyperopen.runtime.state :as runtime-state]
+            [hyperopen.startup.collaborators :as startup-collaborators]
             [hyperopen.telemetry.console-warning :as console-warning]
             [hyperopen.wallet.address-watcher :as address-watcher]
             [hyperopen.websocket.active-asset-ctx :as active-ctx]
@@ -140,89 +140,43 @@
   (async done
     (let [stage-a-calls (atom [])
           stage-b-calls (atom [])
-          original-request-open-orders api/request-frontend-open-orders!
-          original-request-user-fills api/request-user-fills!
-          original-request-spot-state api/request-spot-clearinghouse-state!
-          original-request-user-abstraction api/request-user-abstraction!
-          original-request-portfolio api/request-portfolio!
-          original-request-user-fees api/request-user-fees!
-          original-ensure-perp-dexs-data api/ensure-perp-dexs-data!
-          original-fetch-and-merge-funding-history account-history-effects/fetch-and-merge-funding-history!
-          original-stage-b app-startup/stage-b-account-bootstrap!]
-      (swap! app-core/store assoc-in [:wallet :address] "0xabc")
-      (set! api/request-frontend-open-orders!
-            (fn request-frontend-open-orders-mock
-              ([address]
-               (request-frontend-open-orders-mock address {}))
-              ([address opts]
-               (request-frontend-open-orders-mock address (:dex opts) (dissoc opts :dex)))
-              ([address dex opts]
-               (swap! stage-a-calls conj [:open-orders [address dex opts]])
-               (js/Promise.resolve nil))))
-      (set! api/request-user-fills!
-            (fn request-user-fills-mock
-              ([address]
-               (request-user-fills-mock address {}))
-              ([address opts]
-               (swap! stage-a-calls conj [:fills [address opts]])
-               (js/Promise.resolve nil))))
-      (set! api/request-spot-clearinghouse-state!
-            (fn request-spot-clearinghouse-state-mock
-              ([address]
-               (request-spot-clearinghouse-state-mock address {}))
-              ([address opts]
-               (swap! stage-a-calls conj [:spot [address opts]])
-               (js/Promise.resolve nil))))
-      (set! api/request-user-abstraction!
-            (fn request-user-abstraction-mock
-              ([address]
-               (request-user-abstraction-mock address {}))
-              ([address opts]
-               (swap! stage-a-calls conj [:abstraction [address opts]])
-               (js/Promise.resolve "default"))))
-      (set! api/request-portfolio!
-            (fn request-portfolio-mock
-              ([address]
-               (request-portfolio-mock address {}))
-              ([address opts]
-               (swap! stage-a-calls conj [:portfolio [address opts]])
-               (js/Promise.resolve {}))))
-      (set! api/request-user-fees!
-            (fn request-user-fees-mock
-              ([address]
-               (request-user-fees-mock address {}))
-              ([address opts]
-               (swap! stage-a-calls conj [:user-fees [address opts]])
-               (js/Promise.resolve nil))))
-      (set! api/ensure-perp-dexs-data!
-            (fn ensure-perp-dexs-data-mock
-              ([store]
-               (ensure-perp-dexs-data-mock store {}))
-              ([_ _]
-               (js/Promise.resolve {:dex-names ["dex-1" "dex-2"]
-                                    :fee-config-by-name {"dex-1" {:deployer-fee-scale 0.1}
-                                                         "dex-2" {:deployer-fee-scale 0.2}}}))))
-      (set! account-history-effects/fetch-and-merge-funding-history!
-            (fn [_store address opts]
-              (swap! stage-a-calls conj [:fundings [address opts]])
-              (js/Promise.resolve nil)))
-      (set! app-startup/stage-b-account-bootstrap!
-            (fn [_system address dexs]
-              (swap! stage-b-calls conj [address dexs])))
-        (letfn [(restore! []
-                (set! api/request-frontend-open-orders! original-request-open-orders)
-                (set! api/request-user-fills! original-request-user-fills)
-                (set! api/request-spot-clearinghouse-state! original-request-spot-state)
-                (set! api/request-user-abstraction! original-request-user-abstraction)
-                (set! api/request-portfolio! original-request-portfolio)
-                (set! api/request-user-fees! original-request-user-fees)
-                (set! api/ensure-perp-dexs-data! original-ensure-perp-dexs-data)
-                (set! account-history-effects/fetch-and-merge-funding-history! original-fetch-and-merge-funding-history)
-                (set! app-startup/stage-b-account-bootstrap! original-stage-b))]
-        (app-startup/bootstrap-account-data!
-         {:runtime runtime-state/runtime
-          :store app-core/store}
-         "0xabc")
+          test-store (atom {:wallet {:address "0xabc"}})
+          system {:runtime runtime-state/runtime
+                  :store test-store}]
+      (with-redefs [startup-collaborators/startup-base-deps
+                    (fn [deps]
+                      (merge
+                       deps
+                       {:log-fn (fn [& _] nil)
+                        :fetch-frontend-open-orders! (fn [_store address opts]
+                                                       (swap! stage-a-calls conj [:open-orders [address opts]])
+                                                       (js/Promise.resolve nil))
+                        :fetch-user-fills! (fn [_store address opts]
+                                             (swap! stage-a-calls conj [:fills [address opts]])
+                                             (js/Promise.resolve nil))
+                        :fetch-spot-clearinghouse-state! (fn [_store address opts]
+                                                           (swap! stage-a-calls conj [:spot [address opts]])
+                                                           (js/Promise.resolve nil))
+                        :fetch-user-abstraction! (fn [_store address opts]
+                                                   (swap! stage-a-calls conj [:abstraction [address opts]])
+                                                   (js/Promise.resolve {:mode :classic
+                                                                        :abstraction-raw nil}))
+                        :fetch-portfolio! (fn [_store address opts]
+                                            (swap! stage-a-calls conj [:portfolio [address opts]])
+                                            (js/Promise.resolve {}))
+                        :fetch-user-fees! (fn [_store address opts]
+                                            (swap! stage-a-calls conj [:user-fees [address opts]])
+                                            (js/Promise.resolve nil))
+                        :fetch-and-merge-funding-history! (fn [_store address opts]
+                                                            (swap! stage-a-calls conj [:fundings [address opts]])
+                                                            (js/Promise.resolve nil))
+                        :ensure-perp-dexs! (fn [_store _opts]
+                                             (js/Promise.resolve {:dex-names ["dex-1" "dex-2"]
+                                                                  :fee-config-by-name {"dex-1" {:deployer-fee-scale 0.1}
+                                                                                       "dex-2" {:deployer-fee-scale 0.2}}}))
+                        :stage-b-account-bootstrap! (fn [address dexs]
+                                                      (swap! stage-b-calls conj [address dexs]))}))]
+        (app-startup/bootstrap-account-data! system "0xabc")
         (js/setTimeout
          (fn []
            (is (= 7 (count @stage-a-calls)))
@@ -231,18 +185,14 @@
            (is (some #(= :user-fees (first %)) @stage-a-calls))
            (is (= [["0xabc" ["dex-1" "dex-2"]]] @stage-b-calls))
            ;; Same address should not trigger stage A/B again.
-           (app-startup/bootstrap-account-data!
-            {:runtime runtime-state/runtime
-             :store app-core/store}
-            "0xabc")
+           (app-startup/bootstrap-account-data! system "0xabc")
            (js/setTimeout
             (fn []
               (is (= 7 (count @stage-a-calls)))
               (is (= 1 (count @stage-b-calls)))
-              (restore!)
               (done))
             0))
-            0)))))
+         0)))))
 
 (deftest install-address-handlers-clears-account-mode-on-address-removal-test
   (let [captured-handlers (atom [])

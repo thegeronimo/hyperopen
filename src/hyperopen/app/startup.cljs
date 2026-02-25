@@ -7,10 +7,10 @@
             [hyperopen.runtime.action-adapters :as runtime-action-adapters]
             [hyperopen.runtime.effect-adapters :as runtime-effect-adapters]
             [hyperopen.runtime.state :as runtime-state]
-            [hyperopen.startup.composition :as startup-composition]
+            [hyperopen.startup.collaborators :as startup-collaborators]
+            [hyperopen.startup.init :as startup-init]
             [hyperopen.startup.restore :as startup-restore]
             [hyperopen.startup.runtime :as startup-runtime-lib]
-            [hyperopen.startup.wiring :as startup-wiring]
             [hyperopen.ui.preferences :as ui-preferences]
             [hyperopen.wallet.core :as wallet]))
 
@@ -23,10 +23,11 @@
   (startup-runtime-lib/schedule-idle-or-timeout! runtime-state/deferred-bootstrap-delay-ms f))
 
 (defn startup-base-deps
-  [{:keys [runtime store]}]
-  (startup-wiring/startup-base-deps
+  [{:keys [runtime store api]}]
+  (startup-collaborators/startup-base-deps
    {:runtime runtime
     :store store
+    :api api
     :icon-service-worker-path runtime-state/icon-service-worker-path
     :per-dex-stagger-ms runtime-state/per-dex-stagger-ms
     :schedule-idle-or-timeout! schedule-idle-or-timeout!
@@ -34,69 +35,78 @@
 
 (defn schedule-startup-summary-log!
   [system]
-  (startup-wiring/schedule-startup-summary-log!
-   (startup-base-deps system)
-   runtime-state/startup-summary-delay-ms))
+  (startup-runtime-lib/schedule-startup-summary-log!
+   (assoc (startup-base-deps system)
+          :delay-ms runtime-state/startup-summary-delay-ms)))
 
 (defn register-icon-service-worker!
   [system]
-  (startup-wiring/register-icon-service-worker!
+  (startup-runtime-lib/register-icon-service-worker!
    (startup-base-deps system)))
 
 (defn stage-b-account-bootstrap!
   [system address dexs]
-  (startup-wiring/stage-b-account-bootstrap!
-   (startup-base-deps system)
-   address
-   dexs))
+  (startup-runtime-lib/stage-b-account-bootstrap!
+   (assoc (startup-base-deps system)
+          :address address
+          :dexs dexs)))
 
 (defn bootstrap-account-data!
   [system address]
-  (startup-wiring/bootstrap-account-data!
-   (startup-base-deps system)
-   address
-   (fn [bootstrap-address dexs]
-     (stage-b-account-bootstrap! system bootstrap-address dexs))))
+  (let [base-deps (startup-base-deps system)
+        stage-b-account-bootstrap-fn
+        (or (:stage-b-account-bootstrap! base-deps)
+            (fn [bootstrap-address dexs]
+              (stage-b-account-bootstrap! system bootstrap-address dexs)))]
+    (startup-runtime-lib/bootstrap-account-data!
+     (assoc base-deps
+            :address address
+            :stage-b-account-bootstrap! stage-b-account-bootstrap-fn))))
 
 (defn install-address-handlers!
   [system]
-  (startup-wiring/install-address-handlers!
-   (startup-base-deps system)
-   (fn [address]
-     (bootstrap-account-data! system address))))
+  (startup-runtime-lib/install-address-handlers!
+   (assoc (startup-base-deps system)
+          :bootstrap-account-data!
+          (fn [address]
+            (bootstrap-account-data! system address)))))
 
 (defn start-critical-bootstrap!
   [system]
-  (startup-wiring/start-critical-bootstrap!
+  (startup-runtime-lib/start-critical-bootstrap!
    (startup-base-deps system)))
 
 (defn run-deferred-bootstrap!
   [system]
-  (startup-wiring/run-deferred-bootstrap!
+  (startup-runtime-lib/run-deferred-bootstrap!
    (startup-base-deps system)))
 
 (defn schedule-deferred-bootstrap!
   [system]
-  (startup-wiring/schedule-deferred-bootstrap!
-   (startup-base-deps system)
-   (fn []
-     (run-deferred-bootstrap! system))))
+  (startup-runtime-lib/schedule-deferred-bootstrap!
+   (assoc (startup-base-deps system)
+          :run-deferred-bootstrap!
+          (fn []
+            (run-deferred-bootstrap! system)))))
 
 (defn initialize-remote-data-streams!
   [system]
-  (startup-wiring/initialize-remote-data-streams!
-   (startup-base-deps system)
-   {:install-address-handlers-fn (fn []
-                                   (install-address-handlers! system))
-    :start-critical-bootstrap-fn (fn []
-                                   (start-critical-bootstrap! system))
-    :schedule-deferred-bootstrap-fn (fn []
-                                      (schedule-deferred-bootstrap! system))}))
+  (startup-runtime-lib/initialize-remote-data-streams!
+   (assoc (startup-base-deps system)
+          :install-address-handlers!
+          (fn []
+            (install-address-handlers! system))
+          :start-critical-bootstrap!
+          (fn []
+            (start-critical-bootstrap! system))
+          :schedule-deferred-bootstrap!
+          (fn []
+            (schedule-deferred-bootstrap! system)))))
 
 (defn init!
   [system]
   (let [base-deps (startup-base-deps system)]
-    (startup-composition/init!
+    (startup-init/init!
      (merge
       base-deps
       {:default-startup-runtime-state startup-runtime-lib/default-startup-runtime-state

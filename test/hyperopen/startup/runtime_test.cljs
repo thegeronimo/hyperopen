@@ -1,7 +1,8 @@
 (ns hyperopen.startup.runtime-test
   (:require [cljs.test :refer-macros [async deftest is testing]]
             [hyperopen.platform :as platform]
-            [hyperopen.startup.runtime :as startup-runtime]))
+            [hyperopen.startup.runtime :as startup-runtime]
+            [hyperopen.wallet.address-watcher :as address-watcher]))
 
 (defn- with-global-property
   [property-name value f]
@@ -22,6 +23,18 @@
           :bootstrapped-address nil
           :summary-logged? false}
          (startup-runtime/default-startup-runtime-state))))
+
+(deftest reify-address-handler-implements-address-change-handler-contract-test
+  (let [calls (atom [])
+        handler (startup-runtime/reify-address-handler
+                 (fn [new-address]
+                   (swap! calls conj new-address))
+                 "startup-handler")]
+    (is (satisfies? address-watcher/IAddressChangeHandler handler))
+    (is (= "startup-handler"
+           (address-watcher/get-handler-name handler)))
+    (address-watcher/on-address-changed handler nil "0xabc")
+    (is (= ["0xabc"] @calls))))
 
 (deftest schedule-idle-or-timeout-covers-idle-and-fallback-branches-test
   (testing "requestIdleCallback path is preferred when available"

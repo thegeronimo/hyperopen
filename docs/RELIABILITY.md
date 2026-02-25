@@ -26,6 +26,14 @@ source_of_truth: true
 - Keep startup/bootstrap/effect handlers idempotent and reentrant.
 - Keep balance projection prerequisites hydrated: when `:spot :clearinghouse-state :balances` is present for non-USDC assets, `:spot :meta :tokens` MUST be present in the same runtime window.
 
+## Startup Layering and Lifecycle Rules (MUST)
+- Startup lifecycle orchestration entrypoint lives in `/hyperopen/src/hyperopen/app/startup.cljs`.
+- Startup collaborator dependency assembly lives in `/hyperopen/src/hyperopen/startup/collaborators.cljs`.
+- Startup behavior ownership lives in `/hyperopen/src/hyperopen/startup/init.cljs` and `/hyperopen/src/hyperopen/startup/runtime.cljs`.
+- Runtime bootstrap/watcher installation ownership lives in `/hyperopen/src/hyperopen/app/bootstrap.cljs`, `/hyperopen/src/hyperopen/runtime/bootstrap.cljs`, and `/hyperopen/src/hyperopen/startup/watchers.cljs`.
+- Startup orchestration MUST avoid delegation-only pass-through wrappers between the startup facade and behavior owners.
+- Startup integration tests MUST prefer collaborator/runtime dependency-injection seams over mutating startup facade vars.
+
 ## Account Data Hydration Rules (MUST)
 - Asset-selector and bootstrap loaders that fetch spot metadata MUST project it into `[:spot :meta]`; fetching without projection is considered a contract violation.
 - Balance projections that depend on token metadata (for example contract ids/decimals) MUST treat `[:spot :meta :tokens]` as a required input and emit a debug invariant warning when balances are present but token metadata is empty.

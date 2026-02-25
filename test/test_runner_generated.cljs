@@ -33,6 +33,7 @@
             [hyperopen.api.trading.session-invalidation-test]
             [hyperopen.api.trading.sign-and-submit-test]
             [hyperopen.app.effects-test]
+            [hyperopen.app.startup-test]
             [hyperopen.asset-selector.actions-test]
             [hyperopen.asset-selector.active-market-cache-test]
             [hyperopen.asset-selector.icon-status-runtime-test]
@@ -91,11 +92,9 @@
             [hyperopen.schema.contracts-test]
             [hyperopen.schema.order-form-command-catalog-test]
             [hyperopen.startup.collaborators-test]
-            [hyperopen.startup.composition-test]
             [hyperopen.startup.init-test]
             [hyperopen.startup.runtime-test]
             [hyperopen.startup.watchers-test]
-            [hyperopen.startup.wiring-test]
             [hyperopen.state.app-defaults-test]
             [hyperopen.state.trading-test]
             [hyperopen.state.trading.identity-and-submit-policy-test]
@@ -242,6 +241,7 @@
              'hyperopen.api.trading.session-invalidation-test
              'hyperopen.api.trading.sign-and-submit-test
              'hyperopen.app.effects-test
+             'hyperopen.app.startup-test
              'hyperopen.asset-selector.actions-test
              'hyperopen.asset-selector.active-market-cache-test
              'hyperopen.asset-selector.icon-status-runtime-test
@@ -300,11 +300,9 @@
              'hyperopen.schema.contracts-test
              'hyperopen.schema.order-form-command-catalog-test
              'hyperopen.startup.collaborators-test
-             'hyperopen.startup.composition-test
              'hyperopen.startup.init-test
              'hyperopen.startup.runtime-test
              'hyperopen.startup.watchers-test
-             'hyperopen.startup.wiring-test
              'hyperopen.state.app-defaults-test
              'hyperopen.state.trading-test
              'hyperopen.state.trading.identity-and-submit-policy-test

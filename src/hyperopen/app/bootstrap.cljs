@@ -10,7 +10,6 @@
             [hyperopen.platform :as platform]
             [hyperopen.telemetry :as telemetry]
             [hyperopen.startup.watchers :as startup-watchers]
-            [hyperopen.startup.wiring :as startup-wiring]
             [hyperopen.views.app-view :as app-view]
             [hyperopen.wallet.address-watcher :as address-watcher]
             [hyperopen.wallet.core :as wallet]
@@ -37,23 +36,21 @@
     {:store store
      :install-store-cache-watchers! startup-watchers/install-store-cache-watchers!
      :store-cache-watchers-deps
-     (startup-wiring/store-cache-watcher-deps
-      {:persist-active-market-display! runtime-effect-adapters/persist-active-market-display!
-       :persist-asset-selector-markets-cache! runtime-effect-adapters/persist-asset-selector-markets-cache!})
+     {:persist-active-market-display! runtime-effect-adapters/persist-active-market-display!
+      :persist-asset-selector-markets-cache! runtime-effect-adapters/persist-asset-selector-markets-cache!}
      :install-websocket-watchers! startup-watchers/install-websocket-watchers!
      :websocket-watchers-deps
-     (startup-wiring/websocket-watcher-deps
-      {:store store
-       :runtime-view ws-client/runtime-view
-       :append-diagnostics-event! runtime-effect-adapters/append-diagnostics-event!
-       :sync-websocket-health! (fn [runtime-store & {:keys [force? projected-fingerprint]}]
-                                 (runtime-effect-adapters/sync-websocket-health-with-runtime!
-                                  runtime
-                                  runtime-store
-                                  :force? force?
-                                  :projected-fingerprint projected-fingerprint))
-       :on-websocket-connected! address-watcher/on-websocket-connected!
-       :on-websocket-disconnected! address-watcher/on-websocket-disconnected!})}
+     {:store store
+      :runtime-view ws-client/runtime-view
+      :append-diagnostics-event! runtime-effect-adapters/append-diagnostics-event!
+      :sync-websocket-health! (fn [runtime-store & {:keys [force? projected-fingerprint]}]
+                                (runtime-effect-adapters/sync-websocket-health-with-runtime!
+                                 runtime
+                                 runtime-store
+                                 :force? force?
+                                 :projected-fingerprint projected-fingerprint))
+      :on-websocket-connected! address-watcher/on-websocket-connected!
+      :on-websocket-disconnected! address-watcher/on-websocket-disconnected!}}
     :validation-deps
     {:store store
      :install-store-state-validation! runtime-validation/install-store-state-validation!}}))

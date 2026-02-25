@@ -45,6 +45,12 @@ Dependency direction is intentional: domain -> application -> infrastructure. An
 - MUST create/update Architecture Decision Records for architecture-affecting changes.
 - MUST normalize errors at a single boundary into typed categories before UI/application branching.
 - MUST make startup/bootstrap and effect handlers idempotent and reentrant.
+- MUST keep startup layering explicit with permanent owners:
+  `/hyperopen/src/hyperopen/app/startup.cljs` (facade),
+  `/hyperopen/src/hyperopen/startup/collaborators.cljs` (dependency assembly),
+  `/hyperopen/src/hyperopen/startup/init.cljs` + `/hyperopen/src/hyperopen/startup/runtime.cljs` (lifecycle behavior),
+  and `/hyperopen/src/hyperopen/app/bootstrap.cljs` + `/hyperopen/src/hyperopen/runtime/bootstrap.cljs` + `/hyperopen/src/hyperopen/startup/watchers.cljs` (runtime bootstrap/watchers).
+- MUST NOT introduce delegation-only startup wrapper namespaces between `app/startup` and startup behavior owners; new startup boundaries require ADR + contract tests.
 - MUST add boundary contract tests for each new seam/module boundary.
 - MUST keep complexity bounded: new namespaces under 500 LOC and new functions under 80 LOC unless justified by an Architecture Decision Record.
 - MUST include invariant ownership notes in PR documentation for changed invariants.

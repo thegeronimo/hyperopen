@@ -1,12 +1,16 @@
 (ns hyperopen.startup.runtime
   (:require [clojure.string :as str]
-            [hyperopen.platform :as platform]))
+            [hyperopen.platform :as platform]
+            [hyperopen.wallet.address-watcher :as address-watcher]))
 
 (defn default-startup-runtime-state
   []
   {:deferred-scheduled? false
    :bootstrapped-address nil
    :summary-logged? false})
+
+(def default-address-handler-name
+  "startup-account-bootstrap-handler")
 
 (defn mark-performance!
   [mark-name]
@@ -26,6 +30,14 @@
                             (f))
                           #js {:timeout delay-ms})
     (platform/set-timeout! f delay-ms)))
+
+(defn reify-address-handler
+  [on-address-changed-fn handler-name]
+  (reify address-watcher/IAddressChangeHandler
+    (on-address-changed [_ _ new-address]
+      (on-address-changed-fn new-address))
+    (get-handler-name [_]
+      handler-name)))
 
 (defn- startup-state
   [{:keys [startup-runtime runtime]}]
@@ -256,6 +268,8 @@
            unsubscribe-webdata2!
            address-handler-reify
            address-handler-name]
+    :or {address-handler-reify reify-address-handler
+         address-handler-name default-address-handler-name}
     :as deps}]
   ;; Note: WebData2 subscriptions are managed by address-watcher.
   (init-with-webdata2! store subscribe-webdata2! unsubscribe-webdata2!)
