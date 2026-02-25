@@ -289,14 +289,14 @@
     (is (nil? panel-node))))
 
 (deftest position-table-layout-prioritizes-coin-column-over-right-edge-actions-test
-  (let [grid-template-class "grid-cols-[minmax(170px,1.9fr)_minmax(130px,1.2fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(130px,1.3fr)_minmax(110px,1fr)_minmax(100px,1fr)_minmax(100px,1fr)_minmax(120px,1fr)]"
+  (let [grid-template-class "grid-cols-[minmax(150px,1.65fr)_minmax(108px,1.05fr)_minmax(98px,0.95fr)_minmax(98px,0.95fr)_minmax(98px,0.95fr)_minmax(115px,1.15fr)_minmax(92px,0.9fr)_minmax(84px,0.85fr)_minmax(84px,0.85fr)_minmax(165px,1.3fr)]"
         header-node (view/position-table-header fixtures/default-sort-state)
         row-node (view/position-row (fixtures/sample-position-row "xyz:NVDA" 10 "0.500"))
         coin-cell (first (vec (hiccup/node-children row-node)))
         coin-label-node (hiccup/find-first-node coin-cell #(contains? (hiccup/direct-texts %) "NVDA"))]
     (is (contains? (hiccup/node-class-set header-node) grid-template-class))
-    (is (contains? (hiccup/node-class-set header-node) "min-w-[1200px]"))
+    (is (contains? (hiccup/node-class-set header-node) "min-w-[1170px]"))
     (is (contains? (hiccup/node-class-set row-node) grid-template-class))
-    (is (contains? (hiccup/node-class-set row-node) "min-w-[1200px]"))
+    (is (contains? (hiccup/node-class-set row-node) "min-w-[1170px]"))
     (is (contains? (hiccup/node-class-set coin-label-node) "whitespace-nowrap"))
     (is (not (contains? (hiccup/node-class-set coin-label-node) "truncate")))))

@@ -225,7 +225,7 @@
                     "hover:bg-base-300"
                     "items-center"
                     "text-sm"]}
-      [:div {:class ["flex" "items-center" "gap-1.5" "self-stretch" "min-w-[170px]"]
+      [:div {:class ["flex" "items-center" "gap-1.5" "self-stretch" "min-w-[150px]"]
              :style coin-cell-style}
        [:span {:class ["font-medium" "whitespace-nowrap" "shrink-0" coin-tone-class]} coin-label]
        (when (some? leverage)
@@ -263,8 +263,8 @@
                          "btn-ghost"
                          "w-full"
                          "justify-start"
-                         "gap-1"
-                         "px-1.5"
+                         "gap-0.5"
+                         "px-1"
                          "font-normal"
                          "text-trading-text"
                          "flex-nowrap"
