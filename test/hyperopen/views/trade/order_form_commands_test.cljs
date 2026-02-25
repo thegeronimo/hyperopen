@@ -41,12 +41,15 @@
    (commands/toggle-twap-randomize)
    (commands/toggle-tp-enabled)
    (commands/set-tp-trigger-input)
+   (commands/set-tp-offset-input)
    (commands/toggle-tp-market)
    (commands/set-tp-limit-input)
    (commands/toggle-sl-enabled)
    (commands/set-sl-trigger-input)
+   (commands/set-sl-offset-input)
    (commands/toggle-sl-market)
    (commands/set-sl-limit-input)
+   (commands/set-tpsl-unit-input)
    (commands/submit-order)])
 
 (deftest order-form-command-builders-return-semantic-intents-test

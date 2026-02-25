@@ -1,5 +1,7 @@
 (ns hyperopen.views.trade.order-form-view
-  (:require [hyperopen.views.trade.order-form-component-primitives :as primitives]
+  (:require [hyperopen.state.trading :as trading]
+            [hyperopen.trading.order-form-tpsl-policy :as tpsl-policy]
+            [hyperopen.views.trade.order-form-component-primitives :as primitives]
             [hyperopen.views.trade.order-form-component-sections :as sections]
             [hyperopen.views.trade.order-form-handlers :as handlers]
             [hyperopen.views.trade.order-form-vm :as order-form-vm]))
@@ -223,6 +225,38 @@
                      "text-gray-300"]}
       "%"]]]])
 
+(defn- tpsl-panel-model
+  [state form side ui-leverage controls]
+  (let [ui-state (trading/order-form-ui-state state)
+        pricing-policy (trading/order-price-policy state form ui-state)
+        limit-like? (boolean (:show-limit-like-controls? controls))
+        unit (tpsl-policy/normalize-unit (get-in form [:tpsl :unit]))
+        baseline (tpsl-policy/baseline-price form pricing-policy limit-like?)
+        size (trading/parse-num (:size form))
+        leverage (trading/parse-num ui-leverage)
+        tp-inverse (tpsl-policy/inverse-for-leg side :tp)
+        sl-inverse (tpsl-policy/inverse-for-leg side :sl)
+        offset-ready? (tpsl-policy/offset-input-ready? {:unit unit
+                                                        :baseline baseline
+                                                        :size size
+                                                        :leverage leverage})]
+    {:form form
+     :unit unit
+     :tp-offset (tpsl-policy/offset-display-from-trigger {:trigger (get-in form [:tp :trigger])
+                                                          :baseline baseline
+                                                          :size size
+                                                          :leverage leverage
+                                                          :inverse tp-inverse
+                                                          :unit unit})
+     :sl-offset (tpsl-policy/offset-display-from-trigger {:trigger (get-in form [:sl :trigger])
+                                                          :baseline baseline
+                                                          :size size
+                                                          :leverage leverage
+                                                          :inverse sl-inverse
+                                                          :unit unit})
+     :tp-offset-disabled? (not offset-ready?)
+     :sl-offset-disabled? (not offset-ready?)}))
+
 (defn- submit-row [{:keys [submitting? submit-disabled? submit-tooltip on-submit]}]
   [:div {:class ["relative" "group"]
          :tabindex (when (seq submit-tooltip) 0)}
@@ -426,7 +460,8 @@
                 show-scale-preview?
                 show-liquidation-row?
                 show-slippage-row?]}
-        controls]
+        controls
+        tpsl-panel (tpsl-panel-model state form side ui-leverage controls)]
     [:div {:class ["bg-base-100"
                    "border"
                    "border-base-300"
@@ -497,7 +532,7 @@
                                (:on-toggle-tpsl-panel toggle-handlers)))
 
       (when show-tpsl-panel?
-        (sections/tp-sl-panel form tp-sl-handlers))
+        (sections/tp-sl-panel tpsl-panel tp-sl-handlers))
 
       (when show-post-only?
         (primitives/row-toggle "Post Only"

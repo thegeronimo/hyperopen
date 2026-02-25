@@ -36,6 +36,7 @@
   (is (nil? (:size-input-mode (trading/default-order-form))))
   (is (nil? (:size-input-source (trading/default-order-form))))
   (is (nil? (:size-display (trading/default-order-form))))
+  (is (= :usd (get-in (trading/default-order-form) [:tpsl :unit])))
   (is (= trading/default-market-slippage-pct
          (:slippage (trading/default-order-form))))
   (is (= :limit (:entry-mode (trading/default-order-form-ui))))

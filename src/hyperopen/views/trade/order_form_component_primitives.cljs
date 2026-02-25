@@ -99,27 +99,38 @@
            :input
            on-change)])
 
-(defn row-input [value placeholder on-change accessory & {:keys [input-padding-right on-focus on-blur]
-                                                           :or {input-padding-right "pr-20"}}]
-  (let [input-attrs (-> {:class (into ["w-full"
-                                       "h-11"
-                                       "pl-24"
-                                       "bg-base-200"
-                                       "border"
-                                       "border-base-300"
-                                       "rounded-lg"
-                                       "text-sm"
-                                       "text-right"
-                                       "text-gray-100"
-                                       "num"
-                                       "placeholder:text-transparent"
-                                       "appearance-none"]
-                                      (concat neutral-input-focus-classes
-                                              (if accessory [input-padding-right] ["pr-3"])))
-                         :type "text"
-                         :aria-label placeholder
-                         :placeholder placeholder
-                         :value (or value "")}
+(defn row-input [value placeholder on-change accessory & {:keys [input-padding-right
+                                                                 on-focus
+                                                                 on-blur
+                                                                 disabled?
+                                                                 inputmode]
+                                                          :or {input-padding-right "pr-20"}}]
+  (let [base-classes (into ["w-full"
+                            "h-11"
+                            "pl-24"
+                            "bg-base-200"
+                            "border"
+                            "border-base-300"
+                            "rounded-lg"
+                            "text-sm"
+                            "text-right"
+                            "text-gray-100"
+                            "num"
+                            "placeholder:text-transparent"
+                            "appearance-none"]
+                           (concat neutral-input-focus-classes
+                                   (if accessory [input-padding-right] ["pr-3"]))
+                           )
+        input-classes (cond-> base-classes
+                        disabled? (into ["cursor-not-allowed"
+                                         "opacity-60"]))
+        input-attrs (-> (cond-> {:class input-classes
+                                 :type "text"
+                                 :aria-label placeholder
+                                 :placeholder placeholder
+                                 :value (or value "")
+                                 :disabled (boolean disabled?)}
+                          inputmode (assoc :inputmode inputmode))
                         (bind-event :input on-change)
                         (bind-event :focus on-focus)
                         (bind-event :blur on-blur))]

@@ -127,6 +127,9 @@
 (defn set-tp-trigger-input []
   (update-order-field [:tp :trigger] event-target-value))
 
+(defn set-tp-offset-input []
+  (update-order-field [:tp :offset-input] event-target-value))
+
 (defn toggle-tp-market []
   (update-order-field [:tp :is-market] event-target-checked))
 
@@ -139,11 +142,17 @@
 (defn set-sl-trigger-input []
   (update-order-field [:sl :trigger] event-target-value))
 
+(defn set-sl-offset-input []
+  (update-order-field [:sl :offset-input] event-target-value))
+
 (defn toggle-sl-market []
   (update-order-field [:sl :is-market] event-target-checked))
 
 (defn set-sl-limit-input []
   (update-order-field [:sl :limit] event-target-value))
+
+(defn set-tpsl-unit-input []
+  (update-order-field [:tpsl :unit] event-target-value))
 
 (defn submit-order []
   (command :order-form/submit-order))

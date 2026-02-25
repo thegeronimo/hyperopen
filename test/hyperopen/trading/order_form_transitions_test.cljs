@@ -150,6 +150,45 @@
     (is (false? (:tif-dropdown-open? escaped-ui)))
     (is (false? (:tif-dropdown-open? market-ui)))))
 
+(deftest tpsl-and-reduce-only-are-mutually-exclusive-test
+  (let [state (base-state {:type :limit
+                           :price "100"
+                           :size "1"
+                           :reduce-only true})
+        toggled (transitions/toggle-order-tpsl-panel state)
+        toggled-form (:order-form toggled)
+        toggled-ui (:order-form-ui toggled)
+        with-tpsl-values (merge state
+                                toggled
+                                {:order-form (-> toggled-form
+                                                 (assoc-in [:tp :trigger] "110")
+                                                 (assoc-in [:tp :enabled?] true)
+                                                 (assoc-in [:sl :trigger] "90")
+                                                 (assoc-in [:sl :enabled?] true))})
+        reduce-only-transition (transitions/update-order-form with-tpsl-values [:reduce-only] true)
+        reduce-only-form (:order-form reduce-only-transition)
+        reduce-only-ui (:order-form-ui reduce-only-transition)]
+    (is (false? (:reduce-only toggled-form)))
+    (is (true? (:tpsl-panel-open? toggled-ui)))
+    (is (true? (:reduce-only reduce-only-form)))
+    (is (false? (get-in reduce-only-form [:tp :enabled?])))
+    (is (false? (get-in reduce-only-form [:sl :enabled?])))
+    (is (false? (:tpsl-panel-open? reduce-only-ui)))))
+
+(deftest tpsl-offset-input-updates-trigger-price-test
+  (let [state (base-state {:type :limit
+                           :side :buy
+                           :price "100"
+                           :size "2"
+                           :ui-leverage 20
+                           :tpsl {:unit :usd}})
+        tp-transition (transitions/update-order-form state [:tp :offset-input] "20")
+        sl-transition (transitions/update-order-form state [:sl :offset-input] "20")]
+    (is (= "110" (get-in tp-transition [:order-form :tp :trigger])))
+    (is (= "90" (get-in sl-transition [:order-form :sl :trigger])))
+    (is (true? (get-in tp-transition [:order-form :tp :enabled?])))
+    (is (true? (get-in sl-transition [:order-form :sl :enabled?])))))
+
 (deftest update-order-form-tif-closes-tif-dropdown-test
   (let [state (assoc (base-state {:type :limit :tif :gtc})
                      :order-form-ui (assoc (trading/default-order-form-ui)

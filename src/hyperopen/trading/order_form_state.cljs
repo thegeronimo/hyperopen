@@ -8,12 +8,16 @@
 (def default-twap-minutes 5)
 (def default-size-input-mode :quote)
 (def default-size-input-source :manual)
+(def default-tpsl-unit :usd)
 
 (def valid-size-input-modes
   #{:quote :base})
 
 (def valid-size-input-sources
   #{:manual :percent})
+
+(def valid-tpsl-units
+  #{:usd :percent})
 
 (defn normalize-size-input-mode [mode]
   (let [candidate (cond
@@ -33,6 +37,17 @@
       candidate
       default-size-input-source)))
 
+(defn normalize-tpsl-unit [unit]
+  (let [candidate (cond
+                    (keyword? unit) unit
+                    (string? unit) (keyword unit)
+                    (true? unit) :usd
+                    (false? unit) :percent
+                    :else default-tpsl-unit)]
+    (if (contains? valid-tpsl-units candidate)
+      candidate
+      default-tpsl-unit)))
+
 (defn default-order-form []
   {:type :limit
    :side :buy
@@ -50,6 +65,7 @@
            :skew default-scale-skew}
    :twap {:minutes default-twap-minutes
           :randomize true}
+   :tpsl {:unit default-tpsl-unit}
    :tp {:enabled? false
         :trigger ""
         :is-market true
@@ -89,8 +105,10 @@
      :skew normalized-skew}))
 
 (defn normalize-order-form [form]
-  (-> form
-      (assoc :scale (normalize-scale-form (:scale form)))))
+  (let [raw-tpsl (:tpsl form)]
+    (-> form
+        (assoc :scale (normalize-scale-form (:scale form)))
+        (assoc :tpsl {:unit (normalize-tpsl-unit (:unit raw-tpsl))}))))
 
 (defn default-order-form-runtime []
   {:submitting? false

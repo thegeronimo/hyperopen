@@ -56,13 +56,10 @@
                                  (dispatch-command (cmd/close-tif-dropdown))
                                  (dispatch-command (cmd/set-order-tif tif)))))}
 
-   :tp-sl {:on-toggle-tp-enabled (dispatch-command (cmd/toggle-tp-enabled))
-           :on-set-tp-trigger (dispatch-command (cmd/set-tp-trigger-input))
-           :on-toggle-tp-market (dispatch-command (cmd/toggle-tp-market))
-           :on-set-tp-limit (dispatch-command (cmd/set-tp-limit-input))
-           :on-toggle-sl-enabled (dispatch-command (cmd/toggle-sl-enabled))
+   :tp-sl {:on-set-tp-trigger (dispatch-command (cmd/set-tp-trigger-input))
+           :on-set-tp-offset (dispatch-command (cmd/set-tp-offset-input))
            :on-set-sl-trigger (dispatch-command (cmd/set-sl-trigger-input))
-           :on-toggle-sl-market (dispatch-command (cmd/toggle-sl-market))
-           :on-set-sl-limit (dispatch-command (cmd/set-sl-limit-input))}
+           :on-set-sl-offset (dispatch-command (cmd/set-sl-offset-input))
+           :on-set-tpsl-unit (dispatch-command (cmd/set-tpsl-unit-input))}
 
    :submit {:on-submit (dispatch-command (cmd/submit-order))}})

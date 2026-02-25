@@ -81,44 +81,30 @@
     (is (contains? selected-option-classes "bg-base-200"))
     (is (contains? unselected-option-classes "hover:bg-base-200"))))
 
-(deftest tp-sl-panel-covers-enabled-and-market-branches-test
-  (let [disabled-node (sections/tp-sl-panel {:tp {:enabled? false}
-                                             :sl {:enabled? false}}
-                                            {:on-toggle-tp-enabled [[:actions/tp-enabled]]
-                                             :on-set-tp-trigger [[:actions/tp-trigger [:event.target/value]]]
-                                             :on-toggle-tp-market [[:actions/tp-market]]
-                                             :on-set-tp-limit [[:actions/tp-limit [:event.target/value]]]
-                                             :on-toggle-sl-enabled [[:actions/sl-enabled]]
-                                             :on-set-sl-trigger [[:actions/sl-trigger [:event.target/value]]]
-                                             :on-toggle-sl-market [[:actions/sl-market]]
-                                             :on-set-sl-limit [[:actions/sl-limit [:event.target/value]]]})
-        enabled-node (sections/tp-sl-panel {:tp {:enabled? true
-                                                 :trigger "3000"
-                                                 :is-market false
-                                                 :limit "3010"}
-                                            :sl {:enabled? true
-                                                 :trigger "2900"
-                                                 :is-market true
-                                                 :limit "2890"}}
-                                           {:on-toggle-tp-enabled [[:actions/tp-enabled]]
-                                            :on-set-tp-trigger [[:actions/tp-trigger [:event.target/value]]]
-                                            :on-toggle-tp-market [[:actions/tp-market]]
-                                            :on-set-tp-limit [[:actions/tp-limit [:event.target/value]]]
-                                            :on-toggle-sl-enabled [[:actions/sl-enabled]]
-                                            :on-set-sl-trigger [[:actions/sl-trigger [:event.target/value]]]
-                                            :on-toggle-sl-market [[:actions/sl-market]]
-                                            :on-set-sl-limit [[:actions/sl-limit [:event.target/value]]]})
-        disabled-placeholders (collect-input-placeholders disabled-node)
-        enabled-placeholders (collect-input-placeholders enabled-node)
-        disabled-labels (set (collect-strings disabled-node))]
-    (is (contains? disabled-labels "Enable TP"))
-    (is (contains? disabled-labels "Enable SL"))
-    (is (empty? disabled-placeholders))
-
-    (is (contains? enabled-placeholders "TP trigger"))
-    (is (contains? enabled-placeholders "TP limit price"))
-    (is (contains? enabled-placeholders "SL trigger"))
-    (is (not (contains? enabled-placeholders "SL limit price")))))
+(deftest tp-sl-panel-renders-hyperliquid-style-price-and-gain-loss-rows-test
+  (let [node (sections/tp-sl-panel {:form {:tp {:trigger "3000"}
+                                           :sl {:trigger "2900"}}
+                                    :unit :usd
+                                    :tp-offset "150"
+                                    :sl-offset "75"
+                                    :tp-offset-disabled? false
+                                    :sl-offset-disabled? false}
+                                   {:on-set-tp-trigger [[:actions/tp-trigger [:event.target/value]]]
+                                    :on-set-tp-offset [[:actions/tp-offset [:event.target/value]]]
+                                    :on-set-sl-trigger [[:actions/sl-trigger [:event.target/value]]]
+                                    :on-set-sl-offset [[:actions/sl-offset [:event.target/value]]]
+                                    :on-set-tpsl-unit [[:actions/tpsl-unit [:event.target/value]]]})
+        placeholders (collect-input-placeholders node)
+        labels (set (collect-strings node))
+        select-node (first (collect-nodes-by-tag node :select))]
+    (is (contains? placeholders "TP Price"))
+    (is (contains? placeholders "Gain"))
+    (is (contains? placeholders "SL Price"))
+    (is (contains? placeholders "Loss"))
+    (is (not (contains? labels "Enable TP")))
+    (is (not (contains? labels "Enable SL")))
+    (is (= [[:actions/tpsl-unit [:event.target/value]]]
+           (get-in select-node [1 :on :change])))))
 
 (deftest tif-inline-control-renders-custom-trigger-caret-and-dispatches-toggle-test
   (let [node (sections/tif-inline-control {:tif :ioc}

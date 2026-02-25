@@ -83,46 +83,64 @@
                     :on {:click (on-select-pro-order-type pro-order-type)}}
            (order-type-label pro-order-type)])])]]])
 
+(defn- tpsl-unit-accessory
+  [unit on-set-tpsl-unit]
+  [:div {:class ["flex" "items-center" "gap-1.5"]}
+   [:select {:class (into ["min-h-[30px]"
+                           "rounded-md"
+                           "border"
+                           "border-base-300"
+                           "bg-base-200"
+                           "px-2"
+                           "text-sm"
+                           "font-semibold"
+                           "text-gray-100"]
+                          primitives/neutral-input-focus-classes)
+             :aria-label "TP/SL gain-loss unit"
+             :value (name unit)
+             :on {:change on-set-tpsl-unit}}
+    [:option {:value "usd"} "$"]
+    [:option {:value "percent"} "%"]]])
+
 (defn tp-sl-panel
-  [form {:keys [on-toggle-tp-enabled
-                on-set-tp-trigger
-                on-toggle-tp-market
-                on-set-tp-limit
-                on-toggle-sl-enabled
-                on-set-sl-trigger
-                on-toggle-sl-market
-                on-set-sl-limit]}]
-  [:div {:class ["space-y-2"]}
-   (primitives/row-toggle "Enable TP"
-                          (get-in form [:tp :enabled?])
-                          on-toggle-tp-enabled)
-   (when (get-in form [:tp :enabled?])
-     [:div {:class ["space-y-2"]}
-      (primitives/input (get-in form [:tp :trigger])
-                        on-set-tp-trigger
-                        :placeholder "TP trigger")
-      (primitives/row-toggle "TP Market"
-                             (get-in form [:tp :is-market])
-                             on-toggle-tp-market)
-      (when (not (get-in form [:tp :is-market]))
-        (primitives/input (get-in form [:tp :limit])
-                          on-set-tp-limit
-                          :placeholder "TP limit price"))])
-   (primitives/row-toggle "Enable SL"
-                          (get-in form [:sl :enabled?])
-                          on-toggle-sl-enabled)
-   (when (get-in form [:sl :enabled?])
-     [:div {:class ["space-y-2"]}
-      (primitives/input (get-in form [:sl :trigger])
-                        on-set-sl-trigger
-                        :placeholder "SL trigger")
-      (primitives/row-toggle "SL Market"
-                             (get-in form [:sl :is-market])
-                             on-toggle-sl-market)
-      (when (not (get-in form [:sl :is-market]))
-        (primitives/input (get-in form [:sl :limit])
-                          on-set-sl-limit
-                          :placeholder "SL limit price"))])])
+  [{:keys [form
+           unit
+           tp-offset
+           sl-offset
+           tp-offset-disabled?
+           sl-offset-disabled?]}
+   {:keys [on-set-tp-trigger
+           on-set-tp-offset
+           on-set-sl-trigger
+           on-set-sl-offset
+           on-set-tpsl-unit]}]
+  [:div {:class ["grid" "grid-cols-1" "gap-2"]}
+   [:div {:class ["grid" "grid-cols-2" "gap-2"]}
+    (primitives/row-input (get-in form [:tp :trigger])
+                          "TP Price"
+                          on-set-tp-trigger
+                          nil
+                          :inputmode "decimal")
+    (primitives/row-input tp-offset
+                          "Gain"
+                          on-set-tp-offset
+                          (tpsl-unit-accessory unit on-set-tpsl-unit)
+                          :input-padding-right "pr-14"
+                          :inputmode "decimal"
+                          :disabled? tp-offset-disabled?)]
+   [:div {:class ["grid" "grid-cols-2" "gap-2"]}
+    (primitives/row-input (get-in form [:sl :trigger])
+                          "SL Price"
+                          on-set-sl-trigger
+                          nil
+                          :inputmode "decimal")
+    (primitives/row-input sl-offset
+                          "Loss"
+                          on-set-sl-offset
+                          (tpsl-unit-accessory unit on-set-tpsl-unit)
+                          :input-padding-right "pr-14"
+                          :inputmode "decimal"
+                          :disabled? sl-offset-disabled?)]])
 
 (def ^:private tif-options
   [[:gtc "GTC"]

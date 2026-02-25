@@ -170,3 +170,17 @@
   (let [view-node (view/order-form-view (base-state {:type :limit}))
         strings (set (collect-strings view-node))]
     (is (contains? strings "Take Profit / Stop Loss"))))
+
+(deftest open-tpsl-panel-renders-price-and-gain-loss-rows-test
+  (let [view-node (view/order-form-view (base-state {:type :limit
+                                                      :price "100"
+                                                      :size "1"}
+                                                     {:tpsl-panel-open? true}))
+        tokens (set (collect-text-and-placeholders view-node))
+        strings (set (collect-strings view-node))]
+    (is (contains? tokens "TP Price"))
+    (is (contains? tokens "Gain"))
+    (is (contains? tokens "SL Price"))
+    (is (contains? tokens "Loss"))
+    (is (not (contains? strings "Enable TP")))
+    (is (not (contains? strings "Enable SL")))))
