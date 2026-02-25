@@ -91,12 +91,30 @@
            :stroke-linecap "round"
            :stroke-linejoin "round"}]])
 
+(def ^:private filter-trigger-button-classes
+  ["btn"
+   "btn-xs"
+   "btn-ghost"
+   "font-normal"
+   "text-trading-text"
+   "hover:bg-base-100"
+   "hover:text-trading-text"
+   "focus:outline-none"
+   "focus:ring-0"
+   "focus:ring-offset-0"
+   "focus:shadow-none"
+   "focus-visible:outline-none"
+   "focus-visible:ring-0"
+   "focus-visible:ring-offset-0"
+   "focus-visible:shadow-none"])
+
 (defn- order-history-header-actions [order-history-state]
   (let [filter-open? (boolean (:filter-open? order-history-state))
         status-filter (order-history-status-filter-key order-history-state)
         status-label (get order-history-status-labels status-filter "All")]
     [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2"]}
-     [:button {:class ["btn" "btn-xs" "btn-ghost" "font-normal" "text-trading-text" "hover:bg-base-100" "hover:text-trading-text"]
+     [:button {:class filter-trigger-button-classes
+               :style {:--btn-focus-scale "1"}
                :on {:click [[:actions/toggle-order-history-filter-open]]}}
       status-label
       (chevron-caret-icon filter-open?)]
@@ -132,7 +150,8 @@
               :data-role "account-tab-freshness-cue"}
         [:span {:class (freshness-cue-text-classes (:tone freshness-cue))}
          (:text freshness-cue)]])
-     [:button {:class ["btn" "btn-xs" "btn-ghost" "font-normal" "text-trading-text" "hover:bg-base-100" "hover:text-trading-text"]
+     [:button {:class filter-trigger-button-classes
+               :style {:--btn-focus-scale "1"}
                :on {:click [[:actions/toggle-open-orders-direction-filter-open]]}}
       direction-label
       (chevron-caret-icon filter-open?)]
@@ -163,7 +182,8 @@
         direction-filter (trade-history-direction-filter-key trade-history-state)
         direction-label (get trade-history-direction-filter-labels direction-filter "All")]
     [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2"]}
-     [:button {:class ["btn" "btn-xs" "btn-ghost" "font-normal" "text-trading-text" "hover:bg-base-100" "hover:text-trading-text"]
+     [:button {:class filter-trigger-button-classes
+               :style {:--btn-focus-scale "1"}
                :on {:click [[:actions/toggle-trade-history-direction-filter-open]]}}
       direction-label
       (chevron-caret-icon filter-open?)]

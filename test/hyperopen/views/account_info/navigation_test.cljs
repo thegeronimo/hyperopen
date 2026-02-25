@@ -57,6 +57,7 @@
         filter-button (hiccup/find-first-node nav #(and (contains? (hiccup/direct-texts %) "Short")
                                                          (= [[:actions/toggle-order-history-filter-open]]
                                                             (get-in % [1 :on :click]))))
+        filter-button-classes (hiccup/node-class-set filter-button)
         short-option (hiccup/find-first-node nav #(and (contains? (hiccup/direct-texts %) "Short")
                                                         (= [[:actions/set-order-history-status-filter :short]]
                                                             (get-in % [1 :on :click]))))]
@@ -64,6 +65,9 @@
     (is (some? short-option))
     (is (= [[:actions/toggle-order-history-filter-open]]
            (get-in filter-button [1 :on :click])))
+    (is (= "1" (get-in filter-button [1 :style :--btn-focus-scale])))
+    (is (contains? filter-button-classes "focus:outline-none"))
+    (is (contains? filter-button-classes "focus-visible:outline-none"))
     (is (= [[:actions/set-order-history-status-filter :short]]
            (get-in short-option [1 :on :click])))))
 
@@ -80,6 +84,7 @@
         filter-button (hiccup/find-first-node nav #(and (contains? (hiccup/direct-texts %) "Short")
                                                          (= [[:actions/toggle-open-orders-direction-filter-open]]
                                                             (get-in % [1 :on :click]))))
+        filter-button-classes (hiccup/node-class-set filter-button)
         all-option (hiccup/find-first-node nav #(and (contains? (hiccup/direct-texts %) "All")
                                                      (= [[:actions/set-open-orders-direction-filter :all]]
                                                         (get-in % [1 :on :click]))))
@@ -87,6 +92,9 @@
                                                        (= [[:actions/set-open-orders-direction-filter :short]]
                                                           (get-in % [1 :on :click]))))]
     (is (some? filter-button))
+    (is (= "1" (get-in filter-button [1 :style :--btn-focus-scale])))
+    (is (contains? filter-button-classes "focus:outline-none"))
+    (is (contains? filter-button-classes "focus-visible:outline-none"))
     (is (some? all-option))
     (is (some? short-option))))
 
