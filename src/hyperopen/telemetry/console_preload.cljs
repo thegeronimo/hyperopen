@@ -12,8 +12,9 @@
   {:captured-at-ms (platform/now-ms)
    :app-state @app-system/store
    :runtime-state @app-system/runtime
-   :websocket {:connection-state @ws-client/connection-state
-               :stream-runtime @ws-client/stream-runtime
+   :websocket {:runtime-view @ws-client/runtime-view
+               :compat-projections {:connection-state @ws-client/connection-state
+                                    :stream-runtime @ws-client/stream-runtime}
                :client-runtime-state @ws-client/runtime-state
                :flight-recording (ws-client/get-flight-recording-redacted)}
    :telemetry {:event-count (count (telemetry/events))

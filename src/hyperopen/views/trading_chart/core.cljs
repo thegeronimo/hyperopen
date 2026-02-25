@@ -86,8 +86,7 @@
         indicators-search-term (get-in state [:chart-options :indicators-search-term] "")
         show-surface-freshness-cues?
         (boolean (get-in state [:websocket-ui :show-surface-freshness-cues?] false))
-        websocket-health (or (:websocket-health state)
-                             (get-in state [:websocket :health]))
+        websocket-health (get-in state [:websocket :health])
         freshness-cue (when show-surface-freshness-cues?
                         (ws-freshness/surface-cue websocket-health
                                                   {:topic "trades"

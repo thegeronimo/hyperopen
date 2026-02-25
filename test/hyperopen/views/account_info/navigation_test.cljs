@@ -178,13 +178,13 @@
                   (assoc-in [:account-info :selected-tab] :positions)
                   (assoc-in [:websocket-ui :show-surface-freshness-cues?] true)
                   (assoc :wallet {:address "0xabc"})
-                  (assoc :websocket-health
-                         {:generated-at-ms 5000
-                          :streams {["webData2" nil "0xabc" nil nil]
-                                    {:topic "webData2"
-                                     :status :n-a
-                                     :subscribed? true
-                                     :last-payload-at-ms 3000}}}))
+                  (assoc-in [:websocket :health]
+                            {:generated-at-ms 5000
+                             :streams {["webData2" nil "0xabc" nil nil]
+                                       {:topic "webData2"
+                                        :status :n-a
+                                        :subscribed? true
+                                        :last-payload-at-ms 3000}}}))
         panel (view/account-info-panel state)
         cue-node (hiccup/find-first-node panel #(= "account-tab-freshness-cue" (get-in % [1 :data-role])))
         cue-text (str/join " " (hiccup/collect-strings cue-node))]
@@ -196,14 +196,14 @@
                   (assoc-in [:account-info :selected-tab] :open-orders)
                   (assoc-in [:websocket-ui :show-surface-freshness-cues?] true)
                   (assoc :wallet {:address "0xabc"})
-                  (assoc :websocket-health
-                         {:generated-at-ms 20000
-                          :streams {["openOrders" nil "0xabc" nil nil]
-                                    {:topic "openOrders"
-                                     :status :delayed
-                                     :subscribed? true
-                                     :last-payload-at-ms 8000
-                                     :stale-threshold-ms 5000}}}))
+                  (assoc-in [:websocket :health]
+                            {:generated-at-ms 20000
+                             :streams {["openOrders" nil "0xabc" nil nil]
+                                       {:topic "openOrders"
+                                        :status :delayed
+                                        :subscribed? true
+                                        :last-payload-at-ms 8000
+                                        :stale-threshold-ms 5000}}}))
         panel (view/account-info-panel state)
         cue-node (hiccup/find-first-node panel #(= "account-tab-freshness-cue" (get-in % [1 :data-role])))
         cue-text (str/join " " (hiccup/collect-strings cue-node))]
@@ -215,25 +215,25 @@
                             (assoc-in [:account-info :selected-tab] :positions)
                             (assoc-in [:websocket-ui :show-surface-freshness-cues?] false)
                             (assoc :wallet {:address "0xabc"})
-                            (assoc :websocket-health
-                                   {:generated-at-ms 5000
-                                    :streams {["webData2" nil "0xabc" nil nil]
-                                              {:topic "webData2"
-                                               :status :n-a
-                                               :subscribed? true
-                                               :last-payload-at-ms 3000}}}))
+                            (assoc-in [:websocket :health]
+                                      {:generated-at-ms 5000
+                                       :streams {["webData2" nil "0xabc" nil nil]
+                                                 {:topic "webData2"
+                                                  :status :n-a
+                                                  :subscribed? true
+                                                  :last-payload-at-ms 3000}}}))
         open-orders-state (-> fixtures/sample-account-info-state
                               (assoc-in [:account-info :selected-tab] :open-orders)
                               (assoc-in [:websocket-ui :show-surface-freshness-cues?] false)
                               (assoc :wallet {:address "0xabc"})
-                              (assoc :websocket-health
-                                     {:generated-at-ms 20000
-                                      :streams {["openOrders" nil "0xabc" nil nil]
-                                                {:topic "openOrders"
-                                                 :status :delayed
-                                                 :subscribed? true
-                                                 :last-payload-at-ms 8000
-                                                 :stale-threshold-ms 5000}}}))
+                              (assoc-in [:websocket :health]
+                                        {:generated-at-ms 20000
+                                         :streams {["openOrders" nil "0xabc" nil nil]
+                                                   {:topic "openOrders"
+                                                    :status :delayed
+                                                    :subscribed? true
+                                                    :last-payload-at-ms 8000
+                                                    :stale-threshold-ms 5000}}}))
         positions-panel (view/account-info-panel positions-state)
         open-orders-panel (view/account-info-panel open-orders-state)
         positions-cue (hiccup/find-first-node positions-panel #(= "account-tab-freshness-cue" (get-in % [1 :data-role])))

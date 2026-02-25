@@ -189,8 +189,7 @@
            hydrate-envelope
            topic->tier
            router
-           connection-state
-           stream-runtime
+           runtime-view
            flight-recorder
            transport
            scheduler
@@ -232,8 +231,7 @@
                                      :hydrate-envelope hydrate-envelope
                                      :register-router-handler! #(register-topic-handler! router %1 %2)
                                      :dispatch-envelope! #(route-domain-message! router %)
-                                     :connection-state-atom connection-state
-                                     :stream-runtime-atom stream-runtime}})]
+                                     :runtime-view-atom runtime-view}})]
     {:engine engine-instance
      :io-state io-state
      :router router

@@ -31,30 +31,20 @@
     (update-projection-fn)
     (store-projection-fingerprint! io-state projection-key projection-fingerprint)))
 
-(defn- update-connection-projection!
-  [connection-state-atom io-state connection active-socket-id projection-fingerprint]
-  (let [fingerprint (or projection-fingerprint
-                        {:connection connection
-                         :active-socket-id active-socket-id})]
-    (maybe-update-projection! io-state :connection fingerprint
-                              (fn []
-                                (let [socket (socket-for-id io-state active-socket-id)]
-                                  (reset! connection-state-atom
-                                          (assoc connection :ws socket)))))))
+(defn- attach-active-socket
+  [io-state runtime-view]
+  (let [active-socket-id (:active-socket-id runtime-view)
+        socket (socket-for-id io-state active-socket-id)]
+    (assoc-in runtime-view [:connection :ws] socket)))
 
-(defn- update-stream-projection!
-  [stream-runtime-atom io-state metrics tier-depth market-coalesce now-ms health-fingerprint streams transport projection-fingerprint]
-  (let [projection {:metrics metrics
-                    :tier-depth tier-depth
-                    :market-coalesce market-coalesce
-                    :now-ms now-ms
-                    :health-fingerprint health-fingerprint
-                    :streams streams
-                    :transport transport}
-        fingerprint (or projection-fingerprint projection)]
-    (maybe-update-projection! io-state :stream fingerprint
+(defn- update-runtime-view-projection!
+  [runtime-view-atom io-state runtime-view projection-fingerprint]
+  (let [runtime-view* (or runtime-view {})
+        fingerprint (or projection-fingerprint runtime-view*)]
+    (maybe-update-projection! io-state :runtime-view fingerprint
                               (fn []
-                                (reset! stream-runtime-atom projection)))))
+                                (reset! runtime-view-atom
+                                        (attach-active-socket io-state runtime-view*))))))
 
 (defmulti ^:private interpret-effect-by-type!
   (fn [_ctx effect]
@@ -218,26 +208,12 @@
                   :recv-at-ms decode-at-ms
                   :ts decode-at-ms}))))
 
-(defmethod interpret-effect-by-type! :fx/project-connection-state
-  [{:keys [connection-state-atom io-state]} effect]
-  (update-connection-projection! connection-state-atom
-                                 io-state
-                                 (:connection effect)
-                                 (:active-socket-id effect)
-                                 (:projection-fingerprint effect)))
-
-(defmethod interpret-effect-by-type! :fx/project-stream-metrics
-  [{:keys [stream-runtime-atom io-state]} effect]
-  (update-stream-projection! stream-runtime-atom
-                             io-state
-                             (:metrics effect)
-                             (:tier-depth effect)
-                             (:market-coalesce effect)
-                             (:now-ms effect)
-                             (:health-fingerprint effect)
-                             (:streams effect)
-                             (:transport effect)
-                             (:projection-fingerprint effect)))
+(defmethod interpret-effect-by-type! :fx/project-runtime-view
+  [{:keys [runtime-view-atom io-state]} effect]
+  (update-runtime-view-projection! runtime-view-atom
+                                   io-state
+                                   (:runtime-view effect)
+                                   (:projection-fingerprint effect)))
 
 (defmethod interpret-effect-by-type! :fx/log
   [_ effect]

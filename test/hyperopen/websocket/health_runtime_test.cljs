@@ -23,7 +23,6 @@
                      :websocket-ui {:reset-in-progress? false
                                     :diagnostics-timeline []}})
         projection-state (atom {:fingerprint nil})
-        sync-stats (atom {:writes 0})
         dispatches (atom [])
         diagnostics (atom [])
         snapshots (atom [(connected-health 1000 :live)
@@ -39,7 +38,6 @@
                   :get-health-snapshot next-snapshot
                   :websocket-health-fingerprint health-projection/websocket-health-fingerprint
                   :projection-state projection-state
-                  :sync-stats sync-stats
                   :auto-recover-enabled-fn (constantly false)
                   :auto-recover-severe-threshold-ms 30000
                   :auto-recover-cooldown-ms 300000
@@ -50,13 +48,13 @@
                   :queue-microtask-fn (fn [f] (f))}))]
     (sync!)
     (is (= 1000 (get-in @store [:websocket :health :generated-at-ms])))
-    (is (= 1 (:writes @sync-stats)))
+    (is (= 1 (:writes @projection-state)))
     (sync!)
     (is (= 1000 (get-in @store [:websocket :health :generated-at-ms])))
-    (is (= 1 (:writes @sync-stats)))
+    (is (= 1 (:writes @projection-state)))
     (sync!)
     (is (= 3000 (get-in @store [:websocket :health :generated-at-ms])))
-    (is (= 2 (:writes @sync-stats)))
+    (is (= 2 (:writes @projection-state)))
     (is (empty? @dispatches))
     (is (empty? @diagnostics))))
 
@@ -67,7 +65,6 @@
         baseline-health (connected-health 1000 :live)
         baseline-fingerprint (health-projection/websocket-health-fingerprint baseline-health)
         projection-state (atom {:fingerprint baseline-fingerprint})
-        sync-stats (atom {:writes 0})
         health-reads (atom 0)]
     (health-runtime/sync-websocket-health!
      {:store store
@@ -77,7 +74,6 @@
                              baseline-health)
       :websocket-health-fingerprint health-projection/websocket-health-fingerprint
       :projection-state projection-state
-      :sync-stats sync-stats
       :auto-recover-enabled-fn (constantly false)
       :auto-recover-severe-threshold-ms 30000
       :auto-recover-cooldown-ms 300000
@@ -86,7 +82,7 @@
       :queue-microtask-fn (fn [f] (f))})
     (is (= 0 @health-reads))
     (is (= {:fingerprint baseline-fingerprint} @projection-state))
-    (is (= 0 (:writes @sync-stats)))
+    (is (= nil (:writes @projection-state)))
     (is (= {} (get-in @store [:websocket :health])))))
 
 (deftest sync-websocket-health-applies-auto-recover-cooldown-and-dispatch-once-test
@@ -109,7 +105,6 @@
                                     :auto-recover-count 0
                                     :diagnostics-timeline []}})
         projection-state (atom {:fingerprint nil})
-        sync-stats (atom {:writes 0})
         dispatches (atom [])
         sync! (fn []
                 (health-runtime/sync-websocket-health!
@@ -117,7 +112,6 @@
                   :get-health-snapshot (constantly health)
                   :websocket-health-fingerprint health-projection/websocket-health-fingerprint
                   :projection-state projection-state
-                  :sync-stats sync-stats
                   :auto-recover-enabled-fn (constantly true)
                   :auto-recover-severe-threshold-ms 30000
                   :auto-recover-cooldown-ms 300000
@@ -133,18 +127,18 @@
     (is (= 1 (get-in @store [:websocket-ui :auto-recover-count])))
     (is (= (+ generated-at-ms 300000)
            (get-in @store [:websocket-ui :auto-recover-cooldown-until-ms])))
-    (is (= 1 (:writes @sync-stats)))))
+    (is (= 1 (:writes @projection-state)))))
 
-(deftest sync-websocket-health-updates-runtime-state-when-runtime-atom-provided-test
+(deftest sync-websocket-health-updates-projection-state-when-provided-test
   (let [store (atom {:websocket {:health {}}
                      :websocket-ui {:reset-in-progress? false
                                     :diagnostics-timeline []}})
-        runtime (atom {:websocket-health {:fingerprint nil
-                                          :writes 0}})
+        projection-state (atom {:fingerprint nil
+                                :writes 0})
         health (connected-health 1000 :live)]
     (health-runtime/sync-websocket-health!
      {:store store
-      :runtime runtime
+      :projection-state projection-state
       :get-health-snapshot (constantly health)
       :websocket-health-fingerprint health-projection/websocket-health-fingerprint
       :auto-recover-enabled-fn (constantly false)
@@ -154,5 +148,5 @@
       :append-diagnostics-event! (fn [& _] nil)
       :queue-microtask-fn (fn [f] (f))})
     (is (= 1000 (get-in @store [:websocket :health :generated-at-ms])))
-    (is (some? (get-in @runtime [:websocket-health :fingerprint])))
-    (is (= 1 (get-in @runtime [:websocket-health :writes])))))
+    (is (some? (:fingerprint @projection-state)))
+    (is (= 1 (:writes @projection-state)))))

@@ -4,24 +4,40 @@
             [hyperopen.websocket.domain.model :as model]
             [hyperopen.websocket.infrastructure.transport :as infra]))
 
-(defn- reset-stream! [stream]
-  (reset! stream {:tier-depth {:market 0 :lossless 0}
-                  :metrics {:market-coalesced 0
-                            :market-dispatched 0
-                            :lossless-dispatched 0
-                            :ingress-parse-errors 0}
-                  :now-ms nil
-                  :health-fingerprint nil
-                  :streams {}
-                  :transport {:state :disconnected
-                              :online? true
-                              :last-recv-at-ms nil
-                              :connected-at-ms nil
-                              :expected-traffic? false
-                              :attempt 0
-                              :last-close nil}
-                  :market-coalesce {:pending {}
-                                    :timer nil}}))
+(defn- reset-runtime-view! [runtime-view]
+  (reset! runtime-view
+          {:active-socket-id nil
+           :connection {:status :disconnected
+                        :attempt 0
+                        :next-retry-at-ms nil
+                        :last-close nil
+                        :last-activity-at-ms nil
+                        :now-ms nil
+                        :online? true
+                        :transport/state :disconnected
+                        :transport/last-recv-at-ms nil
+                        :transport/connected-at-ms nil
+                        :transport/expected-traffic? false
+                        :transport/freshness :offline
+                        :queue-size 0
+                        :ws nil}
+           :stream {:tier-depth {:market 0 :lossless 0}
+                    :metrics {:market-coalesced 0
+                              :market-dispatched 0
+                              :lossless-dispatched 0
+                              :ingress-parse-errors 0}
+                    :now-ms nil
+                    :health-fingerprint nil
+                    :streams {}
+                    :transport {:state :disconnected
+                                :online? true
+                                :last-recv-at-ms nil
+                                :connected-at-ms nil
+                                :expected-traffic? false
+                                :attempt 0
+                                :last-close nil}
+                    :market-coalesce {:pending {}
+                                      :timer nil}}}))
 
 (defn- make-test-scheduler []
   (reify infra/IScheduler
@@ -50,55 +66,31 @@
     (detach-handlers! [_ _] nil)))
 
 (defn- make-test-runtime
-  [{:keys [parse-raw-envelope topic->tier router stream-runtime]
+  [{:keys [parse-raw-envelope topic->tier router runtime-view]
     :or {topic->tier (constantly :lossless)}}]
-  (let [runtime-state (atom {:ws-url nil
-                             :socket nil
-                             :socket-id 0
-                             :active-socket-id nil
-                             :intentional-close? false
-                             :retry-timer nil
-                             :watchdog-timer nil})
-        connection-state (atom {:status :disconnected
-                                :attempt 0
-                                :next-retry-at-ms nil
-                                :last-close nil
-                                :last-activity-at-ms nil
-                                :now-ms nil
-                                :online? true
-                                :transport/state :disconnected
-                                :transport/last-recv-at-ms nil
-                                :transport/connected-at-ms nil
-                                :transport/expected-traffic? false
-                                :queue-size 0
-                                :ws nil})]
-    (runtime/start-runtime!
-      {:config {:control-buffer-size 8
-                :socket-event-buffer-size 32
-                :ingress-decoded-buffer-size 32
-                :market-buffer-size 16
-                :lossless-buffer-size 16
-                :outbound-intent-buffer-size 16
-                :metrics-buffer-size 32
-                :dead-letter-buffer-size 16
-                :lossless-depth-alert-threshold 100
-                :max-queue-size 100
-                :watchdog-interval-ms 1000
-                :stale-visible-ms 45000
-                :stale-hidden-ms 180000
-                :market-coalesce-window-ms 5}
-       :parse-raw-envelope parse-raw-envelope
-       :topic->tier topic->tier
-       :router router
-       :stream-runtime stream-runtime
-       :runtime-state runtime-state
-       :connection-state connection-state
-       :desired-subscriptions (atom {})
-       :outbound-queue (atom [])
-       :transport (make-test-transport)
-       :scheduler (make-test-scheduler)
-       :clock (make-test-clock)
-       :calculate-retry-delay-ms (fn [_ _ _ _] 10)})))
+  (runtime/start-runtime!
+    {:config {:control-buffer-size 8
+              :socket-event-buffer-size 32
+              :ingress-decoded-buffer-size 32
+              :market-buffer-size 16
+              :lossless-buffer-size 16
+              :outbound-intent-buffer-size 16
+              :metrics-buffer-size 32
+              :dead-letter-buffer-size 16
+              :lossless-depth-alert-threshold 100
+              :max-queue-size 100
+              :watchdog-interval-ms 1000
+              :stale-visible-ms 45000
+              :stale-hidden-ms 180000
+              :market-coalesce-window-ms 5}
+     :parse-raw-envelope parse-raw-envelope
+     :topic->tier topic->tier
+     :router router
+     :runtime-view runtime-view
+     :transport (make-test-transport)
+     :scheduler (make-test-scheduler)
+     :clock (make-test-clock)
+     :calculate-retry-delay-ms (fn [_ _ _ _] 10)}))
 
 (deftest create-runtime-channels-contract-test
   (let [channels (runtime/create-runtime-channels {:mailbox-buffer-size 4
@@ -133,8 +125,8 @@
 
 (deftest market-coalescing-invariant-test
   (async done
-    (let [stream-runtime (atom nil)
-          _ (reset-stream! stream-runtime)
+    (let [runtime-view (atom nil)
+          _ (reset-runtime-view! runtime-view)
           routed (atom [])
           router (reify runtime/IMessageRouter
                    (route-domain-message! [_ envelope]
@@ -153,7 +145,7 @@
           rt (make-test-runtime {:parse-raw-envelope parse-raw-envelope
                                  :topic->tier (constantly :market)
                                  :router router
-                                 :stream-runtime stream-runtime})]
+                                 :runtime-view runtime-view})]
       (runtime/publish-command! rt {:op :connection/connect
                                     :ws-url "wss://example.test/ws"})
       (runtime/publish-transport-event! rt {:event/type :socket/open
@@ -171,8 +163,8 @@
                     (do
                       (is (= 1 (count @routed)))
                       (is (= 2 (get-in (first @routed) [:payload :seq])))
-                      (is (>= (get-in @stream-runtime [:metrics :market-coalesced]) 1))
-                      (is (= 1 (get-in @stream-runtime [:metrics :market-dispatched])))
+                      (is (>= (get-in @runtime-view [:stream :metrics :market-coalesced]) 1))
+                      (is (= 1 (get-in @runtime-view [:stream :metrics :market-dispatched])))
                       (runtime/stop-runtime! rt)
                       (done))
                     (js/setTimeout check! 5)))]
@@ -180,8 +172,8 @@
 
 (deftest lossless-ordering-invariant-test
   (async done
-    (let [stream-runtime (atom nil)
-          _ (reset-stream! stream-runtime)
+    (let [runtime-view (atom nil)
+          _ (reset-runtime-view! runtime-view)
           routed (atom [])
           router (reify runtime/IMessageRouter
                    (route-domain-message! [_ envelope]
@@ -200,7 +192,7 @@
           rt (make-test-runtime {:parse-raw-envelope parse-raw-envelope
                                  :topic->tier (constantly :lossless)
                                  :router router
-                                 :stream-runtime stream-runtime})]
+                                 :runtime-view runtime-view})]
       (runtime/publish-command! rt {:op :connection/connect
                                     :ws-url "wss://example.test/ws"})
       (runtime/publish-transport-event! rt {:event/type :socket/open
@@ -220,8 +212,8 @@
 
 (deftest health-tick-event-updates-stream-runtime-now-ms-test
   (async done
-    (let [stream-runtime (atom nil)
-          _ (reset-stream! stream-runtime)
+    (let [runtime-view (atom nil)
+          _ (reset-runtime-view! runtime-view)
           router (reify runtime/IMessageRouter
                    (route-domain-message! [_ _] nil)
                    (register-topic-handler! [_ _ _] nil)
@@ -229,7 +221,7 @@
           rt (make-test-runtime {:parse-raw-envelope (fn [_] {:error (js/Error. "unused")})
                                  :topic->tier (constantly :lossless)
                                  :router router
-                                 :stream-runtime stream-runtime})]
+                                 :runtime-view runtime-view})]
       (runtime/publish-command! rt {:op :connection/connect
                                     :ws-url "wss://example.test/ws"})
       (runtime/publish-transport-event! rt {:event/type :socket/open
@@ -240,7 +232,7 @@
                                             :now-ms 5000})
       (js/setTimeout
         (fn []
-          (is (= 5000 (:now-ms @stream-runtime)))
+          (is (= 5000 (get-in @runtime-view [:stream :now-ms])))
           (runtime/stop-runtime! rt)
           (done))
         0))))

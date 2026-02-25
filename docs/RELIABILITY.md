@@ -11,6 +11,7 @@ source_of_truth: true
 ## WebSocket Runtime Architecture Rules (MUST)
 - MUST keep runtime decisions pure via `step(state, msg) -> {:state next-state :effects [...]}`.
 - MUST keep canonical websocket runtime state single-writer: only the engine loop mutates it.
+- MUST keep websocket projection ownership single-source: interpreters write one runtime-view projection atom, and compatibility projections are derived-only.
 - MUST execute input and output operations only through effect interpreters (transport, timers, lifecycle hooks, logging, routing, state projections).
 - MUST NOT perform direct transport/timer/dom/log side effects inside reducers or domain message handling.
 - MUST NOT use multi-loop shared mutable writes for connection/metrics runtime ownership.
@@ -48,7 +49,7 @@ source_of_truth: true
 - [ ] Yes/No: all side effects are represented as `RuntimeEffect` values.
 - [ ] Yes/No: effect interpreters are the only place where socket/timer/dom/log input and output executes.
 - [ ] Yes/No: canonical runtime state has a single writer (engine loop).
-- [ ] Yes/No: connection and stream projections are applied as explicit projection effects.
+- [ ] Yes/No: websocket runtime-view projection is applied as one explicit projection effect source.
 - [ ] Yes/No: new websocket behaviors are introduced through message/effect algebra, not ad hoc direct calls.
 
 ## Interaction Responsiveness Rules

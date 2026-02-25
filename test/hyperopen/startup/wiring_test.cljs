@@ -28,23 +28,21 @@
 
 (deftest websocket-watcher-deps-shapes-required-websocket-collaborators-test
   (let [store (atom {})
-        connection-state (atom {:status :disconnected})
-        stream-runtime (atom {})
+        runtime-view (atom {:connection {:status :disconnected}
+                            :stream {}})
         append-diagnostics-event! (fn [& _] nil)
         sync-websocket-health! (fn [& _] nil)
         on-websocket-connected! (fn [] nil)
         on-websocket-disconnected! (fn [] nil)
         deps (startup-wiring/websocket-watcher-deps
               {:store store
-               :connection-state connection-state
-               :stream-runtime stream-runtime
+               :runtime-view runtime-view
                :append-diagnostics-event! append-diagnostics-event!
                :sync-websocket-health! sync-websocket-health!
                :on-websocket-connected! on-websocket-connected!
                :on-websocket-disconnected! on-websocket-disconnected!})]
     (is (identical? store (:store deps)))
-    (is (identical? connection-state (:connection-state deps)))
-    (is (identical? stream-runtime (:stream-runtime deps)))
+    (is (identical? runtime-view (:runtime-view deps)))
     (is (identical? append-diagnostics-event! (:append-diagnostics-event! deps)))
     (is (identical? sync-websocket-health! (:sync-websocket-health! deps)))
     (is (identical? on-websocket-connected! (:on-websocket-connected! deps)))

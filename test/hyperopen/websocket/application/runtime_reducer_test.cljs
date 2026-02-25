@@ -41,9 +41,9 @@
 
 (defn- stream-health-fingerprint [effects]
   (->> effects
-       (filter #(= :fx/project-stream-metrics (:fx/type %)))
+       (filter #(= :fx/project-runtime-view (:fx/type %)))
        last
-       :health-fingerprint))
+       (get-in [:runtime-view :stream :health-fingerprint])))
 
 (defn- projection-fingerprint [effects fx-type]
   (->> effects
@@ -64,20 +64,14 @@
         ignored-open-a (step state (model/make-runtime-msg :evt/socket-open 100 {:socket-id 999 :at-ms 100}))
         ignored-open-b (step state (model/make-runtime-msg :evt/socket-open 200 {:socket-id 999 :at-ms 200}))
         init-connect (step state (model/make-runtime-msg :cmd/init-connection 300 {:ws-url "wss://example.test/ws"}))
-        connection-fingerprint-a (projection-fingerprint (:effects ignored-open-a) :fx/project-connection-state)
-        stream-fingerprint-a (projection-fingerprint (:effects ignored-open-a) :fx/project-stream-metrics)
-        connection-fingerprint-b (projection-fingerprint (:effects ignored-open-b) :fx/project-connection-state)
-        stream-fingerprint-b (projection-fingerprint (:effects ignored-open-b) :fx/project-stream-metrics)
-        connection-fingerprint-init (projection-fingerprint (:effects init-connect) :fx/project-connection-state)
-        stream-fingerprint-init (projection-fingerprint (:effects init-connect) :fx/project-stream-metrics)]
+        runtime-view-fingerprint-a (projection-fingerprint (:effects ignored-open-a) :fx/project-runtime-view)
+        runtime-view-fingerprint-b (projection-fingerprint (:effects ignored-open-b) :fx/project-runtime-view)
+        runtime-view-fingerprint-init (projection-fingerprint (:effects init-connect) :fx/project-runtime-view)]
     (testing "Projection effects always include deterministic fingerprint payloads"
-      (is (some? connection-fingerprint-a))
-      (is (some? stream-fingerprint-a))
-      (is (= connection-fingerprint-a connection-fingerprint-b))
-      (is (= stream-fingerprint-a stream-fingerprint-b)))
+      (is (some? runtime-view-fingerprint-a))
+      (is (= runtime-view-fingerprint-a runtime-view-fingerprint-b)))
     (testing "Fingerprint changes when projected runtime state changes"
-      (is (not= connection-fingerprint-a connection-fingerprint-init))
-      (is (not= stream-fingerprint-a stream-fingerprint-init)))))
+      (is (not= runtime-view-fingerprint-a runtime-view-fingerprint-init)))))
 
 (deftest send-message-queues-and-requests-connect-test
   (let [state (assoc (reducer/initial-runtime-state test-config)

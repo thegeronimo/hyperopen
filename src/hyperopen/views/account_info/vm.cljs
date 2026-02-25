@@ -236,8 +236,7 @@
         open-orders-state (merge {:direction-filter :all
                                   :filter-open? false}
                                  (get-in state [:account-info :open-orders] {}))
-        websocket-health (or (:websocket-health state)
-                             (get-in state [:websocket :health]))
+        websocket-health (get-in state [:websocket :health])
         wallet-address (get-in state [:wallet :address])
         show-surface-freshness-cues?
         (boolean (get-in state [:websocket-ui :show-surface-freshness-cues?] false))

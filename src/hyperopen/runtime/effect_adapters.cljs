@@ -50,14 +50,14 @@
          runtime-state/diagnostics-timeline-limit))
 
 (defn sync-websocket-health-with-runtime!
-  [runtime store & {:keys [force? projected-fingerprint]}]
+  [_runtime store & {:keys [force? projected-fingerprint]}]
   (health-runtime/sync-websocket-health!
    {:store store
     :force? force?
     :projected-fingerprint projected-fingerprint
     :get-health-snapshot ws-client/get-health-snapshot
     :websocket-health-fingerprint websocket-health-fingerprint
-    :runtime runtime
+    :projection-state ws-client/websocket-health-projection-state
     :auto-recover-enabled-fn health-runtime/auto-recover-enabled?
     :auto-recover-severe-threshold-ms runtime-state/auto-recover-severe-threshold-ms
     :auto-recover-cooldown-ms runtime-state/auto-recover-cooldown-ms
@@ -67,7 +67,7 @@
 
 (defn sync-websocket-health!
   [store & {:keys [force? projected-fingerprint]}]
-  (sync-websocket-health-with-runtime! runtime-state/runtime
+  (sync-websocket-health-with-runtime! nil
                                        store
                                        :force? force?
                                        :projected-fingerprint projected-fingerprint))
@@ -406,7 +406,7 @@
 
 (defn refresh-websocket-health
   ([_ store]
-   (refresh-websocket-health runtime-state/runtime nil store))
+   (refresh-websocket-health nil nil store))
   ([runtime _ store]
    (sync-websocket-health-with-runtime! runtime store :force? true)))
 

@@ -22,8 +22,6 @@
 (deftest runtime-state-exposes-single-runtime-atom-test
   (let [runtime (runtime-state/make-runtime-state)]
     (is (map? @runtime))
-    (is (contains? (:websocket-health @runtime) :fingerprint))
-    (is (number? (get-in @runtime [:websocket-health :writes])))
     (is (map? (get-in @runtime [:asset-icons :pending])))
     (is (nil? (get-in @runtime [:asset-icons :flush-handle])))
     (is (false? (runtime-state/app-started? runtime)))

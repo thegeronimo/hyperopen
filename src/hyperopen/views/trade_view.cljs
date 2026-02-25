@@ -4,16 +4,14 @@
             [hyperopen.views.trading-chart.core :as trading-chart]
             [hyperopen.views.account-info-view :as account-info-view]
             [hyperopen.views.account-equity-view :as account-equity-view]
-            [hyperopen.views.trade.order-form-view :as order-form-view]
-            [hyperopen.websocket.client :as ws-client]))
+            [hyperopen.views.trade.order-form-view :as order-form-view]))
 
 (defn trade-view [state]
   (let [active-asset (:active-asset state)
         orderbook-data (when active-asset (get-in state [:orderbooks active-asset]))
         show-surface-freshness-cues?
         (boolean (get-in state [:websocket-ui :show-surface-freshness-cues?] false))
-        websocket-health (or (:websocket-health state)
-                             (ws-client/get-health-snapshot))
+        websocket-health (get-in state [:websocket :health])
         state* (assoc state :websocket-health websocket-health)]
     [:div {:class ["flex-1" "flex" "flex-col" "min-h-0"]
            :data-parity-id "trade-root"}

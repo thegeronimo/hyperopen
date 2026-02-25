@@ -177,6 +177,15 @@
                :attempt (:attempt state)
                :last-close (:last-close state)}})
 
+(defn- runtime-view-projection
+  [state]
+  (let [connection (connection-projection state)
+        active-socket-id (:active-socket-id state)
+        stream (stream-projection state)]
+    {:connection connection
+     :active-socket-id active-socket-id
+     :stream stream}))
+
 (defn- connection-projection-fingerprint
   [connection active-socket-id]
   {:connection connection
@@ -185,6 +194,11 @@
 (defn- stream-projection-fingerprint
   [stream]
   stream)
+
+(defn- runtime-view-projection-fingerprint
+  [{:keys [connection active-socket-id stream]}]
+  {:connection (connection-projection-fingerprint connection active-socket-id)
+   :stream (stream-projection-fingerprint stream)})
 
 (defn- refresh-health-hysteresis [state]
   (let [now-ms (:now-ms state)]
@@ -228,19 +242,12 @@
     state))
 
 (defn- append-projections [state effects]
-  (let [connection (connection-projection state)
-        active-socket-id (:active-socket-id state)
-        stream (stream-projection state)]
-    (-> effects
-        (conj (model/make-runtime-effect :fx/project-connection-state
-                                         {:connection connection
-                                          :active-socket-id active-socket-id
-                                          :projection-fingerprint (connection-projection-fingerprint connection
-                                                                                                      active-socket-id)}))
-        (conj (model/make-runtime-effect :fx/project-stream-metrics
-                                         (assoc stream
-                                                :projection-fingerprint
-                                                (stream-projection-fingerprint stream)))))))
+  (let [runtime-view (runtime-view-projection state)]
+    (conj effects
+          (model/make-runtime-effect :fx/project-runtime-view
+                                     {:runtime-view runtime-view
+                                      :projection-fingerprint
+                                      (runtime-view-projection-fingerprint runtime-view)}))))
 
 (defn- result [state effects msg-type force-health-refresh?]
   (let [state* (maybe-refresh-health-hysteresis state msg-type force-health-refresh?)]

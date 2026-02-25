@@ -15,15 +15,13 @@
 
 (defn websocket-watcher-deps
   [{:keys [store
-           connection-state
-           stream-runtime
+           runtime-view
            append-diagnostics-event!
            sync-websocket-health!
            on-websocket-connected!
            on-websocket-disconnected!]}]
   {:store store
-   :connection-state connection-state
-   :stream-runtime stream-runtime
+   :runtime-view runtime-view
    :append-diagnostics-event! append-diagnostics-event!
    :sync-websocket-health! sync-websocket-health!
    :on-websocket-connected! on-websocket-connected!

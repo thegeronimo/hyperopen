@@ -44,8 +44,7 @@
      :websocket-watchers-deps
      (startup-wiring/websocket-watcher-deps
       {:store store
-       :connection-state ws-client/connection-state
-       :stream-runtime ws-client/stream-runtime
+       :runtime-view ws-client/runtime-view
        :append-diagnostics-event! runtime-effect-adapters/append-diagnostics-event!
        :sync-websocket-health! (fn [runtime-store & {:keys [force? projected-fingerprint]}]
                                  (runtime-effect-adapters/sync-websocket-health-with-runtime!

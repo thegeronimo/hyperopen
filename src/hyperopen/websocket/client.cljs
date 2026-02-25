@@ -33,20 +33,56 @@
 
 (defonce connection-config (atom default-config))
 
-(defonce connection-state (atom {:status :disconnected
-                                 :attempt 0
-                                 :next-retry-at-ms nil
-                                 :last-close nil
-                                 :last-activity-at-ms nil
-                                 :now-ms nil
-                                 :online? true
-                                 :transport/state :disconnected
-                                 :transport/last-recv-at-ms nil
-                                 :transport/connected-at-ms nil
-                                 :transport/expected-traffic? false
-                                 :transport/freshness :offline
-                                 :queue-size 0
-                                 :ws nil}))
+(defn- default-connection-projection
+  []
+  {:status :disconnected
+   :attempt 0
+   :next-retry-at-ms nil
+   :last-close nil
+   :last-activity-at-ms nil
+   :now-ms nil
+   :online? true
+   :transport/state :disconnected
+   :transport/last-recv-at-ms nil
+   :transport/connected-at-ms nil
+   :transport/expected-traffic? false
+   :transport/freshness :offline
+   :queue-size 0
+   :ws nil})
+
+(defn- default-stream-projection
+  []
+  {:tier-depth {:market 0 :lossless 0}
+   :metrics {:market-coalesced 0
+             :market-dispatched 0
+             :lossless-dispatched 0
+             :ingress-parse-errors 0}
+   :now-ms nil
+   :health-fingerprint nil
+   :streams {}
+   :transport {:state :disconnected
+               :online? true
+               :last-recv-at-ms nil
+               :connected-at-ms nil
+               :expected-traffic? false
+               :freshness :offline
+               :attempt 0
+               :last-close nil}
+   :market-coalesce {:pending {}
+                     :timer nil}})
+
+(defn- default-runtime-view
+  []
+  {:active-socket-id nil
+   :connection (default-connection-projection)
+   :stream (default-stream-projection)})
+
+(defonce runtime-view
+  (atom (default-runtime-view)))
+
+;; Compatibility projection atoms retained as public seams. They are derived from runtime-view.
+(defonce connection-state (atom (:connection (default-runtime-view))))
+(defonce stream-runtime (atom (:stream (default-runtime-view))))
 
 (defonce message-handlers (atom {}))
 
@@ -66,24 +102,33 @@
          :router nil
          :flight-recorder nil}))
 
-(defonce stream-runtime (atom {:tier-depth {:market 0 :lossless 0}
-                               :metrics {:market-coalesced 0
-                                         :market-dispatched 0
-                                         :lossless-dispatched 0
-                                         :ingress-parse-errors 0}
-                               :now-ms nil
-                               :health-fingerprint nil
-                               :streams {}
-                               :transport {:state :disconnected
-                                           :online? true
-                                           :last-recv-at-ms nil
-                                           :connected-at-ms nil
-                                           :expected-traffic? false
-                                           :freshness :offline
-                                           :attempt 0
-                                           :last-close nil}
-                               :market-coalesce {:pending {}
-                                                 :timer nil}}))
+(defonce websocket-health-projection-state
+  (atom {:fingerprint nil
+         :writes 0}))
+
+(def ^:private runtime-view->compat-watch-key
+  ::runtime-view->compat)
+
+(defn- sync-compat-projections!
+  [old-view new-view]
+  (let [old-connection (:connection old-view)
+        new-connection (:connection new-view)
+        old-stream (:stream old-view)
+        new-stream (:stream new-view)]
+    (when (not= old-connection new-connection)
+      (reset! connection-state new-connection))
+    (when (not= old-stream new-stream)
+      (reset! stream-runtime new-stream))))
+
+(defn- install-runtime-view-compat-watch!
+  []
+  (remove-watch runtime-view runtime-view->compat-watch-key)
+  (add-watch runtime-view runtime-view->compat-watch-key
+             (fn [_ _ old-view new-view]
+               (sync-compat-projections! old-view new-view)))
+  (sync-compat-projections! nil @runtime-view))
+
+(install-runtime-view-compat-watch!)
 
 ;; Wrappers retained as stable seams for tests and adapters.
 (defn now-ms []
@@ -222,8 +267,7 @@
                      :hydrate-envelope acl/hydrate-envelope
                      :topic->tier configured-topic->tier
                      :router (current-router)
-                     :connection-state connection-state
-                     :stream-runtime stream-runtime
+                     :runtime-view runtime-view
                      :flight-recorder (:flight-recorder @runtime-state)
                      :transport (current-transport)
                      :scheduler (current-scheduler)
@@ -241,24 +285,7 @@
   (when-let [runtime (current-runtime)]
     (app-runtime/stop-runtime! runtime)
     (swap! runtime-state assoc :runtime nil))
-  (reset! stream-runtime {:tier-depth {:market 0 :lossless 0}
-                          :metrics {:market-coalesced 0
-                                    :market-dispatched 0
-                                    :lossless-dispatched 0
-                                    :ingress-parse-errors 0}
-                          :now-ms nil
-                          :health-fingerprint nil
-                          :streams {}
-                          :transport {:state :disconnected
-                                      :online? true
-                                      :last-recv-at-ms nil
-                                      :connected-at-ms nil
-                                      :expected-traffic? false
-                                      :freshness :offline
-                                      :attempt 0
-                                      :last-close nil}
-                          :market-coalesce {:pending {}
-                                            :timer nil}}))
+  (reset! runtime-view (default-runtime-view)))
 
 (defn publish-control! [command]
   (when-let [runtime (current-runtime)]
@@ -309,16 +336,16 @@
                        :ts (infra/now-ms* (current-clock))})))
 
 (defn connected? []
-  (= (:status @connection-state) :connected))
+  (= (get-in @runtime-view [:connection :status]) :connected))
 
 (defn get-connection-status []
-  (:status @connection-state))
+  (get-in @runtime-view [:connection :status]))
 
 (defn get-runtime-metrics []
-  (:metrics @stream-runtime))
+  (get-in @runtime-view [:stream :metrics]))
 
 (defn get-tier-depths []
-  (:tier-depth @stream-runtime))
+  (get-in @runtime-view [:stream :tier-depth]))
 
 (defn get-flight-recording []
   (when-let [recorder (:flight-recorder @runtime-state)]
@@ -343,10 +370,11 @@
       (assoc replay :recording-event-count (:event-count recording)))))
 
 (defn get-health-snapshot []
-  (let [connection @connection-state
-        runtime @stream-runtime
+  (let [view @runtime-view
+        connection (:connection view)
+        stream (:stream view)
         clock (current-clock)
-        now-ms (or (:now-ms runtime)
+        now-ms (or (:now-ms stream)
                    (:now-ms connection)
                    (when clock (infra/now-ms* clock))
                    0)
@@ -358,7 +386,7 @@
                    :freshness (:transport/freshness connection)
                    :attempt (:attempt connection)
                    :last-close (:last-close connection)}
-        streams (:streams runtime)]
+        streams (:streams stream)]
     (health/derive-health-snapshot {:now-ms now-ms
                                     :transport transport
                                     :streams streams
@@ -370,20 +398,9 @@
     (disconnect!))
   (stop-channel-runtime!)
   (reset! connection-config default-config)
-  (reset! connection-state {:status :disconnected
-                            :attempt 0
-                            :next-retry-at-ms nil
-                            :last-close nil
-                            :last-activity-at-ms nil
-                            :now-ms nil
-                            :online? true
-                            :transport/state :disconnected
-                            :transport/last-recv-at-ms nil
-                            :transport/connected-at-ms nil
-                            :transport/expected-traffic? false
-                            :transport/freshness :offline
-                            :queue-size 0
-                            :ws nil})
+  (reset! runtime-view (default-runtime-view))
+  (reset! websocket-health-projection-state {:fingerprint nil
+                                             :writes 0})
   (reset! message-handlers {})
   (swap! runtime-state assoc
          :ws-url nil

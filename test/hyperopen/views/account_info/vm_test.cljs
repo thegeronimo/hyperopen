@@ -205,18 +205,18 @@
                :perp-dex-clearinghouse {}
                :websocket-ui {:show-surface-freshness-cues? true}
                :wallet {:address "0xabc"}
-               :websocket-health {:generated-at-ms 20000
-                                  :streams {["openOrders" nil "0xabc" nil nil]
-                                            {:topic "openOrders"
-                                             :status :delayed
-                                             :subscribed? true
-                                             :last-payload-at-ms 8000
-                                             :stale-threshold-ms 5000}
-                                            ["webData2" nil "0xabc" nil nil]
-                                            {:topic "webData2"
-                                             :status :n-a
-                                             :subscribed? true
-                                             :last-payload-at-ms 17000}}}}
+               :websocket {:health {:generated-at-ms 20000
+                                    :streams {["openOrders" nil "0xabc" nil nil]
+                                              {:topic "openOrders"
+                                               :status :delayed
+                                               :subscribed? true
+                                               :last-payload-at-ms 8000
+                                               :stale-threshold-ms 5000}
+                                              ["webData2" nil "0xabc" nil nil]
+                                              {:topic "webData2"
+                                               :status :n-a
+                                               :subscribed? true
+                                               :last-payload-at-ms 17000}}}}}
         view-model (vm/account-info-vm state)]
     (is (= :warning (get-in view-model [:freshness-cues :open-orders :tone])))
     (is (str/includes? (get-in view-model [:freshness-cues :open-orders :text]) "Stale 12s"))
@@ -231,13 +231,13 @@
                :perp-dex-clearinghouse {}
                :websocket-ui {:show-surface-freshness-cues? false}
                :wallet {:address "0xabc"}
-               :websocket-health {:generated-at-ms 20000
-                                  :streams {["openOrders" nil "0xabc" nil nil]
-                                            {:topic "openOrders"
-                                             :status :delayed
-                                             :subscribed? true
-                                             :last-payload-at-ms 8000
-                                             :stale-threshold-ms 5000}}}}
+               :websocket {:health {:generated-at-ms 20000
+                                    :streams {["openOrders" nil "0xabc" nil nil]
+                                              {:topic "openOrders"
+                                               :status :delayed
+                                               :subscribed? true
+                                               :last-payload-at-ms 8000
+                                               :stale-threshold-ms 5000}}}}}
         view-model (vm/account-info-vm state)]
     (is (nil? (:freshness-cues view-model)))))
 

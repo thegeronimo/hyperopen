@@ -7,11 +7,8 @@
 (def ^:private asset-selector-markets-watch-key
   ::asset-selector-markets-cache)
 
-(def ^:private websocket-status-watch-key
-  ::ws-status)
-
-(def ^:private websocket-health-watch-key
-  ::ws-health)
+(def ^:private websocket-runtime-view-watch-key
+  ::ws-runtime-view)
 
 (defn install-store-cache-watchers!
   [store {:keys [persist-active-market-display!
@@ -41,36 +38,41 @@
     nil))
 
 (defn- projected-health-fingerprint
-  [runtime-projection]
-  (:health-fingerprint runtime-projection))
+  [runtime-view]
+  (get-in runtime-view [:stream :health-fingerprint]))
 
 (defn- legacy-websocket-projection
-  [connection-projection]
-  (select-keys connection-projection [:status
-                                      :attempt
-                                      :next-retry-at-ms
-                                      :last-close
-                                      :queue-size]))
+  [runtime-view]
+  (select-keys (get runtime-view :connection {})
+               [:status
+                :attempt
+                :next-retry-at-ms
+                :last-close
+                :queue-size]))
 
 (defn install-websocket-watchers!
   [{:keys [store
-           connection-state
-           stream-runtime
+           runtime-view
            append-diagnostics-event!
            sync-websocket-health!
            on-websocket-connected!
            on-websocket-disconnected!]}]
-  ;; Watch for WebSocket connection status changes.
-  (add-watch connection-state websocket-status-watch-key
-    (fn [_ _ old-state new-state]
-      (let [old-status (:status old-state)
-            new-status (:status new-state)
+  ;; Watch websocket runtime view projection changes and keep store/health sync updated.
+  (remove-watch runtime-view websocket-runtime-view-watch-key)
+  (add-watch runtime-view websocket-runtime-view-watch-key
+    (fn [_ _ old-view new-view]
+      (let [old-connection (get old-view :connection {})
+            new-connection (get new-view :connection {})
+            old-status (:status old-connection)
+            new-status (:status new-connection)
             status-transition? (not= old-status new-status)
-            old-legacy-projection (legacy-websocket-projection old-state)
-            new-legacy-projection (legacy-websocket-projection new-state)
+            old-legacy-projection (legacy-websocket-projection old-view)
+            new-legacy-projection (legacy-websocket-projection new-view)
             legacy-projection-transition? (not= old-legacy-projection new-legacy-projection)
+            old-fingerprint (projected-health-fingerprint old-view)
+            new-fingerprint (projected-health-fingerprint new-view)
             transition-event (status->diagnostics-event new-status)
-            transition-at-ms (or (:now-ms new-state) (platform/now-ms))]
+            transition-at-ms (or (:now-ms new-connection) (platform/now-ms))]
         (when legacy-projection-transition?
           ;; Defer store update to next tick to avoid nested renders.
           (platform/queue-microtask!
@@ -89,12 +91,7 @@
         (when status-transition?
           (if (= new-status :connected)
             (on-websocket-connected!)
-            (on-websocket-disconnected!))))))
-
-  (add-watch stream-runtime websocket-health-watch-key
-    (fn [_ _ old-runtime new-runtime]
-      (let [old-fingerprint (projected-health-fingerprint old-runtime)
-            new-fingerprint (projected-health-fingerprint new-runtime)]
+            (on-websocket-disconnected!)))
         (when (not= old-fingerprint new-fingerprint)
           (sync-websocket-health! store
                                   :projected-fingerprint new-fingerprint))))))

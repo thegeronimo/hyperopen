@@ -49,9 +49,7 @@
 
 (defn default-runtime-state
   []
-  {:websocket-health {:fingerprint nil
-                      :writes 0}
-   :timeouts {:wallet-copy nil
+  {:timeouts {:wallet-copy nil
               :order-toast nil}
    :asset-icons {:pending {}
                  :flush-handle nil}

@@ -2,7 +2,6 @@
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is]]
             [hyperopen.state.trading :as trading]
-            [hyperopen.websocket.client :as ws-client]
             [hyperopen.views.app-view :as app-view]
             [hyperopen.views.footer-view :as footer-view]
             [hyperopen.views.header-view :as header-view]
@@ -171,27 +170,26 @@
     (is (contains? account-info-cell-classes "overflow-hidden"))))
 
 (deftest trade-view-reads-runtime-health-snapshot-for-surface-freshness-cues-test
-  (with-redefs [ws-client/get-health-snapshot
-                (fn []
-                  {:generated-at-ms 5000
-                   :streams {["l2Book" "BTC" nil nil nil]
-                             {:topic "l2Book"
-                              :status :live
-                              :subscribed? true
-                              :last-payload-at-ms 4900
-                              :stale-threshold-ms 5000}}})]
-    (let [state (-> trade-view-test-state
-                    (assoc :active-asset "BTC")
-                    (assoc-in [:websocket-ui :show-surface-freshness-cues?] true)
-                    (assoc :orderbooks {"BTC" {:bids [{:px "99" :sz "2"}]
-                                              :asks [{:px "101" :sz "1"}]}}))
-          view-node (trade-view/trade-view state)
-          cue-node (find-first-node view-node
-                                    #(= "orderbook-freshness-cue"
-                                        (get-in % [1 :data-role])))]
-      (is (some? cue-node))
-      (is (some #(str/includes? % "Updated")
-                (collect-strings cue-node))))))
+  (let [state (-> trade-view-test-state
+                  (assoc :active-asset "BTC")
+                  (assoc-in [:websocket :health]
+                            {:generated-at-ms 5000
+                             :streams {["l2Book" "BTC" nil nil nil]
+                                       {:topic "l2Book"
+                                        :status :live
+                                        :subscribed? true
+                                        :last-payload-at-ms 4900
+                                        :stale-threshold-ms 5000}}})
+                  (assoc-in [:websocket-ui :show-surface-freshness-cues?] true)
+                  (assoc :orderbooks {"BTC" {:bids [{:px "99" :sz "2"}]
+                                            :asks [{:px "101" :sz "1"}]}}))
+        view-node (trade-view/trade-view state)
+        cue-node (find-first-node view-node
+                                  #(= "orderbook-freshness-cue"
+                                      (get-in % [1 :data-role])))]
+    (is (some? cue-node))
+    (is (some #(str/includes? % "Updated")
+              (collect-strings cue-node)))))
 
 (deftest footer-view-uses-app-shell-gutter-test
   (let [view-node (footer-view/footer-view {:websocket {:status :connected}})]

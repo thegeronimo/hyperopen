@@ -67,8 +67,7 @@
                    (swap! now-counter inc)
                    now-ms))
                (constantly 0.5))
-        connection-state-atom (atom nil)
-        stream-runtime-atom (atom nil)
+        runtime-view-atom (atom nil)
         context {:transport transport
                  :scheduler scheduler
                  :clock clock
@@ -82,8 +81,7 @@
                                              (swap! router-registrations conj [topic handler-fn]))
                  :dispatch-envelope! (fn [envelope]
                                        (swap! router-envelopes conj envelope))
-                 :connection-state-atom connection-state-atom
-                 :stream-runtime-atom stream-runtime-atom}]
+                 :runtime-view-atom runtime-view-atom}]
     {:ctx context
      :io-state io-state
      :dispatches dispatches
@@ -98,8 +96,7 @@
      :close-calls close-calls
      :created-sockets created-sockets
      :hidden-tab? hidden-tab?
-     :connection-state-atom connection-state-atom
-     :stream-runtime-atom stream-runtime-atom
+     :runtime-view-atom runtime-view-atom
      :parse-result parse-result}))
 
 (deftest interpret-effect-socket-connect-and-handler-dispatch-branches-test
@@ -249,7 +246,7 @@
                       (mapv :msg/type)))))))))
 
 (deftest interpret-effect-router-parse-projection-and-telemetry-branches-test
-  (let [{:keys [ctx io-state router-registrations router-envelopes dispatches parse-result connection-state-atom stream-runtime-atom]}
+  (let [{:keys [ctx io-state router-registrations router-envelopes dispatches parse-result runtime-view-atom]}
         (make-context)]
     (testing "router registration and envelope dispatch delegate to injected collaborators"
       (runtime-effects/interpret-effect! ctx {:fx/type :fx/router-register-handler
@@ -286,74 +283,80 @@
       (is (number? (:ts (last @dispatches)))))
     (testing "projection effects refresh public runtime atoms"
       (let [socket (js-obj "readyState" infra/ws-ready-state-open)
-            connection-watch-count (atom 0)
-            stream-watch-count (atom 0)]
-        (add-watch connection-state-atom ::connection-watch
+            runtime-view-watch-count (atom 0)]
+        (add-watch runtime-view-atom ::runtime-view-watch
                    (fn [_ _ _ _]
-                     (swap! connection-watch-count inc)))
-        (add-watch stream-runtime-atom ::stream-watch
-                   (fn [_ _ _ _]
-                     (swap! stream-watch-count inc)))
+                     (swap! runtime-view-watch-count inc)))
         (swap! io-state assoc-in [:sockets :active] socket)
-        (runtime-effects/interpret-effect! ctx {:fx/type :fx/project-connection-state
-                                                :connection {:status :connected}
-                                                :active-socket-id :active
-                                                :projection-fingerprint {:status :connected
-                                                                         :active-socket-id :active}})
-        (runtime-effects/interpret-effect! ctx {:fx/type :fx/project-connection-state
-                                                :connection {:status :connected}
-                                                :active-socket-id :active
-                                                :projection-fingerprint {:status :connected
-                                                                         :active-socket-id :active}})
-        (runtime-effects/interpret-effect! ctx {:fx/type :fx/project-connection-state
-                                                :connection {:status :reconnecting}
-                                                :active-socket-id :active
-                                                :projection-fingerprint {:status :reconnecting
-                                                                         :active-socket-id :active}})
-        (runtime-effects/interpret-effect! ctx {:fx/type :fx/project-stream-metrics
-                                                :metrics {:market-coalesced 2}
-                                                :tier-depth {:market 1}
-                                                :market-coalesce {:pending {}}
-                                                :now-ms 999
-                                                :health-fingerprint {:transport/state :connected}
-                                                :streams {:trades {:status :healthy}}
-                                                :transport {:state :connected}
-                                                :projection-fingerprint {:metrics {:market-coalesced 2}
-                                                                         :health-fingerprint {:transport/state :connected}}})
-        (runtime-effects/interpret-effect! ctx {:fx/type :fx/project-stream-metrics
-                                                :metrics {:market-coalesced 2}
-                                                :tier-depth {:market 1}
-                                                :market-coalesce {:pending {}}
-                                                :now-ms 1000
-                                                :health-fingerprint {:transport/state :connected}
-                                                :streams {:trades {:status :healthy}}
-                                                :transport {:state :connected}
-                                                :projection-fingerprint {:metrics {:market-coalesced 2}
-                                                                         :health-fingerprint {:transport/state :connected}}})
-        (runtime-effects/interpret-effect! ctx {:fx/type :fx/project-stream-metrics
-                                                :metrics {:market-coalesced 3}
-                                                :tier-depth {:market 1}
-                                                :market-coalesce {:pending {}}
-                                                :now-ms 1001
-                                                :health-fingerprint {:transport/state :connected}
-                                                :streams {:trades {:status :healthy}}
-                                                :transport {:state :connected}
-                                                :projection-fingerprint {:metrics {:market-coalesced 3}
-                                                                         :health-fingerprint {:transport/state :connected}}})
-        (is (= 2 @connection-watch-count))
-        (is (= 2 @stream-watch-count))
-        (is (= {:status :reconnecting :ws socket}
-               @connection-state-atom))
-        (is (= {:metrics {:market-coalesced 3}
-                :tier-depth {:market 1}
-                :market-coalesce {:pending {}}
-                :now-ms 1001
-                :health-fingerprint {:transport/state :connected}
-                :streams {:trades {:status :healthy}}
-                :transport {:state :connected}}
-               @stream-runtime-atom))
-        (remove-watch connection-state-atom ::connection-watch)
-        (remove-watch stream-runtime-atom ::stream-watch)))
+        (runtime-effects/interpret-effect! ctx {:fx/type :fx/project-runtime-view
+                                                :runtime-view {:connection {:status :connected}
+                                                               :active-socket-id :active
+                                                               :stream {:metrics {:market-coalesced 2}
+                                                                        :tier-depth {:market 1}
+                                                                        :market-coalesce {:pending {}}
+                                                                        :now-ms 999
+                                                                        :health-fingerprint {:transport/state :connected}
+                                                                        :streams {:trades {:status :healthy}}
+                                                                        :transport {:state :connected}}}
+                                                :projection-fingerprint {:connection {:status :connected
+                                                                                      :active-socket-id :active}
+                                                                         :stream {:metrics {:market-coalesced 2}
+                                                                                  :health-fingerprint {:transport/state :connected}}}})
+        (runtime-effects/interpret-effect! ctx {:fx/type :fx/project-runtime-view
+                                                :runtime-view {:connection {:status :connected}
+                                                               :active-socket-id :active
+                                                               :stream {:metrics {:market-coalesced 2}
+                                                                        :tier-depth {:market 1}
+                                                                        :market-coalesce {:pending {}}
+                                                                        :now-ms 1000
+                                                                        :health-fingerprint {:transport/state :connected}
+                                                                        :streams {:trades {:status :healthy}}
+                                                                        :transport {:state :connected}}}
+                                                :projection-fingerprint {:connection {:status :connected
+                                                                                      :active-socket-id :active}
+                                                                         :stream {:metrics {:market-coalesced 2}
+                                                                                  :health-fingerprint {:transport/state :connected}}}})
+        (runtime-effects/interpret-effect! ctx {:fx/type :fx/project-runtime-view
+                                                :runtime-view {:connection {:status :reconnecting}
+                                                               :active-socket-id :active
+                                                               :stream {:metrics {:market-coalesced 2}
+                                                                        :tier-depth {:market 1}
+                                                                        :market-coalesce {:pending {}}
+                                                                        :now-ms 1000
+                                                                        :health-fingerprint {:transport/state :connected}
+                                                                        :streams {:trades {:status :healthy}}
+                                                                        :transport {:state :connected}}}
+                                                :projection-fingerprint {:connection {:status :reconnecting
+                                                                                      :active-socket-id :active}
+                                                                         :stream {:metrics {:market-coalesced 2}
+                                                                                  :health-fingerprint {:transport/state :connected}}}})
+        (runtime-effects/interpret-effect! ctx {:fx/type :fx/project-runtime-view
+                                                :runtime-view {:connection {:status :reconnecting}
+                                                               :active-socket-id :active
+                                                               :stream {:metrics {:market-coalesced 3}
+                                                                        :tier-depth {:market 1}
+                                                                        :market-coalesce {:pending {}}
+                                                                        :now-ms 1001
+                                                                        :health-fingerprint {:transport/state :connected}
+                                                                        :streams {:trades {:status :healthy}}
+                                                                        :transport {:state :connected}}}
+                                                :projection-fingerprint {:connection {:status :reconnecting
+                                                                                      :active-socket-id :active}
+                                                                         :stream {:metrics {:market-coalesced 3}
+                                                                                  :health-fingerprint {:transport/state :connected}}}})
+        (is (= 3 @runtime-view-watch-count))
+        (is (= {:connection {:status :reconnecting
+                             :ws socket}
+                :active-socket-id :active
+                :stream {:metrics {:market-coalesced 3}
+                         :tier-depth {:market 1}
+                         :market-coalesce {:pending {}}
+                         :now-ms 1001
+                         :health-fingerprint {:transport/state :connected}
+                         :streams {:trades {:status :healthy}}
+                         :transport {:state :connected}}}
+               @runtime-view-atom))
+        (remove-watch runtime-view-atom ::runtime-view-watch)))
     (testing "log and dead-letter effects emit telemetry with default level and formatted error"
       (with-redefs [telemetry/dev-enabled? (constantly true)]
         (telemetry/clear-events!)

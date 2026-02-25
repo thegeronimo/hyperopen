@@ -250,68 +250,65 @@
 
 (deftest sync-websocket-health-fingerprint-updates-and-skips-now-only-churn-test
   (async done
-    (let [original-connection @ws-client/connection-state
-          original-runtime @ws-client/stream-runtime
+    (let [original-runtime-view @ws-client/runtime-view
+          original-health-projection-state @ws-client/websocket-health-projection-state
           store (atom {:websocket {:health {}}
                        :websocket-ui {:diagnostics-open? false}})]
-      (reset! ws-client/connection-state
-              {:status :connected
-               :attempt 0
-               :next-retry-at-ms nil
-               :last-close nil
-               :last-activity-at-ms 100
-               :now-ms 1000
-               :online? true
-               :transport/state :connected
-               :transport/last-recv-at-ms 900
-               :transport/connected-at-ms 900
-               :transport/expected-traffic? false
-               :transport/freshness :live
-               :queue-size 0
-               :ws nil})
-      (reset! ws-client/stream-runtime
-              {:tier-depth {:market 0 :lossless 0}
-               :metrics {:market-coalesced 0
-                         :market-dispatched 0
-                         :lossless-dispatched 0
-                         :ingress-parse-errors 0}
-               :now-ms 1000
-               :streams {}
-               :transport {:state :connected
-                           :online? true
-                           :last-recv-at-ms 900
-                           :connected-at-ms 900
-                           :expected-traffic? false
-                           :freshness :live
-                           :attempt 0
-                           :last-close nil}
-               :market-coalesce {:pending {}
-                                 :timer nil}})
-      (swap! runtime-state/runtime
-             (fn [state]
-               (-> state
-                   (assoc-in [:websocket-health :fingerprint] nil)
-                   (assoc-in [:websocket-health :writes] 0))))
+      (reset! ws-client/runtime-view
+              {:active-socket-id nil
+               :connection {:status :connected
+                            :attempt 0
+                            :next-retry-at-ms nil
+                            :last-close nil
+                            :last-activity-at-ms 100
+                            :now-ms 1000
+                            :online? true
+                            :transport/state :connected
+                            :transport/last-recv-at-ms 900
+                            :transport/connected-at-ms 900
+                            :transport/expected-traffic? false
+                            :transport/freshness :live
+                            :queue-size 0
+                            :ws nil}
+               :stream {:tier-depth {:market 0 :lossless 0}
+                        :metrics {:market-coalesced 0
+                                  :market-dispatched 0
+                                  :lossless-dispatched 0
+                                  :ingress-parse-errors 0}
+                        :now-ms 1000
+                        :streams {}
+                        :transport {:state :connected
+                                    :online? true
+                                    :last-recv-at-ms 900
+                                    :connected-at-ms 900
+                                    :expected-traffic? false
+                                    :freshness :live
+                                    :attempt 0
+                                    :last-close nil}
+                        :market-coalesce {:pending {}
+                                          :timer nil}}})
+      (reset! ws-client/websocket-health-projection-state {:fingerprint nil
+                                                           :writes 0})
       (core/sync-websocket-health! store :force? true)
       (js/setTimeout
         (fn []
           (is (= 1000 (get-in @store [:websocket :health :generated-at-ms])))
-          (is (= 1 (get-in @runtime-state/runtime [:websocket-health :writes])))
-          (swap! ws-client/stream-runtime assoc :now-ms 2000)
+          (is (= 1 (:writes @ws-client/websocket-health-projection-state)))
+          (swap! ws-client/runtime-view assoc-in [:stream :now-ms] 2000)
           (core/sync-websocket-health! store)
           (js/setTimeout
             (fn []
               (is (= 1000 (get-in @store [:websocket :health :generated-at-ms])))
-              (is (= 1 (get-in @runtime-state/runtime [:websocket-health :writes])))
-              (swap! ws-client/connection-state assoc :transport/freshness :delayed)
+              (is (= 1 (:writes @ws-client/websocket-health-projection-state)))
+              (swap! ws-client/runtime-view assoc-in [:connection :transport/freshness] :delayed)
               (core/sync-websocket-health! store)
               (js/setTimeout
                 (fn []
                   (try
-                    (is (= 2 (get-in @runtime-state/runtime [:websocket-health :writes])))
+                    (is (= 2 (:writes @ws-client/websocket-health-projection-state)))
                     (finally
-                      (reset! ws-client/connection-state original-connection)
-                      (reset! ws-client/stream-runtime original-runtime)
+                      (reset! ws-client/runtime-view original-runtime-view)
+                      (reset! ws-client/websocket-health-projection-state original-health-projection-state)
                       (done))))
                 0))
             0))
@@ -342,7 +339,8 @@
                                     :auto-recover-cooldown-until-ms nil
                                     :auto-recover-count 0
                                     :diagnostics-timeline []}})]
-    (swap! runtime-state/runtime assoc-in [:websocket-health :fingerprint] nil)
+    (reset! ws-client/websocket-health-projection-state {:fingerprint nil
+                                                         :writes 0})
     (js/Object.defineProperty js/globalThis flag-prop
                               #js {:value true
                                    :configurable true})
@@ -401,7 +399,8 @@
                                     :auto-recover-cooldown-until-ms nil
                                     :auto-recover-count 0
                                     :diagnostics-timeline []}})]
-    (swap! runtime-state/runtime assoc-in [:websocket-health :fingerprint] nil)
+    (reset! ws-client/websocket-health-projection-state {:fingerprint nil
+                                                         :writes 0})
     (js/Object.defineProperty js/globalThis flag-prop
                               #js {:value true
                                    :configurable true})
