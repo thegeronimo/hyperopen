@@ -165,7 +165,7 @@
         unit-form (:order-form unit-transition)]
     (is (true? (:tpsl-unit-dropdown-open? open-ui)))
     (is (false? (:tpsl-unit-dropdown-open? escaped-ui)))
-    (is (= :percent (get-in unit-form [:tpsl :unit])))
+    (is (= :roe-percent (get-in unit-form [:tpsl :unit])))
     (is (false? (:tpsl-unit-dropdown-open? unit-ui)))))
 
 (deftest tpsl-unit-dropdown-toggle-allows-market-mode-when-panel-open-test

@@ -135,12 +135,14 @@
                 unit-triggers))
     (is (every? #(= [[:actions/handle-tpsl-unit-dropdown-keydown [:event/key]]]
                     (get-in % [1 :on :keydown]))
-                unit-triggers))))
+                unit-triggers))
+    (is (= "$: profit/loss in USDC."
+           (get-in (first unit-triggers) [1 :title])))))
 
 (deftest tp-sl-panel-open-unit-menu-renders-overlay-and-options-test
   (let [node (sections/tp-sl-panel {:form {:tp {:trigger "3000"}
                                            :sl {:trigger "2900"}}
-                                    :unit :percent
+                                    :unit :roe-percent
                                     :unit-dropdown-open? true
                                     :tp-offset "150"
                                     :sl-offset "75"
@@ -162,15 +164,23 @@
                             (collect-nodes-by-tag node :div)))
         options (filter #(= "option" (get-in % [1 :role]))
                         (collect-nodes-by-tag node :button))
-        usd-option (first (filter #(some #{"$"} (collect-strings %)) options))
-        percent-option (first (filter #(some #{"%"} (collect-strings %)) options))]
+        usd-option (nth options 0)
+        roe-option (nth options 1)
+        position-option (nth options 2)]
     (is (= [[:actions/close-tpsl-unit-dropdown]]
            (get-in overlay [1 :on :click])))
-    (is (= 2 (count options)))
+    (is (= 3 (count options)))
     (is (= [[:actions/close-tpsl-unit-dropdown]
             [:actions/update-order-form [:tpsl :unit] :usd]]
            (get-in usd-option [1 :on :click])))
-    (is (true? (get-in percent-option [1 :aria-selected])))
+    (is (= [[:actions/close-tpsl-unit-dropdown]
+            [:actions/update-order-form [:tpsl :unit] :position-percent]]
+           (get-in position-option [1 :on :click])))
+    (is (contains? (set (collect-strings roe-option)) "%(E)"))
+    (is (contains? (set (collect-strings position-option)) "%(P)"))
+    (is (= "%(E): percent of margin/equity used (ROE)."
+           (get-in roe-option [1 :title])))
+    (is (true? (get-in roe-option [1 :aria-selected])))
     (is (false? (get-in menu [1 :aria-hidden])))))
 
 (deftest tif-inline-control-renders-custom-trigger-caret-and-dispatches-toggle-test

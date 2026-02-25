@@ -4,6 +4,7 @@
 
 (def default-unit :usd)
 (def trigger-price-decimals 5)
+(def valid-units #{:usd :roe-percent :position-percent})
 
 (defn parse-num [value]
   (trading-domain/parse-num value))
@@ -19,14 +20,26 @@
                     (keyword? value) value
                     (string? value) (keyword (str/lower-case (str/trim value)))
                     (true? value) :usd
-                    (false? value) :percent
+                    (false? value) :roe-percent
                     :else default-unit)]
-    (if (contains? #{:usd :percent} candidate)
-      candidate
-      default-unit)))
+    (cond
+      (contains? valid-units candidate) candidate
+      ;; Legacy compatibility: :percent was historically ROE-based.
+      (= candidate :percent) :roe-percent
+      :else default-unit)))
 
 (defn unit-symbol [unit]
-  (if (= :percent (normalize-unit unit)) "%" "$"))
+  (case (normalize-unit unit)
+    :roe-percent "%(E)"
+    :position-percent "%(P)"
+    "$"))
+
+(defn unit-menu-label
+  [unit]
+  (case (normalize-unit unit)
+    :roe-percent "%(E): percent of margin/equity used (ROE)."
+    :position-percent "%(P): percent of position value (notional)."
+    "$: profit/loss in USDC."))
 
 (defn trigger-present? [value]
   (boolean (seq (str/trim (str (or value ""))))))
@@ -51,7 +64,8 @@
     (and (positive-number? baseline)
          (case unit*
            :usd (positive-number? size)
-           :percent (positive-number? leverage)
+           :roe-percent (positive-number? leverage)
+           :position-percent true
            false))))
 
 (defn- round-floor-2 [value]
@@ -70,9 +84,12 @@
                          (when (positive-number? size)
                            (* size delta))
 
-                         :percent
+                         :roe-percent
                          (when (positive-number? leverage)
                            (* (/ delta baseline) leverage 100))
+
+                         :position-percent
+                         (* (/ delta baseline) 100)
 
                          nil)
             signed-offset (if (number? raw-offset)
@@ -111,12 +128,18 @@
                               (- baseline delta)
                               (+ baseline delta))))
 
-                        :percent
+                        :roe-percent
                         (when (positive-number? leverage)
                           (let [delta (/ offset leverage 100)]
                             (if inverse
                               (* baseline (- 1 delta))
                               (* baseline (+ 1 delta)))))
+
+                        :position-percent
+                        (let [delta (/ offset 100)]
+                          (if inverse
+                            (* baseline (- 1 delta))
+                            (* baseline (+ 1 delta))))
 
                         nil)]
             (if (and (number? price)

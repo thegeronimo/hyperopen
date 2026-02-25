@@ -229,6 +229,40 @@
         (* base (/ active-size position-size))
         base))))
 
+(defn- base-position-value-basis
+  [modal]
+  (let [position-value (parse-num (:position-value modal))
+        position-size (parse-num (:position-size modal))
+        entry-price (parse-num (:entry-price modal))]
+    (cond
+      (positive-number? position-value) position-value
+      (and (positive-number? position-size)
+           (positive-number? entry-price)) (* position-size entry-price)
+      :else nil)))
+
+(defn- active-position-value-basis
+  [modal]
+  (let [base (base-position-value-basis modal)
+        {:keys [active-size position-size]} (parsed-inputs modal)]
+    (when (and (positive-number? base)
+               (positive-number? active-size))
+      (if (positive-number? position-size)
+        (* base (/ active-size position-size))
+        base))))
+
+(defn- normalize-percent-mode
+  [mode]
+  (let [normalized (position-tpsl-state/normalize-pnl-input-mode mode)]
+    (if (position-tpsl-state/percent-pnl-input-mode? normalized)
+      normalized
+      :roe-percent)))
+
+(defn- active-percent-basis
+  [modal percent-mode]
+  (case (normalize-percent-mode percent-mode)
+    :position-percent (active-position-value-basis modal)
+    (active-margin-basis modal)))
+
 (defn active-size [modal]
   (let [{:keys [active-size]} (parsed-inputs modal)]
     (if (positive-number? active-size)
@@ -277,21 +311,46 @@
              (* size (- entry sl))))
       0)))
 
+(defn- pnl-usd->percent
+  [pnl-usd basis]
+  (if (and (positive-number? pnl-usd)
+           (positive-number? basis))
+    (* 100 (/ pnl-usd basis))
+    0))
+
+(defn estimated-gain-roe-percent [modal]
+  (pnl-usd->percent (estimated-gain-usd modal)
+                    (active-margin-basis modal)))
+
+(defn estimated-loss-roe-percent [modal]
+  (pnl-usd->percent (estimated-loss-usd modal)
+                    (active-margin-basis modal)))
+
+(defn estimated-gain-position-percent [modal]
+  (pnl-usd->percent (estimated-gain-usd modal)
+                    (active-position-value-basis modal)))
+
+(defn estimated-loss-position-percent [modal]
+  (pnl-usd->percent (estimated-loss-usd modal)
+                    (active-position-value-basis modal)))
+
 (defn estimated-gain-percent [modal]
-  (let [gain-usd (estimated-gain-usd modal)
-        margin-basis (active-margin-basis modal)]
-    (if (and (positive-number? gain-usd)
-             (positive-number? margin-basis))
-      (* 100 (/ gain-usd margin-basis))
-      0)))
+  (estimated-gain-roe-percent modal))
 
 (defn estimated-loss-percent [modal]
-  (let [loss-usd (estimated-loss-usd modal)
-        margin-basis (active-margin-basis modal)]
-    (if (and (positive-number? loss-usd)
-             (positive-number? margin-basis))
-      (* 100 (/ loss-usd margin-basis))
-      0)))
+  (estimated-loss-roe-percent modal))
+
+(defn estimated-gain-percent-for-mode
+  [modal pnl-mode]
+  (case (normalize-percent-mode pnl-mode)
+    :position-percent (estimated-gain-position-percent modal)
+    (estimated-gain-roe-percent modal)))
+
+(defn estimated-loss-percent-for-mode
+  [modal pnl-mode]
+  (case (normalize-percent-mode pnl-mode)
+    :position-percent (estimated-loss-position-percent modal)
+    (estimated-loss-roe-percent modal)))
 
 (defn valid-size?
   [modal]
@@ -328,38 +387,81 @@
       "")))
 
 (defn- pnl-percent->usd
-  [modal pnl-percent]
+  [modal pnl-percent percent-mode]
   (when (non-negative-number? pnl-percent)
-    (when-let [margin-basis (active-margin-basis modal)]
-      (* margin-basis (/ pnl-percent 100)))))
+    (when-let [basis (active-percent-basis modal percent-mode)]
+      (* basis (/ pnl-percent 100)))))
 
 (defn pnl-percent-input->price-text
-  [modal raw-value mode]
-  (let [raw-text (position-tpsl-state/normalize-input-text raw-value)
-        percent-value (parse-num raw-text)]
-    (if (and (not (str/blank? raw-text))
-             (number? percent-value))
-      (if-let [pnl-usd (pnl-percent->usd modal percent-value)]
-        (if-let [price (pnl->price modal pnl-usd mode)]
-          (trading-domain/number->clean-string price 8)
-          "")
-        "")
-      "")))
+  ([modal raw-value mode]
+   (pnl-percent-input->price-text modal raw-value mode :roe-percent))
+  ([modal raw-value mode percent-mode]
+   (let [raw-text (position-tpsl-state/normalize-input-text raw-value)
+         percent-value (parse-num raw-text)]
+     (if (and (not (str/blank? raw-text))
+              (number? percent-value))
+       (if-let [pnl-usd (pnl-percent->usd modal percent-value percent-mode)]
+         (if-let [price (pnl->price modal pnl-usd mode)]
+           (trading-domain/number->clean-string price 8)
+           "")
+         "")
+       ""))))
 
-(defn resolve-next-pnl-input-mode [current-mode raw-command]
+(defn pnl-mode-unit-token
+  [mode]
+  (case (position-tpsl-state/normalize-pnl-input-mode mode)
+    :roe-percent "%(E)"
+    :position-percent "%(P)"
+    "$"))
+
+(defn pnl-mode-menu-label
+  [mode]
+  (case (position-tpsl-state/normalize-pnl-input-mode mode)
+    :roe-percent "%(E): percent of margin/equity used (ROE)."
+    :position-percent "%(P): percent of position value (notional)."
+    "$: profit/loss in USDC."))
+
+(defn pnl-mode-option-label
+  [mode]
+  (case (position-tpsl-state/normalize-pnl-input-mode mode)
+    :roe-percent "%(E)"
+    :position-percent "%(P)"
+    "$"))
+
+(defn- normalize-pnl-mode-command
+  [raw-command]
   (let [as-keyword (cond
                      (keyword? raw-command) raw-command
                      (string? raw-command) (keyword (str/lower-case (str/trim raw-command)))
-                     :else nil)
-        command (case as-keyword
-                  :toggle :toggle
-                  :usd :usd
-                  :percent :percent
-                  nil)]
-    (case command
-      :toggle (if (= (position-tpsl-state/normalize-pnl-input-mode current-mode) :percent)
-                :usd
-                :percent)
+                     :else nil)]
+    (case as-keyword
+      :toggle :toggle
       :usd :usd
-      :percent :percent
+      :roe-percent :roe-percent
+      :position-percent :position-percent
+      ;; Legacy command compatibility.
+      :percent :roe-percent
+      nil)))
+
+(def ^:private pnl-mode-toggle-cycle
+  [:usd :roe-percent :position-percent])
+
+(defn- toggle-pnl-input-mode
+  [current-mode]
+  (let [normalized (position-tpsl-state/normalize-pnl-input-mode current-mode)
+        current-index (or (first (keep-indexed (fn [i v]
+                                                 (when (= v normalized)
+                                                   i))
+                                               pnl-mode-toggle-cycle))
+                          0)
+        next-index (mod (inc current-index) (count pnl-mode-toggle-cycle))]
+    (nth pnl-mode-toggle-cycle next-index)))
+
+(defn resolve-next-pnl-input-mode [current-mode raw-command]
+  (let [command (normalize-pnl-mode-command raw-command)]
+    (case command
+      :toggle (toggle-pnl-input-mode current-mode)
+      :usd :usd
+      :roe-percent :roe-percent
+      :position-percent :position-percent
       (position-tpsl-state/normalize-pnl-input-mode current-mode))))

@@ -26,6 +26,8 @@ If guidance conflicts, this document wins for UI runtime behavior and invariant 
 - MUST define a single owner per projection path in a flow (`:active-asset`, `:selected-asset`, `:active-market`) and avoid redundant writers unless explicitly documented and tested.
 - MUST represent multi-token Replicant `:class` values as collections (for example `["opacity-0" "scale-y-95"]`) and MUST NOT use space-separated class strings in `:class`.
 - MUST represent Hiccup `:style` map keys as keywords (including CSS custom properties, for example `:--order-size-slider-progress`) and MUST NOT use string keys.
+- MUST keep interactive accessories inside text-input shells borderless and visually integrated (for example TP/SL unit controls inside Gain/Loss rows), and MUST NOT render a second nested bordered control inside the same input shell.
+- MUST suppress browser-default blue focus styles for accessory controls and use project-neutral focus classes (`focus:outline-none`, `focus:ring-0`, `focus:ring-offset-0`) unless an accessibility exception is explicitly documented and tested.
 - MUST render namespaced instrument identifiers in UI tables as base symbol text plus a prefix/type chip (for example `xyz:NVDA` -> `NVDA` + `xyz` chip), and MUST NOT render the raw concatenated identifier as the primary display label.
 - MUST render quantity/size symbol suffixes using the base symbol only (for example `0.500 NVDA`), and MUST NOT include namespace/type prefixes in size strings.
 

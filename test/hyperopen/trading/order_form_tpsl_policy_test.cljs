@@ -4,11 +4,15 @@
 
 (deftest normalize-unit-supports-keywords-strings-and-booleans-test
   (is (= :usd (policy/normalize-unit :usd)))
-  (is (= :percent (policy/normalize-unit :percent)))
+  (is (= :roe-percent (policy/normalize-unit :percent)))
+  (is (= :roe-percent (policy/normalize-unit :roe-percent)))
+  (is (= :position-percent (policy/normalize-unit :position-percent)))
   (is (= :usd (policy/normalize-unit "usd")))
-  (is (= :percent (policy/normalize-unit "percent")))
+  (is (= :roe-percent (policy/normalize-unit "percent")))
+  (is (= :roe-percent (policy/normalize-unit "roe-percent")))
+  (is (= :position-percent (policy/normalize-unit "position-percent")))
   (is (= :usd (policy/normalize-unit true)))
-  (is (= :percent (policy/normalize-unit false)))
+  (is (= :roe-percent (policy/normalize-unit false)))
   (is (= :usd (policy/normalize-unit :unknown))))
 
 (deftest tpsl-offset-display-and-trigger-conversion-usd-mode-test
@@ -34,21 +38,37 @@
                                             :inverse true
                                             :unit :usd}))))
 
-(deftest tpsl-offset-display-and-trigger-conversion-percent-mode-test
+(deftest tpsl-offset-display-and-trigger-conversion-roe-percent-mode-test
   (is (= "20"
          (policy/offset-display-from-trigger {:trigger "101"
                                               :baseline 100
                                               :size 2
                                               :leverage 20
                                               :inverse false
-                                              :unit :percent})))
+                                              :unit :roe-percent})))
   (is (= "99"
          (policy/trigger-from-offset-input {:raw-input "20"
                                             :baseline 100
                                             :size 2
                                             :leverage 20
                                             :inverse true
-                                            :unit :percent}))))
+                                            :unit :roe-percent}))))
+
+(deftest tpsl-offset-display-and-trigger-conversion-position-percent-mode-test
+  (is (= "2"
+         (policy/offset-display-from-trigger {:trigger "102"
+                                              :baseline 100
+                                              :size 2
+                                              :leverage 20
+                                              :inverse false
+                                              :unit :position-percent})))
+  (is (= "98"
+         (policy/trigger-from-offset-input {:raw-input "2"
+                                            :baseline 100
+                                            :size 2
+                                            :leverage 20
+                                            :inverse true
+                                            :unit :position-percent}))))
 
 (deftest tpsl-offset-display-avoids-float-precision-regression-test
   (is (= "1"
@@ -73,7 +93,7 @@
                                             :size 2
                                             :leverage 45
                                             :inverse true
-                                            :unit :percent}))))
+                                            :unit :roe-percent}))))
 
 (deftest tpsl-offset-display-preserves-raw-input-when-math-roundtrip-matches-trigger-test
   (let [params {:baseline 0.62095

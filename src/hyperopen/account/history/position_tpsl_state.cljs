@@ -64,9 +64,20 @@
                      (keyword? value) value
                      (string? value) (keyword (str/lower-case (str/trim value)))
                      :else nil)]
-    (if (= as-keyword :percent)
-      :percent
+    (case as-keyword
+      :usd :usd
+      :roe-percent :roe-percent
+      :position-percent :position-percent
+      ;; Legacy compatibility: historical :percent mode represented ROE%.
+      :percent :roe-percent
+      :roe :roe-percent
+      :position :position-percent
       pnl-input-mode-default)))
+
+(defn percent-pnl-input-mode?
+  [value]
+  (contains? #{:roe-percent :position-percent}
+             (normalize-pnl-input-mode value)))
 
 (defn tp-gain-mode [modal]
   (normalize-pnl-input-mode (:tp-gain-mode modal)))

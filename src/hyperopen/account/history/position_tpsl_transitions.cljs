@@ -71,13 +71,13 @@
       {}
       {:tp (when (position-tpsl-policy/positive-number? tp-price)
              {:mode gain-mode
-              :value (if (= gain-mode :percent)
-                       (position-tpsl-policy/estimated-gain-percent modal)
+              :value (if (position-tpsl-state/percent-pnl-input-mode? gain-mode)
+                       (position-tpsl-policy/estimated-gain-percent-for-mode modal gain-mode)
                        (position-tpsl-policy/estimated-gain-usd modal))})
        :sl (when (position-tpsl-policy/positive-number? sl-price)
              {:mode loss-mode
-              :value (if (= loss-mode :percent)
-                       (position-tpsl-policy/estimated-loss-percent modal)
+              :value (if (position-tpsl-state/percent-pnl-input-mode? loss-mode)
+                       (position-tpsl-policy/estimated-loss-percent-for-mode modal loss-mode)
                        (position-tpsl-policy/estimated-loss-usd modal))})})))
 
 (defn- target-value->input-text
@@ -88,12 +88,9 @@
 (defn- target->price-text
   [modal side {:keys [mode value]}]
   (when-let [input-text (target-value->input-text value)]
-    ((if (= mode :percent)
-       position-tpsl-policy/pnl-percent-input->price-text
-       position-tpsl-policy/pnl-input->price-text)
-     modal
-     input-text
-     side)))
+    (if (position-tpsl-state/percent-pnl-input-mode? mode)
+      (position-tpsl-policy/pnl-percent-input->price-text modal input-text side mode)
+      (position-tpsl-policy/pnl-input->price-text modal input-text side))))
 
 (defn- reprice-configured-size-targets
   [modal targets]
@@ -147,22 +144,26 @@
 
       (= path* [:tp-gain])
       (-> modal
-          (assoc :tp-price ((if (= (position-tpsl-state/tp-gain-mode modal) :percent)
-                              position-tpsl-policy/pnl-percent-input->price-text
-                              position-tpsl-policy/pnl-input->price-text)
-                            modal
-                            value*
-                            :tp))
+          (assoc :tp-price (let [gain-mode (position-tpsl-state/tp-gain-mode modal)]
+                             (if (position-tpsl-state/percent-pnl-input-mode? gain-mode)
+                               (position-tpsl-policy/pnl-percent-input->price-text
+                                modal
+                                value*
+                                :tp
+                                gain-mode)
+                               (position-tpsl-policy/pnl-input->price-text modal value* :tp))))
           (assoc :error nil))
 
       (= path* [:sl-loss])
       (-> modal
-          (assoc :sl-price ((if (= (position-tpsl-state/sl-loss-mode modal) :percent)
-                              position-tpsl-policy/pnl-percent-input->price-text
-                              position-tpsl-policy/pnl-input->price-text)
-                            modal
-                            value*
-                            :sl))
+          (assoc :sl-price (let [loss-mode (position-tpsl-state/sl-loss-mode modal)]
+                             (if (position-tpsl-state/percent-pnl-input-mode? loss-mode)
+                               (position-tpsl-policy/pnl-percent-input->price-text
+                                modal
+                                value*
+                                :sl
+                                loss-mode)
+                               (position-tpsl-policy/pnl-input->price-text modal value* :sl))))
           (assoc :error nil))
 
       :else

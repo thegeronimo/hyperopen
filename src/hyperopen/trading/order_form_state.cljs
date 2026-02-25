@@ -1,5 +1,6 @@
 (ns hyperopen.trading.order-form-state
-  (:require [hyperopen.domain.trading :as trading-domain]))
+  (:require [clojure.string :as str]
+            [hyperopen.domain.trading :as trading-domain]))
 
 (def default-scale-order-count 5)
 (def default-scale-skew "1.00")
@@ -17,7 +18,7 @@
   #{:manual :percent})
 
 (def valid-tpsl-units
-  #{:usd :percent})
+  #{:usd :roe-percent :position-percent})
 
 (defn normalize-size-input-mode [mode]
   (let [candidate (cond
@@ -40,13 +41,15 @@
 (defn normalize-tpsl-unit [unit]
   (let [candidate (cond
                     (keyword? unit) unit
-                    (string? unit) (keyword unit)
+                    (string? unit) (keyword (str/lower-case unit))
                     (true? unit) :usd
-                    (false? unit) :percent
+                    (false? unit) :roe-percent
                     :else default-tpsl-unit)]
-    (if (contains? valid-tpsl-units candidate)
-      candidate
-      default-tpsl-unit)))
+    (cond
+      (contains? valid-tpsl-units candidate) candidate
+      ;; Legacy compatibility: :percent historically meant ROE%.
+      (= candidate :percent) :roe-percent
+      :else default-tpsl-unit)))
 
 (defn default-order-form []
   {:type :limit

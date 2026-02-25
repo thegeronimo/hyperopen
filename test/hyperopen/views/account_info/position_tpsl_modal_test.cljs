@@ -129,42 +129,76 @@
       (is (fn? (get-in input-node [1 :on :focus])))
       (is (fn? (get-in input-node [1 :on :click])))
       (is (nil? (get-in input-node [1 :on-focus])))
-      (is (nil? (get-in input-node [1 :on-click]))))))
+      (is (nil? (get-in input-node [1 :on-click])))
+      (let [classes (hiccup/node-class-set input-node)]
+        (is (contains? classes "text-right"))
+        (is (contains? classes "pr-[64px]"))))))
 
-(deftest position-tpsl-modal-unit-toggle-buttons-dispatch-mode-toggle-actions-test
+(deftest position-tpsl-modal-unit-selectors-dispatch-mode-update-actions-test
   (let [modal-view (sample-modal-view)
-        gain-toggle (hiccup/find-first-node
+        gain-select (hiccup/find-first-node
                      modal-view
-                     #(= "Toggle gain unit" (get-in % [1 :aria-label])))
-        loss-toggle (hiccup/find-first-node
+                     #(and (= :select (first %))
+                           (= "Gain unit" (get-in % [1 :aria-label]))))
+        loss-select (hiccup/find-first-node
                      modal-view
-                     #(= "Toggle loss unit" (get-in % [1 :aria-label])))]
-    (is (= [[:actions/set-position-tpsl-modal-field [:tp-gain-mode] :toggle]]
-           (get-in gain-toggle [1 :on :click])))
-    (is (= [[:actions/set-position-tpsl-modal-field [:sl-loss-mode] :toggle]]
-           (get-in loss-toggle [1 :on :click])))))
+                     #(and (= :select (first %))
+                           (= "Loss unit" (get-in % [1 :aria-label]))))
+        option-labels (set (hiccup/collect-strings gain-select))]
+    (is (= [[:actions/set-position-tpsl-modal-field [:tp-gain-mode] [:event.target/value]]]
+           (get-in gain-select [1 :on :change])))
+    (is (= [[:actions/set-position-tpsl-modal-field [:sl-loss-mode] [:event.target/value]]]
+           (get-in loss-select [1 :on :change])))
+    (is (contains? option-labels "$"))
+    (is (contains? option-labels "%(E)"))
+    (is (contains? option-labels "%(P)"))
+    (is (= "$: profit/loss in USDC."
+           (get-in gain-select [1 :title])))))
+
+(deftest position-tpsl-modal-unit-selectors-are-borderless-and-focus-neutral-test
+  (let [modal-view (sample-modal-view)
+        unit-selects (hiccup/find-all-nodes
+                      modal-view
+                      #(and (= :select (first %))
+                            (#{"Gain unit" "Loss unit"} (get-in % [1 :aria-label]))))]
+    (is (= 2 (count unit-selects)))
+    (doseq [select-node unit-selects]
+      (let [classes (hiccup/node-class-set select-node)]
+        (is (contains? classes "border-0"))
+        (is (contains? classes "focus:outline-none"))
+        (is (contains? classes "focus:ring-0"))
+        (is (contains? classes "text-left"))
+        (is (contains? classes "pr-5"))
+        (is (not (contains? classes "border")))
+        (is (not (contains? classes "border-base-300")))))))
 
 (deftest position-tpsl-modal-expected-profit-swaps-between-percent-and-usdc-test
   (let [base-modal (-> (position-tpsl/from-position-row
                         (fixtures/sample-position-row "xyz:NVDA" 10 "0.500"))
                        (assoc :tp-price "12"))
-        percent-mode-modal (position-tpsl/set-modal-field base-modal [:tp-gain-mode] :toggle)
+        roe-mode-modal (position-tpsl/set-modal-field base-modal [:tp-gain-mode] :roe-percent)
+        position-mode-modal (position-tpsl/set-modal-field base-modal [:tp-gain-mode] :position-percent)
         usd-mode-strings (set (hiccup/collect-strings (position-tpsl-modal/position-tpsl-modal-view base-modal)))
-        percent-mode-strings (set (hiccup/collect-strings (position-tpsl-modal/position-tpsl-modal-view percent-mode-modal)))]
+        roe-mode-strings (set (hiccup/collect-strings (position-tpsl-modal/position-tpsl-modal-view roe-mode-modal)))
+        position-mode-strings (set (hiccup/collect-strings (position-tpsl-modal/position-tpsl-modal-view position-mode-modal)))]
     (is (contains? usd-mode-strings "Expected profit:"))
-    (is (contains? usd-mode-strings "8.33%"))
-    (is (contains? percent-mode-strings "1.00 USDC"))))
+    (is (contains? usd-mode-strings "1% Position | 8.33% ROE"))
+    (is (contains? roe-mode-strings "1.00 USDC | 1% Position"))
+    (is (contains? position-mode-strings "1.00 USDC | 8.33% ROE"))))
 
 (deftest position-tpsl-modal-expected-loss-swaps-between-percent-and-usdc-test
   (let [base-modal (-> (position-tpsl/from-position-row
                         (fixtures/sample-position-row "xyz:NVDA" 10 "0.500"))
                        (assoc :sl-price "8"))
-        percent-mode-modal (position-tpsl/set-modal-field base-modal [:sl-loss-mode] :toggle)
+        roe-mode-modal (position-tpsl/set-modal-field base-modal [:sl-loss-mode] :roe-percent)
+        position-mode-modal (position-tpsl/set-modal-field base-modal [:sl-loss-mode] :position-percent)
         usd-mode-strings (set (hiccup/collect-strings (position-tpsl-modal/position-tpsl-modal-view base-modal)))
-        percent-mode-strings (set (hiccup/collect-strings (position-tpsl-modal/position-tpsl-modal-view percent-mode-modal)))]
+        roe-mode-strings (set (hiccup/collect-strings (position-tpsl-modal/position-tpsl-modal-view roe-mode-modal)))
+        position-mode-strings (set (hiccup/collect-strings (position-tpsl-modal/position-tpsl-modal-view position-mode-modal)))]
     (is (contains? usd-mode-strings "Expected loss:"))
-    (is (contains? usd-mode-strings "8.33%"))
-    (is (contains? percent-mode-strings "1.00 USDC"))))
+    (is (contains? usd-mode-strings "1% Position | 8.33% ROE"))
+    (is (contains? roe-mode-strings "1.00 USDC | 1% Position"))
+    (is (contains? position-mode-strings "1.00 USDC | 8.33% ROE"))))
 
 (deftest position-tpsl-modal-hides-expected-profit-and-loss-at-zero-test
   (let [modal (position-tpsl/from-position-row

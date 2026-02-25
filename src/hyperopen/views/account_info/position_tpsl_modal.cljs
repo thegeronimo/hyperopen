@@ -61,18 +61,6 @@
             :class ["cursor-pointer" "select-none" "text-sm" "text-gray-100"]}
     label]])
 
-(defn- reverse-icon []
-  [:svg {:class ["h-3.5" "w-3.5"]
-         :viewBox "0 0 16 16"
-         :fill "none"
-         :stroke "currentColor"
-         :stroke-width "1.5"
-         :aria-hidden "true"}
-   [:path {:d "M2 4h9"}]
-   [:path {:d "M9.5 2.5L11 4 9.5 5.5"}]
-   [:path {:d "M14 12H5"}]
-   [:path {:d "M6.5 10.5L5 12l1.5 1.5"}]])
-
 (def ^:private neutral-input-focus-classes
   ["outline-none"
    "transition-[border-color,box-shadow]"
@@ -88,10 +76,41 @@
    "focus:shadow-none"
    "focus:border-[#8a96a6]"])
 
+(def ^:private pnl-mode-options
+  [:usd :roe-percent :position-percent])
+
+(defn- pnl-mode-select
+  [mode path aria-label]
+  [:div {:class ["relative" "w-[58px]"]}
+   [:select {:class ["h-7"
+                     "w-full"
+                     "border-0"
+                     "bg-transparent"
+                     "pl-1"
+                     "pr-5"
+                     "text-xs"
+                     "font-semibold"
+                     "text-left"
+                     "truncate"
+                     "text-gray-100"
+                     "focus:outline-none"
+                     "focus:ring-0"
+                     "focus:ring-offset-0"
+                     "focus:shadow-none"]
+             :aria-label aria-label
+             :title (position-tpsl/pnl-mode-menu-label mode)
+             :value (name mode)
+             :on {:change [[:actions/set-position-tpsl-modal-field path [:event.target/value]]]}}
+    (for [option-mode pnl-mode-options]
+      ^{:key (name option-mode)}
+      [:option {:value (name option-mode)
+                :title (position-tpsl/pnl-mode-menu-label option-mode)}
+       (position-tpsl/pnl-mode-option-label option-mode)])]])
+
 (defn- input-row
   ([label value action]
    (input-row label value action {}))
-  ([label value action {:keys [unit toggle-action toggle-aria-label select-on-focus?]}]
+  ([label value action {:keys [unit-control select-on-focus?]}]
    [:div {:class ["relative" "w-full"]}
     [:span {:class ["pointer-events-none"
                     "absolute"
@@ -108,7 +127,7 @@
                                    "border-base-300"
                                    "bg-base-200"
                                    "pl-24"
-                                   (if unit "pr-20" "pr-3")
+                                   (if unit-control "pr-[64px]" "pr-3")
                                    "text-right"
                                    "text-sm"
                                    "font-semibold"
@@ -122,34 +141,13 @@
               select-on-focus? (update :on (fnil merge {})
                                        {:focus select-input-value!
                                         :click select-input-value!}))]
-    (when unit
+    (when unit-control
       [:div {:class ["absolute"
                      "right-2"
                      "top-1/2"
                      "-translate-y-1/2"
-                     "flex"
-                     "items-center"
-                     "gap-1.5"]}
-       [:span {:class ["text-sm" "font-semibold" "text-gray-400"]} unit]
-       (when toggle-action
-         [:button {:type "button"
-                   :class ["inline-flex"
-                           "h-6"
-                           "w-6"
-                           "items-center"
-                           "justify-center"
-                           "rounded-md"
-                           "text-gray-400"
-                           "hover:bg-base-300"
-                           "hover:text-gray-200"
-                           "focus:outline-none"
-                           "focus:ring-1"
-                           "focus:ring-[#8a96a6]/40"
-                           "focus:ring-offset-0"
-                           "focus:shadow-none"]
-                   :aria-label (or toggle-aria-label "Reverse input mode")
-                   :on {:click toggle-action}}
-          (reverse-icon)])])]))
+                     "z-10"]}
+       unit-control])]))
 
 (defn- configure-amount-input-row
   [size-input coin]
@@ -334,6 +332,22 @@
      :width (str panel-width "px")
      :max-height (str available-above "px")}))
 
+(defn- expected-pnl-text
+  [mode usd-value roe-percent position-percent]
+  (case mode
+    :usd (str (percent-text position-percent)
+              "% Position | "
+              (percent-text roe-percent)
+              "% ROE")
+    :position-percent (str (shared/format-currency usd-value)
+                           " USDC | "
+                           (percent-text roe-percent)
+                           "% ROE")
+    (str (shared/format-currency usd-value)
+         " USDC | "
+         (percent-text position-percent)
+         "% Position")))
+
 (defn position-tpsl-modal-view
   [modal]
   (let [modal* (or modal (position-tpsl/default-modal-state))]
@@ -349,23 +363,21 @@
             position-size (:position-size modal*)
             gain (position-tpsl/estimated-gain-usd modal*)
             loss (position-tpsl/estimated-loss-usd modal*)
-            gain-percent (position-tpsl/estimated-gain-percent modal*)
-            loss-percent (position-tpsl/estimated-loss-percent modal*)
+            gain-roe-percent (position-tpsl/estimated-gain-roe-percent modal*)
+            loss-roe-percent (position-tpsl/estimated-loss-roe-percent modal*)
+            gain-position-percent (position-tpsl/estimated-gain-position-percent modal*)
+            loss-position-percent (position-tpsl/estimated-loss-position-percent modal*)
             gain-mode (position-tpsl/tp-gain-mode modal*)
             loss-mode (position-tpsl/sl-loss-mode modal*)
             configure-size-percent (position-tpsl/configured-size-percent modal*)
-            gain-input-value (if (= gain-mode :percent)
-                               (percent-text gain-percent)
+            gain-input-value (if (not= gain-mode :usd)
+                               (percent-text (position-tpsl/estimated-gain-percent-for-mode modal* gain-mode))
                                (usd-input-text gain))
-            loss-input-value (if (= loss-mode :percent)
-                               (percent-text loss-percent)
+            loss-input-value (if (not= loss-mode :usd)
+                               (percent-text (position-tpsl/estimated-loss-percent-for-mode modal* loss-mode))
                                (usd-input-text loss))
-            expected-profit-value (if (= gain-mode :percent)
-                                    (str (shared/format-currency gain) " USDC")
-                                    (str (percent-text gain-percent) "%"))
-            expected-loss-value (if (= loss-mode :percent)
-                                  (str (shared/format-currency loss) " USDC")
-                                  (str (percent-text loss-percent) "%"))
+            expected-profit-value (expected-pnl-text gain-mode gain gain-roe-percent gain-position-percent)
+            expected-loss-value (expected-pnl-text loss-mode loss loss-roe-percent loss-position-percent)
             layout-style (modal-layout-style modal*)]
         [:div {:class ["fixed"
                        "z-[260]"
@@ -404,10 +416,10 @@
            (input-row "Gain"
                       gain-input-value
                       [[:actions/set-position-tpsl-modal-field [:tp-gain] [:event.target/value]]]
-                      {:unit (if (= gain-mode :percent) "%" "$")
-                       :select-on-focus? true
-                       :toggle-action [[:actions/set-position-tpsl-modal-field [:tp-gain-mode] :toggle]]
-                       :toggle-aria-label "Toggle gain unit"})]
+                      {:unit-control (pnl-mode-select gain-mode
+                                                      [:tp-gain-mode]
+                                                      "Gain unit")
+                       :select-on-focus? true})]
 
           (when (pos? gain)
             [:div {:class ["flex" "justify-end" "pr-1" "text-sm"]}
@@ -429,10 +441,10 @@
            (input-row "Loss"
                       loss-input-value
                       [[:actions/set-position-tpsl-modal-field [:sl-loss] [:event.target/value]]]
-                      {:unit (if (= loss-mode :percent) "%" "$")
-                       :select-on-focus? true
-                       :toggle-action [[:actions/set-position-tpsl-modal-field [:sl-loss-mode] :toggle]]
-                       :toggle-aria-label "Toggle loss unit"})]
+                      {:unit-control (pnl-mode-select loss-mode
+                                                      [:sl-loss-mode]
+                                                      "Loss unit")
+                       :select-on-focus? true})]
 
           (when (pos? loss)
             [:div {:class ["flex" "justify-end" "pr-1" "text-sm"]}
