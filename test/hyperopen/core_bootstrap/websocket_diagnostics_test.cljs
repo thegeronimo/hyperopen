@@ -248,7 +248,7 @@
           (js/Object.defineProperty js/globalThis navigator-prop original-navigator-descriptor)
           (js/Reflect.deleteProperty js/globalThis navigator-prop))))))
 
-(deftest sync-websocket-health-fingerprint-updates-and-skips-now-only-churn-test
+(deftest sync-websocket-health-fingerprint-updates-when-time-bucket-advances-test
   (async done
     (let [original-runtime-view @ws-client/runtime-view
           original-health-projection-state @ws-client/websocket-health-projection-state
@@ -298,14 +298,14 @@
           (core/sync-websocket-health! store)
           (js/setTimeout
             (fn []
-              (is (= 1000 (get-in @store [:websocket :health :generated-at-ms])))
-              (is (= 1 (:writes @ws-client/websocket-health-projection-state)))
+              (is (= 2000 (get-in @store [:websocket :health :generated-at-ms])))
+              (is (= 2 (:writes @ws-client/websocket-health-projection-state)))
               (swap! ws-client/runtime-view assoc-in [:connection :transport/freshness] :delayed)
               (core/sync-websocket-health! store)
               (js/setTimeout
                 (fn []
                   (try
-                    (is (= 2 (:writes @ws-client/websocket-health-projection-state)))
+                    (is (= 3 (:writes @ws-client/websocket-health-projection-state)))
                     (finally
                       (reset! ws-client/runtime-view original-runtime-view)
                       (reset! ws-client/websocket-health-projection-state original-health-projection-state)

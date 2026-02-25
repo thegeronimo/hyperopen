@@ -103,6 +103,14 @@
    :orders_oms {:worst-status :idle :gap-detected? false}
    :account {:worst-status :idle :gap-detected? false}})
 
+(def ^:private health-fingerprint-time-bucket-ms
+  1000)
+
+(defn- health-fingerprint-time-bucket
+  [at-ms]
+  (when (number? at-ms)
+    (quot at-ms health-fingerprint-time-bucket-ms)))
+
 (defn- health-projection-interval-ms
   [state]
   (max 1
@@ -136,7 +144,8 @@
 (defn- projection-health-fingerprint
   [state]
   (let [groups (rollup-stream-groups (:streams state))]
-    {:transport/state (:status state)
+    {:clock/second (health-fingerprint-time-bucket (:now-ms state))
+     :transport/state (:status state)
      :transport/freshness (get-in state [:transport :freshness])
      :groups/orders_oms (get-in groups [:orders_oms :worst-status])
      :groups/market_data (get-in groups [:market_data :worst-status])

@@ -39,11 +39,8 @@
        (filter #(= fx-type (:fx/type %)))
        (mapv :timer-key)))
 
-(defn- stream-health-fingerprint [effects]
-  (->> effects
-       (filter #(= :fx/project-runtime-view (:fx/type %)))
-       last
-       (get-in [:runtime-view :stream :health-fingerprint])))
+(defn- stream-health-fingerprint [runtime-result]
+  (get-in runtime-result [:state :health-projection-fingerprint]))
 
 (defn- projection-fingerprint [effects fx-type]
   (->> effects
@@ -276,7 +273,7 @@
                                                         100
                                                         {:data {:method "subscribe"
                                                                 :subscription sub}}))
-        baseline-fingerprint (stream-health-fingerprint (:effects subscribed-result))
+        baseline-fingerprint (stream-health-fingerprint subscribed-result)
         fast-update-1 (step (:state subscribed-result)
                             (model/make-runtime-msg :evt/decoded-envelope
                                                     700
@@ -299,9 +296,9 @@
                                                                           :seq 3}}}))
         refreshed-result (step (:state fast-update-2)
                                (model/make-runtime-msg :evt/timer-health-tick 12000 {:now-ms 12000}))
-        fast-fingerprint-1 (stream-health-fingerprint (:effects fast-update-1))
-        fast-fingerprint-2 (stream-health-fingerprint (:effects fast-update-2))
-        refreshed-fingerprint (stream-health-fingerprint (:effects refreshed-result))]
+        fast-fingerprint-1 (stream-health-fingerprint fast-update-1)
+        fast-fingerprint-2 (stream-health-fingerprint fast-update-2)
+        refreshed-fingerprint (stream-health-fingerprint refreshed-result)]
     (testing "Health refresh metadata is held stable across sub-interval envelope bursts"
       (is (= 100 (get-in subscribed-result [:state :health-projection-last-refresh-at-ms])))
       (is (= 100 (get-in fast-update-2 [:state :health-projection-last-refresh-at-ms])))
@@ -309,7 +306,7 @@
     (testing "Projected health fingerprint stays stable until the interval refresh runs"
       (is (= baseline-fingerprint fast-fingerprint-1))
       (is (= baseline-fingerprint fast-fingerprint-2))
-      (is (= baseline-fingerprint refreshed-fingerprint)))
+      (is (not= baseline-fingerprint refreshed-fingerprint)))
     (testing "Transport hysteresis pending status advances only when refresh runs"
       (is (= :live (get-in subscribed-result [:state :transport :freshness-pending-status])))
       (is (= :live (get-in fast-update-2 [:state :transport :freshness-pending-status])))

@@ -1,8 +1,17 @@
 (ns hyperopen.websocket.health-projection)
 
+(def ^:private fingerprint-time-bucket-ms
+  1000)
+
+(defn- fingerprint-time-bucket
+  [at-ms]
+  (when (number? at-ms)
+    (quot at-ms fingerprint-time-bucket-ms)))
+
 (defn websocket-health-fingerprint
   [health]
-  {:transport/state (get-in health [:transport :state])
+  {:clock/second (fingerprint-time-bucket (:generated-at-ms health))
+   :transport/state (get-in health [:transport :state])
    :transport/freshness (get-in health [:transport :freshness])
    :groups/orders_oms (get-in health [:groups :orders_oms :worst-status])
    :groups/market_data (get-in health [:groups :market_data :worst-status])

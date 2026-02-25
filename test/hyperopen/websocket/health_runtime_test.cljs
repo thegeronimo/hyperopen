@@ -18,7 +18,7 @@
   (is (= 9999999999999
          (health-runtime/effective-now-ms 9999999999999))))
 
-(deftest sync-websocket-health-skips-now-only-churn-by-fingerprint-test
+(deftest sync-websocket-health-refreshes-when-time-bucket-advances-test
   (let [store (atom {:websocket {:health {}}
                      :websocket-ui {:reset-in-progress? false
                                     :diagnostics-timeline []}})
@@ -50,11 +50,11 @@
     (is (= 1000 (get-in @store [:websocket :health :generated-at-ms])))
     (is (= 1 (:writes @projection-state)))
     (sync!)
-    (is (= 1000 (get-in @store [:websocket :health :generated-at-ms])))
-    (is (= 1 (:writes @projection-state)))
+    (is (= 2000 (get-in @store [:websocket :health :generated-at-ms])))
+    (is (= 2 (:writes @projection-state)))
     (sync!)
     (is (= 3000 (get-in @store [:websocket :health :generated-at-ms])))
-    (is (= 2 (:writes @projection-state)))
+    (is (= 3 (:writes @projection-state)))
     (is (empty? @dispatches))
     (is (empty? @diagnostics))))
 
