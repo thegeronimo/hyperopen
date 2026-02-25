@@ -120,6 +120,8 @@
    :hide-small-balances? false
    :balances-sort {:column nil :direction :asc}
    :positions-sort {:column nil :direction :asc}
+   :positions {:direction-filter :all
+               :filter-open? false}
    :open-orders-sort {:column "Time" :direction :desc}
    :open-orders {:direction-filter :all
                  :filter-open? false}

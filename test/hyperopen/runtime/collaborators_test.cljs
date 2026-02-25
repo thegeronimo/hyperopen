@@ -39,6 +39,8 @@
                     (get-in deps [:chart :hide-volume-indicator])))
     (is (identical? account-history-actions/select-account-info-tab
                     (get-in deps [:account-history :select-account-info-tab])))
+    (is (identical? account-history-actions/toggle-positions-direction-filter-open
+                    (get-in deps [:account-history :toggle-positions-direction-filter-open])))
     (is (identical? order-actions/submit-order
                     (get-in deps [:orders :submit-order])))))
 

@@ -41,6 +41,8 @@
     (is (= 1 (count (:funding-history-rows view-model))))
     (is (= 1 (count (:order-history-rows view-model))))
     (is (empty? (:open-orders view-model)))
+    (is (= :all (get-in view-model [:positions-state :direction-filter])))
+    (is (false? (get-in view-model [:positions-state :filter-open?])))
     (is (= :all (get-in view-model [:open-orders-state :direction-filter])))
     (is (false? (get-in view-model [:open-orders-state :filter-open?])))
     (is (= {"xyz:NVDA" {:coin "xyz:NVDA"
@@ -50,6 +52,20 @@
                         :symbol "NVDA/USDC"}}
            (get-in view-model [:order-history-state :market-by-key])))
     (is (= 1 (get-in view-model [:tab-counts :open-orders])))))
+
+(deftest account-info-vm-keeps-positions-filter-state-when-present-test
+  (let [state {:account-info {:selected-tab :positions
+                              :positions {:direction-filter :short
+                                          :filter-open? true}}
+               :webdata2 {:clearinghouseState {:assetPositions []}}
+               :orders (base-orders)
+               :spot {:meta nil
+                      :clearinghouse-state nil}
+               :account {:mode :classic}
+               :perp-dex-clearinghouse {}}
+        view-model (vm/account-info-vm state)]
+    (is (= :short (get-in view-model [:positions-state :direction-filter])))
+    (is (true? (get-in view-model [:positions-state :filter-open?])))))
 
 (deftest account-info-vm-computes-heavy-derivations-only-for-selected-tab-test
   (let [base-state {:account-info {}

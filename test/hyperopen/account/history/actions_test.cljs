@@ -194,6 +194,20 @@
                                [[:account-info :open-orders :filter-open?] false]]]]
          (history-actions/set-open-orders-direction-filter nil "invalid-filter"))))
 
+(deftest positions-direction-filter-actions-normalize-and-close-dropdown-test
+  (is (= [[:effects/save [:account-info :positions :filter-open?] true]]
+         (history-actions/toggle-positions-direction-filter-open
+          {:account-info {:positions {:filter-open? false}}})))
+  (is (= [[:effects/save [:account-info :positions :filter-open?] false]]
+         (history-actions/toggle-positions-direction-filter-open
+          {:account-info {:positions {:filter-open? true}}})))
+  (is (= [[:effects/save-many [[[:account-info :positions :direction-filter] :short]
+                               [[:account-info :positions :filter-open?] false]]]]
+         (history-actions/set-positions-direction-filter nil "ShOrT")))
+  (is (= [[:effects/save-many [[[:account-info :positions :direction-filter] :all]
+                               [[:account-info :positions :filter-open?] false]]]]
+         (history-actions/set-positions-direction-filter nil "invalid-filter"))))
+
 (deftest trade-history-direction-filter-actions-normalize-close-dropdown-and-reset-pagination-test
   (is (= [[:effects/save [:account-info :trade-history :filter-open?] true]]
          (history-actions/toggle-trade-history-direction-filter-open

@@ -12,6 +12,14 @@
    [:div.text-lg.font-medium message]
    [:div.text-sm.opacity-70.mt-2 "No data available"]])
 
+(def positions-direction-filter-options
+  [[:all "All"]
+   [:long "Long"]
+   [:short "Short"]])
+
+(def positions-direction-filter-labels
+  (into {} positions-direction-filter-options))
+
 (defn calculate-mark-price [position-data]
   (or (:markPx position-data)
       (:markPrice position-data)
@@ -35,6 +43,28 @@
       (and (number? size-num) (neg? size-num)) :short
       (and (number? size-num) (pos? size-num)) :long
       :else :flat)))
+
+(defn positions-direction-filter-key [positions-state]
+  (let [raw-direction (:direction-filter positions-state)
+        direction-filter (cond
+                           (keyword? raw-direction) raw-direction
+                           (string? raw-direction) (keyword (str/lower-case raw-direction))
+                           :else :all)]
+    (if (contains? positions-direction-filter-labels direction-filter)
+      direction-filter
+      :all)))
+
+(defn- position-entry [row]
+  (if (and (map? row) (map? (:position row)))
+    (:position row)
+    row))
+
+(defn filter-positions-by-direction [positions direction-filter]
+  (let [positions* (or positions [])]
+    (case direction-filter
+      :long (filterv #(= :long (position-side (position-entry %))) positions*)
+      :short (filterv #(= :short (position-side (position-entry %))) positions*)
+      (vec positions*))))
 
 (defn- absolute-size-text [size]
   (let [size-text (shared/non-blank-text size)]
@@ -308,18 +338,21 @@
 (defn reset-positions-sort-cache! []
   (reset! sorted-positions-cache nil))
 
-(defn- memoized-sorted-positions [positions sort-state]
+(defn- memoized-sorted-positions [positions direction-filter sort-state]
   (let [column (:column sort-state)
         direction (:direction sort-state)
         cache @sorted-positions-cache
         cache-hit? (and (map? cache)
                         (identical? positions (:positions cache))
+                        (= direction-filter (:direction-filter cache))
                         (= column (:column cache))
                         (= direction (:direction cache)))]
     (if cache-hit?
       (:result cache)
-      (let [result (vec (sort-positions-by-column positions column direction))]
+      (let [filtered (filter-positions-by-direction positions direction-filter)
+            result (vec (sort-positions-by-column filtered column direction))]
         (reset! sorted-positions-cache {:positions positions
+                                        :direction-filter direction-filter
                                         :column column
                                         :direction direction
                                         :result result})
@@ -363,12 +396,13 @@
    [:div.text-left (table/non-sortable-header "TP/SL")]])
 
 (defn- positions-tab-content-from-rows
-  [positions sort-state modal]
+  [positions sort-state modal positions-state]
   (let [positions* (or positions [])
+        direction-filter (positions-direction-filter-key positions-state)
         sorted-positions (if (seq positions*)
-                           (memoized-sorted-positions positions* sort-state)
+                           (memoized-sorted-positions positions* direction-filter sort-state)
                            [])]
-    (if (seq positions*)
+    (if (seq sorted-positions)
       (table/tab-table-content (position-table-header sort-state)
                                (for [position sorted-positions]
                                  ^{:key (position-unique-key position)}
@@ -377,17 +411,32 @@
 
 (defn positions-tab-content
   ([positions sort-state]
-   (positions-tab-content-from-rows positions sort-state nil))
+   (positions-tab-content-from-rows positions sort-state nil {}))
   ([positions-or-webdata2 sort-state modal-or-perp-dex-states]
    (if (and (map? positions-or-webdata2)
             (contains? positions-or-webdata2 :clearinghouseState))
      (positions-tab-content-from-rows
       (collect-positions positions-or-webdata2 modal-or-perp-dex-states)
       sort-state
-      nil)
-     (positions-tab-content-from-rows positions-or-webdata2 sort-state modal-or-perp-dex-states)))
-  ([webdata2 sort-state perp-dex-states modal]
+      nil
+      {})
+     (positions-tab-content-from-rows positions-or-webdata2 sort-state modal-or-perp-dex-states {})))
+  ([positions-or-webdata2 sort-state modal-or-perp-dex-states modal-or-positions-state]
+   (if (and (map? positions-or-webdata2)
+            (contains? positions-or-webdata2 :clearinghouseState))
+     (positions-tab-content-from-rows
+      (collect-positions positions-or-webdata2 modal-or-perp-dex-states)
+      sort-state
+      modal-or-positions-state
+      {})
+     (positions-tab-content-from-rows
+      positions-or-webdata2
+      sort-state
+      modal-or-perp-dex-states
+      modal-or-positions-state)))
+  ([webdata2 sort-state perp-dex-states modal positions-state]
    (positions-tab-content-from-rows
     (collect-positions webdata2 perp-dex-states)
     sort-state
-    modal)))
+    modal
+    positions-state)))

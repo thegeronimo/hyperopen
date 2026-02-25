@@ -51,6 +51,46 @@
         (view/positions-tab-content (into [] positions) desc-state)
         (is (= 3 @sort-calls))))))
 
+(deftest positions-tab-content-filters-rows-by-direction-filter-test
+  (let [rows [(fixtures/sample-position-row "LONGCOIN" 5 "1.0")
+              (fixtures/sample-position-row "SHORTA" 5 "-2.0")
+              (fixtures/sample-position-row "SHORTB" 5 "-3.0")]
+        sort-state {:column "Coin" :direction :asc}
+        all-content (view/positions-tab-content rows sort-state nil {:direction-filter :all})
+        long-content (view/positions-tab-content rows sort-state nil {:direction-filter :long})
+        short-content (view/positions-tab-content rows sort-state nil {:direction-filter :short})
+        all-row-count (count (vec (hiccup/node-children (hiccup/tab-rows-viewport-node all-content))))
+        long-row-count (count (vec (hiccup/node-children (hiccup/tab-rows-viewport-node long-content))))
+        short-row-count (count (vec (hiccup/node-children (hiccup/tab-rows-viewport-node short-content))))
+        long-text (set (hiccup/collect-strings long-content))
+        short-text (set (hiccup/collect-strings short-content))]
+    (is (= 3 all-row-count))
+    (is (= 1 long-row-count))
+    (is (= 2 short-row-count))
+    (is (contains? long-text "LONGCOIN"))
+    (is (not (contains? long-text "SHORTA")))
+    (is (not (contains? long-text "SHORTB")))
+    (is (contains? short-text "SHORTA"))
+    (is (contains? short-text "SHORTB"))
+    (is (not (contains? short-text "LONGCOIN")))))
+
+(deftest positions-tab-content-re-sorts-when-direction-filter-changes-test
+  (let [rows [(fixtures/sample-position-row "ETH" 5 "1.0")
+              (fixtures/sample-position-row "BTC" 5 "-1.0")]
+        sort-state {:column "Coin" :direction :asc}
+        sort-calls (atom 0)]
+    (positions-tab/reset-positions-sort-cache!)
+    (with-redefs [positions-tab/sort-positions-by-column
+                  (fn [positions _column _direction]
+                    (swap! sort-calls inc)
+                    positions)]
+      (view/positions-tab-content rows sort-state nil {:direction-filter :all})
+      (view/positions-tab-content rows sort-state nil {:direction-filter :all})
+      (is (= 1 @sort-calls))
+      (view/positions-tab-content rows sort-state nil {:direction-filter :short})
+      (view/positions-tab-content rows sort-state nil {:direction-filter :short})
+      (is (= 2 @sort-calls)))))
+
 (deftest positions-tab-content-does-not-render-legacy-subheader-row-test
   (let [webdata2 {:clearinghouseState {:assetPositions [fixtures/sample-position-data]}}
         content (view/positions-tab-content webdata2 fixtures/default-sort-state {})

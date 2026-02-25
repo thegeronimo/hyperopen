@@ -230,6 +230,9 @@
                     :positions (positions-tab-count webdata2 perp-dex-states)
                     :balances (balance-tab-count webdata2 spot-data account)}
         open-orders-sort (get-in state [:account-info :open-orders-sort] {:column "Time" :direction :desc})
+        positions-state (merge {:direction-filter :all
+                                :filter-open? false}
+                               (get-in state [:account-info :positions] {}))
         open-orders-state (merge {:direction-filter :all
                                   :filter-open? false}
                                  (get-in state [:account-info :open-orders] {}))
@@ -257,6 +260,7 @@
      :positions-sort positions-sort
      :balances-sort balances-sort
      :open-orders-sort open-orders-sort
+     :positions-state positions-state
      :open-orders-state open-orders-state
      :position-tpsl-modal (get-in state [:positions-ui :tpsl-modal])
      :hide-small? hide-small?

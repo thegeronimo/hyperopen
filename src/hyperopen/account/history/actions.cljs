@@ -20,6 +20,9 @@
 (def ^:private open-orders-direction-filter-options
   #{:all :long :short})
 
+(def ^:private positions-direction-filter-options
+  #{:all :long :short})
+
 (def ^:private trade-history-direction-filter-options
   #{:all :long :short})
 
@@ -166,6 +169,16 @@
                      (string? direction-filter) (keyword (str/lower-case direction-filter))
                      :else :all)]
     (if (contains? open-orders-direction-filter-options direction*)
+      direction*
+      :all)))
+
+(defn- normalize-positions-direction-filter
+  [direction-filter]
+  (let [direction* (cond
+                     (keyword? direction-filter) direction-filter
+                     (string? direction-filter) (keyword (str/lower-case direction-filter))
+                     :else :all)]
+    (if (contains? positions-direction-filter-options direction*)
       direction*
       :all)))
 
@@ -330,6 +343,15 @@
   (let [direction* (normalize-open-orders-direction-filter direction-filter)]
     [[:effects/save-many [[[:account-info :open-orders :direction-filter] direction*]
                           [[:account-info :open-orders :filter-open?] false]]]]))
+
+(defn toggle-positions-direction-filter-open [state]
+  (let [open? (boolean (get-in state [:account-info :positions :filter-open?]))]
+    [[:effects/save [:account-info :positions :filter-open?] (not open?)]]))
+
+(defn set-positions-direction-filter [_state direction-filter]
+  (let [direction* (normalize-positions-direction-filter direction-filter)]
+    [[:effects/save-many [[[:account-info :positions :direction-filter] direction*]
+                          [[:account-info :positions :filter-open?] false]]]]))
 
 (defn sort-funding-history [state column]
   (let [current-sort (get-in state

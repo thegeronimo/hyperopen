@@ -92,6 +92,8 @@
    :toggle-trade-history-direction-filter-open account-history-actions/toggle-trade-history-direction-filter-open
    :set-trade-history-direction-filter account-history-actions/set-trade-history-direction-filter
    :sort-positions account-history-actions/sort-positions
+   :toggle-positions-direction-filter-open account-history-actions/toggle-positions-direction-filter-open
+   :set-positions-direction-filter account-history-actions/set-positions-direction-filter
    :sort-balances account-history-actions/sort-balances
    :sort-open-orders account-history-actions/sort-open-orders
    :toggle-open-orders-direction-filter-open account-history-actions/toggle-open-orders-direction-filter-open

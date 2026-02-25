@@ -98,6 +98,35 @@
     (is (some? all-option))
     (is (some? short-option))))
 
+(deftest tab-navigation-renders-positions-direction-filter-actions-test
+  (let [counts {:balances 2 :positions 4 :open-orders 3}
+        nav (view/tab-navigation :positions
+                                 counts
+                                 false
+                                 {}
+                                 {}
+                                 {}
+                                 {:direction-filter :short
+                                  :filter-open? true}
+                                 {}
+                                 nil)
+        filter-button (hiccup/find-first-node nav #(and (contains? (hiccup/direct-texts %) "Short")
+                                                         (= [[:actions/toggle-positions-direction-filter-open]]
+                                                            (get-in % [1 :on :click]))))
+        filter-button-classes (hiccup/node-class-set filter-button)
+        all-option (hiccup/find-first-node nav #(and (contains? (hiccup/direct-texts %) "All")
+                                                     (= [[:actions/set-positions-direction-filter :all]]
+                                                        (get-in % [1 :on :click]))))
+        short-option (hiccup/find-first-node nav #(and (contains? (hiccup/direct-texts %) "Short")
+                                                       (= [[:actions/set-positions-direction-filter :short]]
+                                                          (get-in % [1 :on :click]))))]
+    (is (some? filter-button))
+    (is (= "1" (get-in filter-button [1 :style :--btn-focus-scale])))
+    (is (contains? filter-button-classes "focus:outline-none"))
+    (is (contains? filter-button-classes "focus-visible:outline-none"))
+    (is (some? all-option))
+    (is (some? short-option))))
+
 (deftest tab-navigation-renders-positions-count-when-positive-test
   (let [counts {:balances 2 :positions 4 :open-orders 3}
         nav (view/tab-navigation :positions counts false {})

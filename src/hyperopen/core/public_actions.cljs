@@ -179,6 +179,12 @@
 (def sort-positions
   account-history-actions/sort-positions)
 
+(def toggle-positions-direction-filter-open
+  account-history-actions/toggle-positions-direction-filter-open)
+
+(def set-positions-direction-filter
+  account-history-actions/set-positions-direction-filter)
+
 (def sort-balances
   account-history-actions/sort-balances)
 

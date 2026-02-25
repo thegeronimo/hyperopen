@@ -249,6 +249,8 @@
            toggle-trade-history-direction-filter-open
            set-trade-history-direction-filter
            sort-positions
+           toggle-positions-direction-filter-open
+           set-positions-direction-filter
            sort-balances
            sort-open-orders
            toggle-open-orders-direction-filter-open
@@ -299,6 +301,8 @@
    :toggle-trade-history-direction-filter-open toggle-trade-history-direction-filter-open
    :set-trade-history-direction-filter set-trade-history-direction-filter
    :sort-positions sort-positions
+   :toggle-positions-direction-filter-open toggle-positions-direction-filter-open
+   :set-positions-direction-filter set-positions-direction-filter
    :sort-balances sort-balances
    :sort-open-orders sort-open-orders
    :toggle-open-orders-direction-filter-open toggle-open-orders-direction-filter-open

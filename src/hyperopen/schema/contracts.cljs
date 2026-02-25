@@ -273,6 +273,8 @@
    :actions/toggle-trade-history-direction-filter-open ::no-args
    :actions/set-trade-history-direction-filter ::keyword-or-string-args
    :actions/sort-positions ::sort-column-args
+   :actions/toggle-positions-direction-filter-open ::no-args
+   :actions/set-positions-direction-filter ::keyword-or-string-args
    :actions/sort-balances ::sort-column-args
    :actions/sort-open-orders ::sort-column-args
    :actions/toggle-open-orders-direction-filter-open ::no-args
