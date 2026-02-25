@@ -51,9 +51,15 @@
         coin (display-coin position-data)]
     (str size " " coin)))
 
-(defn- explainable-value-node [value-node explanation]
-  (if explanation
-    [:span {:class ["group" "relative" "inline-flex" "items-center" "underline" "decoration-dashed" "underline-offset-2"]}
+(defn- explainable-value-node
+  ([value-node explanation]
+   (explainable-value-node value-node explanation {}))
+  ([value-node explanation {:keys [underlined?]
+                            :or {underlined? true}}]
+   (if explanation
+    [:span {:class (into ["group" "relative" "inline-flex" "items-center"]
+                         (when underlined?
+                           ["underline" "decoration-dashed" "underline-offset-2"]))}
      value-node
      [:span {:class ["pointer-events-none"
                      "absolute"
@@ -79,7 +85,7 @@
                      "group-hover:opacity-100"
                      "group-focus-within:opacity-100"]}
       explanation]]
-    value-node))
+    value-node)))
 
 (defn- format-pnl-inline [pnl-num pnl-percent]
   (if (and (number? pnl-num) (number? pnl-percent))
@@ -256,7 +262,8 @@
          (if (number? display-funding)
            (str "$" (shared/format-currency display-funding))
            "--")]
-        funding-tooltip)]
+        funding-tooltip
+        {:underlined? false})]
       [:div {:class ["text-left" "relative"]}
        [:button {:class ["btn"
                          "btn-xs"
