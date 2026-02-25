@@ -7,7 +7,7 @@
 
 (deftest tab-navigation-renders-hide-small-toggle-only-on-balances-tab-test
   (let [counts {:balances 1 :positions 1}
-        balances-nav (view/tab-navigation :balances counts true {})
+        balances-nav (view/tab-navigation :balances counts true {} {} {} {} {} nil "hype")
         positions-nav (view/tab-navigation :positions counts true {})
         balances-toggle-input (hiccup/find-first-node balances-nav
                                                #(= "hide-small-balances"
@@ -15,6 +15,9 @@
         balances-toggle-classes (hiccup/node-class-set balances-toggle-input)
         balances-toggle-label (hiccup/find-first-node balances-nav
                                                #(contains? (hiccup/direct-texts %) "Hide Small Balances"))
+        balances-search-input (hiccup/find-first-node balances-nav
+                                                      #(= [[:actions/set-account-info-coin-search :balances [:event.target/value]]]
+                                                          (get-in % [1 :on :input])))
         positions-toggle-input (hiccup/find-first-node positions-nav
                                                 #(= "hide-small-balances"
                                                     (get-in % [1 :id])))]
@@ -25,6 +28,9 @@
     (is (contains? balances-toggle-classes "h-4"))
     (is (contains? balances-toggle-classes "w-4"))
     (is (contains? (hiccup/node-class-set balances-toggle-label) "text-trading-text"))
+    (is (some? balances-search-input))
+    (is (= "hype" (get-in balances-search-input [1 :value])))
+    (is (= "Coins..." (get-in balances-search-input [1 :placeholder])))
     (is (nil? positions-toggle-input))))
 
 (deftest tab-navigation-renders-funding-history-actions-in-right-controls-test
@@ -53,15 +59,20 @@
                                  false
                                  {}
                                  {:status-filter :short
+                                  :coin-search "nv"
                                   :filter-open? true})
         filter-button (hiccup/find-first-node nav #(and (contains? (hiccup/direct-texts %) "Short")
                                                          (= [[:actions/toggle-order-history-filter-open]]
                                                             (get-in % [1 :on :click]))))
         filter-button-classes (hiccup/node-class-set filter-button)
+        search-input (hiccup/find-first-node nav #(= [[:actions/set-account-info-coin-search :order-history [:event.target/value]]]
+                                                     (get-in % [1 :on :input])))
         short-option (hiccup/find-first-node nav #(and (contains? (hiccup/direct-texts %) "Short")
                                                         (= [[:actions/set-order-history-status-filter :short]]
                                                             (get-in % [1 :on :click]))))]
     (is (some? filter-button))
+    (is (some? search-input))
+    (is (= "nv" (get-in search-input [1 :value])))
     (is (some? short-option))
     (is (= [[:actions/toggle-order-history-filter-open]]
            (get-in filter-button [1 :on :click])))
@@ -107,6 +118,7 @@
                                  {}
                                  {}
                                  {:direction-filter :short
+                                  :coin-search "eth"
                                   :filter-open? true}
                                  {}
                                  nil)
@@ -114,6 +126,8 @@
                                                          (= [[:actions/toggle-positions-direction-filter-open]]
                                                             (get-in % [1 :on :click]))))
         filter-button-classes (hiccup/node-class-set filter-button)
+        search-input (hiccup/find-first-node nav #(= [[:actions/set-account-info-coin-search :positions [:event.target/value]]]
+                                                     (get-in % [1 :on :input])))
         all-option (hiccup/find-first-node nav #(and (contains? (hiccup/direct-texts %) "All")
                                                      (= [[:actions/set-positions-direction-filter :all]]
                                                         (get-in % [1 :on :click]))))
@@ -124,6 +138,8 @@
     (is (= "1" (get-in filter-button [1 :style :--btn-focus-scale])))
     (is (contains? filter-button-classes "focus:outline-none"))
     (is (contains? filter-button-classes "focus-visible:outline-none"))
+    (is (some? search-input))
+    (is (= "eth" (get-in search-input [1 :value])))
     (is (some? all-option))
     (is (some? short-option))))
 

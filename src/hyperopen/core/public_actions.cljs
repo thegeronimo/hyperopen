@@ -260,6 +260,9 @@
 (def set-order-history-status-filter
   account-history-actions/set-order-history-status-filter)
 
+(def set-account-info-coin-search
+  account-history-actions/set-account-info-coin-search)
+
 (def set-order-history-page-size
   account-history-actions/set-order-history-page-size)
 

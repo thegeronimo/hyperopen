@@ -259,6 +259,7 @@
            sort-order-history
            toggle-order-history-filter-open
            set-order-history-status-filter
+           set-account-info-coin-search
            set-order-history-page-size
            set-order-history-page
            next-order-history-page
@@ -319,6 +320,7 @@
    :sort-order-history sort-order-history
    :toggle-order-history-filter-open toggle-order-history-filter-open
    :set-order-history-status-filter set-order-history-status-filter
+   :set-account-info-coin-search set-account-info-coin-search
    :set-order-history-page-size set-order-history-page-size
    :set-order-history-page set-order-history-page
    :next-order-history-page next-order-history-page

@@ -182,6 +182,26 @@
                  (sort compare-rows non-usdc-rows))
          vec)))
 
+(defn- balance-matches-coin-search?
+  [row query]
+  (let [coin (:coin row)
+        selection-coin (:selection-coin row)
+        base-selection-coin (some-> selection-coin
+                                    shared/parse-coin-namespace
+                                    :base)]
+    (or (shared/coin-matches-search? coin query)
+        (shared/coin-matches-search? selection-coin query)
+        (shared/coin-matches-search? base-selection-coin query))))
+
+(defn- filter-balances-by-coin-search
+  [rows coin-search]
+  (let [rows* (or rows [])
+        query (shared/normalize-coin-search-query coin-search)]
+    (if (str/blank? query)
+      (vec rows*)
+      (->> rows*
+           (filterv #(balance-matches-coin-search? % query))))))
+
 (defn sortable-balances-header
   ([column-name sort-state]
    (sortable-balances-header column-name sort-state :left))
@@ -244,27 +264,32 @@
    [:div (table/non-sortable-header "Transfer" :left)]
    [:div (table/non-sortable-header "Contract" :left)]])
 
-(defn balances-tab-content [balance-rows hide-small? sort-state]
-  (let [visible-rows (if hide-small?
-                       (filter (fn [row]
-                                 (>= (shared/parse-num (:usdc-value row)) 1))
-                               balance-rows)
-                       balance-rows)
-        sorted-rows (if (:column sort-state)
-                      (sort-balances-by-column visible-rows
-                                               (:column sort-state)
-                                               (:direction sort-state))
-                      visible-rows)]
-    (if (seq visible-rows)
-      [:div {:class ["flex" "h-full" "min-h-0" "flex-col"]}
-       (balance-table-header sort-state)
-       (into [:div {:class ["flex-1"
-                            "min-h-0"
-                            "overflow-y-auto"
-                            "scrollbar-hide"]}]
-             (map-indexed (fn [idx row]
-                            (let [tooltip-position (if (zero? idx) :bottom :top)]
-                              ^{:key (:key row)}
-                              (balance-row (assoc row :available-balance-tooltip-position tooltip-position))))
-                          sorted-rows))]
-      (empty-state "No balance data available"))))
+(defn balances-tab-content
+  ([balance-rows hide-small? sort-state]
+   (balances-tab-content balance-rows hide-small? sort-state ""))
+  ([balance-rows hide-small? sort-state coin-search]
+   (let [rows* (or balance-rows [])
+         visible-rows (if hide-small?
+                        (filter (fn [row]
+                                  (>= (shared/parse-num (:usdc-value row)) 1))
+                                rows*)
+                        rows*)
+         search-filtered-rows (filter-balances-by-coin-search visible-rows coin-search)
+         sorted-rows (if (:column sort-state)
+                       (sort-balances-by-column search-filtered-rows
+                                                (:column sort-state)
+                                                (:direction sort-state))
+                       search-filtered-rows)]
+     (if (seq search-filtered-rows)
+       [:div {:class ["flex" "h-full" "min-h-0" "flex-col"]}
+        (balance-table-header sort-state)
+        (into [:div {:class ["flex-1"
+                             "min-h-0"
+                             "overflow-y-auto"
+                             "scrollbar-hide"]}]
+              (map-indexed (fn [idx row]
+                             (let [tooltip-position (if (zero? idx) :bottom :top)]
+                               ^{:key (:key row)}
+                               (balance-row (assoc row :available-balance-tooltip-position tooltip-position))))
+                           sorted-rows))]
+       (empty-state "No balance data available")))))

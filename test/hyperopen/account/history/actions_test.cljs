@@ -231,6 +231,18 @@
   (is (= [[:effects/save [:account-info :hide-small-balances?] true]]
          (history-actions/set-hide-small-balances nil true))))
 
+(deftest set-account-info-coin-search-updates-tab-specific-state-test
+  (is (= [[:effects/save [:account-info :balances-coin-search] "ETH"]]
+         (history-actions/set-account-info-coin-search nil :balances "ETH")))
+  (is (= [[:effects/save [:account-info :positions :coin-search] "nv"]]
+         (history-actions/set-account-info-coin-search nil "PoSiTiOnS" "nv")))
+  (is (= [[:effects/save-many [[[:account-info :order-history :coin-search] "42"]
+                               [[:account-info :order-history :page] 1]
+                               [[:account-info :order-history :page-input] "1"]]]]
+         (history-actions/set-account-info-coin-search nil :order-history 42)))
+  (is (= [[:effects/save [:account-info :balances-coin-search] "fallback"]]
+         (history-actions/set-account-info-coin-search nil :unknown "fallback"))))
+
 (deftest position-tpsl-modal-actions-open-update-close-test
   (let [row (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
         open-effects (history-actions/open-position-tpsl-modal {} row)

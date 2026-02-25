@@ -298,6 +298,48 @@
     (is (= [[:actions/set-order-history-status-filter :short]]
            (get-in short-option [1 :on :click])))))
 
+(deftest order-history-filters-by-fuzzy-coin-search-test
+  (let [rows [{:order {:coin "xyz:NVDA"
+                       :oid 1
+                       :side "B"
+                       :origSz "1.0"
+                       :remainingSz "0.0"
+                       :limitPx "0"
+                       :orderType "Market"
+                       :timestamp 1700000000000}
+               :status "filled"
+               :statusTimestamp 1700000000000}
+              {:order {:coin "@230"
+                       :oid 2
+                       :side "A"
+                       :origSz "1.0"
+                       :remainingSz "0.0"
+                       :limitPx "0.001"
+                       :orderType "Limit"
+                       :timestamp 1699999999000}
+               :status "filled"
+               :statusTimestamp 1699999999000}]
+        market-by-key {"spot:@230" {:coin "@230"
+                                     :symbol "SOL/USDC"
+                                     :base "SOL"
+                                     :market-type :spot}}
+        nv-content (view/order-history-tab-content rows {:sort {:column "Time" :direction :desc}
+                                                         :status-filter :all
+                                                         :coin-search "nd"
+                                                         :loading? false
+                                                         :market-by-key market-by-key})
+        sol-content (view/order-history-tab-content rows {:sort {:column "Time" :direction :desc}
+                                                          :status-filter :all
+                                                          :coin-search "sl"
+                                                          :loading? false
+                                                          :market-by-key market-by-key})
+        nv-strings (set (hiccup/collect-strings nv-content))
+        sol-strings (set (hiccup/collect-strings sol-content))]
+    (is (contains? nv-strings "NVDA"))
+    (is (not (contains? nv-strings "SOL")))
+    (is (contains? sol-strings "SOL"))
+    (is (not (contains? sol-strings "NVDA")))))
+
 (deftest order-history-pagination-renders-only-current-page-rows-test
   (let [rows (mapv fixtures/order-history-row (range 55))
         content (@#'view/order-history-table rows {:sort {:column "Time" :direction :desc}

@@ -1,5 +1,6 @@
 (ns hyperopen.views.account-info.tabs.order-history
-  (:require [hyperopen.views.account-info.history-pagination :as history-pagination]
+  (:require [clojure.string :as str]
+            [hyperopen.views.account-info.history-pagination :as history-pagination]
             [hyperopen.views.account-info.projections :as projections]
             [hyperopen.views.account-info.shared :as shared]
             [hyperopen.views.account-info.sort-kernel :as sort-kernel]
@@ -170,6 +171,22 @@
                    rows)
     rows))
 
+(defn- order-history-row-matches-coin-search?
+  [row market-by-key query]
+  (let [{:keys [base-label prefix-label]} (shared/resolve-coin-display (:coin row) market-by-key)]
+    (or (shared/coin-matches-search? (:coin row) query)
+        (shared/coin-matches-search? base-label query)
+        (shared/coin-matches-search? prefix-label query))))
+
+(defn- filter-order-history-by-coin-search
+  [rows market-by-key coin-search]
+  (let [query (shared/normalize-coin-search-query coin-search)
+        rows* (or rows [])]
+    (if (str/blank? query)
+      (vec rows*)
+      (->> rows*
+           (filterv #(order-history-row-matches-coin-search? % market-by-key query))))))
+
 (defn sort-order-history-by-column [rows column direction]
   (sort-kernel/sort-rows-by-column
    rows
@@ -206,22 +223,27 @@
 (defn reset-order-history-sort-cache! []
   (reset! sorted-order-history-cache nil))
 
-(defn- memoized-order-history-rows [order-history status-filter sort-state]
+(defn- memoized-order-history-rows [order-history status-filter sort-state market-by-key coin-search]
   (let [column (:column sort-state)
         direction (:direction sort-state)
         cache @sorted-order-history-cache
         cache-hit? (and (map? cache)
                         (identical? order-history (:order-history cache))
                         (= status-filter (:status-filter cache))
+                        (= market-by-key (:market-by-key cache))
+                        (= coin-search (:coin-search cache))
                         (= column (:column cache))
                         (= direction (:direction cache)))]
     (if cache-hit?
       (:result cache)
       (let [normalized (normalized-order-history order-history)
-            filtered (vec (order-history-filter-status normalized status-filter))
-            result (vec (sort-order-history-by-column filtered column direction))]
+            status-filtered (vec (order-history-filter-status normalized status-filter))
+            coin-filtered (filter-order-history-by-coin-search status-filtered market-by-key coin-search)
+            result (vec (sort-order-history-by-column coin-filtered column direction))]
         (reset! sorted-order-history-cache {:order-history order-history
                                             :status-filter status-filter
+                                            :market-by-key market-by-key
+                                            :coin-search coin-search
                                             :column column
                                             :direction direction
                                             :result result})
@@ -234,7 +256,12 @@
   (let [sort-state (order-history-sort-state order-history-state)
         status-filter (order-history-status-filter-key order-history-state)
         market-by-key (or (:market-by-key order-history-state) {})
-        sorted (memoized-order-history-rows order-history status-filter sort-state)
+        coin-search (:coin-search order-history-state "")
+        sorted (memoized-order-history-rows order-history
+                                            status-filter
+                                            sort-state
+                                            market-by-key
+                                            coin-search)
         {:keys [rows] :as pagination} (history-pagination/paginate-history-rows sorted order-history-state)]
     (if (seq sorted)
       (table/tab-table-content

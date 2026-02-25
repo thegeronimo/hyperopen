@@ -78,6 +78,43 @@
     (is (= expected
            (mapv (juxt :coin :key) desc-result)))))
 
+(deftest balances-tab-content-filters-by-fuzzy-coin-search-test
+  (let [rows [{:key "nvda"
+               :coin "NVDA"
+               :selection-coin "xyz:NVDA"
+               :total-balance 1
+               :available-balance 1
+               :usdc-value 10
+               :pnl-value 0
+               :pnl-pct 0
+               :amount-decimals 2}
+              {:key "sol"
+               :coin "SOL"
+               :total-balance 2
+               :available-balance 2
+               :usdc-value 20
+               :pnl-value 0
+               :pnl-pct 0
+               :amount-decimals 2}
+              {:key "usdc"
+               :coin "USDC (Spot)"
+               :total-balance 3
+               :available-balance 3
+               :usdc-value 30
+               :pnl-value 0
+               :pnl-pct 0
+               :amount-decimals 2}]
+        sort-state {:column nil :direction :asc}
+        all-content (view/balances-tab-content rows false sort-state "")
+        fuzzy-content (view/balances-tab-content rows false sort-state "nd")
+        exact-content (view/balances-tab-content rows false sort-state "USDC")
+        fuzzy-coins (hiccup/balance-tab-coins fuzzy-content)
+        exact-coins (hiccup/balance-tab-coins exact-content)]
+    (is (= ["NVDA" "SOL" "USDC (Spot)"]
+           (hiccup/balance-tab-coins all-content)))
+    (is (= ["NVDA"] fuzzy-coins))
+    (is (= ["USDC (Spot)"] exact-coins))))
+
 (deftest build-balance-rows-attaches-contract-id-for-non-usdc-spot-and-leaves-usdc-rows-empty-test
   (let [rows (view/build-balance-rows
               {:clearinghouseState {:marginSummary {:accountValue "12.5"

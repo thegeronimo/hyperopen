@@ -75,6 +75,32 @@
     (is (contains? short-text "SHORTB"))
     (is (not (contains? short-text "LONGCOIN")))))
 
+(deftest positions-tab-content-filters-rows-by-fuzzy-coin-search-test
+  (let [rows [(fixtures/sample-position-row "xyz:NVDA" 5 "1.0")
+              (fixtures/sample-position-row "SOL" 5 "1.0")
+              (fixtures/sample-position-row "PUMP" 5 "-1.0")]
+        sort-state {:column "Coin" :direction :asc}
+        search-content (view/positions-tab-content rows
+                                                   sort-state
+                                                   nil
+                                                   {:direction-filter :all
+                                                    :coin-search "nd"})
+        short-and-search-content (view/positions-tab-content rows
+                                                             sort-state
+                                                             nil
+                                                             {:direction-filter :short
+                                                              :coin-search "pu"})
+        search-row-count (count (vec (hiccup/node-children (hiccup/tab-rows-viewport-node search-content))))
+        short-search-row-count (count (vec (hiccup/node-children (hiccup/tab-rows-viewport-node short-and-search-content))))
+        search-strings (set (hiccup/collect-strings search-content))
+        short-search-strings (set (hiccup/collect-strings short-and-search-content))]
+    (is (= 1 search-row-count))
+    (is (contains? search-strings "NVDA"))
+    (is (not (contains? search-strings "SOL")))
+    (is (= 1 short-search-row-count))
+    (is (contains? short-search-strings "PUMP"))
+    (is (not (contains? short-search-strings "NVDA")))))
+
 (deftest positions-tab-content-re-sorts-when-direction-filter-changes-test
   (let [rows [(fixtures/sample-position-row "ETH" 5 "1.0")
               (fixtures/sample-position-row "BTC" 5 "-1.0")]

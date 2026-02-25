@@ -138,6 +138,7 @@
 (s/def ::boolean-args (s/tuple boolean?))
 (s/def ::keyword-args (s/tuple keyword?))
 (s/def ::keyword-or-string-args (s/tuple ::keyword-or-string))
+(s/def ::tab-and-input-args (s/tuple ::keyword-or-string any?))
 (s/def ::single-input-args (s/tuple any?))
 (s/def ::single-or-double-input-args (s/or :single (s/tuple any?)
                                            :double (s/tuple any? any?)))
@@ -288,6 +289,7 @@
    :actions/sort-order-history ::sort-column-args
    :actions/toggle-order-history-filter-open ::no-args
    :actions/set-order-history-status-filter ::keyword-or-string-args
+   :actions/set-account-info-coin-search ::tab-and-input-args
    :actions/set-order-history-page-size ::single-input-args
    :actions/set-order-history-page ::page-and-max-page-args
    :actions/next-order-history-page ::max-page-args

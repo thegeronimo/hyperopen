@@ -30,6 +30,9 @@
 (def ^:private order-history-status-options
   #{:all :long :short})
 
+(def ^:private account-info-coin-search-tabs
+  #{:balances :positions :order-history})
+
 (defn- default-funding-history-filters []
   (let [now (platform/now-ms)]
     (funding-history/normalize-funding-history-filters
@@ -53,6 +56,7 @@
 (defn default-order-history-state []
   {:sort {:column "Time" :direction :desc}
    :status-filter :all
+   :coin-search ""
    :filter-open? false
    :page-size default-order-history-page-size
    :page 1
@@ -162,6 +166,22 @@
     (if (contains? order-history-status-options status*)
       status*
       :all)))
+
+(defn- normalize-account-info-tab
+  [tab]
+  (let [tab* (cond
+               (keyword? tab) tab
+               (string? tab) (keyword (str/lower-case tab))
+               :else :balances)]
+    (if (contains? account-info-coin-search-tabs tab*)
+      tab*
+      :balances)))
+
+(defn- normalize-coin-search-value
+  [value]
+  (if (string? value)
+    value
+    (str (or value ""))))
 
 (defn- normalize-open-orders-direction-filter
   [direction-filter]
@@ -499,6 +519,20 @@
                           [[:account-info :order-history :filter-open?] false]
                           [[:account-info :order-history :page] 1]
                           [[:account-info :order-history :page-input] "1"]]]]))
+
+(defn set-account-info-coin-search [_state tab search-value]
+  (let [tab* (normalize-account-info-tab tab)
+        search* (normalize-coin-search-value search-value)]
+    (case tab*
+      :positions
+      [[:effects/save [:account-info :positions :coin-search] search*]]
+
+      :order-history
+      [[:effects/save-many [[[:account-info :order-history :coin-search] search*]
+                            [[:account-info :order-history :page] 1]
+                            [[:account-info :order-history :page-input] "1"]]]]
+
+      [[:effects/save [:account-info :balances-coin-search] search*]])))
 
 (defn set-order-history-page-size [_state page-size]
   (let [page-size* (normalize-order-history-page-size page-size)]

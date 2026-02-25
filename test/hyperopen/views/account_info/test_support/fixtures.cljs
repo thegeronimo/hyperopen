@@ -79,11 +79,16 @@
                   :loading false
                   :error nil
                   :hide-small-balances? false
+                  :balances-coin-search ""
                   :balances-sort default-sort-state
                   :positions-sort default-sort-state
+                  :positions {:direction-filter :all
+                              :coin-search ""
+                              :filter-open? false}
                   :open-orders-sort {:column "Time" :direction :desc}
                   :order-history {:sort {:column "Time" :direction :desc}
                                   :status-filter :all
+                                  :coin-search ""
                                   :filter-open? false
                                   :loading? false
                                   :error nil

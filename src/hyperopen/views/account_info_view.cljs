@@ -101,11 +101,51 @@
    "focus-visible:ring-offset-0"
    "focus-visible:shadow-none"])
 
+(def ^:private coin-search-input-classes
+  ["asset-selector-search-input"
+   "h-8"
+   "w-32"
+   "pr-2"
+   "pl-8"
+   "text-xs"
+   "transition-colors"
+   "duration-200"
+   "focus:outline-none"
+   "focus:ring-0"])
+
+(defn- search-icon []
+  [:svg {:class ["h-3.5" "w-3.5"]
+         :fill "none"
+         :stroke "currentColor"
+         :viewBox "0 0 24 24"
+         :aria-hidden true}
+   [:path {:stroke-linecap "round"
+           :stroke-linejoin "round"
+           :stroke-width "2"
+           :d "m21 21-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"}]])
+
+(defn- account-info-coin-search-control
+  [tab search-value]
+  [:label {:class ["relative" "inline-flex" "items-center"]}
+   [:span {:class ["sr-only"]} "Search coins"]
+   [:span {:class ["pointer-events-none" "absolute" "left-2.5" "text-trading-text-secondary"]}
+    (search-icon)]
+   [:input {:class coin-search-input-classes
+            :type "search"
+            :placeholder "Coins..."
+            :aria-label "Search coins"
+            :autocomplete "off"
+            :spellcheck false
+            :value (or search-value "")
+            :on {:input [[:actions/set-account-info-coin-search tab [:event.target/value]]]}}]])
+
 (defn- order-history-header-actions [order-history-state]
   (let [filter-open? (boolean (:filter-open? order-history-state))
         status-filter (order-history-status-filter-key order-history-state)
-        status-label (get order-history-status-labels status-filter "All")]
+        status-label (get order-history-status-labels status-filter "All")
+        coin-search (:coin-search order-history-state "")]
     [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2"]}
+     (account-info-coin-search-control :order-history coin-search)
      [:button {:class filter-trigger-button-classes
                :style {:--btn-focus-scale "1"}
                :on {:click [[:actions/toggle-order-history-filter-open]]}}
@@ -136,13 +176,15 @@
 (defn- positions-header-actions [positions-state freshness-cue]
   (let [filter-open? (boolean (:filter-open? positions-state))
         direction-filter (positions-direction-filter-key positions-state)
-        direction-label (get positions-direction-filter-labels direction-filter "All")]
+        direction-label (get positions-direction-filter-labels direction-filter "All")
+        coin-search (:coin-search positions-state "")]
     [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2"]}
      (when (map? freshness-cue)
        [:div {:class ["px-1" "py-1"]
               :data-role "account-tab-freshness-cue"}
         [:span {:class (freshness-cue-text-classes (:tone freshness-cue))}
          (:text freshness-cue)]])
+     (account-info-coin-search-control :positions coin-search)
      [:button {:class filter-trigger-button-classes
                :style {:--btn-focus-scale "1"}
                :on {:click [[:actions/toggle-positions-direction-filter-open]]}}
@@ -232,16 +274,18 @@
 
 (defn tab-navigation
   ([selected-tab counts hide-small? funding-history-state]
-   (tab-navigation selected-tab counts hide-small? funding-history-state {} {} {} {} nil))
+   (tab-navigation selected-tab counts hide-small? funding-history-state {} {} {} {} nil ""))
   ([selected-tab counts hide-small? funding-history-state order-history-state]
-   (tab-navigation selected-tab counts hide-small? funding-history-state {} order-history-state {} {} nil))
+   (tab-navigation selected-tab counts hide-small? funding-history-state {} order-history-state {} {} nil ""))
   ([selected-tab counts hide-small? funding-history-state order-history-state freshness-cues]
-   (tab-navigation selected-tab counts hide-small? funding-history-state {} order-history-state {} {} freshness-cues))
+   (tab-navigation selected-tab counts hide-small? funding-history-state {} order-history-state {} {} freshness-cues ""))
   ([selected-tab counts hide-small? funding-history-state order-history-state open-orders-state freshness-cues]
-   (tab-navigation selected-tab counts hide-small? funding-history-state {} order-history-state {} open-orders-state freshness-cues))
+   (tab-navigation selected-tab counts hide-small? funding-history-state {} order-history-state {} open-orders-state freshness-cues ""))
   ([selected-tab counts hide-small? funding-history-state trade-history-state order-history-state open-orders-state freshness-cues]
-   (tab-navigation selected-tab counts hide-small? funding-history-state trade-history-state order-history-state {} open-orders-state freshness-cues))
+   (tab-navigation selected-tab counts hide-small? funding-history-state trade-history-state order-history-state {} open-orders-state freshness-cues ""))
   ([selected-tab counts hide-small? _funding-history-state trade-history-state order-history-state positions-state open-orders-state freshness-cues]
+   (tab-navigation selected-tab counts hide-small? _funding-history-state trade-history-state order-history-state positions-state open-orders-state freshness-cues ""))
+  ([selected-tab counts hide-small? _funding-history-state trade-history-state order-history-state positions-state open-orders-state freshness-cues balances-coin-search]
    [:div.flex.items-center.justify-between.border-b.border-base-300.bg-base-200
     [:div.flex.items-center
      (for [tab available-tabs]
@@ -252,32 +296,34 @@
                   ["text-base-content" "border-transparent" "hover:text-primary" "hover:bg-base-100"])
          :on {:click [[:actions/select-account-info-tab tab]]}}
         (tab-label tab counts)])]
-    (case selected-tab
-      :balances
-      [:div.flex.items-center.space-x-2.px-4.py-2
-       [:input
-        {:type "checkbox"
-         :id "hide-small-balances"
-         :class ["h-4"
-                 "w-4"
-                 "rounded-[3px]"
-                 "border"
-                 "border-base-300"
-                 "bg-transparent"
-                 "trade-toggle-checkbox"
-                 "transition-colors"
-                 "focus:outline-none"
-                 "focus:ring-0"
-                 "focus:ring-offset-0"
-                 "focus:shadow-none"]
-         :checked (boolean hide-small?)
-         :on {:change [[:actions/set-hide-small-balances :event.target/checked]]}}]
-       [:label.text-sm.text-trading-text.cursor-pointer.select-none
-        {:for "hide-small-balances"}
-        "Hide Small Balances"]]
+	    (case selected-tab
+	      :balances
+	      [:div {:class ["flex" "items-center" "gap-3" "px-4" "py-2"]}
+	       [:div {:class ["flex" "items-center" "space-x-2"]}
+	        [:input
+	         {:type "checkbox"
+	          :id "hide-small-balances"
+	          :class ["h-4"
+	                  "w-4"
+	                  "rounded-[3px]"
+	                  "border"
+	                  "border-base-300"
+	                  "bg-transparent"
+	                  "trade-toggle-checkbox"
+	                  "transition-colors"
+	                  "focus:outline-none"
+	                  "focus:ring-0"
+	                  "focus:ring-offset-0"
+	                  "focus:shadow-none"]
+	          :checked (boolean hide-small?)
+	          :on {:change [[:actions/set-hide-small-balances :event.target/checked]]}}]
+	        [:label.text-sm.text-trading-text.cursor-pointer.select-none
+	         {:for "hide-small-balances"}
+	         "Hide Small Balances"]]
+	       (account-info-coin-search-control :balances balances-coin-search)]
 
-      :funding-history
-      (funding-history-header-actions)
+	      :funding-history
+	      (funding-history-header-actions)
 
       :order-history
       (order-history-header-actions order-history-state)
@@ -289,11 +335,11 @@
       (positions-header-actions positions-state
                                 (get freshness-cues :positions))
 
-      :open-orders
-      (open-orders-header-actions open-orders-state
-                                  (get freshness-cues :open-orders))
+	      :open-orders
+	      (open-orders-header-actions open-orders-state
+	                                  (get freshness-cues :open-orders))
 
-      nil)]))
+	      nil)]))
 
 (defn loading-spinner []
   [:div.flex.justify-center.items-center.py-8
@@ -416,8 +462,11 @@
    (empty-state (str (get tab-labels tab-name (name tab-name)) " coming soon"))])
 
 (def ^:private tab-renderers
-  {:balances (fn [{:keys [balance-rows hide-small? balances-sort]}]
-               (balances-tab-content balance-rows hide-small? balances-sort))
+  {:balances (fn [{:keys [balance-rows hide-small? balances-sort balances-coin-search]}]
+               (balances-tab-content balance-rows
+                                     hide-small?
+                                     balances-sort
+                                     balances-coin-search))
    :positions (fn [{:keys [positions
                            webdata2
                            positions-sort
@@ -456,6 +505,20 @@
      (render-tab view-model)
      (empty-state "Unknown tab")))
   ([selected-tab webdata2 sort-state hide-small? perp-dex-states open-orders open-orders-sort balance-rows balances-sort trade-history-state funding-history-state order-history-state]
+   (tab-content selected-tab
+                webdata2
+                sort-state
+                hide-small?
+                perp-dex-states
+                open-orders
+                open-orders-sort
+                balance-rows
+                balances-sort
+                trade-history-state
+                funding-history-state
+                order-history-state
+                ""))
+  ([selected-tab webdata2 sort-state hide-small? perp-dex-states open-orders open-orders-sort balance-rows balances-sort trade-history-state funding-history-state order-history-state balances-coin-search]
    (tab-content {:selected-tab selected-tab
                  :webdata2 webdata2
                  :positions-sort sort-state
@@ -465,6 +528,7 @@
                  :open-orders-sort open-orders-sort
                  :balance-rows balance-rows
                  :balances-sort balances-sort
+                 :balances-coin-search balances-coin-search
                  :trade-history-rows (get-in webdata2 [:fills])
                  :trade-history-state trade-history-state
                  :funding-history-rows (get-in webdata2 [:fundings])
@@ -478,6 +542,7 @@
         {:keys [selected-tab
                 tab-counts
                 hide-small?
+                balances-coin-search
                 funding-history-state
                 trade-history-state
                 order-history-state
@@ -496,7 +561,8 @@
                      order-history-state
                      positions-state
                      open-orders-state
-                     freshness-cues)
+                     freshness-cues
+                     balances-coin-search)
      [:div {:class ["flex-1" "min-h-0" "overflow-hidden"]}
       (cond
         error (error-state error)

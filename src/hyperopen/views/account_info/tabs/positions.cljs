@@ -68,6 +68,25 @@
       :short (filterv #(= :short (position-side (position-entry %))) positions*)
       (vec positions*))))
 
+(defn- position-matches-coin-search?
+  [position-row query]
+  (let [entry (position-entry position-row)
+        coin (:coin entry)
+        base-coin (some-> coin shared/parse-coin-namespace :base)
+        dex (:dex position-row)]
+    (or (shared/coin-matches-search? coin query)
+        (shared/coin-matches-search? base-coin query)
+        (shared/coin-matches-search? dex query))))
+
+(defn- filter-positions-by-coin-search
+  [positions coin-search]
+  (let [query (shared/normalize-coin-search-query coin-search)
+        positions* (or positions [])]
+    (if (str/blank? query)
+      (vec positions*)
+      (->> positions*
+           (filterv #(position-matches-coin-search? % query))))))
+
 (defn- absolute-size-text [size]
   (let [size-text (shared/non-blank-text size)]
     (cond
@@ -367,21 +386,24 @@
 (defn reset-positions-sort-cache! []
   (reset! sorted-positions-cache nil))
 
-(defn- memoized-sorted-positions [positions direction-filter sort-state]
+(defn- memoized-sorted-positions [positions direction-filter sort-state coin-search]
   (let [column (:column sort-state)
         direction (:direction sort-state)
         cache @sorted-positions-cache
         cache-hit? (and (map? cache)
                         (identical? positions (:positions cache))
                         (= direction-filter (:direction-filter cache))
+                        (= coin-search (:coin-search cache))
                         (= column (:column cache))
                         (= direction (:direction cache)))]
     (if cache-hit?
       (:result cache)
-      (let [filtered (filter-positions-by-direction positions direction-filter)
-            result (vec (sort-positions-by-column filtered column direction))]
+      (let [direction-filtered (filter-positions-by-direction positions direction-filter)
+            search-filtered (filter-positions-by-coin-search direction-filtered coin-search)
+            result (vec (sort-positions-by-column search-filtered column direction))]
         (reset! sorted-positions-cache {:positions positions
                                         :direction-filter direction-filter
+                                        :coin-search coin-search
                                         :column column
                                         :direction direction
                                         :result result})
@@ -441,8 +463,9 @@
   [positions sort-state modal reduce-popover positions-state]
   (let [positions* (or positions [])
         direction-filter (positions-direction-filter-key positions-state)
+        coin-search (:coin-search positions-state "")
         sorted-positions (if (seq positions*)
-                           (memoized-sorted-positions positions* direction-filter sort-state)
+                           (memoized-sorted-positions positions* direction-filter sort-state coin-search)
                            [])]
     (if (seq sorted-positions)
       (table/tab-table-content (position-table-header sort-state)

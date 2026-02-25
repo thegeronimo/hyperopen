@@ -1,5 +1,6 @@
 (ns hyperopen.views.account-info.shared
-  (:require [hyperopen.utils.formatting :as fmt]
+  (:require [clojure.string :as str]
+            [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.account-info.projections :as projections]))
 
 (def ^:private fallback-decimals
@@ -25,6 +26,32 @@
 
 (defn parse-coin-namespace [coin]
   (projections/parse-coin-namespace coin))
+
+(defn normalize-coin-search-query [value]
+  (-> (or value "")
+      str
+      str/trim
+      str/lower-case))
+
+(defn- ordered-subsequence?
+  [needle haystack]
+  (loop [needle-cursor (seq needle)
+         haystack-cursor (seq haystack)]
+    (cond
+      (nil? needle-cursor) true
+      (nil? haystack-cursor) false
+      (= (first needle-cursor) (first haystack-cursor))
+      (recur (next needle-cursor) (next haystack-cursor))
+      :else
+      (recur needle-cursor (next haystack-cursor)))))
+
+(defn coin-matches-search?
+  [coin search-query]
+  (let [query (normalize-coin-search-query search-query)
+        coin* (normalize-coin-search-query coin)]
+    (or (str/blank? query)
+        (str/includes? coin* query)
+        (ordered-subsequence? query coin*))))
 
 (defn resolve-coin-display [coin market-by-key]
   (projections/resolve-coin-display coin market-by-key))

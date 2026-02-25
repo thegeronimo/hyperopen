@@ -119,9 +119,11 @@
    :loading false
    :error nil
    :hide-small-balances? false
+   :balances-coin-search ""
    :balances-sort {:column nil :direction :asc}
    :positions-sort {:column nil :direction :asc}
    :positions {:direction-filter :all
+               :coin-search ""
                :filter-open? false}
    :open-orders-sort {:column "Time" :direction :desc}
    :open-orders {:direction-filter :all

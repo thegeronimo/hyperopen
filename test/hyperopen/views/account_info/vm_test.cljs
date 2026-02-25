@@ -12,9 +12,11 @@
 
 (deftest account-info-vm-projects-global-state-into-tab-view-model-test
   (let [state {:account-info {:selected-tab :trade-history
+                              :balances-coin-search "btc"
                               :trade-history {:sort {:column "Time" :direction :desc}}
                               :funding-history {:page-size 25}
-                              :order-history {:status-filter :all}}
+                              :order-history {:status-filter :all
+                                              :coin-search "nv"}}
                :asset-selector {:market-by-key {"xyz:NVDA" {:coin "xyz:NVDA"
                                                             :symbol "NVDA/USDC"}}}
                :webdata2 {:fills [{:tid 7 :coin "xyz:NVDA"}]
@@ -41,7 +43,9 @@
     (is (= 1 (count (:funding-history-rows view-model))))
     (is (= 1 (count (:order-history-rows view-model))))
     (is (empty? (:open-orders view-model)))
+    (is (= "btc" (:balances-coin-search view-model)))
     (is (= :all (get-in view-model [:positions-state :direction-filter])))
+    (is (= "" (get-in view-model [:positions-state :coin-search])))
     (is (false? (get-in view-model [:positions-state :filter-open?])))
     (is (= :all (get-in view-model [:open-orders-state :direction-filter])))
     (is (false? (get-in view-model [:open-orders-state :filter-open?])))
@@ -51,11 +55,13 @@
     (is (= {"xyz:NVDA" {:coin "xyz:NVDA"
                         :symbol "NVDA/USDC"}}
            (get-in view-model [:order-history-state :market-by-key])))
+    (is (= "nv" (get-in view-model [:order-history-state :coin-search])))
     (is (= 1 (get-in view-model [:tab-counts :open-orders])))))
 
 (deftest account-info-vm-keeps-positions-filter-state-when-present-test
   (let [state {:account-info {:selected-tab :positions
                               :positions {:direction-filter :short
+                                          :coin-search "eth"
                                           :filter-open? true}}
                :webdata2 {:clearinghouseState {:assetPositions []}}
                :orders (base-orders)
@@ -65,6 +71,7 @@
                :perp-dex-clearinghouse {}}
         view-model (vm/account-info-vm state)]
     (is (= :short (get-in view-model [:positions-state :direction-filter])))
+    (is (= "eth" (get-in view-model [:positions-state :coin-search])))
     (is (true? (get-in view-model [:positions-state :filter-open?])))))
 
 (deftest account-info-vm-computes-heavy-derivations-only-for-selected-tab-test

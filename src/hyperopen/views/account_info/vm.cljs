@@ -197,6 +197,7 @@
         error (get-in state [:account-info :error])
         positions-sort (get-in state [:account-info :positions-sort] {:column nil :direction :asc})
         balances-sort (get-in state [:account-info :balances-sort] {:column nil :direction :asc})
+        balances-coin-search (get-in state [:account-info :balances-coin-search] "")
         hide-small? (get-in state [:account-info :hide-small-balances?] false)
         perp-dex-states (or (:perp-dex-clearinghouse state) {})
         spot-data (or (:spot state) {})
@@ -221,8 +222,11 @@
                                        (get-in state [:account-info :trade-history] {}))
                                 (assoc :market-by-key market-by-key))
         funding-history-state (get-in state [:account-info :funding-history] {})
-        order-history-state (assoc (get-in state [:account-info :order-history] {})
-                                   :market-by-key market-by-key)
+        order-history-state (-> (merge {:status-filter :all
+                                        :filter-open? false
+                                        :coin-search ""}
+                                       (get-in state [:account-info :order-history] {}))
+                                (assoc :market-by-key market-by-key))
         tab-counts {:open-orders (open-orders-tab-count open-orders-source
                                                         open-orders-snapshot-source
                                                         open-orders-snapshot-by-dex-source
@@ -231,6 +235,7 @@
                     :balances (balance-tab-count webdata2 spot-data account)}
         open-orders-sort (get-in state [:account-info :open-orders-sort] {:column "Time" :direction :desc})
         positions-state (merge {:direction-filter :all
+                                :coin-search ""
                                 :filter-open? false}
                                (get-in state [:account-info :positions] {}))
         open-orders-state (merge {:direction-filter :all
@@ -258,6 +263,7 @@
      :error error
      :positions-sort positions-sort
      :balances-sort balances-sort
+     :balances-coin-search balances-coin-search
      :open-orders-sort open-orders-sort
      :positions-state positions-state
      :open-orders-state open-orders-state
