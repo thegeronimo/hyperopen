@@ -13,6 +13,9 @@
    (commands/toggle-size-unit-dropdown)
    (commands/close-size-unit-dropdown)
    (commands/handle-size-unit-dropdown-keydown commands/event-key)
+   (commands/toggle-tpsl-unit-dropdown)
+   (commands/close-tpsl-unit-dropdown)
+   (commands/handle-tpsl-unit-dropdown-keydown commands/event-key)
    (commands/toggle-tif-dropdown)
    (commands/close-tif-dropdown)
    (commands/handle-tif-dropdown-keydown commands/event-key)
@@ -49,6 +52,7 @@
    (commands/set-sl-offset-input)
    (commands/toggle-sl-market)
    (commands/set-sl-limit-input)
+   (commands/set-order-tpsl-unit :percent)
    (commands/set-tpsl-unit-input)
    (commands/submit-order)])
 
@@ -62,6 +66,9 @@
   (is (= {:command-id :order-form/toggle-tif-dropdown
           :args []}
          (commands/toggle-tif-dropdown)))
+  (is (= {:command-id :order-form/toggle-tpsl-unit-dropdown
+          :args []}
+         (commands/toggle-tpsl-unit-dropdown)))
   (is (= {:command-id :order-form/update-order-form
           :args [[:side] :sell]}
          (commands/set-order-side :sell))))

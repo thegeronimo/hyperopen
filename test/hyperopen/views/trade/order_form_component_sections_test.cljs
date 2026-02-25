@@ -27,12 +27,11 @@
     (seq? node) (mapcat collect-strings node)
     :else []))
 
-(defn- collect-input-placeholders [node]
+(defn- input-node-by-aria-label [node aria-label]
   (->> (collect-nodes-by-tag node :input)
-       (map second)
-       (map :placeholder)
-       (remove nil?)
-       set))
+       (filter (fn [input-node]
+                 (= aria-label (get-in input-node [1 :aria-label]))))
+       first))
 
 (def ^:private entry-callbacks
   {:on-close-dropdown [[:actions/close-pro-order-type-dropdown]]
@@ -85,6 +84,7 @@
   (let [node (sections/tp-sl-panel {:form {:tp {:trigger "3000"}
                                            :sl {:trigger "2900"}}
                                     :unit :usd
+                                    :unit-dropdown-open? false
                                     :tp-offset "150"
                                     :sl-offset "75"
                                     :tp-offset-disabled? false
@@ -93,18 +93,82 @@
                                     :on-set-tp-offset [[:actions/tp-offset [:event.target/value]]]
                                     :on-set-sl-trigger [[:actions/sl-trigger [:event.target/value]]]
                                     :on-set-sl-offset [[:actions/sl-offset [:event.target/value]]]
-                                    :on-set-tpsl-unit [[:actions/tpsl-unit [:event.target/value]]]})
-        placeholders (collect-input-placeholders node)
+                                    :on-toggle-unit-dropdown [[:actions/toggle-tpsl-unit-dropdown]]
+                                    :on-close-unit-dropdown [[:actions/close-tpsl-unit-dropdown]]
+                                    :on-unit-dropdown-keydown [[:actions/handle-tpsl-unit-dropdown-keydown [:event/key]]]
+                                    :on-select-tpsl-unit (fn [unit]
+                                                           [[:actions/close-tpsl-unit-dropdown]
+                                                            [:actions/update-order-form [:tpsl :unit] unit]])})
         labels (set (collect-strings node))
-        select-node (first (collect-nodes-by-tag node :select))]
-    (is (contains? placeholders "TP Price"))
-    (is (contains? placeholders "Gain"))
-    (is (contains? placeholders "SL Price"))
-    (is (contains? placeholders "Loss"))
+        unit-trigger (first (filter #(= "TP/SL gain-loss unit" (get-in % [1 :aria-label]))
+                                    (collect-nodes-by-tag node :button)))
+        tp-price-input (input-node-by-aria-label node "TP Price")
+        gain-input (input-node-by-aria-label node "Gain")
+        sl-price-input (input-node-by-aria-label node "SL Price")
+        loss-input (input-node-by-aria-label node "Loss")
+        gap-10-containers (->> (collect-nodes-by-tag node :div)
+                               (map second)
+                               (map :class)
+                               (filter #(and (coll? %)
+                                             (contains? (set %) "gap-[10px]")))
+                               count)
+        tp-price-classes (set (get-in tp-price-input [1 :class]))
+        gain-classes (set (get-in gain-input [1 :class]))]
+    (is (contains? labels "TP"))
+    (is (contains? labels "Gain"))
+    (is (contains? labels "SL"))
+    (is (contains? labels "Loss"))
     (is (not (contains? labels "Enable TP")))
     (is (not (contains? labels "Enable SL")))
-    (is (= [[:actions/tpsl-unit [:event.target/value]]]
-           (get-in select-node [1 :on :change])))))
+    (is (some? tp-price-input))
+    (is (some? gain-input))
+    (is (some? sl-price-input))
+    (is (some? loss-input))
+    (is (>= gap-10-containers 3))
+    (is (contains? tp-price-classes "min-w-0"))
+    (is (contains? gain-classes "min-w-0"))
+    (is (not (contains? tp-price-classes "pl-24")))
+    (is (= 0 (count (collect-nodes-by-tag node :select))))
+    (is (= [[:actions/toggle-tpsl-unit-dropdown]]
+           (get-in unit-trigger [1 :on :click])))
+    (is (= [[:actions/handle-tpsl-unit-dropdown-keydown [:event/key]]]
+           (get-in unit-trigger [1 :on :keydown])))))
+
+(deftest tp-sl-panel-open-unit-menu-renders-overlay-and-options-test
+  (let [node (sections/tp-sl-panel {:form {:tp {:trigger "3000"}
+                                           :sl {:trigger "2900"}}
+                                    :unit :percent
+                                    :unit-dropdown-open? true
+                                    :tp-offset "150"
+                                    :sl-offset "75"
+                                    :tp-offset-disabled? false
+                                    :sl-offset-disabled? false}
+                                   {:on-set-tp-trigger [[:actions/tp-trigger [:event.target/value]]]
+                                    :on-set-tp-offset [[:actions/tp-offset [:event.target/value]]]
+                                    :on-set-sl-trigger [[:actions/sl-trigger [:event.target/value]]]
+                                    :on-set-sl-offset [[:actions/sl-offset [:event.target/value]]]
+                                    :on-toggle-unit-dropdown [[:actions/toggle-tpsl-unit-dropdown]]
+                                    :on-close-unit-dropdown [[:actions/close-tpsl-unit-dropdown]]
+                                    :on-unit-dropdown-keydown [[:actions/handle-tpsl-unit-dropdown-keydown [:event/key]]]
+                                    :on-select-tpsl-unit (fn [unit]
+                                                           [[:actions/close-tpsl-unit-dropdown]
+                                                            [:actions/update-order-form [:tpsl :unit] unit]])})
+        overlay (first (filter #(= "Close TP/SL unit menu" (get-in % [1 :aria-label]))
+                               (collect-nodes-by-tag node :button)))
+        menu (first (filter #(= "TP/SL gain-loss unit options" (get-in % [1 :aria-label]))
+                            (collect-nodes-by-tag node :div)))
+        options (filter #(= "option" (get-in % [1 :role]))
+                        (collect-nodes-by-tag node :button))
+        usd-option (first (filter #(some #{"$"} (collect-strings %)) options))
+        percent-option (first (filter #(some #{"%"} (collect-strings %)) options))]
+    (is (= [[:actions/close-tpsl-unit-dropdown]]
+           (get-in overlay [1 :on :click])))
+    (is (= 2 (count options)))
+    (is (= [[:actions/close-tpsl-unit-dropdown]
+            [:actions/update-order-form [:tpsl :unit] :usd]]
+           (get-in usd-option [1 :on :click])))
+    (is (true? (get-in percent-option [1 :aria-selected])))
+    (is (false? (get-in menu [1 :aria-hidden])))))
 
 (deftest tif-inline-control-renders-custom-trigger-caret-and-dispatches-toggle-test
   (let [node (sections/tif-inline-control {:tif :ioc}

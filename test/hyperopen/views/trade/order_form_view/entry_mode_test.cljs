@@ -6,6 +6,7 @@
                                                                    collect-strings
                                                                    collect-text-and-placeholders
                                                                    pro-dropdown-option-nodes
+                                                                   find-all-nodes
                                                                    find-first-node]]
             [hyperopen.views.trade.order-form-view :as view]))
 
@@ -184,3 +185,22 @@
     (is (contains? tokens "Loss"))
     (is (not (contains? strings "Enable TP")))
     (is (not (contains? strings "Enable SL")))))
+
+(deftest open-tpsl-panel-renders-custom-unit-dropdown-trigger-without-native-select-test
+  (let [view-node (view/order-form-view (base-state {:type :limit
+                                                      :price "100"
+                                                      :size "1"}
+                                                     {:tpsl-panel-open? true}))
+        unit-trigger (find-first-node view-node
+                                      (fn [candidate]
+                                        (and (= :button (first candidate))
+                                             (= "TP/SL gain-loss unit"
+                                                (get-in candidate [1 :aria-label])))))
+        native-selects (find-all-nodes view-node
+                                       (fn [candidate]
+                                         (= :select (first candidate))))]
+    (is (= [[:actions/toggle-tpsl-unit-dropdown]]
+           (get-in unit-trigger [1 :on :click])))
+    (is (= [[:actions/handle-tpsl-unit-dropdown-keydown [:event/key]]]
+           (get-in unit-trigger [1 :on :keydown])))
+    (is (empty? native-selects))))

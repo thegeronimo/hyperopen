@@ -325,6 +325,9 @@
            toggle-size-unit-dropdown
            close-size-unit-dropdown
            handle-size-unit-dropdown-keydown
+           toggle-tpsl-unit-dropdown
+           close-tpsl-unit-dropdown
+           handle-tpsl-unit-dropdown-keydown
            toggle-tif-dropdown
            close-tif-dropdown
            handle-tif-dropdown-keydown
@@ -349,6 +352,9 @@
    :toggle-size-unit-dropdown toggle-size-unit-dropdown
    :close-size-unit-dropdown close-size-unit-dropdown
    :handle-size-unit-dropdown-keydown handle-size-unit-dropdown-keydown
+   :toggle-tpsl-unit-dropdown toggle-tpsl-unit-dropdown
+   :close-tpsl-unit-dropdown close-tpsl-unit-dropdown
+   :handle-tpsl-unit-dropdown-keydown handle-tpsl-unit-dropdown-keydown
    :toggle-tif-dropdown toggle-tif-dropdown
    :close-tif-dropdown close-tif-dropdown
    :handle-tif-dropdown-keydown handle-tif-dropdown-keydown

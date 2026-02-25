@@ -37,6 +37,15 @@
 (defn handle-size-unit-dropdown-keydown [key]
   (command :order-form/handle-size-unit-dropdown-keydown key))
 
+(defn toggle-tpsl-unit-dropdown []
+  (command :order-form/toggle-tpsl-unit-dropdown))
+
+(defn close-tpsl-unit-dropdown []
+  (command :order-form/close-tpsl-unit-dropdown))
+
+(defn handle-tpsl-unit-dropdown-keydown [key]
+  (command :order-form/handle-tpsl-unit-dropdown-keydown key))
+
 (defn toggle-tif-dropdown []
   (command :order-form/toggle-tif-dropdown))
 
@@ -153,6 +162,9 @@
 
 (defn set-tpsl-unit-input []
   (update-order-field [:tpsl :unit] event-target-value))
+
+(defn set-order-tpsl-unit [unit]
+  (update-order-field [:tpsl :unit] unit))
 
 (defn submit-order []
   (command :order-form/submit-order))

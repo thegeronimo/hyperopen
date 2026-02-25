@@ -242,6 +242,7 @@
                                                         :leverage leverage})]
     {:form form
      :unit unit
+     :unit-dropdown-open? (boolean (:tpsl-unit-dropdown-open? ui-state))
      :tp-offset (tpsl-policy/offset-display-from-trigger {:trigger (get-in form [:tp :trigger])
                                                           :baseline baseline
                                                           :size size

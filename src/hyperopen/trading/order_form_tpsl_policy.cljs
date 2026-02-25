@@ -3,6 +3,7 @@
             [hyperopen.domain.trading :as trading-domain]))
 
 (def default-unit :usd)
+(def trigger-price-decimals 5)
 
 (defn parse-num [value]
   (trading-domain/parse-num value))
@@ -54,7 +55,8 @@
            false))))
 
 (defn- round-floor-2 [value]
-  (/ (js/Math.floor (* 100 value)) 100))
+  ;; Small epsilon avoids float artifacts (for example 0.999999999 -> 1.00).
+  (/ (js/Math.floor (+ (* 100 value) 0.0001)) 100))
 
 (defn offset-value-from-trigger
   [{:keys [trigger baseline size leverage inverse unit]}]
@@ -119,5 +121,5 @@
                         nil)]
             (if (and (number? price)
                      (positive-number? price))
-              (trading-domain/number->clean-string price 8)
+              (trading-domain/number->clean-string price trigger-price-decimals)
               "")))))))

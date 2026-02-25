@@ -44,6 +44,7 @@
   (is (= :quote (:size-input-mode (trading/default-order-form-ui))))
   (is (= :manual (:size-input-source (trading/default-order-form-ui))))
   (is (false? (:size-unit-dropdown-open? (trading/default-order-form-ui))))
+  (is (false? (:tpsl-unit-dropdown-open? (trading/default-order-form-ui))))
   (is (false? (:tif-dropdown-open? (trading/default-order-form-ui))))
   (is (= "" (:size-display (trading/default-order-form-ui)))))
 
@@ -63,6 +64,7 @@
         normalized-explicit (trading/order-form-ui-state explicit-ui-state)]
     (is (false? (:pro-order-type-dropdown-open? normalized-no-ui)))
     (is (false? (:size-unit-dropdown-open? normalized-no-ui)))
+    (is (false? (:tpsl-unit-dropdown-open? normalized-no-ui)))
     (is (false? (:tif-dropdown-open? normalized-no-ui)))
     (is (false? (:price-input-focused? normalized-no-ui)))
     (is (false? (:tpsl-panel-open? normalized-no-ui)))

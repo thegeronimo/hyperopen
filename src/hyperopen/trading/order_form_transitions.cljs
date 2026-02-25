@@ -23,6 +23,7 @@
     [:size-display]
     [:pro-order-type-dropdown-open?]
     [:size-unit-dropdown-open?]
+    [:tpsl-unit-dropdown-open?]
     [:tif-dropdown-open?]
     [:price-input-focused?]
     [:tpsl-panel-open?]
@@ -193,6 +194,7 @@
                           false
                           (boolean (:pro-order-type-dropdown-open? ui-state)))
                         :size-unit-dropdown-open? false
+                        :tpsl-unit-dropdown-open? false
                         :tif-dropdown-open? false))]
     (enforce-field-ownership
      state
@@ -214,6 +216,7 @@
                  (assoc ui-state
                         :pro-order-type-dropdown-open? false
                         :size-unit-dropdown-open? false
+                        :tpsl-unit-dropdown-open? false
                         :tif-dropdown-open? false))]
     (enforce-field-ownership
      state
@@ -254,6 +257,31 @@
 (defn handle-size-unit-dropdown-keydown [state key]
   (when (= key "Escape")
     (close-size-unit-dropdown state)))
+
+(defn toggle-tpsl-unit-dropdown [state]
+  (let [ui-state (trading/order-form-ui-state state)
+        form (trading/order-form-draft state)
+        order-type (trading/normalize-order-type (:type form))
+        open? (boolean (:tpsl-unit-dropdown-open? ui-state))
+        panel-open? (boolean (:tpsl-panel-open? ui-state))
+        toggle-allowed? (and panel-open?
+                             (trading/limit-like-type? order-type))
+        next-open? (if toggle-allowed?
+                     (not open?)
+                     false)]
+    (enforce-field-ownership
+     state
+     {:order-form-ui (assoc ui-state :tpsl-unit-dropdown-open? next-open?)})))
+
+(defn close-tpsl-unit-dropdown [state]
+  (enforce-field-ownership
+   state
+   {:order-form-ui (assoc (trading/order-form-ui-state state)
+                          :tpsl-unit-dropdown-open? false)}))
+
+(defn handle-tpsl-unit-dropdown-keydown [state key]
+  (when (= key "Escape")
+    (close-tpsl-unit-dropdown state)))
 
 (defn toggle-tif-dropdown [state]
   (let [ui-state (trading/order-form-ui-state state)
@@ -377,7 +405,9 @@
                         (not next-open?) disable-tpsl-legs)
             next-ui (trading/effective-order-form-ui
                      next-form
-                     (assoc ui-state :tpsl-panel-open? next-open?))]
+                     (assoc ui-state
+                            :tpsl-panel-open? next-open?
+                            :tpsl-unit-dropdown-open? false))]
         (enforce-field-ownership
          state
          {:order-form next-form
@@ -439,12 +469,19 @@
                      (assoc (trading/order-form-ui-state state)
                             :tif-dropdown-open? false))
 
+                    (= resolved-path [:tpsl :unit])
+                    (trading/effective-order-form-ui
+                     next-form
+                     (assoc (trading/order-form-ui-state state)
+                            :tpsl-unit-dropdown-open? false))
+
                     (and (= resolved-path [:reduce-only])
                          (true? normalized-value))
                     (trading/effective-order-form-ui
                      next-form
                      (assoc (trading/order-form-ui-state state)
-                            :tpsl-panel-open? false))
+                            :tpsl-panel-open? false
+                            :tpsl-unit-dropdown-open? false))
 
                     :else
                     nil)]

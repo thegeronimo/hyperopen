@@ -301,6 +301,9 @@
    :actions/toggle-size-unit-dropdown ::no-args
    :actions/close-size-unit-dropdown ::no-args
    :actions/handle-size-unit-dropdown-keydown ::key-args
+   :actions/toggle-tpsl-unit-dropdown ::no-args
+   :actions/close-tpsl-unit-dropdown ::no-args
+   :actions/handle-tpsl-unit-dropdown-keydown ::key-args
    :actions/toggle-tif-dropdown ::no-args
    :actions/close-tif-dropdown ::no-args
    :actions/handle-tif-dropdown-keydown ::key-args
@@ -408,6 +411,7 @@
 (def ^:private legacy-ui-and-runtime-order-form-keys
   #{:pro-order-type-dropdown-open?
     :size-unit-dropdown-open?
+    :tpsl-unit-dropdown-open?
     :tif-dropdown-open?
     :price-input-focused?
     :tpsl-panel-open?
@@ -417,6 +421,7 @@
 (def ^:private order-form-ui-state-keys
   #{:pro-order-type-dropdown-open?
     :size-unit-dropdown-open?
+    :tpsl-unit-dropdown-open?
     :tif-dropdown-open?
     :price-input-focused?
     :tpsl-panel-open?
@@ -436,6 +441,7 @@
          #(= order-form-ui-state-keys (set (keys %)))
          #(boolean? (:pro-order-type-dropdown-open? %))
          #(boolean? (:size-unit-dropdown-open? %))
+         #(boolean? (:tpsl-unit-dropdown-open? %))
          #(boolean? (:tif-dropdown-open? %))
          #(boolean? (:price-input-focused? %))
          #(boolean? (:tpsl-panel-open? %))

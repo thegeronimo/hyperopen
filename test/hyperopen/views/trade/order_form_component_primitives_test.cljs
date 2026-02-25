@@ -106,6 +106,64 @@
     (is (contains? with-accessory-wrapper-classes "items-center"))
     (is (not (contains? with-accessory-wrapper-classes "-translate-y-1/2")))))
 
+(deftest compact-row-input-renders-inline-label-and-accessory-layout-test
+  (let [node (apply primitives/compact-row-input
+                    ["100"
+                     "TP Price"
+                     [[:actions/set-tp-trigger [:event.target/value]]]
+                     [:span "$"]
+                     :disabled? true
+                     :inputmode "decimal"])
+        input-attrs (-> (collect-nodes-by-tag node :input)
+                        first
+                        second)
+        input-classes (set (:class input-attrs))
+        label-node (first (filter #(and (= :span (first %))
+                                        (contains? (set (get-in % [1 :class]))
+                                                   "text-gray-500"))
+                                  (collect-nodes-by-tag node :span)))
+        wrapper-classes (-> (collect-nodes-by-tag node :div)
+                            first
+                            second
+                            :class
+                            set)]
+    (is (= {:input [[:actions/set-tp-trigger [:event.target/value]]]}
+           (:on input-attrs)))
+    (is (= "decimal" (:inputmode input-attrs)))
+    (is (true? (:disabled input-attrs)))
+    (is (contains? input-classes "min-w-0"))
+    (is (contains? input-classes "flex-1"))
+    (is (contains? input-classes "cursor-not-allowed"))
+    (is (contains? wrapper-classes "h-[33px]"))
+    (is (contains? wrapper-classes "focus-within:ring-1"))
+    (is (= "TP Price" (last label-node)))))
+
+(deftest compact-row-input-switches-to-short-label-when-value-present-test
+  (let [node (apply primitives/compact-row-input
+                    ["100"
+                     "TP Price"
+                     [[:actions/set-tp-trigger [:event.target/value]]]
+                     nil
+                     :short-label "TP"])
+        label-node (first (filter #(and (= :span (first %))
+                                        (contains? (set (get-in % [1 :class]))
+                                                   "text-gray-500"))
+                                  (collect-nodes-by-tag node :span)))]
+    (is (= "TP" (last label-node)))))
+
+(deftest compact-row-input-uses-default-cursor-when-enabled-test
+  (let [node (apply primitives/compact-row-input
+                    ["100"
+                     "Gain"
+                     [[:actions/set-tp-offset [:event.target/value]]]
+                     nil])
+        input-attrs (-> (collect-nodes-by-tag node :input)
+                        first
+                        second)
+        input-classes (set (:class input-attrs))]
+    (is (contains? input-classes "cursor-default"))
+    (is (not (contains? input-classes "cursor-text")))))
+
 (deftest chip-button-active-and-disabled-branches-test
   (let [enabled-node (apply primitives/chip-button
                             ["25%"

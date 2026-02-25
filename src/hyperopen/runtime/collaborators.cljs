@@ -122,6 +122,9 @@
    :toggle-size-unit-dropdown order-actions/toggle-size-unit-dropdown
    :close-size-unit-dropdown order-actions/close-size-unit-dropdown
    :handle-size-unit-dropdown-keydown order-actions/handle-size-unit-dropdown-keydown
+   :toggle-tpsl-unit-dropdown order-actions/toggle-tpsl-unit-dropdown
+   :close-tpsl-unit-dropdown order-actions/close-tpsl-unit-dropdown
+   :handle-tpsl-unit-dropdown-keydown order-actions/handle-tpsl-unit-dropdown-keydown
    :toggle-tif-dropdown order-actions/toggle-tif-dropdown
    :close-tif-dropdown order-actions/close-tif-dropdown
    :handle-tif-dropdown-keydown order-actions/handle-tif-dropdown-keydown

@@ -16,6 +16,19 @@
    "focus:shadow-none"
    "focus:border-[#8a96a6]"])
 
+(def compact-container-focus-classes
+  ["transition-[border-color,box-shadow]"
+   "duration-150"
+   "hover:border-[#6f7a88]"
+   "hover:ring-1"
+   "hover:ring-[#6f7a88]/30"
+   "hover:ring-offset-0"
+   "focus-within:ring-1"
+   "focus-within:ring-[#8a96a6]/40"
+   "focus-within:ring-offset-0"
+   "focus-within:shadow-none"
+   "focus-within:border-[#8a96a6]"])
+
 (defn- dom-event-attr [event-id]
   (keyword (str "on-" (name event-id))))
 
@@ -100,14 +113,17 @@
            on-change)])
 
 (defn row-input [value placeholder on-change accessory & {:keys [input-padding-right
+                                                                 input-padding-left
+                                                                 label-max-width
                                                                  on-focus
                                                                  on-blur
                                                                  disabled?
                                                                  inputmode]
-                                                          :or {input-padding-right "pr-20"}}]
+                                                          :or {input-padding-right "pr-20"
+                                                               input-padding-left "pl-24"
+                                                               label-max-width "max-w-[52%]"}}]
   (let [base-classes (into ["w-full"
                             "h-11"
-                            "pl-24"
                             "bg-base-200"
                             "border"
                             "border-base-300"
@@ -118,7 +134,8 @@
                             "num"
                             "placeholder:text-transparent"
                             "appearance-none"]
-                           (concat neutral-input-focus-classes
+                           (concat [input-padding-left]
+                                   neutral-input-focus-classes
                                    (if accessory [input-padding-right] ["pr-3"]))
                            )
         input-classes (cond-> base-classes
@@ -141,7 +158,7 @@
                      "left-3"
                      "top-1/2"
                      "-translate-y-1/2"
-                     "max-w-[52%]"
+                     label-max-width
                      "truncate"
                      "text-sm"
                      "text-gray-500"]}
@@ -154,6 +171,77 @@
                       "flex"
                       "items-center"
                       "shrink-0"]}
+       accessory])]))
+
+(defn compact-row-input [value label on-change accessory & {:keys [on-focus
+                                                                   on-blur
+                                                                   disabled?
+                                                                   inputmode
+                                                                   short-label
+                                                                   overflow-visible?]}]
+  (let [display-label (if (and short-label
+                               (seq (str/trim (str (or value "")))))
+                        short-label
+                        label)
+        container-classes (cond-> (into ["flex"
+                                         "h-[33px]"
+                                         "w-full"
+                                         "items-center"
+                                         "gap-1.5"
+                                         "rounded-lg"
+                                         "border"
+                                         "border-base-300"
+                                         "bg-transparent"
+                                         (if overflow-visible?
+                                           "overflow-visible"
+                                           "overflow-hidden")
+                                         "py-[5px]"
+                                         "pr-3"
+                                         "pl-2.5"]
+                                        compact-container-focus-classes)
+                           disabled? (into ["opacity-60"]))
+        input-attrs (-> (cond-> {:class (into ["min-w-0"
+                                               "w-full"
+                                               "flex-1"
+                                               "h-[31px]"
+                                               "leading-[31px]"
+                                               "m-0"
+                                               "p-0"
+                                               "border-0"
+                                               "bg-transparent"
+                                               "text-right"
+                                               "text-xs"
+                                               "font-normal"
+                                               "text-gray-100"
+                                               "num"
+                                               "appearance-none"
+                                               "outline-none"
+                                               "focus:outline-none"
+                                               "focus:border-0"
+                                               "focus:ring-0"
+                                               "focus:ring-offset-0"
+                                               "focus:shadow-none"]
+                                              (if disabled?
+                                                ["cursor-not-allowed"]
+                                                ["cursor-default"]))
+                                 :type "text"
+                                 :aria-label label
+                                 :placeholder ""
+                                 :value (or value "")
+                                 :disabled (boolean disabled?)}
+                          inputmode (assoc :inputmode inputmode))
+                        (bind-event :input on-change)
+                        (bind-event :focus on-focus)
+                        (bind-event :blur on-blur))]
+    [:div {:class container-classes}
+     [:span {:class ["shrink-0"
+                     "whitespace-nowrap"
+                     "text-xs"
+                     "text-gray-500"]}
+      display-label]
+     [:input input-attrs]
+     (when accessory
+       [:div {:class ["flex" "shrink-0" "items-center"]}
         accessory])]))
 
 (defn inline-labeled-scale-input [label value on-change]

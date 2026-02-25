@@ -49,3 +49,28 @@
                                             :leverage 20
                                             :inverse true
                                             :unit :percent}))))
+
+(deftest tpsl-offset-display-avoids-float-precision-regression-test
+  (is (= "1"
+         (policy/offset-display-from-trigger {:trigger "1.3333333"
+                                              :baseline 1
+                                              :size 3
+                                              :leverage 20
+                                              :inverse false
+                                              :unit :usd}))))
+
+(deftest tpsl-trigger-from-offset-input-uses-five-decimals-test
+  (is (= "0.63012"
+         (policy/trigger-from-offset-input {:raw-input "1"
+                                            :baseline 0.62012
+                                            :size 100
+                                            :leverage 20
+                                            :inverse false
+                                            :unit :usd})))
+  (is (= "99.55556"
+         (policy/trigger-from-offset-input {:raw-input "20"
+                                            :baseline 100
+                                            :size 2
+                                            :leverage 45
+                                            :inverse true
+                                            :unit :percent}))))

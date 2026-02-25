@@ -97,6 +97,7 @@
                      :order-form {}
                      :order-form-ui {:pro-order-type-dropdown-open? false
                                      :size-unit-dropdown-open? false
+                                     :tpsl-unit-dropdown-open? false
                                      :tif-dropdown-open? false
                                      :price-input-focused? false
                                      :tpsl-panel-open? false

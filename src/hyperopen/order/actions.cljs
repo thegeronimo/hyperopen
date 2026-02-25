@@ -68,6 +68,23 @@
                              (boolean (:size-unit-dropdown-open? ui-state))]]]])
     []))
 
+(defn toggle-tpsl-unit-dropdown [state]
+  (let [ui-state (:order-form-ui (transitions/toggle-tpsl-unit-dropdown state))
+        next-open? (boolean (:tpsl-unit-dropdown-open? ui-state))]
+    [[:effects/save-many [[[:order-form-ui :tpsl-unit-dropdown-open?] next-open?]]]]))
+
+(defn close-tpsl-unit-dropdown [state]
+  (let [ui-state (:order-form-ui (transitions/close-tpsl-unit-dropdown state))]
+    [[:effects/save-many [[[:order-form-ui :tpsl-unit-dropdown-open?]
+                           (boolean (:tpsl-unit-dropdown-open? ui-state))]]]]))
+
+(defn handle-tpsl-unit-dropdown-keydown [state key]
+  (if-let [transition (transitions/handle-tpsl-unit-dropdown-keydown state key)]
+    (let [ui-state (:order-form-ui transition)]
+      [[:effects/save-many [[[:order-form-ui :tpsl-unit-dropdown-open?]
+                             (boolean (:tpsl-unit-dropdown-open? ui-state))]]]])
+    []))
+
 (defn toggle-tif-dropdown [state]
   (let [ui-state (:order-form-ui (transitions/toggle-tif-dropdown state))
         next-open? (boolean (:tif-dropdown-open? ui-state))]

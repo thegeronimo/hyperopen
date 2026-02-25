@@ -60,6 +60,13 @@
            :on-set-tp-offset (dispatch-command (cmd/set-tp-offset-input))
            :on-set-sl-trigger (dispatch-command (cmd/set-sl-trigger-input))
            :on-set-sl-offset (dispatch-command (cmd/set-sl-offset-input))
-           :on-set-tpsl-unit (dispatch-command (cmd/set-tpsl-unit-input))}
+           :on-toggle-unit-dropdown (dispatch-command (cmd/toggle-tpsl-unit-dropdown))
+           :on-close-unit-dropdown (dispatch-command (cmd/close-tpsl-unit-dropdown))
+           :on-unit-dropdown-keydown (dispatch-command (cmd/handle-tpsl-unit-dropdown-keydown cmd/event-key))
+           :on-select-tpsl-unit (fn [unit]
+                                  (into []
+                                        (concat
+                                         (dispatch-command (cmd/close-tpsl-unit-dropdown))
+                                         (dispatch-command (cmd/set-order-tpsl-unit unit)))))} 
 
    :submit {:on-submit (dispatch-command (cmd/submit-order))}})

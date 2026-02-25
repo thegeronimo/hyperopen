@@ -13,6 +13,9 @@
    :order-form/toggle-size-unit-dropdown :actions/toggle-size-unit-dropdown
    :order-form/close-size-unit-dropdown :actions/close-size-unit-dropdown
    :order-form/handle-size-unit-dropdown-keydown :actions/handle-size-unit-dropdown-keydown
+   :order-form/toggle-tpsl-unit-dropdown :actions/toggle-tpsl-unit-dropdown
+   :order-form/close-tpsl-unit-dropdown :actions/close-tpsl-unit-dropdown
+   :order-form/handle-tpsl-unit-dropdown-keydown :actions/handle-tpsl-unit-dropdown-keydown
    :order-form/toggle-tif-dropdown :actions/toggle-tif-dropdown
    :order-form/close-tif-dropdown :actions/close-tif-dropdown
    :order-form/handle-tif-dropdown-keydown :actions/handle-tif-dropdown-keydown

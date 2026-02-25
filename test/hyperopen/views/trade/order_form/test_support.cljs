@@ -125,6 +125,7 @@
     :size-input-source
     :size-display
     :size-unit-dropdown-open?
+    :tpsl-unit-dropdown-open?
     :tif-dropdown-open?
     :pro-order-type-dropdown-open?
     :price-input-focused?
