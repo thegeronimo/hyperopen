@@ -113,7 +113,11 @@
                      :base "HYPE"
                      :market-type :spot}
         icon-node (view/asset-icon spot-market false #{} #{})
+        img-node (find-first-img-node icon-node)
+        img-src (some-> img-node second :src)
         path-ds (set (collect-path-ds icon-node))]
+    (is (some? img-node))
+    (is (= "https://app.hyperliquid.xyz/coins/HYPE_spot.svg" img-src))
     (is (contains? path-ds "M19 9l-7 7-7-7"))))
 
 (deftest asset-icon-renders-image-immediately-and-wires-load-events-test
