@@ -216,8 +216,10 @@
                                                                                 open-orders-snapshot-by-dex-source
                                                                                 pending-cancel-oids
                                                                                 market-by-key)
-        trade-history-state (assoc (get-in state [:account-info :trade-history] {})
-                                   :market-by-key market-by-key)
+        trade-history-state (-> (merge {:direction-filter :all
+                                        :filter-open? false}
+                                       (get-in state [:account-info :trade-history] {}))
+                                (assoc :market-by-key market-by-key))
         funding-history-state (get-in state [:account-info :funding-history] {})
         order-history-state (assoc (get-in state [:account-info :order-history] {})
                                    :market-by-key market-by-key)

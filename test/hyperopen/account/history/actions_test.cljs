@@ -194,6 +194,24 @@
                                [[:account-info :open-orders :filter-open?] false]]]]
          (history-actions/set-open-orders-direction-filter nil "invalid-filter"))))
 
+(deftest trade-history-direction-filter-actions-normalize-close-dropdown-and-reset-pagination-test
+  (is (= [[:effects/save [:account-info :trade-history :filter-open?] true]]
+         (history-actions/toggle-trade-history-direction-filter-open
+          {:account-info {:trade-history {:filter-open? false}}})))
+  (is (= [[:effects/save [:account-info :trade-history :filter-open?] false]]
+         (history-actions/toggle-trade-history-direction-filter-open
+          {:account-info {:trade-history {:filter-open? true}}})))
+  (is (= [[:effects/save-many [[[:account-info :trade-history :direction-filter] :short]
+                               [[:account-info :trade-history :filter-open?] false]
+                               [[:account-info :trade-history :page] 1]
+                               [[:account-info :trade-history :page-input] "1"]]]]
+         (history-actions/set-trade-history-direction-filter nil "ShOrT")))
+  (is (= [[:effects/save-many [[[:account-info :trade-history :direction-filter] :all]
+                               [[:account-info :trade-history :filter-open?] false]
+                               [[:account-info :trade-history :page] 1]
+                               [[:account-info :trade-history :page-input] "1"]]]]
+         (history-actions/set-trade-history-direction-filter nil "invalid-filter"))))
+
 (deftest set-hide-small-balances-updates-flag-test
   (is (= [[:effects/save [:account-info :hide-small-balances?] true]]
          (history-actions/set-hide-small-balances nil true))))

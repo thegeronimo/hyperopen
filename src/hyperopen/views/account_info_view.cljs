@@ -64,7 +64,7 @@
    [:button {:class ["btn" "btn-xs" "btn-ghost" "font-normal" "text-trading-text" "hover:bg-base-100" "hover:text-trading-text"]
              :on {:click [[:actions/view-all-funding-history]]}}
     "View All"]
-   [:button {:class ["btn" "btn-xs" "btn-ghost" "font-normal" "text-trading-text" "hover:bg-base-100" "hover:text-trading-text"]
+   [:button {:class ["btn" "btn-xs" "btn-ghost" "font-normal" "text-trading-green" "hover:bg-base-100" "hover:text-trading-green"]
              :on {:click [[:actions/export-funding-history-csv]]}}
     "Export as CSV"]])
 
@@ -149,14 +149,47 @@
            (when (= direction-filter option-key)
              [:span {:class ["text-trading-text"]} "*"])])])]))
 
+(def trade-history-direction-filter-options
+  trade-history-tab/trade-history-direction-filter-options)
+
+(def trade-history-direction-filter-labels
+  trade-history-tab/trade-history-direction-filter-labels)
+
+(defn- trade-history-direction-filter-key [trade-history-state]
+  (trade-history-tab/trade-history-direction-filter-key trade-history-state))
+
+(defn- trade-history-header-actions [trade-history-state]
+  (let [filter-open? (boolean (:filter-open? trade-history-state))
+        direction-filter (trade-history-direction-filter-key trade-history-state)
+        direction-label (get trade-history-direction-filter-labels direction-filter "All")]
+    [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2"]}
+     [:button {:class ["btn" "btn-xs" "btn-ghost" "font-normal" "text-trading-text" "hover:bg-base-100" "hover:text-trading-text"]
+               :on {:click [[:actions/toggle-trade-history-direction-filter-open]]}}
+      direction-label
+      (chevron-caret-icon filter-open?)]
+     (when filter-open?
+       [:div {:class ["absolute" "right-4" "top-full" "z-20" "mt-1" "w-32" "overflow-hidden" "rounded-md" "border" "border-base-300" "bg-base-100" "shadow-lg"]}
+        (for [[option-key option-label] trade-history-direction-filter-options]
+          ^{:key (name option-key)}
+          [:button {:class (into ["flex" "w-full" "items-center" "justify-between" "px-3" "py-2" "text-xs" "transition-colors"]
+                                 (if (= direction-filter option-key)
+                                   ["bg-base-200" "text-trading-text"]
+                                   ["text-trading-text-secondary" "hover:bg-base-200" "hover:text-trading-text"]))
+                    :on {:click [[:actions/set-trade-history-direction-filter option-key]]}}
+           option-label
+           (when (= direction-filter option-key)
+             [:span {:class ["text-trading-text"]} "*"])])])]))
+
 (defn tab-navigation
   ([selected-tab counts hide-small? funding-history-state]
-   (tab-navigation selected-tab counts hide-small? funding-history-state {} {} nil))
+   (tab-navigation selected-tab counts hide-small? funding-history-state {} {} {} nil))
   ([selected-tab counts hide-small? funding-history-state order-history-state]
-   (tab-navigation selected-tab counts hide-small? funding-history-state order-history-state {} nil))
+   (tab-navigation selected-tab counts hide-small? funding-history-state {} order-history-state {} nil))
   ([selected-tab counts hide-small? funding-history-state order-history-state freshness-cues]
-   (tab-navigation selected-tab counts hide-small? funding-history-state order-history-state {} freshness-cues))
-  ([selected-tab counts hide-small? _funding-history-state order-history-state open-orders-state freshness-cues]
+   (tab-navigation selected-tab counts hide-small? funding-history-state {} order-history-state {} freshness-cues))
+  ([selected-tab counts hide-small? funding-history-state order-history-state open-orders-state freshness-cues]
+   (tab-navigation selected-tab counts hide-small? funding-history-state {} order-history-state open-orders-state freshness-cues))
+  ([selected-tab counts hide-small? _funding-history-state trade-history-state order-history-state open-orders-state freshness-cues]
    [:div.flex.items-center.justify-between.border-b.border-base-300.bg-base-200
     [:div.flex.items-center
      (for [tab available-tabs]
@@ -196,6 +229,9 @@
 
       :order-history
       (order-history-header-actions order-history-state)
+
+      :trade-history
+      (trade-history-header-actions trade-history-state)
 
       :positions
       (freshness-cue-node (get freshness-cues :positions))
@@ -375,6 +411,7 @@
                 tab-counts
                 hide-small?
                 funding-history-state
+                trade-history-state
                 order-history-state
                 open-orders-state
                 freshness-cues
@@ -386,6 +423,7 @@
                      tab-counts
                      hide-small?
                      funding-history-state
+                     trade-history-state
                      order-history-state
                      open-orders-state
                      freshness-cues)

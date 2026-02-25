@@ -270,6 +270,8 @@
    :actions/apply-trade-history-page-input ::max-page-args
    :actions/handle-trade-history-page-input-keydown ::keydown-with-max-page-args
    :actions/sort-trade-history ::sort-column-args
+   :actions/toggle-trade-history-direction-filter-open ::no-args
+   :actions/set-trade-history-direction-filter ::keyword-or-string-args
    :actions/sort-positions ::sort-column-args
    :actions/sort-balances ::sort-column-args
    :actions/sort-open-orders ::sort-column-args

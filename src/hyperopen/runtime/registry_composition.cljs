@@ -246,6 +246,8 @@
            apply-trade-history-page-input
            handle-trade-history-page-input-keydown
            sort-trade-history
+           toggle-trade-history-direction-filter-open
+           set-trade-history-direction-filter
            sort-positions
            sort-balances
            sort-open-orders
@@ -294,6 +296,8 @@
    :apply-trade-history-page-input apply-trade-history-page-input
    :handle-trade-history-page-input-keydown handle-trade-history-page-input-keydown
    :sort-trade-history sort-trade-history
+   :toggle-trade-history-direction-filter-open toggle-trade-history-direction-filter-open
+   :set-trade-history-direction-filter set-trade-history-direction-filter
    :sort-positions sort-positions
    :sort-balances sort-balances
    :sort-open-orders sort-open-orders

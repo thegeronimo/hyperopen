@@ -56,7 +56,7 @@
     (is (= [3 2 1] (mapv :tid value-desc)))
     (is (= [2 3 1] (mapv :tid direction-asc)))))
 
-(deftest trade-history-tab-content-memoizes-sorting-by-input-identity-sort-and-market-map-test
+(deftest trade-history-tab-content-memoizes-sorting-by-input-identity-filter-sort-and-market-map-test
   (let [fills [{:tid 1
                 :coin "ETH"
                 :side "B"
@@ -65,6 +65,7 @@
                 :fee "0.1"
                 :time 1700000000000}]
         trade-history-state {:sort {:column "Time" :direction :desc}
+                             :direction-filter :all
                              :market-by-key {}}
         sort-calls (atom 0)]
     (trade-history-tab/reset-trade-history-sort-cache!)
@@ -90,7 +91,51 @@
                                                :market-by-key
                                                {"spot:ETH/USDC" {:coin "spot:ETH/USDC"
                                                                  :symbol "ETH/USDC"}}))
-        (is (= 3 @sort-calls))))))
+        (is (= 3 @sort-calls))
+
+        (view/trade-history-tab-content fills (assoc sort-state-asc :direction-filter :short))
+        (view/trade-history-tab-content fills (assoc sort-state-asc :direction-filter :short))
+        (is (= 4 @sort-calls))))))
+
+(deftest trade-history-tab-content-filters-rows-by-direction-filter-test
+  (let [fills [{:tid 1
+                :coin "LONGCOIN"
+                :side "B"
+                :sz "1.0"
+                :px "100.0"
+                :fee "0.1"
+                :time 1700000002000}
+               {:tid 2
+                :coin "SHORTA"
+                :side "A"
+                :sz "2.0"
+                :px "99.0"
+                :fee "0.1"
+                :time 1700000001000}
+               {:tid 3
+                :coin "SHORTS"
+                :side "S"
+                :sz "3.0"
+                :px "98.0"
+                :fee "0.1"
+                :time 1700000000000}]
+        all-content (view/trade-history-tab-content fills {:direction-filter :all})
+        long-content (view/trade-history-tab-content fills {:direction-filter :long})
+        short-content (view/trade-history-tab-content fills {:direction-filter :short})
+        all-row-count (count (vec (hiccup/node-children (hiccup/tab-rows-viewport-node all-content))))
+        long-row-count (count (vec (hiccup/node-children (hiccup/tab-rows-viewport-node long-content))))
+        short-row-count (count (vec (hiccup/node-children (hiccup/tab-rows-viewport-node short-content))))
+        long-text (set (hiccup/collect-strings long-content))
+        short-text (set (hiccup/collect-strings short-content))]
+    (is (= 3 all-row-count))
+    (is (= 1 long-row-count))
+    (is (= 2 short-row-count))
+    (is (contains? long-text "LONGCOIN"))
+    (is (not (contains? long-text "SHORTA")))
+    (is (not (contains? long-text "SHORTS")))
+    (is (contains? short-text "SHORTA"))
+    (is (contains? short-text "SHORTS"))
+    (is (not (contains? short-text "LONGCOIN")))))
 
 (deftest trade-history-headers-match-hyperliquid-order-and-contrast-test
   (let [fills [{:tid 1
@@ -461,6 +506,51 @@
            (get-in jump-input [1 :on :keydown])))
     (is (= [[:actions/apply-trade-history-page-input 1]]
            (get-in go-button [1 :on :click])))))
+
+(deftest trade-history-direction-filter-controls-wire-actions-test
+  (let [rows [{:tid 1
+               :coin "LONGCOIN"
+               :side "B"
+               :sz "1.0"
+               :px "100.0"
+               :fee "0.1"
+               :time 1700000001000}
+              {:tid 2
+               :coin "SHORTCOIN"
+               :side "A"
+               :sz "1.0"
+               :px "99.0"
+               :fee "0.1"
+               :time 1700000000000}]
+        panel-state (-> fixtures/sample-account-info-state
+                        (assoc-in [:account-info :selected-tab] :trade-history)
+                        (assoc-in [:account-info :trade-history]
+                                  {:sort {:column "Time" :direction :desc}
+                                   :direction-filter :short
+                                   :filter-open? true
+                                   :page-size 25
+                                   :page 1
+                                   :page-input "1"})
+                        (assoc-in [:orders :fills] rows))
+        panel (view/account-info-panel panel-state)
+        filter-button (hiccup/find-first-node panel #(and (contains? (hiccup/direct-texts %) "Short")
+                                                           (= [[:actions/toggle-trade-history-direction-filter-open]]
+                                                              (get-in % [1 :on :click]))))
+        short-option (hiccup/find-first-node panel #(and (contains? (hiccup/direct-texts %) "Short")
+                                                          (= [[:actions/set-trade-history-direction-filter :short]]
+                                                             (get-in % [1 :on :click]))))
+        long-option (hiccup/find-first-node panel #(and (contains? (hiccup/direct-texts %) "Long")
+                                                         (= [[:actions/set-trade-history-direction-filter :long]]
+                                                            (get-in % [1 :on :click]))))]
+    (is (some? filter-button))
+    (is (some? short-option))
+    (is (some? long-option))
+    (is (= [[:actions/toggle-trade-history-direction-filter-open]]
+           (get-in filter-button [1 :on :click])))
+    (is (= [[:actions/set-trade-history-direction-filter :short]]
+           (get-in short-option [1 :on :click])))
+    (is (= [[:actions/set-trade-history-direction-filter :long]]
+           (get-in long-option [1 :on :click])))))
 
 (deftest trade-history-pagination-clamps-page-when-data-shrinks-test
   (let [rows (mapv fixtures/trade-history-row (range 10))

@@ -89,6 +89,8 @@
    :apply-trade-history-page-input account-history-actions/apply-trade-history-page-input
    :handle-trade-history-page-input-keydown account-history-actions/handle-trade-history-page-input-keydown
    :sort-trade-history account-history-actions/sort-trade-history
+   :toggle-trade-history-direction-filter-open account-history-actions/toggle-trade-history-direction-filter-open
+   :set-trade-history-direction-filter account-history-actions/set-trade-history-direction-filter
    :sort-positions account-history-actions/sort-positions
    :sort-balances account-history-actions/sort-balances
    :sort-open-orders account-history-actions/sort-open-orders

@@ -20,6 +20,9 @@
 (def ^:private open-orders-direction-filter-options
   #{:all :long :short})
 
+(def ^:private trade-history-direction-filter-options
+  #{:all :long :short})
+
 (def ^:private order-history-status-options
   #{:all :long :short})
 
@@ -56,6 +59,8 @@
 
 (defn default-trade-history-state []
   {:sort {:column "Time" :direction :desc}
+   :direction-filter :all
+   :filter-open? false
    :page-size default-order-history-page-size
    :page 1
    :page-input "1"})
@@ -161,6 +166,16 @@
                      (string? direction-filter) (keyword (str/lower-case direction-filter))
                      :else :all)]
     (if (contains? open-orders-direction-filter-options direction*)
+      direction*
+      :all)))
+
+(defn- normalize-trade-history-direction-filter
+  [direction-filter]
+  (let [direction* (cond
+                     (keyword? direction-filter) direction-filter
+                     (string? direction-filter) (keyword (str/lower-case direction-filter))
+                     :else :all)]
+    (if (contains? trade-history-direction-filter-options direction*)
       direction*
       :all)))
 
@@ -420,6 +435,17 @@
                           :asc))]
     [[:effects/save-many [[[:account-info :trade-history :sort]
                            {:column column :direction new-direction}]
+                          [[:account-info :trade-history :page] 1]
+                          [[:account-info :trade-history :page-input] "1"]]]]))
+
+(defn toggle-trade-history-direction-filter-open [state]
+  (let [open? (boolean (get-in state [:account-info :trade-history :filter-open?]))]
+    [[:effects/save [:account-info :trade-history :filter-open?] (not open?)]]))
+
+(defn set-trade-history-direction-filter [_state direction-filter]
+  (let [direction* (normalize-trade-history-direction-filter direction-filter)]
+    [[:effects/save-many [[[:account-info :trade-history :direction-filter] direction*]
+                          [[:account-info :trade-history :filter-open?] false]
                           [[:account-info :trade-history :page] 1]
                           [[:account-info :trade-history :page-input] "1"]]]]))
 

@@ -239,6 +239,12 @@
 (def sort-trade-history
   account-history-actions/sort-trade-history)
 
+(def toggle-trade-history-direction-filter-open
+  account-history-actions/toggle-trade-history-direction-filter-open)
+
+(def set-trade-history-direction-filter
+  account-history-actions/set-trade-history-direction-filter)
+
 (def sort-order-history
   account-history-actions/sort-order-history)
 
