@@ -1,5 +1,6 @@
 (ns hyperopen.state.trading-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.state.trading.order-form-key-policy :as key-policy]
             [hyperopen.state.trading :as trading]
             [hyperopen.state.trading.test-support :as support]))
 
@@ -34,3 +35,17 @@
     (is (= :market (:type draft)))
     (is (= :market (:entry-mode ui-state)))
     (is (false? (:price-input-focused? ui-state)))))
+
+(deftest persist-order-form-strips-policy-deprecated-canonical-keys-test
+  (let [raw (merge {:type :limit
+                    :price "100"
+                    :side :buy}
+                   (zipmap key-policy/deprecated-canonical-order-form-keys
+                           (repeat true)))
+        persisted (trading/persist-order-form raw)]
+    (is (= {:type :limit
+            :price "100"
+            :side :buy}
+           persisted))
+    (is (every? #(not (contains? persisted %))
+                key-policy/deprecated-canonical-order-form-keys))))

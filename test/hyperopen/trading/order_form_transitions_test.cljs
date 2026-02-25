@@ -4,8 +4,9 @@
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop :include-macros true]
             [hyperopen.schema.order-form-contracts :as contracts]
-            [hyperopen.trading.order-type-registry :as order-type-registry]
+            [hyperopen.state.trading.order-form-key-policy :as key-policy]
             [hyperopen.state.trading :as trading]
+            [hyperopen.trading.order-type-registry :as order-type-registry]
             [hyperopen.trading.order-form-transitions :as transitions]))
 
 (defn- base-state
@@ -280,27 +281,16 @@
     (is (false? (:tif-dropdown-open? ui)))))
 
 (deftest update-order-form-rejects-ui-and-runtime-paths-test
-  (let [state (base-state {:type :limit :size "1" :price "100"})
-        transition (transitions/update-order-form state [:price-input-focused?] true)]
-    (is (contracts/order-form-transition-valid? transition))
-    (is (nil? (:order-form transition)))
-    (is (nil? (:order-form-ui transition)))
-    (is (= nil (get-in transition [:order-form-runtime :error])))))
+  (let [state (base-state {:type :limit :size "1" :price "100"})]
+    (doseq [path key-policy/canonical-write-blocked-order-form-paths]
+      (let [transition (transitions/update-order-form state path true)]
+        (is (contracts/order-form-transition-valid? transition))
+        (is (nil? (:order-form transition)))
+        (is (nil? (:order-form-ui transition)))
+        (is (= nil (get-in transition [:order-form-runtime :error])))))))
 
 (def ^:private ui-only-form-paths
-  #{:entry-mode
-    :ui-leverage
-    :size-input-mode
-    :size-input-source
-    :size-display
-    :pro-order-type-dropdown-open?
-    :size-unit-dropdown-open?
-    :tpsl-unit-dropdown-open?
-    :tif-dropdown-open?
-    :price-input-focused?
-    :tpsl-panel-open?
-    :submitting?
-    :error})
+  key-policy/deprecated-canonical-order-form-key-set)
 
 (def ^:private entry-mode-gen
   (gen/elements [:market :limit :pro]))

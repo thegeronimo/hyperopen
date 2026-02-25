@@ -1,6 +1,7 @@
 (ns hyperopen.schema.contracts
   (:require [cljs.spec.alpha :as s]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [hyperopen.state.trading.order-form-key-policy :as order-form-key-policy]))
 
 (defn validation-enabled?
   []
@@ -419,44 +420,14 @@
   (s/and map?
          #(string? (:path %))))
 
-(def ^:private ui-owned-order-form-keys
-  #{:entry-mode
-    :ui-leverage
-    :size-input-mode
-    :size-input-source
-    :size-display})
-
-(def ^:private legacy-ui-and-runtime-order-form-keys
-  #{:pro-order-type-dropdown-open?
-    :size-unit-dropdown-open?
-    :tpsl-unit-dropdown-open?
-    :tif-dropdown-open?
-    :price-input-focused?
-    :tpsl-panel-open?
-    :submitting?
-    :error})
-
-(def ^:private order-form-ui-state-keys
-  #{:pro-order-type-dropdown-open?
-    :size-unit-dropdown-open?
-    :tpsl-unit-dropdown-open?
-    :tif-dropdown-open?
-    :price-input-focused?
-    :tpsl-panel-open?
-    :entry-mode
-    :ui-leverage
-    :size-input-mode
-    :size-input-source
-    :size-display})
-
 (s/def ::order-form-state
   (s/and map?
-         #(not-any? ui-owned-order-form-keys (keys %))
-         #(not-any? legacy-ui-and-runtime-order-form-keys (keys %))))
+         #(not-any? order-form-key-policy/ui-owned-order-form-key? (keys %))
+         #(not-any? order-form-key-policy/legacy-order-form-compatibility-key? (keys %))))
 
 (s/def ::order-form-ui-state
   (s/and map?
-         #(= order-form-ui-state-keys (set (keys %)))
+         #(= order-form-key-policy/order-form-ui-state-keys (set (keys %)))
          #(boolean? (:pro-order-type-dropdown-open? %))
          #(boolean? (:size-unit-dropdown-open? %))
          #(boolean? (:tpsl-unit-dropdown-open? %))

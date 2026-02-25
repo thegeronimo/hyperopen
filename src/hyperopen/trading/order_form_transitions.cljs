@@ -1,5 +1,6 @@
 (ns hyperopen.trading.order-form-transitions
   (:require [clojure.string :as str]
+            [hyperopen.state.trading.order-form-key-policy :as order-form-key-policy]
             [hyperopen.state.trading :as trading]
             [hyperopen.trading.order-form-tpsl-policy :as tpsl-policy]))
 
@@ -15,23 +16,8 @@
 (defn- cleared-runtime-state [state]
   (assoc (trading/order-form-runtime-state state) :error nil))
 
-(def ^:private ui-only-form-paths
-  #{[:entry-mode]
-    [:ui-leverage]
-    [:size-input-mode]
-    [:size-input-source]
-    [:size-display]
-    [:pro-order-type-dropdown-open?]
-    [:size-unit-dropdown-open?]
-    [:tpsl-unit-dropdown-open?]
-    [:tif-dropdown-open?]
-    [:price-input-focused?]
-    [:tpsl-panel-open?]
-    [:submitting?]
-    [:error]})
-
 (defn- ui-only-form-path? [path]
-  (contains? ui-only-form-paths path))
+  (order-form-key-policy/canonical-write-blocked-order-form-path? path))
 
 (defn- enforce-field-ownership
   [state transition]

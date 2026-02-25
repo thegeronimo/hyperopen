@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperopen.api.gateway.orders.commands :as order-commands]
             [hyperopen.domain.trading :as trading-domain]
+            [hyperopen.state.trading.order-form-key-policy :as order-form-key-policy]
             [hyperopen.state.trading.fee-context :as trading-fee-context]
             [hyperopen.trading.order-form-state :as order-form-state]))
 
@@ -53,25 +54,6 @@
 (defn default-order-form-runtime []
   (order-form-state/default-order-form-runtime))
 
-(def ^:private legacy-order-form-ui-flag-keys
-  [:pro-order-type-dropdown-open?
-   :size-unit-dropdown-open?
-   :tpsl-unit-dropdown-open?
-   :tif-dropdown-open?
-   :price-input-focused?
-   :tpsl-panel-open?])
-
-(def ^:private ui-owned-order-form-keys
-  [:entry-mode
-   :ui-leverage
-   :size-input-mode
-   :size-input-source
-   :size-display])
-
-(def ^:private legacy-order-form-runtime-keys
-  [:submitting?
-   :error])
-
 (declare normalize-order-form
          build-order-request
          market-identity
@@ -80,12 +62,12 @@
 (defn order-form-ui-overrides-from-form
   "Extract UI-owned order-form fields from a normalized working form."
   [form]
-  (select-keys (or form {}) ui-owned-order-form-keys))
+  (order-form-key-policy/order-form-ui-overrides-from-form form))
 
 (defn persist-order-form
-  "Strip UI-owned order-form fields from persisted domain draft payloads."
+  "Strip deprecated and UI-owned order-form fields from persisted domain draft payloads."
   [form]
-  (reduce dissoc (or form {}) ui-owned-order-form-keys))
+  (order-form-key-policy/strip-deprecated-canonical-order-form-keys form))
 
 (defn normalize-order-form-ui [ui]
   (order-form-state/normalize-order-form-ui ui))
@@ -409,9 +391,7 @@
         normalized-leverage (:value (trading-domain/leverage-value context (:ui-leverage form)))
         normalized-size-input-mode (normalize-size-input-mode (:size-input-mode form))
         normalized-size-input-source (normalize-size-input-source (:size-input-source form))
-        stripped-form (reduce dissoc
-                              (reduce dissoc form legacy-order-form-ui-flag-keys)
-                              legacy-order-form-runtime-keys)
+        stripped-form (order-form-key-policy/strip-legacy-order-form-compatibility-keys form)
         normalized-form (-> stripped-form
                             (order-form-state/normalize-order-form)
                             (assoc :entry-mode entry-mode

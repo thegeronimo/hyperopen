@@ -75,6 +75,15 @@ source_of_truth: true
 - The order-form runtime gateway and runtime action registration MUST derive command-driven order-form mappings from that catalog.
 - DO NOT maintain duplicate command-id -> action-id tables in gateway and registry modules.
 
+## Order-Form Legacy Key Policy Rules (MUST)
+- Canonical order-form key ownership policy MUST live in one shared module:
+  `/hyperopen/src/hyperopen/state/trading/order_form_key_policy.cljs`.
+- Legacy order-form key compatibility support is allowed only at order-form read ingress normalization boundaries
+  (for example `/hyperopen/src/hyperopen/state/trading.cljs` `normalize-order-form`).
+- Canonical persisted `:order-form` state MUST NOT contain policy-defined deprecated keys; app-state contract validation MUST reject those keys.
+- Transition write paths (for example `update-order-form`) MUST reject policy-defined UI-owned, runtime, and legacy key paths.
+- Schema contracts, transition path guards, and persistence stripping MUST derive from the shared key policy module; do not maintain duplicate key lists.
+
 ## Anti-Patterns (DO NOT)
 - DO NOT perform side effects inside reducer transitions.
 - DO NOT allow multiple writers to mutate canonical runtime state.

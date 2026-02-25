@@ -1,5 +1,6 @@
 (ns hyperopen.state.trading.order-form-state-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.state.trading.order-form-key-policy :as key-policy]
             [hyperopen.state.trading :as trading]
             [hyperopen.state.trading.test-support :as support]))
 
@@ -117,6 +118,18 @@
     (is (= :take-limit (:type normalized)))
     (is (= normalized
            (trading/normalize-order-form base-state form-without-entry-mode)))))
+
+(deftest normalize-order-form-strips-policy-legacy-compatibility-keys-test
+  (let [legacy-form (merge (trading/default-order-form)
+                           {:type :limit
+                            :size-percent 30
+                            :ui-leverage 20}
+                           (zipmap key-policy/legacy-order-form-compatibility-keys
+                                   (repeat true)))
+        normalized (trading/normalize-order-form base-state legacy-form)]
+    (is (= :limit (:type normalized)))
+    (is (every? #(not (contains? normalized %))
+                key-policy/legacy-order-form-compatibility-keys))))
 
 (deftest size-percent-conversion-roundtrip-test
   (let [form (assoc (trading/default-order-form)

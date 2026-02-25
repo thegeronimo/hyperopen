@@ -2,6 +2,7 @@
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.schema.contracts :as contracts]
             [hyperopen.schema.order-form-contracts :as order-form-contracts]
+            [hyperopen.state.trading.order-form-key-policy :as key-policy]
             [hyperopen.system :as system]))
 
 (def ^:private valid-order-form-ui
@@ -57,6 +58,17 @@
          js/Error
          #"app state"
          (contracts/assert-app-state! state {:phase :test})))))
+
+(deftest assert-app-state-rejects-order-form-with-policy-defined-deprecated-keys-test
+  (let [base (system/default-store-state)]
+    (doseq [key key-policy/deprecated-canonical-order-form-keys]
+      (let [state (assoc base
+                         :order-form (assoc (:order-form base) key true))]
+        (is (thrown-with-msg?
+             js/Error
+             #"app state"
+             (contracts/assert-app-state! state {:phase :test}))
+            (str "expected app-state contract rejection for " key))))))
 
 (deftest assert-app-state-rejects-order-form-runtime-with-invalid-shape-test
   (let [state (assoc (system/default-store-state)
