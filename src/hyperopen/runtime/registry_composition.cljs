@@ -281,6 +281,7 @@
            handle-position-reduce-popover-keydown
            set-position-reduce-popover-field
            set-position-reduce-size-percent
+           set-position-reduce-limit-price-to-mid
            submit-position-reduce-close]}]
   {:select-account-info-tab select-account-info-tab
    :set-funding-history-filters set-funding-history-filters
@@ -340,6 +341,7 @@
    :handle-position-reduce-popover-keydown handle-position-reduce-popover-keydown
    :set-position-reduce-popover-field set-position-reduce-popover-field
    :set-position-reduce-size-percent set-position-reduce-size-percent
+   :set-position-reduce-limit-price-to-mid set-position-reduce-limit-price-to-mid
    :submit-position-reduce-close submit-position-reduce-close})
 
 (defn- order-action-handlers

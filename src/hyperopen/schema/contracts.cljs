@@ -309,6 +309,7 @@
    :actions/handle-position-reduce-popover-keydown ::key-args
    :actions/set-position-reduce-popover-field ::position-reduce-popover-field-args
    :actions/set-position-reduce-size-percent ::single-input-args
+   :actions/set-position-reduce-limit-price-to-mid ::no-args
    :actions/submit-position-reduce-close ::no-args
    :actions/select-order-entry-mode ::keyword-or-string-args
    :actions/select-pro-order-type ::keyword-or-string-args

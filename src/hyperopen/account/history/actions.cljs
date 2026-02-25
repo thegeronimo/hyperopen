@@ -625,6 +625,12 @@
     [[:effects/save [:positions-ui :reduce-popover]
       (position-reduce/set-size-percent popover percent)]]))
 
+(defn set-position-reduce-limit-price-to-mid [state]
+  (let [popover (or (get-in state [:positions-ui :reduce-popover])
+                    (position-reduce/default-popover-state))]
+    [[:effects/save [:positions-ui :reduce-popover]
+      (position-reduce/set-limit-price-to-mid popover)]]))
+
 (defn submit-position-reduce-close [_state]
   [])
 

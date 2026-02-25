@@ -161,6 +161,7 @@
    [:actions/handle-position-reduce-popover-keydown :handle-position-reduce-popover-keydown]
    [:actions/set-position-reduce-popover-field :set-position-reduce-popover-field]
    [:actions/set-position-reduce-size-percent :set-position-reduce-size-percent]
+   [:actions/set-position-reduce-limit-price-to-mid :set-position-reduce-limit-price-to-mid]
    [:actions/submit-position-reduce-close :submit-position-reduce-close]
    [:actions/select-order-entry-mode :select-order-entry-mode]
    [:actions/select-pro-order-type :select-pro-order-type]

@@ -352,6 +352,35 @@
     (is (contains? (hiccup/node-class-set panel-node) "fixed"))
     (is (contains? (hiccup/node-class-set panel-node) "space-y-3"))))
 
+(deftest position-row-reduce-popover-mid-button-dispatches-mid-price-action-test
+  (let [row-data (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
+        popover (assoc (position-reduce/from-position-row row-data)
+                       :close-type :limit
+                       :mid-price "10")
+        row-node (view/position-row row-data nil popover)
+        mid-button (hiccup/find-first-node
+                    row-node
+                    #(and (= :button (first %))
+                          (contains? (hiccup/direct-texts %) "MID")))]
+    (is (some? mid-button))
+    (is (= [[:actions/set-position-reduce-limit-price-to-mid]]
+           (get-in mid-button [1 :on :click])))
+    (is (false? (boolean (get-in mid-button [1 :disabled]))))))
+
+(deftest position-row-reduce-popover-mid-button-disabled-without-mid-price-test
+  (let [row-data (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
+        popover (assoc (position-reduce/from-position-row row-data)
+                       :close-type :limit
+                       :mid-price nil)
+        row-node (view/position-row row-data nil popover)
+        mid-button (hiccup/find-first-node
+                    row-node
+                    #(and (= :button (first %))
+                          (contains? (hiccup/direct-texts %) "MID")))]
+    (is (some? mid-button))
+    (is (nil? (get-in mid-button [1 :on :click])))
+    (is (true? (boolean (get-in mid-button [1 :disabled]))))))
+
 (deftest position-row-renders-inline-position-tpsl-panel-for-active-row-key-test
   (let [row-data (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
         modal (position-tpsl/from-position-row row-data)

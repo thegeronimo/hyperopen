@@ -22,6 +22,32 @@
     (when (seq text)
       text)))
 
+(defn- normalize-positive-price-text
+  [value]
+  (let [price (parse-num value)]
+    (when (and (number? price)
+               (pos? price))
+      (trading-domain/number->clean-string price 6))))
+
+(defn- resolve-mid-price-text
+  [position-data]
+  (let [position (or (:position position-data) {})]
+    (some normalize-positive-price-text
+          [(:midPx position)
+           (:midPrice position)
+           (:midPx position-data)
+           (:midPrice position-data)
+           (:markPx position)
+           (:markPrice position)
+           (:markPx position-data)
+           (:markPrice position-data)
+           (:oraclePx position)
+           (:oraclePrice position)
+           (:oraclePx position-data)
+           (:oraclePrice position-data)
+           (:entryPx position)
+           (:entryPx position-data)])))
+
 (defn- normalize-anchor
   [anchor]
   (when (map? anchor)
@@ -61,6 +87,7 @@
    :position-size 0
    :size-percent-input "100"
    :close-type :market
+   :mid-price nil
    :limit-price ""
    :error nil})
 
@@ -119,6 +146,13 @@
   (assoc popover :size-percent-input (percent->input-text percent)
                 :error nil))
 
+(defn set-limit-price-to-mid
+  [popover]
+  (let [mid-price (some-> (:mid-price popover) str str/trim)]
+    (if (seq mid-price)
+      (assoc popover :limit-price mid-price :error nil)
+      (assoc popover :error nil))))
+
 (defn- position-side
   [szi]
   (let [size-num (parse-num szi)]
@@ -149,4 +183,5 @@
             :dex (normalize-display-text (:dex position-data))
             :position-side side
             :position-size size
+            :mid-price (resolve-mid-price-text position-data)
             :size-percent-input (if (pos? size) "100" "0")))))

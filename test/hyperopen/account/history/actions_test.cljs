@@ -269,6 +269,8 @@
         preset-effects (history-actions/set-position-reduce-size-percent
                         {:positions-ui {:reduce-popover opened-popover}}
                         25)
+        mid-effects (history-actions/set-position-reduce-limit-price-to-mid
+                     {:positions-ui {:reduce-popover (assoc opened-popover :limit-price "")}})
         closed-effects (history-actions/close-position-reduce-popover {})
         submit-effects (history-actions/submit-position-reduce-close {})
         close-all-effects (history-actions/trigger-close-all-positions {})]
@@ -276,11 +278,14 @@
            (ffirst open-effects)))
     (is (true? (:open? opened-popover)))
     (is (= "xyz:NVDA" (:coin opened-popover)))
+    (is (= "10" (:mid-price opened-popover)))
     (is (= (position-tpsl/default-modal-state) reset-tpsl-modal))
     (is (= "75"
            (get-in (nth (first updated-effects) 2) [:size-percent-input])))
     (is (= "25"
            (get-in (nth (first preset-effects) 2) [:size-percent-input])))
+    (is (= (:mid-price opened-popover)
+           (get-in (nth (first mid-effects) 2) [:limit-price])))
     (is (= [[:effects/save [:positions-ui :reduce-popover]
              (position-reduce/default-popover-state)]]
            closed-effects))

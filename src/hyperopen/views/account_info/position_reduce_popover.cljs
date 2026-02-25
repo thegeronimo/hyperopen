@@ -121,6 +121,7 @@
             slider-percent (js/Math.round size-percent)
             limit-close? (position-reduce/limit-close? popover*)
             close-type (position-reduce/close-type popover*)
+            mid-available? (boolean (seq (:mid-price popover*)))
             layout-style (popover-layout-style popover*)]
         [:div {:class ["fixed"
                        "z-[250]"
@@ -162,8 +163,7 @@
                      :placeholder "Limit Price"
                      :value (or (:limit-price popover*) "")
                      :on {:input [[:actions/set-position-reduce-popover-field [:limit-price] [:event.target/value]]]}}]
-            [:div {:class ["pointer-events-none"
-                           "absolute"
+            [:div {:class ["absolute"
                            "right-2.5"
                            "top-1/2"
                            "-translate-y-1/2"
@@ -171,15 +171,33 @@
                            "items-center"
                            "gap-1.5"]}
              [:span {:class ["text-sm" "font-semibold" "text-gray-400"]} "USD"]
-             [:span {:class ["rounded-md"
-                             "border"
-                             "border-base-300"
-                             "bg-base-200"
-                             "px-1.5"
-                             "py-0.5"
-                             "text-xs"
-                             "font-semibold"
-                             "text-gray-400"]}
+             [:button {:type "button"
+                       :disabled (not mid-available?)
+                       :class (into ["rounded-md"
+                                     "border"
+                                     "px-1.5"
+                                     "py-0.5"
+                                     "text-xs"
+                                     "font-semibold"
+                                     "transition-colors"
+                                     "focus:outline-none"
+                                     "focus:ring-1"
+                                     "focus:ring-[#8a96a6]/40"
+                                     "focus:ring-offset-0"
+                                     "focus:shadow-none"]
+                                    (if mid-available?
+                                      ["border-base-300"
+                                       "bg-base-200"
+                                       "text-gray-300"
+                                       "hover:bg-base-300"
+                                       "hover:text-gray-100"]
+                                      ["border-base-300"
+                                       "bg-base-200"
+                                       "text-gray-500"
+                                       "cursor-default"]))
+                       :aria-label "Set limit price to mid"
+                       :on (when mid-available?
+                             {:click [[:actions/set-position-reduce-limit-price-to-mid]]})}
               "MID"]]])
 
          [:div {:class ["flex" "items-center" "gap-2"]}

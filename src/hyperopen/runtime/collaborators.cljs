@@ -124,6 +124,7 @@
    :handle-position-reduce-popover-keydown account-history-actions/handle-position-reduce-popover-keydown
    :set-position-reduce-popover-field account-history-actions/set-position-reduce-popover-field
    :set-position-reduce-size-percent account-history-actions/set-position-reduce-size-percent
+   :set-position-reduce-limit-price-to-mid account-history-actions/set-position-reduce-limit-price-to-mid
    :submit-position-reduce-close account-history-actions/submit-position-reduce-close})
 
 (defn- order-action-deps []
