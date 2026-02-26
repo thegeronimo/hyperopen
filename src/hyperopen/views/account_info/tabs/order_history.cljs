@@ -249,8 +249,14 @@
                                             :result result})
         result))))
 
-(defn sortable-order-history-header [column-name sort-state]
-  (table/sortable-header-button column-name sort-state :actions/sort-order-history))
+(defn sortable-order-history-header
+  ([column-name sort-state]
+   (sortable-order-history-header column-name sort-state {}))
+  ([column-name sort-state options]
+   (table/sortable-header-button column-name sort-state :actions/sort-order-history options)))
+
+(def ^:private order-history-grid-template-class
+  "grid-cols-[minmax(130px,1.45fr)_minmax(110px,1.25fr)_minmax(84px,0.9fr)_minmax(64px,0.7fr)_minmax(82px,0.9fr)_minmax(72px,0.75fr)_minmax(100px,1.05fr)_minmax(72px,0.8fr)_minmax(74px,0.72fr)_minmax(140px,1.55fr)_minmax(60px,0.65fr)_minmax(120px,1.25fr)_minmax(106px,1.2fr)]")
 
 (defn order-history-table [order-history order-history-state]
   (let [sort-state (order-history-sort-state order-history-state)
@@ -265,7 +271,7 @@
         {:keys [rows] :as pagination} (history-pagination/paginate-history-rows sorted order-history-state)]
     (if (seq sorted)
       (table/tab-table-content
-       [:div {:class ["grid" "gap-2" "py-1" "px-3" "bg-base-200" "text-xs" "font-medium" "grid-cols-[130px_70px_90px_80px_90px_90px_110px_80px_90px_140px_70px_80px_120px]"]}
+       [:div {:class ["grid" "gap-2" "py-1" "px-3" "bg-base-200" "text-xs" "font-medium" order-history-grid-template-class]}
         [:div.pr-2.whitespace-nowrap (sortable-order-history-header "Time" sort-state)]
         [:div.pl-1.text-left (sortable-order-history-header "Type" sort-state)]
         [:div.text-left (sortable-order-history-header "Coin" sort-state)]
@@ -278,10 +284,13 @@
         [:div.text-left.whitespace-nowrap (sortable-order-history-header "Trigger Conditions" sort-state)]
         [:div.text-left (sortable-order-history-header "TP/SL" sort-state)]
         [:div.text-left (sortable-order-history-header "Status" sort-state)]
-        [:div.text-left (sortable-order-history-header "Order ID" sort-state)]]
+        [:div.text-left (sortable-order-history-header "Order ID"
+                                                      sort-state
+                                                      {:extra-classes ["order-history-order-id-text"
+                                                                       "tracking-tight"]})]]
        (for [row rows]
          ^{:key (order-history-row-sort-id row)}
-         [:div {:class ["grid" "gap-2" "py-px" "px-3" "hover:bg-base-300" "text-xs" "grid-cols-[130px_70px_90px_80px_90px_90px_110px_80px_90px_140px_70px_80px_120px]"]}
+         [:div {:class ["grid" "gap-2" "py-px" "px-3" "hover:bg-base-300" "text-xs" order-history-grid-template-class]}
           [:div.pr-2.whitespace-nowrap (or (shared/format-open-orders-time (:time-ms row)) "--")]
           [:div.pl-1.text-left (title-case-label (:type row))]
           [:div.text-left (order-history-coin-node (:coin row) market-by-key (:side row))]
@@ -294,8 +303,12 @@
           [:div.text-left (format-order-history-reduce-only row)]
           [:div.text-left (format-order-history-trigger row)]
           [:div.text-left (format-order-history-tp-sl row)]
-          [:div.text-left (:status-label row)]
-          [:div.text-left (or (some-> (:oid row) str) "--")]])
+          [:div {:class ["text-left" "break-words" "leading-4"]} (or (:status-label row) "--")]
+          [:div {:class ["text-left"
+                         "order-history-order-id-text"
+                         "tracking-tight"
+                         "whitespace-nowrap"]}
+           (or (some-> (:oid row) str) "--")]])
        (history-pagination/order-history-pagination-controls pagination))
       (if (:loading? order-history-state)
         (empty-state "Loading order history...")

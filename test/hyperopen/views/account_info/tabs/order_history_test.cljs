@@ -119,6 +119,36 @@
     (is (contains? strings "Filled"))
     (is (contains? strings "Canceled"))))
 
+(deftest order-history-status-and-order-id-cells-use-overflow-safe-classes-test
+  (let [rows [{:order {:coin "PUMP"
+                       :oid 3300074759
+                       :side "A"
+                       :origSz "11386"
+                       :remainingSz "11386"
+                       :limitPx "0.001000"
+                       :orderType "Take Profit Market"
+                       :reduceOnly true
+                       :isTrigger true
+                       :triggerCondition "Above"
+                       :triggerPx "0.001949"
+                       :timestamp 1700000000000}
+               :status "reduceonlycanceled"
+               :statusTimestamp 1699999999000}]
+        content (@#'view/order-history-table rows {:sort {:column "Time" :direction :desc}
+                                                   :status-filter :all
+                                                   :loading? false})
+        row-node (hiccup/first-viewport-row content)
+        cells (vec (hiccup/node-children row-node))
+        status-cell (nth cells 11)
+        order-id-cell (nth cells 12)
+        status-classes (hiccup/node-class-set status-cell)
+        order-id-classes (hiccup/node-class-set order-id-cell)]
+    (is (contains? status-classes "break-words"))
+    (is (contains? status-classes "leading-4"))
+    (is (contains? order-id-classes "order-history-order-id-text"))
+    (is (contains? order-id-classes "tracking-tight"))
+    (is (contains? order-id-classes "whitespace-nowrap"))))
+
 (deftest order-history-coin-labels-are-bold-and-side-colored-test
   (let [rows [{:order {:coin "xyz:NVDA"
                        :oid 307891000622

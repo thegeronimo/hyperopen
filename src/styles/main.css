@@ -336,6 +336,12 @@
     font-family: var(--font-mono);
   }
 
+  /* Slightly denser text for long numeric IDs in Order History only. */
+  .order-history-order-id-text {
+    font-size: 11px;
+    line-height: 15px;
+  }
+
   /* Custom utilities for trading interface */
   .text-price {
     @apply text-sm;
