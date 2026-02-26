@@ -19,9 +19,11 @@ A contributor can verify the behavior by opening `/portfolio` and seeing each me
 - [x] (2026-02-26 17:15Z) Implemented Milestone 1 extraction in `/hyperopen/src/hyperopen/portfolio/metrics.cljs` (flow-adjusted cumulative returns + cumulative->interval + daily compounding adapters) and rewired portfolio chart returns source in `/hyperopen/src/hyperopen/views/portfolio/vm.cljs`.
 - [x] (2026-02-26 17:15Z) Added regression and extraction tests in `/hyperopen/test/hyperopen/portfolio/metrics_test.cljs` and `/hyperopen/test/hyperopen/views/portfolio/vm_test.cljs`.
 - [x] (2026-02-26 17:15Z) Ran required gates after Milestone 1 changes: `npm run check`, `npm test`, `npm run test:websocket`.
-- [ ] Implement remaining `hyperopen.portfolio.metrics` QuantStats formula set (ratios, drawdown details, tail/trade metrics, period window metrics).
+- [x] (2026-02-26 20:05Z) Implemented Milestone 2 QuantStats-style formula module in `/hyperopen/src/hyperopen/portfolio/metrics.cljs` (ratios, drawdown diagnostics, distribution/trade metrics, benchmark-relative metrics, and period window rollups).
+- [x] (2026-02-26 20:12Z) Expanded `/hyperopen/test/hyperopen/portfolio/metrics_test.cljs` with deterministic QuantStats-parity fixtures and expected-value assertions covering the new formula families.
+- [x] (2026-02-26 20:20Z) Re-ran required gates after Milestone 2 changes: `npm test`, `npm run test:websocket`, `npm run check`.
 - [ ] Integrate full metric engine into portfolio VM summary payload and render grouped metric rows in portfolio view.
-- [ ] Extend parity-focused tests for full QuantStats metric coverage.
+- [x] Extend parity-focused tests for full QuantStats metric coverage.
 
 ## Surprises & Discoveries
 
@@ -39,6 +41,12 @@ A contributor can verify the behavior by opening `/portfolio` and seeing each me
 
 - Observation: Extracting the flow-adjusted return logic without behavior drift required keeping the same row-shape contract (`[timestamp-ms cumulative-percent]`) so existing chart and benchmark alignment code remained unchanged.
   Evidence: Existing return-chart tests in `/hyperopen/test/hyperopen/views/portfolio/vm_test.cljs` still pass, and new extraction tests in `/hyperopen/test/hyperopen/portfolio/metrics_test.cljs` validate raw cumulative outputs.
+
+- Observation: QuantStats drawdown-period end dates intentionally report the last negative drawdown day, not the first recovered-zero day, due a shifted end-index pass in `drawdown_details`.
+  Evidence: `/tmp/quantstats/quantstats/stats.py` (`drawdown_details`) and parity failures corrected by aligning end-date logic in `/hyperopen/src/hyperopen/portfolio/metrics.cljs`.
+
+- Observation: A direct Clojure threading translation of Sortino downside variance can invert numerator/denominator if not written explicitly.
+  Evidence: Initial parity test failures in `/hyperopen/test/hyperopen/portfolio/metrics_test.cljs` corrected by explicit `downside-sum / n` implementation in `/hyperopen/src/hyperopen/portfolio/metrics.cljs`.
 
 ## Decision Log
 
@@ -62,17 +70,21 @@ A contributor can verify the behavior by opening `/portfolio` and seeing each me
   Rationale: Minimizes regression risk while establishing a single source of truth for future metric expansion.
   Date/Author: 2026-02-26 / Codex
 
+- Decision: Use deterministic expected-value fixtures generated from QuantStats itself as parity anchors in ClojureScript tests.
+  Rationale: Prevents silent formula drift while keeping tests independent of Python at runtime.
+  Date/Author: 2026-02-26 / Codex
+
 ## Outcomes & Retrospective
 
-Milestone 1 is now implemented. The flow-adjusted return pipeline that previously lived only in portfolio VM is extracted to `/hyperopen/src/hyperopen/portfolio/metrics.cljs` and reused by the chart path via `/hyperopen/src/hyperopen/views/portfolio/vm.cljs`. The same module now includes cumulative-to-interval and daily compounding adapters for the upcoming QuantStats formulas.
+Milestones 1 and 2 are now implemented. The flow-adjusted return adapter and the QuantStats-style formula engine both live in `/hyperopen/src/hyperopen/portfolio/metrics.cljs`, with broad parity coverage in `/hyperopen/test/hyperopen/portfolio/metrics_test.cljs`.
 
 Validation status after this slice:
 
-- `npm test` passed (`Ran 1416 tests containing 6987 assertions. 0 failures, 0 errors.`).
+- `npm test` passed (`Ran 1422 tests containing 7039 assertions. 0 failures, 0 errors.`).
 - `npm run test:websocket` passed (`Ran 153 tests containing 696 assertions. 0 failures, 0 errors.`).
 - `npm run check` passed (docs/hiccup lint + app/test compile).
 
-Remaining work is the full QuantStats metric surface and UI rendering integration on top of this extracted foundation.
+Remaining work is Milestone 3+ integration: wire computed metric groups into portfolio VM/view and render the requested metric block on `/portfolio`.
 
 ## Context and Orientation
 
