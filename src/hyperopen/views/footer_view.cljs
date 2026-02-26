@@ -197,6 +197,7 @@
                            market-flush-sparkline-width
                            " "
                            market-flush-sparkline-height)
+             :preserveAspectRatio "none"
              :class ["h-9" "w-full"]}
        (when (number? p95)
          (let [y (js/Math.round (sparkline-y (min p95 max-value) max-value))]
@@ -243,26 +244,54 @@
                   "shadow-lg"]}
     store-id-text]])
 
+(defn- market-metric-label
+  [label tooltip]
+  [:span {:class ["relative" "group" "inline-flex" "items-center"]}
+   [:span {:class ["cursor-help"
+                   "border-b"
+                   "border-dotted"
+                   "border-base-content/30"]
+           :title tooltip
+           :tabindex 0}
+    label]
+   [:span {:class ["pointer-events-none"
+                   "absolute"
+                   "left-0"
+                   "bottom-full"
+                   "z-50"
+                   "mb-1"
+                   "max-w-[16rem]"
+                   "rounded"
+                   "border"
+                   "border-base-300"
+                   "bg-base-100"
+                   "px-2"
+                   "py-1"
+                   "text-xs"
+                   "leading-4"
+                   "text-base-content"
+                   "shadow-lg"
+                   "opacity-0"
+                   "transition-opacity"
+                   "duration-150"
+                   "group-hover:opacity-100"
+                   "group-focus-within:opacity-100"]}
+    tooltip]])
+
 (defn- market-projection-section
-  [health now-ms reveal-sensitive?]
+  [health reveal-sensitive?]
   (let [market-projection (or (:market-projection health) {})
         stores (->> (:stores market-projection)
                     (sort-by :store-id)
                     vec)
         flush-events (vec (or (:flush-events market-projection) []))
-        flush-events-by-store (group-by :store-id flush-events)
-        latest-events (->> flush-events
-                           (sort-by (fn [entry]
-                                      (or (:seq entry) 0)))
-                           (take-last market-flush-table-row-limit)
-                           reverse
-                           vec)]
+        flush-events-by-store (group-by :store-id flush-events)]
     [:section {:class ["space-y-2"]
                :data-role "market-projection-diagnostics"}
      [:h3 {:class ["text-xs" "font-semibold" "uppercase" "tracking-wide" "text-base-content/70"]}
       "Market projection"]
      (if (seq stores)
-       [:div {:class ["grid" "grid-cols-1" "gap-2" "sm:grid-cols-2"]}
+       [:div {:class ["grid" "grid-cols-1" "gap-2"]}
         (for [store-summary stores]
           ^{:key (str "market-store|" (:store-id store-summary))}
           (let [store-id* (diagnostics-display-value reveal-sensitive? (:store-id store-summary))
@@ -281,66 +310,92 @@
               [:span {:class ["text-xs" "text-base-content/60"]}
                (str "Flushes: " (or (:flush-count store-summary) 0))]]
              [:div {:class ["grid" "grid-cols-2" "gap-x-3" "gap-y-1" "text-xs"]}
-              [:span {:class ["text-base-content/60"]} "Pending"]
+              (market-metric-label
+               "Pending"
+               "Current number of coalesced keys waiting for the next frame flush.")
               [:span {:class ["text-right"]} (str (or (:pending-count store-summary) 0))]
-              [:span {:class ["text-base-content/60"]} "Max pending"]
+              (market-metric-label
+               "Max pending"
+               "Highest pending queue depth observed for this store since runtime reset.")
               [:span {:class ["text-right"]} (str (or (:max-pending-depth store-summary) 0))]
-              [:span {:class ["text-base-content/60"]} "Overwrites"]
+              (market-metric-label
+               "Overwrites"
+               "Total queued updates that replaced an existing coalesce key before a flush.")
               [:span {:class ["text-right"]} (str (or (:overwrite-total store-summary) 0))]
-              [:span {:class ["text-base-content/60"]} "P95 flush"]
+              (market-metric-label
+               "P95 flush"
+               "95th percentile flush duration from the bounded recent flush sample window.")
               [:span {:class ["text-right"]} (format-ms (:p95-flush-duration-ms store-summary))]
-              [:span {:class ["text-base-content/60"]} "Last flush"]
+              (market-metric-label
+               "Last flush"
+               "Duration of the most recent flush for this store.")
               [:span {:class ["text-right"]} (format-ms (:last-flush-duration-ms store-summary))]
-              [:span {:class ["text-base-content/60"]} "Last queue wait"]
+              (market-metric-label
+               "Last queue wait"
+               "Time between frame scheduling and flush start for the most recent flush.")
               [:span {:class ["text-right"]} (format-ms (:last-queue-wait-ms store-summary))]]
              [:div {:class ["border-t" "border-base-300/60" "pt-1"]}
               (flush-duration-sparkline durations
                                         (:p95-flush-duration-ms store-summary))
               [:div {:class ["mt-0.5" "text-xs" "text-base-content/60" "flex" "justify-between"]}
-               [:span (str "Samples: " (count durations))]
-               [:span "Blue=flush ms, amber=p95"]]]]))]
+               (market-metric-label
+                (str "Samples: " (count durations))
+                "Count of recent flush durations currently represented in the sparkline window.")
+               (market-metric-label
+                "Blue=flush ms, amber=p95"
+                "Blue line shows each flush duration. Amber line shows the p95 threshold.")]]]))]
        [:div {:class ["rounded" "border" "border-base-300" "bg-base-200/50" "p-3" "text-xs" "text-base-content/70"]}
-        "No market projection telemetry yet."])
+        "No market projection telemetry yet."])]))
 
-      [:div {:class ["rounded" "border" "border-base-300" "bg-base-200/50" "p-3" "space-y-2"]}
-      [:div {:class ["text-xs" "font-semibold" "uppercase" "tracking-wide" "text-base-content/70"]}
-       (str "Recent flushes (" (count latest-events) ")")]
-      (if (seq latest-events)
-        [:div {:class ["overflow-visible"]}
-         [:table {:class ["w-full" "text-xs"]}
-          [:thead
-           [:tr {:class ["text-base-content/60"]}
-            [:th {:class ["py-1" "pr-2" "text-left"]} "Age"]
-            [:th {:class ["py-1" "pr-2" "text-left"]} "Store"]
-            [:th {:class ["py-1" "pr-2" "text-left"]} "Pending"]
-            [:th {:class ["py-1" "pr-2" "text-left"]} "Overwrite"]
-            [:th {:class ["py-1" "pr-2" "text-left"]} "Flush"]
-            [:th {:class ["py-1" "pr-2" "text-left"]} "Queue wait"]]]
-          [:tbody
-           (for [entry latest-events]
-             ^{:key (str "market-flush|" (or (:seq entry)
-                                             (:at-ms entry)
-                                             (:store-id entry)))}
-             (let [event-at-ms (:at-ms entry)
-                   age-ms (when (and (number? now-ms) (number? event-at-ms))
-                            (max 0 (- now-ms event-at-ms)))
-                   store-id* (diagnostics-display-value reveal-sensitive? (:store-id entry))
-                   store-id-text (or (some-> store-id* str) "n/a")]
-                [:tr {:class ["border-t" "border-base-300/40"]}
-                [:td {:class ["py-1" "pr-2"]} (format-age-ms age-ms)]
-                [:td {:class ["py-1" "pr-2" "max-w-[10rem]"]}
-                 [:div {:class ["relative" "group" "max-w-[10rem]"]}
-                  [:span {:class ["block" "truncate" "cursor-help"]
-                          :title store-id-text
-                          :tabindex 0}
-                   store-id-text]
-                  (store-cell-tooltip store-id-text)]]
-                [:td {:class ["py-1" "pr-2"]} (str (or (:pending-count entry) 0))]
-                [:td {:class ["py-1" "pr-2"]} (str (or (:overwrite-count entry) 0))]
-                [:td {:class ["py-1" "pr-2"]} (format-ms (:flush-duration-ms entry))]
-                [:td {:class ["py-1" "pr-2"]} (format-ms (:queue-wait-ms entry))]]))]]]
-        [:div {:class ["text-xs" "text-base-content/70"]}
-         "No flush events recorded in the telemetry ring."])]]))
+(defn- market-projection-recent-flushes-section
+  [health now-ms reveal-sensitive?]
+  (let [market-projection (or (:market-projection health) {})
+        flush-events (vec (or (:flush-events market-projection) []))
+        latest-events (->> flush-events
+                           (sort-by (fn [entry]
+                                      (or (:seq entry) 0)))
+                           (take-last market-flush-table-row-limit)
+                           reverse
+                           vec)]
+    [:section {:class ["space-y-2"]}
+     [:h3 {:class ["text-xs" "font-semibold" "uppercase" "tracking-wide" "text-base-content/70"]}
+      (str "Recent flushes (" (count latest-events) ")")]
+     (if (seq latest-events)
+       [:div {:class ["rounded" "border" "border-base-300" "bg-base-200/50" "p-3" "overflow-visible"]}
+        [:table {:class ["w-full" "text-xs"]}
+         [:thead
+          [:tr {:class ["text-base-content/60"]}
+           [:th {:class ["py-1" "pr-2" "text-left"]} "Age"]
+           [:th {:class ["py-1" "pr-2" "text-left"]} "Store"]
+           [:th {:class ["py-1" "pr-2" "text-left"]} "Pending"]
+           [:th {:class ["py-1" "pr-2" "text-left"]} "Overwrite"]
+           [:th {:class ["py-1" "pr-2" "text-left"]} "Flush"]
+           [:th {:class ["py-1" "pr-2" "text-left"]} "Queue wait"]]]
+         [:tbody
+          (for [entry latest-events]
+            ^{:key (str "market-flush|" (or (:seq entry)
+                                            (:at-ms entry)
+                                            (:store-id entry)))}
+            (let [event-at-ms (:at-ms entry)
+                  age-ms (when (and (number? now-ms) (number? event-at-ms))
+                           (max 0 (- now-ms event-at-ms)))
+                  store-id* (diagnostics-display-value reveal-sensitive? (:store-id entry))
+                  store-id-text (or (some-> store-id* str) "n/a")]
+              [:tr {:class ["border-t" "border-base-300/40"]}
+               [:td {:class ["py-1" "pr-2"]} (format-age-ms age-ms)]
+               [:td {:class ["py-1" "pr-2" "max-w-[10rem]"]}
+                [:div {:class ["relative" "group" "max-w-[10rem]"]}
+                 [:span {:class ["block" "truncate" "cursor-help"]
+                         :title store-id-text
+                         :tabindex 0}
+                  store-id-text]
+                 (store-cell-tooltip store-id-text)]]
+               [:td {:class ["py-1" "pr-2"]} (str (or (:pending-count entry) 0))]
+               [:td {:class ["py-1" "pr-2"]} (str (or (:overwrite-count entry) 0))]
+               [:td {:class ["py-1" "pr-2"]} (format-ms (:flush-duration-ms entry))]
+               [:td {:class ["py-1" "pr-2"]} (format-ms (:queue-wait-ms entry))]]))]]]
+       [:div {:class ["rounded" "border" "border-base-300" "bg-base-200/50" "p-3" "text-xs" "text-base-content/70"]}
+        "No flush events recorded in the telemetry ring."])]))
 
 (defn- format-last-close [health]
   (let [close-info (get-in health [:transport :last-close])
@@ -629,7 +684,7 @@
           [:div {:class ["text-base-content/70"]}
            "No events yet"])]] 
 
-      (market-projection-section health now-ms reveal-sensitive?)
+      (market-projection-section health reveal-sensitive?)
 
       [:section {:class ["space-y-2"]}
        [:h3 {:class ["text-xs" "font-semibold" "uppercase" "tracking-wide" "text-base-content/70"]}
@@ -699,10 +754,12 @@
                      (str "Last gap: " (pr-str last-gap*))])
                   [:div {:class ["text-xs" "text-base-content/70" "break-all"]}
                    (str "Subscription: " (pr-str sub-key*))]
-                  [:div {:class ["text-xs" "text-base-content/70" "break-all"]}
+                 [:div {:class ["text-xs" "text-base-content/70" "break-all"]}
                    (str "Descriptor: " (pr-str descriptor*))]]))]])
          [:div {:class ["rounded" "border" "border-base-300" "bg-base-200/50" "p-3" "text-xs" "text-base-content/70"]}
-          "No active stream diagnostics available."])]]]))
+          "No active stream diagnostics available."])]
+
+      (market-projection-recent-flushes-section health now-ms reveal-sensitive?)]]))
 
 (defn footer-view [state]
   (let [health (get-in state [:websocket :health] {})

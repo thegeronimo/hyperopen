@@ -223,12 +223,75 @@
         text (node-text view)]
     (is (str/includes? text "Market projection"))
     (is (str/includes? text "app-store"))
-    (is (str/includes? text "P95 flush 12 ms"))
+    (is (str/includes? text "P95 flush"))
+    (is (str/includes? text "12 ms"))
     (is (str/includes? text "Recent flushes (2)"))
     (is (str/includes? text "Flush"))
     (is (str/includes? text "Queue wait"))
     (is (str/includes? text "8 ms"))
     (is (str/includes? text "5 ms"))))
+
+(deftest diagnostics-drawer-market-projection-cards-use-full-width-layout-test
+  (let [state (-> (base-state)
+                  (assoc-in [:websocket-ui :diagnostics-open?] true)
+                  (assoc-in [:websocket :health :market-projection]
+                            {:stores [{:store-id "app-store"
+                                       :pending-count 0
+                                       :queued-total 1
+                                       :overwrite-total 0
+                                       :flush-count 1
+                                       :max-pending-depth 1
+                                       :p95-flush-duration-ms 6
+                                       :last-flush-duration-ms 6
+                                       :last-queue-wait-ms 2}]
+                             :flush-events []}))
+        view (footer-view/footer-view state)
+        cards-container (find-node #(and (vector? %)
+                                         (= :div (first %))
+                                         (contains? (set (class-values (get-in % [1 :class])))
+                                                    "grid-cols-1")
+                                         (contains? (set (class-values (get-in % [1 :class])))
+                                                    "gap-2")
+                                         (not (contains? (set (class-values (get-in % [1 :class])))
+                                                         "sm:grid-cols-2")))
+                                   view)]
+    (is (some? cards-container))))
+
+(deftest diagnostics-drawer-market-projection-metrics-expose-tooltips-test
+  (let [state (-> (base-state)
+                  (assoc-in [:websocket-ui :diagnostics-open?] true)
+                  (assoc-in [:websocket :health :market-projection]
+                            {:stores [{:store-id "app-store"
+                                       :pending-count 0
+                                       :queued-total 1
+                                       :overwrite-total 0
+                                       :flush-count 1
+                                       :max-pending-depth 1
+                                       :p95-flush-duration-ms 6
+                                       :last-flush-duration-ms 6
+                                       :last-queue-wait-ms 2}]
+                             :flush-events [{:seq 1
+                                             :at-ms 9900
+                                             :store-id "app-store"
+                                             :pending-count 1
+                                             :overwrite-count 0
+                                             :flush-duration-ms 6
+                                             :queue-wait-ms 2}]}))
+        view (footer-view/footer-view state)
+        p95-label (find-node #(and (vector? %)
+                                   (= :span (first %))
+                                   (= "P95 flush" (last %))
+                                   (string? (get-in % [1 :title])))
+                             view)
+        queue-wait-label (find-node #(and (vector? %)
+                                          (= :span (first %))
+                                          (= "Last queue wait" (last %))
+                                          (string? (get-in % [1 :title])))
+                                    view)]
+    (is (some? p95-label))
+    (is (str/includes? (get-in p95-label [1 :title]) "95th percentile flush duration"))
+    (is (some? queue-wait-label))
+    (is (str/includes? (get-in queue-wait-label [1 :title]) "frame scheduling"))))
 
 (deftest diagnostics-drawer-market-projection-store-cell-exposes-full-store-tooltip-test
   (let [full-store-id "market-projection/store-1234567890abcdefghijklmnopqrstuvwxyz"
@@ -265,6 +328,34 @@
     (is (some? store-label))
     (is (= full-store-id (get-in store-label [1 :title])))
     (is (some? tooltip-node))))
+
+(deftest diagnostics-drawer-renders-recent-flushes-after-streams-section-test
+  (let [state (-> (base-state)
+                  (assoc-in [:websocket-ui :diagnostics-open?] true)
+                  (assoc-in [:websocket :health :market-projection]
+                            {:stores [{:store-id "app-store"
+                                       :pending-count 0
+                                       :queued-total 1
+                                       :overwrite-total 0
+                                       :flush-count 1
+                                       :max-pending-depth 1
+                                       :p95-flush-duration-ms 6
+                                       :last-flush-duration-ms 6
+                                       :last-queue-wait-ms 2}]
+                             :flush-events [{:seq 1
+                                             :at-ms 9900
+                                             :store-id "app-store"
+                                             :pending-count 1
+                                             :overwrite-count 0
+                                             :flush-duration-ms 6
+                                             :queue-wait-ms 2}]}))
+        view (footer-view/footer-view state)
+        text (node-text view)
+        streams-idx (str/index-of text "Streams")
+        recent-flushes-idx (str/index-of text "Recent flushes (")]
+    (is (number? streams-idx))
+    (is (number? recent-flushes-idx))
+    (is (< streams-idx recent-flushes-idx))))
 
 (deftest diagnostics-drawer-renders-configured-app-version-test
   (let [view (footer-view/footer-view (assoc-in (base-state) [:websocket-ui :diagnostics-open?] true))]
