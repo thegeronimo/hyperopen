@@ -230,6 +230,42 @@
     (is (str/includes? text "8 ms"))
     (is (str/includes? text "5 ms"))))
 
+(deftest diagnostics-drawer-market-projection-store-cell-exposes-full-store-tooltip-test
+  (let [full-store-id "market-projection/store-1234567890abcdefghijklmnopqrstuvwxyz"
+        state (-> (base-state)
+                  (assoc-in [:websocket-ui :diagnostics-open?] true)
+                  (assoc-in [:websocket :health :market-projection]
+                            {:stores [{:store-id full-store-id
+                                       :pending-count 0
+                                       :queued-total 1
+                                       :overwrite-total 0
+                                       :flush-count 1
+                                       :max-pending-depth 1
+                                       :p95-flush-duration-ms 6
+                                       :last-flush-duration-ms 6
+                                       :last-queue-wait-ms 2}]
+                             :flush-events [{:seq 1
+                                             :at-ms 9900
+                                             :store-id full-store-id
+                                             :pending-count 1
+                                             :overwrite-count 0
+                                             :flush-duration-ms 6
+                                             :queue-wait-ms 2}]}))
+        view (footer-view/footer-view state)
+        store-label (find-node #(and (vector? %)
+                                     (= :span (first %))
+                                     (= full-store-id (get-in % [1 :title])))
+                               view)
+        tooltip-node (find-node #(and (vector? %)
+                                      (= :div (first %))
+                                      (str/includes? (node-text %) full-store-id)
+                                      (contains? (set (class-values (get-in % [1 :class])))
+                                                 "group-hover:opacity-100"))
+                                view)]
+    (is (some? store-label))
+    (is (= full-store-id (get-in store-label [1 :title])))
+    (is (some? tooltip-node))))
+
 (deftest diagnostics-drawer-renders-configured-app-version-test
   (let [view (footer-view/footer-view (assoc-in (base-state) [:websocket-ui :diagnostics-open?] true))]
     (is (str/includes? (node-text view)

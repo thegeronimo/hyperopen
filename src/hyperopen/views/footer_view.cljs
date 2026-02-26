@@ -215,6 +215,34 @@
       [:div {:class ["h-9" "text-xs" "text-base-content/60" "flex" "items-center"]}
        "No flush samples"])))
 
+(defn- store-cell-tooltip
+  [store-id-text]
+  [:div {:class ["pointer-events-none"
+                 "absolute"
+                 "left-0"
+                 "bottom-full"
+                 "z-50"
+                 "mb-1"
+                 "opacity-0"
+                 "transition-opacity"
+                 "duration-150"
+                 "group-hover:opacity-100"
+                 "group-focus-within:opacity-100"]
+         :style {:min-width "max-content"}}
+   [:div {:class ["max-w-[20rem]"
+                  "break-all"
+                  "rounded"
+                  "border"
+                  "border-base-300"
+                  "bg-base-100"
+                  "px-2"
+                  "py-1"
+                  "text-xs"
+                  "leading-4"
+                  "text-base-content"
+                  "shadow-lg"]}
+    store-id-text]])
+
 (defn- market-projection-section
   [health now-ms reveal-sensitive?]
   (let [market-projection (or (:market-projection health) {})
@@ -274,11 +302,11 @@
        [:div {:class ["rounded" "border" "border-base-300" "bg-base-200/50" "p-3" "text-xs" "text-base-content/70"]}
         "No market projection telemetry yet."])
 
-     [:div {:class ["rounded" "border" "border-base-300" "bg-base-200/50" "p-3" "space-y-2"]}
+      [:div {:class ["rounded" "border" "border-base-300" "bg-base-200/50" "p-3" "space-y-2"]}
       [:div {:class ["text-xs" "font-semibold" "uppercase" "tracking-wide" "text-base-content/70"]}
        (str "Recent flushes (" (count latest-events) ")")]
       (if (seq latest-events)
-        [:div {:class ["overflow-x-auto"]}
+        [:div {:class ["overflow-visible"]}
          [:table {:class ["w-full" "text-xs"]}
           [:thead
            [:tr {:class ["text-base-content/60"]}
@@ -296,10 +324,17 @@
              (let [event-at-ms (:at-ms entry)
                    age-ms (when (and (number? now-ms) (number? event-at-ms))
                             (max 0 (- now-ms event-at-ms)))
-                   store-id* (diagnostics-display-value reveal-sensitive? (:store-id entry))]
-               [:tr {:class ["border-t" "border-base-300/40"]}
+                   store-id* (diagnostics-display-value reveal-sensitive? (:store-id entry))
+                   store-id-text (or (some-> store-id* str) "n/a")]
+                [:tr {:class ["border-t" "border-base-300/40"]}
                 [:td {:class ["py-1" "pr-2"]} (format-age-ms age-ms)]
-                [:td {:class ["py-1" "pr-2" "max-w-[10rem]" "truncate"]} (or (str store-id*) "n/a")]
+                [:td {:class ["py-1" "pr-2" "max-w-[10rem]"]}
+                 [:div {:class ["relative" "group" "max-w-[10rem]"]}
+                  [:span {:class ["block" "truncate" "cursor-help"]
+                          :title store-id-text
+                          :tabindex 0}
+                   store-id-text]
+                  (store-cell-tooltip store-id-text)]]
                 [:td {:class ["py-1" "pr-2"]} (str (or (:pending-count entry) 0))]
                 [:td {:class ["py-1" "pr-2"]} (str (or (:overwrite-count entry) 0))]
                 [:td {:class ["py-1" "pr-2"]} (format-ms (:flush-duration-ms entry))]
