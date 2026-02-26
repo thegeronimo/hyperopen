@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio-view
-  (:require [hyperopen.utils.formatting :as fmt]
+  (:require [clojure.string :as string]
+            [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.account-info-view :as account-info-view]
             [hyperopen.views.portfolio.vm :as portfolio-vm]))
 
@@ -226,7 +227,17 @@
         (str "rgba(" r ", " g ", " b ", " alpha ")")))))
 
 (defn- returns-benchmark-chip [{:keys [value label stroke]}]
-  (let [accent-color (or stroke "#9fb3be")
+  (let [display-label (let [raw-label (some-> label clojure.core/str string/trim)
+                            label-without-suffix (some-> raw-label
+                                                         (string/replace #"\s*\([^)]*\)\s*$" ""))
+                            primary-token (some-> label-without-suffix
+                                                  (string/split #"-" 2)
+                                                  first
+                                                  string/trim)]
+                        (if (seq primary-token)
+                          primary-token
+                          (or raw-label "")))
+        accent-color (or stroke "#9fb3be")
         border-color (or (hex-color->rgba stroke 0.58)
                          "rgba(120, 141, 154, 0.5)")
         background-color (or (hex-color->rgba stroke 0.14)
@@ -234,18 +245,18 @@
     [:span {:class ["inline-flex"
                     "max-w-full"
                     "items-center"
-                    "gap-1.5"
-                    "rounded-lg"
+                    "gap-1"
+                    "rounded-md"
                     "border"
-                    "px-1.5"
-                    "py-1"]
+                    "px-1"
+                    "py-0.5"]
             :style {:border-color border-color
                     :background-color background-color}
             :data-role (str "portfolio-returns-benchmark-chip-" value)}
-     [:span {:class ["h-2" "w-2" "shrink-0" "rounded-full"]
+     [:span {:class ["h-1.5" "w-1.5" "shrink-0" "rounded-full"]
              :style {:background-color accent-color}}]
-     [:span {:class ["min-w-0" "truncate" "text-xs" "text-trading-text"]}
-      label]
+     [:span {:class ["min-w-0" "truncate" "text-xs" "leading-4" "text-trading-text"]}
+      display-label]
      [:button {:type "button"
                :class ["inline-flex"
                        "h-6"
