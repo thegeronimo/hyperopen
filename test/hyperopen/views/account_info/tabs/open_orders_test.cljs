@@ -279,14 +279,14 @@
     (doseq [idx (range (count row-cells))]
       (is (contains? (hiccup/node-class-set (nth row-cells idx)) "text-left")))))
 
-(deftest normalized-open-orders-merges-live-snapshot-and-dex-sources-test
+(deftest normalized-open-orders-prefers-live-source-and-includes-dex-snapshots-test
   (let [live-orders [{:order {:coin "BTC" :oid 1 :side "B" :sz "1.0" :limitPx "100" :timestamp 1000}}]
         snapshot-orders [{:order {:coin "ETH" :oid 2 :side "A" :sz "2.0" :limitPx "200" :timestamp 900}}]
         snapshot-by-dex {:dex-a [{:order {:coin "SOL" :oid 3 :side "B" :sz "3.0" :limitPx "50" :timestamp 800}}]}
         with-live (view/normalized-open-orders live-orders snapshot-orders snapshot-by-dex)
         without-live (view/normalized-open-orders nil snapshot-orders snapshot-by-dex)]
-    (is (= #{"1" "2" "3"} (set (map :oid with-live))))
-    (is (= #{"BTC" "ETH" "SOL"} (set (map :coin with-live))))
+    (is (= #{"1" "3"} (set (map :oid with-live))))
+    (is (= #{"BTC" "SOL"} (set (map :coin with-live))))
     (is (= #{"2" "3"} (set (map :oid without-live))))
     (is (= #{"ETH" "SOL"} (set (map :coin without-live))))))
 

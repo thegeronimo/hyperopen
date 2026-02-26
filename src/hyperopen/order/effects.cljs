@@ -103,35 +103,10 @@
                store
                api-projections/apply-open-orders-error))))
 
-(defn- refresh-default-clearinghouse-snapshot!
-  [store address opts]
-  (-> (api/request-clearinghouse-state! address nil opts)
-      (.then (fn [data]
-               (swap! store
-                      (fn [state]
-                        ;; Guard stale async completions from older wallet sessions.
-                        (if (= address (get-in state [:wallet :address]))
-                          (assoc-in state [:webdata2 :clearinghouseState] data)
-                          state)))))
-      (.catch (fn [err]
-                (telemetry/log! "Error refreshing default clearinghouse state after order mutation:" err)))))
-
-(defn- refresh-perp-dex-clearinghouse-snapshot!
-  [store address dex opts]
-  (-> (api/request-clearinghouse-state! address dex opts)
-      (.then (promise-effects/apply-success-and-return
-              store
-              api-projections/apply-perp-dex-clearinghouse-success
-              dex))
-      (.catch (promise-effects/apply-error-and-reject
-               store
-               api-projections/apply-perp-dex-clearinghouse-error))))
-
-(defn- refresh-account-surfaces-after-order-mutation!
+(defn- refresh-open-orders-after-order-mutation!
   [store address]
   (when address
     (refresh-open-orders-snapshot! store address nil {:priority :high})
-    (refresh-default-clearinghouse-snapshot! store address {:priority :high})
     (-> (market-metadata/ensure-and-apply-perp-dex-metadata!
          {:store store
           :ensure-perp-dexs-data! api/ensure-perp-dexs-data!
@@ -140,10 +115,9 @@
          {:priority :low})
         (.then (fn [dex-names]
                  (doseq [dex dex-names]
-                   (refresh-open-orders-snapshot! store address dex {:priority :low})
-                   (refresh-perp-dex-clearinghouse-snapshot! store address dex {:priority :low}))))
+                   (refresh-open-orders-snapshot! store address dex {:priority :low}))))
         (.catch (fn [err]
-                  (telemetry/log! "Error refreshing per-dex account surfaces after order mutation:" err))))))
+                  (telemetry/log! "Error refreshing per-dex open orders after cancel:" err))))))
 
 (defn- submit-order-error-message
   [exchange-response-error resp]
@@ -236,13 +210,13 @@
                        (do
                          (swap! store assoc-in [:order-form-runtime :error] nil)
                          (show-toast! store :success "Order submitted.")
-                         (refresh-account-surfaces-after-order-mutation! store address)
+                         (refresh-open-orders-after-order-mutation! store address)
                          (dispatch! store nil [[:actions/refresh-order-history]]))
                        (do
                          (swap! store assoc-in [:order-form-runtime :error] error-text)
                          (show-toast! store :error toast-message)
                          (when (pos? success-count)
-                           (refresh-account-surfaces-after-order-mutation! store address)
+                           (refresh-open-orders-after-order-mutation! store address)
                            (dispatch! store nil [[:actions/refresh-order-history]])))))))
             (.catch (fn [err]
                       (let [error-text (runtime-error-message err)]
@@ -262,7 +236,7 @@
 
 (defn- refresh-order-surfaces-after-submit!
   [store dispatch! address]
-  (refresh-account-surfaces-after-order-mutation! store address)
+  (refresh-open-orders-after-order-mutation! store address)
   (dispatch! store nil [[:actions/refresh-order-history]]))
 
 (defn- position-tpsl-submit-precondition-error
@@ -360,7 +334,7 @@
                                       (prune-fn request)
                                       (remove-pending-cancel-oids cancel-oids))))
                          (show-toast! store :success "Order canceled.")
-                         (refresh-account-surfaces-after-order-mutation! store address)
+                         (refresh-open-orders-after-order-mutation! store address)
                          (dispatch! store nil [[:actions/refresh-order-history]]))
                        (let [error-text (str (exchange-response-error resp))]
                          (swap! store

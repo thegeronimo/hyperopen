@@ -217,39 +217,11 @@
                  (->> (open-orders-seq orders)
                       (map #(attach-order-dex % dex)))))))
 
-(defn- source-order-identity-key
-  [order]
-  (let [root (or (:order order) order)
-        root-map (if (map? root) root {})
-        order-map (if (map? order) order {})
-        coin (or (:coin root-map) (:coin order-map))
-        oid (resolve-open-order-oid order)]
-    (when (and (seq (parse/non-blank-text coin))
-               (seq (parse/non-blank-text oid)))
-      [(coins/normalized-coin-token coin) oid])))
-
-(defn- dedupe-source-open-orders-by-identity
-  [orders]
-  (->> (or orders [])
-       (reduce (fn [{:keys [seen rows] :as acc} order]
-                 (if-let [identity-key (source-order-identity-key order)]
-                   (if (contains? seen identity-key)
-                     acc
-                     {:seen (conj seen identity-key)
-                      :rows (conj rows order)})
-                   {:seen seen
-                    :rows (conj rows order)}))
-               {:seen #{}
-                :rows []})
-       :rows
-       vec))
-
 (defn open-orders-source [orders snapshot snapshot-by-dex]
   (let [live (open-orders-seq orders)
         fallback (open-orders-seq snapshot)
         dex-orders (open-orders-by-dex snapshot-by-dex)]
-    (dedupe-source-open-orders-by-identity
-     (concat live fallback dex-orders))))
+    (concat (if (seq live) live fallback) dex-orders)))
 
 (defn pending-cancel-oid-set
   [pending-cancel-oids]

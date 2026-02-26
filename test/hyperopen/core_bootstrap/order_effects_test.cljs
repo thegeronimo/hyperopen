@@ -19,11 +19,9 @@
                        :ui {:toast nil}})
           dispatched (atom [])
           refresh-calls (atom [])
-          clearinghouse-calls (atom [])
           original-submit-order trading-api/submit-order!
           original-dispatch nxr/dispatch
           original-request-open-orders api/request-frontend-open-orders!
-          original-request-clearinghouse-state api/request-clearinghouse-state!
           original-ensure-perp-dexs-data api/ensure-perp-dexs-data!]
       (clear-order-feedback-toast-timeout!)
       (set! trading-api/submit-order!
@@ -41,13 +39,6 @@
               ([address dex opts]
                (swap! refresh-calls conj [address dex opts])
                (js/Promise.resolve []))))
-      (set! api/request-clearinghouse-state!
-            (fn request-clearinghouse-state-mock
-              ([address dex]
-               (request-clearinghouse-state-mock address dex {}))
-              ([address dex opts]
-               (swap! clearinghouse-calls conj [address dex opts])
-               (js/Promise.resolve {:assetPositions []}))))
       (set! api/ensure-perp-dexs-data!
             (fn ensure-perp-dexs-data-mock
               ([_store]
@@ -68,13 +59,11 @@
            (is (= [[[:actions/refresh-order-history]]]
                   @dispatched))
            (is (= 2 (count @refresh-calls)))
-           (is (= 2 (count @clearinghouse-calls)))
            (finally
              (clear-order-feedback-toast-timeout!)
              (set! trading-api/submit-order! original-submit-order)
              (set! nxr/dispatch original-dispatch)
              (set! api/request-frontend-open-orders! original-request-open-orders)
-             (set! api/request-clearinghouse-state! original-request-clearinghouse-state)
              (set! api/ensure-perp-dexs-data! original-ensure-perp-dexs-data)
              (done))))
        0))))
@@ -89,11 +78,9 @@
                        :ui {:toast nil}})
           dispatched (atom [])
           refresh-calls (atom [])
-          clearinghouse-calls (atom [])
           original-submit-order trading-api/submit-order!
           original-dispatch nxr/dispatch
           original-request-open-orders api/request-frontend-open-orders!
-          original-request-clearinghouse-state api/request-clearinghouse-state!
           original-ensure-perp-dexs-data api/ensure-perp-dexs-data!]
       (clear-order-feedback-toast-timeout!)
       (set! trading-api/submit-order!
@@ -113,13 +100,6 @@
               ([address dex opts]
                (swap! refresh-calls conj [address dex opts])
                (js/Promise.resolve []))))
-      (set! api/request-clearinghouse-state!
-            (fn request-clearinghouse-state-mock
-              ([address dex]
-               (request-clearinghouse-state-mock address dex {}))
-              ([address dex opts]
-               (swap! clearinghouse-calls conj [address dex opts])
-               (js/Promise.resolve {:assetPositions []}))))
       (set! api/ensure-perp-dexs-data!
             (fn ensure-perp-dexs-data-mock
               ([_store]
@@ -142,13 +122,11 @@
                               "IocCancelRejected"))
            (is (= [] @dispatched))
            (is (= [] @refresh-calls))
-           (is (= [] @clearinghouse-calls))
            (finally
              (clear-order-feedback-toast-timeout!)
              (set! trading-api/submit-order! original-submit-order)
              (set! nxr/dispatch original-dispatch)
              (set! api/request-frontend-open-orders! original-request-open-orders)
-             (set! api/request-clearinghouse-state! original-request-clearinghouse-state)
              (set! api/ensure-perp-dexs-data! original-ensure-perp-dexs-data)
              (done))))
        0))))
@@ -163,11 +141,9 @@
                        :ui {:toast nil}})
           dispatched (atom [])
           refresh-calls (atom [])
-          clearinghouse-calls (atom [])
           original-submit-order trading-api/submit-order!
           original-dispatch nxr/dispatch
           original-request-open-orders api/request-frontend-open-orders!
-          original-request-clearinghouse-state api/request-clearinghouse-state!
           original-ensure-perp-dexs-data api/ensure-perp-dexs-data!]
       (clear-order-feedback-toast-timeout!)
       (set! trading-api/submit-order!
@@ -188,13 +164,6 @@
               ([address dex opts]
                (swap! refresh-calls conj [address dex opts])
                (js/Promise.resolve []))))
-      (set! api/request-clearinghouse-state!
-            (fn request-clearinghouse-state-mock
-              ([address dex]
-               (request-clearinghouse-state-mock address dex {}))
-              ([address dex opts]
-               (swap! clearinghouse-calls conj [address dex opts])
-               (js/Promise.resolve {:assetPositions []}))))
       (set! api/ensure-perp-dexs-data!
             (fn ensure-perp-dexs-data-mock
               ([_store]
@@ -216,13 +185,11 @@
            (is (= [[[:actions/refresh-order-history]]]
                   @dispatched))
            (is (= 2 (count @refresh-calls)))
-           (is (= 2 (count @clearinghouse-calls)))
            (finally
              (clear-order-feedback-toast-timeout!)
              (set! trading-api/submit-order! original-submit-order)
              (set! nxr/dispatch original-dispatch)
              (set! api/request-frontend-open-orders! original-request-open-orders)
-             (set! api/request-clearinghouse-state! original-request-clearinghouse-state)
              (set! api/ensure-perp-dexs-data! original-ensure-perp-dexs-data)
              (done))))
        0))))
@@ -237,11 +204,9 @@
                        :ui {:toast nil}})
           dispatched (atom [])
           refresh-calls (atom [])
-          clearinghouse-calls (atom [])
           original-cancel-order trading-api/cancel-order!
           original-dispatch nxr/dispatch
           original-request-open-orders api/request-frontend-open-orders!
-          original-request-clearinghouse-state api/request-clearinghouse-state!
           original-ensure-perp-dexs-data api/ensure-perp-dexs-data!]
       (clear-order-feedback-toast-timeout!)
       (set! trading-api/cancel-order!
@@ -261,13 +226,6 @@
               ([address dex opts]
                (swap! refresh-calls conj [address dex opts])
                (js/Promise.resolve []))))
-      (set! api/request-clearinghouse-state!
-            (fn request-clearinghouse-state-mock
-              ([address dex]
-               (request-clearinghouse-state-mock address dex {}))
-              ([address dex opts]
-               (swap! clearinghouse-calls conj [address dex opts])
-               (js/Promise.resolve {:assetPositions []}))))
       (set! api/ensure-perp-dexs-data!
             (fn ensure-perp-dexs-data-mock
               ([_store]
@@ -292,13 +250,11 @@
            (is (= [[[:actions/refresh-order-history]]]
                   @dispatched))
            (is (= 2 (count @refresh-calls)))
-           (is (= 2 (count @clearinghouse-calls)))
            (finally
              (clear-order-feedback-toast-timeout!)
              (set! trading-api/cancel-order! original-cancel-order)
              (set! nxr/dispatch original-dispatch)
              (set! api/request-frontend-open-orders! original-request-open-orders)
-             (set! api/request-clearinghouse-state! original-request-clearinghouse-state)
              (set! api/ensure-perp-dexs-data! original-ensure-perp-dexs-data)
              (done))))
        0))))

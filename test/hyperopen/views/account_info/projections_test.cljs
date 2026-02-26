@@ -61,36 +61,6 @@
     (is (= ["B" "A"] (mapv :side orders)))
     (is (= ["60.0" "61.5"] (mapv :px orders)))))
 
-(deftest open-orders-source-merges-live-snapshot-and-dex-orders-with-identity-dedupe-test
-  (let [live-orders [{:coin "SOL"
-                      :oid 11
-                      :side "B"
-                      :sz "1.00"
-                      :limitPx "60.0"}]
-        snapshot [{:coin "SOL"
-                   :oid 11
-                   :side "B"
-                   :sz "1.00"
-                   :limitPx "60.0"}
-                  {:coin "SOL"
-                   :oid 12
-                   :side "A"
-                   :sz "2.00"
-                   :limitPx "61.0"}]
-        snapshot-by-dex {:dex-a [{:coin "SOL"
-                                  :oid 12
-                                  :side "A"
-                                  :sz "2.00"
-                                  :limitPx "61.0"}
-                                 {:coin "SOL"
-                                  :oid 13
-                                  :side "A"
-                                  :sz "1.50"
-                                  :limitPx "62.0"}]}
-        source (projections/open-orders-source live-orders snapshot snapshot-by-dex)]
-    (is (= ["11" "12" "13"]
-           (mapv projections/resolve-open-order-oid source)))))
-
 (deftest normalized-open-orders-excludes-pending-cancel-oids-test
   (let [orders [{:coin "SOL"
                  :oid "11"
