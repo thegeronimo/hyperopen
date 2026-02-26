@@ -2,7 +2,8 @@
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.core.compat :as core]
             [hyperopen.core-bootstrap.test-support.effect-extractors :as effect-extractors]
-            [hyperopen.core-bootstrap.test-support.browser-mocks :as browser-mocks]))
+            [hyperopen.core-bootstrap.test-support.browser-mocks :as browser-mocks]
+            [hyperopen.platform :as platform]))
 
 (def with-test-local-storage browser-mocks/with-test-local-storage)
 (def ^:private account-tab-heavy-effect-ids
@@ -328,6 +329,40 @@
     (is (empty? (effect-extractors/duplicate-heavy-effect-ids effects account-tab-heavy-effect-ids)))
     (is (= [:effects/api-fetch-historical-orders 3]
            (second effects)))))
+
+(deftest select-account-info-tab-order-history-skips-fetch-when-preloaded-data-is-fresh-test
+  (with-redefs [platform/now-ms (constantly 200000)]
+    (let [state {:wallet {:address "0xAbC"}
+                 :account-info {:selected-tab :balances
+                                :order-history {:request-id 2
+                                                :loaded-at-ms 150000
+                                                :loaded-for-address "0xabc"
+                                                :error nil}}
+                 :orders {:order-history []}}
+          effects (core/select-account-info-tab state :order-history)]
+      (is (= [[:effects/save [:account-info :selected-tab] :order-history]]
+             effects)))))
+
+(deftest select-account-info-tab-order-history-refetches-when-preload-is-stale-or-address-mismatched-test
+  (with-redefs [platform/now-ms (constantly 200000)]
+    (let [stale-state {:wallet {:address "0xabc"}
+                       :account-info {:selected-tab :balances
+                                      :order-history {:request-id 2
+                                                      :loaded-at-ms 100000
+                                                      :loaded-for-address "0xabc"
+                                                      :error nil}}}
+          wrong-address-state {:wallet {:address "0xabc"}
+                               :account-info {:selected-tab :balances
+                                              :order-history {:request-id 2
+                                                              :loaded-at-ms 199000
+                                                              :loaded-for-address "0xdef"
+                                                              :error nil}}}
+          stale-effects (core/select-account-info-tab stale-state :order-history)
+          wrong-address-effects (core/select-account-info-tab wrong-address-state :order-history)]
+      (is (= [:effects/api-fetch-historical-orders 3]
+             (second stale-effects)))
+      (is (= [:effects/api-fetch-historical-orders 3]
+             (second wrong-address-effects))))))
 
 (deftest sort-order-history-toggles-direction-on-same-column-test
   (let [state {:account-info {:order-history {:sort {:column "Time"

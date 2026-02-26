@@ -12,6 +12,9 @@
 (def ^:private default-order-history-page-size
   50)
 
+(def ^:private order-history-freshness-ttl-ms
+  60000)
+
 (def ^:private open-orders-sortable-columns
   #{"Time" "Type" "Coin" "Direction" "Size" "Original Size" "Order Value" "Price"})
 
@@ -65,7 +68,9 @@
    :page-input "1"
    :loading? false
    :error nil
-   :request-id 0})
+   :request-id 0
+   :loaded-at-ms nil
+   :loaded-for-address nil})
 
 (defn default-trade-history-state []
   {:sort {:column "Time" :direction :desc}
@@ -160,6 +165,27 @@
   [state]
   (get-in state [:account-info :order-history :request-id] 0))
 
+(defn- normalize-address
+  [address]
+  (let [text (some-> address str str/trim str/lower-case)]
+    (when (seq text)
+      text)))
+
+(defn- order-history-fresh?
+  [state now-ms]
+  (let [loaded-at-ms (get-in state [:account-info :order-history :loaded-at-ms])
+        loaded-for-address (normalize-address
+                            (get-in state [:account-info :order-history :loaded-for-address]))
+        wallet-address (normalize-address (get-in state [:wallet :address]))
+        error (get-in state [:account-info :order-history :error])]
+    (and (number? loaded-at-ms)
+         (number? now-ms)
+         (some? wallet-address)
+         (= wallet-address loaded-for-address)
+         (nil? error)
+         (let [age-ms (- now-ms loaded-at-ms)]
+           (<= 0 age-ms order-history-freshness-ttl-ms)))))
+
 (defn- normalize-order-history-status-filter
   [status]
   (let [status* (cond
@@ -240,12 +266,17 @@
        [:effects/api-fetch-user-funding-history request-id]])
 
     (= tab :order-history)
-    (let [request-id (inc (order-history-request-id state))]
-      [[:effects/save-many [[[:account-info :selected-tab] tab]
-                            [[:account-info :order-history :loading?] true]
-                            [[:account-info :order-history :error] nil]
-                            [[:account-info :order-history :request-id] request-id]]]
-       [:effects/api-fetch-historical-orders request-id]])
+    (let [order-history-loading? (true? (get-in state [:account-info :order-history :loading?]))
+          should-fetch? (and (not order-history-loading?)
+                             (not (order-history-fresh? state (platform/now-ms))))]
+      (if should-fetch?
+        (let [request-id (inc (order-history-request-id state))]
+          [[:effects/save-many [[[:account-info :selected-tab] tab]
+                                [[:account-info :order-history :loading?] true]
+                                [[:account-info :order-history :error] nil]
+                                [[:account-info :order-history :request-id] request-id]]]
+           [:effects/api-fetch-historical-orders request-id]])
+        [[:effects/save [:account-info :selected-tab] tab]]))
 
     :else
     [[:effects/save [:account-info :selected-tab] tab]]))

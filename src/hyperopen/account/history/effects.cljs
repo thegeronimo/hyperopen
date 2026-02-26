@@ -136,6 +136,7 @@
   [{:keys [store request-id request-historical-orders! opts]
     :or {request-historical-orders! api/request-historical-orders!}}]
   (let [address (get-in @store [:wallet :address])
+        requested-address (some-> address str str/lower-case)
         opts* (merge {:priority :high}
                      (or opts {}))]
     (if-not address
@@ -146,6 +147,8 @@
                    (-> state
                        (assoc-in [:account-info :order-history :loading?] false)
                        (assoc-in [:account-info :order-history :error] nil)
+                       (assoc-in [:account-info :order-history :loaded-at-ms] nil)
+                       (assoc-in [:account-info :order-history :loaded-for-address] nil)
                        (assoc-in [:orders :order-history] []))
                    state)))
         (js/Promise.resolve nil))
@@ -157,6 +160,9 @@
                               (-> state
                                   (assoc-in [:account-info :order-history :loading?] false)
                                   (assoc-in [:account-info :order-history :error] nil)
+                                  (assoc-in [:account-info :order-history :loaded-at-ms] (platform/now-ms))
+                                  (assoc-in [:account-info :order-history :loaded-for-address]
+                                            requested-address)
                                   (assoc-in [:orders :order-history] (vec (or rows []))))
                               state)))))
           (.catch (fn [err]

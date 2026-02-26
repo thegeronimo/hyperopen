@@ -124,19 +124,22 @@
                          (next-order-history-request-id state))
                (assoc-in [:account-info :order-history :loading?] false)
                (assoc-in [:account-info :order-history :error] nil)
+               (assoc-in [:account-info :order-history :loaded-at-ms] nil)
+               (assoc-in [:account-info :order-history :loaded-for-address] nil)
                (assoc-in [:orders :order-history] [])))))
 
 (defn- prefetch-order-history!
   [{:keys [store fetch-historical-orders!]}]
   (when (fn? fetch-historical-orders!)
-    (let [selected? (= :order-history (get-in @store [:account-info :selected-tab]))
-          request-id (next-order-history-request-id @store)]
+    (let [request-id (next-order-history-request-id @store)]
       (swap! store
              (fn [state]
                (-> state
                    (assoc-in [:account-info :order-history :request-id] request-id)
-                   (assoc-in [:account-info :order-history :loading?] selected?)
-                   (assoc-in [:account-info :order-history :error] nil))))
+                   (assoc-in [:account-info :order-history :loading?] true)
+                   (assoc-in [:account-info :order-history :error] nil)
+                   (assoc-in [:account-info :order-history :loaded-at-ms] nil)
+                   (assoc-in [:account-info :order-history :loaded-for-address] nil))))
       (fetch-historical-orders! store request-id {:priority :low}))))
 
 (defn install-asset-selector-shortcuts!

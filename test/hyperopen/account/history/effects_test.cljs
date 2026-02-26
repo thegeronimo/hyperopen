@@ -328,6 +328,8 @@
     (history-effects/api-fetch-historical-orders-effect nil current-store 3)
     (is (false? (get-in @current-store [:account-info :order-history :loading?])))
     (is (nil? (get-in @current-store [:account-info :order-history :error])))
+    (is (nil? (get-in @current-store [:account-info :order-history :loaded-at-ms])))
+    (is (nil? (get-in @current-store [:account-info :order-history :loaded-for-address])))
     (is (= [] (get-in @current-store [:orders :order-history])))
     (history-effects/api-fetch-historical-orders-effect nil stale-store 3)
     (is (= stale-before @stale-store))))
@@ -351,6 +353,8 @@
             (.then (fn [_]
                      (is (false? (get-in @current-store [:account-info :order-history :loading?])))
                      (is (nil? (get-in @current-store [:account-info :order-history :error])))
+                     (is (number? (get-in @current-store [:account-info :order-history :loaded-at-ms])))
+                     (is (= "0xabc" (get-in @current-store [:account-info :order-history :loaded-for-address])))
                      (is (vector? (get-in @current-store [:orders :order-history])))
                      (is (= rows (seq (get-in @current-store [:orders :order-history]))))
                      (is (= stale-before @stale-store))
