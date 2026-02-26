@@ -892,16 +892,45 @@
       (aligned-benchmark-return-rows candles strategy-time-points))
     []))
 
+(defn- benchmark-performance-column
+  [state summary-time-range strategy-time-points label-by-coin coin]
+  (let [benchmark-cumulative-rows (benchmark-cumulative-return-rows state
+                                                                    summary-time-range
+                                                                    coin
+                                                                    strategy-time-points)
+        benchmark-daily-rows (portfolio-metrics/daily-compounded-returns benchmark-cumulative-rows)
+        values (if (seq benchmark-daily-rows)
+                 (portfolio-metrics/compute-performance-metrics {:strategy-daily-rows benchmark-daily-rows
+                                                                 :rf 0
+                                                                 :periods-per-year 252
+                                                                 :compounded true})
+                 {})]
+    {:coin coin
+     :label (or (get label-by-coin coin)
+                coin)
+     :daily-rows benchmark-daily-rows
+     :values values}))
+
 (defn- with-performance-metric-columns
-  [groups portfolio-values benchmark-values]
-  (mapv (fn [{:keys [rows] :as group}]
-          (assoc group
-                 :rows (mapv (fn [{:keys [key] :as row}]
-                               (assoc row
-                                      :portfolio-value (get portfolio-values key)
-                                      :benchmark-value (get benchmark-values key)))
-                             (or rows []))))
-        (or groups [])))
+  [groups portfolio-values benchmark-columns]
+  (let [primary-benchmark-values (or (some-> benchmark-columns first :values)
+                                     {})
+        benchmark-values-by-coin (into {}
+                                       (map (fn [{:keys [coin values]}]
+                                              [coin values]))
+                                       benchmark-columns)]
+    (mapv (fn [{:keys [rows] :as group}]
+            (assoc group
+                   :rows (mapv (fn [{:keys [key] :as row}]
+                                 (assoc row
+                                        :portfolio-value (get portfolio-values key)
+                                        :benchmark-value (get primary-benchmark-values key)
+                                        :benchmark-values (into {}
+                                                               (map (fn [{:keys [coin]}]
+                                                                      [coin (get-in benchmark-values-by-coin [coin key])]))
+                                                               benchmark-columns)))
+                               (or rows []))))
+          (or groups []))))
 
 (defn- performance-metrics-model
   [state summary-entry summary-scope summary-time-range returns-benchmark-selector]
@@ -910,32 +939,40 @@
                                                                           summary-scope)
         strategy-time-points (cumulative-return-time-points strategy-cumulative-rows)
         strategy-daily-rows (portfolio-metrics/daily-compounded-returns strategy-cumulative-rows)
-        benchmark-coin (some-> returns-benchmark-selector :selected-coins first)
-        benchmark-cumulative-rows (benchmark-cumulative-return-rows state
-                                                                    summary-time-range
-                                                                    benchmark-coin
-                                                                    strategy-time-points)
-        benchmark-daily-rows (portfolio-metrics/daily-compounded-returns benchmark-cumulative-rows)
+        selected-benchmark-coins (vec (or (:selected-coins returns-benchmark-selector)
+                                          []))
+        benchmark-label-by-coin (or (:label-by-coin returns-benchmark-selector)
+                                    {})
+        benchmark-columns (mapv (fn [coin]
+                                  (benchmark-performance-column state
+                                                                summary-time-range
+                                                                strategy-time-points
+                                                                benchmark-label-by-coin
+                                                                coin))
+                                selected-benchmark-coins)
+        primary-benchmark-column (first benchmark-columns)
+        benchmark-coin (:coin primary-benchmark-column)
+        benchmark-daily-rows (or (:daily-rows primary-benchmark-column)
+                                 [])
         portfolio-values (portfolio-metrics/compute-performance-metrics {:strategy-daily-rows strategy-daily-rows
                                                                          :benchmark-daily-rows benchmark-daily-rows
                                                                          :rf 0
                                                                          :periods-per-year 252
                                                                          :compounded true})
-        benchmark-values (if (seq benchmark-daily-rows)
-                           (portfolio-metrics/compute-performance-metrics {:strategy-daily-rows benchmark-daily-rows
-                                                                          :rf 0
-                                                                          :periods-per-year 252
-                                                                          :compounded true})
-                           {})
+        benchmark-values (or (:values primary-benchmark-column)
+                             {})
         groups (with-performance-metric-columns (portfolio-metrics/metric-rows portfolio-values)
                  portfolio-values
-                 benchmark-values)
-        benchmark-label (when (seq benchmark-coin)
-                          (or (get-in returns-benchmark-selector [:label-by-coin benchmark-coin])
-                              benchmark-coin))]
-    {:benchmark-selected? (boolean (seq benchmark-coin))
+                 benchmark-columns)
+        benchmark-label (:label primary-benchmark-column)]
+    {:benchmark-selected? (boolean (seq benchmark-columns))
      :benchmark-coin benchmark-coin
      :benchmark-label benchmark-label
+     :benchmark-coins (mapv :coin benchmark-columns)
+     :benchmark-columns (mapv (fn [{:keys [coin label]}]
+                                {:coin coin
+                                 :label label})
+                              benchmark-columns)
      :values portfolio-values
      :benchmark-values benchmark-values
      :groups groups}))

@@ -226,6 +226,7 @@
       (is (approx= (get-in groups [0 :rows 0 :value]) 1 1e-12))
       (is (approx= (get-in groups [0 :rows 0 :portfolio-value]) 1 1e-12))
       (is (nil? (get-in groups [0 :rows 0 :benchmark-value])))
+      (is (= [] (get-in view-model [:performance-metrics :benchmark-columns])))
       (is (false? (get-in view-model [:performance-metrics :benchmark-selected?])))
       (is (nil? (:value (performance-metric-row view-model :r2))))
       (is (nil? (:value (performance-metric-row view-model :information-ratio)))))))
@@ -467,7 +468,7 @@
       (is (= "SPY (SPOT)"
              (:label benchmark-series))))))
 
-(deftest portfolio-vm-performance-metrics-use-primary-selected-benchmark-test
+(deftest portfolio-vm-performance-metrics-include-all-selected-benchmarks-test
   (with-redefs [account-equity-view/account-equity-metrics (fn [_]
                                                               {:spot-equity 10
                                                                :perps-value 10
@@ -511,10 +512,18 @@
           r2-row (performance-metric-row view-model :r2)
           information-ratio-row (performance-metric-row view-model :information-ratio)]
       (is (true? (get-in view-model [:performance-metrics :benchmark-selected?])))
+      (is (= ["SPY" "QQQ"] (get-in view-model [:performance-metrics :benchmark-coins])))
+      (is (= [{:coin "SPY"
+               :label "SPY (SPOT)"}
+              {:coin "QQQ"
+               :label "QQQ (SPOT)"}]
+             (get-in view-model [:performance-metrics :benchmark-columns])))
       (is (= "SPY" (get-in view-model [:performance-metrics :benchmark-coin])))
       (is (= "SPY (SPOT)" (get-in view-model [:performance-metrics :benchmark-label])))
       (is (number? (:portfolio-value cumulative-return-row)))
       (is (number? (:benchmark-value cumulative-return-row)))
+      (is (number? (get-in cumulative-return-row [:benchmark-values "SPY"])))
+      (is (number? (get-in cumulative-return-row [:benchmark-values "QQQ"])))
       (is (number? (:value r2-row)))
       (is (number? (:value information-ratio-row))))))
 

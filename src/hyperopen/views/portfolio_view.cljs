@@ -677,46 +677,91 @@
       (when (= selected-tab :returns)
         (returns-benchmark-chip-rail returns-benchmark*))])))
 
-(defn- performance-metric-value-cell [kind value]
-  [:span {:class (into ["text-sm" "text-trading-text" "text-right"]
-                       (when (not= kind :date)
-                         ["num"]))}
-   (format-metric-value kind value)])
+(defn- performance-metric-value-cell
+  ([kind value]
+   (performance-metric-value-cell kind value nil))
+  ([kind value attrs]
+   [:span (merge {:class (into ["text-sm" "text-trading-text" "text-right"]
+                               (when (not= kind :date)
+                                 ["num"]))}
+                 attrs)
+    (format-metric-value kind value)]))
 
-(defn- performance-metric-row [{:keys [key label kind value] :as row}]
+(defn- resolved-benchmark-metric-columns
+  [{:keys [benchmark-columns benchmark-selected? benchmark-label benchmark-coin]}]
+  (let [columns (->> (or benchmark-columns [])
+                     (keep (fn [{:keys [coin label]}]
+                             (let [coin* (some-> coin str string/trim)
+                                   label* (some-> label str string/trim)]
+                               (when (seq coin*)
+                                 {:coin coin*
+                                  :label (or label* coin*)}))))
+                     vec)]
+    (if (seq columns)
+      columns
+      [{:coin (or (some-> benchmark-coin str string/trim)
+                  "__benchmark__")
+        :label (if benchmark-selected?
+                 (or benchmark-label "Benchmark")
+                 "Benchmark")}])))
+
+(defn- benchmark-row-value
+  [row coin]
+  (let [values (:benchmark-values row)]
+    (if (and (map? values)
+             (contains? values coin))
+      (get values coin)
+      (:benchmark-value row))))
+
+(defn- performance-metrics-grid-style
+  [benchmark-column-count]
+  {:grid-template-columns (string/join " "
+                                       (concat ["minmax(0,1fr)"]
+                                               (repeat benchmark-column-count "minmax(108px,auto)")
+                                               ["minmax(108px,auto)"]))})
+
+(defn- performance-metric-row [{:keys [key label kind value] :as row} benchmark-columns grid-style]
   (let [portfolio-value (if (contains? row :portfolio-value)
                           (:portfolio-value row)
                           value)]
     [:div {:class ["grid"
-                   "grid-cols-[minmax(0,1fr)_minmax(108px,auto)_minmax(108px,auto)]"
                    "items-center"
                    "gap-3"
                    "hover:bg-base-300"]
+           :style grid-style
            :data-role (str "portfolio-performance-metric-" (name key))}
      [:span {:class ["text-sm"]
              :style {:color "#9CA3AF"}}
       label]
-     (performance-metric-value-cell kind (:benchmark-value row))
+     (for [{:keys [coin]} benchmark-columns]
+       ^{:key (str "portfolio-performance-metric-" (name key) "-benchmark-" coin)}
+       (performance-metric-value-cell kind
+                                      (benchmark-row-value row coin)
+                                      {:data-role (str "portfolio-performance-metric-" (name key) "-benchmark-value-" coin)}))
      (performance-metric-value-cell kind portfolio-value)]))
 
 (defn- performance-metrics-card [{:keys [benchmark-selected?
                                          benchmark-label
+                                         benchmark-columns
+                                         benchmark-coin
                                          groups
                                          time-range-selector]}]
-  (let [benchmark-column-label (if benchmark-selected?
-                                 benchmark-label
-                                 "Benchmark")]
+  (let [benchmark-columns* (resolved-benchmark-metric-columns {:benchmark-columns benchmark-columns
+                                                               :benchmark-selected? benchmark-selected?
+                                                               :benchmark-label benchmark-label
+                                                               :benchmark-coin benchmark-coin})
+        grid-style (performance-metrics-grid-style (count benchmark-columns*))]
     [:div {:class ["flex" "h-full" "min-h-0" "flex-col"]
            :data-role "portfolio-performance-metrics-card"}
      [:div {:class ["grid"
-                    "grid-cols-[minmax(0,1fr)_minmax(108px,auto)_minmax(108px,auto)]"
                     "items-center"
                     "gap-3"
                     "border-b"
                     "border-base-300"
                     "bg-base-200/35"
                     "px-4"
-                    "py-2.5"]}
+                    "py-2.5"]
+            :style grid-style}
       [:div {:class ["flex" "min-w-0" "items-center" "justify-between" "gap-2"]}
        [:span {:class ["text-xs" "font-medium" "uppercase" "tracking-wide" "text-trading-text-secondary"]
                :data-role "portfolio-performance-metrics-metric-label"}
@@ -729,9 +774,13 @@
                             :actions/toggle-portfolio-performance-metrics-time-range-dropdown
                             :actions/select-portfolio-summary-time-range
                             "portfolio-performance-metrics-time-range-selector")])]
-      [:span {:class ["text-xs" "font-medium" "uppercase" "tracking-wide" "text-right" "text-trading-text-secondary"]
-              :data-role "portfolio-performance-metrics-benchmark-label"}
-       benchmark-column-label]
+      (for [[idx {:keys [coin label]}] (map-indexed vector benchmark-columns*)]
+        ^{:key (str "portfolio-performance-metrics-benchmark-label-" coin)}
+        [:span {:class ["text-xs" "font-medium" "uppercase" "tracking-wide" "text-right" "text-trading-text-secondary"]
+                :data-role (if (zero? idx)
+                             "portfolio-performance-metrics-benchmark-label"
+                             (str "portfolio-performance-metrics-benchmark-label-" coin))}
+         label])
       [:span {:class ["text-xs" "font-medium" "uppercase" "tracking-wide" "text-right" "text-trading-text-secondary"]
               :data-role "portfolio-performance-metrics-portfolio-label"}
        "Portfolio"]]
@@ -744,7 +793,7 @@
                :data-role (str "portfolio-performance-metrics-group-" (name id))}
          (for [{:keys [key] :as row} rows]
            ^{:key (str "portfolio-performance-metric-row-" (name key))}
-           (performance-metric-row row))])]]))
+           (performance-metric-row row benchmark-columns* grid-style))])]]))
 
 (def ^:private portfolio-account-tab-click-actions-by-tab
   (into

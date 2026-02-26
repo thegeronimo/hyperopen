@@ -337,16 +337,24 @@
                                               :performance-metrics {:benchmark-selected? true
                                                                     :benchmark-coin "SPY"
                                                                     :benchmark-label "SPY (SPOT)"
+                                                                    :benchmark-columns [{:coin "SPY"
+                                                                                         :label "SPY (SPOT)"}
+                                                                                        {:coin "QQQ"
+                                                                                         :label "QQQ (SPOT)"}]
                                                                     :values {}
                                                                     :groups [{:id :sample
                                                                               :rows [{:key :expected-monthly
                                                                                       :label "Expected Monthly"
                                                                                       :kind :percent
-                                                                                      :value 0.123}
+                                                                                      :value 0.123
+                                                                                      :benchmark-values {"SPY" 0.111
+                                                                                                         "QQQ" 0.101}}
                                                                                      {:key :daily-var
                                                                                       :label "Daily Value-at-Risk"
                                                                                       :kind :percent
-                                                                                      :value -0.045}
+                                                                                      :value -0.045
+                                                                                      :benchmark-values {"SPY" -0.033
+                                                                                                         "QQQ" -0.022}}
                                                                                      {:key :information-ratio
                                                                                       :label "Information Ratio"
                                                                                       :kind :ratio
@@ -375,12 +383,18 @@
     (let [view-node (portfolio-view/portfolio-view {})
           all-text (set (collect-strings view-node))
           benchmark-label (find-first-node view-node #(= "portfolio-performance-metrics-benchmark-label" (get-in % [1 :data-role])))
+          benchmark-label-qqq (find-first-node view-node #(= "portfolio-performance-metrics-benchmark-label-QQQ" (get-in % [1 :data-role])))
           nil-row (find-first-node view-node #(= "portfolio-performance-metric-r2" (get-in % [1 :data-role])))]
       (is (contains? all-text "Metric"))
       (is (contains? all-text "Portfolio"))
       (is (= "SPY (SPOT)" (first (collect-strings benchmark-label))))
+      (is (= "QQQ (SPOT)" (first (collect-strings benchmark-label-qqq))))
       (is (contains? all-text "+12.30%"))
+      (is (contains? all-text "+11.10%"))
+      (is (contains? all-text "+10.10%"))
       (is (contains? all-text "-4.50%"))
+      (is (contains? all-text "-3.30%"))
+      (is (contains? all-text "-2.20%"))
       (is (contains? all-text "1.23"))
       (is (contains? all-text "2024-01-02"))
       (is (contains? all-text "7"))
