@@ -72,9 +72,10 @@
 
 (deftest vaults-view-rows-navigate-to-detail-route-test
   (let [view (vaults-view/vaults-view sample-state)
-        row-node (find-first-node view
-                                  (fn [candidate]
-                                    (and (= :tr (first candidate))
-                                         (= [[:actions/navigate "/vaults/0x1111111111111111111111111111111111111111"]]
-                                            (get-in candidate [1 :on :click])))))]
-    (is (some? row-node))))
+        row-link-node (find-first-node view
+                                       (fn [candidate]
+                                         (and (= :a (first candidate))
+                                              (= "vault-row-link" (get-in candidate [1 :data-role]))
+                                              (= "/vaults/0x1111111111111111111111111111111111111111"
+                                                 (get-in candidate [1 :href])))))]
+    (is (some? row-link-node))))

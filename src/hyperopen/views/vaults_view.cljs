@@ -81,23 +81,34 @@
        [:span {:class ["text-xs"]}
         (if (= :asc direction) "↑" "↓")])]))
 
+(defn- vault-detail-route
+  [vault-address]
+  (str "/vaults/" vault-address))
+
 (defn- vault-row
   [{:keys [name vault-address leader apr tvl your-deposit age-days snapshot is-closed?]}]
-  [:tr {:class ["cursor-pointer"
-                "border-b"
+  [:tr {:class ["border-b"
                 "border-base-300/60"
                 "text-sm"
                 "text-trading-text"
                 "hover:bg-base-200/60"]
-        :on {:click [[:actions/navigate (str "/vaults/" vault-address)]]}}
+        :data-role "vault-row"}
    [:td {:class ["px-3" "py-2.5"]}
-    [:div {:class ["flex" "items-center" "gap-2"]}
-     [:span {:class ["font-medium"]} name]
-     (when is-closed?
-       [:span {:class ["rounded" "border" "border-amber-600/50" "px-1.5" "py-0.5" "text-xs" "uppercase" "tracking-wide" "text-amber-400"]}
-        "Closed"])]
-    [:div {:class ["mt-0.5" "num" "text-xs" "text-trading-text-secondary"]}
-     (wallet/short-addr vault-address)]]
+    [:a {:href (vault-detail-route vault-address)
+         :class ["block"
+                 "w-full"
+                 "text-left"
+                 "focus:outline-none"
+                 "focus:ring-0"
+                 "focus:ring-offset-0"]
+         :data-role "vault-row-link"}
+     [:div {:class ["flex" "items-center" "gap-2"]}
+      [:span {:class ["font-medium"]} name]
+      (when is-closed?
+        [:span {:class ["rounded" "border" "border-amber-600/50" "px-1.5" "py-0.5" "text-xs" "uppercase" "tracking-wide" "text-amber-400"]}
+         "Closed"])]
+     [:div {:class ["mt-0.5" "num" "text-xs" "text-trading-text-secondary"]}
+      (wallet/short-addr vault-address)]]]
    [:td {:class ["px-3" "py-2.5" "num"]}
     (wallet/short-addr leader)]
    [:td {:class ["px-3" "py-2.5" "num"]} (format-percent apr)]
@@ -108,17 +119,17 @@
 
 (defn- mobile-vault-card
   [{:keys [name vault-address leader apr tvl your-deposit age-days snapshot]}]
-  [:button {:type "button"
-            :class ["w-full"
-                    "rounded-lg"
-                    "border"
-                    "border-base-300"
-                    "bg-base-100"
-                    "p-3"
-                    "text-left"
-                    "transition-colors"
-                    "hover:bg-base-200"]
-            :on {:click [[:actions/navigate (str "/vaults/" vault-address)]]}}
+  [:a {:href (vault-detail-route vault-address)
+       :class ["block"
+               "w-full"
+               "rounded-lg"
+               "border"
+               "border-base-300"
+               "bg-base-100"
+               "p-3"
+               "text-left"
+               "transition-colors"
+               "hover:bg-base-200"]}
    [:div {:class ["flex" "items-center" "justify-between" "gap-2"]}
     [:div {:class ["min-w-0"]}
      [:div {:class ["truncate" "font-medium" "text-trading-text"]} name]
