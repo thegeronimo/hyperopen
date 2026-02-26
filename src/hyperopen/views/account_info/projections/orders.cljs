@@ -11,6 +11,48 @@
    :rejected "Rejected"
    :triggered "Triggered"})
 
+(def ^:private canceled-status-to-tooltip
+  {"margincanceled" "Canceled due to insufficient margin."
+   "vaultwithdrawalcanceled" "Canceled due to vault withdrawal."
+   "openinterestcapcanceled" "Canceled due to open interest cap."
+   "selftradecanceled" "Canceled to prevent self trade."
+   "reduceonlycanceled" "Canceled due to reduce only."
+   "siblingfilledcanceled" "Canceled because a related order filled."
+   "delistedcanceled" "Canceled because the market was delisted."
+   "liquidatedcanceled" "Canceled due to liquidation."
+   "outcomesettledcanceled" "Canceled because the outcome was settled."
+   "scheduledcancel" "Canceled by schedule."
+   "internalcancel" "Canceled by internal system logic."})
+
+(def ^:private rejected-status-to-tooltip
+  {"tickrejected" "Rejected due to invalid tick."
+   "mintradentlrejected" "Rejected because notional was below the minimum trade size."
+   "perpmarginrejected" "Rejected due to insufficient perpetual margin."
+   "reduceonlyrejected" "Rejected due to reduce only constraints."
+   "badalopxrejected" "Rejected due to invalid ALO price."
+   "ioccancelrejected" "Rejected because IOC would cancel immediately."
+   "badtriggerpxrejected" "Rejected due to invalid trigger price."
+   "marketordernoliquidityrejected" "Rejected because there was no market liquidity."
+   "positionincreaseatopeninterestcaprejected" "Rejected because position increase would exceed the open interest cap."
+   "positionflipatopeninterestcaprejected" "Rejected because position flip would exceed the open interest cap."
+   "tooaggressiveatopeninterestcaprejected" "Rejected because order aggression would exceed the open interest cap."
+   "openinterestincreaserejected" "Rejected because open interest increase is not allowed."
+   "insufficientspotbalancerejected" "Rejected due to insufficient spot balance."
+   "oraclerejected" "Rejected by oracle constraints."})
+
+(def ^:private canceled-statuses
+  (set (keys canceled-status-to-tooltip)))
+
+(def ^:private rejected-statuses
+  (set (keys rejected-status-to-tooltip)))
+
+(defn- normalized-order-history-status [status]
+  (some-> status
+          str
+          str/trim
+          str/lower-case
+          (str/replace #"[\s_\-]" "")))
+
 (defn resolve-open-order-oid
   [order]
   (some parse/normalize-id
@@ -20,23 +62,48 @@
          (get-in order [:order :o])]))
 
 (defn order-history-status-key [status]
-  (let [text (some-> status str str/trim str/lower-case)]
-    (case text
-      "open" :open
-      "filled" :filled
-      "canceled" :canceled
-      "cancelled" :canceled
-      "rejected" :rejected
-      "triggered" :triggered
-      nil)))
+  (let [text (normalized-order-history-status status)]
+    (cond
+      (= text "open") :open
+      (= text "filled") :filled
+      (or (= text "canceled")
+          (= text "cancelled")
+          (contains? canceled-statuses text))
+      :canceled
+
+      (or (= text "rejected")
+          (contains? rejected-statuses text))
+      :rejected
+
+      (= text "triggered") :triggered
+      :else nil)))
 
 (defn order-history-status-label
   ([status]
-   (order-history-status-label status default-order-history-status-labels))
+   (order-history-status-label status nil default-order-history-status-labels))
   ([status labels]
-   (let [status-key (order-history-status-key status)]
-     (or (get labels status-key)
-         (coins/title-case-label status)))))
+   (order-history-status-label status nil labels))
+  ([status remaining-size-num labels]
+   (let [status-key (order-history-status-key status)
+         labels* (or labels default-order-history-status-labels)]
+     (cond
+       (= status-key :filled)
+       (if (and (number? remaining-size-num)
+                (pos? remaining-size-num))
+         "Partially Filled"
+         (get labels* :filled "Filled"))
+
+       (some? status-key)
+       (or (get labels* status-key)
+           (coins/title-case-label status))
+
+       :else
+       (coins/title-case-label status)))))
+
+(defn- order-history-status-tooltip [status]
+  (let [text (normalized-order-history-status status)]
+    (or (get canceled-status-to-tooltip text)
+        (get rejected-status-to-tooltip text))))
 
 (defn- order-trigger-map
   [order-map]
@@ -242,8 +309,15 @@
          oid (some parse/normalize-id
                    [(:oid root-map) (:oid row-map) (:orderId root-map) (:orderId row-map)])
          side (or (:side root-map) (:side row-map))
+         direction (or (:dir root-map)
+                       (:dir row-map)
+                       (:direction root-map)
+                       (:direction row-map))
          size (or (:origSz root-map) (:origSz row-map) (:sz root-map) (:sz row-map))
-         remaining-size (or (:remainingSz root-map) (:remainingSz row-map))
+         remaining-size (or (:remainingSz root-map)
+                            (:remainingSz row-map)
+                            (:sz root-map)
+                            (:sz row-map))
          limit-px (or (:limitPx root-map) (:limitPx row-map))
          fallback-px (or (:px root-map) (:px row-map))
          trigger-px (or (:triggerPx root-map) (:triggerPx row-map))
@@ -295,13 +369,20 @@
                                   (pos? size-num)
                                   (pos? price-num))
                          (* size-num price-num)))
-         status-key (order-history-status-key status)]
+         status-key (order-history-status-key status)
+         status-label (order-history-status-label status
+                                                 remaining-size-num
+                                                 default-order-history-status-labels)
+         status-tooltip (order-history-status-tooltip status)]
      (when (or (some? oid) (some? coin) (some? status-timestamp))
        {:coin coin
         :oid oid
         :side side
+        :direction direction
         :size size
         :size-num size-num
+        :remaining-size remaining-size
+        :remaining-size-num remaining-size-num
         :filled-size filled-size
         :order-value order-value
         :px px
@@ -314,7 +395,9 @@
         :trigger-px trigger-px
         :is-position-tpsl is-position-tpsl
         :status status
-        :status-key status-key}))))
+        :status-key status-key
+        :status-label status-label
+        :status-tooltip status-tooltip}))))
 
 (defn normalized-order-history
   ([rows]

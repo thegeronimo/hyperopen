@@ -116,6 +116,8 @@
     (is (contains? strings "N/A"))
     (is (contains? strings "No"))
     (is (contains? strings "Yes"))
+    (is (contains? strings "Long"))
+    (is (contains? strings "Close Short"))
     (is (contains? strings "Filled"))
     (is (contains? strings "Canceled"))))
 
@@ -139,12 +141,22 @@
                                                    :loading? false})
         row-node (hiccup/first-viewport-row content)
         cells (vec (hiccup/node-children row-node))
+        direction-cell (nth cells 3)
         status-cell (nth cells 11)
         order-id-cell (nth cells 12)
+        direction-strings (set (hiccup/collect-strings direction-cell))
         status-classes (hiccup/node-class-set status-cell)
-        order-id-classes (hiccup/node-class-set order-id-cell)]
+        order-id-classes (hiccup/node-class-set order-id-cell)
+        status-strings (set (hiccup/collect-strings status-cell))
+        underlined-status (hiccup/find-first-node status-cell
+                                                  #(contains? (hiccup/node-class-set %)
+                                                              "underline"))]
     (is (contains? status-classes "break-words"))
     (is (contains? status-classes "leading-4"))
+    (is (contains? direction-strings "Close Long"))
+    (is (contains? status-strings "Canceled"))
+    (is (contains? status-strings "Canceled due to reduce only."))
+    (is (some? underlined-status))
     (is (contains? order-id-classes "order-history-order-id-text"))
     (is (contains? order-id-classes "tracking-tight"))
     (is (contains? order-id-classes "whitespace-nowrap"))))
@@ -260,9 +272,20 @@
                                      :limitPx "0.0012"
                                      :orderType "Limit"}
                              :status "open"
+                             :statusTimestamp 1700000000100})
+        filled-row-with-sz-fallback (view/normalize-order-history-row
+                                     {:order {:coin "PUMP"
+                                              :oid 3
+                                              :side "A"
+                                              :origSz "11273"
+                                              :sz "0.0"
+                                              :limitPx "0.001772"
+                                              :orderType "Limit"}
+                                      :status "filled"
                              :statusTimestamp 1700000000100})]
     (is (= "Market" (@#'view/format-order-history-price market-row)))
     (is (= "--" (@#'view/format-order-history-filled-size (:filled-size unfilled-limit-row))))
+    (is (= "11,273" (@#'view/format-order-history-filled-size (:filled-size filled-row-with-sz-fallback))))
     (is (= "No" (@#'view/format-order-history-reduce-only (assoc market-row :reduce-only false))))
     (is (= "N/A" (@#'view/format-order-history-trigger market-row)))))
 

@@ -176,7 +176,7 @@
     (is (= "MYST" (:coin row)))
     (is (nil? (:usdc-value row)))))
 
-(deftest normalize-order-history-row-returns-status-key-without-status-label-test
+(deftest normalize-order-history-row-returns-status-key-and-display-label-test
   (let [row {:order {:coin "SOL"
                      :oid 1
                      :side "B"
@@ -188,4 +188,49 @@
              :statusTimestamp 1710000000}
         normalized (projections/normalize-order-history-row row)]
     (is (= :filled (:status-key normalized)))
-    (is (not (contains? normalized :status-label)))))
+    (is (= "Filled" (:status-label normalized)))
+    (is (= 1 (:filled-size normalized)))))
+
+(deftest normalize-order-history-row-uses-sz-as-remaining-size-when-remaining-sz-missing-test
+  (let [row {:order {:coin "PUMP"
+                     :oid 12
+                     :side "A"
+                     :origSz "11273"
+                     :sz "0.0"
+                     :limitPx "0.001772"
+                     :timestamp 1710000100}
+             :status "filled"
+             :statusTimestamp 1710000100}
+        normalized (projections/normalize-order-history-row row)]
+    (is (= 11273 (:filled-size normalized)))
+    (is (= "Filled" (:status-label normalized)))))
+
+(deftest normalize-order-history-row-maps-cancel-reason-statuses-to-canceled-with-tooltip-test
+  (let [row {:order {:coin "PUMP"
+                     :oid 33
+                     :side "A"
+                     :origSz "10.0"
+                     :sz "10.0"
+                     :limitPx "0.002"
+                     :timestamp 1710000200}
+             :status "reduceOnlyCanceled"
+             :statusTimestamp 1710000200}
+        normalized (projections/normalize-order-history-row row)]
+    (is (= :canceled (:status-key normalized)))
+    (is (= "Canceled" (:status-label normalized)))
+    (is (= "Canceled due to reduce only."
+           (:status-tooltip normalized)))))
+
+(deftest normalize-order-history-row-labels-filled-orders-with-remaining-size-as-partially-filled-test
+  (let [row {:order {:coin "HYPE"
+                     :oid 44
+                     :side "B"
+                     :origSz "15.23"
+                     :sz "3.0"
+                     :limitPx "28.454"
+                     :timestamp 1710000300}
+             :status "filled"
+             :statusTimestamp 1710000300}
+        normalized (projections/normalize-order-history-row row)]
+    (is (= "Partially Filled" (:status-label normalized)))
+    (is (< (js/Math.abs (- 12.23 (:filled-size normalized))) 1e-9))))
