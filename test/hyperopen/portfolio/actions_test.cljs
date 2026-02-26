@@ -39,6 +39,11 @@
          (actions/select-portfolio-summary-scope {} :unknown))))
 
 (deftest select-portfolio-summary-time-range-normalizes-and-closes-dropdowns-test
+  (is (= [[:effects/save-many [[[:portfolio-ui :summary-time-range] :three-month]
+                               [[:portfolio-ui :chart-hover-index] nil]
+                               [[:portfolio-ui :summary-scope-dropdown-open?] false]
+                               [[:portfolio-ui :summary-time-range-dropdown-open?] false]]]]
+         (actions/select-portfolio-summary-time-range {} "3M")))
   (is (= [[:effects/save-many [[[:portfolio-ui :summary-time-range] :all-time]
                                [[:portfolio-ui :chart-hover-index] nil]
                                [[:portfolio-ui :summary-scope-dropdown-open?] false]
@@ -279,5 +284,13 @@
          (actions/returns-benchmark-candle-request :week)))
   (is (= {:interval :1h :bars 800}
          (actions/returns-benchmark-candle-request :month)))
+  (is (= {:interval :4h :bars 720}
+         (actions/returns-benchmark-candle-request "3M")))
+  (is (= {:interval :8h :bars 720}
+         (actions/returns-benchmark-candle-request :six-month)))
+  (is (= {:interval :12h :bars 900}
+         (actions/returns-benchmark-candle-request :one-year)))
+  (is (= {:interval :1d :bars 900}
+         (actions/returns-benchmark-candle-request "2Y")))
   (is (= {:interval :1d :bars 5000}
          (actions/returns-benchmark-candle-request :all-time))))

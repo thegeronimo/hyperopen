@@ -22,6 +22,14 @@
     :label "7D"}
    {:value :month
     :label "30D"}
+   {:value :three-month
+    :label "3M"}
+   {:value :six-month
+    :label "6M"}
+   {:value :one-year
+    :label "1Y"}
+   {:value :two-year
+    :label "2Y"}
    {:value :all-time
     :label "All-time"}])
 
@@ -244,6 +252,38 @@
           "day" :day
           "week" :week
           "month" :month
+          "3m" :three-month
+          "3-m" :three-month
+          "3month" :three-month
+          "3-month" :three-month
+          "threemonth" :three-month
+          "three-month" :three-month
+          "three-months" :three-month
+          "quarter" :three-month
+          "6m" :six-month
+          "6-m" :six-month
+          "6month" :six-month
+          "6-month" :six-month
+          "sixmonth" :six-month
+          "six-month" :six-month
+          "six-months" :six-month
+          "halfyear" :six-month
+          "half-year" :six-month
+          "1y" :one-year
+          "1-y" :one-year
+          "1year" :one-year
+          "1-year" :one-year
+          "oneyear" :one-year
+          "one-year" :one-year
+          "one-years" :one-year
+          "year" :one-year
+          "2y" :two-year
+          "2-y" :two-year
+          "2year" :two-year
+          "2-year" :two-year
+          "twoyear" :two-year
+          "two-year" :two-year
+          "two-years" :two-year
           "alltime" :all-time
           "all-time" :all-time
           "perpday" :perp-day
@@ -252,6 +292,38 @@
           "perp-week" :perp-week
           "perpmonth" :perp-month
           "perp-month" :perp-month
+          "perp3m" :perp-three-month
+          "perp3-m" :perp-three-month
+          "perp3month" :perp-three-month
+          "perp3-month" :perp-three-month
+          "perpthreemonth" :perp-three-month
+          "perp-three-month" :perp-three-month
+          "perp-three-months" :perp-three-month
+          "perpquarter" :perp-three-month
+          "perp6m" :perp-six-month
+          "perp6-m" :perp-six-month
+          "perp6month" :perp-six-month
+          "perp6-month" :perp-six-month
+          "perpsixmonth" :perp-six-month
+          "perp-six-month" :perp-six-month
+          "perp-six-months" :perp-six-month
+          "perphalfyear" :perp-six-month
+          "perp-half-year" :perp-six-month
+          "perp1y" :perp-one-year
+          "perp1-y" :perp-one-year
+          "perp1year" :perp-one-year
+          "perp1-year" :perp-one-year
+          "perponeyear" :perp-one-year
+          "perp-one-year" :perp-one-year
+          "perp-one-years" :perp-one-year
+          "perpyear" :perp-one-year
+          "perp2y" :perp-two-year
+          "perp2-y" :perp-two-year
+          "perp2year" :perp-two-year
+          "perp2-year" :perp-two-year
+          "perptwoyear" :perp-two-year
+          "perp-two-year" :perp-two-year
+          "perp-two-years" :perp-two-year
           "perpalltime" :perp-all-time
           "perp-all-time" :perp-all-time
           (keyword token))))))
@@ -272,30 +344,50 @@
       :day :perp-day
       :week :perp-week
       :month :perp-month
+      :three-month :perp-three-month
+      :six-month :perp-six-month
+      :one-year :perp-one-year
+      :two-year :perp-two-year
       :all-time :perp-all-time
       :perp-month)
     (case time-range
       :day :day
       :week :week
       :month :month
+      :three-month :three-month
+      :six-month :six-month
+      :one-year :one-year
+      :two-year :two-year
       :all-time :all-time
       :month)))
 
 (defn- summary-key-candidates [scope time-range]
   (let [primary (selected-summary-key scope time-range)]
     (case primary
-      :day [:day :all-time :month :week]
-      :week [:week :month :all-time :day]
-      :month [:month :all-time :week :day]
-      :all-time [:all-time :month :week :day]
-      :perp-day [:perp-day :perp-all-time :perp-month :perp-week]
-      :perp-week [:perp-week :perp-month :perp-all-time :perp-day]
-      :perp-month [:perp-month :perp-all-time :perp-week :perp-day]
-      :perp-all-time [:perp-all-time :perp-month :perp-week :perp-day]
+      :day [:day :week :month :three-month :six-month :one-year :two-year :all-time]
+      :week [:week :month :three-month :six-month :one-year :two-year :all-time :day]
+      :month [:month :three-month :six-month :one-year :two-year :all-time :week :day]
+      :three-month [:three-month :six-month :one-year :two-year :all-time :month :week :day]
+      :six-month [:six-month :one-year :two-year :all-time :three-month :month :week :day]
+      :one-year [:one-year :two-year :all-time :six-month :three-month :month :week :day]
+      :two-year [:two-year :all-time :one-year :six-month :three-month :month :week :day]
+      :all-time [:all-time :two-year :one-year :six-month :three-month :month :week :day]
+      :perp-day [:perp-day :perp-week :perp-month :perp-three-month :perp-six-month :perp-one-year :perp-two-year :perp-all-time]
+      :perp-week [:perp-week :perp-month :perp-three-month :perp-six-month :perp-one-year :perp-two-year :perp-all-time :perp-day]
+      :perp-month [:perp-month :perp-three-month :perp-six-month :perp-one-year :perp-two-year :perp-all-time :perp-week :perp-day]
+      :perp-three-month [:perp-three-month :perp-six-month :perp-one-year :perp-two-year :perp-all-time :perp-month :perp-week :perp-day]
+      :perp-six-month [:perp-six-month :perp-one-year :perp-two-year :perp-all-time :perp-three-month :perp-month :perp-week :perp-day]
+      :perp-one-year [:perp-one-year :perp-two-year :perp-all-time :perp-six-month :perp-three-month :perp-month :perp-week :perp-day]
+      :perp-two-year [:perp-two-year :perp-all-time :perp-one-year :perp-six-month :perp-three-month :perp-month :perp-week :perp-day]
+      :perp-all-time [:perp-all-time :perp-two-year :perp-one-year :perp-six-month :perp-three-month :perp-month :perp-week :perp-day]
       [primary])))
 
+(declare derived-summary-entry)
+
 (defn- selected-summary-entry [summary-by-key scope time-range]
-  (or (some #(get summary-by-key %) (summary-key-candidates scope time-range))
+  (or (get summary-by-key (selected-summary-key scope time-range))
+      (derived-summary-entry summary-by-key scope time-range)
+      (some #(get summary-by-key %) (summary-key-candidates scope time-range))
       (some-> summary-by-key vals first)))
 
 (defn- history-point-value [row]
@@ -341,6 +433,80 @@
     (if (sequential? source)
       source
       [])))
+
+(defn- with-utc-months-offset
+  [time-ms months]
+  (let [date (js/Date. time-ms)]
+    (.setUTCMonth date (+ (.getUTCMonth date) months))
+    (.getTime date)))
+
+(defn- with-utc-years-offset
+  [time-ms years]
+  (let [date (js/Date. time-ms)]
+    (.setUTCFullYear date (+ (.getUTCFullYear date) years))
+    (.getTime date)))
+
+(defn- summary-window-cutoff-ms
+  [summary-time-range end-time-ms]
+  (when (number? end-time-ms)
+    (case summary-time-range
+      :three-month (with-utc-months-offset end-time-ms -3)
+      :six-month (with-utc-months-offset end-time-ms -6)
+      :one-year (with-utc-years-offset end-time-ms -1)
+      :two-year (with-utc-years-offset end-time-ms -2)
+      nil)))
+
+(defn- normalized-history-rows
+  [rows]
+  (->> (or rows [])
+       (keep (fn [row]
+               (let [time-ms (history-point-time-ms row)
+                     value (history-point-value row)]
+                 (when (and (finite-number? time-ms)
+                            (finite-number? value))
+                   [time-ms value]))))
+       (sort-by first)
+       vec))
+
+(defn- history-window-rows
+  [rows cutoff-ms]
+  (if (number? cutoff-ms)
+    (->> rows
+         (filter (fn [[time-ms _value]]
+                   (>= time-ms cutoff-ms)))
+         vec)
+    []))
+
+(defn- rebase-history-rows
+  [rows]
+  (if-let [baseline (some-> rows first second)]
+    (mapv (fn [[time-ms value]]
+            [time-ms (- value baseline)])
+          rows)
+    []))
+
+(defn- range-all-time-key
+  [scope]
+  (if (= scope :perps)
+    :perp-all-time
+    :all-time))
+
+(defn- derived-summary-entry
+  [summary-by-key scope summary-time-range]
+  (when-let [base-summary (get summary-by-key (range-all-time-key scope))]
+    (let [account-rows (normalized-history-rows (account-value-history-rows base-summary))
+          pnl-rows (normalized-history-rows (pnl-history-rows base-summary))
+          end-time-ms (or (some-> account-rows last first)
+                          (some-> pnl-rows last first))
+          cutoff-ms (summary-window-cutoff-ms summary-time-range end-time-ms)]
+      (when (number? cutoff-ms)
+        (let [account-window (history-window-rows account-rows cutoff-ms)
+              pnl-window (history-window-rows pnl-rows cutoff-ms)
+              pnl-window* (rebase-history-rows pnl-window)]
+          (when (or (seq account-window)
+                    (seq pnl-window*))
+            {:accountValueHistory account-window
+             :pnlHistory pnl-window*}))))))
 
 (defn- normalize-address [value]
   (some-> value str str/lower-case str/trim))

@@ -149,6 +149,38 @@
           "day" :day
           "week" :week
           "month" :month
+          "3m" :three-month
+          "3-m" :three-month
+          "3month" :three-month
+          "3-month" :three-month
+          "threemonth" :three-month
+          "three-month" :three-month
+          "three-months" :three-month
+          "quarter" :three-month
+          "6m" :six-month
+          "6-m" :six-month
+          "6month" :six-month
+          "6-month" :six-month
+          "sixmonth" :six-month
+          "six-month" :six-month
+          "six-months" :six-month
+          "halfyear" :six-month
+          "half-year" :six-month
+          "1y" :one-year
+          "1-y" :one-year
+          "1year" :one-year
+          "1-year" :one-year
+          "oneyear" :one-year
+          "one-year" :one-year
+          "one-years" :one-year
+          "year" :one-year
+          "2y" :two-year
+          "2-y" :two-year
+          "2year" :two-year
+          "2-year" :two-year
+          "twoyear" :two-year
+          "two-year" :two-year
+          "two-years" :two-year
           "alltime" :all-time
           "all-time" :all-time
           "perpday" :perp-day
@@ -157,6 +189,38 @@
           "perp-week" :perp-week
           "perpmonth" :perp-month
           "perp-month" :perp-month
+          "perp3m" :perp-three-month
+          "perp3-m" :perp-three-month
+          "perp3month" :perp-three-month
+          "perp3-month" :perp-three-month
+          "perpthreemonth" :perp-three-month
+          "perp-three-month" :perp-three-month
+          "perp-three-months" :perp-three-month
+          "perpquarter" :perp-three-month
+          "perp6m" :perp-six-month
+          "perp6-m" :perp-six-month
+          "perp6month" :perp-six-month
+          "perp6-month" :perp-six-month
+          "perpsixmonth" :perp-six-month
+          "perp-six-month" :perp-six-month
+          "perp-six-months" :perp-six-month
+          "perphalfyear" :perp-six-month
+          "perp-half-year" :perp-six-month
+          "perp1y" :perp-one-year
+          "perp1-y" :perp-one-year
+          "perp1year" :perp-one-year
+          "perp1-year" :perp-one-year
+          "perponeyear" :perp-one-year
+          "perp-one-year" :perp-one-year
+          "perp-one-years" :perp-one-year
+          "perpyear" :perp-one-year
+          "perp2y" :perp-two-year
+          "perp2-y" :perp-two-year
+          "perp2year" :perp-two-year
+          "perp2-year" :perp-two-year
+          "perptwoyear" :perp-two-year
+          "perp-two-year" :perp-two-year
+          "perp-two-years" :perp-two-year
           "perpalltime" :perp-all-time
           "perp-all-time" :perp-all-time
           (keyword token))))))

@@ -14,7 +14,7 @@
   #{:all :perps})
 
 (def ^:private summary-time-range-options
-  #{:day :week :month :all-time})
+  #{:day :week :month :three-month :six-month :one-year :two-year :all-time})
 
 (def ^:private chart-tab-options
   #{:account-value :pnl :returns})
@@ -63,6 +63,34 @@
   (let [token (normalize-keyword-like value)
         normalized (case token
                      :alltime :all-time
+                     :3m :three-month
+                     :3-m :three-month
+                     :3month :three-month
+                     :3-month :three-month
+                     :threemonth :three-month
+                     :three-month :three-month
+                     :quarter :three-month
+                     :6m :six-month
+                     :6-m :six-month
+                     :6month :six-month
+                     :6-month :six-month
+                     :sixmonth :six-month
+                     :six-month :six-month
+                     :halfyear :six-month
+                     :half-year :six-month
+                     :1y :one-year
+                     :1-y :one-year
+                     :1year :one-year
+                     :1-year :one-year
+                     :oneyear :one-year
+                     :one-year :one-year
+                     :year :one-year
+                     :2y :two-year
+                     :2-y :two-year
+                     :2year :two-year
+                     :2-year :two-year
+                     :twoyear :two-year
+                     :two-year :two-year
                      token)]
     (if (contains? summary-time-range-options normalized)
       normalized
@@ -145,6 +173,14 @@
            :bars 800}
     :month {:interval :1h
             :bars 800}
+    :three-month {:interval :4h
+                  :bars 720}
+    :six-month {:interval :8h
+                :bars 720}
+    :one-year {:interval :12h
+               :bars 900}
+    :two-year {:interval :1d
+               :bars 900}
     :all-time {:interval :1d
                :bars 5000}
     {:interval :1h
