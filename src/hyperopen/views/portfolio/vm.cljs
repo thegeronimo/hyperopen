@@ -705,6 +705,55 @@
       (rows->chart-points aligned-returns :returns))
     []))
 
+(defn- cumulative-return-time-points
+  [rows]
+  (->> (or rows [])
+       (keep (fn [row]
+               (let [time-ms (history-point-time-ms row)
+                     value (history-point-value row)]
+                 (when (and (number? time-ms)
+                            (finite-number? value))
+                   {:time-ms time-ms
+                    :value value}))))
+       vec))
+
+(defn- benchmark-cumulative-return-rows
+  [state summary-time-range benchmark-coin strategy-time-points]
+  (if (and (seq benchmark-coin)
+           (seq strategy-time-points))
+    (let [{:keys [interval]} (portfolio-actions/returns-benchmark-candle-request summary-time-range)
+          candles (benchmark-candle-points (get-in state [:candles benchmark-coin interval]))]
+      (aligned-benchmark-return-rows candles strategy-time-points))
+    []))
+
+(defn- performance-metrics-model
+  [state summary-entry summary-scope summary-time-range returns-benchmark-selector]
+  (let [strategy-cumulative-rows (portfolio-metrics/returns-history-rows state
+                                                                          summary-entry
+                                                                          summary-scope)
+        strategy-time-points (cumulative-return-time-points strategy-cumulative-rows)
+        strategy-daily-rows (portfolio-metrics/daily-compounded-returns strategy-cumulative-rows)
+        benchmark-coin (some-> returns-benchmark-selector :selected-coins first)
+        benchmark-cumulative-rows (benchmark-cumulative-return-rows state
+                                                                    summary-time-range
+                                                                    benchmark-coin
+                                                                    strategy-time-points)
+        benchmark-daily-rows (portfolio-metrics/daily-compounded-returns benchmark-cumulative-rows)
+        metric-values (portfolio-metrics/compute-performance-metrics {:strategy-daily-rows strategy-daily-rows
+                                                                      :benchmark-daily-rows benchmark-daily-rows
+                                                                      :rf 0
+                                                                      :periods-per-year 252
+                                                                      :compounded true})
+        groups (portfolio-metrics/metric-rows metric-values)
+        benchmark-label (when (seq benchmark-coin)
+                          (or (get-in returns-benchmark-selector [:label-by-coin benchmark-coin])
+                              benchmark-coin))]
+    {:benchmark-selected? (boolean (seq benchmark-coin))
+     :benchmark-coin benchmark-coin
+     :benchmark-label benchmark-label
+     :values metric-values
+     :groups groups}))
+
 (defn- non-zero-span
   [domain-min domain-max]
   (let [span (- domain-max domain-min)]
@@ -1057,6 +1106,11 @@
         fees (or (fees-from-user-fees (get-in state [:portfolio :user-fees]))
                  fees-default)
         returns-benchmark-selector (returns-benchmark-selector-model state)
+        performance-metrics (performance-metrics-model state
+                                                       summary-entry
+                                                       summary-scope
+                                                       summary-time-range
+                                                       returns-benchmark-selector)
         chart (build-chart-model state
                                  summary-entry
                                  summary-scope
@@ -1064,6 +1118,7 @@
                                  returns-benchmark-selector)]
     {:volume-14d-usd volume-14d
      :fees fees
+     :performance-metrics performance-metrics
      :chart chart
      :selectors {:summary-scope {:value summary-scope
                                  :label (selector-option-label summary-scope-options summary-scope)

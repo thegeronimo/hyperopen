@@ -22,7 +22,10 @@ A contributor can verify the behavior by opening `/portfolio` and seeing each me
 - [x] (2026-02-26 20:05Z) Implemented Milestone 2 QuantStats-style formula module in `/hyperopen/src/hyperopen/portfolio/metrics.cljs` (ratios, drawdown diagnostics, distribution/trade metrics, benchmark-relative metrics, and period window rollups).
 - [x] (2026-02-26 20:12Z) Expanded `/hyperopen/test/hyperopen/portfolio/metrics_test.cljs` with deterministic QuantStats-parity fixtures and expected-value assertions covering the new formula families.
 - [x] (2026-02-26 20:20Z) Re-ran required gates after Milestone 2 changes: `npm test`, `npm run test:websocket`, `npm run check`.
-- [ ] Integrate full metric engine into portfolio VM summary payload and render grouped metric rows in portfolio view.
+- [x] (2026-02-26 21:02Z) Implemented Milestone 3 VM integration in `/hyperopen/src/hyperopen/views/portfolio/vm.cljs` by adding `:performance-metrics` payload wiring (grouped metric rows + benchmark metadata) sourced from `compute-performance-metrics`.
+- [x] (2026-02-26 21:02Z) Added Milestone 3 VM wiring regression coverage in `/hyperopen/test/hyperopen/views/portfolio/vm_test.cljs` for benchmark-off and benchmark-on metric behavior.
+- [x] (2026-02-26 21:05Z) Re-ran required gates after Milestone 3 changes: `npm test`, `npm run test:websocket`, `npm run check`.
+- [ ] Render grouped metric rows in portfolio view.
 - [x] Extend parity-focused tests for full QuantStats metric coverage.
 
 ## Surprises & Discoveries
@@ -47,6 +50,9 @@ A contributor can verify the behavior by opening `/portfolio` and seeing each me
 
 - Observation: A direct Clojure threading translation of Sortino downside variance can invert numerator/denominator if not written explicitly.
   Evidence: Initial parity test failures in `/hyperopen/test/hyperopen/portfolio/metrics_test.cljs` corrected by explicit `downside-sum / n` implementation in `/hyperopen/src/hyperopen/portfolio/metrics.cljs`.
+
+- Observation: Multi-benchmark chart selection requires a deterministic primary benchmark for single-benchmark metrics (`R^2`, `Information Ratio`), otherwise metric identity is ambiguous.
+  Evidence: Milestone 3 VM now reads the first selected benchmark coin for metric computation and exposes that choice in `:performance-metrics`.
 
 ## Decision Log
 
@@ -74,17 +80,21 @@ A contributor can verify the behavior by opening `/portfolio` and seeing each me
   Rationale: Prevents silent formula drift while keeping tests independent of Python at runtime.
   Date/Author: 2026-02-26 / Codex
 
+- Decision: Expose both grouped rows and raw metric values in VM under `:performance-metrics` to decouple UI rendering concerns from metric computation.
+  Rationale: Enables Milestone 4 view work to focus on formatting/accessibility while preserving a stable internal data contract.
+  Date/Author: 2026-02-26 / Codex
+
 ## Outcomes & Retrospective
 
-Milestones 1 and 2 are now implemented. The flow-adjusted return adapter and the QuantStats-style formula engine both live in `/hyperopen/src/hyperopen/portfolio/metrics.cljs`, with broad parity coverage in `/hyperopen/test/hyperopen/portfolio/metrics_test.cljs`.
+Milestones 1 through 3 are now implemented. The flow-adjusted return adapter and QuantStats-style formula engine live in `/hyperopen/src/hyperopen/portfolio/metrics.cljs`, and VM now emits grouped performance-metric payloads in `/hyperopen/src/hyperopen/views/portfolio/vm.cljs`.
 
 Validation status after this slice:
 
-- `npm test` passed (`Ran 1422 tests containing 7039 assertions. 0 failures, 0 errors.`).
+- `npm test` passed (`Ran 1423 tests containing 7045 assertions. 0 failures, 0 errors.`).
 - `npm run test:websocket` passed (`Ran 153 tests containing 696 assertions. 0 failures, 0 errors.`).
 - `npm run check` passed (docs/hiccup lint + app/test compile).
 
-Remaining work is Milestone 3+ integration: wire computed metric groups into portfolio VM/view and render the requested metric block on `/portfolio`.
+Remaining work is Milestone 4+: render the grouped `:performance-metrics` payload in `/portfolio` view and add view-level rendering tests.
 
 ## Context and Orientation
 
