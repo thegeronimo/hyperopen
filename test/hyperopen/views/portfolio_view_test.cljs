@@ -111,6 +111,7 @@
         chart-shell (find-first-node view-node #(= "portfolio-chart-shell" (get-in % [1 :data-role])))
         chart-path (find-first-node view-node #(= "portfolio-chart-path" (get-in % [1 :data-role])))
         account-table (find-first-node view-node #(= "portfolio-account-table" (get-in % [1 :data-role])))
+        performance-metric-row (find-first-node view-node #(= "portfolio-performance-metric-time-in-market" (get-in % [1 :data-role])))
         performance-tab-button (find-first-node
                                 view-node
                                 #(= [[:actions/set-portfolio-account-info-tab :performance-metrics]]
@@ -139,6 +140,7 @@
     (is (some? chart-shell))
     (is (some? chart-path))
     (is (some? account-table))
+    (is (contains? (set (class-values performance-metric-row)) "hover:bg-base-300"))
     (is (some? performance-tab-button))
     (is (some? balances-tab-button))
     (is (contains? (set (class-values performance-tab-button)) "border-primary"))

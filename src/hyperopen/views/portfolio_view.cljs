@@ -690,7 +690,8 @@
     [:div {:class ["grid"
                    "grid-cols-[minmax(0,1fr)_minmax(108px,auto)_minmax(108px,auto)]"
                    "items-center"
-                   "gap-3"]
+                   "gap-3"
+                   "hover:bg-base-300"]
            :data-role (str "portfolio-performance-metric-" (name key))}
      [:span {:class ["text-sm" "text-trading-text-secondary"]}
       label]
