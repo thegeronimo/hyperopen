@@ -296,8 +296,8 @@
        [:button.px-4.py-2.text-sm.font-medium.transition-colors.border-b-2
         {:key (name tab)
          :class (if (= selected-tab tab)
-                  ["text-primary" "border-primary" "bg-base-100"]
-                  ["text-base-content" "border-transparent" "hover:text-primary" "hover:bg-base-100"])
+                  ["text-trading-text" "border-primary" "bg-base-100"]
+                  ["text-base-content" "border-transparent" "hover:text-trading-text" "hover:bg-base-100"])
          :on {:click [[:actions/select-account-info-tab tab]]}}
         (tab-label tab counts)])]
 	    (case selected-tab

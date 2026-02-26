@@ -193,6 +193,19 @@
     (is (some? positions-tab-base-node))
     (is (nil? positions-tab-count-node))))
 
+(deftest tab-navigation-uses-white-toned-tab-text-for-selected-and-hover-states-test
+  (let [nav (view/tab-navigation :funding-history {} false {})
+        selected-tab (hiccup/find-first-node nav #(= [[:actions/select-account-info-tab :funding-history]]
+                                                      (get-in % [1 :on :click])))
+        selected-classes (hiccup/node-class-set selected-tab)
+        inactive-tab (hiccup/find-first-node nav #(= [[:actions/select-account-info-tab :balances]]
+                                                      (get-in % [1 :on :click])))
+        inactive-classes (hiccup/node-class-set inactive-tab)]
+    (is (contains? selected-classes "text-trading-text"))
+    (is (not (contains? selected-classes "text-primary")))
+    (is (contains? inactive-classes "hover:text-trading-text"))
+    (is (not (contains? inactive-classes "hover:text-primary")))))
+
 (deftest tab-navigation-renders-neutral-positions-freshness-cue-test
   (let [counts {:balances 2 :positions 4 :open-orders 3}
         nav (view/tab-navigation :positions
