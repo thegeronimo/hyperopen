@@ -71,7 +71,7 @@
     (is (str/includes? header-grid-class
                        "minmax(80px,0.95fr)_minmax(120px,1.35fr)_minmax(70px,0.8fr)_minmax(80px,0.9fr)"))))
 
-(deftest open-orders-tab-content-memoizes-sorting-by-input-identity-and-sort-state-test
+(deftest open-orders-tab-content-memoizes-sorting-by-input-signature-and-sort-state-test
   (let [rows [{:oid 1001
                :coin "ETH"
                :side "B"
@@ -100,8 +100,14 @@
         (view/open-orders-tab-content rows sort-state-asc)
         (is (= 2 @sort-calls))
 
-        (view/open-orders-tab-content (into [] rows) sort-state-asc)
-        (is (= 3 @sort-calls))))))
+        (let [churned-rows (into [] rows)]
+          (view/open-orders-tab-content churned-rows sort-state-asc)
+          (view/open-orders-tab-content churned-rows sort-state-asc)
+          (is (= 2 @sort-calls)))
+
+        (let [changed-rows (assoc-in (into [] rows) [0 :px] "101.0")]
+          (view/open-orders-tab-content changed-rows sort-state-asc)
+          (is (= 3 @sort-calls)))))))
 
 (deftest open-orders-tab-content-filters-rows-by-direction-filter-test
   (let [rows [{:oid 1001

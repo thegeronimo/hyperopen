@@ -1,5 +1,6 @@
 (ns hyperopen.views.account-info.tabs.order-history
   (:require [clojure.string :as str]
+            [hyperopen.views.account-info.cache-keys :as cache-keys]
             [hyperopen.views.account-info.history-pagination :as history-pagination]
             [hyperopen.views.account-info.projections :as projections]
             [hyperopen.views.account-info.shared :as shared]
@@ -286,6 +287,9 @@
               [row candidates]))
           rows*)))
 
+(def ^:dynamic *build-order-history-coin-search-index*
+  build-order-history-coin-search-index)
+
 (defn- filter-order-history-by-coin-search
   [rows indexed-rows coin-search]
   (let [query (shared/compile-coin-search-query coin-search)]
@@ -337,13 +341,20 @@
   (let [column (:column sort-state)
         direction (:direction sort-state)
         cache @sorted-order-history-cache
+        row-match (cache-keys/rows-match-state order-history
+                                               (:order-history cache)
+                                               (:order-history-signature cache))
+        market-match (cache-keys/value-match-state market-by-key
+                                                   (:market-by-key cache)
+                                                   (:market-signature cache))
         same-base? (and (map? cache)
-                        (identical? order-history (:order-history cache))
+                        (:same-input? row-match)
                         (= status-filter (:status-filter cache))
-                        (= market-by-key (:market-by-key cache))
                         (= column (:column cache))
                         (= direction (:direction cache)))
-        cache-hit? (and same-base?
+        same-index? (and same-base?
+                         (:same-input? market-match))
+        cache-hit? (and same-index?
                         (= coin-search (:coin-search cache)))]
     (if cache-hit?
       (:result cache)
@@ -356,13 +367,15 @@
             base-sorted (if same-base?
                           (:base-sorted cache)
                           (vec (sort-order-history-by-column status-filtered column direction)))
-            indexed-rows (if same-base?
+            indexed-rows (if same-index?
                            (:indexed-rows cache)
-                           (build-order-history-coin-search-index base-sorted market-by-key))
+                           (*build-order-history-coin-search-index* base-sorted market-by-key))
             result (filter-order-history-by-coin-search base-sorted indexed-rows coin-search)]
         (reset! sorted-order-history-cache {:order-history order-history
+                                            :order-history-signature (:signature row-match)
                                             :status-filter status-filter
                                             :market-by-key market-by-key
+                                            :market-signature (:signature market-match)
                                             :coin-search coin-search
                                             :column column
                                             :direction direction

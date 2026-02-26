@@ -24,7 +24,7 @@
            (get-in header-node [1 :on :click])))
     (is (= "↑" (last sort-icon-node)))))
 
-(deftest order-history-tab-content-memoizes-normalize-and-sort-by-input-identity-filter-and-sort-state-while-reusing-base-sort-for-coin-search-test
+(deftest order-history-tab-content-memoizes-normalize-sort-and-index-by-input-signatures-test
   (let [raw-rows [{:order {:coin "ETH"
                            :oid 1
                            :side "B"
@@ -50,9 +50,15 @@
                         :oid "1"}
         table-state {:sort {:column "Time" :direction :desc}
                      :status-filter :all
-                     :loading? false}
+                     :loading? false
+                     :market-by-key {}}
+        equivalent-market (into {} (:market-by-key table-state))
+        changed-market {"spot:ETH/USDC" {:coin "spot:ETH/USDC"
+                                         :symbol "ETH/USDC"}}
         normalize-calls (atom 0)
-        sort-calls (atom 0)]
+        sort-calls (atom 0)
+        index-calls (atom 0)
+        original-index-builder @#'order-history-tab/*build-order-history-coin-search-index*]
     (order-history-tab/reset-order-history-sort-cache!)
     (with-redefs [order-history-tab/normalized-order-history
                   (fn [_rows]
@@ -61,26 +67,52 @@
                   order-history-tab/sort-order-history-by-column
                   (fn [rows _column _direction]
                     (swap! sort-calls inc)
-                    rows)]
+                    rows)
+                  order-history-tab/*build-order-history-coin-search-index*
+                  (fn [rows market-by-key]
+                    (swap! index-calls inc)
+                    (original-index-builder rows market-by-key))]
       (view/order-history-tab-content raw-rows table-state)
       (view/order-history-tab-content raw-rows table-state)
       (is (= 1 @normalize-calls))
       (is (= 1 @sort-calls))
+      (is (= 1 @index-calls))
 
       (let [asc-state (assoc-in table-state [:sort :direction] :asc)]
         (view/order-history-tab-content raw-rows asc-state)
         (view/order-history-tab-content raw-rows asc-state)
         (is (= 2 @normalize-calls))
         (is (= 2 @sort-calls))
+        (is (= 2 @index-calls))
 
         (view/order-history-tab-content raw-rows (assoc asc-state :coin-search "et"))
         (view/order-history-tab-content raw-rows (assoc asc-state :coin-search "et"))
         (is (= 2 @normalize-calls))
         (is (= 2 @sort-calls))
+        (is (= 2 @index-calls))
 
-        (view/order-history-tab-content (into [] raw-rows) asc-state)
-        (is (= 3 @normalize-calls))
-        (is (= 3 @sort-calls))))))
+        (let [churned-rows (into [] raw-rows)]
+          (view/order-history-tab-content churned-rows asc-state)
+          (view/order-history-tab-content churned-rows asc-state)
+          (is (= 2 @normalize-calls))
+          (is (= 2 @sort-calls))
+          (is (= 2 @index-calls)))
+
+        (view/order-history-tab-content raw-rows (assoc asc-state :market-by-key equivalent-market))
+        (is (= 2 @normalize-calls))
+        (is (= 2 @sort-calls))
+        (is (= 2 @index-calls))
+
+        (view/order-history-tab-content raw-rows (assoc asc-state :market-by-key changed-market))
+        (is (= 2 @normalize-calls))
+        (is (= 2 @sort-calls))
+        (is (= 3 @index-calls))
+
+        (let [changed-rows (assoc-in (into [] raw-rows) [0 :order :limitPx] "101")]
+          (view/order-history-tab-content changed-rows asc-state)
+          (is (= 3 @normalize-calls))
+          (is (= 3 @sort-calls))
+          (is (= 4 @index-calls)))))))
 
 (deftest order-history-content-renders-hyperliquid-columns-and-values-test
   (let [rows [{:order {:coin "xyz:NVDA"

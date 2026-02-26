@@ -56,7 +56,7 @@
     (is (= [3 2 1] (mapv :tid value-desc)))
     (is (= [2 3 1] (mapv :tid direction-asc)))))
 
-(deftest trade-history-tab-content-memoizes-sorting-by-input-identity-filter-sort-and-market-map-without-resorting-on-coin-search-test
+(deftest trade-history-tab-content-memoizes-by-input-signatures-and-rebuilds-only-market-index-on-market-change-test
   (let [fills [{:tid 1
                 :coin "ETH"
                 :side "B"
@@ -68,7 +68,12 @@
                              :direction-filter :all
                              :coin-search ""
                              :market-by-key {}}
-        sort-calls (atom 0)]
+        equivalent-market (into {} (:market-by-key trade-history-state))
+        changed-market {"spot:ETH/USDC" {:coin "spot:ETH/USDC"
+                                         :symbol "ETH/USDC"}}
+        sort-calls (atom 0)
+        index-calls (atom 0)
+        original-index-builder @#'trade-history-tab/*build-trade-history-coin-search-index*]
     (trade-history-tab/reset-trade-history-sort-cache!)
     (with-redefs [trade-history-tab/sort-trade-history-by-column
                   (fn
@@ -77,34 +82,56 @@
                      rows)
                     ([rows _column _direction _market-by-key]
                      (swap! sort-calls inc)
-                     rows))]
+                     rows))
+                  trade-history-tab/*build-trade-history-coin-search-index*
+                  (fn [rows market-by-key]
+                    (swap! index-calls inc)
+                    (original-index-builder rows market-by-key))]
       (view/trade-history-tab-content fills trade-history-state)
       (view/trade-history-tab-content fills trade-history-state)
       (is (= 1 @sort-calls))
+      (is (= 1 @index-calls))
 
-      (let [sort-state-asc (assoc-in trade-history-state [:sort :direction] :asc)]
-        (view/trade-history-tab-content fills sort-state-asc)
-        (view/trade-history-tab-content fills sort-state-asc)
-        (is (= 2 @sort-calls))
+      (let [churned-fills (into [] fills)]
+        (view/trade-history-tab-content churned-fills trade-history-state)
+        (view/trade-history-tab-content churned-fills trade-history-state)
+        (is (= 1 @sort-calls))
+        (is (= 1 @index-calls)))
 
-        (view/trade-history-tab-content fills
-                                        (assoc sort-state-asc
-                                               :market-by-key
-                                               {"spot:ETH/USDC" {:coin "spot:ETH/USDC"
-                                                                 :symbol "ETH/USDC"}}))
+      (view/trade-history-tab-content fills (assoc trade-history-state :market-by-key equivalent-market))
+      (is (= 1 @sort-calls))
+      (is (= 1 @index-calls))
+
+      (view/trade-history-tab-content fills (assoc trade-history-state :market-by-key changed-market))
+      (is (= 1 @sort-calls))
+      (is (= 2 @index-calls))
+
+      (view/trade-history-tab-content fills
+                                      (assoc trade-history-state
+                                             :market-by-key changed-market
+                                             :coin-search "et"))
+      (view/trade-history-tab-content fills
+                                      (assoc trade-history-state
+                                             :market-by-key changed-market
+                                             :coin-search "et"))
+      (is (= 1 @sort-calls))
+      (is (= 2 @index-calls))
+
+      (view/trade-history-tab-content fills
+                                      (assoc trade-history-state
+                                             :market-by-key changed-market
+                                             :direction-filter :short))
+      (view/trade-history-tab-content fills
+                                      (assoc trade-history-state
+                                             :market-by-key changed-market
+                                             :direction-filter :short))
+      (is (= 2 @sort-calls))
+      (is (= 3 @index-calls))
+
+      (let [changed-fills (assoc-in (into [] fills) [0 :px] "101.0")]
+        (view/trade-history-tab-content changed-fills trade-history-state)
         (is (= 3 @sort-calls))
-
-        (view/trade-history-tab-content fills (assoc sort-state-asc :direction-filter :short))
-        (view/trade-history-tab-content fills (assoc sort-state-asc :direction-filter :short))
-        (is (= 4 @sort-calls))
-
-        (view/trade-history-tab-content fills (assoc sort-state-asc
-                                                     :direction-filter :short
-                                                     :coin-search "et"))
-        (view/trade-history-tab-content fills (assoc sort-state-asc
-                                                     :direction-filter :short
-                                                     :coin-search "et"))
-        (is (= 4 @sort-calls))))))
+        (is (= 4 @index-calls))))))
 
 (deftest trade-history-tab-content-filters-rows-by-direction-filter-test
   (let [fills [{:tid 1

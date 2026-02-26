@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperopen.account.history.position-reduce :as position-reduce]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
+            [hyperopen.views.account-info.cache-keys :as cache-keys]
             [hyperopen.views.account-info.position-reduce-popover :as position-reduce-popover]
             [hyperopen.views.account-info.projections :as projections]
             [hyperopen.views.account-info.position-tpsl-modal :as position-tpsl-modal]
@@ -390,8 +391,11 @@
   (let [column (:column sort-state)
         direction (:direction sort-state)
         cache @sorted-positions-cache
+        row-match (cache-keys/rows-match-state positions
+                                               (:positions cache)
+                                               (:positions-signature cache))
         cache-hit? (and (map? cache)
-                        (identical? positions (:positions cache))
+                        (:same-input? row-match)
                         (= direction-filter (:direction-filter cache))
                         (= coin-search (:coin-search cache))
                         (= column (:column cache))
@@ -402,6 +406,7 @@
             search-filtered (filter-positions-by-coin-search direction-filtered coin-search)
             result (vec (sort-positions-by-column search-filtered column direction))]
         (reset! sorted-positions-cache {:positions positions
+                                        :positions-signature (:signature row-match)
                                         :direction-filter direction-filter
                                         :coin-search coin-search
                                         :column column

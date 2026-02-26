@@ -31,7 +31,7 @@
         coin-header-cell (nth header-cells 0)]
     (is (contains? (hiccup/node-class-set coin-header-cell) "pl-3"))))
 
-(deftest positions-tab-content-memoizes-sorting-by-input-identity-and-sort-state-test
+(deftest positions-tab-content-memoizes-sorting-by-input-signature-and-sort-state-test
   (let [positions [fixtures/sample-position-data]
         sort-state {:column "Coin" :direction :asc}
         sort-calls (atom 0)]
@@ -49,8 +49,14 @@
         (view/positions-tab-content positions desc-state)
         (is (= 2 @sort-calls))
 
-        (view/positions-tab-content (into [] positions) desc-state)
-        (is (= 3 @sort-calls))))))
+        (let [churned-positions (into [] positions)]
+          (view/positions-tab-content churned-positions desc-state)
+          (view/positions-tab-content churned-positions desc-state)
+          (is (= 2 @sort-calls)))
+
+        (let [changed-positions (assoc-in (into [] positions) [0 :position :coin] "xyz:TSLA")]
+          (view/positions-tab-content changed-positions desc-state)
+          (is (= 3 @sort-calls)))))))
 
 (deftest positions-tab-content-filters-rows-by-direction-filter-test
   (let [rows [(fixtures/sample-position-row "LONGCOIN" 5 "1.0")

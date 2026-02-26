@@ -114,6 +114,7 @@
             [hyperopen.utils.interval-test]
             [hyperopen.views.account-equity-view-test]
             [hyperopen.views.account-info-view-test]
+            [hyperopen.views.account-info.cache-keys-test]
             [hyperopen.views.account-info.navigation-test]
             [hyperopen.views.account-info.position-tpsl-modal-test]
             [hyperopen.views.account-info.projections-test]
@@ -323,6 +324,7 @@
              'hyperopen.utils.interval-test
              'hyperopen.views.account-equity-view-test
              'hyperopen.views.account-info-view-test
+             'hyperopen.views.account-info.cache-keys-test
              'hyperopen.views.account-info.navigation-test
              'hyperopen.views.account-info.position-tpsl-modal-test
              'hyperopen.views.account-info.projections-test

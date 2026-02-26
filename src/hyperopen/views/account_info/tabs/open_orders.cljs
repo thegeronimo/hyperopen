@@ -1,5 +1,6 @@
 (ns hyperopen.views.account-info.tabs.open-orders
   (:require [clojure.string :as str]
+            [hyperopen.views.account-info.cache-keys :as cache-keys]
             [hyperopen.views.account-info.projections :as projections]
             [hyperopen.views.account-info.shared :as shared]
             [hyperopen.views.account-info.sort-kernel :as sort-kernel]
@@ -191,8 +192,11 @@
   (let [column (:column sort-state)
         direction (:direction sort-state)
         cache @sorted-open-orders-cache
+        row-match (cache-keys/rows-match-state orders
+                                               (:orders cache)
+                                               (:orders-signature cache))
         same-base? (and (map? cache)
-                        (identical? orders (:orders cache))
+                        (:same-input? row-match)
                         (= direction-filter (:direction-filter cache))
                         (= column (:column cache))
                         (= direction (:direction cache)))
@@ -211,6 +215,7 @@
                            (build-open-orders-coin-search-index base-sorted))
             result (filter-open-orders-by-coin-search base-sorted indexed-rows coin-search)]
         (reset! sorted-open-orders-cache {:orders orders
+                                          :orders-signature (:signature row-match)
                                           :direction-filter direction-filter
                                           :coin-search coin-search
                                           :column column
