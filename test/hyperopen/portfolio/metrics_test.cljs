@@ -214,6 +214,46 @@
     (is (neg? (:daily-var metrics*)))
     (is (neg? (:expected-shortfall metrics*)))))
 
+(deftest quantstats-base-case-coverage-alignment-test
+  (testing "single-return and empty-input behavior"
+    (is (approx= (metrics/comp [0.01]) 0.01 1e-12))
+    (is (nil? (metrics/sharpe []))))
+  (testing "time in market and win rate extremes"
+    (is (approx= (metrics/time-in-market [0.01 -0.01 0 0.02]) 0.75 1e-12))
+    (is (approx= (metrics/time-in-market [0 0 0]) 0 1e-12))
+    (is (approx= (metrics/win-rate [0.01 0.02 0.03]) 1 1e-12))
+    (is (approx= (metrics/win-rate [-0.01 -0.02 -0.03]) 0 1e-12)))
+  (testing "risk ratios and tail risk relationships"
+    (let [sharpe-no-rf (metrics/sharpe quantstats-returns {:rf 0
+                                                            :periods-per-year 252
+                                                            :annualize false})
+          sharpe-with-rf (metrics/sharpe quantstats-returns {:rf 0.02
+                                                              :periods-per-year 252
+                                                              :annualize false})
+          sortino* (metrics/sortino quantstats-returns {:rf 0
+                                                        :periods-per-year 252
+                                                        :annualize false})
+          var* (metrics/value-at-risk quantstats-returns {:sigma 1
+                                                          :confidence 0.95})
+          cvar* (metrics/expected-shortfall quantstats-returns {:sigma 1
+                                                                :confidence 0.95})]
+      (is (number? sharpe-no-rf))
+      (is (number? sharpe-with-rf))
+      (is (< sharpe-with-rf sharpe-no-rf))
+      (is (not= sharpe-no-rf sortino*))
+      (is (neg? var*))
+      (is (<= cvar* var*))))
+  (testing "benchmark and drawdown constraints"
+    (let [r2 (metrics/r-squared quantstats-returns quantstats-benchmark)
+          drawdowns (metrics/to-drawdown-series quantstats-returns)]
+      (is (number? r2))
+      (is (<= 0 r2 1))
+      (is (= (count quantstats-returns) (count drawdowns)))
+      (is (every? (fn [value]
+                    (and (number? value)
+                         (<= value 0)))
+                  drawdowns)))))
+
 (deftest quantstats-ratio-parity-test
   (let [returns quantstats-returns]
     (is (approx= (metrics/comp returns) 0.05288342670115531 1e-12))
