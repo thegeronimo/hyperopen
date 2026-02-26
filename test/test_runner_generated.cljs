@@ -11,6 +11,7 @@
             [hyperopen.api.endpoints.account-test]
             [hyperopen.api.endpoints.market-test]
             [hyperopen.api.endpoints.orders-test]
+            [hyperopen.api.endpoints.vaults-test]
             [hyperopen.api.errors-test]
             [hyperopen.api.facade-runtime-test]
             [hyperopen.api.fetch-compat-test]
@@ -18,6 +19,7 @@
             [hyperopen.api.gateway.market-test]
             [hyperopen.api.gateway.orders-test]
             [hyperopen.api.gateway.orders.commands-test]
+            [hyperopen.api.gateway.vaults-test]
             [hyperopen.api.instance-test]
             [hyperopen.api.market-loader-test]
             [hyperopen.api.market-metadata.facade-test]
@@ -221,6 +223,7 @@
              'hyperopen.api.endpoints.account-test
              'hyperopen.api.endpoints.market-test
              'hyperopen.api.endpoints.orders-test
+             'hyperopen.api.endpoints.vaults-test
              'hyperopen.api.errors-test
              'hyperopen.api.facade-runtime-test
              'hyperopen.api.fetch-compat-test
@@ -228,6 +231,7 @@
              'hyperopen.api.gateway.market-test
              'hyperopen.api.gateway.orders-test
              'hyperopen.api.gateway.orders.commands-test
+             'hyperopen.api.gateway.vaults-test
              'hyperopen.api.instance-test
              'hyperopen.api.market-loader-test
              'hyperopen.api.market-metadata.facade-test

@@ -121,6 +121,99 @@
     (is (= "Error: clearinghouse" (:perp-dex-clearinghouse-error clearinghouse-error)))
     (is (= :unexpected (:perp-dex-clearinghouse-error-category clearinghouse-error)))))
 
+(deftest vault-list-projections-update-loading-success-and-error-paths-test
+  (let [state {:vaults {:index-rows []
+                        :recent-summaries []
+                        :merged-index-rows []
+                        :loading {:index? false
+                                  :summaries? false}
+                        :errors {:index "stale-index"
+                                 :summaries "stale-summaries"}
+                        :loaded-at-ms {:index nil
+                                       :summaries nil}}}
+        index-loading (projections/begin-vault-index-load state)
+        index-success (projections/apply-vault-index-success
+                       index-loading
+                       [{:vault-address "0x1"
+                         :name "Index One"}
+                        {:vault-address "0x2"
+                         :name "Index Two"}])
+        summaries-loading (projections/begin-vault-summaries-load index-success)
+        summaries-success (projections/apply-vault-summaries-success
+                           summaries-loading
+                           [{:vault-address "0x2"
+                             :name "Summary Two"}
+                            {:vault-address "0x3"
+                             :name "Summary Three"}])
+        index-error (projections/apply-vault-index-error index-loading (js/Error. "index-fail"))
+        summaries-error (projections/apply-vault-summaries-error summaries-loading "summary-fail")]
+    (is (= true (get-in index-loading [:vaults :loading :index?])))
+    (is (= nil (get-in index-loading [:vaults :errors :index])))
+    (is (= ["0x1" "0x2"] (mapv :vault-address (get-in index-success [:vaults :index-rows]))))
+    (is (= ["0x1" "0x2"] (mapv :vault-address (get-in index-success [:vaults :merged-index-rows]))))
+    (is (= false (get-in index-success [:vaults :loading :index?])))
+    (is (number? (get-in index-success [:vaults :loaded-at-ms :index])))
+    (is (= true (get-in summaries-loading [:vaults :loading :summaries?])))
+    (is (= ["0x1" "0x2" "0x3"]
+           (mapv :vault-address (get-in summaries-success [:vaults :merged-index-rows]))))
+    (is (= "Summary Two"
+           (:name (second (get-in summaries-success [:vaults :merged-index-rows])))))
+    (is (= false (get-in summaries-success [:vaults :loading :summaries?])))
+    (is (number? (get-in summaries-success [:vaults :loaded-at-ms :summaries])))
+    (is (= "Error: index-fail" (get-in index-error [:vaults :errors :index])))
+    (is (= false (get-in index-error [:vaults :loading :index?])))
+    (is (= "summary-fail" (get-in summaries-error [:vaults :errors :summaries])))
+    (is (= false (get-in summaries-error [:vaults :loading :summaries?])))))
+
+(deftest vault-equities-and-detail-projections-track-per-address-state-test
+  (let [state {:vaults {:user-equities []
+                        :user-equity-by-address {}
+                        :details-by-address {}
+                        :webdata-by-vault {}
+                        :loading {:user-equities? false
+                                  :details-by-address {}
+                                  :webdata-by-vault {}}
+                        :errors {:user-equities nil
+                                 :details-by-address {}
+                                 :webdata-by-vault {}}
+                        :loaded-at-ms {:user-equities nil
+                                       :details-by-address {}
+                                       :webdata-by-vault {}}}}
+        equities-loading (projections/begin-user-vault-equities-load state)
+        equities-success (projections/apply-user-vault-equities-success
+                          equities-loading
+                          [{:vault-address "0xA"
+                            :equity 10}
+                           {:vault-address "0xB"
+                            :equity 20}])
+        equities-error (projections/apply-user-vault-equities-error equities-loading (js/Error. "equity-fail"))
+        details-loading (projections/begin-vault-details-load state "0xA")
+        details-success (projections/apply-vault-details-success details-loading "0xA" {:name "Vault A"})
+        details-error (projections/apply-vault-details-error details-loading "0xA" "details-fail")
+        webdata-loading (projections/begin-vault-webdata2-load state "0xA")
+        webdata-success (projections/apply-vault-webdata2-success webdata-loading "0xA" {:fills [1]})
+        webdata-error (projections/apply-vault-webdata2-error webdata-loading "0xA" (js/Error. "webdata-fail"))]
+    (is (= true (get-in equities-loading [:vaults :loading :user-equities?])))
+    (is (= [{:vault-address "0xA" :equity 10}
+            {:vault-address "0xB" :equity 20}]
+           (get-in equities-success [:vaults :user-equities])))
+    (is (= {:vault-address "0xA" :equity 10}
+           (get-in equities-success [:vaults :user-equity-by-address "0xa"])))
+    (is (= false (get-in equities-success [:vaults :loading :user-equities?])))
+    (is (number? (get-in equities-success [:vaults :loaded-at-ms :user-equities])))
+    (is (= "Error: equity-fail" (get-in equities-error [:vaults :errors :user-equities])))
+    (is (= true (get-in details-loading [:vaults :loading :details-by-address "0xa"])))
+    (is (= {:name "Vault A"} (get-in details-success [:vaults :details-by-address "0xa"])))
+    (is (= false (get-in details-success [:vaults :loading :details-by-address "0xa"])))
+    (is (number? (get-in details-success [:vaults :loaded-at-ms :details-by-address "0xa"])))
+    (is (= "details-fail" (get-in details-error [:vaults :errors :details-by-address "0xa"])))
+    (is (= true (get-in webdata-loading [:vaults :loading :webdata-by-vault "0xa"])))
+    (is (= {:fills [1]} (get-in webdata-success [:vaults :webdata-by-vault "0xa"])))
+    (is (= false (get-in webdata-success [:vaults :loading :webdata-by-vault "0xa"])))
+    (is (number? (get-in webdata-success [:vaults :loaded-at-ms :webdata-by-vault "0xa"])))
+    (is (= "Error: webdata-fail"
+           (get-in webdata-error [:vaults :errors :webdata-by-vault "0xa"])))))
+
 (deftest user-abstraction-projection-ignores-stale-address-updates-test
   (let [state {:wallet {:address "0xabc"}
                :account {:mode :classic}}

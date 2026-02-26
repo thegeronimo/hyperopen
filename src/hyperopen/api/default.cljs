@@ -3,6 +3,7 @@
             [hyperopen.api.gateway.account :as account-gateway]
             [hyperopen.api.gateway.market :as market-gateway]
             [hyperopen.api.gateway.orders :as order-gateway]
+            [hyperopen.api.gateway.vaults :as vault-gateway]
             [hyperopen.api.instance :as api-instance]
             [hyperopen.api.service :as api-service]
             [hyperopen.domain.funding-history :as funding-history]
@@ -275,6 +276,49 @@
     {:request-user-funding-history-data! request-user-funding-history-data!}
     address
     opts)))
+
+(defn request-vault-index!
+  ([] (request-vault-index! {}))
+  ([opts]
+   (vault-gateway/request-vault-index! {:fetch-fn js/fetch}
+                                       opts)))
+
+(defn request-vault-summaries!
+  ([] (request-vault-summaries! {}))
+  ([opts]
+   (vault-gateway/request-vault-summaries! {:post-info! post-info!}
+                                           opts)))
+
+(defn request-merged-vault-index!
+  ([] (request-merged-vault-index! {}))
+  ([opts]
+   (vault-gateway/request-merged-vault-index! {:request-vault-index! request-vault-index!
+                                               :request-vault-summaries! request-vault-summaries!}
+                                              opts)))
+
+(defn request-user-vault-equities!
+  ([address]
+   (request-user-vault-equities! address {}))
+  ([address opts]
+   (vault-gateway/request-user-vault-equities! {:post-info! post-info!}
+                                               address
+                                               opts)))
+
+(defn request-vault-details!
+  ([vault-address]
+   (request-vault-details! vault-address {}))
+  ([vault-address opts]
+   (vault-gateway/request-vault-details! {:post-info! post-info!}
+                                         vault-address
+                                         opts)))
+
+(defn request-vault-webdata2!
+  ([vault-address]
+   (request-vault-webdata2! vault-address {}))
+  ([vault-address opts]
+   (vault-gateway/request-vault-webdata2! {:post-info! post-info!}
+                                          vault-address
+                                          opts)))
 
 (defn request-spot-meta!
   ([] (request-spot-meta! {}))

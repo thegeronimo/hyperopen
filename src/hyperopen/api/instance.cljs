@@ -3,6 +3,7 @@
             [hyperopen.api.gateway.account :as account-gateway]
             [hyperopen.api.gateway.market :as market-gateway]
             [hyperopen.api.gateway.orders :as order-gateway]
+            [hyperopen.api.gateway.vaults :as vault-gateway]
             [hyperopen.api.info-client :as info-client]
             [hyperopen.api.service :as api-service]
             [hyperopen.domain.funding-history :as funding-history]
@@ -256,6 +257,52 @@
      :request-user-non-funding-ledger-updates! request-user-non-funding-ledger-updates!
      :request-clearinghouse-state! request-clearinghouse-state!}))
 
+(defn- make-instance-vault-ops
+  [post-info!]
+  (letfn [(request-vault-index!
+            ([] (request-vault-index! {}))
+            ([opts]
+             (vault-gateway/request-vault-index! {:fetch-fn js/fetch}
+                                                 opts)))
+          (request-vault-summaries!
+            ([] (request-vault-summaries! {}))
+            ([opts]
+             (vault-gateway/request-vault-summaries! {:post-info! post-info!}
+                                                     opts)))
+          (request-merged-vault-index!
+            ([] (request-merged-vault-index! {}))
+            ([opts]
+             (vault-gateway/request-merged-vault-index! {:request-vault-index! request-vault-index!
+                                                         :request-vault-summaries! request-vault-summaries!}
+                                                        opts)))
+          (request-user-vault-equities!
+            ([address]
+             (request-user-vault-equities! address {}))
+            ([address opts]
+             (vault-gateway/request-user-vault-equities! {:post-info! post-info!}
+                                                         address
+                                                         opts)))
+          (request-vault-details!
+            ([vault-address]
+             (request-vault-details! vault-address {}))
+            ([vault-address opts]
+             (vault-gateway/request-vault-details! {:post-info! post-info!}
+                                                   vault-address
+                                                   opts)))
+          (request-vault-webdata2!
+            ([vault-address]
+             (request-vault-webdata2! vault-address {}))
+            ([vault-address opts]
+             (vault-gateway/request-vault-webdata2! {:post-info! post-info!}
+                                                    vault-address
+                                                    opts)))]
+    {:request-vault-index! request-vault-index!
+     :request-vault-summaries! request-vault-summaries!
+     :request-merged-vault-index! request-merged-vault-index!
+     :request-user-vault-equities! request-user-vault-equities!
+     :request-vault-details! request-vault-details!
+     :request-vault-webdata2! request-vault-webdata2!}))
+
 (defn make-api
   [{:keys [service now-ms-fn log-fn]}]
   (let [service* (or service (make-default-api-service))
@@ -266,7 +313,8 @@
         market-request-ops (make-instance-market-request-ops post-info! now-ms*)
         market-state-ops (make-instance-market-state-ops service* now-ms* log-fn* market-request-ops)
         order-ops (make-instance-order-ops post-info! log-fn*)
-        account-ops (make-instance-account-ops post-info! normalize-filters*)]
+        account-ops (make-instance-account-ops post-info! normalize-filters*)
+        vault-ops (make-instance-vault-ops post-info!)]
     (merge
      {:service service*
       :log-fn log-fn*
@@ -292,4 +340,5 @@
      market-request-ops
      market-state-ops
      order-ops
-     account-ops)))
+     account-ops
+     vault-ops)))

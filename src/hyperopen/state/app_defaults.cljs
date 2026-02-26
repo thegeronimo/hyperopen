@@ -119,6 +119,45 @@
    :user-fees-loaded-at-ms nil
    :ledger-loaded-at-ms nil})
 
+(defn default-vaults-ui-state
+  []
+  {:search-query ""
+   :filter-leading? true
+   :filter-deposited? true
+   :filter-others? true
+   :filter-closed? false
+   :snapshot-range :month
+   :sort {:column :tvl
+          :direction :desc}
+   :detail-tab :about
+   :list-loading? false
+   :detail-loading? false})
+
+(defn default-vaults-state
+  []
+  {:index-rows []
+   :recent-summaries []
+   :merged-index-rows []
+   :user-equities []
+   :user-equity-by-address {}
+   :details-by-address {}
+   :webdata-by-vault {}
+   :loading {:index? false
+             :summaries? false
+             :user-equities? false
+             :details-by-address {}
+             :webdata-by-vault {}}
+   :errors {:index nil
+            :summaries nil
+            :user-equities nil
+            :details-by-address {}
+            :webdata-by-vault {}}
+   :loaded-at-ms {:index nil
+                  :summaries nil
+                  :user-equities nil
+                  :details-by-address {}
+                  :webdata-by-vault {}}})
+
 (defn default-account-info-state
   [{:keys [default-trade-history
            default-funding-history
@@ -183,6 +222,8 @@
    :orderbook-ui (default-orderbook-ui-state)
    :portfolio-ui (default-portfolio-ui-state)
    :portfolio (default-portfolio-state)
+   :vaults-ui (default-vaults-ui-state)
+   :vaults (default-vaults-state)
    :account-info (default-account-info-state {:default-trade-history default-trade-history
                                               :default-funding-history default-funding-history
                                               :default-order-history default-order-history})})

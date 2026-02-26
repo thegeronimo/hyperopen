@@ -6,6 +6,7 @@
             [hyperopen.api.gateway.account :as account-gateway]
             [hyperopen.api.gateway.market :as market-gateway]
             [hyperopen.api.gateway.orders :as order-gateway]
+            [hyperopen.api.gateway.vaults :as vault-gateway]
             [hyperopen.api.instance :as api-instance]
             [hyperopen.api.service :as api-service]
             [hyperopen.platform :as platform]))
@@ -109,6 +110,24 @@
                                                               (record! :request-user-abstraction [deps address opts]))
                   account-gateway/request-clearinghouse-state! (fn [deps address dex opts]
                                                                  (record! :request-clearinghouse-state [deps address dex opts]))
+                  vault-gateway/request-vault-index! (fn
+                                                       ([deps]
+                                                        (record! :request-vault-index [deps {}]))
+                                                       ([deps opts]
+                                                        (record! :request-vault-index [deps opts])))
+                  vault-gateway/request-vault-summaries! (fn [deps opts]
+                                                           (record! :request-vault-summaries [deps opts]))
+                  vault-gateway/request-merged-vault-index! (fn
+                                                              ([deps]
+                                                               (record! :request-merged-vault-index [deps {}]))
+                                                              ([deps opts]
+                                                               (record! :request-merged-vault-index [deps opts])))
+                  vault-gateway/request-user-vault-equities! (fn [deps address opts]
+                                                               (record! :request-user-vault-equities [deps address opts]))
+                  vault-gateway/request-vault-details! (fn [deps vault-address opts]
+                                                        (record! :request-vault-details [deps vault-address opts]))
+                  vault-gateway/request-vault-webdata2! (fn [deps vault-address opts]
+                                                         (record! :request-vault-webdata2 [deps vault-address opts]))
                   api-compat/fetch-clearinghouse-state! (fn [deps store* address dex opts]
                                                           (record! :fetch-clearinghouse-state [deps store* address dex opts]))
                   api-compat/fetch-perp-dex-clearinghouse-states! (fn [deps store* address dex-names opts]
@@ -189,6 +208,31 @@
              (api/request-user-funding-history! "0xabc")))
       (is (= {:ok :request-user-funding-history-data}
              (api/request-user-funding-history! "0xabc" {:priority :high})))
+
+      (is (= {:ok :request-vault-index}
+             (api/request-vault-index!)))
+      (is (= {:ok :request-vault-index}
+             (api/request-vault-index! {:fetch-opts {:cache "no-store"}})))
+      (is (= {:ok :request-vault-summaries}
+             (api/request-vault-summaries!)))
+      (is (= {:ok :request-vault-summaries}
+             (api/request-vault-summaries! {:priority :high})))
+      (is (= {:ok :request-merged-vault-index}
+             (api/request-merged-vault-index!)))
+      (is (= {:ok :request-merged-vault-index}
+             (api/request-merged-vault-index! {:priority :low})))
+      (is (= {:ok :request-user-vault-equities}
+             (api/request-user-vault-equities! "0xabc")))
+      (is (= {:ok :request-user-vault-equities}
+             (api/request-user-vault-equities! "0xabc" {:priority :high})))
+      (is (= {:ok :request-vault-details}
+             (api/request-vault-details! "0xvault")))
+      (is (= {:ok :request-vault-details}
+             (api/request-vault-details! "0xvault" {:user "0xabc"})))
+      (is (= {:ok :request-vault-webdata2}
+             (api/request-vault-webdata2! "0xvault")))
+      (is (= {:ok :request-vault-webdata2}
+             (api/request-vault-webdata2! "0xvault" {:priority :high})))
 
       (is (= {:ok :request-spot-meta}
              (api/request-spot-meta!)))
