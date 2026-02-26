@@ -24,7 +24,7 @@
            (get-in header-node [1 :on :click])))
     (is (= "↑" (last sort-icon-node)))))
 
-(deftest order-history-tab-content-memoizes-normalize-and-sort-by-input-identity-filter-and-sort-state-test
+(deftest order-history-tab-content-memoizes-normalize-and-sort-by-input-identity-filter-and-sort-state-while-reusing-base-sort-for-coin-search-test
   (let [raw-rows [{:order {:coin "ETH"
                            :oid 1
                            :side "B"
@@ -70,6 +70,11 @@
       (let [asc-state (assoc-in table-state [:sort :direction] :asc)]
         (view/order-history-tab-content raw-rows asc-state)
         (view/order-history-tab-content raw-rows asc-state)
+        (is (= 2 @normalize-calls))
+        (is (= 2 @sort-calls))
+
+        (view/order-history-tab-content raw-rows (assoc asc-state :coin-search "et"))
+        (view/order-history-tab-content raw-rows (assoc asc-state :coin-search "et"))
         (is (= 2 @normalize-calls))
         (is (= 2 @sort-calls))
 

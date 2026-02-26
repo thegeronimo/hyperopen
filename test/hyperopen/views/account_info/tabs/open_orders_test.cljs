@@ -201,7 +201,7 @@
     (is (contains? prefix-text "NVDA"))
     (is (contains? prefix-text "xyz"))))
 
-(deftest open-orders-tab-content-re-sorts-when-direction-filter-changes-test
+(deftest open-orders-tab-content-re-sorts-when-direction-filter-changes-but-not-when-only-coin-search-changes-test
   (let [rows [{:oid 1001
                :coin "ETH"
                :side "B"
@@ -243,7 +243,7 @@
                                                      :coin-search "eth"})
       (view/open-orders-tab-content rows sort-state {:direction-filter :short
                                                      :coin-search "eth"})
-      (is (= 3 @sort-calls)))))
+      (is (= 2 @sort-calls)))))
 
 (deftest open-orders-columns-use-left-alignment-test
   (let [open-orders [{:oid 101

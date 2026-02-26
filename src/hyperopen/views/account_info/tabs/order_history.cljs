@@ -270,21 +270,32 @@
                    rows)
     rows))
 
-(defn- order-history-row-matches-coin-search?
-  [row market-by-key query]
-  (let [{:keys [base-label prefix-label]} (shared/resolve-coin-display (:coin row) market-by-key)]
-    (or (shared/coin-matches-search? (:coin row) query)
-        (shared/coin-matches-search? base-label query)
-        (shared/coin-matches-search? prefix-label query))))
+(defn- build-order-history-coin-search-index
+  [rows market-by-key]
+  (let [rows* (or rows [])
+        candidates-by-coin (volatile! {})]
+    (mapv (fn [row]
+            (let [coin (:coin row)
+                  cached (get @candidates-by-coin coin)
+                  candidates (or cached
+                                 (let [{:keys [base-label prefix-label]} (shared/resolve-coin-display coin market-by-key)
+                                       normalized (shared/normalized-coin-search-candidates
+                                                   [coin base-label prefix-label])]
+                                   (vswap! candidates-by-coin assoc coin normalized)
+                                   normalized))]
+              [row candidates]))
+          rows*)))
 
 (defn- filter-order-history-by-coin-search
-  [rows market-by-key coin-search]
-  (let [query (shared/normalize-coin-search-query coin-search)
-        rows* (or rows [])]
-    (if (str/blank? query)
-      (vec rows*)
-      (->> rows*
-           (filterv #(order-history-row-matches-coin-search? % market-by-key query))))))
+  [rows indexed-rows coin-search]
+  (let [query (shared/compile-coin-search-query coin-search)]
+    (if (shared/coin-search-query-blank? query)
+      (vec (or rows []))
+      (into []
+            (comp (filter (fn [[_ normalized-candidates]]
+                            (shared/normalized-coin-candidates-match? normalized-candidates query)))
+                  (map first))
+            (or indexed-rows [])))))
 
 (defn sort-order-history-by-column [rows column direction]
   (sort-kernel/sort-rows-by-column
@@ -326,25 +337,39 @@
   (let [column (:column sort-state)
         direction (:direction sort-state)
         cache @sorted-order-history-cache
-        cache-hit? (and (map? cache)
+        same-base? (and (map? cache)
                         (identical? order-history (:order-history cache))
                         (= status-filter (:status-filter cache))
                         (= market-by-key (:market-by-key cache))
-                        (= coin-search (:coin-search cache))
                         (= column (:column cache))
-                        (= direction (:direction cache)))]
+                        (= direction (:direction cache)))
+        cache-hit? (and same-base?
+                        (= coin-search (:coin-search cache)))]
     (if cache-hit?
       (:result cache)
-      (let [normalized (normalized-order-history order-history)
-            status-filtered (vec (order-history-filter-status normalized status-filter))
-            coin-filtered (filter-order-history-by-coin-search status-filtered market-by-key coin-search)
-            result (vec (sort-order-history-by-column coin-filtered column direction))]
+      (let [normalized (if same-base?
+                         (:normalized cache)
+                         (normalized-order-history order-history))
+            status-filtered (if same-base?
+                              (:status-filtered cache)
+                              (vec (order-history-filter-status normalized status-filter)))
+            base-sorted (if same-base?
+                          (:base-sorted cache)
+                          (vec (sort-order-history-by-column status-filtered column direction)))
+            indexed-rows (if same-base?
+                           (:indexed-rows cache)
+                           (build-order-history-coin-search-index base-sorted market-by-key))
+            result (filter-order-history-by-coin-search base-sorted indexed-rows coin-search)]
         (reset! sorted-order-history-cache {:order-history order-history
                                             :status-filter status-filter
                                             :market-by-key market-by-key
                                             :coin-search coin-search
                                             :column column
                                             :direction direction
+                                            :normalized normalized
+                                            :status-filtered status-filtered
+                                            :base-sorted base-sorted
+                                            :indexed-rows indexed-rows
                                             :result result})
         result))))
 

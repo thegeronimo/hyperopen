@@ -56,7 +56,7 @@
     (is (= [3 2 1] (mapv :tid value-desc)))
     (is (= [2 3 1] (mapv :tid direction-asc)))))
 
-(deftest trade-history-tab-content-memoizes-sorting-by-input-identity-filter-sort-and-market-map-test
+(deftest trade-history-tab-content-memoizes-sorting-by-input-identity-filter-sort-and-market-map-without-resorting-on-coin-search-test
   (let [fills [{:tid 1
                 :coin "ETH"
                 :side "B"
@@ -98,9 +98,13 @@
         (view/trade-history-tab-content fills (assoc sort-state-asc :direction-filter :short))
         (is (= 4 @sort-calls))
 
-        (view/trade-history-tab-content fills (assoc sort-state-asc :coin-search "et"))
-        (view/trade-history-tab-content fills (assoc sort-state-asc :coin-search "et"))
-        (is (= 5 @sort-calls))))))
+        (view/trade-history-tab-content fills (assoc sort-state-asc
+                                                     :direction-filter :short
+                                                     :coin-search "et"))
+        (view/trade-history-tab-content fills (assoc sort-state-asc
+                                                     :direction-filter :short
+                                                     :coin-search "et"))
+        (is (= 4 @sort-calls))))))
 
 (deftest trade-history-tab-content-filters-rows-by-direction-filter-test
   (let [fills [{:tid 1

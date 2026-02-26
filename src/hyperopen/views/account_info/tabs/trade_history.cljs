@@ -354,43 +354,66 @@
                       rows*)
       (vec rows*))))
 
-(defn- trade-history-row-matches-coin-search?
-  [row market-by-key query]
-  (let [{:keys [base-label prefix-label]} (shared/resolve-coin-display (trade-history-coin row) market-by-key)]
-    (or (shared/coin-matches-search? (trade-history-coin row) query)
-        (shared/coin-matches-search? base-label query)
-        (shared/coin-matches-search? prefix-label query))))
+(defn- build-trade-history-coin-search-index
+  [rows market-by-key]
+  (let [rows* (or rows [])
+        candidates-by-coin (volatile! {})]
+    (mapv (fn [row]
+            (let [coin (trade-history-coin row)
+                  cached (get @candidates-by-coin coin)
+                  candidates (or cached
+                                 (let [{:keys [base-label prefix-label]} (shared/resolve-coin-display coin market-by-key)
+                                       normalized (shared/normalized-coin-search-candidates
+                                                   [coin base-label prefix-label])]
+                                   (vswap! candidates-by-coin assoc coin normalized)
+                                   normalized))]
+              [row candidates]))
+          rows*)))
 
 (defn- filter-trade-history-by-coin-search
-  [rows market-by-key coin-search]
-  (let [query (shared/normalize-coin-search-query coin-search)
-        rows* (or rows [])]
-    (if (str/blank? query)
-      (vec rows*)
-      (filterv #(trade-history-row-matches-coin-search? % market-by-key query) rows*))))
+  [rows indexed-rows coin-search]
+  (let [query (shared/compile-coin-search-query coin-search)]
+    (if (shared/coin-search-query-blank? query)
+      (vec (or rows []))
+      (into []
+            (comp (filter (fn [[_ normalized-candidates]]
+                            (shared/normalized-coin-candidates-match? normalized-candidates query)))
+                  (map first))
+            (or indexed-rows [])))))
 
 (defn- memoized-sorted-trade-history [rows direction-filter sort-state market-by-key coin-search]
   (let [column (:column sort-state)
         direction (:direction sort-state)
         cache @sorted-trade-history-cache
-        cache-hit? (and (map? cache)
+        same-base? (and (map? cache)
                         (identical? rows (:rows cache))
                         (= direction-filter (:direction-filter cache))
-                        (= coin-search (:coin-search cache))
                         (identical? market-by-key (:market-by-key cache))
                         (= column (:column cache))
-                        (= direction (:direction cache)))]
+                        (= direction (:direction cache)))
+        cache-hit? (and same-base?
+                        (= coin-search (:coin-search cache)))]
     (if cache-hit?
       (:result cache)
-      (let [direction-filtered-rows (filter-trade-history-by-direction rows direction-filter)
-            coin-filtered-rows (filter-trade-history-by-coin-search direction-filtered-rows market-by-key coin-search)
-            result (vec (sort-trade-history-by-column coin-filtered-rows column direction market-by-key))]
+      (let [base-sorted-rows (if same-base?
+                               (:base-sorted-rows cache)
+                               (vec (sort-trade-history-by-column
+                                     (filter-trade-history-by-direction rows direction-filter)
+                                     column
+                                     direction
+                                     market-by-key)))
+            indexed-rows (if same-base?
+                           (:indexed-rows cache)
+                           (build-trade-history-coin-search-index base-sorted-rows market-by-key))
+            result (filter-trade-history-by-coin-search base-sorted-rows indexed-rows coin-search)]
         (reset! sorted-trade-history-cache {:rows rows
                                             :direction-filter direction-filter
                                             :coin-search coin-search
                                             :column column
                                             :direction direction
                                             :market-by-key market-by-key
+                                            :base-sorted-rows base-sorted-rows
+                                            :indexed-rows indexed-rows
                                             :result result})
         result))))
 

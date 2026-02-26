@@ -33,25 +33,56 @@
       str/trim
       str/lower-case))
 
+(defn compile-coin-search-query [value]
+  (normalize-coin-search-query value))
+
+(defn coin-search-query-blank? [compiled-query]
+  (str/blank? (or compiled-query "")))
+
+(defn normalized-coin-search-candidates [candidates]
+  (->> (or candidates [])
+       (map normalize-coin-search-query)
+       (remove str/blank?)
+       vec))
+
 (defn- ordered-subsequence?
   [needle haystack]
-  (loop [needle-cursor (seq needle)
-         haystack-cursor (seq haystack)]
-    (cond
-      (nil? needle-cursor) true
-      (nil? haystack-cursor) false
-      (= (first needle-cursor) (first haystack-cursor))
-      (recur (next needle-cursor) (next haystack-cursor))
-      :else
-      (recur needle-cursor (next haystack-cursor)))))
+  (let [needle* (or needle "")
+        haystack* (or haystack "")
+        needle-len (.-length needle*)
+        haystack-len (.-length haystack*)]
+    (loop [needle-idx 0
+           haystack-idx 0]
+      (cond
+        (>= needle-idx needle-len) true
+        (>= haystack-idx haystack-len) false
+        (= (.charCodeAt needle* needle-idx)
+           (.charCodeAt haystack* haystack-idx))
+        (recur (inc needle-idx) (inc haystack-idx))
+        :else
+        (recur needle-idx (inc haystack-idx))))))
+
+(defn- normalized-coin-matches-compiled-query?
+  [normalized-coin compiled-query]
+  (let [query (or compiled-query "")
+        coin* (or normalized-coin "")]
+    (or (coin-search-query-blank? query)
+        (str/includes? coin* query)
+        (ordered-subsequence? query coin*))))
+
+(defn normalized-coin-candidates-match?
+  [normalized-candidates compiled-query]
+  (let [query (or compiled-query "")]
+    (or (coin-search-query-blank? query)
+        (boolean
+         (some #(normalized-coin-matches-compiled-query? % query)
+               (or normalized-candidates []))))))
 
 (defn coin-matches-search?
   [coin search-query]
-  (let [query (normalize-coin-search-query search-query)
+  (let [query (compile-coin-search-query search-query)
         coin* (normalize-coin-search-query coin)]
-    (or (str/blank? query)
-        (str/includes? coin* query)
-        (ordered-subsequence? query coin*))))
+    (normalized-coin-matches-compiled-query? coin* query)))
 
 (defn resolve-coin-display [coin market-by-key]
   (projections/resolve-coin-display coin market-by-key))

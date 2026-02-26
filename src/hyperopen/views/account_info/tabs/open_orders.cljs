@@ -117,20 +117,32 @@
       :short (filterv #(contains? short-order-side-values (:side %)) orders*)
       (vec orders*))))
 
-(defn- open-order-matches-coin-search?
-  [row query]
-  (let [{:keys [base-label prefix-label]} (shared/resolve-coin-display (:coin row) {})]
-    (or (shared/coin-matches-search? (:coin row) query)
-        (shared/coin-matches-search? base-label query)
-        (shared/coin-matches-search? prefix-label query))))
+(defn- build-open-orders-coin-search-index
+  [rows]
+  (let [rows* (or rows [])
+        candidates-by-coin (volatile! {})]
+    (mapv (fn [row]
+            (let [coin (:coin row)
+                  cached (get @candidates-by-coin coin)
+                  candidates (or cached
+                                 (let [{:keys [base-label prefix-label]} (shared/resolve-coin-display coin {})
+                                       normalized (shared/normalized-coin-search-candidates
+                                                   [coin base-label prefix-label])]
+                                   (vswap! candidates-by-coin assoc coin normalized)
+                                   normalized))]
+              [row candidates]))
+          rows*)))
 
 (defn- filter-open-orders-by-coin-search
-  [rows coin-search]
-  (let [query (shared/normalize-coin-search-query coin-search)
-        rows* (or rows [])]
-    (if (str/blank? query)
-      (vec rows*)
-      (filterv #(open-order-matches-coin-search? % query) rows*))))
+  [rows indexed-rows coin-search]
+  (let [query (shared/compile-coin-search-query coin-search)]
+    (if (shared/coin-search-query-blank? query)
+      (vec (or rows []))
+      (into []
+            (comp (filter (fn [[_ normalized-candidates]]
+                            (shared/normalized-coin-candidates-match? normalized-candidates query)))
+                  (map first))
+            (or indexed-rows [])))))
 
 (defn- coin-style [side]
   (case side
@@ -179,22 +191,32 @@
   (let [column (:column sort-state)
         direction (:direction sort-state)
         cache @sorted-open-orders-cache
-        cache-hit? (and (map? cache)
+        same-base? (and (map? cache)
                         (identical? orders (:orders cache))
                         (= direction-filter (:direction-filter cache))
-                        (= coin-search (:coin-search cache))
                         (= column (:column cache))
-                        (= direction (:direction cache)))]
+                        (= direction (:direction cache)))
+        cache-hit? (and same-base?
+                        (= coin-search (:coin-search cache)))]
     (if cache-hit?
       (:result cache)
-      (let [direction-filtered (filter-open-orders-by-direction orders direction-filter)
-            search-filtered (filter-open-orders-by-coin-search direction-filtered coin-search)
-            result (vec (sort-open-orders-by-column search-filtered column direction))]
+      (let [base-sorted (if same-base?
+                          (:base-sorted cache)
+                          (vec (sort-open-orders-by-column
+                                (filter-open-orders-by-direction orders direction-filter)
+                                column
+                                direction)))
+            indexed-rows (if same-base?
+                           (:indexed-rows cache)
+                           (build-open-orders-coin-search-index base-sorted))
+            result (filter-open-orders-by-coin-search base-sorted indexed-rows coin-search)]
         (reset! sorted-open-orders-cache {:orders orders
                                           :direction-filter direction-filter
                                           :coin-search coin-search
                                           :column column
                                           :direction direction
+                                          :base-sorted base-sorted
+                                          :indexed-rows indexed-rows
                                           :result result})
         result))))
 
