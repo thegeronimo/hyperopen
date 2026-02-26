@@ -44,6 +44,27 @@
            #"rule=heavy-before-projection-phase"
            (wrapped {} :5m))))))
 
+(deftest wrap-action-handler-enforces-projection-before-heavy-for-portfolio-benchmark-selection-test
+  (with-redefs [validation/validation-enabled? (constantly true)]
+    (let [wrapped (validation/wrap-action-handler :actions/select-portfolio-returns-benchmark
+                                                  (fn [_state coin]
+                                                    [[:effects/save [:portfolio-ui :returns-benchmark-coin] coin]
+                                                     [:effects/fetch-candle-snapshot :coin coin :interval :1h :bars 800]]))]
+      (is (= [[:effects/save [:portfolio-ui :returns-benchmark-coin] "SPY"]
+              [:effects/fetch-candle-snapshot :coin "SPY" :interval :1h :bars 800]]
+             (wrapped {} "SPY"))))))
+
+(deftest wrap-action-handler-rejects-heavy-before-projection-for-portfolio-benchmark-selection-test
+  (with-redefs [validation/validation-enabled? (constantly true)]
+    (let [wrapped (validation/wrap-action-handler :actions/select-portfolio-returns-benchmark
+                                                  (fn [_state coin]
+                                                    [[:effects/fetch-candle-snapshot :coin coin :interval :1h :bars 800]
+                                                     [:effects/save [:portfolio-ui :returns-benchmark-coin] coin]]))]
+      (is (thrown-with-msg?
+           js/Error
+           #"rule=heavy-before-projection-phase"
+           (wrapped {} "SPY"))))))
+
 (deftest wrap-action-handler-rejects-duplicate-heavy-effects-for-covered-action-test
   (with-redefs [validation/validation-enabled? (constantly true)]
     (let [wrapped (validation/wrap-action-handler :actions/select-orderbook-price-aggregation

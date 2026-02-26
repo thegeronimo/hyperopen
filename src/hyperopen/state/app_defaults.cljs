@@ -97,6 +97,10 @@
   {:summary-scope :all
    :summary-time-range :month
    :chart-tab :account-value
+   :returns-benchmark-coins []
+   :returns-benchmark-coin nil
+   :returns-benchmark-search ""
+   :returns-benchmark-suggestions-open? false
    :summary-scope-dropdown-open? false
    :summary-time-range-dropdown-open? false})
 

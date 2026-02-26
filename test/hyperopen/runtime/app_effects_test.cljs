@@ -12,7 +12,7 @@
     (is (= true (get-in @store [:wallet :connected?])))
     (is (= "/trade" (get-in @store [:router :path])))))
 
-(deftest fetch-candle-snapshot-uses-defaults-and-custom-options-test
+(deftest fetch-candle-snapshot-uses-defaults-custom-options-and-explicit-coin-test
   (let [calls (atom [])
         request-fn (fn [coin & {:keys [interval bars]}]
                      (swap! calls conj {:coin coin
@@ -38,8 +38,20 @@
                                        (assoc-in state [:candles coin interval] rows))
       :apply-candle-snapshot-error (fn [state coin interval err]
                                      (assoc-in state [:candles coin interval :error] (str err)))})
+    (app-effects/fetch-candle-snapshot!
+     {:store store
+      :coin "SPY"
+      :interval :1d
+      :bars 50
+      :log-fn (fn [& _] nil)
+      :request-candle-snapshot-fn request-fn
+      :apply-candle-snapshot-success (fn [state coin interval rows]
+                                       (assoc-in state [:candles coin interval] rows))
+      :apply-candle-snapshot-error (fn [state coin interval err]
+                                     (assoc-in state [:candles coin interval :error] (str err)))})
     (is (= [{:coin "BTC" :interval :1d :bars 330}
-            {:coin "BTC" :interval :4h :bars 100}]
+            {:coin "BTC" :interval :4h :bars 100}
+            {:coin "SPY" :interval :1d :bars 50}]
            @calls))))
 
 (deftest init-and-reconnect-websocket-effects-forward-runtime-dependencies-test

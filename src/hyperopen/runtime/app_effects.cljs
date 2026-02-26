@@ -38,6 +38,7 @@
 
 (defn fetch-candle-snapshot!
   [{:keys [store
+           coin
            interval
            bars
            log-fn
@@ -46,16 +47,23 @@
            apply-candle-snapshot-error]}]
   (let [interval* (or interval :1d)
         bars* (or bars 330)
-        active-asset (:active-asset @store)]
-    (log-fn "Fetching candle snapshot for active asset...")
-    (if-not active-asset
+        requested-coin (some-> coin str .trim)
+        active-asset (:active-asset @store)
+        target-coin (if (seq requested-coin)
+                      requested-coin
+                      active-asset)]
+    (log-fn "Fetching candle snapshot..."
+            (clj->js {:coin target-coin
+                      :interval interval*
+                      :bars bars*}))
+    (if-not target-coin
       (js/Promise.resolve nil)
-      (-> (request-candle-snapshot-fn active-asset :interval interval* :bars bars*)
+      (-> (request-candle-snapshot-fn target-coin :interval interval* :bars bars*)
           (.then (fn [rows]
-                   (swap! store apply-candle-snapshot-success active-asset interval* rows)
+                   (swap! store apply-candle-snapshot-success target-coin interval* rows)
                    rows))
           (.catch (fn [err]
-                    (swap! store apply-candle-snapshot-error active-asset interval* err)
+                    (swap! store apply-candle-snapshot-error target-coin interval* err)
                     (js/Promise.reject err)))))))
 
 (defn init-websocket!

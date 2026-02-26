@@ -26,6 +26,24 @@
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/fetch-candle-snapshot}}
 
+   :actions/select-portfolio-summary-time-range
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? true
+    :heavy-effect-ids #{:effects/fetch-candle-snapshot}}
+
+   :actions/select-portfolio-chart-tab
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? true
+    :heavy-effect-ids #{:effects/fetch-candle-snapshot}}
+
+   :actions/select-portfolio-returns-benchmark
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/fetch-candle-snapshot}}
+
    :actions/select-account-info-tab
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true

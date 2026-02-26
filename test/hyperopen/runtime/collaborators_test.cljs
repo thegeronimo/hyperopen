@@ -35,6 +35,10 @@
                     (get-in deps [:chart :toggle-portfolio-summary-scope-dropdown])))
     (is (identical? portfolio-actions/select-portfolio-chart-tab
                     (get-in deps [:chart :select-portfolio-chart-tab])))
+    (is (identical? portfolio-actions/select-portfolio-returns-benchmark
+                    (get-in deps [:chart :select-portfolio-returns-benchmark])))
+    (is (identical? portfolio-actions/clear-portfolio-returns-benchmark
+                    (get-in deps [:chart :clear-portfolio-returns-benchmark])))
     (is (identical? chart-settings/hide-volume-indicator
                     (get-in deps [:chart :hide-volume-indicator])))
     (is (identical? account-history-actions/select-account-info-tab

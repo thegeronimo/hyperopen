@@ -41,6 +41,17 @@
    {:value 1 :y-ratio (/ 2 3)}
    {:value 0 :y-ratio 1}])
 
+(def ^:private strategy-series-stroke
+  "#f5f7f8")
+
+(def ^:private benchmark-series-strokes
+  ["#f2cf66"
+   "#7cc2ff"
+   "#ff9d7c"
+   "#8be28b"
+   "#d8a8ff"
+   "#ffdf8a"])
+
 (defn- optional-number [value]
   (projections/parse-optional-num value))
 
@@ -87,6 +98,138 @@
             options)
       (some-> options first :label)
       ""))
+
+(defn- parse-cache-order [value]
+  (let [parsed (cond
+                 (number? value) value
+                 (string? value) (js/parseInt value 10)
+                 :else js/NaN)]
+    (when (and (number? parsed)
+               (not (js/isNaN parsed)))
+      (js/Math.floor parsed))))
+
+(defn- market-type-token [value]
+  (cond
+    (keyword? value) value
+    (string? value) (some-> value str/trim str/lower-case keyword)
+    :else nil))
+
+(defn- benchmark-open-interest [market]
+  (let [open-interest (optional-number (:openInterest market))]
+    (if (finite-number? open-interest)
+      open-interest
+      0)))
+
+(defn- benchmark-option-label [market]
+  (let [symbol (some-> (:symbol market) str str/trim)
+        coin (some-> (:coin market) str str/trim)
+        dex (some-> (:dex market) str str/trim str/upper-case)
+        market-type (market-type-token (:market-type market))
+        type-label (case market-type
+                     :spot "SPOT"
+                     :perp "PERP"
+                     nil)
+        primary-label (or symbol coin "")]
+    (cond
+      (and (seq dex) (seq type-label)) (str primary-label " (" dex " " type-label ")")
+      (seq type-label) (str primary-label " (" type-label ")")
+      :else primary-label)))
+
+(defn- benchmark-option-rank [market]
+  [(- (benchmark-open-interest market))
+   (or (parse-cache-order (:cache-order market))
+       js/Number.MAX_SAFE_INTEGER)
+   (str/lower-case (or (some-> (:symbol market) str str/trim) ""))
+   (str/lower-case (or (some-> (:coin market) str str/trim) ""))
+   (str/lower-case (or (some-> (:key market) str str/trim) ""))])
+
+(defn- benchmark-selector-options [state]
+  (let [ordered-markets (->> (or (get-in state [:asset-selector :markets]) [])
+                             (filter map?)
+                             (sort-by benchmark-option-rank))]
+    (->> ordered-markets
+         (reduce (fn [{:keys [seen options]} market]
+                   (if-let [coin (portfolio-actions/normalize-portfolio-returns-benchmark-coin
+                                  (:coin market))]
+                     (if (contains? seen coin)
+                       {:seen seen
+                        :options options}
+                       {:seen (conj seen coin)
+                        :options (conj options
+                                       {:value coin
+                                        :label (benchmark-option-label market)
+                                        :open-interest (benchmark-open-interest market)})})
+                     {:seen seen
+                      :options options}))
+                 {:seen #{}
+                  :options []})
+         :options
+         vec)))
+
+(defn- normalize-benchmark-search-query [value]
+  (-> (or value "")
+      str
+      str/trim
+      str/lower-case))
+
+(defn- benchmark-option-matches-search? [option search-query]
+  (or (str/blank? search-query)
+      (str/includes? (str/lower-case (or (:label option) "")) search-query)
+      (str/includes? (str/lower-case (or (:value option) "")) search-query)))
+
+(defn- selected-returns-benchmark-coins [state]
+  (let [coins (portfolio-actions/normalize-portfolio-returns-benchmark-coins
+               (get-in state [:portfolio-ui :returns-benchmark-coins]))]
+    (if (seq coins)
+      coins
+      (if-let [legacy-coin (portfolio-actions/normalize-portfolio-returns-benchmark-coin
+                            (get-in state [:portfolio-ui :returns-benchmark-coin]))]
+        [legacy-coin]
+        []))))
+
+(defn- selected-benchmark-options [options selected-coins]
+  (let [options-by-coin (into {} (map (juxt :value identity)) options)]
+    (mapv (fn [coin]
+            (or (get options-by-coin coin)
+                {:value coin
+                 :label coin
+                 :open-interest 0}))
+          selected-coins)))
+
+(defn- returns-benchmark-selector-model [state]
+  (let [selected-coins (selected-returns-benchmark-coins state)
+        selected-coin-set (set selected-coins)
+        options (benchmark-selector-options state)
+        search (or (get-in state [:portfolio-ui :returns-benchmark-search]) "")
+        search-query (normalize-benchmark-search-query search)
+        suggestions-open? (boolean (get-in state [:portfolio-ui :returns-benchmark-suggestions-open?]))
+        selected-options (selected-benchmark-options options selected-coins)
+        candidates (->> options
+                        (remove (fn [{:keys [value]}]
+                                  (contains? selected-coin-set value)))
+                        (filter #(benchmark-option-matches-search? % search-query))
+                        vec)
+        top-coin (some-> candidates first :value)
+        empty-message (cond
+                        (empty? options)
+                        "No benchmark symbols available."
+
+                        (seq candidates)
+                        nil
+
+                        (seq search-query)
+                        "No matching symbols."
+
+                        :else
+                        "All symbols selected.")]
+    {:selected-coins selected-coins
+     :selected-options selected-options
+     :coin-search search
+     :suggestions-open? suggestions-open?
+     :candidates candidates
+     :top-coin top-coin
+     :empty-message empty-message
+     :label-by-coin (into {} (map (juxt :value :label)) options)}))
 
 (defn- canonical-summary-key [value]
   (let [text (some-> value str str/trim)]
@@ -471,8 +614,8 @@
         0
         (js/parseInt (.toFixed value 0) 10)))))
 
-(defn- chart-data-points [state summary chart-tab summary-scope]
-  (->> (chart-history-rows state summary chart-tab summary-scope)
+(defn- rows->chart-points [rows chart-tab]
+  (->> rows
        (map-indexed (fn [idx row]
                       (let [value (history-point-value row)
                             value* (normalize-chart-point-value chart-tab value)]
@@ -482,6 +625,84 @@
                            :value value*}))))
        (keep identity)
        vec))
+
+(defn- chart-data-points [state summary chart-tab summary-scope]
+  (rows->chart-points (chart-history-rows state summary chart-tab summary-scope)
+                      chart-tab))
+
+(defn- candle-point-close [row]
+  (cond
+    (map? row)
+    (or (optional-number (:c row))
+        (optional-number (:close row)))
+
+    (and (sequential? row)
+         (>= (count row) 5))
+    (optional-number (nth row 4))
+
+    :else
+    nil))
+
+(defn- benchmark-candle-points [rows]
+  (if (sequential? rows)
+    (->> rows
+         (keep (fn [row]
+                 (let [time-ms (history-point-time-ms row)
+                       close (candle-point-close row)]
+                   (when (and (finite-number? time-ms)
+                              (finite-number? close)
+                              (pos? close))
+                     {:time-ms time-ms
+                      :close close}))))
+         (sort-by :time-ms)
+         vec)
+    []))
+
+(defn- aligned-benchmark-return-rows [benchmark-points strategy-points]
+  (let [benchmark-count (count benchmark-points)
+        strategy-time-points (mapv :time-ms strategy-points)
+        strategy-count (count strategy-time-points)]
+    (loop [time-idx 0
+           candle-idx 0
+           latest-close nil
+           anchor-close nil
+           output []]
+      (if (>= time-idx strategy-count)
+        output
+        (let [time-ms (nth strategy-time-points time-idx)
+              [candle-idx* latest-close*]
+              (loop [idx candle-idx
+                     latest latest-close]
+                (if (>= idx benchmark-count)
+                  [idx latest]
+                  (let [{candle-time-ms :time-ms
+                         close :close} (nth benchmark-points idx)]
+                    (if (<= candle-time-ms time-ms)
+                      (recur (inc idx) close)
+                      [idx latest]))))
+              anchor-close* (or anchor-close latest-close*)
+              output* (if (and (finite-number? latest-close*)
+                               (finite-number? anchor-close*)
+                               (pos? anchor-close*))
+                        (let [cumulative-return (* 100 (- (/ latest-close* anchor-close*) 1))]
+                          (if (finite-number? cumulative-return)
+                            (conj output [time-ms cumulative-return])
+                            output))
+                        output)]
+          (recur (inc time-idx)
+                 candle-idx*
+                 latest-close*
+                 anchor-close*
+                 output*))))))
+
+(defn- benchmark-returns-points [state summary-time-range benchmark-coin strategy-points]
+  (if (and (seq benchmark-coin)
+           (seq strategy-points))
+    (let [{:keys [interval]} (portfolio-actions/returns-benchmark-candle-request summary-time-range)
+          candles (benchmark-candle-points (get-in state [:candles benchmark-coin interval]))
+          aligned-returns (aligned-benchmark-return-rows candles strategy-points)]
+      (rows->chart-points aligned-returns :returns))
+    []))
 
 (defn- non-zero-span
   [domain-min domain-max]
@@ -570,29 +791,79 @@
     :percent
     :number))
 
-(defn- build-chart-model [state summary-entry summary-scope]
+(defn- benchmark-series-stroke
+  [idx]
+  (let [palette-size (count benchmark-series-strokes)]
+    (if (pos? palette-size)
+      (nth benchmark-series-strokes (mod idx palette-size))
+      strategy-series-stroke)))
+
+(defn- build-chart-model
+  [state summary-entry summary-scope summary-time-range returns-benchmark-selector]
   (let [selected-tab (portfolio-actions/normalize-portfolio-chart-tab
                       (get-in state [:portfolio-ui :chart-tab]
                               portfolio-actions/default-chart-tab))
         axis-kind (chart-axis-kind selected-tab)
-        points (chart-data-points state summary-entry selected-tab summary-scope)]
-    (if (seq points)
-      (let [domain (chart-domain (map :value points))
-            chart-points (normalize-chart-points points domain)]
-        {:selected-tab selected-tab
-         :axis-kind axis-kind
-         :tabs chart-tab-options
-         :points chart-points
-         :path (chart-step-path chart-points)
-         :y-ticks (chart-y-ticks domain)
-         :has-data? true})
-      {:selected-tab selected-tab
-       :axis-kind axis-kind
-       :tabs chart-tab-options
-       :points []
-       :path nil
-       :y-ticks chart-empty-y-ticks
-       :has-data? false})))
+        strategy-points (chart-data-points state summary-entry selected-tab summary-scope)
+        selected-benchmark-coins (if (= selected-tab :returns)
+                                   (vec (:selected-coins returns-benchmark-selector))
+                                   [])
+        benchmark-label-by-coin (or (:label-by-coin returns-benchmark-selector) {})
+        benchmark-series (if (= selected-tab :returns)
+                           (mapv (fn [idx coin]
+                                   (let [label (or (get benchmark-label-by-coin coin)
+                                                   coin)]
+                                     {:id (keyword (str "benchmark-" idx))
+                                      :coin coin
+                                      :label label
+                                      :stroke (benchmark-series-stroke idx)
+                                      :raw-points (benchmark-returns-points state
+                                                                            summary-time-range
+                                                                            coin
+                                                                            strategy-points)}))
+                                 (range)
+                                 selected-benchmark-coins)
+                           [])
+        raw-series (cond-> [{:id :strategy
+                             :label "Strategy"
+                             :stroke strategy-series-stroke
+                             :raw-points strategy-points}]
+                     (seq benchmark-series)
+                     (into benchmark-series))
+        domain-values (->> raw-series
+                           (mapcat (fn [{:keys [raw-points]}]
+                                     (map :value raw-points)))
+                           vec)
+        domain (when (seq domain-values)
+                 (chart-domain domain-values))
+        series (mapv (fn [{:keys [raw-points] :as entry}]
+                       (let [points (if domain
+                                      (normalize-chart-points raw-points domain)
+                                      [])]
+                         (assoc entry
+                                :points points
+                                :path (chart-step-path points)
+                                :has-data? (seq points))))
+                     raw-series)
+        strategy-series (or (some (fn [series-entry]
+                                    (when (= :strategy (:id series-entry))
+                                      series-entry))
+                                  series)
+                            {:points []
+                             :path nil
+                             :has-data? false})]
+    {:selected-tab selected-tab
+     :axis-kind axis-kind
+     :tabs chart-tab-options
+     :points (:points strategy-series)
+     :path (:path strategy-series)
+     :series series
+     :benchmark-selected? (and (= selected-tab :returns)
+                               (seq selected-benchmark-coins))
+     :y-ticks (if domain
+                (chart-y-ticks domain)
+                chart-empty-y-ticks)
+     :has-data? (boolean (:has-data? strategy-series))}))
 
 (defn- pnl-delta [summary]
   (let [values (keep history-point-value (or (:pnlHistory summary) []))]
@@ -764,7 +1035,12 @@
                       :maker (number-or-zero (:maker trading/default-fees))}
         fees (or (fees-from-user-fees (get-in state [:portfolio :user-fees]))
                  fees-default)
-        chart (build-chart-model state summary-entry summary-scope)]
+        returns-benchmark-selector (returns-benchmark-selector-model state)
+        chart (build-chart-model state
+                                 summary-entry
+                                 summary-scope
+                                 summary-time-range
+                                 returns-benchmark-selector)]
     {:volume-14d-usd volume-14d
      :fees fees
      :chart chart
@@ -775,7 +1051,8 @@
                  :summary-time-range {:value summary-time-range
                                       :label (selector-option-label summary-time-range-options summary-time-range)
                                       :open? (boolean (get-in state [:portfolio-ui :summary-time-range-dropdown-open?]))
-                                      :options summary-time-range-options}}
+                                      :options summary-time-range-options}
+                 :returns-benchmark returns-benchmark-selector}
      :summary {:selected-key selected-key
                :pnl pnl
                :volume volume

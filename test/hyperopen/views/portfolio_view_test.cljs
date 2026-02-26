@@ -159,3 +159,36 @@
     (is (some #(= "Returns" %) all-text))
     (is (some #(re-find #"\+[0-9]+\.[0-9]{2}%" %) all-text))
     (is (some #(re-find #"-[0-9]+\.[0-9]{2}%" %) all-text))))
+
+(deftest portfolio-view-returns-tab-renders-benchmark-selector-legend-and-secondary-path-test
+  (let [state (-> sample-state
+                  (assoc-in [:portfolio-ui :chart-tab] :returns)
+                  (assoc-in [:portfolio-ui :returns-benchmark-coins] ["SPY"])
+                  (assoc-in [:asset-selector :markets]
+                            [{:coin "SPY"
+                              :symbol "SPY"
+                              :market-type :spot
+                              :cache-order 1}
+                             {:coin "BTC"
+                              :symbol "BTC-USD"
+                              :market-type :perp
+                              :cache-order 2}])
+                  (assoc-in [:portfolio :summary-by-key :month :accountValueHistory]
+                            [[1 100] [2 110] [3 120] [4 130]])
+                  (assoc-in [:portfolio :summary-by-key :month :pnlHistory]
+                            [[1 0] [2 0] [3 0] [4 0]])
+                  (assoc-in [:candles "SPY" :1h]
+                            [{:t 1 :c 50}
+                             {:t 3 :c 55}
+                             {:t 4 :c 60}]))
+        view-node (portfolio-view/portfolio-view state)
+        selector-node (find-first-node view-node #(= "portfolio-returns-benchmark-selector" (get-in % [1 :data-role])))
+        legend-node (find-first-node view-node #(= "portfolio-chart-legend" (get-in % [1 :data-role])))
+        benchmark-path-node (find-first-node view-node #(= "portfolio-chart-path-benchmark-0" (get-in % [1 :data-role])))
+        all-text (set (collect-strings view-node))]
+    (is (some? selector-node))
+    (is (some? legend-node))
+    (is (some? benchmark-path-node))
+    (is (contains? all-text "Benchmarks"))
+    (is (contains? all-text "Strategy"))
+    (is (contains? all-text "SPY (SPOT)"))))

@@ -190,6 +190,12 @@
            toggle-portfolio-summary-time-range-dropdown
            select-portfolio-summary-time-range
            select-portfolio-chart-tab
+           set-portfolio-returns-benchmark-search
+           set-portfolio-returns-benchmark-suggestions-open
+           select-portfolio-returns-benchmark
+           remove-portfolio-returns-benchmark
+           handle-portfolio-returns-benchmark-search-keydown
+           clear-portfolio-returns-benchmark
            toggle-orderbook-size-unit-dropdown
            select-orderbook-size-unit
            toggle-orderbook-price-aggregation-dropdown
@@ -211,6 +217,12 @@
    :toggle-portfolio-summary-time-range-dropdown toggle-portfolio-summary-time-range-dropdown
    :select-portfolio-summary-time-range select-portfolio-summary-time-range
    :select-portfolio-chart-tab select-portfolio-chart-tab
+   :set-portfolio-returns-benchmark-search set-portfolio-returns-benchmark-search
+   :set-portfolio-returns-benchmark-suggestions-open set-portfolio-returns-benchmark-suggestions-open
+   :select-portfolio-returns-benchmark select-portfolio-returns-benchmark
+   :remove-portfolio-returns-benchmark remove-portfolio-returns-benchmark
+   :handle-portfolio-returns-benchmark-search-keydown handle-portfolio-returns-benchmark-search-keydown
+   :clear-portfolio-returns-benchmark clear-portfolio-returns-benchmark
    :toggle-orderbook-size-unit-dropdown toggle-orderbook-size-unit-dropdown
    :select-orderbook-size-unit select-orderbook-size-unit
    :toggle-orderbook-price-aggregation-dropdown toggle-orderbook-price-aggregation-dropdown

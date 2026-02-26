@@ -105,6 +105,13 @@
           [:interval :1m :bars 330]
           {:phase :test}))))
 
+(deftest assert-effect-args-accepts-fetch-candle-snapshot-coin-interval-and-bars-test
+  (is (= [:coin "SPY" :interval :1h :bars 800]
+         (contracts/assert-effect-args!
+          :effects/fetch-candle-snapshot
+          [:coin "SPY" :interval :1h :bars 800]
+          {:phase :test}))))
+
 (deftest assert-effect-args-rejects-fetch-candle-snapshot-with-odd-kv-arity-test
   (is (thrown-with-msg?
        js/Error
@@ -121,6 +128,15 @@
        (contracts/assert-effect-args!
         :effects/fetch-candle-snapshot
         [:foo 1]
+        {:phase :test}))))
+
+(deftest assert-effect-args-rejects-fetch-candle-snapshot-with-blank-coin-test
+  (is (thrown-with-msg?
+       js/Error
+       #"effect request"
+       (contracts/assert-effect-args!
+        :effects/fetch-candle-snapshot
+        [:coin "   " :interval :1h]
         {:phase :test}))))
 
 (deftest assert-effect-args-rejects-funding-history-request-id-when-not-non-negative-integer-test
@@ -187,6 +203,23 @@
         :actions/select-portfolio-chart-tab
         [[]]
         {:phase :test}))))
+
+(deftest assert-action-args-validates-portfolio-returns-benchmark-actions-test
+  (is (= ["SPY"]
+         (contracts/assert-action-args!
+          :actions/select-portfolio-returns-benchmark
+          ["SPY"]
+          {:phase :test})))
+  (is (= [""]
+         (contracts/assert-action-args!
+          :actions/select-portfolio-returns-benchmark
+          [""]
+          {:phase :test})))
+  (is (= []
+         (contracts/assert-action-args!
+          :actions/clear-portfolio-returns-benchmark
+          []
+          {:phase :test}))))
 
 (deftest order-form-vm-schema-contracts-test
   (let [valid-vm {:form {:type :limit}

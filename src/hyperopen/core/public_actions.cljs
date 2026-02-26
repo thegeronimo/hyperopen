@@ -122,6 +122,24 @@
 (def select-portfolio-chart-tab
   portfolio-actions/select-portfolio-chart-tab)
 
+(def set-portfolio-returns-benchmark-search
+  portfolio-actions/set-portfolio-returns-benchmark-search)
+
+(def set-portfolio-returns-benchmark-suggestions-open
+  portfolio-actions/set-portfolio-returns-benchmark-suggestions-open)
+
+(def select-portfolio-returns-benchmark
+  portfolio-actions/select-portfolio-returns-benchmark)
+
+(def remove-portfolio-returns-benchmark
+  portfolio-actions/remove-portfolio-returns-benchmark)
+
+(def handle-portfolio-returns-benchmark-search-keydown
+  portfolio-actions/handle-portfolio-returns-benchmark-search-keydown)
+
+(def clear-portfolio-returns-benchmark
+  portfolio-actions/clear-portfolio-returns-benchmark)
+
 (def toggle-orderbook-size-unit-dropdown
   orderbook-actions/toggle-orderbook-size-unit-dropdown)
 

@@ -54,7 +54,9 @@
        (even? (count args))
        (every? keyword? (take-nth 2 args))
        (let [opts (apply hash-map args)]
-         (and (every? #{:interval :bars} (keys opts))
+         (and (every? #{:coin :interval :bars} (keys opts))
+              (or (not (contains? opts :coin))
+                  (non-empty-string? (:coin opts)))
               (or (not (contains? opts :interval))
                   (keyword? (:interval opts)))
               (or (not (contains? opts :bars))
@@ -138,6 +140,7 @@
 (s/def ::boolean-args (s/tuple boolean?))
 (s/def ::keyword-args (s/tuple keyword?))
 (s/def ::keyword-or-string-args (s/tuple ::keyword-or-string))
+(s/def ::optional-string-args (s/tuple (s/nilable string?)))
 (s/def ::tab-and-input-args (s/tuple ::keyword-or-string any?))
 (s/def ::single-input-args (s/tuple any?))
 (s/def ::single-or-double-input-args (s/or :single (s/tuple any?)
@@ -245,6 +248,12 @@
    :actions/toggle-portfolio-summary-time-range-dropdown ::no-args
    :actions/select-portfolio-summary-time-range ::keyword-or-string-args
    :actions/select-portfolio-chart-tab ::keyword-or-string-args
+   :actions/set-portfolio-returns-benchmark-search ::single-input-args
+   :actions/set-portfolio-returns-benchmark-suggestions-open ::boolean-args
+   :actions/select-portfolio-returns-benchmark ::optional-string-args
+   :actions/remove-portfolio-returns-benchmark ::coin-args
+   :actions/handle-portfolio-returns-benchmark-search-keydown ::keydown-with-optional-coin-args
+   :actions/clear-portfolio-returns-benchmark ::no-args
    :actions/toggle-orderbook-size-unit-dropdown ::no-args
    :actions/select-orderbook-size-unit ::keyword-or-string-args
    :actions/toggle-orderbook-price-aggregation-dropdown ::no-args

@@ -200,9 +200,10 @@
          request-candle-snapshot-fn api/request-candle-snapshot!
          apply-candle-snapshot-success api-projections/apply-candle-snapshot-success
          apply-candle-snapshot-error api-projections/apply-candle-snapshot-error}}]
-  (fn [_ store & {:keys [interval bars] :or {interval :1d bars 330}}]
+  (fn [_ store & {:keys [coin interval bars] :or {interval :1d bars 330}}]
     (app-effects/fetch-candle-snapshot!
      {:store store
+      :coin coin
       :interval interval
       :bars bars
       :log-fn log-fn

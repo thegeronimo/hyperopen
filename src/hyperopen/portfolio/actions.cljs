@@ -64,6 +64,70 @@
       normalized
       default-chart-tab)))
 
+(defn normalize-portfolio-returns-benchmark-coin
+  [value]
+  (let [coin (cond
+               (map? value) (:coin value)
+               (keyword? value) (name value)
+               (string? value) value
+               :else nil)
+        coin* (some-> coin str str/trim)]
+    (when (seq coin*)
+      coin*)))
+
+(defn normalize-portfolio-returns-benchmark-coins
+  [value]
+  (let [source (cond
+                 (sequential? value) value
+                 (set? value) (seq value)
+                 :else (when-let [coin (normalize-portfolio-returns-benchmark-coin value)]
+                         [coin]))]
+    (->> source
+         (keep normalize-portfolio-returns-benchmark-coin)
+         distinct
+         vec)))
+
+(defn- selected-returns-benchmark-coins
+  [state]
+  (let [coins (normalize-portfolio-returns-benchmark-coins
+               (get-in state [:portfolio-ui :returns-benchmark-coins]))]
+    (if (seq coins)
+      coins
+      (if-let [legacy-coin (normalize-portfolio-returns-benchmark-coin
+                            (get-in state [:portfolio-ui :returns-benchmark-coin]))]
+        [legacy-coin]
+        []))))
+
+(defn- normalize-returns-benchmark-search
+  [value]
+  (if (string? value)
+    value
+    (str (or value ""))))
+
+(defn returns-benchmark-candle-request
+  [summary-time-range]
+  (case (normalize-summary-time-range summary-time-range)
+    :day {:interval :5m
+          :bars 400}
+    :week {:interval :15m
+           :bars 800}
+    :month {:interval :1h
+            :bars 800}
+    :all-time {:interval :1d
+               :bars 5000}
+    {:interval :1h
+     :bars 800}))
+
+(defn- returns-benchmark-fetch-effects
+  [summary-time-range benchmark-coins]
+  (let [{:keys [interval bars]} (returns-benchmark-candle-request summary-time-range)]
+    (->> (normalize-portfolio-returns-benchmark-coins benchmark-coins)
+         (mapv (fn [coin]
+                 [:effects/fetch-candle-snapshot
+                  :coin coin
+                  :interval interval
+                  :bars bars])))))
+
 (defn- selector-visibility-path-values
   [open-dropdown]
   [[[:portfolio-ui :summary-scope-dropdown-open?] (= open-dropdown :scope)]
@@ -94,12 +158,94 @@
                                      (normalize-summary-scope scope)]])])
 
 (defn select-portfolio-summary-time-range
-  [_state time-range]
-  [(selector-projection-effect nil [[[:portfolio-ui :summary-time-range]
-                                     (normalize-summary-time-range time-range)]])])
+  [state time-range]
+  (let [time-range* (normalize-summary-time-range time-range)
+        benchmark-coins (selected-returns-benchmark-coins state)
+        fetch-effects (returns-benchmark-fetch-effects time-range* benchmark-coins)]
+    (into [(selector-projection-effect nil [[[:portfolio-ui :summary-time-range]
+                                             time-range*]])]
+          fetch-effects)))
 
 (defn select-portfolio-chart-tab
-  [_state chart-tab]
+  [state chart-tab]
+  (let [chart-tab* (normalize-portfolio-chart-tab chart-tab)
+        summary-time-range (normalize-summary-time-range
+                            (get-in state [:portfolio-ui :summary-time-range]
+                                    default-summary-time-range))
+        benchmark-coins (selected-returns-benchmark-coins state)
+        fetch-effects (if (= chart-tab* :returns)
+                        (returns-benchmark-fetch-effects summary-time-range benchmark-coins)
+                        [])]
+    (into [[:effects/save
+            [:portfolio-ui :chart-tab]
+            chart-tab*]]
+          fetch-effects)))
+
+(defn set-portfolio-returns-benchmark-search
+  [_state search]
   [[:effects/save
-    [:portfolio-ui :chart-tab]
-    (normalize-portfolio-chart-tab chart-tab)]])
+    [:portfolio-ui :returns-benchmark-search]
+    (normalize-returns-benchmark-search search)]])
+
+(defn set-portfolio-returns-benchmark-suggestions-open
+  [_state open?]
+  [[:effects/save
+    [:portfolio-ui :returns-benchmark-suggestions-open?]
+    (boolean open?)]])
+
+(declare clear-portfolio-returns-benchmark)
+
+(defn select-portfolio-returns-benchmark
+  [state benchmark]
+  (if-let [coin (normalize-portfolio-returns-benchmark-coin benchmark)]
+    (let [summary-time-range (normalize-summary-time-range
+                              (get-in state [:portfolio-ui :summary-time-range]
+                                      default-summary-time-range))
+          selected-coins (selected-returns-benchmark-coins state)
+          already-selected? (contains? (set selected-coins) coin)
+          next-coins (if already-selected?
+                       selected-coins
+                       (conj selected-coins coin))
+          projection-effect [:effects/save-many
+                             [[[:portfolio-ui :returns-benchmark-coins] next-coins]
+                              [[:portfolio-ui :returns-benchmark-coin] (first next-coins)]
+                              [[:portfolio-ui :returns-benchmark-search] ""]
+                              [[:portfolio-ui :returns-benchmark-suggestions-open?] true]]]
+          fetch-effects (if already-selected?
+                          []
+                          (returns-benchmark-fetch-effects summary-time-range [coin]))]
+      (into [projection-effect] fetch-effects))
+    (clear-portfolio-returns-benchmark state)))
+
+(defn remove-portfolio-returns-benchmark
+  [state benchmark]
+  (if-let [coin (normalize-portfolio-returns-benchmark-coin benchmark)]
+    (let [next-coins (->> (selected-returns-benchmark-coins state)
+                          (remove #(= % coin))
+                          vec)]
+      [[:effects/save-many
+        [[[:portfolio-ui :returns-benchmark-coins] next-coins]
+         [[:portfolio-ui :returns-benchmark-coin] (first next-coins)]]]])
+    []))
+
+(defn handle-portfolio-returns-benchmark-search-keydown
+  [state key top-coin]
+  (cond
+    (= key "Enter")
+    (if-let [coin (normalize-portfolio-returns-benchmark-coin top-coin)]
+      (select-portfolio-returns-benchmark state coin)
+      [])
+
+    (= key "Escape")
+    [[:effects/save [:portfolio-ui :returns-benchmark-suggestions-open?] false]]
+
+    :else
+    []))
+
+(defn clear-portfolio-returns-benchmark
+  [_state]
+  [[:effects/save-many
+    [[[:portfolio-ui :returns-benchmark-coins] []]
+     [[:portfolio-ui :returns-benchmark-coin] nil]
+     [[:portfolio-ui :returns-benchmark-search] ""]
+     [[:portfolio-ui :returns-benchmark-suggestions-open?] false]]]])

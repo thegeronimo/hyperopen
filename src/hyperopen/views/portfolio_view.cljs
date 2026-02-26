@@ -213,6 +213,161 @@
                :data-role data-role}]
         children))
 
+(defn- returns-benchmark-chip [{:keys [value label]}]
+  [:span {:class ["inline-flex"
+                  "max-w-full"
+                  "items-center"
+                  "gap-1"
+                  "rounded-md"
+                  "border"
+                  "border-base-300"
+                  "bg-base-200"
+                  "px-1.5"
+                  "py-1"]
+          :data-role (str "portfolio-returns-benchmark-chip-" value)}
+   [:span {:class ["min-w-0" "truncate" "text-xs" "text-trading-text"]}
+    label]
+   [:button {:type "button"
+             :class ["inline-flex"
+                     "h-6"
+                     "w-6"
+                     "items-center"
+                     "justify-center"
+                     "rounded"
+                     "text-trading-text-secondary"
+                     "transition-colors"
+                     "hover:bg-base-300"
+                     "hover:text-trading-text"
+                     "focus:outline-none"
+                     "focus:ring-0"
+                     "focus:ring-offset-0"]
+             :aria-label (str "Remove benchmark " label)
+             :on {:click [[:actions/remove-portfolio-returns-benchmark value]]}}
+    "x"]])
+
+(defn- returns-benchmark-suggestion-row [{:keys [value label]}]
+  [:button {:type "button"
+            :class ["flex"
+                    "w-full"
+                    "items-center"
+                    "justify-start"
+                    "rounded"
+                    "px-2"
+                    "py-1.5"
+                    "text-left"
+                    "text-xs"
+                    "text-trading-text"
+                    "transition-colors"
+                    "hover:bg-base-300"
+                    "focus:outline-none"
+                    "focus:ring-0"
+                    "focus:ring-offset-0"]
+            :data-role (str "portfolio-returns-benchmark-suggestion-" value)
+            :on {:mousedown [[:actions/select-portfolio-returns-benchmark value]]}}
+   label])
+
+(defn- returns-benchmark-selector [{:keys [selected-options
+                                           coin-search
+                                           suggestions-open?
+                                           candidates
+                                           top-coin
+                                           empty-message]}]
+  (let [selected-options* (vec (or selected-options []))
+        candidates* (vec (or candidates []))]
+    [:div {:class ["relative" "w-[320px]"]
+           :data-role "portfolio-returns-benchmark-selector"}
+     [:div {:class ["mb-1" "text-xs" "font-medium" "uppercase" "tracking-[0.04em]" "text-trading-text-secondary"]}
+      "Benchmarks"]
+     [:div {:class ["rounded-md" "border" "border-base-300" "bg-base-100" "px-2" "py-1.5"]}
+      [:div {:class ["flex" "max-h-20" "flex-wrap" "items-center" "gap-1.5" "overflow-y-auto"]}
+       (for [{:keys [value] :as option} selected-options*]
+         ^{:key (str "portfolio-returns-benchmark-chip-" value)}
+         (returns-benchmark-chip option))
+       [:input {:id "portfolio-returns-benchmark-search"
+                :class ["h-8"
+                        "min-w-[9rem]"
+                        "flex-1"
+                        "border-0"
+                        "bg-transparent"
+                        "px-1"
+                        "text-xs"
+                        "text-trading-text"
+                        "focus:outline-none"
+                        "focus:ring-0"
+                        "focus:ring-offset-0"]
+                :type "search"
+                :placeholder "Search symbols and press Enter"
+                :aria-label "Search benchmark symbols"
+                :autocomplete "off"
+                :spellcheck false
+                :value (or coin-search "")
+                :on {:input [[:actions/set-portfolio-returns-benchmark-search [:event.target/value]]]
+                     :focus [[:actions/set-portfolio-returns-benchmark-suggestions-open true]]
+                     :blur [[:actions/set-portfolio-returns-benchmark-suggestions-open false]]
+                     :keydown [[:actions/handle-portfolio-returns-benchmark-search-keydown [:event/key] top-coin]]}}]]]
+     (when suggestions-open?
+       [:div {:class ["absolute"
+                      "left-0"
+                      "right-0"
+                      "top-full"
+                      "mt-1"
+                      "max-h-44"
+                      "overflow-y-auto"
+                      "rounded-md"
+                      "border"
+                      "border-base-300"
+                      "bg-base-100"
+                      "p-1"
+                      "shadow-lg"
+                      "z-40"]}
+        (if (seq candidates*)
+          (for [option candidates*]
+            ^{:key (str "portfolio-returns-benchmark-suggestion-" (:value option))}
+            (returns-benchmark-suggestion-row option))
+          [:div {:class ["px-2" "py-1.5" "text-xs" "text-trading-text-secondary"]}
+           (or empty-message "No matching symbols.")])])]))
+
+(defn- chart-series-path [{:keys [id path stroke]}]
+  (when (seq path)
+    [:path {:d path
+            :fill "none"
+            :stroke stroke
+            :stroke-width 1.4
+            :vector-effect "non-scaling-stroke"
+            :stroke-linecap "square"
+            :stroke-linejoin "miter"
+            :data-role (if (= id :strategy)
+                         "portfolio-chart-path"
+                         (str "portfolio-chart-path-" (name id)))}]))
+
+(defn- chart-legend [series]
+  (let [visible-series (->> series
+                            (filter :has-data?)
+                            vec)]
+    (when (> (count visible-series) 1)
+      [:div {:class ["absolute"
+                     "top-2.5"
+                     "left-2.5"
+                     "z-10"
+                     "flex"
+                     "items-center"
+                     "gap-3"
+                     "rounded-md"
+                     "border"
+                     "border-base-300"
+                     "bg-base-100/95"
+                     "px-2"
+                     "py-1"]
+             :data-role "portfolio-chart-legend"}
+       (for [{:keys [id label stroke]} visible-series]
+         ^{:key (str "portfolio-chart-legend-item-" (name id))}
+         [:div {:class ["flex" "items-center" "gap-1.5"]
+                :data-role (str "portfolio-chart-legend-item-" (name id))}
+          [:span {:class ["h-2" "w-2" "rounded-full"]
+                  :style {:background-color stroke}}]
+          [:span {:class ["text-xs" "text-trading-text-secondary"]}
+           label]])])))
+
 (defn- summary-card [{:keys [summary selectors]}]
   (let [pnl-info (pnl-summary (:pnl summary))
         summary-scope (:summary-scope selectors)
@@ -243,11 +398,12 @@
       (when (:show-staking-account? summary)
         (summary-row "Staking Account" (format-hype (:staking-account-hype summary))))])))
 
-(defn- chart-card [{:keys [chart]}]
-  (let [{:keys [tabs selected-tab axis-kind y-ticks path]} chart
+(defn- chart-card [{:keys [chart selectors]}]
+  (let [{:keys [tabs selected-tab axis-kind y-ticks series]} chart
+        returns-benchmark (:returns-benchmark selectors)
         y-axis-width (y-axis-gutter-width axis-kind y-ticks)
         plot-left (+ y-axis-width 10)]
-     (section-card
+    (section-card
      "portfolio-chart-card"
      [:div {:class ["flex" "items-center" "border-b" "border-base-300"]}
       (for [{tab-value :value
@@ -261,7 +417,10 @@
                   :data-role (str "portfolio-chart-tab-" (name tab-value))
                   :aria-pressed (= tab-value selected-tab)
                   :on {:click [[:actions/select-portfolio-chart-tab tab-value]]}}
-         tab-label])]
+         tab-label])
+      (when (= selected-tab :returns)
+        [:div {:class ["ml-auto" "px-3" "py-2"]}
+         (returns-benchmark-selector returns-benchmark)])]
      [:div {:class ["h-[182px]" "px-4" "py-3" "relative"]
             :data-role "portfolio-chart-shell"}
       [:div {:class ["absolute" "left-0" "top-3" "bottom-3"]
@@ -292,6 +451,7 @@
                         "border-t"
                         "border-base-300"]
                 :style {:top (str (* 100 y-ratio) "%")}}])]
+      (chart-legend series)
       [:div {:class ["absolute" "right-2" "top-3" "bottom-3"]
              :style {:left (str plot-left "px")}}
        [:svg {:viewBox "0 0 100 100"
@@ -304,15 +464,9 @@
                 :stroke "#28414a"
                 :stroke-width 0.8
                 :vector-effect "non-scaling-stroke"}]
-        (when (seq path)
-          [:path {:d path
-                  :fill "none"
-                  :stroke "#f5f7f8"
-                  :stroke-width 1.4
-                  :vector-effect "non-scaling-stroke"
-                  :stroke-linecap "square"
-                  :stroke-linejoin "miter"
-                  :data-role "portfolio-chart-path"}])]]])))
+        (for [{series-id :id :as series-entry} (or series [])]
+          ^{:key (str "portfolio-chart-path-" (name series-id))}
+          (chart-series-path series-entry))]]])))
 
 (defn- metric-cards [{:keys [volume-14d-usd fees]}]
   [:div {:class ["grid" "grid-cols-1" "gap-3" "md:grid-cols-2" "xl:grid-cols-1"]}
