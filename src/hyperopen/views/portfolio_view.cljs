@@ -693,7 +693,8 @@
                    "gap-3"
                    "hover:bg-base-300"]
            :data-role (str "portfolio-performance-metric-" (name key))}
-     [:span {:class ["text-sm" "text-trading-text-secondary"]}
+     [:span {:class ["text-sm"]
+             :style {:color "#9CA3AF"}}
       label]
      (performance-metric-value-cell kind (:benchmark-value row))
      (performance-metric-value-cell kind portfolio-value)]))
