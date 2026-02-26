@@ -405,8 +405,6 @@
                      "items-center"
                      "gap-3"
                      "rounded-md"
-                     "border"
-                     "border-base-300"
                      "bg-base-100/95"
                      "px-2"
                      "py-1"]
