@@ -25,6 +25,7 @@
 (declare request-user-abstraction!)
 (declare request-portfolio!)
 (declare request-user-fees!)
+(declare request-user-non-funding-ledger-updates!)
 (declare ensure-perp-dexs-data!)
 (declare request-asset-selector-markets!)
 (declare request-historical-orders-data!)
@@ -459,6 +460,19 @@
    (account-gateway/request-user-fees!
     {:post-info! post-info!}
     address
+    opts)))
+
+(defn request-user-non-funding-ledger-updates!
+  ([address start-time-ms]
+   (request-user-non-funding-ledger-updates! address start-time-ms nil {}))
+  ([address start-time-ms end-time-ms]
+   (request-user-non-funding-ledger-updates! address start-time-ms end-time-ms {}))
+  ([address start-time-ms end-time-ms opts]
+   (account-gateway/request-user-non-funding-ledger-updates!
+    {:post-info! post-info!}
+    address
+    start-time-ms
+    end-time-ms
     opts)))
 
 (defn request-clearinghouse-state!

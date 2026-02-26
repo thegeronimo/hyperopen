@@ -227,6 +227,18 @@
               {:post-info! post-info!}
               address
               opts)))
+          (request-user-non-funding-ledger-updates!
+            ([address start-time-ms]
+             (request-user-non-funding-ledger-updates! address start-time-ms nil {}))
+            ([address start-time-ms end-time-ms]
+             (request-user-non-funding-ledger-updates! address start-time-ms end-time-ms {}))
+            ([address start-time-ms end-time-ms opts]
+             (account-gateway/request-user-non-funding-ledger-updates!
+              {:post-info! post-info!}
+              address
+              start-time-ms
+              end-time-ms
+              opts)))
           (request-clearinghouse-state!
             ([address dex]
              (request-clearinghouse-state! address dex {}))
@@ -241,6 +253,7 @@
      :request-user-abstraction! request-user-abstraction!
      :request-portfolio! request-portfolio!
      :request-user-fees! request-user-fees!
+     :request-user-non-funding-ledger-updates! request-user-non-funding-ledger-updates!
      :request-clearinghouse-state! request-clearinghouse-state!}))
 
 (defn make-api

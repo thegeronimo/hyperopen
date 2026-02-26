@@ -104,12 +104,15 @@
   []
   {:summary-by-key {}
    :user-fees nil
+   :ledger-updates []
    :loading? false
    :user-fees-loading? false
    :error nil
    :user-fees-error nil
+   :ledger-error nil
    :loaded-at-ms nil
-   :user-fees-loaded-at-ms nil})
+   :user-fees-loaded-at-ms nil
+   :ledger-loaded-at-ms nil})
 
 (defn default-account-info-state
   [{:keys [default-trade-history

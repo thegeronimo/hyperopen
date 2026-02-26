@@ -84,6 +84,19 @@
    opts]
   (account-endpoints/request-user-fees! post-info! address opts))
 
+(defn request-user-non-funding-ledger-updates!
+  [{:keys [post-info!]}
+   address
+   start-time-ms
+   end-time-ms
+   opts]
+  (account-endpoints/request-user-non-funding-ledger-updates!
+   post-info!
+   address
+   start-time-ms
+   end-time-ms
+   opts))
+
 (defn fetch-user-abstraction!
   [{:keys [log-fn
            request-user-abstraction!

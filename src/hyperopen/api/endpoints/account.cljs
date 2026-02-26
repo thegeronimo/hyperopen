@@ -232,3 +232,43 @@
       (post-info! {"type" "userFees"
                    "user" address}
                   opts*))))
+
+(defn- non-funding-ledger-updates-seq
+  [payload]
+  (cond
+    (sequential? payload)
+    (vec payload)
+
+    (map? payload)
+    (let [data (:data payload)
+          nested (or (:nonFundingLedgerUpdates payload)
+                     (:userNonFundingLedgerUpdates payload)
+                     (when (map? data)
+                       (or (:nonFundingLedgerUpdates data)
+                           (:userNonFundingLedgerUpdates data)))
+                     data)]
+      (if (sequential? nested)
+        (vec nested)
+        []))
+
+    :else
+    []))
+
+(defn request-user-non-funding-ledger-updates!
+  [post-info! address start-time-ms end-time-ms opts]
+  (if-not address
+    (js/Promise.resolve [])
+    (let [requested-address (some-> address str str/lower-case)
+          start-time* (when (number? start-time-ms)
+                        (js/Math.floor start-time-ms))
+          end-time* (when (number? end-time-ms)
+                      (js/Math.floor end-time-ms))
+          body (cond-> {"type" "userNonFundingLedgerUpdates"
+                        "user" address}
+                 (number? start-time*) (assoc "startTime" start-time*)
+                 (number? end-time*) (assoc "endTime" end-time*))
+          opts* (merge {:priority :high
+                        :dedupe-key [:user-non-funding-ledger requested-address start-time* end-time*]}
+                       opts)]
+      (-> (post-info! body opts*)
+          (.then non-funding-ledger-updates-seq)))))

@@ -91,6 +91,7 @@
         time-range-selector (find-first-node view-node #(= "portfolio-summary-time-range-selector" (get-in % [1 :data-role])))
         chart-account-value-tab (find-first-node view-node #(= "portfolio-chart-tab-account-value" (get-in % [1 :data-role])))
         chart-pnl-tab (find-first-node view-node #(= "portfolio-chart-tab-pnl" (get-in % [1 :data-role])))
+        chart-returns-tab (find-first-node view-node #(= "portfolio-chart-tab-returns" (get-in % [1 :data-role])))
         chart-shell (find-first-node view-node #(= "portfolio-chart-shell" (get-in % [1 :data-role])))
         chart-path (find-first-node view-node #(= "portfolio-chart-path" (get-in % [1 :data-role])))
         account-table (find-first-node view-node #(= "portfolio-account-table" (get-in % [1 :data-role])))
@@ -104,6 +105,7 @@
     (is (some? time-range-selector))
     (is (some? chart-account-value-tab))
     (is (some? chart-pnl-tab))
+    (is (some? chart-returns-tab))
     (is (some? chart-shell))
     (is (some? chart-path))
     (is (some? account-table))
@@ -114,6 +116,7 @@
     (is (contains? all-text "30D"))
     (is (contains? all-text "Account Value"))
     (is (contains? all-text "PNL"))
+    (is (contains? all-text "Returns"))
     (is (contains? all-text "Max Drawdown"))
     (is (contains? all-text "Vault Equity"))
     (is (contains? all-text "Staking Account"))
@@ -143,3 +146,16 @@
     (is (> y-axis-width-px 56))
     (is (some? y-axis-label-node))
     (is (some #(re-find #"[0-9],[0-9]" %) all-text))))
+
+(deftest portfolio-view-returns-tab-renders-percent-axis-labels-test
+  (let [state (-> sample-state
+                  (assoc-in [:portfolio-ui :chart-tab] :returns)
+                  (assoc-in [:portfolio :summary-by-key :month :pnlHistory]
+                            [[1 0] [2 2] [3 -1]])
+                  (assoc-in [:portfolio :summary-by-key :month :accountValueHistory]
+                            [[1 100] [2 102] [3 99]]))
+        view-node (portfolio-view/portfolio-view state)
+        all-text (collect-strings view-node)]
+    (is (some #(= "Returns" %) all-text))
+    (is (some #(re-find #"\+[0-9]+\.[0-9]{2}%" %) all-text))
+    (is (some #(re-find #"-[0-9]+\.[0-9]{2}%" %) all-text))))

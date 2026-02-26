@@ -512,3 +512,45 @@
     (is (= {:priority :high
             :dedupe-key [:user-fees "0xabc"]}
            (second (first @calls))))))
+
+(deftest request-user-non-funding-ledger-updates-short-circuits-without-address-test
+  (async done
+    (let [calls (atom 0)
+          post-info! (api-stubs/post-info-stub
+                      (fn [_body _opts]
+                        (swap! calls inc)
+                        [{:time 1}]))]
+      (-> (account/request-user-non-funding-ledger-updates! post-info! nil 1000 2000 {})
+          (.then (fn [result]
+                   (is (= [] result))
+                   (is (= 0 @calls))
+                   (done)))
+          (.catch (async-support/unexpected-error done))))))
+
+(deftest request-user-non-funding-ledger-updates-builds-body-and-normalizes-response-test
+  (async done
+    (let [calls (atom [])
+          post-info! (api-stubs/post-info-stub calls {:data {:nonFundingLedgerUpdates [{:time 123
+                                                                                        :delta {:type "deposit"
+                                                                                                :usdc "10.0"}}]}})]
+      (-> (account/request-user-non-funding-ledger-updates! post-info!
+                                                             "0xAbC"
+                                                             1000.9
+                                                             2000.2
+                                                             {:priority :low})
+          (.then (fn [rows]
+                   (let [[body opts] (first @calls)]
+                     (is (= {"type" "userNonFundingLedgerUpdates"
+                             "user" "0xAbC"
+                             "startTime" 1000
+                             "endTime" 2000}
+                            body))
+                     (is (= {:priority :low
+                             :dedupe-key [:user-non-funding-ledger "0xabc" 1000 2000]}
+                            opts))
+                     (is (= [{:time 123
+                              :delta {:type "deposit"
+                                      :usdc "10.0"}}]
+                            rows))
+                     (done))))
+          (.catch (async-support/unexpected-error done))))))

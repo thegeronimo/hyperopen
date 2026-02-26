@@ -17,7 +17,7 @@
   #{:day :week :month :all-time})
 
 (def ^:private chart-tab-options
-  #{:account-value :pnl})
+  #{:account-value :pnl :returns})
 
 (defn- normalize-keyword-like
   [value]
@@ -58,6 +58,7 @@
         normalized (case token
                      :accountvalue :account-value
                      :account :account-value
+                     :return :returns
                      token)]
     (if (contains? chart-tab-options normalized)
       normalized

@@ -53,6 +53,10 @@
          (actions/select-portfolio-chart-tab {} "accountValue")))
   (is (= [[:effects/save
            [:portfolio-ui :chart-tab]
+           :returns]]
+         (actions/select-portfolio-chart-tab {} "return")))
+  (is (= [[:effects/save
+           [:portfolio-ui :chart-tab]
            :pnl]]
          (actions/select-portfolio-chart-tab {} :pnl)))
   (is (= [[:effects/save

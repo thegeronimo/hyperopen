@@ -143,8 +143,93 @@
       (is (= :pnl (get-in view-model [:chart :selected-tab])))
       (is (= [-10 5]
              (mapv :value (get-in view-model [:chart :points]))))
-      (is (= ["Account Value" "PNL"]
+      (is (= ["Account Value" "PNL" "Returns"]
              (mapv :label (get-in view-model [:chart :tabs])))))))
+
+(deftest portfolio-vm-returns-tab-uses-flow-adjusted-time-weighted-returns-to-avoid-cashflow-spikes-test
+  (with-redefs [account-equity-view/account-equity-metrics (fn [_]
+                                                              {:spot-equity 10
+                                                               :perps-value 10
+                                                               :cross-account-value 10
+                                                               :unrealized-pnl 0})]
+    (let [state {:account {:mode :classic}
+                 :portfolio-ui {:summary-scope :all
+                                :summary-time-range :month
+                                :chart-tab :returns}
+                 :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [2 0] [3 -1] [4 -2]]
+                                                      :accountValueHistory [[1 4] [2 205] [3 204] [4 205]]
+                                                      :vlm 10}}
+                             :ledger-updates [{:time 2
+                                               :hash "0xabc"
+                                               :delta {:type "deposit"
+                                                       :usdc "201.0"}}]}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
+                           :totalVaultEquity 0}
+                 :borrow-lend {:total-supplied-usd 0}}
+          view-model (vm/portfolio-vm state)]
+      (is (= :returns (get-in view-model [:chart :selected-tab])))
+      (is (= :percent (get-in view-model [:chart :axis-kind])))
+      (is (= [1 2 3 4]
+             (mapv :time-ms (get-in view-model [:chart :points]))))
+      (is (= [0 0 -0.49 0]
+             (mapv :value (get-in view-model [:chart :points]))))
+      (is (seq (get-in view-model [:chart :path]))))))
+
+(deftest portfolio-vm-returns-tab-treats-account-class-transfer-as-flow-for-perps-scope-test
+  (with-redefs [account-equity-view/account-equity-metrics (fn [_]
+                                                              {:spot-equity 10
+                                                               :perps-value 10
+                                                               :cross-account-value 10
+                                                               :unrealized-pnl 0})]
+    (let [state {:account {:mode :classic}
+                 :portfolio-ui {:summary-scope :perps
+                                :summary-time-range :month
+                                :chart-tab :returns}
+                 :portfolio {:summary-by-key {:perp-month {:pnlHistory [[1 0] [2 0] [3 0]]
+                                                           :accountValueHistory [[1 100] [2 150] [3 150]]
+                                                           :vlm 10}}
+                             :ledger-updates [{:time 2
+                                               :hash "0xdef"
+                                               :delta {:type "accountClassTransfer"
+                                                       :usdc "50"
+                                                       :toPerp true}}]}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
+                           :totalVaultEquity 0}
+                 :borrow-lend {:total-supplied-usd 0}}
+          view-model (vm/portfolio-vm state)]
+      (is (= :returns (get-in view-model [:chart :selected-tab])))
+      (is (= [0 0 0]
+             (mapv :value (get-in view-model [:chart :points])))))))
+
+(deftest portfolio-vm-returns-tab-keeps-distinct-same-hash-ledger-events-for-flow-adjustment-test
+  (with-redefs [account-equity-view/account-equity-metrics (fn [_]
+                                                              {:spot-equity 10
+                                                               :perps-value 10
+                                                               :cross-account-value 10
+                                                               :unrealized-pnl 0})]
+    (let [state {:account {:mode :classic}
+                 :portfolio-ui {:summary-scope :all
+                                :summary-time-range :month
+                                :chart-tab :returns}
+                 :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [2 0]]
+                                                      :accountValueHistory [[1 100] [2 200]]
+                                                      :vlm 10}}
+                             :ledger-updates [{:time 2
+                                               :hash "0xshared"
+                                               :delta {:type "deposit"
+                                                       :usdc "100"}}]}
+                 :orders {:ledger [{:time 2
+                                    :hash "0xshared"
+                                    :delta {:type "withdraw"
+                                            :usdc "50"
+                                            :fee "0"}}]}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
+                           :totalVaultEquity 0}
+                 :borrow-lend {:total-supplied-usd 0}}
+          view-model (vm/portfolio-vm state)]
+      (is (= :returns (get-in view-model [:chart :selected-tab])))
+      (is (= [0 50]
+             (mapv :value (get-in view-model [:chart :points])))))))
 
 (deftest portfolio-vm-chart-y-axis-uses-readable-step-ticks-test
   (with-redefs [account-equity-view/account-equity-metrics (fn [_]

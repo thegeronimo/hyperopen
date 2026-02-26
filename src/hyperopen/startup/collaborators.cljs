@@ -33,6 +33,7 @@
    :request-user-abstraction! (resolve-api-op api-instance :request-user-abstraction! api-default/request-user-abstraction!)
    :request-portfolio! (resolve-api-op api-instance :request-portfolio! api-default/request-portfolio!)
    :request-user-fees! (resolve-api-op api-instance :request-user-fees! api-default/request-user-fees!)
+   :request-user-non-funding-ledger-updates! (resolve-api-op api-instance :request-user-non-funding-ledger-updates! api-default/request-user-non-funding-ledger-updates!)
    :ensure-perp-dexs-data! (resolve-api-op api-instance :ensure-perp-dexs-data! api-default/ensure-perp-dexs-data!)
    :request-asset-contexts! (resolve-api-op api-instance :request-asset-contexts! api-default/request-asset-contexts!)
    :request-asset-selector-markets! (resolve-api-op api-instance :request-asset-selector-markets! api-default/request-asset-selector-markets!)})
@@ -113,18 +114,99 @@
                       snapshot)))
            (.catch promise-effects/reject-error))))))
 
+(defn- optional-number
+  [value]
+  (cond
+    (number? value)
+    (when (js/isFinite value)
+      value)
+
+    (string? value)
+    (let [trimmed (str/trim value)]
+      (when (seq trimmed)
+        (let [parsed (js/Number trimmed)]
+          (when (js/isFinite parsed)
+            parsed))))
+
+    :else
+    nil))
+
+(defn- history-row-time-ms
+  [row]
+  (cond
+    (and (sequential? row)
+         (seq row))
+    (optional-number (first row))
+
+    (map? row)
+    (or (optional-number (:time row))
+        (optional-number (:timestamp row))
+        (optional-number (:time-ms row))
+        (optional-number (:timeMs row))
+        (optional-number (:ts row))
+        (optional-number (:t row)))
+
+    :else
+    nil))
+
+(defn- portfolio-summary-time-window
+  [summary-by-key]
+  (let [times (->> (vals (or summary-by-key {}))
+                   (mapcat (fn [entry]
+                             (or (:accountValueHistory entry) [])))
+                   (keep history-row-time-ms)
+                   vec)]
+    (when (seq times)
+      {:start-time-ms (apply min times)
+       :end-time-ms (apply max times)})))
+
+(defn- normalize-ledger-updates
+  [rows]
+  (if (sequential? rows)
+    (vec rows)
+    []))
+
+(defn- error-text
+  [err]
+  (or (some-> err .-message)
+      (some-> err str)))
+
 (defn- fetch-portfolio!
   ([api-ops store address]
    (fetch-portfolio! api-ops store address {}))
-  ([{:keys [request-portfolio!]} store address opts]
+  ([{:keys [request-portfolio!
+            request-user-non-funding-ledger-updates!]} store address opts]
    (if-not address
      (js/Promise.resolve {})
      (do
        (swap! store api-projections/begin-portfolio-load)
        (-> (request-portfolio! address opts)
-           (.then (promise-effects/apply-success-and-return
-                   store
-                   api-projections/apply-portfolio-success))
+           (.then (fn [summary-by-key]
+                    (let [summary* (or summary-by-key {})
+                          {:keys [start-time-ms end-time-ms]} (portfolio-summary-time-window summary*)]
+                      (swap! store api-projections/apply-portfolio-success summary*)
+                      (if (and (fn? request-user-non-funding-ledger-updates!)
+                               (number? start-time-ms)
+                               (number? end-time-ms)
+                               (<= start-time-ms end-time-ms))
+                        (-> (request-user-non-funding-ledger-updates! address
+                                                                       start-time-ms
+                                                                       end-time-ms
+                                                                       (dissoc (or opts {}) :dedupe-key))
+                            (.then (fn [rows]
+                                     (swap! store assoc-in [:portfolio :ledger-updates] (normalize-ledger-updates rows))
+                                     (swap! store assoc-in [:portfolio :ledger-loaded-at-ms] (.now js/Date))
+                                     (swap! store assoc-in [:portfolio :ledger-error] nil)
+                                     summary*))
+                            (.catch (fn [err]
+                                      ;; Portfolio summary should remain available even if ledger fetch fails.
+                                      (swap! store assoc-in [:portfolio :ledger-error] (error-text err))
+                                      (js/Promise.resolve summary*))))
+                        (do
+                          (swap! store assoc-in [:portfolio :ledger-updates] [])
+                          (swap! store assoc-in [:portfolio :ledger-loaded-at-ms] nil)
+                          (swap! store assoc-in [:portfolio :ledger-error] nil)
+                          (js/Promise.resolve summary*))))))
            (.catch (promise-effects/apply-error-and-reject
                     store
                     api-projections/apply-portfolio-error)))))))

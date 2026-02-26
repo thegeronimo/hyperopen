@@ -62,6 +62,22 @@
   (let [n (if (number? value) value 0)]
     (.format integer-formatter (js/Math.round n))))
 
+(defn- format-axis-percent [value]
+  (let [n (if (number? value) value 0)
+        rounded (/ (js/Math.round (* n 100)) 100)
+        rounded* (if (== rounded -0) 0 rounded)
+        magnitude (.toFixed (js/Math.abs rounded*) 2)
+        sign (cond
+               (pos? rounded*) "+"
+               (neg? rounded*) "-"
+               :else "")]
+    (str sign magnitude "%")))
+
+(defn- format-axis-label [axis-kind value]
+  (if (= axis-kind :percent)
+    (format-axis-percent value)
+    (format-axis-number value)))
+
 (def ^:private axis-label-fallback-char-width-px
   7.5)
 
@@ -89,10 +105,10 @@
             .-width))
       (* axis-label-fallback-char-width-px (count text)))))
 
-(defn- y-axis-gutter-width [y-ticks]
+(defn- y-axis-gutter-width [axis-kind y-ticks]
   (let [widest-label-px (->> y-ticks
                              (map (fn [{:keys [value]}]
-                                    (axis-label-width-px (format-axis-number value))))
+                                    (axis-label-width-px (format-axis-label axis-kind value))))
                              (reduce max 0))
         gutter-width (+ widest-label-px axis-label-horizontal-padding-px)]
     (js/Math.ceil (max axis-label-min-gutter-width-px gutter-width))))
@@ -228,25 +244,24 @@
         (summary-row "Staking Account" (format-hype (:staking-account-hype summary))))])))
 
 (defn- chart-card [{:keys [chart]}]
-  (let [{:keys [tabs selected-tab y-ticks path]} chart
-        y-axis-width (y-axis-gutter-width y-ticks)
+  (let [{:keys [tabs selected-tab axis-kind y-ticks path]} chart
+        y-axis-width (y-axis-gutter-width axis-kind y-ticks)
         plot-left (+ y-axis-width 10)]
-    (section-card
+     (section-card
      "portfolio-chart-card"
-     [:div {:class ["grid" "grid-cols-[auto_auto_1fr]" "items-center"]}
+     [:div {:class ["flex" "items-center" "border-b" "border-base-300"]}
       (for [{tab-value :value
              tab-label :label} tabs]
         ^{:key (str "portfolio-chart-tab-" (name tab-value))}
         [:button {:type "button"
-                  :class (into ["px-4" "py-3" "text-sm" "transition-colors"]
+                  :class (into ["-mb-px" "px-4" "py-3" "text-sm" "transition-colors" "border-b-2" "border-transparent"]
                                (if (= tab-value selected-tab)
-                                 ["border-b-2" "border-primary" "text-trading-text"]
-                                 ["border-b" "border-base-300" "text-trading-text-secondary" "hover:text-trading-text"]))
+                                 ["border-primary" "text-trading-text"]
+                                 ["text-trading-text-secondary" "hover:text-trading-text"]))
                   :data-role (str "portfolio-chart-tab-" (name tab-value))
                   :aria-pressed (= tab-value selected-tab)
                   :on {:click [[:actions/select-portfolio-chart-tab tab-value]]}}
-         tab-label])
-      [:div {:class ["border-b" "border-base-300" "h-full"]}]]
+         tab-label])]
      [:div {:class ["h-[182px]" "px-4" "py-3" "relative"]
             :data-role "portfolio-chart-shell"}
       [:div {:class ["absolute" "left-0" "top-3" "bottom-3"]
@@ -262,7 +277,7 @@
                          "text-xs"
                          "text-trading-text-secondary"]
                  :style {:top (str (* 100 y-ratio) "%")}}
-          (format-axis-number value)])
+          (format-axis-label axis-kind value)])
        [:div {:class ["absolute"
                       "right-0"
                       "top-0"
