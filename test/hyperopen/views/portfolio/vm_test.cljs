@@ -232,10 +232,14 @@
              (get-in groups [0 :rows 0 :label])))
       (is (approx= (get-in groups [0 :rows 0 :value]) 1 1e-12))
       (is (approx= (get-in groups [0 :rows 0 :portfolio-value]) 1 1e-12))
+      (is (= :ok (get-in groups [0 :rows 0 :portfolio-status])))
       (is (nil? (get-in groups [0 :rows 0 :benchmark-value])))
       (is (= [] (get-in view-model [:performance-metrics :benchmark-columns])))
       (is (false? (get-in view-model [:performance-metrics :benchmark-selected?])))
       (is (nil? (:value (performance-metric-row view-model :r2))))
+      (is (= :suppressed (get-in (performance-metric-row view-model :r2) [:portfolio-status])))
+      (is (= :benchmark-coverage-gate-failed
+             (get-in (performance-metric-row view-model :r2) [:portfolio-reason])))
       (is (nil? (:value (performance-metric-row view-model :information-ratio)))))))
 
 (deftest portfolio-vm-chart-tab-selection-switches-history-source-test
