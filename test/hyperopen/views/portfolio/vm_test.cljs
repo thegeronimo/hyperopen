@@ -427,36 +427,44 @@
       (is (= ["BTC" "SPY"]
              (mapv :value (:candidates benchmark-selector))))))
 
-(deftest portfolio-vm-includes-vault-benchmark-options-sorted-by-tvl-test
+(deftest portfolio-vm-limits-vault-benchmark-options-to-top-100-by-tvl-test
   (with-redefs [account-equity-view/account-equity-metrics (fn [_]
                                                               {:spot-equity 10
                                                                :perps-value 10
                                                                :cross-account-value 10
                                                                :unrealized-pnl 0})]
-    (let [high-address "0x2222222222222222222222222222222222222222"
-          low-address "0x1111111111111111111111111111111111111111"
+    (let [address-for (fn [idx]
+                        (let [suffix (str idx)
+                              zero-count (max 0 (- 40 (count suffix)))]
+                          (str "0x"
+                               (apply str (repeat zero-count "0"))
+                               suffix)))
+          top-address (address-for 105)
+          cutoff-address (address-for 6)
+          excluded-address (address-for 5)
+          vault-rows (mapv (fn [idx]
+                             {:name (str "Vault " idx)
+                              :vault-address (address-for idx)
+                              :relationship {:type :normal}
+                              :tvl idx})
+                           (range 1 106))
           state {:account {:mode :classic}
                  :portfolio-ui {:summary-scope :all
                                 :summary-time-range :month
                                 :chart-tab :returns
+                                :returns-benchmark-coins [(str "vault:" excluded-address)]
+                                :returns-benchmark-coin (str "vault:" excluded-address)
                                 :returns-benchmark-search "vault"}
                  :asset-selector {:markets [{:coin "BTC"
                                              :symbol "BTC-USD"
                                              :market-type :perp
                                              :openInterest "900"
                                              :cache-order 1}]}
-                 :vaults {:merged-index-rows [{:name "Low Vault"
-                                               :vault-address low-address
-                                               :relationship {:type :normal}
-                                               :tvl 10}
-                                              {:name "High Vault"
-                                               :vault-address high-address
-                                               :relationship {:type :normal}
-                                               :tvl 100}
-                                              {:name "Child Vault"
-                                               :vault-address "0x3333333333333333333333333333333333333333"
-                                               :relationship {:type :child}
-                                               :tvl 1000}]}
+                 :vaults {:merged-index-rows (conj vault-rows
+                                                   {:name "Child Vault"
+                                                    :vault-address "0x3333333333333333333333333333333333333333"
+                                                    :relationship {:type :child}
+                                                    :tvl 1000})}
                  :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [2 0]]
                                                       :accountValueHistory [[1 100] [2 110]]
                                                       :vlm 10}}}
@@ -468,11 +476,14 @@
                                 (filter (fn [{:keys [value]}]
                                           (str/starts-with? value "vault:")))
                                 vec)]
-      (is (= ["High Vault (VAULT)" "Low Vault (VAULT)"]
-             (mapv :label vault-candidates)))
-      (is (= [(str "vault:" high-address)
-              (str "vault:" low-address)]
-             (mapv :value vault-candidates))))))
+      (is (= 100 (count vault-candidates)))
+      (is (= (str "vault:" top-address)
+             (some-> vault-candidates first :value)))
+      (is (= (str "vault:" cutoff-address)
+             (some-> vault-candidates last :value)))
+      (is (not-any? #(= (str "vault:" excluded-address) (:value %))
+                    vault-candidates))
+      (is (= [] (:selected-coins benchmark-selector))))))
 
 (deftest portfolio-vm-memoizes-benchmark-selector-options-by-markets-identity-and-signature-test
   (with-redefs [account-equity-view/account-equity-metrics (fn [_]

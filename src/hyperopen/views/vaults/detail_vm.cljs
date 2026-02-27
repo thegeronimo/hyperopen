@@ -183,6 +183,9 @@
 (def ^:private vault-benchmark-prefix
   "vault:")
 
+(def ^:private max-vault-benchmark-options
+  100)
+
 (defn- normalize-vault-address
   [value]
   (some-> value str str/trim str/lower-case))
@@ -240,12 +243,18 @@
        (seq (normalize-vault-address (:vault-address row)))
        (not= :child (get-in row [:relationship :type]))))
 
+(defn- eligible-vault-benchmark-rows
+  [rows]
+  (->> (or rows [])
+       (filter benchmark-vault-row?)
+       (sort-by benchmark-vault-option-rank)
+       (take max-vault-benchmark-options)
+       vec))
+
 (defn- benchmark-vault-selector-options
   [state]
-  (let [ordered-rows (->> (or (get-in state [:vaults :merged-index-rows]) [])
-                          (filter benchmark-vault-row?)
-                          (sort-by benchmark-vault-option-rank))]
-    (->> ordered-rows
+  (let [top-rows (eligible-vault-benchmark-rows (get-in state [:vaults :merged-index-rows]))]
+    (->> top-rows
          (reduce (fn [{:keys [seen options]} row]
                    (if-let [vault-address (normalize-vault-address (:vault-address row))]
                      (if (contains? seen vault-address)
@@ -306,9 +315,15 @@
 
 (defn- returns-benchmark-selector-model
   [state]
-  (let [selected-coins (selected-vault-detail-returns-benchmark-coins state)
+  (let [options (benchmark-selector-options state)
+        option-values (into #{} (map :value) options)
+        selected-coins (->> (selected-vault-detail-returns-benchmark-coins state)
+                            (filter (fn [coin]
+                                      (if (vault-benchmark-address coin)
+                                        (contains? option-values coin)
+                                        true)))
+                            vec)
         selected-coin-set (set selected-coins)
-        options (benchmark-selector-options state)
         search (or (get-in state [:vaults-ui :detail-returns-benchmark-search]) "")
         search-query (normalize-benchmark-search-query search)
         suggestions-open? (boolean (get-in state [:vaults-ui :detail-returns-benchmark-suggestions-open?]))
@@ -899,7 +914,7 @@
 
 (defn- vault-benchmark-rows-by-address
   [state]
-  (->> (or (get-in state [:vaults :merged-index-rows]) [])
+  (->> (eligible-vault-benchmark-rows (get-in state [:vaults :merged-index-rows]))
        (reduce (fn [rows-by-address row]
                  (if-let [vault-address (normalize-vault-address (:vault-address row))]
                    (assoc rows-by-address vault-address row)

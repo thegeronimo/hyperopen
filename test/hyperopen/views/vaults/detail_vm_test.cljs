@@ -191,32 +191,48 @@
     (is (= "BTC (HL PERP)" (get-in vm [:performance-metrics :benchmark-label])))
     (is (seq (get-in vm [:performance-metrics :groups])))))
 
-(deftest vault-detail-vm-includes-vault-benchmark-candidates-sorted-by-tvl-test
-  (let [state (-> sample-state
+(deftest vault-detail-vm-limits-vault-benchmark-candidates-to-top-100-by-tvl-test
+  (let [address-for (fn [idx]
+                      (let [suffix (str idx)
+                            zero-count (max 0 (- 40 (count suffix)))]
+                        (str "0x"
+                             (apply str (repeat zero-count "0"))
+                             suffix)))
+        top-address (address-for 105)
+        cutoff-address (address-for 6)
+        excluded-address (address-for 5)
+        vault-rows (mapv (fn [idx]
+                           {:name (str "Vault " idx)
+                            :vault-address (address-for idx)
+                            :relationship {:type :normal}
+                            :tvl idx})
+                         (range 1 106))
+        state (-> sample-state
+                  (assoc-in [:vaults-ui :detail-returns-benchmark-coins]
+                            [(str "vault:" excluded-address)])
+                  (assoc-in [:vaults-ui :detail-returns-benchmark-coin]
+                            (str "vault:" excluded-address))
                   (assoc-in [:vaults-ui :detail-returns-benchmark-search] "vault")
                   (assoc-in [:vaults :merged-index-rows]
-                            [{:name "Low Vault"
-                              :vault-address "0x1111111111111111111111111111111111111111"
-                              :relationship {:type :normal}
-                              :tvl 10}
-                             {:name "High Vault"
-                              :vault-address "0x2222222222222222222222222222222222222222"
-                              :relationship {:type :normal}
-                              :tvl 200}
-                             {:name "Child Vault"
-                              :vault-address "0x3333333333333333333333333333333333333333"
-                              :relationship {:type :child}
-                              :tvl 1000}]))
+                            (conj vault-rows
+                                  {:name "Child Vault"
+                                   :vault-address "0x3333333333333333333333333333333333333333"
+                                   :relationship {:type :child}
+                                   :tvl 1000})))
         vm (detail-vm/vault-detail-vm state)
-        candidates (->> (get-in vm [:chart :returns-benchmark :candidates])
+        benchmark-selector (get-in vm [:chart :returns-benchmark])
+        candidates (->> (:candidates benchmark-selector)
                         (filter (fn [{:keys [value]}]
                                   (str/starts-with? value "vault:")))
                         vec)]
-    (is (= ["High Vault (VAULT)" "Low Vault (VAULT)"]
-           (mapv :label candidates)))
-    (is (= ["vault:0x2222222222222222222222222222222222222222"
-            "vault:0x1111111111111111111111111111111111111111"]
-           (mapv :value candidates)))))
+    (is (= 100 (count candidates)))
+    (is (= (str "vault:" top-address)
+           (some-> candidates first :value)))
+    (is (= (str "vault:" cutoff-address)
+           (some-> candidates last :value)))
+    (is (not-any? #(= (str "vault:" excluded-address) (:value %))
+                  candidates))
+    (is (= [] (:selected-coins benchmark-selector)))))
 
 (deftest vault-detail-vm-builds-vault-benchmark-series-and-performance-columns-test
   (let [peer-address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
