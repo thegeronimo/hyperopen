@@ -96,7 +96,7 @@
   []
   {:summary-scope :all
    :summary-time-range :month
-   :chart-tab :account-value
+   :chart-tab :returns
    :account-info-tab :performance-metrics
    :chart-hover-index nil
    :returns-benchmark-coins ["BTC"]
@@ -139,7 +139,7 @@
    :detail-activity-sort-by-tab {}
    :detail-activity-direction-filter :all
    :detail-activity-filter-open? false
-   :detail-chart-series :pnl
+   :detail-chart-series :returns
    :detail-returns-benchmark-coins ["BTC"]
    :detail-returns-benchmark-coin "BTC"
    :detail-returns-benchmark-search ""

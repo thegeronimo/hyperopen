@@ -70,7 +70,7 @@
       (is (true? (get-in view-model [:summary :show-perps-account-equity?])))
       (is (= "Spot Account Equity" (get-in view-model [:summary :spot-equity-label])))
       (is (true? (get-in view-model [:summary :show-earn-balance?])))
-      (is (= :pnl (get-in view-model [:chart :selected-tab])))
+      (is (= :returns (get-in view-model [:chart :selected-tab])))
       (is (= 3 (count (get-in view-model [:chart :points]))))
       (is (seq (get-in view-model [:chart :path]))))))
 
@@ -146,7 +146,7 @@
         (is (= 0 (get-in view-model [:summary :pnl])))
         (is (= 0 (get-in view-model [:summary :volume])))
         (is (nil? (get-in view-model [:summary :max-drawdown-pct])))
-        (is (= :pnl (get-in view-model [:chart :selected-tab])))
+        (is (= :returns (get-in view-model [:chart :selected-tab])))
         (is (empty? (get-in view-model [:chart :points])))
         (is (= [{:value 3 :y-ratio 0}
                 {:value 2 :y-ratio (/ 1 3)}
@@ -167,7 +167,8 @@
           t4 (.getTime (js/Date. "2024-06-30T00:00:00.000Z"))
           state {:account {:mode :classic}
                  :portfolio-ui {:summary-scope :all
-                                :summary-time-range :three-month}
+                                :summary-time-range :three-month
+                                :chart-tab :pnl}
                  :portfolio {:summary-by-key {:all-time {:pnlHistory [[t0 10] [t1 20] [t2 30] [t3 45] [t4 60]]
                                                          :accountValueHistory [[t0 100] [t1 110] [t2 120] [t3 130] [t4 150]]}}}
                  :webdata2 {:clearinghouseState {:marginSummary {:accountValue 0}}
@@ -190,7 +191,8 @@
                                                                :unrealized-pnl 0})]
     (let [state {:account {:mode :classic}
                  :portfolio-ui {:summary-scope :perps
-                                :summary-time-range :two-year}
+                                :summary-time-range :two-year
+                                :chart-tab :pnl}
                  :portfolio {:summary-by-key {"perp2Y" {:pnlHistory [[1 0] [2 5]]
                                                         :accountValueHistory [[1 100] [2 110]]
                                                         :vlm 10}}}
@@ -262,7 +264,7 @@
       (is (= :pnl (get-in view-model [:chart :selected-tab])))
       (is (= [-10 5]
              (mapv :value (get-in view-model [:chart :points]))))
-      (is (= ["Account Value" "PNL" "Returns"]
+      (is (= ["Returns" "Account Value" "PNL"]
              (mapv :label (get-in view-model [:chart :tabs])))))))
 
 (deftest portfolio-vm-chart-hover-selects-and-clamps-strategy-point-test

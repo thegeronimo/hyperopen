@@ -187,7 +187,7 @@
          (actions/set-vault-detail-chart-series {:vaults-ui {:snapshot-range :month
                                                              :detail-returns-benchmark-coins ["BTC"]}}
                                                 :returns)))
-  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-series] :pnl]
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-series] :returns]
                                [[:vaults-ui :detail-chart-hover-index] nil]]]]
          (actions/set-vault-detail-chart-series {} "unknown-series")))
   (is (= [[:effects/save [:vaults-ui :detail-returns-benchmark-search] "42"]]

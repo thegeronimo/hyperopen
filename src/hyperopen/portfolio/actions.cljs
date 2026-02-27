@@ -8,7 +8,7 @@
   :month)
 
 (def default-chart-tab
-  :pnl)
+  :returns)
 
 (def ^:private summary-scope-options
   #{:all :perps})

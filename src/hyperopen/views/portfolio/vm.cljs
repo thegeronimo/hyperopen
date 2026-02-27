@@ -34,12 +34,12 @@
     :label "All-time"}])
 
 (def ^:private chart-tab-options
-  [{:value :account-value
+  [{:value :returns
+    :label "Returns"}
+   {:value :account-value
     :label "Account Value"}
    {:value :pnl
-    :label "PNL"}
-   {:value :returns
-    :label "Returns"}])
+    :label "PNL"}])
 
 (def ^:private chart-y-tick-count
   4)

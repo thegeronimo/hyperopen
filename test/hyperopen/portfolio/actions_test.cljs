@@ -135,7 +135,7 @@
             [[:portfolio-ui :chart-hover-index] nil]]]]
          (actions/select-portfolio-chart-tab {} :pnl)))
   (is (= [[:effects/save-many
-           [[[:portfolio-ui :chart-tab] :pnl]
+           [[[:portfolio-ui :chart-tab] :returns]
             [[:portfolio-ui :chart-hover-index] nil]]]]
          (actions/select-portfolio-chart-tab {} :unknown))))
 

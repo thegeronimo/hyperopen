@@ -31,7 +31,7 @@
   :desc)
 
 (def default-vault-detail-chart-series
-  :pnl)
+  :returns)
 
 (def ^:private vault-snapshot-ranges
   #{:day :week :month :three-month :six-month :one-year :two-year :all-time})

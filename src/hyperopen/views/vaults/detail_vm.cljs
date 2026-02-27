@@ -1675,12 +1675,12 @@
                           :returns :returns
                           :account-value :account-value
                           :account-value)
-             :series-tabs [{:value :account-value
+             :series-tabs [{:value :returns
+                            :label "Returns"}
+                           {:value :account-value
                             :label "Account Value"}
                            {:value :pnl
-                            :label "PNL"}
-                           {:value :returns
-                            :label "Returns"}]
+                            :label "PNL"}]
              :timeframe-options chart-timeframe-options
              :selected-timeframe snapshot-range
              :selected-series selected-series
