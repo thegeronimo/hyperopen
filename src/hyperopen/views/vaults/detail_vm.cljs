@@ -681,28 +681,9 @@
        vec))
 
 (defn- returns-history-points
-  [summary]
-  (let [points (history-points (:accountValueHistory summary))
-        anchor-index (first (keep-indexed (fn [idx {:keys [value]}]
-                                            (when (and (number? value)
-                                                       (pos? value))
-                                              idx))
-                                          points))]
-    (if (number? anchor-index)
-      (let [points* (subvec points anchor-index)
-            baseline (:value (first points*))]
-        (if (and (number? baseline)
-                 (pos? baseline))
-          (mapv (fn [{:keys [time-ms value]}]
-                  (let [ratio (- (/ value baseline) 1)
-                        pct (* 100 ratio)
-                        rounded (/ (js/Math.round (* pct 100)) 100)
-                        rounded* (if (== rounded -0) 0 rounded)]
-                    {:time-ms time-ms
-                     :value rounded*}))
-                points*)
-          []))
-      [])))
+  [state summary]
+  (rows->chart-points (portfolio-metrics/returns-history-rows state summary :all)
+                      :returns))
 
 (defn- candle-point-close
   [row]
@@ -1371,10 +1352,10 @@
           [])))))
 
 (defn- chart-series-data
-  [summary]
+  [state summary]
   {:account-value (history-points (:accountValueHistory summary))
    :pnl (history-points (:pnlHistory summary))
-   :returns (returns-history-points summary)})
+   :returns (returns-history-points state summary)})
 
 (defn- resolve-chart-series
   [series-by-key selected-series]
@@ -1457,7 +1438,7 @@
         all-time-earned (optional-number (get-in details [:follower-state :all-time-pnl]))
         summary (portfolio-summary details snapshot-range)
         returns-benchmark-selector (returns-benchmark-selector-model state)
-        series-by-key (chart-series-data summary)
+        series-by-key (chart-series-data state summary)
         selected-series (resolve-chart-series series-by-key chart-series)
         strategy-raw-points (vec (or (get series-by-key selected-series) []))
         strategy-return-points (vec (or (get series-by-key :returns) []))

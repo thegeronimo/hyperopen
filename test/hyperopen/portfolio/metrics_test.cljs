@@ -62,18 +62,16 @@
   [day]
   (.getTime (js/Date. (str day "T00:00:00.000Z"))))
 
-(deftest returns-history-rows-adjusts-for-cashflows-test
-  (let [state {:wallet {:address "0xabc"}
-               :portfolio {:ledger-updates [{:time 2
-                                             :hash "0xflow"
-                                             :delta {:type "deposit"
-                                                     :usdc "201"}}]}
-               :orders {:ledger []}}
-        summary {:accountValueHistory [[1 4]
+(deftest returns-history-rows-implies-cashflows-from-account-and-pnl-deltas-test
+  (let [summary {:accountValueHistory [[1 4]
                                        [2 205]
                                        [3 204]
-                                       [4 205]]}
-        rows (metrics/returns-history-rows state summary :all)
+                                       [4 205]]
+                 :pnlHistory [[1 0]
+                              [2 0]
+                              [3 -1]
+                              [4 0]]}
+        rows (metrics/returns-history-rows {} summary :all)
         values (mapv second rows)]
     (is (= [1 2 3 4]
            (mapv first rows)))
@@ -82,38 +80,31 @@
     (is (approx= -0.48780487804878053 (nth values 2) 1e-12))
     (is (approx= 0 (nth values 3) 1e-12))))
 
-(deftest returns-history-rows-treats-account-class-transfer-as-perps-flow-test
-  (let [state {:wallet {:address "0xabc"}
-               :portfolio {:ledger-updates [{:time 2
-                                             :hash "0xperp"
-                                             :delta {:type "accountClassTransfer"
-                                                     :usdc "50"
-                                                     :toPerp true}}]}
-               :orders {:ledger []}}
-        summary {:accountValueHistory [[1 100]
-                                       [2 150]
-                                       [3 150]]}
-        rows (metrics/returns-history-rows state summary :perps)]
-    (is (= [0 0 0]
-           (mapv second rows)))))
+(deftest returns-history-rows-uses-shared-account-and-pnl-timestamps-test
+  (let [summary {:accountValueHistory [[1 100]
+                                       [2 120]
+                                       [4 140]]
+                 :pnlHistory [[1 0]
+                              [3 10]
+                              [4 20]]}
+        rows (metrics/returns-history-rows {} summary :all)]
+    (is (= [1 4]
+           (mapv first rows)))
+    (is (approx= 0 (second (first rows)) 1e-12))
+    (is (approx= 18.181818181818183 (second (second rows)) 1e-12))))
 
-(deftest returns-history-rows-keeps-distinct-same-hash-ledger-events-test
-  (let [state {:wallet {:address "0xabc"}
-               :portfolio {:ledger-updates [{:time 2
-                                             :hash "0xshared"
-                                             :delta {:type "deposit"
-                                                     :usdc "100"}}]}
-               :orders {:ledger [{:time 2
-                                  :hash "0xshared"
-                                  :delta {:type "withdraw"
-                                          :usdc "50"
-                                          :fee "0"}}]}}
-        summary {:accountValueHistory [[1 100]
-                                       [2 200]]}
-        rows (metrics/returns-history-rows state summary :all)]
-    (is (= [[1 0]
-            [2 50]]
-           rows))))
+(deftest returns-history-rows-guards-invalid-dietz-denominator-test
+  (let [summary {:accountValueHistory [[1 10]
+                                       [2 1]
+                                       [3 2]]
+                 :pnlHistory [[1 0]
+                              [2 20]
+                              [3 21]]}
+        rows (metrics/returns-history-rows {} summary :all)]
+    (is (= [1 2 3]
+           (mapv first rows)))
+    (is (= [0 0 100]
+           (mapv second rows)))))
 
 (deftest daily-compounded-returns-builds-canonical-daily-series-test
   (let [rows [[1000 0]

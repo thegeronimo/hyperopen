@@ -183,6 +183,8 @@
     (is (= :returns (get-in vm [:chart :axis-kind])))
     (is (= 2 (count (get-in vm [:chart :series]))))
     (is (seq (get-in vm [:chart :points])))
+    (is (= [0 15.38 34.62]
+           (mapv :value (get-in vm [:chart :points]))))
     (is (= ["BTC"] (get-in vm [:performance-metrics :benchmark-coins])))
     (is (= "BTC (HL PERP)" (get-in vm [:performance-metrics :benchmark-label])))
     (is (seq (get-in vm [:performance-metrics :groups])))))

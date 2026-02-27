@@ -318,7 +318,7 @@
       (is (= [0 50]
              (mapv :value (get-in view-model [:chart :points])))))))
 
-(deftest portfolio-vm-returns-tab-uses-flow-adjusted-time-weighted-returns-to-avoid-cashflow-spikes-test
+(deftest portfolio-vm-returns-tab-uses-implied-flow-returns-to-avoid-cashflow-spikes-test
   (with-redefs [account-equity-view/account-equity-metrics (fn [_]
                                                               {:spot-equity 10
                                                                :perps-value 10
@@ -328,13 +328,9 @@
                  :portfolio-ui {:summary-scope :all
                                 :summary-time-range :month
                                 :chart-tab :returns}
-                 :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [2 0] [3 -1] [4 -2]]
+                 :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [2 0] [3 -1] [4 0]]
                                                       :accountValueHistory [[1 4] [2 205] [3 204] [4 205]]
-                                                      :vlm 10}}
-                             :ledger-updates [{:time 2
-                                               :hash "0xabc"
-                                               :delta {:type "deposit"
-                                                       :usdc "201.0"}}]}
+                                                      :vlm 10}}}
                  :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
                            :totalVaultEquity 0}
                  :borrow-lend {:total-supplied-usd 0}}
@@ -347,7 +343,7 @@
              (mapv :value (get-in view-model [:chart :points]))))
       (is (seq (get-in view-model [:chart :path]))))))
 
-(deftest portfolio-vm-returns-tab-treats-account-class-transfer-as-flow-for-perps-scope-test
+(deftest portfolio-vm-returns-tab-uses-pnl-deltas-to-separate-perps-flows-from-performance-test
   (with-redefs [account-equity-view/account-equity-metrics (fn [_]
                                                               {:spot-equity 10
                                                                :perps-value 10
@@ -359,12 +355,7 @@
                                 :chart-tab :returns}
                  :portfolio {:summary-by-key {:perp-month {:pnlHistory [[1 0] [2 0] [3 0]]
                                                            :accountValueHistory [[1 100] [2 150] [3 150]]
-                                                           :vlm 10}}
-                             :ledger-updates [{:time 2
-                                               :hash "0xdef"
-                                               :delta {:type "accountClassTransfer"
-                                                       :usdc "50"
-                                                       :toPerp true}}]}
+                                                           :vlm 10}}}
                  :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
                            :totalVaultEquity 0}
                  :borrow-lend {:total-supplied-usd 0}}
@@ -373,7 +364,7 @@
       (is (= [0 0 0]
              (mapv :value (get-in view-model [:chart :points])))))))
 
-(deftest portfolio-vm-returns-tab-keeps-distinct-same-hash-ledger-events-for-flow-adjustment-test
+(deftest portfolio-vm-returns-tab-uses-shared-account-and-pnl-timestamps-test
   (with-redefs [account-equity-view/account-equity-metrics (fn [_]
                                                               {:spot-equity 10
                                                                :perps-value 10
@@ -383,24 +374,17 @@
                  :portfolio-ui {:summary-scope :all
                                 :summary-time-range :month
                                 :chart-tab :returns}
-                 :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [2 0]]
-                                                      :accountValueHistory [[1 100] [2 200]]
-                                                      :vlm 10}}
-                             :ledger-updates [{:time 2
-                                               :hash "0xshared"
-                                               :delta {:type "deposit"
-                                                       :usdc "100"}}]}
-                 :orders {:ledger [{:time 2
-                                    :hash "0xshared"
-                                    :delta {:type "withdraw"
-                                            :usdc "50"
-                                            :fee "0"}}]}
+                 :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [3 10] [4 20]]
+                                                      :accountValueHistory [[1 100] [2 120] [4 140]]
+                                                      :vlm 10}}}
                  :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
                            :totalVaultEquity 0}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)]
       (is (= :returns (get-in view-model [:chart :selected-tab])))
-      (is (= [0 50]
+      (is (= [1 4]
+             (mapv :time-ms (get-in view-model [:chart :points]))))
+      (is (= [0 18.18]
              (mapv :value (get-in view-model [:chart :points])))))))
 
 (deftest portfolio-vm-builds-returns-benchmark-options-from-asset-selector-markets-test
