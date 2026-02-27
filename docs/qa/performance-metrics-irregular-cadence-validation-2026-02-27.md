@@ -11,8 +11,8 @@ Validated the irregular-cadence hardening changes in:
 
 Reference implementation plan and metric spec:
 
-- `/hyperopen/docs/exec-plans/active/2026-02-27-portfolio-performance-metrics-irregular-cadence-hardening.md`
-- `/hyperopen/docs/exec-plans/active/artifacts/2026-02-27-performance-metrics-irregular-cadence-metric-spec.md`
+- `/hyperopen/docs/exec-plans/completed/2026-02-27-portfolio-performance-metrics-irregular-cadence-hardening.md`
+- `/hyperopen/docs/exec-plans/completed/artifacts/2026-02-27-performance-metrics-irregular-cadence-metric-spec.md`
 
 ## What Was Validated
 
@@ -64,4 +64,4 @@ All required gates passed after implementation:
 
 ## Notes
 
-This validation pass focuses on deterministic behavior, gating policy correctness, and regression safety. It does not include a Monte Carlo synthetic-error benchmark run. If needed, add a follow-up QA artifact with cadence-distortion simulation metrics (CAGR/vol/Sharpe error envelopes) against the acceptance thresholds in the ExecPlan.
+This validation pass focuses on deterministic behavior, gating policy correctness, and regression safety. Follow-up cadence-distortion analysis is published at `/hyperopen/docs/qa/performance-metrics-irregular-cadence-sensitivity-2026-02-27.md`.

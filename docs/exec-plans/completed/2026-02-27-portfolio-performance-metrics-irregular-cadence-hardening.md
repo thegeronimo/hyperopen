@@ -17,12 +17,14 @@ A contributor will be able to verify this by loading `/portfolio` with sparse `a
 - [x] (2026-02-27 16:43Z) Reviewed existing parity artifacts and tests in `/hyperopen/docs/qa/performance-metrics-quantstats-parity-report-2026-02-26.md` and `/hyperopen/test/hyperopen/portfolio/metrics_test.cljs`.
 - [x] (2026-02-27 16:43Z) Captured researcher recommendations and selected implementation strategy for irregular-cadence robustness.
 - [x] (2026-02-27 16:43Z) Authored this ExecPlan with milestones, acceptance criteria, gating policy, and validation approach.
-- [x] (2026-02-27 16:52Z) Reconciled the follow-up recommendation set against the first research output and produced a metric-by-metric companion spec at `/hyperopen/docs/exec-plans/active/artifacts/2026-02-27-performance-metrics-irregular-cadence-metric-spec.md`.
+- [x] (2026-02-27 16:52Z) Reconciled the follow-up recommendation set against the first research output and produced a metric-by-metric companion spec at `/hyperopen/docs/exec-plans/completed/artifacts/2026-02-27-performance-metrics-irregular-cadence-metric-spec.md`.
 - [x] (2026-02-27 17:05Z) Implemented irregular-interval metric primitives, cadence diagnostics, and quality-gate evaluation in `/hyperopen/src/hyperopen/portfolio/metrics.cljs`.
 - [x] (2026-02-27 17:05Z) Integrated hybrid metric policy (irregular-core + daily-gated metrics) and propagated metric status/reason metadata through `/hyperopen/src/hyperopen/views/portfolio/vm.cljs`.
 - [x] (2026-02-27 17:05Z) Expanded tests for gating/fallback behavior in `/hyperopen/test/hyperopen/portfolio/metrics_test.cljs` and `/hyperopen/test/hyperopen/views/portfolio/vm_test.cljs`.
 - [x] (2026-02-27 17:05Z) Ran required gates successfully: `npm run check`, `npm test`, `npm run test:websocket`.
 - [x] (2026-02-27 17:05Z) Published QA validation notes at `/hyperopen/docs/qa/performance-metrics-irregular-cadence-validation-2026-02-27.md`.
+- [x] (2026-02-27 17:22Z) Ran follow-up Monte Carlo and real-account sensitivity validation via `/hyperopen/tools/metrics_irregular_sensitivity.mjs` and published `/hyperopen/docs/qa/performance-metrics-irregular-cadence-sensitivity-2026-02-27.md`.
+- [x] (2026-02-27 17:22Z) Moved this accepted ExecPlan and companion spec from `/hyperopen/docs/exec-plans/active/` to `/hyperopen/docs/exec-plans/completed/`.
 
 ## Surprises & Discoveries
 
@@ -75,7 +77,7 @@ A contributor will be able to verify this by loading `/portfolio` with sparse `a
 
 Planning outcome: a complete implementation-ready strategy and companion metric-spec contract were established for irregular cadence handling.
 
-Implementation outcome: complete for this scope. Metrics now use irregular interval core estimators with cadence gating, daily-horizon suppression policy, and deterministic status/reason metadata. VM integration and regression tests are updated, and required gates pass.
+Implementation outcome: complete for this scope. Metrics now use irregular interval core estimators with cadence gating, daily-horizon suppression policy, and deterministic status/reason metadata. VM integration and regression tests are updated, required gates pass, and follow-up cadence-sensitivity validation has been published.
 
 ## Context and Orientation
 
@@ -85,13 +87,13 @@ The existing data path already provides flow-adjusted cumulative portfolio retur
 
 In this ExecPlan, “Δt-aware” means each return interval carries explicit elapsed time in years and formulas scale drift, volatility, risk-free rates, and thresholds by that elapsed time. “Daily-horizon metric” means a metric that is only well-defined for a fixed sampling horizon such as daily returns. “Suppressed metric” means returning `nil` and attaching a reason code so the UI keeps rendering deterministic fallback (`"--"`).
 
-The metric-by-metric implementation contract lives in `/hyperopen/docs/exec-plans/active/artifacts/2026-02-27-performance-metrics-irregular-cadence-metric-spec.md`. Contributors should treat that file as the canonical formula and gating matrix for each metric key in `performance-metric-groups`.
+The metric-by-metric implementation contract lives in `/hyperopen/docs/exec-plans/completed/artifacts/2026-02-27-performance-metrics-irregular-cadence-metric-spec.md`. Contributors should treat that file as the canonical formula and gating matrix for each metric key in `performance-metric-groups`.
 
 ## Plan of Work
 
 ### Milestone 0: Metric Spec Lock
 
-Review and lock `/hyperopen/docs/exec-plans/active/artifacts/2026-02-27-performance-metrics-irregular-cadence-metric-spec.md` before code changes. This includes confirming formulas, gate thresholds, and sparse-data suppression behavior for every metric key in `performance-metric-groups`.
+Review and lock `/hyperopen/docs/exec-plans/completed/artifacts/2026-02-27-performance-metrics-irregular-cadence-metric-spec.md` before code changes. This includes confirming formulas, gate thresholds, and sparse-data suppression behavior for every metric key in `performance-metric-groups`.
 
 This milestone is complete when formula and gate decisions are fully represented in the companion spec and no remaining metric key has ambiguous implementation instructions.
 
@@ -159,7 +161,7 @@ Keep this ExecPlan updated during implementation. On completion, move it to `/hy
 
 From `/Users//projects/hyperopen`:
 
-1. Lock and keep synchronized the companion spec at `/hyperopen/docs/exec-plans/active/artifacts/2026-02-27-performance-metrics-irregular-cadence-metric-spec.md`.
+1. Lock and keep synchronized the companion spec at `/hyperopen/docs/exec-plans/completed/artifacts/2026-02-27-performance-metrics-irregular-cadence-metric-spec.md`.
 2. Implement irregular-interval primitives, cadence diagnostics, and Δt-aware metric formulas in `/hyperopen/src/hyperopen/portfolio/metrics.cljs`.
 3. Implement metric status/reason policy exactly as defined in the companion spec.
 4. Update VM metric wiring in `/hyperopen/src/hyperopen/views/portfolio/vm.cljs` to use the irregular metric engine for portfolio and benchmark columns.
@@ -216,7 +218,7 @@ Primary implementation files expected to change during execution:
 Reference inputs for this plan:
 
 - Research recommendations supplied in this task (irregular cadence formulas, gating policy, validation outline).
-- `/hyperopen/docs/exec-plans/active/artifacts/2026-02-27-performance-metrics-irregular-cadence-metric-spec.md`
+- `/hyperopen/docs/exec-plans/completed/artifacts/2026-02-27-performance-metrics-irregular-cadence-metric-spec.md`
 - `/hyperopen/docs/references/hyperliquid-portfolio-history-and-returns.md`
 - `/hyperopen/docs/qa/performance-metrics-quantstats-parity-report-2026-02-26.md`
 - `/hyperopen/docs/qa/performance-metrics-quantstats-tests-coverage-2026-02-26.md`
@@ -239,3 +241,4 @@ The VM in `/hyperopen/src/hyperopen/views/portfolio/vm.cljs` remains the integra
 Plan revision note: 2026-02-27 16:43Z - Initial ExecPlan created to address irregular Hyperliquid cadence with Δt-aware metrics, selective daily-horizon gating, and validation thresholds before code changes.
 Plan revision note: 2026-02-27 16:52Z - Added reconciliation decisions against the follow-up recommendations and introduced a dedicated metric-by-metric companion spec for formula-level execution guidance.
 Plan revision note: 2026-02-27 17:05Z - Marked implementation complete, updated progress/outcomes with executed code+test work, and attached QA validation evidence.
+Plan revision note: 2026-02-27 17:22Z - Added follow-up cadence-sensitivity validation artifacts and archived the accepted plan/spec under completed ExecPlans.

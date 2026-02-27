@@ -1,6 +1,6 @@
 # Irregular-Cadence Performance Metrics Implementation Spec
 
-Companion document for `/hyperopen/docs/exec-plans/active/2026-02-27-portfolio-performance-metrics-irregular-cadence-hardening.md`.
+Companion document for `/hyperopen/docs/exec-plans/completed/2026-02-27-portfolio-performance-metrics-irregular-cadence-hardening.md`.
 
 ## Purpose
 
