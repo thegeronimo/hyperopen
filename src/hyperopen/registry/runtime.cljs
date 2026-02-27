@@ -208,6 +208,10 @@
      [:actions/prev-vaults-user-page :prev-vaults-user-page]
      [:actions/set-vault-detail-tab :set-vault-detail-tab]
      [:actions/set-vault-detail-activity-tab :set-vault-detail-activity-tab]
+     [:actions/sort-vault-detail-activity :sort-vault-detail-activity]
+     [:actions/toggle-vault-detail-activity-filter-open :toggle-vault-detail-activity-filter-open]
+     [:actions/close-vault-detail-activity-filter :close-vault-detail-activity-filter]
+     [:actions/set-vault-detail-activity-direction-filter :set-vault-detail-activity-direction-filter]
      [:actions/set-vault-detail-chart-series :set-vault-detail-chart-series]
      [:actions/set-vault-detail-chart-hover :set-vault-detail-chart-hover]
      [:actions/clear-vault-detail-chart-hover :clear-vault-detail-chart-hover]])))

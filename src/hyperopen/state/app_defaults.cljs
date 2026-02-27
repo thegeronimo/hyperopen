@@ -136,6 +136,9 @@
    :user-vaults-page-size-dropdown-open? false
    :detail-tab :about
    :detail-activity-tab :positions
+   :detail-activity-sort-by-tab {}
+   :detail-activity-direction-filter :all
+   :detail-activity-filter-open? false
    :detail-chart-series :pnl
    :detail-chart-hover-index nil
    :list-loading? false

@@ -180,6 +180,7 @@
 (s/def ::max-page-args (s/tuple (s/nilable ::intish)))
 (s/def ::page-and-max-page-args (s/tuple ::intish (s/nilable ::intish)))
 (s/def ::sort-column-args (s/tuple ::non-empty-string))
+(s/def ::vault-detail-activity-sort-args (s/tuple ::keyword-or-string ::non-empty-string))
 (s/def ::key-args (s/tuple ::non-empty-string))
 (s/def ::keydown-with-max-page-args (s/tuple ::non-empty-string (s/nilable ::intish)))
 (s/def ::keydown-with-optional-coin-args
@@ -405,6 +406,10 @@
    :actions/prev-vaults-user-page ::max-page-args
    :actions/set-vault-detail-tab ::keyword-or-string-args
    :actions/set-vault-detail-activity-tab ::keyword-or-string-args
+   :actions/sort-vault-detail-activity ::vault-detail-activity-sort-args
+   :actions/toggle-vault-detail-activity-filter-open ::no-args
+   :actions/close-vault-detail-activity-filter ::no-args
+   :actions/set-vault-detail-activity-direction-filter ::keyword-or-string-args
    :actions/set-vault-detail-chart-series ::keyword-or-string-args
    :actions/set-vault-detail-chart-hover ::vault-chart-hover-args
    :actions/clear-vault-detail-chart-hover ::no-args

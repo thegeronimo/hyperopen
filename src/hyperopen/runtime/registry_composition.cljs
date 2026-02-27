@@ -142,6 +142,10 @@
            prev-vaults-user-page
            set-vault-detail-tab
            set-vault-detail-activity-tab
+           sort-vault-detail-activity
+           toggle-vault-detail-activity-filter-open
+           close-vault-detail-activity-filter
+           set-vault-detail-activity-direction-filter
            set-vault-detail-chart-series
            set-vault-detail-chart-hover
            clear-vault-detail-chart-hover]}]
@@ -160,6 +164,10 @@
    :prev-vaults-user-page prev-vaults-user-page
    :set-vault-detail-tab set-vault-detail-tab
    :set-vault-detail-activity-tab set-vault-detail-activity-tab
+   :sort-vault-detail-activity sort-vault-detail-activity
+   :toggle-vault-detail-activity-filter-open toggle-vault-detail-activity-filter-open
+   :close-vault-detail-activity-filter close-vault-detail-activity-filter
+   :set-vault-detail-activity-direction-filter set-vault-detail-activity-direction-filter
    :set-vault-detail-chart-series set-vault-detail-chart-series
    :set-vault-detail-chart-hover set-vault-detail-chart-hover
    :clear-vault-detail-chart-hover clear-vault-detail-chart-hover})

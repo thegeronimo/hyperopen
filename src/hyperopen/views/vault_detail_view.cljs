@@ -129,12 +129,21 @@
     (str (subs value 0 8) "..." (subs value (- (count value) 6)))
     (or value "—")))
 
+(defn- metric-value-size-classes
+  [value]
+  (let [value-length (count (str (or value "")))]
+    (cond
+      (> value-length 16) ["text-[18px]" "sm:text-[22px]" "lg:text-[30px]"]
+      (> value-length 12) ["text-[20px]" "sm:text-[24px]" "lg:text-[34px]"]
+      :else ["text-[22px]" "sm:text-[28px]" "lg:text-[38px]"])))
+
 (defn- metric-card
   [{:keys [label value accent]}]
   [:div {:class ["rounded-xl"
                  "border"
                  "border-[#1a3a37]"
                  "bg-[#091a23]/88"
+                 "min-w-0"
                  "px-3.5"
                  "py-3"
                  "shadow-[inset_0_0_0_1px_rgba(8,38,45,0.35)]"]}
@@ -145,15 +154,13 @@
     label]
    [:div {:class (into ["mt-1.5"
                         "num"
-                        "text-[20px]"
-                        "sm:text-[24px]"
-                        "lg:text-[44px]"
                         "leading-[1.08]"
                         "font-semibold"]
-                       (case accent
-                         :positive ["text-[#5de2c0]"]
-                         :negative ["text-[#e59ca8]"]
-                         ["text-trading-text"]))}
+                       (concat (metric-value-size-classes value)
+                               (case accent
+                                 :positive ["text-[#5de2c0]"]
+                                 :negative ["text-[#e59ca8]"]
+                                 ["text-trading-text"])))}
     value]])
 
 (defn- format-activity-count [count]
@@ -318,12 +325,49 @@
 
     nil))
 
-(defn- table-header [labels]
+(def ^:private activity-direction-filter-tabs
+  #{:positions
+    :open-orders
+    :twap
+    :trade-history
+    :funding-history
+    :order-history})
+
+(defn- activity-direction-filter-enabled?
+  [activity-tab]
+  (contains? activity-direction-filter-tabs activity-tab))
+
+(defn- sort-header-button
+  [tab label sort-state]
+  (let [active? (= label (:column sort-state))
+        direction (:direction sort-state)
+        icon (when active?
+               (if (= :asc direction) "↑" "↓"))]
+    [:button {:type "button"
+              :class (into ["group"
+                            "inline-flex"
+                            "items-center"
+                            "gap-1"
+                            "text-xs"
+                            "font-medium"
+                            "text-[#949e9c]"
+                            "transition-colors"
+                            "hover:text-[#f6fefd]"]
+                           (when active?
+                             ["text-[#f6fefd]"]))
+              :on {:click [[:actions/sort-vault-detail-activity tab label]]}}
+     [:span label]
+     (when icon
+       [:span {:class ["text-xs" "opacity-70"]}
+        icon])]))
+
+(defn- table-header [tab labels sort-state]
   [:thead
    [:tr {:class ["border-b" "border-[#1b3237]" "bg-transparent" "text-xs" "font-medium" "text-[#949e9c]"]}
     (for [label labels]
       ^{:key (str "activity-header-" label)}
-      [:th {:class ["px-4" "py-2" "text-left" "whitespace-nowrap" "font-medium"]} label])]])
+      [:th {:class ["px-4" "py-2" "text-left" "whitespace-nowrap" "font-medium"]}
+       (sort-header-button tab label sort-state)])]])
 
 (defn- empty-table-row [col-span message]
   [:tr
@@ -417,10 +461,10 @@
 (def ^:private activity-cell-num-class
   ["px-4" "py-2.5" "num"])
 
-(defn- balances-table [rows]
+(defn- balances-table [rows sort-state]
   [:div {:class ["overflow-auto" "max-h-[540px]"]}
    [:table {:class ["w-full" "min-w-[760px]" "border-collapse"]}
-    (table-header ["Coin" "Total Balance" "Available Balance" "USDC Value"])
+    (table-header :balances ["Coin" "Total Balance" "Available Balance" "USDC Value"] sort-state)
     [:tbody
      (if (seq rows)
        (for [{:keys [coin total available usdc-value]} rows]
@@ -437,10 +481,10 @@
            (format-currency usdc-value)]])
        (empty-table-row 4 "No balances available."))]]])
 
-(defn- positions-table [rows]
+(defn- positions-table [rows sort-state]
   [:div {:class ["overflow-auto" "max-h-[540px]"]}
    [:table {:class ["w-full" "min-w-[1285px]" "border-collapse"]}
-    (table-header ["Coin" "Size" "Position Value" "Entry Price" "Mark Price" "PNL (ROE %)" "Liq. Price" "Margin" "Funding"])
+    (table-header :positions ["Coin" "Size" "Position Value" "Entry Price" "Mark Price" "PNL (ROE %)" "Liq. Price" "Margin" "Funding"] sort-state)
     [:tbody
      (if (seq rows)
        (for [{:keys [coin leverage size position-value entry-price mark-price pnl roe liq-price margin funding]} rows]
@@ -482,10 +526,10 @@
              (format-currency funding)]]))
        (empty-table-row 9 "No active positions."))]]])
 
-(defn- open-orders-table [rows]
+(defn- open-orders-table [rows sort-state]
   [:div {:class ["overflow-auto" "max-h-[540px]"]}
    [:table {:class ["w-full" "min-w-[960px]" "border-collapse"]}
-    (table-header ["Time" "Coin" "Side" "Size" "Price" "Trigger"])
+    (table-header :open-orders ["Time" "Coin" "Side" "Size" "Price" "Trigger"] sort-state)
     [:tbody
      (if (seq rows)
        (for [{:keys [time-ms coin side size price trigger-price]} rows]
@@ -503,10 +547,10 @@
             [:td {:class (into activity-cell-num-class ["whitespace-nowrap" "text-[#f6fefd]"])} (format-price trigger-price)]]))
        (empty-table-row 6 "No open orders."))]]])
 
-(defn- twap-table [rows]
+(defn- twap-table [rows sort-state]
   [:div {:class ["overflow-auto" "max-h-[540px]"]}
    [:table {:class ["w-full" "min-w-[1260px]" "border-collapse"]}
-    (table-header ["Coin" "Size" "Executed Size" "Average Price" "Running Time / Total" "Reduce Only" "Creation Time" "Terminate"])
+    (table-header :twap ["Coin" "Size" "Executed Size" "Average Price" "Running Time / Total" "Reduce Only" "Creation Time" "Terminate"] sort-state)
     [:tbody
      (if (seq rows)
        (for [{:keys [coin size executed-size average-price running-label reduce-only? creation-time-ms]} rows]
@@ -523,10 +567,10 @@
           [:td {:class (into activity-cell-class ["whitespace-nowrap" "text-[#8f9ea5]"])} "—"]])
        (empty-table-row 8 "No TWAPs yet."))]]])
 
-(defn- fills-table [rows loading? error]
+(defn- fills-table [rows loading? error sort-state]
   [:div {:class ["overflow-auto" "max-h-[540px]"]}
    [:table {:class ["w-full" "min-w-[1180px]" "border-collapse"]}
-    (table-header ["Time" "Coin" "Side" "Price" "Size" "Trade Value" "Fee" "Closed PNL"])
+    (table-header :trade-history ["Time" "Coin" "Side" "Price" "Size" "Trade Value" "Fee" "Closed PNL"] sort-state)
     [:tbody
      (cond
        (seq error)
@@ -557,10 +601,10 @@
        :else
        (empty-table-row 8 "No recent fills."))]]])
 
-(defn- funding-history-table [rows loading? error]
+(defn- funding-history-table [rows loading? error sort-state]
   [:div {:class ["overflow-auto" "max-h-[540px]"]}
    [:table {:class ["w-full" "min-w-[920px]" "border-collapse"]}
-    (table-header ["Time" "Coin" "Funding Rate" "Position Size" "Payment"])
+    (table-header :funding-history ["Time" "Coin" "Funding Rate" "Position Size" "Payment"] sort-state)
     [:tbody
      (cond
        (seq error)
@@ -589,10 +633,10 @@
        :else
        (empty-table-row 5 "No funding history available."))]]])
 
-(defn- order-history-table [rows loading? error]
+(defn- order-history-table [rows loading? error sort-state]
   [:div {:class ["overflow-auto" "max-h-[540px]"]}
    [:table {:class ["w-full" "min-w-[1040px]" "border-collapse"]}
-    (table-header ["Time" "Coin" "Side" "Type" "Size" "Price" "Status"])
+    (table-header :order-history ["Time" "Coin" "Side" "Type" "Size" "Price" "Status"] sort-state)
     [:tbody
      (cond
        (seq error)
@@ -621,10 +665,10 @@
        :else
        (empty-table-row 7 "No order history available."))]]])
 
-(defn- ledger-table [rows loading? error]
+(defn- ledger-table [rows loading? error sort-state]
   [:div {:class ["overflow-auto" "max-h-[540px]"]}
    [:table {:class ["w-full" "min-w-[880px]" "border-collapse"]}
-    (table-header ["Time" "Type" "Amount" "Tx Hash"])
+    (table-header :deposits-withdrawals ["Time" "Type" "Amount" "Tx Hash"] sort-state)
     [:tbody
      (cond
        (seq error)
@@ -653,10 +697,10 @@
        :else
        (empty-table-row 4 "No deposits or withdrawals available."))]]])
 
-(defn- depositors-table [rows]
+(defn- depositors-table [rows sort-state]
   [:div {:class ["overflow-auto" "max-h-[540px]"]}
    [:table {:class ["w-full" "min-w-[980px]" "border-collapse"]}
-    (table-header ["Depositor" "Vault Amount" "Unrealized PNL" "All-time PNL" "Days Following"])
+    (table-header :depositors ["Depositor" "Vault Amount" "Unrealized PNL" "All-time PNL" "Days Following"] sort-state)
     [:tbody
      (if (seq rows)
        (for [{:keys [address vault-amount unrealized-pnl all-time-pnl days-following]} rows]
@@ -676,6 +720,10 @@
 
 (defn- activity-panel [{:keys [selected-activity-tab
                                activity-tabs
+                               activity-direction-filter
+                               activity-filter-open?
+                               activity-filter-options
+                               activity-sort-state-by-tab
                                activity-loading
                                activity-errors
                                activity-balances
@@ -687,49 +735,96 @@
                                activity-order-history
                                activity-deposits-withdrawals
                                activity-depositors]}]
-  [:section {:class ["rounded-2xl"
-                     "border"
-                     "border-[#1b3237]"
-                     "bg-[#071820]"
-                     "overflow-hidden"
-                     "w-full"]}
-   [:div {:class ["flex" "items-center" "justify-between" "border-b" "border-[#1b3237]" "bg-transparent" "gap-2" "pr-3"]}
-    [:div {:class ["min-w-0" "overflow-x-auto"]}
-     [:div {:class ["flex" "min-w-max" "items-center"]}
-      (for [tab activity-tabs]
-        ^{:key (str "activity-tab-" (name (:value tab)))}
-        (activity-tab-button tab selected-activity-tab))]]
-    [:button {:type "button"
-              :disabled true
-              :class ["hidden"
-                      "md:flex"
-                      "items-center"
-                      "gap-1"
-                      "text-xs"
-                      "text-[#949e9c]"
-                      "cursor-not-allowed"]}
-     "Filter"
-     [:span "⌄"]]]
-   (case selected-activity-tab
-     :balances (balances-table activity-balances)
-     :positions (positions-table activity-positions)
-     :open-orders (open-orders-table activity-open-orders)
-     :twap (twap-table activity-twaps)
-     :trade-history (fills-table activity-fills
-                                 (true? (:trade-history activity-loading))
-                                 (:trade-history activity-errors))
-     :funding-history (funding-history-table activity-funding-history
-                                             (true? (:funding-history activity-loading))
-                                             (:funding-history activity-errors))
-     :order-history (order-history-table activity-order-history
-                                         (true? (:order-history activity-loading))
-                                         (:order-history activity-errors))
-     :deposits-withdrawals (ledger-table activity-deposits-withdrawals
-                                         (true? (:deposits-withdrawals activity-loading))
-                                         (:deposits-withdrawals activity-errors))
-     :depositors (depositors-table activity-depositors)
-     [:div {:class ["px-4" "py-6" "text-sm" "text-[#8ea2aa]"]}
-      "This activity stream is not available yet for vaults."])])
+  (let [filter-enabled? (activity-direction-filter-enabled? selected-activity-tab)
+        sort-state-by-tab (or activity-sort-state-by-tab {})
+        selected-filter* (or activity-direction-filter :all)]
+    [:section {:class ["rounded-2xl"
+                       "border"
+                       "border-[#1b3237]"
+                       "bg-[#071820]"
+                       "overflow-hidden"
+                       "w-full"]}
+     [:div {:class ["flex" "items-center" "justify-between" "border-b" "border-[#1b3237]" "bg-transparent" "gap-2" "pr-3"]}
+      [:div {:class ["min-w-0" "overflow-x-auto"]}
+       [:div {:class ["flex" "min-w-max" "items-center"]}
+        (for [tab activity-tabs]
+          ^{:key (str "activity-tab-" (name (:value tab)))}
+          (activity-tab-button tab selected-activity-tab))]]
+      [:div {:class ["relative" "hidden" "md:flex" "items-center"]}
+       [:button {:type "button"
+                 :disabled (not filter-enabled?)
+                 :class (into ["inline-flex"
+                               "items-center"
+                               "gap-1"
+                               "text-xs"
+                               "text-[#949e9c]"
+                               "transition-colors"]
+                              (if filter-enabled?
+                                ["cursor-pointer" "hover:text-[#f6fefd]"]
+                                ["cursor-not-allowed" "opacity-50"]))
+                 :on {:click [[:actions/toggle-vault-detail-activity-filter-open]]}}
+        "Filter"
+        [:span "⌄"]]
+       (when (and filter-enabled?
+                  activity-filter-open?)
+         [:div {:class ["absolute"
+                        "right-0"
+                        "top-full"
+                        "z-30"
+                        "mt-1.5"
+                        "w-32"
+                        "overflow-hidden"
+                        "rounded-md"
+                        "border"
+                        "border-[#204046]"
+                        "bg-[#081f29]"
+                        "shadow-lg"]}
+          (for [{:keys [value label]} activity-filter-options]
+            ^{:key (str "vault-detail-activity-filter-" (name value))}
+            [:button {:type "button"
+                      :class (into ["flex"
+                                    "w-full"
+                                    "items-center"
+                                    "justify-between"
+                                    "px-3"
+                                    "py-2"
+                                    "text-left"
+                                    "text-sm"
+                                    "text-[#c7d5da]"
+                                    "transition-colors"
+                                    "hover:bg-[#0e2630]"
+                                    "hover:text-[#f6fefd]"]
+                                   (when (= value selected-filter*)
+                                     ["bg-[#0e2630]" "text-[#f6fefd]"]))
+                      :on {:click [[:actions/set-vault-detail-activity-direction-filter value]]}}
+             [:span label]
+             (when (= value selected-filter*)
+               [:span {:class ["text-xs" "text-[#66e3c5]"]}
+                "●"])])])]]
+     (case selected-activity-tab
+       :balances (balances-table activity-balances (get sort-state-by-tab :balances))
+       :positions (positions-table activity-positions (get sort-state-by-tab :positions))
+       :open-orders (open-orders-table activity-open-orders (get sort-state-by-tab :open-orders))
+       :twap (twap-table activity-twaps (get sort-state-by-tab :twap))
+       :trade-history (fills-table activity-fills
+                                   (true? (:trade-history activity-loading))
+                                   (:trade-history activity-errors)
+                                   (get sort-state-by-tab :trade-history))
+       :funding-history (funding-history-table activity-funding-history
+                                               (true? (:funding-history activity-loading))
+                                               (:funding-history activity-errors)
+                                               (get sort-state-by-tab :funding-history))
+       :order-history (order-history-table activity-order-history
+                                           (true? (:order-history activity-loading))
+                                           (:order-history activity-errors)
+                                           (get sort-state-by-tab :order-history))
+       :deposits-withdrawals (ledger-table activity-deposits-withdrawals
+                                           (true? (:deposits-withdrawals activity-loading))
+                                           (:deposits-withdrawals activity-errors)
+                                           (get sort-state-by-tab :deposits-withdrawals))
+       :depositors (depositors-table activity-depositors (get sort-state-by-tab :depositors))
+       [:div {:class ["px-4" "py-6" "text-sm" "text-[#8ea2aa]"]}
+        "This activity stream is not available yet for vaults."])]))
 
 (defn vault-detail-view
   [state]
@@ -779,12 +874,14 @@
              "Vaults"]
             [:span ">"]
             [:span {:class ["truncate"]} vault-name]]
-           [:h1 {:class ["text-[30px]"
-                         "leading-[0.96]"
+           [:h1 {:class ["text-[34px]"
+                         "leading-[1.02]"
                          "font-semibold"
                          "tracking-tight"
                          "text-trading-text"
-                         "sm:text-[54px]"]}
+                         "sm:text-[44px]"
+                         "xl:text-[56px]"
+                         "break-words"]}
             vault-name]
            [:div {:class ["mt-1.5" "num" "text-sm" "text-[#89a1a8]"]}
             (or (wallet/short-addr vault-address) vault-address)]

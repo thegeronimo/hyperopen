@@ -75,6 +75,14 @@
                     (get-in deps [:vaults :set-vault-detail-tab])))
     (is (identical? vault-actions/set-vault-detail-activity-tab
                     (get-in deps [:vaults :set-vault-detail-activity-tab])))
+    (is (identical? vault-actions/sort-vault-detail-activity
+                    (get-in deps [:vaults :sort-vault-detail-activity])))
+    (is (identical? vault-actions/toggle-vault-detail-activity-filter-open
+                    (get-in deps [:vaults :toggle-vault-detail-activity-filter-open])))
+    (is (identical? vault-actions/close-vault-detail-activity-filter
+                    (get-in deps [:vaults :close-vault-detail-activity-filter])))
+    (is (identical? vault-actions/set-vault-detail-activity-direction-filter
+                    (get-in deps [:vaults :set-vault-detail-activity-direction-filter])))
     (is (identical? vault-actions/set-vault-detail-chart-series
                     (get-in deps [:vaults :set-vault-detail-chart-series])))
     (is (identical? order-actions/submit-order

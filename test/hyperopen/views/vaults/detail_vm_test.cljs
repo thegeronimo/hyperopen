@@ -214,3 +214,22 @@
     (is (= 1 (count (:activity-twaps vm))))
     (is (= 1 (count (:activity-deposits-withdrawals vm))))
     (is (= 3 (get-in vm [:activity-summary :fill-count])))))
+
+(deftest vault-detail-vm-applies-direction-filter-to-supported-activity-tabs-test
+  (let [state (assoc-in sample-state [:vaults-ui :detail-activity-direction-filter] :short)
+        vm (detail-vm/vault-detail-vm state)]
+    (is (= :short (:activity-direction-filter vm)))
+    (is (= 1 (count (:activity-positions vm))))
+    (is (= "ETH" (get-in vm [:activity-positions 0 :coin])))
+    (is (= 0 (count (:activity-open-orders vm))))))
+
+(deftest vault-detail-vm-applies-per-tab-sort-state-for-activity-rows-test
+  (let [state (assoc-in sample-state
+                        [:vaults-ui :detail-activity-sort-by-tab]
+                        {:positions {:column "Coin"
+                                     :direction :asc}})
+        vm (detail-vm/vault-detail-vm state)]
+    (is (= "Coin" (get-in vm [:activity-sort-state-by-tab :positions :column])))
+    (is (= :asc (get-in vm [:activity-sort-state-by-tab :positions :direction])))
+    (is (= "BTC" (get-in vm [:activity-positions 0 :coin])))
+    (is (= "ETH" (get-in vm [:activity-positions 1 :coin])))))

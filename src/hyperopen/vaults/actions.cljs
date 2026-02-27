@@ -23,6 +23,12 @@
 (def default-vault-detail-activity-tab
   :positions)
 
+(def default-vault-detail-activity-direction-filter
+  :all)
+
+(def default-vault-detail-activity-sort-direction
+  :desc)
+
 (def default-vault-detail-chart-series
   :pnl)
 
@@ -46,6 +52,14 @@
     :deposits-withdrawals
     :depositors})
 
+(def ^:private vault-detail-activity-direction-filters
+  #{:all
+    :long
+    :short})
+
+(def ^:private sort-directions
+  #{:asc :desc})
+
 (def ^:private vault-detail-chart-series-options
   #{:account-value
     :pnl})
@@ -56,6 +70,15 @@
 
 (def ^:private vault-detail-chart-hover-index-path
   [:vaults-ui :detail-chart-hover-index])
+
+(def ^:private vault-detail-activity-sort-by-tab-path
+  [:vaults-ui :detail-activity-sort-by-tab])
+
+(def ^:private vault-detail-activity-direction-filter-path
+  [:vaults-ui :detail-activity-direction-filter])
+
+(def ^:private vault-detail-activity-filter-open-path
+  [:vaults-ui :detail-activity-filter-open?])
 
 (def vault-user-page-size-options
   [5 10 25 50])
@@ -189,6 +212,33 @@
     (if (contains? vault-detail-activity-tabs normalized)
       normalized
       default-vault-detail-activity-tab)))
+
+(defn normalize-vault-detail-activity-direction-filter
+  [value]
+  (let [token (cond
+                (keyword? value) value
+                (string? value) (-> value
+                                    str/trim
+                                    str/lower-case
+                                    keyword)
+                :else nil)]
+    (if (contains? vault-detail-activity-direction-filters token)
+      token
+      default-vault-detail-activity-direction-filter)))
+
+(defn- normalize-vault-detail-activity-sort-column
+  [value]
+  (non-blank-text value))
+
+(defn- normalize-sort-direction
+  [value]
+  (let [direction (cond
+                    (keyword? value) value
+                    (string? value) (keyword (str/lower-case (str/trim value)))
+                    :else nil)]
+    (if (contains? sort-directions direction)
+      direction
+      default-vault-detail-activity-sort-direction)))
 
 (defn normalize-vault-detail-chart-series
   [value]
@@ -451,8 +501,42 @@
 
 (defn set-vault-detail-activity-tab
   [_state tab]
-  [[:effects/save [:vaults-ui :detail-activity-tab]
-    (normalize-vault-detail-activity-tab tab)]])
+  [[:effects/save-many [[[:vaults-ui :detail-activity-tab]
+                         (normalize-vault-detail-activity-tab tab)]
+                        [vault-detail-activity-filter-open-path false]]]])
+
+(defn sort-vault-detail-activity
+  [state tab column]
+  (let [tab* (normalize-vault-detail-activity-tab tab)
+        column* (normalize-vault-detail-activity-sort-column column)
+        current-sort (or (get-in state (conj vault-detail-activity-sort-by-tab-path tab*))
+                         {})
+        current-column (normalize-vault-detail-activity-sort-column (:column current-sort))
+        current-direction (normalize-sort-direction (:direction current-sort))
+        next-direction (if (= column* current-column)
+                         (if (= :asc current-direction) :desc :asc)
+                         default-vault-detail-activity-sort-direction)]
+    (if (nil? column*)
+      []
+      [[:effects/save-many [[(conj vault-detail-activity-sort-by-tab-path tab*)
+                             {:column column*
+                              :direction next-direction}]
+                            [vault-detail-activity-filter-open-path false]]]])))
+
+(defn toggle-vault-detail-activity-filter-open
+  [state]
+  [[:effects/save vault-detail-activity-filter-open-path
+    (not (true? (get-in state vault-detail-activity-filter-open-path)))]])
+
+(defn close-vault-detail-activity-filter
+  [_state]
+  [[:effects/save vault-detail-activity-filter-open-path false]])
+
+(defn set-vault-detail-activity-direction-filter
+  [_state direction-filter]
+  [[:effects/save-many [[vault-detail-activity-direction-filter-path
+                         (normalize-vault-detail-activity-direction-filter direction-filter)]
+                        [vault-detail-activity-filter-open-path false]]]])
 
 (defn set-vault-detail-chart-series
   [_state series]

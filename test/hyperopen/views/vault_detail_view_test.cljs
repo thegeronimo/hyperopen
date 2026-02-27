@@ -31,6 +31,9 @@
   {:router {:path "/vaults/0x1234567890abcdef1234567890abcdef12345678"}
    :vaults-ui {:detail-tab :about
                :detail-activity-tab :positions
+               :detail-activity-sort-by-tab {}
+               :detail-activity-direction-filter :all
+               :detail-activity-filter-open? false
                :detail-chart-series :pnl
                :snapshot-range :month
                :detail-loading? false}
@@ -182,3 +185,21 @@
                                                   (some #{"text-[#1fa67d]"} (get-in % [1 :class]))))]
     (is (some? accent-cell))
     (is (some? filled-status-cell))))
+
+(deftest vault-detail-view-wires-activity-sort-and-filter-interactions-test
+  (let [filter-open-state (-> sample-state
+                              (assoc-in [:vaults-ui :detail-activity-filter-open?] true)
+                              (assoc-in [:vaults-ui :detail-activity-direction-filter] :long))
+        view (vault-detail-view/vault-detail-view filter-open-state)
+        sort-header (find-first-node view
+                                     #(= [[:actions/sort-vault-detail-activity :positions "Size"]]
+                                         (get-in % [1 :on :click])))
+        filter-toggle (find-first-node view
+                                       #(= [[:actions/toggle-vault-detail-activity-filter-open]]
+                                           (get-in % [1 :on :click])))
+        short-filter-option (find-first-node view
+                                             #(= [[:actions/set-vault-detail-activity-direction-filter :short]]
+                                                 (get-in % [1 :on :click])))]
+    (is (some? sort-header))
+    (is (some? filter-toggle))
+    (is (some? short-filter-option))))

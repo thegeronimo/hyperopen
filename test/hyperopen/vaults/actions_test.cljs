@@ -129,10 +129,37 @@
          (actions/prev-vaults-user-page {:vaults-ui {:user-vaults-page 2}} 5)))
   (is (= [[:effects/save [:vaults-ui :detail-tab] :vault-performance]]
          (actions/set-vault-detail-tab {} "vaultPerformance")))
-  (is (= [[:effects/save [:vaults-ui :detail-activity-tab] :open-orders]]
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-tab] :open-orders]
+                               [[:vaults-ui :detail-activity-filter-open?] false]]]]
          (actions/set-vault-detail-activity-tab {} "openOrders")))
-  (is (= [[:effects/save [:vaults-ui :detail-activity-tab] :positions]]
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-tab] :positions]
+                               [[:vaults-ui :detail-activity-filter-open?] false]]]]
          (actions/set-vault-detail-activity-tab {} "unknown-tab")))
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-sort-by-tab :positions]
+                                {:column "Size"
+                                 :direction :desc}]
+                               [[:vaults-ui :detail-activity-filter-open?] false]]]]
+         (actions/sort-vault-detail-activity {} :positions "Size")))
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-sort-by-tab :positions]
+                                {:column "Size"
+                                 :direction :asc}]
+                               [[:vaults-ui :detail-activity-filter-open?] false]]]]
+         (actions/sort-vault-detail-activity
+          {:vaults-ui {:detail-activity-sort-by-tab {:positions {:column "Size"
+                                                                  :direction :desc}}}}
+          :positions
+          "Size")))
+  (is (= [[:effects/save [:vaults-ui :detail-activity-filter-open?] true]]
+         (actions/toggle-vault-detail-activity-filter-open
+          {:vaults-ui {:detail-activity-filter-open? false}})))
+  (is (= [[:effects/save [:vaults-ui :detail-activity-filter-open?] false]]
+         (actions/close-vault-detail-activity-filter {})))
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-direction-filter] :short]
+                               [[:vaults-ui :detail-activity-filter-open?] false]]]]
+         (actions/set-vault-detail-activity-direction-filter {} "short")))
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-direction-filter] :all]
+                               [[:vaults-ui :detail-activity-filter-open?] false]]]]
+         (actions/set-vault-detail-activity-direction-filter {} "not-real")))
   (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-series] :account-value]
                                [[:vaults-ui :detail-chart-hover-index] nil]]]]
          (actions/set-vault-detail-chart-series {} "accountValue")))

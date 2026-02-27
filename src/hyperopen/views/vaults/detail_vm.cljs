@@ -1,6 +1,7 @@
 (ns hyperopen.views.vaults.detail-vm
   (:require [clojure.string :as str]
-            [hyperopen.vaults.actions :as vault-actions]))
+            [hyperopen.vaults.actions :as vault-actions]
+            [hyperopen.views.account-info.sort-kernel :as sort-kernel]))
 
 (def ^:private chart-y-tick-count
   4)
@@ -41,6 +42,42 @@
    {:value :all-time
     :label "All-time"}])
 
+(def ^:private activity-filter-options
+  [{:value :all
+    :label "All"}
+   {:value :long
+    :label "Long"}
+   {:value :short
+    :label "Short"}])
+
+(def ^:private direction-filter-tabs
+  #{:positions
+    :open-orders
+    :twap
+    :trade-history
+    :funding-history
+    :order-history})
+
+(def ^:private activity-sort-defaults
+  {:balances {:column "USDC Value"
+              :direction :desc}
+   :positions {:column "Position Value"
+               :direction :desc}
+   :open-orders {:column "Time"
+                 :direction :desc}
+   :twap {:column "Creation Time"
+          :direction :desc}
+   :trade-history {:column "Time"
+                   :direction :desc}
+   :funding-history {:column "Time"
+                     :direction :desc}
+   :order-history {:column "Time"
+                   :direction :desc}
+   :deposits-withdrawals {:column "Time"
+                          :direction :desc}
+   :depositors {:column "Vault Amount"
+                :direction :desc}})
+
 (defn- optional-number
   [value]
   (cond
@@ -67,6 +104,223 @@
   (let [text (some-> value str str/trim)]
     (when (seq text)
       text)))
+
+(defn- normalize-sort-direction
+  [value]
+  (if (#{:asc :desc} value)
+    value
+    :desc))
+
+(defn- sortable-text
+  [value]
+  (some-> value non-blank-text str/lower-case))
+
+(defn- sortable-number
+  [value]
+  (or (optional-number value) 0))
+
+(defn- sortable-abs-number
+  [value]
+  (js/Math.abs (sortable-number value)))
+
+(defn- normalize-side-key
+  [value]
+  (case (some-> value str str/trim str/lower-case)
+    ("long" "buy" "b") :long
+    ("short" "sell" "a" "s") :short
+    nil))
+
+(defn- direction-key-from-size
+  [value]
+  (when-let [n (optional-number value)]
+    (if (neg? n) :short :long)))
+
+(defn- row-direction-key
+  [tab row]
+  (case tab
+    :positions (direction-key-from-size (:size row))
+    :open-orders (normalize-side-key (:side row))
+    :twap (direction-key-from-size (:size row))
+    :trade-history (normalize-side-key (:side row))
+    :funding-history (direction-key-from-size (:position-size row))
+    :order-history (normalize-side-key (:side row))
+    nil))
+
+(defn- direction-match?
+  [direction row-direction]
+  (case direction
+    :long (= :long row-direction)
+    :short (= :short row-direction)
+    true))
+
+(defn- filter-activity-rows-by-direction
+  [rows tab direction-filter]
+  (let [rows* (vec (or rows []))
+        filter* (vault-actions/normalize-vault-detail-activity-direction-filter direction-filter)]
+    (if (or (= :all filter*)
+            (not (contains? direction-filter-tabs tab)))
+      rows*
+      (->> rows*
+           (filter (fn [row]
+                     (direction-match? filter* (row-direction-key tab row))))
+           vec))))
+
+(def ^:private activity-sort-accessor-by-tab
+  {:balances {"Coin" (fn [row]
+                       (or (sortable-text (:coin row)) ""))
+              "Total Balance" (fn [row]
+                                (sortable-abs-number (:total row)))
+              "Available Balance" (fn [row]
+                                    (sortable-abs-number (:available row)))
+              "USDC Value" (fn [row]
+                             (sortable-abs-number (:usdc-value row)))}
+   :positions {"Coin" (fn [row]
+                        (or (sortable-text (:coin row)) ""))
+               "Size" (fn [row]
+                        (sortable-abs-number (:size row)))
+               "Position Value" (fn [row]
+                                  (sortable-abs-number (:position-value row)))
+               "Entry Price" (fn [row]
+                               (sortable-number (:entry-price row)))
+               "Mark Price" (fn [row]
+                              (sortable-number (:mark-price row)))
+               "PNL (ROE %)" (fn [row]
+                               (sortable-number (:pnl row)))
+               "Liq. Price" (fn [row]
+                              (sortable-number (:liq-price row)))
+               "Margin" (fn [row]
+                          (sortable-abs-number (:margin row)))
+               "Funding" (fn [row]
+                           (sortable-number (:funding row)))}
+   :open-orders {"Time" (fn [row]
+                          (sortable-number (:time-ms row)))
+                 "Coin" (fn [row]
+                          (or (sortable-text (:coin row)) ""))
+                 "Side" (fn [row]
+                          (or (sortable-text (:side row)) ""))
+                 "Size" (fn [row]
+                          (sortable-abs-number (:size row)))
+                 "Price" (fn [row]
+                           (sortable-number (:price row)))
+                 "Trigger" (fn [row]
+                             (sortable-number (:trigger-price row)))}
+   :twap {"Coin" (fn [row]
+                   (or (sortable-text (:coin row)) ""))
+          "Size" (fn [row]
+                   (sortable-abs-number (:size row)))
+          "Executed Size" (fn [row]
+                            (sortable-abs-number (:executed-size row)))
+          "Average Price" (fn [row]
+                            (sortable-number (:average-price row)))
+          "Running Time / Total" (fn [row]
+                                   (sortable-number (:running-ms row)))
+          "Reduce Only" (fn [row]
+                          (if (true? (:reduce-only? row)) 1 0))
+          "Creation Time" (fn [row]
+                            (sortable-number (:creation-time-ms row)))
+          "Terminate" (fn [_row] 0)}
+   :trade-history {"Time" (fn [row]
+                            (sortable-number (:time-ms row)))
+                   "Coin" (fn [row]
+                            (or (sortable-text (:coin row)) ""))
+                   "Side" (fn [row]
+                            (or (sortable-text (:side row)) ""))
+                   "Price" (fn [row]
+                             (sortable-number (:price row)))
+                   "Size" (fn [row]
+                            (sortable-abs-number (:size row)))
+                   "Trade Value" (fn [row]
+                                   (sortable-abs-number (:trade-value row)))
+                   "Fee" (fn [row]
+                           (sortable-number (:fee row)))
+                   "Closed PNL" (fn [row]
+                                  (sortable-number (:closed-pnl row)))}
+   :funding-history {"Time" (fn [row]
+                              (sortable-number (:time-ms row)))
+                     "Coin" (fn [row]
+                              (or (sortable-text (:coin row)) ""))
+                     "Funding Rate" (fn [row]
+                                      (sortable-number (:funding-rate row)))
+                     "Position Size" (fn [row]
+                                       (sortable-abs-number (:position-size row)))
+                     "Payment" (fn [row]
+                                 (sortable-number (:payment row)))}
+   :order-history {"Time" (fn [row]
+                            (sortable-number (:time-ms row)))
+                   "Coin" (fn [row]
+                            (or (sortable-text (:coin row)) ""))
+                   "Side" (fn [row]
+                            (or (sortable-text (:side row)) ""))
+                   "Type" (fn [row]
+                            (or (sortable-text (:type row)) ""))
+                   "Size" (fn [row]
+                            (sortable-abs-number (:size row)))
+                   "Price" (fn [row]
+                             (sortable-number (:price row)))
+                   "Status" (fn [row]
+                              (or (sortable-text (:status row)) ""))}
+   :deposits-withdrawals {"Time" (fn [row]
+                                   (sortable-number (:time-ms row)))
+                          "Type" (fn [row]
+                                   (or (sortable-text (:type-label row)) ""))
+                          "Amount" (fn [row]
+                                     (sortable-number (:amount row)))
+                          "Tx Hash" (fn [row]
+                                      (or (sortable-text (:hash row)) ""))}
+   :depositors {"Depositor" (fn [row]
+                              (or (sortable-text (:address row)) ""))
+                "Vault Amount" (fn [row]
+                                 (sortable-abs-number (:vault-amount row)))
+                "Unrealized PNL" (fn [row]
+                                   (sortable-number (:unrealized-pnl row)))
+                "All-time PNL" (fn [row]
+                                 (sortable-number (:all-time-pnl row)))
+                "Days Following" (fn [row]
+                                   (sortable-number (:days-following row)))}})
+
+(defn- activity-sort-state
+  [state tab]
+  (let [defaults (get activity-sort-defaults tab {:column nil
+                                                   :direction :desc})
+        columns (keys (get activity-sort-accessor-by-tab tab))
+        fallback-column (or (:column defaults)
+                            (first columns))
+        saved (or (get-in state [:vaults-ui :detail-activity-sort-by-tab tab])
+                  {})
+        saved-column (non-blank-text (:column saved))
+        column (if (contains? (set columns) saved-column)
+                 saved-column
+                 fallback-column)]
+    {:column column
+     :direction (normalize-sort-direction (or (:direction saved)
+                                              (:direction defaults)))}))
+
+(defn- row-sort-tie-breaker
+  [row]
+  (str (or (:coin row)
+           (:address row)
+           (:hash row)
+           (:time-ms row)
+           (:creation-time-ms row)
+           (:type row)
+           "")))
+
+(defn- sort-activity-rows
+  [rows tab sort-state]
+  (let [rows* (vec (or rows []))
+        accessor-by-column (get activity-sort-accessor-by-tab tab)
+        column (:column sort-state)]
+    (if (and (seq rows*)
+             (map? accessor-by-column)
+             (contains? accessor-by-column column))
+      (->> (sort-kernel/sort-rows-by-column
+            rows*
+            {:column column
+             :direction (normalize-sort-direction (:direction sort-state))
+             :accessor-by-column accessor-by-column
+             :tie-breaker row-sort-tie-breaker})
+           vec)
+      rows*)))
 
 (defn- normalize-address
   [value]
@@ -459,7 +713,7 @@
           minutes (js/Math.floor (/ (mod seconds 3600) 60))]
       (str hours "h " minutes "m"))))
 
-(defn- twap-running-label
+(defn- twap-running-times
   [row]
   (let [start-ms (or (optional-number (:startTime row))
                      (optional-number (:startTimeMs row))
@@ -470,8 +724,13 @@
         total-ms (or (optional-number (:durationMs row))
                      (optional-number (:totalDurationMs row))
                      (optional-number (:totalMs row))
-                     (optional-number (:duration row)))
-        elapsed-label (format-duration-ms elapsed-ms)
+                     (optional-number (:duration row)))]
+    {:elapsed-ms elapsed-ms
+     :total-ms total-ms}))
+
+(defn- twap-running-label
+  [{:keys [elapsed-ms total-ms]}]
+  (let [elapsed-label (format-duration-ms elapsed-ms)
         total-label (format-duration-ms total-ms)]
     (cond
       (and elapsed-label total-label) (str elapsed-label " / " total-label)
@@ -506,6 +765,7 @@
                             (optional-number (:averagePrice state)))
           reduce-only? (or (as-boolean (:reduceOnly state))
                            (as-boolean (:reduceOnly order)))
+          running-times (twap-running-times state)
           creation-time-ms (or (optional-int (:creationTime state))
                                (optional-int (:createdAt state))
                                (optional-int (:timestamp state))
@@ -516,7 +776,9 @@
        :size size
        :executed-size executed-size
        :average-price average-price
-       :running-label (twap-running-label state)
+       :running-label (twap-running-label running-times)
+       :running-ms (:elapsed-ms running-times)
+       :total-ms (:total-ms running-times)
        :reduce-only? reduce-only?
        :creation-time-ms creation-time-ms})))
 
@@ -835,15 +1097,35 @@
         funding-error (first-address-error state :funding-history-by-vault history-addresses)
         order-history-error (first-address-error state :order-history-by-vault history-addresses)
         ledger-error (get-in state [:vaults :errors :ledger-updates-by-vault vault-address])
-        positions (activity-positions webdata)
-        open-orders (activity-open-orders webdata)
-        balances (activity-balances webdata)
-        twaps (activity-twaps webdata)
-        fills (activity-fills fills-source)
-        funding-history (activity-funding-history funding-source)
-        order-history (activity-order-history order-history-source)
-        deposits-withdrawals (activity-ledger-updates ledger-source vault-address)
-        depositors (activity-depositors details)
+        activity-direction-filter (vault-actions/normalize-vault-detail-activity-direction-filter
+                                   (get-in state [:vaults-ui :detail-activity-direction-filter]))
+        activity-filter-open? (true? (get-in state [:vaults-ui :detail-activity-filter-open?]))
+        activity-sort-state-by-tab (into {}
+                                         (map (fn [{:keys [value]}]
+                                                [value (activity-sort-state state value)]))
+                                         activity-tabs)
+        positions-raw (activity-positions webdata)
+        open-orders-raw (activity-open-orders webdata)
+        balances-raw (activity-balances webdata)
+        twaps-raw (activity-twaps webdata)
+        fills-raw (activity-fills fills-source)
+        funding-history-raw (activity-funding-history funding-source)
+        order-history-raw (activity-order-history order-history-source)
+        deposits-withdrawals-raw (activity-ledger-updates ledger-source vault-address)
+        depositors-raw (activity-depositors details)
+        project-rows (fn [tab rows]
+                       (-> rows
+                           (filter-activity-rows-by-direction tab activity-direction-filter)
+                           (sort-activity-rows tab (get activity-sort-state-by-tab tab))))
+        balances (project-rows :balances balances-raw)
+        positions (project-rows :positions positions-raw)
+        open-orders (project-rows :open-orders open-orders-raw)
+        twaps (project-rows :twap twaps-raw)
+        fills (project-rows :trade-history fills-raw)
+        funding-history (project-rows :funding-history funding-history-raw)
+        order-history (project-rows :order-history order-history-raw)
+        deposits-withdrawals (project-rows :deposits-withdrawals deposits-withdrawals-raw)
+        depositors (project-rows :depositors depositors-raw)
         activity-loading {:trade-history (address-loading? state :fills-by-vault history-addresses)
                           :funding-history (address-loading? state :funding-history-by-vault history-addresses)
                           :order-history (address-loading? state :order-history-by-vault history-addresses)
@@ -852,15 +1134,15 @@
                          :funding-history funding-error
                          :order-history order-history-error
                          :deposits-withdrawals ledger-error}
-        activity-count-by-tab {:balances (count balances)
-                               :positions (count positions)
-                               :open-orders (count open-orders)
-                               :twap (count twaps)
-                               :trade-history (count fills)
-                               :funding-history (count funding-history)
-                               :order-history (count order-history)
-                               :deposits-withdrawals (count deposits-withdrawals)
-                               :depositors (max (count depositors)
+        activity-count-by-tab {:balances (count balances-raw)
+                               :positions (count positions-raw)
+                               :open-orders (count open-orders-raw)
+                               :twap (count twaps-raw)
+                               :trade-history (count fills-raw)
+                               :funding-history (count funding-history-raw)
+                               :order-history (count order-history-raw)
+                               :deposits-withdrawals (count deposits-withdrawals-raw)
+                               :depositors (max (count depositors-raw)
                                                 (followers-count details))}]
     {:kind kind
      :vault-address vault-address
@@ -920,6 +1202,11 @@
                              :count (get activity-count-by-tab value 0)})
                           activity-tabs)
      :selected-activity-tab activity-tab
+     :activity-direction-filter activity-direction-filter
+     :activity-filter-open? activity-filter-open?
+     :activity-filter-options activity-filter-options
+     :activity-sort-state-by-tab activity-sort-state-by-tab
+     :selected-activity-sort-state (get activity-sort-state-by-tab activity-tab)
      :activity-balances balances
      :activity-positions positions
      :activity-open-orders open-orders
