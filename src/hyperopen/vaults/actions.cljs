@@ -244,6 +244,41 @@
       wallet-address
       (conj [:effects/api-fetch-user-vault-equities wallet-address]))))
 
+(defn- relationship-child-addresses
+  [relationship]
+  (->> (or (:child-addresses relationship) [])
+       (keep normalize-vault-address)
+       distinct
+       vec))
+
+(defn- merged-vault-row
+  [state vault-address]
+  (some (fn [row]
+          (when (= vault-address (normalize-vault-address (:vault-address row)))
+            row))
+        (or (get-in state [:vaults :merged-index-rows]) [])))
+
+(defn- component-vault-addresses
+  [state vault-address]
+  (let [vault-address* (normalize-vault-address vault-address)
+        row (merged-vault-row state vault-address*)
+        details (get-in state [:vaults :details-by-address vault-address*])]
+    (->> (concat (relationship-child-addresses (:relationship row))
+                 (relationship-child-addresses (:relationship details)))
+         (remove #(= % vault-address*))
+         distinct
+         vec)))
+
+(defn- component-vault-history-effects
+  [state vault-address]
+  (let [component-addresses (component-vault-addresses state vault-address)]
+    (->> component-addresses
+         (mapcat (fn [address]
+                   [[:effects/api-fetch-vault-fills address]
+                    [:effects/api-fetch-vault-funding-history address]
+                    [:effects/api-fetch-vault-order-history address]]))
+         vec)))
+
 (defn load-vaults
   [state]
   (load-vault-list-effects state))
@@ -251,13 +286,14 @@
 (defn load-vault-detail
   [state vault-address]
   (if-let [vault-address* (normalize-vault-address vault-address)]
-    [[:effects/save [:vaults-ui :detail-loading?] true]
-     [:effects/api-fetch-vault-details vault-address* (vault-wallet-address state)]
-     [:effects/api-fetch-vault-webdata2 vault-address*]
-     [:effects/api-fetch-vault-fills vault-address*]
-     [:effects/api-fetch-vault-funding-history vault-address*]
-     [:effects/api-fetch-vault-order-history vault-address*]
-     [:effects/api-fetch-vault-ledger-updates vault-address*]]
+    (into [[:effects/save [:vaults-ui :detail-loading?] true]
+           [:effects/api-fetch-vault-details vault-address* (vault-wallet-address state)]
+           [:effects/api-fetch-vault-webdata2 vault-address*]
+           [:effects/api-fetch-vault-fills vault-address*]
+           [:effects/api-fetch-vault-funding-history vault-address*]
+           [:effects/api-fetch-vault-order-history vault-address*]
+           [:effects/api-fetch-vault-ledger-updates vault-address*]]
+          (component-vault-history-effects state vault-address*))
     []))
 
 (defn- projection-effect?

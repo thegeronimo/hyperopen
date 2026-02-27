@@ -28,6 +28,16 @@
    {:value :depositors
     :label "Depositors"}])
 
+(def ^:private chart-timeframe-options
+  [{:value :day
+    :label "24H"}
+   {:value :week
+    :label "7D"}
+   {:value :month
+    :label "30D"}
+   {:value :all-time
+    :label "All-time"}])
+
 (defn- optional-number
   [value]
   (cond
@@ -58,6 +68,99 @@
 (defn- normalize-address
   [value]
   (some-> value non-blank-text str/lower-case))
+
+(defn- first-sequential
+  [values]
+  (some (fn [value]
+          (when (sequential? value)
+            value))
+        values))
+
+(defn- rows-from-source
+  [source keys]
+  (cond
+    (sequential? source)
+    source
+
+    (map? source)
+    (let [source* source
+          data* (if (map? (:data source*))
+                  (:data source*)
+                  {})
+          direct-values (map #(get source* %) keys)
+          direct-nested-values (mapcat (fn [value]
+                                         (if (map? value)
+                                           (map #(get value %) keys)
+                                           []))
+                                       direct-values)
+          data-values (map #(get data* %) keys)
+          data-nested-values (mapcat (fn [value]
+                                       (if (map? value)
+                                         (map #(get value %) keys)
+                                         []))
+                                     data-values)]
+      (or (first-sequential direct-values)
+          (first-sequential direct-nested-values)
+          (first-sequential data-values)
+          (first-sequential data-nested-values)
+          []))
+
+    :else
+    []))
+
+(defn- nested-clearinghouse-position-rows
+  [webdata]
+  (let [rows (rows-from-source webdata [:clearinghouseStates])]
+    (->> rows
+         (keep (fn [entry]
+                 (when (and (sequential? entry)
+                            (>= (count entry) 2))
+                   (second entry))))
+         (mapcat (fn [state]
+                   (if (map? state)
+                     (or (:assetPositions state) [])
+                     [])))
+         vec)))
+
+(defn- relationship-child-addresses
+  [relationship]
+  (->> (or (:child-addresses relationship) [])
+       (keep normalize-address)
+       distinct
+       vec))
+
+(defn- activity-addresses
+  [vault-address relationship]
+  (->> (concat [vault-address]
+               (relationship-child-addresses relationship))
+       (keep normalize-address)
+       distinct
+       vec))
+
+(defn- concat-address-rows
+  [state path addresses]
+  (->> addresses
+       (mapcat (fn [address]
+                 (let [rows (get-in state (conj path address))]
+                   (if (sequential? rows)
+                     rows
+                     []))))
+       vec))
+
+(defn- address-loading?
+  [state loading-key addresses]
+  (boolean
+   (some true?
+         (map #(get-in state [:vaults :loading loading-key %])
+              addresses))))
+
+(defn- first-address-error
+  [state error-key addresses]
+  (some (fn [address]
+          (let [err (get-in state [:vaults :errors error-key address])]
+            (when (seq (non-blank-text err))
+              err)))
+        addresses))
 
 (defn- normalize-percent-value
   [value]
@@ -208,8 +311,12 @@
 
 (defn- activity-positions
   [webdata]
-  (let [rows (or (get-in webdata [:clearinghouseState :assetPositions])
-                 (:assetPositions webdata)
+  (let [rows (or (first-sequential
+                  [(get-in webdata [:clearinghouseState :assetPositions])
+                   (:assetPositions webdata)
+                   (get-in webdata [:data :clearinghouseState :assetPositions])
+                   (get-in webdata [:data :assetPositions])])
+                 (nested-clearinghouse-position-rows webdata)
                  [])]
     (->> (if (sequential? rows) rows [])
          (keep (fn [row]
@@ -261,7 +368,7 @@
 
 (defn- activity-open-orders
   [webdata]
-  (let [rows (:openOrders webdata)]
+  (let [rows (rows-from-source webdata [:openOrders :orders])]
     (->> (if (sequential? rows) rows [])
          (keep normalize-open-order-row)
          (sort-by (fn [{:keys [time-ms]}]
@@ -352,8 +459,7 @@
 
 (defn- activity-twaps
   [webdata]
-  (let [rows (or (:twapStates webdata)
-                 [])]
+  (let [rows (rows-from-source webdata [:twapStates :states :twaps])]
     (->> (if (sequential? rows) rows [])
          (keep normalize-twap-row)
          (sort-by (fn [{:keys [creation-time-ms]}]
@@ -389,12 +495,13 @@
 
 (defn- activity-fills
   [rows]
-  (->> (if (sequential? rows) rows [])
+  (let [rows* (rows-from-source rows [:fills :userFills])]
+    (->> (if (sequential? rows*) rows* [])
        (keep activity-fill-row)
        (sort-by (fn [{:keys [time-ms]}]
                   (or time-ms 0))
                 >)
-       vec))
+       vec)))
 
 (defn- normalize-funding-row
   [row]
@@ -421,12 +528,13 @@
 
 (defn- activity-funding-history
   [rows]
-  (->> (if (sequential? rows) rows [])
+  (let [rows* (rows-from-source rows [:fundings :userFundings :fundingHistory :funding-history])]
+    (->> (if (sequential? rows*) rows* [])
        (keep normalize-funding-row)
        (sort-by (fn [{:keys [time-ms]}]
                   (or time-ms 0))
                 >)
-       vec))
+       vec)))
 
 (defn- normalize-order-history-row
   [row]
@@ -450,12 +558,13 @@
 
 (defn- activity-order-history
   [rows]
-  (->> (if (sequential? rows) rows [])
+  (let [rows* (rows-from-source rows [:order-history :orderHistory :historicalOrders])]
+    (->> (if (sequential? rows*) rows* [])
        (keep normalize-order-history-row)
        (sort-by (fn [{:keys [time-ms]}]
                   (or time-ms 0))
                 >)
-       vec))
+       vec)))
 
 (defn- ledger-type-label
   [value]
@@ -483,7 +592,8 @@
 
 (defn- activity-ledger-updates
   [rows vault-address]
-  (->> (if (sequential? rows) rows [])
+  (let [rows* (rows-from-source rows [:depositsWithdrawals :nonFundingLedgerUpdates :ledger])]
+    (->> (if (sequential? rows*) rows* [])
        (keep normalize-ledger-row)
        (filter (fn [{:keys [vault]}]
                  (or (nil? vault)
@@ -491,7 +601,7 @@
        (sort-by (fn [{:keys [time-ms]}]
                   (or time-ms 0))
                 >)
-       vec))
+       vec)))
 
 (defn- normalize-depositor-row
   [row]
@@ -514,8 +624,11 @@
 
 (defn- activity-balances
   [webdata]
-  (let [balances (or (get-in webdata [:spotState :balances])
-                     (:balances webdata)
+  (let [balances (or (first-sequential
+                      [(get-in webdata [:spotState :balances])
+                       (:balances webdata)
+                       (get-in webdata [:data :spotState :balances])
+                       (get-in webdata [:data :balances])])
                      [])
         spot-rows (->> (if (sequential? balances) balances [])
                        (keep (fn [row]
@@ -536,7 +649,9 @@
                        vec)]
     (if (seq spot-rows)
       spot-rows
-      (let [clearinghouse-state (or (:clearinghouseState webdata) {})
+      (let [clearinghouse-state (or (:clearinghouseState webdata)
+                                    (get-in webdata [:data :clearinghouseState])
+                                    {})
             margin-summary (or (:marginSummary clearinghouse-state)
                                (:crossMarginSummary clearinghouse-state)
                                {})
@@ -594,15 +709,39 @@
         row (row-by-address state vault-address)
         webdata (get-in state [:vaults :webdata-by-vault vault-address])
         user-equity (get-in state [:vaults :user-equity-by-address vault-address])
-        fills-source (or (get-in state [:vaults :fills-by-vault vault-address])
-                         (:fills webdata)
-                         (get-in webdata [:data :fills]))
-        funding-source (or (get-in state [:vaults :funding-history-by-vault vault-address])
-                           (:fundings webdata))
-        order-history-source (or (get-in state [:vaults :order-history-by-vault vault-address])
-                                 (:order-history webdata))
+        relationship (or (:relationship details)
+                         (:relationship row)
+                         {:type :normal})
+        history-addresses (activity-addresses vault-address relationship)
+        fills-source (let [rows (concat-address-rows state [:vaults :fills-by-vault] history-addresses)]
+                       (if (seq rows)
+                         rows
+                         (or (:fills webdata)
+                             (:userFills webdata)
+                             (get-in webdata [:data :fills])
+                             (get-in webdata [:data :userFills]))))
+        funding-source (let [rows (concat-address-rows state [:vaults :funding-history-by-vault] history-addresses)]
+                         (if (seq rows)
+                           rows
+                           (or (:fundings webdata)
+                               (:userFundings webdata)
+                               (:funding-history webdata)
+                               (get-in webdata [:data :fundings])
+                               (get-in webdata [:data :userFundings]))))
+        order-history-source (let [rows (concat-address-rows state [:vaults :order-history-by-vault] history-addresses)]
+                               (if (seq rows)
+                                 rows
+                                 (or (:order-history webdata)
+                                     (:orderHistory webdata)
+                                     (:historicalOrders webdata)
+                                     (get-in webdata [:data :order-history])
+                                     (get-in webdata [:data :orderHistory])
+                                     (get-in webdata [:data :historicalOrders]))))
         ledger-source (or (get-in state [:vaults :ledger-updates-by-vault vault-address])
-                          (:depositsWithdrawals webdata))
+                          (:depositsWithdrawals webdata)
+                          (:nonFundingLedgerUpdates webdata)
+                          (get-in webdata [:data :depositsWithdrawals])
+                          (get-in webdata [:data :nonFundingLedgerUpdates]))
         tvl (or (optional-number (:tvl details))
                 (optional-number (:tvl row))
                 0)
@@ -617,14 +756,11 @@
         series-by-key (chart-series-data summary)
         selected-series (resolve-chart-series series-by-key chart-series)
         chart-points (chart-render-points (get series-by-key selected-series))
-        relationship (or (:relationship details)
-                         (:relationship row)
-                         {:type :normal})
         detail-error (get-in state [:vaults :errors :details-by-address vault-address])
         webdata-error (get-in state [:vaults :errors :webdata-by-vault vault-address])
-        fills-error (get-in state [:vaults :errors :fills-by-vault vault-address])
-        funding-error (get-in state [:vaults :errors :funding-history-by-vault vault-address])
-        order-history-error (get-in state [:vaults :errors :order-history-by-vault vault-address])
+        fills-error (first-address-error state :fills-by-vault history-addresses)
+        funding-error (first-address-error state :funding-history-by-vault history-addresses)
+        order-history-error (first-address-error state :order-history-by-vault history-addresses)
         ledger-error (get-in state [:vaults :errors :ledger-updates-by-vault vault-address])
         positions (activity-positions webdata)
         open-orders (activity-open-orders webdata)
@@ -635,9 +771,9 @@
         order-history (activity-order-history order-history-source)
         deposits-withdrawals (activity-ledger-updates ledger-source vault-address)
         depositors (activity-depositors details)
-        activity-loading {:trade-history (true? (get-in state [:vaults :loading :fills-by-vault vault-address]))
-                          :funding-history (true? (get-in state [:vaults :loading :funding-history-by-vault vault-address]))
-                          :order-history (true? (get-in state [:vaults :loading :order-history-by-vault vault-address]))
+        activity-loading {:trade-history (address-loading? state :fills-by-vault history-addresses)
+                          :funding-history (address-loading? state :funding-history-by-vault history-addresses)
+                          :order-history (address-loading? state :order-history-by-vault history-addresses)
                           :deposits-withdrawals (true? (get-in state [:vaults :loading :ledger-updates-by-vault vault-address]))}
         activity-errors {:trade-history fills-error
                          :funding-history funding-error
@@ -695,6 +831,8 @@
                             :label "Account Value"}
                            {:value :pnl
                             :label "PNL"}]
+             :timeframe-options chart-timeframe-options
+             :selected-timeframe snapshot-range
              :selected-series selected-series
              :points chart-points
              :path (line-path chart-points)}

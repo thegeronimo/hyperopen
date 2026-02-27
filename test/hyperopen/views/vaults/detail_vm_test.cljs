@@ -122,6 +122,8 @@
     (is (seq (get-in vm [:chart :points])))
     (is (seq (get-in vm [:chart :path])))
     (is (= :pnl (get-in vm [:chart :selected-series])))
+    (is (= :month (get-in vm [:chart :selected-timeframe])))
+    (is (= 4 (count (get-in vm [:chart :timeframe-options]))))
     (is (= :positions (:selected-activity-tab vm)))
     (is (= 2 (count (:activity-positions vm))))
     (is (= 1 (count (:activity-open-orders vm))))
@@ -158,3 +160,57 @@
   (let [state (assoc-in sample-state [:vaults-ui :detail-chart-series] :account-value)
         vm (detail-vm/vault-detail-vm state)]
     (is (= :account-value (get-in vm [:chart :selected-series])))))
+
+(deftest vault-detail-vm-aggregates-component-history-and-accepts-channel-shaped-sources-test
+  (let [child-address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        state (-> sample-state
+                  (assoc-in [:vaults :details-by-address "0x1234567890abcdef1234567890abcdef12345678" :relationship]
+                            {:type :parent
+                             :child-addresses [child-address]})
+                  (assoc-in [:vaults :fills-by-vault child-address]
+                            [{:time 8
+                              :coin "SOL"
+                              :side "buy"
+                              :sz "1.0"
+                              :px "30"}])
+                  (assoc-in [:vaults :funding-history-by-vault child-address]
+                            [{:time 9
+                              :coin "SOL"
+                              :fundingRate 0.002
+                              :szi 1.0
+                              :usdc 1.5}])
+                  (assoc-in [:vaults :order-history-by-vault child-address]
+                            [{:order {:coin "SOL"
+                                      :side "B"
+                                      :origSz "1.0"
+                                      :limitPx "31"
+                                      :orderType "Limit"
+                                      :timestamp 10}
+                              :status "filled"
+                              :statusTimestamp 11}])
+                  (assoc-in [:vaults :webdata-by-vault "0x1234567890abcdef1234567890abcdef12345678" :openOrders]
+                            {:orders [{:order {:coin "BTC"
+                                               :side "B"
+                                               :sz "0.1"
+                                               :limitPx "100"
+                                               :timestamp 9}}]})
+                  (assoc-in [:vaults :webdata-by-vault "0x1234567890abcdef1234567890abcdef12345678" :twapStates]
+                            {:states [{:coin "BTC"
+                                       :sz "1.0"
+                                       :executedSz "0.2"
+                                       :avgPx "101"
+                                       :creationTime 12}]})
+                  (assoc-in [:vaults :ledger-updates-by-vault "0x1234567890abcdef1234567890abcdef12345678"]
+                            {:nonFundingLedgerUpdates [{:time 12
+                                                       :hash "0xabc"
+                                                       :delta {:type "vaultDeposit"
+                                                               :vault "0x1234567890abcdef1234567890abcdef12345678"
+                                                               :usdc "10.0"}}]}))
+        vm (detail-vm/vault-detail-vm state)]
+    (is (= 3 (count (:activity-fills vm))))
+    (is (= 2 (count (:activity-funding-history vm))))
+    (is (= 2 (count (:activity-order-history vm))))
+    (is (= 1 (count (:activity-open-orders vm))))
+    (is (= 1 (count (:activity-twaps vm))))
+    (is (= 1 (count (:activity-deposits-withdrawals vm))))
+    (is (= 3 (get-in vm [:activity-summary :fill-count])))))

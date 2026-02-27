@@ -54,6 +54,29 @@
           {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}}
           "/vaults/0x1234567890abcdef1234567890abcdef12345678"))))
 
+(deftest load-vault-detail-fetches-component-history-for-parent-vaults-test
+  (let [state {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}
+               :vaults {:merged-index-rows [{:vault-address "0x1234567890abcdef1234567890abcdef12345678"
+                                             :relationship {:type :parent
+                                                            :child-addresses ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                                                                             "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                                                                             "0x1234567890abcdef1234567890abcdef12345678"
+                                                                             "not-an-address"]}}]}}]
+    (is (= [[:effects/save [:vaults-ui :detail-loading?] true]
+            [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
+            [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]
+            [:effects/api-fetch-vault-fills "0x1234567890abcdef1234567890abcdef12345678"]
+            [:effects/api-fetch-vault-funding-history "0x1234567890abcdef1234567890abcdef12345678"]
+            [:effects/api-fetch-vault-order-history "0x1234567890abcdef1234567890abcdef12345678"]
+            [:effects/api-fetch-vault-ledger-updates "0x1234567890abcdef1234567890abcdef12345678"]
+            [:effects/api-fetch-vault-fills "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+            [:effects/api-fetch-vault-funding-history "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+            [:effects/api-fetch-vault-order-history "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+            [:effects/api-fetch-vault-fills "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+            [:effects/api-fetch-vault-funding-history "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+            [:effects/api-fetch-vault-order-history "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]]
+           (actions/load-vault-detail state "0x1234567890abcdef1234567890abcdef12345678")))))
+
 (deftest vault-ui-actions-normalize-input-and-toggle-states-test
   (is (= [[:effects/save-many [[[:vaults-ui :search-query] "vault"]
                                [[:vaults-ui :user-vaults-page] 1]]]]
