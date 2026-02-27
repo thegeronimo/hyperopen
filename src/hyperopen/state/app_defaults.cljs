@@ -136,6 +136,7 @@
    :user-vaults-page-size-dropdown-open? false
    :detail-tab :about
    :detail-activity-tab :positions
+   :detail-chart-series :pnl
    :list-loading? false
    :detail-loading? false})
 
@@ -148,21 +149,37 @@
    :user-equity-by-address {}
    :details-by-address {}
    :webdata-by-vault {}
+   :fills-by-vault {}
+   :funding-history-by-vault {}
+   :order-history-by-vault {}
+   :ledger-updates-by-vault {}
    :loading {:index? false
              :summaries? false
              :user-equities? false
              :details-by-address {}
-             :webdata-by-vault {}}
+             :webdata-by-vault {}
+             :fills-by-vault {}
+             :funding-history-by-vault {}
+             :order-history-by-vault {}
+             :ledger-updates-by-vault {}}
    :errors {:index nil
             :summaries nil
             :user-equities nil
             :details-by-address {}
-            :webdata-by-vault {}}
+            :webdata-by-vault {}
+            :fills-by-vault {}
+            :funding-history-by-vault {}
+            :order-history-by-vault {}
+            :ledger-updates-by-vault {}}
    :loaded-at-ms {:index nil
                   :summaries nil
                   :user-equities nil
                   :details-by-address {}
-                  :webdata-by-vault {}}})
+                  :webdata-by-vault {}
+                  :fills-by-vault {}
+                  :funding-history-by-vault {}
+                  :order-history-by-vault {}
+                  :ledger-updates-by-vault {}}})
 
 (defn default-account-info-state
   [{:keys [default-trade-history

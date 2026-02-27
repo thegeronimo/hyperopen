@@ -29,7 +29,11 @@
           {:wallet {:address "0x1234567890abcdef1234567890abcdef12345678"}})))
   (is (= [[:effects/save [:vaults-ui :detail-loading?] true]
           [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
-          [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]]
+          [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]
+          [:effects/api-fetch-vault-fills "0x1234567890abcdef1234567890abcdef12345678"]
+          [:effects/api-fetch-vault-funding-history "0x1234567890abcdef1234567890abcdef12345678"]
+          [:effects/api-fetch-vault-order-history "0x1234567890abcdef1234567890abcdef12345678"]
+          [:effects/api-fetch-vault-ledger-updates "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/load-vault-detail
           {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}}
           "0x1234567890ABCDEF1234567890ABCDEF12345678")))
@@ -41,7 +45,11 @@
           [:effects/api-fetch-vault-summaries]
           [:effects/api-fetch-user-vault-equities "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
           [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
-          [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]]
+          [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]
+          [:effects/api-fetch-vault-fills "0x1234567890abcdef1234567890abcdef12345678"]
+          [:effects/api-fetch-vault-funding-history "0x1234567890abcdef1234567890abcdef12345678"]
+          [:effects/api-fetch-vault-order-history "0x1234567890abcdef1234567890abcdef12345678"]
+          [:effects/api-fetch-vault-ledger-updates "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/load-vault-route
           {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}}
           "/vaults/0x1234567890abcdef1234567890abcdef12345678"))))
@@ -97,4 +105,8 @@
   (is (= [[:effects/save [:vaults-ui :detail-activity-tab] :open-orders]]
          (actions/set-vault-detail-activity-tab {} "openOrders")))
   (is (= [[:effects/save [:vaults-ui :detail-activity-tab] :positions]]
-         (actions/set-vault-detail-activity-tab {} "unknown-tab"))))
+         (actions/set-vault-detail-activity-tab {} "unknown-tab")))
+  (is (= [[:effects/save [:vaults-ui :detail-chart-series] :account-value]]
+         (actions/set-vault-detail-chart-series {} "accountValue")))
+  (is (= [[:effects/save [:vaults-ui :detail-chart-series] :pnl]]
+         (actions/set-vault-detail-chart-series {} "unknown-series"))))

@@ -78,7 +78,11 @@
            api-fetch-vault-summaries
            api-fetch-user-vault-equities
            api-fetch-vault-details
-           api-fetch-vault-webdata2]}]
+           api-fetch-vault-webdata2
+           api-fetch-vault-fills
+           api-fetch-vault-funding-history
+           api-fetch-vault-order-history
+           api-fetch-vault-ledger-updates]}]
   {:fetch-asset-selector-markets fetch-asset-selector-markets
    :api-fetch-user-funding-history api-fetch-user-funding-history
    :api-fetch-historical-orders api-fetch-historical-orders
@@ -88,7 +92,11 @@
    :api-fetch-vault-summaries api-fetch-vault-summaries
    :api-fetch-user-vault-equities api-fetch-user-vault-equities
    :api-fetch-vault-details api-fetch-vault-details
-   :api-fetch-vault-webdata2 api-fetch-vault-webdata2})
+   :api-fetch-vault-webdata2 api-fetch-vault-webdata2
+   :api-fetch-vault-fills api-fetch-vault-fills
+   :api-fetch-vault-funding-history api-fetch-vault-funding-history
+   :api-fetch-vault-order-history api-fetch-vault-order-history
+   :api-fetch-vault-ledger-updates api-fetch-vault-ledger-updates})
 
 (defn runtime-effect-handlers
   [{:keys [storage
@@ -133,7 +141,8 @@
            next-vaults-user-page
            prev-vaults-user-page
            set-vault-detail-tab
-           set-vault-detail-activity-tab]}]
+           set-vault-detail-activity-tab
+           set-vault-detail-chart-series]}]
   {:load-vault-route load-vault-route
    :load-vaults load-vaults
    :load-vault-detail load-vault-detail
@@ -148,7 +157,8 @@
    :next-vaults-user-page next-vaults-user-page
    :prev-vaults-user-page prev-vaults-user-page
    :set-vault-detail-tab set-vault-detail-tab
-   :set-vault-detail-activity-tab set-vault-detail-activity-tab})
+   :set-vault-detail-activity-tab set-vault-detail-activity-tab
+   :set-vault-detail-chart-series set-vault-detail-chart-series})
 
 (defn- wallet-action-handlers
   [{:keys [connect-wallet-action

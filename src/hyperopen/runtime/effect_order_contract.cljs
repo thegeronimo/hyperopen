@@ -94,7 +94,11 @@
     :require-projection-before-heavy? true
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/api-fetch-vault-details
-                        :effects/api-fetch-vault-webdata2}}
+                        :effects/api-fetch-vault-webdata2
+                        :effects/api-fetch-vault-fills
+                        :effects/api-fetch-vault-funding-history
+                        :effects/api-fetch-vault-order-history
+                        :effects/api-fetch-vault-ledger-updates}}
 
    :actions/load-vault-route
    {:required-phase-order [:projection :persistence :heavy-io]
@@ -104,7 +108,11 @@
                         :effects/api-fetch-vault-summaries
                         :effects/api-fetch-user-vault-equities
                         :effects/api-fetch-vault-details
-                        :effects/api-fetch-vault-webdata2}}
+                        :effects/api-fetch-vault-webdata2
+                        :effects/api-fetch-vault-fills
+                        :effects/api-fetch-vault-funding-history
+                        :effects/api-fetch-vault-order-history
+                        :effects/api-fetch-vault-ledger-updates}}
 
    :actions/navigate
    {:required-phase-order [:projection :persistence :heavy-io]
@@ -114,7 +122,11 @@
                         :effects/api-fetch-vault-summaries
                         :effects/api-fetch-user-vault-equities
                         :effects/api-fetch-vault-details
-                        :effects/api-fetch-vault-webdata2}}})
+                        :effects/api-fetch-vault-webdata2
+                        :effects/api-fetch-vault-fills
+                        :effects/api-fetch-vault-funding-history
+                        :effects/api-fetch-vault-order-history
+                        :effects/api-fetch-vault-ledger-updates}}})
 
 (defn action-policy
   [action-id]

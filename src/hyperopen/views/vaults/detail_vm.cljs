@@ -44,6 +44,11 @@
 
     :else nil))
 
+(defn- optional-int
+  [value]
+  (when-let [n (optional-number value)]
+    (js/Math.floor n)))
+
 (defn- non-blank-text
   [value]
   (let [text (some-> value str str/trim)]
@@ -60,12 +65,6 @@
     (if (<= (js/Math.abs n) 1)
       (* 100 n)
       n)))
-
-(defn- followers-count
-  [value]
-  (cond
-    (sequential? value) (count value)
-    :else (or (optional-number value) 0)))
 
 (defn- snapshot-point-value
   [entry]
@@ -270,36 +269,246 @@
                   >)
          vec)))
 
+(defn- as-boolean
+  [value]
+  (cond
+    (true? value) true
+    (false? value) false
+    (string? value)
+    (case (some-> value str/lower-case str/trim)
+      "true" true
+      "false" false
+      nil)
+    :else nil))
+
+(defn- format-duration-ms
+  [value]
+  (when-let [ms (optional-number value)]
+    (let [seconds (max 0 (js/Math.floor (/ ms 1000)))
+          hours (js/Math.floor (/ seconds 3600))
+          minutes (js/Math.floor (/ (mod seconds 3600) 60))]
+      (str hours "h " minutes "m"))))
+
+(defn- twap-running-label
+  [row]
+  (let [start-ms (or (optional-number (:startTime row))
+                     (optional-number (:startTimeMs row))
+                     (optional-number (:start row)))
+        now-ms (.now js/Date)
+        elapsed-ms (when (number? start-ms)
+                     (max 0 (- now-ms start-ms)))
+        total-ms (or (optional-number (:durationMs row))
+                     (optional-number (:totalDurationMs row))
+                     (optional-number (:totalMs row))
+                     (optional-number (:duration row)))
+        elapsed-label (format-duration-ms elapsed-ms)
+        total-label (format-duration-ms total-ms)]
+    (cond
+      (and elapsed-label total-label) (str elapsed-label " / " total-label)
+      elapsed-label elapsed-label
+      total-label total-label
+      :else "—")))
+
+(defn- normalize-twap-row
+  [row]
+  (when (map? row)
+    (let [state (if (map? (:state row))
+                  (:state row)
+                  row)
+          order (if (map? (:order state))
+                  (:order state)
+                  state)
+          coin (or (non-blank-text (:coin state))
+                   (non-blank-text (:coin order)))
+          size (or (optional-number (:sz state))
+                   (optional-number (:totalSz state))
+                   (optional-number (:size state))
+                   (optional-number (:origSz order))
+                   (optional-number (:sz order)))
+          executed-size (or (optional-number (:executedSz state))
+                            (optional-number (:filledSz state))
+                            (optional-number (:executedSize state))
+                            (optional-number (:filled state))
+                            0)
+          average-price (or (optional-number (:avgPx state))
+                            (optional-number (:averagePx state))
+                            (optional-number (:avgPrice state))
+                            (optional-number (:averagePrice state)))
+          reduce-only? (or (as-boolean (:reduceOnly state))
+                           (as-boolean (:reduceOnly order)))
+          creation-time-ms (or (optional-int (:creationTime state))
+                               (optional-int (:createdAt state))
+                               (optional-int (:timestamp state))
+                               (optional-int (:time state))
+                               (optional-int (:timestamp row))
+                               (optional-int (:time row)))]
+      {:coin coin
+       :size size
+       :executed-size executed-size
+       :average-price average-price
+       :running-label (twap-running-label state)
+       :reduce-only? reduce-only?
+       :creation-time-ms creation-time-ms})))
+
+(defn- activity-twaps
+  [webdata]
+  (let [rows (or (:twapStates webdata)
+                 [])]
+    (->> (if (sequential? rows) rows [])
+         (keep normalize-twap-row)
+         (sort-by (fn [{:keys [creation-time-ms]}]
+                    (or creation-time-ms 0))
+                  >)
+         vec)))
+
 (defn- activity-fill-row
   [row]
   (when (map? row)
-    {:time-ms (or (optional-number (:time row))
-                  (optional-number (:timestamp row))
-                  (optional-number (:timeMs row)))
-     :coin (non-blank-text (or (:coin row)
-                               (:symbol row)
-                               (:asset row)))
-     :side (normalize-side (or (:side row)
-                               (:dir row)))
-     :size (optional-number (or (:sz row)
-                                (:size row)
-                                (:closedSize row)))
-     :price (optional-number (or (:px row)
-                                 (:price row)))
-     :closed-pnl (optional-number (or (:closedPnl row)
-                                      (:closed-pnl row)
-                                      (:pnl row)))}))
+    (let [size (optional-number (or (:sz row)
+                                    (:size row)
+                                    (:closedSize row)))
+          price (optional-number (or (:px row)
+                                     (:price row)))]
+      {:time-ms (or (optional-number (:time row))
+                    (optional-number (:timestamp row))
+                    (optional-number (:timeMs row)))
+       :coin (non-blank-text (or (:coin row)
+                                 (:symbol row)
+                                 (:asset row)))
+       :side (normalize-side (or (:side row)
+                                 (:dir row)))
+       :size size
+       :price price
+       :trade-value (when (and (number? size)
+                               (number? price))
+                      (* (js/Math.abs size) price))
+       :fee (optional-number (:fee row))
+       :closed-pnl (optional-number (or (:closedPnl row)
+                                        (:closed-pnl row)
+                                        (:pnl row)))})))
 
 (defn- activity-fills
-  [webdata]
-  (let [fills (or (:fills webdata)
-                  (get-in webdata [:data :fills])
-                  (get-in webdata [:user :fills])
-                  [])]
-    (->> (if (sequential? fills) fills [])
-         (keep activity-fill-row)
-         (sort-by (fn [{:keys [time-ms]}]
-                    (or time-ms 0))
+  [rows]
+  (->> (if (sequential? rows) rows [])
+       (keep activity-fill-row)
+       (sort-by (fn [{:keys [time-ms]}]
+                  (or time-ms 0))
+                >)
+       vec))
+
+(defn- normalize-funding-row
+  [row]
+  (when (map? row)
+    (let [delta (if (map? (:delta row))
+                  (:delta row)
+                  row)]
+      {:time-ms (or (optional-int (:time-ms row))
+                    (optional-int (:time row))
+                    (optional-int (:timestamp row)))
+       :coin (non-blank-text (or (:coin row)
+                                 (:coin delta)))
+       :funding-rate (optional-number (or (:fundingRate row)
+                                          (:funding-rate row)
+                                          (:fundingRate delta)))
+       :position-size (optional-number (or (:positionSize row)
+                                           (:position-size-raw row)
+                                           (:szi row)
+                                           (:szi delta)))
+       :payment (optional-number (or (:payment row)
+                                     (:payment-usdc-raw row)
+                                     (:usdc row)
+                                     (:usdc delta)))})))
+
+(defn- activity-funding-history
+  [rows]
+  (->> (if (sequential? rows) rows [])
+       (keep normalize-funding-row)
+       (sort-by (fn [{:keys [time-ms]}]
+                  (or time-ms 0))
+                >)
+       vec))
+
+(defn- normalize-order-history-row
+  [row]
+  (when (map? row)
+    (let [order (if (map? (:order row))
+                  (:order row)
+                  row)]
+      {:time-ms (or (optional-int (:statusTimestamp row))
+                    (optional-int (:timestamp order))
+                    (optional-int (:time row)))
+       :coin (non-blank-text (:coin order))
+       :side (normalize-side (:side order))
+       :type (non-blank-text (or (:orderType order)
+                                 (:type order)
+                                 (:tif order)))
+       :size (or (optional-number (:origSz order))
+                 (optional-number (:sz order)))
+       :price (or (optional-number (:limitPx order))
+                  (optional-number (:px order)))
+       :status (non-blank-text (:status row))})))
+
+(defn- activity-order-history
+  [rows]
+  (->> (if (sequential? rows) rows [])
+       (keep normalize-order-history-row)
+       (sort-by (fn [{:keys [time-ms]}]
+                  (or time-ms 0))
+                >)
+       vec))
+
+(defn- ledger-type-label
+  [value]
+  (case (some-> value str str/trim str/lower-case)
+    "vaultdeposit" "Deposit"
+    "vaultwithdraw" "Withdraw"
+    nil))
+
+(defn- normalize-ledger-row
+  [row]
+  (when (map? row)
+    (let [delta (if (map? (:delta row))
+                  (:delta row)
+                  row)
+          type-label (ledger-type-label (:type delta))]
+      (when type-label
+        {:time-ms (or (optional-int (:time row))
+                      (optional-int (:timestamp row)))
+         :type-label type-label
+         :amount (optional-number (or (:usdc delta)
+                                      (:amount delta)
+                                      (:value delta)))
+         :hash (non-blank-text (:hash row))
+         :vault (normalize-address (:vault delta))}))))
+
+(defn- activity-ledger-updates
+  [rows vault-address]
+  (->> (if (sequential? rows) rows [])
+       (keep normalize-ledger-row)
+       (filter (fn [{:keys [vault]}]
+                 (or (nil? vault)
+                     (= vault vault-address))))
+       (sort-by (fn [{:keys [time-ms]}]
+                  (or time-ms 0))
+                >)
+       vec))
+
+(defn- normalize-depositor-row
+  [row]
+  (when (map? row)
+    {:address (normalize-address (:user row))
+     :vault-amount (optional-number (:vault-equity row))
+     :unrealized-pnl (optional-number (:pnl row))
+     :all-time-pnl (optional-number (:all-time-pnl row))
+     :days-following (optional-int (:days-following row))}))
+
+(defn- activity-depositors
+  [details]
+  (let [followers (or (:followers details) [])]
+    (->> (if (sequential? followers) followers [])
+         (keep normalize-depositor-row)
+         (sort-by (fn [{:keys [vault-amount]}]
+                    (js/Math.abs (or vault-amount 0)))
                   >)
          vec)))
 
@@ -307,22 +516,43 @@
   [webdata]
   (let [balances (or (get-in webdata [:spotState :balances])
                      (:balances webdata)
-                     [])]
-    (->> (if (sequential? balances) balances [])
-         (keep (fn [row]
-                 (when (map? row)
-                   {:coin (or (non-blank-text (:coin row))
-                              (non-blank-text (:token row)))
-                    :total (or (optional-number (:total row))
-                               (optional-number (:totalBalance row))
-                               (optional-number (:hold row)))
-                    :available (or (optional-number (:available row))
-                                   (optional-number (:availableBalance row))
-                                   (optional-number (:free row)))})))
-         (sort-by (fn [{:keys [total]}]
-                    (js/Math.abs (or total 0)))
-                  >)
-         vec)))
+                     [])
+        spot-rows (->> (if (sequential? balances) balances [])
+                       (keep (fn [row]
+                               (when (map? row)
+                                 {:coin (or (non-blank-text (:coin row))
+                                            (non-blank-text (:token row)))
+                                  :total (or (optional-number (:total row))
+                                             (optional-number (:totalBalance row))
+                                             (optional-number (:hold row)))
+                                  :available (or (optional-number (:available row))
+                                                 (optional-number (:availableBalance row))
+                                                 (optional-number (:free row)))
+                                  :usdc-value (or (optional-number (:usdcValue row))
+                                                  (optional-number (:usdValue row)))})))
+                       (sort-by (fn [{:keys [total]}]
+                                  (js/Math.abs (or total 0)))
+                                >)
+                       vec)]
+    (if (seq spot-rows)
+      spot-rows
+      (let [clearinghouse-state (or (:clearinghouseState webdata) {})
+            margin-summary (or (:marginSummary clearinghouse-state)
+                               (:crossMarginSummary clearinghouse-state)
+                               {})
+            account-value (optional-number (:accountValue margin-summary))
+            total-margin-used (optional-number (:totalMarginUsed margin-summary))
+            withdrawable (optional-number (:withdrawable clearinghouse-state))
+            available (or withdrawable
+                          (when (and (number? account-value)
+                                     (number? total-margin-used))
+                            (- account-value total-margin-used)))]
+        (if (number? account-value)
+          [{:coin "USDC (Perps)"
+            :total account-value
+            :available available
+            :usdc-value account-value}]
+          [])))))
 
 (defn- chart-series-data
   [summary]
@@ -330,11 +560,22 @@
    :pnl (history-points (:pnlHistory summary))})
 
 (defn- resolve-chart-series
-  [series-by-key]
-  (cond
-    (seq (:pnl series-by-key)) :pnl
-    (seq (:account-value series-by-key)) :account-value
-    :else :pnl))
+  [series-by-key selected-series]
+  (let [selected* (vault-actions/normalize-vault-detail-chart-series selected-series)
+        has-series? (fn [k]
+                      (seq (get series-by-key k)))]
+    (cond
+      (has-series? selected*) selected*
+      (has-series? :pnl) :pnl
+      (has-series? :account-value) :account-value
+      :else selected*)))
+
+(defn- followers-count
+  [details]
+  (or (optional-int (:followers-count details))
+      (when (sequential? (:followers details))
+        (count (:followers details)))
+      0))
 
 (defn vault-detail-vm
   [state]
@@ -344,6 +585,8 @@
                     (get-in state [:vaults-ui :detail-tab]))
         activity-tab (vault-actions/normalize-vault-detail-activity-tab
                       (get-in state [:vaults-ui :detail-activity-tab]))
+        chart-series (vault-actions/normalize-vault-detail-chart-series
+                      (get-in state [:vaults-ui :detail-chart-series]))
         snapshot-range (vault-actions/normalize-vault-snapshot-range
                         (get-in state [:vaults-ui :snapshot-range]))
         detail-loading? (true? (get-in state [:vaults-ui :detail-loading?]))
@@ -351,6 +594,15 @@
         row (row-by-address state vault-address)
         webdata (get-in state [:vaults :webdata-by-vault vault-address])
         user-equity (get-in state [:vaults :user-equity-by-address vault-address])
+        fills-source (or (get-in state [:vaults :fills-by-vault vault-address])
+                         (:fills webdata)
+                         (get-in webdata [:data :fills]))
+        funding-source (or (get-in state [:vaults :funding-history-by-vault vault-address])
+                           (:fundings webdata))
+        order-history-source (or (get-in state [:vaults :order-history-by-vault vault-address])
+                                 (:order-history webdata))
+        ledger-source (or (get-in state [:vaults :ledger-updates-by-vault vault-address])
+                          (:depositsWithdrawals webdata))
         tvl (or (optional-number (:tvl details))
                 (optional-number (:tvl row))
                 0)
@@ -363,34 +615,44 @@
         all-time-earned (optional-number (get-in details [:follower-state :all-time-pnl]))
         summary (portfolio-summary details snapshot-range)
         series-by-key (chart-series-data summary)
-        selected-series (resolve-chart-series series-by-key)
+        selected-series (resolve-chart-series series-by-key chart-series)
         chart-points (chart-render-points (get series-by-key selected-series))
         relationship (or (:relationship details)
                          (:relationship row)
                          {:type :normal})
         detail-error (get-in state [:vaults :errors :details-by-address vault-address])
         webdata-error (get-in state [:vaults :errors :webdata-by-vault vault-address])
+        fills-error (get-in state [:vaults :errors :fills-by-vault vault-address])
+        funding-error (get-in state [:vaults :errors :funding-history-by-vault vault-address])
+        order-history-error (get-in state [:vaults :errors :order-history-by-vault vault-address])
+        ledger-error (get-in state [:vaults :errors :ledger-updates-by-vault vault-address])
         positions (activity-positions webdata)
         open-orders (activity-open-orders webdata)
-        fills (activity-fills webdata)
         balances (activity-balances webdata)
+        twaps (activity-twaps webdata)
+        fills (activity-fills fills-source)
+        funding-history (activity-funding-history funding-source)
+        order-history (activity-order-history order-history-source)
+        deposits-withdrawals (activity-ledger-updates ledger-source vault-address)
+        depositors (activity-depositors details)
+        activity-loading {:trade-history (true? (get-in state [:vaults :loading :fills-by-vault vault-address]))
+                          :funding-history (true? (get-in state [:vaults :loading :funding-history-by-vault vault-address]))
+                          :order-history (true? (get-in state [:vaults :loading :order-history-by-vault vault-address]))
+                          :deposits-withdrawals (true? (get-in state [:vaults :loading :ledger-updates-by-vault vault-address]))}
+        activity-errors {:trade-history fills-error
+                         :funding-history funding-error
+                         :order-history order-history-error
+                         :deposits-withdrawals ledger-error}
         activity-count-by-tab {:balances (count balances)
                                :positions (count positions)
                                :open-orders (count open-orders)
-                               :twap (count (if (sequential? (:twapStates webdata))
-                                              (:twapStates webdata)
-                                              []))
+                               :twap (count twaps)
                                :trade-history (count fills)
-                               :funding-history (count (if (sequential? (:fundings webdata))
-                                                         (:fundings webdata)
-                                                         []))
-                               :order-history (count (if (sequential? (:order-history webdata))
-                                                       (:order-history webdata)
-                                                       []))
-                               :deposits-withdrawals (count (if (sequential? (:depositsWithdrawals webdata))
-                                                              (:depositsWithdrawals webdata)
-                                                              []))
-                               :depositors (followers-count (:followers details))}]
+                               :funding-history (count funding-history)
+                               :order-history (count order-history)
+                               :deposits-withdrawals (count deposits-withdrawals)
+                               :depositors (max (count depositors)
+                                                (followers-count details))}]
     {:kind kind
      :vault-address vault-address
      :invalid-address? (and (= :detail kind)
@@ -407,7 +669,7 @@
      :relationship relationship
      :allow-deposits? (true? (:allow-deposits? details))
      :always-close-on-withdraw? (true? (:always-close-on-withdraw? details))
-     :followers (followers-count (:followers details))
+     :followers (followers-count details)
      :leader-commission (normalize-percent-value (:leader-commission details))
      :leader-fraction (normalize-percent-value (:leader-fraction details))
      :metrics {:tvl tvl
@@ -445,7 +707,14 @@
      :activity-balances balances
      :activity-positions positions
      :activity-open-orders open-orders
+     :activity-twaps twaps
      :activity-fills fills
+     :activity-funding-history funding-history
+     :activity-order-history order-history
+     :activity-deposits-withdrawals deposits-withdrawals
+     :activity-depositors depositors
+     :activity-loading activity-loading
+     :activity-errors activity-errors
      :activity-summary {:fill-count (count fills)
                         :open-order-count (count open-orders)
                         :position-count (count positions)}}))

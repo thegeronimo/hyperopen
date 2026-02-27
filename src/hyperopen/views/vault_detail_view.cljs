@@ -43,6 +43,24 @@
        (str sign (.toFixed (js/Math.abs n) decimals) "%"))
      missing)))
 
+(defn- format-funding-rate
+  [value]
+  (if (number? value)
+    (str (.toFixed (* 100 value) 4) "%")
+    "—"))
+
+(defn- format-time
+  [time-ms]
+  (or (fmt/format-local-date-time time-ms)
+      "—"))
+
+(defn- short-hash
+  [value]
+  (if (and (string? value)
+           (> (count value) 12))
+    (str (subs value 0 8) "..." (subs value (- (count value) 6)))
+    (or value "—")))
+
 (defn- metric-card
   [{:keys [label value accent]}]
   [:div {:class ["rounded-xl"
@@ -89,6 +107,20 @@
                            ["border-[#66e3c5]" "text-trading-text"]
                            ["border-transparent" "text-[#8ea0a7]" "hover:text-trading-text"]))
             :on {:click [[:actions/set-vault-detail-tab value]]}}
+   label])
+
+(defn- chart-series-button [{:keys [value label]} selected-series]
+  [:button {:type "button"
+            :class (into ["rounded-md"
+                          "border"
+                          "px-2.5"
+                          "py-1"
+                          "text-xs"
+                          "transition-colors"]
+                         (if (= value selected-series)
+                           ["border-[#2f5e58]" "bg-[#0d252f]" "text-trading-text"]
+                           ["border-transparent" "text-[#8ea4ab]" "hover:text-trading-text"]))
+            :on {:click [[:actions/set-vault-detail-chart-series value]]}}
    label])
 
 (defn- activity-tab-button [{:keys [value label count]} selected-tab]
@@ -199,19 +231,11 @@
          :class ["px-4" "py-8" "text-center" "text-sm" "text-trading-text-secondary"]}
     message]])
 
-(defn- balances-table [rows]
-  [:div {:class ["overflow-x-auto"]}
-   [:table {:class ["w-full" "min-w-[540px]" "border-collapse"]}
-    (table-header ["Coin" "Total" "Available"])
-    [:tbody
-     (if (seq rows)
-       (for [{:keys [coin total available]} rows]
-         ^{:key (str "balance-" coin "-" total)}
-         [:tr {:class ["border-b" "border-base-300/80" "text-sm" "text-trading-text" "hover:bg-base-200/40"]}
-          [:td {:class ["px-4" "py-3" "whitespace-nowrap"]} (or coin "—")]
-          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-size total)]
-          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-size available)]])
-       (empty-table-row 3 "No balances available."))]]])
+(defn- error-table-row [col-span message]
+  [:tr
+   [:td {:col-span col-span
+         :class ["px-4" "py-8" "text-center" "text-sm" "text-red-300"]}
+    message]])
 
 (defn- position-pnl-class [pnl]
   (cond
@@ -219,8 +243,23 @@
     (and (number? pnl) (neg? pnl)) "text-[#e59ca8]"
     :else "text-trading-text"))
 
+(defn- balances-table [rows]
+  [:div {:class ["overflow-auto" "max-h-[540px]"]}
+   [:table {:class ["w-full" "min-w-[760px]" "border-collapse"]}
+    (table-header ["Coin" "Total Balance" "Available Balance" "USDC Value"])
+    [:tbody
+     (if (seq rows)
+       (for [{:keys [coin total available usdc-value]} rows]
+         ^{:key (str "balance-" coin "-" total)}
+         [:tr {:class ["border-b" "border-base-300/80" "text-sm" "text-trading-text" "hover:bg-base-200/40"]}
+          [:td {:class ["px-4" "py-3" "whitespace-nowrap"]} (or coin "—")]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-currency total)]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-currency available)]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-currency usdc-value)]])
+       (empty-table-row 4 "No balances available."))]]])
+
 (defn- positions-table [rows]
-  [:div {:class ["overflow-x-auto"]}
+  [:div {:class ["overflow-auto" "max-h-[540px]"]}
    [:table {:class ["w-full" "min-w-[1285px]" "border-collapse"]}
     (table-header ["Coin" "Size" "Position Value" "Entry Price" "Mark Price" "PNL (ROE %)" "Liq. Price" "Margin" "Funding"])
     [:tbody
@@ -253,7 +292,7 @@
        (empty-table-row 9 "No active positions."))]]])
 
 (defn- open-orders-table [rows]
-  [:div {:class ["overflow-x-auto"]}
+  [:div {:class ["overflow-auto" "max-h-[540px]"]}
    [:table {:class ["w-full" "min-w-[960px]" "border-collapse"]}
     (table-header ["Time" "Coin" "Side" "Size" "Price" "Trigger"])
     [:tbody
@@ -261,7 +300,7 @@
        (for [{:keys [time-ms coin side size price trigger-price]} rows]
          ^{:key (str "open-order-" time-ms "-" coin "-" size "-" price)}
          [:tr {:class ["border-b" "border-base-300/80" "text-sm" "text-trading-text" "hover:bg-base-200/40"]}
-          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (or (fmt/format-local-time-hh-mm-ss time-ms) "—")]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-time time-ms)]
           [:td {:class ["px-4" "py-3" "whitespace-nowrap"]} (or coin "—")]
           [:td {:class ["px-4" "py-3" "whitespace-nowrap"]} (or side "—")]
           [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-size size)]
@@ -269,30 +308,167 @@
           [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-price trigger-price)]])
        (empty-table-row 6 "No open orders."))]]])
 
-(defn- fills-table [rows]
-  [:div {:class ["overflow-x-auto"]}
-   [:table {:class ["w-full" "min-w-[900px]" "border-collapse"]}
-    (table-header ["Time" "Coin" "Side" "Size" "Price" "Closed PNL"])
+(defn- twap-table [rows]
+  [:div {:class ["overflow-auto" "max-h-[540px]"]}
+   [:table {:class ["w-full" "min-w-[1260px]" "border-collapse"]}
+    (table-header ["Coin" "Size" "Executed Size" "Average Price" "Running Time / Total" "Reduce Only" "Creation Time" "Terminate"])
     [:tbody
      (if (seq rows)
-       (for [{:keys [time-ms coin side size price closed-pnl]} rows]
+       (for [{:keys [coin size executed-size average-price running-label reduce-only? creation-time-ms]} rows]
+         ^{:key (str "twap-" coin "-" creation-time-ms "-" size)}
+         [:tr {:class ["border-b" "border-base-300/80" "text-sm" "text-trading-text" "hover:bg-base-200/40"]}
+          [:td {:class ["px-4" "py-3" "whitespace-nowrap"]} (or coin "—")]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-size size)]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-size executed-size)]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-price average-price)]
+          [:td {:class ["px-4" "py-3" "whitespace-nowrap"]} (or running-label "—")]
+          [:td {:class ["px-4" "py-3" "whitespace-nowrap"]} (if (true? reduce-only?) "Yes" "No")]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-time creation-time-ms)]
+          [:td {:class ["px-4" "py-3" "whitespace-nowrap"]} "—"]])
+       (empty-table-row 8 "No TWAPs Yet"))]]])
+
+(defn- fills-table [rows loading? error]
+  [:div {:class ["overflow-auto" "max-h-[540px]"]}
+   [:table {:class ["w-full" "min-w-[1180px]" "border-collapse"]}
+    (table-header ["Time" "Coin" "Side" "Price" "Size" "Trade Value" "Fee" "Closed PNL"])
+    [:tbody
+     (cond
+       (seq error)
+       (error-table-row 8 error)
+
+       loading?
+       (empty-table-row 8 "Loading trade history...")
+
+       (seq rows)
+       (for [{:keys [time-ms coin side size price trade-value fee closed-pnl]} rows]
          ^{:key (str "fill-" time-ms "-" coin "-" size "-" price)}
          [:tr {:class ["border-b" "border-base-300/80" "text-sm" "text-trading-text" "hover:bg-base-200/40"]}
-          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (or (fmt/format-local-time-hh-mm-ss time-ms) "—")]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-time time-ms)]
           [:td {:class ["px-4" "py-3" "whitespace-nowrap"]} (or coin "—")]
           [:td {:class ["px-4" "py-3" "whitespace-nowrap"]} (or side "—")]
-          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-size size)]
           [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-price price)]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-size size)]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-currency trade-value)]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-currency fee)]
           [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap" (position-pnl-class closed-pnl)]}
            (format-currency closed-pnl)]])
-       (empty-table-row 6 "No recent fills."))]]])
+
+       :else
+       (empty-table-row 8 "No recent fills."))]]])
+
+(defn- funding-history-table [rows loading? error]
+  [:div {:class ["overflow-auto" "max-h-[540px]"]}
+   [:table {:class ["w-full" "min-w-[920px]" "border-collapse"]}
+    (table-header ["Time" "Coin" "Funding Rate" "Position Size" "Payment"])
+    [:tbody
+     (cond
+       (seq error)
+       (error-table-row 5 error)
+
+       loading?
+       (empty-table-row 5 "Loading funding history...")
+
+       (seq rows)
+       (for [{:keys [time-ms coin funding-rate position-size payment]} rows]
+         ^{:key (str "funding-" time-ms "-" coin "-" funding-rate "-" payment)}
+         [:tr {:class ["border-b" "border-base-300/80" "text-sm" "text-trading-text" "hover:bg-base-200/40"]}
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-time time-ms)]
+          [:td {:class ["px-4" "py-3" "whitespace-nowrap"]} (or coin "—")]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-funding-rate funding-rate)]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-size position-size)]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap" (position-pnl-class payment)]}
+           (format-currency payment)]])
+
+       :else
+       (empty-table-row 5 "No funding history available."))]]])
+
+(defn- order-history-table [rows loading? error]
+  [:div {:class ["overflow-auto" "max-h-[540px]"]}
+   [:table {:class ["w-full" "min-w-[1040px]" "border-collapse"]}
+    (table-header ["Time" "Coin" "Side" "Type" "Size" "Price" "Status"])
+    [:tbody
+     (cond
+       (seq error)
+       (error-table-row 7 error)
+
+       loading?
+       (empty-table-row 7 "Loading order history...")
+
+       (seq rows)
+       (for [{:keys [time-ms coin side type size price status]} rows]
+         ^{:key (str "order-history-" time-ms "-" coin "-" side "-" size)}
+         [:tr {:class ["border-b" "border-base-300/80" "text-sm" "text-trading-text" "hover:bg-base-200/40"]}
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-time time-ms)]
+          [:td {:class ["px-4" "py-3" "whitespace-nowrap"]} (or coin "—")]
+          [:td {:class ["px-4" "py-3" "whitespace-nowrap"]} (or side "—")]
+          [:td {:class ["px-4" "py-3" "whitespace-nowrap"]} (or type "—")]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-size size)]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-price price)]
+          [:td {:class ["px-4" "py-3" "whitespace-nowrap"]} (or status "—")]])
+
+       :else
+       (empty-table-row 7 "No order history available."))]]])
+
+(defn- ledger-table [rows loading? error]
+  [:div {:class ["overflow-auto" "max-h-[540px]"]}
+   [:table {:class ["w-full" "min-w-[880px]" "border-collapse"]}
+    (table-header ["Time" "Type" "Amount" "Tx Hash"])
+    [:tbody
+     (cond
+       (seq error)
+       (error-table-row 4 error)
+
+       loading?
+       (empty-table-row 4 "Loading deposits and withdrawals...")
+
+       (seq rows)
+       (for [{:keys [time-ms type-label amount hash]} rows]
+         ^{:key (str "ledger-" time-ms "-" hash)}
+         [:tr {:class ["border-b" "border-base-300/80" "text-sm" "text-trading-text" "hover:bg-base-200/40"]}
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-time time-ms)]
+          [:td {:class ["px-4" "py-3" "whitespace-nowrap"]} (or type-label "—")]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-currency amount)]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]
+                :title hash}
+           (short-hash hash)]])
+
+       :else
+       (empty-table-row 4 "No deposits or withdrawals available."))]]])
+
+(defn- depositors-table [rows]
+  [:div {:class ["overflow-auto" "max-h-[540px]"]}
+   [:table {:class ["w-full" "min-w-[980px]" "border-collapse"]}
+    (table-header ["Depositor" "Vault Amount" "Unrealized PNL" "All-time PNL" "Days Following"])
+    [:tbody
+     (if (seq rows)
+       (for [{:keys [address vault-amount unrealized-pnl all-time-pnl days-following]} rows]
+         ^{:key (str "depositor-" address)}
+         [:tr {:class ["border-b" "border-base-300/80" "text-sm" "text-trading-text" "hover:bg-base-200/40"]}
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (or (wallet/short-addr address) "—")]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]} (format-currency vault-amount)]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap" (position-pnl-class unrealized-pnl)]}
+           (format-currency unrealized-pnl)]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap" (position-pnl-class all-time-pnl)]}
+           (format-currency all-time-pnl)]
+          [:td {:class ["px-4" "py-3" "num" "whitespace-nowrap"]}
+           (if (number? days-following)
+             (str days-following)
+             "—")]])
+       (empty-table-row 5 "No depositors available."))]]])
 
 (defn- activity-panel [{:keys [selected-activity-tab
                                activity-tabs
+                               activity-loading
+                               activity-errors
                                activity-balances
                                activity-positions
                                activity-open-orders
-                               activity-fills]}]
+                               activity-twaps
+                               activity-fills
+                               activity-funding-history
+                               activity-order-history
+                               activity-deposits-withdrawals
+                               activity-depositors]}]
   [:section {:class ["rounded-2xl"
                      "border"
                      "border-base-300"
@@ -320,7 +496,20 @@
      :balances (balances-table activity-balances)
      :positions (positions-table activity-positions)
      :open-orders (open-orders-table activity-open-orders)
-     :trade-history (fills-table activity-fills)
+     :twap (twap-table activity-twaps)
+     :trade-history (fills-table activity-fills
+                                 (true? (:trade-history activity-loading))
+                                 (:trade-history activity-errors))
+     :funding-history (funding-history-table activity-funding-history
+                                             (true? (:funding-history activity-loading))
+                                             (:funding-history activity-errors))
+     :order-history (order-history-table activity-order-history
+                                         (true? (:order-history activity-loading))
+                                         (:order-history activity-errors))
+     :deposits-withdrawals (ledger-table activity-deposits-withdrawals
+                                         (true? (:deposits-withdrawals activity-loading))
+                                         (:deposits-withdrawals activity-errors))
+     :depositors (depositors-table activity-depositors)
      [:div {:class ["px-4" "py-8" "text-sm" "text-[#8ea2aa]"]}
       "This activity stream is not available yet for vaults."])])
 
@@ -451,15 +640,9 @@
            [:div {:class ["flex" "items-center" "gap-2"]}
             (for [{:keys [value label]} (:series-tabs chart)]
               ^{:key (str "chart-series-" (name value))}
-              [:span {:class (into ["rounded-md"
-                                    "border"
-                                    "px-2.5"
-                                    "py-1"
-                                    "text-xs"]
-                                   (if (= value (:selected-series chart))
-                                     ["border-[#2f5e58]" "bg-[#0d252f]" "text-trading-text"]
-                                     ["border-transparent" "text-[#8ea4ab]"]))}
-               label])]]
+              (chart-series-button {:value value
+                                    :label label}
+                                   (:selected-series chart)))]]
           [:svg
            {:class ["mt-3" "h-[260px]" "w-full"]
             :viewBox (str "0 0 " (:width chart) " " (:height chart))

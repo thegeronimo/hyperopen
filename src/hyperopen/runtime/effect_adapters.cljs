@@ -613,3 +613,43 @@
     :begin-vault-webdata2-load api-projections/begin-vault-webdata2-load
     :apply-vault-webdata2-success api-projections/apply-vault-webdata2-success
     :apply-vault-webdata2-error api-projections/apply-vault-webdata2-error}))
+
+(defn api-fetch-vault-fills-effect
+  [_ store vault-address]
+  (vault-effects/api-fetch-vault-fills!
+   {:store store
+    :vault-address vault-address
+    :request-user-fills! api/request-user-fills!
+    :begin-vault-fills-load api-projections/begin-vault-fills-load
+    :apply-vault-fills-success api-projections/apply-vault-fills-success
+    :apply-vault-fills-error api-projections/apply-vault-fills-error}))
+
+(defn api-fetch-vault-funding-history-effect
+  [_ store vault-address]
+  (vault-effects/api-fetch-vault-funding-history!
+   {:store store
+    :vault-address vault-address
+    :request-user-funding-history! api/request-user-funding-history!
+    :begin-vault-funding-history-load api-projections/begin-vault-funding-history-load
+    :apply-vault-funding-history-success api-projections/apply-vault-funding-history-success
+    :apply-vault-funding-history-error api-projections/apply-vault-funding-history-error}))
+
+(defn api-fetch-vault-order-history-effect
+  [_ store vault-address]
+  (vault-effects/api-fetch-vault-order-history!
+   {:store store
+    :vault-address vault-address
+    :request-historical-orders! api/request-historical-orders!
+    :begin-vault-order-history-load api-projections/begin-vault-order-history-load
+    :apply-vault-order-history-success api-projections/apply-vault-order-history-success
+    :apply-vault-order-history-error api-projections/apply-vault-order-history-error}))
+
+(defn api-fetch-vault-ledger-updates-effect
+  [_ store vault-address]
+  (vault-effects/api-fetch-vault-ledger-updates!
+   {:store store
+    :vault-address vault-address
+    :request-user-non-funding-ledger-updates! api/request-user-non-funding-ledger-updates!
+    :begin-vault-ledger-updates-load api-projections/begin-vault-ledger-updates-load
+    :apply-vault-ledger-updates-success api-projections/apply-vault-ledger-updates-success
+    :apply-vault-ledger-updates-error api-projections/apply-vault-ledger-updates-error}))

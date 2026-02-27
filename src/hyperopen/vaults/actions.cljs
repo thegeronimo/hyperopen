@@ -23,6 +23,9 @@
 (def default-vault-detail-activity-tab
   :positions)
 
+(def default-vault-detail-chart-series
+  :pnl)
+
 (def ^:private vault-snapshot-ranges
   #{:day :week :month :all-time})
 
@@ -42,6 +45,10 @@
     :order-history
     :deposits-withdrawals
     :depositors})
+
+(def ^:private vault-detail-chart-series-options
+  #{:account-value
+    :pnl})
 
 (def ^:private projection-effect-ids
   #{:effects/save
@@ -180,6 +187,23 @@
       normalized
       default-vault-detail-activity-tab)))
 
+(defn normalize-vault-detail-chart-series
+  [value]
+  (let [token (cond
+                (keyword? value) value
+                (string? value) (-> value
+                                    str/trim
+                                    str/lower-case
+                                    (str/replace #"[^a-z0-9]+" "-")
+                                    keyword)
+                :else nil)
+        normalized (case token
+                     :accountvalue :account-value
+                     token)]
+    (if (contains? vault-detail-chart-series-options normalized)
+      normalized
+      default-vault-detail-chart-series)))
+
 (defn normalize-vault-user-page-size
   [value]
   (let [candidate (parse-utils/parse-int-value value)]
@@ -229,7 +253,11 @@
   (if-let [vault-address* (normalize-vault-address vault-address)]
     [[:effects/save [:vaults-ui :detail-loading?] true]
      [:effects/api-fetch-vault-details vault-address* (vault-wallet-address state)]
-     [:effects/api-fetch-vault-webdata2 vault-address*]]
+     [:effects/api-fetch-vault-webdata2 vault-address*]
+     [:effects/api-fetch-vault-fills vault-address*]
+     [:effects/api-fetch-vault-funding-history vault-address*]
+     [:effects/api-fetch-vault-order-history vault-address*]
+     [:effects/api-fetch-vault-ledger-updates vault-address*]]
     []))
 
 (defn- projection-effect?
@@ -332,3 +360,8 @@
   [_state tab]
   [[:effects/save [:vaults-ui :detail-activity-tab]
     (normalize-vault-detail-activity-tab tab)]])
+
+(defn set-vault-detail-chart-series
+  [_state series]
+  [[:effects/save [:vaults-ui :detail-chart-series]
+    (normalize-vault-detail-chart-series series)]])

@@ -27,7 +27,9 @@
     (is (identical? vault-effects/api-fetch-vault-index!
                     (get-in deps [:api :api-fetch-vault-index])))
     (is (identical? vault-effects/api-fetch-vault-webdata2!
-                    (get-in deps [:api :api-fetch-vault-webdata2])))))
+                    (get-in deps [:api :api-fetch-vault-webdata2])))
+    (is (identical? vault-effects/api-fetch-vault-ledger-updates!
+                    (get-in deps [:api :api-fetch-vault-ledger-updates])))))
 
 (deftest runtime-action-deps-provides-default-domain-action-handlers-test
   (let [deps (collaborators/runtime-action-deps {})]
@@ -73,6 +75,8 @@
                     (get-in deps [:vaults :set-vault-detail-tab])))
     (is (identical? vault-actions/set-vault-detail-activity-tab
                     (get-in deps [:vaults :set-vault-detail-activity-tab])))
+    (is (identical? vault-actions/set-vault-detail-chart-series
+                    (get-in deps [:vaults :set-vault-detail-chart-series])))
     (is (identical? order-actions/submit-order
                     (get-in deps [:orders :submit-order])))))
 

@@ -14,6 +14,8 @@
                     (get-in deps [:diagnostics :ws-reset-subscriptions])))
     (is (identical? effect-adapters/api-fetch-vault-index-effect
                     (get-in deps [:api :api-fetch-vault-index])))
+    (is (identical? effect-adapters/api-fetch-vault-ledger-updates-effect
+                    (get-in deps [:api :api-fetch-vault-ledger-updates])))
     (is (identical? action-adapters/enable-agent-trading
                     (get-in deps [:wallet :enable-agent-trading])))))
 

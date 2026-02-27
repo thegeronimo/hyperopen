@@ -269,39 +269,46 @@
       (when (seq normalized*)
         normalized*))))
 
-(defn- followers-count
+(defn- normalize-followers
   [followers]
-  (cond
-    (sequential? followers)
-    (count followers)
+  (if (sequential? followers)
+    (->> followers
+         (keep normalize-follower-state)
+         vec)
+    []))
 
-    :else
+(defn- followers-count
+  [followers normalized-followers]
+  (if (seq normalized-followers)
+    (count normalized-followers)
     (or (parse-optional-int followers) 0)))
 
 (defn normalize-vault-details
   [payload]
   (when (map? payload)
     (when-let [vault-address (normalize-address (:vaultAddress payload))]
-      {:name (or (non-blank-text (:name payload))
-                 vault-address)
-       :vault-address vault-address
-       :leader (normalize-address (:leader payload))
-       :description (or (non-blank-text (:description payload)) "")
-       :portfolio (account-endpoints/normalize-portfolio-summary (:portfolio payload))
-       :apr (or (parse-optional-num (:apr payload)) 0)
-       :follower-state (normalize-follower-state (:followerState payload))
-       :leader-fraction (parse-optional-num (:leaderFraction payload))
-       :leader-commission (parse-optional-num (:leaderCommission payload))
-       :followers (followers-count (:followers payload))
-       :max-distributable (parse-optional-num (:maxDistributable payload))
-       :max-withdrawable (parse-optional-num (:maxWithdrawable payload))
-       :is-closed? (boolean (or (boolean-value (:isClosed payload))
-                                false))
-       :relationship (normalize-vault-relationship (:relationship payload))
-       :allow-deposits? (boolean (or (boolean-value (:allowDeposits payload))
-                                     false))
-       :always-close-on-withdraw? (boolean (or (boolean-value (:alwaysCloseOnWithdraw payload))
-                                               false))})))
+      (let [followers (normalize-followers (:followers payload))]
+        {:name (or (non-blank-text (:name payload))
+                   vault-address)
+         :vault-address vault-address
+         :leader (normalize-address (:leader payload))
+         :description (or (non-blank-text (:description payload)) "")
+         :portfolio (account-endpoints/normalize-portfolio-summary (:portfolio payload))
+         :apr (or (parse-optional-num (:apr payload)) 0)
+         :follower-state (normalize-follower-state (:followerState payload))
+         :leader-fraction (parse-optional-num (:leaderFraction payload))
+         :leader-commission (parse-optional-num (:leaderCommission payload))
+         :followers followers
+         :followers-count (followers-count (:followers payload) followers)
+         :max-distributable (parse-optional-num (:maxDistributable payload))
+         :max-withdrawable (parse-optional-num (:maxWithdrawable payload))
+         :is-closed? (boolean (or (boolean-value (:isClosed payload))
+                                  false))
+         :relationship (normalize-vault-relationship (:relationship payload))
+         :allow-deposits? (boolean (or (boolean-value (:allowDeposits payload))
+                                       false))
+         :always-close-on-withdraw? (boolean (or (boolean-value (:alwaysCloseOnWithdraw payload))
+                                                 false))}))))
 
 (defn request-vault-details!
   [post-info! vault-address opts]

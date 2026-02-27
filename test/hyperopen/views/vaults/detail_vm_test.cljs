@@ -6,10 +6,19 @@
   {:router {:path "/vaults/0x1234567890abcdef1234567890abcdef12345678"}
    :vaults-ui {:detail-tab :about
                :detail-activity-tab :positions
+               :detail-chart-series :pnl
                :snapshot-range :month
                :detail-loading? false}
    :vaults {:errors {:details-by-address {}
-                     :webdata-by-vault {}}
+                     :webdata-by-vault {}
+                     :fills-by-vault {}
+                     :funding-history-by-vault {}
+                     :order-history-by-vault {}
+                     :ledger-updates-by-vault {}}
+            :loading {:fills-by-vault {}
+                      :funding-history-by-vault {}
+                      :order-history-by-vault {}
+                      :ledger-updates-by-vault {}}
             :details-by-address {"0x1234567890abcdef1234567890abcdef12345678"
                                  {:name "Vault Detail"
                                   :leader "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
@@ -33,11 +42,16 @@
                                          :side "sell"
                                          :sz "1.2"
                                          :px "202"}]
-                                :openOrders [{:order {:coin "BTC"
+                               :openOrders [{:order {:coin "BTC"
                                                       :side "B"
                                                       :sz "0.1"
                                                       :limitPx "100"
                                                       :timestamp 9}}]
+                                :twapStates [{:coin "BTC"
+                                              :sz "1.0"
+                                              :executedSz "0.2"
+                                              :avgPx "101"
+                                              :creationTime 12}]
                                 :clearinghouseState {:assetPositions [{:position {:coin "BTC"
                                                                                    :szi "0.2"
                                                                                    :entryPx "100"
@@ -50,6 +64,38 @@
                                                                                    :positionValue "240"
                                                                                    :unrealizedPnl "-2"
                                                                                    :returnOnEquity "-0.1"}}]}}}
+            :fills-by-vault {"0x1234567890abcdef1234567890abcdef12345678"
+                             [{:time 3
+                               :coin "BTC"
+                               :side "buy"
+                               :sz "0.5"
+                               :px "101"}
+                              {:time 4
+                               :coin "ETH"
+                               :side "sell"
+                               :sz "1.2"
+                               :px "202"}]}
+            :funding-history-by-vault {"0x1234567890abcdef1234567890abcdef12345678"
+                                       [{:time-ms 5
+                                         :coin "BTC"
+                                         :fundingRate 0.001
+                                         :positionSize 3
+                                         :payment -4.2}]}
+            :order-history-by-vault {"0x1234567890abcdef1234567890abcdef12345678"
+                                     [{:order {:coin "BTC"
+                                               :side "B"
+                                               :origSz "1.0"
+                                               :limitPx "99"
+                                               :orderType "Limit"
+                                               :timestamp 10}
+                                       :status "filled"
+                                       :statusTimestamp 11}]}
+            :ledger-updates-by-vault {"0x1234567890abcdef1234567890abcdef12345678"
+                                      [{:time 12
+                                        :hash "0xabc"
+                                        :delta {:type "vaultDeposit"
+                                                :vault "0x1234567890abcdef1234567890abcdef12345678"
+                                                :usdc "10.0"}}]}
             :user-equity-by-address {"0x1234567890abcdef1234567890abcdef12345678"
                                      {:equity 50}}
             :merged-index-rows [{:name "Vault Detail"
@@ -75,10 +121,15 @@
     (is (= 2 (:followers vm)))
     (is (seq (get-in vm [:chart :points])))
     (is (seq (get-in vm [:chart :path])))
+    (is (= :pnl (get-in vm [:chart :selected-series])))
     (is (= :positions (:selected-activity-tab vm)))
     (is (= 2 (count (:activity-positions vm))))
     (is (= 1 (count (:activity-open-orders vm))))
     (is (= 2 (count (:activity-fills vm))))
+    (is (= 1 (count (:activity-funding-history vm))))
+    (is (= 1 (count (:activity-order-history vm))))
+    (is (= 1 (count (:activity-deposits-withdrawals vm))))
+    (is (= 2 (count (:activity-depositors vm))))
     (is (= 2 (get-in vm [:activity-summary :fill-count])))
     (is (= 1 (get-in vm [:activity-summary :open-order-count])))
     (is (= 2 (get-in vm [:activity-summary :position-count])))))
@@ -91,7 +142,8 @@
 (deftest vault-detail-vm-prefers-apr-for-past-month-return-and-normalizes-depositor-count-test
   (let [state (-> sample-state
                   (assoc-in [:vaults :details-by-address "0x1234567890abcdef1234567890abcdef12345678" :apr] 0.21)
-                  (assoc-in [:vaults :details-by-address "0x1234567890abcdef1234567890abcdef12345678" :followers] 137)
+                  (assoc-in [:vaults :details-by-address "0x1234567890abcdef1234567890abcdef12345678" :followers] [])
+                  (assoc-in [:vaults :details-by-address "0x1234567890abcdef1234567890abcdef12345678" :followers-count] 137)
                   (assoc-in [:vaults :merged-index-rows 0 :snapshot-by-key :month] [0.0 19098892.322411]))
         vm (detail-vm/vault-detail-vm state)]
     (is (= 21 (get-in vm [:metrics :past-month-return])))
@@ -101,3 +153,8 @@
                     (filter #(= :depositors (:value %)))
                     first
                     :count)))))
+
+(deftest vault-detail-vm-selects-account-value-series-when-user-selects-it-test
+  (let [state (assoc-in sample-state [:vaults-ui :detail-chart-series] :account-value)
+        vm (detail-vm/vault-detail-vm state)]
+    (is (= :account-value (get-in vm [:chart :selected-series])))))

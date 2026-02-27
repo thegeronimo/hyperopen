@@ -209,7 +209,9 @@
                    (is (= {:type :child
                            :parent-address "0xparent"}
                           (:relationship details)))
-                   (is (= 2 (:followers details)))
+                   (is (= [{:user "0xa"} {:user "0xb"}]
+                          (:followers details)))
+                   (is (= 2 (:followers-count details)))
                    (is (true? (:allow-deposits? details)))
                    (is (false? (:always-close-on-withdraw? details)))
                    (done)))

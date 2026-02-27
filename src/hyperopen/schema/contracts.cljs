@@ -401,6 +401,7 @@
    :actions/prev-vaults-user-page ::max-page-args
    :actions/set-vault-detail-tab ::keyword-or-string-args
    :actions/set-vault-detail-activity-tab ::keyword-or-string-args
+   :actions/set-vault-detail-chart-series ::keyword-or-string-args
    :actions/navigate (s/or :path (s/tuple ::non-empty-string)
                            :path-and-opts (s/tuple ::non-empty-string map?))})
 
@@ -444,7 +445,11 @@
    :effects/api-fetch-vault-summaries ::no-args
    :effects/api-fetch-user-vault-equities ::optional-address-args
    :effects/api-fetch-vault-details ::address-and-optional-address-args
-   :effects/api-fetch-vault-webdata2 ::address-args})
+   :effects/api-fetch-vault-webdata2 ::address-args
+   :effects/api-fetch-vault-fills ::address-args
+   :effects/api-fetch-vault-funding-history ::address-args
+   :effects/api-fetch-vault-order-history ::address-args
+   :effects/api-fetch-vault-ledger-updates ::address-args})
 
 (defn contracted-action-ids
   []

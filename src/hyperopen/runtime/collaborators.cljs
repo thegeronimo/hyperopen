@@ -184,7 +184,8 @@
    :next-vaults-user-page vault-actions/next-vaults-user-page
    :prev-vaults-user-page vault-actions/prev-vaults-user-page
    :set-vault-detail-tab vault-actions/set-vault-detail-tab
-   :set-vault-detail-activity-tab vault-actions/set-vault-detail-activity-tab})
+   :set-vault-detail-activity-tab vault-actions/set-vault-detail-activity-tab
+   :set-vault-detail-chart-series vault-actions/set-vault-detail-chart-series})
 
 (defn runtime-effect-deps
   [effect-overrides]
@@ -196,7 +197,11 @@
           :api-fetch-vault-summaries vault-effects/api-fetch-vault-summaries!
           :api-fetch-user-vault-equities vault-effects/api-fetch-user-vault-equities!
           :api-fetch-vault-details vault-effects/api-fetch-vault-details!
-          :api-fetch-vault-webdata2 vault-effects/api-fetch-vault-webdata2!}}
+          :api-fetch-vault-webdata2 vault-effects/api-fetch-vault-webdata2!
+          :api-fetch-vault-fills vault-effects/api-fetch-vault-fills!
+          :api-fetch-vault-funding-history vault-effects/api-fetch-vault-funding-history!
+          :api-fetch-vault-order-history vault-effects/api-fetch-vault-order-history!
+          :api-fetch-vault-ledger-updates vault-effects/api-fetch-vault-ledger-updates!}}
    effect-overrides))
 
 (defn runtime-action-deps

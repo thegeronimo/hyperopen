@@ -205,6 +205,12 @@
   [value]
   (some-> value str str/trim str/lower-case))
 
+(defn- rows->vec
+  [rows]
+  (if (sequential? rows)
+    (vec rows)
+    []))
+
 (defn- dedupe-vault-rows
   [rows]
   (reduce (fn [{:keys [order by-address]} row]
@@ -378,4 +384,112 @@
                        (assoc-in [:vaults :loading :webdata-by-vault vault-address*] false)
                        (assoc-in [:vaults :errors :webdata-by-vault vault-address*] message))]
         (assoc-in state* [:vaults-ui :detail-loading?] (vault-detail-loading? state* vault-address*))))
+    state))
+
+(defn begin-vault-fills-load
+  [state vault-address]
+  (if-let [vault-address* (normalize-vault-address vault-address)]
+    (-> state
+        (assoc-in [:vaults :loading :fills-by-vault vault-address*] true)
+        (assoc-in [:vaults :errors :fills-by-vault vault-address*] nil))
+    state))
+
+(defn apply-vault-fills-success
+  [state vault-address rows]
+  (if-let [vault-address* (normalize-vault-address vault-address)]
+    (-> state
+        (assoc-in [:vaults :fills-by-vault vault-address*] (rows->vec rows))
+        (assoc-in [:vaults :loading :fills-by-vault vault-address*] false)
+        (assoc-in [:vaults :errors :fills-by-vault vault-address*] nil)
+        (assoc-in [:vaults :loaded-at-ms :fills-by-vault vault-address*] (.now js/Date)))
+    state))
+
+(defn apply-vault-fills-error
+  [state vault-address err]
+  (if-let [vault-address* (normalize-vault-address vault-address)]
+    (let [{:keys [message]} (normalized-error err)]
+      (-> state
+          (assoc-in [:vaults :loading :fills-by-vault vault-address*] false)
+          (assoc-in [:vaults :errors :fills-by-vault vault-address*] message)))
+    state))
+
+(defn begin-vault-funding-history-load
+  [state vault-address]
+  (if-let [vault-address* (normalize-vault-address vault-address)]
+    (-> state
+        (assoc-in [:vaults :loading :funding-history-by-vault vault-address*] true)
+        (assoc-in [:vaults :errors :funding-history-by-vault vault-address*] nil))
+    state))
+
+(defn apply-vault-funding-history-success
+  [state vault-address rows]
+  (if-let [vault-address* (normalize-vault-address vault-address)]
+    (-> state
+        (assoc-in [:vaults :funding-history-by-vault vault-address*] (rows->vec rows))
+        (assoc-in [:vaults :loading :funding-history-by-vault vault-address*] false)
+        (assoc-in [:vaults :errors :funding-history-by-vault vault-address*] nil)
+        (assoc-in [:vaults :loaded-at-ms :funding-history-by-vault vault-address*] (.now js/Date)))
+    state))
+
+(defn apply-vault-funding-history-error
+  [state vault-address err]
+  (if-let [vault-address* (normalize-vault-address vault-address)]
+    (let [{:keys [message]} (normalized-error err)]
+      (-> state
+          (assoc-in [:vaults :loading :funding-history-by-vault vault-address*] false)
+          (assoc-in [:vaults :errors :funding-history-by-vault vault-address*] message)))
+    state))
+
+(defn begin-vault-order-history-load
+  [state vault-address]
+  (if-let [vault-address* (normalize-vault-address vault-address)]
+    (-> state
+        (assoc-in [:vaults :loading :order-history-by-vault vault-address*] true)
+        (assoc-in [:vaults :errors :order-history-by-vault vault-address*] nil))
+    state))
+
+(defn apply-vault-order-history-success
+  [state vault-address rows]
+  (if-let [vault-address* (normalize-vault-address vault-address)]
+    (-> state
+        (assoc-in [:vaults :order-history-by-vault vault-address*] (rows->vec rows))
+        (assoc-in [:vaults :loading :order-history-by-vault vault-address*] false)
+        (assoc-in [:vaults :errors :order-history-by-vault vault-address*] nil)
+        (assoc-in [:vaults :loaded-at-ms :order-history-by-vault vault-address*] (.now js/Date)))
+    state))
+
+(defn apply-vault-order-history-error
+  [state vault-address err]
+  (if-let [vault-address* (normalize-vault-address vault-address)]
+    (let [{:keys [message]} (normalized-error err)]
+      (-> state
+          (assoc-in [:vaults :loading :order-history-by-vault vault-address*] false)
+          (assoc-in [:vaults :errors :order-history-by-vault vault-address*] message)))
+    state))
+
+(defn begin-vault-ledger-updates-load
+  [state vault-address]
+  (if-let [vault-address* (normalize-vault-address vault-address)]
+    (-> state
+        (assoc-in [:vaults :loading :ledger-updates-by-vault vault-address*] true)
+        (assoc-in [:vaults :errors :ledger-updates-by-vault vault-address*] nil))
+    state))
+
+(defn apply-vault-ledger-updates-success
+  [state vault-address rows]
+  (if-let [vault-address* (normalize-vault-address vault-address)]
+    (-> state
+        (assoc-in [:vaults :ledger-updates-by-vault vault-address*] (rows->vec rows))
+        (assoc-in [:vaults :loading :ledger-updates-by-vault vault-address*] false)
+        (assoc-in [:vaults :errors :ledger-updates-by-vault vault-address*] nil)
+        (assoc-in [:vaults :loaded-at-ms :ledger-updates-by-vault vault-address*] (.now js/Date)))
+    state))
+
+(defn apply-vault-ledger-updates-error
+  [state vault-address err]
+  (if-let [vault-address* (normalize-vault-address vault-address)]
+    (let [{:keys [message]} (normalized-error err)]
+      (-> state
+          (assoc-in [:vaults :loading :ledger-updates-by-vault vault-address*] false)
+          (assoc-in [:vaults :errors :ledger-updates-by-vault vault-address*] message)))
     state))

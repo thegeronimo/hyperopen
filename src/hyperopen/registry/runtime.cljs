@@ -43,7 +43,11 @@
    [:effects/api-fetch-vault-summaries :api-fetch-vault-summaries]
    [:effects/api-fetch-user-vault-equities :api-fetch-user-vault-equities]
    [:effects/api-fetch-vault-details :api-fetch-vault-details]
-   [:effects/api-fetch-vault-webdata2 :api-fetch-vault-webdata2]])
+   [:effects/api-fetch-vault-webdata2 :api-fetch-vault-webdata2]
+   [:effects/api-fetch-vault-fills :api-fetch-vault-fills]
+   [:effects/api-fetch-vault-funding-history :api-fetch-vault-funding-history]
+   [:effects/api-fetch-vault-order-history :api-fetch-vault-order-history]
+   [:effects/api-fetch-vault-ledger-updates :api-fetch-vault-ledger-updates]])
 
 (defn registered-effect-ids
   []
@@ -203,7 +207,8 @@
      [:actions/next-vaults-user-page :next-vaults-user-page]
      [:actions/prev-vaults-user-page :prev-vaults-user-page]
      [:actions/set-vault-detail-tab :set-vault-detail-tab]
-     [:actions/set-vault-detail-activity-tab :set-vault-detail-activity-tab]])))
+     [:actions/set-vault-detail-activity-tab :set-vault-detail-activity-tab]
+     [:actions/set-vault-detail-chart-series :set-vault-detail-chart-series]])))
 
 (defn registered-action-ids
   []

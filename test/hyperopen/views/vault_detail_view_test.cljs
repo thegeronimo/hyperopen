@@ -30,10 +30,19 @@
   {:router {:path "/vaults/0x1234567890abcdef1234567890abcdef12345678"}
    :vaults-ui {:detail-tab :about
                :detail-activity-tab :positions
+               :detail-chart-series :pnl
                :snapshot-range :month
                :detail-loading? false}
    :vaults {:errors {:details-by-address {}
-                     :webdata-by-vault {}}
+                     :webdata-by-vault {}
+                     :fills-by-vault {}
+                     :funding-history-by-vault {}
+                     :order-history-by-vault {}
+                     :ledger-updates-by-vault {}}
+            :loading {:fills-by-vault {}
+                      :funding-history-by-vault {}
+                      :order-history-by-vault {}
+                      :ledger-updates-by-vault {}}
             :details-by-address {"0x1234567890abcdef1234567890abcdef12345678"
                                  {:name "Vault Detail"
                                   :leader "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
@@ -52,12 +61,44 @@
                                                       :sz "0.1"
                                                       :limitPx "100"
                                                       :timestamp 9}}]
+                                :twapStates [{:coin "BTC"
+                                              :sz "1.0"
+                                              :executedSz "0.1"
+                                              :avgPx "101"
+                                              :creationTime 20}]
                                 :clearinghouseState {:assetPositions [{:position {:coin "BTC"
                                                                                    :szi "0.2"
                                                                                    :entryPx "100"
                                                                                    :positionValue "20"
                                                                                    :unrealizedPnl "1"
                                                                                    :returnOnEquity "0.05"}}]}}}
+            :fills-by-vault {"0x1234567890abcdef1234567890abcdef12345678"
+                             [{:time 3
+                               :coin "BTC"
+                               :side "buy"
+                               :sz "0.5"
+                               :px "101"}]}
+            :funding-history-by-vault {"0x1234567890abcdef1234567890abcdef12345678"
+                                       [{:time-ms 5
+                                         :coin "BTC"
+                                         :fundingRate 0.001
+                                         :positionSize 3
+                                         :payment -4.2}]}
+            :order-history-by-vault {"0x1234567890abcdef1234567890abcdef12345678"
+                                     [{:order {:coin "BTC"
+                                               :side "B"
+                                               :origSz "1.0"
+                                               :limitPx "99"
+                                               :orderType "Limit"
+                                               :timestamp 10}
+                                       :status "filled"
+                                       :statusTimestamp 11}]}
+            :ledger-updates-by-vault {"0x1234567890abcdef1234567890abcdef12345678"
+                                      [{:time 12
+                                        :hash "0xabc"
+                                        :delta {:type "vaultDeposit"
+                                                :vault "0x1234567890abcdef1234567890abcdef12345678"
+                                                :usdc "10.0"}}]}
             :user-equity-by-address {"0x1234567890abcdef1234567890abcdef12345678"
                                      {:equity 50}}
             :merged-index-rows [{:name "Vault Detail"
@@ -74,17 +115,21 @@
         detail-tab-button (find-first-node view
                                            #(= [[:actions/set-vault-detail-tab :vault-performance]]
                                                (get-in % [1 :on :click])))
+        chart-tab-button (find-first-node view
+                                          #(= [[:actions/set-vault-detail-chart-series :account-value]]
+                                              (get-in % [1 :on :click])))
         activity-tab-button (find-first-node view
                                              #(= [[:actions/set-vault-detail-activity-tab :open-orders]]
                                                  (get-in % [1 :on :click])))
         text (set (collect-strings view))]
     (is (some? root))
     (is (some? detail-tab-button))
+    (is (some? chart-tab-button))
     (is (some? activity-tab-button))
     (is (contains? text "Vault Detail"))
     (is (contains? text "Past Month Return"))
     (is (contains? text "Open Orders (1)"))
-    (is (contains? text "Funding History"))))
+    (is (contains? text "Funding History (1)"))))
 
 (deftest vault-detail-view-shows-invalid-message-when-route-address-is-invalid-test
   (let [view (vault-detail-view/vault-detail-view (assoc-in sample-state [:router :path] "/vaults/not-an-address"))

@@ -222,6 +222,55 @@
            (get-in webdata-error [:vaults :errors :webdata-by-vault "0xa"])))
     (is (= false (get-in webdata-error [:vaults-ui :detail-loading?])))))
 
+(deftest vault-activity-history-projections-track-vault-scoped-loading-and-results-test
+  (let [state {:vaults {:fills-by-vault {}
+                        :funding-history-by-vault {}
+                        :order-history-by-vault {}
+                        :ledger-updates-by-vault {}
+                        :loading {:fills-by-vault {}
+                                  :funding-history-by-vault {}
+                                  :order-history-by-vault {}
+                                  :ledger-updates-by-vault {}}
+                        :errors {:fills-by-vault {}
+                                 :funding-history-by-vault {}
+                                 :order-history-by-vault {}
+                                 :ledger-updates-by-vault {}}
+                        :loaded-at-ms {:fills-by-vault {}
+                                       :funding-history-by-vault {}
+                                       :order-history-by-vault {}
+                                       :ledger-updates-by-vault {}}}}
+        fills-loading (projections/begin-vault-fills-load state "0xA")
+        fills-success (projections/apply-vault-fills-success fills-loading "0xA" [{:coin "BTC"}])
+        fills-error (projections/apply-vault-fills-error fills-loading "0xA" (js/Error. "fills-fail"))
+        funding-loading (projections/begin-vault-funding-history-load state "0xA")
+        funding-success (projections/apply-vault-funding-history-success funding-loading "0xA" [{:coin "ETH"}])
+        funding-error (projections/apply-vault-funding-history-error funding-loading "0xA" "funding-fail")
+        order-loading (projections/begin-vault-order-history-load state "0xA")
+        order-success (projections/apply-vault-order-history-success order-loading "0xA" [{:status "filled"}])
+        order-error (projections/apply-vault-order-history-error order-loading "0xA" (js/Error. "orders-fail"))
+        ledger-loading (projections/begin-vault-ledger-updates-load state "0xA")
+        ledger-success (projections/apply-vault-ledger-updates-success ledger-loading "0xA" [{:delta {:type "vaultDeposit"}}])
+        ledger-error (projections/apply-vault-ledger-updates-error ledger-loading "0xA" "ledger-fail")]
+    (is (= true (get-in fills-loading [:vaults :loading :fills-by-vault "0xa"])))
+    (is (= [{:coin "BTC"}] (get-in fills-success [:vaults :fills-by-vault "0xa"])))
+    (is (number? (get-in fills-success [:vaults :loaded-at-ms :fills-by-vault "0xa"])))
+    (is (= "Error: fills-fail" (get-in fills-error [:vaults :errors :fills-by-vault "0xa"])))
+
+    (is (= true (get-in funding-loading [:vaults :loading :funding-history-by-vault "0xa"])))
+    (is (= [{:coin "ETH"}] (get-in funding-success [:vaults :funding-history-by-vault "0xa"])))
+    (is (number? (get-in funding-success [:vaults :loaded-at-ms :funding-history-by-vault "0xa"])))
+    (is (= "funding-fail" (get-in funding-error [:vaults :errors :funding-history-by-vault "0xa"])))
+
+    (is (= true (get-in order-loading [:vaults :loading :order-history-by-vault "0xa"])))
+    (is (= [{:status "filled"}] (get-in order-success [:vaults :order-history-by-vault "0xa"])))
+    (is (number? (get-in order-success [:vaults :loaded-at-ms :order-history-by-vault "0xa"])))
+    (is (= "Error: orders-fail" (get-in order-error [:vaults :errors :order-history-by-vault "0xa"])))
+
+    (is (= true (get-in ledger-loading [:vaults :loading :ledger-updates-by-vault "0xa"])))
+    (is (= [{:delta {:type "vaultDeposit"}}] (get-in ledger-success [:vaults :ledger-updates-by-vault "0xa"])))
+    (is (number? (get-in ledger-success [:vaults :loaded-at-ms :ledger-updates-by-vault "0xa"])))
+    (is (= "ledger-fail" (get-in ledger-error [:vaults :errors :ledger-updates-by-vault "0xa"])))))
+
 (deftest user-abstraction-projection-ignores-stale-address-updates-test
   (let [state {:wallet {:address "0xabc"}
                :account {:mode :classic}}
