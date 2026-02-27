@@ -5,7 +5,7 @@
 (def sample-state
   {:router {:path "/vaults/0x1234567890abcdef1234567890abcdef12345678"}
    :vaults-ui {:detail-tab :about
-               :detail-activity-tab :positions
+               :detail-activity-tab :performance-metrics
                :detail-chart-series :pnl
                :detail-returns-benchmark-coins ["BTC"]
                :detail-returns-benchmark-coin "BTC"
@@ -138,7 +138,8 @@
     (is (= :month (get-in vm [:chart :selected-timeframe])))
     (is (= 4 (count (get-in vm [:chart :timeframe-options]))))
     (is (seq (get-in vm [:performance-metrics :groups])))
-    (is (= :positions (:selected-activity-tab vm)))
+    (is (= :performance-metrics (get-in vm [:activity-tabs 0 :value])))
+    (is (= :performance-metrics (:selected-activity-tab vm)))
     (is (= 2 (count (:activity-positions vm))))
     (is (= 1 (count (:activity-open-orders vm))))
     (is (= 2 (count (:activity-fills vm))))

@@ -135,7 +135,7 @@
    :user-vaults-page 1
    :user-vaults-page-size-dropdown-open? false
    :detail-tab :about
-   :detail-activity-tab :positions
+   :detail-activity-tab :performance-metrics
    :detail-activity-sort-by-tab {}
    :detail-activity-direction-filter :all
    :detail-activity-filter-open? false

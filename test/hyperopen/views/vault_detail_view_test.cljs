@@ -30,7 +30,7 @@
 (def sample-state
   {:router {:path "/vaults/0x1234567890abcdef1234567890abcdef12345678"}
    :vaults-ui {:detail-tab :about
-               :detail-activity-tab :positions
+               :detail-activity-tab :performance-metrics
                :detail-activity-sort-by-tab {}
                :detail-activity-direction-filter :all
                :detail-activity-filter-open? false
@@ -149,7 +149,7 @@
                                             #(= [[:actions/set-vaults-snapshot-range [:event.target/value]]]
                                                 (get-in % [1 :on :change])))
         performance-metrics-tab-button (find-first-node view
-                                                        #(= [[:actions/set-vault-detail-tab :performance-metrics]]
+                                                        #(= [[:actions/set-vault-detail-activity-tab :performance-metrics]]
                                                             (get-in % [1 :on :click])))
         activity-tab-button (find-first-node view
                                              #(= [[:actions/set-vault-detail-activity-tab :open-orders]]
@@ -200,7 +200,7 @@
         benchmark-input (find-first-node returns-view
                                          #(= [[:actions/set-vault-detail-returns-benchmark-search [:event.target/value]]]
                                              (get-in % [1 :on :input])))
-        metrics-state (assoc-in sample-state [:vaults-ui :detail-tab] :performance-metrics)
+        metrics-state (assoc-in sample-state [:vaults-ui :detail-activity-tab] :performance-metrics)
         metrics-view (vault-detail-view/vault-detail-view metrics-state)
         text (set (collect-strings metrics-view))]
     (is (some? benchmark-selector))
@@ -229,7 +229,8 @@
     (is (contains? text "Open Orders (100+)"))))
 
 (deftest vault-detail-view-activity-tab-style-parity-test
-  (let [view (vault-detail-view/vault-detail-view sample-state)
+  (let [state (assoc-in sample-state [:vaults-ui :detail-activity-tab] :positions)
+        view (vault-detail-view/vault-detail-view state)
         positions-tab-button (find-first-node view
                                               #(= [[:actions/set-vault-detail-activity-tab :positions]]
                                                   (get-in % [1 :on :click])))
@@ -239,7 +240,8 @@
     (is (not (contains? classes "bg-base-100/50")))))
 
 (deftest vault-detail-view-applies-semantic-row-accent-styles-test
-  (let [positions-view (vault-detail-view/vault-detail-view sample-state)
+  (let [positions-state (assoc-in sample-state [:vaults-ui :detail-activity-tab] :positions)
+        positions-view (vault-detail-view/vault-detail-view positions-state)
         accent-cell (find-first-node positions-view
                                      #(and (= :td (first %))
                                            (string? (get-in % [1 :style :background]))
@@ -257,6 +259,7 @@
 
 (deftest vault-detail-view-wires-activity-sort-and-filter-interactions-test
   (let [filter-open-state (-> sample-state
+                              (assoc-in [:vaults-ui :detail-activity-tab] :positions)
                               (assoc-in [:vaults-ui :detail-activity-filter-open?] true)
                               (assoc-in [:vaults-ui :detail-activity-direction-filter] :long))
         view (vault-detail-view/vault-detail-view filter-open-state)

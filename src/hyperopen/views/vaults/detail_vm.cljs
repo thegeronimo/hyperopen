@@ -29,7 +29,9 @@
    {:value 0 :y-ratio 1}])
 
 (def ^:private activity-tabs
-  [{:value :balances
+  [{:value :performance-metrics
+    :label "Performance Metrics"}
+   {:value :balances
     :label "Balances"}
    {:value :positions
     :label "Positions"}
@@ -1599,9 +1601,7 @@
             {:value :vault-performance
              :label "Vault Performance"}
             {:value :your-performance
-             :label "Your Performance"}
-            {:value :performance-metrics
-             :label "Performance Metrics"}]
+             :label "Your Performance"}]
      :selected-tab detail-tab
      :snapshot-range snapshot-range
      :snapshot {:day (snapshot-value-by-range row :day tvl)

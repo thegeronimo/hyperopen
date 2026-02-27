@@ -687,7 +687,6 @@
 
 (defn- render-tab-panel [{:keys [selected-tab] :as vm}]
   (case selected-tab
-    :performance-metrics (performance-metrics-card (:performance-metrics vm))
     :vault-performance (render-vault-performance-panel vm)
     :your-performance (render-your-performance-panel (:metrics vm))
     (render-about-panel vm)))
@@ -1100,6 +1099,7 @@
 
 (defn- activity-panel [{:keys [selected-activity-tab
                                activity-tabs
+                               performance-metrics
                                activity-direction-filter
                                activity-filter-open?
                                activity-filter-options
@@ -1182,6 +1182,7 @@
                [:span {:class ["text-xs" "text-[#66e3c5]"]}
                 "●"])])])]]
      (case selected-activity-tab
+       :performance-metrics (performance-metrics-card performance-metrics)
        :balances (balances-table activity-balances (get sort-state-by-tab :balances))
        :positions (positions-table activity-positions (get sort-state-by-tab :positions))
        :open-orders (open-orders-table activity-open-orders (get sort-state-by-tab :open-orders))

@@ -53,7 +53,7 @@
     (is (= 1 (get-in state [:vaults-ui :user-vaults-page])))
     (is (= false (get-in state [:vaults-ui :user-vaults-page-size-dropdown-open?])))
     (is (= :about (get-in state [:vaults-ui :detail-tab])))
-    (is (= :positions (get-in state [:vaults-ui :detail-activity-tab])))
+    (is (= :performance-metrics (get-in state [:vaults-ui :detail-activity-tab])))
     (is (= {} (get-in state [:vaults-ui :detail-activity-sort-by-tab])))
     (is (= :all (get-in state [:vaults-ui :detail-activity-direction-filter])))
     (is (= false (get-in state [:vaults-ui :detail-activity-filter-open?])))

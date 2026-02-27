@@ -138,12 +138,15 @@
          (actions/prev-vaults-user-page {:vaults-ui {:user-vaults-page 2}} 5)))
   (is (= [[:effects/save [:vaults-ui :detail-tab] :vault-performance]]
          (actions/set-vault-detail-tab {} "vaultPerformance")))
-  (is (= [[:effects/save [:vaults-ui :detail-tab] :performance-metrics]]
+  (is (= [[:effects/save [:vaults-ui :detail-tab] :about]]
          (actions/set-vault-detail-tab {} "performanceMetrics")))
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-tab] :performance-metrics]
+                               [[:vaults-ui :detail-activity-filter-open?] false]]]]
+         (actions/set-vault-detail-activity-tab {} "performanceMetrics")))
   (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-tab] :open-orders]
                                [[:vaults-ui :detail-activity-filter-open?] false]]]]
          (actions/set-vault-detail-activity-tab {} "openOrders")))
-  (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-tab] :positions]
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-tab] :performance-metrics]
                                [[:vaults-ui :detail-activity-filter-open?] false]]]]
          (actions/set-vault-detail-activity-tab {} "unknown-tab")))
   (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-sort-by-tab :positions]

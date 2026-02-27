@@ -22,7 +22,7 @@
   :about)
 
 (def default-vault-detail-activity-tab
-  :positions)
+  :performance-metrics)
 
 (def default-vault-detail-activity-direction-filter
   :all)
@@ -40,10 +40,11 @@
   #{:vault :leader :apr :tvl :your-deposit :age :snapshot})
 
 (def ^:private vault-detail-tabs
-  #{:about :vault-performance :your-performance :performance-metrics})
+  #{:about :vault-performance :your-performance})
 
 (def ^:private vault-detail-activity-tabs
-  #{:balances
+  #{:performance-metrics
+    :balances
     :positions
     :open-orders
     :twap
@@ -189,8 +190,6 @@
         normalized (case token
                      :vaultperformance :vault-performance
                      :yourperformance :your-performance
-                     :performancemetrics :performance-metrics
-                     :performancemetric :performance-metrics
                      token)]
     (if (contains? vault-detail-tabs normalized)
       normalized
@@ -207,6 +206,8 @@
                                     keyword)
                 :else nil)
         normalized (case token
+                     :performancemetrics :performance-metrics
+                     :performancemetric :performance-metrics
                      :openorders :open-orders
                      :tradehistory :trade-history
                      :fundinghistory :funding-history
@@ -282,8 +283,8 @@
 (defn- vault-detail-performance-metrics-selected?
   [state]
   (= :performance-metrics
-     (normalize-vault-detail-tab
-      (get-in state [:vaults-ui :detail-tab]))))
+     (normalize-vault-detail-activity-tab
+      (get-in state [:vaults-ui :detail-activity-tab]))))
 
 (defn- vault-detail-benchmark-fetch-enabled?
   [state]
