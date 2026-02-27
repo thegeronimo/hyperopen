@@ -102,6 +102,7 @@
             (if (>= idx point-count)
               output
               (let [current (nth points* idx)
+                    previous-account-value (:account-value previous)
                     delta-account (- (:account-value current)
                                      (:account-value previous))
                     delta-pnl (- (:pnl-value current)
@@ -109,9 +110,24 @@
                     implied-cash-flow (- delta-account delta-pnl)
                     denominator (+ (:account-value previous)
                                    (* 0.5 implied-cash-flow))
-                    period-return (if (and (finite-number? denominator)
-                                           (pos? denominator))
+                    flow-ratio (if (finite-number? previous-account-value)
+                                 (js/Math.abs (/ implied-cash-flow
+                                                 (max previous-account-value 1)))
+                                 js/Number.POSITIVE_INFINITY)
+                    period-return (cond
+                                    ;; Normal case: stable Dietz denominator and moderate flow.
+                                    (and (finite-number? denominator)
+                                         (pos? denominator)
+                                         (finite-number? flow-ratio)
+                                         (< flow-ratio 0.5))
                                     (/ delta-pnl denominator)
+
+                                    ;; Fallback for large flows or bad Dietz denominator.
+                                    (and (finite-number? previous-account-value)
+                                         (pos? previous-account-value))
+                                    (/ delta-pnl previous-account-value)
+
+                                    :else
                                     0)
                     period-return* (if (finite-number? period-return)
                                      (max -0.999999 period-return)

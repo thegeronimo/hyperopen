@@ -103,7 +103,7 @@
         rows (metrics/returns-history-rows {} summary :all)]
     (is (= [1 2 3]
            (mapv first rows)))
-    (is (= [0 0 100]
+    (is (= [0 200 500]
            (mapv second rows)))))
 
 (deftest daily-compounded-returns-builds-canonical-daily-series-test
