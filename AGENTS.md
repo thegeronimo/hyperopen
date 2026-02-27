@@ -21,6 +21,7 @@ This file is the agent entry point for this repository. It is a table of content
 3. [Security and Signing Safety](/hyperopen/docs/SECURITY.md)
 4. [Quality Scorecard](/hyperopen/docs/QUALITY_SCORE.md)
 5. [Planning and Execution](/hyperopen/docs/PLANS.md)
+6. [Tooling and Agent Capabilities](/hyperopen/docs/tools.md)
 
 ## Domain Guides
 - Architecture boundaries: [ARCHITECTURE.md](/hyperopen/ARCHITECTURE.md)

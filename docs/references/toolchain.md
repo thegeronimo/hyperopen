@@ -22,6 +22,9 @@ Browser inspection and parity commands:
 - `node tools/browser-inspection/src/cli.mjs session attach --attach-port <cdp-port>`
 - `node tools/browser-inspection/src/cli.mjs session attach --attach-port <cdp-port> --target-id <cdp-target-id>`
 
+Comprehensive tool surface and use guidance:
+- `/hyperopen/docs/tools.md`
+
 Deterministic target selection workflow:
 - `/hyperopen/docs/runbooks/browser-live-inspection.md` (Attach to Your Own Browser and Deterministic Tab Identification)
 
