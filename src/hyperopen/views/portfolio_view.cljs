@@ -681,7 +681,7 @@
   ([kind value]
    (performance-metric-value-cell kind value nil))
   ([kind value attrs]
-   [:span (merge {:class (into ["text-sm" "text-trading-text" "text-right"]
+   [:span (merge {:class (into ["justify-self-start" "text-sm" "text-trading-text" "text-left"]
                                (when (not= kind :date)
                                  ["num"]))}
                  attrs)
@@ -730,9 +730,9 @@
 (defn- performance-metrics-grid-style
   [benchmark-column-count]
   {:grid-template-columns (string/join " "
-                                       (concat ["minmax(0,1fr)"]
-                                               (repeat benchmark-column-count "minmax(108px,auto)")
-                                               ["minmax(108px,auto)"]))})
+                                       (concat ["220px"]
+                                               (repeat benchmark-column-count "132px")
+                                               ["132px"]))})
 
 (defn- performance-metric-row [{:keys [key label kind value] :as row} benchmark-columns grid-style]
   (let [portfolio-value (if (contains? row :portfolio-value)
@@ -740,6 +740,7 @@
                           value)]
     [:div {:class ["grid"
                    "items-center"
+                   "justify-items-start"
                    "gap-3"
                    "hover:bg-base-300"]
            :style grid-style
@@ -777,6 +778,7 @@
            :data-role "portfolio-performance-metrics-card"}
      [:div {:class ["grid"
                     "items-center"
+                    "justify-items-start"
                     "gap-3"
                     "border-b"
                     "border-base-300"
@@ -798,12 +800,12 @@
                             "portfolio-performance-metrics-time-range-selector")])]
       (for [[idx {:keys [coin label]}] (map-indexed vector benchmark-columns*)]
         ^{:key (str "portfolio-performance-metrics-benchmark-label-" coin)}
-        [:span {:class ["text-xs" "font-medium" "uppercase" "tracking-wide" "text-right" "text-trading-text-secondary"]
+        [:span {:class ["justify-self-start" "text-xs" "font-medium" "uppercase" "tracking-wide" "text-left" "text-trading-text-secondary"]
                 :data-role (if (zero? idx)
                              "portfolio-performance-metrics-benchmark-label"
                              (str "portfolio-performance-metrics-benchmark-label-" coin))}
          label])
-      [:span {:class ["text-xs" "font-medium" "uppercase" "tracking-wide" "text-right" "text-trading-text-secondary"]
+      [:span {:class ["justify-self-start" "text-xs" "font-medium" "uppercase" "tracking-wide" "text-left" "text-trading-text-secondary"]
               :data-role "portfolio-performance-metrics-portfolio-label"}
        "Portfolio"]]
      [:div {:class ["flex-1" "min-h-0" "space-y-2.5" "overflow-y-auto" "scrollbar-hide" "px-4" "py-3"]}
