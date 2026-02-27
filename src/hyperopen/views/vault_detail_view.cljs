@@ -123,62 +123,32 @@
             :on {:click [[:actions/set-vault-detail-chart-series value]]}}
    label])
 
-(defn- selected-timeframe-label
-  [timeframe-options selected-timeframe]
-  (or (some (fn [{:keys [value label]}]
-              (when (= value selected-timeframe)
-                label))
-            timeframe-options)
-      "30D"))
-
-(defn- chart-timeframe-option [{:keys [value label]} selected-timeframe]
-  [:button {:type "button"
-            :class (into ["block"
-                          "w-full"
-                          "px-3"
-                          "py-2"
-                          "text-left"
-                          "text-xs"
-                          "transition-colors"]
-                         (if (= value selected-timeframe)
-                           ["bg-base-200" "text-trading-text"]
-                           ["text-trading-text-secondary" "hover:bg-base-200" "hover:text-trading-text"]))
-            :on {:click [[:actions/set-vaults-snapshot-range value]]}}
-   label])
-
 (defn- chart-timeframe-menu [{:keys [timeframe-options selected-timeframe]}]
-  [:details {:class ["relative"]}
-   [:summary {:class ["list-none"
-                      "cursor-pointer"
-                      "rounded-md"
-                      "border"
-                      "border-[#1f3b3c]"
-                      "bg-[#071e25]"
-                      "px-2.5"
-                      "py-1"
-                      "text-xs"
-                      "text-trading-text"
-                      "transition-colors"
-                      "hover:bg-[#0e2a34]"]}
-    [:span {:class ["inline-flex" "items-center" "gap-1.5"]}
-     "Range "
-     (selected-timeframe-label timeframe-options selected-timeframe)
-     [:span {:aria-hidden true} "⌄"]]]
-   [:div {:class ["absolute"
-                  "right-0"
-                  "top-full"
-                  "z-30"
-                  "mt-1"
-                  "min-w-[140px]"
-                  "overflow-hidden"
-                  "rounded-md"
-                  "border"
-                  "border-[#1f3b3c]"
-                  "bg-[#071e25]"
-                  "shadow-lg"]}
-    (for [option timeframe-options]
-      ^{:key (str "vault-chart-timeframe-" (name (:value option)))}
-      (chart-timeframe-option option selected-timeframe))]])
+  [:label {:class ["inline-flex"
+                   "items-center"
+                   "gap-1.5"
+                   "rounded-md"
+                   "border"
+                   "border-[#1f3b3c]"
+                   "bg-[#071e25]"
+                   "px-2.5"
+                   "py-1"
+                   "text-xs"
+                   "text-trading-text"]}
+   [:span "Range "]
+   [:select {:class ["bg-transparent"
+                     "text-trading-text"
+                     "outline-none"
+                     "border-none"
+                     "p-0"
+                     "pr-4"
+                     "text-xs"]
+             :value (name selected-timeframe)
+             :on {:change [[:actions/set-vaults-snapshot-range [:event.target/value]]]}}
+    (for [{:keys [value label]} timeframe-options]
+      ^{:key (str "vault-chart-timeframe-" (name value))}
+      [:option {:value (name value)}
+       label])]])
 
 (defn- activity-tab-button [{:keys [value label count]} selected-tab]
   [:button {:type "button"

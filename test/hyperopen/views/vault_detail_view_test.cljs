@@ -118,9 +118,9 @@
         chart-tab-button (find-first-node view
                                           #(= [[:actions/set-vault-detail-chart-series :account-value]]
                                               (get-in % [1 :on :click])))
-        timeframe-option-button (find-first-node view
-                                                 #(= [[:actions/set-vaults-snapshot-range :week]]
-                                                     (get-in % [1 :on :click])))
+        timeframe-selector (find-first-node view
+                                            #(= [[:actions/set-vaults-snapshot-range [:event.target/value]]]
+                                                (get-in % [1 :on :change])))
         activity-tab-button (find-first-node view
                                              #(= [[:actions/set-vault-detail-activity-tab :open-orders]]
                                                  (get-in % [1 :on :click])))
@@ -128,7 +128,7 @@
     (is (some? root))
     (is (some? detail-tab-button))
     (is (some? chart-tab-button))
-    (is (some? timeframe-option-button))
+    (is (some? timeframe-selector))
     (is (some? activity-tab-button))
     (is (contains? text "Vault Detail"))
     (is (contains? text "Past Month Return"))
