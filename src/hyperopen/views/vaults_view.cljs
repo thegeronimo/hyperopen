@@ -533,7 +533,7 @@
                     "inset-x-0"
                     "top-0"
                     "h-[360px]"
-                    "rounded-[24px]"
+                    "rounded-b-[24px]"
                     "opacity-95"]
             :style {:background-image "radial-gradient(120% 120% at 15% -10%, rgba(0, 148, 111, 0.35), rgba(6, 30, 34, 0.05) 60%), radial-gradient(130% 140% at 85% 20%, rgba(0, 138, 96, 0.22), rgba(6, 30, 34, 0) 68%), linear-gradient(180deg, rgba(4, 43, 36, 0.72) 0%, rgba(6, 27, 32, 0.15) 100%)"}}]
 
