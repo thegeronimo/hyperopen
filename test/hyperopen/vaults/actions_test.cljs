@@ -55,7 +55,18 @@
           [:effects/api-fetch-vault-ledger-updates "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/load-vault-route
           {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}}
-          "/vaults/0x1234567890abcdef1234567890abcdef12345678"))))
+          "/vaults/0x1234567890abcdef1234567890abcdef12345678")))
+  (is (= [[:effects/save [:vaults-ui :list-loading?] true]
+          [:effects/api-fetch-vault-index]
+          [:effects/api-fetch-vault-summaries]
+          [:effects/api-fetch-user-vault-equities "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]]
+         (actions/load-vault-route
+          {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}}
+          "/portfolio")))
+  (is (= []
+         (actions/load-vault-route
+          {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}}
+          "/trade"))))
 
 (deftest load-vault-detail-fetches-returns-benchmark-candles-on-initial-load-test
   (is (= [[:effects/save [:vaults-ui :detail-loading?] true]

@@ -470,7 +470,7 @@
 
 (defn load-vault-route
   [state path]
-  (let [{:keys [kind vault-address]} (parse-vault-route path)]
+  (let [{:keys [kind vault-address path]} (parse-vault-route path)]
     (case kind
       :list
       (load-vault-list-effects state)
@@ -479,6 +479,11 @@
       (projection-first-effects
        (into (load-vault-list-effects state)
              (load-vault-detail state vault-address)))
+
+      :other
+      (if (str/starts-with? (or path "") "/portfolio")
+        (load-vault-list-effects state)
+        [])
 
       [])))
 
