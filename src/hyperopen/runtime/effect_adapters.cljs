@@ -51,15 +51,9 @@
          details
          runtime-state/diagnostics-timeline-limit))
 
-(def ^:private market-projection-flush-event-limit
-  60)
-
 (defn- market-projection-flush-events
   []
-  (->> (telemetry/events)
-       (filter (fn [entry]
-                 (= :websocket/market-projection-flush (:event entry))))
-       (take-last market-projection-flush-event-limit)
+  (->> (telemetry/market-projection-flush-events)
        (mapv (fn [entry]
                (select-keys entry
                             [:seq
@@ -83,7 +77,7 @@
         latest-event (last flush-events)]
     {:stores (:stores snapshot)
      :flush-events flush-events
-     :flush-event-limit market-projection-flush-event-limit
+     :flush-event-limit telemetry/market-projection-flush-event-limit
      :flush-event-count (count flush-events)
      :latest-flush-event-seq (:seq latest-event)
      :latest-flush-at-ms (:at-ms latest-event)}))

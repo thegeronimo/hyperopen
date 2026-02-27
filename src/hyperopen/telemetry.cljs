@@ -5,10 +5,19 @@
 (def ^:private max-events
   2000)
 
+(def market-projection-flush-event-limit
+  60)
+
+(def ^:private market-projection-flush-event
+  :websocket/market-projection-flush)
+
 (defonce ^:private event-seq
   (atom 0))
 
 (defonce ^:private event-log
+  (atom []))
+
+(defonce ^:private market-projection-flush-event-log
   (atom []))
 
 (defn dev-enabled?
@@ -18,11 +27,16 @@
 
 (defn clear-events!
   []
-  (reset! event-log []))
+  (reset! event-log [])
+  (reset! market-projection-flush-event-log []))
 
 (defn events
   []
   @event-log)
+
+(defn market-projection-flush-events
+  []
+  @market-projection-flush-event-log)
 
 (defn events-json
   []
@@ -41,13 +55,24 @@
       (catch :default _
         "<unprintable>"))))
 
+(defn- append-bounded-entry
+  [entries entry limit]
+  (let [next-entries (conj (vec entries) entry)
+        trim-start (max 0 (- (count next-entries) limit))]
+    (subvec next-entries trim-start)))
+
 (defn- append-event!
   [entry]
   (swap! event-log
          (fn [entries]
-           (let [next-entries (conj (vec entries) entry)
-                 trim-start (max 0 (- (count next-entries) max-events))]
-             (subvec next-entries trim-start)))))
+           (append-bounded-entry entries entry max-events))))
+
+(defn- append-market-projection-flush-event!
+  [entry]
+  (when (= market-projection-flush-event (:event entry))
+    (swap! market-projection-flush-event-log
+           (fn [entries]
+             (append-bounded-entry entries entry market-projection-flush-event-limit)))))
 
 (defn emit!
   ([event]
@@ -59,6 +84,7 @@
                          :at-ms (platform/now-ms)}
                         (or attrs {}))]
        (append-event! entry)
+       (append-market-projection-flush-event! entry)
        entry))))
 
 (defn log!

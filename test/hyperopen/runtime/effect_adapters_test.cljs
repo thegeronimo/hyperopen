@@ -2,6 +2,10 @@
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.runtime.app-effects :as app-effects]
             [hyperopen.runtime.effect-adapters :as effect-adapters]
+            [hyperopen.telemetry :as telemetry]
+            [hyperopen.websocket.client :as ws-client]
+            [hyperopen.websocket.health-runtime :as health-runtime]
+            [hyperopen.websocket.market-projection-runtime :as market-projection-runtime]
             [hyperopen.websocket.subscriptions-runtime :as subscriptions-runtime]))
 
 (deftest subscribe-active-asset-persists-through-local-storage-effect-boundary-test
@@ -87,3 +91,58 @@
       (is (identical? init-connection! (:init-connection! init-opts)))
       (is (identical? log-fn (:log-fn reconnect-opts)))
       (is (identical? force-reconnect! (:force-reconnect! reconnect-opts))))))
+
+(deftest sync-websocket-health-sources-market-projection-flush-events-from-telemetry-ring-test
+  (let [store (atom {})
+        captured-health (atom nil)
+        ring-entry {:seq 42
+                    :event :websocket/market-projection-flush
+                    :at-ms 777
+                    :store-id "emit-store"
+                    :pending-count 3
+                    :overwrite-count 1
+                    :flush-duration-ms 9
+                    :queue-wait-ms 4
+                    :flush-count 12
+                    :max-pending-depth 8
+                    :p95-flush-duration-ms 11
+                    :queued-total 30
+                    :overwrite-total 5
+                    :ignored "not-copied"}
+        expected-entry (select-keys ring-entry
+                                    [:seq
+                                     :event
+                                     :at-ms
+                                     :store-id
+                                     :pending-count
+                                     :overwrite-count
+                                     :flush-duration-ms
+                                     :queue-wait-ms
+                                     :flush-count
+                                     :max-pending-depth
+                                     :p95-flush-duration-ms
+                                     :queued-total
+                                     :overwrite-total])]
+    (with-redefs [telemetry/events (fn []
+                                     (throw (js/Error. "global telemetry log should not be scanned")))
+                  telemetry/market-projection-flush-events (constantly [ring-entry])
+                  market-projection-runtime/market-projection-telemetry-snapshot
+                  (constantly {:stores [{:store-id "emit-store"
+                                         :pending-count 0
+                                         :frame-scheduled? false}]})
+                  ws-client/get-health-snapshot
+                  (constantly {:generated-at-ms 1000
+                               :transport {:state :connected
+                                           :freshness :live}})
+                  health-runtime/sync-websocket-health!
+                  (fn [{:keys [get-health-snapshot]}]
+                    (reset! captured-health (get-health-snapshot)))]
+      (effect-adapters/sync-websocket-health-with-runtime! nil store)
+      (let [diagnostics (get @captured-health :market-projection)]
+        (is (= 1 (count (:stores diagnostics))))
+        (is (= [expected-entry] (:flush-events diagnostics)))
+        (is (= telemetry/market-projection-flush-event-limit
+               (:flush-event-limit diagnostics)))
+        (is (= 1 (:flush-event-count diagnostics)))
+        (is (= 42 (:latest-flush-event-seq diagnostics)))
+        (is (= 777 (:latest-flush-at-ms diagnostics)))))))

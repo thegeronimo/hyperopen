@@ -5,7 +5,7 @@
 
 (defn- reset-telemetry-state!
   []
-  (reset! @#'hyperopen.telemetry/event-log [])
+  (telemetry/clear-events!)
   (reset! @#'hyperopen.telemetry/event-seq 0))
 
 (use-fixtures
@@ -32,12 +32,35 @@
   (with-redefs [hyperopen.telemetry/dev-enabled? (constantly true)
                 hyperopen.platform/now-ms (constantly 202)]
     (telemetry/log! "wallet" {:address "0xabc"} :ok true)
+    (telemetry/emit! :websocket/market-projection-flush {:store-id "emit-store"})
     (let [entry (first (telemetry/events))]
       (is (= :log/message (:event entry)))
       (is (string? (:message entry)))
       (is (vector? (:args entry))))
+    (is (= 1 (count (telemetry/market-projection-flush-events))))
     (telemetry/clear-events!)
-    (is (= [] (telemetry/events)))))
+    (is (= [] (telemetry/events)))
+    (is (= [] (telemetry/market-projection-flush-events)))))
+
+(deftest telemetry-market-projection-flush-ring-is-filtered-and-bounded-test
+  (with-redefs [hyperopen.telemetry/dev-enabled? (constantly true)
+                hyperopen.platform/now-ms (constantly 404)]
+    (let [limit telemetry/market-projection-flush-event-limit
+          total-flush-events (+ limit 2)]
+      (telemetry/emit! :log/message {:message "not a flush event"})
+      (doseq [idx (range total-flush-events)]
+        (telemetry/emit! :websocket/market-projection-flush
+                         {:store-id "emit-store"
+                          :flush-count idx}))
+      (let [flush-events (telemetry/market-projection-flush-events)]
+        (is (= limit (count flush-events)))
+        (is (every? (fn [entry]
+                      (= :websocket/market-projection-flush (:event entry)))
+                    flush-events))
+        (is (= (- total-flush-events limit)
+               (:flush-count (first flush-events))))
+        (is (= (dec total-flush-events)
+               (:flush-count (last flush-events))))))))
 
 (deftest telemetry-noop-when-disabled-test
   (with-redefs [hyperopen.telemetry/dev-enabled? (constantly false)
