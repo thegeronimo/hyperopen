@@ -186,6 +186,62 @@
     (is (= "rgba(247, 147, 26, 0.24)"
            (get-in area-node [1 :fill])))))
 
+(deftest vault-detail-view-wires-vault-transfer-hero-buttons-and-modal-test
+  (let [vault-address "0x1234567890abcdef1234567890abcdef12345678"
+        leader-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+        state (-> sample-state
+                  (assoc-in [:wallet :address] leader-address)
+                  (assoc-in [:wallet :agent :status] :ready)
+                  (assoc-in [:webdata2 :clearinghouseState :withdrawable] 159.379)
+                  (assoc-in [:vaults :details-by-address vault-address :name]
+                            "Hyperliquidity Provider (HLP)")
+                  (assoc-in [:vaults :details-by-address vault-address :allow-deposits?] true)
+                  (assoc-in [:vaults-ui :vault-transfer-modal]
+                            {:open? true
+                             :mode :deposit
+                             :vault-address vault-address
+                             :amount-input "1.5"
+                             :withdraw-all? false
+                             :submitting? false
+                             :error nil}))
+        view (vault-detail-view/vault-detail-view state)
+        withdraw-button (find-first-node view
+                                         #(= [[:actions/open-vault-transfer-modal vault-address :withdraw]]
+                                             (get-in % [1 :on :click])))
+        deposit-button (find-first-node view
+                                        #(= [[:actions/open-vault-transfer-modal vault-address :deposit]]
+                                            (get-in % [1 :on :click])))
+        modal (find-first-node view
+                               #(= "vault-transfer-modal" (get-in % [1 :data-role])))
+        amount-input (find-first-node view
+                                      #(= [[:actions/set-vault-transfer-amount [:event.target/value]]]
+                                          (get-in % [1 :on :input])))
+        max-button (find-first-node view
+                                    #(= "vault-transfer-deposit-max"
+                                        (get-in % [1 :data-role])))
+        lockup-copy (find-first-node view
+                                     #(= "vault-transfer-deposit-lockup-copy"
+                                         (get-in % [1 :data-role])))
+        submit-button (find-first-node view
+                                       #(= [[:actions/submit-vault-transfer]]
+                                           (get-in % [1 :on :click])))
+        text (set (collect-strings view))]
+    (is (some? withdraw-button))
+    (is (not (true? (get-in withdraw-button [1 :disabled]))))
+    (is (some? deposit-button))
+    (is (not (true? (get-in deposit-button [1 :disabled]))))
+    (is (some? modal))
+    (is (some? amount-input))
+    (is (some? max-button))
+    (is (= [[:actions/set-vault-transfer-amount "159.37"]]
+           (get-in max-button [1 :on :click])))
+    (is (some? lockup-copy))
+    (is (contains? text "MAX: 159.37 USDC"))
+    (is (contains? text
+                   "Deposit funds to Hyperliquidity Provider (HLP). The deposit lock-up period is 4 days."))
+    (is (some? submit-button))
+    (is (= "Deposit" (last submit-button)))))
+
 (deftest vault-detail-view-shows-name-skeleton-while-detail-name-is-unresolved-test
   (let [vault-address "0x1234567890abcdef1234567890abcdef12345678"
         state (-> sample-state

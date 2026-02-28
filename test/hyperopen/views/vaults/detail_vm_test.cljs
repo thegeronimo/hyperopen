@@ -132,6 +132,9 @@
     (is (= 20 (get-in vm [:metrics :past-month-return])))
     (is (= 50 (get-in vm [:metrics :your-deposit])))
     (is (= 12 (get-in vm [:metrics :all-time-earned])))
+    (is (= false (get-in vm [:vault-transfer :can-open-deposit?])))
+    (is (= true (get-in vm [:vault-transfer :can-open-withdraw?])))
+    (is (= false (get-in vm [:vault-transfer :open?])))
     (is (= 2 (:followers vm)))
     (is (seq (get-in vm [:chart :points])))
     (is (seq (get-in vm [:chart :path])))
@@ -157,6 +160,63 @@
     (is (= 2 (get-in vm [:activity-summary :fill-count])))
     (is (= 1 (get-in vm [:activity-summary :open-order-count])))
     (is (= 2 (get-in vm [:activity-summary :position-count])))))
+
+(deftest vault-detail-vm-builds-open-vault-transfer-modal-model-test
+  (let [vault-address "0x1234567890abcdef1234567890abcdef12345678"
+        leader-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+        state (-> sample-state
+                  (assoc-in [:wallet :address] leader-address)
+                  (assoc-in [:wallet :agent :status] :ready)
+                  (assoc-in [:webdata2 :clearinghouseState :withdrawable] 159.379)
+                  (assoc-in [:vaults-ui :vault-transfer-modal]
+                            {:open? true
+                             :mode :deposit
+                             :vault-address vault-address
+                             :amount-input "1.5"
+                             :withdraw-all? false
+                             :submitting? false
+                             :error nil})
+                  (assoc-in [:vaults :details-by-address vault-address :allow-deposits?] true)
+                  (assoc-in [:vaults :details-by-address vault-address :name]
+                            "Hyperliquidity Provider (HLP)"))
+        vm (detail-vm/vault-detail-vm state)]
+    (is (= true (get-in vm [:vault-transfer :open?])))
+    (is (= :deposit (get-in vm [:vault-transfer :mode])))
+    (is (= true (get-in vm [:vault-transfer :can-open-deposit?])))
+    (is (= "Deposit" (get-in vm [:vault-transfer :title])))
+    (is (= "Deposit" (get-in vm [:vault-transfer :confirm-label])))
+    (is (= "159.37" (get-in vm [:vault-transfer :deposit-max-display])))
+    (is (= "159.37" (get-in vm [:vault-transfer :deposit-max-input])))
+    (is (= 4 (get-in vm [:vault-transfer :deposit-lockup-days])))
+    (is (= "Deposit funds to Hyperliquidity Provider (HLP). The deposit lock-up period is 4 days."
+           (get-in vm [:vault-transfer :deposit-lockup-copy])))
+    (is (= false (get-in vm [:vault-transfer :submit-disabled?])))
+    (is (= true (get-in vm [:vault-transfer :preview-ok?])))))
+
+(deftest vault-detail-vm-uses-follower-lockup-window-for-deposit-copy-test
+  (let [vault-address "0x1234567890abcdef1234567890abcdef12345678"
+        leader-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+        state (-> sample-state
+                  (assoc-in [:wallet :address] leader-address)
+                  (assoc-in [:wallet :agent :status] :ready)
+                  (assoc-in [:webdata2 :clearinghouseState :withdrawable] 50)
+                  (assoc-in [:vaults-ui :vault-transfer-modal]
+                            {:open? true
+                             :mode :deposit
+                             :vault-address vault-address
+                             :amount-input "1"
+                             :withdraw-all? false
+                             :submitting? false
+                             :error nil})
+                  (assoc-in [:vaults :details-by-address vault-address :allow-deposits?] true)
+                  (assoc-in [:vaults :details-by-address vault-address :name] "Vault Detail")
+                  (assoc-in [:vaults :details-by-address vault-address :follower-state :vault-entry-time-ms] 1000)
+                  (assoc-in [:vaults :details-by-address vault-address :follower-state :lockup-until-ms]
+                            (+ 1000 (* 2 24 60 60 1000))))
+        vm (detail-vm/vault-detail-vm state)]
+    (is (= 2 (get-in vm [:vault-transfer :deposit-lockup-days])))
+    (is (= "Deposit funds to Vault Detail. The deposit lock-up period is 2 days."
+           (get-in vm [:vault-transfer :deposit-lockup-copy])))))
 
 (deftest vault-detail-vm-flags-invalid-vault-addresses-test
   (let [vm (detail-vm/vault-detail-vm (assoc-in sample-state [:router :path] "/vaults/not-an-address"))]
