@@ -1297,30 +1297,22 @@
       0
       rounded)))
 
-(defn- chart-step-path [points]
+(defn- chart-line-path [points]
   (when (seq points)
-    (let [{start-x-ratio :x-ratio
-           start-y-ratio :y-ratio} (first points)
-          start-x (format-svg-number (* 100 start-x-ratio))
-          start-y (format-svg-number (* 100 start-y-ratio))]
+    (let [commands (map-indexed
+                    (fn [idx {:keys [x-ratio y-ratio]}]
+                      (let [x (format-svg-number (* 100 x-ratio))
+                            y (format-svg-number (* 100 y-ratio))]
+                        (str (if (zero? idx) "M " "L ")
+                             x
+                             " "
+                             y)))
+                    points)]
       (if (= 1 (count points))
-        (str "M " start-x " " start-y
-             " L 100 " start-y)
-        (let [commands (loop [parts [(str "M " start-x " " start-y)]
-                              previous (first points)
-                              remaining (rest points)]
-                         (if-let [{x-ratio :x-ratio
-                                   y-ratio :y-ratio} (first remaining)]
-                           (let [x (format-svg-number (* 100 x-ratio))
-                                 y (format-svg-number (* 100 y-ratio))
-                                 prev-y (format-svg-number (* 100 (:y-ratio previous)))]
-                             (recur (conj parts
-                                          (str "L " x " " prev-y)
-                                          (str "L " x " " y))
-                                    (first remaining)
-                                    (rest remaining)))
-                           parts))]
-          (str/join " " commands))))))
+        (let [first-point (first points)
+              y (format-svg-number (* 100 (:y-ratio first-point)))]
+          (str (first commands) " L 100 " y))
+        (str/join " " commands)))))
 
 (defn- chart-axis-kind [tab]
   (if (= tab :returns)
@@ -1395,7 +1387,7 @@
                                       [])]
                          (assoc entry
                                 :points points
-                                :path (chart-step-path points)
+                                :path (chart-line-path points)
                                 :has-data? (seq points))))
                      raw-series)
         strategy-series (or (some (fn [series-entry]

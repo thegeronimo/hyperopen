@@ -36,6 +36,22 @@
                 rows))
         (get-in view-model [:performance-metrics :groups])))
 
+(deftest portfolio-vm-chart-line-path-uses-direct-segments-test
+  (let [points [{:x-ratio 0
+                 :y-ratio 1}
+                {:x-ratio 0.5
+                 :y-ratio 0.25}
+                {:x-ratio 1
+                 :y-ratio 0}]
+        path (@#'vm/chart-line-path points)]
+    (is (= "M 0 100 L 50 25 L 100 0" path))))
+
+(deftest portfolio-vm-chart-line-path-extends-single-point-to-right-edge-test
+  (let [points [{:x-ratio 0
+                 :y-ratio 0.4}]
+        path (@#'vm/chart-line-path points)]
+    (is (= "M 0 40 L 100 40" path))))
+
 (deftest volume-14d-usd-uses-last-14-days-when-timestamps-available-test
   (let [now (.now js/Date)
         within (- now (* 2 day-ms))

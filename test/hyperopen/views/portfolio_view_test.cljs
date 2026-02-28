@@ -146,6 +146,8 @@
     (is (some? chart-returns-tab))
     (is (some? chart-shell))
     (is (some? chart-path))
+    (is (= "round" (get-in chart-path [1 :stroke-linecap])))
+    (is (= "round" (get-in chart-path [1 :stroke-linejoin])))
     (is (some? account-table))
     (is (contains? (set (class-values performance-metric-row)) "hover:bg-base-300"))
     (is (some? performance-tab-button))

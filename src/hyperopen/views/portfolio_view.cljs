@@ -541,8 +541,8 @@
             :stroke stroke
             :stroke-width 1.4
             :vector-effect "non-scaling-stroke"
-            :stroke-linecap "square"
-            :stroke-linejoin "miter"
+            :stroke-linecap "round"
+            :stroke-linejoin "round"
             :data-role (if (= id :strategy)
                          "portfolio-chart-path"
                          (str "portfolio-chart-path-" (name id)))}]))
