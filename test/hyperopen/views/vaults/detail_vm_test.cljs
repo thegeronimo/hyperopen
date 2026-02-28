@@ -120,7 +120,8 @@
                                                    :all-time [0.5]}}]}})
 
 (deftest vault-detail-vm-builds-metrics-relationship-chart-and-activity-test
-  (let [vm (detail-vm/vault-detail-vm sample-state)]
+  (let [vm (detail-vm/vault-detail-vm sample-state)
+        strategy-series (first (get-in vm [:chart :series]))]
     (is (= :detail (:kind vm)))
     (is (= "Vault Detail" (:name vm)))
     (is (= "0x1234567890abcdef1234567890abcdef12345678" (:vault-address vm)))
@@ -134,6 +135,10 @@
     (is (= 2 (:followers vm)))
     (is (seq (get-in vm [:chart :points])))
     (is (seq (get-in vm [:chart :path])))
+    (is (seq (:area-path strategy-series)))
+    (is (= "rgba(22, 214, 161, 0.24)" (:area-positive-fill strategy-series)))
+    (is (= "rgba(237, 112, 136, 0.24)" (:area-negative-fill strategy-series)))
+    (is (number? (:zero-y-ratio strategy-series)))
     (is (= :pnl (get-in vm [:chart :selected-series])))
     (is (= 3 (count (get-in vm [:chart :series-tabs]))))
     (is (= :month (get-in vm [:chart :selected-timeframe])))
@@ -175,15 +180,21 @@
 
 (deftest vault-detail-vm-selects-account-value-series-when-user-selects-it-test
   (let [state (assoc-in sample-state [:vaults-ui :detail-chart-series] :account-value)
-        vm (detail-vm/vault-detail-vm state)]
-    (is (= :account-value (get-in vm [:chart :selected-series])))))
+        vm (detail-vm/vault-detail-vm state)
+        strategy-series (first (get-in vm [:chart :series]))]
+    (is (= :account-value (get-in vm [:chart :selected-series])))
+    (is (= "#f7931a" (:stroke strategy-series)))
+    (is (seq (:area-path strategy-series)))
+    (is (= "rgba(247, 147, 26, 0.24)" (:area-fill strategy-series)))))
 
 (deftest vault-detail-vm-builds-returns-chart-series-and-benchmark-performance-columns-test
   (let [state (assoc-in sample-state [:vaults-ui :detail-chart-series] :returns)
-        vm (detail-vm/vault-detail-vm state)]
+        vm (detail-vm/vault-detail-vm state)
+        strategy-series (first (get-in vm [:chart :series]))]
     (is (= :returns (get-in vm [:chart :selected-series])))
     (is (= :returns (get-in vm [:chart :axis-kind])))
     (is (= 2 (count (get-in vm [:chart :series]))))
+    (is (nil? (:area-path strategy-series)))
     (is (seq (get-in vm [:chart :points])))
     (is (= [0 15.38 34.62]
            (mapv :value (get-in vm [:chart :points]))))

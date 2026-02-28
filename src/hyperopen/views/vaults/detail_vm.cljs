@@ -11,8 +11,20 @@
 (def ^:private performance-periods-per-year
   365)
 
-(def ^:private strategy-series-stroke
+(def ^:private default-strategy-series-stroke
   "#e7ecef")
+
+(def ^:private account-value-series-stroke
+  "#f7931a")
+
+(def ^:private account-value-area-fill
+  "rgba(247, 147, 26, 0.24)")
+
+(def ^:private pnl-area-positive-fill
+  "rgba(22, 214, 161, 0.24)")
+
+(def ^:private pnl-area-negative-fill
+  "rgba(237, 112, 136, 0.24)")
 
 (def ^:private benchmark-series-strokes
   ["#f2cf66"
@@ -1052,7 +1064,7 @@
   (let [palette-size (count benchmark-series-strokes)]
     (if (pos? palette-size)
       (nth benchmark-series-strokes (mod idx palette-size))
-      strategy-series-stroke)))
+      default-strategy-series-stroke)))
 
 (defn- cumulative-rows
   [points]
@@ -1193,6 +1205,12 @@
       0
       rounded)))
 
+(defn- strategy-series-stroke
+  [selected-series]
+  (case selected-series
+    :account-value account-value-series-stroke
+    default-strategy-series-stroke))
+
 (defn- line-path
   [points]
   (when (seq points)
@@ -1210,6 +1228,44 @@
               y (format-svg-number (* 100 (:y-ratio first-point)))]
           (str (first commands) " L 100 " y))
         (str/join " " commands)))))
+
+(defn- value->y-ratio
+  [{:keys [min max]} value]
+  (let [span (non-zero-span min max)]
+    (/ (- max value) span)))
+
+(defn- area-path
+  [points baseline-y-ratio]
+  (when (seq points)
+    (let [line-points (if (= 1 (count points))
+                        (let [point (first points)]
+                          [point
+                           (assoc point :x-ratio 1)])
+                        points)
+          first-point (first line-points)
+          last-point (last line-points)
+          baseline-y (format-svg-number (* 100 baseline-y-ratio))
+          line-commands (map-indexed
+                         (fn [idx {:keys [x-ratio y-ratio]}]
+                           (let [x (format-svg-number (* 100 x-ratio))
+                                 y (format-svg-number (* 100 y-ratio))]
+                             (str (if (zero? idx) "M " "L ")
+                                  x
+                                  " "
+                                  y)))
+                         line-points)
+          last-x (format-svg-number (* 100 (:x-ratio last-point)))
+          first-x (format-svg-number (* 100 (:x-ratio first-point)))]
+      (str (str/join " " line-commands)
+           " L "
+           last-x
+           " "
+           baseline-y
+           " L "
+           first-x
+           " "
+           baseline-y
+           " Z"))))
 
 (defn- normalize-hover-index
   [value point-count]
@@ -1738,7 +1794,7 @@
                            [])
         raw-series (cond-> [{:id :strategy
                              :label "Vault"
-                             :stroke strategy-series-stroke
+                             :stroke (strategy-series-stroke selected-series)
                              :raw-points strategy-raw-points}]
                      (seq benchmark-series)
                      (into benchmark-series))
@@ -1748,14 +1804,38 @@
                                  vec)
         domain (when (seq chart-domain-values)
                  (chart-domain chart-domain-values))
-        series (mapv (fn [{:keys [raw-points] :as entry}]
+        series (mapv (fn [{:keys [id raw-points] :as entry}]
                        (let [points (if domain
                                       (normalize-chart-points raw-points domain)
-                                      [])]
-                         (assoc entry
-                                :points points
-                                :path (line-path points)
-                                :has-data? (seq points))))
+                                      [])
+                             is-strategy? (= id :strategy)
+                             area-baseline-y-ratio (case selected-series
+                                                     :pnl (when domain
+                                                            (value->y-ratio domain 0))
+                                                     :account-value 1
+                                                     nil)
+                             area-path* (when (and is-strategy?
+                                                   (not= selected-series :returns)
+                                                   (number? area-baseline-y-ratio))
+                                          (area-path points area-baseline-y-ratio))]
+                         (cond-> (assoc entry
+                                        :points points
+                                        :path (line-path points)
+                                        :has-data? (seq points))
+                           (seq area-path*)
+                           (assoc :area-path area-path*)
+
+                           (and is-strategy?
+                                (= selected-series :account-value)
+                                (seq area-path*))
+                           (assoc :area-fill account-value-area-fill)
+
+                           (and is-strategy?
+                                (= selected-series :pnl)
+                                (seq area-path*))
+                           (assoc :area-positive-fill pnl-area-positive-fill
+                                  :area-negative-fill pnl-area-negative-fill
+                                  :zero-y-ratio area-baseline-y-ratio))))
                      raw-series)
         strategy-series (or (some (fn [series-entry]
                                     (when (= :strategy (:id series-entry))

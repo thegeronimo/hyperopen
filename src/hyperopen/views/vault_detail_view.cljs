@@ -560,6 +560,54 @@
                          "vault-detail-chart-path"
                          (str "vault-detail-chart-path-" (name id)))}]))
 
+(defn- chart-series-area-layers
+  [{:keys [id area-path area-fill area-positive-fill area-negative-fill zero-y-ratio]}]
+  (when (seq area-path)
+    (cond
+      (string? area-fill)
+      [:path {:d area-path
+              :fill area-fill
+              :data-role (if (= id :strategy)
+                           "vault-detail-chart-area"
+                           (str "vault-detail-chart-area-" (name id)))}]
+
+      (and (string? area-positive-fill)
+           (string? area-negative-fill)
+           (number? zero-y-ratio))
+      (let [clip-ratio (clamp-number zero-y-ratio 0 1)
+            clip-y (max 0 (min 100 (* 100 clip-ratio)))
+            positive-clip-id (str "vault-detail-chart-area-clip-positive-" (name id))
+            negative-clip-id (str "vault-detail-chart-area-clip-negative-" (name id))]
+        [:g {:data-role (if (= id :strategy)
+                          "vault-detail-chart-area-split"
+                          (str "vault-detail-chart-area-split-" (name id)))}
+         [:defs
+          [:clipPath {:id positive-clip-id}
+           [:rect {:x 0
+                   :y 0
+                   :width 100
+                   :height clip-y}]]
+          [:clipPath {:id negative-clip-id}
+           [:rect {:x 0
+                   :y clip-y
+                   :width 100
+                   :height (- 100 clip-y)}]]]
+         [:path {:d area-path
+                 :fill area-positive-fill
+                 :clip-path (str "url(#" positive-clip-id ")")
+                 :data-role (if (= id :strategy)
+                              "vault-detail-chart-area-positive"
+                              (str "vault-detail-chart-area-positive-" (name id)))}]
+         [:path {:d area-path
+                 :fill area-negative-fill
+                 :clip-path (str "url(#" negative-clip-id ")")
+                 :data-role (if (= id :strategy)
+                              "vault-detail-chart-area-negative"
+                              (str "vault-detail-chart-area-negative-" (name id)))}]])
+
+      :else
+      nil)))
+
 (defn- chart-legend [series]
   (let [visible-series (->> series
                             (filter :has-data?)
@@ -1582,6 +1630,9 @@
                         :stroke "rgba(140, 157, 165, 0.30)"
                         :stroke-width 0.8
                         :vector-effect "non-scaling-stroke"}]
+                (for [{series-id :id :as series-entry} (or series [])]
+                  ^{:key (str "vault-detail-chart-area-" (name series-id))}
+                  (chart-series-area-layers series-entry))
                 (for [{series-id :id :as series-entry} (or series [])]
                   ^{:key (str "vault-detail-chart-path-" (name series-id))}
                   (chart-series-path series-entry))]
