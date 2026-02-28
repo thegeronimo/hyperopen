@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [nexus.registry :as nxr]
             [hyperopen.platform :as platform]
+            [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.api.trading :as trading-api]
             [hyperopen.router :as router]
             [hyperopen.runtime.state :as runtime-state]
@@ -33,6 +34,35 @@
 (defn set-funding-modal [_state modal]
   [[:effects/save [:funding-ui :modal] modal]])
 
+(def ^:private projection-effect-ids
+  #{:effects/save
+    :effects/save-many})
+
+(defn- projection-effect?
+  [effect]
+  (contains? projection-effect-ids (first effect)))
+
+(defn- projection-first-effects
+  [effects]
+  (let [effects* (vec (or effects []))]
+    (into []
+          (concat (filter projection-effect? effects*)
+                  (remove projection-effect? effects*)))))
+
+(defn- entering-portfolio-route?
+  [state normalized-path]
+  (let [current-route (router/normalize-path (get-in state [:router :path]))]
+    (and (str/starts-with? normalized-path "/portfolio")
+         (not (str/starts-with? current-route "/portfolio")))))
+
+(defn- portfolio-route-effects
+  [state normalized-path]
+  (if (entering-portfolio-route? state normalized-path)
+    (portfolio-actions/select-portfolio-chart-tab
+     state
+     (get-in state [:portfolio-ui :chart-tab]))
+    []))
+
 (defn navigate
   [state path & [opts]]
   (let [p (router/normalize-path path)
@@ -40,8 +70,13 @@
         base-effects (cond-> [[:effects/save [:router :path] p]]
                        replace? (conj [:effects/replace-state p])
                        (not replace?) (conj [:effects/push-state p]))
-        route-effects (vault-actions/load-vault-route state p)]
-    (into base-effects route-effects)))
+        route-effects (vault-actions/load-vault-route state p)
+        portfolio-effects (portfolio-route-effects state p)
+        route-entry-effects (projection-first-effects
+                             (into []
+                                   (concat portfolio-effects
+                                           route-effects)))]
+    (into base-effects route-entry-effects)))
 
 (defn load-vault-route-action
   [state path]

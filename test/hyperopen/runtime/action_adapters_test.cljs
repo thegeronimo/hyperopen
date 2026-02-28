@@ -2,6 +2,7 @@
   (:require [cljs.test :refer-macros [deftest is]]
             [nexus.registry :as nxr]
             [hyperopen.platform :as platform]
+            [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.runtime.action-adapters :as action-adapters]
             [hyperopen.vaults.actions :as vault-actions]
             [hyperopen.wallet.agent-runtime :as agent-runtime]
@@ -31,6 +32,50 @@
             [:effects/save [:vaults-ui :list-loading?] true]
             [:effects/api-fetch-vault-index]]
            (action-adapters/navigate {} "/vaults" {:replace? true})))))
+
+(deftest navigate-entering-portfolio-loads-chart-benchmark-effects-test
+  (with-redefs [portfolio-actions/select-portfolio-chart-tab (fn [_state tab]
+                                                                [[:effects/save-many
+                                                                  [[[:portfolio-ui :chart-tab] tab]
+                                                                   [[:portfolio-ui :chart-hover-index] nil]]]
+                                                                 [:effects/fetch-candle-snapshot
+                                                                  :coin "BTC"
+                                                                  :interval :1h
+                                                                  :bars 800]])
+                vault-actions/load-vault-route (fn [_state _path]
+                                                 [[:effects/save [:vaults-ui :list-loading?] true]
+                                                  [:effects/api-fetch-vault-index]])]
+    (is (= [[:effects/save [:router :path] "/portfolio"]
+            [:effects/push-state "/portfolio"]
+            [:effects/save-many
+             [[[:portfolio-ui :chart-tab] :returns]
+              [[:portfolio-ui :chart-hover-index] nil]]]
+            [:effects/save [:vaults-ui :list-loading?] true]
+            [:effects/fetch-candle-snapshot
+             :coin "BTC"
+             :interval :1h
+             :bars 800]
+            [:effects/api-fetch-vault-index]]
+           (action-adapters/navigate {:router {:path "/trade"}
+                                      :portfolio-ui {:chart-tab :returns}}
+                                     "/portfolio")))))
+
+(deftest navigate-inside-portfolio-does-not-rebootstrap-portfolio-chart-test
+  (let [chart-bootstrap-calls (atom 0)]
+    (with-redefs [portfolio-actions/select-portfolio-chart-tab (fn [_state _tab]
+                                                                  (swap! chart-bootstrap-calls inc)
+                                                                  [[:effects/save
+                                                                    [:portfolio-ui :chart-hover-index]
+                                                                    nil]])
+                  vault-actions/load-vault-route (fn [_state _path]
+                                                   [[:effects/save [:vaults-ui :list-loading?] true]])]
+      (is (= [[:effects/save [:router :path] "/portfolio"]
+              [:effects/push-state "/portfolio"]
+              [:effects/save [:vaults-ui :list-loading?] true]]
+             (action-adapters/navigate {:router {:path "/portfolio"}
+                                        :portfolio-ui {:chart-tab :returns}}
+                                       "/portfolio")))
+      (is (= 0 @chart-bootstrap-calls)))))
 
 (deftest handle-wallet-connected-refreshes-vault-route-when-active-test
   (let [dispatch-calls (atom [])]
