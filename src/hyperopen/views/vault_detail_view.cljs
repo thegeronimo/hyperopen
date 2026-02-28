@@ -55,6 +55,28 @@
   (or (fmt/format-local-date-time time-ms)
       "—"))
 
+(def ^:private tooltip-currency-formatter
+  (js/Intl.NumberFormat.
+   "en-US"
+   #js {:style "currency"
+        :currency "USD"
+        :maximumFractionDigits 0
+        :minimumFractionDigits 0}))
+
+(def ^:private tooltip-time-formatter
+  (js/Intl.DateTimeFormat.
+   "en-US"
+   #js {:hour "2-digit"
+        :minute "2-digit"
+        :hour12 false}))
+
+(def ^:private tooltip-date-parts-formatter
+  (js/Intl.DateTimeFormat.
+   "en-US"
+   #js {:year "numeric"
+        :month "short"
+        :day "2-digit"}))
+
 (defn- format-chart-axis-value
   [axis-kind value]
   (let [n (if (number? value) value 0)
@@ -81,6 +103,94 @@
       :pnl (format-currency n* {:missing "$0.00"})
       :account-value (format-currency n* {:missing "$0.00"})
       (format-currency n* {:missing "$0.00"}))))
+
+(defn- date-part-value
+  [parts token]
+  (some (fn [{:keys [type value]}]
+          (when (= type token)
+            value))
+        parts))
+
+(defn- format-tooltip-date
+  [time-ms]
+  (if (number? time-ms)
+    (let [parts (js->clj (.formatToParts tooltip-date-parts-formatter (js/Date. time-ms))
+                         :keywordize-keys true)
+          year (date-part-value parts "year")
+          month (date-part-value parts "month")
+          day (date-part-value parts "day")]
+      (if (and year month day)
+        (str year " " month " " day)
+        "—"))
+    "—"))
+
+(defn- format-tooltip-time
+  [time-ms]
+  (if (number? time-ms)
+    (.format tooltip-time-formatter (js/Date. time-ms))
+    "--:--"))
+
+(defn- tooltip-metric-label
+  [axis-kind]
+  (case axis-kind
+    :account-value "Account Value"
+    :pnl "PNL"
+    :returns "Returns"
+    "Value"))
+
+(defn- tooltip-value-classes
+  [axis-kind value]
+  (let [n (if (number? value) value 0)
+        positive-classes ["text-[#16d6a1]"]
+        negative-classes ["text-[#ff7b72]"]
+        neutral-classes ["text-[#e6edf2]"]]
+    (case axis-kind
+      :account-value ["text-[#ff9f1a]"]
+      :pnl (cond
+             (pos? n) positive-classes
+             (neg? n) negative-classes
+             :else neutral-classes)
+      :returns (cond
+                 (pos? n) positive-classes
+                 (neg? n) negative-classes
+                 :else neutral-classes)
+      neutral-classes)))
+
+(defn- chart-tooltip-model
+  [summary-time-range axis-kind {:keys [time-ms value]}]
+  {:timestamp (if (= summary-time-range :day)
+                (format-tooltip-time time-ms)
+                (format-tooltip-date time-ms))
+   :metric-label (tooltip-metric-label axis-kind)
+   :metric-value (format-chart-tooltip-value axis-kind value)
+   :value-classes (tooltip-value-classes axis-kind value)})
+
+(defn- chart-tooltip-benchmark-values
+  [axis-kind hovered-index series]
+  (if (and (= axis-kind :returns)
+           (number? hovered-index))
+    (->> (or series [])
+         (keep (fn [{:keys [id coin label stroke points]}]
+                 (when (and (keyword? id)
+                            (not= id :strategy))
+                   (let [point (get (or points []) hovered-index)
+                         value (:value point)
+                         coin* (or (some-> coin str str/trim)
+                                   (name id))
+                         label* (or (some-> label str str/trim)
+                                    coin*
+                                    "Benchmark")
+                         stroke* (if (and (string? stroke)
+                                          (seq stroke))
+                                   stroke
+                                   "#e6edf2")]
+                     (when (number? value)
+                       {:coin coin*
+                        :label label*
+                        :value (format-chart-tooltip-value :returns value)
+                        :stroke stroke*})))))
+         vec)
+    []))
 
 (defn- clamp-number
   [value min-value max-value]
@@ -123,13 +233,6 @@
                              (reduce max 0))
         gutter-width (+ widest-label-px axis-label-horizontal-padding-px)]
     (js/Math.ceil (max axis-label-min-gutter-width-px gutter-width))))
-
-(defn- chart-tooltip-label
-  [summary-time-range axis-kind {:keys [time-ms value]}]
-  (let [time-label (if (= summary-time-range :day)
-                     (or (fmt/format-local-time-hh-mm-ss time-ms) "—")
-                     (or (fmt/format-local-date-time time-ms) "—"))]
-    (str time-label ": " (format-chart-tooltip-value axis-kind value))))
 
 (defn- short-hash
   [value]
@@ -1395,6 +1498,7 @@
                y-axis-width (y-axis-gutter-width axis-kind y-ticks)
                plot-left (+ y-axis-width 10)
                point-count (count (:points chart))
+               hovered-index (get-in chart [:hover :index])
                hovered-point (get-in chart [:hover :point])
                hover-active? (boolean (get-in chart [:hover :active?]))
                hover-line-left-pct (when hover-active?
@@ -1405,10 +1509,14 @@
                                                     92))
                hover-tooltip-right? (when hover-active?
                                       (> hover-line-left-pct 74))
-               hover-label (when hover-active?
-                             (chart-tooltip-label (:selected-timeframe chart)
-                                                  axis-kind
-                                                  hovered-point))]
+               hover-benchmark-values (when hover-active?
+                                       (chart-tooltip-benchmark-values axis-kind
+                                                                       hovered-index
+                                                                       series))
+               hover-tooltip (when hover-active?
+                               (chart-tooltip-model (:selected-timeframe chart)
+                                                    axis-kind
+                                                    hovered-point))]
            [:section {:class ["rounded-2xl"
                               "border"
                               "border-[#1b393a]"
@@ -1490,22 +1598,67 @@
                (when hover-active?
                  [:div {:class ["absolute"
                                 "pointer-events-none"
-                                "rounded-sm"
-                                "px-1.5"
-                                "py-0.5"
-                                "text-xs"
-                                "font-medium"
-                                "text-white"
-                                "shadow-sm"
+                                "min-w-[188px]"
+                                "rounded-xl"
+                                "border"
+                                "px-3"
+                                "py-2"
+                                "shadow-lg"
                                 "z-20"]
+                        :data-role "vault-detail-chart-hover-tooltip"
                         :style {:left (str hover-line-left-pct "%")
                                 :top (str hover-tooltip-top-pct "%")
                                 :transform (if hover-tooltip-right?
                                              "translate(calc(-100% - 8px), -50%)"
                                              "translate(8px, -50%)")
-                                :background-color "rgba(0, 0, 0, 0.85)"
-                                :white-space "nowrap"}}
-                  hover-label])]]
+                                :white-space "nowrap"
+                                :border-color "rgba(98, 114, 130, 0.65)"
+                                :background "linear-gradient(138deg, rgba(24, 35, 47, 0.95) 0%, rgba(16, 25, 38, 0.95) 56%, rgba(43, 36, 25, 0.86) 100%)"}}
+                  [:div {:class ["num"
+                                 "text-[12px]"
+                                 "font-medium"
+                                 "leading-4"
+                                 "text-[#8ea1b3]"]}
+                   (:timestamp hover-tooltip)]
+                  [:div {:class ["mt-2"
+                                 "grid"
+                                 "grid-cols-[1fr_auto]"
+                                 "items-center"
+                                 "gap-3"]}
+                   [:span {:class ["text-[12px]"
+                                   "font-medium"
+                                   "leading-4"
+                                   "text-[#909fac]"]}
+                    (:metric-label hover-tooltip)]
+                   [:span {:class (into ["num"
+                                         "text-[16px]"
+                                         "font-semibold"
+                                         "leading-[1]"
+                                         "tracking-tight"]
+                                        (:value-classes hover-tooltip))}
+                    (:metric-value hover-tooltip)]]
+                  (when (seq hover-benchmark-values)
+                    [:div {:class ["mt-1.5" "space-y-1"]}
+                     (for [{:keys [coin label value stroke]} hover-benchmark-values]
+                       ^{:key (str "vault-detail-chart-hover-tooltip-benchmark-row-" coin)}
+                       [:div {:class ["grid"
+                                      "grid-cols-[1fr_auto]"
+                                      "items-center"
+                                      "gap-3"]
+                              :data-role (str "vault-detail-chart-hover-tooltip-benchmark-row-" coin)}
+                        [:span {:class ["text-[12px]"
+                                        "font-medium"
+                                        "leading-4"
+                                        "text-[#909fac]"]}
+                         label]
+                        [:span {:class ["num"
+                                        "text-sm"
+                                        "font-semibold"
+                                        "leading-[1.1]"
+                                        "tracking-tight"]
+                                :data-role (str "vault-detail-chart-hover-tooltip-benchmark-value-" coin)
+                                :style {:color stroke}}
+                         value]])])])]]
              (chart-legend series)
              (when (= selected-series :returns)
                (returns-benchmark-chip-rail returns-benchmark*))]])]
