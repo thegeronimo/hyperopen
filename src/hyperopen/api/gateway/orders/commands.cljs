@@ -246,6 +246,44 @@
                     :else :cross)]
     (if (= candidate :isolated) :isolated :cross)))
 
+(def ^:private isolated-only-margin-modes
+  #{:no-cross :strict-isolated})
+
+(defn- parse-optional-boolean
+  [value]
+  (cond
+    (boolean? value) value
+    (string? value) (= "true" (some-> value str/trim str/lower-case))
+    :else nil))
+
+(defn- normalize-market-margin-mode
+  [value]
+  (let [token (cond
+                (keyword? value) (name value)
+                (string? value) value
+                :else nil)
+        normalized (some-> token
+                          str/trim
+                          str/lower-case
+                          (str/replace #"[_-]" ""))]
+    (case normalized
+      "normal" :normal
+      "nocross" :no-cross
+      "strictisolated" :strict-isolated
+      nil)))
+
+(defn- cross-margin-allowed?
+  [command-context]
+  (let [market (or (:market command-context) {})
+        only-isolated? (parse-optional-boolean
+                        (or (:only-isolated? market)
+                            (:onlyIsolated market)))
+        margin-mode (normalize-market-margin-mode
+                     (or (:margin-mode market)
+                         (:marginMode market)))]
+    (not (or (true? only-isolated?)
+             (contains? isolated-only-margin-modes margin-mode)))))
+
 (defn- normalize-leverage
   [value]
   (let [parsed (trading-domain/parse-num value)]
@@ -282,13 +320,16 @@
   (let [asset-idx (:asset-idx command-context)
         perp-market-eligible? (perp-market? command-context)
         leverage (normalize-leverage (:ui-leverage form))
-        margin-mode (normalize-margin-mode (:margin-mode form))]
+        margin-mode (normalize-margin-mode (:margin-mode form))
+        effective-margin-mode (if (cross-margin-allowed? command-context)
+                                margin-mode
+                                :isolated)]
     (when (and perp-market-eligible?
                (number? asset-idx)
                (number? leverage))
       (array-map :type "updateLeverage"
                  :asset asset-idx
-                 :isCross (not= margin-mode :isolated)
+                 :isCross (not= effective-margin-mode :isolated)
                  :leverage leverage))))
 
 (def ^:private order-request-builders

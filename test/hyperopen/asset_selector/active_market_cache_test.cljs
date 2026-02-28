@@ -49,6 +49,8 @@
           :quote "USDC"
           :dex "hyna"
           :market-type :perp
+          :only-isolated? true
+          :margin-mode :no-cross
           :idx 3
           :perp-dex-index 1
           :asset-id 110003
@@ -61,6 +63,8 @@
             :quote " USDC "
             :dex " hyna "
             :market-type " perp "
+            :onlyIsolated "true"
+            :marginMode "noCross"
             :idx "3"
             :perp-dex-index "1"
             :asset-id "110003"
@@ -77,6 +81,8 @@
            :symbol " ETH-USDC "
            :dex " hyna "
            :asset-id "110000"
+           :onlyIsolated true
+           :marginMode "strictIsolated"
            :market-type :perp
            :maxLeverage "30"}
           normalize-deps))
@@ -87,6 +93,8 @@
         (is (= "ETH-USDC" (:symbol payload)))
         (is (= "hyna" (:dex payload)))
         (is (= 110000 (:asset-id payload)))
+        (is (= true (:only-isolated? payload)))
+        (is (= "strict-isolated" (:margin-mode payload)))
         (is (= "perp" (:market-type payload)))
         (is (= 30 (:maxLeverage payload))))))
 
@@ -125,11 +133,15 @@
                       (clj->js {:coin "ETH"
                                 :symbol "ETH-USDC"
                                 :asset-id "7"
+                                :onlyIsolated "true"
+                                :marginMode "strictIsolated"
                                 :market-type "perp"
                                 :maxLeverage "25"})))]
       (is (= {:coin "ETH"
               :symbol "ETH-USDC"
               :asset-id 7
+              :only-isolated? true
+              :margin-mode :strict-isolated
               :market-type :perp
               :maxLeverage 25}
              (cache/load-active-market-display "ETH" normalize-deps)))))

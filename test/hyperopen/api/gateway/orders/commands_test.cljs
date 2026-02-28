@@ -223,6 +223,23 @@
     (is (= false (:isCross isolated-action)))
     (is (= 21 (:leverage isolated-action)))))
 
+(deftest build-order-request-forces-isolated-leverage-pre-action-when-market-disallows-cross-test
+  (let [isolated-only-context (assoc command-context
+                                     :market {:market-type :perp
+                                              :szDecimals 4
+                                              :marginMode "noCross"
+                                              :onlyIsolated true})
+        request (commands/build-order-request isolated-only-context {:type :limit
+                                                                     :side :buy
+                                                                     :size "1"
+                                                                     :price "100"
+                                                                     :ui-leverage 11
+                                                                     :margin-mode :cross})
+        pre-action (first (:pre-actions request))]
+    (is (= "updateLeverage" (:type pre-action)))
+    (is (= false (:isCross pre-action)))
+    (is (= 11 (:leverage pre-action)))))
+
 (deftest build-order-request-infers-perp-leverage-pre-action-when-market-type-metadata-is-missing-test
   (let [context-without-market-type {:active-asset "BTC"
                                      :asset-idx 5

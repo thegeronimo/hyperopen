@@ -58,7 +58,8 @@
 (declare normalize-order-form
          build-order-request
          market-identity
-         market-max-leverage)
+         market-max-leverage
+         cross-margin-allowed?)
 
 (defn order-form-ui-overrides-from-form
   "Extract UI-owned order-form fields from a normalized working form."
@@ -146,8 +147,12 @@
   (let [ui-state (:order-form-ui state)
         normalized-form (order-form-draft state)
         normalized-ui (merge (normalize-order-form-ui ui-state)
-                             (order-form-ui-overrides-from-form normalized-form))]
-    (effective-order-form-ui normalized-form normalized-ui)))
+                             (order-form-ui-overrides-from-form normalized-form))
+        effective-ui (effective-order-form-ui normalized-form normalized-ui)]
+    (cond-> effective-ui
+      (not (cross-margin-allowed? state))
+      (assoc :margin-mode :isolated
+             :margin-mode-dropdown-open? false))))
 
 (defn order-form-runtime-state
   "Return normalized runtime workflow state for order form."
@@ -162,12 +167,59 @@
     (assoc identity
            :sz-decimals (or (:szDecimals market) 4)
            :max-leverage (market-max-leverage state)
+           :cross-margin-allowed? (cross-margin-allowed? state)
            :market-type (:market-type market)
            :dex (:dex market))))
 
 (defn market-identity [state]
   (trading-domain/market-identity {:active-asset (:active-asset state)
                                    :market (:active-market state)}))
+
+(def ^:private isolated-only-margin-modes
+  #{:no-cross :strict-isolated})
+
+(defn- parse-optional-boolean
+  [value]
+  (cond
+    (boolean? value) value
+    (string? value) (= "true" (some-> value str/trim str/lower-case))
+    :else nil))
+
+(defn- normalize-market-margin-mode
+  [value]
+  (let [token (cond
+                (keyword? value) (name value)
+                (string? value) value
+                :else nil)
+        normalized (some-> token
+                          str/trim
+                          str/lower-case
+                          (str/replace #"[_-]" ""))]
+    (case normalized
+      "normal" :normal
+      "nocross" :no-cross
+      "strictisolated" :strict-isolated
+      nil)))
+
+(defn cross-margin-allowed?
+  [state]
+  (let [market (or (:active-market state) {})
+        only-isolated? (parse-optional-boolean
+                        (or (:only-isolated? market)
+                            (:onlyIsolated market)))
+        margin-mode (normalize-market-margin-mode
+                     (or (:margin-mode market)
+                         (:marginMode market)))]
+    (not (or (true? only-isolated?)
+             (contains? isolated-only-margin-modes margin-mode)))))
+
+(defn effective-margin-mode
+  [state mode]
+  (let [normalized (normalize-margin-mode mode)]
+    (if (and (= normalized :cross)
+             (not (cross-margin-allowed? state)))
+      :isolated
+      normalized)))
 
 (defn- active-clearinghouse-state [state]
   (let [dex (get-in state [:active-market :dex])]
@@ -407,6 +459,7 @@
                                    :type final-type
                                    :side normalized-side
                                    :tif normalized-tif
+                                   :margin-mode (effective-margin-mode state (:margin-mode form))
                                    :size-input-mode normalized-size-input-mode
                                    :size-input-source normalized-size-input-source
                                    :size-display (or (:size-display form) (:size form) "")

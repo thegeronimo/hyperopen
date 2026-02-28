@@ -60,77 +60,96 @@
             :on {:click (on-select-mode mode)}}
    (margin-mode-label mode)])
 
-(defn- margin-mode-chip [margin-mode dropdown-open? leverage-handlers]
-  [:div {:class ["relative" "flex-1"]
-         :style (when dropdown-open?
-                  {:z-index 1200})}
-   (when dropdown-open?
+(defn- margin-mode-static-chip [margin-mode]
+  [:div {:class ["flex"
+                 "h-10"
+                 "w-full"
+                 "items-center"
+                 "justify-center"
+                 "rounded-lg"
+                 "border"
+                 "border-base-300"
+                 "bg-base-200"
+                 "text-sm"
+                 "font-semibold"
+                 "text-gray-100"]}
+   [:span (margin-mode-label margin-mode)]])
+
+(defn- margin-mode-chip
+  [margin-mode cross-margin-allowed? dropdown-open? leverage-handlers]
+  (if-not cross-margin-allowed?
+    [:div {:class ["flex-1"]}
+     (margin-mode-static-chip :isolated)]
+    [:div {:class ["relative" "flex-1"]
+           :style (when dropdown-open?
+                    {:z-index 1200})}
+     (when dropdown-open?
+       [:button {:type "button"
+                 :class ["absolute" "bg-transparent" "cursor-default"]
+                 :style {:left "-100vmax"
+                         :top "-100vmax"
+                         :width "200vmax"
+                         :height "200vmax"
+                         :z-index 1200}
+                 :aria-label "Close margin mode menu"
+                 :on {:click (:on-close-margin-mode-dropdown leverage-handlers)}}])
      [:button {:type "button"
-               :class ["absolute" "bg-transparent" "cursor-default"]
-               :style {:left "-100vmax"
-                       :top "-100vmax"
-                       :width "200vmax"
-                       :height "200vmax"
-                       :z-index 1200}
-               :aria-label "Close margin mode menu"
-               :on {:click (:on-close-margin-mode-dropdown leverage-handlers)}}])
-   [:button {:type "button"
-             :class ["relative"
-                     "flex"
-                     "h-10"
-                     "w-full"
-                     "items-center"
-                     "justify-center"
-                     "gap-1"
-                     "rounded-lg"
-                     "border"
-                     "border-base-300"
-                     "bg-base-200"
-                     "text-sm"
-                     "font-semibold"
-                     "text-gray-100"
-                     "transition-colors"
-                     "outline-none"
-                     "focus:outline-none"
-                     "focus:ring-0"
-                     "focus:ring-offset-0"
-                     "focus:shadow-none"]
-             :aria-label "Margin mode"
-             :aria-haspopup "listbox"
-             :aria-expanded (boolean dropdown-open?)
-             :style (when dropdown-open?
-                      {:z-index 1201})
-             :on {:click (:on-toggle-margin-mode-dropdown leverage-handlers)
-                  :keydown (:on-margin-mode-dropdown-keydown leverage-handlers)}}
-    [:span (margin-mode-label margin-mode)]
-    [:svg {:class ["pointer-events-none" "h-3.5" "w-3.5" "text-gray-400"]
-           :viewBox "0 0 20 20"
-           :fill "currentColor"}
-     [:path {:fill-rule "evenodd"
-             :clip-rule "evenodd"
-             :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"}]]]
-   (when dropdown-open?
-     [:div {:class ["absolute"
-                    "left-0"
-                    "top-full"
-                    "mt-1"
-                    "min-w-[116px]"
-                    "rounded-lg"
-                    "border"
-                    "border-[#273035]"
-                    "bg-[#1B2429]"
-                    "p-1"
-                    "shadow-[0_10px_24px_rgba(0,0,0,0.35)]"]
-            :style {:z-index 1202}
-            :role "listbox"
-            :aria-label "Margin mode options"
-            :on {:keydown (:on-margin-mode-dropdown-keydown leverage-handlers)}}
-      (margin-mode-option :cross
-                          (= margin-mode :cross)
-                          (:on-select-margin-mode leverage-handlers))
-      (margin-mode-option :isolated
-                          (= margin-mode :isolated)
-                          (:on-select-margin-mode leverage-handlers))])])
+               :class ["relative"
+                       "flex"
+                       "h-10"
+                       "w-full"
+                       "items-center"
+                       "justify-center"
+                       "gap-1"
+                       "rounded-lg"
+                       "border"
+                       "border-base-300"
+                       "bg-base-200"
+                       "text-sm"
+                       "font-semibold"
+                       "text-gray-100"
+                       "transition-colors"
+                       "outline-none"
+                       "focus:outline-none"
+                       "focus:ring-0"
+                       "focus:ring-offset-0"
+                       "focus:shadow-none"]
+               :aria-label "Margin mode"
+               :aria-haspopup "listbox"
+               :aria-expanded (boolean dropdown-open?)
+               :style (when dropdown-open?
+                        {:z-index 1201})
+               :on {:click (:on-toggle-margin-mode-dropdown leverage-handlers)
+                    :keydown (:on-margin-mode-dropdown-keydown leverage-handlers)}}
+      [:span (margin-mode-label margin-mode)]
+      [:svg {:class ["pointer-events-none" "h-3.5" "w-3.5" "text-gray-400"]
+             :viewBox "0 0 20 20"
+             :fill "currentColor"}
+       [:path {:fill-rule "evenodd"
+               :clip-rule "evenodd"
+               :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"}]]]
+     (when dropdown-open?
+       [:div {:class ["absolute"
+                      "left-0"
+                      "top-full"
+                      "mt-1"
+                      "min-w-[116px]"
+                      "rounded-lg"
+                      "border"
+                      "border-[#273035]"
+                      "bg-[#1B2429]"
+                      "p-1"
+                      "shadow-[0_10px_24px_rgba(0,0,0,0.35)]"]
+              :style {:z-index 1202}
+              :role "listbox"
+              :aria-label "Margin mode options"
+              :on {:keydown (:on-margin-mode-dropdown-keydown leverage-handlers)}}
+        (margin-mode-option :cross
+                            (= margin-mode :cross)
+                            (:on-select-margin-mode leverage-handlers))
+        (margin-mode-option :isolated
+                            (= margin-mode :isolated)
+                            (:on-select-margin-mode leverage-handlers))])]))
 
 (defn- size-unit-accessory [{:keys [size-input-mode quote-symbol base-symbol]}
                             {:keys [dropdown-open?
@@ -371,10 +390,12 @@
          "Confirm"]])]))
 
 (defn- leverage-row
-  [state margin-mode margin-mode-dropdown-open? leverage-popover-open? ui-leverage leverage-draft max-leverage leverage-handlers]
-  (let [mode (trading/normalize-margin-mode margin-mode)]
+  [state margin-mode cross-margin-allowed? margin-mode-dropdown-open? leverage-popover-open? ui-leverage leverage-draft max-leverage leverage-handlers]
+  (let [mode (trading/effective-margin-mode state margin-mode)
+        dropdown-open? (and cross-margin-allowed?
+                            margin-mode-dropdown-open?)]
     [:div {:class ["grid" "grid-cols-3" "gap-2"]}
-     (margin-mode-chip mode margin-mode-dropdown-open? leverage-handlers)
+     (margin-mode-chip mode cross-margin-allowed? dropdown-open? leverage-handlers)
      (leverage-control state
                        ui-leverage
                        leverage-draft
@@ -710,6 +731,7 @@
         size-unit-dropdown-open? (boolean (get-in state [:order-form-ui :size-unit-dropdown-open?]))
         tif-dropdown-open? (boolean (get-in state [:order-form-ui :tif-dropdown-open?]))
         max-leverage (trading/market-max-leverage state)
+        cross-margin-allowed? (trading/cross-margin-allowed? state)
         entry-mode-handlers (:entry-mode handler-map)
         leverage-handlers (:leverage handler-map)
         side-handlers (:side handler-map)
@@ -750,6 +772,7 @@
                          (when read-only? ["opacity-60" "pointer-events-none"]))}
       (leverage-row state
                     (:margin-mode form)
+                    cross-margin-allowed?
                     margin-mode-dropdown-open?
                     leverage-popover-open?
                     ui-leverage

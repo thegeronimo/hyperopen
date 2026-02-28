@@ -51,6 +51,22 @@
     (string? value) (= "true" (some-> value str/trim str/lower-case))
     :else nil))
 
+(defn- normalize-margin-mode
+  [value]
+  (let [token (cond
+                (keyword? value) (name value)
+                (string? value) value
+                :else nil)
+        normalized (some-> token
+                          str/trim
+                          str/lower-case
+                          (str/replace #"[_-]" ""))]
+    (case normalized
+      "normal" :normal
+      "nocross" :no-cross
+      "strictisolated" :strict-isolated
+      nil)))
+
 (defn normalize-display-text
   [value]
   (let [text (some-> value str str/trim)]
@@ -72,6 +88,12 @@
           category (normalize-market-category (:category market))
           hip3? (parse-optional-boolean (:hip3? market))
           hip3-eligible? (parse-optional-boolean (:hip3-eligible? market))
+          only-isolated? (parse-optional-boolean
+                          (or (:only-isolated? market)
+                              (:onlyIsolated market)))
+          margin-mode (normalize-margin-mode
+                       (or (:margin-mode market)
+                           (:marginMode market)))
           market-idx (parse-market-index (:idx market))
           perp-dex-index (some parse-market-index
                                [(:perp-dex-index market)
@@ -96,6 +118,8 @@
           category (assoc :category category)
           (some? hip3?) (assoc :hip3? hip3?)
           (some? hip3-eligible?) (assoc :hip3-eligible? hip3-eligible?)
+          (some? only-isolated?) (assoc :only-isolated? only-isolated?)
+          margin-mode (assoc :margin-mode margin-mode)
           (some? market-idx) (assoc :idx market-idx)
           (some? perp-dex-index) (assoc :perp-dex-index perp-dex-index)
           (some? asset-id) (assoc :asset-id asset-id)

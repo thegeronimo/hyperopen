@@ -76,7 +76,27 @@
       (is (= "BTC" (:base-symbol market-info)))
       (is (= "USDC" (:quote-symbol market-info)))
       (is (= 5 (:sz-decimals market-info)))
+      (is (true? (:cross-margin-allowed? market-info)))
       (is (number? (:max-leverage market-info))))))
+
+(deftest cross-margin-eligibility-and-effective-mode-test
+  (let [cross-state {:active-market {:coin "BTC"
+                                     :marginMode "normal"}}
+        no-cross-state {:active-market {:coin "xyz:NATGAS"
+                                        :marginMode "noCross"}}
+        strict-isolated-state {:active-market {:coin "xyz:GOLD"
+                                               :marginMode :strict-isolated}}
+        only-isolated-state {:active-market {:coin "xyz:GOLD"
+                                             :onlyIsolated true}}]
+    (is (true? (trading/cross-margin-allowed? cross-state)))
+    (is (false? (trading/cross-margin-allowed? no-cross-state)))
+    (is (false? (trading/cross-margin-allowed? strict-isolated-state)))
+    (is (false? (trading/cross-margin-allowed? only-isolated-state)))
+    (is (= :cross (trading/effective-margin-mode cross-state :cross)))
+    (is (= :isolated (trading/effective-margin-mode no-cross-state :cross)))
+    (is (= :isolated (trading/effective-margin-mode strict-isolated-state :cross)))
+    (is (= :isolated (trading/effective-margin-mode only-isolated-state :cross)))
+    (is (= :isolated (trading/effective-margin-mode cross-state :isolated)))))
 
 (deftest submit-policy-reasons-test
   (testing "view mode reports validation reason and required fields"

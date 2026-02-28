@@ -8,6 +8,8 @@
                            {:name "hyna:ETH"
                             :maxLeverage 25
                             :szDecimals 4
+                            :onlyIsolated true
+                            :marginMode "noCross"
                             :isDelisted false
                             :growthMode "enabled"}]
                 :collateralToken 0}
@@ -27,11 +29,15 @@
       (is (= 0 (:asset-id (first default-markets))))
       (is (= "100" (:markRaw (first default-markets))))
       (is (= "90" (:prevDayRaw (first default-markets))))
+      (is (nil? (:margin-mode (first default-markets))))
+      (is (nil? (:only-isolated? (first default-markets))))
       (is (false? (:growth-mode? (first default-markets))))
       (is (false? (:hip3-eligible? (first default-markets))))
       (is (= "ETH-USDE" (:symbol (second hyna-markets))))
       (is (= 4 (:szDecimals (second hyna-markets))))
       (is (= "hyna" (:dex (second hyna-markets))))
+      (is (= :no-cross (:margin-mode (second hyna-markets))))
+      (is (true? (:only-isolated? (second hyna-markets))))
       (is (true? (:growth-mode? (second hyna-markets))))
       (is (= 1 (:perp-dex-index (second hyna-markets))))
       (is (= 110001 (:asset-id (second hyna-markets))))

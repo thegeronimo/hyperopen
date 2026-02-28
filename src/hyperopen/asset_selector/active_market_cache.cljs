@@ -1,8 +1,32 @@
 (ns hyperopen.asset-selector.active-market-cache
-  (:require [hyperopen.platform :as platform]))
+  (:require [clojure.string :as str]
+            [hyperopen.platform :as platform]))
 
 (def ^:private active-market-display-local-storage-key
   "active-market-display")
+
+(defn- parse-optional-boolean
+  [value]
+  (cond
+    (boolean? value) value
+    (string? value) (= "true" (some-> value str/trim str/lower-case))
+    :else nil))
+
+(defn- normalize-margin-mode
+  [value]
+  (let [token (cond
+                (keyword? value) (name value)
+                (string? value) value
+                :else nil)
+        normalized (some-> token
+                          str/trim
+                          str/lower-case
+                          (str/replace #"[_-]" ""))]
+    (case normalized
+      "normal" :normal
+      "nocross" :no-cross
+      "strictisolated" :strict-isolated
+      nil)))
 
 (defn normalize-active-market-display
   [market {:keys [normalize-display-text normalize-market-type parse-max-leverage parse-market-index]}]
@@ -15,6 +39,12 @@
           quote (normalize-display-text (:quote market))
           dex (normalize-display-text (:dex market))
           market-type (normalize-market-type (:market-type market))
+          only-isolated? (parse-optional-boolean
+                          (or (:only-isolated? market)
+                              (:onlyIsolated market)))
+          margin-mode (normalize-margin-mode
+                       (or (:margin-mode market)
+                           (:marginMode market)))
           market-idx (parse-index (:idx market))
           perp-dex-index (some parse-index
                                [(:perp-dex-index market)
@@ -35,6 +65,8 @@
           (seq quote) (assoc :quote quote)
           (seq dex) (assoc :dex dex)
           market-type (assoc :market-type market-type)
+          (some? only-isolated?) (assoc :only-isolated? only-isolated?)
+          margin-mode (assoc :margin-mode margin-mode)
           (some? market-idx) (assoc :idx market-idx)
           (some? perp-dex-index) (assoc :perp-dex-index perp-dex-index)
           (some? asset-id) (assoc :asset-id asset-id)

@@ -173,6 +173,21 @@
     (is (= :isolated (:margin-mode selected-ui)))
     (is (false? (:margin-mode-dropdown-open? selected-ui)))))
 
+(deftest margin-mode-transition-forces-isolated-when-market-disallows-cross-test
+  (let [state (assoc (base-state {:type :limit})
+                     :active-market {:coin "xyz:NATGAS"
+                                     :quote "USDC"
+                                     :market-type :perp
+                                     :marginMode "noCross"
+                                     :onlyIsolated true})
+        selected (transitions/set-order-margin-mode state :cross)
+        selected-ui (:order-form-ui selected)
+        next-state (merge state selected)
+        next-draft (trading/order-form-draft next-state)]
+    (is (= :isolated (:margin-mode selected-ui)))
+    (is (false? (:margin-mode-dropdown-open? selected-ui)))
+    (is (= :isolated (:margin-mode next-draft)))))
+
 (deftest leverage-popover-transitions-toggle-draft-escape-and-confirm-test
   (let [state (base-state {:type :limit})
         toggled (transitions/toggle-leverage-popover state)

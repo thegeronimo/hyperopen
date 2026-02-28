@@ -132,6 +132,29 @@
       (= :enabled value)
       (= "enabled" (some-> value str str/trim str/lower-case))))
 
+(defn- parse-optional-boolean
+  [value]
+  (cond
+    (boolean? value) value
+    (string? value) (= "true" (some-> value str/trim str/lower-case))
+    :else nil))
+
+(defn- normalize-margin-mode
+  [value]
+  (let [token (cond
+                (keyword? value) (name value)
+                (string? value) value
+                :else nil)
+        normalized (some-> token
+                          str/trim
+                          str/lower-case
+                          (str/replace #"[_-]" ""))]
+    (case normalized
+      "normal" :normal
+      "nocross" :no-cross
+      "strictisolated" :strict-isolated
+      nil)))
+
 (def ^:private builder-deployed-perp-asset-id-base
   100000)
 
@@ -212,6 +235,12 @@
                  (let [ctx (nth ctxs idx nil)]
                    (when ctx
                      (let [{:keys [name maxLeverage szDecimals]} info
+                           only-isolated? (parse-optional-boolean
+                                           (or (:only-isolated? info)
+                                               (:onlyIsolated info)))
+                           margin-mode (normalize-margin-mode
+                                        (or (:margin-mode info)
+                                            (:marginMode info)))
                            parsed (parse-perp-name name)
                            base (:base parsed)
                            coin (:coin parsed)
@@ -248,7 +277,10 @@
                                    :openInterest open-interest-usd
                                    :fundingRate funding
                                    :maxLeverage maxLeverage}]
-                       (classify-market market))))))
+                       (classify-market
+                        (cond-> market
+                          (some? only-isolated?) (assoc :only-isolated? only-isolated?)
+                          margin-mode (assoc :margin-mode margin-mode))))))))
          vec)))
 
 (defn build-spot-markets

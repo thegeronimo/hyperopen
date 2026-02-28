@@ -272,6 +272,32 @@
     (is (contains? isolated-option-classes "text-[#50D2C1]"))
     (is (= 1202 (get-in listbox [1 :style :z-index])))))
 
+(deftest leverage-row-margin-mode-renders-static-isolated-chip-when-cross-is-disallowed-test
+  (let [state (assoc (base-state {:type :limit
+                                  :margin-mode :cross}
+                                 {:margin-mode-dropdown-open? true})
+                     :active-market {:coin "xyz:NATGAS"
+                                     :quote "USDC"
+                                     :market-type :perp
+                                     :marginMode "noCross"
+                                     :onlyIsolated true})
+        view-node (view/order-form-view state)
+        trigger-button (find-first-node view-node
+                                        (fn [node]
+                                          (let [attrs (when (map? (second node)) (second node))]
+                                            (and (= :button (first node))
+                                                 (= "Margin mode" (:aria-label attrs))))))
+        option-buttons (find-all-nodes view-node
+                                       (fn [node]
+                                         (and (= :button (first node))
+                                              (= :actions/set-order-margin-mode
+                                                 (ffirst (get-in node [1 :on :click]))))))
+        strings (set (collect-strings view-node))]
+    (is (nil? trigger-button))
+    (is (= [] option-buttons))
+    (is (contains? strings "Isolated"))
+    (is (not (contains? strings "Cross")))))
+
 (deftest leverage-popover-toggle-and-confirm-actions-test
   (let [closed-view (view/order-form-view (base-state {:type :limit}
                                                        {:leverage-popover-open? false}))

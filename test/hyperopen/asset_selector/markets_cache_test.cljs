@@ -12,12 +12,14 @@
                   :market-type :perp
                   :dex "hyna"
                   :idx 3
-                  :perp-dex-index 1
-                  :asset-id 110003
-                  :hip3? true
-                  :hip3-eligible? false
-                  :volume24h 1000
-                  :mark 1900.1}
+                 :perp-dex-index 1
+                 :asset-id 110003
+                 :hip3? true
+                 :hip3-eligible? false
+                 :margin-mode :strict-isolated
+                 :only-isolated? true
+                 :volume24h 1000
+                 :mark 1900.1}
                  {:key "spot:PURR/USDC"
                   :coin "PURR/USDC"
                   :symbol "PURR/USDC"
@@ -36,7 +38,9 @@
     (is (= [0 110003] (mapv :asset-id cached)))
     (is (= [0 1] (mapv :cache-order cached)))
     (is (nil? (:mark (first cached))))
-    (is (false? (:hip3-eligible? (second cached))))))
+    (is (false? (:hip3-eligible? (second cached))))
+    (is (= :strict-isolated (:margin-mode (second cached))))
+    (is (true? (:only-isolated? (second cached))))))
 
 (deftest restore-asset-selector-markets-cache-state-hydrates-when-empty-test
   (let [cached-markets [{:key "perp:ETH"

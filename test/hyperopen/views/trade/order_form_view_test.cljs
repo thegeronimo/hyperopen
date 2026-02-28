@@ -23,6 +23,18 @@
     (is (contains? strings "Isolated"))
     (is (not (contains? strings "Cross")))))
 
+(deftest leverage-row-forces-isolated-label-when-market-disallows-cross-test
+  (let [state (assoc (base-state {:margin-mode :cross})
+                     :active-market {:coin "xyz:NATGAS"
+                                     :quote "USDC"
+                                     :market-type :perp
+                                     :marginMode "noCross"
+                                     :onlyIsolated true})
+        view-node (view/order-form-view state)
+        strings (set (collect-strings view-node))]
+    (is (contains? strings "Isolated"))
+    (is (not (contains? strings "Cross")))))
+
 (deftest leverage-popover-renders-adjust-controls-when-open-test
   (let [view-node (view/order-form-view (base-state {:type :limit}
                                                      {:leverage-popover-open? true

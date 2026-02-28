@@ -423,7 +423,7 @@
 (defn set-order-margin-mode [state mode]
   (let [form (trading/order-form-draft state)
         ui-state (trading/order-form-ui-state state)
-        mode* (trading/normalize-margin-mode mode)
+        mode* (trading/effective-margin-mode state mode)
         next-form (assoc form :margin-mode mode*)
         next-ui (trading/effective-order-form-ui
                  next-form
