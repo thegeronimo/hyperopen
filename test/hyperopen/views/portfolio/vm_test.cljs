@@ -252,12 +252,13 @@
           (is (not (contains? (:benchmark-values-by-coin deserialized) :SPY)))))
       
       (is (seq groups))
-      (is (= "Time in Market"
+      (is (nil? (performance-metric-row view-model :time-in-market)))
+      (is (= "Cumulative Return"
              (get-in groups [0 :rows 0 :label])))
-      (is (approx= (get-in groups [0 :rows 0 :value]) 1 1e-12))
-      (is (approx= (get-in groups [0 :rows 0 :portfolio-value]) 1 1e-12))
-      (is (= :ok (get-in groups [0 :rows 0 :portfolio-status])))
-      (is (nil? (get-in groups [0 :rows 0 :benchmark-value])))
+      (is (= :ok (get-in (performance-metric-row view-model :cumulative-return)
+                         [:portfolio-status])))
+      (is (nil? (get-in (performance-metric-row view-model :cumulative-return)
+                        [:benchmark-value])))
       (is (= [] (get-in view-model [:performance-metrics :benchmark-columns])))
       (is (false? (get-in view-model [:performance-metrics :benchmark-selected?])))
       (is (nil? (:value (performance-metric-row view-model :r2))))

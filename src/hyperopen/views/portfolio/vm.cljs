@@ -1113,6 +1113,21 @@
                                (or rows []))))
           (or groups []))))
 
+(def ^:private hidden-portfolio-metric-keys
+  #{:time-in-market})
+
+(defn- remove-hidden-portfolio-metric-rows
+  [groups]
+  (->> (or groups [])
+       (keep (fn [{:keys [rows] :as group}]
+               (let [rows* (->> (or rows [])
+                                (remove (fn [{:keys [key]}]
+                                          (contains? hidden-portfolio-metric-keys key)))
+                                vec)]
+                 (when (seq rows*)
+                   (assoc group :rows rows*)))))
+       vec))
+
 (defn- build-metrics-request-data
   [strategy-cumulative-rows benchmark-cumulative-rows-by-coin selected-benchmark-coins]
   (let [benchmark-requests (mapv (fn [coin]
@@ -1206,7 +1221,9 @@
         benchmark-coin (:coin primary-benchmark-column)
         benchmark-values (or (:values primary-benchmark-column)
                              {})
-        groups (with-performance-metric-columns (portfolio-metrics/metric-rows portfolio-values)
+        groups (with-performance-metric-columns
+                 (remove-hidden-portfolio-metric-rows
+                  (portfolio-metrics/metric-rows portfolio-values))
                  portfolio-values
                  benchmark-columns)
         benchmark-label (:label primary-benchmark-column)]

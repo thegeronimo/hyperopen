@@ -113,7 +113,7 @@
         chart-shell (find-first-node view-node #(= "portfolio-chart-shell" (get-in % [1 :data-role])))
         chart-path (find-first-node view-node #(= "portfolio-chart-path" (get-in % [1 :data-role])))
         account-table (find-first-node view-node #(= "portfolio-account-table" (get-in % [1 :data-role])))
-        performance-metric-row (find-first-node view-node #(= "portfolio-performance-metric-time-in-market" (get-in % [1 :data-role])))
+        performance-metric-row (find-first-node view-node #(= "portfolio-performance-metric-cumulative-return" (get-in % [1 :data-role])))
         performance-tab-button (find-first-node
                                 view-node
                                 #(= [[:actions/set-portfolio-account-info-tab :performance-metrics]]
@@ -168,7 +168,8 @@
     (is (contains? all-text "PNL"))
     (is (contains? all-text "Returns"))
     (is (contains? all-text "Performance Metrics"))
-    (is (contains? all-text "Time in Market"))
+    (is (contains? all-text "Cumulative Return"))
+    (is (not (contains? all-text "Time in Market")))
     (is (not (contains? all-text "All-time (ann.)")))
     (is (contains? all-text "Max Drawdown"))
     (is (contains? all-text "Vault Equity"))
