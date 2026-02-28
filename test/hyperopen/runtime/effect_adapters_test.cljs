@@ -1,8 +1,10 @@
 (ns hyperopen.runtime.effect-adapters-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.asset-selector.query :as asset-selector-query]
             [hyperopen.runtime.app-effects :as app-effects]
             [hyperopen.runtime.effect-adapters :as effect-adapters]
             [hyperopen.telemetry :as telemetry]
+            [hyperopen.websocket.active-asset-ctx :as active-ctx]
             [hyperopen.websocket.client :as ws-client]
             [hyperopen.websocket.health-runtime :as health-runtime]
             [hyperopen.websocket.market-projection-runtime :as market-projection-runtime]
@@ -146,3 +148,31 @@
         (is (= 1 (:flush-event-count diagnostics)))
         (is (= 42 (:latest-flush-event-seq diagnostics)))
         (is (= 777 (:latest-flush-at-ms diagnostics)))))))
+
+(deftest sync-asset-selector-active-ctx-subscriptions-diffs-owner-scoped-coins-test
+  (let [store (atom {:asset-selector {}})
+        sent-messages (atom [])
+        original-state @active-ctx/active-asset-ctx-state]
+    (reset! active-ctx/active-asset-ctx-state {:subscriptions #{"BTC" "SOL"}
+                                                :owners-by-coin {"BTC" #{:asset-selector}
+                                                                 "SOL" #{:asset-selector}}
+                                                :coins-by-owner {:asset-selector #{"BTC" "SOL"}}
+                                                :contexts {}})
+    (try
+      (with-redefs [asset-selector-query/selector-visible-market-coins (fn [_]
+                                                                          #{"BTC" "ETH"})
+                    ws-client/send-message! (fn [message]
+                                              (swap! sent-messages conj message)
+                                              true)]
+        (effect-adapters/sync-asset-selector-active-ctx-subscriptions nil store))
+      (is (= [{:method "subscribe"
+               :subscription {:type "activeAssetCtx"
+                              :coin "ETH"}}
+              {:method "unsubscribe"
+               :subscription {:type "activeAssetCtx"
+                              :coin "SOL"}}]
+             @sent-messages))
+      (is (= #{"BTC" "ETH"}
+             (active-ctx/get-subscribed-coins-by-owner :asset-selector)))
+      (finally
+        (reset! active-ctx/active-asset-ctx-state original-state)))))

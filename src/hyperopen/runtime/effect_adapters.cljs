@@ -1,5 +1,6 @@
 (ns hyperopen.runtime.effect-adapters
-  (:require [nexus.registry :as nxr]
+  (:require [clojure.set :as set]
+            [nexus.registry :as nxr]
             [hyperopen.platform :as platform]
             [hyperopen.api.default :as api]
             [hyperopen.api.projections :as api-projections]
@@ -11,6 +12,7 @@
             [hyperopen.asset-selector.icon-status-runtime :as icon-status-runtime]
             [hyperopen.asset-selector.markets-cache :as markets-cache]
             [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.asset-selector.query :as asset-selector-query]
             [hyperopen.orderbook.price-aggregation :as price-agg]
             [hyperopen.runtime.app-effects :as app-effects]
             [hyperopen.runtime.api-effects :as api-effects]
@@ -331,6 +333,20 @@
     :log-fn telemetry/log!
     :unsubscribe-webdata2-fn webdata2/unsubscribe-webdata2!}))
 
+(def ^:private asset-selector-active-ctx-owner
+  :asset-selector)
+
+(defn sync-asset-selector-active-ctx-subscriptions [_ store]
+  (let [state @store
+        desired-coins (asset-selector-query/selector-visible-market-coins state)
+        owned-coins (active-ctx/get-subscribed-coins-by-owner asset-selector-active-ctx-owner)
+        subscribe-coins (sort (set/difference desired-coins owned-coins))
+        unsubscribe-coins (sort (set/difference owned-coins desired-coins))]
+    (doseq [coin subscribe-coins]
+      (active-ctx/subscribe-active-asset-ctx! coin asset-selector-active-ctx-owner))
+    (doseq [coin unsubscribe-coins]
+      (active-ctx/unsubscribe-active-asset-ctx! coin asset-selector-active-ctx-owner))))
+
 (defn connect-wallet [_ store]
   (wallet-connection-runtime/connect-wallet!
    {:store store
@@ -561,7 +577,9 @@
     :request-asset-selector-markets-fn api/request-asset-selector-markets!
     :begin-asset-selector-load api-projections/begin-asset-selector-load
     :apply-asset-selector-success api-projections/apply-asset-selector-success
-    :apply-asset-selector-error api-projections/apply-asset-selector-error}))
+    :apply-asset-selector-error api-projections/apply-asset-selector-error
+    :after-asset-selector-success! (fn [runtime-store _phase _market-state]
+                                     (sync-asset-selector-active-ctx-subscriptions nil runtime-store))}))
 
 (defn api-load-user-data-effect
   [_ store address]

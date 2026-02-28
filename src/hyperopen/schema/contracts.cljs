@@ -449,6 +449,7 @@
    :effects/local-storage-set ::storage-args
    :effects/local-storage-set-json ::storage-args
    :effects/queue-asset-icon-status ::queue-asset-icon-status-args
+   :effects/sync-asset-selector-active-ctx-subscriptions ::no-args
    :effects/push-state ::path-args
    :effects/replace-state ::path-args
    :effects/init-websocket ::no-args

@@ -8,7 +8,8 @@
            begin-asset-selector-load
            apply-spot-meta-success
            apply-asset-selector-success
-           apply-asset-selector-error]}]
+           apply-asset-selector-error
+           after-asset-selector-success!]}]
   (let [opts* (or opts {:phase :full})
         phase (if (= :bootstrap (:phase opts*)) :bootstrap :full)]
     (swap! store begin-asset-selector-load phase)
@@ -17,6 +18,8 @@
                  (when apply-spot-meta-success
                    (swap! store apply-spot-meta-success spot-meta))
                  (swap! store apply-asset-selector-success phase market-state)
+                 (when (fn? after-asset-selector-success!)
+                   (after-asset-selector-success! store phase market-state))
                  (:markets market-state)))
         (.catch (promise-effects/apply-error-and-reject
                  store

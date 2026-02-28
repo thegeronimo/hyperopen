@@ -30,9 +30,11 @@
                                   actions/asset-selector-default-render-limit]
                                  [[:asset-selector :last-render-limit-increase-ms] nil]
                                  [[:asset-selector :highlighted-market-key] nil]]]
+            [:effects/sync-asset-selector-active-ctx-subscriptions]
             [:effects/fetch-asset-selector-markets]]
            open-effects))
-    (is (= [[:effects/save-many [[[:asset-selector :visible-dropdown] nil]]]]
+    (is (= [[:effects/save-many [[[:asset-selector :visible-dropdown] nil]]]
+            [:effects/sync-asset-selector-active-ctx-subscriptions]]
            close-effects))))
 
 (deftest close-asset-dropdown-resets-visible-state-test
@@ -41,7 +43,8 @@
                                [[:asset-selector :render-limit]
                                 actions/asset-selector-default-render-limit]
                                [[:asset-selector :last-render-limit-increase-ms] nil]
-                               [[:asset-selector :highlighted-market-key] nil]]]]
+                               [[:asset-selector :highlighted-market-key] nil]]]
+          [:effects/sync-asset-selector-active-ctx-subscriptions]]
          (actions/close-asset-dropdown {}))))
 
 (deftest select-asset-covers-fallback-map-and-invalid-input-branches-test
@@ -58,7 +61,9 @@
               [:effects/subscribe-active-asset "BTC"]
               [:effects/subscribe-orderbook "BTC"]
               [:effects/subscribe-trades "BTC"]]
-             (subvec effects 1)))
+             (subvec effects 2)))
+      (is (= [:effects/sync-asset-selector-active-ctx-subscriptions]
+             (nth effects 1)))
       (is (= market (path-value effects [:active-market])))
       (is (nil? (path-value effects [:order-form])))
       (is (nil? (path-value effects [:order-form-ui])))))
@@ -75,6 +80,7 @@
                                    [[:orderbook-ui :price-aggregation-dropdown-visible?] false]
                                    [[:orderbook-ui :size-unit-dropdown-visible?] false]
                                    [[:active-market] nil]]]
+              [:effects/sync-asset-selector-active-ctx-subscriptions]
               [:effects/subscribe-active-asset nil]
               [:effects/subscribe-orderbook nil]
               [:effects/subscribe-trades nil]]
@@ -86,7 +92,8 @@
                                [[:asset-selector :render-limit]
                                 actions/asset-selector-default-render-limit]
                                [[:asset-selector :last-render-limit-increase-ms] nil]
-                               [[:asset-selector :highlighted-market-key] nil]]]]
+                               [[:asset-selector :highlighted-market-key] nil]]]
+          [:effects/sync-asset-selector-active-ctx-subscriptions]]
          (actions/update-asset-search {} nil)))
 
   (is (= [[:effects/save-many [[[:asset-selector :sort-by] :volume]
@@ -97,7 +104,8 @@
                                [[:asset-selector :last-render-limit-increase-ms] nil]
                                [[:asset-selector :highlighted-market-key] nil]]]
           [:effects/local-storage-set "asset-selector-sort-by" "volume"]
-          [:effects/local-storage-set "asset-selector-sort-direction" "desc"]]
+          [:effects/local-storage-set "asset-selector-sort-direction" "desc"]
+          [:effects/sync-asset-selector-active-ctx-subscriptions]]
          (actions/update-asset-selector-sort
            {:asset-selector {:sort-by :volume
                              :sort-direction :asc}}
@@ -111,7 +119,8 @@
                                [[:asset-selector :last-render-limit-increase-ms] nil]
                                [[:asset-selector :highlighted-market-key] nil]]]
           [:effects/local-storage-set "asset-selector-sort-by" "volume"]
-          [:effects/local-storage-set "asset-selector-sort-direction" "asc"]]
+          [:effects/local-storage-set "asset-selector-sort-direction" "asc"]
+          [:effects/sync-asset-selector-active-ctx-subscriptions]]
          (actions/update-asset-selector-sort
            {:asset-selector {:sort-by :volume
                              :sort-direction :desc}}
@@ -123,7 +132,8 @@
                                 actions/asset-selector-default-render-limit]
                                [[:asset-selector :last-render-limit-increase-ms] nil]
                                [[:asset-selector :highlighted-market-key] nil]]]
-          [:effects/local-storage-set "asset-selector-strict" "true"]]
+          [:effects/local-storage-set "asset-selector-strict" "true"]
+          [:effects/sync-asset-selector-active-ctx-subscriptions]]
          (actions/toggle-asset-selector-strict
            {:asset-selector {:strict? false}})))
 
@@ -148,7 +158,8 @@
                                [[:asset-selector :render-limit]
                                 actions/asset-selector-default-render-limit]
                                [[:asset-selector :last-render-limit-increase-ms] nil]
-                               [[:asset-selector :highlighted-market-key] nil]]]]
+                               [[:asset-selector :highlighted-market-key] nil]]]
+          [:effects/sync-asset-selector-active-ctx-subscriptions]]
          (actions/set-asset-selector-favorites-only {} nil)))
 
   (is (= [[:effects/save-many [[[:asset-selector :active-tab] :hip3]
@@ -157,7 +168,8 @@
                                 actions/asset-selector-default-render-limit]
                                [[:asset-selector :last-render-limit-increase-ms] nil]
                                [[:asset-selector :highlighted-market-key] nil]]]
-          [:effects/local-storage-set "asset-selector-active-tab" "hip3"]]
+          [:effects/local-storage-set "asset-selector-active-tab" "hip3"]
+          [:effects/sync-asset-selector-active-ctx-subscriptions]]
          (actions/set-asset-selector-tab {} :hip3))))
 
 (deftest handle-asset-selector-shortcut-covers-open-navigation-select-favorite-and-close-test
@@ -168,6 +180,7 @@
                                   actions/asset-selector-default-render-limit]
                                  [[:asset-selector :last-render-limit-increase-ms] nil]
                                  [[:asset-selector :highlighted-market-key] nil]]]
+            [:effects/sync-asset-selector-active-ctx-subscriptions]
             [:effects/fetch-asset-selector-markets]]
            (actions/handle-asset-selector-shortcut
              {:asset-selector {:visible-dropdown nil
@@ -222,7 +235,9 @@
       (is (= [[:effects/subscribe-active-asset "ETH"]
               [:effects/subscribe-orderbook "ETH"]
               [:effects/subscribe-trades "ETH"]]
-             (subvec effects 1)))))
+             (subvec effects 2)))
+      (is (= [:effects/sync-asset-selector-active-ctx-subscriptions]
+             (nth effects 1)))))
 
   (testing "cmd/ctrl+s toggles favorite on highlighted market"
     (let [effects (actions/handle-asset-selector-shortcut
@@ -242,7 +257,8 @@
                                  [[:asset-selector :render-limit]
                                   actions/asset-selector-default-render-limit]
                                  [[:asset-selector :last-render-limit-increase-ms] nil]
-                                 [[:asset-selector :highlighted-market-key] nil]]]]
+                                 [[:asset-selector :highlighted-market-key] nil]]]
+            [:effects/sync-asset-selector-active-ctx-subscriptions]]
            (actions/handle-asset-selector-shortcut
              {:asset-selector {:visible-dropdown :asset-selector}}
              "Escape"
@@ -255,12 +271,14 @@
          (actions/set-asset-selector-scroll-top
            {:asset-selector {:scroll-top 48}}
            "63.9")))
-  (is (= [[:effects/save [:asset-selector :scroll-top] 0]]
+  (is (= [[:effects/save [:asset-selector :scroll-top] 0]
+          [:effects/sync-asset-selector-active-ctx-subscriptions]]
          (actions/set-asset-selector-scroll-top
            {:asset-selector {:scroll-top 10}}
            "-5")))
 
-  (is (= [[:effects/save [:asset-selector :render-limit] 10]]
+  (is (= [[:effects/save [:asset-selector :render-limit] 10]
+          [:effects/sync-asset-selector-active-ctx-subscriptions]]
          (actions/increase-asset-selector-render-limit
            {:asset-selector {:markets (vec (repeat 10 {:key "perp:T"}))
                              :render-limit 2}})))
@@ -269,7 +287,8 @@
            {:asset-selector {:markets []
                              :render-limit 2}})))
 
-  (is (= [[:effects/save [:asset-selector :render-limit] 10]]
+  (is (= [[:effects/save [:asset-selector :render-limit] 10]
+          [:effects/sync-asset-selector-active-ctx-subscriptions]]
          (actions/show-all-asset-selector-markets
            {:asset-selector {:markets (vec (repeat 10 {:key "perp:T"}))
                              :render-limit 2}})))
@@ -284,7 +303,8 @@
                              :render-limit 120}}
            0)))
   (is (= [[:effects/save-many [[[:asset-selector :render-limit] 200]
-                               [[:asset-selector :scroll-top] 2304]]]]
+                               [[:asset-selector :scroll-top] 2304]]]
+          [:effects/sync-asset-selector-active-ctx-subscriptions]]
          (actions/maybe-increase-asset-selector-render-limit
            {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                              :render-limit 120}}
@@ -293,14 +313,16 @@
 (deftest maybe-increase-asset-selector-render-limit-throttles-when-event-time-is-too-close-test
   (is (= [[:effects/save-many [[[:asset-selector :render-limit] 200]
                                [[:asset-selector :last-render-limit-increase-ms] 1000]
-                               [[:asset-selector :scroll-top] 2304]]]]
+                               [[:asset-selector :scroll-top] 2304]]]
+          [:effects/sync-asset-selector-active-ctx-subscriptions]]
          (actions/maybe-increase-asset-selector-render-limit
            {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                              :render-limit 120}}
            2304
            1000)))
 
-  (is (= [[:effects/save [:asset-selector :scroll-top] 2304]]
+  (is (= [[:effects/save [:asset-selector :scroll-top] 2304]
+          [:effects/sync-asset-selector-active-ctx-subscriptions]]
          (actions/maybe-increase-asset-selector-render-limit
            {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                              :render-limit 120
@@ -310,7 +332,8 @@
 
   (is (= [[:effects/save-many [[[:asset-selector :render-limit] 200]
                                [[:asset-selector :last-render-limit-increase-ms] 1095]
-                               [[:asset-selector :scroll-top] 2304]]]]
+                               [[:asset-selector :scroll-top] 2304]]]
+          [:effects/sync-asset-selector-active-ctx-subscriptions]]
          (actions/maybe-increase-asset-selector-render-limit
            {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                              :render-limit 120

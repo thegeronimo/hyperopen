@@ -76,7 +76,8 @@
                                 :render-limit 120}}
         effects (core/maybe-increase-asset-selector-render-limit state 2304)]
     (is (= [[:effects/save-many [[[:asset-selector :render-limit] 200]
-                                 [[:asset-selector :scroll-top] 2304]]]]
+                                 [[:asset-selector :scroll-top] 2304]]]
+            [:effects/sync-asset-selector-active-ctx-subscriptions]]
            effects))))
 
 (deftest maybe-increase-asset-selector-render-limit-noop-when-not-near-bottom-test
@@ -89,14 +90,16 @@
   (let [state {:asset-selector {:markets (vec (repeat 400 {:key "perp:T"}))
                                 :render-limit 120}}
         effects (core/increase-asset-selector-render-limit state)]
-    (is (= [[:effects/save [:asset-selector :render-limit] 200]]
+    (is (= [[:effects/save [:asset-selector :render-limit] 200]
+            [:effects/sync-asset-selector-active-ctx-subscriptions]]
            effects))))
 
 (deftest show-all-asset-selector-markets-expands-to-total-test
   (let [state {:asset-selector {:markets (vec (repeat 622 {:key "perp:T"}))
                                 :render-limit 120}}
         effects (core/show-all-asset-selector-markets state)]
-    (is (= [[:effects/save [:asset-selector :render-limit] 622]]
+    (is (= [[:effects/save [:asset-selector :render-limit] 622]
+            [:effects/sync-asset-selector-active-ctx-subscriptions]]
            effects))))
 
 
@@ -118,6 +121,7 @@
                                  [[:orderbook-ui :size-unit-dropdown-visible?] false]
                                  [[:active-market] market]
                                  [[:order-form-ui] (trading/default-order-form-ui)]]]
+            [:effects/sync-asset-selector-active-ctx-subscriptions]
             [:effects/unsubscribe-active-asset "ETH"]
             [:effects/unsubscribe-orderbook "ETH"]
             [:effects/unsubscribe-trades "ETH"]
@@ -147,6 +151,7 @@
                                  [[:orderbook-ui :size-unit-dropdown-visible?] false]
                                  [[:active-market] market]
                                  [[:order-form-ui] (trading/default-order-form-ui)]]]
+            [:effects/sync-asset-selector-active-ctx-subscriptions]
             [:effects/subscribe-active-asset "SOL"]
             [:effects/subscribe-orderbook "SOL"]
             [:effects/subscribe-trades "SOL"]]
@@ -173,6 +178,7 @@
                                  [[:orderbook-ui :size-unit-dropdown-visible?] false]
                                  [[:active-market] resolved-market]
                                  [[:order-form-ui] (trading/default-order-form-ui)]]]
+            [:effects/sync-asset-selector-active-ctx-subscriptions]
             [:effects/unsubscribe-active-asset "ETH"]
             [:effects/unsubscribe-orderbook "ETH"]
             [:effects/unsubscribe-trades "ETH"]

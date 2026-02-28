@@ -9,6 +9,7 @@
    [:effects/local-storage-set :local-storage-set]
    [:effects/local-storage-set-json :local-storage-set-json]
    [:effects/queue-asset-icon-status :queue-asset-icon-status]
+   [:effects/sync-asset-selector-active-ctx-subscriptions :sync-asset-selector-active-ctx-subscriptions]
    [:effects/push-state :push-state]
    [:effects/replace-state :replace-state]
    [:effects/init-websocket :init-websocket]

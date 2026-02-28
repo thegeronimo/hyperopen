@@ -40,6 +40,7 @@
             [hyperopen.asset-selector.actions-test]
             [hyperopen.asset-selector.active-market-cache-test]
             [hyperopen.asset-selector.icon-status-runtime-test]
+            [hyperopen.asset-selector.market-live-projection-test]
             [hyperopen.asset-selector.markets-cache-test]
             [hyperopen.asset-selector.markets-test]
             [hyperopen.asset-selector.settings-test]
@@ -260,6 +261,7 @@
              'hyperopen.asset-selector.actions-test
              'hyperopen.asset-selector.active-market-cache-test
              'hyperopen.asset-selector.icon-status-runtime-test
+             'hyperopen.asset-selector.market-live-projection-test
              'hyperopen.asset-selector.markets-cache-test
              'hyperopen.asset-selector.markets-test
              'hyperopen.asset-selector.settings-test

@@ -5,7 +5,8 @@
            save-many
            local-storage-set
            local-storage-set-json]}
-   {:keys [queue-asset-icon-status]}
+   {:keys [queue-asset-icon-status
+           sync-asset-selector-active-ctx-subscriptions]}
    {:keys [push-state
            replace-state]}]
   {:save save
@@ -13,6 +14,7 @@
    :local-storage-set local-storage-set
    :local-storage-set-json local-storage-set-json
    :queue-asset-icon-status queue-asset-icon-status
+   :sync-asset-selector-active-ctx-subscriptions sync-asset-selector-active-ctx-subscriptions
    :push-state push-state
    :replace-state replace-state})
 

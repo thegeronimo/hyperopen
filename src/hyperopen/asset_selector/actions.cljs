@@ -43,10 +43,19 @@
 (def ^:private asset-selector-shortcut-favorite-key
   "s")
 
+(def ^:private sync-asset-selector-active-ctx-subscriptions-effect
+  [:effects/sync-asset-selector-active-ctx-subscriptions])
+
 (declare toggle-asset-dropdown
          close-asset-dropdown
          select-asset
          toggle-asset-favorite)
+
+(defn- append-selector-subscription-sync
+  [effects]
+  (if (seq effects)
+    (conj (vec effects) sync-asset-selector-active-ctx-subscriptions-effect)
+    []))
 
 (defn- parse-int-value
   [value]
@@ -184,7 +193,8 @@
                             [[:asset-selector :render-limit] asset-selector-default-render-limit]
                             [[:asset-selector :last-render-limit-increase-ms] nil]
                             [[:asset-selector :highlighted-market-key] nil]))
-        effects [[:effects/save-many path-values]]]
+        effects [[:effects/save-many path-values]
+                 sync-asset-selector-active-ctx-subscriptions-effect]]
     (cond-> effects
       should-refresh?
       (conj [:effects/fetch-asset-selector-markets]))))
@@ -195,7 +205,8 @@
                         [[:asset-selector :scroll-top] 0]
                         [[:asset-selector :render-limit] asset-selector-default-render-limit]
                         [[:asset-selector :last-render-limit-increase-ms] nil]
-                        [[:asset-selector :highlighted-market-key] nil]]]])
+                        [[:asset-selector :highlighted-market-key] nil]]]
+   sync-asset-selector-active-ctx-subscriptions-effect])
 
 (defn select-asset
   [state market-or-coin]
@@ -243,7 +254,8 @@
                                    (conj [[:order-form] reset-order-form])
                                    reset-order-form-ui
                                    (conj [[:order-form-ui] reset-order-form-ui]))
-        immediate-ui-effects [[:effects/save-many immediate-ui-path-values]]
+        immediate-ui-effects [[:effects/save-many immediate-ui-path-values]
+                              sync-asset-selector-active-ctx-subscriptions-effect]
         unsubscribe-effects (if current-asset
                              [[:effects/unsubscribe-active-asset current-asset]
                               [:effects/unsubscribe-orderbook current-asset]
@@ -257,11 +269,12 @@
 
 (defn update-asset-search
   [_state value]
-  [[:effects/save-many [[[:asset-selector :search-term] (str value)]
-                        [[:asset-selector :scroll-top] 0]
-                        [[:asset-selector :render-limit] asset-selector-default-render-limit]
-                        [[:asset-selector :last-render-limit-increase-ms] nil]
-                        [[:asset-selector :highlighted-market-key] nil]]]])
+  (append-selector-subscription-sync
+   [[:effects/save-many [[[:asset-selector :search-term] (str value)]
+                         [[:asset-selector :scroll-top] 0]
+                         [[:asset-selector :render-limit] asset-selector-default-render-limit]
+                         [[:asset-selector :last-render-limit-increase-ms] nil]
+                         [[:asset-selector :highlighted-market-key] nil]]]]))
 
 (defn update-asset-selector-sort
   [state sort-field]
@@ -270,24 +283,26 @@
         new-direction (if (= current-sort sort-field)
                         (if (= current-direction :asc) :desc :asc)
                         :desc)]
-    [[:effects/save-many [[[:asset-selector :sort-by] sort-field]
-                          [[:asset-selector :sort-direction] new-direction]
-                          [[:asset-selector :scroll-top] 0]
-                          [[:asset-selector :render-limit] asset-selector-default-render-limit]
-                          [[:asset-selector :last-render-limit-increase-ms] nil]
-                          [[:asset-selector :highlighted-market-key] nil]]]
-     [:effects/local-storage-set asset-selector-sort-by-storage-key (name sort-field)]
-     [:effects/local-storage-set asset-selector-sort-direction-storage-key (name new-direction)]]))
+    (append-selector-subscription-sync
+     [[:effects/save-many [[[:asset-selector :sort-by] sort-field]
+                           [[:asset-selector :sort-direction] new-direction]
+                           [[:asset-selector :scroll-top] 0]
+                           [[:asset-selector :render-limit] asset-selector-default-render-limit]
+                           [[:asset-selector :last-render-limit-increase-ms] nil]
+                           [[:asset-selector :highlighted-market-key] nil]]]
+      [:effects/local-storage-set asset-selector-sort-by-storage-key (name sort-field)]
+      [:effects/local-storage-set asset-selector-sort-direction-storage-key (name new-direction)]])))
 
 (defn toggle-asset-selector-strict
   [state]
   (let [new-value (not (get-in state [:asset-selector :strict?] false))]
-    [[:effects/save-many [[[:asset-selector :strict?] new-value]
-                          [[:asset-selector :scroll-top] 0]
-                          [[:asset-selector :render-limit] asset-selector-default-render-limit]
-                          [[:asset-selector :last-render-limit-increase-ms] nil]
-                          [[:asset-selector :highlighted-market-key] nil]]]
-     [:effects/local-storage-set asset-selector-strict-storage-key (str new-value)]]))
+    (append-selector-subscription-sync
+     [[:effects/save-many [[[:asset-selector :strict?] new-value]
+                           [[:asset-selector :scroll-top] 0]
+                           [[:asset-selector :render-limit] asset-selector-default-render-limit]
+                           [[:asset-selector :last-render-limit-increase-ms] nil]
+                           [[:asset-selector :highlighted-market-key] nil]]]
+      [:effects/local-storage-set asset-selector-strict-storage-key (str new-value)]])))
 
 (defn toggle-asset-favorite
   [state market-key]
@@ -295,28 +310,31 @@
         new-favorites (if (contains? favorites market-key)
                         (disj favorites market-key)
                         (conj favorites market-key))]
-    [[:effects/save-many [[[:asset-selector :favorites] new-favorites]
-                          [[:asset-selector :render-limit] asset-selector-default-render-limit]
-                          [[:asset-selector :last-render-limit-increase-ms] nil]
-                          [[:asset-selector :highlighted-market-key] nil]]]
-     [:effects/local-storage-set-json asset-selector-favorites-storage-key (vec new-favorites)]]))
+    (append-selector-subscription-sync
+     [[:effects/save-many [[[:asset-selector :favorites] new-favorites]
+                           [[:asset-selector :render-limit] asset-selector-default-render-limit]
+                           [[:asset-selector :last-render-limit-increase-ms] nil]
+                           [[:asset-selector :highlighted-market-key] nil]]]
+      [:effects/local-storage-set-json asset-selector-favorites-storage-key (vec new-favorites)]])))
 
 (defn set-asset-selector-favorites-only
   [_state enabled?]
-  [[:effects/save-many [[[:asset-selector :favorites-only?] (boolean enabled?)]
-                        [[:asset-selector :scroll-top] 0]
-                        [[:asset-selector :render-limit] asset-selector-default-render-limit]
-                        [[:asset-selector :last-render-limit-increase-ms] nil]
-                        [[:asset-selector :highlighted-market-key] nil]]]])
+  (append-selector-subscription-sync
+   [[:effects/save-many [[[:asset-selector :favorites-only?] (boolean enabled?)]
+                         [[:asset-selector :scroll-top] 0]
+                         [[:asset-selector :render-limit] asset-selector-default-render-limit]
+                         [[:asset-selector :last-render-limit-increase-ms] nil]
+                         [[:asset-selector :highlighted-market-key] nil]]]]))
 
 (defn set-asset-selector-tab
   [_state tab]
-  [[:effects/save-many [[[:asset-selector :active-tab] tab]
-                        [[:asset-selector :scroll-top] 0]
-                        [[:asset-selector :render-limit] asset-selector-default-render-limit]
-                        [[:asset-selector :last-render-limit-increase-ms] nil]
-                        [[:asset-selector :highlighted-market-key] nil]]]
-   [:effects/local-storage-set asset-selector-active-tab-storage-key (name tab)]])
+  (append-selector-subscription-sync
+   [[:effects/save-many [[[:asset-selector :active-tab] tab]
+                         [[:asset-selector :scroll-top] 0]
+                         [[:asset-selector :render-limit] asset-selector-default-render-limit]
+                         [[:asset-selector :last-render-limit-increase-ms] nil]
+                         [[:asset-selector :highlighted-market-key] nil]]]
+    [:effects/local-storage-set asset-selector-active-tab-storage-key (name tab)]]))
 
 (defn set-asset-selector-scroll-top
   [state scroll-top]
@@ -326,7 +344,8 @@
                             (* asset-selector-row-height-px))]
     (if (= next-scroll-top (get-in state [:asset-selector :scroll-top] 0))
       []
-      [[:effects/save [:asset-selector :scroll-top] next-scroll-top]])))
+      (append-selector-subscription-sync
+       [[:effects/save [:asset-selector :scroll-top] next-scroll-top]]))))
 
 (defn- current-asset-selector-render-limit
   [state total]
@@ -344,7 +363,8 @@
         current-limit (current-asset-selector-render-limit state total)
         next-limit (min total (+ current-limit asset-selector-render-limit-step))]
     (if (> next-limit current-limit)
-      [[:effects/save [:asset-selector :render-limit] next-limit]]
+      (append-selector-subscription-sync
+       [[:effects/save [:asset-selector :render-limit] next-limit]])
       [])))
 
 (defn show-all-asset-selector-markets
@@ -353,7 +373,8 @@
         total (count markets)
         current-limit (current-asset-selector-render-limit state total)]
     (if (> total current-limit)
-      [[:effects/save [:asset-selector :render-limit] total]]
+      (append-selector-subscription-sync
+       [[:effects/save [:asset-selector :render-limit] total]])
       [])))
 
 (defn maybe-increase-asset-selector-render-limit
@@ -385,13 +406,15 @@
                       (min total (+ current-limit asset-selector-render-limit-step))
                       current-limit)]
      (if (> next-limit current-limit)
-       [[:effects/save-many (cond-> [[[:asset-selector :render-limit] next-limit]]
-                              (some? current-event-ms)
-                              (conj [[:asset-selector :last-render-limit-increase-ms] current-event-ms])
-                              scroll-changed?
-                              (conj [[:asset-selector :scroll-top] next-scroll-top]))]]
+       (append-selector-subscription-sync
+        [[:effects/save-many (cond-> [[[:asset-selector :render-limit] next-limit]]
+                               (some? current-event-ms)
+                               (conj [[:asset-selector :last-render-limit-increase-ms] current-event-ms])
+                               scroll-changed?
+                               (conj [[:asset-selector :scroll-top] next-scroll-top]))]])
        (if scroll-changed?
-         [[:effects/save [:asset-selector :scroll-top] next-scroll-top]]
+         (append-selector-subscription-sync
+          [[:effects/save [:asset-selector :scroll-top] next-scroll-top]])
          [])))))
 
 (defn apply-asset-icon-status-updates
