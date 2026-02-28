@@ -156,9 +156,7 @@
 
 (defn- funding-display-value [funding-num]
   (when (number? funding-num)
-    (if (pos? funding-num)
-      (- funding-num)
-      funding-num)))
+    (- funding-num)))
 
 (defn- format-funding-tooltip [all-time-funding since-change-funding]
   (let [all-time-text (if (number? all-time-funding)
@@ -403,7 +401,9 @@
                                 (or (shared/parse-optional-num liq) js/Number.MAX_VALUE)
                                 js/Number.MAX_VALUE)))
      "Margin" (fn [pos] (or (shared/parse-optional-num (:marginUsed (:position pos))) 0))
-     "Funding" (fn [pos] (or (shared/parse-optional-num (get-in (:position pos) [:cumFunding :allTime])) 0))}}))
+     "Funding" (fn [pos] (or (funding-display-value
+                              (shared/parse-optional-num (get-in (:position pos) [:cumFunding :allTime])))
+                             0))}}))
 
 (defonce ^:private sorted-positions-cache (atom nil))
 

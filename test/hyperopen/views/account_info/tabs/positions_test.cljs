@@ -247,6 +247,15 @@
     (is (= ["CCC" "AAA" "BBB"] (mapv #(get-in % [:position :coin]) asc-result)))
     (is (= ["BBB" "AAA" "CCC"] (mapv #(get-in % [:position :coin]) desc-result)))))
 
+(deftest sort-positions-by-column-funding-uses-display-sign-convention-test
+  (let [positions [{:position {:coin "PAID" :cumFunding {:allTime "0.25"}}}
+                   {:position {:coin "RECEIVED" :cumFunding {:allTime "-0.10"}}}
+                   {:position {:coin "ZERO" :cumFunding {:allTime "0"}}}]
+        asc-result (view/sort-positions-by-column positions "Funding" :asc)
+        desc-result (view/sort-positions-by-column positions "Funding" :desc)]
+    (is (= ["PAID" "ZERO" "RECEIVED"] (mapv #(get-in % [:position :coin]) asc-result)))
+    (is (= ["RECEIVED" "ZERO" "PAID"] (mapv #(get-in % [:position :coin]) desc-result)))))
+
 (deftest position-row-uses-safe-placeholders-for-invalid-pnl-and-funding-values-test
   (let [row-node (view/position-row {:position {:coin "HYPE"
                                                 :leverage {:value 3}
@@ -323,6 +332,20 @@
     (is (not-any? #(str/includes? % "NaN") (hiccup/collect-strings with-since-change-cell)))
     (is (not-any? #(str/includes? % "NaN") (hiccup/collect-strings with-since-open-cell)))
     (is (not-any? #(str/includes? % "NaN") (hiccup/collect-strings without-since-change-cell)))))
+
+(deftest position-row-funding-display-shows-received-as-positive-test
+  (let [row-data (assoc-in (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
+                           [:position :cumFunding]
+                           {:allTime "-0.5"
+                            :sinceChange "-0.25"})
+        funding-cell (nth (vec (hiccup/node-children (view/position-row row-data))) 8)
+        funding-strings (set (hiccup/collect-strings funding-cell))
+        funding-value-node (hiccup/find-first-node funding-cell
+                                                   #(and (= :span (first %))
+                                                         (contains? (hiccup/node-class-set %) "text-success")))]
+    (is (contains? funding-strings "$0.50"))
+    (is (contains? funding-strings "All-time: $0.50 Since change: $0.25"))
+    (is (some? funding-value-node))))
 
 (deftest position-row-tpsl-cell-includes-edit-affordance-icon-test
   (let [row-node (view/position-row (fixtures/sample-position-row "xyz:NVDA" 10 "0.500"))
