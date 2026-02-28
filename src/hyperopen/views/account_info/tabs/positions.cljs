@@ -169,6 +169,29 @@
                             "--")]
     (str "All-time: " all-time-text " Since change: " since-change-text)))
 
+(def ^:private max-liquidation-display-chars 6)
+
+(defn- count-integer-digits [num]
+  (let [abs-value (js/Math.abs num)]
+    (if (< abs-value 1)
+      1
+      (inc (js/Math.floor (/ (js/Math.log abs-value)
+                             (js/Math.log 10)))))))
+
+(defn- format-liquidation-price [value]
+  (if-let [num (shared/parse-optional-num value)]
+    (let [integer-digits (count-integer-digits num)
+          decimal-digits (if (>= integer-digits max-liquidation-display-chars)
+                           0
+                           (max 0 (- max-liquidation-display-chars integer-digits 1)))]
+      (.toLocaleString (js/Number. num)
+                       "en-US"
+                       #js {:style "currency"
+                            :currency "USD"
+                            :minimumFractionDigits 0
+                            :maximumFractionDigits decimal-digits}))
+    "N/A"))
+
 (defn- valid-trigger-price
   [value]
   (let [num (shared/parse-optional-num value)]
@@ -311,7 +334,7 @@
        (format-pnl-inline pnl-num pnl-percent)]
       [:div.text-left.font-semibold.num
        (explainable-value-node
-        (if liq-price (shared/format-trade-price liq-price) "N/A")
+        (format-liquidation-price liq-price)
         liq-explanation)]
       [:div.text-left.font-semibold.num "$" (shared/format-currency margin)]
       [:div.text-left.font-semibold.num

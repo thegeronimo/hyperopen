@@ -278,6 +278,16 @@
     (is (contains? pnl-texts "+$1.25 (+10.0%)"))
     (is (nil? (hiccup/find-first-node pnl-cell #(contains? (hiccup/node-class-set %) "text-xs"))))))
 
+(deftest position-row-limits-liquidation-price-display-to-six-chars-test
+  (let [row-data (-> (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
+                     (assoc-in [:position :liquidationPx] "5222.57562052"))
+        row-node (view/position-row row-data)
+        row-cells (vec (hiccup/node-children row-node))
+        liq-cell (nth row-cells 6)
+        liq-texts (set (hiccup/collect-strings liq-cell))]
+    (is (contains? liq-texts "$5,222.6"))
+    (is (not-any? #(str/includes? % "57562052") liq-texts))))
+
 (deftest position-headers-render-tooltip-affordance-for-pnl-margin-and-funding-test
   (let [header-node (view/position-table-header fixtures/default-sort-state)
         pnl-header-label (hiccup/find-first-node header-node #(and (contains? (hiccup/direct-texts %) "PNL (ROE %)")
