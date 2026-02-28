@@ -1,8 +1,10 @@
 (ns hyperopen.views.portfolio.vm
-  (:require [clojure.string :as str]
+  (:require [cljs.reader :as reader]
+            [clojure.string :as str]
             [hyperopen.domain.trading :as trading]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.portfolio.metrics :as portfolio-metrics]
+            [hyperopen.system :as system]
             [hyperopen.views.account-equity-view :as account-equity-view]
             [hyperopen.views.account-info.projections :as projections]))
 
@@ -47,6 +49,35 @@
 (def ^:private performance-periods-per-year
   365)
 
+(defonce ^:private metrics-worker
+  (delay
+   (when (exists? js/Worker)
+     (let [worker (js/Worker. "/js/portfolio_worker.js")]
+       (.addEventListener worker "message"
+                          (fn [^js e]
+                            (let [data (.-data e)
+                                  type (.-type data)
+                                  payload-str (.-payload data)]
+                              (when (= type "metrics-result")
+                                (let [payload (reader/read-string payload-str)]
+                                  (swap! system/store (fn [s]
+                                                        (-> s
+                                                            (assoc-in [:portfolio-ui :metrics-result] payload)
+                                                            (assoc-in [:portfolio-ui :metrics-loading?] false)))))))))
+       worker))))
+
+(defonce ^:private last-metrics-request (atom nil))
+
+(defn- request-metrics-computation!
+  [request-data]
+  (let [signature (hash request-data)]
+    (when (not= signature (:signature @last-metrics-request))
+      (reset! last-metrics-request {:signature signature :data request-data})
+      (swap! system/store assoc-in [:portfolio-ui :metrics-loading?] true)
+      (when-let [worker @metrics-worker]
+        (.postMessage worker (clj->js {:type "compute-metrics"
+                                       :payload (pr-str request-data)}))))))
+
 (def ^:private chart-empty-y-ticks
   [{:value 3 :y-ratio 0}
    {:value 2 :y-ratio (/ 1 3)}
@@ -90,8 +121,16 @@
                :time-ms time-ms})))
         rows))
 
+(defonce ^:private fills-volume-cache (atom nil))
+
 (defn volume-14d-usd [state]
-  (let [values (trade-values (fills-source state))
+  (let [fills (fills-source state)
+        cache @fills-volume-cache
+        values (if (and cache (identical? fills (:fills cache)))
+                 (:values cache)
+                 (let [new-values (trade-values fills)]
+                   (reset! fills-volume-cache {:fills fills :values new-values})
+                   new-values))
         cutoff (- (.now js/Date) fourteen-days-ms)
         in-window (filter (fn [{:keys [time-ms]}]
                             (and (number? time-ms)
@@ -982,8 +1021,30 @@
                                (or rows []))))
           (or groups []))))
 
+(defn- compute-metrics-sync [request-data]
+  (let [portfolio-request (:portfolio-request request-data)
+        benchmark-requests (:benchmark-requests request-data)
+        portfolio-result (portfolio-metrics/compute-performance-metrics
+                          {:strategy-cumulative-rows (:strategy-cumulative-rows portfolio-request)
+                           :strategy-daily-rows (:strategy-daily-rows portfolio-request)
+                           :benchmark-daily-rows (:benchmark-daily-rows portfolio-request)
+                           :rf (or (:rf portfolio-request) 0)
+                           :mar (or (:mar portfolio-request) 0)
+                           :periods-per-year (or (:periods-per-year portfolio-request) 365)
+                           :quality-gates (:quality-gates portfolio-request)})
+        benchmark-results (into {}
+                                (map (fn [{:keys [coin request]}]
+                                       [coin (portfolio-metrics/compute-performance-metrics
+                                              {:strategy-cumulative-rows (:strategy-cumulative-rows request)
+                                               :strategy-daily-rows (:strategy-daily-rows request)
+                                               :rf 0
+                                               :periods-per-year 365})]))
+                                benchmark-requests)]
+    {:portfolio-values portfolio-result
+     :benchmark-values-by-coin benchmark-results}))
+
 (defn- performance-metrics-model
-  [returns-benchmark-selector benchmark-context]
+  [state returns-benchmark-selector benchmark-context]
   (let [strategy-cumulative-rows (or (:strategy-cumulative-rows benchmark-context)
                                      [])
         benchmark-cumulative-rows-by-coin (or (:benchmark-cumulative-rows-by-coin benchmark-context)
@@ -993,28 +1054,49 @@
                                           []))
         benchmark-label-by-coin (or (:label-by-coin returns-benchmark-selector)
                                     {})
-        benchmark-columns (mapv (fn [coin]
-                                  (benchmark-performance-column (or (get benchmark-cumulative-rows-by-coin coin)
-                                                                    [])
-                                                                benchmark-label-by-coin
-                                                                coin))
-                                selected-benchmark-coins)
+        
+        ;; prepare requests for worker
+        benchmark-requests (mapv (fn [coin]
+                                   {:coin coin
+                                    :request {:strategy-cumulative-rows (or (get benchmark-cumulative-rows-by-coin coin) [])
+                                              :strategy-daily-rows (portfolio-metrics/daily-compounded-returns (or (get benchmark-cumulative-rows-by-coin coin) []))}})
+                                 selected-benchmark-coins)
+        portfolio-request {:strategy-cumulative-rows strategy-cumulative-rows
+                           :strategy-daily-rows strategy-daily-rows
+                           :benchmark-daily-rows (or (some-> benchmark-requests first :request :strategy-daily-rows) [])}
+        
+        _ (request-metrics-computation! {:portfolio-request portfolio-request
+                                         :benchmark-requests benchmark-requests})
+        
+        metrics-result (if @metrics-worker
+                         (get-in state [:portfolio-ui :metrics-result])
+                         (compute-metrics-sync {:portfolio-request portfolio-request
+                                                :benchmark-requests benchmark-requests}))
+        loading? (if @metrics-worker
+                   (boolean (get-in state [:portfolio-ui :metrics-loading?]))
+                   false)
+        
+        portfolio-values (or (:portfolio-values metrics-result) {})
+        benchmark-values-by-coin-result (or (:benchmark-values-by-coin metrics-result) {})
+        
+        benchmark-columns (mapv (fn [{:keys [coin request]}]
+                                  {:coin coin
+                                   :label (or (get benchmark-label-by-coin coin) coin)
+                                   :cumulative-rows (:strategy-cumulative-rows request)
+                                   :daily-rows (:strategy-daily-rows request)
+                                   :values (or (get benchmark-values-by-coin-result coin) {})})
+                                benchmark-requests)
+        
         primary-benchmark-column (first benchmark-columns)
         benchmark-coin (:coin primary-benchmark-column)
-        benchmark-daily-rows (or (:daily-rows primary-benchmark-column)
-                                 [])
-        portfolio-values (portfolio-metrics/compute-performance-metrics {:strategy-cumulative-rows strategy-cumulative-rows
-                                                                         :strategy-daily-rows strategy-daily-rows
-                                                                         :benchmark-daily-rows benchmark-daily-rows
-                                                                         :rf 0
-                                                                         :periods-per-year performance-periods-per-year})
         benchmark-values (or (:values primary-benchmark-column)
                              {})
         groups (with-performance-metric-columns (portfolio-metrics/metric-rows portfolio-values)
                  portfolio-values
                  benchmark-columns)
         benchmark-label (:label primary-benchmark-column)]
-    {:benchmark-selected? (boolean (seq benchmark-columns))
+    {:loading? loading?
+     :benchmark-selected? (boolean (seq benchmark-columns))
      :benchmark-coin benchmark-coin
      :benchmark-label benchmark-label
      :benchmark-coins (mapv :coin benchmark-columns)
@@ -1388,7 +1470,8 @@
                                                          summary-scope
                                                          summary-time-range
                                                          returns-benchmark-selector)
-        performance-metrics (performance-metrics-model returns-benchmark-selector
+        performance-metrics (performance-metrics-model state
+                                                       returns-benchmark-selector
                                                        benchmark-context)
         chart (build-chart-model state
                                  summary-entry

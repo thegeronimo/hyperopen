@@ -428,3 +428,7 @@
      [[:portfolio-ui :returns-benchmark-coin] nil]
      [[:portfolio-ui :returns-benchmark-search] ""]
      [[:portfolio-ui :returns-benchmark-suggestions-open?] false]]]])
+
+(defn set-portfolio-metrics-result
+  [_state payload]
+  [[:effects/save [:portfolio-ui :metrics-result] payload]])

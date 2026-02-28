@@ -39,7 +39,9 @@
         outside (- now (* 30 day-ms))
         state {:orders {:fills [{:time within :sz "2" :px "100"}
                                 {:time outside :sz "5" :px "100"}]}}]
-    (is (= 200 (vm/volume-14d-usd state)))))
+    (is (= 200 (vm/volume-14d-usd state)))
+    (testing "Cache correctly skips calculation if fills are identical"
+      (is (= 200 (vm/volume-14d-usd state))))))
 
 (deftest volume-14d-usd-falls-back-to-all-values-when-row-times-missing-test
   (let [state {:orders {:fills [{:sz "1" :px "50"}
@@ -208,10 +210,10 @@
 
 (deftest portfolio-vm-builds-performance-metrics-groups-with-benchmark-fallbacks-test
   (with-redefs [account-equity-view/account-equity-metrics (fn [_]
-                                                              {:spot-equity 0
-                                                               :perps-value 0
-                                                               :cross-account-value 0
-                                                               :unrealized-pnl 0})]
+                                                             {:spot-equity 0
+                                                              :perps-value 0
+                                                              :cross-account-value 0
+                                                              :unrealized-pnl 0})]
     (let [t0 fixture-start-ms
           t1 (+ fixture-start-ms day-ms)
           t2 (+ fixture-start-ms (* 2 day-ms))
@@ -230,6 +232,17 @@
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)
           groups (get-in view-model [:performance-metrics :groups])]
+      
+      (testing "Worker data serialization integrity"
+        (let [raw-metrics-result (get-in view-model [:performance-metrics :values])
+              ;; Simulate standard PR-STR and READER loop like the worker uses
+              serialized (pr-str {:portfolio-values raw-metrics-result})
+              deserialized (cljs.reader/read-string serialized)]
+          (is (= :ok (get-in deserialized [:portfolio-values :metric-status :time-in-market]))
+              "Keywords must survive worker serialization round-trip")
+          (is (= :suppressed (get-in deserialized [:portfolio-values :metric-status :r2])))
+          (is (= :benchmark-coverage-gate-failed (get-in deserialized [:portfolio-values :metric-reason :r2])))))
+      
       (is (seq groups))
       (is (= "Time in Market"
              (get-in groups [0 :rows 0 :label])))
@@ -244,7 +257,6 @@
       (is (= :benchmark-coverage-gate-failed
              (get-in (performance-metric-row view-model :r2) [:portfolio-reason])))
       (is (nil? (:value (performance-metric-row view-model :information-ratio)))))))
-
 (deftest portfolio-vm-chart-tab-selection-switches-history-source-test
   (with-redefs [account-equity-view/account-equity-metrics (fn [_]
                                                               {:spot-equity 10

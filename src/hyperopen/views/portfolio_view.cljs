@@ -755,7 +755,8 @@
                                       {:data-role (str "portfolio-performance-metric-" (name key) "-benchmark-value-" coin)}))
      (performance-metric-value-cell kind portfolio-value)]))
 
-(defn- performance-metrics-card [{:keys [benchmark-selected?
+(defn- performance-metrics-card [{:keys [loading?
+                                         benchmark-selected?
                                          benchmark-label
                                          benchmark-columns
                                          benchmark-coin
@@ -774,8 +775,11 @@
                                       (when (seq rows*)
                                         (assoc group :rows rows*)))))
                             vec)]
-    [:div {:class ["flex" "h-full" "min-h-0" "flex-col"]
+    [:div {:class ["flex" "h-full" "min-h-0" "flex-col" "relative"]
            :data-role "portfolio-performance-metrics-card"}
+     (when loading?
+       [:div {:class ["absolute" "inset-0" "z-10" "flex" "items-center" "justify-center" "bg-base-100/50" "backdrop-blur-sm"]}
+        [:span {:class ["loading" "loading-spinner" "loading-lg"]}]])
      [:div {:class ["grid"
                     "items-center"
                     "justify-items-start"

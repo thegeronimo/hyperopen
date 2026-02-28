@@ -15,6 +15,13 @@
                    :http-root "resources/public"
                    :http-port 8080
                    :after-load hyperopen.core/reload}}
+
+  :portfolio-worker {:target :browser
+                     :output-dir "resources/public/js"
+                     :asset-path "/js"
+                     :modules {:portfolio_worker {:init-fn hyperopen.portfolio.worker/init
+                                                  :web-worker true}}
+                     :compiler-options {:optimizations :advanced}}
   
   :test {:target :node-test
          :output-to "out/test.js"
