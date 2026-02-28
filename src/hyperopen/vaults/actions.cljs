@@ -37,6 +37,12 @@
 (def default-vault-detail-chart-series
   :returns)
 
+(def default-vault-transfer-mode
+  :deposit)
+
+(def ^:private vault-usdc-micros-scale
+  1000000)
+
 (def ^:private vault-snapshot-ranges
   #{:day :week :month :three-month :six-month :one-year :two-year :all-time})
 
@@ -71,6 +77,9 @@
     :pnl
     :returns})
 
+(def ^:private vault-transfer-modes
+  #{:deposit :withdraw})
+
 (def ^:private projection-effect-ids
   #{:effects/save
     :effects/save-many})
@@ -86,6 +95,9 @@
 
 (def ^:private vault-detail-activity-filter-open-path
   [:vaults-ui :detail-activity-filter-open?])
+
+(def ^:private vault-transfer-modal-path
+  [:vaults-ui :vault-transfer-modal])
 
 (def vault-user-page-size-options
   [5 10 25 50])
@@ -257,6 +269,26 @@
       normalized
       default-vault-detail-chart-series)))
 
+(defn normalize-vault-transfer-mode
+  [value]
+  (let [mode (cond
+               (keyword? value) value
+               (string? value) (some-> value str/trim str/lower-case keyword)
+               :else nil)]
+    (if (contains? vault-transfer-modes mode)
+      mode
+      default-vault-transfer-mode)))
+
+(defn default-vault-transfer-modal-state
+  []
+  {:open? false
+   :mode default-vault-transfer-mode
+   :vault-address nil
+   :amount-input ""
+   :withdraw-all? false
+   :submitting? false
+   :error nil})
+
 (defn- selected-vault-detail-returns-benchmark-coins
   [state]
   (let [coins (portfolio-actions/normalize-portfolio-returns-benchmark-coins
@@ -411,6 +443,97 @@
           (when (= vault-address (normalize-vault-address (:vault-address row)))
             row))
         (or (get-in state [:vaults :merged-index-rows]) [])))
+
+(defn- vault-details-record
+  [state vault-address]
+  (get-in state [:vaults :details-by-address vault-address]))
+
+(defn- vault-entity-name
+  [state vault-address]
+  (or (some-> (vault-details-record state vault-address) :name non-blank-text)
+      (some-> (merged-vault-row state vault-address) :name non-blank-text)))
+
+(defn- vault-leader-address
+  [state vault-address]
+  (or (some-> (vault-details-record state vault-address) :leader normalize-vault-address)
+      (some-> (merged-vault-row state vault-address) :leader normalize-vault-address)))
+
+(defn vault-transfer-deposit-allowed?
+  [state vault-address]
+  (let [vault-address* (normalize-vault-address vault-address)
+        allow-deposits? (true? (get-in state [:vaults :details-by-address vault-address* :allow-deposits?]))
+        wallet-address (vault-wallet-address state)
+        leader-address (vault-leader-address state vault-address*)
+        leader? (and (string? wallet-address)
+                     (= wallet-address leader-address))
+        liquidator-vault? (= "liquidator"
+                             (some-> (vault-entity-name state vault-address*)
+                                     str/lower-case
+                                     str/trim))]
+    (and (string? vault-address*)
+         (not liquidator-vault?)
+         (or leader? allow-deposits?))))
+
+(defn- parse-usdc-micros
+  [value]
+  (let [text (some-> value str str/trim)]
+    (when-let [[_ int-part frac-part frac-only]
+               (and (seq text)
+                    (re-matches #"^(?:(\d+)(?:\.(\d*))?|\.(\d+))$" text))]
+      (let [whole (or (parse-utils/parse-int-value int-part) 0)
+            fraction-source (or frac-part frac-only "")
+            fraction-padded (subs (str fraction-source "000000") 0 6)
+            fraction (or (parse-utils/parse-int-value fraction-padded) 0)
+            whole-micros (* whole vault-usdc-micros-scale)
+            micros (+ whole-micros fraction)]
+        (when (and (number? micros)
+                   (<= micros js/Number.MAX_SAFE_INTEGER))
+          micros)))))
+
+(defn vault-transfer-preview
+  [state modal]
+  (let [modal* (merge (default-vault-transfer-modal-state)
+                      (if (map? modal) modal {}))
+        route-vault-address (-> state
+                                (get-in [:router :path])
+                                parse-vault-route
+                                :vault-address)
+        vault-address (or (normalize-vault-address (:vault-address modal*))
+                          route-vault-address)
+        mode (normalize-vault-transfer-mode (:mode modal*))
+        withdraw-all? (and (= mode :withdraw)
+                           (true? (:withdraw-all? modal*)))
+        amount-input (:amount-input modal*)
+        amount-micros (if withdraw-all?
+                        0
+                        (parse-usdc-micros amount-input))
+        deposit-allowed? (vault-transfer-deposit-allowed? state vault-address)]
+    (cond
+      (nil? vault-address)
+      {:ok? false
+       :display-message "Invalid vault address."}
+
+      (and (= mode :deposit)
+           (not deposit-allowed?))
+      {:ok? false
+       :display-message "Deposits are disabled for this vault."}
+
+      (and (not withdraw-all?)
+           (or (nil? amount-micros)
+               (<= amount-micros 0)))
+      {:ok? false
+       :display-message "Enter an amount greater than 0."}
+
+      :else
+      {:ok? true
+       :mode mode
+       :vault-address vault-address
+       :display-message nil
+       :request {:vault-address vault-address
+                 :action {:type "vaultTransfer"
+                          :vaultAddress vault-address
+                          :isDeposit (= mode :deposit)
+                          :usd amount-micros}}})))
 
 (defn- component-vault-addresses
   [state vault-address]
@@ -696,6 +819,74 @@
      [[:vaults-ui :detail-returns-benchmark-coin] nil]
      [[:vaults-ui :detail-returns-benchmark-search] ""]
      [[:vaults-ui :detail-returns-benchmark-suggestions-open?] false]]]])
+
+(defn- vault-transfer-modal
+  [state]
+  (merge (default-vault-transfer-modal-state)
+         (if (map? (get-in state vault-transfer-modal-path))
+           (get-in state vault-transfer-modal-path)
+           {})))
+
+(defn open-vault-transfer-modal
+  [_state vault-address mode]
+  (if-let [vault-address* (normalize-vault-address vault-address)]
+    [[:effects/save vault-transfer-modal-path
+      (assoc (default-vault-transfer-modal-state)
+             :open? true
+             :mode (normalize-vault-transfer-mode mode)
+             :vault-address vault-address*)]]
+    []))
+
+(defn close-vault-transfer-modal
+  [_state]
+  [[:effects/save vault-transfer-modal-path
+    (default-vault-transfer-modal-state)]])
+
+(defn handle-vault-transfer-modal-keydown
+  [state key]
+  (if (= key "Escape")
+    (close-vault-transfer-modal state)
+    []))
+
+(defn set-vault-transfer-amount
+  [state amount]
+  (let [modal (vault-transfer-modal state)
+        amount* (if (string? amount)
+                  amount
+                  (str (or amount "")))
+        mode* (normalize-vault-transfer-mode (:mode modal))
+        next-modal (-> modal
+                       (assoc :amount-input amount*
+                              :error nil)
+                       (cond->
+                         (and (= mode* :withdraw)
+                              (seq (str/trim amount*)))
+                         (assoc :withdraw-all? false)))]
+    [[:effects/save vault-transfer-modal-path next-modal]]))
+
+(defn set-vault-transfer-withdraw-all
+  [state withdraw-all?]
+  (let [modal (vault-transfer-modal state)
+        mode* (normalize-vault-transfer-mode (:mode modal))
+        enabled? (= mode* :withdraw)
+        withdraw-all?* (and enabled?
+                            (true? withdraw-all?))
+        next-modal (cond-> (assoc modal
+                                  :withdraw-all? withdraw-all?*
+                                  :error nil)
+                     withdraw-all?* (assoc :amount-input ""))]
+    [[:effects/save vault-transfer-modal-path next-modal]]))
+
+(defn submit-vault-transfer
+  [state]
+  (let [modal (vault-transfer-modal state)
+        result (vault-transfer-preview state modal)]
+    (if-not (:ok? result)
+      [[:effects/save-many [[(conj vault-transfer-modal-path :submitting?) false]
+                            [(conj vault-transfer-modal-path :error) (:display-message result)]]]]
+      [[:effects/save-many [[(conj vault-transfer-modal-path :submitting?) true]
+                            [(conj vault-transfer-modal-path :error) nil]]]
+       [:effects/api-submit-vault-transfer (:request result)]])))
 
 (defn set-vault-detail-chart-hover
   [state client-x bounds point-count]

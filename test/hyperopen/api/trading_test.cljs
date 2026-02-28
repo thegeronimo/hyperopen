@@ -35,3 +35,27 @@
           (.finally
            (fn []
              (set! agent-session/load-agent-session-by-mode original-load)))))))
+
+(deftest submit-vault-transfer-public-seam-rejects-when-session-is-missing-test
+  (async done
+    (let [store (atom {:wallet {:agent {:status :ready
+                                        :storage-mode :session}}})
+          original-load agent-session/load-agent-session-by-mode]
+      (set! agent-session/load-agent-session-by-mode
+            (fn [_wallet-address _storage-mode]
+              nil))
+      (-> (trading/submit-vault-transfer! store
+                                          support/owner-address
+                                          {:type "vaultTransfer"
+                                           :vaultAddress "0x1234567890abcdef1234567890abcdef12345678"
+                                           :isDeposit true
+                                           :usd 1000000})
+          (.then (fn [_]
+                   (is false "Expected missing agent session to reject")
+                   (done)))
+          (.catch (fn [err]
+                    (is (re-find #"Agent session unavailable" (str err)))
+                    (done)))
+          (.finally
+           (fn []
+             (set! agent-session/load-agent-session-by-mode original-load)))))))

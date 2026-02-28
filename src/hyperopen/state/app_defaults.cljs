@@ -165,6 +165,7 @@
    :detail-returns-benchmark-search ""
    :detail-returns-benchmark-suggestions-open? false
    :detail-chart-hover-index nil
+   :vault-transfer-modal (vault-actions/default-vault-transfer-modal-state)
    :list-loading? false
    :detail-loading? false})
 

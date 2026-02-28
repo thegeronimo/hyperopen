@@ -212,6 +212,12 @@
    :remove-vault-detail-returns-benchmark vault-actions/remove-vault-detail-returns-benchmark
    :handle-vault-detail-returns-benchmark-search-keydown vault-actions/handle-vault-detail-returns-benchmark-search-keydown
    :clear-vault-detail-returns-benchmark vault-actions/clear-vault-detail-returns-benchmark
+   :open-vault-transfer-modal vault-actions/open-vault-transfer-modal
+   :close-vault-transfer-modal vault-actions/close-vault-transfer-modal
+   :handle-vault-transfer-modal-keydown vault-actions/handle-vault-transfer-modal-keydown
+   :set-vault-transfer-amount vault-actions/set-vault-transfer-amount
+   :set-vault-transfer-withdraw-all vault-actions/set-vault-transfer-withdraw-all
+   :submit-vault-transfer vault-actions/submit-vault-transfer
    :set-vault-detail-chart-hover vault-actions/set-vault-detail-chart-hover
    :clear-vault-detail-chart-hover vault-actions/clear-vault-detail-chart-hover})
 
@@ -229,7 +235,8 @@
           :api-fetch-vault-fills vault-effects/api-fetch-vault-fills!
           :api-fetch-vault-funding-history vault-effects/api-fetch-vault-funding-history!
           :api-fetch-vault-order-history vault-effects/api-fetch-vault-order-history!
-          :api-fetch-vault-ledger-updates vault-effects/api-fetch-vault-ledger-updates!}}
+          :api-fetch-vault-ledger-updates vault-effects/api-fetch-vault-ledger-updates!
+          :api-submit-vault-transfer vault-effects/api-submit-vault-transfer!}}
    effect-overrides))
 
 (defn runtime-action-deps

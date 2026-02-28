@@ -682,3 +682,13 @@
     :begin-vault-ledger-updates-load api-projections/begin-vault-ledger-updates-load
     :apply-vault-ledger-updates-success api-projections/apply-vault-ledger-updates-success
     :apply-vault-ledger-updates-error api-projections/apply-vault-ledger-updates-error}))
+
+(defn api-submit-vault-transfer-effect
+  [_ store request]
+  (vault-effects/api-submit-vault-transfer!
+   {:store store
+    :request request
+    :dispatch! nxr/dispatch
+    :exchange-response-error exchange-response-error
+    :runtime-error-message runtime-error-message
+    :show-toast! show-order-feedback-toast!}))

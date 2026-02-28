@@ -87,6 +87,12 @@
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/api-submit-position-margin}}
 
+   :actions/submit-vault-transfer
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/api-submit-vault-transfer}}
+
    :actions/enable-agent-trading
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true

@@ -125,3 +125,83 @@
                     (js/console.error err)
                     (is false "Unexpected vault ledger updates error")
                     (done)))))))
+
+(deftest api-submit-vault-transfer-rejects-when-wallet-is-disconnected-test
+  (let [store (atom {:wallet {:agent {:status :ready}}
+                     :vaults-ui {:vault-transfer-modal {:submitting? true}}})
+        toast-calls (atom [])]
+    (effects/api-submit-vault-transfer!
+     {:store store
+      :request {:vault-address "0x1234567890abcdef1234567890abcdef12345678"
+                :action {:type "vaultTransfer"
+                         :vaultAddress "0x1234567890abcdef1234567890abcdef12345678"
+                         :isDeposit true
+                         :usd 1000000}}
+      :show-toast! (fn [_store kind message]
+                     (swap! toast-calls conj [kind message]))})
+    (is (= false (get-in @store [:vaults-ui :vault-transfer-modal :submitting?])))
+    (is (= "Connect your wallet before submitting a deposit."
+           (get-in @store [:vaults-ui :vault-transfer-modal :error])))
+    (is (= [[:error "Connect your wallet before submitting a deposit."]]
+           @toast-calls))))
+
+(deftest api-submit-vault-transfer-resets-modal-and-refreshes-vault-state-on-success-test
+  (async done
+    (let [request {:vault-address "0x1234567890abcdef1234567890abcdef12345678"
+                   :action {:type "vaultTransfer"
+                            :vaultAddress "0x1234567890abcdef1234567890abcdef12345678"
+                            :isDeposit false
+                            :usd 0}}
+          store (atom {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+                                :agent {:status :ready}}
+                       :vaults-ui {:vault-transfer-modal {:open? true
+                                                          :submitting? true
+                                                          :mode :withdraw
+                                                          :vault-address "0x1234567890abcdef1234567890abcdef12345678"}}})
+          submit-calls (atom [])
+          toast-calls (atom [])
+          dispatch-calls (atom [])]
+      (-> (effects/api-submit-vault-transfer!
+           {:store store
+            :request request
+            :submit-vault-transfer! (fn [_store address action]
+                                      (swap! submit-calls conj [address action])
+                                      (js/Promise.resolve {:status "ok"}))
+            :show-toast! (fn [_store kind message]
+                           (swap! toast-calls conj [kind message]))
+            :dispatch! (fn [store* ctx actions]
+                         (swap! dispatch-calls conj [store* ctx actions]))
+            :default-vault-transfer-modal-state (fn []
+                                                  {:open? false
+                                                   :submitting? false
+                                                   :mode :deposit
+                                                   :vault-address nil
+                                                   :amount-input ""
+                                                   :withdraw-all? false
+                                                   :error nil})})
+          (.then (fn [resp]
+                   (is (= "ok" (:status resp)))
+                   (is (= [["0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+                            {:type "vaultTransfer"
+                             :vaultAddress "0x1234567890abcdef1234567890abcdef12345678"
+                             :isDeposit false
+                             :usd 0}]]
+                          @submit-calls))
+                   (is (= {:open? false
+                           :submitting? false
+                           :mode :deposit
+                           :vault-address nil
+                           :amount-input ""
+                           :withdraw-all? false
+                           :error nil}
+                          (get-in @store [:vaults-ui :vault-transfer-modal])))
+                   (is (= [[:success "Withdraw submitted."]]
+                          @toast-calls))
+                   (is (= [[store nil [[:actions/load-vault-detail "0x1234567890abcdef1234567890abcdef12345678"]]]
+                           [store nil [[:actions/load-vaults]]]]
+                          @dispatch-calls))
+                   (done)))
+          (.catch (fn [err]
+                    (js/console.error err)
+                    (is false "Unexpected vault transfer success-path error")
+                    (done)))))))

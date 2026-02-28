@@ -48,7 +48,8 @@
          :api-fetch-vault-fills effect-adapters/api-fetch-vault-fills-effect
          :api-fetch-vault-funding-history effect-adapters/api-fetch-vault-funding-history-effect
          :api-fetch-vault-order-history effect-adapters/api-fetch-vault-order-history-effect
-         :api-fetch-vault-ledger-updates effect-adapters/api-fetch-vault-ledger-updates-effect}})
+         :api-fetch-vault-ledger-updates effect-adapters/api-fetch-vault-ledger-updates-effect
+         :api-submit-vault-transfer effect-adapters/api-submit-vault-transfer-effect}})
 
 (defn runtime-effect-deps
   ([] (runtime-effect-deps runtime-state/runtime))

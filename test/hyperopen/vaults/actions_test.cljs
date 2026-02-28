@@ -270,3 +270,136 @@
     (with-redefs [platform/local-storage-get (fn [_] "not-a-range")]
       (actions/restore-vaults-snapshot-range! store))
     (is (= :month (get-in @store [:vaults-ui :snapshot-range])))))
+
+(deftest vault-transfer-actions-open-update-and-submit-test
+  (let [vault-address "0x1234567890abcdef1234567890abcdef12345678"
+        leader-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+        base-state {:router {:path (str "/vaults/" vault-address)}
+                    :wallet {:address leader-address}
+                    :vaults {:details-by-address {vault-address {:name "Vault Detail"
+                                                                 :leader leader-address
+                                                                 :allow-deposits? true}}
+                             :merged-index-rows [{:vault-address vault-address
+                                                  :name "Vault Detail"
+                                                  :leader leader-address}]}}]
+    (is (= [[:effects/save
+             [:vaults-ui :vault-transfer-modal]
+             {:open? true
+              :mode :deposit
+              :vault-address vault-address
+              :amount-input ""
+              :withdraw-all? false
+              :submitting? false
+              :error nil}]]
+           (actions/open-vault-transfer-modal base-state vault-address :deposit)))
+    (is (= [[:effects/save [:vaults-ui :vault-transfer-modal]
+             {:open? false
+              :mode :deposit
+              :vault-address nil
+              :amount-input ""
+              :withdraw-all? false
+              :submitting? false
+              :error nil}]]
+           (actions/close-vault-transfer-modal base-state)))
+    (is (= [[:effects/save [:vaults-ui :vault-transfer-modal]
+             {:open? true
+              :mode :withdraw
+              :vault-address vault-address
+              :amount-input "12.3456"
+              :withdraw-all? false
+              :submitting? false
+              :error nil}]]
+           (actions/set-vault-transfer-amount
+            {:vaults-ui {:vault-transfer-modal {:open? true
+                                                :mode :withdraw
+                                                :vault-address vault-address
+                                                :amount-input ""
+                                                :withdraw-all? true
+                                                :submitting? false
+                                                :error nil}}}
+            "12.3456")))
+    (is (= [[:effects/save [:vaults-ui :vault-transfer-modal]
+             {:open? true
+              :mode :withdraw
+              :vault-address vault-address
+              :amount-input ""
+              :withdraw-all? true
+              :submitting? false
+              :error nil}]]
+           (actions/set-vault-transfer-withdraw-all
+            {:vaults-ui {:vault-transfer-modal {:open? true
+                                                :mode :withdraw
+                                                :vault-address vault-address
+                                                :amount-input "10"
+                                                :withdraw-all? false
+                                                :submitting? false
+                                                :error nil}}}
+            true)))
+    (is (= [[:effects/save-many [[[:vaults-ui :vault-transfer-modal :submitting?] true]
+                                 [[:vaults-ui :vault-transfer-modal :error] nil]]]
+            [:effects/api-submit-vault-transfer
+             {:vault-address vault-address
+              :action {:type "vaultTransfer"
+                       :vaultAddress vault-address
+                       :isDeposit true
+                       :usd 2500000}}]]
+           (actions/submit-vault-transfer
+            (assoc-in base-state
+                      [:vaults-ui :vault-transfer-modal]
+                      {:open? true
+                       :mode :deposit
+                       :vault-address vault-address
+                       :amount-input "2.5"
+                       :withdraw-all? false
+                       :submitting? false
+                       :error nil}))))
+    (is (= [[:effects/save-many [[[:vaults-ui :vault-transfer-modal :submitting?] true]
+                                 [[:vaults-ui :vault-transfer-modal :error] nil]]]
+            [:effects/api-submit-vault-transfer
+             {:vault-address vault-address
+              :action {:type "vaultTransfer"
+                       :vaultAddress vault-address
+                       :isDeposit false
+                       :usd 0}}]]
+           (actions/submit-vault-transfer
+            (assoc-in base-state
+                      [:vaults-ui :vault-transfer-modal]
+                      {:open? true
+                       :mode :withdraw
+                       :vault-address vault-address
+                       :amount-input ""
+                       :withdraw-all? true
+                       :submitting? false
+                       :error nil}))))
+    (is (= [[:effects/save-many [[[:vaults-ui :vault-transfer-modal :submitting?] false]
+                                 [[:vaults-ui :vault-transfer-modal :error] "Enter an amount greater than 0."]]]]
+           (actions/submit-vault-transfer
+            (assoc-in base-state
+                      [:vaults-ui :vault-transfer-modal]
+                      {:open? true
+                       :mode :withdraw
+                       :vault-address vault-address
+                       :amount-input ""
+                       :withdraw-all? false
+                       :submitting? false
+                       :error nil}))))))
+
+(deftest vault-transfer-preview-rejects-when-deposit-gating-disables-vault-test
+  (let [vault-address "0x1234567890abcdef1234567890abcdef12345678"
+        state {:router {:path (str "/vaults/" vault-address)}
+               :wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+               :vaults {:details-by-address {vault-address {:name "Vault Detail"
+                                                            :leader "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                                                            :allow-deposits? false}}
+                        :merged-index-rows [{:vault-address vault-address
+                                             :name "Vault Detail"
+                                             :leader "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}]}}
+        result (actions/vault-transfer-preview state
+                                               {:open? true
+                                                :mode :deposit
+                                                :vault-address vault-address
+                                                :amount-input "1"
+                                                :withdraw-all? false})]
+    (is (false? (:ok? result)))
+    (is (= "Deposits are disabled for this vault."
+           (:display-message result)))))

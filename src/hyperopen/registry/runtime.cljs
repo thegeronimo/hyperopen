@@ -49,7 +49,8 @@
    [:effects/api-fetch-vault-fills :api-fetch-vault-fills]
    [:effects/api-fetch-vault-funding-history :api-fetch-vault-funding-history]
    [:effects/api-fetch-vault-order-history :api-fetch-vault-order-history]
-   [:effects/api-fetch-vault-ledger-updates :api-fetch-vault-ledger-updates]])
+   [:effects/api-fetch-vault-ledger-updates :api-fetch-vault-ledger-updates]
+   [:effects/api-submit-vault-transfer :api-submit-vault-transfer]])
 
 (defn registered-effect-ids
   []
@@ -228,6 +229,12 @@
      [:actions/remove-vault-detail-returns-benchmark :remove-vault-detail-returns-benchmark]
      [:actions/handle-vault-detail-returns-benchmark-search-keydown :handle-vault-detail-returns-benchmark-search-keydown]
      [:actions/clear-vault-detail-returns-benchmark :clear-vault-detail-returns-benchmark]
+     [:actions/open-vault-transfer-modal :open-vault-transfer-modal]
+     [:actions/close-vault-transfer-modal :close-vault-transfer-modal]
+     [:actions/handle-vault-transfer-modal-keydown :handle-vault-transfer-modal-keydown]
+     [:actions/set-vault-transfer-amount :set-vault-transfer-amount]
+     [:actions/set-vault-transfer-withdraw-all :set-vault-transfer-withdraw-all]
+     [:actions/submit-vault-transfer :submit-vault-transfer]
      [:actions/set-vault-detail-chart-hover :set-vault-detail-chart-hover]
      [:actions/clear-vault-detail-chart-hover :clear-vault-detail-chart-hover]])))
 

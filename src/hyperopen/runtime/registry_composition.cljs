@@ -86,7 +86,8 @@
            api-fetch-vault-fills
            api-fetch-vault-funding-history
            api-fetch-vault-order-history
-           api-fetch-vault-ledger-updates]}]
+           api-fetch-vault-ledger-updates
+           api-submit-vault-transfer]}]
   {:fetch-asset-selector-markets fetch-asset-selector-markets
    :api-fetch-user-funding-history api-fetch-user-funding-history
    :api-fetch-historical-orders api-fetch-historical-orders
@@ -100,7 +101,8 @@
    :api-fetch-vault-fills api-fetch-vault-fills
    :api-fetch-vault-funding-history api-fetch-vault-funding-history
    :api-fetch-vault-order-history api-fetch-vault-order-history
-   :api-fetch-vault-ledger-updates api-fetch-vault-ledger-updates})
+   :api-fetch-vault-ledger-updates api-fetch-vault-ledger-updates
+   :api-submit-vault-transfer api-submit-vault-transfer})
 
 (defn runtime-effect-handlers
   [{:keys [storage
@@ -157,6 +159,12 @@
            remove-vault-detail-returns-benchmark
            handle-vault-detail-returns-benchmark-search-keydown
            clear-vault-detail-returns-benchmark
+           open-vault-transfer-modal
+           close-vault-transfer-modal
+           handle-vault-transfer-modal-keydown
+           set-vault-transfer-amount
+           set-vault-transfer-withdraw-all
+           submit-vault-transfer
            set-vault-detail-chart-hover
            clear-vault-detail-chart-hover]}]
   {:load-vault-route load-vault-route
@@ -185,6 +193,12 @@
    :remove-vault-detail-returns-benchmark remove-vault-detail-returns-benchmark
    :handle-vault-detail-returns-benchmark-search-keydown handle-vault-detail-returns-benchmark-search-keydown
    :clear-vault-detail-returns-benchmark clear-vault-detail-returns-benchmark
+   :open-vault-transfer-modal open-vault-transfer-modal
+   :close-vault-transfer-modal close-vault-transfer-modal
+   :handle-vault-transfer-modal-keydown handle-vault-transfer-modal-keydown
+   :set-vault-transfer-amount set-vault-transfer-amount
+   :set-vault-transfer-withdraw-all set-vault-transfer-withdraw-all
+   :submit-vault-transfer submit-vault-transfer
    :set-vault-detail-chart-hover set-vault-detail-chart-hover
    :clear-vault-detail-chart-hover clear-vault-detail-chart-hover})
 

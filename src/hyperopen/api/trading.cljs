@@ -348,6 +348,10 @@
   [store address action]
   (sign-and-post-agent-action! store address action))
 
+(defn submit-vault-transfer!
+  [store address action]
+  (sign-and-post-agent-action! store address action))
+
 (defn approve-agent!
   [store address action]
   (-> (signing/sign-approve-agent-action! address action)

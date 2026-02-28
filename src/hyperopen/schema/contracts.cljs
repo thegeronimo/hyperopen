@@ -131,6 +131,7 @@
 (s/def ::api-cancel-order-args (s/tuple ::api-submit-request))
 (s/def ::api-submit-position-tpsl-args (s/tuple ::api-submit-request))
 (s/def ::api-submit-position-margin-args (s/tuple ::api-submit-request))
+(s/def ::api-submit-vault-transfer-args (s/tuple ::api-submit-request))
 
 (defn- fetch-asset-selector-markets-args?
   [args]
@@ -180,6 +181,7 @@
 (s/def ::market-key-args (s/tuple ::market-key))
 (s/def ::max-page-args (s/tuple (s/nilable ::intish)))
 (s/def ::page-and-max-page-args (s/tuple ::intish (s/nilable ::intish)))
+(s/def ::address-and-mode-args (s/tuple ::non-empty-string ::keyword-or-string))
 (s/def ::sort-column-args (s/tuple ::non-empty-string))
 (s/def ::vault-detail-activity-sort-args (s/tuple ::keyword-or-string ::non-empty-string))
 (s/def ::key-args (s/tuple ::non-empty-string))
@@ -438,6 +440,12 @@
    :actions/remove-vault-detail-returns-benchmark ::coin-args
    :actions/handle-vault-detail-returns-benchmark-search-keydown ::keydown-with-optional-coin-args
    :actions/clear-vault-detail-returns-benchmark ::no-args
+   :actions/open-vault-transfer-modal ::address-and-mode-args
+   :actions/close-vault-transfer-modal ::no-args
+   :actions/handle-vault-transfer-modal-keydown ::key-args
+   :actions/set-vault-transfer-amount ::single-input-args
+   :actions/set-vault-transfer-withdraw-all ::boolean-args
+   :actions/submit-vault-transfer ::no-args
    :actions/set-vault-detail-chart-hover ::vault-chart-hover-args
    :actions/clear-vault-detail-chart-hover ::no-args
    :actions/navigate (s/or :path (s/tuple ::non-empty-string)
@@ -489,7 +497,8 @@
    :effects/api-fetch-vault-fills ::address-args
    :effects/api-fetch-vault-funding-history ::address-args
    :effects/api-fetch-vault-order-history ::address-args
-   :effects/api-fetch-vault-ledger-updates ::address-args})
+   :effects/api-fetch-vault-ledger-updates ::address-args
+   :effects/api-submit-vault-transfer ::api-submit-vault-transfer-args})
 
 (defn contracted-action-ids
   []

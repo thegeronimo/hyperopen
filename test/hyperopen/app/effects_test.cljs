@@ -56,4 +56,6 @@
         (is (identical? cancel-handler
                         (get-in deps [:orders :api-cancel-order])))
         (is (identical? margin-handler
-                        (get-in deps [:orders :api-submit-position-margin])))))))
+                        (get-in deps [:orders :api-submit-position-margin])))
+        (is (identical? effect-adapters/api-submit-vault-transfer-effect
+                        (get-in deps [:api :api-submit-vault-transfer])))))))

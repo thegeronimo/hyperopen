@@ -1,5 +1,8 @@
 (ns hyperopen.vaults.effects
-  (:require [hyperopen.api.promise-effects :as promise-effects]))
+  (:require [clojure.string :as str]
+            [hyperopen.api.promise-effects :as promise-effects]
+            [hyperopen.api.trading :as trading-api]
+            [hyperopen.vaults.actions :as vault-actions]))
 
 (def ^:private funding-history-lookback-ms
   (* 90 24 60 60 1000))
@@ -176,3 +179,88 @@
                store
                apply-vault-ledger-updates-error
                vault-address))))
+
+(defn- fallback-exchange-response-error
+  [resp]
+  (or (:error resp)
+      (:message resp)
+      (:response resp)
+      "Unknown exchange error"))
+
+(defn- fallback-runtime-error-message
+  [err]
+  (or (some-> err .-message)
+      (str err)))
+
+(defn- update-vault-transfer-error
+  [state error-text]
+  (-> state
+      (assoc-in [:vaults-ui :vault-transfer-modal :submitting?] false)
+      (assoc-in [:vaults-ui :vault-transfer-modal :error] error-text)))
+
+(defn- set-vault-transfer-error!
+  [store show-toast! error-text]
+  (swap! store update-vault-transfer-error error-text)
+  (show-toast! store :error error-text))
+
+(defn- submit-mode-label
+  [is-deposit?]
+  (if is-deposit?
+    "Deposit"
+    "Withdraw"))
+
+(defn api-submit-vault-transfer!
+  [{:keys [store
+           request
+           dispatch!
+           submit-vault-transfer!
+           exchange-response-error
+           runtime-error-message
+           show-toast!
+           default-vault-transfer-modal-state]
+    :or {submit-vault-transfer! trading-api/submit-vault-transfer!
+         exchange-response-error fallback-exchange-response-error
+         runtime-error-message fallback-runtime-error-message
+         show-toast! (fn [_store _kind _message] nil)
+         default-vault-transfer-modal-state vault-actions/default-vault-transfer-modal-state}}]
+  (let [address (get-in @store [:wallet :address])
+        agent-status (get-in @store [:wallet :agent :status])
+        vault-address (or (vault-actions/normalize-vault-address (:vault-address request))
+                          (vault-actions/normalize-vault-address (get-in request [:action :vaultAddress])))
+        action (:action request)
+        is-deposit? (true? (:isDeposit action))
+        mode-label (submit-mode-label is-deposit?)]
+    (cond
+      (nil? address)
+      (set-vault-transfer-error! store
+                                 show-toast!
+                                 (str "Connect your wallet before submitting a " (str/lower-case mode-label) "."))
+
+      (not= :ready agent-status)
+      (set-vault-transfer-error! store
+                                 show-toast!
+                                 (str "Enable trading before submitting a " (str/lower-case mode-label) "."))
+
+      :else
+      (-> (submit-vault-transfer! store address action)
+          (.then (fn [resp]
+                   (if (= "ok" (:status resp))
+                     (do
+                       (swap! store assoc-in [:vaults-ui :vault-transfer-modal]
+                              (default-vault-transfer-modal-state))
+                       (show-toast! store :success (str mode-label " submitted."))
+                       (when (and (fn? dispatch!)
+                                  (string? vault-address))
+                         (dispatch! store nil [[:actions/load-vault-detail vault-address]])
+                         (dispatch! store nil [[:actions/load-vaults]]))
+                       resp)
+                     (let [error-text (str/trim (str (exchange-response-error resp)))
+                           message (str mode-label " failed: "
+                                        (if (seq error-text) error-text "Unknown exchange error"))]
+                       (set-vault-transfer-error! store show-toast! message)
+                       resp))))
+          (.catch (fn [err]
+                    (let [error-text (str/trim (str (runtime-error-message err)))
+                          message (str mode-label " failed: "
+                                       (if (seq error-text) error-text "Unknown runtime error"))]
+                      (set-vault-transfer-error! store show-toast! message))))))))
