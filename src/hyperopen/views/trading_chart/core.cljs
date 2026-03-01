@@ -86,23 +86,42 @@
       {:current-liquidation-price current-liquidation-price
        :target-liquidation-price target-liquidation-price})))
 
+(defn- chart-liquidation-drag-prefill-actions
+  [position-data suggestion]
+  (when (and (map? position-data)
+             (map? suggestion))
+    [[:actions/select-account-info-tab :positions]
+     [:actions/open-position-margin-modal
+      (merge position-data
+             {:prefill-source :chart-liquidation-drag
+              :prefill-margin-mode (:mode suggestion)
+              :prefill-margin-amount (:amount suggestion)
+              :prefill-liquidation-target-price (:target-liquidation-price suggestion)
+              :prefill-liquidation-current-price (:current-liquidation-price suggestion)})
+      (:anchor suggestion)]]))
+
+(defn- dispatch-chart-liquidation-drag-margin-prefill!
+  [trigger position-data suggestion]
+  (let [dispatch-fn replicant-core/*dispatch*
+        actions (chart-liquidation-drag-prefill-actions position-data suggestion)]
+    (when (and (ifn? dispatch-fn)
+               (seq actions))
+      (dispatch-fn {:replicant/trigger trigger}
+                   actions))))
+
+(defn- dispatch-chart-liquidation-drag-margin-preview!
+  [position-data suggestion]
+  (dispatch-chart-liquidation-drag-margin-prefill!
+   :chart-liquidation-drag-margin-preview
+   position-data
+   suggestion))
+
 (defn- dispatch-chart-liquidation-drag-margin-confirm!
   [position-data suggestion]
-  (let [dispatch-fn replicant-core/*dispatch*]
-    (when (and (ifn? dispatch-fn)
-               (map? position-data)
-               (map? suggestion))
-      (dispatch-fn
-       {:replicant/trigger :chart-liquidation-drag-margin-confirm}
-       [[:actions/select-account-info-tab :positions]
-        [:actions/open-position-margin-modal
-         (merge position-data
-                {:prefill-source :chart-liquidation-drag
-                 :prefill-margin-mode (:mode suggestion)
-                 :prefill-margin-amount (:amount suggestion)
-                 :prefill-liquidation-target-price (:target-liquidation-price suggestion)
-                 :prefill-liquidation-current-price (:current-liquidation-price suggestion)})
-         (:anchor suggestion)]]))))
+  (dispatch-chart-liquidation-drag-margin-prefill!
+   :chart-liquidation-drag-margin-confirm
+   position-data
+   suggestion))
 
 (defn- format-chart-overlay-size
   [value]
@@ -215,6 +234,7 @@
           indicator-series-data :indicator-series}
          (derived-cache/memoized-indicator-outputs candle-data selected-timeframe active-indicators)
          position-overlay (:position-overlay chart-runtime-options)
+         on-liquidation-drag-preview (:on-liquidation-drag-preview chart-runtime-options)
          on-liquidation-drag-confirm (:on-liquidation-drag-confirm chart-runtime-options)
          series-options (:series-options chart-runtime-options)
          legend-deps (:legend-deps chart-runtime-options)
@@ -227,6 +247,7 @@
                        :format-size format-chart-overlay-size}
          position-overlay-deps {:format-price fmt/format-trade-price-plain
                                 :format-size format-chart-overlay-size
+                                :on-liquidation-drag-preview on-liquidation-drag-preview
                                 :on-liquidation-drag-confirm on-liquidation-drag-confirm}
          volume-indicator-deps {:on-remove on-hide-volume-indicator}
          legend-key (str (or (:symbol legend-meta) "")
@@ -386,6 +407,10 @@
                                 (map? preview))
                            (assoc :current-liquidation-price (:current-liquidation-price preview)
                                   :liquidation-price (:target-liquidation-price preview)))
+        on-liquidation-drag-preview (fn [suggestion]
+                                      (dispatch-chart-liquidation-drag-margin-preview!
+                                       active-position-data
+                                       suggestion))
         on-liquidation-drag-confirm (fn [suggestion]
                                       (dispatch-chart-liquidation-drag-margin-confirm!
                                        active-position-data
@@ -404,6 +429,7 @@
                                :on-hide-volume-indicator dispatch-hide-volume-indicator!
                                :persistence-deps {:asset active-asset
                                                   :candles candle-data}
+                               :on-liquidation-drag-preview on-liquidation-drag-preview
                                :on-liquidation-drag-confirm on-liquidation-drag-confirm
                                :position-overlay position-overlay}
         legend-meta {:symbol symbol

@@ -562,8 +562,26 @@
                (:root state)
                (:main-series state))
       (when-let [preview-price (liq-price-from-event state event)]
-        (set-overlay-state! chart-obj (assoc-in state [:drag :preview-liquidation-price] preview-price))
-        (render-overlays! chart-obj)))))
+        (let [state* (assoc-in state [:drag :preview-liquidation-price] preview-price)
+              drag (:drag state*)
+              start-price (parse-number (:start-liquidation-price drag))
+              overlay-for-preview (:overlay-for-confirm drag)
+              source-node (:source-node drag)
+              on-liquidation-drag-preview (:on-liquidation-drag-preview state*)]
+          (set-overlay-state! chart-obj state*)
+          (render-overlays! chart-obj)
+          (when (and (finite-number? start-price)
+                     (finite-number? preview-price)
+                     (fn? on-liquidation-drag-preview)
+                     (map? overlay-for-preview))
+            (when-let [suggestion (liquidation-drag-suggestion overlay-for-preview
+                                                               start-price
+                                                               preview-price)]
+              (on-liquidation-drag-preview
+               (assoc suggestion
+                      :anchor (event-anchor (:overlay state*)
+                                            source-node
+                                            event))))))))))
 
 (defn- finalize-liquidation-drag!
   [chart-obj event canceled?]
@@ -712,7 +730,7 @@
 (defn sync-position-overlays!
   ([chart-obj container overlay]
    (sync-position-overlays! chart-obj container overlay {}))
-  ([chart-obj container overlay {:keys [document window format-price format-size on-liquidation-drag-confirm]
+  ([chart-obj container overlay {:keys [document window format-price format-size on-liquidation-drag-preview on-liquidation-drag-confirm]
                                  :or {format-price account-shared/format-trade-price
                                       format-size account-shared/format-currency}}]
    (if-not (and chart-obj container)
@@ -747,6 +765,7 @@
                     (identical? window* (:window state))
                     (identical? format-price (:format-price state))
                     (identical? format-size (:format-size state))
+                    (identical? on-liquidation-drag-preview (:on-liquidation-drag-preview state))
                     (identical? on-liquidation-drag-confirm (:on-liquidation-drag-confirm state))
                     (identical? overlay-ref (:overlay-ref state)))]
            (if unchanged-inputs?
@@ -768,6 +787,7 @@
                        :window window*
                        :format-price format-price
                        :format-size format-size
+                       :on-liquidation-drag-preview on-liquidation-drag-preview
                        :on-liquidation-drag-confirm on-liquidation-drag-confirm
                        :subscription next-subscription))
                (render-overlays! chart-obj))))
