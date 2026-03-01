@@ -239,7 +239,20 @@
 
 (defn- normalize-vault-detail-activity-sort-column
   [value]
-  (non-blank-text value))
+  (cond
+    (keyword? value)
+    value
+
+    (string? value)
+    (some-> value
+            non-blank-text
+            str/lower-case
+            (str/replace #"[^a-z0-9]+" "-")
+            (str/replace #"^-+" "")
+            (str/replace #"-+$" "")
+            keyword)
+
+    :else nil))
 
 (defn- normalize-sort-direction
   [value]

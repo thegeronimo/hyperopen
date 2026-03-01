@@ -361,7 +361,7 @@
                               (assoc-in [:vaults-ui :detail-activity-direction-filter] :long))
         view (vault-detail-view/vault-detail-view filter-open-state)
         sort-header (find-first-node view
-                                     #(= [[:actions/sort-vault-detail-activity :positions "Size"]]
+                                     #(= [[:actions/sort-vault-detail-activity :positions :size]]
                                          (get-in % [1 :on :click])))
         filter-toggle (find-first-node view
                                        #(= [[:actions/toggle-vault-detail-activity-filter-open]]

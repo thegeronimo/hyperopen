@@ -96,24 +96,138 @@
     :funding-history
     :order-history})
 
+(def ^:private activity-columns-by-tab
+  {:balances [{:id :coin
+               :label "Coin"}
+              {:id :total-balance
+               :label "Total Balance"}
+              {:id :available-balance
+               :label "Available Balance"}
+              {:id :usdc-value
+               :label "USDC Value"}]
+   :positions [{:id :coin
+                :label "Coin"}
+               {:id :size
+                :label "Size"}
+               {:id :position-value
+                :label "Position Value"}
+               {:id :entry-price
+                :label "Entry Price"}
+               {:id :mark-price
+                :label "Mark Price"}
+               {:id :pnl-roe
+                :label "PNL (ROE %)"}
+               {:id :liq-price
+                :label "Liq. Price"}
+               {:id :margin
+                :label "Margin"}
+               {:id :funding
+                :label "Funding"}]
+   :open-orders [{:id :time
+                  :label "Time"}
+                 {:id :coin
+                  :label "Coin"}
+                 {:id :side
+                  :label "Side"}
+                 {:id :size
+                  :label "Size"}
+                 {:id :price
+                  :label "Price"}
+                 {:id :trigger
+                  :label "Trigger"}]
+   :twap [{:id :coin
+           :label "Coin"}
+          {:id :size
+           :label "Size"}
+          {:id :executed-size
+           :label "Executed Size"}
+          {:id :average-price
+           :label "Average Price"}
+          {:id :running-time-total
+           :label "Running Time / Total"}
+          {:id :reduce-only
+           :label "Reduce Only"}
+          {:id :creation-time
+           :label "Creation Time"}
+          {:id :terminate
+           :label "Terminate"}]
+   :trade-history [{:id :time
+                    :label "Time"}
+                   {:id :coin
+                    :label "Coin"}
+                   {:id :side
+                    :label "Side"}
+                   {:id :price
+                    :label "Price"}
+                   {:id :size
+                    :label "Size"}
+                   {:id :trade-value
+                    :label "Trade Value"}
+                   {:id :fee
+                    :label "Fee"}
+                   {:id :closed-pnl
+                    :label "Closed PNL"}]
+   :funding-history [{:id :time
+                      :label "Time"}
+                     {:id :coin
+                      :label "Coin"}
+                     {:id :funding-rate
+                      :label "Funding Rate"}
+                     {:id :position-size
+                      :label "Position Size"}
+                     {:id :payment
+                      :label "Payment"}]
+   :order-history [{:id :time
+                    :label "Time"}
+                   {:id :coin
+                    :label "Coin"}
+                   {:id :side
+                    :label "Side"}
+                   {:id :type
+                    :label "Type"}
+                   {:id :size
+                    :label "Size"}
+                   {:id :price
+                    :label "Price"}
+                   {:id :status
+                    :label "Status"}]
+   :deposits-withdrawals [{:id :time
+                           :label "Time"}
+                          {:id :type
+                           :label "Type"}
+                          {:id :amount
+                           :label "Amount"}
+                          {:id :tx-hash
+                           :label "Tx Hash"}]
+   :depositors [{:id :depositor
+                 :label "Depositor"}
+                {:id :vault-amount
+                 :label "Vault Amount"}
+                {:id :unrealized-pnl
+                 :label "Unrealized PNL"}
+                {:id :all-time-pnl
+                 :label "All-time PNL"}
+                {:id :days-following
+                 :label "Days Following"}]})
+
 (def ^:private activity-sort-defaults
-  {:balances {:column "USDC Value"
+  {:balances {:column :usdc-value
               :direction :desc}
-   :positions {:column "Position Value"
+   :positions {:column :position-value
                :direction :desc}
-   :open-orders {:column "Time"
+   :open-orders {:column :time
                  :direction :desc}
-   :twap {:column "Creation Time"
+   :twap {:column :creation-time
           :direction :desc}
-   :trade-history {:column "Time"
+   :trade-history {:column :time
                    :direction :desc}
-   :funding-history {:column "Time"
+   :funding-history {:column :time
                      :direction :desc}
-   :order-history {:column "Time"
+   :order-history {:column :time
                    :direction :desc}
-   :deposits-withdrawals {:column "Time"
+   :deposits-withdrawals {:column :time
                           :direction :desc}
-   :depositors {:column "Vault Amount"
+   :depositors {:column :vault-amount
                 :direction :desc}})
 
 (defn- optional-number
@@ -339,6 +453,20 @@
                  :open-interest 0}))
           selected-coins)))
 
+(defn- benchmark-chip-display-label
+  [{:keys [label value]}]
+  (let [raw-label (some-> label str str/trim)
+        label-without-suffix (some-> raw-label
+                                     (str/replace #"\s*\([^)]*\)\s*$" ""))
+        primary-token (some-> label-without-suffix
+                              (str/split #"-" 2)
+                              first
+                              str/trim)]
+    (or (non-blank-text primary-token)
+        raw-label
+        (non-blank-text value)
+        "Benchmark")))
+
 (defn- returns-benchmark-selector-model
   [state]
   (let [options (benchmark-selector-options state)
@@ -353,7 +481,11 @@
         search (or (get-in state [:vaults-ui :detail-returns-benchmark-search]) "")
         search-query (normalize-benchmark-search-query search)
         suggestions-open? (boolean (get-in state [:vaults-ui :detail-returns-benchmark-suggestions-open?]))
-        selected-options (selected-benchmark-options options selected-coins)
+        selected-options (->> (selected-benchmark-options options selected-coins)
+                              (mapv (fn [{:keys [value] :as option}]
+                                      (assoc option
+                                             :value value
+                                             :display-label (benchmark-chip-display-label option)))))
         candidates (->> options
                         (remove (fn [{:keys [value]}]
                                   (contains? selected-coin-set value)))
@@ -407,12 +539,17 @@
 (defn- row-direction-key
   [tab row]
   (case tab
-    :positions (direction-key-from-size (:size row))
-    :open-orders (normalize-side-key (:side row))
+    :positions (or (:side-key row)
+                   (direction-key-from-size (:size row)))
+    :open-orders (or (:side-key row)
+                     (normalize-side-key (:side row)))
     :twap (direction-key-from-size (:size row))
-    :trade-history (normalize-side-key (:side row))
-    :funding-history (direction-key-from-size (:position-size row))
-    :order-history (normalize-side-key (:side row))
+    :trade-history (or (:side-key row)
+                       (normalize-side-key (:side row)))
+    :funding-history (or (:side-key row)
+                         (direction-key-from-size (:position-size row)))
+    :order-history (or (:side-key row)
+                       (normalize-side-key (:side row)))
     nil))
 
 (defn- direction-match?
@@ -434,130 +571,149 @@
                      (direction-match? filter* (row-direction-key tab row))))
            vec))))
 
+(defn- normalize-activity-sort-column-id
+  [value]
+  (cond
+    (keyword? value)
+    value
+
+    (string? value)
+    (some-> value
+            non-blank-text
+            str/lower-case
+            (str/replace #"[^a-z0-9]+" "-")
+            (str/replace #"^-+" "")
+            (str/replace #"-+$" "")
+            keyword)
+
+    :else nil))
+
 (def ^:private activity-sort-accessor-by-tab
-  {:balances {"Coin" (fn [row]
+  {:balances {:coin (fn [row]
+                      (or (sortable-text (:coin row)) ""))
+              :total-balance (fn [row]
+                               (sortable-abs-number (:total row)))
+              :available-balance (fn [row]
+                                   (sortable-abs-number (:available row)))
+              :usdc-value (fn [row]
+                            (sortable-abs-number (:usdc-value row)))}
+   :positions {:coin (fn [row]
                        (or (sortable-text (:coin row)) ""))
-              "Total Balance" (fn [row]
-                                (sortable-abs-number (:total row)))
-              "Available Balance" (fn [row]
-                                    (sortable-abs-number (:available row)))
-              "USDC Value" (fn [row]
-                             (sortable-abs-number (:usdc-value row)))}
-   :positions {"Coin" (fn [row]
-                        (or (sortable-text (:coin row)) ""))
-               "Size" (fn [row]
-                        (sortable-abs-number (:size row)))
-               "Position Value" (fn [row]
-                                  (sortable-abs-number (:position-value row)))
-               "Entry Price" (fn [row]
-                               (sortable-number (:entry-price row)))
-               "Mark Price" (fn [row]
-                              (sortable-number (:mark-price row)))
-               "PNL (ROE %)" (fn [row]
-                               (sortable-number (:pnl row)))
-               "Liq. Price" (fn [row]
-                              (sortable-number (:liq-price row)))
-               "Margin" (fn [row]
-                          (sortable-abs-number (:margin row)))
-               "Funding" (fn [row]
-                           (sortable-number (:funding row)))}
-   :open-orders {"Time" (fn [row]
-                          (sortable-number (:time-ms row)))
-                 "Coin" (fn [row]
-                          (or (sortable-text (:coin row)) ""))
-                 "Side" (fn [row]
-                          (or (sortable-text (:side row)) ""))
-                 "Size" (fn [row]
-                          (sortable-abs-number (:size row)))
-                 "Price" (fn [row]
-                           (sortable-number (:price row)))
-                 "Trigger" (fn [row]
-                             (sortable-number (:trigger-price row)))}
-   :twap {"Coin" (fn [row]
-                   (or (sortable-text (:coin row)) ""))
-          "Size" (fn [row]
-                   (sortable-abs-number (:size row)))
-          "Executed Size" (fn [row]
-                            (sortable-abs-number (:executed-size row)))
-          "Average Price" (fn [row]
-                            (sortable-number (:average-price row)))
-          "Running Time / Total" (fn [row]
-                                   (sortable-number (:running-ms row)))
-          "Reduce Only" (fn [row]
-                          (if (true? (:reduce-only? row)) 1 0))
-          "Creation Time" (fn [row]
-                            (sortable-number (:creation-time-ms row)))
-          "Terminate" (fn [_row] 0)}
-   :trade-history {"Time" (fn [row]
-                            (sortable-number (:time-ms row)))
-                   "Coin" (fn [row]
-                            (or (sortable-text (:coin row)) ""))
-                   "Side" (fn [row]
-                            (or (sortable-text (:side row)) ""))
-                   "Price" (fn [row]
-                             (sortable-number (:price row)))
-                   "Size" (fn [row]
-                            (sortable-abs-number (:size row)))
-                   "Trade Value" (fn [row]
-                                   (sortable-abs-number (:trade-value row)))
-                   "Fee" (fn [row]
-                           (sortable-number (:fee row)))
-                   "Closed PNL" (fn [row]
-                                  (sortable-number (:closed-pnl row)))}
-   :funding-history {"Time" (fn [row]
-                              (sortable-number (:time-ms row)))
-                     "Coin" (fn [row]
-                              (or (sortable-text (:coin row)) ""))
-                     "Funding Rate" (fn [row]
-                                      (sortable-number (:funding-rate row)))
-                     "Position Size" (fn [row]
-                                       (sortable-abs-number (:position-size row)))
-                     "Payment" (fn [row]
-                                 (sortable-number (:payment row)))}
-   :order-history {"Time" (fn [row]
-                            (sortable-number (:time-ms row)))
-                   "Coin" (fn [row]
-                            (or (sortable-text (:coin row)) ""))
-                   "Side" (fn [row]
-                            (or (sortable-text (:side row)) ""))
-                   "Type" (fn [row]
-                            (or (sortable-text (:type row)) ""))
-                   "Size" (fn [row]
-                            (sortable-abs-number (:size row)))
-                   "Price" (fn [row]
-                             (sortable-number (:price row)))
-                   "Status" (fn [row]
-                              (or (sortable-text (:status row)) ""))}
-   :deposits-withdrawals {"Time" (fn [row]
-                                   (sortable-number (:time-ms row)))
-                          "Type" (fn [row]
-                                   (or (sortable-text (:type-label row)) ""))
-                          "Amount" (fn [row]
-                                     (sortable-number (:amount row)))
-                          "Tx Hash" (fn [row]
-                                      (or (sortable-text (:hash row)) ""))}
-   :depositors {"Depositor" (fn [row]
-                              (or (sortable-text (:address row)) ""))
-                "Vault Amount" (fn [row]
-                                 (sortable-abs-number (:vault-amount row)))
-                "Unrealized PNL" (fn [row]
-                                   (sortable-number (:unrealized-pnl row)))
-                "All-time PNL" (fn [row]
-                                 (sortable-number (:all-time-pnl row)))
-                "Days Following" (fn [row]
-                                   (sortable-number (:days-following row)))}})
+               :size (fn [row]
+                       (sortable-abs-number (:size row)))
+               :position-value (fn [row]
+                                 (sortable-abs-number (:position-value row)))
+               :entry-price (fn [row]
+                              (sortable-number (:entry-price row)))
+               :mark-price (fn [row]
+                             (sortable-number (:mark-price row)))
+               :pnl-roe (fn [row]
+                          (sortable-number (:pnl row)))
+               :liq-price (fn [row]
+                            (sortable-number (:liq-price row)))
+               :margin (fn [row]
+                         (sortable-abs-number (:margin row)))
+               :funding (fn [row]
+                          (sortable-number (:funding row)))}
+   :open-orders {:time (fn [row]
+                         (sortable-number (:time-ms row)))
+                 :coin (fn [row]
+                         (or (sortable-text (:coin row)) ""))
+                 :side (fn [row]
+                         (or (sortable-text (:side row)) ""))
+                 :size (fn [row]
+                         (sortable-abs-number (:size row)))
+                 :price (fn [row]
+                          (sortable-number (:price row)))
+                 :trigger (fn [row]
+                            (sortable-number (:trigger-price row)))}
+   :twap {:coin (fn [row]
+                  (or (sortable-text (:coin row)) ""))
+          :size (fn [row]
+                  (sortable-abs-number (:size row)))
+          :executed-size (fn [row]
+                           (sortable-abs-number (:executed-size row)))
+          :average-price (fn [row]
+                           (sortable-number (:average-price row)))
+          :running-time-total (fn [row]
+                                (sortable-number (:running-ms row)))
+          :reduce-only (fn [row]
+                         (if (true? (:reduce-only? row)) 1 0))
+          :creation-time (fn [row]
+                           (sortable-number (:creation-time-ms row)))
+          :terminate (fn [_row] 0)}
+   :trade-history {:time (fn [row]
+                           (sortable-number (:time-ms row)))
+                   :coin (fn [row]
+                           (or (sortable-text (:coin row)) ""))
+                   :side (fn [row]
+                           (or (sortable-text (:side row)) ""))
+                   :price (fn [row]
+                            (sortable-number (:price row)))
+                   :size (fn [row]
+                           (sortable-abs-number (:size row)))
+                   :trade-value (fn [row]
+                                  (sortable-abs-number (:trade-value row)))
+                   :fee (fn [row]
+                          (sortable-number (:fee row)))
+                   :closed-pnl (fn [row]
+                                 (sortable-number (:closed-pnl row)))}
+   :funding-history {:time (fn [row]
+                             (sortable-number (:time-ms row)))
+                     :coin (fn [row]
+                             (or (sortable-text (:coin row)) ""))
+                     :funding-rate (fn [row]
+                                     (sortable-number (:funding-rate row)))
+                     :position-size (fn [row]
+                                      (sortable-abs-number (:position-size row)))
+                     :payment (fn [row]
+                                (sortable-number (:payment row)))}
+   :order-history {:time (fn [row]
+                           (sortable-number (:time-ms row)))
+                   :coin (fn [row]
+                           (or (sortable-text (:coin row)) ""))
+                   :side (fn [row]
+                           (or (sortable-text (:side row)) ""))
+                   :type (fn [row]
+                           (or (sortable-text (:type row)) ""))
+                   :size (fn [row]
+                           (sortable-abs-number (:size row)))
+                   :price (fn [row]
+                            (sortable-number (:price row)))
+                   :status (fn [row]
+                             (or (sortable-text (:status row)) ""))}
+   :deposits-withdrawals {:time (fn [row]
+                                  (sortable-number (:time-ms row)))
+                          :type (fn [row]
+                                  (or (sortable-text (:type-label row)) ""))
+                          :amount (fn [row]
+                                    (sortable-number (:amount row)))
+                          :tx-hash (fn [row]
+                                     (or (sortable-text (:hash row)) ""))}
+   :depositors {:depositor (fn [row]
+                             (or (sortable-text (:address row)) ""))
+                :vault-amount (fn [row]
+                                (sortable-abs-number (:vault-amount row)))
+                :unrealized-pnl (fn [row]
+                                  (sortable-number (:unrealized-pnl row)))
+                :all-time-pnl (fn [row]
+                                (sortable-number (:all-time-pnl row)))
+                :days-following (fn [row]
+                                  (sortable-number (:days-following row)))}})
 
 (defn- activity-sort-state
   [state tab]
   (let [defaults (get activity-sort-defaults tab {:column nil
                                                    :direction :desc})
-        columns (keys (get activity-sort-accessor-by-tab tab))
-        fallback-column (or (:column defaults)
-                            (first columns))
+        accessor-by-column (get activity-sort-accessor-by-tab tab)
+        columns (set (keys accessor-by-column))
+        fallback-column (or (when (contains? columns (:column defaults))
+                              (:column defaults))
+                            (first (keys accessor-by-column)))
         saved (or (get-in state [:vaults-ui :detail-activity-sort-by-tab tab])
                   {})
-        saved-column (non-blank-text (:column saved))
-        column (if (contains? (set columns) saved-column)
+        saved-column (normalize-activity-sort-column-id (:column saved))
+        column (if (contains? columns saved-column)
                  saved-column
                  fallback-column)]
     {:column column
@@ -1304,6 +1460,23 @@
       "SELL" "Short"
       token)))
 
+(defn- status-tone-key
+  [status]
+  (let [status* (some-> status str str/trim str/lower-case)]
+    (cond
+      (or (= status* "filled")
+          (= status* "complete")
+          (= status* "completed")
+          (= status* "open")
+          (= status* "active")) :positive
+      (or (= status* "rejected")
+          (= status* "error")
+          (= status* "failed")) :negative
+      (or (= status* "canceled")
+          (= status* "cancelled")
+          (= status* "closed")) :neutral
+      :else :default)))
+
 (defn- normalize-position-entry
   [row]
   (cond
@@ -1328,20 +1501,22 @@
     (->> (if (sequential? rows) rows [])
          (keep (fn [row]
                  (when-let [pos (normalize-position-entry row)]
-                   {:coin (non-blank-text (:coin pos))
-                    :size (optional-number (:szi pos))
-                    :leverage (optional-number (get-in pos [:leverage :value]))
-                    :position-value (optional-number (:positionValue pos))
-                    :entry-price (optional-number (:entryPx pos))
-                    :mark-price (or (optional-number (:markPx pos))
-                                    (optional-number (:markPrice pos))
-                                    (optional-number (:entryPx pos)))
-                    :pnl (optional-number (:unrealizedPnl pos))
-                    :roe (normalize-percent-value (:returnOnEquity pos))
-                    :liq-price (optional-number (:liquidationPx pos))
-                    :margin (optional-number (:marginUsed pos))
-                    :funding (or (optional-number (get-in pos [:cumFunding :sinceOpen]))
-                                 (optional-number (get-in pos [:cumFunding :allTime])))})))
+                   (let [size (optional-number (:szi pos))]
+                     {:coin (non-blank-text (:coin pos))
+                      :size size
+                      :side-key (direction-key-from-size size)
+                      :leverage (optional-number (get-in pos [:leverage :value]))
+                      :position-value (optional-number (:positionValue pos))
+                      :entry-price (optional-number (:entryPx pos))
+                      :mark-price (or (optional-number (:markPx pos))
+                                      (optional-number (:markPrice pos))
+                                      (optional-number (:entryPx pos)))
+                      :pnl (optional-number (:unrealizedPnl pos))
+                      :roe (normalize-percent-value (:returnOnEquity pos))
+                      :liq-price (optional-number (:liquidationPx pos))
+                      :margin (optional-number (:marginUsed pos))
+                      :funding (or (optional-number (get-in pos [:cumFunding :sinceOpen]))
+                                   (optional-number (get-in pos [:cumFunding :allTime])))}))))
          (sort-by (fn [{:keys [position-value]}]
                     (js/Math.abs (or position-value 0)))
                   >)
@@ -1358,20 +1533,22 @@
                     (get-in root* [:t :trigger :triggerPx])
                     (get-in row [:t :trigger :triggerPx]))]
     (when (map? root*)
-      {:time-ms (or (optional-number (:timestamp root*))
-                    (optional-number (:time root*))
-                    (optional-number (:timestamp row))
-                    (optional-number (:time row)))
-       :coin (non-blank-text (:coin root*))
-       :side (normalize-side (:side root*))
-       :size (or (optional-number (:sz root*))
-                 (optional-number (:origSz root*)))
-       :price (or (optional-number (:limitPx root*))
-                  (optional-number (:px root*)))
-       :trigger-price (optional-number trigger)
-       :type (non-blank-text (or (:orderType root*)
-                                 (:type root*)
-                                 (:tif root*)))})))
+      (let [raw-side (:side root*)]
+        {:time-ms (or (optional-number (:timestamp root*))
+                      (optional-number (:time root*))
+                      (optional-number (:timestamp row))
+                      (optional-number (:time row)))
+         :coin (non-blank-text (:coin root*))
+         :side-key (normalize-side-key raw-side)
+         :side (normalize-side raw-side)
+         :size (or (optional-number (:sz root*))
+                   (optional-number (:origSz root*)))
+         :price (or (optional-number (:limitPx root*))
+                    (optional-number (:px root*)))
+         :trigger-price (optional-number trigger)
+         :type (non-blank-text (or (:orderType root*)
+                                   (:type root*)
+                                   (:tif root*)))}))))
 
 (defn- activity-open-orders
   [webdata]
@@ -1496,6 +1673,8 @@
        :coin (non-blank-text (or (:coin row)
                                  (:symbol row)
                                  (:asset row)))
+       :side-key (normalize-side-key (or (:side row)
+                                         (:dir row)))
        :side (normalize-side (or (:side row)
                                  (:dir row)))
        :size size
@@ -1523,7 +1702,11 @@
   (when (map? row)
     (let [delta (if (map? (:delta row))
                   (:delta row)
-                  row)]
+                  row)
+          position-size (optional-number (or (:positionSize row)
+                                             (:position-size-raw row)
+                                             (:szi row)
+                                             (:szi delta)))]
       {:time-ms (or (optional-int (:time-ms row))
                     (optional-int (:time row))
                     (optional-int (:timestamp row)))
@@ -1532,10 +1715,8 @@
        :funding-rate (optional-number (or (:fundingRate row)
                                           (:funding-rate row)
                                           (:fundingRate delta)))
-       :position-size (optional-number (or (:positionSize row)
-                                           (:position-size-raw row)
-                                           (:szi row)
-                                           (:szi delta)))
+       :position-size position-size
+       :side-key (direction-key-from-size position-size)
        :payment (optional-number (or (:payment row)
                                      (:payment-usdc-raw row)
                                      (:usdc row)
@@ -1556,12 +1737,15 @@
   (when (map? row)
     (let [order (if (map? (:order row))
                   (:order row)
-                  row)]
+                  row)
+          raw-side (:side order)
+          status (non-blank-text (:status row))]
       {:time-ms (or (optional-int (:statusTimestamp row))
                     (optional-int (:timestamp order))
                     (optional-int (:time row)))
        :coin (non-blank-text (:coin order))
-       :side (normalize-side (:side order))
+       :side-key (normalize-side-key raw-side)
+       :side (normalize-side raw-side)
        :type (non-blank-text (or (:orderType order)
                                  (:type order)
                                  (:tif order)))
@@ -1569,7 +1753,8 @@
                  (optional-number (:sz order)))
        :price (or (optional-number (:limitPx order))
                   (optional-number (:px order)))
-       :status (non-blank-text (:status row))})))
+       :status status
+       :status-key (status-tone-key status)})))
 
 (defn- activity-order-history
   [rows]
@@ -1581,11 +1766,18 @@
                 >)
        vec)))
 
-(defn- ledger-type-label
+(defn- ledger-type-key
   [value]
   (case (some-> value str str/trim str/lower-case)
-    "vaultdeposit" "Deposit"
-    "vaultwithdraw" "Withdraw"
+    "vaultdeposit" :deposit
+    "vaultwithdraw" :withdraw
+    nil))
+
+(defn- ledger-type-label
+  [type-key]
+  (case type-key
+    :deposit "Deposit"
+    :withdraw "Withdraw"
     nil))
 
 (defn- normalize-ledger-row
@@ -1594,14 +1786,21 @@
     (let [delta (if (map? (:delta row))
                   (:delta row)
                   row)
-          type-label (ledger-type-label (:type delta))]
-      (when type-label
-        {:time-ms (or (optional-int (:time row))
-                      (optional-int (:timestamp row)))
-         :type-label type-label
-         :amount (optional-number (or (:usdc delta)
+          type-key (ledger-type-key (:type delta))
+          amount (optional-number (or (:usdc delta)
                                       (:amount delta)
                                       (:value delta)))
+          signed-amount (if (and (= :withdraw type-key)
+                                 (number? amount))
+                          (- (js/Math.abs amount))
+                          amount)]
+      (when type-key
+        {:time-ms (or (optional-int (:time row))
+                      (optional-int (:timestamp row)))
+         :type-key type-key
+         :type-label (ledger-type-label type-key)
+         :amount amount
+         :signed-amount signed-amount
          :hash (non-blank-text (:hash row))
          :vault (normalize-address (:vault delta))}))))
 
@@ -2045,6 +2244,11 @@
                                          (map (fn [{:keys [value]}]
                                                 [value (activity-sort-state state value)]))
                                          activity-tabs)
+        activity-table-config (into {}
+                                    (map (fn [{:keys [value]}]
+                                           [value {:columns (get activity-columns-by-tab value [])
+                                                   :supports-direction-filter? (contains? direction-filter-tabs value)}]))
+                                    activity-tabs)
         positions-raw (activity-positions webdata)
         open-orders-raw (activity-open-orders webdata)
         balances-raw (activity-balances webdata)
@@ -2177,6 +2381,7 @@
      :activity-direction-filter activity-direction-filter
      :activity-filter-open? activity-filter-open?
      :activity-filter-options activity-filter-options
+     :activity-table-config activity-table-config
      :activity-sort-state-by-tab activity-sort-state-by-tab
      :selected-activity-sort-state (get activity-sort-state-by-tab activity-tab)
      :activity-balances balances

@@ -183,7 +183,7 @@
 (s/def ::page-and-max-page-args (s/tuple ::intish (s/nilable ::intish)))
 (s/def ::address-and-mode-args (s/tuple ::non-empty-string ::keyword-or-string))
 (s/def ::sort-column-args (s/tuple ::non-empty-string))
-(s/def ::vault-detail-activity-sort-args (s/tuple ::keyword-or-string ::non-empty-string))
+(s/def ::vault-detail-activity-sort-args (s/tuple ::keyword-or-string ::keyword-or-string))
 (s/def ::key-args (s/tuple ::non-empty-string))
 (s/def ::keydown-with-max-page-args (s/tuple ::non-empty-string (s/nilable ::intish)))
 (s/def ::keydown-with-optional-coin-args

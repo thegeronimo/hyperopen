@@ -421,10 +421,10 @@
 (deftest vault-detail-vm-applies-per-tab-sort-state-for-activity-rows-test
   (let [state (assoc-in sample-state
                         [:vaults-ui :detail-activity-sort-by-tab]
-                        {:positions {:column "Coin"
+                        {:positions {:column :coin
                                      :direction :asc}})
         vm (detail-vm/vault-detail-vm state)]
-    (is (= "Coin" (get-in vm [:activity-sort-state-by-tab :positions :column])))
+    (is (= :coin (get-in vm [:activity-sort-state-by-tab :positions :column])))
     (is (= :asc (get-in vm [:activity-sort-state-by-tab :positions :direction])))
     (is (= "BTC" (get-in vm [:activity-positions 0 :coin])))
     (is (= "ETH" (get-in vm [:activity-positions 1 :coin])))))

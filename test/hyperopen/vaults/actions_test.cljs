@@ -189,12 +189,12 @@
                                [[:vaults-ui :detail-activity-filter-open?] false]]]]
          (actions/set-vault-detail-activity-tab {} "unknown-tab")))
   (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-sort-by-tab :positions]
-                                {:column "Size"
+                                {:column :size
                                  :direction :desc}]
                                [[:vaults-ui :detail-activity-filter-open?] false]]]]
          (actions/sort-vault-detail-activity {} :positions "Size")))
   (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-sort-by-tab :positions]
-                                {:column "Size"
+                                {:column :size
                                  :direction :asc}]
                                [[:vaults-ui :detail-activity-filter-open?] false]]]]
          (actions/sort-vault-detail-activity
