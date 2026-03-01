@@ -74,6 +74,29 @@
   [value]
   (str (shared/format-currency value) " USDC"))
 
+(defn- format-price
+  [value]
+  (or (shared/format-trade-price value)
+      "—"))
+
+(defn- drag-confirmation-summary
+  [modal]
+  (when (= :chart-liquidation-drag (:prefill-source modal))
+    [:div {:class ["rounded-lg"
+                   "border"
+                   "border-base-300"
+                   "bg-base-200/60"
+                   "px-3"
+                   "py-2"
+                   "space-y-1"]}
+     [:div {:class ["text-xs" "font-semibold" "uppercase" "tracking-wide" "text-gray-400"]}
+      "Chart liquidation drag"]
+     [:div {:class ["text-xs" "text-gray-300"]}
+      (str "Current " (format-price (:prefill-liquidation-current-price modal))
+           " -> Target " (format-price (:prefill-liquidation-target-price modal)))]
+     [:div {:class ["text-xs" "text-gray-400"]}
+      "Review and confirm margin update."]]))
+
 (def ^:private neutral-input-focus-classes
   ["outline-none"
    "transition-[border-color,box-shadow]"
@@ -302,6 +325,7 @@
          (metric-row "Asset" (coin-label (:coin modal*)))
          (metric-row "Margin Used" (format-usdc (:margin-used modal*)))
          (metric-row "Available to Add" (format-usdc (:available-to-add modal*)))
+         (drag-confirmation-summary modal*)
 
          (amount-input-row modal*)
          (percent-slider-row modal*)

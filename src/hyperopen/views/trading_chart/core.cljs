@@ -59,6 +59,23 @@
       (dispatch-fn {:replicant/trigger :chart-volume-indicator-remove}
                    [[:actions/hide-volume-indicator]]))))
 
+(defn- dispatch-chart-liquidation-drag-margin-confirm!
+  [position-data suggestion]
+  (let [dispatch-fn replicant-core/*dispatch*]
+    (when (and (ifn? dispatch-fn)
+               (map? position-data)
+               (map? suggestion))
+      (dispatch-fn
+       {:replicant/trigger :chart-liquidation-drag-margin-confirm}
+       [[:actions/open-position-margin-modal
+         (merge position-data
+                {:prefill-source :chart-liquidation-drag
+                 :prefill-margin-mode (:mode suggestion)
+                 :prefill-margin-amount (:amount suggestion)
+                 :prefill-liquidation-target-price (:target-liquidation-price suggestion)
+                 :prefill-liquidation-current-price (:current-liquidation-price suggestion)})
+         (:anchor suggestion)]]))))
+
 (defn- format-chart-overlay-size
   [value]
   (fmt/format-fixed-number value 2))
@@ -170,6 +187,7 @@
           indicator-series-data :indicator-series}
          (derived-cache/memoized-indicator-outputs candle-data selected-timeframe active-indicators)
          position-overlay (:position-overlay chart-runtime-options)
+         on-liquidation-drag-confirm (:on-liquidation-drag-confirm chart-runtime-options)
          series-options (:series-options chart-runtime-options)
          legend-deps (:legend-deps chart-runtime-options)
          persistence-deps (:persistence-deps chart-runtime-options)
@@ -180,7 +198,8 @@
                        :format-price fmt/format-trade-price-plain
                        :format-size format-chart-overlay-size}
          position-overlay-deps {:format-price fmt/format-trade-price-plain
-                                :format-size format-chart-overlay-size}
+                                :format-size format-chart-overlay-size
+                                :on-liquidation-drag-confirm on-liquidation-drag-confirm}
          volume-indicator-deps {:on-remove on-hide-volume-indicator}
          legend-key (str (or (:symbol legend-meta) "")
                          "-"
@@ -312,6 +331,9 @@
         active-market (or (:active-market state) {})
         market-by-key (get-in state [:asset-selector :market-by-key] {})
         active-position (trading-state/position-for-active-asset state)
+        active-position-data (when (map? active-position)
+                               {:position active-position
+                                :dex (:dex active-market)})
         ;; Use selected timeframe from state
         selected-timeframe (get-in state [:chart-options :selected-timeframe] :1d)
         selected-chart-type (get-in state [:chart-options :selected-chart-type] :candlestick)
@@ -330,6 +352,10 @@
                            :market-by-key market-by-key
                            :selected-timeframe selected-timeframe
                            :candle-data candle-data})
+        on-liquidation-drag-confirm (fn [suggestion]
+                                      (dispatch-chart-liquidation-drag-margin-confirm!
+                                       active-position-data
+                                       suggestion))
         symbol (or active-asset "—")
         timeframe-label (str/upper-case (name selected-timeframe))
         price-decimals (or (:price-decimals active-market)
@@ -344,6 +370,7 @@
                                :on-hide-volume-indicator dispatch-hide-volume-indicator!
                                :persistence-deps {:asset active-asset
                                                   :candles candle-data}
+                               :on-liquidation-drag-confirm on-liquidation-drag-confirm
                                :position-overlay position-overlay}
         legend-meta {:symbol symbol
                      :timeframe-label timeframe-label

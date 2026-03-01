@@ -65,14 +65,22 @@
       (or (when (pred node) node)
           (some #(find-dom-node % pred) children)))))
 
-(defn dispatch-dom-event! [node event-name]
+(defn dispatch-dom-event-with-payload!
+  [node event-name payload]
   (when node
     (let [listeners (.-listeners ^js node)
           handler (when listeners
                     (aget listeners event-name))]
       (when (fn? handler)
-        (handler #js {:preventDefault (fn [] nil)
-                      :stopPropagation (fn [] nil)})))))
+        (let [event (or payload #js {})]
+          (when-not (fn? (.-preventDefault event))
+            (aset event "preventDefault" (fn [] nil)))
+          (when-not (fn? (.-stopPropagation event))
+            (aset event "stopPropagation" (fn [] nil)))
+          (handler event))))))
+
+(defn dispatch-dom-event! [node event-name]
+  (dispatch-dom-event-with-payload! node event-name nil))
 
 (defn click-dom-node! [node]
   (dispatch-dom-event! node "click"))

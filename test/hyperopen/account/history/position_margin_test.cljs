@@ -26,3 +26,18 @@
         state {:webdata2 {:clearinghouseState {:availableToWithdraw "123.45"}}}
         modal (position-margin/from-position-row state row)]
     (is (= 123.45 (:available-to-add modal)))))
+
+(deftest from-position-row-applies-chart-drag-prefill-mode-and-amount-test
+  (let [row (assoc (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
+                   :prefill-source :chart-liquidation-drag
+                   :prefill-margin-mode :remove
+                   :prefill-margin-amount 9.5
+                   :prefill-liquidation-current-price 4.2
+                   :prefill-liquidation-target-price 6.7)
+        modal (position-margin/from-position-row {} row)]
+    (is (= :remove (:mode modal)))
+    (is (= "2" (:amount-input modal)))
+    (is (= "100" (:amount-percent-input modal)))
+    (is (= :chart-liquidation-drag (:prefill-source modal)))
+    (is (= 4.2 (:prefill-liquidation-current-price modal)))
+    (is (= 6.7 (:prefill-liquidation-target-price modal)))))

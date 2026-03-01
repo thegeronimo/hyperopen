@@ -14,12 +14,16 @@
 (def ^:private long-text-color "rgb(151, 252, 228)")
 (def ^:private short-text-color "rgb(244, 187, 198)")
 (def ^:private liq-text-color "rgb(255, 196, 203)")
+(def ^:private liq-drag-text-color "rgb(252, 222, 157)")
 (def ^:private badge-char-width-px 6.2)
 (def ^:private chart-edge-padding-px 12)
 (def ^:private min-visible-pnl-segment-px 24)
 (def ^:private pnl-badge-left-anchor-ratio 0.17)
 (def ^:private pnl-badge-left-anchor-min-px 96)
 (def ^:private pnl-badge-left-anchor-max-px 180)
+(def ^:private min-liquidation-drag-margin-amount 0.000001)
+
+(declare begin-liquidation-drag!)
 
 (defn- overlay-state
   [chart-obj]
@@ -165,6 +169,98 @@
                :else "")]
     (str sign "$" (account-shared/format-currency (js/Math.abs pnl*)))))
 
+(defn- event-client-coordinate
+  [event k]
+  (when event
+    (parse-number (aget event k))))
+
+(defn- event-client-y
+  [event]
+  (event-client-coordinate event "clientY"))
+
+(defn- event-client-x
+  [event]
+  (event-client-coordinate event "clientX"))
+
+(defn- number->px
+  [value fallback]
+  (if (finite-number? value)
+    value
+    fallback))
+
+(defn- event-anchor
+  [overlay source-node event]
+  (let [window* (:window overlay)
+        viewport-width (or (some-> window* .-innerWidth parse-number)
+                           (some-> js/globalThis .-innerWidth parse-number)
+                           1280)
+        viewport-height (or (some-> window* .-innerHeight parse-number)
+                            (some-> js/globalThis .-innerHeight parse-number)
+                            800)
+        rect (try
+               (when-let [method (some-> source-node (aget "getBoundingClientRect"))]
+                 (when (fn? method)
+                   (.call method source-node)))
+               (catch :default _ nil))
+        fallback-left (event-client-x event)
+        fallback-top (event-client-y event)
+        left (number->px (some-> rect (aget "left") parse-number) (or fallback-left 0))
+        top (number->px (some-> rect (aget "top") parse-number) (or fallback-top 0))
+        width (max 0 (number->px (some-> rect (aget "width") parse-number) 0))
+        height (max 0 (number->px (some-> rect (aget "height") parse-number) 0))
+        right (+ left width)
+        bottom (+ top height)]
+    {:left left
+     :right right
+     :top top
+     :bottom bottom
+     :width width
+     :height height
+     :viewport-width viewport-width
+     :viewport-height viewport-height}))
+
+(defn- liquidation-margin-delta
+  [overlay current-liq-price target-liq-price]
+  (let [abs-size (parse-number (:abs-size overlay))
+        side (:side overlay)
+        current* (parse-number current-liq-price)
+        target* (parse-number target-liq-price)]
+    (when (and (finite-number? abs-size)
+               (pos? abs-size)
+               (finite-number? current*)
+               (pos? current*)
+               (finite-number? target*)
+               (pos? target*)
+               (contains? #{:long :short} side))
+      (case side
+        :long (* abs-size (- current* target*))
+        :short (* abs-size (- target* current*))
+        nil))))
+
+(defn- liquidation-drag-suggestion
+  [overlay current-liq-price target-liq-price]
+  (let [margin-delta (liquidation-margin-delta overlay current-liq-price target-liq-price)
+        margin-delta* (if (finite-number? margin-delta) margin-delta 0)
+        abs-delta (when (finite-number? margin-delta)
+                    (js/Math.abs margin-delta))]
+    (when (and (finite-number? abs-delta)
+               (>= abs-delta min-liquidation-drag-margin-amount))
+      {:mode (if (neg? margin-delta*)
+               :remove
+               :add)
+       :amount abs-delta
+       :current-liquidation-price current-liq-price
+       :target-liquidation-price target-liq-price})))
+
+(defn- liquidation-drag-label
+  [overlay current-liq-price target-liq-price]
+  (when-let [{:keys [mode amount]} (liquidation-drag-suggestion overlay
+                                                                current-liq-price
+                                                                target-liq-price)]
+    (let [mode-label (if (= mode :remove) "Remove" "Add")
+          amount-text (account-shared/format-currency amount)]
+      (str mode-label " $" amount-text " Margin"))))
+
 (defn- create-overlay-root!
   [document]
   (let [root (.createElement document "div")]
@@ -262,16 +358,23 @@
     row))
 
 (defn- build-liquidation-row!
-  [document overlay y width]
+  [chart-obj document overlay y width]
   (let [row (.createElement document "div")
         line (.createElement document "div")
         badge (.createElement document "div")
         label (.createElement document "span")
         price (.createElement document "span")
+        drag-note (.createElement document "span")
         liq-price-text (format-price-text (:format-price overlay)
                                           (:liquidation-price overlay))
+        drag-label (liquidation-drag-label overlay
+                                           (:current-liquidation-price overlay)
+                                           (:liquidation-price overlay))
         liq-label-text (str "Liq. Price " liq-price-text)
-        estimated-badge-width (estimate-badge-width-px 52 liq-label-text)
+        full-label-text (if (seq drag-label)
+                          (str liq-label-text " | " drag-label)
+                          liq-label-text)
+        estimated-badge-width (estimate-badge-width-px 52 full-label-text)
         badge-x (clamp-badge-center-x width
                                       (+ chart-edge-padding-px
                                          (/ estimated-badge-width 2)
@@ -306,17 +409,39 @@
       "padding" "2px 6px"
       "fontSize" "11px"
       "lineHeight" "16px"
-      "fontWeight" "600"
+     "fontWeight" "600"
       "borderRadius" "3px"
       "border" (str "1px solid " liq-line-color)
       "background" liq-badge-color
       "backdropFilter" "blur(0.5px)"
       "color" liq-text-color
-      "pointerEvents" "none"})
+      "cursor" "ns-resize"
+      "pointerEvents" "auto"})
     (set! (.-textContent label) "Liq. Price")
     (set! (.-textContent price) liq-price-text)
+    (set! (.-textContent drag-note) (or drag-label ""))
+    (apply-inline-style!
+     drag-note
+     {"color" liq-drag-text-color
+      "whiteSpace" "nowrap"
+      "display" (if (seq drag-label) "inline" "none")})
+    (.setAttribute badge "title" "Drag to adjust liquidation target")
+    (.setAttribute badge "data-position-liq-drag-handle" "true")
+    (let [drag-started? (atom false)
+          on-pointer-down
+          (fn [event]
+            (when event
+              (.preventDefault event)
+              (.stopPropagation event))
+            (when-not @drag-started?
+              (reset! drag-started? true)
+              (begin-liquidation-drag! chart-obj overlay badge event)))]
+      (.addEventListener badge "pointerdown" on-pointer-down)
+      (.addEventListener badge "mousedown" on-pointer-down)
+      (.addEventListener badge "touchstart" on-pointer-down))
     (.appendChild badge label)
     (.appendChild badge price)
+    (.appendChild badge drag-note)
     (.appendChild row line)
     (.appendChild row badge)
     row))
@@ -351,9 +476,150 @@
     (let [time-scale (invoke-method chart "timeScale")]
       (invoke-method time-scale "timeToCoordinate" entry-time))))
 
+(defn- remove-event-listener!
+  [target event-name handler]
+  (when (and target
+             (fn? (aget target "removeEventListener"))
+             (fn? handler))
+    (.removeEventListener target event-name handler)))
+
+(defn- add-event-listener!
+  [target event-name handler]
+  (when (and target
+             (fn? (aget target "addEventListener"))
+             (fn? handler))
+    (.addEventListener target event-name handler)))
+
+(defn- teardown-drag-listeners!
+  [state]
+  (let [{:keys [target on-move on-up on-cancel]} (:drag-listeners state)]
+    (remove-event-listener! target "pointermove" on-move)
+    (remove-event-listener! target "pointerup" on-up)
+    (remove-event-listener! target "pointercancel" on-cancel)
+    (remove-event-listener! target "mousemove" on-move)
+    (remove-event-listener! target "mouseup" on-up)
+    (remove-event-listener! target "touchmove" on-move)
+    (remove-event-listener! target "touchend" on-up)
+    (remove-event-listener! target "touchcancel" on-cancel))
+  (dissoc state :drag-listeners))
+
+(defn- event-root-y
+  [root event]
+  (let [client-y (event-client-y event)
+        rect (try
+               (when-let [method (some-> root (aget "getBoundingClientRect"))]
+                 (when (fn? method)
+                   (.call method root)))
+               (catch :default _ nil))
+        top (some-> rect (aget "top") parse-number)]
+    (when (finite-number? client-y)
+      (if (finite-number? top)
+        (- client-y top)
+        client-y))))
+
+(defn- y->liq-price
+  [main-series y]
+  (when (finite-number? y)
+    (let [price (parse-number (invoke-method main-series "coordinateToPrice" y))]
+      (when (and (finite-number? price)
+                 (pos? price))
+        price))))
+
+(defn- liq-price-from-event
+  [state event]
+  (let [root (:root state)
+        main-series (:main-series state)
+        y (event-root-y root event)]
+    (y->liq-price main-series y)))
+
+(defn- update-liquidation-drag-preview!
+  [chart-obj event]
+  (let [state (overlay-state chart-obj)]
+    (when (and (map? (:drag state))
+               (:root state)
+               (:main-series state))
+      (when-let [preview-price (liq-price-from-event state event)]
+        (set-overlay-state! chart-obj (assoc-in state [:drag :preview-liquidation-price] preview-price))
+        (render-overlays! chart-obj)))))
+
+(defn- finalize-liquidation-drag!
+  [chart-obj event canceled?]
+  (let [state (overlay-state chart-obj)
+        drag (:drag state)
+        start-price (parse-number (:start-liquidation-price drag))
+        preview-price (or (liq-price-from-event state event)
+                          (parse-number (:preview-liquidation-price drag))
+                          start-price)
+        on-liquidation-drag-confirm (:on-liquidation-drag-confirm state)
+        overlay-for-confirm (:overlay-for-confirm drag)
+        source-node (:source-node drag)
+        next-state (-> state
+                       teardown-drag-listeners!
+                       (dissoc :drag))]
+    (set-overlay-state! chart-obj next-state)
+    (render-overlays! chart-obj)
+    (when (and (not canceled?)
+               (finite-number? start-price)
+               (finite-number? preview-price)
+               (fn? on-liquidation-drag-confirm)
+               (map? overlay-for-confirm))
+      (when-let [suggestion (liquidation-drag-suggestion overlay-for-confirm
+                                                         start-price
+                                                         preview-price)]
+        (on-liquidation-drag-confirm
+         (assoc suggestion
+                :anchor (event-anchor (:overlay next-state)
+                                      source-node
+                                      event)))))))
+
+(defn begin-liquidation-drag!
+  [chart-obj overlay-for-confirm source-node event]
+  (let [state (overlay-state chart-obj)
+        start-price (parse-number (:liquidation-price overlay-for-confirm))
+        target (or (:window state)
+                   (some-> (:document state) .-defaultView)
+                   (:document state)
+                   js/globalThis)]
+    (when (and (finite-number? start-price)
+               (pos? start-price)
+               (map? overlay-for-confirm))
+      (let [on-move (fn [drag-event]
+                      (when drag-event
+                        (.preventDefault drag-event))
+                      (update-liquidation-drag-preview! chart-obj drag-event))
+            on-up (fn [drag-event]
+                    (when drag-event
+                      (.preventDefault drag-event)
+                      (.stopPropagation drag-event))
+                    (finalize-liquidation-drag! chart-obj drag-event false))
+            on-cancel (fn [drag-event]
+                        (when drag-event
+                          (.preventDefault drag-event))
+                        (finalize-liquidation-drag! chart-obj drag-event true))
+            state* (-> state
+                       teardown-drag-listeners!
+                       (assoc :drag {:source-node source-node
+                                     :overlay-for-confirm overlay-for-confirm
+                                     :start-liquidation-price start-price
+                                     :preview-liquidation-price start-price}
+                              :drag-listeners {:target target
+                                               :on-move on-move
+                                               :on-up on-up
+                                               :on-cancel on-cancel}))]
+        (add-event-listener! target "pointermove" on-move)
+        (add-event-listener! target "pointerup" on-up)
+        (add-event-listener! target "pointercancel" on-cancel)
+        (add-event-listener! target "mousemove" on-move)
+        (add-event-listener! target "mouseup" on-up)
+        (add-event-listener! target "touchmove" on-move)
+        (add-event-listener! target "touchend" on-up)
+        (add-event-listener! target "touchcancel" on-cancel)
+        (set-overlay-state! chart-obj state*)
+        (render-overlays! chart-obj)))))
+
 (defn render-overlays!
   [chart-obj]
-  (let [{:keys [root chart main-series overlay]} (overlay-state chart-obj)
+  (let [{:keys [root chart main-series overlay drag]} (overlay-state chart-obj)
         document (:document overlay)
         format-price (:format-price overlay)
         format-size (:format-size overlay)]
@@ -366,7 +632,13 @@
               entry-y (when (and (finite-number? entry-price)
                                  (pos? entry-price))
                         (invoke-method main-series "priceToCoordinate" entry-price))
-              liq-price (parse-number (:liquidation-price overlay))
+              base-liq-price (parse-number (:liquidation-price overlay))
+              drag-preview-price (some-> drag :preview-liquidation-price parse-number)
+              current-liq-price (or (some-> drag :start-liquidation-price parse-number)
+                                    base-liq-price)
+              liq-price (if (finite-number? drag-preview-price)
+                          drag-preview-price
+                          base-liq-price)
               liq-y (when (and (finite-number? liq-price)
                                (pos? liq-price))
                       (invoke-method main-series "priceToCoordinate" liq-price))
@@ -386,7 +658,8 @@
               overlay* (assoc overlay
                               :document document
                               :format-price format-price
-                              :format-size format-size)]
+                              :format-size format-size
+                              :current-liquidation-price current-liq-price)]
           (when (and (finite-number? entry-y)
                      (or (zero? height)
                          (and (> entry-y -30)
@@ -398,13 +671,14 @@
                          (and (> liq-y -30)
                               (< liq-y (+ height 30)))))
             (.appendChild root
-                          (build-liquidation-row! document overlay* liq-y width))))))))
+                          (build-liquidation-row! chart-obj document overlay* liq-y width))))))))
 
 (defn clear-position-overlays!
   [chart-obj]
   (when chart-obj
-    (let [{:keys [root subscription]} (overlay-state chart-obj)]
+    (let [{:keys [root subscription] :as state} (overlay-state chart-obj)]
       (teardown-subscription! subscription)
+      (teardown-drag-listeners! state)
       (when root
         (clear-children! root)
         (when-let [parent (.-parentNode root)]
@@ -414,7 +688,7 @@
 (defn sync-position-overlays!
   ([chart-obj container overlay]
    (sync-position-overlays! chart-obj container overlay {}))
-  ([chart-obj container overlay {:keys [document format-price format-size]
+  ([chart-obj container overlay {:keys [document window format-price format-size on-liquidation-drag-confirm]
                                  :or {format-price account-shared/format-trade-price
                                       format-size account-shared/format-currency}}]
    (if-not (and chart-obj container)
@@ -422,6 +696,10 @@
      (let [chart (.-chart ^js chart-obj)
            main-series (.-mainSeries ^js chart-obj)
            document* (resolve-document document)
+           window* (or window
+                       (some-> document* .-defaultView)
+                       (some-> js/globalThis .-window)
+                       js/globalThis)
            overlay-ref (when (map? overlay) overlay)]
        (if (and chart main-series document* overlay-ref)
          (let [root (ensure-overlay-root! chart-obj container document*)
@@ -442,8 +720,10 @@
                     (identical? chart (:chart state))
                     (identical? main-series (:main-series state))
                     (identical? document* (:document state))
+                    (identical? window* (:window state))
                     (identical? format-price (:format-price state))
                     (identical? format-size (:format-size state))
+                    (identical? on-liquidation-drag-confirm (:on-liquidation-drag-confirm state))
                     (identical? overlay-ref (:overlay-ref state)))]
            (if unchanged-inputs?
              state
@@ -457,11 +737,14 @@
                        :overlay-ref overlay-ref
                        :overlay (assoc overlay-ref
                                        :document document*
+                                       :window window*
                                        :format-price format-price
                                        :format-size format-size)
                        :document document*
+                       :window window*
                        :format-price format-price
                        :format-size format-size
+                       :on-liquidation-drag-confirm on-liquidation-drag-confirm
                        :subscription next-subscription))
                (render-overlays! chart-obj))))
          (clear-position-overlays! chart-obj))))))

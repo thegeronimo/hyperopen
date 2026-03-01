@@ -10,6 +10,9 @@
 (def ^:private ntli-scale
   1000000)
 
+(def ^:private min-prefill-margin-amount
+  0.000001)
+
 (defn- parse-num
   [value]
   (trading-domain/parse-num value))
@@ -41,6 +44,15 @@
     (if (= candidate :remove)
       :remove
       :add)))
+
+(defn- normalize-prefill-source
+  [value]
+  (let [token (cond
+                (keyword? value) value
+                (string? value) (keyword (str/lower-case (str/trim value)))
+                :else nil)]
+    (when (= token :chart-liquidation-drag)
+      :chart-liquidation-drag)))
 
 (defn- normalize-anchor
   [anchor]
@@ -239,7 +251,10 @@
    :max-removable 0
    :mode :add
    :amount-input "0"
-   :amount-percent-input "0"
+  :amount-percent-input "0"
+   :prefill-source nil
+   :prefill-liquidation-target-price nil
+   :prefill-liquidation-current-price nil
    :error nil})
 
 (defn open?
@@ -439,6 +454,34 @@
                           :isBuy is-buy
                           :ntli ntli}}})))
 
+(defn- sanitize-prefill-liquidation-price
+  [value]
+  (let [num (parse-num value)]
+    (when (and (finite-number? num)
+               (pos? num))
+      num)))
+
+(defn- apply-prefill
+  [modal position-data]
+  (if-not (map? position-data)
+    modal
+    (let [mode* (normalize-mode (:prefill-margin-mode position-data))
+          amount (parse-num (:prefill-margin-amount position-data))
+          source (normalize-prefill-source (:prefill-source position-data))
+          modal* (assoc modal
+                        :prefill-source source
+                        :prefill-liquidation-target-price (sanitize-prefill-liquidation-price
+                                                           (:prefill-liquidation-target-price position-data))
+                        :prefill-liquidation-current-price (sanitize-prefill-liquidation-price
+                                                            (:prefill-liquidation-current-price position-data)))]
+      (if (and (finite-number? amount)
+               (>= amount min-prefill-margin-amount))
+        (let [modal-with-mode (set-modal-field modal* [:mode] mode*)
+              max-value (max-amount modal-with-mode)
+              clamped-amount (clamp amount 0 max-value)]
+          (set-modal-field modal-with-mode [:amount-input] (amount->text clamped-amount)))
+        modal*))))
+
 (defn from-position-row
   ([state position-data]
    (from-position-row state position-data nil))
@@ -448,20 +491,21 @@
          margin-used (max 0 (or (parse-num (:marginUsed position)) 0))
          available (available-to-add state position-data)
          removable (removable-margin position margin-used)]
-     (assoc (default-modal-state)
-            :open? true
-            :position-key (position-identity/position-unique-key position-data)
-            :anchor (normalize-anchor anchor)
-            :coin (:coin position)
-            :dex (normalize-display-text (:dex position-data))
-            :position-side side
-            :position-size (absolute-position-size (:szi position))
-            :position-value (max 0 (or (parse-num (:positionValue position)) 0))
-            :margin-used margin-used
-            :available-to-add available
-            :max-removable removable
-            :mode :add
-            :amount-input "0"
-            :amount-percent-input "0"
-            :submitting? false
-            :error nil))))
+     (-> (assoc (default-modal-state)
+                :open? true
+                :position-key (position-identity/position-unique-key position-data)
+                :anchor (normalize-anchor anchor)
+                :coin (:coin position)
+                :dex (normalize-display-text (:dex position-data))
+                :position-side side
+                :position-size (absolute-position-size (:szi position))
+                :position-value (max 0 (or (parse-num (:positionValue position)) 0))
+                :margin-used margin-used
+                :available-to-add available
+                :max-removable removable
+                :mode :add
+                :amount-input "0"
+                :amount-percent-input "0"
+                :submitting? false
+                :error nil)
+         (apply-prefill position-data)))))

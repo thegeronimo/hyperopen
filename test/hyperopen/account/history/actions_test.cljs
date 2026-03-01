@@ -500,3 +500,20 @@
     (is (= [[:effects/save-many [[[:positions-ui :margin-modal :submitting?] false]
                                  [[:positions-ui :margin-modal :error] "Select an amount"]]]]
            invalid-effects))))
+
+(deftest open-position-margin-modal-preserves-chart-drag-prefill-fields-test
+  (let [row (assoc (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
+                   :prefill-source :chart-liquidation-drag
+                   :prefill-margin-mode :add
+                   :prefill-margin-amount 1.75
+                   :prefill-liquidation-current-price 4.2
+                   :prefill-liquidation-target-price 2.1)
+        state {:webdata2 {:clearinghouseState {:marginSummary {:accountValue "10"
+                                                                :totalMarginUsed "1"}}}}
+        effects (history-actions/open-position-margin-modal state row)
+        modal (get-in (first effects) [1 0 1])]
+    (is (= :chart-liquidation-drag (:prefill-source modal)))
+    (is (= :add (:mode modal)))
+    (is (= "1.75" (:amount-input modal)))
+    (is (= 4.2 (:prefill-liquidation-current-price modal)))
+    (is (= 2.1 (:prefill-liquidation-target-price modal)))))
