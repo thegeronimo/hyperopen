@@ -499,7 +499,8 @@
            (tooltip 
              [[:span {:class ["cursor-help" "num" (signed-tone-class funding-rate)]}
                (signed-percentage-text funding-rate 4)]
-              (funding-tooltip-panel funding-tooltip)])
+              (funding-tooltip-panel funding-tooltip)]
+             "bottom")
            [:span (if is-spot "—" "Loading...")])
          [:span.mx-1 "/"]
          [:span.num (if is-spot "—" countdown-text)]]]]]))
