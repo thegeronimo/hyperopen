@@ -149,12 +149,6 @@
       (base-symbol-segment coin)
       "ASSET"))
 
-(defn- funding-countdown-mm-ss [countdown-text]
-  (let [text (non-blank-text countdown-text)]
-    (if (and text (re-matches #"\d{2}:\d{2}:\d{2}" text))
-      (subs text 3)
-      (or text "--"))))
-
 (defn- signed-percentage-text [value decimals]
   (if (number? value)
     (let [normalized (if (< (js/Math.abs value) 1e-8) 0 value)
@@ -192,14 +186,12 @@
          :short 1
          0))))
 
-(defn- funding-tooltip-model [position market coin mark funding-rate countdown-text]
+(defn- funding-tooltip-model [position market coin mark funding-rate]
   (let [size-raw (:szi position)
         size (parse-optional-number size-raw)
         direction (direction-from-size size)
         position-value (normalized-position-value position mark)
         base-symbol (display-base-symbol market coin)
-        countdown-mm-ss (funding-countdown-mm-ss countdown-text)
-        current-rate funding-rate
         next-24h-rate (when (number? funding-rate)
                         (* funding-rate 24))
         annual-rate (fmt/annualized-funding-rate funding-rate)]
@@ -212,16 +204,12 @@
                                  base-symbol)
                             "No open position")
      :position-value position-value
-     :projection-rows [{:id "current"
-                        :label (str "Current in " countdown-mm-ss)
-                        :rate current-rate
-                        :payment (funding-payment-estimate direction position-value current-rate)}
-                       {:id "next-24h"
-                        :label "Next 24h *"
+     :projection-rows [{:id "next-24h"
+                        :label "Next 24h"
                         :rate next-24h-rate
                         :payment (funding-payment-estimate direction position-value next-24h-rate)}
                        {:id "apy"
-                        :label "APY *"
+                        :label "APY"
                         :rate annual-rate
                         :payment (funding-payment-estimate direction position-value annual-rate)}]}))
 
@@ -294,9 +282,7 @@
         [:span {:class ["num" "text-left" "whitespace-nowrap" "font-medium" (signed-tone-class rate)]}
          (signed-percentage-text rate 4)]
         [:span {:class ["num" "text-left" "whitespace-nowrap" "font-medium" (signed-tone-class payment)]}
-         (signed-usd-text payment)]])]]
-   [:p {:class ["mt-0.5" "italic" "text-[0.82rem]" "leading-4" "text-gray-300/95"]}
-    "* Assume current position and funding rate"]])
+         (signed-usd-text payment)]])]]])
 
 (defn- symbol-monogram [market symbol coin]
   (let [base-symbol (or (non-blank-text (:base market))
@@ -434,8 +420,7 @@
                                                market
                                                coin
                                                mark
-                                               funding-rate
-                                               countdown-text)
+                                               funding-rate)
         dropdown-visible? (= (:visible-dropdown dropdown-state) :asset-selector)
         is-spot (= :spot (:market-type market))
         ;; Handle missing data gracefully
