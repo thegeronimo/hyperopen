@@ -2,7 +2,9 @@
   (:require [clojure.string :as str]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.portfolio.metrics :as portfolio-metrics]
+            [hyperopen.vaults.adapters.webdata :as webdata-adapter]
             [hyperopen.vaults.actions :as vault-actions]
+            [hyperopen.vaults.detail.activity :as activity-model]
             [hyperopen.vaults.detail.types :as detail-types]
             [hyperopen.views.account-info.sort-kernel :as sort-kernel]))
 
@@ -1899,7 +1901,7 @@
                                   (when (usdc-coin? (:coin row))
                                     (when-let [available (optional-number (:available row))]
                                       (max 0 available))))
-                                (activity-balances webdata))
+                                (webdata-adapter/balances webdata))
         clearinghouse-state (or (:clearinghouseState webdata)
                                 (get-in webdata [:data :clearinghouseState])
                                 {})
@@ -2213,31 +2215,29 @@
         funding-error (first-address-error state :funding-history-by-vault history-addresses)
         order-history-error (first-address-error state :order-history-by-vault history-addresses)
         ledger-error (get-in state [:vaults :errors :ledger-updates-by-vault vault-address])
-        activity-direction-filter (vault-actions/normalize-vault-detail-activity-direction-filter
+        activity-direction-filter (activity-model/normalize-direction-filter
                                    (get-in state [:vaults-ui :detail-activity-direction-filter]))
         activity-filter-open? (true? (get-in state [:vaults-ui :detail-activity-filter-open?]))
+        activity-tabs* activity-model/tabs
+        activity-columns-by-tab (activity-model/columns-by-tab)
         activity-sort-state-by-tab (into {}
                                          (map (fn [{:keys [value]}]
-                                                [value (activity-sort-state state value)]))
-                                         activity-tabs)
-        activity-table-config (into {}
-                                    (map (fn [{:keys [value]}]
-                                           [value {:columns (get activity-columns-by-tab value [])
-                                                   :supports-direction-filter? (contains? direction-filter-tabs value)}]))
-                                    activity-tabs)
-        positions-raw (activity-positions webdata)
-        open-orders-raw (activity-open-orders webdata)
-        balances-raw (activity-balances webdata)
-        twaps-raw (activity-twaps webdata now-ms*)
-        fills-raw (activity-fills fills-source)
-        funding-history-raw (activity-funding-history funding-source)
-        order-history-raw (activity-order-history order-history-source)
-        deposits-withdrawals-raw (activity-ledger-updates ledger-source vault-address)
+                                                [value (activity-model/sort-state state value)]))
+                                         activity-tabs*)
+        positions-raw (webdata-adapter/positions webdata)
+        open-orders-raw (webdata-adapter/open-orders webdata)
+        balances-raw (webdata-adapter/balances webdata)
+        twaps-raw (webdata-adapter/twaps webdata now-ms*)
+        fills-raw (webdata-adapter/fills fills-source)
+        funding-history-raw (webdata-adapter/funding-history funding-source)
+        order-history-raw (webdata-adapter/order-history order-history-source)
+        deposits-withdrawals-raw (webdata-adapter/ledger-updates ledger-source vault-address)
         depositors-raw (activity-depositors details)
         project-rows (fn [tab rows]
-                       (-> rows
-                           (filter-activity-rows-by-direction tab activity-direction-filter)
-                           (sort-activity-rows tab (get activity-sort-state-by-tab tab))))
+                       (activity-model/project-rows rows
+                                                    tab
+                                                    activity-direction-filter
+                                                    (get activity-sort-state-by-tab tab)))
         balances (project-rows :balances balances-raw)
         positions (project-rows :positions positions-raw)
         open-orders (project-rows :open-orders open-orders-raw)
@@ -2352,12 +2352,12 @@
                             {:value value
                              :label label
                              :count (get activity-count-by-tab value 0)})
-                          activity-tabs)
+                          activity-tabs*)
      :selected-activity-tab activity-tab
      :activity-direction-filter activity-direction-filter
      :activity-filter-open? activity-filter-open?
-     :activity-filter-options activity-filter-options
-     :activity-table-config activity-table-config
+     :activity-filter-options activity-model/activity-filter-options
+     :activity-columns-by-tab activity-columns-by-tab
      :activity-sort-state-by-tab activity-sort-state-by-tab
      :selected-activity-sort-state (get activity-sort-state-by-tab activity-tab)
      :activity-balances balances

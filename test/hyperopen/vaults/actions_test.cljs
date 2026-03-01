@@ -198,7 +198,7 @@
                                  :direction :asc}]
                                [[:vaults-ui :detail-activity-filter-open?] false]]]]
          (actions/sort-vault-detail-activity
-          {:vaults-ui {:detail-activity-sort-by-tab {:positions {:column "Size"
+          {:vaults-ui {:detail-activity-sort-by-tab {:positions {:column :size
                                                                   :direction :desc}}}}
           :positions
           "Size")))

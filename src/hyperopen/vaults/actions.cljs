@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperopen.platform :as platform]
             [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.vaults.detail.activity :as activity-model]
             [hyperopen.vaults.detail.types :as detail-types]
             [hyperopen.utils.parse :as parse-utils]))
 
@@ -237,23 +238,6 @@
     (if (contains? vault-detail-activity-direction-filters token)
       token
       default-vault-detail-activity-direction-filter)))
-
-(defn- normalize-vault-detail-activity-sort-column
-  [value]
-  (cond
-    (keyword? value)
-    value
-
-    (string? value)
-    (some-> value
-            non-blank-text
-            str/lower-case
-            (str/replace #"[^a-z0-9]+" "-")
-            (str/replace #"^-+" "")
-            (str/replace #"-+$" "")
-            keyword)
-
-    :else nil))
 
 (defn- normalize-sort-direction
   [value]
@@ -721,10 +705,10 @@
 (defn sort-vault-detail-activity
   [state tab column]
   (let [tab* (normalize-vault-detail-activity-tab tab)
-        column* (normalize-vault-detail-activity-sort-column column)
+        column* (activity-model/normalize-sort-column tab* column)
         current-sort (or (get-in state (conj vault-detail-activity-sort-by-tab-path tab*))
                          {})
-        current-column (normalize-vault-detail-activity-sort-column (:column current-sort))
+        current-column (activity-model/normalize-sort-column tab* (:column current-sort))
         current-direction (normalize-sort-direction (:direction current-sort))
         next-direction (if (= column* current-column)
                          (if (= :asc current-direction) :desc :asc)

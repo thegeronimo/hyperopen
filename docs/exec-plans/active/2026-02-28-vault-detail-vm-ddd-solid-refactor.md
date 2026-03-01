@@ -20,7 +20,10 @@ A user can verify this by opening the vault detail page, switching activity tabs
 - [x] (2026-02-28 22:19Z) Added/updated tests in `/hyperopen/test/hyperopen/views/vaults/detail_vm_test.cljs` for month-return semantics and deterministic TWAP runtime behavior.
 - [x] (2026-02-28 22:19Z) Added `/hyperopen/src/hyperopen/vaults/detail/types.cljs` and `/hyperopen/test/hyperopen/vaults/detail/types_test.cljs`; wired benchmark identity helpers into `detail_vm` and benchmark fetch filtering in `vaults/actions`.
 - [x] (2026-02-28 22:19Z) Ran validation gates successfully: `npm test`, `npm run check`, `npm run test:websocket`.
-- [ ] Continue extraction milestones for adapter/activity/performance/benchmark/chart/transfer modules and thin assembler conversion.
+- [x] (2026-02-28 22:32Z) Implemented Milestone 3 adapter extraction: added `/hyperopen/src/hyperopen/vaults/adapters/webdata.cljs`, added adapter tests, and routed vault detail activity derivation through adapter functions.
+- [x] (2026-02-28 22:32Z) Implemented Milestone 4 activity model extraction: added `/hyperopen/src/hyperopen/vaults/detail/activity.cljs`, migrated sorting to stable column IDs with legacy label compatibility, and updated `vaults/actions`, `detail_vm`, and `vault_detail_view` to use activity configuration as single source.
+- [x] (2026-02-28 22:32Z) Added activity/read-model regression tests and re-ran validation gates (`npm test`, `npm run check`, `npm run test:websocket`) after Milestone 3 and 4 changes.
+- [ ] Continue extraction milestones for performance/benchmark/chart/transfer modules and thin assembler conversion.
 
 ## Surprises & Discoveries
 
@@ -38,6 +41,9 @@ A user can verify this by opening the vault detail page, switching activity tabs
 
 - Observation: Remote fetch from `origin` is not available in this execution environment due SSH key permissions, but local main integration still worked via fast-forward to the already-synced local `main` worktree commit.
   Evidence: `git fetch origin` failed with `Permission denied (publickey)` while `git merge --ff-only 4f9d56d...` succeeded.
+
+- Observation: It is possible to migrate activity sorting to stable IDs without breaking existing stored UI state by normalizing string labels at the action/read-model boundary.
+  Evidence: `sort-vault-detail-activity` now normalizes both `"Size"` and `:size` through `hyperopen.vaults.detail.activity/normalize-sort-column`, and tests pass for legacy label input paths.
 
 ## Decision Log
 
@@ -65,6 +71,10 @@ A user can verify this by opening the vault detail page, switching activity tabs
   Rationale: This de-risks the larger refactor by locking behavior with tests and fixing known domain ambiguity early.
   Date/Author: 2026-02-28 / Codex
 
+- Decision: Keep current table rendering layouts in `vault_detail_view.cljs` while moving header/sort semantics to activity column config maps delivered by the VM.
+  Rationale: This achieves stable sort IDs and single-source column metadata in Milestone 4 without introducing unrelated visual/UI behavior churn.
+  Date/Author: 2026-02-28 / Codex
+
 ## Outcomes & Retrospective
 
 Implementation is in progress. Completed slices include:
@@ -72,7 +82,9 @@ Implementation is in progress. Completed slices include:
 - semantic correction for `:past-month-return` to use monthly snapshot data only;
 - deterministic `now-ms` injection path for TWAP runtime calculations;
 - removal of hidden benchmark cache state;
-- initial domain vocabulary extraction for benchmark IDs in `vaults/detail/types`.
+- initial domain vocabulary extraction for benchmark IDs in `vaults/detail/types`;
+- extraction of raw payload normalization into `vaults/adapters/webdata`;
+- extraction of activity tab configuration and stable sort semantics into `vaults/detail/activity`.
 
 All current repository gates passed after these changes (`npm test`, `npm run check`, `npm run test:websocket`). Remaining work is the larger structural extraction of adapter/activity/performance/benchmark/chart/transfer modules and conversion of `detail_vm` into a thin assembler.
 
@@ -299,3 +311,4 @@ No new external libraries are required.
 
 Plan revision note: 2026-02-28 22:03Z - Initial ExecPlan authored from repository audit and DDD/SOLID refactor recommendations for vault detail view-model architecture.
 Plan revision note: 2026-02-28 22:19Z - Updated progress, discoveries, decisions, and retrospective after starting implementation, adding typed benchmark vocabulary, and passing required validation gates.
+Plan revision note: 2026-02-28 22:32Z - Updated living sections after completing Milestone 3 and Milestone 4 implementation slices and re-running full validation gates.
