@@ -23,7 +23,10 @@ A user can verify this by opening the vault detail page, switching activity tabs
 - [x] (2026-02-28 22:32Z) Implemented Milestone 3 adapter extraction: added `/hyperopen/src/hyperopen/vaults/adapters/webdata.cljs`, added adapter tests, and routed vault detail activity derivation through adapter functions.
 - [x] (2026-02-28 22:32Z) Implemented Milestone 4 activity model extraction: added `/hyperopen/src/hyperopen/vaults/detail/activity.cljs`, migrated sorting to stable column IDs with legacy label compatibility, and updated `vaults/actions`, `detail_vm`, and `vault_detail_view` to use activity configuration as single source.
 - [x] (2026-02-28 22:32Z) Added activity/read-model regression tests and re-ran validation gates (`npm test`, `npm run check`, `npm run test:websocket`) after Milestone 3 and 4 changes.
-- [ ] Continue extraction milestones for performance/benchmark/chart/transfer modules and thin assembler conversion.
+- [x] (2026-03-01 02:30Z) Implemented Milestone 5 extraction: added `/hyperopen/src/hyperopen/vaults/detail/performance.cljs` and `/hyperopen/src/hyperopen/vaults/detail/benchmarks.cljs`; wired detail VM to those modules for summary derivation, benchmark selector/alignment, cumulative rows, and performance metrics composition.
+- [x] (2026-03-01 02:30Z) Implemented Milestone 6 chart extraction: added `/hyperopen/src/hyperopen/views/vaults/detail/chart.cljs`, moved chart domain/normalization/path/hover logic out of `detail_vm`, and localized chart stroke/fill palette decisions to the chart presentation module.
+- [x] (2026-03-01 02:30Z) Added chart presentation regression tests in `/hyperopen/test/hyperopen/views/vaults/detail/chart_test.cljs` and re-ran full validation gates (`npm test`, `npm run check`, `npm run test:websocket`) after Milestone 6 changes.
+- [ ] Continue with Milestone 7 transfer read-model extraction and final thin-assembler conversion in `detail_vm`.
 
 ## Surprises & Discoveries
 
@@ -44,6 +47,9 @@ A user can verify this by opening the vault detail page, switching activity tabs
 
 - Observation: It is possible to migrate activity sorting to stable IDs without breaking existing stored UI state by normalizing string labels at the action/read-model boundary.
   Evidence: `sort-vault-detail-activity` now normalizes both `"Size"` and `:size` through `hyperopen.vaults.detail.activity/normalize-sort-column`, and tests pass for legacy label input paths.
+
+- Observation: `npm test -- <namespace>` in this repository currently runs the full generated suite and prints `Unknown arg: ...` for namespace filters.
+  Evidence: Running `npm test -- hyperopen.views.vaults.detail.chart-test` produced unknown-arg output and then executed all tests.
 
 ## Decision Log
 
@@ -75,6 +81,10 @@ A user can verify this by opening the vault detail page, switching activity tabs
   Rationale: This achieves stable sort IDs and single-source column metadata in Milestone 4 without introducing unrelated visual/UI behavior churn.
   Date/Author: 2026-02-28 / Codex
 
+- Decision: Keep benchmark selection/alignment in the domain benchmark module but move benchmark and strategy chart palette rules into the chart presentation module.
+  Rationale: This preserves DDD boundaries where benchmark read-model logic remains domain-focused and all visual stroke/fill concerns are owned by presentation.
+  Date/Author: 2026-03-01 / Codex
+
 ## Outcomes & Retrospective
 
 Implementation is in progress. Completed slices include:
@@ -85,8 +95,10 @@ Implementation is in progress. Completed slices include:
 - initial domain vocabulary extraction for benchmark IDs in `vaults/detail/types`;
 - extraction of raw payload normalization into `vaults/adapters/webdata`;
 - extraction of activity tab configuration and stable sort semantics into `vaults/detail/activity`.
+- extraction of portfolio summary/returns/metrics composition and benchmark selector/alignment into `vaults/detail/performance` and `vaults/detail/benchmarks`;
+- extraction of chart domain/normalization/path/hover logic into `views/vaults/detail/chart`.
 
-All current repository gates passed after these changes (`npm test`, `npm run check`, `npm run test:websocket`). Remaining work is the larger structural extraction of adapter/activity/performance/benchmark/chart/transfer modules and conversion of `detail_vm` into a thin assembler.
+All current repository gates passed after these changes (`npm test`, `npm run check`, `npm run test:websocket`). Remaining work is Milestone 7 transfer read-model extraction and the final thin-assembler conversion/cleanup in `detail_vm`.
 
 ## Context and Orientation
 
@@ -312,3 +324,4 @@ No new external libraries are required.
 Plan revision note: 2026-02-28 22:03Z - Initial ExecPlan authored from repository audit and DDD/SOLID refactor recommendations for vault detail view-model architecture.
 Plan revision note: 2026-02-28 22:19Z - Updated progress, discoveries, decisions, and retrospective after starting implementation, adding typed benchmark vocabulary, and passing required validation gates.
 Plan revision note: 2026-02-28 22:32Z - Updated living sections after completing Milestone 3 and Milestone 4 implementation slices and re-running full validation gates.
+Plan revision note: 2026-03-01 02:30Z - Updated living sections after completing Milestone 5 and Milestone 6 extraction slices, adding chart presentation tests, and re-running full validation gates.

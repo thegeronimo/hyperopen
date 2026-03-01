@@ -186,6 +186,7 @@
             [hyperopen.views.vault-detail-view-test]
             [hyperopen.views.vaults-view-test]
             [hyperopen.views.vaults.detail-vm-test]
+            [hyperopen.views.vaults.detail.chart-test]
             [hyperopen.views.vaults.vm-test]
             [hyperopen.wallet.actions-test]
             [hyperopen.wallet.address-watcher-test]
@@ -412,6 +413,7 @@
              'hyperopen.views.vault-detail-view-test
              'hyperopen.views.vaults-view-test
              'hyperopen.views.vaults.detail-vm-test
+             'hyperopen.views.vaults.detail.chart-test
              'hyperopen.views.vaults.vm-test
              'hyperopen.wallet.actions-test
              'hyperopen.wallet.address-watcher-test

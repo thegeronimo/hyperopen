@@ -6,17 +6,6 @@
 (def ^:private max-vault-benchmark-options
   100)
 
-(def ^:private benchmark-series-strokes
-  ["#f2cf66"
-   "#7cc2ff"
-   "#ff9d7c"
-   "#8be28b"
-   "#d8a8ff"
-   "#ffdf8a"])
-
-(def ^:private default-strategy-series-stroke
-  "#e7ecef")
-
 (defn- optional-number
   [value]
   (cond
@@ -469,10 +458,3 @@
               {}
               benchmark-coins))
     {}))
-
-(defn benchmark-series-stroke
-  [idx]
-  (let [palette-size (count benchmark-series-strokes)]
-    (if (pos? palette-size)
-      (nth benchmark-series-strokes (mod idx palette-size))
-      default-strategy-series-stroke)))
