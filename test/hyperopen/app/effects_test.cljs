@@ -51,6 +51,8 @@
                         (get-in deps [:wallet :disconnect-wallet])))
         (is (identical? copy-handler
                         (get-in deps [:wallet :copy-wallet-address])))
+        (is (identical? effect-adapters/api-fetch-predicted-fundings-effect
+                        (get-in deps [:api :api-fetch-predicted-fundings])))
         (is (identical? submit-handler
                         (get-in deps [:orders :api-submit-order])))
         (is (identical? cancel-handler

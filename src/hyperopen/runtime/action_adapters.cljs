@@ -4,6 +4,7 @@
             [hyperopen.platform :as platform]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.api.trading :as trading-api]
+            [hyperopen.funding-comparison.actions :as funding-comparison-actions]
             [hyperopen.router :as router]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.vaults.actions :as vault-actions]
@@ -70,7 +71,9 @@
         base-effects (cond-> [[:effects/save [:router :path] p]]
                        replace? (conj [:effects/replace-state p])
                        (not replace?) (conj [:effects/push-state p]))
-        route-effects (vault-actions/load-vault-route state p)
+        route-effects (into []
+                            (concat (vault-actions/load-vault-route state p)
+                                    (funding-comparison-actions/load-funding-comparison-route state p)))
         portfolio-effects (portfolio-route-effects state p)
         route-entry-effects (projection-first-effects
                              (into []
@@ -81,6 +84,10 @@
 (defn load-vault-route-action
   [state path]
   (vault-actions/load-vault-route state path))
+
+(defn load-funding-comparison-route-action
+  [state path]
+  (funding-comparison-actions/load-funding-comparison-route state path))
 
 (defn connect-wallet-action [state]
   (wallet-actions/connect-wallet-action state))

@@ -232,6 +232,25 @@
     (is (some? portfolio-root))
     (is (nil? trade-root))))
 
+(deftest app-view-renders-funding-comparison-route-with-funding-root-test
+  (let [view-node (app-view/app-view (assoc trade-view-test-state
+                                            :router {:path "/funding-comparison"}
+                                            :wallet {}
+                                            :funding-comparison-ui {:query ""
+                                                                    :timeframe :8hour
+                                                                    :sort {:column :coin
+                                                                           :direction :asc}
+                                                                    :loading? false}
+                                            :funding-comparison {:predicted-fundings []
+                                                                 :error nil
+                                                                 :loaded-at-ms nil}
+                                            :asset-selector {:favorites #{}
+                                                             :market-by-key {}}))
+        funding-root (find-first-node view-node
+                                      #(= "funding-comparison-root"
+                                          (get-in % [1 :data-parity-id])))]
+    (is (some? funding-root))))
+
 (deftest app-view-renders-vault-routes-with-vault-roots-test
   (let [list-view (app-view/app-view (assoc trade-view-test-state
                                             :router {:path "/vaults"}

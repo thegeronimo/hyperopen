@@ -135,6 +135,16 @@
             {:priority :high}]
            (mapv second @calls)))))
 
+(deftest request-predicted-fundings-uses-high-priority-and-dedupe-key-test
+  (let [calls (atom [])
+        post-info! (api-stubs/post-info-stub calls {})]
+    (market/request-predicted-fundings! post-info! nil)
+    (let [[body opts] (first @calls)]
+      (is (= {"type" "predictedFundings"} body))
+      (is (= {:priority :high
+              :dedupe-key :predicted-fundings}
+             opts)))))
+
 (deftest build-market-state-bootstrap-uses-default-dex-and-skips-active-market-resolution-test
   (let [perp-calls (atom [])
         now-ms-fn (fn [] 4242)]

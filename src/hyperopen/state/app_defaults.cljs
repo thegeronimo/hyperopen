@@ -210,6 +210,21 @@
                   :order-history-by-vault {}
                   :ledger-updates-by-vault {}}})
 
+(defn default-funding-comparison-ui-state
+  []
+  {:query ""
+   :timeframe :8hour
+   :sort {:column :open-interest
+          :direction :desc}
+   :loading? false})
+
+(defn default-funding-comparison-state
+  []
+  {:predicted-fundings []
+   :error nil
+   :error-category nil
+   :loaded-at-ms nil})
+
 (defn default-account-info-state
   [{:keys [default-trade-history
            default-funding-history
@@ -270,6 +285,8 @@
                   :reduce-popover (position-reduce/default-popover-state)
                   :margin-modal (position-margin/default-modal-state)}
    :funding-ui {:modal nil}
+   :funding-comparison-ui (default-funding-comparison-ui-state)
+   :funding-comparison (default-funding-comparison-state)
    :asset-selector (default-asset-selector-state)
    :chart-options (default-chart-options-state)
    :orderbook-ui (default-orderbook-ui-state)

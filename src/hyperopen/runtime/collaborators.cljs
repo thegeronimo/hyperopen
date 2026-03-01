@@ -7,7 +7,9 @@
             [hyperopen.order.actions :as order-actions]
             [hyperopen.orderbook.actions :as orderbook-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.funding-comparison.actions :as funding-comparison-actions]
             [hyperopen.vaults.actions :as vault-actions]
+            [hyperopen.funding-comparison.effects :as funding-comparison-effects]
             [hyperopen.vaults.effects :as vault-effects]
             [hyperopen.wallet.actions :as wallet-actions]))
 
@@ -221,12 +223,20 @@
    :set-vault-detail-chart-hover vault-actions/set-vault-detail-chart-hover
    :clear-vault-detail-chart-hover vault-actions/clear-vault-detail-chart-hover})
 
+(defn- funding-comparison-action-deps []
+  {:load-funding-comparison-route funding-comparison-actions/load-funding-comparison-route
+   :load-funding-comparison funding-comparison-actions/load-funding-comparison
+   :set-funding-comparison-query funding-comparison-actions/set-funding-comparison-query
+   :set-funding-comparison-timeframe funding-comparison-actions/set-funding-comparison-timeframe
+   :set-funding-comparison-sort funding-comparison-actions/set-funding-comparison-sort})
+
 (defn runtime-effect-deps
   [effect-overrides]
   (merge-nested
    {:api {:api-fetch-user-funding-history account-history-effects/api-fetch-user-funding-history-effect
           :api-fetch-historical-orders account-history-effects/api-fetch-historical-orders-effect
           :export-funding-history-csv account-history-effects/export-funding-history-csv-effect
+          :api-fetch-predicted-fundings funding-comparison-effects/api-fetch-predicted-fundings!
           :api-fetch-vault-index vault-effects/api-fetch-vault-index!
           :api-fetch-vault-summaries vault-effects/api-fetch-vault-summaries!
           :api-fetch-user-vault-equities vault-effects/api-fetch-user-vault-equities!
@@ -245,8 +255,9 @@
    {:core {}
     :wallet (wallet-action-deps)
     :asset-selector (asset-selector-action-deps)
-    :chart (chart-and-orderbook-action-deps)
-    :account-history (account-history-action-deps)
-    :vaults (vault-action-deps)
-    :orders (order-action-deps)}
+   :chart (chart-and-orderbook-action-deps)
+   :account-history (account-history-action-deps)
+   :vaults (vault-action-deps)
+    :funding-comparison (funding-comparison-action-deps)
+   :orders (order-action-deps)}
    action-overrides))

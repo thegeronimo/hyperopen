@@ -82,13 +82,20 @@
             ([opts]
              (market-gateway/request-public-webdata2!
               {:post-info! post-info!}
+              opts)))
+          (request-predicted-fundings!
+            ([] (request-predicted-fundings! {}))
+            ([opts]
+             (market-gateway/request-predicted-fundings!
+              {:post-info! post-info!}
               opts)))]
     {:request-asset-contexts! request-asset-contexts!
      :request-meta-and-asset-ctxs! request-meta-and-asset-ctxs!
      :request-perp-dexs! request-perp-dexs!
      :request-candle-snapshot! request-candle-snapshot!
      :request-spot-meta! request-spot-meta!
-     :request-public-webdata2! request-public-webdata2!}))
+     :request-public-webdata2! request-public-webdata2!
+     :request-predicted-fundings! request-predicted-fundings!}))
 
 (defn- make-instance-market-state-ops
   [service now-ms-fn log-fn market-ops]

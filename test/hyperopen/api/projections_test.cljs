@@ -58,6 +58,26 @@
     (is (= "timeout" (get-in failed [:asset-selector :error])))
     (is (= :transport (get-in failed [:asset-selector :error-category])))))
 
+(deftest funding-comparison-projections-track-loading-success-and-error-test
+  (let [state {:funding-comparison-ui {:loading? false}
+               :funding-comparison {:predicted-fundings []
+                                    :error "stale"
+                                    :error-category :unexpected
+                                    :loaded-at-ms nil}}
+        loading (projections/begin-funding-comparison-load state)
+        success (projections/apply-funding-comparison-success loading [["BTC" []]])
+        failed (projections/apply-funding-comparison-error loading (js/Error. "funding-fail"))]
+    (is (= true (get-in loading [:funding-comparison-ui :loading?])))
+    (is (nil? (get-in loading [:funding-comparison :error])))
+    (is (= [["BTC" []]] (get-in success [:funding-comparison :predicted-fundings])))
+    (is (= false (get-in success [:funding-comparison-ui :loading?])))
+    (is (= nil (get-in success [:funding-comparison :error])))
+    (is (= nil (get-in success [:funding-comparison :error-category])))
+    (is (number? (get-in success [:funding-comparison :loaded-at-ms])))
+    (is (= false (get-in failed [:funding-comparison-ui :loading?])))
+    (is (= "Error: funding-fail" (get-in failed [:funding-comparison :error])))
+    (is (= :unexpected (get-in failed [:funding-comparison :error-category])))))
+
 (deftest spot-balances-projections-update-success-and-error-paths-test
   (let [state {:spot {:loading-balances? false
                       :error nil}}

@@ -144,6 +144,19 @@
                         :effects/api-fetch-vault-order-history
                         :effects/api-fetch-vault-ledger-updates}}
 
+   :actions/load-funding-comparison
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/api-fetch-predicted-fundings}}
+
+   :actions/load-funding-comparison-route
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/api-fetch-predicted-fundings
+                        :effects/fetch-asset-selector-markets}}
+
    :actions/navigate
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true
@@ -156,7 +169,9 @@
                         :effects/api-fetch-vault-fills
                         :effects/api-fetch-vault-funding-history
                         :effects/api-fetch-vault-order-history
-                        :effects/api-fetch-vault-ledger-updates}}})
+                        :effects/api-fetch-vault-ledger-updates
+                        :effects/api-fetch-predicted-fundings
+                        :effects/fetch-asset-selector-markets}}})
 
 (defn action-policy
   [action-id]

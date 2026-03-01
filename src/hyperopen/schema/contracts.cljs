@@ -414,6 +414,11 @@
    :actions/cancel-order ::cancel-order-args
    :actions/load-user-data ::address-args
    :actions/set-funding-modal ::funding-modal-args
+   :actions/load-funding-comparison-route ::path-args
+   :actions/load-funding-comparison ::no-args
+   :actions/set-funding-comparison-query ::single-input-args
+   :actions/set-funding-comparison-timeframe ::keyword-or-string-args
+   :actions/set-funding-comparison-sort ::keyword-or-string-args
    :actions/load-vault-route ::path-args
    :actions/load-vaults ::no-args
    :actions/load-vault-detail ::address-args
@@ -484,6 +489,7 @@
    :effects/api-fetch-user-funding-history ::request-id-args
    :effects/api-fetch-historical-orders ::request-id-args
    :effects/export-funding-history-csv ::export-funding-history-csv-args
+   :effects/api-fetch-predicted-fundings ::no-args
    :effects/api-submit-order ::api-submit-order-args
    :effects/api-cancel-order ::api-cancel-order-args
    :effects/api-submit-position-tpsl ::api-submit-position-tpsl-args

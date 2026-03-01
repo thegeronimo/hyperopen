@@ -7,7 +7,9 @@
             [hyperopen.chart.settings :as chart-settings]
             [hyperopen.order.actions :as order-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.funding-comparison.actions :as funding-comparison-actions]
             [hyperopen.runtime.collaborators :as collaborators]
+            [hyperopen.funding-comparison.effects :as funding-comparison-effects]
             [hyperopen.vaults.actions :as vault-actions]
             [hyperopen.vaults.effects :as vault-effects]
             [hyperopen.wallet.actions :as wallet-actions]))
@@ -24,6 +26,8 @@
                     (get-in deps [:api :api-fetch-user-funding-history])))
     (is (identical? account-history-effects/api-fetch-historical-orders-effect
                     (get-in deps [:api :api-fetch-historical-orders])))
+    (is (identical? funding-comparison-effects/api-fetch-predicted-fundings!
+                    (get-in deps [:api :api-fetch-predicted-fundings])))
     (is (identical? vault-effects/api-fetch-vault-index!
                     (get-in deps [:api :api-fetch-vault-index])))
     (is (identical? vault-effects/api-fetch-vault-webdata2!
@@ -87,6 +91,10 @@
                     (get-in deps [:vaults :set-vault-detail-activity-direction-filter])))
     (is (identical? vault-actions/set-vault-detail-chart-series
                     (get-in deps [:vaults :set-vault-detail-chart-series])))
+    (is (identical? funding-comparison-actions/load-funding-comparison-route
+                    (get-in deps [:funding-comparison :load-funding-comparison-route])))
+    (is (identical? funding-comparison-actions/set-funding-comparison-query
+                    (get-in deps [:funding-comparison :set-funding-comparison-query])))
     (is (identical? vault-actions/open-vault-transfer-modal
                     (get-in deps [:vaults :open-vault-transfer-modal])))
     (is (identical? vault-actions/submit-vault-transfer

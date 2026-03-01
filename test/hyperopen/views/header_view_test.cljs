@@ -182,3 +182,19 @@
         portfolio-classes (set (class-values (get-in portfolio-link [1 :class])))]
     (is (contains? vaults-classes "header-nav-link-active"))
     (is (not (contains? portfolio-classes "header-nav-link-active")))))
+
+(deftest header-highlights-funding-link-for-funding-comparison-routes-test
+  (let [view (header-view/header-view {:wallet {}
+                                       :router {:path "/fundingComparison"}})
+        funding-link (find-node (fn [candidate]
+                                  (and (= :a (first candidate))
+                                       (some #{"Funding"} (collect-strings candidate))))
+                                view)
+        trade-link (find-node (fn [candidate]
+                                (and (= :a (first candidate))
+                                     (some #{"Trade"} (collect-strings candidate))))
+                              view)
+        funding-classes (set (class-values (get-in funding-link [1 :class])))
+        trade-classes (set (class-values (get-in trade-link [1 :class])))]
+    (is (contains? funding-classes "header-nav-link-active"))
+    (is (not (contains? trade-classes "header-nav-link-active")))))

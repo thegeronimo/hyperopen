@@ -78,6 +78,8 @@
                                                 (record! :fetch-spot-meta [deps store* opts]))
                   market-gateway/request-public-webdata2! (fn [deps opts]
                                                             (record! :request-public-webdata2 [deps opts]))
+                  market-gateway/request-predicted-fundings! (fn [deps opts]
+                                                               (record! :request-predicted-fundings [deps opts]))
                   api-compat/ensure-perp-dexs! (fn [deps store* opts]
                                                  ((:ensure-perp-dexs-data! deps) store* opts)
                                                  (record! :ensure-perp-dexs [deps store* opts]))
@@ -255,6 +257,10 @@
              (api/fetch-public-webdata2!)))
       (is (= {:ok :request-public-webdata2}
              (api/fetch-public-webdata2! {:priority :high})))
+      (is (= {:ok :request-predicted-fundings}
+             (api/request-predicted-fundings!)))
+      (is (= {:ok :request-predicted-fundings}
+             (api/request-predicted-fundings! {:priority :high})))
 
       (is (= {:ok :ensure-perp-dexs}
              (api/ensure-perp-dexs! store)))
@@ -324,5 +330,6 @@
 
       (is (some #(= :request-asset-contexts (first %)) @calls))
       (is (some #(= :request-frontend-open-orders (first %)) @calls))
+      (is (some #(= :request-predicted-fundings (first %)) @calls))
       (is (some #(= :build-market-state (first %)) @calls))
       (is (some #(= :fetch-perp-dex-clearinghouse-states (first %)) @calls)))))

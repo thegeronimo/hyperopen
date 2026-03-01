@@ -58,6 +58,13 @@
               (merge {:priority :high}
                      opts)))
 
+(defn request-predicted-fundings!
+  [post-info! opts]
+  (post-info! {"type" "predictedFundings"}
+              (merge {:priority :high
+                      :dedupe-key :predicted-fundings}
+                     opts)))
+
 (defn build-market-state
   [now-ms-fn active-asset phase dexs spot-meta spot-asset-ctxs perp-results]
   (let [dexs-with-default (if (= phase :bootstrap)

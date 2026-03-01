@@ -77,6 +77,7 @@
            api-fetch-user-funding-history
            api-fetch-historical-orders
            export-funding-history-csv
+           api-fetch-predicted-fundings
            api-load-user-data
            api-fetch-vault-index
            api-fetch-vault-summaries
@@ -92,6 +93,7 @@
    :api-fetch-user-funding-history api-fetch-user-funding-history
    :api-fetch-historical-orders api-fetch-historical-orders
    :export-funding-history-csv export-funding-history-csv
+   :api-fetch-predicted-fundings api-fetch-predicted-fundings
    :api-load-user-data api-load-user-data
    :api-fetch-vault-index api-fetch-vault-index
    :api-fetch-vault-summaries api-fetch-vault-summaries
@@ -213,6 +215,18 @@
    :enable-agent-trading-action enable-agent-trading-action
    :set-agent-storage-mode-action set-agent-storage-mode-action
    :copy-wallet-address-action copy-wallet-address-action})
+
+(defn- funding-comparison-action-handlers
+  [{:keys [load-funding-comparison-route
+           load-funding-comparison
+           set-funding-comparison-query
+           set-funding-comparison-timeframe
+           set-funding-comparison-sort]}]
+  {:load-funding-comparison-route load-funding-comparison-route
+   :load-funding-comparison load-funding-comparison
+   :set-funding-comparison-query set-funding-comparison-query
+   :set-funding-comparison-timeframe set-funding-comparison-timeframe
+   :set-funding-comparison-sort set-funding-comparison-sort})
 
 (defn- websocket-diagnostics-action-handlers
   [{:keys [toggle-ws-diagnostics
@@ -560,10 +574,12 @@
            chart
            account-history
            vaults
+           funding-comparison
            orders]}]
   (merge
    (runtime-core-action-handlers core)
    (vault-action-handlers vaults)
+   (funding-comparison-action-handlers funding-comparison)
    (wallet-action-handlers wallet)
    (websocket-diagnostics-action-handlers diagnostics)
    (asset-selector-action-handlers asset-selector)

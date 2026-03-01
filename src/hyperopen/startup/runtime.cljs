@@ -353,6 +353,7 @@
         (let [route (or (get-in @store [:router :path])
                         "/trade")]
           (dispatch! store nil [[:actions/load-vault-route route]])
+          (dispatch! store nil [[:actions/load-funding-comparison-route route]])
           (when (and new-address
                      (str/starts-with? route "/portfolio"))
             ;; Ensure returns benchmark candles load on initial portfolio view entry.
@@ -414,6 +415,9 @@
   (when-let [asset (:active-asset @store)]
     (dispatch! store nil [[:actions/subscribe-to-asset asset]]))
   (dispatch! store nil [[:actions/load-vault-route
+                         (or (get-in @store [:router :path])
+                             "/trade")]])
+  (dispatch! store nil [[:actions/load-funding-comparison-route
                          (or (get-in @store [:router :path])
                              "/trade")]])
   (install-address-handlers!)

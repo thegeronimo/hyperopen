@@ -1,6 +1,7 @@
 (ns hyperopen.runtime.action-adapters-test
   (:require [cljs.test :refer-macros [deftest is]]
             [nexus.registry :as nxr]
+            [hyperopen.funding-comparison.actions :as funding-comparison-actions]
             [hyperopen.platform :as platform]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.runtime.action-adapters :as action-adapters]
@@ -32,6 +33,18 @@
             [:effects/save [:vaults-ui :list-loading?] true]
             [:effects/api-fetch-vault-index]]
            (action-adapters/navigate {} "/vaults" {:replace? true})))))
+
+(deftest navigate-appends-funding-route-effects-after-route-projection-test
+  (with-redefs [vault-actions/load-vault-route (fn [_state _path] [])
+                funding-comparison-actions/load-funding-comparison-route
+                (fn [_state _path]
+                  [[:effects/save [:funding-comparison-ui :loading?] true]
+                   [:effects/api-fetch-predicted-fundings]])]
+    (is (= [[:effects/save [:router :path] "/funding-comparison"]
+            [:effects/push-state "/funding-comparison"]
+            [:effects/save [:funding-comparison-ui :loading?] true]
+            [:effects/api-fetch-predicted-fundings]]
+           (action-adapters/navigate {} "/funding-comparison")))))
 
 (deftest navigate-entering-portfolio-loads-chart-benchmark-effects-test
   (with-redefs [portfolio-actions/select-portfolio-chart-tab (fn [_state tab]

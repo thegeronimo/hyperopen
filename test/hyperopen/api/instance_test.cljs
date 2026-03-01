@@ -47,6 +47,8 @@
                                                       (record! :request-spot-meta [deps opts]))
                   market-gateway/request-public-webdata2! (fn [deps opts]
                                                             (record! :request-public-webdata2 [deps opts]))
+                  market-gateway/request-predicted-fundings! (fn [deps opts]
+                                                               (record! :request-predicted-fundings [deps opts]))
                   market-gateway/build-market-state (fn [now-ms-fn active-asset phase _dexs _spot-meta _spot-asset-ctxs _perp-results]
                                                       (record! :build-market-state [active-asset phase (now-ms-fn)]))
                   market-gateway/request-asset-selector-markets! (fn [{:keys [opts
@@ -131,6 +133,10 @@
                ((:request-public-webdata2! api))))
         (is (= {:ok :request-public-webdata2}
                ((:request-public-webdata2! api) {:priority :high})))
+        (is (= {:ok :request-predicted-fundings}
+               ((:request-predicted-fundings! api))))
+        (is (= {:ok :request-predicted-fundings}
+               ((:request-predicted-fundings! api) {:priority :high})))
 
         (is (= {:ok :ensure-perp-dexs-data}
                ((:ensure-perp-dexs-data! api) store)))
@@ -220,6 +226,7 @@
                ((:reset-request-runtime! api))))
 
         (is (some #(= :build-market-state (first %)) @calls))
+        (is (some #(= :request-predicted-fundings (first %)) @calls))
         (is (some #(= :request-info-attempt (first %)) @calls))
         (is (some #(= :request-frontend-open-orders (first %)) @calls))))))
 

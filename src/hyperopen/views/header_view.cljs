@@ -30,6 +30,12 @@
 (defn- route-active? [current-route target-route]
   (str/starts-with? (or current-route "") target-route))
 
+(defn- funding-route-active?
+  [current-route]
+  (let [route (or current-route "")]
+    (or (str/starts-with? route "/funding-comparison")
+        (str/starts-with? route "/fundingComparison"))))
+
 (defn- wallet-chevron-icon []
   [:svg {:viewBox "0 0 20 20"
          :fill "currentColor"
@@ -287,6 +293,7 @@
         {:data-parity-id "header-nav"}
         (nav-link "Trade" "/trade" (route-active? route "/trade"))
         (nav-link "Portfolio" "/portfolio" (route-active? route "/portfolio"))
+        (nav-link "Funding" "/funding-comparison" (funding-route-active? route))
         (nav-link "Earn" "/earn" false)
         (nav-link "Vaults" "/vaults" (route-active? route "/vaults"))
         (nav-link "Staking" "/staking" false)

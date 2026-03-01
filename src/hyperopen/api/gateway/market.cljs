@@ -153,6 +153,11 @@
    opts]
   (market-endpoints/request-public-webdata2! post-info! opts))
 
+(defn request-predicted-fundings!
+  [{:keys [post-info!]}
+   opts]
+  (market-endpoints/request-predicted-fundings! post-info! opts))
+
 (defn fetch-public-webdata2!
   "Deprecated compatibility alias for `request-public-webdata2!`."
   [{:keys [request-public-webdata2!]}

@@ -157,6 +157,9 @@
                   market-endpoints/request-public-webdata2! (fn [& args]
                                                               (swap! called conj [:webdata2 args])
                                                               {:ok :webdata2})
+                  market-endpoints/request-predicted-fundings! (fn [& args]
+                                                                 (swap! called conj [:predicted-fundings args])
+                                                                 {:ok :predicted-fundings})
                   fetch-compat/fetch-asset-contexts! (fn [& args]
                                                       (swap! called conj [:fetch-asset-ctx args])
                                                       {:ok :fetch-asset-ctx})
@@ -230,6 +233,8 @@
                                                   {:priority :low})))
       (is (= {:ok :webdata2}
              (market-gateway/request-public-webdata2! {:post-info! post-info!} {:priority :high})))
+      (is (= {:ok :predicted-fundings}
+             (market-gateway/request-predicted-fundings! {:post-info! post-info!} {:priority :high})))
       (is (= {:ok :webdata2}
              (market-gateway/fetch-public-webdata2! {:request-public-webdata2! (fn [opts]
                                                                                   (swap! called conj [:webdata-fetch opts])
@@ -258,4 +263,5 @@
                                                            {:priority :low})))
       (is (some #(= :build (first %)) @called))
       (is (some #(= :fetch-spot-meta (first %)) @called))
+      (is (some #(= :predicted-fundings (first %)) @called))
       (is (some #(= :fetch-selector (first %)) @called)))))

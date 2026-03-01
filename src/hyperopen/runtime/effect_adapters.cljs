@@ -19,6 +19,7 @@
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.telemetry :as telemetry]
             [hyperopen.startup.restore :as startup-restore]
+            [hyperopen.funding-comparison.effects :as funding-effects]
             [hyperopen.vaults.effects :as vault-effects]
             [hyperopen.wallet.agent-runtime :as agent-runtime]
             [hyperopen.wallet.agent-session :as agent-session]
@@ -593,6 +594,15 @@
     :apply-user-fills-success api-projections/apply-user-fills-success
     :apply-user-fills-error api-projections/apply-user-fills-error
     :fetch-and-merge-funding-history! account-history-effects/fetch-and-merge-funding-history!}))
+
+(defn api-fetch-predicted-fundings-effect
+  [_ store]
+  (funding-effects/api-fetch-predicted-fundings!
+   {:store store
+    :request-predicted-fundings! api/request-predicted-fundings!
+    :begin-funding-comparison-load api-projections/begin-funding-comparison-load
+    :apply-funding-comparison-success api-projections/apply-funding-comparison-success
+    :apply-funding-comparison-error api-projections/apply-funding-comparison-error}))
 
 (defn api-fetch-vault-index-effect
   [_ store]

@@ -74,6 +74,8 @@
             [hyperopen.domain.trading.indicators.trend-family-coverage-test]
             [hyperopen.domain.trading.indicators.volatility-family-coverage-test]
             [hyperopen.domain.trading.order-values-test]
+            [hyperopen.funding-comparison.actions-test]
+            [hyperopen.funding-comparison.effects-test]
             [hyperopen.order.feedback-runtime-test]
             [hyperopen.orderbook.actions-test]
             [hyperopen.orderbook.price-aggregation-test]
@@ -145,6 +147,8 @@
             [hyperopen.views.asset-icon-test]
             [hyperopen.views.asset-selector-view-test]
             [hyperopen.views.footer-view-test]
+            [hyperopen.views.funding-comparison-view-test]
+            [hyperopen.views.funding-comparison.vm-test]
             [hyperopen.views.header-view-test]
             [hyperopen.views.l2-orderbook-view-test]
             [hyperopen.views.portfolio-view-test]
@@ -302,6 +306,8 @@
              'hyperopen.domain.trading.indicators.trend-family-coverage-test
              'hyperopen.domain.trading.indicators.volatility-family-coverage-test
              'hyperopen.domain.trading.order-values-test
+             'hyperopen.funding-comparison.actions-test
+             'hyperopen.funding-comparison.effects-test
              'hyperopen.order.feedback-runtime-test
              'hyperopen.orderbook.actions-test
              'hyperopen.orderbook.price-aggregation-test
@@ -373,6 +379,8 @@
              'hyperopen.views.asset-icon-test
              'hyperopen.views.asset-selector-view-test
              'hyperopen.views.footer-view-test
+             'hyperopen.views.funding-comparison-view-test
+             'hyperopen.views.funding-comparison.vm-test
              'hyperopen.views.header-view-test
              'hyperopen.views.l2-orderbook-view-test
              'hyperopen.views.portfolio-view-test

@@ -23,6 +23,7 @@
                  :ws-diagnostics-reset-all-subscriptions action-adapters/ws-diagnostics-reset-all-subscriptions}
    :asset-selector {:refresh-asset-markets action-adapters/refresh-asset-markets}
    :vaults {:load-vault-route action-adapters/load-vault-route-action}
+   :funding-comparison {:load-funding-comparison-route action-adapters/load-funding-comparison-route-action}
    :orders {:load-user-data action-adapters/load-user-data
             :set-funding-modal action-adapters/set-funding-modal}})
 

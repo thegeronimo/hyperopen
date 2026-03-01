@@ -353,6 +353,14 @@
     {:post-info! post-info!}
     opts)))
 
+(defn request-predicted-fundings!
+  ([]
+   (request-predicted-fundings! {}))
+  ([opts]
+   (market-gateway/request-predicted-fundings!
+    {:post-info! post-info!}
+    opts)))
+
 (defn fetch-public-webdata2!
   "Deprecated compatibility alias for `request-public-webdata2!`."
   ([]

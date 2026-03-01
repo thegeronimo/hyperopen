@@ -39,6 +39,7 @@
             :api-submit-position-tpsl (effect-adapters/make-api-submit-position-tpsl runtime)
             :api-submit-position-margin (effect-adapters/make-api-submit-position-margin runtime)}
    :api {:fetch-asset-selector-markets effect-adapters/fetch-asset-selector-markets-effect
+         :api-fetch-predicted-fundings effect-adapters/api-fetch-predicted-fundings-effect
          :api-load-user-data effect-adapters/api-load-user-data-effect
          :api-fetch-vault-index effect-adapters/api-fetch-vault-index-effect
          :api-fetch-vault-summaries effect-adapters/api-fetch-vault-summaries-effect

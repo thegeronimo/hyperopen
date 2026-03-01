@@ -53,6 +53,11 @@
     :actions/apply-order-history-page-input
     :actions/handle-order-history-page-input-keydown
     :actions/refresh-order-history
+    :actions/load-funding-comparison-route
+    :actions/load-funding-comparison
+    :actions/set-funding-comparison-query
+    :actions/set-funding-comparison-timeframe
+    :actions/set-funding-comparison-sort
     :actions/load-vault-route
     :actions/load-vaults
     :actions/load-vault-detail})

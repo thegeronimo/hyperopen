@@ -1,6 +1,8 @@
 (ns hyperopen.views.app-view
   (:require [clojure.string :as str]
+            [hyperopen.funding-comparison.actions :as funding-actions]
             [hyperopen.views.footer-view :as footer-view]
+            [hyperopen.views.funding-comparison-view :as funding-comparison-view]
             [hyperopen.views.header-view :as header-view]
             [hyperopen.views.notifications-view :as notifications-view]
             [hyperopen.views.vault-detail-view :as vault-detail-view]
@@ -13,6 +15,7 @@
   (let [route (get-in state [:router :path] "/trade")
         trade-route? (str/starts-with? route "/trade")
         portfolio-route? (str/starts-with? route "/portfolio")
+        funding-route? (funding-actions/funding-comparison-route? route)
         vault-route? (vault-vm/vault-route? route)
         vault-detail-route? (vault-vm/vault-detail-route? route)
         root-classes (into ["h-screen" "bg-base-100" "flex" "flex-col" "overflow-y-auto" "scrollbar-hide"]
@@ -26,6 +29,7 @@
       (cond
         trade-route? (trade-view/trade-view state)
         portfolio-route? (portfolio-view/portfolio-view state)
+        funding-route? (funding-comparison-view/funding-comparison-view state)
         vault-detail-route? (vault-detail-view/vault-detail-view state)
         vault-route? (vaults-view/vaults-view state)
         :else (trade-view/trade-view state))]
