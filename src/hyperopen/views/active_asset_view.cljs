@@ -1,5 +1,6 @@
 (ns hyperopen.views.active-asset-view
   (:require [clojure.string :as str]
+            [hyperopen.state.trading :as trading-state]
             [hyperopen.websocket.active-asset-ctx :as active-ctx]
             [hyperopen.views.asset-icon :as asset-icon]
             [hyperopen.views.asset-selector-view :as asset-selector]
@@ -15,8 +16,19 @@
 
 
 (defn tooltip [content & [position]]
-  (let [pos (or position "top")]
-    [:div.relative.group
+  (let [pos (or position "top")
+        tooltip-body (second content)
+        body-node (if (string? tooltip-body)
+                    [:div {:class ["rounded-md"
+                                   "bg-gray-800"
+                                   "px-2"
+                                   "py-1"
+                                   "text-xs"
+                                   "text-white"
+                                   "whitespace-nowrap"]}
+                     tooltip-body]
+                    tooltip-body)]
+    [:div {:class ["relative" "group" "inline-flex"]}
      [:div (first content)]
      [:div {:class (into ["absolute" "opacity-0" "group-hover:opacity-100" "transition-opacity" "duration-200" "pointer-events-none" "z-50"]
                          (case pos
@@ -24,15 +36,9 @@
                            "bottom" ["top-full" "left-1/2" "transform" "-translate-x-1/2" "mt-2"]
                            "left" ["right-full" "top-1/2" "transform" "-translate-y-1/2" "mr-2"]
                            "right" ["left-full" "top-1/2" "transform" "-translate-y-1/2" "ml-2"]))
-             :style {:min-width "max-content"}}
-      [:div.bg-gray-800.text-white.text-xs.rounded.py-1.px-2.whitespace-nowrap
-       (second content)
-       [:div {:class (into ["absolute" "w-0" "h-0" "border-4" "border-transparent"]
-                           (case pos
-                             "top" ["top-full" "border-t-gray-800"]
-                             "bottom" ["bottom-full" "border-b-gray-800"]
-                             "left" ["left-full" "border-l-gray-800"]
-                             "right" ["right-full" "border-r-gray-800"]))}]]]]))
+             :style {:min-width "max-content"
+                     :max-width "22rem"}}
+      body-node]]))
 
 (defn change-indicator [change-value change-pct & [change-raw]]
   (let [is-positive (and change-value (>= change-value 0))
@@ -93,6 +99,193 @@
             (str/split #"/|-" 2)
             first
             non-blank-text)))
+
+(defn- direction-from-size [size]
+  (cond
+    (and (number? size) (pos? size)) :long
+    (and (number? size) (neg? size)) :short
+    :else :flat))
+
+(defn- direction-label [direction]
+  (case direction
+    :long "Long"
+    :short "Short"
+    "Flat"))
+
+(defn- unsigned-size-text [raw-size parsed-size]
+  (let [size-text (non-blank-text raw-size)]
+    (cond
+      (and size-text
+           (or (str/starts-with? size-text "-")
+               (str/starts-with? size-text "+")))
+      (subs size-text 1)
+
+      size-text
+      size-text
+
+      (number? parsed-size)
+      (fmt/safe-to-fixed (js/Math.abs parsed-size) 4)
+
+      :else
+      "0")))
+
+(defn- normalized-position-value [position mark]
+  (let [value (parse-optional-number (:positionValue position))
+        size (parse-optional-number (:szi position))]
+    (cond
+      (number? value)
+      (js/Math.abs value)
+
+      (and (number? size)
+           (number? mark))
+      (js/Math.abs (* size mark))
+
+      :else
+      nil)))
+
+(defn- display-base-symbol [market coin]
+  (or (non-blank-text (:base market))
+      (base-symbol-segment (:symbol market))
+      (base-symbol-segment coin)
+      "ASSET"))
+
+(defn- funding-countdown-mm-ss [countdown-text]
+  (let [text (non-blank-text countdown-text)]
+    (if (and text (re-matches #"\d{2}:\d{2}:\d{2}" text))
+      (subs text 3)
+      (or text "--"))))
+
+(defn- signed-percentage-text [value decimals]
+  (if (number? value)
+    (let [normalized (if (< (js/Math.abs value) 1e-8) 0 value)
+          sign (cond
+                 (pos? normalized) "+"
+                 (neg? normalized) "-"
+                 :else "")]
+      (str sign (fmt/format-percentage (js/Math.abs normalized) decimals)))
+    "—"))
+
+(defn- signed-usd-text [value]
+  (if (number? value)
+    (let [normalized (if (< (js/Math.abs value) 0.005) 0 value)
+          sign (cond
+                 (pos? normalized) "+"
+                 (neg? normalized) "-"
+                 :else "")]
+      (str sign "$" (fmt/format-fixed-number (js/Math.abs normalized) 2)))
+    "—"))
+
+(defn- signed-tone-class [value]
+  (cond
+    (and (number? value) (pos? value)) "text-success"
+    (and (number? value) (neg? value)) "text-error"
+    :else "text-gray-100"))
+
+(defn- funding-payment-estimate [direction position-value rate]
+  (when (and (number? position-value)
+             (number? rate)
+             (not= direction :flat))
+    (* position-value
+       (/ rate 100)
+       (case direction
+         :long -1
+         :short 1
+         0))))
+
+(defn- funding-tooltip-model [position market coin mark funding-rate countdown-text]
+  (let [size-raw (:szi position)
+        size (parse-optional-number size-raw)
+        direction (direction-from-size size)
+        position-value (normalized-position-value position mark)
+        base-symbol (display-base-symbol market coin)
+        countdown-mm-ss (funding-countdown-mm-ss countdown-text)
+        current-rate funding-rate
+        next-24h-rate (when (number? funding-rate)
+                        (* funding-rate 24))
+        annual-rate (fmt/annualized-funding-rate funding-rate)]
+    {:position-size-label (if (and (not= direction :flat)
+                                   (number? size))
+                            (str (direction-label direction)
+                                 " "
+                                 (unsigned-size-text size-raw size)
+                                 " "
+                                 base-symbol)
+                            "No open position")
+     :position-value position-value
+     :projection-rows [{:id "current"
+                        :label (str "Current in " countdown-mm-ss)
+                        :rate current-rate
+                        :payment (funding-payment-estimate direction position-value current-rate)}
+                       {:id "next-24h"
+                        :label "Next 24h *"
+                        :rate next-24h-rate
+                        :payment (funding-payment-estimate direction position-value next-24h-rate)}
+                       {:id "apy"
+                        :label "APY *"
+                        :rate annual-rate
+                        :payment (funding-payment-estimate direction position-value annual-rate)}]}))
+
+(defn- funding-tooltip-panel [{:keys [position-size-label position-value projection-rows]}]
+  [:div {:class ["w-[18rem]"
+                 "rounded-lg"
+                 "border"
+                 "border-slate-700/80"
+                 "bg-slate-800/95"
+                 "px-3"
+                 "py-2.5"
+                 "text-[12px]"
+                 "text-gray-100"
+                 "shadow-xl"
+                 "backdrop-blur-sm"]}
+   [:div {:class ["mb-2.5"]}
+    [:h4 {:class ["mb-1"
+                  "text-[0.95rem]"
+                  "font-semibold"
+                  "text-gray-100"]}
+     "Position"]
+    [:div {:class ["grid"
+                   "grid-cols-[auto_1fr]"
+                   "gap-x-3"
+                   "gap-y-0.5"
+                   "text-[0.9rem]"
+                   "leading-5"]}
+     [:span {:class ["text-gray-300"]} "Size"]
+     [:span {:class ["text-right" "num" "text-emerald-300"]}
+      position-size-label]
+     [:span {:class ["text-gray-300"]} "Value"]
+     [:span {:class ["text-right" "num"]}
+      (if (number? position-value)
+        (str "$" (fmt/format-fixed-number position-value 2))
+        "—")]]]
+   [:div {:class ["mb-2"
+                  "h-px"
+                  "w-full"
+                  "bg-slate-600/70"]}]
+   [:div {:class ["mb-2.5"]}
+    [:h4 {:class ["mb-1"
+                  "text-[0.95rem]"
+                  "font-semibold"
+                  "text-gray-100"]}
+     "Projections"]
+    [:div {:class ["grid"
+                   "grid-cols-[1fr_auto_auto]"
+                   "gap-x-3"
+                   "gap-y-0.5"
+                   "text-[0.9rem]"
+                   "leading-5"]}
+     [:span]
+     [:span {:class ["text-right" "text-gray-300"]} "Rate"]
+     [:span {:class ["text-right" "text-gray-300"]} "Payment"]
+     (for [{:keys [id label rate payment]} projection-rows]
+       ^{:key id}
+       [:div {:class ["contents"]}
+        [:span {:class ["text-gray-100"]} label]
+        [:span {:class ["text-right" "num" (signed-tone-class rate)]}
+         (signed-percentage-text rate 4)]
+        [:span {:class ["text-right" "num" (signed-tone-class payment)]}
+         (signed-usd-text payment)]])]]
+   [:p {:class ["italic" "text-[0.85rem]" "text-gray-300"]}
+    "* Assume current position and funding rate"]])
 
 (defn- symbol-monogram [market symbol coin]
   (let [base-symbol (or (non-blank-text (:base market))
@@ -223,7 +416,15 @@
                             (or (when (and open-interest-raw mark)
                                   (fmt/calculate-open-interest-usd open-interest-raw mark))
                                 (:openInterest market)))
-        funding-rate (:fundingRate ctx-data)
+        funding-rate (parse-optional-number (:fundingRate ctx-data))
+        countdown-text (fmt/format-funding-countdown)
+        active-position (trading-state/position-for-active-asset full-state)
+        funding-tooltip (funding-tooltip-model (or active-position {})
+                                               market
+                                               coin
+                                               mark
+                                               funding-rate
+                                               countdown-text)
         dropdown-visible? (= (:visible-dropdown dropdown-state) :asset-selector)
         is-spot (= :spot (:market-type market))
         ;; Handle missing data gracefully
@@ -292,16 +493,16 @@
       ;; Funding / Countdown column
      [:div.flex.justify-center
       [:div.text-center
-       [:div {:class ["text-xs" "text-gray-400" "mb-1"]} "Funding / Countdown"]
+        [:div {:class ["text-xs" "text-gray-400" "mb-1"]} "Funding / Countdown"]
         [:div {:class ["text-xs" "flex" "items-center" "justify-center"]}
          (if (and (not is-spot) has-perp-data?)
            (tooltip 
-             [[:span {:class ["text-success" "cursor-help" "num"]}
-               (fmt/format-percentage funding-rate 4)]
-              (str "Annualized: " (fmt/format-percentage (fmt/annualized-funding-rate funding-rate) 2))])
+             [[:span {:class ["cursor-help" "num" (signed-tone-class funding-rate)]}
+               (signed-percentage-text funding-rate 4)]
+              (funding-tooltip-panel funding-tooltip)])
            [:span (if is-spot "—" "Loading...")])
          [:span.mx-1 "/"]
-         [:span.num (if is-spot "—" (fmt/format-funding-countdown))]]]]]))
+         [:span.num (if is-spot "—" countdown-text)]]]]]))
 
 (defn select-asset-row [dropdown-state]
   (let [dropdown-visible? (= (:visible-dropdown dropdown-state) :asset-selector)]

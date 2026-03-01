@@ -320,3 +320,74 @@
                     [:div])]
       (view/active-asset-panel {} false dropdown-state full-state))
     (is (= 144 (:scroll-top @captured-props)))))
+
+(deftest active-asset-row-funding-tooltip-shows-position-projections-test
+  (let [ctx-data {:coin "xyz:GOLD"
+                  :mark 5372.43
+                  :oracle 5370.0
+                  :change24h 10.0
+                  :change24hPct 1.5
+                  :volume24h 1000000
+                  :openInterest 100
+                  :fundingRate 0.0056}
+        market {:coin "xyz:GOLD"
+                :symbol "GOLD-USDC"
+                :base "GOLD"
+                :market-type :perp}
+        full-state {:active-asset "xyz:GOLD"
+                    :asset-selector {:missing-icons #{}}}]
+    (with-redefs [hyperopen.state.trading/position-for-active-asset
+                  (fn [_]
+                    {:coin "xyz:GOLD"
+                     :szi "0.0185"
+                     :positionValue "99.39"})
+                  hyperopen.utils.formatting/format-funding-countdown
+                  (fn [] "00:22:01")]
+      (let [view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
+            strings (set (collect-strings view-node))]
+        (is (contains? strings "Position"))
+        (is (contains? strings "Projections"))
+        (is (contains? strings "Size"))
+        (is (contains? strings "Value"))
+        (is (contains? strings "Rate"))
+        (is (contains? strings "Payment"))
+        (is (contains? strings "Long 0.0185 GOLD"))
+        (is (contains? strings "$99.39"))
+        (is (contains? strings "Current in 22:01"))
+        (is (contains? strings "Next 24h *"))
+        (is (contains? strings "APY *"))
+        (is (contains? strings "+0.0056%"))
+        (is (contains? strings "+0.1344%"))
+        (is (contains? strings "+49.0560%"))
+        (is (contains? strings "-$0.01"))
+        (is (contains? strings "-$0.13"))
+        (is (contains? strings "-$48.76"))))))
+
+(deftest active-asset-row-funding-tooltip-short-position-shows-positive-payment-test
+  (let [ctx-data {:coin "xyz:GOLD"
+                  :mark 5000.0
+                  :oracle 4998.0
+                  :change24h 5.0
+                  :change24hPct 0.5
+                  :volume24h 2000000
+                  :openInterest 200
+                  :fundingRate 0.01}
+        market {:coin "xyz:GOLD"
+                :symbol "GOLD-USDC"
+                :base "GOLD"
+                :market-type :perp}
+        full-state {:active-asset "xyz:GOLD"
+                    :asset-selector {:missing-icons #{}}}]
+    (with-redefs [hyperopen.state.trading/position-for-active-asset
+                  (fn [_]
+                    {:coin "xyz:GOLD"
+                     :szi "-2"
+                     :positionValue "1500"})
+                  hyperopen.utils.formatting/format-funding-countdown
+                  (fn [] "00:10:00")]
+      (let [view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
+            strings (set (collect-strings view-node))]
+        (is (contains? strings "Short 2 GOLD"))
+        (is (contains? strings "+$0.15"))
+        (is (contains? strings "+$3.60"))
+        (is (contains? strings "+$1,314.00"))))))
