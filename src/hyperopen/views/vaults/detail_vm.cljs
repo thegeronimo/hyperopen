@@ -7,6 +7,7 @@
             [hyperopen.vaults.detail.activity :as activity-model]
             [hyperopen.vaults.detail.benchmarks :as benchmarks-model]
             [hyperopen.vaults.detail.performance :as performance-model]
+            [hyperopen.vaults.detail.transfer :as transfer-model]
             [hyperopen.vaults.detail.types :as detail-types]
             [hyperopen.views.vaults.detail.chart :as chart-model]
             [hyperopen.views.account-info.sort-kernel :as sort-kernel]))
@@ -1691,132 +1692,6 @@
             :usdc-value account-value}]
           [])))))
 
-(def ^:private ms-per-day
-  (* 24 60 60 1000))
-
-(defn- usdc-coin?
-  [coin]
-  (let [token (some-> coin str str/trim str/upper-case)]
-    (and (seq token)
-         (str/starts-with? token "USDC"))))
-
-(defn- balance-row-available
-  [row]
-  (when (map? row)
-    (let [available-direct (or (optional-number (:available row))
-                               (optional-number (:availableBalance row))
-                               (optional-number (:free row)))
-          total (or (optional-number (:total row))
-                    (optional-number (:totalBalance row)))
-          hold (optional-number (:hold row))
-          available-derived (cond
-                              (number? total)
-                              (if (number? hold)
-                                (- total hold)
-                                total)
-
-                              :else nil)
-          available (or available-direct available-derived)]
-      (when (number? available)
-        (max 0 available)))))
-
-(defn- usdc-available-from-balance-rows
-  [rows]
-  (some (fn [row]
-          (when (usdc-coin? (or (:coin row)
-                                (:token row)))
-            (balance-row-available row)))
-        (if (sequential? rows) rows [])))
-
-(defn- webdata-usdc-available
-  [webdata]
-  (let [balance-available (some (fn [row]
-                                  (when (usdc-coin? (:coin row))
-                                    (when-let [available (optional-number (:available row))]
-                                      (max 0 available))))
-                                (webdata-adapter/balances webdata))
-        clearinghouse-state (or (:clearinghouseState webdata)
-                                (get-in webdata [:data :clearinghouseState])
-                                {})
-        withdrawable-direct (some optional-number
-                                 [(:withdrawable clearinghouse-state)
-                                  (:withdrawableUsd clearinghouse-state)
-                                  (:withdrawableUSDC clearinghouse-state)
-                                  (:availableToWithdraw clearinghouse-state)
-                                  (:availableToWithdrawUsd clearinghouse-state)
-                                  (:availableToWithdrawUSDC clearinghouse-state)])
-        margin-summary (or (:marginSummary clearinghouse-state)
-                           (:crossMarginSummary clearinghouse-state)
-                           {})
-        account-value (optional-number (:accountValue margin-summary))
-        total-margin-used (optional-number (:totalMarginUsed margin-summary))
-        withdrawable-derived (when (and (number? account-value)
-                                        (number? total-margin-used))
-                               (- account-value total-margin-used))
-        withdrawable (or withdrawable-direct
-                        withdrawable-derived)]
-    (or balance-available
-        (when (number? withdrawable)
-          (max 0 withdrawable)))))
-
-(defn- floor-to-decimals
-  [value decimals]
-  (let [n (or (optional-number value) 0)
-        factor (js/Math.pow 10 decimals)]
-    (/ (js/Math.floor (* (max 0 n) factor)) factor)))
-
-(defn- format-usdc-display
-  [value]
-  (let [n (max 0 (or (optional-number value) 0))]
-    (.toLocaleString (js/Number. n)
-                     "en-US"
-                     #js {:minimumFractionDigits 2
-                          :maximumFractionDigits 2})))
-
-(defn- format-usdc-input
-  [value]
-  (let [fixed (.toFixed (max 0 (or (optional-number value) 0)) 2)]
-    (or (some-> fixed
-                (str/replace #"(\.\d*?[1-9])0+$" "$1")
-                (str/replace #"\.0+$" "")
-                non-blank-text)
-        "0")))
-
-(defn- default-deposit-lockup-days
-  [vault-name]
-  (if (= "hyperliquidity provider (hlp)"
-         (some-> vault-name str str/trim str/lower-case))
-    4
-    1))
-
-(defn- follower-lockup-days
-  [details]
-  (let [entry-ms (optional-int (get-in details [:follower-state :vault-entry-time-ms]))
-        lockup-ms (optional-int (get-in details [:follower-state :lockup-until-ms]))]
-    (when (and (number? entry-ms)
-               (number? lockup-ms)
-               (> lockup-ms entry-ms))
-      (let [days (js/Math.round (/ (- lockup-ms entry-ms) ms-per-day))]
-        (when (pos? days)
-          days)))))
-
-(defn- vault-deposit-lockup-days
-  [details vault-name]
-  (or (follower-lockup-days details)
-      (default-deposit-lockup-days vault-name)))
-
-(defn- vault-transfer-deposit-max-usdc
-  [state wallet-webdata vault-webdata]
-  (let [spot-available (usdc-available-from-balance-rows
-                        (get-in state [:spot :clearinghouse-state :balances]))
-        wallet-webdata-available (webdata-usdc-available wallet-webdata)
-        vault-webdata-available (webdata-usdc-available vault-webdata)
-        available (or spot-available
-                      wallet-webdata-available
-                      vault-webdata-available
-                      0)]
-    (floor-to-decimals available 2)))
-
 (defn- chart-series-data
   [state summary]
   {:account-value (history-points (:accountValueHistory summary))
@@ -1909,51 +1784,12 @@
                        (non-blank-text (:name row))
                        vault-address
                        "Vault")
-        wallet-webdata (if (map? (:webdata2 state))
-                         (:webdata2 state)
-                         {})
-        deposit-max-usdc (vault-transfer-deposit-max-usdc state wallet-webdata webdata)
-        deposit-max-display (format-usdc-display deposit-max-usdc)
-        deposit-max-input (format-usdc-input deposit-max-usdc)
-        deposit-lockup-days (vault-deposit-lockup-days details vault-name)
-        deposit-lockup-copy (str "Deposit funds to "
-                                 vault-name
-                                 ". The deposit lock-up period is "
-                                 deposit-lockup-days
-                                 " "
-                                 (if (= 1 deposit-lockup-days)
-                                   "day."
-                                   "days."))
+        vault-transfer (transfer-model/read-model state {:vault-address vault-address
+                                                         :vault-name vault-name
+                                                         :details details
+                                                         :webdata webdata})
         wallet-address (vault-actions/normalize-vault-address (get-in state [:wallet :address]))
         agent-ready? (= :ready (get-in state [:wallet :agent :status]))
-        deposit-allowed? (vault-actions/vault-transfer-deposit-allowed? state vault-address)
-        raw-vault-transfer-modal (get-in state [:vaults-ui :vault-transfer-modal])
-        vault-transfer-modal* (merge (vault-actions/default-vault-transfer-modal-state)
-                                     (if (map? raw-vault-transfer-modal)
-                                       raw-vault-transfer-modal
-                                       {}))
-        vault-transfer-vault-address (or (vault-actions/normalize-vault-address
-                                          (:vault-address vault-transfer-modal*))
-                                         vault-address)
-        vault-transfer-mode (vault-actions/normalize-vault-transfer-mode
-                             (:mode vault-transfer-modal*))
-        vault-transfer-open? (and (true? (:open? vault-transfer-modal*))
-                                  (= vault-transfer-vault-address vault-address))
-        vault-transfer-preview (vault-actions/vault-transfer-preview
-                                state
-                                (assoc vault-transfer-modal*
-                                       :vault-address vault-transfer-vault-address
-                                       :mode vault-transfer-mode))
-        vault-transfer-submitting? (true? (:submitting? vault-transfer-modal*))
-        vault-transfer-submit-disabled? (or vault-transfer-submitting?
-                                            (not (:ok? vault-transfer-preview)))
-        vault-transfer-confirm-label (if vault-transfer-submitting?
-                                      (if (= vault-transfer-mode :deposit)
-                                        "Depositing..."
-                                        "Withdrawing...")
-                                      (if (= vault-transfer-mode :deposit)
-                                        "Deposit"
-                                        "Withdraw"))
         summary (performance-model/portfolio-summary details snapshot-range)
         returns-benchmark-selector (benchmarks-model/returns-benchmark-selector-model state)
         series-by-key (performance-model/chart-series-data state summary)
@@ -2076,27 +1912,7 @@
                :your-deposit your-deposit
                :all-time-earned all-time-earned
                :apr (normalize-percent-value apr)}
-     :vault-transfer {:can-open-deposit? deposit-allowed?
-                      :can-open-withdraw? true
-                      :open? vault-transfer-open?
-                      :mode vault-transfer-mode
-                      :vault-address vault-transfer-vault-address
-                      :deposit-max-usdc deposit-max-usdc
-                      :deposit-max-display deposit-max-display
-                      :deposit-max-input deposit-max-input
-                      :deposit-lockup-days deposit-lockup-days
-                      :deposit-lockup-copy deposit-lockup-copy
-                      :amount-input (:amount-input vault-transfer-modal*)
-                      :withdraw-all? (true? (:withdraw-all? vault-transfer-modal*))
-                      :submitting? vault-transfer-submitting?
-                      :error (:error vault-transfer-modal*)
-                      :preview-ok? (:ok? vault-transfer-preview)
-                      :preview-message (:display-message vault-transfer-preview)
-                      :title (if (= vault-transfer-mode :deposit)
-                               "Deposit"
-                               "Withdraw")
-                      :confirm-label vault-transfer-confirm-label
-                      :submit-disabled? vault-transfer-submit-disabled?}
+     :vault-transfer vault-transfer
      :tabs [{:value :about
              :label "About"}
             {:value :vault-performance

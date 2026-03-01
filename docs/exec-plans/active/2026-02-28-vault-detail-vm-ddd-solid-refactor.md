@@ -26,7 +26,9 @@ A user can verify this by opening the vault detail page, switching activity tabs
 - [x] (2026-03-01 02:30Z) Implemented Milestone 5 extraction: added `/hyperopen/src/hyperopen/vaults/detail/performance.cljs` and `/hyperopen/src/hyperopen/vaults/detail/benchmarks.cljs`; wired detail VM to those modules for summary derivation, benchmark selector/alignment, cumulative rows, and performance metrics composition.
 - [x] (2026-03-01 02:30Z) Implemented Milestone 6 chart extraction: added `/hyperopen/src/hyperopen/views/vaults/detail/chart.cljs`, moved chart domain/normalization/path/hover logic out of `detail_vm`, and localized chart stroke/fill palette decisions to the chart presentation module.
 - [x] (2026-03-01 02:30Z) Added chart presentation regression tests in `/hyperopen/test/hyperopen/views/vaults/detail/chart_test.cljs` and re-ran full validation gates (`npm test`, `npm run check`, `npm run test:websocket`) after Milestone 6 changes.
-- [ ] Continue with Milestone 7 transfer read-model extraction and final thin-assembler conversion in `detail_vm`.
+- [x] (2026-03-01 02:35Z) Implemented Milestone 7 transfer extraction slice: added `/hyperopen/src/hyperopen/vaults/detail/transfer.cljs`, moved transfer max/lockup/preview/submit-label read-model logic out of `detail_vm`, and updated VM assembly to consume the transfer module output map.
+- [x] (2026-03-01 02:35Z) Added transfer read-model tests in `/hyperopen/test/hyperopen/vaults/detail/transfer_test.cljs` and re-ran full validation gates (`npm test`, `npm run check`, `npm run test:websocket`).
+- [ ] Continue thin-assembler conversion and cleanup in `detail_vm` (remaining legacy local helpers still to be removed).
 
 ## Surprises & Discoveries
 
@@ -97,8 +99,9 @@ Implementation is in progress. Completed slices include:
 - extraction of activity tab configuration and stable sort semantics into `vaults/detail/activity`.
 - extraction of portfolio summary/returns/metrics composition and benchmark selector/alignment into `vaults/detail/performance` and `vaults/detail/benchmarks`;
 - extraction of chart domain/normalization/path/hover logic into `views/vaults/detail/chart`.
+- extraction of transfer modal read-side composition into `vaults/detail/transfer`.
 
-All current repository gates passed after these changes (`npm test`, `npm run check`, `npm run test:websocket`). Remaining work is Milestone 7 transfer read-model extraction and the final thin-assembler conversion/cleanup in `detail_vm`.
+All current repository gates passed after these changes (`npm test`, `npm run check`, `npm run test:websocket`). Remaining work is final thin-assembler conversion/cleanup in `detail_vm` to remove remaining legacy local helpers and complete Milestone 7 scope.
 
 ## Context and Orientation
 
@@ -325,3 +328,4 @@ Plan revision note: 2026-02-28 22:03Z - Initial ExecPlan authored from repositor
 Plan revision note: 2026-02-28 22:19Z - Updated progress, discoveries, decisions, and retrospective after starting implementation, adding typed benchmark vocabulary, and passing required validation gates.
 Plan revision note: 2026-02-28 22:32Z - Updated living sections after completing Milestone 3 and Milestone 4 implementation slices and re-running full validation gates.
 Plan revision note: 2026-03-01 02:30Z - Updated living sections after completing Milestone 5 and Milestone 6 extraction slices, adding chart presentation tests, and re-running full validation gates.
+Plan revision note: 2026-03-01 02:35Z - Updated living sections after extracting transfer read-model module and transfer tests, and re-running full validation gates.
