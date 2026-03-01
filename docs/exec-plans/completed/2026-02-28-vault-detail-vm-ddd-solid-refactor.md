@@ -28,7 +28,8 @@ A user can verify this by opening the vault detail page, switching activity tabs
 - [x] (2026-03-01 02:30Z) Added chart presentation regression tests in `/hyperopen/test/hyperopen/views/vaults/detail/chart_test.cljs` and re-ran full validation gates (`npm test`, `npm run check`, `npm run test:websocket`) after Milestone 6 changes.
 - [x] (2026-03-01 02:35Z) Implemented Milestone 7 transfer extraction slice: added `/hyperopen/src/hyperopen/vaults/detail/transfer.cljs`, moved transfer max/lockup/preview/submit-label read-model logic out of `detail_vm`, and updated VM assembly to consume the transfer module output map.
 - [x] (2026-03-01 02:35Z) Added transfer read-model tests in `/hyperopen/test/hyperopen/vaults/detail/transfer_test.cljs` and re-ran full validation gates (`npm test`, `npm run check`, `npm run test:websocket`).
-- [ ] Continue thin-assembler conversion and cleanup in `detail_vm` (remaining legacy local helpers still to be removed).
+- [x] (2026-03-01 02:42Z) Completed thin-assembler cleanup in `detail_vm`: removed remaining legacy benchmark/performance/activity helper blocks superseded by extracted modules and reduced the namespace from 1,777 lines to 408 lines while preserving VM output contract.
+- [x] (2026-03-01 02:42Z) Completed Milestone 8 integration validation and boundary audit: re-ran `npm test`, `npm run check`, `npm run test:websocket`; confirmed no direct vendor-field leakage or hidden impurity in VM boundary via `rg -n "Date\.now|defonce\s+\^:private\s+eligible-vault-benchmark-rows-cache|:szi|:entryPx|:limitPx|:cumFunding"`.
 
 ## Surprises & Discoveries
 
@@ -52,6 +53,9 @@ A user can verify this by opening the vault detail page, switching activity tabs
 
 - Observation: `npm test -- <namespace>` in this repository currently runs the full generated suite and prints `Unknown arg: ...` for namespace filters.
   Evidence: Running `npm test -- hyperopen.views.vaults.detail.chart-test` produced unknown-arg output and then executed all tests.
+
+- Observation: After extraction cleanup, `detail_vm` now operates as a thin orchestration layer with legacy helper logic removed.
+  Evidence: `wc -l /hyperopen/src/hyperopen/views/vaults/detail_vm.cljs` now reports `408` lines (from prior `1777` in this branch state).
 
 ## Decision Log
 
@@ -101,7 +105,7 @@ Implementation is in progress. Completed slices include:
 - extraction of chart domain/normalization/path/hover logic into `views/vaults/detail/chart`.
 - extraction of transfer modal read-side composition into `vaults/detail/transfer`.
 
-All current repository gates passed after these changes (`npm test`, `npm run check`, `npm run test:websocket`). Remaining work is final thin-assembler conversion/cleanup in `detail_vm` to remove remaining legacy local helpers and complete Milestone 7 scope.
+All planned milestones in this ExecPlan are now implemented. Repository validation gates pass (`npm test`, `npm run check`, `npm run test:websocket`), and the VM boundary audit confirms no remaining direct vendor-field parsing or hidden cache/time impurity in `detail_vm`.
 
 ## Context and Orientation
 
@@ -329,3 +333,4 @@ Plan revision note: 2026-02-28 22:19Z - Updated progress, discoveries, decisions
 Plan revision note: 2026-02-28 22:32Z - Updated living sections after completing Milestone 3 and Milestone 4 implementation slices and re-running full validation gates.
 Plan revision note: 2026-03-01 02:30Z - Updated living sections after completing Milestone 5 and Milestone 6 extraction slices, adding chart presentation tests, and re-running full validation gates.
 Plan revision note: 2026-03-01 02:35Z - Updated living sections after extracting transfer read-model module and transfer tests, and re-running full validation gates.
+Plan revision note: 2026-03-01 02:42Z - Updated living sections after completing thin-assembler cleanup in `detail_vm`, re-running full validation gates, and confirming VM boundary audit results.
