@@ -354,11 +354,13 @@
         tpsl-cell (nth row-cells 10)
         edit-icon-node (hiccup/find-first-node tpsl-cell #(= :svg (first %)))
         action-button (hiccup/find-first-node tpsl-cell #(= :button (first %)))
+        value-node (hiccup/find-first-node tpsl-cell #(and (= :span (first %))
+                                                            (contains? (hiccup/node-class-set %) "select-text")))
         tpsl-strings (set (hiccup/collect-strings tpsl-cell))]
     (is (contains? tpsl-strings "-- / --"))
     (is (some? edit-icon-node))
-    (is (contains? (hiccup/node-class-set action-button) "flex-nowrap"))
-    (is (contains? (hiccup/node-class-set action-button) "whitespace-nowrap"))))
+    (is (some? value-node))
+    (is (= "Edit TP/SL" (get-in action-button [1 :aria-label])))))
 
 (deftest position-row-tpsl-cell-renders-derived-trigger-prices-when-present-test
   (let [row-data (-> (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
@@ -413,9 +415,12 @@
         row-cells (vec (hiccup/node-children row-node))
         margin-cell (nth row-cells 7)
         action-button (hiccup/find-first-node margin-cell #(= :button (first %)))
+        value-node (hiccup/find-first-node margin-cell #(and (= :span (first %))
+                                                              (contains? (hiccup/node-class-set %) "select-text")))
         click-actions (get-in action-button [1 :on :click])
         margin-strings (set (hiccup/collect-strings margin-cell))]
     (is (contains? margin-strings "$12.00"))
+    (is (some? value-node))
     (is (vector? click-actions))
     (is (= :actions/open-position-margin-modal
            (first (first click-actions))))
@@ -423,7 +428,8 @@
            (second (first click-actions))))
     (is (= :event.currentTarget/bounds
            (nth (first click-actions) 2)))
-    (is (= "true" (get-in action-button [1 :data-position-margin-trigger])))))
+    (is (= "true" (get-in action-button [1 :data-position-margin-trigger])))
+    (is (= "Edit Margin" (get-in action-button [1 :aria-label])))))
 
 (deftest position-row-margin-cell-renders-cross-and-isolated-mode-labels-test
   (let [isolated-row (assoc-in (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")

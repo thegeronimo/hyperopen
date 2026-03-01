@@ -296,7 +296,7 @@
     (str tp-text " / " sl-text)))
 
 (defn- edit-icon []
-  [:svg {:class ["h-3" "w-3" "shrink-0" "text-trading-green"]
+  [:svg {:class ["h-3" "w-3" "shrink-0"]
          :viewBox "0 0 20 20"
          :fill "none"
          :stroke "currentColor"
@@ -402,27 +402,35 @@
         (format-liquidation-price liq-price)
         liq-explanation)]
       [:div {:class ["text-left" "relative" "font-semibold" "num"]}
-       [:button {:class ["btn"
-                         "btn-xs"
-                         "btn-ghost"
-                         "w-full"
-                         "justify-start"
-                         "gap-0.5"
-                         "px-1"
-                         "font-semibold"
-                         "text-trading-text"
-                         "flex-nowrap"
-                         "whitespace-nowrap"]
-                 :type "button"
-                 :data-position-margin-trigger "true"
-                 :on {:click [[:actions/open-position-margin-modal position-data :event.currentTarget/bounds]]}}
-        [:span {:class ["inline-flex" "items-baseline" "gap-1" "whitespace-nowrap"]}
+       [:div {:class ["inline-flex" "items-center" "gap-0.5" "whitespace-nowrap"]}
+        [:span {:class ["inline-flex" "items-baseline" "gap-1" "whitespace-nowrap" "select-text"]}
          [:span {:class ["num"]}
           (str "$" (shared/format-currency margin))]
          (when margin-mode-label
            [:span {:class ["text-xs" "font-medium" "text-trading-text-secondary"]}
             (str "(" margin-mode-label ")")])]
-        (edit-icon)]
+        [:button {:class ["inline-flex"
+                          "h-4"
+                          "w-4"
+                          "items-center"
+                          "justify-center"
+                          "shrink-0"
+                          "bg-transparent"
+                          "p-0"
+                          "text-trading-green"
+                          "hover:text-[#7fffe4]"
+                          "focus:outline-none"
+                          "focus:ring-0"
+                          "focus:ring-offset-0"
+                          "focus-visible:outline-none"
+                          "focus-visible:ring-0"
+                          "focus-visible:ring-offset-0"
+                          "focus-visible:text-[#7fffe4]"]
+                  :type "button"
+                  :aria-label "Edit Margin"
+                  :data-position-margin-trigger "true"
+                  :on {:click [[:actions/open-position-margin-modal position-data :event.currentTarget/bounds]]}}
+         (edit-icon)]]
        (when active-margin-modal?
          (position-margin-modal/position-margin-modal-view margin-modal))]
       [:div.text-left.font-semibold.num
@@ -467,22 +475,30 @@
        (when active-reduce-popover?
          (position-reduce-popover/position-reduce-popover-view reduce-popover))]
       [:div {:class ["text-left" "relative"]}
-       [:button {:class ["btn"
-                         "btn-xs"
-                         "btn-ghost"
-                         "w-full"
-                         "justify-start"
-                         "gap-0.5"
-                         "px-1"
-                         "font-normal"
-                         "text-trading-text"
-                         "flex-nowrap"
-                         "whitespace-nowrap"]
-                 :type "button"
-                 :data-position-tpsl-trigger "true"
-                 :on {:click [[:actions/open-position-tpsl-modal position-data :event.currentTarget/bounds]]}}
-        [:span {:class ["whitespace-nowrap"]} tpsl-copy]
-        (edit-icon)]
+       [:div {:class ["inline-flex" "items-center" "gap-0.5" "whitespace-nowrap"]}
+        [:span {:class ["font-normal" "text-trading-text" "whitespace-nowrap" "select-text"]} tpsl-copy]
+        [:button {:class ["inline-flex"
+                          "h-4"
+                          "w-4"
+                          "items-center"
+                          "justify-center"
+                          "shrink-0"
+                          "bg-transparent"
+                          "p-0"
+                          "text-trading-green"
+                          "hover:text-[#7fffe4]"
+                          "focus:outline-none"
+                          "focus:ring-0"
+                          "focus:ring-offset-0"
+                          "focus-visible:outline-none"
+                          "focus-visible:ring-0"
+                          "focus-visible:ring-offset-0"
+                          "focus-visible:text-[#7fffe4]"]
+                  :type "button"
+                  :aria-label "Edit TP/SL"
+                  :data-position-tpsl-trigger "true"
+                  :on {:click [[:actions/open-position-tpsl-modal position-data :event.currentTarget/bounds]]}}
+         (edit-icon)]]
        (when active-modal?
          (position-tpsl-modal/position-tpsl-modal-view tpsl-modal))]])))
 
