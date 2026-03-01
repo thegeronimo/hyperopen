@@ -132,6 +132,8 @@
 (s/def ::api-submit-position-tpsl-args (s/tuple ::api-submit-request))
 (s/def ::api-submit-position-margin-args (s/tuple ::api-submit-request))
 (s/def ::api-submit-vault-transfer-args (s/tuple ::api-submit-request))
+(s/def ::api-submit-funding-transfer-args (s/tuple ::api-submit-request))
+(s/def ::api-submit-funding-withdraw-args (s/tuple ::api-submit-request))
 
 (defn- fetch-asset-selector-markets-args?
   [args]
@@ -199,6 +201,7 @@
 (s/def ::update-indicator-period-args (s/tuple keyword? any?))
 (s/def ::cancel-order-args (s/tuple map?))
 (s/def ::funding-modal-args (s/tuple any?))
+(s/def ::funding-modal-field-args (s/tuple ::state-path any?))
 (s/def ::left number?)
 (s/def ::right number?)
 (s/def ::top number?)
@@ -420,6 +423,16 @@
    :actions/cancel-order ::cancel-order-args
    :actions/load-user-data ::address-args
    :actions/set-funding-modal ::funding-modal-args
+   :actions/open-funding-transfer-modal ::no-args
+   :actions/open-funding-withdraw-modal ::no-args
+   :actions/open-funding-deposit-modal ::no-args
+   :actions/close-funding-modal ::no-args
+   :actions/handle-funding-modal-keydown ::key-args
+   :actions/set-funding-modal-field ::funding-modal-field-args
+   :actions/set-funding-transfer-direction ::boolean-args
+   :actions/set-funding-amount-to-max ::no-args
+   :actions/submit-funding-transfer ::no-args
+   :actions/submit-funding-withdraw ::no-args
    :actions/load-funding-comparison-route ::path-args
    :actions/load-funding-comparison ::no-args
    :actions/set-funding-comparison-query ::single-input-args
@@ -511,7 +524,9 @@
    :effects/api-fetch-vault-funding-history ::address-args
    :effects/api-fetch-vault-order-history ::address-args
    :effects/api-fetch-vault-ledger-updates ::address-args
-   :effects/api-submit-vault-transfer ::api-submit-vault-transfer-args})
+   :effects/api-submit-vault-transfer ::api-submit-vault-transfer-args
+   :effects/api-submit-funding-transfer ::api-submit-funding-transfer-args
+   :effects/api-submit-funding-withdraw ::api-submit-funding-withdraw-args})
 
 (defn contracted-action-ids
   []

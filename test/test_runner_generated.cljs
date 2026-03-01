@@ -76,6 +76,8 @@
             [hyperopen.domain.trading.order-values-test]
             [hyperopen.funding-comparison.actions-test]
             [hyperopen.funding-comparison.effects-test]
+            [hyperopen.funding.actions-test]
+            [hyperopen.funding.effects-test]
             [hyperopen.funding.history-cache-test]
             [hyperopen.funding.predictability-test]
             [hyperopen.order.feedback-runtime-test]
@@ -338,6 +340,8 @@
              'hyperopen.domain.trading.order-values-test
              'hyperopen.funding-comparison.actions-test
              'hyperopen.funding-comparison.effects-test
+             'hyperopen.funding.actions-test
+             'hyperopen.funding.effects-test
              'hyperopen.funding.history-cache-test
              'hyperopen.funding.predictability-test
              'hyperopen.order.feedback-runtime-test

@@ -52,7 +52,9 @@
    [:effects/api-fetch-vault-funding-history :api-fetch-vault-funding-history]
    [:effects/api-fetch-vault-order-history :api-fetch-vault-order-history]
    [:effects/api-fetch-vault-ledger-updates :api-fetch-vault-ledger-updates]
-   [:effects/api-submit-vault-transfer :api-submit-vault-transfer]])
+   [:effects/api-submit-vault-transfer :api-submit-vault-transfer]
+   [:effects/api-submit-funding-transfer :api-submit-funding-transfer]
+   [:effects/api-submit-funding-withdraw :api-submit-funding-withdraw]])
 
 (defn registered-effect-ids
   []
@@ -206,6 +208,16 @@
     [[:actions/cancel-order :cancel-order]
      [:actions/load-user-data :load-user-data]
      [:actions/set-funding-modal :set-funding-modal]
+     [:actions/open-funding-transfer-modal :open-funding-transfer-modal]
+     [:actions/open-funding-withdraw-modal :open-funding-withdraw-modal]
+     [:actions/open-funding-deposit-modal :open-funding-deposit-modal]
+     [:actions/close-funding-modal :close-funding-modal]
+     [:actions/handle-funding-modal-keydown :handle-funding-modal-keydown]
+     [:actions/set-funding-modal-field :set-funding-modal-field]
+     [:actions/set-funding-transfer-direction :set-funding-transfer-direction]
+     [:actions/set-funding-amount-to-max :set-funding-amount-to-max]
+     [:actions/submit-funding-transfer :submit-funding-transfer]
+     [:actions/submit-funding-withdraw :submit-funding-withdraw]
      [:actions/navigate :navigate]
      [:actions/load-funding-comparison-route :load-funding-comparison-route]
      [:actions/load-funding-comparison :load-funding-comparison]

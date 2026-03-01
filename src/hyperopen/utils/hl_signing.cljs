@@ -27,6 +27,18 @@
    {:name "agentName" :type "string"}
    {:name "nonce" :type "uint64"}])
 
+(def ^:private usd-class-transfer-fields
+  [{:name "hyperliquidChain" :type "string"}
+   {:name "amount" :type "string"}
+   {:name "toPerp" :type "bool"}
+   {:name "nonce" :type "uint64"}])
+
+(def ^:private withdraw-fields
+  [{:name "hyperliquidChain" :type "string"}
+   {:name "destination" :type "string"}
+   {:name "amount" :type "string"}
+   {:name "time" :type "uint64"}])
+
 (defn- utf8-bytes [value]
   (.encode (js/TextEncoder.) (str (or value ""))))
 
@@ -151,6 +163,34 @@
              :agentAddress agentAddress
              :agentName (or agentName "")
              :nonce nonce}})
+
+(defn build-usd-class-transfer-typed-data
+  [{:keys [hyperliquidChain signatureChainId amount toPerp nonce]}]
+  {:types {"HyperliquidTransaction:UsdClassTransfer" usd-class-transfer-fields
+           "EIP712Domain" eip712-domain-fields}
+   :domain {:name "HyperliquidSignTransaction"
+            :version "1"
+            :chainId (parse-chain-id signatureChainId)
+            :verifyingContract zero-address}
+   :primaryType "HyperliquidTransaction:UsdClassTransfer"
+   :message {:hyperliquidChain hyperliquidChain
+             :amount (str amount)
+             :toPerp (boolean toPerp)
+             :nonce nonce}})
+
+(defn build-withdraw3-typed-data
+  [{:keys [hyperliquidChain signatureChainId destination amount time]}]
+  {:types {"HyperliquidTransaction:Withdraw" withdraw-fields
+           "EIP712Domain" eip712-domain-fields}
+   :domain {:name "HyperliquidSignTransaction"
+            :version "1"
+            :chainId (parse-chain-id signatureChainId)
+            :verifyingContract zero-address}
+   :primaryType "HyperliquidTransaction:Withdraw"
+   :message {:hyperliquidChain hyperliquidChain
+             :destination destination
+             :amount (str amount)
+             :time time}})
 
 (def ^:private eip712-domain-type-hash
   (keccak-text "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"))
@@ -282,6 +322,14 @@
 (defn sign-approve-agent-action!
   [address action]
   (sign-typed-data! address (build-approve-agent-typed-data action)))
+
+(defn sign-usd-class-transfer-action!
+  [address action]
+  (sign-typed-data! address (build-usd-class-transfer-typed-data action)))
+
+(defn sign-withdraw3-action!
+  [address action]
+  (sign-typed-data! address (build-withdraw3-typed-data action)))
 
 (defn sign-l1-action-with-private-key!
   "Signs an L1 action digest locally using an agent private key (no wallet prompt)."

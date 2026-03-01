@@ -1,6 +1,7 @@
 (ns hyperopen.runtime.action-adapters
   (:require [clojure.string :as str]
             [nexus.registry :as nxr]
+            [hyperopen.funding.actions :as funding-actions]
             [hyperopen.platform :as platform]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.api.trading :as trading-api]
@@ -33,8 +34,8 @@
 (defn load-user-data [_state address]
   [[:effects/api-load-user-data address]])
 
-(defn set-funding-modal [_state modal]
-  [[:effects/save [:funding-ui :modal] modal]])
+(defn set-funding-modal [state modal]
+  (funding-actions/set-funding-modal-compat state modal))
 
 (def ^:private projection-effect-ids
   #{:effects/save

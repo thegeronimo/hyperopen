@@ -1,6 +1,7 @@
 (ns hyperopen.views.app-view
   (:require [clojure.string :as str]
             [hyperopen.funding-comparison.actions :as funding-actions]
+            [hyperopen.views.funding-modal :as funding-modal]
             [hyperopen.views.footer-view :as footer-view]
             [hyperopen.views.funding-comparison-view :as funding-comparison-view]
             [hyperopen.views.header-view :as header-view]
@@ -33,15 +34,6 @@
         vault-detail-route? (vault-detail-view/vault-detail-view state)
         vault-route? (vaults-view/vaults-view state)
         :else (trade-view/trade-view state))]
-     (when-let [modal (get-in state [:funding-ui :modal])]
-       [:div.fixed.inset-0.z-50.flex.items-center.justify-center
-        [:div.absolute.inset-0.bg-black.opacity-50
-         {:on {:click [[:actions/set-funding-modal nil]]}}]
-        [:div.relative.bg-base-100.rounded-lg.shadow-lg.p-6.w-full.max-w-sm
-         [:div.text-lg.font-semibold.mb-2 (str/capitalize (name modal))]
-         [:div.text-sm.text-gray-500.mb-4 "Coming soon in Phase 2."]
-         [:button.btn.btn-primary.w-full
-          {:on {:click [[:actions/set-funding-modal nil]]}}
-          "Close"]]])
+     (funding-modal/funding-modal-view state)
      (notifications-view/notifications-view state)
      (footer-view/footer-view state)]))

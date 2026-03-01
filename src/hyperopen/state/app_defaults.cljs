@@ -2,6 +2,7 @@
   (:require [hyperopen.account.history.position-margin :as position-margin]
             [hyperopen.account.history.position-reduce :as position-reduce]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
+            [hyperopen.funding.actions :as funding-actions]
             [hyperopen.platform :as platform]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.vaults.actions :as vault-actions]))
@@ -288,7 +289,7 @@
    :positions-ui {:tpsl-modal (position-tpsl/default-modal-state)
                   :reduce-popover (position-reduce/default-popover-state)
                   :margin-modal (position-margin/default-modal-state)}
-   :funding-ui {:modal nil
+   :funding-ui {:modal (funding-actions/default-funding-modal-state)
                 :hypothetical-position-by-coin {}}
    :funding-comparison-ui (default-funding-comparison-ui-state)
    :funding-comparison (default-funding-comparison-state)

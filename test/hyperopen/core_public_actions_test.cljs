@@ -22,5 +22,13 @@
            (compat/refresh-asset-markets state)))
     (is (= [[:effects/api-load-user-data "0xabc"]]
            (compat/load-user-data state "0xabc")))
-    (is (= [[:effects/save [:funding-ui :modal] :history]]
+    (is (= [[:effects/save [:funding-ui :modal]
+             {:open? true
+              :mode :legacy
+              :legacy-kind :history
+              :amount-input ""
+              :to-perp? true
+              :destination-input ""
+              :submitting? false
+              :error nil}]]
            (compat/set-funding-modal state :history)))))

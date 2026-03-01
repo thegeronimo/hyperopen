@@ -193,6 +193,54 @@
                               now)]
     (max now monotonic-candidate)))
 
+(defn- parse-chain-id-int
+  [value]
+  (let [raw (some-> value str str/trim)]
+    (when (seq raw)
+      (let [hex? (str/starts-with? raw "0x")
+            source (if hex? (subs raw 2) raw)
+            base (if hex? 16 10)
+            parsed (js/parseInt source base)]
+        (when (and (number? parsed)
+                   (not (js/isNaN parsed)))
+          (js/Math.floor parsed))))))
+
+(defn- normalize-signature-chain-id
+  [value]
+  (cond
+    (string? value)
+    (let [text (str/trim value)]
+      (when (seq text)
+        text))
+
+    (number? value)
+    (str "0x" (.toString (js/Math.floor value) 16))
+
+    :else nil))
+
+(defn- testnet-signature-chain-id-int
+  []
+  (parse-chain-id-int
+   (agent-session/default-signature-chain-id-for-environment false)))
+
+(defn- resolve-user-signing-context
+  [store]
+  (let [wallet-chain-id (get-in @store [:wallet :chain-id])
+        signature-chain-id (or (normalize-signature-chain-id wallet-chain-id)
+                               (agent-session/default-signature-chain-id-for-environment true))
+        chain-id-int (parse-chain-id-int signature-chain-id)]
+    {:signature-chain-id signature-chain-id
+     :hyperliquid-chain (if (= chain-id-int (testnet-signature-chain-id-int))
+                          "Testnet"
+                          "Mainnet")}))
+
+(defn- next-user-signed-nonce!
+  [store]
+  (let [cursor (get-in @store [:wallet :user-signed-nonce-cursor])
+        nonce (next-nonce cursor)]
+    (swap! store assoc-in [:wallet :user-signed-nonce-cursor] nonce)
+    nonce))
+
 (defn- post-signed-action!
   [action nonce signature & {:keys [vault-address expires-after]}]
   (let [payload (cond-> {:action action
@@ -363,3 +411,36 @@
                                           :s s
                                           :v v}}]
                  (json-post! exchange-url payload))))))
+
+(defn- sign-and-post-user-action!
+  [store address action nonce-field sign-action!]
+  (let [{:keys [signature-chain-id hyperliquid-chain]} (resolve-user-signing-context store)
+        nonce (next-user-signed-nonce! store)
+        action* (-> action
+                    (assoc :signatureChainId signature-chain-id
+                           :hyperliquidChain hyperliquid-chain)
+                    (assoc nonce-field nonce))]
+    (-> (sign-action! address action*)
+        (.then (fn [sig]
+                 (let [{:keys [r s v]} (js->clj sig :keywordize-keys true)
+                       signature {:r r
+                                  :s s
+                                  :v v}]
+                   (-> (post-signed-action! action* nonce signature)
+                       (.then parse-json!))))))))
+
+(defn submit-usd-class-transfer!
+  [store address action]
+  (sign-and-post-user-action! store
+                              address
+                              action
+                              :nonce
+                              signing/sign-usd-class-transfer-action!))
+
+(defn submit-withdraw3!
+  [store address action]
+  (sign-and-post-user-action! store
+                              address
+                              action
+                              :time
+                              signing/sign-withdraw3-action!))

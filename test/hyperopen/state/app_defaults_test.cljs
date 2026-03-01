@@ -76,7 +76,9 @@
     (is (= true (get-in state [:chart-options :volume-visible?])))
     (is (= false (get-in state [:positions-ui :tpsl-modal :open?])))
     (is (= false (get-in state [:positions-ui :reduce-popover :open?])))
-    (is (= false (get-in state [:positions-ui :margin-modal :open?])))))
+    (is (= false (get-in state [:positions-ui :margin-modal :open?])))
+    (is (= false (get-in state [:funding-ui :modal :open?])))
+    (is (nil? (get-in state [:funding-ui :modal :mode])))))
 
 (deftest default-app-state-initializes-empty-runtime-collections-test
   (let [state (app-defaults/default-app-state

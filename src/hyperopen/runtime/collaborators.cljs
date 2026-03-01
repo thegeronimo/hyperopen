@@ -4,6 +4,8 @@
             [hyperopen.asset-selector.actions :as asset-actions]
             [hyperopen.chart.actions :as chart-actions]
             [hyperopen.chart.settings :as chart-settings]
+            [hyperopen.funding.actions :as funding-actions]
+            [hyperopen.funding.effects :as funding-effects]
             [hyperopen.order.actions :as order-actions]
             [hyperopen.orderbook.actions :as orderbook-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
@@ -187,7 +189,17 @@
    :toggle-order-tpsl-panel order-actions/toggle-order-tpsl-panel
    :update-order-form order-actions/update-order-form
    :submit-order order-actions/submit-order
-   :cancel-order order-actions/cancel-order})
+   :cancel-order order-actions/cancel-order
+   :open-funding-transfer-modal funding-actions/open-funding-transfer-modal
+   :open-funding-withdraw-modal funding-actions/open-funding-withdraw-modal
+   :open-funding-deposit-modal funding-actions/open-funding-deposit-modal
+   :close-funding-modal funding-actions/close-funding-modal
+   :handle-funding-modal-keydown funding-actions/handle-funding-modal-keydown
+   :set-funding-modal-field funding-actions/set-funding-modal-field
+   :set-funding-transfer-direction funding-actions/set-funding-transfer-direction
+   :set-funding-amount-to-max funding-actions/set-funding-amount-to-max
+   :submit-funding-transfer funding-actions/submit-funding-transfer
+   :submit-funding-withdraw funding-actions/submit-funding-withdraw})
 
 (defn- vault-action-deps []
   {:load-vault-route vault-actions/load-vault-route
@@ -248,7 +260,9 @@
           :api-fetch-vault-funding-history vault-effects/api-fetch-vault-funding-history!
           :api-fetch-vault-order-history vault-effects/api-fetch-vault-order-history!
           :api-fetch-vault-ledger-updates vault-effects/api-fetch-vault-ledger-updates!
-          :api-submit-vault-transfer vault-effects/api-submit-vault-transfer!}}
+          :api-submit-vault-transfer vault-effects/api-submit-vault-transfer!
+          :api-submit-funding-transfer funding-effects/api-submit-funding-transfer!
+          :api-submit-funding-withdraw funding-effects/api-submit-funding-withdraw!}}
    effect-overrides))
 
 (defn runtime-action-deps

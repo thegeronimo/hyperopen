@@ -26,6 +26,10 @@
                         (class-values (:class attrs)))]
     (set classes)))
 
+(defn- node-attrs [node]
+  (when (and (vector? node) (map? (second node)))
+    (second node)))
+
 (defn- node-children [node]
   (if (map? (second node))
     (drop 2 node)
@@ -47,6 +51,12 @@
     (some #(find-first-node % pred) node)
 
     :else nil))
+
+(defn- first-index-where
+  [xs pred]
+  (first (keep-indexed (fn [idx x]
+                         (when (pred x) idx))
+                       xs)))
 
 (deftest account-equity-heading-and-label-contrast-test
   (let [view-node (view/account-equity-view {:webdata2 {}
@@ -100,6 +110,34 @@
     (is (some? (find-first-node view-node #(contains? (direct-texts %) "Perps Maintenance Margin"))))
     (is (some? (find-first-node view-node #(contains? (direct-texts %) "Unified Account Leverage"))))
     (is (nil? (find-first-node view-node #(contains? (direct-texts %) "Perps Overview"))))))
+
+(deftest unified-account-summary-renders-funding-section-above-summary-test
+  (let [view-node (view/account-equity-view {:account {:mode :unified}
+                                             :webdata2 {:clearinghouseState {:marginSummary {:accountValue "204.45"
+                                                                                              :totalNtlPos "0.0"
+                                                                                              :totalRawUsd "204.45"
+                                                                                              :totalMarginUsed "0.0"}
+                                                                              :crossMarginSummary {:accountValue "204.45"
+                                                                                                   :totalNtlPos "0.0"
+                                                                                                   :totalRawUsd "204.45"
+                                                                                                   :totalMarginUsed "0.0"}
+                                                                              :crossMaintenanceMarginUsed "0.0"
+                                                                              :assetPositions []}}
+                                             :spot {}
+                                             :perp-dex-clearinghouse {}})
+        funding-section (find-first-node view-node #(= "funding-actions-section"
+                                                       (:data-parity-id (node-attrs %))))
+        children (vec (node-children view-node))
+        funding-index (first-index-where children #(= "funding-actions-section"
+                                                      (:data-parity-id (node-attrs %))))
+        summary-index (first-index-where children #(contains? (direct-texts %) "Unified Account Summary"))]
+    (is (some? funding-section))
+    (is (some? (find-first-node funding-section #(contains? (direct-texts %) "Deposit"))))
+    (is (some? (find-first-node funding-section #(contains? (direct-texts %) "Perps <-> Spot"))))
+    (is (some? (find-first-node funding-section #(contains? (direct-texts %) "Withdraw"))))
+    (is (number? funding-index))
+    (is (number? summary-index))
+    (is (< funding-index summary-index))))
 
 (deftest unified-account-summary-falls-back-to-placeholders-test
   (let [view-node (view/account-equity-view {:account {:mode :unified}

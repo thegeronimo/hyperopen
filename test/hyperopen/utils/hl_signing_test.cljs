@@ -76,6 +76,37 @@
     (is (= "0x1234567890abcdef1234567890abcdef12345678"
            (get-in typed-data [:message :agentAddress])))))
 
+(deftest build-usd-class-transfer-typed-data-test
+  (let [typed-data (signing/build-usd-class-transfer-typed-data
+                    {:hyperliquidChain "Mainnet"
+                     :signatureChainId "0xa4b1"
+                     :amount "12.34"
+                     :toPerp true
+                     :nonce 1700000003000})]
+    (is (= "HyperliquidSignTransaction" (get-in typed-data [:domain :name])))
+    (is (= 42161 (get-in typed-data [:domain :chainId])))
+    (is (= "HyperliquidTransaction:UsdClassTransfer" (:primaryType typed-data)))
+    (is (= "Mainnet" (get-in typed-data [:message :hyperliquidChain])))
+    (is (= "12.34" (get-in typed-data [:message :amount])))
+    (is (= true (get-in typed-data [:message :toPerp])))
+    (is (= 1700000003000 (get-in typed-data [:message :nonce])))))
+
+(deftest build-withdraw3-typed-data-test
+  (let [typed-data (signing/build-withdraw3-typed-data
+                    {:hyperliquidChain "Testnet"
+                     :signatureChainId "0x66eee"
+                     :destination "0x1234567890abcdef1234567890abcdef12345678"
+                     :amount "7.5"
+                     :time 1700000004000})]
+    (is (= "HyperliquidSignTransaction" (get-in typed-data [:domain :name])))
+    (is (= 421614 (get-in typed-data [:domain :chainId])))
+    (is (= "HyperliquidTransaction:Withdraw" (:primaryType typed-data)))
+    (is (= "Testnet" (get-in typed-data [:message :hyperliquidChain])))
+    (is (= "0x1234567890abcdef1234567890abcdef12345678"
+           (get-in typed-data [:message :destination])))
+    (is (= "7.5" (get-in typed-data [:message :amount])))
+    (is (= 1700000004000 (get-in typed-data [:message :time])))))
+
 (deftest split-signature-test
   (let [r (apply str (repeat 64 "a"))
         s (apply str (repeat 64 "b"))

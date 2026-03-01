@@ -85,6 +85,56 @@
    [:span {:class ["num" (or value-class (default-metric-value-class value))]}
     value]])
 
+(defn- funding-action-button
+  [{:keys [label action primary?]}]
+  [:button {:type "button"
+            :class (into ["w-full"
+                          "h-[34px]"
+                          "rounded-[8px]"
+                          "border"
+                          "px-2.5"
+                          "text-sm"
+                          "leading-none"
+                          "font-medium"
+                          "tracking-[0.01em]"
+                          "transition-colors"
+                          "duration-150"]
+                         (if primary?
+                           ["border-[#58ded2]"
+                            "bg-[#58ded2]"
+                            "text-[#072b2f]"
+                            "shadow-[inset_0_1px_0_rgba(255,255,255,0.20)]"
+                            "hover:border-[#69e5db]"
+                            "hover:bg-[#69e5db]"]
+                           ["border-[#32cdc2]"
+                            "bg-[rgba(4,23,31,0.35)]"
+                            "text-[#53ddd1]"
+                            "shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                            "hover:border-[#45d8ce]"
+                            "hover:bg-[#0f2f36]"
+                            "hover:text-[#76e9df]"]))
+            :on {:click [action]}}
+   label])
+
+(defn- funding-actions-cluster []
+  [:div.space-y-2
+   (funding-action-button {:label "Deposit"
+                           :primary? true
+                           :action [:actions/open-funding-deposit-modal]})
+   [:div.grid.grid-cols-2.gap-2.5
+    (funding-action-button {:label "Perps <-> Spot"
+                            :action [:actions/open-funding-transfer-modal]})
+    (funding-action-button {:label "Withdraw"
+                            :action [:actions/open-funding-withdraw-modal]})]])
+
+(defn- funding-actions-section []
+  [:div {:class ["space-y-2"
+                 "py-2.5"
+                 "border-y"
+                 "border-[#223b45]"]
+         :data-parity-id "funding-actions-section"}
+   (funding-actions-cluster)])
+
 (defn- unified-account? [state]
   (= :unified (get-in state [:account :mode])))
 
@@ -161,6 +211,7 @@
   [:div {:class ["bg-base-100" "rounded-none" "shadow-none" "p-3" "space-y-4" "w-full" "h-full"]
          :data-parity-id "account-equity"}
    [:div.text-sm.font-semibold.text-trading-text "Account Equity"]
+   (funding-actions-cluster)
 
    [:div.space-y-2
     (metric-row "Spot" (display-currency spot-equity))
@@ -187,8 +238,8 @@
                                              pnl-info]}]
   [:div {:class ["bg-base-100" "rounded-none" "shadow-none" "p-3" "space-y-4" "w-full" "h-full"]
          :data-parity-id "account-equity"}
+   (funding-actions-section)
    [:div.text-sm.font-semibold.text-trading-text "Unified Account Summary"]
-
    [:div.space-y-2
     (metric-row "Unified Account Ratio" (display-percent unified-account-ratio)
                 :tooltip "Perps Maintenance Margin / Portfolio Value.")

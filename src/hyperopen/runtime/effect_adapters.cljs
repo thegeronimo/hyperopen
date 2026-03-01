@@ -21,6 +21,7 @@
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.telemetry :as telemetry]
             [hyperopen.startup.restore :as startup-restore]
+            [hyperopen.funding.effects :as funding-workflow-effects]
             [hyperopen.funding-comparison.effects :as funding-effects]
             [hyperopen.vaults.effects :as vault-effects]
             [hyperopen.wallet.agent-runtime :as agent-runtime]
@@ -759,6 +760,26 @@
 (defn api-submit-vault-transfer-effect
   [_ store request]
   (vault-effects/api-submit-vault-transfer!
+   {:store store
+    :request request
+    :dispatch! nxr/dispatch
+    :exchange-response-error exchange-response-error
+    :runtime-error-message runtime-error-message
+    :show-toast! show-order-feedback-toast!}))
+
+(defn api-submit-funding-transfer-effect
+  [_ store request]
+  (funding-workflow-effects/api-submit-funding-transfer!
+   {:store store
+    :request request
+    :dispatch! nxr/dispatch
+    :exchange-response-error exchange-response-error
+    :runtime-error-message runtime-error-message
+    :show-toast! show-order-feedback-toast!}))
+
+(defn api-submit-funding-withdraw-effect
+  [_ store request]
+  (funding-workflow-effects/api-submit-funding-withdraw!
    {:store store
     :request request
     :dispatch! nxr/dispatch

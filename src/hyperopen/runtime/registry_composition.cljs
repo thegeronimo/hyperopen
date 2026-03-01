@@ -89,7 +89,9 @@
            api-fetch-vault-funding-history
            api-fetch-vault-order-history
            api-fetch-vault-ledger-updates
-           api-submit-vault-transfer]}]
+           api-submit-vault-transfer
+           api-submit-funding-transfer
+           api-submit-funding-withdraw]}]
   {:fetch-asset-selector-markets fetch-asset-selector-markets
    :sync-active-asset-funding-predictability sync-active-asset-funding-predictability
    :api-fetch-user-funding-history api-fetch-user-funding-history
@@ -106,7 +108,9 @@
    :api-fetch-vault-funding-history api-fetch-vault-funding-history
    :api-fetch-vault-order-history api-fetch-vault-order-history
    :api-fetch-vault-ledger-updates api-fetch-vault-ledger-updates
-   :api-submit-vault-transfer api-submit-vault-transfer})
+   :api-submit-vault-transfer api-submit-vault-transfer
+   :api-submit-funding-transfer api-submit-funding-transfer
+   :api-submit-funding-withdraw api-submit-funding-withdraw})
 
 (defn runtime-effect-handlers
   [{:keys [storage
@@ -534,7 +538,17 @@
            submit-order
            cancel-order
            load-user-data
-           set-funding-modal]}]
+           set-funding-modal
+           open-funding-transfer-modal
+           open-funding-withdraw-modal
+           open-funding-deposit-modal
+           close-funding-modal
+           handle-funding-modal-keydown
+           set-funding-modal-field
+           set-funding-transfer-direction
+           set-funding-amount-to-max
+           submit-funding-transfer
+           submit-funding-withdraw]}]
   {:select-order-entry-mode select-order-entry-mode
    :select-pro-order-type select-pro-order-type
    :toggle-pro-order-type-dropdown toggle-pro-order-type-dropdown
@@ -570,7 +584,17 @@
    :submit-order submit-order
    :cancel-order cancel-order
    :load-user-data load-user-data
-   :set-funding-modal set-funding-modal})
+   :set-funding-modal set-funding-modal
+   :open-funding-transfer-modal open-funding-transfer-modal
+   :open-funding-withdraw-modal open-funding-withdraw-modal
+   :open-funding-deposit-modal open-funding-deposit-modal
+   :close-funding-modal close-funding-modal
+   :handle-funding-modal-keydown handle-funding-modal-keydown
+   :set-funding-modal-field set-funding-modal-field
+   :set-funding-transfer-direction set-funding-transfer-direction
+   :set-funding-amount-to-max set-funding-amount-to-max
+   :submit-funding-transfer submit-funding-transfer
+   :submit-funding-withdraw submit-funding-withdraw})
 
 (defn runtime-action-handlers
   [{:keys [core
