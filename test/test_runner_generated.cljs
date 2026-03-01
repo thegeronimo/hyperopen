@@ -201,6 +201,11 @@
             [hyperopen.views.trading-chart.utils.position-overlay-model-test]
             [hyperopen.views.typography-scale-test]
             [hyperopen.views.vault-detail-view-test]
+            [hyperopen.views.vault-detail.activity-test]
+            [hyperopen.views.vault-detail.chart-test]
+            [hyperopen.views.vault-detail.format-test]
+            [hyperopen.views.vault-detail.panels-test]
+            [hyperopen.views.vault-detail.transfer-modal-test]
             [hyperopen.views.vaults-view-test]
             [hyperopen.views.vaults.detail-vm-test]
             [hyperopen.views.vaults.detail.chart-test]
@@ -446,6 +451,11 @@
              'hyperopen.views.trading-chart.utils.position-overlay-model-test
              'hyperopen.views.typography-scale-test
              'hyperopen.views.vault-detail-view-test
+             'hyperopen.views.vault-detail.activity-test
+             'hyperopen.views.vault-detail.chart-test
+             'hyperopen.views.vault-detail.format-test
+             'hyperopen.views.vault-detail.panels-test
+             'hyperopen.views.vault-detail.transfer-modal-test
              'hyperopen.views.vaults-view-test
              'hyperopen.views.vaults.detail-vm-test
              'hyperopen.views.vaults.detail.chart-test
