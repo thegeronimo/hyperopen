@@ -4,6 +4,7 @@
             [hyperopen.api.market-metadata.perp-dexs :as perp-dexs]
             [hyperopen.platform :as platform]
             [hyperopen.schema.contracts :as contracts]
+            [hyperopen.state.trading.order-form-key-policy :as key-policy]
             [hyperopen.telemetry :as telemetry]))
 
 (defn- reset-telemetry-state!
@@ -282,3 +283,55 @@
                                   (is (re-find #"ensure failed" (str ensure-err)))
                                   (is (= "ensure failed" (:ensure-error @store)))
                                   (done))))))))))
+
+(deftest ws-order-form-key-policy-low-function-coverage-smoke-test
+  (let [raw-form {:type :limit
+                  :price "100"
+                  :entry-mode :pro
+                  :ui-leverage 20
+                  :margin-mode :cross
+                  :size-input-mode :quote
+                  :size-input-source :manual
+                  :size-display "10"
+                  :pro-order-type-dropdown-open? true
+                  :margin-mode-dropdown-open? true
+                  :leverage-popover-open? false
+                  :leverage-draft 20
+                  :size-unit-dropdown-open? true
+                  :tpsl-unit-dropdown-open? false
+                  :tif-dropdown-open? true
+                  :price-input-focused? false
+                  :tpsl-panel-open? true
+                  :submitting? true
+                  :error "oops"}
+        ui-key (first key-policy/ui-owned-order-form-keys)
+        legacy-key (first key-policy/legacy-order-form-compatibility-keys)]
+    (is (true? (key-policy/ui-owned-order-form-key? ui-key)))
+    (is (false? (key-policy/ui-owned-order-form-key? :type)))
+    (is (true? (key-policy/legacy-order-form-compatibility-key? legacy-key)))
+    (is (false? (key-policy/legacy-order-form-compatibility-key? :type)))
+    (is (true? (key-policy/deprecated-canonical-order-form-key? ui-key)))
+    (is (true? (key-policy/deprecated-canonical-order-form-key? legacy-key)))
+    (is (false? (key-policy/deprecated-canonical-order-form-key? :type)))
+    (is (true? (key-policy/canonical-write-blocked-order-form-path? [ui-key])))
+    (is (false? (key-policy/canonical-write-blocked-order-form-path? [:type])))
+
+    (is (= (select-keys raw-form key-policy/ui-owned-order-form-keys)
+           (key-policy/order-form-ui-overrides-from-form raw-form)))
+    (is (= {}
+           (key-policy/order-form-ui-overrides-from-form nil)))
+
+    (is (= (reduce dissoc raw-form key-policy/ui-owned-order-form-keys)
+           (key-policy/strip-ui-owned-order-form-keys raw-form)))
+    (is (= {}
+           (key-policy/strip-ui-owned-order-form-keys nil)))
+
+    (is (= (reduce dissoc raw-form key-policy/legacy-order-form-compatibility-keys)
+           (key-policy/strip-legacy-order-form-compatibility-keys raw-form)))
+    (is (= {}
+           (key-policy/strip-legacy-order-form-compatibility-keys nil)))
+
+    (is (= (reduce dissoc raw-form key-policy/deprecated-canonical-order-form-keys)
+           (key-policy/strip-deprecated-canonical-order-form-keys raw-form)))
+    (is (= {}
+           (key-policy/strip-deprecated-canonical-order-form-keys nil)))))
