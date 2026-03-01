@@ -16,6 +16,7 @@
 (def daily-compounded-returns history/daily-compounded-returns)
 (def strategy-daily-compounded-returns history/strategy-daily-compounded-returns)
 (def normalize-daily-rows history/normalize-daily-rows)
+(def daily-rows->cumulative-percent-rows history/daily-rows->cumulative-percent-rows)
 (def align-daily-returns history/align-daily-returns)
 
 ;; Returns functions

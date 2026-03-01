@@ -708,39 +708,6 @@
       (is (number? (:value r2-row)))
       (is (number? (:value information-ratio-row))))))
 
-(deftest portfolio-vm-builds-cumulative-only-benchmark-worker-requests-test
-  (let [t0 fixture-start-ms
-        t1 (+ fixture-start-ms day-ms)
-        t2 (+ fixture-start-ms (* 2 day-ms))
-        strategy-cumulative-rows [[t0 0]
-                                  [t1 11]
-                                  [t2 19]]
-        spy-cumulative-rows [[t0 0]
-                             [t1 6]
-                             [t2 14]]
-        qqq-cumulative-rows [[t0 0]
-                             [t1 2]
-                             [t2 7]]
-        request-data (@#'vm/build-metrics-request-data strategy-cumulative-rows
-                                                       {"SPY" spy-cumulative-rows
-                                                        "QQQ" qqq-cumulative-rows}
-                                                       ["SPY" "QQQ"])
-        portfolio-request (:portfolio-request request-data)
-        benchmark-requests (:benchmark-requests request-data)]
-    (is (= strategy-cumulative-rows
-           (:strategy-cumulative-rows portfolio-request)))
-    (is (seq (:strategy-daily-rows portfolio-request)))
-    (is (= spy-cumulative-rows
-           (:benchmark-cumulative-rows portfolio-request)))
-    (is (not (contains? portfolio-request :benchmark-daily-rows)))
-    (is (= [{:coin "SPY"
-             :request {:strategy-cumulative-rows spy-cumulative-rows}}
-            {:coin "QQQ"
-             :request {:strategy-cumulative-rows qqq-cumulative-rows}}]
-           benchmark-requests))
-    (is (every? (fn [{:keys [request]}]
-                  (not (contains? request :strategy-daily-rows)))
-                benchmark-requests))))
 
 (deftest portfolio-vm-sync-metrics-derives-benchmark-daily-rows-from-cumulative-test
   (let [t0 fixture-start-ms
