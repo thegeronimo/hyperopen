@@ -412,16 +412,33 @@
                        :network "Solana"}}]]
            (funding-actions/submit-funding-deposit state)))))
 
-(deftest submit-funding-deposit-rejects-unimplemented-asset-flows-test
+(deftest submit-funding-deposit-supports-xpl-hyperunit-address-flow-test
   (let [state (assoc-in (base-state)
                         [:funding-ui :modal]
                         {:open? true
                          :mode :deposit
                          :deposit-step :amount-entry
                          :deposit-selected-asset-key :xpl
+                         :amount-input ""})]
+    (is (= [[:effects/save-many [[[:funding-ui :modal :submitting?] true]
+                                 [[:funding-ui :modal :error] nil]]]
+            [:effects/api-submit-funding-deposit
+             {:action {:type "hyperunitGenerateDepositAddress"
+                       :asset "xpl"
+                       :fromChain "plasma"
+                       :network "Plasma"}}]]
+           (funding-actions/submit-funding-deposit state)))))
+
+(deftest submit-funding-deposit-rejects-unimplemented-asset-flows-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :deposit
+                         :deposit-step :amount-entry
+                         :deposit-selected-asset-key :usdh
                          :amount-input "10"})]
     (is (= [[:effects/save-many [[[:funding-ui :modal :submitting?] false]
-                                 [[:funding-ui :modal :error] "XPL deposits are not implemented yet in Hyperopen."]]]]
+                                 [[:funding-ui :modal :error] "USDH deposits are not implemented yet in Hyperopen."]]]]
            (funding-actions/submit-funding-deposit state)))))
 
 (deftest funding-modal-view-model-includes-multi-asset-deposit-catalog-test

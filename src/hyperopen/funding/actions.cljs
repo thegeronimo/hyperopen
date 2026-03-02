@@ -97,7 +97,8 @@
     :symbol "XPL"
     :name "Plasma"
     :network "Plasma"
-    :flow-kind :hyperunit-address}
+    :flow-kind :hyperunit-address
+    :hyperunit-source-chain "plasma"}
    {:key :usdh
     :symbol "USDH"
     :name "USDH"
@@ -109,7 +110,7 @@
   (set (map :key deposit-assets-base)))
 
 (def ^:private deposit-implemented-asset-keys
-  #{:usdc :usdt :btc :eth :sol :2z :bonk :ena :fart :mon :pump :spxs})
+  #{:usdc :usdt :btc :eth :sol :2z :bonk :ena :fart :mon :pump :spxs :xpl})
 
 (defn- non-blank-text
   [value]
