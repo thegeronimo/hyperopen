@@ -128,6 +128,7 @@
             [hyperopen.utils.formatting-test]
             [hyperopen.utils.hl-signing-test]
             [hyperopen.utils.interval-test]
+            [hyperopen.utils.parse-test]
             [hyperopen.vaults.actions-test]
             [hyperopen.vaults.adapters.webdata-test]
             [hyperopen.vaults.detail.activity-test]
@@ -395,6 +396,7 @@
              'hyperopen.utils.formatting-test
              'hyperopen.utils.hl-signing-test
              'hyperopen.utils.interval-test
+             'hyperopen.utils.parse-test
              'hyperopen.vaults.actions-test
              'hyperopen.vaults.adapters.webdata-test
              'hyperopen.vaults.detail.activity-test

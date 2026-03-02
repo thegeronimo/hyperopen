@@ -86,6 +86,64 @@
         normalized (if (js/isNaN n) 2 (js/Math.floor n))]
     (max 0 normalized)))
 
+(defn finite-number?
+  [value]
+  (boolean
+   (when-let [num (parse-number value)]
+     (js/isFinite num))))
+
+(defn- normalize-finite-number [value]
+  (when-let [num (parse-number value)]
+    (when (js/isFinite num)
+      (if (== num -0) 0 num))))
+
+(defn format-signed-percent
+  "Format a numeric percent value. Example: 1.23 -> +1.23% (default)."
+  ([value]
+   (format-signed-percent value {:decimals 2
+                                 :signed? true}))
+  ([value {:keys [decimals signed?]
+           :or {decimals 2
+                signed? true}}]
+   (when-let [num (normalize-finite-number value)]
+     (let [digits (normalize-fraction-digits decimals)
+           factor (js/Math.pow 10 digits)
+           rounded (/ (js/Math.round (* num factor)) factor)
+           rounded* (if (== rounded -0) 0 rounded)
+           sign (cond
+                  (and signed? (pos? rounded*)) "+"
+                  (neg? rounded*) "-"
+                  :else "")
+           magnitude (.toFixed (js/Math.abs rounded*) digits)]
+       (str sign magnitude "%")))))
+
+(defn format-signed-percent-from-decimal
+  "Format decimal ratio as percent. Example: 0.0123 -> +1.23% (default)."
+  ([value]
+   (format-signed-percent-from-decimal value {:decimals 2
+                                              :signed? true}))
+  ([value opts]
+   (when-let [num (normalize-finite-number value)]
+     (format-signed-percent (* num 100) opts))))
+
+(defn format-ratio
+  "Format a finite ratio with fixed decimals."
+  ([value]
+   (format-ratio value 2))
+  ([value decimals]
+   (when-let [num (normalize-finite-number value)]
+     (.toFixed num (normalize-fraction-digits decimals)))))
+
+(defn format-integer
+  "Format a number rounded to integer using locale-aware grouping."
+  ([value]
+   (format-integer value nil))
+  ([value locale]
+   (when-let [num (normalize-finite-number value)]
+     (format-intl-number (js/Math.round num)
+                         {:maximumFractionDigits 0}
+                         locale))))
+
 (defn- clamp-trade-price-decimals [decimals]
   (-> (or decimals min-trade-price-decimals)
       (max min-trade-price-decimals)

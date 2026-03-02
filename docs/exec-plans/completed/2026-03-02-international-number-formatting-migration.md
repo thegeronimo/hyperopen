@@ -19,9 +19,10 @@ A user can verify the behavior by setting a locale preference, loading key views
 - [x] (2026-03-02 16:08Z) Added Milestone 1 tests for locale preference resolution and formatter behavior compatibility (`test/hyperopen/i18n/locale_test.cljs`, `test/hyperopen/state/app_defaults_test.cljs`, `test/hyperopen/utils/formatting_test.cljs`).
 - [x] (2026-03-02 16:08Z) Ran Milestone 1 validation commands and required gates (`npm test`, `npm run check`, `npm run test:websocket`) successfully.
 - [x] (2026-03-02 16:08Z) Implemented Milestone 2 migration of remaining hardcoded `"en-US"` formatters in portfolio/vault chart tooltip and custom chart formatter modules.
-- [ ] Implement Milestone 3 deduplication pass for percent/ratio/integer render helpers repeated across portfolio and vault detail views.
-- [ ] Implement Milestone 4 locale-aware numeric input parsing boundary for user-entered numeric strings (where safe) with targeted tests.
-- [ ] Move this plan to completed when Milestones 3-4 are accepted or explicitly deferred.
+- [x] (2026-03-02 16:36Z) Implemented Milestone 3 deduplication of percent/ratio/integer helpers into shared formatter utilities and migrated portfolio/vault detail callsites.
+- [x] (2026-03-02 16:36Z) Implemented Milestone 4 locale-aware input parsing boundaries for vault transfer input paths plus targeted parsing tests.
+- [x] (2026-03-02 16:36Z) Ran required validation gates after Milestones 3-4 (`npm test`, `npm run check`, `npm run test:websocket`) with zero failures.
+- [x] (2026-03-02 16:37Z) Moved plan to `/hyperopen/docs/exec-plans/completed/2026-03-02-international-number-formatting-migration.md`.
 
 ## Surprises & Discoveries
 
@@ -37,6 +38,9 @@ A user can verify the behavior by setting a locale preference, loading key views
 - Observation: Portfolio and vault tooltip date tests encoded a fixed `year month day` string order; locale-native date formatting required test assertions to validate tokens instead of exact order.
   Evidence: Updated assertion in `test/hyperopen/views/portfolio_view_test.cljs` from exact `"2026 Feb 26"` to token-presence matching.
 
+- Observation: Initial locale-grouping validation rejected valid grouped `en-US` inputs like `"1,234.56"` because regex-based symbol splitting was too brittle.
+  Evidence: Failing assertions in `test/hyperopen/utils/parse_test.cljs`; resolved by moving grouping validation to string index/split checks and keeping malformed grouping rejection (`"1,2,3"`).
+
 ## Decision Log
 
 - Decision: Keep default locale behavior `en-US` unless a valid explicit locale preference is stored, rather than switching defaults to browser locale in Milestone 1.
@@ -51,19 +55,31 @@ A user can verify the behavior by setting a locale preference, loading key views
   Rationale: Locale-native order is more correct for international users and aligns with migration goals; tests were updated to assert semantic presence instead of fixed token order.
   Date/Author: 2026-03-02 / Codex
 
+- Decision: Compute signed percent prefix from rounded value, not raw input, to avoid rendering `-0.00%` when display precision rounds to zero.
+  Rationale: UI display semantics should reflect rendered precision; users should not see negative zero artifacts.
+  Date/Author: 2026-03-02 / Codex
+
+- Decision: Enforce locale grouping validity with explicit integer/fraction partition checks before normalization.
+  Rationale: Accepting any grouped text risks silently coercing malformed user input; explicit validation preserves predictable parsing while allowing locale-correct grouped strings.
+  Date/Author: 2026-03-02 / Codex
+
 ## Outcomes & Retrospective
 
-Milestones 1 and 2 are complete and validated:
+Milestones 1-4 are complete and validated:
 
 - Locale preference foundation now exists in app state (`[:ui :locale]`) and startup restore flow.
 - Shared formatter utilities now own locale-aware number/date formatting via memoized `Intl` registries.
 - First-wave and second-wave hardcoded locale callsites were migrated; `rg -n '"en-US"' src/hyperopen test` now reports only the intentional fallback constant in `/hyperopen/src/hyperopen/i18n/locale.cljs`.
+- Repeated cross-view percent/ratio/integer helper logic now lives in `/hyperopen/src/hyperopen/utils/formatting.cljs` and is consumed by portfolio/vault detail modules.
+- Safe locale-aware input normalization/parsing now exists in `/hyperopen/src/hyperopen/utils/parse.cljs`, with vault transfer preview parsing reading locale from `[:ui :locale]`.
+- Added targeted regression tests for new formatter helpers and localized parser behavior:
+  - `/hyperopen/test/hyperopen/utils/formatting_test.cljs`
+  - `/hyperopen/test/hyperopen/utils/parse_test.cljs`
+  - `/hyperopen/test/hyperopen/vaults/actions_test.cljs`
 - Validation passed:
   - `npm test`
   - `npm run check`
   - `npm run test:websocket`
-
-Remaining scope is Milestone 3 (cross-view percent/ratio/integer helper dedup) and Milestone 4 (safe locale-aware numeric input parsing boundaries), which are intentionally deferred pending acceptance of current migration tranche.
 
 ## Context and Orientation
 
@@ -164,3 +180,4 @@ Milestone 1 introduces these interfaces:
 No new external npm dependencies are required. Existing `Intl` runtime support in browser/Node is used.
 
 Plan revision note: 2026-03-02 15:55Z - Initial plan authored after repository formatting audit; Milestone 1 implementation pending.
+Plan revision note: 2026-03-02 16:36Z - Milestones 3-4 completed and validated; plan ready to move to completed.

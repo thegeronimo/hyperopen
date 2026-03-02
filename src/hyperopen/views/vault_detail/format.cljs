@@ -4,8 +4,7 @@
 
 (defn finite-number?
   [value]
-  (and (number? value)
-       (js/isFinite value)))
+  (boolean (fmt/finite-number? value)))
 
 (defn- fallback-currency
   [value]
@@ -58,20 +57,15 @@
            :or {missing "—"
                 signed? true
                 decimals 2}}]
-   (if (finite-number? value)
-     (let [n (if (== value -0) 0 value)
-           sign (cond
-                  (and signed? (pos? n)) "+"
-                  (neg? n) "-"
-                  :else "")]
-       (str sign (.toFixed (js/Math.abs n) decimals) "%"))
-     missing)))
+   (or (fmt/format-signed-percent value {:signed? signed?
+                                         :decimals decimals})
+       missing)))
 
 (defn format-funding-rate
   [value]
-  (if (finite-number? value)
-    (str (.toFixed (* 100 value) 4) "%")
-    "—"))
+  (or (fmt/format-signed-percent-from-decimal value {:signed? false
+                                                     :decimals 4})
+      "—"))
 
 (defn format-time
   [time-ms]

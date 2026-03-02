@@ -73,6 +73,23 @@
       (is (vector? parts))
       (is (some #(= "year" (:type %)) parts)))))
 
+(deftest metric-formatting-helpers-test
+  (testing "finite number detection and percent/ratio/integer helpers"
+    (is (true? (fmt/finite-number? 1.25)))
+    (is (false? (fmt/finite-number? js/NaN)))
+    (is (false? (fmt/finite-number? nil)))
+    (is (= "+1.23%" (fmt/format-signed-percent 1.234 {:decimals 2
+                                                       :signed? true})))
+    (is (= "1.23%" (fmt/format-signed-percent 1.234 {:decimals 2
+                                                      :signed? false})))
+    (is (= "-1.23%" (fmt/format-signed-percent -1.234 {:decimals 2
+                                                        :signed? true})))
+    (is (= "+1.23%" (fmt/format-signed-percent-from-decimal 0.01234 {:decimals 2
+                                                                      :signed? true})))
+    (is (= "1.23" (fmt/format-ratio 1.234 2)))
+    (is (= "1,235" (fmt/format-integer 1234.5 "en-US")))
+    (is (nil? (fmt/format-integer "bad" "en-US")))))
+
 (deftest format-local-date-time-test
   (testing "returns nil for nil and local datetime text with padded time components"
     (is (nil? (fmt/format-local-date-time nil)))

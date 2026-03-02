@@ -10,9 +10,6 @@
    :notation "compact"
    :maximumFractionDigits 1})
 
-(def ^:private integer-format-options
-  {:maximumFractionDigits 0})
-
 (def ^:private tooltip-currency-format-options
   {:style "currency"
    :currency "USD"
@@ -61,34 +58,21 @@
   (let [n (if (number? pct) pct 0)]
     (str (.toFixed n 3) "%")))
 
-(defn- finite-number? [value]
-  (and (number? value)
-       (js/isFinite value)))
-
 (defn- format-percent [pct]
-  (let [n (if (number? pct) pct 0)]
-    (str (.toFixed n 2) "%")))
+  (or (fmt/format-signed-percent pct {:decimals 2
+                                      :signed? false})
+      "0.00%"))
 
 (defn- format-signed-percent-from-decimal [value]
-  (when (finite-number? value)
-    (let [pct (* value 100)
-          rounded (/ (js/Math.round (* pct 100)) 100)
-          rounded* (if (== rounded -0) 0 rounded)
-          sign (cond
-                 (pos? rounded*) "+"
-                 (neg? rounded*) "-"
-                 :else "")
-          magnitude (.toFixed (js/Math.abs rounded*) 2)]
-      (str sign magnitude "%"))))
+  (fmt/format-signed-percent-from-decimal value
+                                          {:decimals 2
+                                           :signed? true}))
 
 (defn- format-ratio-value [value]
-  (when (finite-number? value)
-    (.toFixed value 2)))
+  (fmt/format-ratio value 2))
 
 (defn- format-integer-value [value]
-  (when (finite-number? value)
-    (fmt/format-intl-number (js/Math.round value)
-                            integer-format-options)))
+  (fmt/format-integer value))
 
 (defn- format-metric-value [kind value]
   (case kind
@@ -108,26 +92,20 @@
 
 (defn- format-hype [value]
   (let [n (if (number? value) value 0)]
-    (str (or (fmt/format-intl-number n integer-format-options)
+    (str (or (fmt/format-integer n)
              "0")
          " HYPE")))
 
 (defn- format-axis-number [value]
   (let [n (if (number? value) value 0)]
-    (or (fmt/format-intl-number (js/Math.round n)
-                                integer-format-options)
+    (or (fmt/format-integer n)
         "0")))
 
 (defn- format-axis-percent [value]
-  (let [n (if (number? value) value 0)
-        rounded (/ (js/Math.round (* n 100)) 100)
-        rounded* (if (== rounded -0) 0 rounded)
-        magnitude (.toFixed (js/Math.abs rounded*) 2)
-        sign (cond
-               (pos? rounded*) "+"
-               (neg? rounded*) "-"
-               :else "")]
-    (str sign magnitude "%")))
+  (or (fmt/format-signed-percent value
+                                 {:decimals 2
+                                  :signed? true})
+      "0.00%"))
 
 (defn- format-axis-label [axis-kind value]
   (if (= axis-kind :percent)
@@ -207,7 +185,7 @@
                                           (seq stroke))
                                    stroke
                                    "#e6edf2")]
-                     (when (number? value)
+                     (when (fmt/finite-number? value)
                        {:coin coin*
                         :label label*
                         :value (format-tooltip-value :returns value)

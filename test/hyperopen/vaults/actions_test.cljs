@@ -403,3 +403,24 @@
     (is (false? (:ok? result)))
     (is (= "Deposits are disabled for this vault."
            (:display-message result)))))
+
+(deftest vault-transfer-preview-parses-localized-amount-input-test
+  (let [vault-address "0x1234567890abcdef1234567890abcdef12345678"
+        leader-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+        state {:router {:path (str "/vaults/" vault-address)}
+               :ui {:locale "fr-FR"}
+               :wallet {:address leader-address}
+               :vaults {:details-by-address {vault-address {:name "Vault Detail"
+                                                            :leader leader-address
+                                                            :allow-deposits? true}}
+                        :merged-index-rows [{:vault-address vault-address
+                                             :name "Vault Detail"
+                                             :leader leader-address}]}}
+        result (actions/vault-transfer-preview state
+                                               {:open? true
+                                                :mode :deposit
+                                                :vault-address vault-address
+                                                :amount-input "2,5"
+                                                :withdraw-all? false})]
+    (is (true? (:ok? result)))
+    (is (= 2500000 (get-in result [:request :action :usd])))))

@@ -473,8 +473,10 @@
          (or leader? allow-deposits?))))
 
 (defn- parse-usdc-micros
-  [value]
-  (let [text (some-> value str str/trim)]
+  ([value]
+   (parse-usdc-micros value nil))
+  ([value locale]
+   (let [text (parse-utils/normalize-localized-decimal-input value locale)]
     (when-let [[_ int-part frac-part frac-only]
                (and (seq text)
                     (re-matches #"^(?:(\d+)(?:\.(\d*))?|\.(\d+))$" text))]
@@ -486,7 +488,7 @@
             micros (+ whole-micros fraction)]
         (when (and (number? micros)
                    (<= micros js/Number.MAX_SAFE_INTEGER))
-          micros)))))
+          micros))))))
 
 (defn vault-transfer-preview
   [state modal]
@@ -502,9 +504,10 @@
         withdraw-all? (and (= mode :withdraw)
                            (true? (:withdraw-all? modal*)))
         amount-input (:amount-input modal*)
+        locale (get-in state [:ui :locale])
         amount-micros (if withdraw-all?
                         0
-                        (parse-usdc-micros amount-input))
+                        (parse-usdc-micros amount-input locale))
         deposit-allowed? (vault-transfer-deposit-allowed? state vault-address)]
     (cond
       (nil? vault-address)

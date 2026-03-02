@@ -15,30 +15,23 @@
 
 (defn- format-chart-axis-value
   [axis-kind value]
-  (let [n (if (vf/finite-number? value) value 0)
-        n* (if (== n -0) 0 n)]
+  (let [n (if (fmt/finite-number? value) value 0)]
     (case axis-kind
-      :returns (let [rounded (/ (js/Math.round (* n* 100)) 100)
-                     rounded* (if (== rounded -0) 0 rounded)
-                     sign (cond
-                            (pos? rounded*) "+"
-                            (neg? rounded*) "-"
-                            :else "")
-                     magnitude (.toFixed (js/Math.abs rounded*) 2)]
-                 (str sign magnitude "%"))
-      :pnl (or (fmt/format-large-currency n*) "$0")
-      :account-value (or (fmt/format-large-currency n*) "$0")
-      (or (fmt/format-large-currency n*) "$0"))))
+      :returns (or (fmt/format-signed-percent n {:decimals 2
+                                                 :signed? true})
+                   "0.00%")
+      :pnl (or (fmt/format-large-currency n) "$0")
+      :account-value (or (fmt/format-large-currency n) "$0")
+      (or (fmt/format-large-currency n) "$0"))))
 
 (defn- format-chart-tooltip-value
   [axis-kind value]
-  (let [n (if (vf/finite-number? value) value 0)
-        n* (if (== n -0) 0 n)]
+  (let [n (if (fmt/finite-number? value) value 0)]
     (case axis-kind
-      :returns (format-chart-axis-value :returns n*)
-      :pnl (vf/format-currency n* {:missing "$0.00"})
-      :account-value (vf/format-currency n* {:missing "$0.00"})
-      (vf/format-currency n* {:missing "$0.00"}))))
+      :returns (format-chart-axis-value :returns n)
+      :pnl (vf/format-currency n {:missing "$0.00"})
+      :account-value (vf/format-currency n {:missing "$0.00"})
+      (vf/format-currency n {:missing "$0.00"}))))
 
 (defn- format-tooltip-date
   [time-ms]
@@ -60,7 +53,7 @@
 
 (defn- tooltip-value-classes
   [axis-kind value]
-  (let [n (if (vf/finite-number? value) value 0)
+  (let [n (if (fmt/finite-number? value) value 0)
         positive-classes ["text-[#16d6a1]"]
         negative-classes ["text-[#ff7b72]"]
         neutral-classes ["text-[#e6edf2]"]]
@@ -93,7 +86,7 @@
          (keep (fn [{:keys [id coin label stroke points]}]
                  (when (and (keyword? id)
                             (not= id :strategy))
-                   (let [point (get (or points []) hovered-index)
+                     (let [point (get (or points []) hovered-index)
                          value (:value point)
                          label* (or (some-> label str str/trim)
                                     (some-> coin str str/trim)
@@ -104,7 +97,7 @@
                                           (seq stroke))
                                    stroke
                                    "#e6edf2")]
-                     (when (vf/finite-number? value)
+                     (when (fmt/finite-number? value)
                        {:coin (or coin label* "benchmark")
                         :label label*
                         :value (format-chart-tooltip-value :returns value)
