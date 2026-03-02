@@ -541,24 +541,28 @@
                       "text-[0.86rem]"
                       "leading-[1.2rem]"]}
         [:span {:class ["text-gray-300/95" "text-left"]} "Size"]
-        [:div {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
+        [:div {:class ["relative"
+                       "min-w-0"
+                       "rounded-md"
+                       "border"
+                       "border-slate-600/70"
+                       "bg-slate-900/45"
+                       "focus-within:border-emerald-400/60"]}
          [:input {:type "text"
                   :inputmode "decimal"
                   :spellCheck false
                   :aria-label "Hypothetical position size"
                   :class ["w-full"
                           "min-w-0"
-                          "rounded-md"
-                          "border"
-                          "border-slate-600/70"
-                          "bg-slate-900/45"
-                          "px-2"
+                          "border-0"
+                          "bg-transparent"
+                          "pl-2"
+                          "pr-10"
                           "py-1"
                           "text-[0.82rem]"
                           "leading-5"
                           "text-gray-100"
                           "placeholder:text-slate-400"
-                          "focus:border-emerald-400/60"
                           "focus:outline-none"
                           "focus:ring-0"
                           "focus:ring-offset-0"
@@ -569,8 +573,12 @@
                                 hypothetical-coin
                                 hypothetical-mark
                                 [:event.target/value]]]}}]
-         [:span {:class ["num"
-                         "shrink-0"
+         [:span {:class ["pointer-events-none"
+                         "absolute"
+                         "right-2"
+                         "top-1/2"
+                         "-translate-y-1/2"
+                         "num"
                          "text-[0.72rem]"
                          "font-medium"
                          "uppercase"
@@ -578,19 +586,32 @@
                          "text-gray-400"]}
           position-base-symbol]]
         [:span {:class ["text-gray-300/95" "text-left"]} "Value"]
-        [:div {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
-         [:span {:class ["num" "text-gray-300/95" "font-medium"]} "$"]
+        [:div {:class ["relative"
+                       "min-w-0"
+                       "rounded-md"
+                       "border"
+                       "border-slate-600/70"
+                       "bg-slate-900/45"
+                       "focus-within:border-emerald-400/60"]}
+         [:span {:class ["pointer-events-none"
+                         "absolute"
+                         "left-2"
+                         "top-1/2"
+                         "-translate-y-1/2"
+                         "num"
+                         "font-medium"
+                         "text-gray-300/95"]}
+          "$"]
          [:input {:type "text"
                   :inputmode "decimal"
                   :spellCheck false
                   :aria-label "Hypothetical position value"
                   :class ["w-full"
                           "min-w-0"
-                          "rounded-md"
-                          "border"
-                          "border-slate-600/70"
-                          "bg-slate-900/45"
-                          "px-2"
+                          "border-0"
+                          "bg-transparent"
+                          "pl-6"
+                          "pr-2"
                           "py-1"
                           "text-[0.82rem]"
                           "leading-5"
