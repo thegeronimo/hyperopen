@@ -233,16 +233,20 @@
                       (str (or (:value-input stored) ""))
                       (fmt/safe-to-fixed default-hypothetical-position-value 2))
         size* (parse-decimal-input size-input)
-        value* (parse-decimal-input value-input)
-        value* (when (and (number? value*)
-                          (>= value* 0))
-                 value*)
+        value-raw* (parse-decimal-input value-input)
+        value-sign (cond
+                     (and (number? value-raw*) (neg? value-raw*)) -1
+                     (and (number? value-raw*) (pos? value-raw*)) 1
+                     :else nil)
+        value* (when (number? value-raw*)
+                 (js/Math.abs value-raw*))
         resolved-size (cond
                         (number? size*) size*
                         (and (number? value*)
                              (number? mark*)
                              (pos? mark*))
-                        (/ value* mark*)
+                        (* (or value-sign 1)
+                           (/ value* mark*))
                         (and use-defaults?
                              (number? default-size))
                         default-size
@@ -607,7 +611,7 @@
                     "text-[0.72rem]"
                     "leading-[1.05rem]"
                     "text-gray-400"]}
-        "Edit size or value to estimate payments. Use negative size for short."]]
+        "Edit size or value to estimate payments. Use negative size or value for short."]]
       [:div {:class ["grid"
                      "grid-cols-[minmax(3.75rem,auto)_minmax(0,1fr)]"
                      "gap-x-3.5"
