@@ -1,5 +1,6 @@
 (ns hyperopen.state.app-defaults-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.i18n.locale :as i18n-locale]
             [hyperopen.platform :as platform]
             [hyperopen.state.app-defaults :as app-defaults]))
 
@@ -177,11 +178,29 @@
                   :default-order-history {}}))]
     (is (= "en-US" (get-in state [:ui :locale])))))
 
-(deftest default-app-state-falls-back-to-default-ui-locale-when-invalid-test
+(deftest default-app-state-falls-back-to-browser-ui-locale-when-invalid-test
   (let [state (with-redefs [platform/local-storage-get (fn [key]
                                                          (case key
                                                            "ui-locale" "not-a-locale"
-                                                           nil))]
+                                                           nil))
+                            i18n-locale/resolve-browser-locale (fn [] "de-DE")]
+                (app-defaults/default-app-state
+                 {:websocket-health {}
+                  :default-agent-state {}
+                  :default-order-form {}
+                  :default-order-form-ui {}
+                  :default-order-form-runtime {}
+                  :default-trade-history {}
+                  :default-funding-history {}
+                  :default-order-history {}}))]
+    (is (= "de-DE" (get-in state [:ui :locale])))))
+
+(deftest default-app-state-falls-back-to-default-ui-locale-when-browser-unavailable-test
+  (let [state (with-redefs [platform/local-storage-get (fn [key]
+                                                         (case key
+                                                           "ui-locale" "not-a-locale"
+                                                           nil))
+                            i18n-locale/resolve-browser-locale (fn [] nil)]
                 (app-defaults/default-app-state
                  {:websocket-health {}
                   :default-agent-state {}

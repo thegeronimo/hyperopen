@@ -55,6 +55,7 @@
 (defn resolve-preferred-locale
   []
   (or (load-stored-locale)
+      (resolve-browser-locale)
       fallback-locale))
 
 (defn coalesce-locale

@@ -10,10 +10,16 @@
   (is (nil? (locale/normalize-locale nil))))
 
 (deftest load-and-resolve-preferred-locale-test
-  (with-redefs [platform/local-storage-get (fn [_] "en_US")]
+  (with-redefs [platform/local-storage-get (fn [_] "en_US")
+                locale/resolve-browser-locale (fn [] "de-DE")]
     (is (= "en-US" (locale/load-stored-locale)))
     (is (= "en-US" (locale/resolve-preferred-locale))))
-  (with-redefs [platform/local-storage-get (fn [_] "not-a-locale")]
+  (with-redefs [platform/local-storage-get (fn [_] "not-a-locale")
+                locale/resolve-browser-locale (fn [] "de-DE")]
+    (is (nil? (locale/load-stored-locale)))
+    (is (= "de-DE" (locale/resolve-preferred-locale))))
+  (with-redefs [platform/local-storage-get (fn [_] nil)
+                locale/resolve-browser-locale (fn [] nil)]
     (is (nil? (locale/load-stored-locale)))
     (is (= "en-US" (locale/resolve-preferred-locale)))))
 
