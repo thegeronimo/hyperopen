@@ -167,6 +167,24 @@
                        :chainId "0x66eee"}}]]
            (funding-actions/submit-funding-deposit valid-testnet)))))
 
+(deftest set-funding-modal-field-selecting-deposit-asset-advances-step-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :deposit
+                         :deposit-step :asset-select
+                         :deposit-selected-asset-key nil
+                         :amount-input "12"})]
+    (let [[effect-id path next-modal]
+          (first (funding-actions/set-funding-modal-field state
+                                                          [:deposit-selected-asset-key]
+                                                          :usdc))]
+      (is (= :effects/save effect-id))
+      (is (= [:funding-ui :modal] path))
+      (is (= :usdc (:deposit-selected-asset-key next-modal)))
+      (is (= :amount-entry (:deposit-step next-modal)))
+      (is (= "" (:amount-input next-modal))))))
+
 (deftest set-funding-amount-to-max-respects-active-mode-test
   (let [transfer-state (assoc-in (base-state)
                                  [:funding-ui :modal]

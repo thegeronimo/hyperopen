@@ -503,9 +503,16 @@
                  [:deposit-step] (normalize-deposit-step value)
                  [:deposit-selected-asset-key] (normalize-deposit-asset-key value)
                  value)
-        next-modal (-> modal
-                       (assoc-in path* value*)
-                       (assoc :error nil))]
+        next-modal (cond-> (-> modal
+                               (assoc-in path* value*)
+                               (assoc :error nil))
+                     (= path* [:deposit-selected-asset-key])
+                     (assoc :deposit-step :amount-entry
+                            :amount-input "")
+
+                     (and (= path* [:deposit-step])
+                          (= value* :asset-select))
+                     (assoc :amount-input ""))]
     [[:effects/save funding-modal-path next-modal]]))
 
 (defn set-funding-transfer-direction

@@ -55,9 +55,9 @@
                          (if selected?
                            ["border-[#3a5b6a]" "bg-[#1a2a37]"]
                            ["border-transparent" "bg-transparent" "hover:bg-[#10222f]"]))
-            :on {:click [[:actions/set-funding-modal-field [:deposit-selected-asset-key] (:key asset)]
-                         [:actions/set-funding-modal-field [:deposit-step] :amount-entry]
-                         [:actions/set-funding-modal-field [:amount-input] ""]]}}
+            :on {:click [[:actions/set-funding-modal-field
+                          [:deposit-selected-asset-key]
+                          (:key asset)]]}}
    [:div {:class ["flex" "items-center" "gap-2.5"]}
     [:div {:class ["h-8"
                    "w-8"
@@ -295,8 +295,7 @@
                               "text-[#cfe0e7]"
                               "hover:border-[#4b6c82]"
                               "hover:bg-[#1b3242]"]
-                      :on {:click [[:actions/set-funding-modal-field [:deposit-step] :asset-select]
-                                   [:actions/set-funding-modal-field [:amount-input] ""]]}}
+                      :on {:click [[:actions/set-funding-modal-field [:deposit-step] :asset-select]]}}
              "←"]
             [:button {:type "button"
                       :disabled submit-disabled?
