@@ -15,7 +15,7 @@ A contributor can verify success by opening `/trade`, initiating a Unit deposit 
 - [x] (2026-03-02 17:57Z) Created implementation ExecPlan from the completed parity audit.
 - [x] (2026-03-02 18:02Z) Confirmed current baseline integration points in funding actions/effects/view and runtime registration surfaces.
 - [x] (2026-03-02 18:44Z) Implemented HyperUnit API boundary (endpoints + gateway + instance wiring) with normalization for generate-address, operations, estimate-fees, and withdrawal-queue, plus milestone tests.
-- [ ] Add canonical funding lifecycle state model and deterministic transitions for Unit operations.
+- [x] (2026-03-02 19:10Z) Added canonical funding lifecycle state model, deterministic funding action transitions, runtime action wiring, and schema/test coverage for HyperUnit lifecycle state.
 - [ ] Implement Unit deposit lifecycle polling and UI stage rendering.
 - [ ] Implement Unit withdrawal flow (asset-based) and lifecycle/queue tracking.
 - [ ] Integrate `estimate-fees` output into UI and validation messages.

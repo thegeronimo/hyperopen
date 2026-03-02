@@ -12,6 +12,11 @@
   (and (string? value)
        (seq (str/trim value))))
 
+(defn- non-negative-integer-value?
+  [value]
+  (and (integer? value)
+       (>= value 0)))
+
 (defn- keyword-path?
   [path]
   (and (vector? path)
@@ -203,6 +208,70 @@
 (s/def ::cancel-order-args (s/tuple map?))
 (s/def ::funding-modal-args (s/tuple any?))
 (s/def ::funding-modal-field-args (s/tuple ::state-path any?))
+
+(def ^:private hyperunit-lifecycle-keys
+  #{:direction
+    :asset-key
+    :operation-id
+    :state
+    :status
+    :source-tx-confirmations
+    :destination-tx-confirmations
+    :position-in-withdraw-queue
+    :destination-tx-hash
+    :state-next-at
+    :last-updated-ms
+    :error})
+
+(defn- hyperunit-lifecycle-input?
+  [value]
+  (and (map? value)
+       (every? hyperunit-lifecycle-keys (keys value))))
+
+(defn- hyperunit-lifecycle-state?
+  [value]
+  (and (map? value)
+       (= hyperunit-lifecycle-keys (set (keys value)))
+       (or (nil? (:direction value))
+           (contains? #{:deposit :withdraw} (:direction value)))
+       (or (nil? (:asset-key value))
+           (keyword? (:asset-key value)))
+       (or (nil? (:operation-id value))
+           (non-empty-string? (:operation-id value)))
+       (or (nil? (:state value))
+           (keyword? (:state value)))
+       (or (nil? (:status value))
+           (keyword? (:status value)))
+       (or (nil? (:source-tx-confirmations value))
+           (non-negative-integer-value? (:source-tx-confirmations value)))
+       (or (nil? (:destination-tx-confirmations value))
+           (non-negative-integer-value? (:destination-tx-confirmations value)))
+       (or (nil? (:position-in-withdraw-queue value))
+           (non-negative-integer-value? (:position-in-withdraw-queue value)))
+       (or (nil? (:destination-tx-hash value))
+           (non-empty-string? (:destination-tx-hash value)))
+       (or (nil? (:state-next-at value))
+           (non-negative-integer-value? (:state-next-at value)))
+       (or (nil? (:last-updated-ms value))
+           (non-negative-integer-value? (:last-updated-ms value)))
+       (or (nil? (:error value))
+           (non-empty-string? (:error value)))))
+
+(defn- funding-modal-state?
+  [value]
+  (and (map? value)
+       (contains? value :hyperunit-lifecycle)
+       (hyperunit-lifecycle-state? (:hyperunit-lifecycle value))))
+
+(defn- funding-ui-state?
+  [value]
+  (and (map? value)
+       (contains? value :modal)
+       (funding-modal-state? (:modal value))))
+
+(s/def ::hyperunit-lifecycle-input hyperunit-lifecycle-input?)
+(s/def ::set-hyperunit-lifecycle-args (s/tuple ::hyperunit-lifecycle-input))
+(s/def ::set-hyperunit-lifecycle-error-args (s/tuple (s/nilable string?)))
 (s/def ::left number?)
 (s/def ::right number?)
 (s/def ::top number?)
@@ -430,6 +499,9 @@
    :actions/close-funding-modal ::no-args
    :actions/handle-funding-modal-keydown ::key-args
    :actions/set-funding-modal-field ::funding-modal-field-args
+   :actions/set-hyperunit-lifecycle ::set-hyperunit-lifecycle-args
+   :actions/clear-hyperunit-lifecycle ::no-args
+   :actions/set-hyperunit-lifecycle-error ::set-hyperunit-lifecycle-error-args
    :actions/set-funding-transfer-direction ::boolean-args
    :actions/set-funding-amount-to-max ::no-args
    :actions/submit-funding-transfer ::no-args
@@ -604,6 +676,8 @@
          #(or (nil? (:error %))
               (string? (:error %)))))
 
+(s/def ::funding-ui-state funding-ui-state?)
+
 (s/def ::app-state
   (s/and map?
          #(contains? % :active-asset)
@@ -616,6 +690,7 @@
          #(contains? % :order-form)
          #(contains? % :order-form-ui)
          #(contains? % :order-form-runtime)
+         #(contains? % :funding-ui)
          #(s/valid? ::active-asset (:active-asset %))
          #(s/valid? ::active-market (:active-market %))
          #(s/valid? ::asset-selector-state (:asset-selector %))
@@ -625,7 +700,8 @@
          #(s/valid? ::router-state (:router %))
          #(s/valid? ::order-form-state (:order-form %))
          #(s/valid? ::order-form-ui-state (:order-form-ui %))
-         #(s/valid? ::order-form-runtime-state (:order-form-runtime %))))
+         #(s/valid? ::order-form-runtime-state (:order-form-runtime %))
+         #(s/valid? ::funding-ui-state (:funding-ui %))))
 
 (defn- assertion-error
   [label spec value context]

@@ -35,6 +35,18 @@
               :amount-input ""
               :to-perp? true
               :destination-input ""
+              :hyperunit-lifecycle {:direction nil
+                                    :asset-key nil
+                                    :operation-id nil
+                                    :state nil
+                                    :status nil
+                                    :source-tx-confirmations nil
+                                    :destination-tx-confirmations nil
+                                    :position-in-withdraw-queue nil
+                                    :destination-tx-hash nil
+                                    :state-next-at nil
+                                    :last-updated-ms nil
+                                    :error nil}
               :submitting? false
               :error nil}]]
            (compat/set-funding-modal state :history)))))

@@ -210,6 +210,68 @@
     (when (contains? deposit-asset-keys asset-key)
       asset-key)))
 
+(defn- normalize-lifecycle-direction
+  [value]
+  (let [direction (cond
+                    (keyword? value) value
+                    (string? value) (some-> value str/trim str/lower-case keyword)
+                    :else nil)]
+    (when (contains? #{:deposit :withdraw} direction)
+      direction)))
+
+(defn- normalize-lifecycle-keyword
+  [value]
+  (cond
+    (keyword? value) value
+    (string? value)
+    (let [text (-> value
+                   str
+                   str/trim
+                   str/lower-case
+                   (str/replace #"[^a-z0-9]+" "-")
+                   (str/replace #"^-+|-+$" ""))]
+      (when (seq text)
+        (keyword text)))
+    :else nil))
+
+(defn- normalize-lifecycle-non-negative-int
+  [value]
+  (let [parsed (parse-num value)]
+    (when (and (finite-number? parsed)
+               (>= parsed 0))
+      (js/Math.floor parsed))))
+
+(defn default-hyperunit-lifecycle-state
+  []
+  {:direction nil
+   :asset-key nil
+   :operation-id nil
+   :state nil
+   :status nil
+   :source-tx-confirmations nil
+   :destination-tx-confirmations nil
+   :position-in-withdraw-queue nil
+   :destination-tx-hash nil
+   :state-next-at nil
+   :last-updated-ms nil
+   :error nil})
+
+(defn normalize-hyperunit-lifecycle
+  [lifecycle]
+  (let [lifecycle* (if (map? lifecycle) lifecycle {})]
+    {:direction (normalize-lifecycle-direction (:direction lifecycle*))
+     :asset-key (normalize-deposit-asset-key (:asset-key lifecycle*))
+     :operation-id (non-blank-text (:operation-id lifecycle*))
+     :state (normalize-lifecycle-keyword (:state lifecycle*))
+     :status (normalize-lifecycle-keyword (:status lifecycle*))
+     :source-tx-confirmations (normalize-lifecycle-non-negative-int (:source-tx-confirmations lifecycle*))
+     :destination-tx-confirmations (normalize-lifecycle-non-negative-int (:destination-tx-confirmations lifecycle*))
+     :position-in-withdraw-queue (normalize-lifecycle-non-negative-int (:position-in-withdraw-queue lifecycle*))
+     :destination-tx-hash (non-blank-text (:destination-tx-hash lifecycle*))
+     :state-next-at (normalize-lifecycle-non-negative-int (:state-next-at lifecycle*))
+     :last-updated-ms (normalize-lifecycle-non-negative-int (:last-updated-ms lifecycle*))
+     :error (non-blank-text (:error lifecycle*))}))
+
 (defn- resolve-deposit-network
   [state]
   (let [wallet-chain-id (normalize-chain-id (get-in state [:wallet :chain-id]))]
@@ -274,15 +336,20 @@
    :amount-input ""
    :to-perp? true
    :destination-input ""
+   :hyperunit-lifecycle (default-hyperunit-lifecycle-state)
    :submitting? false
    :error nil})
 
 (defn- modal-state
   [state]
-  (merge (default-funding-modal-state)
-         (if (map? (get-in state funding-modal-path))
-           (get-in state funding-modal-path)
-           {})))
+  (let [stored-modal (if (map? (get-in state funding-modal-path))
+                       (get-in state funding-modal-path)
+                       {})
+        modal (merge (default-funding-modal-state)
+                     stored-modal)]
+    (assoc modal
+           :hyperunit-lifecycle (normalize-hyperunit-lifecycle
+                                 (:hyperunit-lifecycle modal)))))
 
 (defn modal-open?
   [state]
@@ -542,6 +609,7 @@
   [state]
   (let [modal (modal-state state)
         mode (normalize-mode (:mode modal))
+        hyperunit-lifecycle (normalize-hyperunit-lifecycle (:hyperunit-lifecycle modal))
         deposit-step (normalize-deposit-step (:deposit-step modal))
         deposit-assets* (deposit-assets-filtered state modal)
         selected-deposit-asset (deposit-asset state modal)
@@ -599,6 +667,7 @@
      :amount-input (or (:amount-input modal) "")
      :to-perp? (true? (:to-perp? modal))
      :destination-input (or (:destination-input modal) "")
+     :hyperunit-lifecycle hyperunit-lifecycle
      :max-display (format-usdc-display max-amount)
      :max-input (format-usdc-input max-amount)
      :submitting? submitting?
@@ -697,9 +766,17 @@
                  [:deposit-step] (normalize-deposit-step value)
                  [:deposit-selected-asset-key] (normalize-deposit-asset-key value)
                  value)
+        clear-hyperunit-lifecycle? (or (= path* [:amount-input])
+                                       (= path* [:destination-input])
+                                       (= path* [:deposit-selected-asset-key])
+                                       (and (= path* [:deposit-step])
+                                            (= value* :asset-select)))
         next-modal (cond-> (-> modal
                                (assoc-in path* value*)
                                (assoc :error nil))
+                     clear-hyperunit-lifecycle?
+                     (assoc :hyperunit-lifecycle (default-hyperunit-lifecycle-state))
+
                      (= path* [:deposit-selected-asset-key])
                      (assoc :deposit-step :amount-entry
                             :amount-input ""
@@ -714,6 +791,28 @@
                             :deposit-generated-signatures nil
                             :deposit-generated-asset-key nil))]
     [[:effects/save funding-modal-path next-modal]]))
+
+(defn set-hyperunit-lifecycle
+  [state lifecycle]
+  (let [modal (modal-state state)]
+    [[:effects/save funding-modal-path
+      (-> modal
+          (assoc :hyperunit-lifecycle (normalize-hyperunit-lifecycle lifecycle)
+                 :error nil))]]))
+
+(defn clear-hyperunit-lifecycle
+  [state]
+  (let [modal (modal-state state)]
+    [[:effects/save funding-modal-path
+      (assoc modal :hyperunit-lifecycle (default-hyperunit-lifecycle-state))]]))
+
+(defn set-hyperunit-lifecycle-error
+  [state error]
+  (let [modal (modal-state state)
+        lifecycle (normalize-hyperunit-lifecycle (:hyperunit-lifecycle modal))]
+    [[:effects/save funding-modal-path
+      (assoc modal :hyperunit-lifecycle (assoc lifecycle
+                                               :error (non-blank-text error)))]]))
 
 (defn set-funding-transfer-direction
   [state to-perp?]

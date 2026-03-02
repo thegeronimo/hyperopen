@@ -114,7 +114,19 @@
                                      :size-input-source :manual
                                      :size-display ""}
                      :order-form-runtime {:submitting? false
-                                          :error nil}}
+                                          :error nil}
+                     :funding-ui {:modal {:hyperunit-lifecycle {:direction nil
+                                                                 :asset-key nil
+                                                                 :operation-id nil
+                                                                 :state nil
+                                                                 :status nil
+                                                                 :source-tx-confirmations nil
+                                                                 :destination-tx-confirmations nil
+                                                                 :position-in-withdraw-queue nil
+                                                                 :destination-tx-hash nil
+                                                                 :state-next-at nil
+                                                                 :last-updated-ms nil
+                                                                 :error nil}}}}
         signed {:action {:type "order"}
                 :nonce 1
                 :signature {:r "0x1" :s "0x2" :v 27}}]

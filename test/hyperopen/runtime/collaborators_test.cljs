@@ -5,6 +5,7 @@
             [hyperopen.asset-selector.actions :as asset-actions]
             [hyperopen.chart.actions :as chart-actions]
             [hyperopen.chart.settings :as chart-settings]
+            [hyperopen.funding.actions :as funding-actions]
             [hyperopen.order.actions :as order-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.funding-comparison.actions :as funding-comparison-actions]
@@ -104,7 +105,9 @@
     (is (identical? vault-actions/submit-vault-transfer
                     (get-in deps [:vaults :submit-vault-transfer])))
     (is (identical? order-actions/submit-order
-                    (get-in deps [:orders :submit-order])))))
+                    (get-in deps [:orders :submit-order])))
+    (is (identical? funding-actions/set-hyperunit-lifecycle
+                    (get-in deps [:orders :set-hyperunit-lifecycle])))))
 
 (deftest runtime-action-deps-overrides-default-action-handlers-test
   (let [connect-wallet-action* (fn [& _] :override-connect)

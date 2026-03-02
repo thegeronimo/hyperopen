@@ -78,7 +78,20 @@
     (is (= false (get-in state [:positions-ui :reduce-popover :open?])))
     (is (= false (get-in state [:positions-ui :margin-modal :open?])))
     (is (= false (get-in state [:funding-ui :modal :open?])))
-    (is (nil? (get-in state [:funding-ui :modal :mode])))))
+    (is (nil? (get-in state [:funding-ui :modal :mode])))
+    (is (= {:direction nil
+            :asset-key nil
+            :operation-id nil
+            :state nil
+            :status nil
+            :source-tx-confirmations nil
+            :destination-tx-confirmations nil
+            :position-in-withdraw-queue nil
+            :destination-tx-hash nil
+            :state-next-at nil
+            :last-updated-ms nil
+            :error nil}
+           (get-in state [:funding-ui :modal :hyperunit-lifecycle])))))
 
 (deftest default-app-state-initializes-empty-runtime-collections-test
   (let [state (app-defaults/default-app-state

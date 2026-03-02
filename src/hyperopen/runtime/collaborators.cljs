@@ -196,6 +196,9 @@
    :close-funding-modal funding-actions/close-funding-modal
    :handle-funding-modal-keydown funding-actions/handle-funding-modal-keydown
    :set-funding-modal-field funding-actions/set-funding-modal-field
+   :set-hyperunit-lifecycle funding-actions/set-hyperunit-lifecycle
+   :clear-hyperunit-lifecycle funding-actions/clear-hyperunit-lifecycle
+   :set-hyperunit-lifecycle-error funding-actions/set-hyperunit-lifecycle-error
    :set-funding-transfer-direction funding-actions/set-funding-transfer-direction
    :set-funding-amount-to-max funding-actions/set-funding-amount-to-max
    :submit-funding-transfer funding-actions/submit-funding-transfer

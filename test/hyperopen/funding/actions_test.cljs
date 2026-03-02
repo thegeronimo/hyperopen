@@ -25,6 +25,7 @@
    :amount-input ""
    :to-perp? true
    :destination-input "0x1234567890abcdef1234567890abcdef12345678"
+   :hyperunit-lifecycle (funding-actions/default-hyperunit-lifecycle-state)
    :submitting? false
    :error nil})
 
@@ -207,6 +208,119 @@
                                                         [:amount-input]
                                                         "100,000.25"))]
     (is (= "100000.25" (:amount-input next-modal)))))
+
+(deftest set-funding-modal-field-clears-hyperunit-lifecycle-on-critical-input-change-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :deposit
+                         :deposit-step :amount-entry
+                         :deposit-selected-asset-key :btc
+                         :amount-input "10"
+                         :hyperunit-lifecycle {:direction :deposit
+                                               :asset-key :btc
+                                               :operation-id "op_123"
+                                               :state :source-confirmed
+                                               :status :pending
+                                               :source-tx-confirmations 1
+                                               :destination-tx-confirmations nil
+                                               :position-in-withdraw-queue nil
+                                               :destination-tx-hash nil
+                                               :state-next-at 1000
+                                               :last-updated-ms 2000
+                                               :error nil}})
+        [_ _ amount-modal] (first (funding-actions/set-funding-modal-field
+                                   state
+                                   [:amount-input]
+                                   "11"))
+        [_ _ destination-modal] (first (funding-actions/set-funding-modal-field
+                                        state
+                                        [:destination-input]
+                                        "0x1234567890abcdef1234567890abcdef12345678"))]
+    (is (= (funding-actions/default-hyperunit-lifecycle-state)
+           (:hyperunit-lifecycle amount-modal)))
+    (is (= (funding-actions/default-hyperunit-lifecycle-state)
+           (:hyperunit-lifecycle destination-modal)))))
+
+(deftest set-hyperunit-lifecycle-normalizes-snapshot-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :deposit
+                         :hyperunit-lifecycle (funding-actions/default-hyperunit-lifecycle-state)})
+        [effect-id path next-modal] (first (funding-actions/set-hyperunit-lifecycle
+                                            state
+                                            {:direction "deposit"
+                                             :asset-key "btc"
+                                             :operation-id "op_123"
+                                             :state "SOURCE_CONFIRMED"
+                                             :status "IN_PROGRESS"
+                                             :source-tx-confirmations "2"
+                                             :destination-tx-confirmations 0
+                                             :position-in-withdraw-queue "5"
+                                             :destination-tx-hash "0xabc123"
+                                             :state-next-at "1700000000000"
+                                             :last-updated-ms 1700000000123
+                                             :error "temporary issue"}))]
+    (is (= :effects/save effect-id))
+    (is (= [:funding-ui :modal] path))
+    (is (= {:direction :deposit
+            :asset-key :btc
+            :operation-id "op_123"
+            :state :source-confirmed
+            :status :in-progress
+            :source-tx-confirmations 2
+            :destination-tx-confirmations 0
+            :position-in-withdraw-queue 5
+            :destination-tx-hash "0xabc123"
+            :state-next-at 1700000000000
+            :last-updated-ms 1700000000123
+            :error "temporary issue"}
+           (:hyperunit-lifecycle next-modal)))))
+
+(deftest clear-hyperunit-lifecycle-resets-to-default-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :deposit
+                         :hyperunit-lifecycle {:direction :deposit
+                                               :asset-key :btc
+                                               :operation-id "op_123"
+                                               :state :done
+                                               :status :done
+                                               :source-tx-confirmations 6
+                                               :destination-tx-confirmations 1
+                                               :position-in-withdraw-queue nil
+                                               :destination-tx-hash "0xabc"
+                                               :state-next-at nil
+                                               :last-updated-ms 1700
+                                               :error nil}})
+        [_ _ next-modal] (first (funding-actions/clear-hyperunit-lifecycle state))]
+    (is (= (funding-actions/default-hyperunit-lifecycle-state)
+           (:hyperunit-lifecycle next-modal)))))
+
+(deftest set-hyperunit-lifecycle-error-updates-error-field-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :deposit
+                         :hyperunit-lifecycle {:direction :deposit
+                                               :asset-key :btc
+                                               :operation-id "op_123"
+                                               :state :source-confirmed
+                                               :status :pending
+                                               :source-tx-confirmations 1
+                                               :destination-tx-confirmations nil
+                                               :position-in-withdraw-queue nil
+                                               :destination-tx-hash nil
+                                               :state-next-at nil
+                                               :last-updated-ms 1700
+                                               :error nil}})
+        [_ _ next-modal] (first (funding-actions/set-hyperunit-lifecycle-error
+                                 state
+                                 "  temporary API issue  "))]
+    (is (= "temporary API issue"
+           (get-in next-modal [:hyperunit-lifecycle :error])))))
 
 (deftest submit-funding-deposit-accepts-comma-grouped-amount-input-test
   (let [state (assoc-in (base-state)
@@ -474,6 +588,40 @@
     (is (contains? asset-keys :btc))
     (is (contains? asset-keys :xpl))
     (is (contains? asset-keys :usdh))))
+
+(deftest funding-modal-view-model-exposes-normalized-hyperunit-lifecycle-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :deposit
+                         :deposit-step :amount-entry
+                         :deposit-selected-asset-key :btc
+                         :hyperunit-lifecycle {:direction "deposit"
+                                               :asset-key "btc"
+                                               :operation-id "op_123"
+                                               :state "source_confirmed"
+                                               :status "in_progress"
+                                               :source-tx-confirmations "2"
+                                               :destination-tx-confirmations nil
+                                               :position-in-withdraw-queue nil
+                                               :destination-tx-hash "0xabc"
+                                               :state-next-at "1700000000000"
+                                               :last-updated-ms "1700000001000"
+                                               :error nil}})
+        view-model (funding-actions/funding-modal-view-model state)]
+    (is (= {:direction :deposit
+            :asset-key :btc
+            :operation-id "op_123"
+            :state :source-confirmed
+            :status :in-progress
+            :source-tx-confirmations 2
+            :destination-tx-confirmations nil
+            :position-in-withdraw-queue nil
+            :destination-tx-hash "0xabc"
+            :state-next-at 1700000000000
+            :last-updated-ms 1700000001000
+            :error nil}
+           (:hyperunit-lifecycle view-model)))))
 
 (deftest set-funding-amount-to-max-respects-active-mode-test
   (let [transfer-state (assoc-in (base-state)

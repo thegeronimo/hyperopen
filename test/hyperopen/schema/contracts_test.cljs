@@ -87,6 +87,16 @@
          #"app state"
          (contracts/assert-app-state! state {:phase :test})))))
 
+(deftest assert-app-state-rejects-funding-ui-when-hyperunit-lifecycle-shape-is-invalid-test
+  (let [state (assoc-in (system/default-store-state)
+                        [:funding-ui :modal :hyperunit-lifecycle]
+                        {:direction :deposit
+                         :asset-key :btc})]
+    (is (thrown-with-msg?
+         js/Error
+         #"app state"
+         (contracts/assert-app-state! state {:phase :test})))))
+
 (deftest assert-signed-exchange-payload-requires-action-map-test
   (is (thrown-with-msg?
        js/Error
@@ -186,6 +196,40 @@
        (contracts/assert-effect-args!
         :effects/sync-active-asset-funding-predictability
         [""]
+        {:phase :test}))))
+
+(deftest assert-action-args-validates-hyperunit-lifecycle-actions-test
+  (is (= [{:direction :deposit
+           :asset-key :btc
+           :operation-id "op_123"}]
+         (contracts/assert-action-args!
+          :actions/set-hyperunit-lifecycle
+          [{:direction :deposit
+            :asset-key :btc
+            :operation-id "op_123"}]
+          {:phase :test})))
+  (is (= []
+         (contracts/assert-action-args!
+          :actions/clear-hyperunit-lifecycle
+          []
+          {:phase :test})))
+  (is (= ["temporary issue"]
+         (contracts/assert-action-args!
+          :actions/set-hyperunit-lifecycle-error
+          ["temporary issue"]
+          {:phase :test})))
+  (is (= [nil]
+         (contracts/assert-action-args!
+          :actions/set-hyperunit-lifecycle-error
+          [nil]
+          {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"action payload"
+       (contracts/assert-action-args!
+        :actions/set-hyperunit-lifecycle
+        [{:direction :deposit
+          :unsupported true}]
         {:phase :test}))))
 
 (deftest assert-action-args-allows-asset-selector-scroll-prefetch-single-or-double-payload-test
