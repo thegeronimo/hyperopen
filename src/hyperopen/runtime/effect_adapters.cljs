@@ -767,6 +767,14 @@
     :runtime-error-message runtime-error-message
     :show-toast! show-order-feedback-toast!}))
 
+(defn api-fetch-hyperunit-fee-estimate-effect
+  [_ store]
+  (funding-workflow-effects/api-fetch-hyperunit-fee-estimate!
+   {:store store
+    :request-hyperunit-estimate-fees! api/request-hyperunit-estimate-fees!
+    :now-ms-fn platform/now-ms
+    :runtime-error-message runtime-error-message}))
+
 (defn api-submit-funding-transfer-effect
   [_ store request]
   (funding-workflow-effects/api-submit-funding-transfer!

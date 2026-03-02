@@ -52,6 +52,7 @@
          :api-fetch-vault-order-history effect-adapters/api-fetch-vault-order-history-effect
          :api-fetch-vault-ledger-updates effect-adapters/api-fetch-vault-ledger-updates-effect
          :api-submit-vault-transfer effect-adapters/api-submit-vault-transfer-effect
+         :api-fetch-hyperunit-fee-estimate effect-adapters/api-fetch-hyperunit-fee-estimate-effect
          :api-submit-funding-transfer effect-adapters/api-submit-funding-transfer-effect
          :api-submit-funding-withdraw effect-adapters/api-submit-funding-withdraw-effect
          :api-submit-funding-deposit effect-adapters/api-submit-funding-deposit-effect}})

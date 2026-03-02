@@ -18,9 +18,9 @@ A contributor can verify success by opening `/trade`, initiating a Unit deposit 
 - [x] (2026-03-02 19:10Z) Added canonical funding lifecycle state model, deterministic funding action transitions, runtime action wiring, and schema/test coverage for HyperUnit lifecycle state.
 - [x] (2026-03-02 20:19Z) Implemented Unit deposit lifecycle polling and stage-aware UI rendering using HyperUnit operations data (`stateNextAttemptAt` backoff, terminal-state stop conditions, and modal lifecycle panel updates).
 - [x] (2026-03-02 20:36Z) Implemented Unit withdrawal flow parity for HyperUnit assets via send-asset signing/submission path, route generation, and lifecycle/queue tracking in the funding modal.
-- [ ] Integrate `estimate-fees` output into UI and validation messages.
-- [ ] Add regression + lifecycle tests across actions/effects/view/runtime contracts.
-- [ ] Run required validation gates and move this plan to completed.
+- [x] (2026-03-02 20:53Z) Integrated HyperUnit `estimate-fees` output into funding modal UI for deposit/withdraw ETA + fee rows, added loading/error state handling, and aligned withdrawal validation minimums for Unit assets.
+- [x] (2026-03-02 20:53Z) Added regression tests for estimate-fee action/effect wiring and withdraw minimum validation behavior.
+- [x] (2026-03-02 20:53Z) Re-ran required validation gates (`npm run check`, `npm test`, `npm run test:websocket`).
 
 Validation evidence after Milestone 3 implementation:
 - [x] (2026-03-02 20:05Z) `npm run check` passed.
@@ -31,6 +31,11 @@ Validation evidence after Milestone 4 implementation:
 - [x] (2026-03-02 20:36Z) `npm run check` passed.
 - [x] (2026-03-02 20:27Z) `npm test` passed.
 - [x] (2026-03-02 20:36Z) `npm run test:websocket` passed.
+
+Validation evidence after Milestone 5 implementation:
+- [x] (2026-03-02 20:53Z) `npm run check` passed.
+- [x] (2026-03-02 20:49Z) `npm test` passed.
+- [x] (2026-03-02 20:53Z) `npm run test:websocket` passed.
 
 ## Surprises & Discoveries
 

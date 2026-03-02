@@ -286,6 +286,13 @@
     :fetch-fn js/fetch}
    {:address address}))
 
+(defn request-hyperunit-estimate-fees!
+  [{:keys [base-url]}]
+  (funding-hyperunit-gateway/request-hyperunit-estimate-fees!
+   {:hyperunit-base-url base-url
+    :fetch-fn js/fetch}
+   {}))
+
 (defn request-hyperunit-generate-address!
   [{:keys [base-url source-chain destination-chain asset destination-address]}]
   (funding-hyperunit-gateway/request-hyperunit-generate-address!
@@ -339,6 +346,12 @@
          (or (not (seq (canonical-token protocol-address)))
              (= (canonical-token protocol-address)
                 (canonical-token generated-address))))))
+
+(defn- modal-active-for-fee-estimate?
+  [store]
+  (let [modal (get-in @store [:funding-ui :modal])]
+    (and (true? (:open? modal))
+         (contains? #{:deposit :withdraw} (:mode modal)))))
 
 (defn- op-sort-ms
   [op]
@@ -1153,6 +1166,64 @@
           (.catch (fn [err]
                     {:status "err"
                      :error (wallet-error-message err)}))))))
+
+(defn api-fetch-hyperunit-fee-estimate!
+  [{:keys [store
+           request-hyperunit-estimate-fees!
+           now-ms-fn
+           runtime-error-message]
+    :or {request-hyperunit-estimate-fees! request-hyperunit-estimate-fees!
+         now-ms-fn (fn [] (js/Date.now))
+         runtime-error-message fallback-runtime-error-message}}]
+  (let [request-estimate! (when (fn? request-hyperunit-estimate-fees!)
+                            request-hyperunit-estimate-fees!)]
+    (when (and request-estimate!
+               (modal-active-for-fee-estimate? store))
+      (let [base-url (resolve-hyperunit-base-url store)
+            now-ms (now-ms-fn)]
+        (swap! store update-in
+               [:funding-ui :modal :hyperunit-fee-estimate]
+               (fn [current]
+                 (-> (funding-actions/normalize-hyperunit-fee-estimate current)
+                     (assoc :status :loading
+                            :requested-at-ms now-ms
+                            :error nil))))
+        (-> (request-estimate! {:base-url base-url})
+            (.then (fn [resp]
+                     (when (modal-active-for-fee-estimate? store)
+                       (let [timestamp (now-ms-fn)
+                             by-chain (if (map? (:by-chain resp))
+                                        (:by-chain resp)
+                                        {})
+                             error-text (non-blank-text (:error resp))]
+                         (swap! store update-in
+                                [:funding-ui :modal :hyperunit-fee-estimate]
+                                (fn [current]
+                                  (let [prev (funding-actions/normalize-hyperunit-fee-estimate current)]
+                                    (if (seq error-text)
+                                      (assoc prev
+                                             :status :error
+                                             :by-chain by-chain
+                                             :updated-at-ms timestamp
+                                             :error error-text)
+                                      (assoc prev
+                                             :status :ready
+                                             :by-chain by-chain
+                                             :updated-at-ms timestamp
+                                             :error nil)))))))
+                     resp))
+            (.catch (fn [err]
+                      (when (modal-active-for-fee-estimate? store)
+                        (let [timestamp (now-ms-fn)
+                              message (or (non-blank-text (runtime-error-message err))
+                                          "Unable to load HyperUnit fee estimates.")]
+                          (swap! store update-in
+                                 [:funding-ui :modal :hyperunit-fee-estimate]
+                                 (fn [current]
+                                   (-> (funding-actions/normalize-hyperunit-fee-estimate current)
+                                       (assoc :status :error
+                                              :updated-at-ms timestamp
+                                              :error message)))))))))))))
 
 (defn api-submit-funding-transfer!
   [{:keys [store

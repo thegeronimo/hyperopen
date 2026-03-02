@@ -599,6 +599,7 @@
    :effects/api-fetch-vault-order-history ::address-args
    :effects/api-fetch-vault-ledger-updates ::address-args
    :effects/api-submit-vault-transfer ::api-submit-vault-transfer-args
+   :effects/api-fetch-hyperunit-fee-estimate ::no-args
    :effects/api-submit-funding-transfer ::api-submit-funding-transfer-args
    :effects/api-submit-funding-withdraw ::api-submit-funding-withdraw-args
    :effects/api-submit-funding-deposit ::api-submit-funding-deposit-args})

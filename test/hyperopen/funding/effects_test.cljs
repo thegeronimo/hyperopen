@@ -1,5 +1,6 @@
 (ns hyperopen.funding.effects-test
   (:require [cljs.test :refer-macros [async deftest is]]
+            [hyperopen.funding.actions :as funding-actions]
             [hyperopen.funding.effects :as effects]))
 
 (defn- seed-modal
@@ -270,6 +271,67 @@
                     0)))
           (.catch (fn [err]
                     (is false (str "Unexpected HyperUnit withdrawal lifecycle polling error: " err))
+                    (done)))))))
+
+(deftest api-fetch-hyperunit-fee-estimate-updates-modal-on-success-test
+  (async done
+    (let [store (atom {:wallet {:chain-id "0xa4b1"}
+                       :funding-ui {:modal {:open? true
+                                            :mode :withdraw
+                                            :hyperunit-fee-estimate (funding-actions/default-hyperunit-fee-estimate-state)}}})
+          clock (atom [1700000000000 1700000001000])]
+      (-> (effects/api-fetch-hyperunit-fee-estimate!
+           {:store store
+            :request-hyperunit-estimate-fees! (fn [_opts]
+                                                (js/Promise.resolve
+                                                 {:by-chain {"bitcoin" {:chain "bitcoin"
+                                                                        :withdrawal-eta "~20 mins"
+                                                                        :withdrawal-fee "0.00001"}}}))
+            :now-ms-fn (fn []
+                         (let [value (first @clock)]
+                           (swap! clock rest)
+                           value))})
+          (.then (fn [_]
+                   (let [estimate (get-in @store [:funding-ui :modal :hyperunit-fee-estimate])]
+                     (is (= :ready (:status estimate)))
+                     (is (= 1700000000000 (:requested-at-ms estimate)))
+                     (is (= 1700000001000 (:updated-at-ms estimate)))
+                     (is (= "~20 mins" (get-in estimate [:by-chain "bitcoin" :withdrawal-eta])))
+                     (is (= "0.00001" (get-in estimate [:by-chain "bitcoin" :withdrawal-fee])))
+                     (is (nil? (:error estimate)))
+                     (done))))
+          (.catch (fn [err]
+                    (is false (str "Unexpected fee-estimate success-path error: " err))
+                    (done)))))))
+
+(deftest api-fetch-hyperunit-fee-estimate-sets-error-state-on-failure-test
+  (async done
+    (let [store (atom {:wallet {:chain-id "0xa4b1"}
+                       :funding-ui {:modal {:open? true
+                                            :mode :deposit
+                                            :hyperunit-fee-estimate (funding-actions/default-hyperunit-fee-estimate-state)}}})
+          now-ms (atom [1700000000000 1700000001000])]
+      (-> (effects/api-fetch-hyperunit-fee-estimate!
+           {:store store
+            :request-hyperunit-estimate-fees! (fn [_opts]
+                                                (js/Promise.reject (js/Error. "gateway timeout")))
+            :now-ms-fn (fn []
+                         (let [value (first @now-ms)]
+                           (swap! now-ms rest)
+                           value))
+            :runtime-error-message (fn [err]
+                                     (or (some-> err .-message)
+                                         "unknown"))})
+          (.then (fn [result]
+                   (is (map? result))
+                   (let [estimate (get-in @store [:funding-ui :modal :hyperunit-fee-estimate])]
+                     (is (= :error (:status estimate)))
+                     (is (= 1700000000000 (:requested-at-ms estimate)))
+                     (is (= 1700000001000 (:updated-at-ms estimate)))
+                     (is (= "gateway timeout" (:error estimate))))
+                   (done)))
+          (.catch (fn [err]
+                    (is false (str "Unexpected fee-estimate failure-path rejection: " err))
                     (done)))))))
 
 (deftest api-submit-funding-deposit-no-wallet-sets-error-test

@@ -49,6 +49,11 @@
                                     :state-next-at nil
                                     :last-updated-ms nil
                                     :error nil}
+              :hyperunit-fee-estimate {:status :idle
+                                       :by-chain {}
+                                       :requested-at-ms nil
+                                       :updated-at-ms nil
+                                       :error nil}
               :submitting? false
               :error nil}]]
            (compat/set-funding-modal state :history)))))

@@ -151,7 +151,9 @@
                 deposit-generated-signatures
                 deposit-submit-label
                 deposit-quick-amounts
-                deposit-min-usdc
+                deposit-min-amount
+                deposit-estimated-time
+                deposit-network-fee
                 withdraw-assets
                 withdraw-selected-asset
                 withdraw-flow-kind
@@ -167,8 +169,12 @@
                 submit-disabled?
                 status-message
                 submit-label
-                min-withdraw-usdc
-                min-withdraw-amount]} (funding-actions/funding-modal-view-model state)
+                min-withdraw-amount
+                min-withdraw-symbol
+                withdraw-estimated-time
+                withdraw-network-fee
+                hyperunit-fee-estimate-loading?
+                hyperunit-fee-estimate-error]} (funding-actions/funding-modal-view-model state)
         deposit? (= mode :deposit)
         deposit-amount-entry? (= deposit-step :amount-entry)
         transfer? (= mode :transfer)
@@ -351,10 +357,15 @@
                 [:div {:class ["space-y-1.5" "pt-1" "text-sm"]}
                  [:div {:class ["flex" "items-center" "justify-between"]}
                   [:span {:class ["text-[#7d94a0]"]} "Estimated time"]
-                  [:span {:class ["text-[#dce9ee]"]} "Depends on source confirmations"]]
+                  [:span {:class ["text-[#dce9ee]"]} deposit-estimated-time]]
                  [:div {:class ["flex" "items-center" "justify-between"]}
                   [:span {:class ["text-[#7d94a0]"]} "Network fee"]
-                  [:span {:class ["text-[#dce9ee]"]} "Paid on source chain"]]]
+                  [:span {:class ["text-[#dce9ee]"]} deposit-network-fee]]
+                 (when (and (not hyperunit-fee-estimate-loading?)
+                            (seq hyperunit-fee-estimate-error))
+                   [:p {:class ["text-xs" "text-[#9db2ba]"]}
+                    (str "Live HyperUnit estimates unavailable: "
+                         hyperunit-fee-estimate-error)])]
                 (when show-hyperunit-lifecycle?
                   [:div {:class ["rounded-lg"
                                  "border"
@@ -444,11 +455,11 @@
                                     "font-semibold"
                                     "text-[#e6eef2]"
                                     "hover:border-[#607487]"]
-                            :on {:click [[:actions/set-funding-modal-field [:amount-input] (str deposit-min-usdc)]]}}
+                            :on {:click [[:actions/set-funding-modal-field [:amount-input] (str deposit-min-amount)]]}}
                    "MAX"]
                   [:input {:type "text"
                            :input-mode "decimal"
-                           :placeholder (str deposit-min-usdc)
+                           :placeholder (str deposit-min-amount)
                            :disabled submitting?
                            :value amount-input-display
                            :class ["flex-1"
@@ -486,13 +497,13 @@
                 [:div {:class ["space-y-1.5" "pt-2" "text-sm"]}
                  [:div {:class ["flex" "items-center" "justify-between"]}
                   [:span {:class ["text-[#7d94a0]"]} "Minimum deposit"]
-                  [:span {:class ["text-[#dce9ee]"]} (str deposit-min-usdc " " (:symbol selected-deposit-asset*))]]
+                  [:span {:class ["text-[#dce9ee]"]} (str deposit-min-amount " " (:symbol selected-deposit-asset*))]]
                  [:div {:class ["flex" "items-center" "justify-between"]}
                   [:span {:class ["text-[#7d94a0]"]} "Estimated time"]
-                  [:span {:class ["text-[#dce9ee]"]} "~10 seconds"]]
+                  [:span {:class ["text-[#dce9ee]"]} deposit-estimated-time]]
                  [:div {:class ["flex" "items-center" "justify-between"]}
                   [:span {:class ["text-[#7d94a0]"]} "Network fee"]
-                  [:span {:class ["text-[#dce9ee]"]} "None"]]]
+                  [:span {:class ["text-[#dce9ee]"]} deposit-network-fee]]]
                 [:div {:class ["grid" "grid-cols-[56px_1fr]" "gap-2" "pt-1"]}
                  [:button {:type "button"
                            :class ["h-[38px]"
@@ -697,9 +708,24 @@
                              "disabled:cursor-not-allowed"
                              "disabled:opacity-70"]
                      :on {:input [[:actions/set-funding-modal-field [:amount-input] [:event.target/value]]]}}]]
-           (when (pos? min-withdraw-amount)
-             [:p {:class ["text-xs" "text-[#8ea4ab]"]}
-              (str "Minimum withdrawal: " min-withdraw-usdc " USDC.")])
+           [:div {:class ["space-y-1.5" "pt-1" "text-sm"]}
+            (when (pos? min-withdraw-amount)
+              [:div {:class ["flex" "items-center" "justify-between"]}
+               [:span {:class ["text-[#7d94a0]"]} "Minimum withdrawal"]
+               [:span {:class ["text-[#dce9ee]"]}
+                (str min-withdraw-amount " " min-withdraw-symbol)]])
+            [:div {:class ["flex" "items-center" "justify-between"]}
+             [:span {:class ["text-[#7d94a0]"]} "Estimated time"]
+             [:span {:class ["text-[#dce9ee]"]} withdraw-estimated-time]]
+            [:div {:class ["flex" "items-center" "justify-between"]}
+             [:span {:class ["text-[#7d94a0]"]} "Network fee"]
+             [:span {:class ["text-[#dce9ee]"]} withdraw-network-fee]]
+            (when (and (= withdraw-flow-kind* :hyperunit-address)
+                       (not hyperunit-fee-estimate-loading?)
+                       (seq hyperunit-fee-estimate-error))
+              [:p {:class ["text-xs" "text-[#9db2ba]"]}
+               (str "Live HyperUnit estimates unavailable: "
+                    hyperunit-fee-estimate-error)])]
            (when (and (= withdraw-flow-kind* :hyperunit-address)
                       (seq withdraw-generated-address))
              [:div {:class ["rounded-lg"

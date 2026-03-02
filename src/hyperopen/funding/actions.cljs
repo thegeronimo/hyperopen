@@ -124,6 +124,19 @@
        (map :key)
        set))
 
+(def ^:private hyperunit-withdraw-minimum-by-asset-key
+  {:btc 0.0003
+   :eth 0.007
+   :sol 0.12
+   :2z 150
+   :bonk 1800000
+   :ena 120
+   :fart 55
+   :mon 450
+   :pump 5500
+   :spxs 32
+   :xpl 60})
+
 (defn- non-blank-text
   [value]
   (let [text (some-> value str str/trim)]
@@ -296,6 +309,88 @@
      :last-updated-ms (normalize-lifecycle-non-negative-int (:last-updated-ms lifecycle*))
      :error (non-blank-text (:error lifecycle*))}))
 
+(defn default-hyperunit-fee-estimate-state
+  []
+  {:status :idle
+   :by-chain {}
+   :requested-at-ms nil
+   :updated-at-ms nil
+   :error nil})
+
+(defn- normalize-estimate-status
+  [value]
+  (let [status (cond
+                 (keyword? value) value
+                 (string? value) (some-> value str/trim str/lower-case keyword)
+                 :else nil)]
+    (if (contains? #{:idle :loading :ready :error} status)
+      status
+      :idle)))
+
+(defn- normalize-estimate-fee-value
+  [value]
+  (cond
+    (and (number? value)
+         (finite-number? value))
+    value
+
+    (string? value)
+    (let [text (non-blank-text value)
+          parsed (parse-num text)]
+      (if (finite-number? parsed)
+        parsed
+        text))
+
+    :else nil))
+
+(defn- normalize-estimate-entry
+  [value]
+  (let [entry (if (map? value) value {})
+        chain (some-> (:chain entry)
+                      non-blank-text
+                      str/lower-case)
+        deposit-eta (non-blank-text (:deposit-eta entry))
+        withdrawal-eta (non-blank-text (:withdrawal-eta entry))
+        deposit-fee (normalize-estimate-fee-value (:deposit-fee entry))
+        withdrawal-fee (normalize-estimate-fee-value (:withdrawal-fee entry))
+        metrics (if (map? (:metrics entry))
+                  (:metrics entry)
+                  {})]
+    {:chain chain
+     :deposit-eta deposit-eta
+     :withdrawal-eta withdrawal-eta
+     :deposit-fee deposit-fee
+     :withdrawal-fee withdrawal-fee
+     :metrics metrics}))
+
+(defn normalize-hyperunit-fee-estimate
+  [value]
+  (let [estimate (if (map? value) value {})
+        by-chain (if (map? (:by-chain estimate))
+                   (:by-chain estimate)
+                   {})
+        normalized-by-chain (reduce-kv (fn [acc chain-key entry]
+                                         (if-let [chain (cond
+                                                          (keyword? chain-key)
+                                                          (some-> chain-key name non-blank-text str/lower-case)
+
+                                                          (string? chain-key)
+                                                          (some-> chain-key non-blank-text str/lower-case)
+
+                                                          :else
+                                                          (some-> chain-key str non-blank-text str/lower-case))]
+                                           (assoc acc chain (normalize-estimate-entry
+                                                             (assoc (if (map? entry) entry {})
+                                                                    :chain chain)))
+                                           acc))
+                                       {}
+                                       by-chain)]
+    {:status (normalize-estimate-status (:status estimate))
+     :by-chain normalized-by-chain
+     :requested-at-ms (normalize-lifecycle-non-negative-int (:requested-at-ms estimate))
+     :updated-at-ms (normalize-lifecycle-non-negative-int (:updated-at-ms estimate))
+     :error (non-blank-text (:error estimate))}))
+
 (defn- resolve-deposit-network
   [state]
   (let [wallet-chain-id (normalize-chain-id (get-in state [:wallet :chain-id]))]
@@ -380,6 +475,7 @@
    :withdraw-selected-asset-key withdraw-default-asset-key
    :withdraw-generated-address nil
    :hyperunit-lifecycle (default-hyperunit-lifecycle-state)
+   :hyperunit-fee-estimate (default-hyperunit-fee-estimate-state)
    :submitting? false
    :error nil})
 
@@ -394,6 +490,8 @@
            :withdraw-selected-asset-key (or (normalize-withdraw-asset-key
                                              (:withdraw-selected-asset-key modal))
                                             withdraw-default-asset-key)
+           :hyperunit-fee-estimate (normalize-hyperunit-fee-estimate
+                                    (:hyperunit-fee-estimate modal))
            :hyperunit-lifecycle (normalize-hyperunit-lifecycle
                                  (:hyperunit-lifecycle modal)))))
 
@@ -503,6 +601,41 @@
   [value]
   (amount->text (max 0 (or (parse-num value) 0))))
 
+(defn- withdraw-minimum-amount
+  [asset]
+  (let [asset-key (:key asset)]
+    (cond
+      (= asset-key :usdc)
+      withdraw-min-usdc
+
+      (contains? hyperunit-withdraw-minimum-by-asset-key asset-key)
+      (get hyperunit-withdraw-minimum-by-asset-key asset-key)
+
+      :else 0)))
+
+(defn- hyperunit-source-chain
+  [asset]
+  (some-> (:hyperunit-source-chain asset)
+          non-blank-text
+          str/lower-case))
+
+(defn- hyperunit-fee-entry
+  [fee-estimate chain]
+  (let [estimate* (normalize-hyperunit-fee-estimate fee-estimate)
+        chain* (some-> chain non-blank-text str/lower-case)]
+    (when (and (seq chain*)
+               (map? (:by-chain estimate*)))
+      (get (:by-chain estimate*) chain*))))
+
+(defn- estimate-fee-display
+  [value]
+  (cond
+    (and (number? value) (finite-number? value))
+    (amount->text value)
+
+    :else
+    (non-blank-text value)))
+
 (defn- transfer-preview
   [state modal]
   (let [amount (parse-input-amount (:amount-input modal))
@@ -548,7 +681,8 @@
         destination (if (= flow-kind :hyperunit-address)
                       (normalize-withdraw-destination (:destination-input modal))
                       (normalize-evm-address (:destination-input modal)))
-        max-amount (withdraw-max-amount state selected-asset)]
+        max-amount (withdraw-max-amount state selected-asset)
+        min-amount (withdraw-minimum-amount selected-asset)]
     (cond
       (nil? selected-asset)
       {:ok? false
@@ -571,10 +705,15 @@
       {:ok? false
        :display-message "Enter a valid amount."}
 
-      (and (= asset-key :usdc)
-           (< amount withdraw-min-usdc))
+      (and (finite-number? min-amount)
+           (> min-amount 0)
+           (< amount min-amount))
       {:ok? false
-       :display-message (str "Minimum withdrawal is " withdraw-min-usdc " USDC.")}
+       :display-message (str "Minimum withdrawal is "
+                             (amount->text min-amount)
+                             " "
+                             asset-symbol
+                             ".")}
 
       (> amount max-amount)
       {:ok? false
@@ -724,8 +863,39 @@
                              (:deposit-generated-signatures modal))
         preview-result (preview state modal)
         preview-ok? (:ok? preview-result)
+        hyperunit-fee-estimate (normalize-hyperunit-fee-estimate
+                                (:hyperunit-fee-estimate modal))
+        hyperunit-fee-estimate-loading? (= :loading
+                                           (:status hyperunit-fee-estimate))
+        hyperunit-fee-estimate-error (non-blank-text
+                                      (:error hyperunit-fee-estimate))
+        deposit-chain (hyperunit-source-chain selected-deposit-asset)
+        withdraw-chain (hyperunit-source-chain selected-withdraw-asset)
+        deposit-chain-fee (hyperunit-fee-entry hyperunit-fee-estimate deposit-chain)
+        withdraw-chain-fee (hyperunit-fee-entry hyperunit-fee-estimate withdraw-chain)
+        deposit-estimated-time (if (= selected-deposit-flow-kind :hyperunit-address)
+                                 (or (when hyperunit-fee-estimate-loading? "Loading...")
+                                     (non-blank-text (:deposit-eta deposit-chain-fee))
+                                     "Depends on source confirmations")
+                                 "~10 seconds")
+        deposit-network-fee (if (= selected-deposit-flow-kind :hyperunit-address)
+                              (or (when hyperunit-fee-estimate-loading? "Loading...")
+                                  (estimate-fee-display (:deposit-fee deposit-chain-fee))
+                                  "Paid on source chain")
+                              "None")
+        withdraw-estimated-time (if (= selected-withdraw-flow-kind :hyperunit-address)
+                                  (or (when hyperunit-fee-estimate-loading? "Loading...")
+                                      (non-blank-text (:withdrawal-eta withdraw-chain-fee))
+                                      "Depends on destination chain")
+                                  "~10 seconds")
+        withdraw-network-fee (if (= selected-withdraw-flow-kind :hyperunit-address)
+                               (or (when hyperunit-fee-estimate-loading? "Loading...")
+                                   (estimate-fee-display (:withdrawal-fee withdraw-chain-fee))
+                                   "Paid on destination chain")
+                               "None")
         transfer-max (transfer-max-amount state modal)
         withdraw-max (withdraw-max-amount state selected-withdraw-asset)
+        withdraw-min-amount (withdraw-minimum-amount selected-withdraw-asset)
         max-amount (case mode
                      :transfer transfer-max
                      :withdraw withdraw-max
@@ -797,6 +967,13 @@
                                 (or preview-message "Enter a valid amount"))))
      :deposit-quick-amounts deposit-quick-amounts
      :deposit-min-usdc deposit-min-usdc
+     :deposit-min-amount (or (:minimum selected-deposit-asset) deposit-min-usdc)
+     :deposit-estimated-time deposit-estimated-time
+     :deposit-network-fee deposit-network-fee
+     :withdraw-estimated-time withdraw-estimated-time
+     :withdraw-network-fee withdraw-network-fee
+     :hyperunit-fee-estimate-loading? hyperunit-fee-estimate-loading?
+     :hyperunit-fee-estimate-error hyperunit-fee-estimate-error
      :submit-label (if submitting?
                      "Submitting..."
                      (case mode
@@ -804,9 +981,8 @@
                        :withdraw "Withdraw"
                        "Confirm"))
      :min-withdraw-usdc withdraw-min-usdc
-     :min-withdraw-amount (if (= selected-withdraw-asset-key :usdc)
-                            withdraw-min-usdc
-                            0)}))
+     :min-withdraw-amount withdraw-min-amount
+     :min-withdraw-symbol selected-withdraw-symbol}))
 
 (defn open-funding-deposit-modal
   [state]
@@ -822,7 +998,8 @@
                  :amount-input ""
                  :destination-input (or (wallet-address state)
                                         (:destination-input base "")
-                                        "")))]]))
+                                        "")))]
+     [:effects/api-fetch-hyperunit-fee-estimate]]))
 
 (defn open-funding-transfer-modal
   [state]
@@ -844,7 +1021,8 @@
           (assoc :open? true
                  :mode :withdraw
                  :withdraw-selected-asset-key selected-asset-key
-                 :destination-input (or (wallet-address state) "")))]]))
+                 :destination-input (or (wallet-address state) "")))]
+     [:effects/api-fetch-hyperunit-fee-estimate]]))
 
 (defn- open-legacy-funding-modal
   [state legacy-kind]
@@ -908,8 +1086,14 @@
                      (assoc :amount-input ""
                             :deposit-generated-address nil
                             :deposit-generated-signatures nil
-                            :deposit-generated-asset-key nil))]
-    [[:effects/save funding-modal-path next-modal]]))
+                            :deposit-generated-asset-key nil))
+        next-mode (normalize-mode (:mode next-modal))
+        refresh-estimate? (and (contains? #{:deposit :withdraw} next-mode)
+                               (or (= path* [:deposit-selected-asset-key])
+                                   (= path* [:withdraw-selected-asset-key])))]
+    (cond-> [[:effects/save funding-modal-path next-modal]]
+      refresh-estimate?
+      (conj [:effects/api-fetch-hyperunit-fee-estimate]))))
 
 (defn set-hyperunit-lifecycle
   [state lifecycle]

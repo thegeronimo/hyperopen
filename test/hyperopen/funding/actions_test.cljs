@@ -28,19 +28,22 @@
    :withdraw-selected-asset-key :usdc
    :withdraw-generated-address nil
    :hyperunit-lifecycle (funding-actions/default-hyperunit-lifecycle-state)
+   :hyperunit-fee-estimate (funding-actions/default-hyperunit-fee-estimate-state)
    :submitting? false
    :error nil})
 
 (deftest open-funding-modal-actions-set-mode-and-open-state-test
   (let [state (base-state)]
     (is (= [[:effects/save [:funding-ui :modal]
-             (expected-open-modal :deposit)]]
+             (expected-open-modal :deposit)]
+            [:effects/api-fetch-hyperunit-fee-estimate]]
            (funding-actions/open-funding-deposit-modal state)))
     (is (= [[:effects/save [:funding-ui :modal]
              (expected-open-modal :transfer)]]
            (funding-actions/open-funding-transfer-modal state)))
     (is (= [[:effects/save [:funding-ui :modal]
-             (expected-open-modal :withdraw)]]
+             (expected-open-modal :withdraw)]
+            [:effects/api-fetch-hyperunit-fee-estimate]]
            (funding-actions/open-funding-withdraw-modal state)))))
 
 (deftest set-funding-modal-compat-preserves-legacy-fallback-test
@@ -130,6 +133,21 @@
                        :destination "bc1qexamplexyz0p4y0p4y0p4y0p4y0p4y0p4y0p"
                        :destinationChain "bitcoin"
                        :network "Bitcoin"}}]]
+           (funding-actions/submit-funding-withdraw state)))))
+
+(deftest submit-funding-withdraw-enforces-hyperunit-asset-minimum-test
+  (let [state (-> (base-state)
+                  (assoc-in [:spot :clearinghouse-state :balances]
+                            [{:coin "USDC" :available "12.5" :total "12.5" :hold "0"}
+                             {:coin "BTC" :available "1.25" :total "1.25" :hold "0"}])
+                  (assoc-in [:funding-ui :modal]
+                            {:open? true
+                             :mode :withdraw
+                             :withdraw-selected-asset-key :btc
+                             :destination-input "bc1qexamplexyz0p4y0p4y0p4y0p4y0p4y0p4y0p"
+                             :amount-input "0.0001"}))]
+    (is (= [[:effects/save-many [[[:funding-ui :modal :submitting?] false]
+                                 [[:funding-ui :modal :error] "Minimum withdrawal is 0.0003 BTC."]]]]
            (funding-actions/submit-funding-withdraw state)))))
 
 (deftest submit-funding-deposit-validates-step-asset-and-amount-test
@@ -272,6 +290,20 @@
            (:hyperunit-lifecycle destination-modal)))
     (is (= (funding-actions/default-hyperunit-lifecycle-state)
            (:hyperunit-lifecycle withdraw-asset-modal)))))
+
+(deftest set-funding-modal-field-refreshes-hyperunit-fee-estimate-on-asset-change-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :withdraw
+                         :withdraw-selected-asset-key :usdc
+                         :amount-input "10"})
+        effects (funding-actions/set-funding-modal-field state
+                                                         [:withdraw-selected-asset-key]
+                                                         :btc)]
+    (is (= :effects/save (ffirst effects)))
+    (is (= [:effects/api-fetch-hyperunit-fee-estimate]
+           (second effects)))))
 
 (deftest set-hyperunit-lifecycle-normalizes-snapshot-test
   (let [state (assoc-in (base-state)
@@ -653,6 +685,32 @@
             :last-updated-ms 1700000001000
             :error nil}
            (:hyperunit-lifecycle view-model)))))
+
+(deftest funding-modal-view-model-exposes-hyperunit-fee-estimates-and-minimums-test
+  (let [state (-> (base-state)
+                  (assoc-in [:spot :clearinghouse-state :balances]
+                            [{:coin "USDC" :available "12.5" :total "12.5" :hold "0"}
+                             {:coin "BTC" :available "1.25" :total "1.25" :hold "0"}])
+                  (assoc-in [:funding-ui :modal]
+                            {:open? true
+                             :mode :withdraw
+                             :withdraw-selected-asset-key :btc
+                             :amount-input "0.5"
+                             :destination-input "bc1qexamplexyz0p4y0p4y0p4y0p4y0p4y0p4y0p"
+                             :hyperunit-fee-estimate {:status :ready
+                                                      :by-chain {"bitcoin" {:chain "bitcoin"
+                                                                            :withdrawal-eta "~20 mins"
+                                                                            :withdrawal-fee "0.00001"}}
+                                                      :requested-at-ms 1
+                                                      :updated-at-ms 2
+                                                      :error nil}}))
+        view-model (funding-actions/funding-modal-view-model state)]
+    (is (= "~20 mins" (:withdraw-estimated-time view-model)))
+    (is (= "0.00001" (:withdraw-network-fee view-model)))
+    (is (= 0.0003 (:min-withdraw-amount view-model)))
+    (is (= "BTC" (:min-withdraw-symbol view-model)))
+    (is (= false (:hyperunit-fee-estimate-loading? view-model)))
+    (is (nil? (:hyperunit-fee-estimate-error view-model)))))
 
 (deftest set-funding-amount-to-max-respects-active-mode-test
   (let [transfer-state (assoc-in (base-state)

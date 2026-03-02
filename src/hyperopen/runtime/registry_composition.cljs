@@ -90,6 +90,7 @@
            api-fetch-vault-order-history
            api-fetch-vault-ledger-updates
            api-submit-vault-transfer
+           api-fetch-hyperunit-fee-estimate
            api-submit-funding-transfer
            api-submit-funding-withdraw
            api-submit-funding-deposit]}]
@@ -110,6 +111,7 @@
    :api-fetch-vault-order-history api-fetch-vault-order-history
    :api-fetch-vault-ledger-updates api-fetch-vault-ledger-updates
    :api-submit-vault-transfer api-submit-vault-transfer
+   :api-fetch-hyperunit-fee-estimate api-fetch-hyperunit-fee-estimate
    :api-submit-funding-transfer api-submit-funding-transfer
    :api-submit-funding-withdraw api-submit-funding-withdraw
    :api-submit-funding-deposit api-submit-funding-deposit})
