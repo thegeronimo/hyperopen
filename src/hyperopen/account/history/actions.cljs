@@ -83,19 +83,23 @@
    :page-input "1"})
 
 (defn normalize-order-history-page-size
-  [value]
-  (let [candidate (parse-utils/parse-int-value value)]
+  ([value]
+   (normalize-order-history-page-size value nil))
+  ([value locale]
+   (let [candidate (parse-utils/parse-localized-int-value value locale)]
     (if (contains? order-history-page-size-options candidate)
       candidate
-      default-order-history-page-size)))
+      default-order-history-page-size))))
 
 (defn normalize-order-history-page
   ([value]
-   (normalize-order-history-page value nil))
+   (normalize-order-history-page value nil nil))
   ([value max-page]
-   (let [candidate (max 1 (or (parse-utils/parse-int-value value) 1))
+   (normalize-order-history-page value max-page nil))
+  ([value max-page locale]
+   (let [candidate (max 1 (or (parse-utils/parse-localized-int-value value locale) 1))
          max-page* (when (some? max-page)
-                     (max 1 (or (parse-utils/parse-int-value max-page) 1)))]
+                     (max 1 (or (parse-utils/parse-localized-int-value max-page locale) 1)))]
      (if max-page*
        (min candidate max-page*)
        candidate))))
@@ -467,15 +471,17 @@
                           [[:account-info :funding-history :page] 1]
                           [[:account-info :funding-history :page-input] "1"]]]]))
 
-(defn set-funding-history-page-size [_state page-size]
-  (let [page-size* (normalize-order-history-page-size page-size)]
+(defn set-funding-history-page-size [state page-size]
+  (let [locale (get-in state [:ui :locale])
+        page-size* (normalize-order-history-page-size page-size locale)]
     [[:effects/save-many [[[:account-info :funding-history :page-size] page-size*]
                           [[:account-info :funding-history :page] 1]
                           [[:account-info :funding-history :page-input] "1"]]]
      [:effects/local-storage-set "funding-history-page-size" (str page-size*)]]))
 
-(defn set-funding-history-page [_state page max-page]
-  (let [page* (normalize-order-history-page page max-page)]
+(defn set-funding-history-page [state page max-page]
+  (let [locale (get-in state [:ui :locale])
+        page* (normalize-order-history-page page max-page locale)]
     [[:effects/save-many [[[:account-info :funding-history :page] page*]
                           [[:account-info :funding-history :page-input] (str page*)]]]]))
 
@@ -495,7 +501,8 @@
 
 (defn apply-funding-history-page-input [state max-page]
   (let [raw-value (get-in state [:account-info :funding-history :page-input] "")
-        page* (normalize-order-history-page raw-value max-page)]
+        locale (get-in state [:ui :locale])
+        page* (normalize-order-history-page raw-value max-page locale)]
     [[:effects/save-many [[[:account-info :funding-history :page] page*]
                           [[:account-info :funding-history :page-input] (str page*)]]]]))
 
@@ -504,15 +511,17 @@
     (apply-funding-history-page-input state max-page)
     []))
 
-(defn set-trade-history-page-size [_state page-size]
-  (let [page-size* (normalize-order-history-page-size page-size)]
+(defn set-trade-history-page-size [state page-size]
+  (let [locale (get-in state [:ui :locale])
+        page-size* (normalize-order-history-page-size page-size locale)]
     [[:effects/save-many [[[:account-info :trade-history :page-size] page-size*]
                           [[:account-info :trade-history :page] 1]
                           [[:account-info :trade-history :page-input] "1"]]]
      [:effects/local-storage-set "trade-history-page-size" (str page-size*)]]))
 
-(defn set-trade-history-page [_state page max-page]
-  (let [page* (normalize-order-history-page page max-page)]
+(defn set-trade-history-page [state page max-page]
+  (let [locale (get-in state [:ui :locale])
+        page* (normalize-order-history-page page max-page locale)]
     [[:effects/save-many [[[:account-info :trade-history :page] page*]
                           [[:account-info :trade-history :page-input] (str page*)]]]]))
 
@@ -532,7 +541,8 @@
 
 (defn apply-trade-history-page-input [state max-page]
   (let [raw-value (get-in state [:account-info :trade-history :page-input] "")
-        page* (normalize-order-history-page raw-value max-page)]
+        locale (get-in state [:ui :locale])
+        page* (normalize-order-history-page raw-value max-page locale)]
     [[:effects/save-many [[[:account-info :trade-history :page] page*]
                           [[:account-info :trade-history :page-input] (str page*)]]]]))
 
@@ -619,15 +629,17 @@
 
       [[:effects/save [:account-info :balances-coin-search] search*]])))
 
-(defn set-order-history-page-size [_state page-size]
-  (let [page-size* (normalize-order-history-page-size page-size)]
+(defn set-order-history-page-size [state page-size]
+  (let [locale (get-in state [:ui :locale])
+        page-size* (normalize-order-history-page-size page-size locale)]
     [[:effects/save-many [[[:account-info :order-history :page-size] page-size*]
                           [[:account-info :order-history :page] 1]
                           [[:account-info :order-history :page-input] "1"]]]
      [:effects/local-storage-set "order-history-page-size" (str page-size*)]]))
 
-(defn set-order-history-page [_state page max-page]
-  (let [page* (normalize-order-history-page page max-page)]
+(defn set-order-history-page [state page max-page]
+  (let [locale (get-in state [:ui :locale])
+        page* (normalize-order-history-page page max-page locale)]
     [[:effects/save-many [[[:account-info :order-history :page] page*]
                           [[:account-info :order-history :page-input] (str page*)]]]]))
 
@@ -647,7 +659,8 @@
 
 (defn apply-order-history-page-input [state max-page]
   (let [raw-value (get-in state [:account-info :order-history :page-input] "")
-        page* (normalize-order-history-page raw-value max-page)]
+        locale (get-in state [:ui :locale])
+        page* (normalize-order-history-page raw-value max-page locale)]
     [[:effects/save-many [[[:account-info :order-history :page] page*]
                           [[:account-info :order-history :page-input] (str page*)]]]]))
 

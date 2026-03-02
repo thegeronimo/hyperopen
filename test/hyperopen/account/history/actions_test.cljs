@@ -26,6 +26,21 @@
   (is (= 1 (history-actions/normalize-order-history-page "9" 0)))
   (is (= 1 (history-actions/normalize-order-history-page "abc" "nope"))))
 
+(deftest normalize-order-history-page-supports-localized-integer-inputs-test
+  (is (= 1234
+         (history-actions/normalize-order-history-page (str "1\u202F234") nil "fr-FR")))
+  (is (= 100
+         (history-actions/normalize-order-history-page-size "100,0" "fr-FR")))
+  (is (= 1
+         (history-actions/normalize-order-history-page "abc" 2000 "fr-FR"))))
+
+(deftest apply-order-history-page-input-parses-localized-page-input-test
+  (let [state {:ui {:locale "fr-FR"}
+               :account-info {:order-history {:page-input (str "1\u202F234")}}}]
+    (is (= [[:effects/save-many [[[:account-info :order-history :page] 1234]
+                                 [[:account-info :order-history :page-input] "1234"]]]]
+           (history-actions/apply-order-history-page-input state 2000)))))
+
 (deftest restore-open-orders-sort-settings-covers-valid-and-fallback-values-test
   (with-redefs [platform/local-storage-get (fn [key]
                                              (case key

@@ -1,6 +1,7 @@
 (ns hyperopen.chart.settings
   (:require [clojure.string :as str]
-            [hyperopen.platform :as platform]))
+            [hyperopen.platform :as platform]
+            [hyperopen.utils.parse :as parse-utils]))
 
 (def ^:private chart-timeframes
   #{:1m :3m :5m :15m :30m :1h :2h :4h :8h :12h :1d :3d :1w :1M})
@@ -104,9 +105,10 @@
 (defn update-indicator-period
   [state indicator-type period-value]
   (let [current-indicators (get-in state [:chart-options :active-indicators] {})
-        parsed-period (js/parseInt period-value 10)
+        parsed-period (parse-utils/parse-localized-int-value period-value
+                                                             (get-in state [:ui :locale]))
         current-period (get-in current-indicators [indicator-type :period])
-        period (if (js/isNaN parsed-period)
+        period (if (nil? parsed-period)
                  current-period
                  parsed-period)
         updated-indicators (assoc-in current-indicators [indicator-type :period] period)]

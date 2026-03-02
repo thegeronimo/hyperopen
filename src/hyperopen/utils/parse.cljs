@@ -135,6 +135,22 @@
        (when-not (js/isNaN num)
          num)))))
 
+(defn parse-localized-int-value
+  "Parse a localized integer-like value into a floored integer.
+   Accepts localized decimal/grouping input and falls back to parseInt behavior."
+  ([value]
+   (parse-localized-int-value value nil))
+  ([value locale]
+   (let [num (cond
+               (number? value) value
+               (string? value) (or (parse-localized-decimal value locale)
+                                   (js/parseInt value 10))
+               :else js/NaN)]
+     (when (and (number? num)
+                (not (js/isNaN num))
+                (js/isFinite num))
+       (js/Math.floor num)))))
+
 (defn sanitize-currency-decimal-input
   [value]
   (-> (str (or value ""))

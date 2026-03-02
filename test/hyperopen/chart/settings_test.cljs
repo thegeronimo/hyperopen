@@ -45,3 +45,13 @@
   (is (= [[:effects/save [:chart-options :volume-visible?] false]
           [:effects/local-storage-set "chart-volume-visible" "false"]]
          (chart-settings/hide-volume-indicator {}))))
+
+(deftest update-indicator-period-parses-localized-integer-inputs-test
+  (let [state {:ui {:locale "fr-FR"}
+               :chart-options {:active-indicators {:ema {:period 20}}}}
+        decimal-effects (chart-settings/update-indicator-period state :ema "21,9")
+        grouped-effects (chart-settings/update-indicator-period state :ema (str "1\u202F234"))
+        invalid-effects (chart-settings/update-indicator-period state :ema "abc")]
+    (is (= 21 (get-in (nth (first decimal-effects) 2) [:ema :period])))
+    (is (= 1234 (get-in (nth (first grouped-effects) 2) [:ema :period])))
+    (is (= 20 (get-in (nth (first invalid-effects) 2) [:ema :period])))))

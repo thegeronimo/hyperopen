@@ -65,6 +65,8 @@
 - MUST keep server state (orders, positions, quotes) separate from local UI state (drafts, open panels, expanded rows).
 - MUST keep websocket logic out of render components.
 - MUST centralize formatting utilities for price, quantity, and timestamp rendering.
+- MUST parse user-entered numeric text through `/hyperopen/src/hyperopen/utils/parse.cljs` locale-aware helpers at action/transition boundaries.
+- MUST NOT parse user-entered decimals directly with `js/parseFloat` or hand-rolled comma/period replacement in UI flow code.
 - MUST instrument order lifecycle and feed-health events for diagnostics.
 
 ## Default Decisions (SHOULD)

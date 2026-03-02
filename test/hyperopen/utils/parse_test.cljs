@@ -7,6 +7,13 @@
   (is (= 12 (parse/parse-int-value 12.9)))
   (is (nil? (parse/parse-int-value "not-a-number"))))
 
+(deftest parse-localized-int-value-test
+  (is (= 12 (parse/parse-localized-int-value "12,9" "fr-FR")))
+  (is (= 1234 (parse/parse-localized-int-value (str "1\u202F234") "fr-FR")))
+  (is (= 1234 (parse/parse-localized-int-value "1,234" "en-US")))
+  (is (= 12 (parse/parse-localized-int-value "12.9" "en-US")))
+  (is (nil? (parse/parse-localized-int-value "not-a-number" "en-US"))))
+
 (deftest normalize-localized-decimal-input-test
   (is (= "1234.56"
          (parse/normalize-localized-decimal-input "1,234.56" "en-US")))
