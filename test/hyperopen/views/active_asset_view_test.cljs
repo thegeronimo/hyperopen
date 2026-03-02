@@ -432,15 +432,12 @@
         (is (contains? strings "Predictability (30d)"))
         (is (contains? strings "Mean (APY)"))
         (is (contains? strings "Volatility (Ann. Std Dev)"))
-        (is (contains? strings "ACF Lag 1d"))
-        (is (contains? strings "ACF Lag 5d"))
-        (is (contains? strings "ACF Lag 15d"))
+        (is (not (contains? strings "ACF Lag 1d")))
+        (is (not (contains? strings "ACF Lag 5d")))
+        (is (not (contains? strings "ACF Lag 15d")))
         (is (contains? strings "Autocorrelation"))
         (is (contains? strings "+3679.2000%"))
-        (is (contains? strings "175.0224%"))
-        (is (contains? strings "+0.714"))
-        (is (contains? strings "+0.482"))
-        (is (contains? strings "+0.210"))))))
+        (is (contains? strings "175.0224%"))))))
 
 (deftest active-asset-row-funding-tooltip-renders-predictability-loading-and-insufficient-copy-test
   (let [ctx-data {:coin "xyz:GOLD"

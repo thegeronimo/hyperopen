@@ -232,25 +232,13 @@
   (let [annualized-mean (hourly-decimal->annualized-percent (:mean summary))
         annualized-volatility (hourly-decimal-stddev->annualized-percent (:stddev summary))]
     [{:id "mean"
-    :label "Mean (APY)"
-    :value annualized-mean
-    :kind :signed-percentage}
-   {:id "volatility"
-    :label "Volatility (Ann. Std Dev)"
-    :value annualized-volatility
-    :kind :unsigned-percentage}
-   {:id "acf-lag-1d"
-    :label "ACF Lag 1d"
-    :value (get-in summary [:autocorrelation :lag-1d :value])
-    :kind :signed-decimal}
-   {:id "acf-lag-5d"
-    :label "ACF Lag 5d"
-    :value (get-in summary [:autocorrelation :lag-5d :value])
-    :kind :signed-decimal}
-   {:id "acf-lag-15d"
-    :label "ACF Lag 15d"
-    :value (get-in summary [:autocorrelation :lag-15d :value])
-    :kind :signed-decimal}]))
+     :label "Mean (APY)"
+     :value annualized-mean
+     :kind :signed-percentage}
+    {:id "volatility"
+     :label "Volatility (Ann. Std Dev)"
+     :value annualized-volatility
+     :kind :unsigned-percentage}]))
 
 (defn- predictability-lag-note
   [summary]
