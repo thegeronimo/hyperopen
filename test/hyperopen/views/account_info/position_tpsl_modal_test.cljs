@@ -205,6 +205,32 @@
     (is (contains? roe-mode-strings "1.00 USDC | 1% Position"))
     (is (contains? position-mode-strings "1.00 USDC | 8.33% ROE"))))
 
+(deftest position-tpsl-modal-parses-localized-usd-display-values-test
+  (let [base-modal (-> (position-tpsl/from-position-row
+                        (fixtures/sample-position-row "xyz:NVDA" 10 "0.500"))
+                       (assoc :locale "fr-FR"
+                              :tp-price "12"
+                              :sl-price "8"))]
+    (with-redefs [hyperopen.account.history.position-tpsl/estimated-gain-usd (fn [_] "1,5")
+                  hyperopen.account.history.position-tpsl/estimated-loss-usd (fn [_] "-2,5")]
+      (let [modal-view (position-tpsl-modal/position-tpsl-modal-view base-modal)
+            gain-input (hiccup/find-first-node
+                        modal-view
+                        #(and (= :input (first %))
+                              (= [[:actions/set-position-tpsl-modal-field
+                                   [:tp-gain]
+                                   [:event.target/value]]]
+                                 (get-in % [1 :on :input]))))
+            loss-input (hiccup/find-first-node
+                        modal-view
+                        #(and (= :input (first %))
+                              (= [[:actions/set-position-tpsl-modal-field
+                                   [:sl-loss]
+                                   [:event.target/value]]]
+                                 (get-in % [1 :on :input]))))]
+        (is (= "1.50" (get-in gain-input [1 :value])))
+        (is (= "-2.50" (get-in loss-input [1 :value])))))))
+
 (deftest position-tpsl-modal-hides-expected-profit-and-loss-at-zero-test
   (let [modal (position-tpsl/from-position-row
                (fixtures/sample-position-row "xyz:NVDA" 10 "0.500"))

@@ -1,6 +1,7 @@
 (ns hyperopen.views.account-info.position-tpsl-modal
   (:require [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.domain.trading :as trading-domain]
+            [hyperopen.utils.parse :as parse-utils]
             [hyperopen.views.account-info.shared :as shared]))
 
 (defn- amount-text [value]
@@ -13,8 +14,12 @@
     (trading-domain/number->clean-string value 2)
     "0"))
 
-(defn- usd-input-text [value]
-  (let [num-value (js/parseFloat value)]
+(defn- usd-input-text
+  [modal value]
+  (let [num-value (cond
+                    (number? value) value
+                    :else (or (parse-utils/parse-localized-decimal value (:locale modal))
+                              (js/parseFloat (str (or value "")))))]
     (if (or (js/isNaN num-value)
             (< (js/Math.abs num-value) 0.00000001))
       "0"
@@ -398,10 +403,10 @@
             configure-size-percent (position-tpsl/configured-size-percent modal*)
             gain-input-value (if (not= gain-mode :usd)
                                (percent-text (position-tpsl/estimated-gain-percent-for-mode modal* gain-mode))
-                               (usd-input-text gain))
+                               (usd-input-text modal* gain))
             loss-input-value (if (not= loss-mode :usd)
                                (percent-text (position-tpsl/estimated-loss-percent-for-mode modal* loss-mode))
-                               (usd-input-text loss))
+                               (usd-input-text modal* loss))
             expected-profit-value (expected-pnl-text gain-mode gain gain-roe-percent gain-position-percent)
             expected-loss-value (expected-pnl-text loss-mode loss loss-roe-percent loss-position-percent)
             layout-style (modal-layout-style modal*)]
