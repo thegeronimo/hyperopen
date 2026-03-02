@@ -16,7 +16,7 @@
   10)
 
 (def ^:private margin-bottom
-  22)
+  24)
 
 (def ^:private ticks
   [1 5 10 15 20 25 29])
@@ -97,7 +97,7 @@
         bottom-y (y-for-value -1 top chart-height)
         tick-start-y (+ bottom-y 1)
         tick-end-y (+ bottom-y 4)
-        tick-label-y (+ bottom-y 12)
+        tick-label-y (+ bottom-y 11)
         step (if (pos? point-count)
                (/ chart-width point-count)
                chart-width)
@@ -196,7 +196,7 @@
               :fill "rgba(226,235,244,0.9)"}
        "-1"]
       [:text {:x (+ left (/ chart-width 2))
-              :y (- plot-height 3)
+              :y (- plot-height 1)
               :text-anchor "middle"
               :font-size "8.8"
               :fill "rgba(226,235,244,0.9)"}

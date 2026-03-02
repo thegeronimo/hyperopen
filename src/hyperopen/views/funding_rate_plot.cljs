@@ -17,7 +17,7 @@
   10)
 
 (def ^:private margin-bottom
-  22)
+  24)
 
 (def ^:private day-ticks
   [1 5 10 15 20 25 30])
@@ -141,7 +141,7 @@
         bottom-y (y-for-value domain-min top chart-height domain-min domain-max)
         tick-start-y (+ bottom-y 1)
         tick-end-y (+ bottom-y 4)
-        tick-label-y (+ bottom-y 12)
+        tick-label-y (+ bottom-y 11)
         step (if (pos? point-count)
                (/ chart-width point-count)
                chart-width)
@@ -245,7 +245,7 @@
               :fill "rgba(226,235,244,0.9)"}
        (signed-percent-label domain-min)]
       [:text {:x (+ left (/ chart-width 2))
-              :y (- plot-height 3)
+              :y (- plot-height 1)
               :text-anchor "middle"
               :font-size "8.8"
               :fill "rgba(226,235,244,0.9)"}
