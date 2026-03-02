@@ -3,6 +3,7 @@
             [hyperopen.api.compat :as api-compat]
             [hyperopen.api.endpoints.orders :as order-endpoints]
             [hyperopen.api.gateway.account :as account-gateway]
+            [hyperopen.api.gateway.funding-hyperunit :as funding-hyperunit-gateway]
             [hyperopen.api.gateway.market :as market-gateway]
             [hyperopen.api.gateway.orders :as order-gateway]
             [hyperopen.api.gateway.vaults :as vault-gateway]
@@ -83,6 +84,14 @@
                                                               (record! :request-user-abstraction [deps address opts]))
                   account-gateway/request-clearinghouse-state! (fn [deps address dex opts]
                                                                  (record! :request-clearinghouse-state [deps address dex opts]))
+                  funding-hyperunit-gateway/request-hyperunit-generate-address! (fn [deps opts]
+                                                                                  (record! :request-hyperunit-generate-address [deps opts]))
+                  funding-hyperunit-gateway/request-hyperunit-operations! (fn [deps opts]
+                                                                            (record! :request-hyperunit-operations [deps opts]))
+                  funding-hyperunit-gateway/request-hyperunit-estimate-fees! (fn [deps opts]
+                                                                               (record! :request-hyperunit-estimate-fees [deps opts]))
+                  funding-hyperunit-gateway/request-hyperunit-withdrawal-queue! (fn [deps opts]
+                                                                                  (record! :request-hyperunit-withdrawal-queue [deps opts]))
                   vault-gateway/request-vault-index! (fn
                                                        ([deps]
                                                         (record! :request-vault-index [deps {}]))
@@ -195,6 +204,25 @@
                ((:request-clearinghouse-state! api) "0xabc" "dex-a")))
         (is (= {:ok :request-clearinghouse-state}
                ((:request-clearinghouse-state! api) "0xabc" "dex-a" {:priority :high})))
+        (is (= {:ok :request-hyperunit-generate-address}
+               ((:request-hyperunit-generate-address! api)
+                {:source-chain "bitcoin"
+                 :destination-chain "hyperliquid"
+                 :asset "btc"
+                 :destination-address "0xabc"})))
+        (is (= {:ok :request-hyperunit-operations}
+               ((:request-hyperunit-operations! api)
+                {:address "0xabc"})))
+        (is (= {:ok :request-hyperunit-estimate-fees}
+               ((:request-hyperunit-estimate-fees! api))))
+        (is (= {:ok :request-hyperunit-estimate-fees}
+               ((:request-hyperunit-estimate-fees! api)
+                {:priority :high})))
+        (is (= {:ok :request-hyperunit-withdrawal-queue}
+               ((:request-hyperunit-withdrawal-queue! api))))
+        (is (= {:ok :request-hyperunit-withdrawal-queue}
+               ((:request-hyperunit-withdrawal-queue! api)
+                {:priority :high})))
 
         (is (= {:ok :request-vault-index}
                ((:request-vault-index! api))))
@@ -238,6 +266,7 @@
         (is (some #(= :request-market-funding-history (first %)) @calls))
         (is (some #(= :request-predicted-fundings (first %)) @calls))
         (is (some #(= :request-info-attempt (first %)) @calls))
+        (is (some #(= :request-hyperunit-generate-address (first %)) @calls))
         (is (some #(= :request-frontend-open-orders (first %)) @calls))))))
 
 (deftest make-api-falls-back-to-default-service-now-and-log-test

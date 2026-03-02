@@ -10,6 +10,7 @@
             [hyperopen.api.compat-test]
             [hyperopen.api.default-test]
             [hyperopen.api.endpoints.account-test]
+            [hyperopen.api.endpoints.funding-hyperunit-test]
             [hyperopen.api.endpoints.market-test]
             [hyperopen.api.endpoints.orders-test]
             [hyperopen.api.endpoints.vaults-test]
@@ -17,6 +18,7 @@
             [hyperopen.api.facade-runtime-test]
             [hyperopen.api.fetch-compat-test]
             [hyperopen.api.gateway.account-test]
+            [hyperopen.api.gateway.funding-hyperunit-test]
             [hyperopen.api.gateway.market-test]
             [hyperopen.api.gateway.orders-test]
             [hyperopen.api.gateway.orders.commands-test]
@@ -274,6 +276,7 @@
              'hyperopen.api.compat-test
              'hyperopen.api.default-test
              'hyperopen.api.endpoints.account-test
+             'hyperopen.api.endpoints.funding-hyperunit-test
              'hyperopen.api.endpoints.market-test
              'hyperopen.api.endpoints.orders-test
              'hyperopen.api.endpoints.vaults-test
@@ -281,6 +284,7 @@
              'hyperopen.api.facade-runtime-test
              'hyperopen.api.fetch-compat-test
              'hyperopen.api.gateway.account-test
+             'hyperopen.api.gateway.funding-hyperunit-test
              'hyperopen.api.gateway.market-test
              'hyperopen.api.gateway.orders-test
              'hyperopen.api.gateway.orders.commands-test

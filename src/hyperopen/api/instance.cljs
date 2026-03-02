@@ -1,6 +1,7 @@
 (ns hyperopen.api.instance
   (:require [hyperopen.api.compat :as api-compat]
             [hyperopen.api.gateway.account :as account-gateway]
+            [hyperopen.api.gateway.funding-hyperunit :as funding-hyperunit-gateway]
             [hyperopen.api.gateway.market :as market-gateway]
             [hyperopen.api.gateway.orders :as order-gateway]
             [hyperopen.api.gateway.vaults :as vault-gateway]
@@ -319,8 +320,35 @@
      :request-vault-details! request-vault-details!
      :request-vault-webdata2! request-vault-webdata2!}))
 
+(defn- make-instance-hyperunit-ops
+  [hyperunit-base-url hyperunit-fetch-fn]
+  (let [deps {:hyperunit-base-url hyperunit-base-url
+              :fetch-fn (or hyperunit-fetch-fn js/fetch)}]
+    (letfn [(request-hyperunit-generate-address!
+              [opts]
+              (funding-hyperunit-gateway/request-hyperunit-generate-address! deps opts))
+            (request-hyperunit-operations!
+              [opts]
+              (funding-hyperunit-gateway/request-hyperunit-operations! deps opts))
+            (request-hyperunit-estimate-fees!
+              ([] (request-hyperunit-estimate-fees! {}))
+              ([opts]
+               (funding-hyperunit-gateway/request-hyperunit-estimate-fees! deps opts)))
+            (request-hyperunit-withdrawal-queue!
+              ([] (request-hyperunit-withdrawal-queue! {}))
+              ([opts]
+               (funding-hyperunit-gateway/request-hyperunit-withdrawal-queue! deps opts)))]
+      {:request-hyperunit-generate-address! request-hyperunit-generate-address!
+       :request-hyperunit-operations! request-hyperunit-operations!
+       :request-hyperunit-estimate-fees! request-hyperunit-estimate-fees!
+       :request-hyperunit-withdrawal-queue! request-hyperunit-withdrawal-queue!})))
+
 (defn make-api
-  [{:keys [service now-ms-fn log-fn]}]
+  [{:keys [service
+           now-ms-fn
+           log-fn
+           hyperunit-base-url
+           hyperunit-fetch-fn]}]
   (let [service* (or service (make-default-api-service))
         now-ms* (or now-ms-fn (fn [] (api-service/now-ms service*)))
         log-fn* (or log-fn (api-service/log-fn service*))
@@ -330,7 +358,9 @@
         market-state-ops (make-instance-market-state-ops service* now-ms* log-fn* market-request-ops)
         order-ops (make-instance-order-ops post-info! log-fn*)
         account-ops (make-instance-account-ops post-info! normalize-filters*)
-        vault-ops (make-instance-vault-ops post-info!)]
+        vault-ops (make-instance-vault-ops post-info!)
+        hyperunit-ops (make-instance-hyperunit-ops hyperunit-base-url
+                                                   hyperunit-fetch-fn)]
     (merge
      {:service service*
       :log-fn log-fn*
@@ -357,4 +387,5 @@
      market-state-ops
      order-ops
      account-ops
-     vault-ops)))
+     vault-ops
+     hyperunit-ops)))
