@@ -49,9 +49,16 @@
     (trading-domain/number->clean-string (max 0 value) 6)
     "0"))
 
+(defn- normalize-amount-input
+  [value]
+  (-> (or value "")
+      str
+      (str/replace #"," "")
+      (str/replace #"\s+" "")))
+
 (defn- parse-input-amount
   [value]
-  (let [parsed (parse-num (or value ""))]
+  (let [parsed (parse-num (normalize-amount-input value))]
     (when (finite-number? parsed)
       (max 0 parsed))))
 
@@ -497,7 +504,7 @@
   (let [modal (modal-state state)
         path* (if (vector? path) path [path])
         value* (case path*
-                 [:amount-input] (str (or value ""))
+                 [:amount-input] (normalize-amount-input value)
                  [:destination-input] (str (or value ""))
                  [:deposit-search-input] (str (or value ""))
                  [:deposit-step] (normalize-deposit-step value)

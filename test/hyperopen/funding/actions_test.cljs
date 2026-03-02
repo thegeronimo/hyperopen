@@ -185,6 +185,37 @@
       (is (= :amount-entry (:deposit-step next-modal)))
       (is (= "" (:amount-input next-modal))))))
 
+(deftest set-funding-modal-field-amount-input-normalizes-grouping-separators-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :deposit
+                         :deposit-step :amount-entry
+                         :deposit-selected-asset-key :usdc
+                         :amount-input ""})
+        [_ _ next-modal]
+        (first (funding-actions/set-funding-modal-field state
+                                                        [:amount-input]
+                                                        "100,000.25"))]
+    (is (= "100000.25" (:amount-input next-modal)))))
+
+(deftest submit-funding-deposit-accepts-comma-grouped-amount-input-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :deposit
+                         :deposit-step :amount-entry
+                         :deposit-selected-asset-key :usdc
+                         :amount-input "100,000"})]
+    (is (= [[:effects/save-many [[[:funding-ui :modal :submitting?] true]
+                                 [[:funding-ui :modal :error] nil]]]
+            [:effects/api-submit-funding-deposit
+             {:action {:type "bridge2Deposit"
+                       :asset "usdc"
+                       :amount "100000"
+                       :chainId "0xa4b1"}}]]
+           (funding-actions/submit-funding-deposit state)))))
+
 (deftest set-funding-amount-to-max-respects-active-mode-test
   (let [transfer-state (assoc-in (base-state)
                                  [:funding-ui :modal]

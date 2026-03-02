@@ -1,5 +1,6 @@
 (ns hyperopen.views.funding-modal
-  (:require [hyperopen.funding.actions :as funding-actions]
+  (:require [clojure.string :as str]
+            [hyperopen.funding.actions :as funding-actions]
             [hyperopen.views.asset-icon :as asset-icon]))
 
 (defn- base-button-classes
@@ -42,6 +43,25 @@
      "cursor-not-allowed"]
     (base-button-classes true)))
 
+(defn- deposit-asset-icon
+  [symbol icon-src]
+  [:div {:class ["h-8" "w-8" "shrink-0" "overflow-hidden" "rounded-full"]}
+   (if (seq icon-src)
+     [:img {:class ["block" "h-8" "w-8" "rounded-full" "object-cover"]
+            :src icon-src
+            :alt (str symbol " icon")}]
+     [:div {:class ["h-8"
+                    "w-8"
+                    "rounded-full"
+                    "bg-[#1e5a93]"
+                    "text-xs"
+                    "font-semibold"
+                    "text-white"
+                    "flex"
+                    "items-center"
+                    "justify-center"]}
+      symbol])])
+
 (defn- deposit-asset-button
   [asset selected?]
   (let [icon-src (asset-icon/market-icon-url {:coin (:symbol asset)
@@ -62,25 +82,38 @@
                             [:deposit-selected-asset-key]
                             (:key asset)]]}}
      [:div {:class ["flex" "items-center" "gap-2.5"]}
-      [:div {:class ["h-8" "w-8" "shrink-0" "overflow-hidden" "rounded-full"]}
-       (if (seq icon-src)
-         [:img {:class ["block" "h-8" "w-8" "rounded-full" "object-cover"]
-                :src icon-src
-                :alt (str (:symbol asset) " icon")}]
-         [:div {:class ["h-8"
-                        "w-8"
-                        "rounded-full"
-                        "bg-[#1e5a93]"
-                        "text-xs"
-                        "font-semibold"
-                        "text-white"
-                        "flex"
-                        "items-center"
-                        "justify-center"]}
-          (:symbol asset)])]
+      (deposit-asset-icon (:symbol asset) icon-src)
       [:div {:class ["flex" "min-w-0" "flex-col"]}
        [:span {:class ["text-sm" "font-semibold" "text-[#e6eef2]"]} (:symbol asset)]
        [:span {:class ["text-xs" "text-[#7e95a0]"]} (:network asset)]]]]))
+
+(defn- format-grouped-amount-input
+  [value]
+  (let [raw (-> (or value "")
+                str
+                (str/replace #"," "")
+                (str/replace #"\s+" ""))]
+    (if-not (re-matches #"^\d*(?:\.\d*)?$" raw)
+      raw
+      (let [[whole fraction] (str/split raw #"\." 2)
+            has-decimal? (str/includes? raw ".")
+            grouped-whole (if (seq whole)
+                            (str/replace whole #"\B(?=(\d{3})+(?!\d))" ",")
+                            "")]
+        (cond
+          (empty? raw)
+          ""
+
+          (and (empty? whole) has-decimal?)
+          (str "0." (or fraction ""))
+
+          has-decimal?
+          (str (if (seq grouped-whole) grouped-whole "0")
+               "."
+               (or fraction ""))
+
+          :else
+          grouped-whole)))))
 
 (defn funding-modal-view
   [state]
@@ -113,6 +146,9 @@
         selected-deposit-asset* (or deposit-selected-asset
                                     {:symbol "USDC"
                                      :network "Arbitrum"})
+        selected-deposit-icon-src (asset-icon/market-icon-url {:coin (:symbol selected-deposit-asset*)
+                                                                :symbol (:symbol selected-deposit-asset*)})
+        amount-input-display (format-grouped-amount-input amount-input)
         modal-title (if (and deposit?
                              deposit-amount-entry?
                              (string? (:symbol selected-deposit-asset*)))
@@ -212,17 +248,7 @@
                           "px-3"
                           "py-3"]}
             [:div {:class ["flex" "items-center" "gap-2.5"]}
-             [:div {:class ["h-8"
-                            "w-8"
-                            "rounded-full"
-                            "bg-[#1e5a93]"
-                            "text-xs"
-                            "font-semibold"
-                            "text-white"
-                            "flex"
-                            "items-center"
-                            "justify-center"]}
-              (:symbol selected-deposit-asset*)]
+             (deposit-asset-icon (:symbol selected-deposit-asset*) selected-deposit-icon-src)
              [:div {:class ["flex" "flex-col"]}
               [:span {:class ["text-sm" "font-semibold" "text-[#e6eef2]"]} (:symbol selected-deposit-asset*)]
               [:span {:class ["text-xs" "text-[#7e95a0]"]} (:network selected-deposit-asset*)]]]]
@@ -255,12 +281,18 @@
                       :input-mode "decimal"
                       :placeholder (str deposit-min-usdc)
                       :disabled submitting?
-                      :value amount-input
+                      :value amount-input-display
                       :class ["flex-1"
                               "bg-transparent"
+                              "border-0"
+                              "ring-0"
+                              "shadow-none"
                               "text-sm"
                               "text-[#e6eef2]"
+                              "text-right"
                               "outline-none"
+                              "focus:border-0"
+                              "focus:ring-0"
                               "disabled:opacity-70"]
                       :on {:input [[:actions/set-funding-modal-field [:amount-input] [:event.target/value]]]}}]
              [:span {:class ["text-sm" "text-[#7e95a0]"]} (:symbol selected-deposit-asset*)]]]
@@ -343,7 +375,7 @@
                      :input-mode "decimal"
                      :placeholder "Enter amount"
                      :disabled submitting?
-                     :value amount-input
+                     :value amount-input-display
                      :class ["w-full"
                              "rounded-lg"
                              "border"
@@ -409,7 +441,7 @@
                      :input-mode "decimal"
                      :placeholder "Enter amount"
                      :disabled submitting?
-                     :value amount-input
+                     :value amount-input-display
                      :class ["w-full"
                              "rounded-lg"
                              "border"
