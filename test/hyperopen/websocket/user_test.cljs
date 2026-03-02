@@ -1,5 +1,7 @@
 (ns hyperopen.websocket.user-test
   (:require [cljs.test :refer-macros [deftest is testing]]
+            [hyperopen.api.default :as api]
+            [hyperopen.api.market-metadata.facade :as market-metadata]
             [hyperopen.platform :as platform]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.websocket.client :as ws-client]
@@ -113,3 +115,56 @@
         :data {:isSnapshot false
                :nonFundingLedgerUpdates [{:time 2000 :coin "USDC" :delta "2.0"}]}})
       (is (= ["2.0" "1.0"] (mapv :delta (get-in @store [:orders :ledger])))))))
+
+(deftest user-ledger-incremental-triggers-account-surface-refresh-test
+  (let [store (doto (make-store)
+                (swap! assoc-in [:wallet :address] "0xabc"))
+        handlers (atom {})
+        scheduled-refresh (atom nil)
+        open-orders-calls (atom 0)
+        perp-clearinghouse-calls (atom 0)
+        spot-clearinghouse-calls (atom 0)]
+    (with-redefs [ws-client/register-handler!
+                  (fn [message-type handler-fn]
+                    (swap! handlers assoc message-type handler-fn)
+                    true)
+                  platform/set-timeout! (fn [callback _ms]
+                                          (reset! scheduled-refresh callback)
+                                          1234)
+                  platform/clear-timeout! (fn [_] nil)
+                  api/request-frontend-open-orders! (fn
+                                                      ([_address]
+                                                       (swap! open-orders-calls inc)
+                                                       (js/Promise.resolve []))
+                                                      ([_address _opts]
+                                                       (swap! open-orders-calls inc)
+                                                       (js/Promise.resolve []))
+                                                      ([_address _dex _opts]
+                                                       (swap! open-orders-calls inc)
+                                                       (js/Promise.resolve [])))
+                  api/request-clearinghouse-state! (fn
+                                                     ([_address _dex]
+                                                      (swap! perp-clearinghouse-calls inc)
+                                                      (js/Promise.resolve {}))
+                                                     ([_address _dex _opts]
+                                                      (swap! perp-clearinghouse-calls inc)
+                                                      (js/Promise.resolve {})))
+                  api/request-spot-clearinghouse-state! (fn
+                                                          ([_address]
+                                                           (swap! spot-clearinghouse-calls inc)
+                                                           (js/Promise.resolve {}))
+                                                          ([_address _opts]
+                                                           (swap! spot-clearinghouse-calls inc)
+                                                           (js/Promise.resolve {})))
+                  market-metadata/ensure-and-apply-perp-dex-metadata! (fn [_deps _opts]
+                                                                        (js/Promise.resolve []))]
+      (user-ws/init! store)
+      ((get @handlers "userNonFundingLedgerUpdates")
+       {:channel "userNonFundingLedgerUpdates"
+        :data {:isSnapshot false
+               :nonFundingLedgerUpdates [{:time 2000 :coin "USDC" :delta "2.0"}]}})
+      (is (fn? @scheduled-refresh))
+      (@scheduled-refresh)
+      (is (= 1 @open-orders-calls))
+      (is (= 1 @perp-clearinghouse-calls))
+      (is (= 1 @spot-clearinghouse-calls)))))

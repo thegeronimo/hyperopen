@@ -74,6 +74,16 @@
       (.catch (fn [err]
                 (telemetry/log! "Error refreshing default clearinghouse state after user fill:" err)))))
 
+(defn- refresh-spot-clearinghouse-snapshot!
+  [store address opts]
+  (-> (api/request-spot-clearinghouse-state! address opts)
+      (.then (promise-effects/apply-success-and-return
+              store
+              api-projections/apply-spot-balances-success))
+      (.catch (promise-effects/apply-error-and-reject
+               store
+               api-projections/apply-spot-balances-error))))
+
 (defn- refresh-perp-dex-clearinghouse-snapshot!
   [store address dex opts]
   (-> (api/request-clearinghouse-state! address dex opts)
@@ -89,6 +99,7 @@
   [store address]
   (when address
     (refresh-open-orders-snapshot! store address nil {:priority :high})
+    (refresh-spot-clearinghouse-snapshot! store address {:priority :high})
     (refresh-default-clearinghouse-snapshot! store address {:priority :high})
     (-> (market-metadata/ensure-and-apply-perp-dex-metadata!
          {:store store
@@ -277,7 +288,9 @@
         (when (seq rows)
           (if snapshot?
             (swap! store assoc-in [:orders :ledger] rows)
-            (swap! store update-in [:orders :ledger] #(upsert-seq (or % []) rows))))))))
+            (do
+              (swap! store update-in [:orders :ledger] #(upsert-seq (or % []) rows))
+              (schedule-account-surface-refresh-after-fill! store))))))))
 
 (defn init! [store]
   (ws-client/register-handler! "openOrders" (open-orders-handler store))
