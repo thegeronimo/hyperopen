@@ -118,7 +118,7 @@
                    "font-semibold"
                    "text-gray-300"
                    "text-center"]}
-      "Autocorrelation"]
+      "Past Rate Correlation"]
      [:svg {:viewBox (str "0 0 " plot-width " " plot-height)
             :class ["h-[7rem]" "w-full"]
             :role "img"
@@ -200,4 +200,4 @@
               :text-anchor "middle"
               :font-size "8.8"
               :fill "rgba(226,235,244,0.9)"}
-       "Lag (days)"]]]))
+       "Lookback (days)"]]]))
