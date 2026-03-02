@@ -16,30 +16,70 @@
 
 
 
-(defn tooltip [content & [position]]
-  (let [pos (or position "top")
-        tooltip-body (second content)
-        body-node (if (string? tooltip-body)
-                    [:div {:class ["rounded-md"
-                                   "bg-gray-800"
-                                   "px-2"
-                                   "py-1"
-                                   "text-xs"
-                                   "text-white"
-                                   "whitespace-nowrap"]}
-                     tooltip-body]
-                    tooltip-body)]
-    [:div {:class ["relative" "group" "inline-flex"]}
-     [:div (first content)]
-     [:div {:class (into ["absolute" "opacity-0" "group-hover:opacity-100" "transition-opacity" "duration-200" "pointer-events-none" "z-50"]
-                         (case pos
-                           "top" ["bottom-full" "left-1/2" "transform" "-translate-x-1/2" "mb-2"]
-                           "bottom" ["top-full" "left-1/2" "transform" "-translate-x-1/2" "mt-2"]
-                           "left" ["right-full" "top-1/2" "transform" "-translate-y-1/2" "mr-2"]
-                           "right" ["left-full" "top-1/2" "transform" "-translate-y-1/2" "ml-2"]))
-             :style {:min-width "max-content"
-                     :max-width "22rem"}}
-      body-node]]))
+(defn tooltip
+  ([content]
+   (tooltip content "top" {}))
+  ([content position]
+   (tooltip content position {}))
+  ([content position {:keys [click-pinnable? pin-id]}]
+   (let [pos (or position "top")
+         tooltip-body (second content)
+         body-node (if (string? tooltip-body)
+                     [:div {:class ["rounded-md"
+                                    "bg-gray-800"
+                                    "px-2"
+                                    "py-1"
+                                    "text-xs"
+                                    "text-white"
+                                    "whitespace-nowrap"]}
+                      tooltip-body]
+                     tooltip-body)
+         placement-classes (case pos
+                             "top" ["bottom-full" "left-1/2" "transform" "-translate-x-1/2" "mb-2"]
+                             "bottom" ["top-full" "left-1/2" "transform" "-translate-x-1/2" "mt-2"]
+                             "left" ["right-full" "top-1/2" "transform" "-translate-y-1/2" "mr-2"]
+                             "right" ["left-full" "top-1/2" "transform" "-translate-y-1/2" "ml-2"])
+         trigger-node (first content)
+         pin-id* (let [text (some-> pin-id str str/trim)]
+                   (if (seq text)
+                     text
+                     "funding-rate-tooltip-pin"))]
+     (if click-pinnable?
+       [:div {:class ["relative" "group" "inline-flex"]}
+        [:input {:id pin-id*
+                 :type "checkbox"
+                 :class ["peer" "sr-only"]}]
+        ;; Click outside target that only exists while pinned open.
+        [:label {:for pin-id*
+                 :class ["fixed"
+                         "inset-0"
+                         "z-40"
+                         "hidden"
+                         "cursor-default"
+                         "peer-checked:block"]}]
+        [:label {:for pin-id*
+                 :class ["relative" "z-50" "inline-flex" "cursor-pointer"]}
+         trigger-node]
+        [:div {:class (into ["absolute"
+                             "z-50"
+                             "opacity-0"
+                             "group-hover:opacity-100"
+                             "peer-checked:opacity-100"
+                             "transition-opacity"
+                             "duration-200"
+                             "pointer-events-none"
+                             "peer-checked:pointer-events-auto"]
+                            placement-classes)
+               :style {:min-width "max-content"
+                       :max-width "22rem"}}
+         body-node]]
+       [:div {:class ["relative" "group" "inline-flex"]}
+        [:div trigger-node]
+        [:div {:class (into ["absolute" "opacity-0" "group-hover:opacity-100" "transition-opacity" "duration-200" "pointer-events-none" "z-50"]
+                            placement-classes)
+               :style {:min-width "max-content"
+                       :max-width "22rem"}}
+         body-node]]))))
 
 (defn change-indicator [change-value change-pct & [change-raw]]
   (let [is-positive (and change-value (>= change-value 0))
@@ -583,6 +623,10 @@
                                                mark
                                                funding-rate
                                                funding-predictability-state)
+        funding-tooltip-pin-id (str "funding-rate-tooltip-pin-"
+                                    (-> (or coin "asset")
+                                        str/lower-case
+                                        (str/replace #"[^a-z0-9_-]" "-")))
         dropdown-visible? (= (:visible-dropdown dropdown-state) :asset-selector)
         is-spot (= :spot (:market-type market))
         ;; Handle missing data gracefully
@@ -658,7 +702,9 @@
              [[:span {:class ["cursor-help" "num" (signed-tone-class funding-rate)]}
                (signed-percentage-text funding-rate 4)]
               (funding-tooltip-panel funding-tooltip)]
-             "bottom")
+             "bottom"
+             {:click-pinnable? true
+              :pin-id funding-tooltip-pin-id})
            [:span (if is-spot "—" "Loading...")])
          [:span.mx-1 "/"]
          [:span.num (if is-spot "—" countdown-text)]]]]]))
