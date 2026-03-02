@@ -357,7 +357,7 @@
         lower-payment (funding-payment-estimate direction position-value lower-rate)
         upper-payment (funding-payment-estimate direction position-value upper-rate)]
     [{:id "mean-rate"
-      :label "Mean Rate"
+      :label "Mean APY"
       :rate annualized-mean
       :rate-kind :signed-percentage
       :payment expected-payment

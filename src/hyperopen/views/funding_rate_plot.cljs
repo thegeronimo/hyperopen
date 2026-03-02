@@ -158,9 +158,9 @@
                    "px-2.5"
                    "py-2"]}
      [:h5 {:class ["mb-1"
-                   "text-[0.74rem]"
-                   "font-medium"
-                   "text-gray-400"
+                   "text-[0.8rem]"
+                   "font-semibold"
+                   "text-gray-300"
                    "text-center"]}
       "Funding Rate"]
      [:svg {:viewBox (str "0 0 " plot-width " " plot-height)
@@ -226,27 +226,27 @@
            [:text {:x x
                    :y tick-label-y
                    :text-anchor "middle"
-                   :font-size "7.8"
-                   :fill "rgba(220,232,242,0.75)"}
+                   :font-size "8.8"
+                   :fill "rgba(226,235,244,0.9)"}
             (str tick)]]))
       [:text {:x (+ left 1)
               :y (+ top-y 3)
-              :font-size "7.2"
-              :fill "rgba(220,232,242,0.72)"}
+              :font-size "8.2"
+              :fill "rgba(226,235,244,0.9)"}
        (signed-percent-label domain-max)]
       [:text {:x (+ left 1)
               :y (+ baseline-y 3)
-              :font-size "7.2"
-              :fill "rgba(220,232,242,0.72)"}
+              :font-size "8.2"
+              :fill "rgba(226,235,244,0.9)"}
        "0%"]
       [:text {:x (+ left 1)
               :y (+ bottom-y -2)
-              :font-size "7.2"
-              :fill "rgba(220,232,242,0.72)"}
+              :font-size "8.2"
+              :fill "rgba(226,235,244,0.9)"}
        (signed-percent-label domain-min)]
       [:text {:x (+ left (/ chart-width 2))
               :y (- plot-height 3)
               :text-anchor "middle"
-              :font-size "8"
-              :fill "rgba(220,232,242,0.72)"}
+              :font-size "8.8"
+              :fill "rgba(226,235,244,0.9)"}
        "Day (oldest to newest)"]]]))
