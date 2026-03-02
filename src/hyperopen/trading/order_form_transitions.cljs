@@ -82,6 +82,13 @@
           value))
     value))
 
+(defn- parse-localized-numeric-value
+  [state value]
+  (if (string? value)
+    (or (parse-utils/parse-localized-decimal value (get-in state [:ui :locale]))
+        value)
+    value))
+
 (defn- sync-size-percent-preserving-manual-display
   [state form]
   (let [raw-size-display (str (or (:size-display form) ""))]
@@ -307,15 +314,19 @@
 (defn- current-ui-leverage
   [state]
   (let [form (trading/order-form-draft state)]
-    (trading/normalize-ui-leverage state (:ui-leverage form))))
+    (trading/normalize-ui-leverage state
+                                   (parse-localized-numeric-value state (:ui-leverage form)))))
 
 (defn- current-leverage-draft
   [state]
-  (let [ui-state (trading/order-form-ui-state state)
+  (let [ui-state (:order-form-ui state)
         current-leverage (current-ui-leverage state)]
     (trading/normalize-ui-leverage state
-                                   (or (:leverage-draft ui-state)
-                                       current-leverage))))
+                                   (parse-localized-numeric-value
+                                    state
+                                    (or (when (map? ui-state)
+                                          (:leverage-draft ui-state))
+                                       current-leverage)))))
 
 (defn toggle-leverage-popover [state]
   (let [ui-state (trading/order-form-ui-state state)
@@ -348,7 +359,8 @@
 
 (defn set-order-ui-leverage-draft [state leverage]
   (let [ui-state (trading/order-form-ui-state state)
-        next-draft (trading/normalize-ui-leverage state leverage)]
+        next-draft (trading/normalize-ui-leverage state
+                                                  (parse-localized-numeric-value state leverage))]
     (enforce-field-ownership
      state
      {:order-form-ui (assoc ui-state
@@ -431,7 +443,8 @@
 (defn set-order-ui-leverage [state leverage]
   (let [form (trading/order-form-draft state)
         ui-state (trading/order-form-ui-state state)
-        normalized (trading/normalize-ui-leverage state leverage)
+        normalized (trading/normalize-ui-leverage state
+                                                  (parse-localized-numeric-value state leverage))
         updated (assoc form :ui-leverage normalized)
         next-form (->> (reconcile-size-after-context-change state updated)
                        (backfill-tpsl-triggers-from-offset-inputs state))

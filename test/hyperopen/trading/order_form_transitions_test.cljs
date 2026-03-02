@@ -229,6 +229,25 @@
     (is (false? (:leverage-popover-open? confirmed-ui)))
     (is (not (contains? (:order-form confirmed) :ui-leverage)))))
 
+(deftest localized-leverage-inputs-use-locale-decimal-parsing-test
+  (let [state (assoc (base-state {:type :limit})
+                     :ui {:locale "fr-FR"})
+        drafted (transitions/set-order-ui-leverage-draft state "17,5")
+        drafted-ui (:order-form-ui drafted)
+        direct (transitions/set-order-ui-leverage state "17,5")
+        direct-ui (:order-form-ui direct)
+        opened (transitions/toggle-leverage-popover state)
+        confirmed (transitions/confirm-order-ui-leverage
+                   (merge state
+                          opened
+                          {:order-form-ui (assoc (:order-form-ui opened)
+                                                 :leverage-draft "22,5")}))
+        confirmed-ui (:order-form-ui confirmed)]
+    (is (= 18 (:leverage-draft drafted-ui)))
+    (is (= 18 (:ui-leverage direct-ui)))
+    (is (= 23 (:ui-leverage confirmed-ui)))
+    (is (= 23 (:leverage-draft confirmed-ui)))))
+
 (deftest tpsl-unit-dropdown-transitions-toggle-close-and-reset-on-unit-selection-test
   (let [state (assoc (base-state {:type :limit
                                   :tpsl {:unit :usd}})
