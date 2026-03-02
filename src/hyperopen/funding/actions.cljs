@@ -79,7 +79,8 @@
     :symbol "MON"
     :name "Monad"
     :network "Monad"
-    :flow-kind :hyperunit-address}
+    :flow-kind :hyperunit-address
+    :hyperunit-source-chain "monad"}
    {:key :pump
     :symbol "PUMP"
     :name "Pump"
@@ -106,7 +107,7 @@
   (set (map :key deposit-assets-base)))
 
 (def ^:private deposit-implemented-asset-keys
-  #{:usdc :usdt :btc :eth :sol :2z :bonk :ena :fart})
+  #{:usdc :usdt :btc :eth :sol :2z :bonk :ena :fart :mon})
 
 (defn- non-blank-text
   [value]
