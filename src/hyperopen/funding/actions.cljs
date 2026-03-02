@@ -20,6 +20,88 @@
 (def ^:private deposit-quick-amounts
   [5 1000 10000 100000])
 
+(def ^:private deposit-assets-base
+  [{:key :usdc
+    :symbol "USDC"
+    :name "USDC"
+    :network "Arbitrum"
+    :flow-kind :bridge2
+    :minimum deposit-min-usdc}
+   {:key :usdt
+    :symbol "USDT"
+    :name "Tether"
+    :network "Arbitrum"
+    :flow-kind :route
+    :route-key "lifi"}
+   {:key :btc
+    :symbol "BTC"
+    :name "Bitcoin"
+    :network "Bitcoin"
+    :flow-kind :hyperunit-address
+    :hyperunit-source-chain "bitcoin"}
+   {:key :eth
+    :symbol "ETH"
+    :name "Ethereum"
+    :network "Ethereum"
+    :flow-kind :hyperunit-address}
+   {:key :sol
+    :symbol "SOL"
+    :name "Solana"
+    :network "Solana"
+    :flow-kind :hyperunit-address}
+   {:key :2z
+    :symbol "2Z"
+    :name "ZZ"
+    :network "Solana"
+    :flow-kind :hyperunit-address}
+   {:key :bonk
+    :symbol "BONK"
+    :name "Bonk"
+    :network "Solana"
+    :flow-kind :hyperunit-address}
+   {:key :ena
+    :symbol "ENA"
+    :name "Ethena"
+    :network "Ethereum"
+    :flow-kind :hyperunit-address}
+   {:key :fart
+    :symbol "FARTCOIN"
+    :name "Fartcoin"
+    :network "Solana"
+    :flow-kind :hyperunit-address}
+   {:key :mon
+    :symbol "MON"
+    :name "Monad"
+    :network "Monad"
+    :flow-kind :hyperunit-address}
+   {:key :pump
+    :symbol "PUMP"
+    :name "Pump"
+    :network "Solana"
+    :flow-kind :hyperunit-address}
+   {:key :spxs
+    :symbol "SPX"
+    :name "SPX"
+    :network "Solana"
+    :flow-kind :hyperunit-address}
+   {:key :xpl
+    :symbol "XPL"
+    :name "Plasma"
+    :network "Plasma"
+    :flow-kind :hyperunit-address}
+   {:key :usdh
+    :symbol "USDH"
+    :name "USDH"
+    :network "Arbitrum"
+    :flow-kind :route
+    :route-key "arbitrum_across"}])
+
+(def ^:private deposit-asset-keys
+  (set (map :key deposit-assets-base)))
+
+(def ^:private deposit-implemented-asset-keys
+  #{:usdc :usdt :btc})
+
 (defn- non-blank-text
   [value]
   (let [text (some-> value str str/trim)]
@@ -114,7 +196,7 @@
                     (keyword? value) value
                     (string? value) (some-> value str/trim str/lower-case keyword)
                     :else nil)]
-    (when (= :usdc asset-key)
+    (when (contains? deposit-asset-keys asset-key)
       asset-key)))
 
 (defn- resolve-deposit-network
@@ -129,12 +211,13 @@
 (defn- deposit-assets
   [state]
   (let [{:keys [chain-id chain-label]} (resolve-deposit-network state)]
-    [{:key :usdc
-      :symbol "USDC"
-      :name "USDC"
-      :network chain-label
-      :chain-id chain-id
-      :minimum deposit-min-usdc}]))
+    (mapv (fn [asset]
+            (if (= :usdc (:key asset))
+              (assoc asset
+                     :network chain-label
+                     :chain-id chain-id)
+              asset))
+          deposit-assets-base)))
 
 (defn- deposit-asset
   [state modal]
@@ -143,6 +226,10 @@
             (when (= selected-key (:key asset))
               asset))
           (deposit-assets state))))
+
+(defn- deposit-asset-implemented?
+  [asset]
+  (contains? deposit-implemented-asset-keys (:key asset)))
 
 (defn- deposit-assets-filtered
   [state modal]
@@ -170,6 +257,9 @@
    :deposit-step :asset-select
    :deposit-search-input ""
    :deposit-selected-asset-key nil
+   :deposit-generated-address nil
+   :deposit-generated-signatures nil
+   :deposit-generated-asset-key nil
    :amount-input ""
    :to-perp? true
    :destination-input ""
@@ -338,7 +428,8 @@
   (let [deposit-step (normalize-deposit-step (:deposit-step modal))
         selected-asset (deposit-asset state modal)
         amount (parse-input-amount (:amount-input modal))
-        min-amount (or (:minimum selected-asset) deposit-min-usdc)]
+        min-amount (or (:minimum selected-asset) deposit-min-usdc)
+        flow-kind (:flow-kind selected-asset)]
     (cond
       (not= deposit-step :amount-entry)
       {:ok? false}
@@ -346,6 +437,53 @@
       (nil? selected-asset)
       {:ok? false
        :display-message "Select an asset to deposit."}
+
+      (not (deposit-asset-implemented? selected-asset))
+      {:ok? false
+       :display-message (str (:symbol selected-asset)
+                             " deposits are not implemented yet in Hyperopen.")}
+
+      (= flow-kind :hyperunit-address)
+      (if (= (:key selected-asset) :btc)
+        {:ok? true
+         :request {:action {:type "hyperunitGenerateDepositAddress"
+                            :asset (name (:key selected-asset))
+                            :fromChain (:hyperunit-source-chain selected-asset)
+                            :network (:network selected-asset)}}}
+        {:ok? false
+         :display-message (str (:symbol selected-asset)
+                               " address deposits are not implemented yet in Hyperopen.")})
+
+      (= flow-kind :route)
+      (cond
+        (not (finite-number? amount))
+        {:ok? false
+         :display-message "Enter a valid amount."}
+
+        (<= amount 0)
+        {:ok? false
+         :display-message "Enter an amount greater than 0."}
+
+        (< amount min-amount)
+        {:ok? false
+         :display-message (str "Minimum deposit is " min-amount " "
+                               (:symbol selected-asset) ".")}
+
+        (= (:key selected-asset) :usdt)
+        {:ok? true
+         :request {:action {:type "lifiUsdtToUsdcBridge2Deposit"
+                            :asset (name (:key selected-asset))
+                            :amount (amount->text amount)
+                            :chainId deposit-chain-id-mainnet}}}
+
+        :else
+        {:ok? false
+         :display-message (str (:symbol selected-asset)
+                               " route deposits are not implemented yet in Hyperopen.")})
+
+      (not= flow-kind :bridge2)
+      {:ok? false
+       :display-message "Deposit flow unavailable."}
 
       (not (finite-number? amount))
       {:ok? false
@@ -383,6 +521,16 @@
         deposit-step (normalize-deposit-step (:deposit-step modal))
         deposit-assets* (deposit-assets-filtered state modal)
         selected-deposit-asset (deposit-asset state modal)
+        selected-deposit-asset-key (:key selected-deposit-asset)
+        selected-deposit-flow-kind (or (:flow-kind selected-deposit-asset) :unknown)
+        selected-deposit-implemented? (deposit-asset-implemented? selected-deposit-asset)
+        generated-address-asset-key (normalize-deposit-asset-key (:deposit-generated-asset-key modal))
+        generated-address-active? (and selected-deposit-asset-key
+                                       (= generated-address-asset-key selected-deposit-asset-key))
+        generated-address (when generated-address-active?
+                            (non-blank-text (:deposit-generated-address modal)))
+        generated-signatures (when generated-address-active?
+                             (:deposit-generated-signatures modal))
         preview-result (preview state modal)
         preview-ok? (:ok? preview-result)
         transfer-max (transfer-max-amount state modal)
@@ -420,6 +568,10 @@
      :deposit-search-input (or (:deposit-search-input modal) "")
      :deposit-assets deposit-assets*
      :deposit-selected-asset selected-deposit-asset
+     :deposit-flow-kind selected-deposit-flow-kind
+     :deposit-flow-supported? selected-deposit-implemented?
+     :deposit-generated-address generated-address
+     :deposit-generated-signatures generated-signatures
      :amount-input (or (:amount-input modal) "")
      :to-perp? (true? (:to-perp? modal))
      :destination-input (or (:destination-input modal) "")
@@ -430,10 +582,21 @@
      :preview-ok? preview-ok?
      :status-message status-message
      :deposit-submit-label (if submitting?
-                            "Submitting..."
+                            (if (and (= mode :deposit)
+                                     (= selected-deposit-flow-kind :hyperunit-address))
+                              "Generating..."
+                              "Submitting...")
                             (if preview-ok?
-                              "Deposit"
-                              (or preview-message "Enter a valid amount")))
+                              (if (and (= mode :deposit)
+                                       (= selected-deposit-flow-kind :hyperunit-address))
+                                (if (seq generated-address)
+                                  "Regenerate address"
+                                  "Generate address")
+                                "Deposit")
+                              (if (and (= mode :deposit)
+                                       (not selected-deposit-implemented?))
+                                "Deposit unavailable"
+                                (or preview-message "Enter a valid amount"))))
      :deposit-quick-amounts deposit-quick-amounts
      :deposit-min-usdc deposit-min-usdc
      :submit-label (if submitting?
@@ -515,11 +678,17 @@
                                (assoc :error nil))
                      (= path* [:deposit-selected-asset-key])
                      (assoc :deposit-step :amount-entry
-                            :amount-input "")
+                            :amount-input ""
+                            :deposit-generated-address nil
+                            :deposit-generated-signatures nil
+                            :deposit-generated-asset-key nil)
 
                      (and (= path* [:deposit-step])
                           (= value* :asset-select))
-                     (assoc :amount-input ""))]
+                     (assoc :amount-input ""
+                            :deposit-generated-address nil
+                            :deposit-generated-signatures nil
+                            :deposit-generated-asset-key nil))]
     [[:effects/save funding-modal-path next-modal]]))
 
 (defn set-funding-transfer-direction

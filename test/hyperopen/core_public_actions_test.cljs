@@ -29,6 +29,9 @@
               :deposit-step :asset-select
               :deposit-search-input ""
               :deposit-selected-asset-key nil
+              :deposit-generated-address nil
+              :deposit-generated-signatures nil
+              :deposit-generated-asset-key nil
               :amount-input ""
               :to-perp? true
               :destination-input ""

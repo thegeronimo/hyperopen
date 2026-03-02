@@ -1,0 +1,290 @@
+{
+  "generatedAt": "2026-03-02T16:04:14.673Z",
+  "sources": {
+    "tradePageUrl": "https://app.hyperliquid.xyz/trade",
+    "bundleUrl": "https://app.hyperliquid.xyz/static/js/main.be4d3bab.js",
+    "extractionType": "hyperliquid-frontend-bundle"
+  },
+  "assumptions": {
+    "flowKindByChainKey": {
+      "arbitrum": "bridge2",
+      "arbitrum_cctp": "bridge2",
+      "evm": "bridge2",
+      "bitcoin": "hyperunit-address",
+      "ethereum": "hyperunit-address",
+      "solana": "hyperunit-address",
+      "monad": "hyperunit-address",
+      "plasma": "hyperunit-address",
+      "lifi": "route",
+      "arbitrum_across": "route",
+      "base_across": "route"
+    },
+    "notes": [
+      "bridge2 indicates direct wallet transaction style flow (existing Hyperopen USDC implementation baseline).",
+      "hyperunit-address indicates deposit-address generation/instruction flow.",
+      "route indicates third-party bridge/swap route flow keys (for example lifi/across)."
+    ]
+  },
+  "assets": [
+    {
+      "assetKey": "2z",
+      "routes": [
+        {
+          "chainKey": "solana",
+          "label": "Solana",
+          "flowKind": "hyperunit-address"
+        }
+      ],
+      "flowKinds": [
+        "hyperunit-address"
+      ]
+    },
+    {
+      "assetKey": "bonk",
+      "routes": [
+        {
+          "chainKey": "solana",
+          "label": "Solana",
+          "flowKind": "hyperunit-address"
+        }
+      ],
+      "flowKinds": [
+        "hyperunit-address"
+      ]
+    },
+    {
+      "assetKey": "btc",
+      "routes": [
+        {
+          "chainKey": "bitcoin",
+          "label": "Bitcoin",
+          "flowKind": "hyperunit-address"
+        }
+      ],
+      "flowKinds": [
+        "hyperunit-address"
+      ]
+    },
+    {
+      "assetKey": "ena",
+      "routes": [
+        {
+          "chainKey": "ethereum",
+          "label": "Ethereum",
+          "flowKind": "hyperunit-address"
+        }
+      ],
+      "flowKinds": [
+        "hyperunit-address"
+      ]
+    },
+    {
+      "assetKey": "eth",
+      "routes": [
+        {
+          "chainKey": "ethereum",
+          "label": "Ethereum",
+          "flowKind": "hyperunit-address"
+        }
+      ],
+      "flowKinds": [
+        "hyperunit-address"
+      ]
+    },
+    {
+      "assetKey": "fart",
+      "routes": [
+        {
+          "chainKey": "solana",
+          "label": "Solana",
+          "flowKind": "hyperunit-address"
+        }
+      ],
+      "flowKinds": [
+        "hyperunit-address"
+      ]
+    },
+    {
+      "assetKey": "mon",
+      "routes": [
+        {
+          "chainKey": "monad",
+          "label": "Monad",
+          "flowKind": "hyperunit-address"
+        }
+      ],
+      "flowKinds": [
+        "hyperunit-address"
+      ]
+    },
+    {
+      "assetKey": "pump",
+      "routes": [
+        {
+          "chainKey": "solana",
+          "label": "Solana",
+          "flowKind": "hyperunit-address"
+        }
+      ],
+      "flowKinds": [
+        "hyperunit-address"
+      ]
+    },
+    {
+      "assetKey": "sol",
+      "routes": [
+        {
+          "chainKey": "solana",
+          "label": "Solana",
+          "flowKind": "hyperunit-address"
+        }
+      ],
+      "flowKinds": [
+        "hyperunit-address"
+      ]
+    },
+    {
+      "assetKey": "spxs",
+      "routes": [
+        {
+          "chainKey": "solana",
+          "label": "Solana",
+          "flowKind": "hyperunit-address"
+        }
+      ],
+      "flowKinds": [
+        "hyperunit-address"
+      ]
+    },
+    {
+      "assetKey": "usdc",
+      "routes": [
+        {
+          "chainKey": "arbitrum_cctp",
+          "label": "Arbitrum (CCTP)",
+          "flowKind": "bridge2"
+        },
+        {
+          "chainKey": "arbitrum",
+          "label": "Arbitrum",
+          "flowKind": "bridge2"
+        },
+        {
+          "chainKey": "lifi",
+          "label": "Arbitrum (Swap USDT for USDC)",
+          "flowKind": "route"
+        },
+        {
+          "chainKey": "evm",
+          "label": "HyperEVM",
+          "flowKind": "bridge2"
+        }
+      ],
+      "flowKinds": [
+        "bridge2",
+        "route"
+      ]
+    },
+    {
+      "assetKey": "usdh",
+      "routes": [
+        {
+          "chainKey": "arbitrum_across",
+          "label": "Arbitrum",
+          "flowKind": "route"
+        }
+      ],
+      "flowKinds": [
+        "route"
+      ]
+    },
+    {
+      "assetKey": "usdt",
+      "routes": [
+        {
+          "chainKey": "lifi",
+          "label": "Arbitrum (Swap USDT for USDC)",
+          "flowKind": "route"
+        }
+      ],
+      "flowKinds": [
+        "route"
+      ]
+    },
+    {
+      "assetKey": "xpl",
+      "routes": [
+        {
+          "chainKey": "plasma",
+          "label": "Plasma",
+          "flowKind": "hyperunit-address"
+        }
+      ],
+      "flowKinds": [
+        "hyperunit-address"
+      ]
+    }
+  ],
+  "summary": {
+    "assetCount": 14,
+    "byFlowKind": {
+      "hyperunit-address": [
+        "2z",
+        "bonk",
+        "btc",
+        "ena",
+        "eth",
+        "fart",
+        "mon",
+        "pump",
+        "sol",
+        "spxs",
+        "xpl"
+      ],
+      "bridge2": [
+        "usdc"
+      ],
+      "route": [
+        "usdc",
+        "usdh",
+        "usdt"
+      ]
+    },
+    "userMentionedCoverage": {
+      "userMentionedAssets": [
+        "usdt",
+        "btc",
+        "eth",
+        "sol",
+        "2z",
+        "bonk",
+        "ena",
+        "fart",
+        "mon",
+        "pump",
+        "spxs",
+        "xpl"
+      ],
+      "present": [
+        "usdt",
+        "btc",
+        "eth",
+        "sol",
+        "2z",
+        "bonk",
+        "ena",
+        "fart",
+        "mon",
+        "pump",
+        "spxs",
+        "xpl"
+      ],
+      "missing": [],
+      "additional": [
+        "usdc",
+        "usdh"
+      ]
+    },
+    "unknownRoutes": []
+  }
+}

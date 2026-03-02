@@ -125,6 +125,10 @@
                 deposit-search-input
                 deposit-assets
                 deposit-selected-asset
+                deposit-flow-kind
+                deposit-flow-supported?
+                deposit-generated-address
+                deposit-generated-signatures
                 deposit-submit-label
                 deposit-quick-amounts
                 deposit-min-usdc
@@ -148,6 +152,10 @@
                                      :network "Arbitrum"})
         selected-deposit-icon-src (asset-icon/market-icon-url {:coin (:symbol selected-deposit-asset*)
                                                                 :symbol (:symbol selected-deposit-asset*)})
+        deposit-flow-kind* (or deposit-flow-kind :unknown)
+        generated-signature-count (if (sequential? deposit-generated-signatures)
+                                    (count deposit-generated-signatures)
+                                    0)
         amount-input-display (format-grouped-amount-input amount-input)
         modal-title (if (and deposit?
                              deposit-amount-entry?
@@ -252,96 +260,194 @@
              [:div {:class ["flex" "flex-col"]}
               [:span {:class ["text-sm" "font-semibold" "text-[#e6eef2]"]} (:symbol selected-deposit-asset*)]
               [:span {:class ["text-xs" "text-[#7e95a0]"]} (:network selected-deposit-asset*)]]]]
-           [:div {:class ["space-y-1.5"]}
-            [:label {:class ["block" "text-xs" "text-[#7e94a0]"]}
-             "Amount"]
-            [:div {:class ["flex"
-                           "items-center"
-                           "rounded-lg"
-                           "border"
-                           "border-[#2a4658]"
-                           "bg-[#0f2230]"
-                           "px-2"
-                           "py-1.5"
-                           "gap-2"]}
-             [:button {:type "button"
-                       :class ["rounded-md"
+           (if deposit-flow-supported?
+             (case deposit-flow-kind*
+               :hyperunit-address
+               [:div {:class ["space-y-3"]}
+                [:div {:class ["rounded-lg"
                                "border"
-                               "border-[#445565]"
-                               "bg-[#26313d]"
-                               "px-2"
-                               "py-0.5"
-                               "text-xs"
-                               "font-semibold"
-                               "text-[#e6eef2]"
-                               "hover:border-[#607487]"]
-                       :on {:click [[:actions/set-funding-modal-field [:amount-input] (str deposit-min-usdc)]]}}
-              "MAX"]
-             [:input {:type "text"
-                      :input-mode "decimal"
-                      :placeholder (str deposit-min-usdc)
-                      :disabled submitting?
-                      :value amount-input-display
-                      :class ["flex-1"
-                              "bg-transparent"
-                              "border-0"
-                              "ring-0"
-                              "shadow-none"
-                              "text-sm"
-                              "text-[#e6eef2]"
-                              "text-right"
-                              "outline-none"
-                              "focus:border-0"
-                              "focus:ring-0"
-                              "disabled:opacity-70"]
-                      :on {:input [[:actions/set-funding-modal-field [:amount-input] [:event.target/value]]]}}]
-             [:span {:class ["text-sm" "text-[#7e95a0]"]} (:symbol selected-deposit-asset*)]]]
-           [:div {:class ["flex" "gap-2"]}
-            (for [quick-amount deposit-quick-amounts]
-              ^{:key (str "deposit-quick-" quick-amount)}
-              [:button {:type "button"
-                        :class ["rounded-md"
+                               "border-[#24485b]"
+                               "bg-[#0f2433]"
+                               "px-3"
+                               "py-3"
+                               "space-y-1.5"]}
+                 [:p {:class ["text-sm" "text-[#d9e7ed]"]}
+                  "Generate a deposit address and send funds on the selected network."]
+                 [:p {:class ["text-xs" "text-[#7f97a0]"]}
+                  "Only send "
+                  [:span {:class ["font-semibold" "text-[#c9dce4]"]} (:symbol selected-deposit-asset*)]
+                  " from "
+                  [:span {:class ["font-semibold" "text-[#c9dce4]"]} (:network selected-deposit-asset*)]
+                  "."]
+                 (when (seq deposit-generated-address)
+                   [:div {:class ["space-y-1.5" "pt-1"]}
+                    [:p {:class ["text-xs" "uppercase" "tracking-[0.08em]" "text-[#7c93a0]"]}
+                     "Deposit Address"]
+                    [:div {:class ["rounded-md"
+                                   "border"
+                                   "border-[#2c5468]"
+                                   "bg-[#0a1d29]"
+                                   "px-2.5"
+                                   "py-2"
+                                   "text-xs"
+                                   "font-mono"
+                                   "break-all"
+                                   "text-[#d6e8ee]"]
+                     :data-role "funding-deposit-generated-address"}
+                     deposit-generated-address]
+                    (when (pos? generated-signature-count)
+                      [:p {:class ["text-xs" "text-[#7f97a0]"]}
+                       (str "Authorization signatures: " generated-signature-count)])])]
+                [:div {:class ["space-y-1.5" "pt-1" "text-sm"]}
+                 [:div {:class ["flex" "items-center" "justify-between"]}
+                  [:span {:class ["text-[#7d94a0]"]} "Estimated time"]
+                  [:span {:class ["text-[#dce9ee]"]} "Depends on source confirmations"]]
+                 [:div {:class ["flex" "items-center" "justify-between"]}
+                  [:span {:class ["text-[#7d94a0]"]} "Network fee"]
+                  [:span {:class ["text-[#dce9ee]"]} "Paid on source chain"]]]
+                [:div {:class ["grid" "grid-cols-[56px_1fr]" "gap-2" "pt-1"]}
+                 [:button {:type "button"
+                           :class ["h-[38px]"
+                                   "rounded-lg"
+                                   "border"
+                                   "border-[#355061]"
+                                   "bg-[#152633]"
+                                   "text-lg"
+                                   "text-[#cfe0e7]"
+                                   "hover:border-[#4b6c82]"
+                                   "hover:bg-[#1b3242]"]
+                           :on {:click [[:actions/set-funding-modal-field [:deposit-step] :asset-select]]}}
+                  "←"]
+                 [:button {:type "button"
+                           :disabled submit-disabled?
+                           :class (submit-button-classes submit-disabled?)
+                           :on {:click [[:actions/submit-funding-deposit]]}}
+                  deposit-submit-label]]]
+
+               [:div {:class ["space-y-3"]}
+                [:div {:class ["space-y-1.5"]}
+                 [:label {:class ["block" "text-xs" "text-[#7e94a0]"]}
+                  "Amount"]
+                 [:div {:class ["flex"
+                                "items-center"
+                                "rounded-lg"
                                 "border"
-                                "border-[#3a4d5d]"
-                                "bg-[#111f29]"
-                                "px-3"
+                                "border-[#2a4658]"
+                                "bg-[#0f2230]"
+                                "px-2"
                                 "py-1.5"
-                                "text-xs"
-                                "text-[#e0ebef]"
-                                "hover:border-[#537089]"
-                                "hover:bg-[#162b37]"]
-                        :on {:click [[:actions/set-funding-modal-field [:amount-input] (str quick-amount)]]}}
-               (if (>= quick-amount 1000)
-                 (str (/ quick-amount 1000) "k")
-                 (str quick-amount))])]
-           [:div {:class ["space-y-1.5" "pt-2" "text-sm"]}
-            [:div {:class ["flex" "items-center" "justify-between"]}
-             [:span {:class ["text-[#7d94a0]"]} "Minimum deposit"]
-             [:span {:class ["text-[#dce9ee]"]} (str deposit-min-usdc " " (:symbol selected-deposit-asset*))]]
-            [:div {:class ["flex" "items-center" "justify-between"]}
-             [:span {:class ["text-[#7d94a0]"]} "Estimated time"]
-             [:span {:class ["text-[#dce9ee]"]} "~10 seconds"]]
-            [:div {:class ["flex" "items-center" "justify-between"]}
-             [:span {:class ["text-[#7d94a0]"]} "Network fee"]
-             [:span {:class ["text-[#dce9ee]"]} "None"]]]
-           [:div {:class ["grid" "grid-cols-[56px_1fr]" "gap-2" "pt-1"]}
-            [:button {:type "button"
-                      :class ["h-[38px]"
-                              "rounded-lg"
-                              "border"
-                              "border-[#355061]"
-                              "bg-[#152633]"
-                              "text-lg"
-                              "text-[#cfe0e7]"
-                              "hover:border-[#4b6c82]"
-                              "hover:bg-[#1b3242]"]
-                      :on {:click [[:actions/set-funding-modal-field [:deposit-step] :asset-select]]}}
-             "←"]
-            [:button {:type "button"
-                      :disabled submit-disabled?
-                      :class (submit-button-classes submit-disabled?)
-                      :on {:click [[:actions/submit-funding-deposit]]}}
-             deposit-submit-label]]])
+                                "gap-2"]}
+                  [:button {:type "button"
+                            :class ["rounded-md"
+                                    "border"
+                                    "border-[#445565]"
+                                    "bg-[#26313d]"
+                                    "px-2"
+                                    "py-0.5"
+                                    "text-xs"
+                                    "font-semibold"
+                                    "text-[#e6eef2]"
+                                    "hover:border-[#607487]"]
+                            :on {:click [[:actions/set-funding-modal-field [:amount-input] (str deposit-min-usdc)]]}}
+                   "MAX"]
+                  [:input {:type "text"
+                           :input-mode "decimal"
+                           :placeholder (str deposit-min-usdc)
+                           :disabled submitting?
+                           :value amount-input-display
+                           :class ["flex-1"
+                                   "bg-transparent"
+                                   "border-0"
+                                   "ring-0"
+                                   "shadow-none"
+                                   "text-sm"
+                                   "text-[#e6eef2]"
+                                   "text-right"
+                                   "outline-none"
+                                   "focus:border-0"
+                                   "focus:ring-0"
+                                   "disabled:opacity-70"]
+                           :on {:input [[:actions/set-funding-modal-field [:amount-input] [:event.target/value]]]}}]
+                  [:span {:class ["text-sm" "text-[#7e95a0]"]} (:symbol selected-deposit-asset*)]]]
+                [:div {:class ["flex" "gap-2"]}
+                 (for [quick-amount deposit-quick-amounts]
+                   ^{:key (str "deposit-quick-" quick-amount)}
+                   [:button {:type "button"
+                             :class ["rounded-md"
+                                     "border"
+                                     "border-[#3a4d5d]"
+                                     "bg-[#111f29]"
+                                     "px-3"
+                                     "py-1.5"
+                                     "text-xs"
+                                     "text-[#e0ebef]"
+                                     "hover:border-[#537089]"
+                                     "hover:bg-[#162b37]"]
+                             :on {:click [[:actions/set-funding-modal-field [:amount-input] (str quick-amount)]]}}
+                    (if (>= quick-amount 1000)
+                      (str (/ quick-amount 1000) "k")
+                      (str quick-amount))])]
+                [:div {:class ["space-y-1.5" "pt-2" "text-sm"]}
+                 [:div {:class ["flex" "items-center" "justify-between"]}
+                  [:span {:class ["text-[#7d94a0]"]} "Minimum deposit"]
+                  [:span {:class ["text-[#dce9ee]"]} (str deposit-min-usdc " " (:symbol selected-deposit-asset*))]]
+                 [:div {:class ["flex" "items-center" "justify-between"]}
+                  [:span {:class ["text-[#7d94a0]"]} "Estimated time"]
+                  [:span {:class ["text-[#dce9ee]"]} "~10 seconds"]]
+                 [:div {:class ["flex" "items-center" "justify-between"]}
+                  [:span {:class ["text-[#7d94a0]"]} "Network fee"]
+                  [:span {:class ["text-[#dce9ee]"]} "None"]]]
+                [:div {:class ["grid" "grid-cols-[56px_1fr]" "gap-2" "pt-1"]}
+                 [:button {:type "button"
+                           :class ["h-[38px]"
+                                   "rounded-lg"
+                                   "border"
+                                   "border-[#355061]"
+                                   "bg-[#152633]"
+                                   "text-lg"
+                                   "text-[#cfe0e7]"
+                                   "hover:border-[#4b6c82]"
+                                   "hover:bg-[#1b3242]"]
+                           :on {:click [[:actions/set-funding-modal-field [:deposit-step] :asset-select]]}}
+                  "←"]
+                 [:button {:type "button"
+                           :disabled submit-disabled?
+                           :class (submit-button-classes submit-disabled?)
+                           :on {:click [[:actions/submit-funding-deposit]]}}
+                  deposit-submit-label]]])
+             [:div {:class ["space-y-3"]}
+              [:div {:class ["rounded-lg"
+                             "border"
+                             "border-[#264759]"
+                             "bg-[#102535]"
+                             "px-3"
+                             "py-3"
+                             "text-sm"
+                             "text-[#9bb1b9]"
+                             "space-y-1.5"]}
+               [:p "This asset's deposit flow is not implemented in Hyperopen yet."]
+               [:p {:class ["text-xs" "text-[#7f98a0]"]}
+                (case deposit-flow-kind*
+                  :route "Route-based bridge/swap flow will be implemented in the next milestone."
+                  :hyperunit-address "Address-based deposit instructions will be implemented in the next milestone."
+                  "Deposit flow details are unavailable.")]]
+              [:div {:class ["grid" "grid-cols-[56px_1fr]" "gap-2" "pt-1"]}
+               [:button {:type "button"
+                         :class ["h-[38px]"
+                                 "rounded-lg"
+                                 "border"
+                                 "border-[#355061]"
+                                 "bg-[#152633]"
+                                 "text-lg"
+                                 "text-[#cfe0e7]"
+                                 "hover:border-[#4b6c82]"
+                                 "hover:bg-[#1b3242]"]
+                         :on {:click [[:actions/set-funding-modal-field [:deposit-step] :asset-select]]}}
+                "←"]
+               [:button {:type "button"
+                         :disabled true
+                         :class (submit-button-classes true)}
+                deposit-submit-label]]])])
 
         (when transfer?
           [:div {:class ["space-y-3"]}

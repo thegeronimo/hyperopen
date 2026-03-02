@@ -19,6 +19,9 @@
    :deposit-step :asset-select
    :deposit-search-input ""
    :deposit-selected-asset-key nil
+   :deposit-generated-address nil
+   :deposit-generated-signatures nil
+   :deposit-generated-asset-key nil
    :amount-input ""
    :to-perp? true
    :destination-input "0x1234567890abcdef1234567890abcdef12345678"
@@ -174,6 +177,9 @@
                          :mode :deposit
                          :deposit-step :asset-select
                          :deposit-selected-asset-key nil
+                         :deposit-generated-address "bc1old"
+                         :deposit-generated-signatures [{:r "0x1"}]
+                         :deposit-generated-asset-key :btc
                          :amount-input "12"})]
     (let [[effect-id path next-modal]
           (first (funding-actions/set-funding-modal-field state
@@ -183,7 +189,10 @@
       (is (= [:funding-ui :modal] path))
       (is (= :usdc (:deposit-selected-asset-key next-modal)))
       (is (= :amount-entry (:deposit-step next-modal)))
-      (is (= "" (:amount-input next-modal))))))
+      (is (= "" (:amount-input next-modal)))
+      (is (nil? (:deposit-generated-address next-modal)))
+      (is (nil? (:deposit-generated-signatures next-modal)))
+      (is (nil? (:deposit-generated-asset-key next-modal))))))
 
 (deftest set-funding-modal-field-amount-input-normalizes-grouping-separators-test
   (let [state (assoc-in (base-state)
@@ -215,6 +224,69 @@
                        :amount "100000"
                        :chainId "0xa4b1"}}]]
            (funding-actions/submit-funding-deposit state)))))
+
+(deftest submit-funding-deposit-supports-usdt-route-flow-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :deposit
+                         :deposit-step :amount-entry
+                         :deposit-selected-asset-key :usdt
+                         :amount-input "10"})]
+    (is (= [[:effects/save-many [[[:funding-ui :modal :submitting?] true]
+                                 [[:funding-ui :modal :error] nil]]]
+            [:effects/api-submit-funding-deposit
+             {:action {:type "lifiUsdtToUsdcBridge2Deposit"
+                       :asset "usdt"
+                       :amount "10"
+                       :chainId "0xa4b1"}}]]
+           (funding-actions/submit-funding-deposit state)))))
+
+(deftest submit-funding-deposit-supports-btc-hyperunit-address-flow-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :deposit
+                         :deposit-step :amount-entry
+                         :deposit-selected-asset-key :btc
+                         :amount-input ""})]
+    (is (= [[:effects/save-many [[[:funding-ui :modal :submitting?] true]
+                                 [[:funding-ui :modal :error] nil]]]
+            [:effects/api-submit-funding-deposit
+             {:action {:type "hyperunitGenerateDepositAddress"
+                       :asset "btc"
+                       :fromChain "bitcoin"
+                       :network "Bitcoin"}}]]
+           (funding-actions/submit-funding-deposit state)))))
+
+(deftest submit-funding-deposit-rejects-unimplemented-asset-flows-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :deposit
+                         :deposit-step :amount-entry
+                         :deposit-selected-asset-key :xpl
+                         :amount-input "10"})]
+    (is (= [[:effects/save-many [[[:funding-ui :modal :submitting?] false]
+                                 [[:funding-ui :modal :error] "XPL deposits are not implemented yet in Hyperopen."]]]]
+           (funding-actions/submit-funding-deposit state)))))
+
+(deftest funding-modal-view-model-includes-multi-asset-deposit-catalog-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :deposit
+                         :deposit-step :asset-select
+                         :deposit-search-input ""
+                         :deposit-selected-asset-key nil
+                         :amount-input ""})
+        view-model (funding-actions/funding-modal-view-model state)
+        asset-keys (set (map :key (:deposit-assets view-model)))]
+    (is (contains? asset-keys :usdc))
+    (is (contains? asset-keys :usdt))
+    (is (contains? asset-keys :btc))
+    (is (contains? asset-keys :xpl))
+    (is (contains? asset-keys :usdh))))
 
 (deftest set-funding-amount-to-max-respects-active-mode-test
   (let [transfer-state (assoc-in (base-state)

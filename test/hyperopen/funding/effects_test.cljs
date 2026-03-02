@@ -241,6 +241,92 @@
                     (is false (str "Unexpected deposit success-path error: " err))
                     (done)))))))
 
+(deftest api-submit-funding-deposit-usdt-route-delegates-to-lifi-submitter-test
+  (async done
+    (let [default-modal {:open? false :mode nil :submitting? false :error nil}
+          store (atom {:wallet {:address "0xabc"}
+                       :funding-ui {:modal (seed-modal :deposit)}})
+          toasts (atom [])
+          submit-calls (atom [])]
+      (-> (effects/api-submit-funding-deposit!
+           {:store store
+            :request {:action {:type "lifiUsdtToUsdcBridge2Deposit"
+                               :asset "usdt"
+                               :amount "10"
+                               :chainId "0xa4b1"}}
+            :submit-usdc-bridge2-deposit! (fn [_store _address _action]
+                                            (js/Promise.resolve {:status "err"
+                                                                 :error "wrong submitter"}))
+            :submit-usdt-lifi-deposit! (fn [_store address action]
+                                         (swap! submit-calls conj [address action])
+                                         (js/Promise.resolve {:status "ok"
+                                                              :network "Arbitrum"}))
+            :show-toast! (fn [_store kind message]
+                           (swap! toasts conj [kind message]))
+            :default-funding-modal-state (fn [] default-modal)})
+          (.then (fn [resp]
+                   (is (= "ok" (:status resp)))
+                   (is (= [["0xabc" {:type "lifiUsdtToUsdcBridge2Deposit"
+                                     :asset "usdt"
+                                     :amount "10"
+                                     :chainId "0xa4b1"}]]
+                          @submit-calls))
+                   (is (= default-modal (get-in @store [:funding-ui :modal])))
+                   (is (= [[:success "Deposit submitted on Arbitrum."]]
+                          @toasts))
+                   (done)))
+          (.catch (fn [err]
+                    (is false (str "Unexpected USDT route deposit success-path error: " err))
+                    (done)))))))
+
+(deftest api-submit-funding-deposit-hyperunit-address-keeps-modal-open-test
+  (async done
+    (let [store (atom {:wallet {:address "0xabc"}
+                       :funding-ui {:modal (assoc (seed-modal :deposit)
+                                                  :deposit-step :amount-entry
+                                                  :deposit-selected-asset-key :btc
+                                                  :deposit-generated-address nil
+                                                  :deposit-generated-signatures nil
+                                                  :deposit-generated-asset-key nil)}})
+          toasts (atom [])
+          submit-calls (atom [])]
+      (-> (effects/api-submit-funding-deposit!
+           {:store store
+            :request {:action {:type "hyperunitGenerateDepositAddress"
+                               :asset "btc"
+                               :fromChain "bitcoin"
+                               :network "Bitcoin"}}
+            :submit-hyperunit-address-request! (fn [_store address action]
+                                                 (swap! submit-calls conj [address action])
+                                                 (js/Promise.resolve {:status "ok"
+                                                                      :keep-modal-open? true
+                                                                      :asset "btc"
+                                                                      :deposit-address "bc1qexamplexyz"
+                                                                      :deposit-signatures [{:r "0x1"}]}))
+            :show-toast! (fn [_store kind message]
+                           (swap! toasts conj [kind message]))})
+          (.then (fn [resp]
+                   (is (= "ok" (:status resp)))
+                   (is (= [["0xabc" {:type "hyperunitGenerateDepositAddress"
+                                     :asset "btc"
+                                     :fromChain "bitcoin"
+                                     :network "Bitcoin"}]]
+                          @submit-calls))
+                   (is (= "bc1qexamplexyz"
+                          (get-in @store [:funding-ui :modal :deposit-generated-address])))
+                   (is (= [{:r "0x1"}]
+                          (get-in @store [:funding-ui :modal :deposit-generated-signatures])))
+                   (is (= :btc
+                          (get-in @store [:funding-ui :modal :deposit-generated-asset-key])))
+                   (is (= false
+                          (get-in @store [:funding-ui :modal :submitting?])))
+                   (is (= [[:success "Deposit address generated."]]
+                          @toasts))
+                   (done)))
+          (.catch (fn [err]
+                    (is false (str "Unexpected HyperUnit deposit-address success-path error: " err))
+                    (done)))))))
+
 (deftest api-submit-funding-deposit-runtime-error-sets-error-state-test
   (async done
     (let [store (atom {:wallet {:address "0xabc"}
