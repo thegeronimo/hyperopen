@@ -67,7 +67,8 @@
     :symbol "ENA"
     :name "Ethena"
     :network "Ethereum"
-    :flow-kind :hyperunit-address}
+    :flow-kind :hyperunit-address
+    :hyperunit-source-chain "ethereum"}
    {:key :fart
     :symbol "FARTCOIN"
     :name "Fartcoin"
@@ -104,7 +105,7 @@
   (set (map :key deposit-assets-base)))
 
 (def ^:private deposit-implemented-asset-keys
-  #{:usdc :usdt :btc :eth :sol :2z :bonk})
+  #{:usdc :usdt :btc :eth :sol :2z :bonk :ena})
 
 (defn- non-blank-text
   [value]
