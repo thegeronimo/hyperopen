@@ -29,6 +29,7 @@
     (is (= default-trade-history (get-in state [:account-info :trade-history])))
     (is (= default-funding-history (get-in state [:account-info :funding-history])))
     (is (= default-order-history (get-in state [:account-info :order-history])))
+    (is (string? (get-in state [:ui :locale])))
     (is (= "/trade" (get-in state [:router :path])))
     (is (= :bootstrap (get-in state [:asset-selector :phase])))
     (is (= :orderbook (get-in state [:orderbook-ui :active-tab])))
@@ -159,3 +160,35 @@
                   :default-order-history {}}))]
     (is (= :two-year (get-in state [:portfolio-ui :summary-time-range])))
     (is (= :one-year (get-in state [:vaults-ui :snapshot-range])))))
+
+(deftest default-app-state-loads-persisted-ui-locale-when-valid-test
+  (let [state (with-redefs [platform/local-storage-get (fn [key]
+                                                         (case key
+                                                           "ui-locale" "en_US"
+                                                           nil))]
+                (app-defaults/default-app-state
+                 {:websocket-health {}
+                  :default-agent-state {}
+                  :default-order-form {}
+                  :default-order-form-ui {}
+                  :default-order-form-runtime {}
+                  :default-trade-history {}
+                  :default-funding-history {}
+                  :default-order-history {}}))]
+    (is (= "en-US" (get-in state [:ui :locale])))))
+
+(deftest default-app-state-falls-back-to-default-ui-locale-when-invalid-test
+  (let [state (with-redefs [platform/local-storage-get (fn [key]
+                                                         (case key
+                                                           "ui-locale" "not-a-locale"
+                                                           nil))]
+                (app-defaults/default-app-state
+                 {:websocket-health {}
+                  :default-agent-state {}
+                  :default-order-form {}
+                  :default-order-form-ui {}
+                  :default-order-form-runtime {}
+                  :default-trade-history {}
+                  :default-funding-history {}
+                  :default-order-history {}}))]
+    (is (= "en-US" (get-in state [:ui :locale])))))

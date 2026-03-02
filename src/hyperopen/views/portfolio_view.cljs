@@ -4,38 +4,30 @@
             [hyperopen.views.account-info-view :as account-info-view]
             [hyperopen.views.portfolio.vm :as portfolio-vm]))
 
-(def ^:private compact-currency-formatter
-  (js/Intl.NumberFormat.
-   "en-US"
-   #js {:notation "compact"
-        :maximumFractionDigits 1}))
+(def ^:private compact-currency-format-options
+  {:style "currency"
+   :currency "USD"
+   :notation "compact"
+   :maximumFractionDigits 1})
 
-(def ^:private integer-formatter
-  (js/Intl.NumberFormat.
-   "en-US"
-   #js {:maximumFractionDigits 0}))
+(def ^:private integer-format-options
+  {:maximumFractionDigits 0})
 
-(def ^:private tooltip-currency-formatter
-  (js/Intl.NumberFormat.
-   "en-US"
-   #js {:style "currency"
-        :currency "USD"
-        :maximumFractionDigits 0
-        :minimumFractionDigits 0}))
+(def ^:private tooltip-currency-format-options
+  {:style "currency"
+   :currency "USD"
+   :maximumFractionDigits 0
+   :minimumFractionDigits 0})
 
-(def ^:private tooltip-time-formatter
-  (js/Intl.DateTimeFormat.
-   "en-US"
-   #js {:hour "2-digit"
-        :minute "2-digit"
-        :hour12 false}))
+(def ^:private tooltip-time-format-options
+  {:hour "2-digit"
+   :minute "2-digit"
+   :hour12 false})
 
-(def ^:private tooltip-date-parts-formatter
-  (js/Intl.DateTimeFormat.
-   "en-US"
-   #js {:year "numeric"
-        :month "short"
-        :day "2-digit"}))
+(def ^:private tooltip-date-format-options
+  {:year "numeric"
+   :month "short"
+   :day "2-digit"})
 
 (def ^:private action-items
   [{:label "Link Staking"
@@ -62,7 +54,8 @@
 
 (defn- format-compact-currency [value]
   (let [n (if (number? value) value 0)]
-    (str "$" (.format compact-currency-formatter n))))
+    (or (fmt/format-intl-number n compact-currency-format-options)
+        "$0")))
 
 (defn- format-fee-pct [pct]
   (let [n (if (number? pct) pct 0)]
@@ -94,7 +87,8 @@
 
 (defn- format-integer-value [value]
   (when (finite-number? value)
-    (.format integer-formatter (js/Math.round value))))
+    (fmt/format-intl-number (js/Math.round value)
+                            integer-format-options)))
 
 (defn- format-metric-value [kind value]
   (case kind
@@ -114,11 +108,15 @@
 
 (defn- format-hype [value]
   (let [n (if (number? value) value 0)]
-    (str (.format integer-formatter n) " HYPE")))
+    (str (or (fmt/format-intl-number n integer-format-options)
+             "0")
+         " HYPE")))
 
 (defn- format-axis-number [value]
   (let [n (if (number? value) value 0)]
-    (.format integer-formatter (js/Math.round n))))
+    (or (fmt/format-intl-number (js/Math.round n)
+                                integer-format-options)
+        "0")))
 
 (defn- format-axis-percent [value]
   (let [n (if (number? value) value 0)
@@ -142,35 +140,21 @@
     (> value max-value) max-value
     :else value))
 
-(defn- date-part-value [parts token]
-  (some (fn [{:keys [type value]}]
-          (when (= type token)
-            value))
-        parts))
-
 (defn- format-tooltip-date [time-ms]
-  (if (number? time-ms)
-    (let [parts (js->clj (.formatToParts tooltip-date-parts-formatter (js/Date. time-ms))
-                         :keywordize-keys true)
-          year (date-part-value parts "year")
-          month (date-part-value parts "month")
-          day (date-part-value parts "day")]
-      (if (and year month day)
-        (str year " " month " " day)
-        "--"))
-    "--"))
+  (or (fmt/format-intl-date-time time-ms tooltip-date-format-options)
+      "--"))
 
 (defn- format-tooltip-time [time-ms]
-  (if (number? time-ms)
-    (.format tooltip-time-formatter (js/Date. time-ms))
-    "--:--"))
+  (or (fmt/format-intl-date-time time-ms tooltip-time-format-options)
+      "--:--"))
 
 (defn- format-tooltip-value [selected-tab value]
   (if (= selected-tab :returns)
     (format-axis-percent value)
     (let [n (if (number? value) value 0)
           n* (if (== n -0) 0 n)]
-      (.format tooltip-currency-formatter n*))))
+      (or (fmt/format-intl-number n* tooltip-currency-format-options)
+          "$0"))))
 
 (defn- tooltip-metric-label [selected-tab]
   (case selected-tab

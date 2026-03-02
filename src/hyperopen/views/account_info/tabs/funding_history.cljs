@@ -59,10 +59,10 @@
                                                  (:size-raw row))))
         {:keys [base-label]} (shared/resolve-coin-display (:coin row) {})
         coin (or (shared/non-blank-text base-label) "-")]
-    (str (.toLocaleString (js/Number. size)
-                          "en-US"
-                          #js {:minimumFractionDigits 3
-                               :maximumFractionDigits 6})
+    (str (or (fmt/format-intl-number size
+                                     {:minimumFractionDigits 3
+                                      :maximumFractionDigits 6})
+             "0.000")
          " "
          coin)))
 
@@ -74,10 +74,10 @@
                       (pos? payment) "text-success"
                       :else "text-base-content")]
     [:span {:class [color-class "num"]}
-     (str (.toLocaleString (js/Number. payment)
-                           "en-US"
-                           #js {:minimumFractionDigits 4
-                                :maximumFractionDigits 6})
+     (str (or (fmt/format-intl-number payment
+                                      {:minimumFractionDigits 4
+                                       :maximumFractionDigits 6})
+              "0.0000")
           " USDC")]))
 
 (defn- funding-rate-node [row]

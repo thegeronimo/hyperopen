@@ -3,19 +3,15 @@
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.vault-detail.format :as vf]))
 
-(def ^:private tooltip-time-formatter
-  (js/Intl.DateTimeFormat.
-   "en-US"
-   #js {:hour "2-digit"
-        :minute "2-digit"
-        :hour12 false}))
+(def ^:private tooltip-time-format-options
+  {:hour "2-digit"
+   :minute "2-digit"
+   :hour12 false})
 
-(def ^:private tooltip-date-parts-formatter
-  (js/Intl.DateTimeFormat.
-   "en-US"
-   #js {:year "numeric"
-        :month "short"
-        :day "2-digit"}))
+(def ^:private tooltip-date-format-options
+  {:year "numeric"
+   :month "short"
+   :day "2-digit"})
 
 (defn- format-chart-axis-value
   [axis-kind value]
@@ -44,31 +40,15 @@
       :account-value (vf/format-currency n* {:missing "$0.00"})
       (vf/format-currency n* {:missing "$0.00"}))))
 
-(defn- date-part-value
-  [parts token]
-  (some (fn [{:keys [type value]}]
-          (when (= type token)
-            value))
-        parts))
-
 (defn- format-tooltip-date
   [time-ms]
-  (if (number? time-ms)
-    (let [parts (js->clj (.formatToParts tooltip-date-parts-formatter (js/Date. time-ms))
-                         :keywordize-keys true)
-          year (date-part-value parts "year")
-          month (date-part-value parts "month")
-          day (date-part-value parts "day")]
-      (if (and year month day)
-        (str year " " month " " day)
-        "—"))
-    "—"))
+  (or (fmt/format-intl-date-time time-ms tooltip-date-format-options)
+      "—"))
 
 (defn- format-tooltip-time
   [time-ms]
-  (if (number? time-ms)
-    (.format tooltip-time-formatter (js/Date. time-ms))
-    "--:--"))
+  (or (fmt/format-intl-date-time time-ms tooltip-time-format-options)
+      "--:--"))
 
 (defn- tooltip-metric-label
   [axis-kind]

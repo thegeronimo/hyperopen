@@ -15,6 +15,7 @@
 (defn restore-persisted-ui-state!
   [{:keys [store
            restore-ui-font-preference!
+           restore-ui-locale-preference!
            restore-asset-selector-sort-settings!
            restore-chart-options!
            restore-orderbook-ui!
@@ -29,6 +30,8 @@
            restore-order-history-pagination-settings!]}]
   ;; Restore root typography preference (system default, optional Inter override).
   (restore-ui-font-preference!)
+  ;; Restore UI locale preference for number/date formatting ownership.
+  (restore-ui-locale-preference! store)
   ;; Restore asset selector sort settings from localStorage.
   (restore-asset-selector-sort-settings! store)
   ;; Restore chart options from localStorage.

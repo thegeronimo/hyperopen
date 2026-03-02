@@ -115,10 +115,10 @@
 
 (defn- format-order-history-size [value]
   (if-let [num (shared/parse-optional-num value)]
-    (.toLocaleString (js/Number. num)
-                     "en-US"
-                     #js {:minimumFractionDigits 0
-                          :maximumFractionDigits 6})
+    (or (fmt/format-intl-number num
+                                {:minimumFractionDigits 0
+                                 :maximumFractionDigits 6})
+        "--")
     "--"))
 
 (defn format-order-history-filled-size [filled-size]
@@ -168,10 +168,8 @@
 (defn- format-order-history-value [order-value]
   (if (and (number? order-value)
            (pos? order-value))
-    (str (.toLocaleString (js/Number. order-value)
-                          "en-US"
-                          #js {:minimumFractionDigits 2
-                               :maximumFractionDigits 2})
+    (str (or (fmt/format-fixed-number order-value 2)
+             "0.00")
          " USDC")
     "--"))
 

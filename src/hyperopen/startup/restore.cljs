@@ -1,11 +1,19 @@
 (ns hyperopen.startup.restore
-  (:require [hyperopen.platform :as platform]
+  (:require [hyperopen.i18n.locale :as i18n-locale]
+            [hyperopen.platform :as platform]
             [hyperopen.wallet.agent-session :as agent-session]))
 
 (defn restore-agent-storage-mode!
   [store]
   (let [storage-mode (agent-session/load-storage-mode-preference)]
     (swap! store assoc-in [:wallet :agent :storage-mode] storage-mode)))
+
+(defn restore-ui-locale-preference!
+  [store]
+  (swap! store
+         assoc-in
+         [:ui :locale]
+         (i18n-locale/resolve-preferred-locale)))
 
 (defn restore-active-asset!
   [store {:keys [connected?-fn dispatch! load-active-market-display-fn]}]

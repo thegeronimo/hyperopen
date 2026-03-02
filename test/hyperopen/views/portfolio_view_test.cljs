@@ -442,7 +442,10 @@
         day-tooltip-strings (set (collect-strings day-tooltip-node))]
     (is (some? month-hover-line))
     (is (some? month-tooltip-node))
-    (is (contains? month-tooltip-strings "2026 Feb 26"))
+    (is (some #(and (str/includes? % "2026")
+                    (str/includes? % "Feb")
+                    (str/includes? % "26"))
+              month-tooltip-strings))
     (is (contains? month-tooltip-strings "PNL"))
     (is (contains? month-tooltip-strings "$203"))
     (is (contains? month-tooltip-classes "rounded-xl"))

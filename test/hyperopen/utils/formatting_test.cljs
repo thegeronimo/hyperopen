@@ -37,9 +37,41 @@
 (deftest format-fixed-number-test
   (testing "fixed formatting handles numbers, numeric strings, nil, and invalid values"
     (is (= "1,234.57" (fmt/format-fixed-number 1234.567 2)))
+    (is (= "1,234.57" (fmt/format-fixed-number 1234.567 2 "en-US")))
     (is (= "1.2350" (fmt/format-fixed-number "1.235" 4)))
     (is (= "0.00" (fmt/format-fixed-number nil 2)))
     (is (= "0.00" (fmt/format-fixed-number "not-a-number" 2)))))
+
+(deftest format-intl-number-test
+  (testing "intl number helper supports numeric strings, locale arg, and invalid input"
+    (is (= "1,234.6"
+           (fmt/format-intl-number 1234.56
+                                   {:maximumFractionDigits 1}
+                                   "en-US")))
+    (is (= "1,234.00"
+           (fmt/format-intl-number "1234"
+                                   {:minimumFractionDigits 2
+                                    :maximumFractionDigits 2}
+                                   "en-US")))
+    (is (nil? (fmt/format-intl-number "bad" {:maximumFractionDigits 2})))))
+
+(deftest format-intl-date-time-helpers-test
+  (testing "date helpers return nil for invalid input and structured output for valid values"
+    (is (nil? (fmt/format-intl-date-time nil {:year "numeric"})))
+    (is (nil? (fmt/format-intl-date-parts nil {:year "numeric"})))
+    (let [formatted (fmt/format-intl-date-time 1700000000000
+                                               {:hour "2-digit"
+                                                :minute "2-digit"
+                                                :hour12 false}
+                                               "en-US")
+          parts (fmt/format-intl-date-parts 1700000000000
+                                            {:year "numeric"
+                                             :month "short"
+                                             :day "2-digit"}
+                                            "en-US")]
+      (is (re-matches #"\d{2}:\d{2}" formatted))
+      (is (vector? parts))
+      (is (some #(= "year" (:type %)) parts)))))
 
 (deftest format-local-date-time-test
   (testing "returns nil for nil and local datetime text with padded time components"

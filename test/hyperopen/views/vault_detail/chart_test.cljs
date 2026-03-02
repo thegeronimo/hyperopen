@@ -1,7 +1,6 @@
 (ns hyperopen.views.vault-detail.chart-test
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is]]
-            [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.account-info.test-support.hiccup :as hiccup]
             [hyperopen.views.vault-detail.chart :as chart]))
 
@@ -11,8 +10,7 @@
     (is (= "+1.50%" (format-axis :returns 1.5)))
     (is (= "-3.40%" (format-axis :returns -3.4)))
     (is (= "0.00%" (format-axis :returns -0.000001)))
-    (with-redefs [fmt/format-large-currency (fn [_] nil)]
-      (is (= "$0" (format-axis :pnl js/NaN))))
+    (is (= "$0" (format-axis :pnl js/NaN)))
     (is (= "$0.00" (format-tooltip :pnl js/NaN)))
     (is (= "$0.00" (format-tooltip :account-value nil)))))
 

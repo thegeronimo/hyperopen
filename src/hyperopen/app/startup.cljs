@@ -119,6 +119,7 @@
        :schedule-startup-summary-log! (fn []
                                         (schedule-startup-summary-log! system))
        :restore-ui-font-preference! ui-preferences/restore-ui-font-preference!
+       :restore-ui-locale-preference! startup-restore/restore-ui-locale-preference!
        :restore-asset-selector-sort-settings! asset-selector-settings/restore-asset-selector-sort-settings!
        :restore-chart-options! chart-settings/restore-chart-options!
        :restore-orderbook-ui! orderbook-settings/restore-orderbook-ui!

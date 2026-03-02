@@ -32,20 +32,20 @@
   [row]
   (let [size (if (number? (:size-raw row)) (:size-raw row) 0)
         coin (or (:coin row) "-")]
-    (str (.toLocaleString (js/Number. size)
-                          "en-US"
-                          #js {:minimumFractionDigits 3
-                               :maximumFractionDigits 6})
+    (str (or (fmt/format-intl-number size
+                                     {:minimumFractionDigits 3
+                                      :maximumFractionDigits 6})
+             "0.000")
          " "
          coin)))
 
 (defn- format-funding-history-payment
   [row]
   (let [payment (if (number? (:payment-usdc-raw row)) (:payment-usdc-raw row) 0)]
-    (str (.toLocaleString (js/Number. payment)
-                          "en-US"
-                          #js {:minimumFractionDigits 4
-                               :maximumFractionDigits 6})
+    (str (or (fmt/format-intl-number payment
+                                     {:minimumFractionDigits 4
+                                      :maximumFractionDigits 6})
+             "0.0000")
          " USDC")))
 
 (defn- format-funding-history-rate

@@ -9,8 +9,7 @@
   (is (false? (vf/finite-number? js/Infinity)))
   (is (false? (vf/finite-number? js/NaN)))
   (is (= "N/A" (vf/format-currency nil {:missing "N/A"})))
-  (with-redefs [fmt/format-currency (fn [_] nil)]
-    (is (= "$0.00" (vf/format-currency -0)))))
+  (is (= "$0.00" (vf/format-currency -0))))
 
 (deftest quantity-price-percent-and-rate-formatters-test
   (let [formatted-price (vf/format-price 1234.5)]

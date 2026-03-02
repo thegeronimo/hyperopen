@@ -39,16 +39,14 @@
 
 (defn format-percent [value decimals]
   (when-some [num-value (parse-number value)]
-    (.toLocaleString (js/Number. num-value)
-                     "en-US"
-                     #js {:minimumFractionDigits decimals
-                          :maximumFractionDigits decimals})))
+    (fmt/format-intl-number num-value
+                            {:minimumFractionDigits decimals
+                             :maximumFractionDigits decimals})))
 
 (defn format-total [total & {:keys [decimals] :or {decimals 0}}]
   (when-some [num-total (parse-number total)]
-    (.toLocaleString (js/Number. num-total)
-                     "en-US"
-                     #js {:maximumFractionDigits decimals})))
+    (fmt/format-intl-number num-total
+                            {:maximumFractionDigits decimals})))
 
 (defn calculate-spread [best-bid best-ask]
   (when (and best-bid best-ask)

@@ -23,10 +23,10 @@
   [decimals]
   (fn [value]
     (if-let [num (numeric/coerce-number value)]
-      (.toLocaleString (js/Number. num)
-                       "en-US"
-                       #js {:minimumFractionDigits decimals
-                            :maximumFractionDigits decimals})
+      (or (fmt/format-intl-number num
+                                  {:minimumFractionDigits decimals
+                                   :maximumFractionDigits decimals})
+          (str value))
       (str value))))
 
 (defn infer-series-price-format

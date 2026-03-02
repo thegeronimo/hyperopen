@@ -1,22 +1,6 @@
 (ns hyperopen.utils.formatting
-  (:require [clojure.string :as str]))
-
-;; Number formatters
-(def usd-formatter
-  (js/Intl.NumberFormat.
-   "en-US"
-   #js {:style           "currency"
-        :currency        "USD"
-        :minimumFractionDigits 2
-        :maximumFractionDigits 2}))
-
-(def large-number-formatter
-  (js/Intl.NumberFormat.
-   "en-US"
-   #js {:style           "currency"
-        :currency        "USD"
-        :minimumFractionDigits 0
-        :maximumFractionDigits 0}))
+  (:require [clojure.string :as str]
+            [hyperopen.i18n.locale :as i18n-locale]))
 
 (def ^:private min-trade-price-decimals 2)
 (def ^:private max-trade-price-decimals 8)
@@ -30,6 +14,69 @@
     (string? value) (let [num (js/parseFloat value)]
                       (when-not (js/isNaN num) num))
     :else nil))
+
+(def ^:private number-formatter*
+  (memoize
+   (fn [locale options]
+     (js/Intl.NumberFormat. locale (clj->js options)))))
+
+(def ^:private date-time-formatter*
+  (memoize
+   (fn [locale options]
+     (js/Intl.DateTimeFormat. locale (clj->js options)))))
+
+(defn- resolve-format-locale
+  [locale]
+  (i18n-locale/coalesce-locale locale))
+
+(defn- format-with-number-formatter
+  [num locale options]
+  (.format (number-formatter*
+            (resolve-format-locale locale)
+            options)
+           num))
+
+(defn- coerce-date-value
+  [value]
+  (cond
+    (instance? js/Date value) value
+    :else (when-let [time-ms (parse-number value)]
+            (js/Date. time-ms))))
+
+(defn- date-time-formatter
+  [locale options]
+  (date-time-formatter*
+   (resolve-format-locale locale)
+   options))
+
+(defn format-intl-number
+  "Format a numeric value with Intl.NumberFormat options.
+   Returns nil for non-numeric values."
+  ([value options]
+   (format-intl-number value options nil))
+  ([value options locale]
+   (when-let [num (parse-number value)]
+     (format-with-number-formatter num locale options))))
+
+(defn format-intl-date-time
+  "Format a date/time value with Intl.DateTimeFormat options.
+   Accepts js/Date, millisecond timestamps, or numeric strings."
+  ([value options]
+   (format-intl-date-time value options nil))
+  ([value options locale]
+   (when-let [date-value (coerce-date-value value)]
+     (.format (date-time-formatter locale options)
+              date-value))))
+
+(defn format-intl-date-parts
+  "Format date/time value to parts via Intl.DateTimeFormat#formatToParts."
+  ([value options]
+   (format-intl-date-parts value options nil))
+  ([value options locale]
+   (when-let [date-value (coerce-date-value value)]
+     (js->clj (.formatToParts (date-time-formatter locale options)
+                              date-value)
+              :keywordize-keys true))))
 
 (defn- normalize-fraction-digits [digits]
   (let [n (cond
@@ -85,47 +132,56 @@
 
 (defn format-trade-price
   "Format a trade price in USD with adaptive decimals and a max 8 decimal cap."
-  ([price] (format-trade-price price nil))
-  ([price raw]
+  ([price] (format-trade-price price nil nil))
+  ([price raw] (format-trade-price price raw nil))
+  ([price raw locale]
    (when-let [num (parse-number price)]
      (let [decimals (trade-price-decimals num raw)
            min-visible (min-visible-price decimals)]
        (if (and (pos? num) (< num min-visible))
          (str "<$" (.toFixed min-visible decimals))
-         (.toLocaleString (js/Number. num)
-                          "en-US"
-                          #js {:style "currency"
-                               :currency "USD"
-                               :minimumFractionDigits decimals
-                               :maximumFractionDigits decimals}))))))
+         (format-with-number-formatter
+          num
+          locale
+          {:style "currency"
+           :currency "USD"
+           :minimumFractionDigits decimals
+           :maximumFractionDigits decimals}))))))
 
 (defn format-trade-price-plain
   "Format a trade price without currency symbol using adaptive decimals."
-  ([price] (format-trade-price-plain price nil))
-  ([price raw]
+  ([price] (format-trade-price-plain price nil nil))
+  ([price raw] (format-trade-price-plain price raw nil))
+  ([price raw locale]
    (when-let [num (parse-number price)]
      (let [decimals (trade-price-decimals num raw)
            min-visible (min-visible-price decimals)]
        (if (and (pos? num) (< num min-visible))
          (str "<" (.toFixed min-visible decimals))
-         (.toLocaleString (js/Number. num)
-                          "en-US"
-                          #js {:minimumFractionDigits decimals
-                               :maximumFractionDigits decimals}))))))
+         (format-with-number-formatter
+          num
+          locale
+          {:minimumFractionDigits decimals
+           :maximumFractionDigits decimals}))))))
 
 (defn format-trade-price-delta
   "Format absolute price change values with adaptive decimals."
-  ([delta] (format-trade-price-delta delta nil))
-  ([delta raw]
-   (format-trade-price-plain delta raw)))
+  ([delta] (format-trade-price-delta delta nil nil))
+  ([delta raw] (format-trade-price-delta delta raw nil))
+  ([delta raw locale]
+   (format-trade-price-plain delta raw locale)))
 
-(defn format-fixed-number [value decimals]
-  (let [num (or (parse-number value) 0)
-        fraction-digits (normalize-fraction-digits decimals)]
-    (.toLocaleString (js/Number. num)
-                     "en-US"
-                     #js {:minimumFractionDigits fraction-digits
-                          :maximumFractionDigits fraction-digits})))
+(defn format-fixed-number
+  ([value decimals]
+   (format-fixed-number value decimals nil))
+  ([value decimals locale]
+   (let [num (or (parse-number value) 0)
+         fraction-digits (normalize-fraction-digits decimals)]
+     (format-with-number-formatter
+      num
+      locale
+      {:minimumFractionDigits fraction-digits
+       :maximumFractionDigits fraction-digits}))))
 
 (defn format-local-date-time [time-ms]
   (when time-ms
@@ -174,13 +230,33 @@
   (let [num-value (if (and value (number? value)) value 0)]
     (.toFixed num-value decimals)))
 
-(defn format-currency [amount]
-  (when amount
-    (.format usd-formatter amount)))
+(defn format-currency-with-digits
+  "Format USD with explicit min/max fraction digits."
+  ([amount min-digits max-digits]
+   (format-currency-with-digits amount min-digits max-digits nil))
+  ([amount min-digits max-digits locale]
+   (let [min* (normalize-fraction-digits min-digits)
+         max* (max min* (normalize-fraction-digits max-digits))]
+     (when-let [num (parse-number amount)]
+       (format-with-number-formatter
+        num
+        locale
+        {:style "currency"
+         :currency "USD"
+         :minimumFractionDigits min*
+         :maximumFractionDigits max*})))))
 
-(defn format-large-currency [amount]
-  (when amount
-    (.format large-number-formatter amount)))
+(defn format-currency
+  ([amount]
+   (format-currency amount nil))
+  ([amount locale]
+   (format-currency-with-digits amount 2 2 locale)))
+
+(defn format-large-currency
+  ([amount]
+   (format-large-currency amount nil))
+  ([amount locale]
+   (format-currency-with-digits amount 0 0 locale)))
 
 (defn format-percentage [value & [decimals]]
   (when value

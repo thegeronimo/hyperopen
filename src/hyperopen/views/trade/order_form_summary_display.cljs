@@ -3,9 +3,7 @@
 
 (defn format-usdc [value]
   (if (and (number? value) (not (js/isNaN value)))
-    (str (.toLocaleString (js/Number. value) "en-US"
-                          #js {:minimumFractionDigits 2
-                               :maximumFractionDigits 2})
+    (str (fmt/format-fixed-number value 2)
          " USDC")
     "N/A"))
 
@@ -13,9 +11,7 @@
   (let [size (:abs-size position)
         coin (:coin position)]
     (if (and (number? size) (pos? size) (seq coin))
-      (str (.toLocaleString (js/Number. size) "en-US"
-                            #js {:minimumFractionDigits (or sz-decimals 4)
-                                 :maximumFractionDigits (or sz-decimals 4)})
+      (str (fmt/format-fixed-number size (or sz-decimals 4))
            " "
            coin)
       (str "0.0000 " (or coin "--")))))

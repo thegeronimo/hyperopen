@@ -25,6 +25,7 @@
       :store store
       :restore-ui-font-preference! (fn []
                                      (swap! calls conj :restore-font))
+      :restore-ui-locale-preference! (record-store-call :restore-ui-locale)
       :restore-asset-selector-sort-settings! (record-store-call :restore-asset-selector-sort)
       :restore-chart-options! (record-store-call :restore-chart-options)
       :restore-orderbook-ui! (record-store-call :restore-orderbook-ui)
@@ -57,6 +58,7 @@
             [:mark "app:init:start"]
             :schedule-summary
             :restore-font
+            [:restore-ui-locale true]
             [:restore-asset-selector-sort true]
             [:restore-chart-options true]
             [:restore-orderbook-ui true]

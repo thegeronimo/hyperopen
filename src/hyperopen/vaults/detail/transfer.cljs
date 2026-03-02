@@ -1,5 +1,6 @@
 (ns hyperopen.vaults.detail.transfer
   (:require [clojure.string :as str]
+            [hyperopen.utils.formatting :as fmt]
             [hyperopen.vaults.actions :as vault-actions]
             [hyperopen.vaults.adapters.webdata :as webdata-adapter]))
 
@@ -106,10 +107,7 @@
 (defn- format-usdc-display
   [value]
   (let [n (max 0 (or (optional-number value) 0))]
-    (.toLocaleString (js/Number. n)
-                     "en-US"
-                     #js {:minimumFractionDigits 2
-                          :maximumFractionDigits 2})))
+    (fmt/format-fixed-number n 2)))
 
 (defn- format-usdc-input
   [value]

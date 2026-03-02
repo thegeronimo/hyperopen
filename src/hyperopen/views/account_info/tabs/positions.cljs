@@ -3,6 +3,7 @@
             [hyperopen.account.history.position-margin :as position-margin]
             [hyperopen.account.history.position-reduce :as position-reduce]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
+            [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.account-info.cache-keys :as cache-keys]
             [hyperopen.views.account-info.position-margin-modal :as position-margin-modal]
             [hyperopen.views.account-info.position-reduce-popover :as position-reduce-popover]
@@ -241,12 +242,8 @@
           decimal-digits (if (>= integer-digits max-liquidation-display-chars)
                            0
                            (max 0 (- max-liquidation-display-chars integer-digits 1)))]
-      (.toLocaleString (js/Number. num)
-                       "en-US"
-                       #js {:style "currency"
-                            :currency "USD"
-                            :minimumFractionDigits 0
-                            :maximumFractionDigits decimal-digits}))
+      (or (fmt/format-currency-with-digits num 0 decimal-digits)
+          "N/A"))
     "N/A"))
 
 (defn- valid-trigger-price

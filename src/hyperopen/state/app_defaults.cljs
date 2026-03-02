@@ -3,6 +3,7 @@
             [hyperopen.account.history.position-reduce :as position-reduce]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.funding.actions :as funding-actions]
+            [hyperopen.i18n.locale :as i18n-locale]
             [hyperopen.platform :as platform]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.vaults.actions :as vault-actions]))
@@ -70,6 +71,11 @@
    :connecting? false
    :error nil
    :agent default-agent-state})
+
+(defn default-ui-state
+  []
+  {:toast nil
+   :locale (i18n-locale/resolve-preferred-locale)})
 
 (defn default-asset-selector-state
   []
@@ -280,7 +286,7 @@
           :error nil}
    :orders (default-orders-state)
    :wallet (default-wallet-state default-agent-state)
-   :ui {:toast nil}
+   :ui (default-ui-state)
    :account {:mode :classic
              :abstraction-raw nil}
    :router {:path "/trade"}

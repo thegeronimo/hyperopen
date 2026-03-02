@@ -102,10 +102,8 @@
 
 (defn- format-usdc-amount [value]
   (if-let [num (shared/parse-optional-num value)]
-    (str (.toLocaleString (js/Number. num)
-                          "en-US"
-                          #js {:minimumFractionDigits 2
-                               :maximumFractionDigits 2})
+    (str (or (fmt/format-fixed-number num 2)
+             "0.00")
          " USDC")
     "--"))
 
@@ -267,10 +265,10 @@
 
 (defn- format-order-history-size [value]
   (if-let [num (shared/parse-optional-num value)]
-    (.toLocaleString (js/Number. num)
-                     "en-US"
-                     #js {:minimumFractionDigits 0
-                          :maximumFractionDigits 6})
+    (or (fmt/format-intl-number num
+                                {:minimumFractionDigits 0
+                                 :maximumFractionDigits 6})
+        "--")
     "--"))
 
 (defn- format-trade-history-size [row market-by-key]
