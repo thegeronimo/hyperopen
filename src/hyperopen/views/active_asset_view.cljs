@@ -267,18 +267,41 @@
        100
        (js/Math.sqrt annualization-hours))))
 
+(defn- payment-range-text
+  [lower-payment upper-payment]
+  (if (and (number? lower-payment)
+           (number? upper-payment))
+    (str (signed-usd-text lower-payment)
+         " to "
+         (signed-usd-text upper-payment))
+    "—"))
+
 (defn- predictability-rows
-  [summary]
+  [summary direction position-value]
   (let [annualized-mean (hourly-decimal->annualized-percent (:mean summary))
-        annualized-volatility (hourly-decimal-stddev->annualized-percent (:stddev summary))]
-    [{:id "mean"
-     :label "Mean (APY)"
-     :value annualized-mean
-     :kind :signed-percentage}
-    {:id "volatility"
-     :label "Volatility (Ann. Std Dev)"
-     :value annualized-volatility
-     :kind :unsigned-percentage}]))
+        annualized-volatility (hourly-decimal-stddev->annualized-percent (:stddev summary))
+        expected-payment (funding-payment-estimate direction position-value annualized-mean)
+        lower-rate (when (and (number? annualized-mean)
+                              (number? annualized-volatility))
+                     (- annualized-mean annualized-volatility))
+        upper-rate (when (and (number? annualized-mean)
+                              (number? annualized-volatility))
+                     (+ annualized-mean annualized-volatility))
+        lower-payment (funding-payment-estimate direction position-value lower-rate)
+        upper-payment (funding-payment-estimate direction position-value upper-rate)]
+    [{:id "mean-rate"
+      :label "Mean Rate"
+      :rate annualized-mean
+      :rate-kind :signed-percentage
+      :payment expected-payment
+      :payment-kind :signed-usd}
+     {:id "volatility"
+      :label "Volatility"
+      :rate annualized-volatility
+      :rate-kind :unsigned-percentage
+      :payment {:lower lower-payment
+                :upper upper-payment}
+      :payment-kind :usd-range}]))
 
 (defn- predictability-lag-note
   [summary]
@@ -327,24 +350,56 @@
      :predictability-loading? predictability-loading?
      :predictability-error predictability-error
      :predictability-rows (when (map? predictability-summary)
-                            (predictability-rows predictability-summary))
+                            (predictability-rows predictability-summary
+                                                 direction
+                                                 position-value))
      :predictability-autocorrelation-series (when (map? predictability-summary)
                                               (vec (or (:autocorrelation-series predictability-summary)
                                                        [])))
      :predictability-lag-note (when (map? predictability-summary)
                                 (predictability-lag-note predictability-summary))}))
 
-(defn- predictability-value-text [{:keys [kind value]}]
-  (case kind
-    :signed-percentage (signed-percentage-text value 4)
-    :unsigned-percentage (unsigned-percentage-text value 4)
-    :signed-decimal (signed-decimal-text value 3)
+(defn- predictability-rate-text [{:keys [rate-kind rate]}]
+  (case rate-kind
+    :signed-percentage (signed-percentage-text rate 4)
+    :unsigned-percentage (unsigned-percentage-text rate 4)
     "—"))
 
-(defn- predictability-value-class [{:keys [kind value]}]
-  (if (= kind :signed-decimal)
-    (signed-tone-class value)
+(defn- predictability-rate-class [{:keys [rate-kind rate]}]
+  (if (= rate-kind :signed-percentage)
+    (signed-tone-class rate)
     "text-gray-100"))
+
+(defn- predictability-payment-text
+  [{:keys [payment-kind payment]}]
+  (case payment-kind
+    :signed-usd
+    (signed-usd-text payment)
+
+    :usd-range
+    (payment-range-text (:lower payment) (:upper payment))
+
+    "—"))
+
+(defn- predictability-payment-class
+  [{:keys [payment-kind payment]}]
+  (case payment-kind
+    :signed-usd (signed-tone-class payment)
+    :usd-range "text-gray-100"
+    "text-gray-100"))
+
+(defn- predictability-payment-cell-classes
+  [{:keys [payment-kind]}]
+  (if (= payment-kind :usd-range)
+    ["text-left"
+     "min-w-0"
+     "break-words"
+     "text-[0.78rem]"
+     "leading-[1.05rem]"
+     "font-medium"]
+    ["text-left"
+     "font-medium"
+     "whitespace-nowrap"]))
 
 (defn- funding-tooltip-panel
   [{:keys [position-size-label
@@ -446,7 +501,7 @@
 
       (seq predictability-rows)
       [:div {:class ["grid"
-                     "grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+                     "grid-cols-[minmax(0,1fr)_8ch_minmax(0,1fr)]"
                      "gap-x-2.5"
                      "gap-y-1"
                      "text-[0.86rem]"
@@ -459,8 +514,12 @@
                           "text-left"
                           "whitespace-nowrap"
                           "font-medium"
-                          (predictability-value-class row)]}
-           (predictability-value-text row)]])]
+                          (predictability-rate-class row)]}
+           (predictability-rate-text row)]
+          [:span {:class (into ["num"
+                                (predictability-payment-class row)]
+                               (predictability-payment-cell-classes row))}
+           (predictability-payment-text row)]])]
 
       :else
       [:div {:class ["num" "text-[0.86rem]" "leading-[1.2rem]" "text-gray-300/90"]}

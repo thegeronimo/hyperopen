@@ -430,14 +430,16 @@
       (let [view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
             strings (set (collect-strings view-node))]
         (is (contains? strings "Predictability (30d)"))
-        (is (contains? strings "Mean (APY)"))
-        (is (contains? strings "Volatility (Ann. Std Dev)"))
+        (is (contains? strings "Mean Rate"))
+        (is (contains? strings "Volatility"))
         (is (not (contains? strings "ACF Lag 1d")))
         (is (not (contains? strings "ACF Lag 5d")))
         (is (not (contains? strings "ACF Lag 15d")))
         (is (contains? strings "Autocorrelation"))
         (is (contains? strings "+3679.2000%"))
-        (is (contains? strings "175.0224%"))))))
+        (is (contains? strings "-$183,960.00"))
+        (is (contains? strings "175.0224%"))
+        (is (contains? strings "-$175,208.88 to -$192,711.12"))))))
 
 (deftest active-asset-row-funding-tooltip-renders-predictability-loading-and-insufficient-copy-test
   (let [ctx-data {:coin "xyz:GOLD"
