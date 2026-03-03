@@ -355,6 +355,50 @@
                     (is false (str "Unexpected fee-estimate failure-path rejection: " err))
                     (done)))))))
 
+(deftest api-fetch-hyperunit-fee-estimate-prefetches-existing-hyperunit-deposit-address-test
+  (async done
+    (let [wallet-address "0x1111111111111111111111111111111111111111"
+          store (atom {:wallet {:chain-id "0xa4b1"
+                                :address wallet-address}
+                       :funding-ui {:modal {:open? true
+                                            :mode :deposit
+                                            :deposit-step :amount-entry
+                                            :deposit-selected-asset-key :btc
+                                            :deposit-generated-address nil
+                                            :deposit-generated-signatures nil
+                                            :deposit-generated-asset-key nil
+                                            :hyperunit-fee-estimate (funding-actions/default-hyperunit-fee-estimate-state)}}})]
+      (with-redefs [hyperopen.funding.effects/request-hyperunit-operations!
+                    (fn [_opts]
+                      (js/Promise.resolve
+                       {:addresses [{:source-coin-type "bitcoin"
+                                     :destination-chain "hyperliquid"
+                                     :address "bc1qprefetched"
+                                     :signatures {"hl-node" "sig-prefetched"}}]
+                        :operations []}))]
+        (-> (effects/api-fetch-hyperunit-fee-estimate!
+             {:store store
+              :request-hyperunit-estimate-fees! (fn [_opts]
+                                                  (js/Promise.resolve
+                                                   {:by-chain {"bitcoin" {:chain "bitcoin"
+                                                                          :deposit-eta "~20 mins"
+                                                                          :deposit-fee "0.00001"}}}))
+              :now-ms-fn (fn [] 1700000000000)})
+            (.then (fn [_]
+                     (js/setTimeout
+                      (fn []
+                        (is (= "bc1qprefetched"
+                               (get-in @store [:funding-ui :modal :deposit-generated-address])))
+                        (is (= {"hl-node" "sig-prefetched"}
+                               (get-in @store [:funding-ui :modal :deposit-generated-signatures])))
+                        (is (= :btc
+                               (get-in @store [:funding-ui :modal :deposit-generated-asset-key])))
+                        (done))
+                      0)))
+            (.catch (fn [err]
+                      (is false (str "Unexpected fee-estimate deposit-prefetch error: " err))
+                      (done))))))))
+
 (deftest api-fetch-hyperunit-withdrawal-queue-updates-modal-on-success-test
   (async done
     (let [store (atom {:wallet {:chain-id "0xa4b1"}
@@ -604,6 +648,69 @@
                     (is false (str "Unexpected HyperUnit deposit-address success-path error: " err))
                     (done)))))))
 
+(deftest select-existing-hyperunit-deposit-address-normalizes-chain-aliases-and-single-entry-fallback-test
+  (let [select-existing-address
+        @#'hyperopen.funding.effects/select-existing-hyperunit-deposit-address]
+    (is (= {:address "bc1qalias"
+            :signatures {"node-a" "sig-a"}}
+           (select-existing-address
+            {:addresses [{:source-coin-type "btc"
+                          :destination-chain "hyperliquid"
+                          :address "bc1qalias"
+                          :signatures {"node-a" "sig-a"}}]
+             :operations []}
+            "bitcoin"
+            "btc"
+            "0xabc")))
+    (is (= {:address "bc1qsingle"
+            :signatures {"node-b" "sig-b"}}
+           (select-existing-address
+            {:addresses [{:source-coin-type "unknown-source"
+                          :destination-chain "hyperliquid"
+                          :address "bc1qsingle"
+                          :signatures {"node-b" "sig-b"}}]
+             :operations []}
+            "bitcoin"
+            "btc"
+            "0xabc")))))
+
+(deftest submit-hyperunit-address-deposit-request-reuses-existing-address-before-generate-test
+  (async done
+    (let [store (atom {:wallet {:chain-id "0xa4b1"}})
+          operations-calls (atom 0)
+          generate-calls (atom 0)
+          wallet-address "0x1111111111111111111111111111111111111111"]
+      (with-redefs [hyperopen.funding.effects/request-hyperunit-operations!
+                    (fn [_opts]
+                      (swap! operations-calls inc)
+                      (js/Promise.resolve
+                       {:addresses [{:source-coin-type "bitcoin"
+                                     :destination-chain "hyperliquid"
+                                     :address "bc1qexisting"
+                                     :signatures {"hl-node" "sig-a"}}]
+                        :operations []}))
+                    hyperopen.funding.effects/fetch-hyperunit-address!
+                    (fn [& _args]
+                      (swap! generate-calls inc)
+                      (js/Promise.resolve {:address "bc1qgenerated"
+                                           :signatures {"hl-node" "sig-generated"}}))]
+        (-> (@#'hyperopen.funding.effects/submit-hyperunit-address-deposit-request!
+             store
+             wallet-address
+             {:asset "btc"
+              :fromChain "bitcoin"
+              :network "Bitcoin"})
+            (.then (fn [resp]
+                     (is (= "ok" (:status resp)))
+                     (is (= true (:reused-address? resp)))
+                     (is (= "bc1qexisting" (:deposit-address resp)))
+                     (is (= 1 @operations-calls))
+                     (is (= 0 @generate-calls))
+                     (done)))
+            (.catch (fn [err]
+                      (is false (str "Unexpected existing-address reuse failure: " err))
+                      (done))))))))
+
 (deftest api-submit-funding-deposit-hyperunit-address-reused-response-shows-existing-address-toast-test
   (async done
     (let [store (atom {:wallet {:address "0xabc"}
@@ -637,6 +744,36 @@
                    (done)))
           (.catch (fn [err]
                     (is false (str "Unexpected reused-address toast-path error: " err))
+                    (done)))))))
+
+(deftest api-submit-funding-deposit-sync-submitter-throw-sets-error-and-clears-submitting-test
+  (async done
+    (let [store (atom {:wallet {:address "0xabc"}
+                       :funding-ui {:modal (assoc (seed-modal :deposit)
+                                                  :deposit-step :amount-entry
+                                                  :deposit-selected-asset-key :btc)}})
+          toasts (atom [])]
+      (-> (effects/api-submit-funding-deposit!
+           {:store store
+            :request {:action {:type "hyperunitGenerateDepositAddress"
+                               :asset "btc"
+                               :fromChain "bitcoin"
+                               :network "Bitcoin"}}
+            :submit-hyperunit-address-request! (fn [_store _address _action]
+                                                 (throw (js/Error. "sync submitter failure")))
+            :show-toast! (fn [_store kind message]
+                           (swap! toasts conj [kind message]))})
+          (.then (fn [resp]
+                   (is (= [[:error "Deposit failed: sync submitter failure"]]
+                          resp))
+                   (is (= false (get-in @store [:funding-ui :modal :submitting?])))
+                   (is (= "Deposit failed: sync submitter failure"
+                          (get-in @store [:funding-ui :modal :error])))
+                   (is (= [[:error "Deposit failed: sync submitter failure"]]
+                          @toasts))
+                   (done)))
+          (.catch (fn [err]
+                    (is false (str "Unexpected sync-submitter throw-path error: " err))
                     (done)))))))
 
 (deftest api-submit-funding-deposit-hyperunit-address-terminal-lifecycle-refreshes-user-data-test

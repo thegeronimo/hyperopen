@@ -261,6 +261,39 @@
   [value]
   (some-> value str str/trim str/lower-case))
 
+(def ^:private chain-token-aliases
+  {"arb" "arbitrum"
+   "arbitrum" "arbitrum"
+   "btc" "bitcoin"
+   "bitcoin" "bitcoin"
+   "eth" "ethereum"
+   "ethereum" "ethereum"
+   "hl" "hyperliquid"
+   "hyperliquid" "hyperliquid"
+   "sol" "solana"
+   "solana" "solana"})
+
+(defn- canonical-chain-token
+  [value]
+  (let [token (canonical-token value)]
+    (when (seq token)
+      (get chain-token-aliases token token))))
+
+(defn- same-chain-token?
+  [left right]
+  (let [left* (canonical-chain-token left)
+        right* (canonical-chain-token right)]
+    (and (seq left*)
+         (seq right*)
+         (= left* right*))))
+
+(defn- normalize-asset-key
+  [value]
+  (cond
+    (keyword? value) value
+    (string? value) (some-> value canonical-token keyword)
+    :else nil))
+
 (defn- token->keyword
   [value]
   (let [text (some-> value
@@ -433,9 +466,9 @@
 
 (defn- select-existing-hyperunit-deposit-address
   [operations-response source-chain asset destination-address]
-  (let [source-token (canonical-token source-chain)
+  (let [source-token (canonical-chain-token source-chain)
         asset-token (canonical-token asset)
-        destination-chain-token "hyperliquid"
+        destination-chain-token (canonical-chain-token "hyperliquid")
         destination-address-token (canonical-token destination-address)
         operations (if (sequential? (:operations operations-response))
                      (:operations operations-response)
@@ -447,10 +480,10 @@
                           (filter (fn [op]
                                     (and (= asset-token
                                             (canonical-token (:asset op)))
-                                         (= source-token
-                                            (canonical-token (:source-chain op)))
-                                         (= destination-chain-token
-                                            (canonical-token (:destination-chain op)))
+                                         (same-chain-token? source-token
+                                                            (:source-chain op))
+                                         (same-chain-token? destination-chain-token
+                                                            (:destination-chain op))
                                          (or (not (seq destination-address-token))
                                              (= destination-address-token
                                                 (canonical-token (:destination-address op))))
@@ -467,15 +500,26 @@
                                                (canonical-token (:address entry)))
                                         entry))
                                     addresses))
+        hyperliquid-address-entries (->> addresses
+                                         (filter (fn [entry]
+                                                   (and (same-chain-token? destination-chain-token
+                                                                           (:destination-chain entry))
+                                                        (seq (canonical-token (:address entry))))))
+                                         vec)
         direct-address-entry (some (fn [entry]
-                                     (when (and (= source-token
-                                                   (canonical-token (:source-coin-type entry)))
-                                                (= destination-chain-token
-                                                   (canonical-token (:destination-chain entry)))
+                                     (when (and (same-chain-token? source-token
+                                                                   (or (:source-coin-type entry)
+                                                                       (:source-chain entry)))
+                                                (same-chain-token? destination-chain-token
+                                                                   (:destination-chain entry))
                                                 (seq (canonical-token (:address entry))))
                                        entry))
-                                   addresses)
-        chosen-entry (or address-entry-by-op direct-address-entry)
+                                   hyperliquid-address-entries)
+        single-address-entry (when (= 1 (count hyperliquid-address-entries))
+                               (first hyperliquid-address-entries))
+        chosen-entry (or address-entry-by-op
+                         direct-address-entry
+                         single-address-entry)
         chosen-address (or op-address
                           (some-> (:address chosen-entry) non-blank-text))]
     (when (seq chosen-address)
@@ -493,6 +537,59 @@
                                                           destination-address)))
       (.catch (fn [_err]
                 nil))))
+
+(defn- prefetch-selected-hyperunit-deposit-address!
+  [store]
+  (let [state @store
+        modal (get-in state [:funding-ui :modal])
+        view-model (funding-actions/funding-modal-view-model state)
+        selected-asset (:deposit-selected-asset view-model)
+        selected-asset-key (normalize-asset-key (:key selected-asset))
+        selected-source-chain (some-> (:hyperunit-source-chain selected-asset)
+                                      non-blank-text
+                                      canonical-chain-token)
+        generated-address (non-blank-text (:deposit-generated-address modal))
+        generated-asset-key (normalize-asset-key (:deposit-generated-asset-key modal))
+        wallet-address (normalize-address (get-in state [:wallet :address]))
+        should-prefetch? (and (= :deposit (:mode modal))
+                              (= :amount-entry (:deposit-step modal))
+                              (= :hyperunit-address (:flow-kind selected-asset))
+                              (keyword? selected-asset-key)
+                              (seq selected-source-chain)
+                              (seq wallet-address)
+                              (not (and (= selected-asset-key generated-asset-key)
+                                        (seq generated-address))))]
+    (when should-prefetch?
+      (let [base-url (resolve-hyperunit-base-url store)
+            asset-token (name selected-asset-key)]
+        (-> (request-existing-hyperunit-deposit-address! base-url
+                                                         wallet-address
+                                                         selected-source-chain
+                                                         asset-token)
+            (.then (fn [existing-address]
+                     (when (map? existing-address)
+                       (swap! store
+                              (fn [state*]
+                                (let [modal* (get-in state* [:funding-ui :modal])
+                                      active-asset-key (normalize-asset-key (:deposit-selected-asset-key modal*))
+                                      active-generated-key (normalize-asset-key (:deposit-generated-asset-key modal*))
+                                      active-generated-address (non-blank-text (:deposit-generated-address modal*))
+                                      still-active? (and (= :deposit (:mode modal*))
+                                                         (= :amount-entry (:deposit-step modal*))
+                                                         (= selected-asset-key active-asset-key))
+                                      already-populated? (and (= selected-asset-key active-generated-key)
+                                                              (seq active-generated-address))]
+                                  (if (and still-active?
+                                           (not already-populated?))
+                                    (-> state*
+                                        (assoc-in [:funding-ui :modal :error] nil)
+                                        (assoc-in [:funding-ui :modal :deposit-generated-address] (:address existing-address))
+                                        (assoc-in [:funding-ui :modal :deposit-generated-signatures] (:signatures existing-address))
+                                        (assoc-in [:funding-ui :modal :deposit-generated-asset-key] selected-asset-key))
+                                    state*)))))
+                     existing-address))
+            (.catch (fn [_err]
+                      nil)))))))
 
 (defn- lifecycle-next-delay-ms
   [now-ms lifecycle]
@@ -1018,21 +1115,22 @@
                                         base-url
                                         destination-address
                                         from-chain
-                                        asset))]
+                                        asset))
+            fallback-after-generate-error!
+            (fn [generate-error]
+              (-> (lookup-existing-address!)
+                  (.then (fn [fallback-address]
+                           (if (map? fallback-address)
+                             (to-success-response fallback-address true)
+                             (js/Promise.reject generate-error))))))]
         (-> (lookup-existing-address!)
             (.then (fn [existing-address]
                      (if (map? existing-address)
-                       (to-success-response existing-address true)
-                       (-> (generate-address!)
-                           (.catch (fn [generate-error]
-                                     (-> (lookup-existing-address!)
-                                         (.then (fn [fallback-address]
-                                                  (if (map? fallback-address)
-                                                    (to-success-response fallback-address true)
-                                                    (js/Promise.reject generate-error))))))))))))
-          (.catch (fn [err]
-                    {:status "err"
-                     :error (wallet-error-message err)}))))))
+                       (js/Promise.resolve (to-success-response existing-address true))
+                       (.catch (generate-address!) fallback-after-generate-error!))))
+            (.catch (fn [err]
+                      {:status "err"
+                       :error (wallet-error-message err)})))))))
 
 (defn- submit-hyperunit-send-asset-withdraw-request!
   [store owner-address action submit-send-asset!]
@@ -1371,6 +1469,7 @@
                      (assoc :status :loading
                             :requested-at-ms now-ms
                             :error nil))))
+        (prefetch-selected-hyperunit-deposit-address! store)
         (-> (request-estimate! {:base-url base-url})
             (.then (fn [resp]
                      (when (modal-active-for-fee-estimate? store)
@@ -1596,7 +1695,14 @@
       (set-funding-submit-error! store
                                  show-toast!
                                  "Connect your wallet before depositing.")
-      (-> (submit-deposit! store address action)
+      (let [submit-result (try
+                            (submit-deposit! store address action)
+                            (catch :default err
+                              (js/Promise.reject err)))
+            submit-promise (if (fn? (some-> submit-result .-then))
+                             submit-result
+                             (js/Promise.resolve submit-result))]
+        (-> submit-promise
           (.then (fn [resp]
                    (if (= "ok" (:status resp))
                     (if (true? (:keep-modal-open? resp))
@@ -1648,4 +1754,4 @@
                     (let [error-text (str/trim (str (runtime-error-message err)))
                           message (str "Deposit failed: "
                                        (if (seq error-text) error-text "Unknown runtime error"))]
-                      (set-funding-submit-error! store show-toast! message))))))))
+                      (set-funding-submit-error! store show-toast! message)))))))))
