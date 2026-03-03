@@ -5,6 +5,7 @@
             [hyperopen.funding.application.lifecycle-polling :as lifecycle-polling]
             [hyperopen.funding.application.submit-effects :as submit-effects]
             [hyperopen.funding.domain.lifecycle :as funding-lifecycle]
+            [hyperopen.funding.infrastructure.erc20-rpc :as erc20-rpc]
             [hyperopen.funding.infrastructure.hyperunit-address-client :as hyperunit-address-client]
             [hyperopen.funding.infrastructure.hyperunit-client :as hyperunit-client]
             [hyperopen.funding.infrastructure.route-clients :as route-clients]
@@ -118,14 +119,6 @@
                (re-matches #"^0x[0-9a-f]{40}$" text))
       text)))
 
-(defn- left-pad-hex
-  [hex-value width]
-  (let [value (or hex-value "")
-        value-len (count value)]
-    (if (>= value-len width)
-      value
-      (str (apply str (repeat (- width value-len) "0")) value))))
-
 (defn- parse-usdc-units
   [amount]
   (let [text (some-> amount str str/trim)]
@@ -153,15 +146,8 @@
 (def ^:private usdh-route-max-units
   (parse-usdh-units "1000000"))
 
-(defn- bigint-from-hex
-  [value]
-  (let [text (-> (or value "0x0")
-                 str
-                 str/trim
-                 str/lower-case)]
-    (if (re-matches #"^0x[0-9a-f]+$" text)
-      (js/BigInt text)
-      (js/BigInt "0"))))
+(def ^:private encode-erc20-transfer-call-data erc20-rpc/encode-erc20-transfer-call-data)
+(def ^:private encode-erc20-approve-call-data erc20-rpc/encode-erc20-approve-call-data)
 
 (defn- usdc-units->amount-text
   [value]
@@ -177,34 +163,6 @@
     (if (seq fract-trimmed)
       (str whole "." fract-trimmed)
       whole)))
-
-(defn- encode-erc20-transfer-call-data
-  [to-address amount-units]
-  (let [to* (normalize-address to-address)
-        to-param (left-pad-hex (subs to* 2) 64)
-        amount-param (left-pad-hex (.toString amount-units 16) 64)]
-    (str "0xa9059cbb" to-param amount-param)))
-
-(defn- encode-erc20-approve-call-data
-  [spender-address amount-units]
-  (let [spender* (normalize-address spender-address)
-        spender-param (left-pad-hex (subs spender* 2) 64)
-        amount-param (left-pad-hex (.toString amount-units 16) 64)]
-    (str "0x095ea7b3" spender-param amount-param)))
-
-(defn- encode-erc20-balance-of-call-data
-  [owner-address]
-  (let [owner* (normalize-address owner-address)
-        owner-param (left-pad-hex (subs owner* 2) 64)]
-    (str "0x70a08231" owner-param)))
-
-(defn- encode-erc20-allowance-call-data
-  [owner-address spender-address]
-  (let [owner* (normalize-address owner-address)
-        spender* (normalize-address spender-address)
-        owner-param (left-pad-hex (subs owner* 2) 64)
-        spender-param (left-pad-hex (subs spender* 2) 64)]
-    (str "0xdd62ed3e" owner-param spender-param)))
 
 (defn- wallet-error-message
   [err]
@@ -844,21 +802,18 @@
 
 (defn- read-erc20-balance-units!
   [provider token-address owner-address]
-  (-> (provider-request! provider
-                         "eth_call"
-                         [{:to token-address
-                           :data (encode-erc20-balance-of-call-data owner-address)}
-                          "latest"])
-      (.then bigint-from-hex)))
+  (erc20-rpc/read-erc20-balance-units! provider-request!
+                                       provider
+                                       token-address
+                                       owner-address))
 
 (defn- read-erc20-allowance-units!
   [provider token-address owner-address spender-address]
-  (-> (provider-request! provider
-                         "eth_call"
-                         [{:to token-address
-                           :data (encode-erc20-allowance-call-data owner-address spender-address)}
-                          "latest"])
-      (.then bigint-from-hex)))
+  (erc20-rpc/read-erc20-allowance-units! provider-request!
+                                         provider
+                                         token-address
+                                         owner-address
+                                         spender-address))
 
 (defn- fetch-lifi-quote!
   [from-address amount-units to-token-address]
