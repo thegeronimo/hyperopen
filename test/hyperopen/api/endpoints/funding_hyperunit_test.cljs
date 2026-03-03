@@ -42,8 +42,7 @@
                    (let [[url init] (first @calls)]
                      (is (= "https://api.hyperunit-testnet.xyz/gen/bitcoin/hyperliquid/btc/0xAbC"
                             url))
-                     (is (= {:method "GET"
-                             :headers {:Content-Type "application/json"}}
+                     (is (= {:method "GET"}
                             (js->clj init :keywordize-keys true))))
                    (is (= {:address "0xProtocolAddress"
                            :status "OK"

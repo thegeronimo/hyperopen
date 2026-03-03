@@ -35,6 +35,12 @@
 (def ^:private hyperunit-testnet-base-url
   "https://api.hyperunit-testnet.xyz")
 
+(def ^:private hyperunit-mainnet-proxy-base-url
+  "/api/hyperunit/mainnet")
+
+(def ^:private hyperunit-testnet-proxy-base-url
+  "/api/hyperunit/testnet")
+
 (def ^:private hyperunit-operations-poll-default-delay-ms
   3000)
 
@@ -241,18 +247,52 @@
     (or (get chain-config-by-id chain-id)
         (get chain-config-by-id default-deposit-chain-id))))
 
-(defn- resolve-hyperunit-base-url
+(defn- resolve-hyperunit-base-urls
   [store]
   (let [wallet-chain-id (normalize-chain-id (get-in @store [:wallet :chain-id]))]
-    (if (= wallet-chain-id arbitrum-sepolia-chain-id)
-      hyperunit-testnet-base-url
-      hyperunit-mainnet-base-url)))
+    (vec
+     (distinct
+      (if (= wallet-chain-id arbitrum-sepolia-chain-id)
+        [hyperunit-testnet-proxy-base-url
+         hyperunit-testnet-base-url]
+        [hyperunit-mainnet-proxy-base-url
+         hyperunit-mainnet-base-url])))))
+
+(defn- resolve-hyperunit-base-url
+  [store]
+  (or (first (resolve-hyperunit-base-urls store))
+      hyperunit-mainnet-base-url))
 
 (defn- non-blank-text
   [value]
   (let [text (some-> value str str/trim)]
     (when (seq text)
       text)))
+
+(defn- with-hyperunit-base-url-fallbacks!
+  [{:keys [base-url
+           base-urls
+           request-fn
+           error-message]
+    :or {error-message "HyperUnit request failed."}}]
+  (let [candidates (vec (distinct
+                         (keep non-blank-text
+                               (concat [(non-blank-text base-url)]
+                                       (or base-urls [])))))]
+    (letfn [(attempt! [remaining last-error]
+              (if-let [candidate (first remaining)]
+                (let [request-result (try
+                                       (request-fn candidate)
+                                       (catch :default err
+                                         (js/Promise.reject err)))]
+                  (-> request-result
+                      (.catch (fn [err]
+                                (attempt! (rest remaining)
+                                          (or err last-error))))))
+                (js/Promise.reject
+                 (or last-error
+                     (js/Error. error-message)))))]
+      (attempt! candidates nil))))
 
 (defonce ^:private hyperunit-lifecycle-poll-tokens
   (atom {}))
@@ -367,35 +407,60 @@
       (js/Math.floor parsed))))
 
 (defn request-hyperunit-operations!
-  [{:keys [base-url address]}]
-  (funding-hyperunit-gateway/request-hyperunit-operations!
-   {:hyperunit-base-url base-url
-    :fetch-fn js/fetch}
-   {:address address}))
+  [{:keys [base-url base-urls address]}]
+  (with-hyperunit-base-url-fallbacks!
+   {:base-url base-url
+    :base-urls base-urls
+    :error-message "Unable to load HyperUnit operations."
+    :request-fn (fn [candidate-base-url]
+                  (funding-hyperunit-gateway/request-hyperunit-operations!
+                   {:hyperunit-base-url candidate-base-url
+                    :fetch-fn js/fetch}
+                   {:address address}))}))
 
 (defn request-hyperunit-estimate-fees!
-  [{:keys [base-url]}]
-  (funding-hyperunit-gateway/request-hyperunit-estimate-fees!
-   {:hyperunit-base-url base-url
-    :fetch-fn js/fetch}
-   {}))
+  [{:keys [base-url base-urls]}]
+  (with-hyperunit-base-url-fallbacks!
+   {:base-url base-url
+    :base-urls base-urls
+    :error-message "Unable to load HyperUnit fee estimates."
+    :request-fn (fn [candidate-base-url]
+                  (funding-hyperunit-gateway/request-hyperunit-estimate-fees!
+                   {:hyperunit-base-url candidate-base-url
+                    :fetch-fn js/fetch}
+                   {}))}))
 
 (defn request-hyperunit-withdrawal-queue!
-  [{:keys [base-url]}]
-  (funding-hyperunit-gateway/request-hyperunit-withdrawal-queue!
-   {:hyperunit-base-url base-url
-    :fetch-fn js/fetch}
-   {}))
+  [{:keys [base-url base-urls]}]
+  (with-hyperunit-base-url-fallbacks!
+   {:base-url base-url
+    :base-urls base-urls
+    :error-message "Unable to load HyperUnit withdrawal queue."
+    :request-fn (fn [candidate-base-url]
+                  (funding-hyperunit-gateway/request-hyperunit-withdrawal-queue!
+                   {:hyperunit-base-url candidate-base-url
+                    :fetch-fn js/fetch}
+                   {}))}))
 
 (defn request-hyperunit-generate-address!
-  [{:keys [base-url source-chain destination-chain asset destination-address]}]
-  (funding-hyperunit-gateway/request-hyperunit-generate-address!
-   {:hyperunit-base-url base-url
-    :fetch-fn js/fetch}
-   {:source-chain source-chain
-    :destination-chain destination-chain
-    :asset asset
-    :destination-address destination-address}))
+  [{:keys [base-url
+           base-urls
+           source-chain
+           destination-chain
+           asset
+           destination-address]}]
+  (with-hyperunit-base-url-fallbacks!
+   {:base-url base-url
+    :base-urls base-urls
+    :error-message "Unable to generate HyperUnit address."
+    :request-fn (fn [candidate-base-url]
+                  (funding-hyperunit-gateway/request-hyperunit-generate-address!
+                   {:hyperunit-base-url candidate-base-url
+                    :fetch-fn js/fetch}
+                   {:source-chain source-chain
+                    :destination-chain destination-chain
+                    :asset asset
+                    :destination-address destination-address}))}))
 
 (defn- lifecycle-poll-key
   [store direction asset-key]
@@ -597,8 +662,9 @@
        :signatures (:signatures chosen-entry)})))
 
 (defn- request-existing-hyperunit-deposit-address!
-  [base-url destination-address source-chain asset]
+  [base-url base-urls destination-address source-chain asset]
   (-> (request-hyperunit-operations! {:base-url base-url
+                                      :base-urls base-urls
                                       :address destination-address})
       (.then (fn [operations-response]
                (select-existing-hyperunit-deposit-address operations-response
@@ -630,9 +696,11 @@
                               (not (and (= selected-asset-key generated-asset-key)
                                         (seq generated-address))))]
     (when should-prefetch?
-      (let [base-url (resolve-hyperunit-base-url store)
+      (let [base-urls (resolve-hyperunit-base-urls store)
+            base-url (first base-urls)
             asset-token (name selected-asset-key)]
         (-> (request-existing-hyperunit-deposit-address! base-url
+                                                         base-urls
                                                          wallet-address
                                                          selected-source-chain
                                                          asset-token)
@@ -714,6 +782,7 @@
 (defn- fetch-hyperunit-withdrawal-queue!
   [{:keys [store
            base-url
+           base-urls
            request-hyperunit-withdrawal-queue!
            now-ms-fn
            runtime-error-message
@@ -725,8 +794,10 @@
                          request-hyperunit-withdrawal-queue!)
         now-ms!* (or now-ms-fn
                      (fn [] (js/Date.now)))
-        base-url* (or base-url
-                      (resolve-hyperunit-base-url store))]
+        resolved-base-urls (or (seq base-urls)
+                               (resolve-hyperunit-base-urls store))
+        base-url* (or (non-blank-text base-url)
+                      (first resolved-base-urls))]
     (when (and request-queue!
                (modal-active-for-withdraw-queue? store expected-asset-key))
       (let [requested-at (now-ms!*)]
@@ -738,7 +809,8 @@
                        (assoc :status :loading
                               :requested-at-ms requested-at
                               :error nil)))))
-        (-> (request-queue! {:base-url base-url*})
+        (-> (request-queue! {:base-url base-url*
+                             :base-urls resolved-base-urls})
             (.then (fn [resp]
                      (when (modal-active-for-withdraw-queue? store expected-asset-key)
                        (let [timestamp (now-ms!*)
@@ -783,6 +855,7 @@
            protocol-address
            destination-address
            base-url
+           base-urls
            request-hyperunit-operations!
            request-hyperunit-withdrawal-queue!
            set-timeout-fn
@@ -821,6 +894,7 @@
                                         (fetch-hyperunit-withdrawal-queue!
                                          {:store store
                                           :base-url base-url
+                                          :base-urls base-urls
                                           :request-hyperunit-withdrawal-queue! request-queue!
                                           :now-ms-fn now-ms!*
                                           :runtime-error-message (or runtime-error-message
@@ -840,6 +914,7 @@
                   (if-not (should-continue?)
                     (clear-lifecycle-poll-token! poll-key token)
                     (-> (request-ops! {:base-url base-url
+                                       :base-urls base-urls
                                        :address wallet-address})
                         (.then (fn [response]
                                  (when (should-continue?)
@@ -1032,8 +1107,7 @@
 (defn- fetch-lifi-quote!
   [from-address amount-units to-token-address]
   (let [url (lifi-quote-url from-address amount-units to-token-address)]
-    (-> (js/fetch url #js {:method "GET"
-                           :headers #js {"Content-Type" "application/json"}})
+    (-> (js/fetch url #js {:method "GET"})
         (.then (fn [resp]
                  (if (.-ok resp)
                    (.json resp)
@@ -1062,8 +1136,7 @@
 (defn- fetch-across-approval!
   [from-address amount-units usdc-address]
   (let [url (across-approval-url from-address amount-units usdc-address)]
-    (-> (js/fetch url #js {:method "GET"
-                           :headers #js {"Content-Type" "application/json"}})
+    (-> (js/fetch url #js {:method "GET"})
         (.then (fn [resp]
                  (if (.-ok resp)
                    (.json resp)
@@ -1133,8 +1206,7 @@
                                destination-chain
                                asset
                                destination-address)]
-    (-> (js/fetch url #js {:method "GET"
-                           :headers #js {"Content-Type" "application/json"}})
+    (-> (js/fetch url #js {:method "GET"})
         (.then (fn [resp]
                  (if (.-ok resp)
                    (.json resp)
@@ -1163,25 +1235,31 @@
                      (throw (js/Error. "HyperUnit address response missing deposit address.")))))))))
 
 (defn- fetch-hyperunit-address-with-source-fallbacks!
-  [base-url source-chain destination-chain asset destination-address]
+  [base-url base-urls source-chain destination-chain asset destination-address]
   (let [source-candidates (or (seq (hyperunit-source-chain-candidates source-chain))
                               [(or (canonical-chain-token source-chain)
                                    (canonical-token source-chain)
-                                   source-chain)])]
-    (letfn [(attempt! [remaining last-error]
-              (if-let [candidate (first remaining)]
-                (-> (fetch-hyperunit-address! base-url
-                                              candidate
-                                              destination-chain
-                                              asset
-                                              destination-address)
-                    (.catch (fn [err]
-                              (attempt! (rest remaining)
-                                        (or err last-error)))))
-                (js/Promise.reject
-                 (or last-error
-                     (js/Error. "Unable to generate HyperUnit deposit address.")))))]
-      (attempt! source-candidates nil))))
+                                   source-chain)])
+        attempt-for-base-url! (fn [candidate-base-url]
+                                (letfn [(attempt-source! [remaining last-error]
+                                          (if-let [candidate-source (first remaining)]
+                                            (-> (fetch-hyperunit-address! candidate-base-url
+                                                                          candidate-source
+                                                                          destination-chain
+                                                                          asset
+                                                                          destination-address)
+                                                (.catch (fn [err]
+                                                          (attempt-source! (rest remaining)
+                                                                           (or err last-error)))))
+                                            (js/Promise.reject
+                                             (or last-error
+                                                 (js/Error. "Unable to generate HyperUnit deposit address.")))))]
+                                  (attempt-source! source-candidates nil)))]
+    (with-hyperunit-base-url-fallbacks!
+     {:base-url base-url
+      :base-urls base-urls
+      :error-message "Unable to generate HyperUnit deposit address."
+      :request-fn attempt-for-base-url!})))
 
 (defn- submit-hyperunit-address-deposit-request!
   [store owner-address action]
@@ -1190,7 +1268,8 @@
         asset (some-> (:asset action) str str/trim str/lower-case)
         network-label (or (non-blank-text (:network action))
                           (some-> from-chain str/capitalize))
-        base-url (resolve-hyperunit-base-url store)]
+        base-urls (resolve-hyperunit-base-urls store)
+        base-url (first base-urls)]
     (cond
       (nil? destination-address)
       (js/Promise.resolve {:status "err"
@@ -1216,6 +1295,7 @@
                                   :reused-address? (true? reused-address?)})
             generate-address! (fn []
                                 (-> (fetch-hyperunit-address-with-source-fallbacks! base-url
+                                                                                    base-urls
                                                                                     from-chain
                                                                                     "hyperliquid"
                                                                                     asset
@@ -1227,6 +1307,7 @@
             lookup-existing-address! (fn []
                                        (request-existing-hyperunit-deposit-address!
                                         base-url
+                                        base-urls
                                         destination-address
                                         from-chain
                                         asset))
@@ -1258,7 +1339,8 @@
         amount (some-> (:amount action) str str/trim)
         network-label (or (non-blank-text (:network action))
                           (some-> destination-chain str/capitalize))
-        base-url (resolve-hyperunit-base-url store)]
+        base-urls (resolve-hyperunit-base-urls store)
+        base-url (first base-urls)]
     (cond
       (nil? source-address)
       (js/Promise.resolve {:status "err"
@@ -1285,11 +1367,12 @@
                            :error "Enter a valid withdrawal amount."})
 
       :else
-      (-> (fetch-hyperunit-address! base-url
-                                    "hyperliquid"
-                                    destination-chain
-                                    asset
-                                    destination-address)
+      (-> (fetch-hyperunit-address-with-source-fallbacks! base-url
+                                                          base-urls
+                                                          "hyperliquid"
+                                                          destination-chain
+                                                          asset
+                                                          destination-address)
           (.then (fn [{:keys [address]}]
                    (-> (submit-send-asset! store
                                            source-address
@@ -1317,7 +1400,9 @@
                                               "Unknown exchange error")})))))))
           (.catch (fn [err]
                     {:status "err"
-                     :error (wallet-error-message err)}))))))
+                     :error (hyperunit-request-error-message err
+                                                             {:asset asset
+                                                              :source-chain destination-chain})}))))))
 
 (defn- submit-usdc-bridge2-deposit-tx!
   [store owner-address action]
@@ -1576,7 +1661,8 @@
                             request-hyperunit-estimate-fees!)]
     (when (and request-estimate!
                (modal-active-for-fee-estimate? store))
-      (let [base-url (resolve-hyperunit-base-url store)
+      (let [base-urls (resolve-hyperunit-base-urls store)
+            base-url (first base-urls)
             now-ms (now-ms-fn)]
         (swap! store update-in
                [:funding-ui :modal :hyperunit-fee-estimate]
@@ -1586,7 +1672,8 @@
                             :requested-at-ms now-ms
                             :error nil))))
         (prefetch-selected-hyperunit-deposit-address! store)
-        (-> (request-estimate! {:base-url base-url})
+        (-> (request-estimate! {:base-url base-url
+                                :base-urls base-urls})
             (.then (fn [resp]
                      (when (modal-active-for-fee-estimate? store)
                        (let [timestamp (now-ms-fn)
@@ -1634,6 +1721,7 @@
   (fetch-hyperunit-withdrawal-queue!
    {:store store
     :base-url (resolve-hyperunit-base-url store)
+    :base-urls (resolve-hyperunit-base-urls store)
     :request-hyperunit-withdrawal-queue! request-hyperunit-withdrawal-queue!
     :now-ms-fn now-ms-fn
     :runtime-error-message runtime-error-message
@@ -1727,7 +1815,8 @@
                    (if (= "ok" (:status resp))
                      (if (true? (:keep-modal-open? resp))
                        (let [asset-key (some-> (:asset resp) str str/lower-case keyword)
-                             base-url (resolve-hyperunit-base-url store)
+                             base-urls (resolve-hyperunit-base-urls store)
+                             base-url (first base-urls)
                              now-ms (if (fn? now-ms-fn)
                                       (now-ms-fn)
                                       (js/Date.now))]
@@ -1745,6 +1834,7 @@
                            :protocol-address (:protocol-address resp)
                            :destination-address (:destination resp)
                            :base-url base-url
+                           :base-urls base-urls
                            :request-hyperunit-operations! request-hyperunit-operations!
                            :request-hyperunit-withdrawal-queue! request-hyperunit-withdrawal-queue!
                            :set-timeout-fn set-timeout-fn
@@ -1823,7 +1913,8 @@
                    (if (= "ok" (:status resp))
                     (if (true? (:keep-modal-open? resp))
                        (let [asset-key (some-> (:asset resp) str str/lower-case keyword)
-                             base-url (resolve-hyperunit-base-url store)
+                             base-urls (resolve-hyperunit-base-urls store)
+                             base-url (first base-urls)
                              now-ms (if (fn? now-ms-fn)
                                       (now-ms-fn)
                                       (js/Date.now))]
@@ -1842,6 +1933,7 @@
                            :asset-key asset-key
                            :protocol-address (:deposit-address resp)
                            :base-url base-url
+                           :base-urls base-urls
                            :request-hyperunit-operations! request-hyperunit-operations!
                            :set-timeout-fn set-timeout-fn
                            :now-ms-fn now-ms-fn

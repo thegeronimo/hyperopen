@@ -37,9 +37,13 @@ clojure -P
 npm run dev
 # or
 clj -M:dev -m shadow.cljs.devtools.cli watch app
+
+# Start development server with same-origin HyperUnit proxy (recommended for funding flows)
+npm run dev:proxy
 ```
 
 Open http://localhost:8080 in your browser.
+When using `npm run dev:proxy`, open http://localhost:8081.
 
 ### Build
 

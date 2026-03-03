@@ -128,9 +128,12 @@
 (defn- request-json!
   [fetch-fn url opts request-label]
   (let [fetch-fn* (or fetch-fn js/fetch)
-        init (clj->js (merge {:method "GET"
-                              :headers {"Content-Type" "application/json"}}
-                             (:fetch-opts (or opts {}))))]
+        fetch-opts (or (:fetch-opts (or opts {})) {})
+        method (some-> (or (:method fetch-opts) "GET") str str/upper-case)
+        default-init (cond-> {:method method}
+                       (not (contains? #{"GET" "HEAD"} method))
+                       (assoc :headers {"Content-Type" "application/json"}))
+        init (clj->js (merge default-init fetch-opts))]
     (-> (fetch-fn* url init)
         (.then (fn [response]
                  (-> (parse-response-payload! response)

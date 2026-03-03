@@ -4,7 +4,9 @@
   "description": "ClojureScript app using Replicant",
   "scripts": {
     "cljs:watch": "shadow-cljs watch app portfolio-worker",
+    "proxy:dev": "node tools/hyperunit-proxy/server.mjs",
     "dev": "concurrently -k -n TAILWIND,CLJS \"npm run css:watch\" \"npm run cljs:watch\"",
+    "dev:proxy": "concurrently -k -n TAILWIND,CLJS,PROXY \"npm run css:watch\" \"npm run cljs:watch\" \"npm run proxy:dev\"",
     "build": "npm run css:build && npx shadow-cljs release app portfolio-worker",
     "repl": "npx shadow-cljs cljs-repl app",
     "test:runner:generate": "node tools/generate-test-runner.mjs",
