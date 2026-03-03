@@ -21,6 +21,8 @@ The change will make the funding surface safer to extend: domain rules become pu
 - [x] (2026-03-03 21:08Z) Milestone 4 partial completion: extracted HyperUnit transport/fallback request concerns to `/hyperopen/src/hyperopen/funding/infrastructure/hyperunit_client.cljs` and updated `/hyperopen/src/hyperopen/funding/effects.cljs` to consume domain/infrastructure modules.
 - [x] (2026-03-03 21:08Z) Milestone 5 validation completed for current slice: `npx shadow-cljs compile app`, `npx shadow-cljs compile test`, `npm run check`, `npm test`, and `npm run test:websocket` all passed.
 - [x] (2026-03-03 21:01Z) Milestone 2 follow-up: removed duplicated lifecycle/fee/withdraw-queue normalization logic from `/hyperopen/src/hyperopen/funding/application/modal_actions.cljs` and delegated to `/hyperopen/src/hyperopen/funding/domain/lifecycle.cljs` through compatibility aliases.
+- [x] (2026-03-03 21:06Z) Milestone 4 follow-up: extracted LiFi/Across route request and payload parsing concerns into `/hyperopen/src/hyperopen/funding/infrastructure/route_clients.cljs`, and rewired `/hyperopen/src/hyperopen/funding/effects.cljs` through compatibility wrappers.
+- [x] (2026-03-03 21:06Z) Milestone 5 validation completed for route-client slice: `npm run check`, `npm test`, and `npm run test:websocket` all passed after extraction.
 - [ ] Milestone 3 remaining: split `funding-modal-view-model` and modal command orchestration into dedicated application modules to reduce `/hyperopen/src/hyperopen/funding/application/modal_actions.cljs` size.
 - [ ] Milestone 4 remaining: split submit/lifecycle polling orchestration from `/hyperopen/src/hyperopen/funding/effects.cljs` into explicit funding application modules while preserving current test seams.
 - [ ] Milestone 6: Land tracking and governance updates (`bd`, optional ADR) and complete handoff.
@@ -74,6 +76,7 @@ Implemented first execution slice with behavior-preserving boundary extraction:
 - HyperUnit transport fallback/request ownership extracted to `funding.infrastructure.hyperunit-client`.
 - `funding.effects` now depends on explicit domain and infrastructure modules for those concerns.
 - `funding.application.modal-actions` no longer carries its own duplicated lifecycle normalization implementation and now consumes lifecycle normalization from `funding.domain.lifecycle`.
+- `funding.effects` now delegates route-provider infrastructure concerns (LiFi and Across HTTP request construction and response parsing) to `funding.infrastructure.route-clients`.
 
 Current gates are green (`npm run check`, `npm test`, `npm run test:websocket`), and runtime contracts remained stable. Remaining work is decomposition depth: the large `modal_actions.cljs` and `effects.cljs` orchestration bodies still need additional internal splits to fully satisfy the bounded-context end state.
 

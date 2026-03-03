@@ -4,6 +4,7 @@
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.funding.domain.lifecycle :as funding-lifecycle]
             [hyperopen.funding.infrastructure.hyperunit-client :as hyperunit-client]
+            [hyperopen.funding.infrastructure.route-clients :as route-clients]
             [hyperopen.wallet.core :as wallet]))
 
 (def ^:private arbitrum-mainnet-chain-id
@@ -1009,122 +1010,27 @@
                           "latest"])
       (.then bigint-from-hex)))
 
-(defn- maybe-value-field
-  [value]
-  (let [text (some-> value str str/trim)]
-    (when (and (seq text)
-               (not= text "0x")
-               (not= text "0x0")
-               (not= text "0"))
-      text)))
-
-(defn- lifi-quote-url
-  [from-address amount-units to-token-address]
-  (let [encode js/encodeURIComponent]
-    (str "https://li.quest/v1/quote?"
-         "fromChain=" arbitrum-mainnet-chain-id-decimal
-         "&toChain=" arbitrum-mainnet-chain-id-decimal
-         "&fromToken=" (encode arbitrum-usdt-address)
-         "&toToken=" (encode to-token-address)
-         "&fromAddress=" (encode from-address)
-         "&fromAmount=" (encode (.toString amount-units))
-         "&slippage=0.005"
-         "&integrator=hyperopen")))
-
 (defn- fetch-lifi-quote!
   [from-address amount-units to-token-address]
-  (let [url (lifi-quote-url from-address amount-units to-token-address)]
-    (-> (js/fetch url #js {:method "GET"})
-        (.then (fn [resp]
-                 (if (.-ok resp)
-                   (.json resp)
-                   (.then (.text resp)
-                          (fn [text]
-                            (throw (js/Error.
-                                    (str "LiFi quote request failed ("
-                                         (.-status resp)
-                                         "): "
-                                         (or text "Unknown response"))))))))
-        (.then (fn [payload]
-                 (js->clj payload :keywordize-keys true)))))))
-
-(defn- across-approval-url
-  [from-address amount-units usdc-address]
-  (let [encode js/encodeURIComponent]
-    (str across-swap-approval-base-url
-         "?tradeType=minOutput"
-         "&amount=" (encode (.toString amount-units))
-         "&inputToken=" (encode usdc-address)
-         "&originChainId=" (encode arbitrum-mainnet-chain-id-decimal)
-         "&outputToken=" (encode hypercore-usdh-address)
-         "&destinationChainId=" (encode hypercore-chain-id-decimal)
-         "&depositor=" (encode from-address))))
+  (route-clients/fetch-lifi-quote! {:from-address from-address
+                                    :amount-units amount-units
+                                    :to-token-address to-token-address
+                                    :from-chain-id arbitrum-mainnet-chain-id-decimal
+                                    :to-chain-id arbitrum-mainnet-chain-id-decimal
+                                    :from-token-address arbitrum-usdt-address
+                                    :integrator "hyperopen"}))
 
 (defn- fetch-across-approval!
   [from-address amount-units usdc-address]
-  (let [url (across-approval-url from-address amount-units usdc-address)]
-    (-> (js/fetch url #js {:method "GET"})
-        (.then (fn [resp]
-                 (if (.-ok resp)
-                   (.json resp)
-                   (.then (.text resp)
-                          (fn [text]
-                            (throw (js/Error.
-                                    (str "Across approval request failed ("
-                                         (.-status resp)
-                                         "): "
-                                         (or text "Unknown response"))))))))
-        (.then (fn [payload]
-                 (js->clj payload :keywordize-keys true)))))))
+  (route-clients/fetch-across-approval! {:base-url across-swap-approval-base-url
+                                         :from-address from-address
+                                         :amount-units amount-units
+                                         :input-token-address usdc-address
+                                         :origin-chain-id arbitrum-mainnet-chain-id-decimal
+                                         :output-token-address hypercore-usdh-address
+                                         :destination-chain-id hypercore-chain-id-decimal}))
 
-(defn- normalize-hex-data
-  [value]
-  (let [text (some-> value str str/trim str/lower-case)]
-    (when (and (seq text)
-               (re-matches #"^0x[0-9a-f]+$" text))
-      text)))
-
-(defn- normalize-hex-quantity
-  [value]
-  (let [text (some-> value str str/trim str/lower-case)]
-    (cond
-      (not (seq text))
-      nil
-
-      (or (= text "0")
-          (= text "0x")
-          (= text "0x0"))
-      "0x0"
-
-      (re-matches #"^0x[0-9a-f]+$" text)
-      text
-
-      (re-matches #"^\d+$" text)
-      (str "0x" (.toString (js/BigInt text) 16))
-
-      :else
-      nil)))
-
-(defn- parse-across-transaction
-  [tx]
-  (let [to (normalize-address (:to tx))
-        data (normalize-hex-data (:data tx))
-        value (normalize-hex-quantity (:value tx))]
-    (when (and to data)
-      (cond-> {:to to
-               :data data}
-        (and (seq value)
-             (not= value "0x0")) (assoc :value value)))))
-
-(defn- across-approval->swap-config
-  [approval]
-  (let [swap-tx (parse-across-transaction (:swapTx approval))
-        approval-txs (->> (or (:approvalTxns approval) [])
-                          (keep parse-across-transaction)
-                          vec)]
-    (when swap-tx
-      {:swap-tx swap-tx
-       :approval-txs approval-txs})))
+(def ^:private across-approval->swap-config route-clients/across-approval->swap-config)
 
 (defn- fetch-hyperunit-address!
   [base-url source-chain destination-chain asset destination-address]
@@ -1374,34 +1280,7 @@
                     {:status "err"
                      :error (wallet-error-message err)}))))))
 
-(defn- parse-positive-bigint
-  [value]
-  (let [text (some-> value str str/trim)]
-    (when (and (seq text)
-               (re-matches #"^\d+$" text))
-      (let [parsed (js/BigInt text)]
-        (when (> parsed (js/BigInt "0"))
-          parsed)))))
-
-(defn- lifi-quote->swap-config
-  [{:keys [action estimate transactionRequest]}]
-  (let [approval-address (normalize-address (:approvalAddress estimate))
-        from-amount-units (parse-positive-bigint (:fromAmount estimate))
-        swap-token-address (normalize-address (get-in action [:fromToken :address]))
-        swap-to-address (normalize-address (:to transactionRequest))
-        swap-data (some-> (:data transactionRequest) str str/trim)
-        swap-value (maybe-value-field (:value transactionRequest))]
-    (when (and approval-address
-               from-amount-units
-               swap-token-address
-               swap-to-address
-               (seq swap-data))
-      {:approval-address approval-address
-       :from-amount-units from-amount-units
-       :swap-token-address swap-token-address
-       :swap-to-address swap-to-address
-       :swap-data swap-data
-       :swap-value swap-value})))
+(def ^:private lifi-quote->swap-config route-clients/lifi-quote->swap-config)
 
 (defn- approve-lifi-swap-token-if-needed!
   [provider from-address {:keys [swap-token-address approval-address from-amount-units]}]
