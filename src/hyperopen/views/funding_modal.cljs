@@ -135,6 +135,23 @@
         "Now"
         (str "In " remaining-seconds "s")))))
 
+(defn- lifecycle-tx-hash-content
+  [tx-hash explorer-url]
+  (if (seq explorer-url)
+    [:a {:href explorer-url
+         :target "_blank"
+         :rel "noreferrer noopener"
+         :class ["font-mono"
+                 "text-xs"
+                 "break-all"
+                 "text-[#70e9e1]"
+                 "underline"
+                 "decoration-[#3d8f8a]"
+                 "hover:text-[#9df5ef]"]}
+     tx-hash]
+    [:p {:class ["font-mono" "text-xs" "text-[#dce9ee]" "break-all"]}
+     tx-hash]))
+
 (defn funding-modal-view
   [state]
   (let [{:keys [open?
@@ -162,6 +179,11 @@
                 to-perp?
                 destination-input
                 hyperunit-lifecycle
+                hyperunit-lifecycle-terminal?
+                hyperunit-lifecycle-outcome
+                hyperunit-lifecycle-outcome-label
+                hyperunit-lifecycle-recovery-hint
+                hyperunit-lifecycle-destination-explorer-url
                 max-display
                 max-input
                 max-symbol
@@ -175,6 +197,7 @@
                 withdraw-network-fee
                 withdraw-queue-length
                 withdraw-queue-last-operation-tx-id
+                withdraw-queue-last-operation-explorer-url
                 hyperunit-fee-estimate-loading?
                 hyperunit-fee-estimate-error
                 hyperunit-withdrawal-queue-loading?
@@ -387,6 +410,15 @@
                    [:div {:class ["flex" "items-center" "justify-between"]}
                     [:span {:class ["text-[#7d94a0]"]} "Status"]
                     [:span {:class ["text-[#dce9ee]"]} lifecycle-status-label]]
+                   (when hyperunit-lifecycle-terminal?
+                     [:div {:class ["flex" "items-center" "justify-between"]}
+                      [:span {:class ["text-[#7d94a0]"]} "Outcome"]
+                      [:span {:class ["text-xs"
+                                      "font-medium"
+                                      (if (= :failure hyperunit-lifecycle-outcome)
+                                        "text-[#f2b8c5]"
+                                        "text-[#7af2d7]")]}
+                       (or hyperunit-lifecycle-outcome-label "Terminal")]])
                    (when (number? (:source-tx-confirmations lifecycle*))
                      [:div {:class ["flex" "items-center" "justify-between"]}
                       [:span {:class ["text-[#7d94a0]"]} "Source confirmations"]
@@ -400,8 +432,9 @@
                    (when (seq (:destination-tx-hash lifecycle*))
                      [:div {:class ["space-y-1"]}
                       [:p {:class ["text-[#7d94a0]"]} "Destination tx hash"]
-                      [:p {:class ["font-mono" "text-xs" "text-[#dce9ee]" "break-all"]}
-                       (:destination-tx-hash lifecycle*)]])
+                      (lifecycle-tx-hash-content
+                       (:destination-tx-hash lifecycle*)
+                       hyperunit-lifecycle-destination-explorer-url)])
                    (when (seq lifecycle-next-check)
                      [:div {:class ["flex" "items-center" "justify-between"]}
                       [:span {:class ["text-[#7d94a0]"]} "Next check"]
@@ -415,7 +448,19 @@
                                     "py-1.5"
                                     "text-xs"
                                     "text-[#f2b8c5]"]}
-                      (:error lifecycle*)])])
+                      (:error lifecycle*)])
+                   (when (and hyperunit-lifecycle-terminal?
+                              (= :failure hyperunit-lifecycle-outcome)
+                              (seq hyperunit-lifecycle-recovery-hint))
+                     [:div {:class ["rounded-md"
+                                    "border"
+                                    "border-[#775331]"
+                                    "bg-[#322515]/55"
+                                    "px-2.5"
+                                    "py-1.5"
+                                    "text-xs"
+                                    "text-[#f7d8af]"]}
+                      hyperunit-lifecycle-recovery-hint])])
                 [:div {:class ["grid" "grid-cols-[56px_1fr]" "gap-2" "pt-1"]}
                  [:button {:type "button"
                            :class ["h-[38px]"
@@ -744,12 +789,25 @@
                        (seq withdraw-queue-last-operation-tx-id))
               [:div {:class ["flex" "items-center" "justify-between" "gap-2"]}
                [:span {:class ["text-[#7d94a0]"]} "Last queue tx"]
-               [:span {:class ["max-w-[220px]"
-                               "truncate"
-                               "font-mono"
-                               "text-xs"
-                               "text-[#dce9ee]"]}
-                withdraw-queue-last-operation-tx-id]])
+               (if (seq withdraw-queue-last-operation-explorer-url)
+                 [:a {:href withdraw-queue-last-operation-explorer-url
+                      :target "_blank"
+                      :rel "noreferrer noopener"
+                      :class ["max-w-[220px]"
+                              "truncate"
+                              "font-mono"
+                              "text-xs"
+                              "text-[#70e9e1]"
+                              "underline"
+                              "decoration-[#3d8f8a]"
+                              "hover:text-[#9df5ef]"]}
+                  withdraw-queue-last-operation-tx-id]
+                 [:span {:class ["max-w-[220px]"
+                                 "truncate"
+                                 "font-mono"
+                                 "text-xs"
+                                 "text-[#dce9ee]"]}
+                  withdraw-queue-last-operation-tx-id])])
             (when (and (= withdraw-flow-kind* :hyperunit-address)
                        (not hyperunit-withdrawal-queue-loading?)
                        (seq hyperunit-withdrawal-queue-error))
@@ -793,6 +851,15 @@
               [:div {:class ["flex" "items-center" "justify-between"]}
                [:span {:class ["text-[#7d94a0]"]} "Status"]
                [:span {:class ["text-[#dce9ee]"]} lifecycle-status-label]]
+              (when hyperunit-lifecycle-terminal?
+                [:div {:class ["flex" "items-center" "justify-between"]}
+                 [:span {:class ["text-[#7d94a0]"]} "Outcome"]
+                 [:span {:class ["text-xs"
+                                 "font-medium"
+                                 (if (= :failure hyperunit-lifecycle-outcome)
+                                   "text-[#f2b8c5]"
+                                   "text-[#7af2d7]")]}
+                  (or hyperunit-lifecycle-outcome-label "Terminal")]])
               (when (number? (:source-tx-confirmations lifecycle*))
                 [:div {:class ["flex" "items-center" "justify-between"]}
                  [:span {:class ["text-[#7d94a0]"]} "Source confirmations"]
@@ -811,8 +878,9 @@
               (when (seq (:destination-tx-hash lifecycle*))
                 [:div {:class ["space-y-1"]}
                  [:p {:class ["text-[#7d94a0]"]} "Destination tx hash"]
-                 [:p {:class ["font-mono" "text-xs" "text-[#dce9ee]" "break-all"]}
-                  (:destination-tx-hash lifecycle*)]])
+                 (lifecycle-tx-hash-content
+                  (:destination-tx-hash lifecycle*)
+                  hyperunit-lifecycle-destination-explorer-url)])
               (when (seq lifecycle-next-check)
                 [:div {:class ["flex" "items-center" "justify-between"]}
                  [:span {:class ["text-[#7d94a0]"]} "Next check"]
@@ -826,7 +894,19 @@
                                "py-1.5"
                                "text-xs"
                                "text-[#f2b8c5]"]}
-                 (:error lifecycle*)])])
+                 (:error lifecycle*)])
+              (when (and hyperunit-lifecycle-terminal?
+                         (= :failure hyperunit-lifecycle-outcome)
+                         (seq hyperunit-lifecycle-recovery-hint))
+                [:div {:class ["rounded-md"
+                               "border"
+                               "border-[#775331]"
+                               "bg-[#322515]/55"
+                               "px-2.5"
+                               "py-1.5"
+                               "text-xs"
+                               "text-[#f7d8af]"]}
+                 hyperunit-lifecycle-recovery-hint])])
            [:div {:class ["flex" "justify-end" "gap-2"]}
             [:button {:type "button"
                       :class (base-button-classes false)

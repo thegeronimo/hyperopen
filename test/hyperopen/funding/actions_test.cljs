@@ -688,7 +688,80 @@
             :state-next-at 1700000000000
             :last-updated-ms 1700000001000
             :error nil}
-           (:hyperunit-lifecycle view-model)))))
+           (:hyperunit-lifecycle view-model)))
+    (is (= false
+           (:hyperunit-lifecycle-terminal? view-model)))
+    (is (nil? (:hyperunit-lifecycle-outcome view-model)))
+    (is (= "https://app.hyperliquid.xyz/explorer/tx/0xabc"
+           (:hyperunit-lifecycle-destination-explorer-url view-model)))))
+
+(deftest funding-modal-view-model-derives-terminal-withdraw-outcome-and-explorer-links-test
+  (let [state (-> (base-state)
+                  (assoc-in [:spot :clearinghouse-state :balances]
+                            [{:coin "USDC" :available "12.5" :total "12.5" :hold "0"}
+                             {:coin "BTC" :available "1.25" :total "1.25" :hold "0"}])
+                  (assoc-in [:funding-ui :modal]
+                            {:open? true
+                             :mode :withdraw
+                             :withdraw-selected-asset-key :btc
+                             :amount-input "0.25"
+                             :destination-input "bc1qexamplexyz0p4y0p4y0p4y0p4y0p4y0p4y0p"
+                             :hyperunit-lifecycle {:direction :withdraw
+                                                   :asset-key :btc
+                                                   :operation-id "op_btc_1"
+                                                   :state :failed
+                                                   :status :terminal
+                                                   :source-tx-confirmations 1
+                                                   :destination-tx-confirmations nil
+                                                   :position-in-withdraw-queue 4
+                                                   :destination-tx-hash "0000abc123"
+                                                   :state-next-at nil
+                                                   :last-updated-ms 1700000000001
+                                                   :error "Bridge broadcast failed"}
+                             :hyperunit-withdrawal-queue {:status :ready
+                                                          :by-chain {"bitcoin" {:chain "bitcoin"
+                                                                                :withdrawal-queue-length 9
+                                                                                :last-withdraw-queue-operation-tx-id "0xqueue123"}}
+                                                          :requested-at-ms 3
+                                                          :updated-at-ms 4
+                                                          :error nil}}))
+        view-model (funding-actions/funding-modal-view-model state)]
+    (is (= true (:hyperunit-lifecycle-terminal? view-model)))
+    (is (= :failure (:hyperunit-lifecycle-outcome view-model)))
+    (is (= "Needs Attention" (:hyperunit-lifecycle-outcome-label view-model)))
+    (is (seq (:hyperunit-lifecycle-recovery-hint view-model)))
+    (is (= "https://mempool.space/tx/0000abc123"
+           (:hyperunit-lifecycle-destination-explorer-url view-model)))
+    (is (= "https://mempool.space/tx/0xqueue123"
+           (:withdraw-queue-last-operation-explorer-url view-model)))))
+
+(deftest funding-modal-view-model-derives-terminal-deposit-outcome-and-hyperliquid-explorer-link-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :deposit
+                         :deposit-step :amount-entry
+                         :deposit-selected-asset-key :btc
+                         :amount-input ""
+                         :hyperunit-lifecycle {:direction :deposit
+                                               :asset-key :btc
+                                               :operation-id "op_btc_2"
+                                               :state :done
+                                               :status :completed
+                                               :source-tx-confirmations 3
+                                               :destination-tx-confirmations 1
+                                               :position-in-withdraw-queue nil
+                                               :destination-tx-hash "0xabc"
+                                               :state-next-at nil
+                                               :last-updated-ms 1700000000456
+                                               :error nil}})
+        view-model (funding-actions/funding-modal-view-model state)]
+    (is (= true (:hyperunit-lifecycle-terminal? view-model)))
+    (is (= :success (:hyperunit-lifecycle-outcome view-model)))
+    (is (= "Completed" (:hyperunit-lifecycle-outcome-label view-model)))
+    (is (nil? (:hyperunit-lifecycle-recovery-hint view-model)))
+    (is (= "https://app.hyperliquid.xyz/explorer/tx/0xabc"
+           (:hyperunit-lifecycle-destination-explorer-url view-model)))))
 
 (deftest funding-modal-view-model-exposes-hyperunit-fee-estimates-and-minimums-test
   (let [state (-> (base-state)
@@ -720,6 +793,8 @@
     (is (= "0.00001" (:withdraw-network-fee view-model)))
     (is (= 9 (:withdraw-queue-length view-model)))
     (is (= "0xqueue123" (:withdraw-queue-last-operation-tx-id view-model)))
+    (is (= "https://mempool.space/tx/0xqueue123"
+           (:withdraw-queue-last-operation-explorer-url view-model)))
     (is (= 0.0003 (:min-withdraw-amount view-model)))
     (is (= "BTC" (:min-withdraw-symbol view-model)))
     (is (= false (:hyperunit-fee-estimate-loading? view-model)))

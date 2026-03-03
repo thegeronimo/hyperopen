@@ -137,6 +137,21 @@
    :spxs 32
    :xpl 60})
 
+(def ^:private hyperunit-lifecycle-terminal-fragments
+  ["done" "fail" "error" "revert" "cancel" "refund"])
+
+(def ^:private hyperunit-lifecycle-failure-fragments
+  ["fail" "error" "revert" "cancel" "refund" "drop"])
+
+(def ^:private hyperunit-explorer-tx-base-by-chain
+  {"arbitrum" "https://arbiscan.io/tx/"
+   "bitcoin" "https://mempool.space/tx/"
+   "ethereum" "https://etherscan.io/tx/"
+   "solana" "https://solscan.io/tx/"})
+
+(def ^:private hyperliquid-explorer-tx-base-url
+  "https://app.hyperliquid.xyz/explorer/tx/")
+
 (defn- non-blank-text
   [value]
   (let [text (some-> value str str/trim)]
@@ -277,6 +292,31 @@
     (when (and (finite-number? parsed)
                (>= parsed 0))
       (js/Math.floor parsed))))
+
+(defn- lifecycle-token
+  [value]
+  (some-> value
+          name
+          str/lower-case
+          (str/replace #"[^a-z0-9]+" "-")
+          (str/replace #"^-+|-+$" "")))
+
+(defn- lifecycle-fragment-match?
+  [value fragments]
+  (let [token (lifecycle-token value)]
+    (and (seq token)
+         (some #(str/includes? token %) fragments))))
+
+(declare normalize-hyperunit-lifecycle)
+
+(defn hyperunit-lifecycle-terminal?
+  [lifecycle]
+  (let [lifecycle* (normalize-hyperunit-lifecycle lifecycle)]
+    (boolean
+     (or (lifecycle-fragment-match? (:state lifecycle*)
+                                    hyperunit-lifecycle-terminal-fragments)
+         (lifecycle-fragment-match? (:status lifecycle*)
+                                    hyperunit-lifecycle-terminal-fragments)))))
 
 (defn default-hyperunit-lifecycle-state
   []
@@ -682,6 +722,54 @@
           non-blank-text
           str/lower-case))
 
+(defn- hyperunit-lifecycle-failure?
+  [lifecycle]
+  (let [lifecycle* (normalize-hyperunit-lifecycle lifecycle)]
+    (or (lifecycle-fragment-match? (:state lifecycle*)
+                                   hyperunit-lifecycle-failure-fragments)
+        (lifecycle-fragment-match? (:status lifecycle*)
+                                   hyperunit-lifecycle-failure-fragments)
+        (and (hyperunit-lifecycle-terminal? lifecycle*)
+             (seq (non-blank-text (:error lifecycle*)))))))
+
+(defn- hyperunit-lifecycle-recovery-hint
+  [lifecycle]
+  (let [lifecycle* (normalize-hyperunit-lifecycle lifecycle)
+        refunded? (or (lifecycle-fragment-match? (:state lifecycle*) ["refund"])
+                      (lifecycle-fragment-match? (:status lifecycle*) ["refund"]))
+        canceled? (or (lifecycle-fragment-match? (:state lifecycle*) ["cancel"])
+                      (lifecycle-fragment-match? (:status lifecycle*) ["cancel"]))]
+    (cond
+      refunded?
+      "Funds were refunded on the source chain. Confirm the wallet balance, then retry."
+
+      canceled?
+      "The operation was canceled. Retry if you still want to continue."
+
+      (= :withdraw (:direction lifecycle*))
+      "Verify the destination address and network, then submit a new withdrawal."
+
+      (= :deposit (:direction lifecycle*))
+      "Verify the source transfer network and amount, then generate a new deposit address."
+
+      :else
+      "Retry the operation and monitor the lifecycle status.")))
+
+(defn- hyperunit-explorer-tx-base-url
+  [direction chain]
+  (if (= direction :deposit)
+    hyperliquid-explorer-tx-base-url
+    (get hyperunit-explorer-tx-base-by-chain chain)))
+
+(defn- hyperunit-explorer-tx-url
+  [direction chain tx-id]
+  (let [direction* (normalize-lifecycle-direction direction)
+        chain* (some-> chain non-blank-text str/lower-case)
+        tx-id* (non-blank-text tx-id)]
+    (when (seq tx-id*)
+      (when-let [base-url (hyperunit-explorer-tx-base-url direction* chain*)]
+        (str base-url (js/encodeURIComponent tx-id*))))))
+
 (defn- hyperunit-fee-entry
   [fee-estimate chain]
   (let [estimate* (normalize-hyperunit-fee-estimate fee-estimate)
@@ -961,6 +1049,27 @@
                                               (non-blank-text
                                                (:last-withdraw-queue-operation-tx-id
                                                 withdraw-chain-queue)))
+        withdraw-queue-last-operation-explorer-url (when (= selected-withdraw-flow-kind :hyperunit-address)
+                                                     (hyperunit-explorer-tx-url
+                                                      :withdraw
+                                                      withdraw-chain
+                                                      withdraw-queue-last-operation-tx-id))
+        lifecycle-terminal? (hyperunit-lifecycle-terminal? hyperunit-lifecycle)
+        lifecycle-outcome (when lifecycle-terminal?
+                            (if (hyperunit-lifecycle-failure? hyperunit-lifecycle)
+                              :failure
+                              :success))
+        lifecycle-outcome-label (case lifecycle-outcome
+                                  :failure "Needs Attention"
+                                  :success "Completed"
+                                  nil)
+        lifecycle-recovery-hint (when (= lifecycle-outcome :failure)
+                                  (hyperunit-lifecycle-recovery-hint hyperunit-lifecycle))
+        lifecycle-destination-explorer-url (hyperunit-explorer-tx-url
+                                            (:direction hyperunit-lifecycle)
+                                            (when (= :withdraw (:direction hyperunit-lifecycle))
+                                              withdraw-chain)
+                                            (:destination-tx-hash hyperunit-lifecycle))
         deposit-estimated-time (if (= selected-deposit-flow-kind :hyperunit-address)
                                  (or (when hyperunit-fee-estimate-loading? "Loading...")
                                      (non-blank-text (:deposit-eta deposit-chain-fee))
@@ -1030,6 +1139,11 @@
      :to-perp? (true? (:to-perp? modal))
      :destination-input (or (:destination-input modal) "")
      :hyperunit-lifecycle hyperunit-lifecycle
+     :hyperunit-lifecycle-terminal? lifecycle-terminal?
+     :hyperunit-lifecycle-outcome lifecycle-outcome
+     :hyperunit-lifecycle-outcome-label lifecycle-outcome-label
+     :hyperunit-lifecycle-recovery-hint lifecycle-recovery-hint
+     :hyperunit-lifecycle-destination-explorer-url lifecycle-destination-explorer-url
      :hyperunit-withdrawal-queue hyperunit-withdrawal-queue
      :max-display (format-usdc-display max-amount)
      :max-input (format-usdc-input max-amount)
@@ -1063,6 +1177,7 @@
      :withdraw-network-fee withdraw-network-fee
      :withdraw-queue-length withdraw-queue-length
      :withdraw-queue-last-operation-tx-id withdraw-queue-last-operation-tx-id
+     :withdraw-queue-last-operation-explorer-url withdraw-queue-last-operation-explorer-url
      :hyperunit-fee-estimate-loading? hyperunit-fee-estimate-loading?
      :hyperunit-fee-estimate-error hyperunit-fee-estimate-error
      :hyperunit-withdrawal-queue-loading? hyperunit-withdrawal-queue-loading?

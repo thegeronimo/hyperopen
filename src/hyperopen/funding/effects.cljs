@@ -431,31 +431,6 @@
                      :else for-asset)]
     (last (sort-by op-sort-ms candidates))))
 
-(defn- lifecycle-terminal-keyword?
-  [value]
-  (let [token (some-> value name canonical-token)]
-    (or (contains? #{:done
-                     :failed
-                     :error
-                     :reverted
-                     :canceled
-                     :cancelled
-                     :drop-and-refunded
-                     :drop-and-refund}
-                   value)
-        (and (seq token)
-             (or (str/includes? token "done")
-                 (str/includes? token "fail")
-                 (str/includes? token "error")
-                 (str/includes? token "revert")
-                 (str/includes? token "cancel")
-                 (str/includes? token "refund"))))))
-
-(defn- lifecycle-terminal?
-  [lifecycle]
-  (or (lifecycle-terminal-keyword? (:state lifecycle))
-      (lifecycle-terminal-keyword? (:status lifecycle))))
-
 (defn- lifecycle-next-delay-ms
   [now-ms lifecycle]
   (let [state-next-at (:state-next-at lifecycle)
@@ -653,7 +628,7 @@
                                                      (awaiting-lifecycle direction asset-key now-ms))]
                                      (update-lifecycle! lifecycle)
                                      (refresh-withdraw-queue!)
-                                     (if (lifecycle-terminal? lifecycle)
+                                     (if (funding-actions/hyperunit-lifecycle-terminal? lifecycle)
                                        (do
                                          (clear-lifecycle-poll-token! poll-key token)
                                          (notify-terminal! lifecycle))
