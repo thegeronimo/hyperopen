@@ -1,7 +1,7 @@
 ---
 owner: platform
 status: canonical
-last_reviewed: 2026-02-13
+last_reviewed: 2026-03-03
 review_cycle_days: 90
 source_of_truth: true
 ---
@@ -13,6 +13,8 @@ This map preserves every major section from the previous monolithic `/hyperopen/
 ## Section Map
 - `Scope and Precedence` -> `/hyperopen/AGENTS.md#source-of-truth-and-precedence`
 - `ExecPlans` -> `/hyperopen/docs/PLANS.md#execplan-contract`
+- `Issue Tracking with bd (beads)` -> `/hyperopen/docs/WORK_TRACKING.md#bd-issue-tracking-source-of-truth`
+- `Landing the Plane (Session Completion)` -> `/hyperopen/docs/WORK_TRACKING.md#session-completion-and-handoff`
 - `UI Guidance (UI Tasks Only)` -> `/hyperopen/docs/FRONTEND.md#ui-guidance-ui-tasks-only`
 - `Repo-Wide Engineering Rules (MUST)` -> `/hyperopen/docs/DESIGN.md#repo-wide-engineering-rules-must`
 - `Crypto Signing and Exchange Application Programming Interface Rules (MUST)` -> `/hyperopen/docs/SECURITY.md#crypto-signing-and-exchange-application-programming-interface-rules-must`

@@ -1,7 +1,7 @@
 ---
 owner: platform
 status: canonical
-last_reviewed: 2026-02-26
+last_reviewed: 2026-03-03
 review_cycle_days: 90
 source_of_truth: true
 ---
@@ -14,7 +14,8 @@ Use this file as the single starting point for what actions this repo provides t
 
 1. For a quick list of build/test commands, start with this section in `/hyperopen/docs/references/toolchain.md`.
 2. For browser parity/debug workflows, use the Browser Inspection section below.
-3. For exact command syntax, see:
+3. For issue tracking and session handoff rules, use `/hyperopen/docs/WORK_TRACKING.md`.
+4. For exact command syntax, see:
    - `/hyperopen/tools/browser-inspection/src/cli.mjs`
    - `/hyperopen/tools/browser-inspection/src/mcp_server.mjs`
 
@@ -42,7 +43,20 @@ Use this file as the single starting point for what actions this repo provides t
 
 If a task explicitly names one of these skills, follow that skill workflow first.
 
-## 3) Browser Inspection tools (CLI)
+## 3) Issue tracking tool (`bd`)
+
+`bd` is the canonical issue tracker for this repository.
+
+Common commands:
+- `bd ready --json`
+- `bd update <id> --claim --json`
+- `bd create "Issue title" --description="<details>" -t bug|feature|task|epic|chore -p 0-4 --json`
+- `bd close <id> --reason "Completed" --json`
+- `bd sync`
+
+For policy details, including markdown-vs-`bd` boundaries and session-completion workflow, follow `/hyperopen/docs/WORK_TRACKING.md`.
+
+## 4) Browser Inspection tools (CLI)
 
 All browser-inspection tooling lives under `/hyperopen/tools/browser-inspection/`.
 
@@ -72,7 +86,7 @@ All browser-inspection tooling lives under `/hyperopen/tools/browser-inspection/
 - Use explicit `--target-id` when attaching to avoid wrong tab capture.
 - For tab-selection stability, follow `/hyperopen/docs/runbooks/browser-live-inspection.md` and use marker verification steps.
 
-## 4) Browser Inspection tools (Codex MCP)
+## 5) Browser Inspection tools (Codex MCP)
 
 Register once in Codex once and then call MCP tools directly:
 - `codex mcp add hyperopen-browser -- node ./tools/browser-inspection/src/mcp_server.mjs`
@@ -89,7 +103,7 @@ Register once in Codex once and then call MCP tools directly:
 | `browser_capture_snapshot` | Capture snapshot artifacts for a target |
 | `browser_compare_targets` | Capture+compare two URLs/targets |
 
-## 5) Where definitions live
+## 6) Where definitions live
 
 - Scripted command surface: `/hyperopen/package.json`
 - MCP definitions: `/hyperopen/tools/browser-inspection/src/mcp_server.mjs`

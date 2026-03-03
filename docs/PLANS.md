@@ -1,7 +1,7 @@
 ---
 owner: platform
 status: canonical
-last_reviewed: 2026-02-13
+last_reviewed: 2026-03-03
 review_cycle_days: 90
 source_of_truth: true
 ---
@@ -14,6 +14,10 @@ This document governs planning artifacts for implementation work.
 ## ExecPlan Contract
 - ExecPlans must follow `/hyperopen/.agents/PLANS.md`.
 - Use an ExecPlan for complex features and significant refactors.
+
+## Tracking Boundary
+- Issue lifecycle tracking lives in `/hyperopen/docs/WORK_TRACKING.md` and `bd`.
+- ExecPlan checklists/progress entries are required implementation artifacts and do not replace `bd` issue status tracking.
 
 ## Storage Layout
 - Active plans: `/hyperopen/docs/exec-plans/active/`

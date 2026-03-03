@@ -1,0 +1,123 @@
+---
+owner: platform
+status: canonical
+last_reviewed: 2026-03-03
+review_cycle_days: 90
+source_of_truth: true
+---
+
+# Work Tracking and Session Handoff
+
+## Purpose
+Define one source of truth for issue tracking and remove ambiguity between `bd` issue lifecycle tracking and markdown planning artifacts.
+
+## Scope and Precedence
+- This document governs issue tracking, dependency tracking, and session handoff expectations.
+- Planning artifacts still follow `/hyperopen/docs/PLANS.md` and `/hyperopen/.agents/PLANS.md`.
+- If guidance conflicts, task-specific user/developer instructions take precedence for the current task.
+
+## `bd` Issue Tracking Source of Truth
+- Use `bd` for all backlog, bug, feature, and follow-up issue tracking.
+- Do not maintain a parallel issue queue in markdown.
+- Use `--json` with `bd` commands when output is consumed programmatically by agents.
+
+## Why `bd`
+- Dependency-aware tracking: model blocked/unblocked relationships directly.
+- Agent-friendly command surface: deterministic JSON output for automation.
+- Git-aligned history: `bd` state changes can be synchronized as part of normal delivery flow.
+- Single tracker discipline: prevents split status across docs, notes, and external systems.
+
+## Quick Start
+
+### Check ready work
+Use this first to find unblocked issues:
+
+`bd ready --json`
+
+### Create new issues
+Create explicitly typed issues with priority and context:
+
+`bd create "Issue title" --description="Detailed context" -t bug|feature|task|epic|chore -p 0-4 --json`
+
+When new work is discovered while implementing another issue, link it:
+
+`bd create "Found issue" --description="What was discovered" -p 1 --deps discovered-from:<parent-id> --json`
+
+### Claim and update
+Claim atomically and keep status fields current:
+
+`bd update <id> --claim --json`
+
+Examples:
+- `bd update bd-42 --priority 1 --json`
+- `bd update bd-42 --assignee <owner> --json`
+
+### Complete work
+Close completed items with a reason:
+
+`bd close <id> --reason "Completed" --json`
+
+## Issue Types
+- `bug`: broken behavior
+- `feature`: net-new functionality
+- `task`: implementation, testing, refactor, docs work item
+- `epic`: parent issue that tracks multiple related items
+- `chore`: maintenance or operational work
+
+## Priority Scale
+- `0`: critical (security, data loss, broken build/release)
+- `1`: high (major capability or significant bug)
+- `2`: medium (default)
+- `3`: low (polish/optimization)
+- `4`: backlog (not currently scheduled)
+
+## Workflow for Agents
+1. Check ready work: `bd ready --json`
+2. Claim issue: `bd update <id> --claim --json`
+3. Implement and validate.
+4. Link discovered follow-up work using `discovered-from:<parent-id>`.
+5. Close completed issue: `bd close <id> --reason "Completed" --json`
+
+## Sync Behavior
+- Use `bd sync` as part of normal delivery before pushing code.
+- If your environment uses Dolt-backed sync commands directly, keep them consistent with team workflow.
+- Do not leave local-only tracker state at handoff time without explicitly documenting blockers.
+
+## Important Rules
+- Use `bd` for all issue lifecycle tracking.
+- Use `--json` for agent/programmatic invocations.
+- Link discovered work to its parent issue with `discovered-from`.
+- Do not create duplicate trackers in markdown or external tools.
+
+## Markdown Artifacts: Allowed vs Disallowed
+
+Allowed markdown usage (not issue tracking):
+- ExecPlan checklists and progress logs under `/hyperopen/docs/exec-plans/**` required by `/hyperopen/.agents/PLANS.md`
+- Governance/invariant checklists in canonical docs (for example `/hyperopen/docs/RELIABILITY.md`, `/hyperopen/ARCHITECTURE.md`)
+- Product/spec acceptance checklists that describe scope or validation criteria
+
+Disallowed markdown usage (issue tracking anti-pattern):
+- Ad-hoc TODO/backlog/task lists in docs, PR descriptions, or notes used as the source of open work
+- Tracking issue ownership/status in markdown when the same work should be tracked in `bd`
+- Creating a second tracker alongside `bd`
+
+Practical rule:
+- If an item requires future follow-up beyond the current change, create or link a `bd` issue id.
+- Markdown may reference the `bd` id for context, but `bd` remains the status source of truth.
+
+## Session Completion and Handoff
+When finishing a coding session or handing work to another contributor:
+1. File or link `bd` issues for all remaining follow-up work.
+2. Run required quality gates when code changed:
+   - `npm run check`
+   - `npm test`
+   - `npm run test:websocket`
+3. Update `bd` issue status (close completed work, update remaining work).
+4. Sync and push if branch delivery is part of the session:
+   - `git pull --rebase`
+   - `bd sync`
+   - `git push`
+   - `git status` (confirm clean state and up-to-date branch)
+5. Provide handoff notes with relevant `bd` ids and any blockers.
+
+If push/sync cannot complete due environment or permissions, record the blocker explicitly in the handoff and in `bd`.
