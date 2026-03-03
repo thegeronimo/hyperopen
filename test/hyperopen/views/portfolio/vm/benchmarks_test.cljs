@@ -1,8 +1,34 @@
 (ns hyperopen.views.portfolio.vm.benchmarks-test
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is testing use-fixtures]]
+            [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.portfolio.metrics :as portfolio-metrics]
+            [hyperopen.system :as system]
             [hyperopen.views.portfolio.vm :as vm]
             [hyperopen.views.account-equity-view :as account-equity-view]))
+
+(def ^:private day-ms
+  (* 24 60 60 1000))
+
+(def ^:private fixture-start-ms
+  (.getTime (js/Date. "2024-01-01T00:00:00.000Z")))
+
+(use-fixtures :each
+  (fn [f]
+    (vm/reset-portfolio-vm-cache!)
+    (reset! @#'vm/last-metrics-request nil)
+    (f)
+    (vm/reset-portfolio-vm-cache!)
+    (reset! @#'vm/last-metrics-request nil)))
+
+(defn- performance-metric-row
+  [view-model metric-key]
+  (some (fn [{:keys [rows]}]
+          (some (fn [row]
+                  (when (= metric-key (:key row))
+                    row))
+                rows))
+        (get-in view-model [:performance-metrics :groups])))
 
 (deftest portfolio-vm-builds-returns-benchmark-options-from-asset-selector-markets-test
   (with-redefs [account-equity-view/account-equity-metrics (fn [_]
@@ -611,4 +637,3 @@
           view-model (vm/portfolio-vm state)]
       (is (= [90000 60000 30000 0]
              (mapv :value (get-in view-model [:chart :y-ticks]))))))))
-

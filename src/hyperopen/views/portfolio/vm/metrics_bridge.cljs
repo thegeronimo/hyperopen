@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.vm.metrics-bridge
-  (:require [hyperopen.views.portfolio.vm.history :as vm-history]
+  (:require [goog.object :as gobj]
+            [hyperopen.views.portfolio.vm.history :as vm-history]
             [hyperopen.views.portfolio.vm.benchmarks :as vm-benchmarks]
             [hyperopen.portfolio.metrics :as portfolio-metrics]
             [hyperopen.portfolio.metrics.parsing :as parsing]
@@ -32,8 +33,8 @@
       (set! (.-onmessage metrics-worker)
             (fn [event]
               (let [data (.-data event)]
-                (when (= (.-type data) "metrics-result")
-                  (on-complete (normalize-worker-metrics-result (.-payload data)))))))
+                (when (= (gobj/get data "type") "metrics-result")
+                  (on-complete (normalize-worker-metrics-result (gobj/get data "payload")))))))
       (.postMessage metrics-worker (clj->js {:type "compute-metrics"
                                              :payload request-data})))
     (let [result (portfolio-metrics/compute-performance-metrics request-data)]
