@@ -35,12 +35,6 @@
 (def ^:private hyperunit-testnet-base-url
   "https://api.hyperunit-testnet.xyz")
 
-(def ^:private hyperunit-mainnet-proxy-base-url
-  "/api/hyperunit/mainnet")
-
-(def ^:private hyperunit-testnet-proxy-base-url
-  "/api/hyperunit/testnet")
-
 (def ^:private hyperunit-operations-poll-default-delay-ms
   3000)
 
@@ -253,10 +247,8 @@
     (vec
      (distinct
       (if (= wallet-chain-id arbitrum-sepolia-chain-id)
-        [hyperunit-testnet-proxy-base-url
-         hyperunit-testnet-base-url]
-        [hyperunit-mainnet-proxy-base-url
-         hyperunit-mainnet-base-url])))))
+        [hyperunit-testnet-base-url]
+        [hyperunit-mainnet-base-url])))))
 
 (defn- resolve-hyperunit-base-url
   [store]

@@ -261,14 +261,12 @@
                                 :network "Bitcoin"}
                                true]]
                              @submit-calls))
-                      (is (= [{:base-url "/api/hyperunit/mainnet"
-                               :base-urls ["/api/hyperunit/mainnet"
-                                           "https://api.hyperunit.xyz"]
+                      (is (= [{:base-url "https://api.hyperunit.xyz"
+                               :base-urls ["https://api.hyperunit.xyz"]
                                :address wallet-address}]
                              @operation-calls))
-                      (is (= [{:base-url "/api/hyperunit/mainnet"
-                               :base-urls ["/api/hyperunit/mainnet"
-                                           "https://api.hyperunit.xyz"]}]
+                      (is (= [{:base-url "https://api.hyperunit.xyz"
+                               :base-urls ["https://api.hyperunit.xyz"]}]
                              @queue-calls))
                       (is (= protocol-address
                              (get-in @store [:funding-ui :modal :withdraw-generated-address])))
@@ -727,23 +725,18 @@
     (is (= false (matches? "ethereum" "bc1qpz0qv7jw4x3kg8qdpv9k7n4kl2f5dx6n9d5p3s")))
     (is (= false (matches? "bitcoin" "0x1111111111111111111111111111111111111111")))))
 
-(deftest request-hyperunit-operations-retries-direct-base-url-after-proxy-failure-test
+(deftest request-hyperunit-operations-uses-direct-base-url-candidate-test
   (async done
     (let [calls (atom [])]
       (-> (@#'hyperopen.funding.effects/with-hyperunit-base-url-fallbacks!
-           {:base-url "/api/hyperunit/mainnet"
-            :base-urls ["/api/hyperunit/mainnet"
-                        "https://api.hyperunit.xyz"]
+           {:base-url "https://api.hyperunit.xyz"
+            :base-urls ["https://api.hyperunit.xyz"]
             :request-fn (fn [candidate-base-url]
                           (swap! calls conj candidate-base-url)
-                          (if (= "/api/hyperunit/mainnet" candidate-base-url)
-                            (js/Promise.reject (js/Error. "proxy unavailable"))
-                            (js/Promise.resolve {:operations [{:operation-id "op-1"}]})))
+                          (js/Promise.resolve {:operations [{:operation-id "op-1"}]}))
             :error-message "Unable to load HyperUnit operations."})
           (.then (fn [resp]
-                   (is (= ["/api/hyperunit/mainnet"
-                           "https://api.hyperunit.xyz"]
-                          @calls))
+                   (is (= ["https://api.hyperunit.xyz"] @calls))
                    (is (= "op-1"
                           (get-in resp [:operations 0 :operation-id])))
                    (done)))
@@ -1462,9 +1455,8 @@
           (.then (fn [_resp]
                    (js/setTimeout
                     (fn []
-                      (is (= [{:base-url "/api/hyperunit/mainnet"
-                               :base-urls ["/api/hyperunit/mainnet"
-                                           "https://api.hyperunit.xyz"]
+                      (is (= [{:base-url "https://api.hyperunit.xyz"
+                               :base-urls ["https://api.hyperunit.xyz"]
                                :address wallet-address}]
                              @operation-calls))
                       (is (= :deposit
