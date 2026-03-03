@@ -222,7 +222,9 @@
   [payload]
   (when (map? payload)
     (when-let [address (non-blank-text (:address payload))]
-      {:source-coin-type (normalize-token (:sourceCoinType payload))
+      {:source-coin-type (normalize-token (or (:sourceCoinType payload)
+                                              (:sourceChain payload)))
+       :source-chain (normalize-token (:sourceChain payload))
        :destination-chain (normalize-token (:destinationChain payload))
        :address address
        :signatures (normalize-signatures (:signatures payload))})))

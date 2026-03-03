@@ -814,7 +814,7 @@
                                                           :error nil}}))
         view-model (funding-actions/funding-modal-view-model state)]
     (is (= "~20 mins" (:withdraw-estimated-time view-model)))
-    (is (= "0.00001" (:withdraw-network-fee view-model)))
+    (is (= "0.00001 BTC" (:withdraw-network-fee view-model)))
     (is (= 9 (:withdraw-queue-length view-model)))
     (is (= "0xqueue123" (:withdraw-queue-last-operation-tx-id view-model)))
     (is (= "https://mempool.space/tx/0xqueue123"
@@ -825,6 +825,24 @@
     (is (nil? (:hyperunit-fee-estimate-error view-model)))
     (is (= false (:hyperunit-withdrawal-queue-loading? view-model)))
     (is (nil? (:hyperunit-withdrawal-queue-error view-model)))))
+
+(deftest funding-modal-view-model-converts-raw-ethereum-fee-units-to-eth-display-test
+  (let [state (-> (base-state)
+                  (assoc-in [:funding-ui :modal]
+                            {:open? true
+                             :mode :deposit
+                             :deposit-step :amount-entry
+                             :deposit-selected-asset-key :eth
+                             :hyperunit-fee-estimate {:status :ready
+                                                      :by-chain {"ethereum" {:chain "ethereum"
+                                                                             :deposit-eta "5m"
+                                                                             :deposit-fee "1500000000000000"}}
+                                                      :requested-at-ms 1
+                                                      :updated-at-ms 2
+                                                      :error nil}}))
+        view-model (funding-actions/funding-modal-view-model state)]
+    (is (= "5m" (:deposit-estimated-time view-model)))
+    (is (= "0.0015 ETH" (:deposit-network-fee view-model)))))
 
 (deftest set-funding-amount-to-max-respects-active-mode-test
   (let [transfer-state (assoc-in (base-state)

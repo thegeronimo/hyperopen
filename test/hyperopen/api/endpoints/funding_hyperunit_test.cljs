@@ -102,10 +102,11 @@
                      (js/Promise.resolve
                       (ok-response
                        {:addresses [{:sourceCoinType "Bitcoin"
+                                     :sourceChain "bitcoin"
                                      :destinationChain "hyperliquid"
                                      :address "tb1x"
                                      :signatures {"field-node" "sig-a"}}]
-                        :operations [{:operationId "op-1"
+                       :operations [{:operationId "op-1"
                                       :opCreatedAt "2025-03-12T23:40:49.279929Z"
                                       :protocolAddress "tb1x"
                                       :sourceAddress "tb1src"
@@ -132,6 +133,7 @@
           (.then (fn [result]
                    (is (= 1 (count (:addresses result))))
                    (is (= {:source-coin-type "bitcoin"
+                           :source-chain "bitcoin"
                            :destination-chain "hyperliquid"
                            :address "tb1x"
                            :signatures {"field-node" "sig-a"}}

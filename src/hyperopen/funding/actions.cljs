@@ -803,14 +803,69 @@
                (map? (:by-chain queue*)))
       (get (:by-chain queue*) chain*))))
 
-(defn- estimate-fee-display
+(def ^:private chain-fee-format-by-chain
+  {"bitcoin" {:symbol "BTC" :decimals 8}
+   "ethereum" {:symbol "ETH" :decimals 18}
+   "solana" {:symbol "SOL" :decimals 9}})
+
+(defn- integer-like-number?
+  [value]
+  (and (number? value)
+       (finite-number? value)
+       (= value (js/Math.floor value))))
+
+(defn- fee-value->number
   [value]
   (cond
     (and (number? value) (finite-number? value))
-    (amount->text value)
+    value
 
-    :else
-    (non-blank-text value)))
+    (string? value)
+    (parse-input-amount value)
+
+    :else nil))
+
+(defn- fee-value->chain-units
+  [value chain]
+  (let [chain* (some-> chain non-blank-text str/lower-case)
+        {:keys [decimals]} (get chain-fee-format-by-chain chain*)
+        decimals* (or decimals 0)
+        parsed-number (fee-value->number value)
+        raw-text (when (string? value) (non-blank-text value))
+        integer-text? (and (string? raw-text)
+                           (re-matches #"^\d+$" raw-text))
+        integer-like? (or integer-text?
+                          (integer-like-number? parsed-number))]
+    (cond
+      (nil? parsed-number)
+      nil
+
+      (and (> decimals* 0) integer-like?)
+      (/ parsed-number (js/Math.pow 10 decimals*))
+
+      :else
+      parsed-number)))
+
+(defn- estimate-fee-display
+  [value chain]
+  (let [chain* (some-> chain non-blank-text str/lower-case)
+        {:keys [symbol decimals]} (get chain-fee-format-by-chain chain*)
+        normalized-value (fee-value->chain-units value chain*)
+        display-text (when (finite-number? normalized-value)
+                       (trading-domain/number->clean-string (max 0 normalized-value)
+                                                            (if (number? decimals)
+                                                              (min 8 (max 2 decimals))
+                                                              6)))
+        fallback-text (non-blank-text value)]
+    (cond
+      (and (seq display-text) (seq symbol))
+      (str display-text " " symbol)
+
+      (seq display-text)
+      display-text
+
+      :else
+      fallback-text)))
 
 (defn- transfer-preview
   [state modal]
@@ -1094,7 +1149,8 @@
                                  "~10 seconds")
         deposit-network-fee (if (= selected-deposit-flow-kind :hyperunit-address)
                               (or (when hyperunit-fee-estimate-loading? "Loading...")
-                                  (estimate-fee-display (:deposit-fee deposit-chain-fee))
+                                  (estimate-fee-display (:deposit-fee deposit-chain-fee)
+                                                        deposit-chain)
                                   "Paid on source chain")
                               "None")
         withdraw-estimated-time (if (= selected-withdraw-flow-kind :hyperunit-address)
@@ -1104,7 +1160,8 @@
                                   "~10 seconds")
         withdraw-network-fee (if (= selected-withdraw-flow-kind :hyperunit-address)
                                (or (when hyperunit-fee-estimate-loading? "Loading...")
-                                   (estimate-fee-display (:withdrawal-fee withdraw-chain-fee))
+                                   (estimate-fee-display (:withdrawal-fee withdraw-chain-fee)
+                                                         withdraw-chain)
                                    "Paid on destination chain")
                                "None")
         transfer-max (transfer-max-amount state modal)

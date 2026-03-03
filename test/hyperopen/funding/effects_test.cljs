@@ -1,5 +1,6 @@
 (ns hyperopen.funding.effects-test
-  (:require [cljs.test :refer-macros [async deftest is]]
+  (:require [clojure.string :as str]
+            [cljs.test :refer-macros [async deftest is]]
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.funding.effects :as effects]))
 
@@ -648,7 +649,7 @@
                     (is false (str "Unexpected HyperUnit deposit-address success-path error: " err))
                     (done)))))))
 
-(deftest select-existing-hyperunit-deposit-address-normalizes-chain-aliases-and-single-entry-fallback-test
+(deftest select-existing-hyperunit-deposit-address-normalizes-chain-aliases-and-validates-address-shape-test
   (let [select-existing-address
         @#'hyperopen.funding.effects/select-existing-hyperunit-deposit-address]
     (is (= {:address "bc1qalias"
@@ -662,17 +663,65 @@
             "bitcoin"
             "btc"
             "0xabc")))
-    (is (= {:address "bc1qsingle"
+    (is (= {:address "bc1qpz0qv7jw4x3kg8qdpv9k7n4kl2f5dx6n9d5p3s"
             :signatures {"node-b" "sig-b"}}
            (select-existing-address
             {:addresses [{:source-coin-type "unknown-source"
                           :destination-chain "hyperliquid"
-                          :address "bc1qsingle"
+                          :address "bc1qpz0qv7jw4x3kg8qdpv9k7n4kl2f5dx6n9d5p3s"
                           :signatures {"node-b" "sig-b"}}]
              :operations []}
             "bitcoin"
             "btc"
+            "0xabc")))
+    (is (nil? (select-existing-address
+               {:addresses [{:source-coin-type "bitcoin"
+                             :destination-chain "hyperliquid"
+                             :address "bc1qbtc"
+                             :signatures {"node-c" "sig-c"}}]
+                :operations []}
+               "ethereum"
+               "eth"
+               "0xabc")))
+    (is (= {:address "0xethchain"
+            :signatures {"node-d" "sig-d"}}
+           (select-existing-address
+            {:addresses [{:source-chain "ethereum"
+                          :destination-chain "hyperliquid"
+                          :address "0xethchain"
+                          :signatures {"node-d" "sig-d"}}]
+             :operations []}
+            "ethereum"
+            "eth"
+            "0xabc")))
+    (is (= {:address "0x1111111111111111111111111111111111111111"
+            :signatures {"node-e" "sig-e"}}
+           (select-existing-address
+            {:addresses [{:source-coin-type "unknown-source"
+                          :destination-chain "hyperliquid"
+                          :address "0x1111111111111111111111111111111111111111"
+                          :signatures {"node-e" "sig-e"}}]
+             :operations []}
+            "ethereum"
+            "eth"
             "0xabc")))))
+
+(deftest hyperunit-source-chain-candidates-normalizes-aliases-test
+  (let [source-chain-candidates
+        @#'hyperopen.funding.effects/hyperunit-source-chain-candidates]
+    (is (= ["ethereum" "eth"] (source-chain-candidates "ethereum")))
+    (is (= ["ethereum" "eth"] (source-chain-candidates "eth")))
+    (is (= ["bitcoin" "btc"] (source-chain-candidates "btc")))
+    (is (= ["solana" "sol"] (source-chain-candidates "solana")))
+    (is (= ["monad"] (source-chain-candidates "monad")))))
+
+(deftest protocol-address-matches-source-chain-validates-address-shapes-test
+  (let [matches? @#'hyperopen.funding.effects/protocol-address-matches-source-chain?]
+    (is (= true (matches? "bitcoin" "bc1qpz0qv7jw4x3kg8qdpv9k7n4kl2f5dx6n9d5p3s")))
+    (is (= true (matches? "ethereum" "0x1111111111111111111111111111111111111111")))
+    (is (= true (matches? "solana" "So11111111111111111111111111111111111111112")))
+    (is (= false (matches? "ethereum" "bc1qpz0qv7jw4x3kg8qdpv9k7n4kl2f5dx6n9d5p3s")))
+    (is (= false (matches? "bitcoin" "0x1111111111111111111111111111111111111111")))))
 
 (deftest submit-hyperunit-address-deposit-request-reuses-existing-address-before-generate-test
   (async done
@@ -710,6 +759,14 @@
             (.catch (fn [err]
                       (is false (str "Unexpected existing-address reuse failure: " err))
                       (done))))))))
+
+(deftest hyperunit-request-error-message-network-failure-is-actionable-test
+  (let [message (@#'hyperopen.funding.effects/hyperunit-request-error-message
+                 (js/Error. "Failed to fetch")
+                 {:asset "eth"
+                  :source-chain "ethereum"})]
+    (is (str/includes? message
+                       "Unable to reach HyperUnit address service for ETH on Ethereum"))))
 
 (deftest api-submit-funding-deposit-hyperunit-address-reused-response-shows-existing-address-toast-test
   (async done

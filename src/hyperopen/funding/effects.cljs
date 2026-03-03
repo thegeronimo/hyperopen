@@ -273,6 +273,20 @@
    "sol" "solana"
    "solana" "solana"})
 
+(def ^:private known-source-chain-tokens
+  #{"arbitrum"
+    "bitcoin"
+    "ethereum"
+    "hyperliquid"
+    "solana"
+    "monad"
+    "plasma"})
+
+(def ^:private hyperunit-source-chain-candidates-by-canonical
+  {"bitcoin" ["bitcoin" "btc"]
+   "ethereum" ["ethereum" "eth"]
+   "solana" ["solana" "sol"]})
+
 (defn- canonical-chain-token
   [value]
   (let [token (canonical-token value)]
@@ -286,6 +300,46 @@
     (and (seq left*)
          (seq right*)
          (= left* right*))))
+
+(defn- protocol-address-matches-source-chain?
+  [source-chain address]
+  (let [source* (canonical-chain-token source-chain)
+        address* (non-blank-text address)
+        address-lower (some-> address* str/lower-case)]
+    (case source*
+      "bitcoin"
+      (boolean (and (seq address-lower)
+                    (or (re-matches #"^bc1[a-z0-9]{20,}$" address-lower)
+                        (re-matches #"^tb1[a-z0-9]{20,}$" address-lower)
+                        (re-matches #"^[13][a-km-zA-HJ-NP-Z1-9]{20,}$" address*))))
+
+      "ethereum"
+      (boolean (and (seq address-lower)
+                    (re-matches #"^0x[0-9a-f]{40}$" address-lower)))
+
+      "solana"
+      (boolean (and (seq address*)
+                    (re-matches #"^[1-9A-HJ-NP-Za-km-z]{32,44}$" address*)))
+
+      ;; Monad and Plasma currently use EVM-style protocol addresses.
+      "monad"
+      (boolean (and (seq address-lower)
+                    (re-matches #"^0x[0-9a-f]{40}$" address-lower)))
+
+      "plasma"
+      (boolean (and (seq address-lower)
+                    (re-matches #"^0x[0-9a-f]{40}$" address-lower)))
+
+      false)))
+
+(defn- hyperunit-source-chain-candidates
+  [value]
+  (let [canonical (canonical-chain-token value)]
+    (vec (distinct
+          (if-let [known (get hyperunit-source-chain-candidates-by-canonical canonical)]
+            known
+            (when (seq canonical)
+              [canonical]))))))
 
 (defn- normalize-asset-key
   [value]
@@ -515,11 +569,27 @@
                                                 (seq (canonical-token (:address entry))))
                                        entry))
                                    hyperliquid-address-entries)
-        single-address-entry (when (= 1 (count hyperliquid-address-entries))
-                               (first hyperliquid-address-entries))
+        source-format-address-entry (some (fn [entry]
+                                            (let [entry-source (or (:source-coin-type entry)
+                                                                   (:source-chain entry))
+                                                  entry-source-token (canonical-chain-token entry-source)
+                                                  entry-source-conflicts? (and (seq entry-source-token)
+                                                                               (contains? known-source-chain-tokens
+                                                                                          entry-source-token)
+                                                                               (not (same-chain-token? source-token
+                                                                                                       entry-source-token)))
+                                                  address* (:address entry)]
+                                              (when (and (same-chain-token? destination-chain-token
+                                                                            (:destination-chain entry))
+                                                         (not entry-source-conflicts?)
+                                                         (protocol-address-matches-source-chain?
+                                                          source-token
+                                                          address*))
+                                                entry)))
+                                          hyperliquid-address-entries)
         chosen-entry (or address-entry-by-op
                          direct-address-entry
-                         single-address-entry)
+                         source-format-address-entry)
         chosen-address (or op-address
                           (some-> (:address chosen-entry) non-blank-text))]
     (when (seq chosen-address)
@@ -838,6 +908,29 @@
   (or (non-blank-text (:error payload))
       (non-blank-text (:message payload))))
 
+(defn- hyperunit-request-error-message
+  [err {:keys [asset source-chain]}]
+  (let [message (or (non-blank-text (some-> err .-message))
+                    (non-blank-text (str err))
+                    "Unknown HyperUnit error.")
+        message-lower (str/lower-case message)
+        asset-label (or (some-> asset str str/upper-case)
+                        "asset")
+        network-label (or (some-> source-chain str str/capitalize)
+                          "selected network")]
+    (cond
+      (or (str/includes? message-lower "failed to fetch")
+          (str/includes? message-lower "networkerror")
+          (str/includes? message-lower "network request failed"))
+      (str "Unable to reach HyperUnit address service for "
+           asset-label
+           " on "
+           network-label
+           ". Check your network and retry. If this persists in local dev, route HyperUnit through a same-origin proxy.")
+
+      :else
+      message)))
+
 (defn- wallet-add-chain-params
   [{:keys [chain-id chain-name rpc-url explorer-url]}]
   {:chainId chain-id
@@ -1069,6 +1162,27 @@
                      :else
                      (throw (js/Error. "HyperUnit address response missing deposit address.")))))))))
 
+(defn- fetch-hyperunit-address-with-source-fallbacks!
+  [base-url source-chain destination-chain asset destination-address]
+  (let [source-candidates (or (seq (hyperunit-source-chain-candidates source-chain))
+                              [(or (canonical-chain-token source-chain)
+                                   (canonical-token source-chain)
+                                   source-chain)])]
+    (letfn [(attempt! [remaining last-error]
+              (if-let [candidate (first remaining)]
+                (-> (fetch-hyperunit-address! base-url
+                                              candidate
+                                              destination-chain
+                                              asset
+                                              destination-address)
+                    (.catch (fn [err]
+                              (attempt! (rest remaining)
+                                        (or err last-error)))))
+                (js/Promise.reject
+                 (or last-error
+                     (js/Error. "Unable to generate HyperUnit deposit address.")))))]
+      (attempt! source-candidates nil))))
+
 (defn- submit-hyperunit-address-deposit-request!
   [store owner-address action]
   (let [destination-address (normalize-address owner-address)
@@ -1098,14 +1212,14 @@
                                    :asset asset
                                    :from-chain from-chain
                                    :deposit-address address
-                                   :deposit-signatures signatures
-                                   :reused-address? (true? reused-address?)})
+                                  :deposit-signatures signatures
+                                  :reused-address? (true? reused-address?)})
             generate-address! (fn []
-                                (-> (fetch-hyperunit-address! base-url
-                                                              from-chain
-                                                              "hyperliquid"
-                                                              asset
-                                                              destination-address)
+                                (-> (fetch-hyperunit-address-with-source-fallbacks! base-url
+                                                                                    from-chain
+                                                                                    "hyperliquid"
+                                                                                    asset
+                                                                                    destination-address)
                                     (.then (fn [{:keys [address signatures]}]
                                              (to-success-response {:address address
                                                                    :signatures signatures}
@@ -1130,7 +1244,9 @@
                        (.catch (generate-address!) fallback-after-generate-error!))))
             (.catch (fn [err]
                       {:status "err"
-                       :error (wallet-error-message err)})))))))
+                       :error (hyperunit-request-error-message err
+                                                               {:asset asset
+                                                                :source-chain from-chain})})))))))
 
 (defn- submit-hyperunit-send-asset-withdraw-request!
   [store owner-address action submit-send-asset!]
