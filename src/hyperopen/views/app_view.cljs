@@ -6,8 +6,8 @@
             [hyperopen.views.funding-comparison-view :as funding-comparison-view]
             [hyperopen.views.header-view :as header-view]
             [hyperopen.views.notifications-view :as notifications-view]
-            [hyperopen.views.vault-detail-view :as vault-detail-view]
-            [hyperopen.views.vaults-view :as vaults-view]
+            [hyperopen.views.vaults.detail-view :as vault-detail-view]
+            [hyperopen.views.vaults.list-view :as vaults-view]
             [hyperopen.views.vaults.vm :as vault-vm]
             [hyperopen.views.portfolio-view :as portfolio-view]
             [hyperopen.views.trade-view :as trade-view]))

@@ -1,4 +1,4 @@
-(ns hyperopen.views.vault-detail.transfer-modal)
+(ns hyperopen.views.vaults.detail.transfer-modal)
 
 (defn hero-transfer-button
   [{:keys [label enabled? action]}]

@@ -1,7 +1,7 @@
-(ns hyperopen.views.vault-detail-view-test
+(ns hyperopen.views.vaults.detail-view-test
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is]]
-            [hyperopen.views.vault-detail-view :as vault-detail-view]))
+            [hyperopen.views.vaults.detail-view :as vault-detail-view]))
 
 (defn- node-children [node]
   (if (map? (second node))

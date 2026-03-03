@@ -1,7 +1,7 @@
-(ns hyperopen.views.vault-detail.chart
+(ns hyperopen.views.vaults.detail.chart-view
   (:require [clojure.string :as str]
             [hyperopen.utils.formatting :as fmt]
-            [hyperopen.views.vault-detail.format :as vf]))
+            [hyperopen.views.vaults.detail.format :as vf]))
 
 (def ^:private tooltip-time-format-options
   {:hour "2-digit"

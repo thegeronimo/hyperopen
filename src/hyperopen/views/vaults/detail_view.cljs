@@ -1,9 +1,9 @@
-(ns hyperopen.views.vault-detail-view
-  (:require [hyperopen.views.vault-detail.activity :as activity]
-            [hyperopen.views.vault-detail.chart :as chart]
-            [hyperopen.views.vault-detail.hero :as hero]
-            [hyperopen.views.vault-detail.panels :as panels]
-            [hyperopen.views.vault-detail.transfer-modal :as transfer-modal]
+(ns hyperopen.views.vaults.detail-view
+  (:require [hyperopen.views.vaults.detail.activity :as activity]
+            [hyperopen.views.vaults.detail.chart-view :as chart]
+            [hyperopen.views.vaults.detail.hero :as hero]
+            [hyperopen.views.vaults.detail.panels :as panels]
+            [hyperopen.views.vaults.detail.transfer-modal :as transfer-modal]
             [hyperopen.views.vaults.detail-vm :as detail-vm]))
 
 (defn vault-detail-view

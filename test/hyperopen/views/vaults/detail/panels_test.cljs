@@ -1,7 +1,7 @@
-(ns hyperopen.views.vault-detail.panels-test
+(ns hyperopen.views.vaults.detail.panels-test
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.views.account-info.test-support.hiccup :as hiccup]
-            [hyperopen.views.vault-detail.panels :as panels]))
+            [hyperopen.views.vaults.detail.panels :as panels]))
 
 (deftest detail-tab-button-applies-active-and-inactive-styles-test
   (let [active (panels/detail-tab-button {:value :about

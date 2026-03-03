@@ -1,6 +1,6 @@
-(ns hyperopen.views.vaults-view-test
+(ns hyperopen.views.vaults.list-view-test
   (:require [cljs.test :refer-macros [deftest is]]
-            [hyperopen.views.vaults-view :as vaults-view]))
+            [hyperopen.views.vaults.list-view :as vaults-view]))
 
 (defn- node-children [node]
   (if (map? (second node))

@@ -1,7 +1,7 @@
-(ns hyperopen.views.vault-detail.transfer-modal-test
+(ns hyperopen.views.vaults.detail.transfer-modal-test
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.views.account-info.test-support.hiccup :as hiccup]
-            [hyperopen.views.vault-detail.transfer-modal :as modal]))
+            [hyperopen.views.vaults.detail.transfer-modal :as modal]))
 
 (deftest hero-transfer-button-renders-enabled-and-disabled-states-test
   (let [enabled (modal/hero-transfer-button {:label "Deposit"

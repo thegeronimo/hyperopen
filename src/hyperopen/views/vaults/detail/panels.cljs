@@ -1,5 +1,5 @@
-(ns hyperopen.views.vault-detail.panels
-  (:require [hyperopen.views.vault-detail.format :as vf]
+(ns hyperopen.views.vaults.detail.panels
+  (:require [hyperopen.views.vaults.detail.format :as vf]
             [hyperopen.wallet.core :as wallet]))
 
 (defn detail-tab-button

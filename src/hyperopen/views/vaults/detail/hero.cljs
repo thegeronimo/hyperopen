@@ -1,7 +1,7 @@
-(ns hyperopen.views.vault-detail.hero
-  (:require [hyperopen.views.vault-detail.format :as vf]
-            [hyperopen.views.vault-detail.panels :as panels]
-            [hyperopen.views.vault-detail.transfer-modal :as transfer-modal]
+(ns hyperopen.views.vaults.detail.hero
+  (:require [hyperopen.views.vaults.detail.format :as vf]
+            [hyperopen.views.vaults.detail.panels :as panels]
+            [hyperopen.views.vaults.detail.transfer-modal :as transfer-modal]
             [hyperopen.wallet.core :as wallet]))
 
 (defn- metric-value-size-classes

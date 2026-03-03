@@ -1,4 +1,4 @@
-(ns hyperopen.views.vault-detail.format
+(ns hyperopen.views.vaults.detail.format
   (:require [clojure.string :as str]
             [hyperopen.utils.formatting :as fmt]))
 

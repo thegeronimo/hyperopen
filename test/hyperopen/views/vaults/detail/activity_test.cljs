@@ -1,7 +1,7 @@
-(ns hyperopen.views.vault-detail.activity-test
+(ns hyperopen.views.vaults.detail.activity-test
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.views.account-info.test-support.hiccup :as hiccup]
-            [hyperopen.views.vault-detail.activity :as activity]))
+            [hyperopen.views.vaults.detail.activity :as activity]))
 
 (def base-activity-panel-props
   {:activity-tabs [{:value :performance-metrics

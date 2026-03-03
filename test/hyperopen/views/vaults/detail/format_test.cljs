@@ -1,8 +1,8 @@
-(ns hyperopen.views.vault-detail.format-test
+(ns hyperopen.views.vaults.detail.format-test
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.account-info.test-support.hiccup :as hiccup]
-            [hyperopen.views.vault-detail.format :as vf]))
+            [hyperopen.views.vaults.detail.format :as vf]))
 
 (deftest finite-number-and-currency-fallback-test
   (is (true? (vf/finite-number? 42)))

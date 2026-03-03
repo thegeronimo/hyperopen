@@ -209,15 +209,15 @@
             [hyperopen.views.trading-chart.utils.indicators-test]
             [hyperopen.views.trading-chart.utils.position-overlay-model-test]
             [hyperopen.views.typography-scale-test]
-            [hyperopen.views.vault-detail-view-test]
-            [hyperopen.views.vault-detail.activity-test]
-            [hyperopen.views.vault-detail.chart-test]
-            [hyperopen.views.vault-detail.format-test]
-            [hyperopen.views.vault-detail.panels-test]
-            [hyperopen.views.vault-detail.transfer-modal-test]
-            [hyperopen.views.vaults-view-test]
+            [hyperopen.views.vaults.detail-view-test]
             [hyperopen.views.vaults.detail-vm-test]
+            [hyperopen.views.vaults.detail.activity-test]
             [hyperopen.views.vaults.detail.chart-test]
+            [hyperopen.views.vaults.detail.chart-view-test]
+            [hyperopen.views.vaults.detail.format-test]
+            [hyperopen.views.vaults.detail.panels-test]
+            [hyperopen.views.vaults.detail.transfer-modal-test]
+            [hyperopen.views.vaults.list-view-test]
             [hyperopen.views.vaults.vm-test]
             [hyperopen.wallet.actions-test]
             [hyperopen.wallet.address-watcher-test]
@@ -477,15 +477,15 @@
              'hyperopen.views.trading-chart.utils.indicators-test
              'hyperopen.views.trading-chart.utils.position-overlay-model-test
              'hyperopen.views.typography-scale-test
-             'hyperopen.views.vault-detail-view-test
-             'hyperopen.views.vault-detail.activity-test
-             'hyperopen.views.vault-detail.chart-test
-             'hyperopen.views.vault-detail.format-test
-             'hyperopen.views.vault-detail.panels-test
-             'hyperopen.views.vault-detail.transfer-modal-test
-             'hyperopen.views.vaults-view-test
+             'hyperopen.views.vaults.detail-view-test
              'hyperopen.views.vaults.detail-vm-test
+             'hyperopen.views.vaults.detail.activity-test
              'hyperopen.views.vaults.detail.chart-test
+             'hyperopen.views.vaults.detail.chart-view-test
+             'hyperopen.views.vaults.detail.format-test
+             'hyperopen.views.vaults.detail.panels-test
+             'hyperopen.views.vaults.detail.transfer-modal-test
+             'hyperopen.views.vaults.list-view-test
              'hyperopen.views.vaults.vm-test
              'hyperopen.wallet.actions-test
              'hyperopen.wallet.address-watcher-test

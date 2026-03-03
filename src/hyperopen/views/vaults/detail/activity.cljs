@@ -1,7 +1,7 @@
-(ns hyperopen.views.vault-detail.activity
+(ns hyperopen.views.vaults.detail.activity
   (:require [clojure.string :as str]
-            [hyperopen.views.vault-detail.chart :as chart]
-            [hyperopen.views.vault-detail.format :as vf]
+            [hyperopen.views.vaults.detail.chart-view :as chart]
+            [hyperopen.views.vaults.detail.format :as vf]
             [hyperopen.wallet.core :as wallet]))
 
 (defn- format-activity-count [count]

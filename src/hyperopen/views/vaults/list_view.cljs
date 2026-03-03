@@ -1,4 +1,4 @@
-(ns hyperopen.views.vaults-view
+(ns hyperopen.views.vaults.list-view
   (:require [clojure.string :as str]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.wallet.core :as wallet]

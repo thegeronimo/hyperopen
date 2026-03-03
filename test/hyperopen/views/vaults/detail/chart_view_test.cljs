@@ -1,8 +1,8 @@
-(ns hyperopen.views.vault-detail.chart-test
+(ns hyperopen.views.vaults.detail.chart-view-test
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is]]
             [hyperopen.views.account-info.test-support.hiccup :as hiccup]
-            [hyperopen.views.vault-detail.chart :as chart]))
+            [hyperopen.views.vaults.detail.chart-view :as chart]))
 
 (deftest chart-private-formatters-handle-signs-and-fallbacks-test
   (let [format-axis @#'chart/format-chart-axis-value
