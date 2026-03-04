@@ -47,13 +47,17 @@ If a task explicitly names one of these skills, follow that skill workflow first
 ## 3) Shared command phrase lookup
 
 - Machine-readable registry: `/hyperopen/command-phrases.edn`
-- Lookup command: `/hyperopen/tools/phrase get "<phrase>"`
+- Lookup command: `/hyperopen/tools/phrase get [--suggest] [--accept-fuzzy] "<phrase>"`
 - Registry schema: `:schema-version 2` with `:commands` and `:alias->id`.
 - Lookup model: normalize input once (trim/collapse spaces/lowercase), then direct map lookups in `:alias->id` and `:commands`.
+- `--suggest`: when no direct hit, print top fuzzy suggestions and exit non-zero.
+- `--accept-fuzzy`: when no direct hit, accept the best fuzzy match only if it clears score/gap thresholds.
 
 Example:
 - `/hyperopen/tools/phrase get "land the worktree"`
 - `/hyperopen/tools/phrase get "lan the worktree"`
+- `/hyperopen/tools/phrase get --suggest "land the work tree"`
+- `/hyperopen/tools/phrase get --accept-fuzzy "land the work tree"`
 
 ## 4) Issue tracking tool (`bd`)
 
