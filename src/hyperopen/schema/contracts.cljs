@@ -176,7 +176,8 @@
 (s/def ::boolean-args (s/tuple boolean?))
 (s/def ::keyword-args (s/tuple keyword?))
 (s/def ::keyword-or-string-args (s/tuple ::keyword-or-string))
-(s/def ::optional-string-args (s/tuple (s/nilable string?)))
+(s/def ::optional-string-args (s/or :none ::no-args
+                                    :value (s/tuple (s/nilable string?))))
 (s/def ::tab-and-input-args (s/tuple ::keyword-or-string any?))
 (s/def ::single-input-args (s/tuple any?))
 (s/def ::single-or-double-input-args (s/or :single (s/tuple any?)

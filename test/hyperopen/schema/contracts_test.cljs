@@ -295,6 +295,11 @@
         {:phase :test}))))
 
 (deftest assert-action-args-validates-portfolio-returns-benchmark-actions-test
+  (is (= []
+         (contracts/assert-action-args!
+          :actions/select-portfolio-returns-benchmark
+          []
+          {:phase :test})))
   (is (= ["SPY"]
          (contracts/assert-action-args!
           :actions/select-portfolio-returns-benchmark
@@ -309,6 +314,28 @@
          (contracts/assert-action-args!
           :actions/clear-portfolio-returns-benchmark
           []
+          {:phase :test}))))
+
+(deftest assert-action-args-allows-ghost-mode-actions-with-or-without-address-test
+  (is (= []
+         (contracts/assert-action-args!
+          :actions/start-ghost-mode
+          []
+          {:phase :test})))
+  (is (= ["0x123"]
+         (contracts/assert-action-args!
+          :actions/start-ghost-mode
+          ["0x123"]
+          {:phase :test})))
+  (is (= []
+         (contracts/assert-action-args!
+          :actions/add-ghost-mode-watchlist-address
+          []
+          {:phase :test})))
+  (is (= ["0x123"]
+         (contracts/assert-action-args!
+          :actions/add-ghost-mode-watchlist-address
+          ["0x123"]
           {:phase :test}))))
 
 (deftest order-form-vm-schema-contracts-test
