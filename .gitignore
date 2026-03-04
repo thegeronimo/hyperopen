@@ -49,6 +49,6 @@ PRDs/
 .dolt/
 *.db
 
-# Local bd runtime state
-.beads/metadata.json
-.beads/dolt-config.log
+# Local bd runtime/worktree artifacts
+.beads/
+.beads.local.*.backup/
