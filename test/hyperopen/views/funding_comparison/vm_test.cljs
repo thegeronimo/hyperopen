@@ -1,6 +1,14 @@
 (ns hyperopen.views.funding-comparison.vm-test
-  (:require [cljs.test :refer-macros [deftest is]]
+  (:require [cljs.test :refer-macros [deftest is use-fixtures]]
             [hyperopen.views.funding-comparison.vm :as vm]))
+
+(defn- reset-funding-comparison-vm-cache-fixture
+  [f]
+  (vm/reset-funding-comparison-vm-cache!)
+  (f)
+  (vm/reset-funding-comparison-vm-cache!))
+
+(use-fixtures :each reset-funding-comparison-vm-cache-fixture)
 
 (deftest funding-comparison-vm-builds-rates-open-interest-and-arb-columns-test
   (let [state {:funding-comparison-ui {:query ""
@@ -126,3 +134,68 @@
     (is (= ["POS" "NEG"] (mapv :coin rows)))
     (is (< 0 (get-in (first rows) [:binance-hl-arb :raw-diff])))
     (is (> 0 (get-in (second rows) [:binance-hl-arb :raw-diff])))))
+
+(deftest funding-comparison-vm-memoizes-large-parse-filter-sort-pipeline-test
+  (let [row-count 240
+        predicted-fundings
+        (mapv (fn [idx]
+                (let [coin (str "COIN" idx)]
+                  [coin
+                   [["HlPerp" {:fundingRate "0.0000125" :fundingIntervalHours 1}]
+                    ["BinPerp" {:fundingRate "0.0001" :fundingIntervalHours 8}]
+                    ["BybitPerp" {:fundingRate "0.00008" :fundingIntervalHours 4}]]]))
+              (range row-count))
+        market-by-key
+        (into {}
+              (map (fn [idx]
+                     (let [coin (str "COIN" idx)]
+                       [(str "perp:" coin) {:coin coin
+                                            :openInterest (+ 1000 idx)}]))
+                   (range row-count)))
+        base-state {:funding-comparison-ui {:query ""
+                                            :timeframe :8hour
+                                            :sort {:column :open-interest
+                                                   :direction :desc}}
+                    :funding-comparison {:predicted-fundings predicted-fundings}
+                    :asset-selector {:favorites #{}
+                                     :market-by-key market-by-key}}
+        parse-calls (atom 0)
+        filter-calls (atom 0)
+        sort-calls (atom 0)
+        parse* vm/*parse-predicted-row*
+        filter* vm/*has-cex-funding-rate?*
+        sort* vm/*sort-rows*]
+    (with-redefs [vm/*parse-predicted-row*
+                  (fn [row]
+                    (swap! parse-calls inc)
+                    (parse* row))
+                  vm/*has-cex-funding-rate?*
+                  (fn [row]
+                    (swap! filter-calls inc)
+                    (filter* row))
+                  vm/*sort-rows*
+                  (fn [rows sort-state]
+                    (swap! sort-calls inc)
+                    (sort* rows sort-state))]
+      (let [first-result (vm/funding-comparison-vm base-state)]
+        (is (= row-count (:row-count first-result))))
+      (vm/funding-comparison-vm base-state)
+      (is (= row-count @parse-calls))
+      (is (= row-count @filter-calls))
+      (is (= 1 @sort-calls))
+
+      (let [churned-state (assoc-in base-state
+                                    [:funding-comparison :predicted-fundings]
+                                    (into [] predicted-fundings))]
+        (vm/funding-comparison-vm churned-state))
+      (is (= row-count @parse-calls))
+      (is (= row-count @filter-calls))
+      (is (= 1 @sort-calls))
+
+      (let [favorites-state (assoc-in base-state
+                                      [:asset-selector :favorites]
+                                      #{"perp:COIN42"})]
+        (vm/funding-comparison-vm favorites-state))
+      (is (= (* 2 row-count) @parse-calls))
+      (is (= (* 2 row-count) @filter-calls))
+      (is (= 2 @sort-calls)))))

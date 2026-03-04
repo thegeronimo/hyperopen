@@ -48,6 +48,52 @@
    :week (* 24 7)
    :year (* 24 365)})
 
+(defonce ^:private funding-comparison-rows-cache
+  (atom nil))
+
+(def ^:private empty-sequence-signature
+  {:count 0
+   :rolling-hash 1
+   :xor-hash 0})
+
+(defn- mix-cache-hash
+  [rolling value-hash]
+  (let [rolling* (bit-or rolling 0)
+        value-hash* (bit-or value-hash 0)]
+    (bit-or
+     (+ (bit-xor rolling* value-hash*)
+        0x9e3779b9
+        (bit-shift-left rolling* 6)
+        (unsigned-bit-shift-right rolling* 2))
+     0)))
+
+(defn- sequence-signature
+  [rows]
+  (reduce (fn [{:keys [count rolling-hash xor-hash]} row]
+            (let [row-hash (hash row)]
+              {:count (inc count)
+               :rolling-hash (mix-cache-hash rolling-hash row-hash)
+               :xor-hash (bit-xor (bit-or xor-hash 0) (bit-or row-hash 0))}))
+          empty-sequence-signature
+          (or rows [])))
+
+(defn- value-signature
+  [value]
+  {:hash (hash value)
+   :count (when (counted? value)
+            (count value))})
+
+(defn- input-match-state
+  [value cached-value cached-signature signature-fn]
+  (if (identical? value cached-value)
+    {:same-input? true
+     :signature (or cached-signature
+                    (signature-fn value))}
+    (let [signature (signature-fn value)]
+      {:same-input? (and (some? cached-signature)
+                         (= signature cached-signature))
+       :signature signature})))
+
 (defn- optional-number
   [value]
   (cond
@@ -236,6 +282,68 @@
   (vec (sort #(compare-rows %1 %2 sort-state)
              rows)))
 
+(def ^:dynamic *parse-predicted-row* parse-predicted-row)
+(def ^:dynamic *has-cex-funding-rate?* has-cex-funding-rate?)
+(def ^:dynamic *build-row* build-row)
+(def ^:dynamic *matches-query?* matches-query?)
+(def ^:dynamic *sort-rows* sort-rows)
+
+(defn reset-funding-comparison-vm-cache! []
+  (reset! funding-comparison-rows-cache nil))
+
+(defn- compute-funding-comparison-rows
+  [predicted-fundings market-by-key favorites query timeframe sort-state]
+  (let [parsed-rows (->> (or predicted-fundings [])
+                         (keep *parse-predicted-row*)
+                         (filter *has-cex-funding-rate?*)
+                         (map #(*build-row* % market-by-key favorites timeframe))
+                         (filter #(*matches-query?* (:coin %) query))
+                         vec)]
+    (*sort-rows* parsed-rows sort-state)))
+
+(defn- memoized-funding-comparison-rows
+  [predicted-fundings market-by-key favorites query timeframe sort-state]
+  (let [cache @funding-comparison-rows-cache
+        predicted-match (input-match-state predicted-fundings
+                                           (:predicted-fundings cache)
+                                           (:predicted-signature cache)
+                                           sequence-signature)
+        favorites-match (input-match-state favorites
+                                           (:favorites cache)
+                                           (:favorites-signature cache)
+                                           value-signature)
+        market-match (input-match-state market-by-key
+                                        (:market-by-key cache)
+                                        (:market-signature cache)
+                                        value-signature)
+        cache-hit? (and (map? cache)
+                        (:same-input? predicted-match)
+                        (:same-input? favorites-match)
+                        (:same-input? market-match)
+                        (= query (:query cache))
+                        (= timeframe (:timeframe cache))
+                        (= sort-state (:sort-state cache)))]
+    (if cache-hit?
+      (:rows cache)
+      (let [rows (compute-funding-comparison-rows predicted-fundings
+                                                  market-by-key
+                                                  favorites
+                                                  query
+                                                  timeframe
+                                                  sort-state)]
+        (reset! funding-comparison-rows-cache
+                {:predicted-fundings predicted-fundings
+                 :predicted-signature (:signature predicted-match)
+                 :favorites favorites
+                 :favorites-signature (:signature favorites-match)
+                 :market-by-key market-by-key
+                 :market-signature (:signature market-match)
+                 :query query
+                 :timeframe timeframe
+                 :sort-state sort-state
+                 :rows rows})
+        rows))))
+
 (defn funding-comparison-vm
   [state]
   (let [query (get-in state [:funding-comparison-ui :query] "")
@@ -248,13 +356,13 @@
                       :direction (funding-actions/normalize-funding-comparison-sort-direction (:direction raw-sort))})
         favorites (or (get-in state [:asset-selector :favorites]) #{})
         market-by-key (or (get-in state [:asset-selector :market-by-key]) {})
-        parsed-rows (->> (or (get-in state [:funding-comparison :predicted-fundings]) [])
-                         (keep parse-predicted-row)
-                         (filter has-cex-funding-rate?)
-                         (map #(build-row % market-by-key favorites timeframe))
-                         (filter #(matches-query? (:coin %) query))
-                         vec)
-        sorted-rows (sort-rows parsed-rows sort-state)]
+        predicted-fundings (or (get-in state [:funding-comparison :predicted-fundings]) [])
+        sorted-rows (memoized-funding-comparison-rows predicted-fundings
+                                                      market-by-key
+                                                      favorites
+                                                      query
+                                                      timeframe
+                                                      sort-state)]
     {:query query
      :timeframe timeframe
      :timeframe-options timeframe-options
