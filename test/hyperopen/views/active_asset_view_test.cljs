@@ -499,11 +499,11 @@
         full-state {:active-asset "xyz:GOLD"
                     :asset-selector {:missing-icons #{}}
                     :active-assets {:funding-predictability {:by-coin {"XYZ:GOLD"
-                                                                       {:mean 0.0042
-                                                                       :stddev 0.0187
-                                                                       :daily-funding-series [{:day-index 1 :mean-rate 0.0012}
-                                                                                             {:day-index 2 :mean-rate -0.0004}
-                                                                                             {:day-index 3 :mean-rate 0.0008}]
+                                                                       {:mean 0.1008
+                                                                       :stddev 0.0916108152
+                                                                       :daily-funding-series [{:day-index 1 :daily-rate 0.0288}
+                                                                                             {:day-index 2 :daily-rate -0.0096}
+                                                                                             {:day-index 3 :daily-rate 0.0192}]
                                                                         :autocorrelation {:lag-1d {:value 0.714}
                                                                                           :lag-5d {:value 0.482}
                                                                                           :lag-15d {:value 0.21}}
@@ -531,8 +531,8 @@
         (is (contains? strings "Past Rate Correlation"))
         (is (contains? strings "+3679.2000%"))
         (is (contains? strings "-$183,960.00"))
-        (is (contains? strings "175.0224%"))
-        (is (contains? strings "-$175,208.88 to -$192,711.12"))))))
+        (is (contains? strings "175.0222%"))
+        (is (contains? strings "-$175,208.89 to -$192,711.11"))))))
 
 (deftest active-asset-row-funding-tooltip-renders-predictability-loading-and-insufficient-copy-test
   (let [ctx-data {:coin "xyz:GOLD"
@@ -550,11 +550,11 @@
         full-state {:active-asset "xyz:GOLD"
                     :asset-selector {:missing-icons #{}}
                     :active-assets {:funding-predictability {:by-coin {"XYZ:GOLD"
-                                                                       {:mean 0.0042
-                                                                       :stddev 0.0187
-                                                                       :daily-funding-series [{:day-index 1 :mean-rate 0.0012}
-                                                                                             {:day-index 2 :mean-rate nil}
-                                                                                             {:day-index 3 :mean-rate -0.0006}]
+                                                                       {:mean 0.1008
+                                                                       :stddev 0.0916108152
+                                                                       :daily-funding-series [{:day-index 1 :daily-rate 0.0288}
+                                                                                             {:day-index 2 :daily-rate nil}
+                                                                                             {:day-index 3 :daily-rate -0.0144}]
                                                                         :autocorrelation {:lag-1d {:value 0.714}
                                                                                           :lag-5d {:value 0.482}
                                                                                           :lag-15d {:value nil

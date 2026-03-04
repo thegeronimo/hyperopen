@@ -319,20 +319,20 @@
          :short 1
          0))))
 
-(def ^:private annualization-hours
-  (* 24 365))
+(def ^:private annualization-days
+  365)
 
-(defn- hourly-decimal->annualized-percent
-  [hourly-decimal]
-  (when (number? hourly-decimal)
-    (fmt/annualized-funding-rate (* hourly-decimal 100))))
+(defn- daily-decimal->annualized-percent
+  [daily-decimal]
+  (when (number? daily-decimal)
+    (* daily-decimal annualization-days 100)))
 
-(defn- hourly-decimal-stddev->annualized-percent
-  [hourly-decimal-stddev]
-  (when (number? hourly-decimal-stddev)
-    (* hourly-decimal-stddev
+(defn- daily-decimal-stddev->annualized-percent
+  [daily-decimal-stddev]
+  (when (number? daily-decimal-stddev)
+    (* daily-decimal-stddev
        100
-       (js/Math.sqrt annualization-hours))))
+       (js/Math.sqrt annualization-days))))
 
 (defn- payment-range-text
   [lower-payment upper-payment]
@@ -345,8 +345,8 @@
 
 (defn- predictability-rows
   [summary direction position-value]
-  (let [annualized-mean (hourly-decimal->annualized-percent (:mean summary))
-        annualized-volatility (hourly-decimal-stddev->annualized-percent (:stddev summary))
+  (let [annualized-mean (daily-decimal->annualized-percent (:mean summary))
+        annualized-volatility (daily-decimal-stddev->annualized-percent (:stddev summary))
         expected-payment (funding-payment-estimate direction position-value annualized-mean)
         lower-rate (when (and (number? annualized-mean)
                               (number? annualized-volatility))

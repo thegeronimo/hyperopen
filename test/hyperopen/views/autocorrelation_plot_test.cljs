@@ -73,11 +73,11 @@
     (is (contains? values "1"))))
 
 (deftest funding-rate-plot-renders-title-axis-and-bars-test
-  (let [series [{:day-index 1 :mean-rate 0.0004}
-                {:day-index 2 :mean-rate -0.0002}
-                {:day-index 3 :mean-rate nil}
-                {:day-index 4 :mean-rate 0.0001}
-                {:day-index 5 :mean-rate 0.0003}]
+  (let [series [{:day-index 1 :daily-rate 0.0004}
+                {:day-index 2 :daily-rate -0.0002}
+                {:day-index 3 :daily-rate nil}
+                {:day-index 4 :daily-rate 0.0001}
+                {:day-index 5 :daily-rate 0.0003}]
         node (funding-rate-plot/funding-rate-plot series)
         strings (set (collect-strings node))
         bars (collect-rect-attrs-by-key node :data-day)]
@@ -89,10 +89,10 @@
            (mapv :data-day bars)))))
 
 (deftest funding-rate-plot-sorts-and-annualizes-series-values-test
-  (let [series [{:day-index 3 :mean-rate 0.001}
-                {:day-index 1 :mean-rate -0.001}
-                {:day-index 2 :mean-rate "0.0005"}
-                {:day-index 4 :mean-rate "bad"}]
+  (let [series [{:day-index 3 :daily-rate 0.001}
+                {:day-index 1 :daily-rate -0.001}
+                {:day-index 2 :daily-rate "0.0005"}
+                {:day-index 4 :daily-rate "bad"}]
         node (funding-rate-plot/funding-rate-plot series)
         bars (collect-rect-attrs-by-key node :data-day)
         value-by-day (into {}
@@ -102,7 +102,7 @@
                            bars)]
     (is (= [1 2 3 4]
            (mapv :data-day bars)))
-    (is (approx= -876 (get value-by-day 1) 1e-9))
-    (is (approx= 438 (get value-by-day 2) 1e-9))
-    (is (approx= 876 (get value-by-day 3) 1e-9))
+    (is (approx= -36.5 (get value-by-day 1) 1e-9))
+    (is (approx= 18.25 (get value-by-day 2) 1e-9))
+    (is (approx= 36.5 (get value-by-day 3) 1e-9))
     (is (js/isNaN (get value-by-day 4)))))

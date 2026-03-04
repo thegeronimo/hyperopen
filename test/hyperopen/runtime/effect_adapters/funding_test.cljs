@@ -64,7 +64,7 @@
                                        :loading false}})
           request-calls (atom [])
           start-ms (platform/now-ms)
-          rows [{:time-ms (- start-ms (* 2 60 60 1000))
+          rows [{:time-ms (- start-ms (* 25 60 60 1000))
                  :funding-rate-raw 0.001}
                 {:time-ms (- start-ms (* 60 60 1000))
                  :funding-rate-raw 0.002}]]

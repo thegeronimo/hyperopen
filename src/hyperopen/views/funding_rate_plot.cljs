@@ -65,10 +65,11 @@
       (when (pos? day-index)
         day-index))))
 
-(defn- hourly-decimal->annualized-percent
-  [hourly-decimal]
-  (when (finite-number? hourly-decimal)
-    (fmt/annualized-funding-rate (* hourly-decimal 100))))
+(defn- daily-decimal->annualized-percent
+  [daily-decimal]
+  (when (finite-number? daily-decimal)
+    ;; daily-decimal is already sum of 24h
+    (* daily-decimal 365 100)))
 
 (defn- normalize-series
   [series]
@@ -76,8 +77,8 @@
        (keep (fn [point]
                (when (map? point)
                  (let [day-index (normalize-day-index (:day-index point))
-                       hourly-rate (parse-number (:mean-rate point))
-                       annualized-rate (hourly-decimal->annualized-percent hourly-rate)]
+                       daily-rate (parse-number (:daily-rate point))
+                       annualized-rate (daily-decimal->annualized-percent daily-rate)]
                    (when (pos? (or day-index 0))
                      {:day-index day-index
                       :value annualized-rate

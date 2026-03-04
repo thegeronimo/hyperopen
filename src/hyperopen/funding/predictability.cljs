@@ -105,10 +105,13 @@
           result
           (let [{:keys [sum count]} (get day-index current-day-ms)
                 mean-rate (when (pos? (or count 0))
-                            (/ sum count))]
+                            (/ sum count))
+                ;; Effective rate for a 24-hour hold
+                daily-rate (when mean-rate
+                             (* mean-rate 24))]
             (recur (+ current-day-ms day-ms)
                    (conj result {:day-start-ms current-day-ms
-                                 :mean-rate mean-rate
+                                 :daily-rate daily-rate
                                  :sample-count (or count 0)}))))))))
 
 (defn- annotate-daily-series
@@ -121,7 +124,7 @@
 (defn- lag-autocorrelation
   [daily-points lag-days]
   (let [minimum-daily-count (inc lag-days)
-        daily-observations (count (filter :mean-rate daily-points))]
+        daily-observations (count (filter :daily-rate daily-points))]
     (if (< daily-observations minimum-daily-count)
       {:lag-days lag-days
        :minimum-daily-count minimum-daily-count
@@ -133,8 +136,8 @@
                        (keep (fn [idx]
                                (let [current (nth daily-points idx)
                                      lagged (nth daily-points (- idx lag-days))
-                                     current-value (:mean-rate current)
-                                     lagged-value (:mean-rate lagged)]
+                                     current-value (:daily-rate current)
+                                     lagged-value (:daily-rate lagged)]
                                  (when (and (number? current-value)
                                             (number? lagged-value))
                                    [current-value lagged-value]))))
@@ -157,8 +160,12 @@
   (let [now-ms* (or (parse-ms now-ms) 0)
         window-start-ms (rolling-window-start-ms now-ms*)
         rows* (normalize-rows-for-window rows now-ms*)
-        rates (mapv :funding-rate-raw rows*)
         daily-points (daily-series rows* now-ms*)
+        valid-daily-rates (keep :daily-rate daily-points)
+        daily-mean (when (seq valid-daily-rates)
+                     (math/mean valid-daily-rates))
+        daily-stddev (when (seq valid-daily-rates)
+                       (math/sample-stddev valid-daily-rates))
         lag-series (mapv (fn [lag-days]
                            (lag-autocorrelation daily-points lag-days))
                          autocorrelation-series-lag-days)
@@ -173,10 +180,10 @@
                              autocorrelation-lag-days))]
     {:window-start-ms window-start-ms
      :window-end-ms now-ms*
-     :sample-count (count rates)
-     :daily-count (count (filter :mean-rate daily-points))
-     :mean (math/mean rates)
-     :stddev (math/sample-stddev rates)
+     :sample-count (count rows*)
+     :daily-count (count valid-daily-rates)
+     :mean daily-mean
+     :stddev daily-stddev
      :daily-funding-series (annotate-daily-series daily-points)
      :autocorrelation-series lag-series
      :autocorrelation lag-stats}))
