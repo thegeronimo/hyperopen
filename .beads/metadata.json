@@ -1,7 +1,0 @@
-{
-  "database": "dolt",
-  "backend": "dolt",
-  "dolt_mode": "server",
-  "dolt_server_port": 13880,
-  "dolt_database": "hyperopen"
-}

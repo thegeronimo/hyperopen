@@ -48,3 +48,7 @@ PRDs/
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+# Local bd runtime state
+.beads/metadata.json
+.beads/dolt-config.log
