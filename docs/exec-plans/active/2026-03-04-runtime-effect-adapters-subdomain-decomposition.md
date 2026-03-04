@@ -32,7 +32,11 @@ A contributor can verify success by confirming the monolith file is reduced to f
 - [x] (2026-03-04 02:49Z) Added asset-selector facade parity + seam regression checks in `/hyperopen/test/hyperopen/runtime/effect_adapters_test.cljs`.
 - [x] (2026-03-04 02:50Z) Re-ran required gates after asset-selector extraction: `npm run check`, `npm test`, `npm run test:websocket` (all green).
 - [x] Milestone 2: Extract websocket + diagnostics + asset-selector adapters into dedicated namespaces.
-- [ ] Milestone 3: Extract wallet + order adapters into dedicated namespaces.
+- [x] (2026-03-04 03:13Z) Extracted wallet adapters into `/hyperopen/src/hyperopen/runtime/effect_adapters/wallet.cljs` (connect/disconnect, storage-mode mutation, copy feedback lifecycle) and delegated facade exports in `/hyperopen/src/hyperopen/runtime/effect_adapters.cljs`.
+- [x] (2026-03-04 03:13Z) Preserved disconnect cleanup behavior by injecting facade-owned order-toast clear collaborators into `wallet-adapters/disconnect-wallet`.
+- [x] (2026-03-04 03:13Z) Added wallet facade parity assertions in `/hyperopen/test/hyperopen/runtime/effect_adapters_test.cljs`.
+- [x] (2026-03-04 03:14Z) Re-ran required gates after wallet extraction: `npm run check`, `npm test`, `npm run test:websocket` (all green).
+- [ ] Milestone 3: Extract wallet + order adapters into dedicated namespaces (completed: wallet extraction in `hyperopen-63a.4`; remaining: order extraction in `hyperopen-63a.5`).
 - [ ] Milestone 4: Extract funding + vault adapters into dedicated namespaces.
 - [ ] Milestone 5: Decompose tests by subdomain, add facade contract assertions, and run required gates.
 
@@ -73,9 +77,13 @@ A contributor can verify success by confirming the monolith file is reduced to f
   Rationale: Existing tests use `with-redefs` on `hyperopen.runtime.effect-adapters/schedule-animation-frame!`; facade-level injection is required so redefs continue to affect queue scheduling behavior.
   Date/Author: 2026-03-04 / Codex
 
+- Decision: Keep `disconnect-wallet` as a facade wrapper while moving core wallet logic to `wallet` module.
+  Rationale: `disconnect-wallet` performs cross-domain cleanup (wallet copy timeout + order toast timeout/clear). Keeping a facade wrapper allows wallet module reuse while preserving explicit collaborator injection for order-toast cleanup without introducing wallet->order coupling.
+  Date/Author: 2026-03-04 / Codex
+
 ## Outcomes & Retrospective
 
-Three extraction slices are complete: subdomain scaffold + shared helper seam (`common`), websocket/diagnostics seam (`websocket`), and asset-selector seam (`asset_selector`). The facade now delegates most websocket and asset-selector behavior while preserving compatibility exports and override seams. Remaining work is concentrated in wallet/order and funding/vault extraction milestones.
+Four extraction slices are complete: subdomain scaffold + shared helper seam (`common`), websocket/diagnostics seam (`websocket`), asset-selector seam (`asset_selector`), and wallet seam (`wallet`). The facade now delegates most websocket, asset-selector, and wallet behavior while preserving compatibility exports and override seams. Remaining work is concentrated in order and funding/vault extraction milestones.
 
 ## Context and Orientation
 

@@ -7,6 +7,7 @@
             [hyperopen.runtime.effect-adapters.asset-selector :as asset-adapters]
             [hyperopen.runtime.effect-adapters :as effect-adapters]
             [hyperopen.runtime.effect-adapters.common :as common]
+            [hyperopen.runtime.effect-adapters.wallet :as wallet-adapters]
             [hyperopen.runtime.effect-adapters.websocket :as ws-adapters]
             [hyperopen.test-support.async :as async-support]
             [hyperopen.telemetry :as telemetry]
@@ -62,6 +63,12 @@
                                                            :status :loaded})
       (is (= :raf-id ((:schedule-animation-frame! @captured) (fn [] nil))))
       (is (fn? (:flush-queued-asset-icon-statuses! @captured))))))
+
+(deftest facade-wallet-adapters-delegate-to-wallet-module-test
+  (is (identical? wallet-adapters/connect-wallet effect-adapters/connect-wallet))
+  (is (identical? wallet-adapters/set-agent-storage-mode effect-adapters/set-agent-storage-mode))
+  (is (identical? wallet-adapters/copy-wallet-address effect-adapters/copy-wallet-address))
+  (is (identical? wallet-adapters/make-copy-wallet-address effect-adapters/make-copy-wallet-address)))
 
 (deftest subscribe-active-asset-persists-through-local-storage-effect-boundary-test
   (let [persist-calls (atom [])

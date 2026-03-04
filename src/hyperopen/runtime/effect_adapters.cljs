@@ -10,6 +10,7 @@
             [hyperopen.funding.predictability :as funding-predictability]
             [hyperopen.runtime.effect-adapters.asset-selector :as asset-adapters]
             [hyperopen.runtime.effect-adapters.common :as common]
+            [hyperopen.runtime.effect-adapters.wallet :as wallet-adapters]
             [hyperopen.runtime.effect-adapters.websocket :as ws-adapters]
             [hyperopen.runtime.api-effects :as api-effects]
             [hyperopen.runtime.state :as runtime-state]
@@ -17,11 +18,6 @@
             [hyperopen.funding.effects :as funding-workflow-effects]
             [hyperopen.funding-comparison.effects :as funding-effects]
             [hyperopen.vaults.effects :as vault-effects]
-            [hyperopen.wallet.agent-runtime :as agent-runtime]
-            [hyperopen.wallet.agent-session :as agent-session]
-            [hyperopen.wallet.connection-runtime :as wallet-connection-runtime]
-            [hyperopen.wallet.copy-feedback-runtime :as wallet-copy-runtime]
-            [hyperopen.wallet.core :as wallet]
             [hyperopen.websocket.client :as ws-client]))
 
 (def append-diagnostics-event! ws-adapters/append-diagnostics-event!)
@@ -120,23 +116,7 @@
 (def sync-asset-selector-active-ctx-subscriptions
   asset-adapters/sync-asset-selector-active-ctx-subscriptions)
 
-(defn connect-wallet [_ store]
-  (wallet-connection-runtime/connect-wallet!
-   {:store store
-    :log-fn telemetry/log!
-    :request-connection! wallet/request-connection!}))
-
-(defn- set-wallet-copy-feedback! [store kind message]
-  (wallet-copy-runtime/set-wallet-copy-feedback! store kind message))
-
-(defn- clear-wallet-copy-feedback! [store]
-  (wallet-copy-runtime/clear-wallet-copy-feedback! store))
-
-(defn- clear-wallet-copy-feedback-timeout!
-  [runtime]
-  (wallet-copy-runtime/clear-wallet-copy-feedback-timeout-in-runtime!
-   runtime
-   platform/clear-timeout!))
+(def connect-wallet wallet-adapters/connect-wallet)
 
 (defn- set-order-feedback-toast! [store kind message]
   (order-feedback-runtime/set-order-feedback-toast! store kind message))
@@ -173,55 +153,22 @@
   ([_ store]
    (disconnect-wallet runtime-state/runtime nil store))
   ([runtime _ store]
-   (wallet-connection-runtime/disconnect-wallet!
-    {:store store
-     :log-fn telemetry/log!
-     :clear-wallet-copy-feedback-timeout! #(clear-wallet-copy-feedback-timeout! runtime)
-     :clear-order-feedback-toast-timeout! #(clear-order-feedback-toast-timeout! runtime)
-     :clear-order-feedback-toast! clear-order-feedback-toast!
-     :set-disconnected! wallet/set-disconnected!})))
+   (wallet-adapters/disconnect-wallet
+    runtime
+    store
+    {:clear-order-feedback-toast-timeout! clear-order-feedback-toast-timeout!
+     :clear-order-feedback-toast! clear-order-feedback-toast!})))
 
 (defn make-disconnect-wallet
   [runtime]
   (fn [ctx store]
     (disconnect-wallet runtime ctx store)))
 
-(defn set-agent-storage-mode [_ store storage-mode]
-  (agent-runtime/set-agent-storage-mode!
-   {:store store
-    :storage-mode storage-mode
-    :normalize-storage-mode agent-session/normalize-storage-mode
-    :clear-agent-session-by-mode! agent-session/clear-agent-session-by-mode!
-    :persist-storage-mode-preference! agent-session/persist-storage-mode-preference!
-    :default-agent-state agent-session/default-agent-state
-    :agent-storage-mode-reset-message runtime-state/agent-storage-mode-reset-message}))
+(def set-agent-storage-mode wallet-adapters/set-agent-storage-mode)
 
-(defn- schedule-wallet-copy-feedback-clear! [runtime store]
-  (wallet-copy-runtime/schedule-wallet-copy-feedback-clear!
-   {:store store
-    :runtime runtime
-    :clear-wallet-copy-feedback! clear-wallet-copy-feedback!
-    :clear-wallet-copy-feedback-timeout! #(clear-wallet-copy-feedback-timeout! runtime)
-    :wallet-copy-feedback-duration-ms runtime-state/wallet-copy-feedback-duration-ms
-    :set-timeout-fn platform/set-timeout!}))
+(def copy-wallet-address wallet-adapters/copy-wallet-address)
 
-(defn copy-wallet-address
-  ([_ store address]
-   (copy-wallet-address runtime-state/runtime nil store address))
-  ([runtime _ store address]
-   (wallet-copy-runtime/copy-wallet-address!
-    {:store store
-     :address address
-     :set-wallet-copy-feedback! set-wallet-copy-feedback!
-     :clear-wallet-copy-feedback! clear-wallet-copy-feedback!
-     :clear-wallet-copy-feedback-timeout! #(clear-wallet-copy-feedback-timeout! runtime)
-     :schedule-wallet-copy-feedback-clear! #(schedule-wallet-copy-feedback-clear! runtime %)
-     :log-fn telemetry/log!})))
-
-(defn make-copy-wallet-address
-  [runtime]
-  (fn [ctx store address]
-    (copy-wallet-address runtime ctx store address)))
+(def make-copy-wallet-address wallet-adapters/make-copy-wallet-address)
 
 (def make-reconnect-websocket ws-adapters/make-reconnect-websocket)
 
