@@ -177,7 +177,9 @@ For more details, see README.md and docs/QUICKSTART.md.
 7. **Hand off** - Provide context for next session
 
 ### Shared Phrase: `land the worktree`
-Interpret `land the worktree` using `/hyperopen/docs/WORK_TRACKING.md#shared-agent-command-phrases` (canonical definition).
+Resolve shared phrases with `/hyperopen/tools/phrase get "<phrase>"`.
+Machine-readable registry: `/hyperopen/command-phrases.edn`.
+Canonical long-form policy: `/hyperopen/docs/WORK_TRACKING.md#shared-agent-command-phrases`.
 
 **CRITICAL RULES:**
 - Work is NOT complete until `git push` succeeds

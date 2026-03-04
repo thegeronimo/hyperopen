@@ -1,0 +1,23 @@
+{:schema-version 2
+ :commands
+ {"land-the-worktree"
+  {:preconditions
+   ["Run from the feature worktree that should be landed."
+    "Only staged changes are committed; do not auto-stage files."
+    "No unstaged changes exist before starting the rebase."]
+   :steps
+   ["If HEAD is detached, create an ephemeral branch from current HEAD (for example codex/land-<timestamp>)."
+    "Commit staged changes on the current branch (git commit ...)."
+    "Rebase the working branch onto local main (git rebase main)."
+    "If rebase succeeds, fast-forward merge into local main (git checkout main; git merge --ff-only <working-branch>)."
+    "Delete the feature worktree and branch from a different worktree (git worktree remove <feature-worktree-path>; git branch -d <working-branch>)."]
+   :failure_policy
+   ["If unstaged changes exist, stop and request stage/discard before rebase."
+    "Stop immediately on rebase or merge conflicts; do not force-delete branch/worktree."
+    "This phrase is local integration cleanup only; pushing is separate unless explicitly requested."]
+   :postconditions
+   ["Changes are integrated into local main via fast-forward merge."
+    "Feature worktree and branch are removed after successful landing."]}}
+ :alias->id
+ {"land the worktree" "land-the-worktree"
+  "lan the worktree" "land-the-worktree"}}

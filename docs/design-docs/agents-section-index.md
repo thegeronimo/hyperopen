@@ -15,7 +15,7 @@ This map preserves every major section from the previous monolithic `/hyperopen/
 - `ExecPlans` -> `/hyperopen/docs/PLANS.md#execplan-contract`
 - `Issue Tracking with bd (beads)` -> `/hyperopen/docs/WORK_TRACKING.md#bd-issue-tracking-source-of-truth`
 - `Landing the Plane (Session Completion)` -> `/hyperopen/docs/WORK_TRACKING.md#session-completion-and-handoff`
-- `Shared Phrase: land the worktree` -> `/hyperopen/docs/WORK_TRACKING.md#shared-agent-command-phrases`
+- `Shared Phrase: land the worktree` -> `/hyperopen/command-phrases.edn` (machine-readable) and `/hyperopen/docs/WORK_TRACKING.md#shared-agent-command-phrases` (long-form)
 - `UI Guidance (UI Tasks Only)` -> `/hyperopen/docs/FRONTEND.md#ui-guidance-ui-tasks-only`
 - `Repo-Wide Engineering Rules (MUST)` -> `/hyperopen/docs/DESIGN.md#repo-wide-engineering-rules-must`
 - `Crypto Signing and Exchange Application Programming Interface Rules (MUST)` -> `/hyperopen/docs/SECURITY.md#crypto-signing-and-exchange-application-programming-interface-rules-must`

@@ -122,8 +122,17 @@ When finishing a coding session or handing work to another contributor:
 If push cannot complete due environment or permissions, record the blocker explicitly in the handoff and in `bd`.
 
 ## Shared Agent Command Phrases
+- Machine-readable registry: `/hyperopen/command-phrases.edn`
+- Lookup command: `/hyperopen/tools/phrase get "<phrase>"`
+- Canonical long-form intent and policy live in this section; keep it aligned with the registry.
+- Registry schema: `:schema-version 2` with `:commands` and `:alias->id`.
+- Store aliases in normalized form (trimmed, single-space, lowercase) for direct lookup.
+
 ### `land the worktree`
-When a user says `land the worktree`, execute this exact local workflow:
+- Registry id: `land-the-worktree`
+- Scope: local integration cleanup for commit/rebase/fast-forward merge/worktree cleanup.
+
+Long-form workflow:
 1. If the current worktree is detached `HEAD`, create an ephemeral branch from current `HEAD` (for example `codex/land-<timestamp>`).
 2. Commit staged changes on the current branch (`git commit ...`). Do not auto-stage files.
 3. Rebase the working branch onto local `main` (`git rebase main`).
@@ -137,4 +146,4 @@ When a user says `land the worktree`, execute this exact local workflow:
 Guardrails:
 - If unstaged changes exist, stop and request stage/discard before rebase.
 - Stop immediately on rebase/merge conflicts; do not force-delete branch/worktree.
-- This phrase is local-integration cleanup; pushing is separate unless explicitly requested.
+- Push behavior is separate unless explicitly requested.
