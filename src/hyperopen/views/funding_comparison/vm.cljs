@@ -214,22 +214,22 @@
 
 (defn- compare-rows
   [left right {:keys [column direction]}]
-  (let [favorite-cmp (compare (if (:favorite? left) 0 1)
-                              (if (:favorite? right) 0 1))]
-    (if (not (zero? favorite-cmp))
-      favorite-cmp
-      (let [column* (funding-actions/normalize-funding-comparison-sort-column column)
-            direction* (funding-actions/normalize-funding-comparison-sort-direction direction)
-            primary (if (= column* :coin)
-                      (compare (row-sort-value left column*)
-                               (row-sort-value right column*))
-                      (compare (or (row-sort-value left column*) js/Number.NEGATIVE_INFINITY)
-                               (or (row-sort-value right column*) js/Number.NEGATIVE_INFINITY)))
-            primary* (if (= :desc direction*) (- primary) primary)]
-        (if (zero? primary*)
-          (compare (str/lower-case (or (:coin left) ""))
-                   (str/lower-case (or (:coin right) "")))
-          primary*)))))
+  (let [column* (funding-actions/normalize-funding-comparison-sort-column column)
+        direction* (funding-actions/normalize-funding-comparison-sort-direction direction)
+        primary (if (= column* :coin)
+                  (compare (row-sort-value left column*)
+                           (row-sort-value right column*))
+                  (compare (or (row-sort-value left column*) js/Number.NEGATIVE_INFINITY)
+                           (or (row-sort-value right column*) js/Number.NEGATIVE_INFINITY)))
+        primary* (if (= :desc direction*) (- primary) primary)]
+    (if (zero? primary*)
+      (let [coin-cmp (compare (str/lower-case (or (:coin left) ""))
+                              (str/lower-case (or (:coin right) "")))]
+        (if (zero? coin-cmp)
+          (compare (if (:favorite? left) 0 1)
+                   (if (:favorite? right) 0 1))
+          coin-cmp))
+      primary*)))
 
 (defn- sort-rows
   [rows sort-state]

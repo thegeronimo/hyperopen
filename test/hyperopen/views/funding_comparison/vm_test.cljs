@@ -49,7 +49,7 @@
     ;; Bybit KAITO defaults to 1h fallback: 0.0002 / 1 * 8 = 0.0016
     (is (= 0.0016 (get-in row [:bybit :rate])))))
 
-(deftest funding-comparison-vm-favorites-sort-before-column-order-test
+(deftest funding-comparison-vm-column-order-takes-precedence-over-favorites-test
   (let [state {:funding-comparison-ui {:query ""
                                        :timeframe :8hour
                                        :sort {:column :coin
@@ -65,7 +65,7 @@
                                 :market-by-key {"perp:AAA" {:coin "AAA" :openInterest 1}
                                                 "perp:ZZZ" {:coin "ZZZ" :openInterest 1}}}}
         rows (:rows (vm/funding-comparison-vm state))]
-    (is (= ["ZZZ" "AAA"] (mapv :coin rows)))))
+    (is (= ["AAA" "ZZZ"] (mapv :coin rows)))))
 
 (deftest funding-comparison-vm-search-and-timeframe-scaling-test
   (let [state {:funding-comparison-ui {:query "eth"
