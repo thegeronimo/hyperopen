@@ -17,7 +17,6 @@
 (def ^:private liq-drag-text-color "rgb(252, 222, 157)")
 (def ^:private badge-char-width-px 6.2)
 (def ^:private chart-edge-padding-px 12)
-(def ^:private min-visible-pnl-segment-px 24)
 (def ^:private pnl-badge-left-anchor-ratio 0.17)
 (def ^:private pnl-badge-left-anchor-min-px 96)
 (def ^:private pnl-badge-left-anchor-max-px 180)
@@ -323,11 +322,7 @@
 
 (defn- build-pnl-row!
   [document overlay start-x end-x y width]
-  (let [segment-left (min start-x end-x)
-        segment-right (max start-x end-x)
-        raw-segment-width (max 0 (- segment-right segment-left))
-        show-segment-line? (>= raw-segment-width min-visible-pnl-segment-px)
-        row (.createElement document "div")
+  (let [row (.createElement document "div")
         line (.createElement document "div")
         pnl-text (format-pnl-text (:unrealized-pnl overlay))
         size-text (format-size-text (:format-size overlay) (:abs-size overlay))
@@ -344,17 +339,16 @@
       "top" (str y "px")
       "height" "0px"
       "pointerEvents" "none"})
-    (when show-segment-line?
-      (apply-inline-style!
-       line
-       {"position" "absolute"
-        "left" (str segment-left "px")
-        "width" (str raw-segment-width "px")
-        "top" "0px"
-        "borderTop" (str "2px solid " (side-line-color overlay))
-        "opacity" "0.92"
-        "pointerEvents" "none"})
-      (.appendChild row line))
+    (apply-inline-style!
+     line
+     {"position" "absolute"
+      "left" "0px"
+      "right" "0px"
+      "top" "0px"
+      "borderTop" (str "1px dashed " (side-line-color overlay))
+      "opacity" "0.88"
+      "pointerEvents" "none"})
+    (.appendChild row line)
     (render-pnl-badge! document row overlay center-x pnl-label-text)
     row))
 

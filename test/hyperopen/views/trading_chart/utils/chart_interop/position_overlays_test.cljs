@@ -30,7 +30,7 @@
                             (let [style (.-style node)
                                   border-top (when style (aget style "borderTop"))]
                               (and (string? border-top)
-                                   (str/includes? border-top "2px solid"))))))
+                                   (str/includes? border-top "1px dashed"))))))
 
 (defn- find-liquidation-drag-handle
   [root]
@@ -192,7 +192,7 @@
       (is (nil? side-glyph)))
     (position-overlays/clear-position-overlays! chart-obj)))
 
-(deftest position-overlays-hide-pnl-segment-when-time-span-is-tiny-test
+(deftest position-overlays-renders-pnl-segment-when-time-span-is-tiny-test
   (let [{:keys [chart-obj document container]}
         (build-chart-fixture {:time-to-x (fn [time]
                                            (case time
@@ -213,9 +213,13 @@
      {:document document})
     (let [overlay-root (aget (.-children container) 0)
           pnl-badge (find-inline-badge overlay-root "PNL -$1.20 | 0.50")
-          pnl-line (find-pnl-segment-line overlay-root)]
+          pnl-line (find-pnl-segment-line overlay-root)
+          pnl-left (some-> pnl-line .-style (aget "left"))
+          pnl-right (some-> pnl-line .-style (aget "right"))]
       (is (some? pnl-badge))
-      (is (nil? pnl-line)))
+      (is (some? pnl-line))
+      (is (= "0px" pnl-left))
+      (is (= "0px" pnl-right)))
     (position-overlays/clear-position-overlays! chart-obj)))
 
 (deftest position-overlays-keep-pnl-badge-left-aligned-when-position-is-near-right-edge-test
