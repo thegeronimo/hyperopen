@@ -1194,29 +1194,37 @@
                                           []))
         benchmark-label-by-coin (or (:label-by-coin returns-benchmark-selector)
                                     {})
-        request-data (build-metrics-request-data strategy-cumulative-rows
-                                                 benchmark-cumulative-rows-by-coin
-                                                 selected-benchmark-coins)
         request-signature (metrics-request-signature summary-time-range
                                                      selected-benchmark-coins
                                                      strategy-source-version
                                                      benchmark-source-version-map)
-        benchmark-requests (:benchmark-requests request-data)
-        _ (request-metrics-computation! request-data request-signature)
-        metrics-result (if @metrics-worker
+        worker @metrics-worker
+        request-signature-changed? (not= request-signature
+                                        (:signature @last-metrics-request))
+        request-data (when (or (nil? worker)
+                               request-signature-changed?)
+                       (build-metrics-request-data strategy-cumulative-rows
+                                                   benchmark-cumulative-rows-by-coin
+                                                   selected-benchmark-coins))
+        _ (when (and worker
+                     request-signature-changed?
+                     request-data)
+            (request-metrics-computation! request-data request-signature))
+        metrics-result (if worker
                          (get-in state [:portfolio-ui :metrics-result])
                          (compute-metrics-sync request-data))
-        loading? (if @metrics-worker
+        loading? (if worker
                    (boolean (get-in state [:portfolio-ui :metrics-loading?]))
                    false)
         portfolio-values (or (:portfolio-values metrics-result) {})
         benchmark-values-by-coin-result (or (:benchmark-values-by-coin metrics-result) {})
-        benchmark-columns (mapv (fn [{:keys [coin request]}]
+        benchmark-columns (mapv (fn [coin]
                                   {:coin coin
                                    :label (or (get benchmark-label-by-coin coin) coin)
-                                   :cumulative-rows (:strategy-cumulative-rows request)
+                                   :cumulative-rows (or (get benchmark-cumulative-rows-by-coin coin)
+                                                        [])
                                    :values (or (get benchmark-values-by-coin-result coin) {})})
-                                benchmark-requests)
+                                selected-benchmark-coins)
         primary-benchmark-column (first benchmark-columns)
         benchmark-coin (:coin primary-benchmark-column)
         benchmark-values (or (:values primary-benchmark-column)

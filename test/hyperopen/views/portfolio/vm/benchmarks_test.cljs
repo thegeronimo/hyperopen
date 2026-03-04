@@ -13,6 +13,11 @@
 (def ^:private fixture-start-ms
   (.getTime (js/Date. "2024-01-01T00:00:00.000Z")))
 
+(defn- now-ms []
+  (if (exists? js/performance)
+    (.now js/performance)
+    (.now js/Date)))
+
 (use-fixtures :each
   (fn [f]
     (vm/reset-portfolio-vm-cache!)
@@ -431,6 +436,151 @@
     (is (not= signature-a signature-b))
     (is (not= signature-a signature-c))
     (is (not= signature-a signature-d))))
+
+(deftest portfolio-vm-performance-metrics-model-skips-request-data-build-when-worker-signature-unchanged-test
+  (let [strategy-cumulative-rows [[1 0]
+                                  [2 11]
+                                  [3 19]]
+        benchmark-cumulative-rows-by-coin {"SPY" [[1 0]
+                                                  [2 4]
+                                                  [3 8]]
+                                           "QQQ" [[1 0]
+                                                  [2 2]
+                                                  [3 5]]}
+        selected-benchmark-coins ["SPY" "QQQ"]
+        summary-time-range :month
+        benchmark-context {:strategy-cumulative-rows strategy-cumulative-rows
+                           :benchmark-cumulative-rows-by-coin benchmark-cumulative-rows-by-coin
+                           :strategy-source-version 101
+                           :benchmark-source-version-map {"SPY" 201
+                                                          "QQQ" 301}}
+        request-signature (@#'vm/metrics-request-signature summary-time-range
+                                                            selected-benchmark-coins
+                                                            (:strategy-source-version benchmark-context)
+                                                            (:benchmark-source-version-map benchmark-context))
+        state {:portfolio-ui {:metrics-loading? false
+                              :metrics-result {:portfolio-values {:metric-status {}
+                                                                  :metric-reason {}}
+                                               :benchmark-values-by-coin {"SPY" {:metric-status {}
+                                                                                  :metric-reason {}}
+                                                                          "QQQ" {:metric-status {}
+                                                                                  :metric-reason {}}}}}}
+        benchmark-selector {:selected-coins selected-benchmark-coins
+                            :label-by-coin {"SPY" "SPY (SPOT)"
+                                            "QQQ" "QQQ (SPOT)"}}
+        request-build-count (atom 0)
+        request-dispatch-count (atom 0)]
+    (reset! @#'vm/last-metrics-request {:signature request-signature})
+    (with-redefs [vm/metrics-worker (delay #js {:postMessage (fn [_payload] nil)})
+                  vm/build-metrics-request-data (fn [& _]
+                                                  (swap! request-build-count inc)
+                                                  {})
+                  vm/request-metrics-computation! (fn [& _]
+                                                    (swap! request-dispatch-count inc))]
+      (let [model (@#'vm/performance-metrics-model state
+                                                   summary-time-range
+                                                   benchmark-selector
+                                                   benchmark-context)]
+        (is (= 0 @request-build-count))
+        (is (= 0 @request-dispatch-count))
+        (is (= ["SPY" "QQQ"] (:benchmark-coins model)))
+        (is (= [{:coin "SPY" :label "SPY (SPOT)"}
+                {:coin "QQQ" :label "QQQ (SPOT)"}]
+               (:benchmark-columns model)))))))
+
+(deftest portfolio-vm-performance-metrics-signature-gate-timing-note-test
+  (let [iterations 250
+        row-count 2400
+        strategy-cumulative-rows (mapv (fn [idx]
+                                         (let [step (inc idx)]
+                                           [(* step day-ms)
+                                            (* 0.01 step)]))
+                                       (range row-count))
+        benchmark-cumulative-rows-by-coin {"SPY" (mapv (fn [idx]
+                                                         (let [step (inc idx)]
+                                                           [(* step day-ms)
+                                                            (* 0.008 step)]))
+                                                       (range row-count))
+                                           "QQQ" (mapv (fn [idx]
+                                                         (let [step (inc idx)]
+                                                           [(* step day-ms)
+                                                            (* 0.006 step)]))
+                                                       (range row-count))}
+        selected-benchmark-coins ["SPY" "QQQ"]
+        summary-time-range :month
+        strategy-source-version 101
+        benchmark-source-version-map {"SPY" 201
+                                      "QQQ" 301}
+        request-signature (@#'vm/metrics-request-signature summary-time-range
+                                                            selected-benchmark-coins
+                                                            strategy-source-version
+                                                            benchmark-source-version-map)
+        baseline-daily-call-count (atom 0)
+        gated-daily-call-count (atom 0)
+        heavy-daily-compounded-returns (fn [rows]
+                                         (let [rows* (or rows [])
+                                               seed (count rows*)
+                                               row-sum (reduce (fn [acc [time-ms value]]
+                                                                 (+ acc
+                                                                    (or time-ms 0)
+                                                                    (or value 0)))
+                                                               0
+                                                               rows*)
+                                               sqrt-sum (loop [idx 0
+                                                               acc 0]
+                                                          (if (< idx (* 60 seed))
+                                                            (recur (inc idx)
+                                                                   (+ acc
+                                                                      (js/Math.sqrt (+ idx (* seed 3)))))
+                                                            acc))]
+                                           (when (or (js/isNaN row-sum)
+                                                     (js/isNaN sqrt-sum))
+                                             (throw (js/Error. "timing harness produced NaN")))
+                                           []))
+        baseline-ms (atom 0)
+        gated-ms (atom 0)]
+    (reset! @#'vm/last-metrics-request {:signature request-signature})
+    (with-redefs [portfolio-metrics/daily-compounded-returns (fn [rows]
+                                                               (swap! baseline-daily-call-count inc)
+                                                               (heavy-daily-compounded-returns rows))]
+      (let [started-at (now-ms)]
+        (dotimes [_ iterations]
+          (@#'vm/build-metrics-request-data strategy-cumulative-rows
+                                            benchmark-cumulative-rows-by-coin
+                                            selected-benchmark-coins)
+          (let [signature (@#'vm/metrics-request-signature summary-time-range
+                                                           selected-benchmark-coins
+                                                           strategy-source-version
+                                                           benchmark-source-version-map)]
+            (when (not= signature
+                        (get (deref @#'vm/last-metrics-request) :signature))
+              nil)))
+        (reset! baseline-ms (- (now-ms) started-at))))
+    (reset! @#'vm/last-metrics-request {:signature request-signature})
+    (with-redefs [portfolio-metrics/daily-compounded-returns (fn [rows]
+                                                               (swap! gated-daily-call-count inc)
+                                                               (heavy-daily-compounded-returns rows))]
+      (let [started-at (now-ms)]
+        (dotimes [_ iterations]
+          (let [signature (@#'vm/metrics-request-signature summary-time-range
+                                                           selected-benchmark-coins
+                                                           strategy-source-version
+                                                           benchmark-source-version-map)]
+            (when (not= signature
+                        (get (deref @#'vm/last-metrics-request) :signature))
+              (@#'vm/build-metrics-request-data strategy-cumulative-rows
+                                                benchmark-cumulative-rows-by-coin
+                                                selected-benchmark-coins))))
+        (reset! gated-ms (- (now-ms) started-at))))
+    (println (str "[portfolio-metrics-signature-gate]"
+                  " baseline-ms=" (.toFixed @baseline-ms 3)
+                  " gated-ms=" (.toFixed @gated-ms 3)
+                  " baseline-daily-calls=" @baseline-daily-call-count
+                  " gated-daily-calls=" @gated-daily-call-count
+                  " iterations=" iterations))
+    (is (> @baseline-daily-call-count 0))
+    (is (= 0 @gated-daily-call-count))
+    (is (> @baseline-ms @gated-ms))))
 
 (deftest portfolio-vm-reuses-benchmark-candle-request-for-chart-and-metrics-test
   (let [original-request portfolio-actions/returns-benchmark-candle-request
