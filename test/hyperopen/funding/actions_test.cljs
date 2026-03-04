@@ -1,5 +1,6 @@
 (ns hyperopen.funding.actions-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.account.context :as account-context]
             [hyperopen.funding.actions :as funding-actions]))
 
 (defn- base-state
@@ -104,6 +105,40 @@
                        :amount "2.25"
                        :toPerp false}}]]
            (funding-actions/submit-funding-transfer state-valid)))))
+
+(deftest submit-funding-actions-block-mutations-while-ghost-mode-active-test
+  (let [blocked-state (assoc (base-state)
+                             :account-context {:ghost-mode {:active? true
+                                                            :address "0x1234567890abcdef1234567890abcdef12345678"}})
+        blocked-message account-context/ghost-mode-read-only-message]
+    (is (= [[:effects/save-many [[[:funding-ui :modal :submitting?] false]
+                                 [[:funding-ui :modal :error] blocked-message]]]]
+           (funding-actions/submit-funding-transfer
+            (assoc-in blocked-state
+                      [:funding-ui :modal]
+                      {:open? true
+                       :mode :transfer
+                       :to-perp? false
+                       :amount-input "2.25"}))))
+    (is (= [[:effects/save-many [[[:funding-ui :modal :submitting?] false]
+                                 [[:funding-ui :modal :error] blocked-message]]]]
+           (funding-actions/submit-funding-withdraw
+            (assoc-in blocked-state
+                      [:funding-ui :modal]
+                      {:open? true
+                       :mode :withdraw
+                       :destination-input "0x1234567890abcdef1234567890abcdef12345678"
+                       :amount-input "6.5"}))))
+    (is (= [[:effects/save-many [[[:funding-ui :modal :submitting?] false]
+                                 [[:funding-ui :modal :error] blocked-message]]]]
+           (funding-actions/submit-funding-deposit
+            (assoc-in blocked-state
+                      [:funding-ui :modal]
+                      {:open? true
+                       :mode :deposit
+                       :deposit-step :amount-entry
+                       :deposit-selected-asset-key :usdc
+                       :amount-input "6"}))))))
 
 (deftest submit-funding-withdraw-validates-destination-and-minimum-test
   (let [invalid-destination (assoc-in (base-state)

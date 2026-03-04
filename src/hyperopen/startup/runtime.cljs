@@ -100,6 +100,19 @@
   (let [text (some-> value str str/trim)]
     (when (seq text) text)))
 
+(defn- editable-shortcut-target?
+  [event]
+  (let [target (some-> event .-target)
+        tag-token (some-> target .-tagName str str/lower-case)
+        input-like? (contains? #{"input" "textarea" "select"} tag-token)
+        content-editable? (true? (some-> target .-isContentEditable))
+        within-content-editable? (boolean
+                                  (and (fn? (some-> target .-closest))
+                                       (.closest target "[contenteditable='true']")))]
+    (or input-like?
+        content-editable?
+        within-content-editable?)))
+
 (defn- normalize-stage-b-dex-names
   [dexs]
   (let [raw (cond
@@ -167,18 +180,29 @@
                             key-token (some-> key str str/lower-case)
                             open-shortcut? (and (or meta-key? ctrl-key?)
                                                 (= key-token "k"))
+                            stop-shortcut? (and (or meta-key? ctrl-key?)
+                                                (= key-token "x"))
+                            ghost-mode-active? (account-context/ghost-mode-active? @store)
+                            editable-target? (editable-shortcut-target? event)
+                            stop-ghost-shortcut? (and stop-shortcut?
+                                                      ghost-mode-active?
+                                                      (not editable-target?))
                             selector-visible? (= :asset-selector
                                                  (get-in @store [:asset-selector :visible-dropdown]))]
                         (when (or open-shortcut?
+                                  stop-ghost-shortcut?
                                   (and selector-visible?
                                        (= key "Escape")))
-                          (when open-shortcut?
+                          (when (or open-shortcut?
+                                    stop-ghost-shortcut?)
                             (.preventDefault event))
-                          (dispatch! store nil [[:actions/handle-asset-selector-shortcut
-                                                 key
-                                                 meta-key?
-                                                 ctrl-key?
-                                                 nil]]))))]
+                          (if stop-ghost-shortcut?
+                            (dispatch! store nil [[:actions/stop-ghost-mode]])
+                            (dispatch! store nil [[:actions/handle-asset-selector-shortcut
+                                                   key
+                                                   meta-key?
+                                                   ctrl-key?
+                                                   nil]])))))]
         (.addEventListener window-object "keydown" handler)
         (reset! asset-selector-shortcuts-cleanup
                 (fn []

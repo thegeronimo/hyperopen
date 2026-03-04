@@ -1,5 +1,6 @@
 (ns hyperopen.vaults.actions-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.account.context :as account-context]
             [hyperopen.platform :as platform]
             [hyperopen.vaults.actions :as actions]))
 
@@ -403,6 +404,31 @@
     (is (false? (:ok? result)))
     (is (= "Deposits are disabled for this vault."
            (:display-message result)))))
+
+(deftest vault-transfer-submit-blocks-mutations-while-ghost-mode-active-test
+  (let [vault-address "0x1234567890abcdef1234567890abcdef12345678"
+        leader-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+        state {:router {:path (str "/vaults/" vault-address)}
+               :wallet {:address leader-address}
+               :account-context {:ghost-mode {:active? true
+                                              :address "0x1234567890abcdef1234567890abcdef12345678"}}
+               :vaults {:details-by-address {vault-address {:name "Vault Detail"
+                                                            :leader leader-address
+                                                            :allow-deposits? true}}
+                        :merged-index-rows [{:vault-address vault-address
+                                             :name "Vault Detail"
+                                             :leader leader-address}]}
+               :vaults-ui {:vault-transfer-modal {:open? true
+                                                  :mode :deposit
+                                                  :vault-address vault-address
+                                                  :amount-input "2.5"
+                                                  :withdraw-all? false
+                                                  :submitting? false
+                                                  :error nil}}}]
+    (is (= [[:effects/save-many [[[:vaults-ui :vault-transfer-modal :submitting?] false]
+                                 [[:vaults-ui :vault-transfer-modal :error]
+                                  account-context/ghost-mode-read-only-message]]]]
+           (actions/submit-vault-transfer state)))))
 
 (deftest vault-transfer-preview-parses-localized-amount-input-test
   (let [vault-address "0x1234567890abcdef1234567890abcdef12345678"

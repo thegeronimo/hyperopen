@@ -1,5 +1,6 @@
 (ns hyperopen.vaults.effects
   (:require [clojure.string :as str]
+            [hyperopen.account.context :as account-context]
             [hyperopen.api.promise-effects :as promise-effects]
             [hyperopen.api.trading :as trading-api]
             [hyperopen.vaults.actions :as vault-actions]))
@@ -223,14 +224,21 @@
          runtime-error-message fallback-runtime-error-message
          show-toast! (fn [_store _kind _message] nil)
          default-vault-transfer-modal-state vault-actions/default-vault-transfer-modal-state}}]
-  (let [address (get-in @store [:wallet :address])
-        agent-status (get-in @store [:wallet :agent :status])
+  (let [state @store
+        ghost-mode-message (account-context/mutations-blocked-message state)
+        address (get-in state [:wallet :address])
+        agent-status (get-in state [:wallet :agent :status])
         vault-address (or (vault-actions/normalize-vault-address (:vault-address request))
                           (vault-actions/normalize-vault-address (get-in request [:action :vaultAddress])))
         action (:action request)
         is-deposit? (true? (:isDeposit action))
         mode-label (submit-mode-label is-deposit?)]
     (cond
+      (seq ghost-mode-message)
+      (set-vault-transfer-error! store
+                                 show-toast!
+                                 ghost-mode-message)
+
       (nil? address)
       (set-vault-transfer-error! store
                                  show-toast!

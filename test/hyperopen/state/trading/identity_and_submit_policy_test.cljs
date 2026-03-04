@@ -1,5 +1,6 @@
 (ns hyperopen.state.trading.identity-and-submit-policy-test
   (:require [cljs.test :refer-macros [deftest is testing]]
+            [hyperopen.account.context :as account-context]
             [hyperopen.state.trading :as trading]
             [hyperopen.state.trading.test-support :as support]))
 
@@ -201,7 +202,27 @@
           policy (trading/submit-policy state form {:mode :view})]
       (is (= :submitting (:reason policy)))
       (is (true? (:disabled? policy)))
-      (is (nil? (:error-message policy))))))
+      (is (nil? (:error-message policy)))))
+
+  (testing "ghost mode blocks submit policy with explicit stop guidance"
+    (let [state (assoc base-state
+                       :asset-contexts {:BTC {:idx 0}}
+                       :account-context {:ghost-mode {:active? true
+                                                      :address "0x1234567890abcdef1234567890abcdef12345678"}})
+          form (assoc (trading/default-order-form)
+                      :type :limit
+                      :side :buy
+                      :size "1"
+                      :price "100")
+          view-policy (trading/submit-policy state form {:mode :view})
+          submit-policy (trading/submit-policy state form {:mode :submit
+                                                           :agent-ready? true})]
+      (is (= :ghost-mode-read-only (:reason view-policy)))
+      (is (= account-context/ghost-mode-read-only-message
+             (:error-message view-policy)))
+      (is (= :ghost-mode-read-only (:reason submit-policy)))
+      (is (= account-context/ghost-mode-read-only-message
+             (:error-message submit-policy))))))
 
 (deftest prepare-order-form-for-submit-formats-market-price-per-hyperliquid-rules-test
   (testing "perp pricing enforces max decimals from szDecimals and 5 sig-fig truncation"

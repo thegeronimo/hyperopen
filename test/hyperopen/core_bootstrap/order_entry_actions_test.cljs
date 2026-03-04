@@ -1,5 +1,6 @@
 (ns hyperopen.core-bootstrap.order-entry-actions-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.account.context :as account-context]
             [hyperopen.core.compat :as core]
             [hyperopen.order.actions :as order-actions]
             [hyperopen.state.trading :as trading]
@@ -450,6 +451,28 @@
     (is (= [[:effects/save [:order-form-runtime :error] "Enable trading before submitting orders."]]
            effects))))
 
+(deftest submit-order-blocks-mutations-while-ghost-mode-active-test
+  (let [state {:active-asset "BTC"
+               :active-market {:coin "BTC" :market-type :perp}
+               :asset-contexts {:BTC {:idx 0}}
+               :wallet {:connected? true
+                        :address "0xabc"
+                        :agent {:status :ready
+                                :storage-mode :session}}
+               :account-context {:ghost-mode {:active? true
+                                              :address "0x1234567890abcdef1234567890abcdef12345678"}}
+               :orderbooks {"BTC" {:bids [{:px "99"}]
+                                   :asks [{:px "101"}]}}
+               :order-form (assoc (trading/default-order-form)
+                                  :type :limit
+                                  :side :buy
+                                  :size "1"
+                                  :price "100")}
+        effects (core/submit-order state)]
+    (is (= [[:effects/save [:order-form-runtime :error]
+             account-context/ghost-mode-read-only-message]]
+           effects))))
+
 (deftest cancel-order-requires-agent-ready-session-test
   (let [state {:wallet {:connected? true
                         :address "0xabc"
@@ -460,6 +483,21 @@
                :oid 101}
         effects (core/cancel-order state order)]
     (is (= [[:effects/save [:orders :cancel-error] "Enable trading before cancelling orders."]]
+           effects))))
+
+(deftest cancel-order-blocks-mutations-while-ghost-mode-active-test
+  (let [state {:wallet {:connected? true
+                        :address "0xabc"
+                        :agent {:status :ready
+                                :storage-mode :session}}
+               :account-context {:ghost-mode {:active? true
+                                              :address "0x1234567890abcdef1234567890abcdef12345678"}}
+               :asset-contexts {:BTC {:idx 0}}}
+        order {:coin "BTC"
+               :oid 101}
+        effects (core/cancel-order state order)]
+    (is (= [[:effects/save [:orders :cancel-error]
+             account-context/ghost-mode-read-only-message]]
            effects))))
 
 (deftest cancel-order-ready-agent-emits-single-api-cancel-effect-test

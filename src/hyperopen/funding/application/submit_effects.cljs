@@ -1,5 +1,10 @@
 (ns hyperopen.funding.application.submit-effects
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [hyperopen.account.context :as account-context]))
+
+(defn- ghost-mode-submit-error
+  [store]
+  (account-context/mutations-blocked-message @store))
 
 (defn api-submit-funding-transfer!
   [{:keys [store
@@ -13,9 +18,12 @@
            set-funding-submit-error!
            close-funding-modal!
            refresh-after-funding-submit!]}]
-  (let [address (get-in @store [:wallet :address])
+  (let [ghost-mode-message (ghost-mode-submit-error store)
+        address (get-in @store [:wallet :address])
         action (:action request)]
-    (if (nil? address)
+    (if (seq ghost-mode-message)
+      (set-funding-submit-error! store show-toast! ghost-mode-message)
+      (if (nil? address)
       (set-funding-submit-error! store
                                  show-toast!
                                  "Connect your wallet before transferring funds.")
@@ -36,7 +44,7 @@
                     (let [error-text (str/trim (str (runtime-error-message err)))
                           message (str "Transfer failed: "
                                        (if (seq error-text) error-text "Unknown runtime error"))]
-                      (set-funding-submit-error! store show-toast! message))))))))
+                      (set-funding-submit-error! store show-toast! message)))))))))
 
 (defn api-submit-funding-withdraw!
   [{:keys [store
@@ -59,7 +67,8 @@
            resolve-hyperunit-base-urls
            awaiting-withdraw-lifecycle
            start-hyperunit-withdraw-lifecycle-polling!]}]
-  (let [address (get-in @store [:wallet :address])
+  (let [ghost-mode-message (ghost-mode-submit-error store)
+        address (get-in @store [:wallet :address])
         action (:action request)
         submit-withdraw! (case (:type action)
                            "withdraw3" submit-withdraw3!
@@ -73,7 +82,9 @@
                            (fn [_store _address _action]
                              (js/Promise.resolve {:status "err"
                                                   :error "Withdrawal action type is not supported."})))]
-    (if (nil? address)
+    (if (seq ghost-mode-message)
+      (set-funding-submit-error! store show-toast! ghost-mode-message)
+      (if (nil? address)
       (set-funding-submit-error! store
                                  show-toast!
                                  "Connect your wallet before withdrawing.")
@@ -128,7 +139,7 @@
                     (let [error-text (str/trim (str (runtime-error-message err)))
                           message (str "Withdrawal failed: "
                                        (if (seq error-text) error-text "Unknown runtime error"))]
-                      (set-funding-submit-error! store show-toast! message))))))))
+                      (set-funding-submit-error! store show-toast! message)))))))))
 
 (defn api-submit-funding-deposit!
   [{:keys [store
@@ -150,7 +161,8 @@
            resolve-hyperunit-base-urls
            awaiting-deposit-lifecycle
            start-hyperunit-deposit-lifecycle-polling!]}]
-  (let [address (get-in @store [:wallet :address])
+  (let [ghost-mode-message (ghost-mode-submit-error store)
+        address (get-in @store [:wallet :address])
         action (:action request)
         submit-deposit! (case (:type action)
                           "bridge2Deposit" submit-usdc-bridge2-deposit!
@@ -160,7 +172,9 @@
                           (fn [_store _address _action]
                             (js/Promise.resolve {:status "err"
                                                  :error "Deposit action type is not supported."})))]
-    (if (nil? address)
+    (if (seq ghost-mode-message)
+      (set-funding-submit-error! store show-toast! ghost-mode-message)
+      (if (nil? address)
       (set-funding-submit-error! store
                                  show-toast!
                                  "Connect your wallet before depositing.")
@@ -225,4 +239,4 @@
                       (let [error-text (str/trim (str (runtime-error-message err)))
                             message (str "Deposit failed: "
                                          (if (seq error-text) error-text "Unknown runtime error"))]
-                        (set-funding-submit-error! store show-toast! message)))))))))
+                        (set-funding-submit-error! store show-toast! message))))))))))

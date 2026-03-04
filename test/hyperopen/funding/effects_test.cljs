@@ -1,6 +1,7 @@
 (ns hyperopen.funding.effects-test
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [async deftest is]]
+            [hyperopen.account.context :as account-context]
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.funding.effects :as effects]))
 
@@ -40,6 +41,25 @@
     (is (= "Connect your wallet before transferring funds."
            (get-in @store [:funding-ui :modal :error])))
     (is (= [[:error "Connect your wallet before transferring funds."]]
+           @toasts))))
+
+(deftest api-submit-funding-transfer-blocks-mutations-while-ghost-mode-active-test
+  (let [store (atom {:wallet {:address "0xabc"}
+                     :account-context {:ghost-mode {:active? true
+                                                    :address "0x1234567890abcdef1234567890abcdef12345678"}}
+                     :funding-ui {:modal (seed-modal :transfer)}})
+        toasts (atom [])]
+    (effects/api-submit-funding-transfer!
+     {:store store
+      :request {:action {:type "usdClassTransfer"
+                         :amount "10"
+                         :toPerp true}}
+      :show-toast! (fn [_store kind message]
+                     (swap! toasts conj [kind message]))})
+    (is (= false (get-in @store [:funding-ui :modal :submitting?])))
+    (is (= account-context/ghost-mode-read-only-message
+           (get-in @store [:funding-ui :modal :error])))
+    (is (= [[:error account-context/ghost-mode-read-only-message]]
            @toasts))))
 
 (deftest api-submit-funding-transfer-success-closes-modal-and-refreshes-test
@@ -130,6 +150,25 @@
     (is (= "Connect your wallet before withdrawing."
            (get-in @store [:funding-ui :modal :error])))
     (is (= [[:error "Connect your wallet before withdrawing."]]
+           @toasts))))
+
+(deftest api-submit-funding-withdraw-blocks-mutations-while-ghost-mode-active-test
+  (let [store (atom {:wallet {:address "0xabc"}
+                     :account-context {:ghost-mode {:active? true
+                                                    :address "0x1234567890abcdef1234567890abcdef12345678"}}
+                     :funding-ui {:modal (seed-modal :withdraw)}})
+        toasts (atom [])]
+    (effects/api-submit-funding-withdraw!
+     {:store store
+      :request {:action {:type "withdraw3"
+                         :amount "6.5"
+                         :destination "0x1234567890abcdef1234567890abcdef12345678"}}
+      :show-toast! (fn [_store kind message]
+                     (swap! toasts conj [kind message]))})
+    (is (= false (get-in @store [:funding-ui :modal :submitting?])))
+    (is (= account-context/ghost-mode-read-only-message
+           (get-in @store [:funding-ui :modal :error])))
+    (is (= [[:error account-context/ghost-mode-read-only-message]]
            @toasts))))
 
 (deftest api-submit-funding-withdraw-success-closes-modal-and-refreshes-test
@@ -296,6 +335,26 @@
           (.catch (fn [err]
                     (is false (str "Unexpected HyperUnit withdrawal lifecycle polling error: " err))
                     (done)))))))
+
+(deftest api-submit-funding-deposit-blocks-mutations-while-ghost-mode-active-test
+  (let [store (atom {:wallet {:address "0xabc"}
+                     :account-context {:ghost-mode {:active? true
+                                                    :address "0x1234567890abcdef1234567890abcdef12345678"}}
+                     :funding-ui {:modal (seed-modal :deposit)}})
+        toasts (atom [])]
+    (effects/api-submit-funding-deposit!
+     {:store store
+      :request {:action {:type "bridge2Deposit"
+                         :asset "usdc"
+                         :amount "7"
+                         :chainId "0xa4b1"}}
+      :show-toast! (fn [_store kind message]
+                     (swap! toasts conj [kind message]))})
+    (is (= false (get-in @store [:funding-ui :modal :submitting?])))
+    (is (= account-context/ghost-mode-read-only-message
+           (get-in @store [:funding-ui :modal :error])))
+    (is (= [[:error account-context/ghost-mode-read-only-message]]
+           @toasts))))
 
 (deftest api-fetch-hyperunit-fee-estimate-updates-modal-on-success-test
   (async done

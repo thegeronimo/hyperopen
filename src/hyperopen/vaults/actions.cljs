@@ -1,5 +1,6 @@
 (ns hyperopen.vaults.actions
   (:require [clojure.string :as str]
+            [hyperopen.account.context :as account-context]
             [hyperopen.platform :as platform]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.vaults.detail.activity :as activity-model]
@@ -880,14 +881,17 @@
 
 (defn submit-vault-transfer
   [state]
-  (let [modal (vault-transfer-modal state)
-        result (vault-transfer-preview state modal)]
-    (if-not (:ok? result)
-      [[:effects/save-many [[(conj vault-transfer-modal-path :submitting?) false]
-                            [(conj vault-transfer-modal-path :error) (:display-message result)]]]]
-      [[:effects/save-many [[(conj vault-transfer-modal-path :submitting?) true]
-                            [(conj vault-transfer-modal-path :error) nil]]]
-       [:effects/api-submit-vault-transfer (:request result)]])))
+  (if-let [ghost-mode-message (account-context/mutations-blocked-message state)]
+    [[:effects/save-many [[(conj vault-transfer-modal-path :submitting?) false]
+                          [(conj vault-transfer-modal-path :error) ghost-mode-message]]]]
+    (let [modal (vault-transfer-modal state)
+          result (vault-transfer-preview state modal)]
+      (if-not (:ok? result)
+        [[:effects/save-many [[(conj vault-transfer-modal-path :submitting?) false]
+                              [(conj vault-transfer-modal-path :error) (:display-message result)]]]]
+        [[:effects/save-many [[(conj vault-transfer-modal-path :submitting?) true]
+                              [(conj vault-transfer-modal-path :error) nil]]]
+         [:effects/api-submit-vault-transfer (:request result)]]))))
 
 (defn set-vault-detail-chart-hover
   [state client-x bounds point-count]

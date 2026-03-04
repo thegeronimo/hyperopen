@@ -1,5 +1,12 @@
 (ns hyperopen.funding.application.modal-commands
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [hyperopen.account.context :as account-context]))
+
+(defn- mutation-guard-effects
+  [state funding-modal-path]
+  (when-let [message (account-context/mutations-blocked-message state)]
+    [[:effects/save-many [[(conj funding-modal-path :submitting?) false]
+                          [(conj funding-modal-path :error) message]]]]))
 
 (defn open-funding-deposit-modal
   [{:keys [modal-state
@@ -238,18 +245,20 @@
            transfer-preview
            funding-modal-path]}
    state]
-  (let [modal (modal-state state)
-        mode (normalize-mode (:mode modal))
-        result (if (= :transfer mode)
-                 (transfer-preview state modal)
-                 {:ok? false
-                  :display-message "Transfer modal unavailable."})]
-    (if-not (:ok? result)
-      [[:effects/save-many [[(conj funding-modal-path :submitting?) false]
-                            [(conj funding-modal-path :error) (:display-message result)]]]]
-      [[:effects/save-many [[(conj funding-modal-path :submitting?) true]
-                            [(conj funding-modal-path :error) nil]]]
-       [:effects/api-submit-funding-transfer (:request result)]])))
+  (if-let [guard-effects (mutation-guard-effects state funding-modal-path)]
+    guard-effects
+    (let [modal (modal-state state)
+          mode (normalize-mode (:mode modal))
+          result (if (= :transfer mode)
+                   (transfer-preview state modal)
+                   {:ok? false
+                    :display-message "Transfer modal unavailable."})]
+      (if-not (:ok? result)
+        [[:effects/save-many [[(conj funding-modal-path :submitting?) false]
+                              [(conj funding-modal-path :error) (:display-message result)]]]]
+        [[:effects/save-many [[(conj funding-modal-path :submitting?) true]
+                              [(conj funding-modal-path :error) nil]]]
+         [:effects/api-submit-funding-transfer (:request result)]]))))
 
 (defn submit-funding-withdraw
   [{:keys [modal-state
@@ -257,18 +266,20 @@
            withdraw-preview
            funding-modal-path]}
    state]
-  (let [modal (modal-state state)
-        mode (normalize-mode (:mode modal))
-        result (if (= :withdraw mode)
-                 (withdraw-preview state modal)
-                 {:ok? false
-                  :display-message "Withdraw modal unavailable."})]
-    (if-not (:ok? result)
-      [[:effects/save-many [[(conj funding-modal-path :submitting?) false]
-                            [(conj funding-modal-path :error) (:display-message result)]]]]
-      [[:effects/save-many [[(conj funding-modal-path :submitting?) true]
-                            [(conj funding-modal-path :error) nil]]]
-       [:effects/api-submit-funding-withdraw (:request result)]])))
+  (if-let [guard-effects (mutation-guard-effects state funding-modal-path)]
+    guard-effects
+    (let [modal (modal-state state)
+          mode (normalize-mode (:mode modal))
+          result (if (= :withdraw mode)
+                   (withdraw-preview state modal)
+                   {:ok? false
+                    :display-message "Withdraw modal unavailable."})]
+      (if-not (:ok? result)
+        [[:effects/save-many [[(conj funding-modal-path :submitting?) false]
+                              [(conj funding-modal-path :error) (:display-message result)]]]]
+        [[:effects/save-many [[(conj funding-modal-path :submitting?) true]
+                              [(conj funding-modal-path :error) nil]]]
+         [:effects/api-submit-funding-withdraw (:request result)]]))))
 
 (defn submit-funding-deposit
   [{:keys [modal-state
@@ -276,18 +287,20 @@
            deposit-preview
            funding-modal-path]}
    state]
-  (let [modal (modal-state state)
-        mode (normalize-mode (:mode modal))
-        result (if (= :deposit mode)
-                 (deposit-preview state modal)
-                 {:ok? false
-                  :display-message "Deposit modal unavailable."})]
-    (if-not (:ok? result)
-      [[:effects/save-many [[(conj funding-modal-path :submitting?) false]
-                            [(conj funding-modal-path :error) (:display-message result)]]]]
-      [[:effects/save-many [[(conj funding-modal-path :submitting?) true]
-                            [(conj funding-modal-path :error) nil]]]
-       [:effects/api-submit-funding-deposit (:request result)]])))
+  (if-let [guard-effects (mutation-guard-effects state funding-modal-path)]
+    guard-effects
+    (let [modal (modal-state state)
+          mode (normalize-mode (:mode modal))
+          result (if (= :deposit mode)
+                   (deposit-preview state modal)
+                   {:ok? false
+                    :display-message "Deposit modal unavailable."})]
+      (if-not (:ok? result)
+        [[:effects/save-many [[(conj funding-modal-path :submitting?) false]
+                              [(conj funding-modal-path :error) (:display-message result)]]]]
+        [[:effects/save-many [[(conj funding-modal-path :submitting?) true]
+                              [(conj funding-modal-path :error) nil]]]
+         [:effects/api-submit-funding-deposit (:request result)]]))))
 
 (defn set-funding-modal-compat
   [{:keys [close-funding-modal-fn

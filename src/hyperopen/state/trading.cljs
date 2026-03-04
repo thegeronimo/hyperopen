@@ -1,5 +1,6 @@
 (ns hyperopen.state.trading
   (:require [clojure.string :as str]
+            [hyperopen.account.context :as account-context]
             [hyperopen.api.gateway.orders.commands :as order-commands]
             [hyperopen.domain.trading :as trading-domain]
             [hyperopen.state.trading.order-form-key-policy :as order-form-key-policy]
@@ -549,14 +550,16 @@
          prepared-form (:form submit-prep)
          market-price-missing? (:market-price-missing? submit-prep)
          identity (market-identity state)
+         ghost-mode-message (account-context/mutations-blocked-message state)
          spot? (:spot? identity)
          errors (validate-order-form state prepared-form)
          required-fields (submit-required-fields errors)
          request (when (= mode :submit)
                    (build-order-request state prepared-form))
          reason (case mode
-                  :submit
-                  (cond
+                 :submit
+                 (cond
+                    (seq ghost-mode-message) :ghost-mode-read-only
                     spot? :spot-read-only
                     market-price-missing? :market-price-missing
                     (seq errors) :validation-errors
@@ -564,9 +567,10 @@
                     (false? agent-ready?) :agent-not-ready
                     :else nil)
 
-                  :view
-                  (cond
+                 :view
+                 (cond
                     submitting? :submitting
+                    (seq ghost-mode-message) :ghost-mode-read-only
                     spot? :spot-read-only
                     market-price-missing? :market-price-missing
                     (seq errors) :validation-errors
@@ -574,6 +578,7 @@
 
                   nil)
          error-message (case reason
+                         :ghost-mode-read-only ghost-mode-message
                          :spot-read-only "Spot trading is not supported yet."
                          :market-price-missing "Market price unavailable. Load order book first."
                          :validation-errors (validation-error-message (first errors))

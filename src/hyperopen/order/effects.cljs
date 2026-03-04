@@ -1,5 +1,6 @@
 (ns hyperopen.order.effects
   (:require [clojure.string :as str]
+            [hyperopen.account.context :as account-context]
             [hyperopen.api.default :as api]
             [hyperopen.api.market-metadata.facade :as market-metadata]
             [hyperopen.api.promise-effects :as promise-effects]
@@ -223,6 +224,10 @@
        :error-text error-text
        :toast-message (margin-mode-sync-error-message error-text)})))
 
+(defn- ghost-mode-precondition-error
+  [state]
+  (account-context/mutations-blocked-message state))
+
 (defn- run-pre-submit-actions!
   [store address request exchange-response-error runtime-error-message]
   (let [pre-actions (->> (:pre-actions request)
@@ -246,9 +251,15 @@
 
 (defn api-submit-order
   [{:keys [dispatch! exchange-response-error runtime-error-message show-toast!]} _ store request]
-  (let [address (get-in @store [:wallet :address])
-        agent-status (get-in @store [:wallet :agent :status])]
-    (if (nil? address)
+  (let [state @store
+        ghost-mode-message (ghost-mode-precondition-error state)
+        address (get-in state [:wallet :address])
+        agent-status (get-in state [:wallet :agent :status])]
+    (if (seq ghost-mode-message)
+      (do
+        (swap! store assoc-in [:order-form-runtime :error] ghost-mode-message)
+        (show-toast! store :error ghost-mode-message))
+      (if (nil? address)
       (do
         (swap! store assoc-in [:order-form-runtime :error] "Connect your wallet before submitting.")
         (show-toast! store :error "Connect your wallet before submitting."))
@@ -292,7 +303,7 @@
                                                 (refresh-account-surfaces-after-order-mutation! store address)
                                                 (dispatch! store nil [[:actions/refresh-order-history]])))))))
                                (.catch handle-submit-runtime-error!)))))
-                (.catch handle-submit-runtime-error!))))))))
+                (.catch handle-submit-runtime-error!)))))))))
 
 (defn- update-position-tpsl-modal-error
   [state error-text]
@@ -310,16 +321,20 @@
   (dispatch! store nil [[:actions/refresh-order-history]]))
 
 (defn- position-tpsl-submit-precondition-error
-  [address agent-status]
-  (cond
-    (nil? address)
-    "Connect your wallet before submitting."
+  [state address agent-status]
+  (let [ghost-mode-message (ghost-mode-precondition-error state)]
+    (cond
+      (seq ghost-mode-message)
+      ghost-mode-message
 
-    (not= :ready agent-status)
-    "Enable trading before submitting orders."
+      (nil? address)
+      "Connect your wallet before submitting."
 
-    :else
-    nil))
+      (not= :ready agent-status)
+      "Enable trading before submitting orders."
+
+      :else
+      nil)))
 
 (defn- reject-position-tpsl-submit!
   [store show-toast! error-text]
@@ -350,9 +365,10 @@
 
 (defn api-submit-position-tpsl
   [{:keys [dispatch! exchange-response-error runtime-error-message show-toast!]} _ store request]
-  (let [address (get-in @store [:wallet :address])
-        agent-status (get-in @store [:wallet :agent :status])]
-    (if-let [error-text (position-tpsl-submit-precondition-error address agent-status)]
+  (let [state @store
+        address (get-in state [:wallet :address])
+        agent-status (get-in state [:wallet :agent :status])]
+    (if-let [error-text (position-tpsl-submit-precondition-error state address agent-status)]
       (reject-position-tpsl-submit! store show-toast! error-text)
       (-> (trading-api/submit-order! store address (:action request))
           (.then (partial handle-position-tpsl-submit-response!
@@ -377,16 +393,20 @@
   (swap! store update-position-margin-modal-error error-text))
 
 (defn- position-margin-submit-precondition-error
-  [address agent-status]
-  (cond
-    (nil? address)
-    "Connect your wallet before updating margin."
+  [state address agent-status]
+  (let [ghost-mode-message (ghost-mode-precondition-error state)]
+    (cond
+      (seq ghost-mode-message)
+      ghost-mode-message
 
-    (not= :ready agent-status)
-    "Enable trading before updating margin."
+      (nil? address)
+      "Connect your wallet before updating margin."
 
-    :else
-    nil))
+      (not= :ready agent-status)
+      "Enable trading before updating margin."
+
+      :else
+      nil)))
 
 (defn- reject-position-margin-submit!
   [store show-toast! error-text]
@@ -413,9 +433,10 @@
 
 (defn api-submit-position-margin
   [{:keys [dispatch! exchange-response-error runtime-error-message show-toast!]} _ store request]
-  (let [address (get-in @store [:wallet :address])
-        agent-status (get-in @store [:wallet :agent :status])]
-    (if-let [error-text (position-margin-submit-precondition-error address agent-status)]
+  (let [state @store
+        address (get-in state [:wallet :address])
+        agent-status (get-in state [:wallet :agent :status])]
+    (if-let [error-text (position-margin-submit-precondition-error state address agent-status)]
       (reject-position-margin-submit! store show-toast! error-text)
       (-> (trading-api/submit-order! store address (:action request))
           (.then (partial handle-position-margin-submit-response!
@@ -435,12 +456,19 @@
            prune-canceled-open-orders-fn
            runtime-error-message
            show-toast!]} _ store request]
-  (let [address (get-in @store [:wallet :address])
-        agent-status (get-in @store [:wallet :agent :status])
+  (let [state @store
+        address (get-in state [:wallet :address])
+        ghost-mode-message (ghost-mode-precondition-error state)
+        agent-status (get-in state [:wallet :agent :status])
         cancel-oids (cancel-request-oids request)
         prune-fn (or prune-canceled-open-orders-fn
                      prune-canceled-open-orders)]
     (cond
+      (seq ghost-mode-message)
+      (do
+        (swap! store assoc-in [:orders :cancel-error] ghost-mode-message)
+        (show-toast! store :error ghost-mode-message))
+
       (nil? address)
       (do
         (swap! store assoc-in [:orders :cancel-error] "Connect your wallet before cancelling.")

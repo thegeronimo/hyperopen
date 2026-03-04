@@ -1,5 +1,6 @@
 (ns hyperopen.views.trade.order-form-view.metrics-and-submit-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.account.context :as account-context]
             [hyperopen.state.trading :as trading]
             [hyperopen.views.trade.order-form.test-support :refer [base-state
                                                                    button-node-by-click-action
@@ -183,3 +184,25 @@
                                          classes (set (:class attrs))]
                                      (contains? classes "order-submit-tooltip"))))]
     (is (nil? tooltip))))
+
+(deftest ghost-mode-submit-block-renders-stop-control-and-tooltip-test
+  (let [state (-> (base-state {:type :limit :size "1" :price "100"})
+                  (assoc :asset-contexts {:BTC {:idx 0}})
+                  (assoc :account-context {:ghost-mode {:active? true
+                                                        :address "0x1234567890abcdef1234567890abcdef12345678"}}))
+        view-node (view/order-form-view state)
+        stop-button (button-node-by-click-action view-node :actions/stop-ghost-mode)
+        stop-container (find-first-node view-node
+                                        (fn [node]
+                                          (= "order-form-ghost-mode-stop"
+                                             (get-in node [1 :data-role]))))
+        tooltip (find-first-node view-node
+                                 (fn [node]
+                                   (let [attrs (when (map? (second node)) (second node))
+                                         classes (set (:class attrs))]
+                                     (contains? classes "order-submit-tooltip"))))
+        tooltip-strings (set (collect-strings tooltip))]
+    (is (some? stop-button))
+    (is (some? stop-container))
+    (is (contains? (set (collect-strings stop-container)) "Stop Ghost Mode"))
+    (is (contains? tooltip-strings account-context/ghost-mode-read-only-message))))

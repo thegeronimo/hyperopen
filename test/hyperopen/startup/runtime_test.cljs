@@ -160,7 +160,9 @@
         removed-handlers (atom [])
         dispatch-calls (atom [])
         prevent-default-calls (atom 0)
-        store (atom {:asset-selector {:visible-dropdown nil}})
+        store (atom {:asset-selector {:visible-dropdown nil}
+                     :account-context {:ghost-mode {:active? false
+                                                    :address nil}}})
         dispatch! (fn [store-arg _ctx effects]
                     (swap! dispatch-calls conj {:store store-arg
                                                 :effects effects}))]
@@ -184,13 +186,33 @@
           (is (= 1 @prevent-default-calls))
           (is (= [[:actions/handle-asset-selector-shortcut "k" true false nil]]
                  (-> @dispatch-calls first :effects)))
+          (swap! store assoc-in [:account-context :ghost-mode]
+                 {:active? true
+                  :address "0x1234567890abcdef1234567890abcdef12345678"})
+          (keydown-handler #js {:key "x"
+                                :metaKey true
+                                :ctrlKey false
+                                :target #js {:tagName "DIV"}
+                                :preventDefault (fn []
+                                                  (swap! prevent-default-calls inc))})
+          (is (= 2 @prevent-default-calls))
+          (is (= [[:actions/stop-ghost-mode]]
+                 (-> @dispatch-calls second :effects)))
+          (keydown-handler #js {:key "x"
+                                :metaKey true
+                                :ctrlKey false
+                                :target #js {:tagName "INPUT"}
+                                :preventDefault (fn []
+                                                  (swap! prevent-default-calls inc))})
+          (is (= 2 @prevent-default-calls))
+          (is (= 2 (count @dispatch-calls)))
           (swap! store assoc-in [:asset-selector :visible-dropdown] :asset-selector)
           (keydown-handler #js {:key "Escape"
                                 :metaKey false
                                 :ctrlKey false
                                 :preventDefault (fn [] nil)})
           (is (= [[:actions/handle-asset-selector-shortcut "Escape" false false nil]]
-                 (-> @dispatch-calls second :effects)))
+                 (-> @dispatch-calls (nth 2) :effects)))
           (startup-runtime/install-asset-selector-shortcuts!
            {:store store
             :dispatch! dispatch!})

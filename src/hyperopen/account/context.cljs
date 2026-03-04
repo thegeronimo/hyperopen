@@ -7,6 +7,9 @@
 (def ghost-last-search-storage-key
   "ghost-mode-last-search:v1")
 
+(def ghost-mode-read-only-message
+  "Ghost Mode is read-only. Stop Ghost Mode to place trades or move funds.")
+
 (def ^:private max-watchlist-size
   50)
 
@@ -49,6 +52,11 @@
 (defn mutations-allowed?
   [state]
   (not (ghost-mode-active? state)))
+
+(defn mutations-blocked-message
+  [state]
+  (when-not (mutations-allowed? state)
+    ghost-mode-read-only-message))
 
 (defn default-account-context-state
   []

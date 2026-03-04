@@ -44,8 +44,17 @@ A user will verify this by opening Ghost Mode from the header wallet area, enter
   - Added app-level spectating banner + global modal mount in `/hyperopen/src/hyperopen/views/app_view.cljs`.
   - Added regression coverage in `/hyperopen/test/hyperopen/account/ghost_mode_actions_test.cljs`, `/hyperopen/test/hyperopen/views/header_view_test.cljs`, and `/hyperopen/test/hyperopen/views/app_shell_spacing_test.cljs`.
 - [x] (2026-03-04 15:59Z) Re-ran validation gates after Milestone 3 changes: `npm test`, `npm run check`, and `npm run test:websocket` all passed.
+- [x] (2026-03-04 16:18Z) Implemented Milestone 4 read-only guardrails, stop affordances, and rollout docs:
+  - Added canonical Ghost Mode read-only mutation message in `/hyperopen/src/hyperopen/account/context.cljs`.
+  - Added submit-policy/read-only reasoning for Ghost Mode in `/hyperopen/src/hyperopen/state/trading.cljs` and propagated tooltip remediation in `/hyperopen/src/hyperopen/views/trade/order_form_vm_submit.cljs`.
+  - Enforced Ghost Mode mutation blocks in `/hyperopen/src/hyperopen/order/actions.cljs`, `/hyperopen/src/hyperopen/order/effects.cljs`, `/hyperopen/src/hyperopen/funding/application/modal_commands.cljs`, `/hyperopen/src/hyperopen/funding/application/submit_effects.cljs`, `/hyperopen/src/hyperopen/vaults/actions.cljs`, and `/hyperopen/src/hyperopen/vaults/effects.cljs`.
+  - Added order-ticket Stop Ghost Mode affordance in `/hyperopen/src/hyperopen/views/trade/order_form_view.cljs`.
+  - Added Cmd/Ctrl+X global stop shortcut with editable-target collision guard in `/hyperopen/src/hyperopen/startup/runtime.cljs`.
+  - Added regression coverage across trading/order/funding/vault/startup/view suites, including runtime shortcut and mutation-precondition branches.
+  - Added QA and rollout documentation in `/hyperopen/docs/qa/ghost-mode-manual-matrix.md` and `/hyperopen/docs/runbooks/ghost-mode-rollout.md`.
+- [x] (2026-03-04 16:18Z) Re-ran validation gates after Milestone 4 changes: `npm run check`, `npm test`, and `npm run test:websocket` all passed.
 - [x] Implement Milestone 3 (Ghost Mode UI, watchlist persistence, and stop controls).
-- [ ] Implement Milestone 4 (mutation guardrails, tests, docs, and validation gates).
+- [x] Implement Milestone 4 (mutation guardrails, tests, docs, and validation gates).
 
 ## Surprises & Discoveries
 
@@ -114,6 +123,14 @@ Delivered in Milestone 3:
 - header wallet and app shell now expose explicit Ghost Mode entry/exit controls, including a persistent spectating banner with Stop Ghost Mode and modal-level Stop Ghost Mode affordance;
 - Ghost Mode UI supports public-address validation, watchlist management, and one-click spectate switching with local persistence parity;
 - regression coverage now spans Ghost command effects plus header/app-shell rendering and interaction wiring for active/inactive spectating states.
+
+Delivered in Milestone 4:
+
+- submit/cancel and other mutation boundaries now consistently enforce Ghost Mode read-only rules in both action and effect seams (order, funding, vault, and position mutation paths);
+- order ticket now exposes explicit Stop Ghost Mode controls with read-only remediation copy at the point of attempted trade entry;
+- startup shortcut handling now includes Cmd/Ctrl+X Ghost Mode stop parity while preserving editable input cut behavior;
+- documentation now includes rollout and manual QA artifacts for Ghost Mode under `/hyperopen/docs/runbooks/ghost-mode-rollout.md` and `/hyperopen/docs/qa/ghost-mode-manual-matrix.md`;
+- regression coverage now includes Ghost-mode mutation rejection and shortcut behavior across state, action, effect, and view tests.
 
 Expected outcome of this plan is a stable, test-covered Ghost Mode that mirrors Trade.xyz behavior without violating Hyperopen signing/runtime invariants. The main risk area is migration completeness from direct `[:wallet :address]` reads to effective-address reads; this plan mitigates that with explicit file touchpoints and regression coverage requirements.
 

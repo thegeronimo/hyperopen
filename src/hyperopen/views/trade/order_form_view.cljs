@@ -594,6 +594,37 @@
                     "group-focus:translate-y-0"]}
       submit-tooltip])])
 
+(defn- ghost-mode-stop-affordance []
+  [:div {:class ["rounded-lg"
+                 "border"
+                 "border-[#2f7067]"
+                 "bg-[#0f433d]/30"
+                 "px-3"
+                 "py-2.5"
+                 "text-xs"
+                 "text-[#d4ece8]"
+                 "flex"
+                 "items-center"
+                 "justify-between"
+                 "gap-2"]
+         :data-role "order-form-ghost-mode-stop"}
+   [:span "Ghost Mode is active and trading is disabled."]
+   [:button {:type "button"
+             :class ["rounded-md"
+                     "border"
+                     "border-[#2f7067]"
+                     "bg-[#0f433d]"
+                     "px-2.5"
+                     "py-1"
+                     "text-xs"
+                     "font-semibold"
+                     "text-[#dbf7f2]"
+                     "transition-colors"
+                     "hover:bg-[#14544c]"]
+             :on {:click [[:actions/stop-ghost-mode]]}
+             :data-role "order-form-ghost-mode-stop-button"}
+    "Stop Ghost Mode"]])
+
 (def ^:private liquidation-price-tooltip
   "Position risk is low, so there is no liquidation price for the time being. Note that increasing the position or reducing the margin will increase the risk.")
 
@@ -751,6 +782,7 @@
                 show-liquidation-row?
                 show-slippage-row?]}
         controls
+        ghost-mode-read-only? (= :ghost-mode-read-only (:reason submit))
         tpsl-panel (tpsl-panel-model state form side ui-leverage controls)]
     [:div {:class ["bg-base-100"
                    "border"
@@ -846,6 +878,9 @@
 
       (when error
         [:div {:class ["text-xs" "text-red-400"]} error])
+
+      (when ghost-mode-read-only?
+        (ghost-mode-stop-affordance))
 
       (submit-row {:submitting? submitting?
                    :submit-disabled? (:disabled? submit)
