@@ -15,13 +15,11 @@
             [hyperopen.asset-selector.query :as asset-selector-query]
             [hyperopen.funding.history-cache :as funding-cache]
             [hyperopen.funding.predictability :as funding-predictability]
-            [hyperopen.orderbook.price-aggregation :as price-agg]
-            [hyperopen.runtime.app-effects :as app-effects]
             [hyperopen.runtime.effect-adapters.common :as common]
+            [hyperopen.runtime.effect-adapters.websocket :as ws-adapters]
             [hyperopen.runtime.api-effects :as api-effects]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.telemetry :as telemetry]
-            [hyperopen.startup.restore :as startup-restore]
             [hyperopen.funding.effects :as funding-workflow-effects]
             [hyperopen.funding-comparison.effects :as funding-effects]
             [hyperopen.vaults.effects :as vault-effects]
@@ -31,98 +29,13 @@
             [hyperopen.wallet.copy-feedback-runtime :as wallet-copy-runtime]
             [hyperopen.wallet.core :as wallet]
             [hyperopen.websocket.active-asset-ctx :as active-ctx]
-            [hyperopen.websocket.client :as ws-client]
-            [hyperopen.websocket.diagnostics-effects :as diagnostics-effects]
-            [hyperopen.websocket.diagnostics-runtime :as diagnostics-runtime]
-            [hyperopen.websocket.health-projection :as health-projection]
-            [hyperopen.websocket.health-runtime :as health-runtime]
-            [hyperopen.websocket.market-projection-runtime :as market-projection-runtime]
-            [hyperopen.websocket.orderbook :as orderbook]
-            [hyperopen.websocket.subscriptions-runtime :as subscriptions-runtime]
-            [hyperopen.websocket.trades :as trades]
-            [hyperopen.websocket.webdata2 :as webdata2]))
+            [hyperopen.websocket.client :as ws-client]))
 
-(defn- websocket-health-fingerprint [health]
-  (health-projection/websocket-health-fingerprint health))
+(def append-diagnostics-event! ws-adapters/append-diagnostics-event!)
 
-(defn- effective-now-ms
-  [generated-at-ms]
-  (health-runtime/effective-now-ms generated-at-ms))
+(def sync-websocket-health-with-runtime! ws-adapters/sync-websocket-health-with-runtime!)
 
-(defn append-diagnostics-event!
-  [store event at-ms & [details]]
-  (swap! store
-         health-projection/append-diagnostics-event
-         event
-         at-ms
-         details
-         runtime-state/diagnostics-timeline-limit))
-
-(defn- market-projection-flush-events
-  []
-  (->> (telemetry/market-projection-flush-events)
-       (mapv (fn [entry]
-               (select-keys entry
-                            [:seq
-                             :event
-                             :at-ms
-                             :store-id
-                             :pending-count
-                             :overwrite-count
-                             :flush-duration-ms
-                             :queue-wait-ms
-                             :flush-count
-                             :max-pending-depth
-                             :p95-flush-duration-ms
-                             :queued-total
-                             :overwrite-total])))))
-
-(defn- market-projection-diagnostics
-  []
-  (let [snapshot (market-projection-runtime/market-projection-telemetry-snapshot)
-        flush-events (market-projection-flush-events)
-        latest-event (last flush-events)]
-    {:stores (:stores snapshot)
-     :flush-events flush-events
-     :flush-event-limit telemetry/market-projection-flush-event-limit
-     :flush-event-count (count flush-events)
-     :latest-flush-event-seq (:seq latest-event)
-     :latest-flush-at-ms (:at-ms latest-event)}))
-
-(defn- enrich-health-with-market-projection
-  [health]
-  (assoc (or health {})
-         :market-projection
-         (market-projection-diagnostics)))
-
-(defn sync-websocket-health-with-runtime!
-  [_runtime store & {:keys [force? projected-fingerprint]}]
-  (health-runtime/sync-websocket-health!
-   {:store store
-    :force? force?
-    :projected-fingerprint projected-fingerprint
-    :get-health-snapshot (fn []
-                           (enrich-health-with-market-projection
-                            (ws-client/get-health-snapshot)))
-    :websocket-health-fingerprint websocket-health-fingerprint
-    :projection-state ws-client/websocket-health-projection-state
-    :auto-recover-enabled-fn health-runtime/auto-recover-enabled?
-    :auto-recover-severe-threshold-ms runtime-state/auto-recover-severe-threshold-ms
-    :auto-recover-cooldown-ms runtime-state/auto-recover-cooldown-ms
-    :dispatch! nxr/dispatch
-    :append-diagnostics-event! append-diagnostics-event!
-    :queue-microtask-fn platform/queue-microtask!}))
-
-(defn sync-websocket-health!
-  [store & {:keys [force? projected-fingerprint]}]
-  (sync-websocket-health-with-runtime! nil
-                                       store
-                                       :force? force?
-                                       :projected-fingerprint projected-fingerprint))
-
-(defn- set-copy-status!
-  [store status]
-  (swap! store assoc-in [:websocket-ui :copy-status] status))
+(def sync-websocket-health! ws-adapters/sync-websocket-health!)
 
 (def save common/save)
 
@@ -166,43 +79,13 @@
 
 (def replace-state common/replace-state)
 
-(defn make-fetch-candle-snapshot
-  [{:keys [log-fn
-           request-candle-snapshot-fn
-           apply-candle-snapshot-success
-           apply-candle-snapshot-error]
-    :or {log-fn telemetry/log!
-         request-candle-snapshot-fn api/request-candle-snapshot!
-         apply-candle-snapshot-success api-projections/apply-candle-snapshot-success
-         apply-candle-snapshot-error api-projections/apply-candle-snapshot-error}}]
-  (fn [_ store & {:keys [coin interval bars] :or {interval :1d bars 330}}]
-    (app-effects/fetch-candle-snapshot!
-     {:store store
-      :coin coin
-      :interval interval
-      :bars bars
-      :log-fn log-fn
-      :request-candle-snapshot-fn request-candle-snapshot-fn
-      :apply-candle-snapshot-success apply-candle-snapshot-success
-      :apply-candle-snapshot-error apply-candle-snapshot-error})))
+(def make-fetch-candle-snapshot ws-adapters/make-fetch-candle-snapshot)
 
-(def fetch-candle-snapshot
-  (make-fetch-candle-snapshot {}))
+(def fetch-candle-snapshot ws-adapters/fetch-candle-snapshot)
 
-(defn make-init-websocket
-  [{:keys [ws-url log-fn init-connection!]
-    :or {ws-url runtime-state/websocket-url
-         log-fn telemetry/log!
-         init-connection! ws-client/init-connection!}}]
-  (fn [_ store]
-    (app-effects/init-websocket!
-     {:store store
-      :ws-url ws-url
-      :log-fn log-fn
-      :init-connection! init-connection!})))
+(def make-init-websocket ws-adapters/make-init-websocket)
 
-(def init-websocket
-  (make-init-websocket {}))
+(def init-websocket ws-adapters/init-websocket)
 
 (defn- normalize-market-type [value]
   (markets-cache/normalize-market-type value))
@@ -247,69 +130,34 @@
    active-asset
    (active-market-display-normalize-deps)))
 
-(defn- persist-active-asset!
-  [canonical-coin]
-  (when (string? canonical-coin)
-    (app-effects/local-storage-set! "active-asset" canonical-coin)))
-
 (defn subscribe-active-asset [_ store coin]
-  (subscriptions-runtime/subscribe-active-asset!
-   {:store store
-    :coin coin
-    :log-fn telemetry/log!
-    :resolve-market-by-coin-fn markets/resolve-market-by-coin
-    :persist-active-asset! persist-active-asset!
-    :persist-active-market-display! persist-active-market-display!
-    :subscribe-active-asset-ctx! active-ctx/subscribe-active-asset-ctx!
-    :fetch-candle-snapshot! (fn [selected-timeframe]
-                              (fetch-candle-snapshot nil store :interval selected-timeframe))}))
+  (ws-adapters/subscribe-active-asset
+   store
+   coin
+   {:persist-active-market-display-fn persist-active-market-display!
+    :fetch-candle-snapshot-fn (fn [selected-timeframe]
+                                (fetch-candle-snapshot nil store :interval selected-timeframe))}))
 
 (defn unsubscribe-active-asset [_ store coin]
-  (subscriptions-runtime/unsubscribe-active-asset!
-   {:store store
-    :coin coin
-    :log-fn telemetry/log!
-    :unsubscribe-active-asset-ctx! active-ctx/unsubscribe-active-asset-ctx!}))
+  (ws-adapters/unsubscribe-active-asset store coin))
 
 (defn subscribe-orderbook [_ store coin]
-  (subscriptions-runtime/subscribe-orderbook!
-   {:store store
-    :coin coin
-    :log-fn telemetry/log!
-    :normalize-mode-fn price-agg/normalize-mode
-    :mode->subscription-config-fn price-agg/mode->subscription-config
-    :subscribe-orderbook-fn orderbook/subscribe-orderbook!}))
+  (ws-adapters/subscribe-orderbook store coin))
 
 (defn subscribe-trades [_ store coin]
-  (subscriptions-runtime/subscribe-trades!
-   {:coin coin
-    :log-fn telemetry/log!
-    :subscribe-trades-fn trades/subscribe-trades!}))
+  (ws-adapters/subscribe-trades coin))
 
 (defn unsubscribe-orderbook [_ store coin]
-  (subscriptions-runtime/unsubscribe-orderbook!
-   {:store store
-    :coin coin
-    :log-fn telemetry/log!
-    :unsubscribe-orderbook-fn orderbook/unsubscribe-orderbook!}))
+  (ws-adapters/unsubscribe-orderbook store coin))
 
 (defn unsubscribe-trades [_ store coin]
-  (subscriptions-runtime/unsubscribe-trades!
-   {:coin coin
-    :log-fn telemetry/log!
-    :unsubscribe-trades-fn trades/unsubscribe-trades!}))
+  (ws-adapters/unsubscribe-trades coin))
 
 (defn subscribe-webdata2 [_ store address]
-  (subscriptions-runtime/subscribe-webdata2!
-   {:address address
-    :log-fn telemetry/log!
-    :subscribe-webdata2-fn webdata2/subscribe-webdata2!}))
+  (ws-adapters/subscribe-webdata2 address))
 
 (defn unsubscribe-webdata2 [_ store address]
-  (subscriptions-runtime/unsubscribe-webdata2!
-   {:address address
-    :log-fn telemetry/log!
-    :unsubscribe-webdata2-fn webdata2/unsubscribe-webdata2!}))
+  (ws-adapters/unsubscribe-webdata2 address))
 
 (def ^:private asset-selector-active-ctx-owner
   :asset-selector)
@@ -428,61 +276,26 @@
   (fn [ctx store address]
     (copy-wallet-address runtime ctx store address)))
 
-(defn make-reconnect-websocket
-  [{:keys [log-fn force-reconnect!]
-    :or {log-fn telemetry/log!
-         force-reconnect! ws-client/force-reconnect!}}]
-  (fn [_ _]
-    (app-effects/reconnect-websocket!
-     {:log-fn log-fn
-      :force-reconnect! force-reconnect!})))
+(def make-reconnect-websocket ws-adapters/make-reconnect-websocket)
 
-(def reconnect-websocket
-  (make-reconnect-websocket {}))
+(def reconnect-websocket ws-adapters/reconnect-websocket)
 
-(defn refresh-websocket-health
-  ([_ store]
-   (refresh-websocket-health nil nil store))
-  ([runtime _ store]
-   (sync-websocket-health-with-runtime! runtime store :force? true)))
+(def refresh-websocket-health ws-adapters/refresh-websocket-health)
 
-(defn make-refresh-websocket-health
-  [runtime]
-  (fn [ctx store]
-    (refresh-websocket-health runtime ctx store)))
+(def make-refresh-websocket-health ws-adapters/make-refresh-websocket-health)
 
-(defn ws-reset-subscriptions [_ store {:keys [group source]
-                                       :or {group :all
-                                            source :manual}}]
-  (diagnostics-runtime/ws-reset-subscriptions!
-   {:store store
-    :group group
-    :source source
-    :get-health-snapshot ws-client/get-health-snapshot
-    :effective-now-ms effective-now-ms
-    :reset-subscriptions-cooldown-ms runtime-state/reset-subscriptions-cooldown-ms
-    :send-message! ws-client/send-message!
-    :append-diagnostics-event! append-diagnostics-event!}))
+(def ws-reset-subscriptions ws-adapters/ws-reset-subscriptions)
 
-(defn confirm-ws-diagnostics-reveal [_ store]
-  (diagnostics-effects/confirm-ws-diagnostics-reveal!
-   {:store store
-    :confirm-fn platform/confirm!}))
+(def confirm-ws-diagnostics-reveal ws-adapters/confirm-ws-diagnostics-reveal)
 
-(defn copy-websocket-diagnostics [_ store]
-  (diagnostics-effects/copy-websocket-diagnostics!
-   {:store store
-    :app-version runtime-state/app-version
-    :set-copy-status! set-copy-status!
-    :log-fn telemetry/log!}))
-
-(defn- restore-active-asset-deps []
-  {:connected?-fn ws-client/connected?
-   :dispatch! nxr/dispatch
-   :load-active-market-display-fn load-active-market-display})
+(def copy-websocket-diagnostics ws-adapters/copy-websocket-diagnostics)
 
 (defn restore-active-asset! [store]
-  (startup-restore/restore-active-asset! store (restore-active-asset-deps)))
+  (ws-adapters/restore-active-asset!
+   {:store store
+    :dispatch! nxr/dispatch
+    :connected?-fn ws-client/connected?
+    :load-active-market-display-fn load-active-market-display}))
 
 (def ^:private exchange-response-error common/exchange-response-error)
 

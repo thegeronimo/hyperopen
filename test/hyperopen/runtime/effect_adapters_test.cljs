@@ -6,6 +6,7 @@
             [hyperopen.runtime.app-effects :as app-effects]
             [hyperopen.runtime.effect-adapters :as effect-adapters]
             [hyperopen.runtime.effect-adapters.common :as common]
+            [hyperopen.runtime.effect-adapters.websocket :as ws-adapters]
             [hyperopen.test-support.async :as async-support]
             [hyperopen.telemetry :as telemetry]
             [hyperopen.websocket.active-asset-ctx :as active-ctx]
@@ -22,6 +23,22 @@
   (is (identical? common/push-state effect-adapters/push-state))
   (is (identical? common/replace-state effect-adapters/replace-state))
   (is (identical? common/schedule-animation-frame! effect-adapters/schedule-animation-frame!)))
+
+(deftest facade-websocket-adapters-delegate-to-websocket-module-test
+  (is (identical? ws-adapters/append-diagnostics-event! effect-adapters/append-diagnostics-event!))
+  (is (identical? ws-adapters/sync-websocket-health-with-runtime! effect-adapters/sync-websocket-health-with-runtime!))
+  (is (identical? ws-adapters/sync-websocket-health! effect-adapters/sync-websocket-health!))
+  (is (identical? ws-adapters/make-fetch-candle-snapshot effect-adapters/make-fetch-candle-snapshot))
+  (is (identical? ws-adapters/fetch-candle-snapshot effect-adapters/fetch-candle-snapshot))
+  (is (identical? ws-adapters/make-init-websocket effect-adapters/make-init-websocket))
+  (is (identical? ws-adapters/init-websocket effect-adapters/init-websocket))
+  (is (identical? ws-adapters/make-reconnect-websocket effect-adapters/make-reconnect-websocket))
+  (is (identical? ws-adapters/reconnect-websocket effect-adapters/reconnect-websocket))
+  (is (identical? ws-adapters/refresh-websocket-health effect-adapters/refresh-websocket-health))
+  (is (identical? ws-adapters/make-refresh-websocket-health effect-adapters/make-refresh-websocket-health))
+  (is (identical? ws-adapters/ws-reset-subscriptions effect-adapters/ws-reset-subscriptions))
+  (is (identical? ws-adapters/confirm-ws-diagnostics-reveal effect-adapters/confirm-ws-diagnostics-reveal))
+  (is (identical? ws-adapters/copy-websocket-diagnostics effect-adapters/copy-websocket-diagnostics)))
 
 (deftest subscribe-active-asset-persists-through-local-storage-effect-boundary-test
   (let [persist-calls (atom [])

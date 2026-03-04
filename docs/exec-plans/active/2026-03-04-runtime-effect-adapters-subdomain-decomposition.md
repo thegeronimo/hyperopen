@@ -22,7 +22,11 @@ A contributor can verify success by confirming the monolith file is reduced to f
 - [x] (2026-03-04 02:10Z) Added targeted facade parity regression coverage in `/hyperopen/test/hyperopen/runtime/effect_adapters_test.cljs` to assert shared adapter exports still resolve through the facade.
 - [x] (2026-03-04 02:11Z) Ran quality gates: `npm run check`, `npm run test:websocket`, and full test suite via `npm run test:runner:generate && npx shadow-cljs compile test && node out/test.js` (all green).
 - [ ] Milestone 1: Create subdomain namespace scaffold and convert `effect_adapters.cljs` into a stable facade-only module (completed: scaffold + shared helper extraction; remaining: move remaining non-shared logic behind facade delegates).
-- [ ] Milestone 2: Extract websocket + diagnostics + asset-selector adapters into dedicated namespaces.
+- [x] (2026-03-04 02:26Z) Extracted websocket/diagnostics runtime adapters into `/hyperopen/src/hyperopen/runtime/effect_adapters/websocket.cljs` and delegated facade exports for health sync, websocket init/reconnect/refresh, diagnostics handlers, and startup active-asset restore seam.
+- [x] (2026-03-04 02:26Z) Routed active-asset/orderbook/trades/webdata2 subscription adapters through websocket subdomain implementation while preserving facade override seam for `fetch-candle-snapshot` and active-market persistence callbacks.
+- [x] (2026-03-04 02:26Z) Added websocket-facade parity assertions in `/hyperopen/test/hyperopen/runtime/effect_adapters_test.cljs`.
+- [x] (2026-03-04 02:27Z) Re-ran required gates after websocket extraction: `npm run check`, `npm test`, `npm run test:websocket` (all green).
+- [ ] Milestone 2: Extract websocket + diagnostics + asset-selector adapters into dedicated namespaces (completed: websocket + diagnostics extraction in `hyperopen-63a.2`; remaining: asset-selector extraction tracked in `hyperopen-63a.3`).
 - [ ] Milestone 3: Extract wallet + order adapters into dedicated namespaces.
 - [ ] Milestone 4: Extract funding + vault adapters into dedicated namespaces.
 - [ ] Milestone 5: Decompose tests by subdomain, add facade contract assertions, and run required gates.
@@ -34,6 +38,9 @@ A contributor can verify success by confirming the monolith file is reduced to f
 
 - Observation: `npm test` fails in this environment because the script invokes `shadow-cljs` directly, while the binary is only available via `npx`.
   Evidence: shell error `sh: shadow-cljs: command not found`; equivalent `npx shadow-cljs compile test` path succeeded.
+
+- Observation: After installing dependencies in this worktree, `npm test` works as documented (the previous missing `shadow-cljs`/`@noble/secp256k1` errors were environment bootstrap issues, not code regressions).
+  Evidence: `npm test` passed with `Ran 1822 tests containing 9431 assertions. 0 failures, 0 errors.`
 
 ## Decision Log
 
@@ -53,9 +60,13 @@ A contributor can verify success by confirming the monolith file is reduced to f
   Rationale: Existing tests and compatibility seams use `with-redefs` on `hyperopen.runtime.effect-adapters/schedule-animation-frame!`; preserving var alias semantics avoids redef ambiguity during queue-asset icon runtime tests.
   Date/Author: 2026-03-04 / Codex
 
+- Decision: Keep `subscribe-active-asset` as a facade wrapper (not direct var alias) when delegating to websocket module.
+  Rationale: Existing tests rely on `with-redefs` against facade var `fetch-candle-snapshot`; wrapper-level dependency injection preserves that override seam while moving websocket subscription logic into the websocket subdomain namespace.
+  Date/Author: 2026-03-04 / Codex
+
 ## Outcomes & Retrospective
 
-Initial extraction slice is complete: subdomain scaffold exists and the first shared helper seam is moved to `effect_adapters/common` with facade export parity maintained. The largest monolith remains but now has a proven delegation pattern and regression guardrails for future domain extraction milestones.
+Two extraction slices are complete: subdomain scaffold + shared helper seam (`common`) and websocket/diagnostics seam (`websocket`). The facade now delegates significant runtime behavior while preserving compatibility exports and override seams. Remaining work is concentrated in asset-selector, wallet/order, and funding/vault extraction milestones.
 
 ## Context and Orientation
 
