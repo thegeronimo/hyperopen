@@ -1,5 +1,6 @@
 (ns hyperopen.account.history.actions
   (:require [clojure.string :as str]
+            [hyperopen.account.context :as account-context]
             [hyperopen.account.history.position-margin :as position-margin]
             [hyperopen.account.history.position-reduce :as position-reduce]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
@@ -181,12 +182,12 @@
   (let [loaded-at-ms (get-in state [:account-info :order-history :loaded-at-ms])
         loaded-for-address (normalize-address
                             (get-in state [:account-info :order-history :loaded-for-address]))
-        wallet-address (normalize-address (get-in state [:wallet :address]))
+        effective-address (normalize-address (account-context/effective-account-address state))
         error (get-in state [:account-info :order-history :error])]
     (and (number? loaded-at-ms)
          (number? now-ms)
-         (some? wallet-address)
-         (= wallet-address loaded-for-address)
+         (some? effective-address)
+         (= effective-address loaded-for-address)
          (nil? error)
          (let [age-ms (- now-ms loaded-at-ms)]
            (<= 0 age-ms order-history-freshness-ttl-ms)))))

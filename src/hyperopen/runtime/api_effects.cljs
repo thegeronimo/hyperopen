@@ -1,5 +1,6 @@
 (ns hyperopen.runtime.api-effects
-  (:require [hyperopen.api.promise-effects :as promise-effects]))
+  (:require [hyperopen.account.context :as account-context]
+            [hyperopen.api.promise-effects :as promise-effects]))
 
 (defn fetch-asset-selector-markets!
   [{:keys [store
@@ -35,8 +36,10 @@
            apply-user-fills-success
            apply-user-fills-error
            fetch-and-merge-funding-history!]}]
-  (when address
-    (-> (request-frontend-open-orders! address {:priority :high})
+  (let [address* (or address
+                     (account-context/effective-account-address @store))]
+    (when address*
+      (-> (request-frontend-open-orders! address* {:priority :high})
         (.then (promise-effects/apply-success-and-return
                 store
                 apply-open-orders-success
@@ -44,11 +47,11 @@
         (.catch (promise-effects/apply-error-and-reject
                  store
                  apply-open-orders-error)))
-    (-> (request-user-fills! address {:priority :high})
+      (-> (request-user-fills! address* {:priority :high})
         (.then (promise-effects/apply-success-and-return
                 store
                 apply-user-fills-success))
         (.catch (promise-effects/apply-error-and-reject
                  store
                  apply-user-fills-error)))
-    (fetch-and-merge-funding-history! store address {:priority :high})))
+      (fetch-and-merge-funding-history! store address* {:priority :high}))))

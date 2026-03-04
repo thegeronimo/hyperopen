@@ -22,13 +22,13 @@
             (reset-watcher-state!))})
 
 (deftest sync-current-address-notifies-handlers-test
-  (let [store (atom {:wallet {:address "0xabc"}})
+  (let [store (atom {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}})
         calls (atom [])]
     (with-redefs [hyperopen.wallet.address-watcher/notify-handlers!
                   (fn [old-address new-address]
                     (swap! calls conj [old-address new-address]))]
       (watcher/sync-current-address! store)
-      (is (= [[nil "0xabc"]] @calls)))))
+      (is (= [[nil "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]] @calls)))))
 
 (deftest add-handler-precondition-rejects-invalid-handlers-test
   (is (thrown? js/Error
@@ -45,7 +45,7 @@
       (is (nil? (:current-address (watcher-state)))))))
 
 (deftest pending-subscription-still-processes-on-connect-test
-  (let [store (atom {:wallet {:address "0xabc"}})
+  (let [store (atom {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}})
         calls (atom [])
         handler-name "address-watcher-pending-test"
         handler (reify watcher/IAddressChangeHandler
@@ -57,7 +57,7 @@
     (watcher/sync-current-address! store)
     (is (empty? @calls))
     (watcher/on-websocket-connected!)
-    (is (= [[nil "0xabc"]] @calls))
+    (is (= [[nil "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]] @calls))
     (watcher/remove-handler! handler-name)))
 
 (deftest notify-handlers-catches-errors-and-continues-other-handlers-test
@@ -78,8 +78,8 @@
     (watcher/on-websocket-connected!)
     (with-redefs [hyperopen.telemetry/log! (fn [& args]
                                              (swap! logs conj args))]
-      (@#'hyperopen.wallet.address-watcher/notify-handlers! "0xold" "0xnew"))
-    (is (= [["0xold" "0xnew"]] @calls))
+      (@#'hyperopen.wallet.address-watcher/notify-handlers! "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" "0xcccccccccccccccccccccccccccccccccccccccc"))
+    (is (= [["0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" "0xcccccccccccccccccccccccccccccccccccccccc"]] @calls))
     (is (some #(str/includes? (str (first %)) "Error in address change handler")
               @logs))))
 
@@ -90,21 +90,40 @@
                     (swap! notify-calls conj [old-address new-address]))]
       (@#'hyperopen.wallet.address-watcher/address-change-listener
        nil nil
-       {:wallet {:address "0xold"}}
-       {:wallet {:address "0xnew"}})
+       {:wallet {:address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}}
+       {:wallet {:address "0xcccccccccccccccccccccccccccccccccccccccc"}})
       (is (empty? @notify-calls))
       (swap! @#'hyperopen.wallet.address-watcher/address-watcher-state
              assoc :watching? true)
       (@#'hyperopen.wallet.address-watcher/address-change-listener
        nil nil
-       {:wallet {:address "0xsame"}}
-       {:wallet {:address "0xsame"}})
+       {:wallet {:address "0xdddddddddddddddddddddddddddddddddddddddd"}}
+       {:wallet {:address "0xdddddddddddddddddddddddddddddddddddddddd"}})
       (is (empty? @notify-calls))
       (@#'hyperopen.wallet.address-watcher/address-change-listener
        nil nil
-       {:wallet {:address "0xsame"}}
-       {:wallet {:address "0xnext"}})
-      (is (= [["0xsame" "0xnext"]] @notify-calls)))))
+       {:wallet {:address "0xdddddddddddddddddddddddddddddddddddddddd"}}
+       {:wallet {:address "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}})
+      (is (= [["0xdddddddddddddddddddddddddddddddddddddddd" "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"]] @notify-calls)))))
+
+(deftest private-address-change-listener-tracks-effective-address-when-ghost-mode-toggles-test
+  (let [notify-calls (atom [])]
+    (with-redefs [hyperopen.wallet.address-watcher/notify-handlers!
+                  (fn [old-address new-address]
+                    (swap! notify-calls conj [old-address new-address]))]
+      (swap! @#'hyperopen.wallet.address-watcher/address-watcher-state
+             assoc :watching? true)
+      (@#'hyperopen.wallet.address-watcher/address-change-listener
+       nil nil
+       {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+        :account-context {:ghost-mode {:active? false
+                                       :address "0xdddddddddddddddddddddddddddddddddddddddd"}}}
+       {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+        :account-context {:ghost-mode {:active? true
+                                       :address "0xdddddddddddddddddddddddddddddddddddddddd"}}})
+      (is (= [["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+               "0xdddddddddddddddddddddddddddddddddddddddd"]]
+             @notify-calls)))))
 
 (deftest process-pending-subscription-noops-when-empty-and-clears-when-processed-test
   (let [calls (atom [])
@@ -117,10 +136,10 @@
     (@#'hyperopen.wallet.address-watcher/process-pending-subscription!)
     (is (empty? @calls))
     (swap! @#'hyperopen.wallet.address-watcher/address-watcher-state
-           assoc :pending-subscription {:old-address "0xold"
-                                        :new-address "0xnew"})
+           assoc :pending-subscription {:old-address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                                        :new-address "0xcccccccccccccccccccccccccccccccccccccccc"})
     (@#'hyperopen.wallet.address-watcher/process-pending-subscription!)
-    (is (= [["0xold" "0xnew"]] @calls))
+    (is (= [["0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" "0xcccccccccccccccccccccccccccccccccccccccc"]] @calls))
     (is (nil? (:pending-subscription (watcher-state))))))
 
 (deftest process-pending-subscription-catches-handler-errors-test
@@ -132,8 +151,8 @@
                     "pending-thrower"))]
     (watcher/add-handler! handler)
     (swap! @#'hyperopen.wallet.address-watcher/address-watcher-state
-           assoc :pending-subscription {:old-address "0xold"
-                                        :new-address "0xnew"})
+           assoc :pending-subscription {:old-address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                                        :new-address "0xcccccccccccccccccccccccccccccccccccccccc"})
     (with-redefs [hyperopen.telemetry/log! (fn [& args]
                                              (swap! logs conj args))]
       (@#'hyperopen.wallet.address-watcher/process-pending-subscription!))
@@ -143,19 +162,19 @@
 
 (deftest disconnected-notify-handlers-stores-pending-even-for-nil-new-address-test
   (watcher/on-websocket-disconnected!)
-  (@#'hyperopen.wallet.address-watcher/notify-handlers! "0xold" nil)
-  (is (= {:old-address "0xold" :new-address nil}
+  (@#'hyperopen.wallet.address-watcher/notify-handlers! "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" nil)
+  (is (= {:old-address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" :new-address nil}
          (:pending-subscription (watcher-state)))))
 
 (deftest empty-handler-and-no-match-removal-branches-test
   (watcher/on-websocket-connected!)
-  (@#'hyperopen.wallet.address-watcher/notify-handlers! nil "0xabc")
+  (@#'hyperopen.wallet.address-watcher/notify-handlers! nil "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
   (is (nil? (:pending-subscription (watcher-state))))
   (watcher/on-websocket-disconnected!)
   (swap! @#'hyperopen.wallet.address-watcher/address-watcher-state
          assoc :handlers []
-         :pending-subscription {:old-address "0xold"
-                                :new-address "0xnew"})
+         :pending-subscription {:old-address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                                :new-address "0xcccccccccccccccccccccccccccccccccccccccc"})
   (@#'hyperopen.wallet.address-watcher/process-pending-subscription!)
   (is (nil? (:pending-subscription (watcher-state))))
   (watcher/remove-handler! "missing-handler")
@@ -171,9 +190,9 @@
     (is (satisfies? watcher/IAddressChangeHandler handler))
     (is (= "webdata2-subscription-handler"
            (watcher/get-handler-name handler)))
-    (watcher/on-address-changed handler "0xold" "0xnew")
-    (is (= [[:unsubscribe "0xold"]
-            [:subscribe "0xnew"]]
+    (watcher/on-address-changed handler "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" "0xcccccccccccccccccccccccccccccccccccccccc")
+    (is (= [[:unsubscribe "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+            [:subscribe "0xcccccccccccccccccccccccccccccccccccccccc"]]
            @calls))
     (is (satisfies? watcher/IAddressChangeHandler
                     (watcher/map->WebData2Handler {:unsubscribe-fn (fn [_] nil)
@@ -191,12 +210,12 @@
     (watcher/on-websocket-connected!)
     (watcher/start-watching! store)
     (watcher/start-watching! store)
-    (swap! store assoc-in [:wallet :address] "0xdef")
-    (is (= [[nil "0xdef"]] @calls))
+    (swap! store assoc-in [:wallet :address] "0xffffffffffffffffffffffffffffffffffffffff")
+    (is (= [[nil "0xffffffffffffffffffffffffffffffffffffffff"]] @calls))
     (watcher/stop-watching! store)
     (watcher/stop-watching! store)
-    (swap! store assoc-in [:wallet :address] "0xghi")
-    (is (= [[nil "0xdef"]] @calls))
+    (swap! store assoc-in [:wallet :address] "0x1111111111111111111111111111111111111111")
+    (is (= [[nil "0xffffffffffffffffffffffffffffffffffffffff"]] @calls))
     (watcher/remove-handler! handler-name)))
 
 (deftest websocket-disconnect-updates-state-flag-test

@@ -1,5 +1,6 @@
 (ns hyperopen.api.projections
   (:require [clojure.string :as str]
+            [hyperopen.account.context :as account-context]
             [hyperopen.api.errors :as api-errors]
             [hyperopen.api.market-metadata.perp-dexs :as perp-dexs]))
 
@@ -223,7 +224,9 @@
 
 (defn apply-user-abstraction-snapshot
   [state requested-address snapshot]
-  (let [active-address (some-> (get-in state [:wallet :address]) str str/lower-case)]
+  (let [active-address (some-> (account-context/effective-account-address state)
+                               str
+                               str/lower-case)]
     (if (= requested-address active-address)
       (assoc state :account snapshot)
       state)))

@@ -1,5 +1,5 @@
 (ns hyperopen.views.portfolio.vm.utils
-  (:require [clojure.string :as str]
+  (:require [hyperopen.account.context :as account-context]
             [hyperopen.portfolio.metrics.parsing :as parsing]))
 
 (defn optional-number [value]
@@ -32,8 +32,8 @@
 (defn normalize-metric-token-map
   [state]
   (let [account-info (get-in state [:market-data :account-info])
-        wallet-address (get-in state [:wallet :address])]
-    (str (hash account-info) "-" (hash wallet-address))))
+        effective-address (account-context/effective-account-address state)]
+    (str (hash account-info) "-" (hash effective-address))))
 
 (defn metric-token
   [state request-data]

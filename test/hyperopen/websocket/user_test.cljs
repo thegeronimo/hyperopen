@@ -118,12 +118,14 @@
 
 (deftest user-ledger-incremental-triggers-account-surface-refresh-test
   (let [store (doto (make-store)
-                (swap! assoc-in [:wallet :address] "0xabc"))
+                (swap! assoc :wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+                       :account-context {:ghost-mode {:active? true
+                                                      :address "0xdddddddddddddddddddddddddddddddddddddddd"}}))
         handlers (atom {})
         scheduled-refresh (atom nil)
-        open-orders-calls (atom 0)
-        perp-clearinghouse-calls (atom 0)
-        spot-clearinghouse-calls (atom 0)]
+        open-orders-addresses (atom [])
+        perp-clearinghouse-addresses (atom [])
+        spot-clearinghouse-addresses (atom [])]
     (with-redefs [ws-client/register-handler!
                   (fn [message-type handler-fn]
                     (swap! handlers assoc message-type handler-fn)
@@ -134,27 +136,27 @@
                   platform/clear-timeout! (fn [_] nil)
                   api/request-frontend-open-orders! (fn
                                                       ([_address]
-                                                       (swap! open-orders-calls inc)
+                                                       (swap! open-orders-addresses conj _address)
                                                        (js/Promise.resolve []))
                                                       ([_address _opts]
-                                                       (swap! open-orders-calls inc)
+                                                       (swap! open-orders-addresses conj _address)
                                                        (js/Promise.resolve []))
                                                       ([_address _dex _opts]
-                                                       (swap! open-orders-calls inc)
+                                                       (swap! open-orders-addresses conj _address)
                                                        (js/Promise.resolve [])))
                   api/request-clearinghouse-state! (fn
                                                      ([_address _dex]
-                                                      (swap! perp-clearinghouse-calls inc)
+                                                      (swap! perp-clearinghouse-addresses conj _address)
                                                       (js/Promise.resolve {}))
                                                      ([_address _dex _opts]
-                                                      (swap! perp-clearinghouse-calls inc)
+                                                      (swap! perp-clearinghouse-addresses conj _address)
                                                       (js/Promise.resolve {})))
                   api/request-spot-clearinghouse-state! (fn
                                                           ([_address]
-                                                           (swap! spot-clearinghouse-calls inc)
+                                                           (swap! spot-clearinghouse-addresses conj _address)
                                                            (js/Promise.resolve {}))
                                                           ([_address _opts]
-                                                           (swap! spot-clearinghouse-calls inc)
+                                                           (swap! spot-clearinghouse-addresses conj _address)
                                                            (js/Promise.resolve {})))
                   market-metadata/ensure-and-apply-perp-dex-metadata! (fn [_deps _opts]
                                                                         (js/Promise.resolve []))]
@@ -165,6 +167,9 @@
                :nonFundingLedgerUpdates [{:time 2000 :coin "USDC" :delta "2.0"}]}})
       (is (fn? @scheduled-refresh))
       (@scheduled-refresh)
-      (is (= 1 @open-orders-calls))
-      (is (= 1 @perp-clearinghouse-calls))
-      (is (= 1 @spot-clearinghouse-calls)))))
+      (is (= ["0xdddddddddddddddddddddddddddddddddddddddd"]
+             @open-orders-addresses))
+      (is (= ["0xdddddddddddddddddddddddddddddddddddddddd"]
+             @perp-clearinghouse-addresses))
+      (is (= ["0xdddddddddddddddddddddddddddddddddddddddd"]
+             @spot-clearinghouse-addresses)))))

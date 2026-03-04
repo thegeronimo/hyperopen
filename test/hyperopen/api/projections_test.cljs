@@ -296,11 +296,27 @@
     (is (= "ledger-fail" (get-in ledger-error [:vaults :errors :ledger-updates-by-vault "0xa"])))))
 
 (deftest user-abstraction-projection-ignores-stale-address-updates-test
-  (let [state {:wallet {:address "0xabc"}
-               :account {:mode :classic}}
-        snapshot {:mode :unified
+  (let [snapshot {:mode :unified
                   :abstraction-raw "unifiedAccount"}
-        matched (projections/apply-user-abstraction-snapshot state "0xabc" snapshot)
-        stale (projections/apply-user-abstraction-snapshot state "0xdef" snapshot)]
-    (is (= snapshot (:account matched)))
-    (is (= {:mode :classic} (:account stale)))))
+        owner-state {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+                     :account {:mode :classic}}
+        owner-match (projections/apply-user-abstraction-snapshot owner-state
+                                                                 "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                                                                 snapshot)
+        owner-stale (projections/apply-user-abstraction-snapshot owner-state
+                                                                 "0xdddddddddddddddddddddddddddddddddddddddd"
+                                                                 snapshot)
+        ghost-state {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+                     :account-context {:ghost-mode {:active? true
+                                                    :address "0xdddddddddddddddddddddddddddddddddddddddd"}}
+                     :account {:mode :classic}}
+        ghost-match (projections/apply-user-abstraction-snapshot ghost-state
+                                                                 "0xdddddddddddddddddddddddddddddddddddddddd"
+                                                                 snapshot)
+        ghost-stale (projections/apply-user-abstraction-snapshot ghost-state
+                                                                 "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                                                                 snapshot)]
+    (is (= snapshot (:account owner-match)))
+    (is (= {:mode :classic} (:account owner-stale)))
+    (is (= snapshot (:account ghost-match)))
+    (is (= {:mode :classic} (:account ghost-stale)))))

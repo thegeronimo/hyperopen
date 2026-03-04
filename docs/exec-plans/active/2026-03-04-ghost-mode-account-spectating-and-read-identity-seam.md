@@ -26,7 +26,16 @@ A user will verify this by opening Ghost Mode from the header wallet area, enter
   - Added ADR `/hyperopen/docs/architecture-decision-records/0024-effective-account-address-and-ghost-mode-ownership.md`.
   - Added test coverage in `/hyperopen/test/hyperopen/account/context_test.cljs`, `/hyperopen/test/hyperopen/startup/restore_test.cljs`, and updated existing startup/state tests.
 - [x] (2026-03-04 13:19Z) Ran validation gates for current scope: `npm run check`, `npm test`, and `npm run test:websocket` all passed.
-- [ ] Implement Milestone 2 (runtime/websocket/API routing on effective account address).
+- [x] (2026-03-04 15:39Z) Implemented Milestone 2 effective-address routing for read-side runtime paths:
+  - Migrated effective-address subscription/watch ownership in `/hyperopen/src/hyperopen/wallet/address_watcher.cljs`.
+  - Updated stale-guard account bootstrap routing in `/hyperopen/src/hyperopen/startup/runtime.cljs`.
+  - Updated user websocket refresh stale-guards in `/hyperopen/src/hyperopen/websocket/user.cljs`.
+  - Migrated account history effects + order-history freshness keying in `/hyperopen/src/hyperopen/account/history/effects.cljs` and `/hyperopen/src/hyperopen/account/history/actions.cljs`.
+  - Migrated user abstraction stale-write guard and account freshness selectors in `/hyperopen/src/hyperopen/api/projections.cljs` and `/hyperopen/src/hyperopen/views/account_info/vm.cljs`.
+  - Updated runtime fallback read-data address resolution in `/hyperopen/src/hyperopen/runtime/api_effects.cljs`.
+  - Updated portfolio metrics cache token ownership to effective address in `/hyperopen/src/hyperopen/views/portfolio/vm/utils.cljs`.
+  - Added regression coverage for effective-address semantics under Ghost Mode in watcher/startup/websocket/projections/account-history/account-info tests.
+- [x] (2026-03-04 15:39Z) Re-ran validation gates after Milestone 2 changes: `npm test`, `npm run check`, and `npm run test:websocket` all passed.
 - [ ] Implement Milestone 3 (Ghost Mode UI, watchlist persistence, and stop controls).
 - [ ] Implement Milestone 4 (mutation guardrails, tests, docs, and validation gates).
 
@@ -75,7 +84,7 @@ A user will verify this by opening Ghost Mode from the header wallet area, enter
 
 ## Outcomes & Retrospective
 
-Milestone 1 is complete.
+Milestones 1 and 2 are complete.
 
 Delivered in Milestone 1:
 
@@ -84,6 +93,12 @@ Delivered in Milestone 1:
 - startup restoration for Ghost watchlist and last-used modal search preference;
 - architecture decision record documenting owner vs effective account identity ownership split;
 - focused automated coverage for new domain and restore behavior.
+
+Delivered in Milestone 2:
+
+- read-side address routing now consistently follows `effective-account-address` across watcher, startup stale-guards, websocket account refreshes, account history fetch guards, and user-abstraction stale-write projection guards;
+- account-info websocket freshness cues and portfolio metrics cache tokening now key by effective address instead of wallet owner;
+- regression coverage now explicitly exercises Ghost Mode effective-address paths (without mutating signer ownership) across runtime and projection boundaries.
 
 Expected outcome of this plan is a stable, test-covered Ghost Mode that mirrors Trade.xyz behavior without violating Hyperopen signing/runtime invariants. The main risk area is migration completeness from direct `[:wallet :address]` reads to effective-address reads; this plan mitigates that with explicit file touchpoints and regression coverage requirements.
 

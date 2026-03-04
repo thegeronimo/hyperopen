@@ -1,5 +1,6 @@
 (ns hyperopen.account.history.effects
   (:require [clojure.string :as str]
+            [hyperopen.account.context :as account-context]
             [hyperopen.api.default :as api]
             [hyperopen.account.history.actions :as account-history-actions]
             [hyperopen.domain.funding-history :as funding-history]
@@ -85,9 +86,9 @@
       (-> (api/request-user-funding-history! address request-opts)
           (.then
            (fn [rows]
-             (swap! store
-                    (fn [state]
-                      (if (= address (get-in state [:wallet :address]))
+            (swap! store
+                   (fn [state]
+                      (if (= address (account-context/effective-account-address state))
                         (-> (merge-and-project-funding-history state rows)
                             (assoc-in [:account-info :funding-history :error] nil))
                         state)))))
@@ -95,13 +96,13 @@
            (fn [err]
              (swap! store
                     (fn [state]
-                      (if (= address (get-in state [:wallet :address]))
+                      (if (= address (account-context/effective-account-address state))
                         (assoc-in state [:account-info :funding-history :error] (str err))
                         state)))))))))
 
 (defn api-fetch-user-funding-history-effect
   [_ store request-id]
-  (let [address (get-in @store [:wallet :address])
+  (let [address (account-context/effective-account-address @store)
         filters (account-history-actions/funding-history-filters @store)
         opts (merge {:priority :high}
                     filters)]
@@ -135,7 +136,7 @@
 (defn fetch-historical-orders!
   [{:keys [store request-id request-historical-orders! opts]
     :or {request-historical-orders! api/request-historical-orders!}}]
-  (let [address (get-in @store [:wallet :address])
+  (let [address (account-context/effective-account-address @store)
         requested-address (some-> address str str/lower-case)
         opts* (merge {:priority :high}
                      (or opts {}))]

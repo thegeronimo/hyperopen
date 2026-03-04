@@ -7,7 +7,8 @@
    - Liskov Substitution: All handlers follow the same protocol
    - Interface Segregation: Minimal, focused handler interface
    - Dependency Inversion: Depends on abstractions, not concrete implementations"
-  (:require [hyperopen.telemetry :as telemetry]))
+  (:require [hyperopen.account.context :as account-context]
+            [hyperopen.telemetry :as telemetry]))
 
 ;; ---------- Address Change Handler Protocol ----------------------------------
 
@@ -81,8 +82,8 @@
 (defn- address-change-listener
   "Watch function that detects address changes"
   [_ _ old-state new-state]
-  (let [old-address (get-in old-state [:wallet :address])
-        new-address (get-in new-state [:wallet :address])]
+  (let [old-address (account-context/effective-account-address old-state)
+        new-address (account-context/effective-account-address new-state)]
     
     ;; Only process if address actually changed and we're watching
     (when (and (get @address-watcher-state :watching?)
@@ -135,10 +136,10 @@
     (add-watch store ::address-watcher address-change-listener)
     (swap! address-watcher-state assoc :watching? true)
     
-    ;; Initialize current address
-    (let [current-address (get-in @store [:wallet :address])]
+    ;; Initialize current effective account address
+    (let [current-address (account-context/effective-account-address @store)]
       (swap! address-watcher-state assoc :current-address current-address)
-      (telemetry/log! (str "Initial wallet address: " current-address)))))
+      (telemetry/log! (str "Initial effective account address: " current-address)))))
 
 (defn stop-watching!
   "Stop watching for wallet address changes"
@@ -153,7 +154,7 @@
    This ensures an already-connected wallet is bootstrapped even without
    a fresh `accountsChanged` event."
   [store]
-  (let [current-address (get-in @store [:wallet :address])]
+  (let [current-address (account-context/effective-account-address @store)]
     (swap! address-watcher-state assoc :current-address current-address)
     (when current-address
       (notify-handlers! nil current-address))))

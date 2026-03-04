@@ -183,7 +183,7 @@
                  (js/Promise.resolve payload)))
               ([body opts _attempt]
                (post-info-mock body opts))))
-      (-> (api/fetch-user-funding-history! (atom {}) "0xabc"
+      (-> (api/fetch-user-funding-history! (atom {}) "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                                            {:start-time-ms 1000
                                             :end-time-ms 5000})
           (.then (fn [rows]
@@ -212,9 +212,9 @@
                                     {:coin "ETH" :oid 2}]))
               ([body opts _attempt]
                (post-info-mock body opts))))
-      (-> (api/fetch-historical-orders! (atom {}) "0xabc" {:priority :high})
+      (-> (api/fetch-historical-orders! (atom {}) "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {:priority :high})
           (.then (fn [rows]
-                   (is (= {"type" "historicalOrders" "user" "0xabc"}
+                   (is (= {"type" "historicalOrders" "user" "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
                           (first @calls)))
                    (is (= 2 (count rows)))
                    (is (= "BTC" (get-in rows [0 :order :coin])))
@@ -238,7 +238,7 @@
                (js/Promise.resolve {:orders [{:order {:coin "SOL" :oid 9}}]}))
               ([body opts _attempt]
                (post-info-mock body opts))))
-      (-> (api/fetch-historical-orders! (atom {}) "0xabc" {})
+      (-> (api/fetch-historical-orders! (atom {}) "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {})
           (.then (fn [rows]
                    (is (= 1 (count rows)))
                    (is (= "SOL" (get-in rows [0 :order :coin])))
@@ -270,12 +270,12 @@
                                      :time 1700000000000}]))
               ([body opts _attempt]
                (post-info-mock body opts))))
-      (-> (api/fetch-user-fills! store "0xabc")
+      (-> (api/fetch-user-fills! store "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
           (.then (fn [rows]
                    (let [request-body (first @calls)
                          stored-row (first (get-in @store [:orders :fills]))]
                      (is (= {"type" "userFills"
-                             "user" "0xabc"
+                             "user" "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                              "aggregateByTime" true}
                             request-body))
                      (is (= "Market Order Liquidation: Close Long" (:dir stored-row)))
@@ -292,7 +292,7 @@
 
 (deftest fetch-user-abstraction-sends-request-and-projects-unified-mode-test
   (async done
-    (let [store (atom {:wallet {:address "0xabc"}
+    (let [store (atom {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
                        :account {:mode :classic
                                  :abstraction-raw nil}})
           calls (atom [])
@@ -306,10 +306,10 @@
                (js/Promise.resolve "portfolioMargin"))
               ([body opts _attempt]
                (post-info-mock body opts))))
-      (-> (api/fetch-user-abstraction! store "0xAbC")
+      (-> (api/fetch-user-abstraction! store "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
           (.then (fn [snapshot]
                    (is (= {"type" "userAbstraction"
-                           "user" "0xAbC"}
+                           "user" "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
                           (first @calls)))
                    (is (= {:mode :unified
                            :abstraction-raw "portfolioMargin"}
@@ -325,7 +325,7 @@
 
 (deftest fetch-user-abstraction-maps-classic-modes-test
   (async done
-    (let [store (atom {:wallet {:address "0xabc"}
+    (let [store (atom {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
                        :account {:mode :unified
                                  :abstraction-raw "unifiedAccount"}})
           original-post-info hyperopen.api.default/post-info!]
@@ -337,7 +337,7 @@
                (js/Promise.resolve "default"))
               ([body opts _attempt]
                (post-info-mock body opts))))
-      (-> (api/fetch-user-abstraction! store "0xabc")
+      (-> (api/fetch-user-abstraction! store "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
           (.then (fn [snapshot]
                    (is (= {:mode :classic
                            :abstraction-raw "default"}
@@ -353,7 +353,7 @@
 
 (deftest fetch-user-abstraction-skips-stale-address-write-test
   (async done
-    (let [store (atom {:wallet {:address "0xdef"}
+    (let [store (atom {:wallet {:address "0xdddddddddddddddddddddddddddddddddddddddd"}
                        :account {:mode :classic
                                  :abstraction-raw nil}})
           original-post-info hyperopen.api.default/post-info!]
@@ -365,7 +365,7 @@
                (js/Promise.resolve "unifiedAccount"))
               ([body opts _attempt]
                (post-info-mock body opts))))
-      (-> (api/fetch-user-abstraction! store "0xabc")
+      (-> (api/fetch-user-abstraction! store "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
           (.then (fn [snapshot]
                    (is (= {:mode :unified
                            :abstraction-raw "unifiedAccount"}

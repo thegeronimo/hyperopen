@@ -185,6 +185,19 @@
     (is (= [[:effects/export-funding-history-csv [btc-row]]]
            (history-actions/export-funding-history-csv state)))))
 
+(deftest select-account-info-tab-order-history-uses-effective-address-for-freshness-test
+  (with-redefs [platform/now-ms (constantly 100000)]
+    (let [ghost-address "0xdddddddddddddddddddddddddddddddddddddddd"
+          state {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+                 :account-context {:ghost-mode {:active? true
+                                                :address ghost-address}}
+                 :account-info {:order-history {:loading? false
+                                                :loaded-at-ms 99000
+                                                :loaded-for-address ghost-address
+                                                :error nil}}}]
+      (is (= [[:effects/save [:account-info :selected-tab] :order-history]]
+             (history-actions/select-account-info-tab state :order-history))))))
+
 (deftest sort-positions-balances-and-open-orders-cover-direction-branches-test
   (testing "positions and balances toggle to desc only for same-column asc"
     (is (= [[:effects/save [:account-info :positions-sort] {:column "Coin" :direction :desc}]]

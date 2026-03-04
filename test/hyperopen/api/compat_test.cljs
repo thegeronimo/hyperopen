@@ -12,7 +12,7 @@
           deps {:log-fn (fn [& _] nil)
                 :request-user-fills! (fn [_address _opts]
                                        (js/Promise.resolve [{:tid 1 :coin "BTC"}]))}]
-      (-> (api-compat/fetch-user-fills! deps store "0xabc" {:priority :high})
+      (-> (api-compat/fetch-user-fills! deps store "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {:priority :high})
           (.then (fn [rows]
                    (is (= [{:tid 1 :coin "BTC"}] rows))
                    (is (= rows (get-in @store [:orders :fills])))
@@ -29,7 +29,7 @@
                 :request-frontend-open-orders! (fn [_address opts]
                                                  (swap! calls conj opts)
                                                  (js/Promise.resolve [{:oid 7 :coin "ETH"}]))}]
-      (-> (api-compat/fetch-frontend-open-orders! deps store "0xabc" "dex-a" {:priority :high})
+      (-> (api-compat/fetch-frontend-open-orders! deps store "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" "dex-a" {:priority :high})
           (.then (fn [rows]
                    (is (= [{:oid 7 :coin "ETH"}] rows))
                    (is (= [{:dex "dex-a"
@@ -50,7 +50,7 @@
                 :request-frontend-open-orders! (fn [_address opts]
                                                  (swap! calls conj opts)
                                                  (js/Promise.resolve [{:oid 8 :coin "BTC"}]))}]
-      (-> (api-compat/fetch-frontend-open-orders! deps store "0xabc")
+      (-> (api-compat/fetch-frontend-open-orders! deps store "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
           (.then (fn [rows]
                    (is (= [{:oid 8 :coin "BTC"}] rows))
                    (is (= [{}] @calls))
@@ -68,7 +68,7 @@
                 :request-frontend-open-orders! (fn [_address opts]
                                                  (swap! calls conj opts)
                                                  (js/Promise.resolve [{:oid 9 :coin "SOL"}]))}]
-      (-> (api-compat/fetch-frontend-open-orders! deps store "0xabc" "" {:priority :high})
+      (-> (api-compat/fetch-frontend-open-orders! deps store "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" "" {:priority :high})
           (.then (fn [rows]
                    (is (= [{:oid 9 :coin "SOL"}] rows))
                    (is (= [{:priority :high}] @calls))
@@ -80,12 +80,12 @@
 
 (deftest fetch-user-abstraction-normalizes-and-projects-account-test
   (async done
-    (let [store (atom {:wallet {:address "0xabc"}
+    (let [store (atom {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
                        :account {:mode :classic :abstraction-raw nil}})
           deps {:log-fn (fn [& _] nil)
                 :request-user-abstraction! (fn [_address _opts]
                                              (js/Promise.resolve "portfolioMargin"))}]
-      (-> (api-compat/fetch-user-abstraction! deps store "0xAbC" {:priority :high})
+      (-> (api-compat/fetch-user-abstraction! deps store "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {:priority :high})
           (.then (fn [snapshot]
                    (is (= {:mode :unified
                            :abstraction-raw "portfolioMargin"}
@@ -152,13 +152,13 @@
               {:log-fn req-id
                :request-user-fills! req-id}
               store
-              "0xabc"
+              "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
               {:priority :high})))
       (is (= {:ok :historical-orders}
              (api-compat/fetch-historical-orders!
               {:log-fn req-id
                :post-info! req-id}
-              "0xabc"
+              "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
               {:priority :high})))
       (is (= {:ok :spot-meta}
              (api-compat/fetch-spot-meta!
@@ -187,28 +187,28 @@
               {:log-fn req-id
                :request-spot-clearinghouse-state! req-id}
               store
-              "0xabc"
+              "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
               {:priority :high})))
       (is (= {:ok :user-abstraction}
              (api-compat/fetch-user-abstraction!
               {:log-fn req-id
                :request-user-abstraction! req-id}
               store
-              "0xabc"
+              "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
               {:priority :high})))
       (is (= {:ok :clearinghouse}
              (api-compat/fetch-clearinghouse-state!
               {:log-fn req-id
                :request-clearinghouse-state! req-id}
               store
-              "0xabc"
+              "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
               "dex-a"
               {:priority :high})))
       (is (= {:ok :batch-clearinghouse}
              (api-compat/fetch-perp-dex-clearinghouse-states!
               {:fetch-clearinghouse-state! req-id}
               store
-              "0xabc"
+              "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
               ["dex-a" "dex-b"]
               {:priority :high})))
       (let [asset-context-call (some #(when (= :asset-contexts (first %)) %) @calls)

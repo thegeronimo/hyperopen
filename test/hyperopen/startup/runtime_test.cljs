@@ -33,8 +33,8 @@
     (is (satisfies? address-watcher/IAddressChangeHandler handler))
     (is (= "startup-handler"
            (address-watcher/get-handler-name handler)))
-    (address-watcher/on-address-changed handler nil "0xabc")
-    (is (= ["0xabc"] @calls))))
+    (address-watcher/on-address-changed handler nil "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    (is (= ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"] @calls))))
 
 (deftest schedule-idle-or-timeout-covers-idle-and-fallback-branches-test
   (testing "requestIdleCallback path is preferred when available"
@@ -264,14 +264,14 @@
   (let [timeouts (atom [])
         open-orders-calls (atom [])
         clearinghouse-calls (atom [])
-        store (atom {:wallet {:address "0xabc"}})]
+        store (atom {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}})]
     (with-redefs [platform/set-timeout! (fn [f delay-ms]
                                           (swap! timeouts conj delay-ms)
                                           (f)
                                           :timeout-id)]
       (startup-runtime/stage-b-account-bootstrap!
        {:store store
-        :address "0xabc"
+        :address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         :dexs ["dex-a" "dex-b"]
         :per-dex-stagger-ms 25
         :fetch-frontend-open-orders! (fn [_store address opts]
@@ -279,15 +279,15 @@
         :fetch-clearinghouse-state! (fn [_store address dex opts]
                                       (swap! clearinghouse-calls conj [address dex opts]))})
       (is (= [25 50] @timeouts))
-      (is (= [["0xabc" {:dex "dex-a" :priority :low}]
-              ["0xabc" {:dex "dex-b" :priority :low}]]
+      (is (= [["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {:dex "dex-a" :priority :low}]
+              ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {:dex "dex-b" :priority :low}]]
              @open-orders-calls))
-      (is (= [["0xabc" "dex-a" {:priority :low}]
-              ["0xabc" "dex-b" {:priority :low}]]
+      (is (= [["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" "dex-a" {:priority :low}]
+              ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" "dex-b" {:priority :low}]]
              @clearinghouse-calls))
       (startup-runtime/stage-b-account-bootstrap!
        {:store store
-        :address "0xabc"
+        :address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         :dexs {:dex-names ["dex-c" " " nil "dex-d"]
                :fee-config-by-name {"dex-c" {:deployer-fee-scale 0.1}
                                     "dex-d" {:deployer-fee-scale 0.2}}}
@@ -297,20 +297,20 @@
         :fetch-clearinghouse-state! (fn [_store address dex opts]
                                       (swap! clearinghouse-calls conj [address dex opts]))})
       (is (= [25 50 25 50] @timeouts))
-      (is (= [["0xabc" {:dex "dex-a" :priority :low}]
-              ["0xabc" {:dex "dex-b" :priority :low}]
-              ["0xabc" {:dex "dex-c" :priority :low}]
-              ["0xabc" {:dex "dex-d" :priority :low}]]
+      (is (= [["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {:dex "dex-a" :priority :low}]
+              ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {:dex "dex-b" :priority :low}]
+              ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {:dex "dex-c" :priority :low}]
+              ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {:dex "dex-d" :priority :low}]]
              @open-orders-calls))
-      (is (= [["0xabc" "dex-a" {:priority :low}]
-              ["0xabc" "dex-b" {:priority :low}]
-              ["0xabc" "dex-c" {:priority :low}]
-              ["0xabc" "dex-d" {:priority :low}]]
+      (is (= [["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" "dex-a" {:priority :low}]
+              ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" "dex-b" {:priority :low}]
+              ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" "dex-c" {:priority :low}]
+              ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" "dex-d" {:priority :low}]]
              @clearinghouse-calls))
-      (swap! store assoc-in [:wallet :address] "0xnew")
+      (swap! store assoc-in [:wallet :address] "0xcccccccccccccccccccccccccccccccccccccccc")
       (startup-runtime/stage-b-account-bootstrap!
        {:store store
-        :address "0xold"
+        :address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         :dexs ["dex-x"]
         :per-dex-stagger-ms 25
         :fetch-frontend-open-orders! (fn [_store address opts]
@@ -321,16 +321,40 @@
       (is (= 4 (count @clearinghouse-calls)))
       (startup-runtime/stage-b-account-bootstrap!
        {:store store
-        :address "0xnew"
+        :address "0xcccccccccccccccccccccccccccccccccccccccc"
         :dexs nil
         :per-dex-stagger-ms 25
         :fetch-frontend-open-orders! (fn [& _] (throw (js/Error. "should not run")))
         :fetch-clearinghouse-state! (fn [& _] (throw (js/Error. "should not run")))})
       (is (= [25 50 25 50 25] @timeouts)))))
 
+(deftest stage-b-account-bootstrap-uses-effective-address-for-stale-guard-test
+  (let [calls (atom [])
+        store (atom {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+                     :account-context {:ghost-mode {:active? true
+                                                    :address "0xcccccccccccccccccccccccccccccccccccccccc"}}})]
+    (with-redefs [platform/set-timeout! (fn [f _delay-ms]
+                                          (f)
+                                          :timeout-id)]
+      (startup-runtime/stage-b-account-bootstrap!
+       {:store store
+        :address "0xcccccccccccccccccccccccccccccccccccccccc"
+        :dexs ["dex-a"]
+        :per-dex-stagger-ms 25
+        :fetch-frontend-open-orders! (fn [_store address opts]
+                                       (swap! calls conj [:open-orders address opts]))
+        :fetch-clearinghouse-state! (fn [_store address dex opts]
+                                      (swap! calls conj [:clearinghouse address dex opts]))}))
+    (is (= [[:open-orders "0xcccccccccccccccccccccccccccccccccccccccc"
+             {:dex "dex-a" :priority :low}]
+            [:clearinghouse "0xcccccccccccccccccccccccccccccccccccccccc"
+             "dex-a"
+             {:priority :low}]]
+           @calls))))
+
 (deftest bootstrap-account-data-covers-nil-repeat-success-and-error-branches-test
   (async done
-    (let [store (atom {:wallet {:address "0xabc"}
+    (let [store (atom {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
                       :account-info {:selected-tab :balances
                                      :order-history {:request-id 0}}
                       :orders {:open-orders-snapshot-by-dex {"dex-old" [1]}
@@ -373,29 +397,29 @@
                           (swap! log-calls conj args))}]
       (startup-runtime/bootstrap-account-data! (assoc deps :address nil))
       (is (empty? @stage-a-calls))
-      (startup-runtime/bootstrap-account-data! (assoc deps :address "0xabc"))
+      (startup-runtime/bootstrap-account-data! (assoc deps :address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
       (js/setTimeout
        (fn []
          (is (= 8 (count @stage-a-calls)))
          (is (= [:order-history 1 {:priority :low}]
                 (first @stage-a-calls)))
-         (is (= [["0xabc" ["dex-a" "dex-b"]]] @stage-b-calls))
-         (is (= "0xabc" (:bootstrapped-address @startup-runtime-atom)))
+         (is (= [["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ["dex-a" "dex-b"]]] @stage-b-calls))
+         (is (= "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" (:bootstrapped-address @startup-runtime-atom)))
          (is (= 1 (get-in @store [:account-info :order-history :request-id])))
          (is (= {} (get-in @store [:orders :open-orders-snapshot-by-dex])))
          (is (= [] (get-in @store [:orders :fundings-raw])))
          (is (= [] (get-in @store [:orders :fundings])))
          (is (= [] (get-in @store [:orders :order-history])))
-         (startup-runtime/bootstrap-account-data! (assoc deps :address "0xabc"))
+         (startup-runtime/bootstrap-account-data! (assoc deps :address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
          (js/setTimeout
          (fn []
             (is (= 8 (count @stage-a-calls)))
             (is (= 1 (count @stage-b-calls)))
             (reset! ensure-mode :reject)
-            (startup-runtime/bootstrap-account-data! (assoc deps :address "0xdef"))
+            (startup-runtime/bootstrap-account-data! (assoc deps :address "0xffffffffffffffffffffffffffffffffffffffff"))
             (js/setTimeout
              (fn []
-               (is (= "0xdef" (:bootstrapped-address @startup-runtime-atom)))
+               (is (= "0xffffffffffffffffffffffffffffffffffffffff" (:bootstrapped-address @startup-runtime-atom)))
                (is (= 16 (count @stage-a-calls)))
                (is (= 1 (count @stage-b-calls)))
                (is (= "Error bootstrapping per-dex account data:"
@@ -425,7 +449,7 @@
                      :spot {:clearinghouse-state {:time 1}}
                      :account {:mode :unified
                                :abstraction-raw "raw"}})
-        startup-runtime-atom (atom {:bootstrapped-address "0xold"})
+        startup-runtime-atom (atom {:bootstrapped-address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"})
         init-calls (atom [])
         handler-calls (atom [])
         sync-calls (atom 0)
@@ -459,8 +483,8 @@
     (is (= 2 (count @handler-calls)))
     (is (= 1 @sync-calls))
     (let [address-handler (last @handler-calls)]
-      ((:on-change address-handler) "0xabc")
-      (is (= ["0xabc"] @bootstrap-calls))
+      ((:on-change address-handler) "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+      (is (= ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"] @bootstrap-calls))
       ((:on-change address-handler) nil)
       (is (nil? (:bootstrapped-address @startup-runtime-atom)))
       (is (= {} (get-in @store [:orders :open-orders-snapshot-by-dex])))
@@ -510,7 +534,7 @@
                                 :on-change on-change})
       :address-handler-name "startup-account-bootstrap-handler"})
     (let [address-handler (last @handlers)]
-      ((:on-change address-handler) "0xabc")
+      ((:on-change address-handler) "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
       (is (= [[store [[:actions/load-vault-route "/portfolio"]]]
               [store [[:actions/load-funding-comparison-route "/portfolio"]]]
               [store [[:actions/select-portfolio-chart-tab :returns]]]]

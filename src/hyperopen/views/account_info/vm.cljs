@@ -1,5 +1,6 @@
 (ns hyperopen.views.account-info.vm
   (:require [clojure.string :as str]
+            [hyperopen.account.context :as account-context]
             [hyperopen.asset-selector.markets :as markets]
             [hyperopen.views.account-info.derived-cache :as derived-cache]
             [hyperopen.views.account-info.projections :as projections]
@@ -292,20 +293,20 @@
                                   :filter-open? false}
                                  (get-in state [:account-info :open-orders] {}))
         websocket-health (get-in state [:websocket :health])
-        wallet-address (get-in state [:wallet :address])
+        effective-address (account-context/effective-account-address state)
         show-surface-freshness-cues?
         (boolean (get-in state [:websocket-ui :show-surface-freshness-cues?] false))
         freshness-cues (when show-surface-freshness-cues?
                         {:positions (ws-freshness/surface-cue websocket-health
                                                              {:topic "webData2"
-                                                              :selector (when wallet-address
-                                                                          {:user wallet-address})
+                                                              :selector (when effective-address
+                                                                          {:user effective-address})
                                                               :live-prefix "Updated"
                                                               :na-prefix "Last update"})
                          :open-orders (ws-freshness/surface-cue websocket-health
                                                                {:topic "openOrders"
-                                                                :selector (when wallet-address
-                                                                            {:user wallet-address})
+                                                                :selector (when effective-address
+                                                                            {:user effective-address})
                                                                 :live-prefix "Updated"
                                                                 :na-prefix "Last update"})})]
     {:selected-tab selected-tab

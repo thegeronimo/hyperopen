@@ -1,5 +1,6 @@
 (ns hyperopen.websocket.user
   (:require [clojure.string :as str]
+            [hyperopen.account.context :as account-context]
             [hyperopen.api.default :as api]
             [hyperopen.api.market-metadata.facade :as market-metadata]
             [hyperopen.api.promise-effects :as promise-effects]
@@ -68,7 +69,7 @@
       (.then (fn [data]
                (swap! store
                       (fn [state]
-                        (if (= address (get-in state [:wallet :address]))
+                        (if (= address (account-context/effective-account-address state))
                           (assoc-in state [:webdata2 :clearinghouseState] data)
                           state)))))
       (.catch (fn [err]
@@ -122,14 +123,14 @@
 
 (defn- schedule-account-surface-refresh-after-fill!
   [store]
-  (let [address (get-in @store [:wallet :address])]
+  (let [address (account-context/effective-account-address @store)]
     (when address
       (clear-account-surface-refresh-timeout!)
       (reset! account-surface-refresh-timeout-id
               (platform/set-timeout!
                (fn []
                  (reset! account-surface-refresh-timeout-id nil)
-                 (when (= address (get-in @store [:wallet :address]))
+                 (when (= address (account-context/effective-account-address @store))
                    (refresh-account-surfaces-after-user-fill! store address)))
                fill-account-surface-refresh-debounce-ms)))))
 

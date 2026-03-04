@@ -1,5 +1,6 @@
 (ns hyperopen.startup.runtime
   (:require [clojure.string :as str]
+            [hyperopen.account.context :as account-context]
             [hyperopen.platform :as platform]
             [hyperopen.wallet.address-watcher :as address-watcher]))
 
@@ -243,7 +244,7 @@
     (platform/set-timeout!
      (fn []
        ;; Guard against stale async callbacks for an old address.
-       (when (= address (get-in @store [:wallet :address]))
+       (when (= address (account-context/effective-account-address @store))
          (fetch-frontend-open-orders! store address {:dex dex
                                                      :priority :low})
          (fetch-clearinghouse-state! store address dex {:priority :low})))

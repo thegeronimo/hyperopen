@@ -332,11 +332,11 @@
 
 (deftest select-account-info-tab-order-history-skips-fetch-when-preloaded-data-is-fresh-test
   (with-redefs [platform/now-ms (constantly 200000)]
-    (let [state {:wallet {:address "0xAbC"}
+    (let [state {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
                  :account-info {:selected-tab :balances
                                 :order-history {:request-id 2
                                                 :loaded-at-ms 150000
-                                                :loaded-for-address "0xabc"
+                                                :loaded-for-address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                                                 :error nil}}
                  :orders {:order-history []}}
           effects (core/select-account-info-tab state :order-history)]
@@ -345,17 +345,17 @@
 
 (deftest select-account-info-tab-order-history-refetches-when-preload-is-stale-or-address-mismatched-test
   (with-redefs [platform/now-ms (constantly 200000)]
-    (let [stale-state {:wallet {:address "0xabc"}
+    (let [stale-state {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
                        :account-info {:selected-tab :balances
                                       :order-history {:request-id 2
                                                       :loaded-at-ms 100000
-                                                      :loaded-for-address "0xabc"
+                                                      :loaded-for-address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                                                       :error nil}}}
-          wrong-address-state {:wallet {:address "0xabc"}
+          wrong-address-state {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
                                :account-info {:selected-tab :balances
                                               :order-history {:request-id 2
                                                               :loaded-at-ms 199000
-                                                              :loaded-for-address "0xdef"
+                                                              :loaded-for-address "0xdddddddddddddddddddddddddddddddddddddddd"
                                                               :error nil}}}
           stale-effects (core/select-account-info-tab stale-state :order-history)
           wrong-address-effects (core/select-account-info-tab wrong-address-state :order-history)]

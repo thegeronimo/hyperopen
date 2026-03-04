@@ -238,15 +238,17 @@
                       :clearinghouse-state nil}
                :perp-dex-clearinghouse {}
                :websocket-ui {:show-surface-freshness-cues? true}
-               :wallet {:address "0xabc"}
+               :wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+               :account-context {:ghost-mode {:active? true
+                                              :address "0xdddddddddddddddddddddddddddddddddddddddd"}}
                :websocket {:health {:generated-at-ms 20000
-                                    :streams {["openOrders" nil "0xabc" nil nil]
+                                    :streams {["openOrders" nil "0xdddddddddddddddddddddddddddddddddddddddd" nil nil]
                                               {:topic "openOrders"
                                                :status :delayed
                                                :subscribed? true
                                                :last-payload-at-ms 8000
                                                :stale-threshold-ms 5000}
-                                              ["webData2" nil "0xabc" nil nil]
+                                              ["webData2" nil "0xdddddddddddddddddddddddddddddddddddddddd" nil nil]
                                               {:topic "webData2"
                                                :status :n-a
                                                :subscribed? true
@@ -264,9 +266,9 @@
                       :clearinghouse-state nil}
                :perp-dex-clearinghouse {}
                :websocket-ui {:show-surface-freshness-cues? false}
-               :wallet {:address "0xabc"}
+               :wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
                :websocket {:health {:generated-at-ms 20000
-                                    :streams {["openOrders" nil "0xabc" nil nil]
+                                    :streams {["openOrders" nil "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" nil nil]
                                               {:topic "openOrders"
                                                :status :delayed
                                                :subscribed? true

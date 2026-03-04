@@ -43,10 +43,12 @@
 
 (defn- base-history-state
   ([]
-   (base-history-state "0xabc"))
+   (base-history-state "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
   ([address]
    (let [filters (history-filters)]
      {:wallet {:address address}
+      :account-context {:ghost-mode {:active? false
+                                     :address nil}}
       :account-info {:selected-tab :balances
                      :funding-history {:filters filters
                                        :draft-filters filters
@@ -88,7 +90,7 @@
     (let [filters {:coin-set #{}
                    :start-time-ms 0
                    :end-time-ms 2000000000000}
-          store (atom {:wallet {:address "0xabc"}
+          store (atom {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
                        :account-info {:selected-tab :balances
                                       :loading false
                                       :error nil
@@ -173,11 +175,11 @@
                    :start-time-ms 0
                    :end-time-ms 2000000000000}
           calls (atom [])
-          current-store (atom (-> (base-history-state "0xabc")
+          current-store (atom (-> (base-history-state "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                                   (assoc-in [:account-info :funding-history :request-id] 9)
                                   (assoc-in [:account-info :funding-history :filters] filters)
                                   (assoc-in [:orders :fundings-raw] [existing-row])))
-          stale-store (atom (-> (base-history-state "0xabc")
+          stale-store (atom (-> (base-history-state "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                                 (assoc-in [:account-info :funding-history :request-id] 10)
                                 (assoc-in [:account-info :funding-history :filters] filters)
                                 (assoc-in [:orders :fundings-raw] [existing-row])))
@@ -193,7 +195,7 @@
                   (history-effects/api-fetch-user-funding-history-effect nil stale-store 9)])
             (.then (fn [_]
                      (is (= 2 (count @calls)))
-                     (is (= "0xabc" (first (first @calls))))
+                     (is (= "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" (first (first @calls))))
                      (is (= {:priority :high
                              :coin-set #{"BTC"}
                              :start-time-ms 0
@@ -213,9 +215,9 @@
 
 (deftest api-fetch-user-funding-history-effect-error-applies-only-current-request-test
   (async done
-    (let [current-store (atom (-> (base-history-state "0xabc")
+    (let [current-store (atom (-> (base-history-state "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                                   (assoc-in [:account-info :funding-history :request-id] 11)))
-          stale-store (atom (-> (base-history-state "0xabc")
+          stale-store (atom (-> (base-history-state "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                                 (assoc-in [:account-info :funding-history :request-id] 12)))
           stale-before @stale-store]
       (with-redefs [api/request-user-funding-history! (fn
@@ -258,10 +260,13 @@
                    :start-time-ms 0
                    :end-time-ms 2000000000000}
           calls (atom [])
-          current-store (atom (-> (base-history-state "0xabc")
+          current-store (atom (-> (base-history-state "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                                   (assoc-in [:account-info :funding-history :filters] filters)
                                   (assoc-in [:orders :fundings-raw] [existing-row])))
-          stale-store (atom (-> (base-history-state "0xdef")
+          stale-store (atom (-> (base-history-state "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                                (assoc-in [:account-context :ghost-mode]
+                                          {:active? true
+                                           :address "0xdddddddddddddddddddddddddddddddddddddddd"})
                                 (assoc-in [:account-info :funding-history :filters] filters)
                                 (assoc-in [:orders :fundings-raw] [existing-row])))
           stale-before @stale-store]
@@ -272,9 +277,9 @@
                                                          (swap! calls conj [_address opts])
                                                          (js/Promise.resolve [incoming-row])))]
         (-> (js/Promise.all
-             #js [(history-effects/fetch-and-merge-funding-history! current-store "0xabc" {:priority :low
+             #js [(history-effects/fetch-and-merge-funding-history! current-store "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {:priority :low
                                                                                             :tag :current})
-                  (history-effects/fetch-and-merge-funding-history! stale-store "0xabc" {:tag :stale})])
+                  (history-effects/fetch-and-merge-funding-history! stale-store "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {:tag :stale})])
             (.then (fn [_]
                      (is (= 2 (count @calls)))
                      (is (= {:priority :low
@@ -296,8 +301,11 @@
 
 (deftest fetch-and-merge-funding-history-error-sets-current-address-error-only-test
   (async done
-    (let [current-store (atom (base-history-state "0xabc"))
-          stale-store (atom (base-history-state "0xdef"))
+    (let [current-store (atom (base-history-state "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
+          stale-store (atom (-> (base-history-state "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                                (assoc-in [:account-context :ghost-mode]
+                                          {:active? true
+                                           :address "0xdddddddddddddddddddddddddddddddddddddddd"})))
           stale-before @stale-store]
       (with-redefs [api/request-user-funding-history! (fn
                                                         ([_address]
@@ -305,8 +313,8 @@
                                                         ([_address _opts]
                                                          (js/Promise.reject (js/Error. "merge-failure"))))]
         (-> (js/Promise.all
-             #js [(history-effects/fetch-and-merge-funding-history! current-store "0xabc" nil)
-                  (history-effects/fetch-and-merge-funding-history! stale-store "0xabc" nil)])
+             #js [(history-effects/fetch-and-merge-funding-history! current-store "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" nil)
+                  (history-effects/fetch-and-merge-funding-history! stale-store "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" nil)])
             (.then (fn [_]
                      (is (str/includes?
                           (get-in @current-store [:account-info :funding-history :error])
@@ -337,9 +345,9 @@
 (deftest api-fetch-historical-orders-effect-success-applies-only-current-request-test
   (async done
     (let [rows (list {:oid "a"} {:oid "b"})
-          current-store (atom (-> (base-history-state "0xabc")
+          current-store (atom (-> (base-history-state "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                                   (assoc-in [:account-info :order-history :request-id] 20)))
-          stale-store (atom (-> (base-history-state "0xabc")
+          stale-store (atom (-> (base-history-state "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                                 (assoc-in [:account-info :order-history :request-id] 21)))
           stale-before @stale-store]
       (with-redefs [api/request-historical-orders! (fn
@@ -354,7 +362,7 @@
                      (is (false? (get-in @current-store [:account-info :order-history :loading?])))
                      (is (nil? (get-in @current-store [:account-info :order-history :error])))
                      (is (number? (get-in @current-store [:account-info :order-history :loaded-at-ms])))
-                     (is (= "0xabc" (get-in @current-store [:account-info :order-history :loaded-for-address])))
+                     (is (= "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" (get-in @current-store [:account-info :order-history :loaded-for-address])))
                      (is (vector? (get-in @current-store [:orders :order-history])))
                      (is (= rows (seq (get-in @current-store [:orders :order-history]))))
                      (is (= stale-before @stale-store))
@@ -365,9 +373,9 @@
 
 (deftest api-fetch-historical-orders-effect-error-applies-only-current-request-test
   (async done
-    (let [current-store (atom (-> (base-history-state "0xabc")
+    (let [current-store (atom (-> (base-history-state "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                                   (assoc-in [:account-info :order-history :request-id] 30)))
-          stale-store (atom (-> (base-history-state "0xabc")
+          stale-store (atom (-> (base-history-state "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                                 (assoc-in [:account-info :order-history :request-id] 31)))
           stale-before @stale-store]
       (with-redefs [api/request-historical-orders! (fn
