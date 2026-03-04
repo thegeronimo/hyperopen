@@ -194,12 +194,13 @@
           [:h3 {:class ["text-sm" "font-semibold" "text-[#e5eef1]"]}
            "Watchlist"]]
          (if (seq watchlist)
-           [:ul {:class ["max-h-56" "space-y-2" "overflow-y-auto"]
-                 :data-role "ghost-mode-watchlist"}
-            (mapv (fn [address]
-                    ^{:key address}
-                    (watchlist-row address (= address active-address)))
-                  watchlist)]
+           (into
+            [:ul {:class ["max-h-56" "space-y-2" "overflow-y-auto"]
+                  :data-role "ghost-mode-watchlist"}]
+            (map (fn [address]
+                   ^{:key address}
+                   (watchlist-row address (= address active-address)))
+                 watchlist))
            [:div {:class ["rounded-lg"
                           "border"
                           "border-dashed"
