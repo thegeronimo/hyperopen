@@ -32,6 +32,12 @@
                               (and (string? border-top)
                                    (str/includes? border-top "1px dashed"))))))
 
+(defn- find-pnl-price-chip
+  [root]
+  (fake-dom/find-dom-node root
+                          (fn [node]
+                            (= "true" (aget node "data-position-pnl-price-chip")))))
+
 (defn- find-liquidation-drag-handle
   [root]
   (fake-dom/find-dom-node root
@@ -109,12 +115,19 @@
     (let [overlay-root (aget (.-children container) 0)
           text (str/join " " (fake-dom/collect-text-content overlay-root))
           pnl-badge (find-inline-badge overlay-root "PNL -$12.40 | 1.25")
+          pnl-chip (find-pnl-price-chip overlay-root)
+          pnl-chip-text (some->> pnl-chip
+                                 fake-dom/collect-text-content
+                                 (str/join " ")
+                                 str/trim)
           liq-badge (find-inline-badge overlay-root "Liq. Price")
           pnl-left (some-> pnl-badge .-style (aget "left") parse-px)
           liq-left (some-> liq-badge .-style (aget "left") parse-px)]
       (is (str/includes? text "PNL -$12.40 | 1.25"))
       (is (str/includes? text "Liq. Price"))
       (is (str/includes? text "$130"))
+      (is (some? pnl-chip))
+      (is (= "100" pnl-chip-text))
       (is (number? pnl-left))
       (is (number? liq-left))
       (is (<= 90 pnl-left 140) "PNL badge should stay inside readable zone, away from edges")
@@ -214,13 +227,52 @@
     (let [overlay-root (aget (.-children container) 0)
           pnl-badge (find-inline-badge overlay-root "PNL -$1.20 | 0.50")
           pnl-line (find-pnl-segment-line overlay-root)
+          pnl-chip (find-pnl-price-chip overlay-root)
           pnl-left (some-> pnl-line .-style (aget "left"))
           pnl-right (some-> pnl-line .-style (aget "right"))]
       (is (some? pnl-badge))
       (is (some? pnl-line))
+      (is (some? pnl-chip))
       (is (= "0px" pnl-left))
       (is (= "0px" pnl-right)))
     (position-overlays/clear-position-overlays! chart-obj)))
+
+(deftest position-overlays-colors-line-and-chip-by-pnl-sign-test
+  (let [cases [{:label "positive pnl uses green tone even for short side"
+                :overlay {:side :short
+                          :entry-price 102
+                          :unrealized-pnl 3.4
+                          :abs-size 1
+                          :entry-time 1700000000
+                          :entry-time-ms 1700000000000
+                          :latest-time 1700003600}
+                :expected-color "34, 201, 151"}
+               {:label "negative pnl uses red tone even for long side"
+                :overlay {:side :long
+                          :entry-price 98
+                          :unrealized-pnl -4.1
+                          :abs-size 1
+                          :entry-time 1700000000
+                          :entry-time-ms 1700000000000
+                          :latest-time 1700003600}
+                :expected-color "227, 95, 120"}]]
+    (doseq [{:keys [label overlay expected-color]} cases]
+      (let [{:keys [chart-obj document container]} (build-chart-fixture {})]
+        (position-overlays/sync-position-overlays!
+         chart-obj
+         container
+         overlay
+         {:document document})
+        (let [overlay-root (aget (.-children container) 0)
+              pnl-line (find-pnl-segment-line overlay-root)
+              pnl-chip (find-pnl-price-chip overlay-root)
+              border-top (some-> pnl-line .-style (aget "borderTop"))
+              chip-bg (some-> pnl-chip .-style (aget "background"))]
+          (is (some? pnl-line) label)
+          (is (some? pnl-chip) label)
+          (is (str/includes? border-top expected-color) label)
+          (is (str/includes? chip-bg expected-color) label))
+        (position-overlays/clear-position-overlays! chart-obj)))))
 
 (deftest position-overlays-keep-pnl-badge-left-aligned-when-position-is-near-right-edge-test
   (let [{:keys [chart-obj document container]}

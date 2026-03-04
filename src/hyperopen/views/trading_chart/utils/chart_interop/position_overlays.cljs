@@ -13,8 +13,12 @@
 (def ^:private dark-badge-bg "rgba(7, 17, 25, 0.82)")
 (def ^:private long-text-color "rgb(151, 252, 228)")
 (def ^:private short-text-color "rgb(244, 187, 198)")
+(def ^:private flat-line-color "rgba(148, 163, 184, 0.9)")
+(def ^:private flat-badge-color "rgba(148, 163, 184, 0.14)")
+(def ^:private flat-text-color "rgb(226, 232, 240)")
 (def ^:private liq-text-color "rgb(255, 196, 203)")
 (def ^:private liq-drag-text-color "rgb(252, 222, 157)")
+(def ^:private pnl-chip-text-color "rgb(248, 250, 252)")
 (def ^:private badge-char-width-px 6.2)
 (def ^:private chart-edge-padding-px 12)
 (def ^:private pnl-badge-left-anchor-ratio 0.17)
@@ -117,21 +121,34 @@
   (or document
       (some-> js/globalThis .-document)))
 
-(defn- side-key
+(defn- pnl-tone
   [overlay]
-  (if (= :short (:side overlay)) :short :long))
+  (let [pnl (parse-number (:unrealized-pnl overlay))]
+    (cond
+      (and (finite-number? pnl) (neg? pnl)) :loss
+      (and (finite-number? pnl) (pos? pnl)) :profit
+      :else :flat)))
 
-(defn- side-line-color
+(defn- pnl-line-color
   [overlay]
-  (if (= :short (side-key overlay)) short-line-color long-line-color))
+  (case (pnl-tone overlay)
+    :loss short-line-color
+    :profit long-line-color
+    flat-line-color))
 
-(defn- side-badge-color
+(defn- pnl-badge-color
   [overlay]
-  (if (= :short (side-key overlay)) short-badge-color long-badge-color))
+  (case (pnl-tone overlay)
+    :loss short-badge-color
+    :profit long-badge-color
+    flat-badge-color))
 
-(defn- side-text-color
+(defn- pnl-text-color
   [overlay]
-  (if (= :short (side-key overlay)) short-text-color long-text-color))
+  (case (pnl-tone overlay)
+    :loss short-text-color
+    :profit long-text-color
+    flat-text-color))
 
 (defn- format-price-text
   [format-price value]
@@ -152,6 +169,27 @@
       text
       :else
       (str "$" text))))
+
+(defn- strip-dollar-prefix
+  [text]
+  (cond
+    (str/starts-with? text "<$") (str "<" (subs text 2))
+    (str/starts-with? text "$") (subs text 1)
+    :else text))
+
+(defn- format-axis-price-text
+  [format-price value]
+  (let [formatted (or (when (fn? format-price)
+                         (or (try
+                               (format-price value value)
+                               (catch :default _ nil))
+                             (try
+                               (format-price value)
+                               (catch :default _ nil))))
+                       (account-shared/format-trade-price value)
+                       "0.00")
+        text (some-> formatted str str/trim strip-dollar-prefix)]
+    (if (seq text) text "0.00")))
 
 (defn- format-size-text
   [format-size value]
@@ -306,10 +344,10 @@
       "lineHeight" "16px"
       "fontWeight" "600"
       "borderRadius" "3px"
-      "border" (str "1px solid " (side-line-color overlay))
-      "background" (side-badge-color overlay)
+      "border" (str "1px solid " (pnl-line-color overlay))
+      "background" (pnl-badge-color overlay)
       "backdropFilter" "blur(0.5px)"
-      "color" (side-text-color overlay)
+      "color" (pnl-text-color overlay)
       "pointerEvents" "none"})
     (set! (.-textContent text-node) pnl-label-text)
     (apply-inline-style!
@@ -318,6 +356,38 @@
       "userSelect" "none"})
     (.appendChild badge text-node)
     (.appendChild row badge)
+    row))
+
+(defn- render-pnl-price-chip!
+  [document row overlay width]
+  (let [chip (.createElement document "div")
+        text-node (.createElement document "span")
+        safe-width (non-negative-number width 0)
+        chip-color (pnl-line-color overlay)]
+    (apply-inline-style!
+     chip
+     {"position" "absolute"
+      "left" (str safe-width "px")
+      "top" "0px"
+      "transform" "translate(2px, -50%)"
+      "display" "inline-flex"
+      "alignItems" "center"
+      "padding" "1px 6px"
+      "fontSize" "11px"
+      "lineHeight" "16px"
+      "fontWeight" "600"
+      "borderRadius" "2px"
+      "border" (str "1px solid " chip-color)
+      "background" chip-color
+      "color" pnl-chip-text-color
+      "whiteSpace" "nowrap"
+      "pointerEvents" "none"})
+    (.setAttribute chip "data-position-pnl-price-chip" "true")
+    (set! (.-textContent text-node)
+          (format-axis-price-text (:format-price overlay)
+                                  (:entry-price overlay)))
+    (.appendChild chip text-node)
+    (.appendChild row chip)
     row))
 
 (defn- build-pnl-row!
@@ -345,11 +415,12 @@
       "left" "0px"
       "right" "0px"
       "top" "0px"
-      "borderTop" (str "1px dashed " (side-line-color overlay))
+      "borderTop" (str "1px dashed " (pnl-line-color overlay))
       "opacity" "0.88"
       "pointerEvents" "none"})
     (.appendChild row line)
     (render-pnl-badge! document row overlay center-x pnl-label-text)
+    (render-pnl-price-chip! document row overlay width)
     row))
 
 (defn- build-liquidation-row!
