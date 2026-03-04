@@ -32,6 +32,21 @@
     (neg? raw-diff) ["text-[#ff6b8a]"]
     :else ["text-trading-text-secondary"]))
 
+(defn- sort-direction-icon
+  [direction]
+  [:svg {:class (into ["h-3" "w-3" "shrink-0" "opacity-70" "transition-transform"]
+                      (if (= :asc direction)
+                        ["rotate-180"]
+                        ["rotate-0"]))
+         :viewBox "0 0 12 12"
+         :aria-hidden true}
+   [:path {:d "M3 4.5L6 7.5L9 4.5"
+           :fill "none"
+           :stroke "currentColor"
+           :stroke-width "1.5"
+           :stroke-linecap "round"
+           :stroke-linejoin "round"}]])
+
 (defn- sort-header
   [label column sort-state]
   (let [active? (= column (:column sort-state))
@@ -46,8 +61,7 @@
               :on {:click [[:actions/set-funding-comparison-sort column]]}}
      [:span label]
      (when active?
-       [:span {:class ["text-xs"]}
-        (if (= :asc direction) "^" "v")])]))
+       (sort-direction-icon direction))]))
 
 (defn- favorite-button
   [{:keys [favorite? favorite-market-key]}]
