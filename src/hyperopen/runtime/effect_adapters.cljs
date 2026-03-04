@@ -1,21 +1,16 @@
 (ns hyperopen.runtime.effect-adapters
   (:require [nexus.registry :as nxr]
-            [hyperopen.platform :as platform]
             [hyperopen.api.default :as api]
             [hyperopen.api.projections :as api-projections]
             [hyperopen.account.history.effects :as account-history-effects]
-            [hyperopen.funding.history-cache :as funding-cache]
-            [hyperopen.funding.predictability :as funding-predictability]
             [hyperopen.runtime.effect-adapters.asset-selector :as asset-adapters]
             [hyperopen.runtime.effect-adapters.common :as common]
+            [hyperopen.runtime.effect-adapters.funding :as funding-adapters]
             [hyperopen.runtime.effect-adapters.order :as order-adapters]
             [hyperopen.runtime.effect-adapters.wallet :as wallet-adapters]
             [hyperopen.runtime.effect-adapters.websocket :as ws-adapters]
             [hyperopen.runtime.api-effects :as api-effects]
             [hyperopen.runtime.state :as runtime-state]
-            [hyperopen.telemetry :as telemetry]
-            [hyperopen.funding.effects :as funding-workflow-effects]
-            [hyperopen.funding-comparison.effects :as funding-effects]
             [hyperopen.vaults.effects :as vault-effects]
             [hyperopen.websocket.client :as ws-client]))
 
@@ -185,66 +180,8 @@
 
 (def make-api-submit-position-margin order-adapters/make-api-submit-position-margin)
 
-(defn- funding-predictability-path
-  [bucket coin]
-  [:active-assets :funding-predictability bucket coin])
-
-(defn- set-funding-predictability-loading!
-  [store coin loading?]
-  (swap! store
-         (fn [state]
-           (-> state
-               (assoc-in (funding-predictability-path :loading-by-coin coin)
-                         loading?)
-               (assoc-in (funding-predictability-path :error-by-coin coin)
-                         nil)))))
-
-(defn- set-funding-predictability-success!
-  [store coin summary loaded-at-ms]
-  (swap! store
-         (fn [state]
-           (-> state
-               (assoc-in (funding-predictability-path :loading-by-coin coin)
-                         false)
-               (assoc-in (funding-predictability-path :error-by-coin coin)
-                         nil)
-               (assoc-in (funding-predictability-path :by-coin coin)
-                         summary)
-               (assoc-in (funding-predictability-path :loaded-at-ms-by-coin coin)
-                         loaded-at-ms)))))
-
-(defn- set-funding-predictability-error!
-  [store coin error-message loaded-at-ms]
-  (swap! store
-         (fn [state]
-           (-> state
-               (assoc-in (funding-predictability-path :loading-by-coin coin)
-                         false)
-               (assoc-in (funding-predictability-path :error-by-coin coin)
-                         error-message)
-               (assoc-in (funding-predictability-path :loaded-at-ms-by-coin coin)
-                         loaded-at-ms)))))
-
-(defn sync-active-asset-funding-predictability
-  [_ store coin]
-  (if-let [coin* (funding-cache/normalize-coin coin)]
-    (do
-      (set-funding-predictability-loading! store coin* true)
-      (-> (apply funding-cache/sync-market-funding-history-cache!
-                 [coin*])
-          (.then (fn [{:keys [rows]}]
-                   (let [now-ms (platform/now-ms)
-                         rows* (funding-cache/rows-for-window rows
-                                                              now-ms
-                                                              funding-predictability/thirty-day-window-ms)
-                         summary (funding-predictability/compute-30d-summary rows* now-ms)]
-                     (set-funding-predictability-success! store coin* summary now-ms))))
-          (.catch (fn [error]
-                    (let [now-ms (platform/now-ms)
-                          error-message (or (some-> error .-message)
-                                            (str error))]
-                      (set-funding-predictability-error! store coin* error-message now-ms))))))
-    (js/Promise.resolve nil)))
+(def sync-active-asset-funding-predictability
+  funding-adapters/sync-active-asset-funding-predictability)
 
 (defn fetch-asset-selector-markets-effect
   [_ store & [opts]]
@@ -271,14 +208,8 @@
     :apply-user-fills-error api-projections/apply-user-fills-error
     :fetch-and-merge-funding-history! account-history-effects/fetch-and-merge-funding-history!}))
 
-(defn api-fetch-predicted-fundings-effect
-  [_ store]
-  (funding-effects/api-fetch-predicted-fundings!
-   {:store store
-    :request-predicted-fundings! api/request-predicted-fundings!
-    :begin-funding-comparison-load api-projections/begin-funding-comparison-load
-    :apply-funding-comparison-success api-projections/apply-funding-comparison-success
-    :apply-funding-comparison-error api-projections/apply-funding-comparison-error}))
+(def api-fetch-predicted-fundings-effect
+  funding-adapters/api-fetch-predicted-fundings-effect)
 
 (defn api-fetch-vault-index-effect
   [_ store]
@@ -379,54 +310,32 @@
     :runtime-error-message runtime-error-message
     :show-toast! show-order-feedback-toast!}))
 
-(defn api-fetch-hyperunit-fee-estimate-effect
-  [_ store]
-  (funding-workflow-effects/api-fetch-hyperunit-fee-estimate!
-   {:store store
-    :request-hyperunit-estimate-fees! api/request-hyperunit-estimate-fees!
-    :now-ms-fn platform/now-ms
-    :runtime-error-message runtime-error-message}))
+(def api-fetch-hyperunit-fee-estimate-effect
+  funding-adapters/api-fetch-hyperunit-fee-estimate-effect)
 
-(defn api-fetch-hyperunit-withdrawal-queue-effect
-  [_ store]
-  (funding-workflow-effects/api-fetch-hyperunit-withdrawal-queue!
-   {:store store
-    :request-hyperunit-withdrawal-queue! api/request-hyperunit-withdrawal-queue!
-    :now-ms-fn platform/now-ms
-    :runtime-error-message runtime-error-message}))
+(def api-fetch-hyperunit-withdrawal-queue-effect
+  funding-adapters/api-fetch-hyperunit-withdrawal-queue-effect)
 
 (defn api-submit-funding-transfer-effect
   [_ store request]
-  (funding-workflow-effects/api-submit-funding-transfer!
-   {:store store
-    :request request
-    :dispatch! nxr/dispatch
-    :exchange-response-error exchange-response-error
-    :runtime-error-message runtime-error-message
-    :show-toast! show-order-feedback-toast!}))
+  (apply funding-adapters/api-submit-funding-transfer-effect
+         [nil
+          store
+          request
+          {:show-toast! show-order-feedback-toast!}]))
 
 (defn api-submit-funding-withdraw-effect
   [_ store request]
-  (funding-workflow-effects/api-submit-funding-withdraw!
-   {:store store
-    :request request
-    :dispatch! nxr/dispatch
-    :request-hyperunit-operations! api/request-hyperunit-operations!
-    :request-hyperunit-withdrawal-queue! api/request-hyperunit-withdrawal-queue!
-    :set-timeout-fn platform/set-timeout!
-    :now-ms-fn platform/now-ms
-    :exchange-response-error exchange-response-error
-    :runtime-error-message runtime-error-message
-    :show-toast! show-order-feedback-toast!}))
+  (apply funding-adapters/api-submit-funding-withdraw-effect
+         [nil
+          store
+          request
+          {:show-toast! show-order-feedback-toast!}]))
 
 (defn api-submit-funding-deposit-effect
   [_ store request]
-  (funding-workflow-effects/api-submit-funding-deposit!
-   {:store store
-    :request request
-    :dispatch! nxr/dispatch
-    :request-hyperunit-operations! api/request-hyperunit-operations!
-    :set-timeout-fn platform/set-timeout!
-    :now-ms-fn platform/now-ms
-    :runtime-error-message runtime-error-message
-    :show-toast! show-order-feedback-toast!}))
+  (apply funding-adapters/api-submit-funding-deposit-effect
+         [nil
+          store
+          request
+          {:show-toast! show-order-feedback-toast!}]))

@@ -42,7 +42,11 @@ A contributor can verify success by confirming the monolith file is reduced to f
 - [x] (2026-03-04 03:35Z) Added order facade parity assertions in `/hyperopen/test/hyperopen/runtime/effect_adapters_test.cljs`.
 - [x] (2026-03-04 03:36Z) Re-ran required gates after order extraction: `npm run check`, `npm test`, `npm run test:websocket` (all green).
 - [x] Milestone 3: Extract wallet + order adapters into dedicated namespaces.
-- [ ] Milestone 4: Extract funding + vault adapters into dedicated namespaces.
+- [x] (2026-03-04 02:21Z) Extracted funding adapters into `/hyperopen/src/hyperopen/runtime/effect_adapters/funding.cljs`: funding predictability projection plus predicted-funding/funding-workflow API wrappers.
+- [x] (2026-03-04 02:21Z) Rewired funding exports in `/hyperopen/src/hyperopen/runtime/effect_adapters.cljs` to delegate to `funding` module while preserving facade-owned order toast seam injection for funding submit adapters.
+- [x] (2026-03-04 02:21Z) Added funding facade parity + submit-wrapper seam regression coverage in `/hyperopen/test/hyperopen/runtime/effect_adapters_test.cljs`.
+- [x] (2026-03-04 02:21Z) Re-ran required gates after funding extraction: `npm run check`, `npm test`, `npm run test:websocket` (all green).
+- [ ] Milestone 4: Extract funding + vault adapters into dedicated namespaces (completed: funding extraction in `hyperopen-63a.6`; remaining: vault extraction in `hyperopen-63a.7`).
 - [ ] Milestone 5: Decompose tests by subdomain, add facade contract assertions, and run required gates.
 
 ## Surprises & Discoveries
@@ -55,6 +59,9 @@ A contributor can verify success by confirming the monolith file is reduced to f
 
 - Observation: After installing dependencies in this worktree, `npm test` works as documented (the previous missing `shadow-cljs`/`@noble/secp256k1` errors were environment bootstrap issues, not code regressions).
   Evidence: `npm test` passed with `Ran 1822 tests containing 9431 assertions. 0 failures, 0 errors.`
+
+- Observation: ClojureScript `with-redefs` against multi-arity adapter functions can fail if facade wrappers call `arity$N` directly.
+  Evidence: `npm test` initially failed in `hyperopen.runtime.effect-adapters-test` with `TypeError: ... api_submit_funding_transfer_effect.cljs$core$IFn$_invoke$arity$4 is not a function` until submit wrappers used `apply`.
 
 ## Decision Log
 
@@ -90,9 +97,13 @@ A contributor can verify success by confirming the monolith file is reduced to f
   Rationale: Funding/vault submit adapters and wallet disconnect currently rely on order toast collaborators; private facade aliases preserve existing call sites while removing order implementation logic from the monolith.
   Date/Author: 2026-03-04 / Codex
 
+- Decision: Keep funding submit facade wrappers as explicit wrapper functions and invoke funding module submit effects via `apply`.
+  Rationale: The wrappers preserve facade toast-seam injection while `apply` keeps `with-redefs` test seams stable for multi-arity adapter function redefinitions.
+  Date/Author: 2026-03-04 / Codex
+
 ## Outcomes & Retrospective
 
-Five extraction slices are complete: subdomain scaffold + shared helper seam (`common`), websocket/diagnostics seam (`websocket`), asset-selector seam (`asset_selector`), wallet seam (`wallet`), and order seam (`order`). The facade now delegates most websocket, asset-selector, wallet, and order behavior while preserving compatibility exports and override seams. Remaining work is concentrated in funding/vault extraction and test decomposition milestones.
+Six extraction slices are complete: subdomain scaffold + shared helper seam (`common`), websocket/diagnostics seam (`websocket`), asset-selector seam (`asset_selector`), wallet seam (`wallet`), order seam (`order`), and funding seam (`funding`). The facade now delegates websocket, asset-selector, wallet, order, and funding behavior while preserving compatibility exports and override seams. Remaining work is concentrated in vault extraction and test decomposition milestones.
 
 ## Context and Orientation
 

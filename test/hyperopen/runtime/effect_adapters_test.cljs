@@ -7,6 +7,7 @@
             [hyperopen.runtime.effect-adapters.asset-selector :as asset-adapters]
             [hyperopen.runtime.effect-adapters :as effect-adapters]
             [hyperopen.runtime.effect-adapters.common :as common]
+            [hyperopen.runtime.effect-adapters.funding :as funding-adapters]
             [hyperopen.runtime.effect-adapters.order :as order-adapters]
             [hyperopen.runtime.effect-adapters.wallet :as wallet-adapters]
             [hyperopen.runtime.effect-adapters.websocket :as ws-adapters]
@@ -80,6 +81,58 @@
   (is (identical? order-adapters/make-api-cancel-order effect-adapters/make-api-cancel-order))
   (is (identical? order-adapters/make-api-submit-position-tpsl effect-adapters/make-api-submit-position-tpsl))
   (is (identical? order-adapters/make-api-submit-position-margin effect-adapters/make-api-submit-position-margin)))
+
+(deftest facade-funding-adapters-delegate-to-funding-module-test
+  (is (identical? funding-adapters/sync-active-asset-funding-predictability
+                  effect-adapters/sync-active-asset-funding-predictability))
+  (is (identical? funding-adapters/api-fetch-predicted-fundings-effect
+                  effect-adapters/api-fetch-predicted-fundings-effect))
+  (is (identical? funding-adapters/api-fetch-hyperunit-fee-estimate-effect
+                  effect-adapters/api-fetch-hyperunit-fee-estimate-effect))
+  (is (identical? funding-adapters/api-fetch-hyperunit-withdrawal-queue-effect
+                  effect-adapters/api-fetch-hyperunit-withdrawal-queue-effect)))
+
+(deftest funding-submit-wrappers-inject-order-toast-seam-test
+  (let [runtime-store (atom {})
+        request {:coin "BTC"}
+        transfer-call (atom nil)
+        withdraw-call (atom nil)
+        deposit-call (atom nil)]
+    (letfn [(capture-transfer-call!
+              [ctx store* request* opts]
+              (reset! transfer-call {:ctx ctx
+                                     :store store*
+                                     :request request*
+                                     :opts opts}))
+            (capture-withdraw-call!
+              [ctx store* request* opts]
+              (reset! withdraw-call {:ctx ctx
+                                     :store store*
+                                     :request request*
+                                     :opts opts}))
+            (capture-deposit-call!
+              [ctx store* request* opts]
+              (reset! deposit-call {:ctx ctx
+                                    :store store*
+                                    :request request*
+                                    :opts opts}))]
+      (with-redefs [funding-adapters/api-submit-funding-transfer-effect capture-transfer-call!
+                    funding-adapters/api-submit-funding-withdraw-effect capture-withdraw-call!
+                    funding-adapters/api-submit-funding-deposit-effect capture-deposit-call!]
+        (effect-adapters/api-submit-funding-transfer-effect nil runtime-store request)
+        (effect-adapters/api-submit-funding-withdraw-effect nil runtime-store request)
+        (effect-adapters/api-submit-funding-deposit-effect nil runtime-store request)))
+    (doseq [{:keys [ctx store request opts]} [@transfer-call
+                                              @withdraw-call
+                                              @deposit-call]]
+      (is (nil? ctx))
+      (is (identical? runtime-store store))
+      (is (= {:coin "BTC"} request))
+      (is (fn? (:show-toast! opts))))
+    ((:show-toast! (:opts @transfer-call)) runtime-store :success "Funding submitted")
+    (is (= {:kind :success
+            :message "Funding submitted"}
+           (get-in @runtime-store [:ui :toast])))))
 
 (deftest subscribe-active-asset-persists-through-local-storage-effect-boundary-test
   (let [persist-calls (atom [])
