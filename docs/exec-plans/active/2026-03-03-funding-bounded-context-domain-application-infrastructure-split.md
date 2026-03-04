@@ -45,6 +45,8 @@ The change will make the funding surface safer to extend: domain rules become pu
 - [x] (2026-03-03 23:53Z) Milestone 5 validation completed for policy+deposit-submit slices: `npx shadow-cljs compile app`, `npx shadow-cljs compile test`, `npm run check`, `npm test`, and `npm run test:websocket` all passed after extraction.
 - [x] (2026-03-03 23:58Z) Milestone 4 follow-up: extracted HyperUnit existing-address selection/prefetch and fee/withdrawal-queue fetch orchestration from `/hyperopen/src/hyperopen/funding/effects.cljs` into `/hyperopen/src/hyperopen/funding/application/hyperunit_query.cljs`, preserving private-var compatibility wrappers in `effects` for tests.
 - [x] (2026-03-03 23:58Z) Milestone 5 validation completed for hyperunit-query slice: `npx shadow-cljs compile app`, `npx shadow-cljs compile test`, `npm run check`, `npm test`, and `npm run test:websocket` all passed after extraction.
+- [x] (2026-03-03 23:59Z) Committed consolidated extraction slice as `1d7d18f` (`refactor(funding): split modal policy and hyperunit/deposit queries`).
+- [ ] (2026-03-03 23:59Z) Milestone 6 remote sync blocked in this environment: `git pull --rebase`/`git push` failed with GitHub SSH auth (`Permission denied (publickey)`), and `bd dolt push` reported no configured Dolt remote (`origin` not found).
 - [ ] Milestone 4 remaining: optional final cleanup split for residual lifecycle/operation utility helpers still in `/hyperopen/src/hyperopen/funding/effects.cljs` (`select-operation`, polling token utilities, and lifecycle conversion helpers) if we want a strictly facade-only file.
 - [ ] Milestone 6: Land tracking and governance updates (`bd`, optional ADR) and complete handoff.
 
