@@ -18,6 +18,56 @@
 
 (def ^:private fill-account-surface-refresh-debounce-ms 250)
 
+(defn- normalized-address
+  [value]
+  (account-context/normalize-address value))
+
+(defn- active-effective-address
+  [store]
+  (some-> (account-context/effective-account-address @store)
+          normalized-address))
+
+(defn- message-address
+  [msg]
+  (or (normalized-address (:user msg))
+      (normalized-address (:address msg))
+      (normalized-address (:walletAddress msg))
+      (normalized-address (get-in msg [:data :user]))
+      (normalized-address (get-in msg [:data :address]))
+      (normalized-address (get-in msg [:data :walletAddress]))
+      (normalized-address (get-in msg [:data :wallet]))))
+
+(defn- message-for-active-address?
+  [store msg]
+  (let [msg-address (message-address msg)
+        active-address (active-effective-address store)]
+    (if msg-address
+      (and active-address
+           (= msg-address active-address))
+      true)))
+
+(defn- requested-address-active?
+  [store requested-address]
+  (let [requested-address* (normalized-address requested-address)
+        active-address (active-effective-address store)]
+    (and requested-address*
+         active-address
+         (= requested-address* active-address))))
+
+(defn- apply-success-and-return-when-address-active
+  [store requested-address apply-fn & leading-args]
+  (fn [payload]
+    (when (requested-address-active? store requested-address)
+      (apply swap! store apply-fn (concat leading-args [payload])))
+    payload))
+
+(defn- apply-error-and-reject-when-address-active
+  [store requested-address apply-error-fn & leading-args]
+  (fn [err]
+    (when (requested-address-active? store requested-address)
+      (apply swap! store apply-error-fn (concat leading-args [err])))
+    (promise-effects/reject-error err)))
+
 (defn- subscribe! [sub]
   (ws-client/send-message! {:method "subscribe"
                             :subscription sub}))
@@ -55,12 +105,14 @@
   (-> (api/request-frontend-open-orders! address
                                          (cond-> (or opts {})
                                            (and dex (not= dex "")) (assoc :dex dex)))
-      (.then (promise-effects/apply-success-and-return
+      (.then (apply-success-and-return-when-address-active
               store
+              address
               api-projections/apply-open-orders-success
               dex))
-      (.catch (promise-effects/apply-error-and-reject
+      (.catch (apply-error-and-reject-when-address-active
                store
+               address
                api-projections/apply-open-orders-error))))
 
 (defn- refresh-default-clearinghouse-snapshot!
@@ -78,22 +130,26 @@
 (defn- refresh-spot-clearinghouse-snapshot!
   [store address opts]
   (-> (api/request-spot-clearinghouse-state! address opts)
-      (.then (promise-effects/apply-success-and-return
+      (.then (apply-success-and-return-when-address-active
               store
+              address
               api-projections/apply-spot-balances-success))
-      (.catch (promise-effects/apply-error-and-reject
+      (.catch (apply-error-and-reject-when-address-active
                store
+               address
                api-projections/apply-spot-balances-error))))
 
 (defn- refresh-perp-dex-clearinghouse-snapshot!
   [store address dex opts]
   (-> (api/request-clearinghouse-state! address dex opts)
-      (.then (promise-effects/apply-success-and-return
+      (.then (apply-success-and-return-when-address-active
               store
+              address
               api-projections/apply-perp-dex-clearinghouse-success
               dex))
-      (.catch (promise-effects/apply-error-and-reject
+      (.catch (apply-error-and-reject-when-address-active
                store
+               address
                api-projections/apply-perp-dex-clearinghouse-error))))
 
 (defn- refresh-account-surfaces-after-user-fill!
@@ -246,12 +302,14 @@
 
 (defn- open-orders-handler [store]
   (fn [msg]
-    (when (= "openOrders" (:channel msg))
+    (when (and (= "openOrders" (:channel msg))
+               (message-for-active-address? store msg))
       (swap! store assoc-in [:orders :open-orders] (:data msg)))))
 
 (defn- user-fills-handler [store]
   (fn [msg]
-    (when (= "userFills" (:channel msg))
+    (when (and (= "userFills" (:channel msg))
+               (message-for-active-address? store msg))
       (let [{:keys [rows snapshot?]} (extract-channel-rows msg :fills)]
         (when (seq rows)
           (if snapshot?
@@ -265,7 +323,8 @@
 
 (defn- user-fundings-handler [store]
   (fn [msg]
-    (when (= "userFundings" (:channel msg))
+    (when (and (= "userFundings" (:channel msg))
+               (message-for-active-address? store msg))
       (let [{:keys [rows]} (extract-channel-rows msg :fundings)
             normalized (funding-history/normalize-ws-funding-rows rows)]
         (when (seq normalized)
@@ -284,7 +343,8 @@
 
 (defn- user-ledger-handler [store]
   (fn [msg]
-    (when (= "userNonFundingLedgerUpdates" (:channel msg))
+    (when (and (= "userNonFundingLedgerUpdates" (:channel msg))
+               (message-for-active-address? store msg))
       (let [{:keys [rows snapshot?]} (extract-channel-rows msg :nonFundingLedgerUpdates)]
         (when (seq rows)
           (if snapshot?

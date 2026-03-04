@@ -1,6 +1,7 @@
 (ns hyperopen.startup.collaborators
   (:require [clojure.string :as str]
             [nexus.registry :as nxr]
+            [hyperopen.account.context :as account-context]
             [hyperopen.api.default :as api-default]
             [hyperopen.api.endpoints.account :as account-endpoints]
             [hyperopen.api.promise-effects :as promise-effects]
@@ -22,6 +23,32 @@
   (or (get api-instance key)
       fallback))
 
+(defn- normalize-address
+  [address]
+  (account-context/normalize-address address))
+
+(defn- requested-address-current?
+  [store requested-address]
+  (let [requested-address* (normalize-address requested-address)
+        active-address* (normalize-address (account-context/effective-account-address @store))]
+    (and requested-address*
+         active-address*
+         (= requested-address* active-address*))))
+
+(defn- apply-success-and-return-when-current
+  [store requested-address apply-fn & leading-args]
+  (fn [payload]
+    (when (requested-address-current? store requested-address)
+      (apply swap! store apply-fn (concat leading-args [payload])))
+    payload))
+
+(defn- apply-error-and-reject-when-current
+  [store requested-address apply-error-fn & leading-args]
+  (fn [err]
+    (when (requested-address-current? store requested-address)
+      (apply swap! store apply-error-fn (concat leading-args [err])))
+    (promise-effects/reject-error err)))
+
 (defn- resolve-api-ops
   [api-instance]
   {:get-request-stats (resolve-api-op api-instance :get-request-stats api-default/get-request-stats)
@@ -42,15 +69,18 @@
   ([api-ops store address]
    (fetch-frontend-open-orders! api-ops store address {}))
   ([{:keys [request-frontend-open-orders!]} store address opts]
-   (let [opts* (or opts {})
+   (let [requested-address (normalize-address address)
+         opts* (or opts {})
          dex (:dex opts*)]
      (-> (request-frontend-open-orders! address opts*)
-         (.then (promise-effects/apply-success-and-return
+         (.then (apply-success-and-return-when-current
                  store
+                 requested-address
                  api-projections/apply-open-orders-success
                  dex))
-         (.catch (promise-effects/apply-error-and-reject
+         (.catch (apply-error-and-reject-when-current
                   store
+                  requested-address
                   api-projections/apply-open-orders-error)))))
   ([api-ops store address dex opts]
    (fetch-frontend-open-orders! api-ops store address
@@ -61,26 +91,32 @@
   ([api-ops store address dex]
    (fetch-clearinghouse-state! api-ops store address dex {}))
   ([{:keys [request-clearinghouse-state!]} store address dex opts]
-   (-> (request-clearinghouse-state! address dex opts)
-       (.then (promise-effects/apply-success-and-return
-               store
-               api-projections/apply-perp-dex-clearinghouse-success
-               dex))
-       (.catch (promise-effects/apply-error-and-reject
-                store
-                api-projections/apply-perp-dex-clearinghouse-error)))))
+   (let [requested-address (normalize-address address)]
+     (-> (request-clearinghouse-state! address dex opts)
+         (.then (apply-success-and-return-when-current
+                 store
+                 requested-address
+                 api-projections/apply-perp-dex-clearinghouse-success
+                 dex))
+         (.catch (apply-error-and-reject-when-current
+                  store
+                  requested-address
+                  api-projections/apply-perp-dex-clearinghouse-error))))))
 
 (defn- fetch-user-fills!
   ([api-ops store address]
    (fetch-user-fills! api-ops store address {}))
   ([{:keys [request-user-fills!]} store address opts]
-   (-> (request-user-fills! address opts)
-       (.then (promise-effects/apply-success-and-return
-               store
-               api-projections/apply-user-fills-success))
-       (.catch (promise-effects/apply-error-and-reject
-                store
-                api-projections/apply-user-fills-error)))))
+   (let [requested-address (normalize-address address)]
+     (-> (request-user-fills! address opts)
+         (.then (apply-success-and-return-when-current
+                 store
+                 requested-address
+                 api-projections/apply-user-fills-success))
+         (.catch (apply-error-and-reject-when-current
+                  store
+                  requested-address
+                  api-projections/apply-user-fills-error))))))
 
 (defn- fetch-spot-clearinghouse-state!
   ([api-ops store address]
@@ -88,15 +124,18 @@
   ([{:keys [request-spot-clearinghouse-state!]} store address opts]
    (if-not address
      (js/Promise.resolve nil)
-     (do
-       (swap! store api-projections/begin-spot-balances-load)
-       (-> (request-spot-clearinghouse-state! address opts)
-           (.then (promise-effects/apply-success-and-return
-                   store
-                   api-projections/apply-spot-balances-success))
-           (.catch (promise-effects/apply-error-and-reject
-                    store
-                    api-projections/apply-spot-balances-error)))))))
+     (let [requested-address (normalize-address address)]
+       (do
+         (swap! store api-projections/begin-spot-balances-load)
+         (-> (request-spot-clearinghouse-state! address opts)
+             (.then (apply-success-and-return-when-current
+                     store
+                     requested-address
+                     api-projections/apply-spot-balances-success))
+             (.catch (apply-error-and-reject-when-current
+                      store
+                      requested-address
+                      api-projections/apply-spot-balances-error))))))))
 
 (defn- fetch-user-abstraction!
   ([api-ops store address]
@@ -178,38 +217,48 @@
             request-user-non-funding-ledger-updates!]} store address opts]
    (if-not address
      (js/Promise.resolve {})
-     (do
-       (swap! store api-projections/begin-portfolio-load)
-       (-> (request-portfolio! address opts)
-           (.then (fn [summary-by-key]
-                    (let [summary* (or summary-by-key {})
-                          {:keys [start-time-ms end-time-ms]} (portfolio-summary-time-window summary*)]
-                      (swap! store api-projections/apply-portfolio-success summary*)
-                      (if (and (fn? request-user-non-funding-ledger-updates!)
-                               (number? start-time-ms)
-                               (number? end-time-ms)
-                               (<= start-time-ms end-time-ms))
-                        (-> (request-user-non-funding-ledger-updates! address
-                                                                       start-time-ms
-                                                                       end-time-ms
-                                                                       (dissoc (or opts {}) :dedupe-key))
-                            (.then (fn [rows]
-                                     (swap! store assoc-in [:portfolio :ledger-updates] (normalize-ledger-updates rows))
-                                     (swap! store assoc-in [:portfolio :ledger-loaded-at-ms] (.now js/Date))
-                                     (swap! store assoc-in [:portfolio :ledger-error] nil)
-                                     summary*))
-                            (.catch (fn [err]
-                                      ;; Portfolio summary should remain available even if ledger fetch fails.
-                                      (swap! store assoc-in [:portfolio :ledger-error] (error-text err))
-                                      (js/Promise.resolve summary*))))
-                        (do
-                          (swap! store assoc-in [:portfolio :ledger-updates] [])
-                          (swap! store assoc-in [:portfolio :ledger-loaded-at-ms] nil)
-                          (swap! store assoc-in [:portfolio :ledger-error] nil)
-                          (js/Promise.resolve summary*))))))
-           (.catch (promise-effects/apply-error-and-reject
-                    store
-                    api-projections/apply-portfolio-error)))))))
+     (let [requested-address (normalize-address address)]
+       (if-not requested-address
+         (js/Promise.resolve {})
+         (do
+           (swap! store api-projections/begin-portfolio-load)
+           (-> (request-portfolio! address opts)
+               (.then (fn [summary-by-key]
+                        (let [summary* (or summary-by-key {})
+                              {:keys [start-time-ms end-time-ms]} (portfolio-summary-time-window summary*)]
+                          (if-not (requested-address-current? store requested-address)
+                            summary*
+                            (do
+                              (swap! store api-projections/apply-portfolio-success summary*)
+                              (if (and (fn? request-user-non-funding-ledger-updates!)
+                                       (number? start-time-ms)
+                                       (number? end-time-ms)
+                                       (<= start-time-ms end-time-ms))
+                                (-> (request-user-non-funding-ledger-updates! address
+                                                                               start-time-ms
+                                                                               end-time-ms
+                                                                               (dissoc (or opts {}) :dedupe-key))
+                                    (.then (fn [rows]
+                                             (when (requested-address-current? store requested-address)
+                                               (swap! store assoc-in [:portfolio :ledger-updates] (normalize-ledger-updates rows))
+                                               (swap! store assoc-in [:portfolio :ledger-loaded-at-ms] (.now js/Date))
+                                               (swap! store assoc-in [:portfolio :ledger-error] nil))
+                                             summary*))
+                                    (.catch (fn [err]
+                                              ;; Portfolio summary should remain available even if ledger fetch fails.
+                                              (when (requested-address-current? store requested-address)
+                                                (swap! store assoc-in [:portfolio :ledger-error] (error-text err)))
+                                              (js/Promise.resolve summary*))))
+                                (do
+                                  (when (requested-address-current? store requested-address)
+                                    (swap! store assoc-in [:portfolio :ledger-updates] [])
+                                    (swap! store assoc-in [:portfolio :ledger-loaded-at-ms] nil)
+                                    (swap! store assoc-in [:portfolio :ledger-error] nil))
+                                  (js/Promise.resolve summary*))))))))
+               (.catch (apply-error-and-reject-when-current
+                        store
+                        requested-address
+                        api-projections/apply-portfolio-error)))))))))
 
 (defn- fetch-user-fees!
   ([api-ops store address]
@@ -217,15 +266,20 @@
   ([{:keys [request-user-fees!]} store address opts]
    (if-not address
      (js/Promise.resolve nil)
-     (do
-       (swap! store api-projections/begin-user-fees-load)
-       (-> (request-user-fees! address opts)
-           (.then (promise-effects/apply-success-and-return
-                   store
-                   api-projections/apply-user-fees-success))
-           (.catch (promise-effects/apply-error-and-reject
-                    store
-                    api-projections/apply-user-fees-error)))))))
+     (let [requested-address (normalize-address address)]
+       (if-not requested-address
+         (js/Promise.resolve nil)
+         (do
+           (swap! store api-projections/begin-user-fees-load)
+           (-> (request-user-fees! address opts)
+               (.then (apply-success-and-return-when-current
+                       store
+                       requested-address
+                       api-projections/apply-user-fees-success))
+               (.catch (apply-error-and-reject-when-current
+                        store
+                        requested-address
+                        api-projections/apply-user-fees-error)))))))))
 
 (defn- ensure-perp-dexs!
   ([api-ops store]

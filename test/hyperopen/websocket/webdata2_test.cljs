@@ -71,3 +71,18 @@
     (is (false? @patch-called?))
     (is (= {:BTC {:idx 0}} (:asset-contexts @store)))
     (is (= (:data payload) (:webdata2 @store)))))
+
+(deftest create-webdata2-handler-ignores-inactive-address-payloads-test
+  (let [active-address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        stale-address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        store (atom {:wallet {:address active-address}})
+        handler (webdata2/create-webdata2-handler store)]
+    (handler {:channel "webData2"
+              :user stale-address
+              :data {:clearinghouseState {:withdrawable "1.0"}}})
+    (is (nil? (:webdata2 @store)))
+    (handler {:channel "webData2"
+              :user active-address
+              :data {:clearinghouseState {:withdrawable "2.0"}}})
+    (is (= {:clearinghouseState {:withdrawable "2.0"}}
+           (:webdata2 @store)))))

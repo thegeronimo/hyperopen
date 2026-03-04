@@ -1,5 +1,6 @@
 (ns hyperopen.websocket.webdata2
-  (:require [hyperopen.telemetry :as telemetry]
+  (:require [hyperopen.account.context :as account-context]
+            [hyperopen.telemetry :as telemetry]
             [hyperopen.websocket.client :as ws-client]
             [hyperopen.utils.data-normalization :as data-normalization]))
 
@@ -36,12 +37,41 @@
      :margin-table-count (count margin-tables)
      :meta-hash (hash [universe margin-tables])}))
 
+(defn- normalized-address
+  [value]
+  (account-context/normalize-address value))
+
+(defn- active-effective-address
+  [store]
+  (some-> (account-context/effective-account-address @store)
+          normalized-address))
+
+(defn- message-address
+  [msg]
+  (or (normalized-address (:user msg))
+      (normalized-address (:address msg))
+      (normalized-address (:walletAddress msg))
+      (normalized-address (get-in msg [:data :user]))
+      (normalized-address (get-in msg [:data :address]))
+      (normalized-address (get-in msg [:data :walletAddress]))
+      (normalized-address (get-in msg [:data :wallet]))))
+
+(defn- message-for-active-address?
+  [store msg]
+  (let [msg-address (message-address msg)
+        active-address (active-effective-address store)]
+    (if msg-address
+      (and active-address
+           (= msg-address active-address))
+      true)))
+
 ;; Create a handler function that has access to the store
 (defn create-webdata2-handler [store]
   (let [meta-index-cache (atom nil)]
     (fn [data]
       (when (and (map? data)
-                 (= "webData2" (:channel data)))
+                 (= "webData2" (:channel data))
+                 (message-for-active-address? store data))
         (let [webdata2-data (:data data)]
           (if (and (map? webdata2-data)
                    (:meta webdata2-data)

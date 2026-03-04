@@ -79,9 +79,11 @@
 
 (deftest startup-base-deps-fetch-portfolio-loads-ledger-updates-for-summary-time-window-test
   (async done
-    (let [portfolio-calls (atom [])
+    (let [request-address "0x1111111111111111111111111111111111111111"
+          portfolio-calls (atom [])
           ledger-calls (atom [])
-          store (atom {:portfolio {}})
+          store (atom {:wallet {:address request-address}
+                       :portfolio {}})
           deps (collaborators/startup-base-deps
                 {:api {:get-request-stats (fn [] {:source :injected})
                        :request-portfolio! (fn [address opts]
@@ -96,10 +98,10 @@
                                                                                          :hash "0xabc"
                                                                                          :delta {:type "deposit"
                                                                                                  :usdc "3.0"}}]))}})]
-      (-> ((:fetch-portfolio! deps) store "0xabc" {:priority :high})
+      (-> ((:fetch-portfolio! deps) store request-address {:priority :high})
           (.then (fn [summary]
-                   (is (= "0xabc" (ffirst @portfolio-calls)))
-                   (is (= ["0xabc" 500 2500 {:priority :high}]
+                   (is (= request-address (ffirst @portfolio-calls)))
+                   (is (= [request-address 500 2500 {:priority :high}]
                           (first @ledger-calls)))
                    (is (= 2 (count summary)))
                    (is (= [{:time 1500
@@ -113,3 +115,26 @@
           (.catch (fn [err]
                     (is false (str "Unexpected error: " err))
                     (done)))))))
+
+(deftest startup-base-deps-fetch-user-fills-ignores-stale-address-responses-test
+  (async done
+    (let [requested-address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          next-address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          resolve-request! (atom nil)
+          store (atom {:wallet {:address requested-address}
+                       :orders {:fills []}})
+          deps (collaborators/startup-base-deps
+                {:api {:get-request-stats (fn [] {:source :injected})
+                       :request-user-fills! (fn [_address _opts]
+                                              (js/Promise.
+                                               (fn [resolve _reject]
+                                                 (reset! resolve-request! resolve))))}})]
+      (-> ((:fetch-user-fills! deps) store requested-address {:priority :high})
+          (.then (fn [_rows]
+                   (is (empty? (get-in @store [:orders :fills])))
+                   (done)))
+          (.catch (fn [err]
+                    (is false (str "Unexpected error: " err))
+                    (done))))
+      (swap! store assoc-in [:wallet :address] next-address)
+      (@resolve-request! [{:tid 101 :coin "BTC"}]))))

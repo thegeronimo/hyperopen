@@ -173,3 +173,38 @@
              @perp-clearinghouse-addresses))
       (is (= ["0xdddddddddddddddddddddddddddddddddddddddd"]
              @spot-clearinghouse-addresses)))))
+
+(deftest user-handlers-ignore-messages-for-inactive-address-test
+  (let [active-address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        stale-address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        store (doto (make-store)
+                (swap! assoc :wallet {:address active-address}))
+        handlers (atom {})]
+    (with-redefs [ws-client/register-handler!
+                  (fn [message-type handler-fn]
+                    (swap! handlers assoc message-type handler-fn)
+                    true)]
+      (user-ws/init! store)
+      ((get @handlers "userFills")
+       {:channel "userFills"
+        :user stale-address
+        :data {:isSnapshot true
+               :fills [{:tid 1 :coin "BTC" :time 1000}]}})
+      (is (empty? (get-in @store [:orders :fills])))
+      ((get @handlers "openOrders")
+       {:channel "openOrders"
+        :user stale-address
+        :data {:orders [{:oid 11}]}})
+      (is (nil? (get-in @store [:orders :open-orders])))
+      ((get @handlers "userFills")
+       {:channel "userFills"
+        :user active-address
+        :data {:isSnapshot true
+               :fills [{:tid 2 :coin "ETH" :time 2000}]}})
+      (is (= [2] (mapv :tid (get-in @store [:orders :fills]))))
+      ((get @handlers "openOrders")
+       {:channel "openOrders"
+        :user active-address
+        :data {:orders [{:oid 22}]}})
+      (is (= {:orders [{:oid 22}]}
+             (get-in @store [:orders :open-orders]))))))
