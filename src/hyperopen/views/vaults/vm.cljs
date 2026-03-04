@@ -60,6 +60,39 @@
     :else
     nil))
 
+(defn- normalize-percent-value
+  [value]
+  (let [n (or (optional-number value) 0)]
+    (if (<= (js/Math.abs n) 1)
+      (* 100 n)
+      n)))
+
+(defn- snapshot-range-keys
+  [snapshot-range]
+  (case (vault-actions/normalize-vault-snapshot-range snapshot-range)
+    :day [:day :week :month :all-time]
+    :week [:week :month :all-time :day]
+    :month [:month :week :all-time :day]
+    :three-month [:all-time :month :week :day]
+    :six-month [:all-time :month :week :day]
+    :one-year [:all-time :month :week :day]
+    :two-year [:all-time :month :week :day]
+    :all-time [:all-time :month :week :day]
+    [:month :week :all-time :day]))
+
+(defn- snapshot-series-for-range
+  [snapshot-by-key snapshot-range]
+  (or (some (fn [snapshot-key]
+              (let [snapshot-values (get snapshot-by-key snapshot-key)]
+                (when (sequential? snapshot-values)
+                  (let [normalized-values (->> snapshot-values
+                                               (keep snapshot-point-value)
+                                               (mapv normalize-percent-value))]
+                    (when (seq normalized-values)
+                      normalized-values)))))
+            (snapshot-range-keys snapshot-range))
+      []))
+
 (defn- snapshot-last-value
   [values]
   (if (sequential? values)
@@ -69,13 +102,6 @@
                  last)
         0)
     0))
-
-(defn- normalize-percent-value
-  [value]
-  (let [n (or (optional-number value) 0)]
-    (if (<= (js/Math.abs n) 1)
-      (* 100 n)
-      n)))
 
 (defn- normalize-age-days
   [create-time-ms now-ms]
@@ -119,12 +145,9 @@
         apr (normalize-percent-value (:apr row))
         user-equity-row (get equity-by-address vault-address)
         your-deposit (or (optional-number (:equity user-equity-row)) 0)
-        snapshot-values (get-in row [:snapshot-by-key snapshot-range] [])
-        snapshot-series (if (sequential? snapshot-values)
-                          (->> snapshot-values
-                               (keep snapshot-point-value)
-                               (mapv normalize-percent-value))
-                          [])
+        snapshot-series (snapshot-series-for-range
+                         (or (:snapshot-by-key row) {})
+                         snapshot-range)
         snapshot-value (normalize-percent-value (snapshot-last-value snapshot-series))
         is-leading? (and (seq wallet-address)
                          (= wallet-address leader))

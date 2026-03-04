@@ -145,3 +145,19 @@
     (is (= 6 (get-in view-model [:user-pagination :total-rows])))
     (is (= 2 (get-in view-model [:user-pagination :page-count])))
     (is (= 2 (get-in view-model [:user-pagination :page])))))
+
+(deftest vault-list-vm-uses-snapshot-fallback-keys-for-extended-ranges-test
+  (let [view-model (vm/vault-list-vm (assoc-in sample-state [:vaults-ui :snapshot-range] :one-year))
+        beta-row (some #(when (= "Beta" (:name %))
+                          %)
+                       (:rows view-model))]
+    (is (= [5 9] (:snapshot-series beta-row))))
+  (let [state-with-all-time (assoc-in sample-state
+                                      [:vaults :merged-index-rows 1 :snapshot-by-key]
+                                      {:month [0.05 0.09]
+                                       :all-time [0.2 0.3]})
+        view-model (vm/vault-list-vm (assoc-in state-with-all-time [:vaults-ui :snapshot-range] :one-year))
+        beta-row (some #(when (= "Beta" (:name %))
+                          %)
+                       (:rows view-model))]
+    (is (= [20 30] (:snapshot-series beta-row)))))

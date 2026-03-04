@@ -20,6 +20,8 @@
                       (ok-response
                        [{:apr "0.25"
                          :pnls [["day" ["1.5" "2.5"]]
+                                ["3M" ["4.5"]]
+                                ["1Y" ["5.5"]]
                                 ["allTime" ["3.5"]]]
                          :summary {:name "Alpha Vault"
                                    :vaultAddress "0xABc"
@@ -47,6 +49,8 @@
                              :child-addresses ["0xc1"]}
                             (:relationship row)))
                      (is (= {:day [1.5 2.5]
+                             :three-month [4.5]
+                             :one-year [5.5]
                              :all-time [3.5]}
                             (:snapshot-by-key row))))
                    (done)))
