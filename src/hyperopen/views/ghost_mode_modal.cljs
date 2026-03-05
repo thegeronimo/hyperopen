@@ -301,14 +301,10 @@
                           "grid-cols-[minmax(0,1.15fr)_minmax(0,0.95fr)_auto]"
                           "items-center"
                           "gap-1.5"
-                          "rounded-md"
-                          "border"
-                          "px-2.5"
-                          "py-2"]
-                    active? (into ["border-[#2b5e60]"
-                                   "bg-[#0f2934]/55"])
-                    (not active?) (into ["border-[#1e3c44]"
-                                         "bg-[#0b1f29]"])
+                          "px-3"
+                          "py-2.5"]
+                    active? (into ["bg-[#0f2934]/55"])
+                    (not active?) (into ["bg-[#0b1f29]"])
                     editing? (into ["ring-1" "ring-[#4f8f87]/70"]))
         :data-role "ghost-mode-watchlist-row"}
      [:div {:class ["min-w-0"]
@@ -411,11 +407,9 @@
               :aria-label "Ghost Mode"
               :data-role "ghost-mode-modal"
               :data-ghost-mode-surface "true"}
-        [:div {:class ["border-b"
-                       "border-[#1e353f]"
-                       "px-4"
+        [:div {:class ["px-4"
                        "pt-3.5"
-                       "pb-3"]}
+                       "pb-1.5"]}
          [:div {:class ["flex" "items-center" "justify-between" "gap-3"]}
           [:div {:class ["flex" "min-w-0" "items-center" "gap-2"]}
            [:h2 {:class ["text-[17px]" "font-semibold" "leading-[25px]" "text-[#e5eef1]"]}
@@ -552,28 +546,31 @@
                            "text-[#f2b8c5]"]
                    :data-role "ghost-mode-search-error"}
              search-error])]]
-        [:div {:class ["flex" "min-h-0" "flex-1" "flex-col" "px-4" "py-3"]}
-         [:div {:class ["mb-2"
-                        "grid"
-                        "grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto]"
-                        "items-center"
-                        "gap-2"
-                        "rounded-md"
-                        "border"
-                        "border-[#1f3b46]"
-                        "bg-[#0a1e28]"
-                        "px-2.5"
-                        "py-1.5"
-                        "text-xs"
-                        "font-medium"
-                        "text-[#7f97a0]"]
+        [:div {:class ["flex" "min-h-0" "flex-1" "flex-col"]}
+        [:div {:class ["grid"
+                       "grid-cols-[minmax(0,1.15fr)_minmax(0,0.95fr)_auto]"
+                       "items-center"
+                       "gap-2"
+                       "border-y"
+                       "border-[#1f3b46]"
+                       "px-3"
+                       "py-2"
+                       "text-xs"
+                       "font-medium"
+                       "text-[#7f97a0]"]
                 :data-role "ghost-mode-watchlist-header"}
           [:span "Label"]
           [:span "Address"]
           [:span {:class ["text-right"]} "Actions"]]
          (if (seq watchlist)
            (into
-            [:ul {:class ["min-h-0" "flex-1" "space-y-1.5" "overflow-y-auto"]
+            [:ul {:class ["min-h-0"
+                          "flex-1"
+                          "overflow-y-auto"
+                          "border-b"
+                          "border-[#1e3540]"
+                          "divide-y"
+                          "divide-[#1e3540]"]
                   :data-role "ghost-mode-watchlist"}]
             (map (fn [entry]
                    (let [address (:address entry)]
