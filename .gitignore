@@ -51,4 +51,5 @@ PRDs/
 
 # Local bd runtime/worktree artifacts
 .beads/
+.beats/
 .beads.local.*.backup/
