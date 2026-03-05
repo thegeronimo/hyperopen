@@ -104,39 +104,38 @@
     disabled?
     ["rounded-lg"
      "border"
-     "border-[#2a4b4b]"
-     "bg-[#08202a]/55"
+     "border-base-300"
+     "bg-base-200"
      "px-3.5"
      "py-2"
      "text-sm"
      "font-medium"
-     "text-[#6c8e93]"
+     "text-gray-500"
      "cursor-not-allowed"]
 
     primary?
     ["rounded-lg"
      "border"
-     "border-[#2f625a]"
-     "bg-[#0d3a35]"
+     "border-primary/40"
+     "bg-primary"
      "px-3.5"
      "py-2"
      "text-sm"
      "font-medium"
-     "text-[#daf3ef]"
-     "hover:border-[#3f7f75]"
-     "hover:bg-[#115046]"]
+     "text-primary-content"
+     "hover:bg-primary/90"]
 
     :else
     ["rounded-lg"
      "border"
-     "border-[#2c4b50]"
-     "bg-transparent"
+     "border-base-300"
+     "bg-base-200"
      "px-3.5"
      "py-2"
      "text-sm"
-     "text-[#b7c8cc]"
-     "hover:border-[#3d666b]"
-     "hover:text-[#e5eef1]"]))
+     "text-gray-200"
+     "hover:bg-base-300"
+     "hover:text-gray-100"]))
 
 (def ^:private input-row-action-button-classes
   ["h-8"
@@ -165,22 +164,20 @@
                                   "justify-center"
                                   "rounded-md"
                                   "border"
-                                  "border-[#223a42]"
-                                  "bg-transparent"
-                                  "text-[#8ea2a9]"
+                                  "border-base-300"
+                                  "bg-base-200/40"
+                                  "text-gray-400"
                                   "transition-colors"
                                   "focus:outline-none"
                                   "focus:ring-0"
                                   "focus:ring-offset-0"
-                                  "hover:border-[#3a616a]"
-                                  "hover:bg-[#0f2a34]"
-                                  "hover:text-[#e5eef1]"]
+                                  "hover:bg-base-200"
+                                  "hover:text-gray-100"]
                                  (or class []))
                      disabled? (into ["cursor-not-allowed"
                                       "opacity-45"
-                                      "hover:border-[#223a42]"
-                                      "hover:bg-transparent"
-                                      "hover:text-[#8ea2a9]"]))
+                                      "hover:bg-base-200/40"
+                                      "hover:text-gray-400"]))
             :on (when-not disabled? {:click on-click})
             :aria-label aria-label
             :title title
@@ -303,17 +300,17 @@
                           "gap-1.5"
                           "px-3"
                           "py-2.5"]
-                    active? (into ["bg-[#0f2934]/55"])
-                    (not active?) (into ["bg-[#0b1f29]"])
+                    active? (into ["bg-base-200/80"])
+                    (not active?) (into ["bg-base-100"])
                     editing? (into ["ring-1" "ring-[#4f8f87]/70"]))
         :data-role "ghost-mode-watchlist-row"}
      [:div {:class ["min-w-0"]
             :data-role "ghost-mode-watchlist-label"}
-      [:span {:class ["text-m" "font-medium" "text-[#e5eef1]" "break-words"]}
+      [:span {:class ["text-m" "font-medium" "text-gray-100" "break-words"]}
        label]]
      [:div {:class ["min-w-0" "truncate"]
             :data-role "ghost-mode-watchlist-address"}
-      [:span {:class ["num" "truncate" "text-sm" "text-[#95aab0]"]}
+      [:span {:class ["num" "truncate" "text-sm" "text-gray-400"]}
        (watchlist-display-address address)]]
      [:div {:class ["flex" "items-center" "justify-end" "gap-1"]
             :data-role "ghost-mode-watchlist-actions"}
@@ -399,7 +396,7 @@
                       "rounded-xl"
                       "border"
                       "border-[#1f3b3c]"
-                      "bg-[#081b24]"
+                      "bg-base-100"
                       "shadow-2xl"]
               :style panel-style
               :role "dialog"
@@ -428,9 +425,9 @@
                              "items-center"
                              "justify-center"
                              "rounded-md"
-                             "text-[#8ea4ab]"
-                             "hover:bg-[#0f2a34]"
-                             "hover:text-[#e5eef1]"
+                             "text-gray-400"
+                             "hover:bg-base-200"
+                             "hover:text-gray-100"
                              "focus:outline-none"
                              "focus:ring-0"
                              "focus:ring-offset-0"]
@@ -457,16 +454,16 @@
                     :class ["w-full"
                             "rounded-lg"
                             "border"
-                            "border-[#28474b]"
-                            "bg-[#0c2028]"
+                            "border-base-300"
+                            "bg-base-200"
                             "px-3"
                             "py-2.5"
                             "text-m"
                             "leading-[19px]"
-                            "text-[#e6eff2]"
-                            "placeholder:text-[#6f8790]"
+                            "text-gray-100"
+                            "placeholder:text-gray-500"
                             "outline-none"
-                            "focus:border-[#4f8f87]"]
+                            "focus:border-[#8a96a6]"]
                     :on {:input [[:actions/set-ghost-mode-search [:event.target/value]]]}
                     :data-role "ghost-mode-search-input"}]
            [:button {:type "button"
@@ -487,16 +484,16 @@
                       :class ["w-full"
                               "rounded-lg"
                               "border"
-                              "border-[#28474b]"
-                              "bg-[#0c2028]"
+                              "border-base-300"
+                              "bg-base-200"
                               "px-3"
                               "py-2"
                               "text-m"
                               "leading-[19px]"
-                              "text-[#e6eff2]"
-                              "placeholder:text-[#6f8790]"
+                              "text-gray-100"
+                              "placeholder:text-gray-500"
                               "outline-none"
-                              "focus:border-[#4f8f87]"]
+                              "focus:border-[#8a96a6]"]
                       :on {:input [[:actions/set-ghost-mode-label [:event.target/value]]]}
                       :data-role "ghost-mode-label-input"}]
              [:button {:type "button"
@@ -510,14 +507,14 @@
                [:button {:type "button"
                          :class ["rounded-lg"
                                  "border"
-                                 "border-[#2c4b50]"
-                                 "bg-transparent"
+                                 "border-base-300"
+                                 "bg-base-200"
                                  "px-2.5"
                                  "py-1.5"
                                  "text-xs"
-                                 "text-[#b7c8cc]"
-                                 "hover:border-[#3d666b]"
-                                 "hover:text-[#e5eef1]"]
+                                 "text-gray-200"
+                                 "hover:bg-base-300"
+                                 "hover:text-gray-100"]
                          :on {:click [[:actions/clear-ghost-mode-watchlist-edit]]}
                          :data-role "ghost-mode-clear-watchlist-edit"}
                 "Cancel"])])
@@ -547,17 +544,17 @@
                    :data-role "ghost-mode-search-error"}
              search-error])]]
         [:div {:class ["flex" "min-h-0" "flex-1" "flex-col"]}
-        [:div {:class ["grid"
-                       "grid-cols-[minmax(0,1.15fr)_minmax(0,0.95fr)_auto]"
-                       "items-center"
-                       "gap-2"
-                       "border-y"
-                       "border-[#1f3b46]"
-                       "px-3"
-                       "py-2"
-                       "text-xs"
-                       "font-medium"
-                       "text-[#7f97a0]"]
+         [:div {:class ["grid"
+                        "grid-cols-[minmax(0,1.15fr)_minmax(0,0.95fr)_auto]"
+                        "items-center"
+                        "gap-2"
+                        "border-y"
+                        "border-base-300"
+                        "px-3"
+                        "py-2"
+                        "text-xs"
+                        "font-medium"
+                        "text-gray-400"]
                 :data-role "ghost-mode-watchlist-header"}
           [:span "Label"]
           [:span "Address"]
@@ -568,9 +565,9 @@
                           "flex-1"
                           "overflow-y-auto"
                           "border-b"
-                          "border-[#1e3540]"
+                          "border-base-300"
                           "divide-y"
-                          "divide-[#1e3540]"]
+                          "divide-base-300"]
                   :data-role "ghost-mode-watchlist"}]
             (map (fn [entry]
                    (let [address (:address entry)]
