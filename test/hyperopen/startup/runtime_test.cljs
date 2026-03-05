@@ -80,7 +80,14 @@
       (startup-runtime/schedule-startup-summary-log!
        {:startup-runtime startup-runtime-atom
         :store store
-        :get-request-stats (fn [] {:pending 1})
+        :get-request-stats (fn []
+                             {:pending 1
+                              :started-by-type-source {"frontendOpenOrders" {"startup/stage-b" 2}}
+                              :completed-by-type-source {"frontendOpenOrders" {"startup/stage-b" 2}}
+                              :rate-limited-by-type-source {"frontendOpenOrders" {"startup/stage-b" 0}}
+                              :latency-ms-by-type-source {"frontendOpenOrders" {"startup/stage-b" {:count 2
+                                                                                                    :total-ms 20
+                                                                                                    :max-ms 15}}}})
         :delay-ms 5
         :log-fn (fn [& args]
                   (swap! logs conj args))})
@@ -88,6 +95,19 @@
       (is (= 1 @timer-calls))
       (@timer-callback)
       (is (= 1 (count @logs)))
+      (let [[message payload] (first @logs)
+            payload* (js->clj payload :keywordize-keys true)]
+        (is (= "Startup summary (+5s):" message))
+        (is (= 1
+               (get-in payload* [:request-stats :pending])))
+        (is (= [{:request-type "frontendOpenOrders"
+                 :request-source "startup/stage-b"
+                 :started 2
+                 :completed 2
+                 :rate-limited 0
+                 :latency-ms {:count 2 :total-ms 20 :max-ms 15}
+                 :avg-latency-ms 10}]
+               (:request-hotspots payload*))))
       (startup-runtime/schedule-startup-summary-log!
        {:startup-runtime startup-runtime-atom
         :store store

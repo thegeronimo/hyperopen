@@ -18,7 +18,7 @@ You can verify this by reading `/hyperopen/docs/qa/ws-migration-impact-validatio
 - [x] (2026-03-05 05:09Z) Updated `/hyperopen/docs/runbooks/ws-migration-rollout.md` to reference the impact report as rollout evidence.
 - [x] (2026-03-05 05:10Z) Validation pass: `npx shadow-cljs compile ws-test && node out/ws-test.js` (`316 tests, 1772 assertions, 0 failures`).
 - [ ] Run full required gates in an environment where `shadow-cljs` is on PATH and `@noble/secp256k1` is installed.
-- [ ] Close `hyperopen-nhv.7` and move to next ready migration task.
+- [x] (2026-03-05 03:56Z) Closed `hyperopen-nhv.7` and moved to next ready migration task (`hyperopen-nhv.3`).
 
 ## Surprises & Discoveries
 

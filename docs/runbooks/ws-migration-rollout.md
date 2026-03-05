@@ -101,10 +101,12 @@ Operational notes:
 
 - `/info` request volume by request type/source (from request telemetry).
 - `/info` 429 rate-limit counts and attribution.
+- startup summary `request-hotspots` (top `type+source` request paths).
 - websocket health projection statuses and gap-detected counters.
 - chart blank-data reports during candle canary.
 - Deterministic before/after validation report:
   - `/hyperopen/docs/qa/ws-migration-impact-validation-2026-03-05.md`
+  - `/hyperopen/docs/qa/info-post-hotspot-baseline-2026-03-05.md`
 
 ## Rollback
 

@@ -1,6 +1,7 @@
 (ns hyperopen.startup.runtime
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
+            [hyperopen.api.info-client :as info-client]
             [hyperopen.platform :as platform]
             [hyperopen.websocket.health-projection :as health-projection]
             [hyperopen.websocket.migration-flags :as migration-flags]
@@ -68,11 +69,13 @@
     (platform/set-timeout!
      (fn []
        (let [stats (get-request-stats)
+             hotspots (info-client/top-request-hotspots stats {:limit 5})
              ws-status (get-in @store [:websocket :health :transport :state])
              selector (select-keys (get @store :asset-selector)
                                    [:loading? :phase :loaded-at-ms])]
          (log-fn "Startup summary (+5s):"
                  (clj->js {:request-stats stats
+                           :request-hotspots hotspots
                            :websocket-status ws-status
                            :asset-selector selector}))))
      delay-ms)))

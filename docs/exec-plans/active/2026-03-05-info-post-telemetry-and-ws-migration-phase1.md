@@ -17,6 +17,8 @@ You can verify this by running API tests that assert request stats include per-t
 - [x] (2026-03-05 02:48Z) Authored this ExecPlan and defined milestone scope for telemetry-first implementation.
 - [x] (2026-03-05 03:06Z) Implemented telemetry extensions in `/hyperopen/src/hyperopen/api/info_client.cljs` with per-type/per-source counters, latency aggregates, and 429 attribution while preserving legacy stats keys.
 - [x] (2026-03-05 03:09Z) Added deterministic regression coverage in `/hyperopen/test/hyperopen/api_test.cljs` for type/source counting, unknown fallback attribution, latency aggregates, and rate-limit attribution.
+- [x] (2026-03-05 04:20Z) Added per-`type+source` hotspot telemetry aggregates and startup summary top-hotspot projection (`request-hotspots`) in `/hyperopen/src/hyperopen/api/info_client.cljs` and `/hyperopen/src/hyperopen/startup/runtime.cljs`.
+- [x] (2026-03-05 04:22Z) Published baseline hotspot report at `/hyperopen/docs/qa/info-post-hotspot-baseline-2026-03-05.md` with top-5 request-path inventory and websocket parity mapping.
 - [ ] (2026-03-05 03:12Z) Required gate execution is partially blocked by environment dependency/tooling gaps (`@noble/secp256k1` missing; scripts depend on global `shadow-cljs` binary). Equivalent `npx` websocket suite passes.
 - [ ] Update `bd` issue status and summarize baseline hotspots from new telemetry outputs.
 
@@ -55,13 +57,15 @@ You can verify this by running API tests that assert request stats include per-t
 
 Milestone 1 is implemented and test-covered. `info_client` now records request attribution and latency details required for migration planning:
 
-- Added stats maps for `:started-by-type`, `:completed-by-type`, `:started-by-source`, `:completed-by-source`, `:latency-ms-by-type`, `:latency-ms-by-source`, `:rate-limited-by-type`, and `:rate-limited-by-source`.
+- Added stats maps for `:started-by-type`, `:completed-by-type`, `:started-by-source`, `:completed-by-source`, `:started-by-type-source`, `:completed-by-type-source`, `:latency-ms-by-type`, `:latency-ms-by-source`, `:latency-ms-by-type-source`, `:rate-limited-by-type`, `:rate-limited-by-source`, and `:rate-limited-by-type-source`.
 - Preserved existing keys (`:started`, `:completed`, `:rate-limited`, `:max-inflight-observed`) for compatibility.
 - Added source fallback path from `:dedupe-key`, then `"unknown"`.
+- Added deterministic hotspot projector `top-request-hotspots` and startup summary emission of top 5 request paths (`request-hotspots`) for baseline/rollout monitoring.
+- Added baseline artifact `/hyperopen/docs/qa/info-post-hotspot-baseline-2026-03-05.md` with top-5 high-churn request paths and websocket migration status.
 
 Validation outcome:
 
-- `npx shadow-cljs compile ws-test && node out/ws-test.js` passed (`Ran 298 tests containing 1718 assertions. 0 failures, 0 errors.`), including the new info-client telemetry tests in `hyperopen.api-test`.
+- `npx shadow-cljs compile ws-test && node out/ws-test.js` passed (`Ran 324 tests containing 1799 assertions. 0 failures, 0 errors.`), including new `type+source` hotspot and startup-summary projection coverage.
 - Full required gates remain environment-blocked and need dependency/tooling remediation before this issue can be closed with strict gate compliance.
 
 ## Context and Orientation
@@ -153,10 +157,11 @@ Key command results:
 - `npm run check` failed: missing npm dependency `@noble/secp256k1` during app compile.
 - `npm test` failed: `shadow-cljs` not on PATH in this environment.
 - `npm run test:websocket` failed: same PATH issue.
-- `npx shadow-cljs compile ws-test && node out/ws-test.js` passed with 0 failures.
+- `npx shadow-cljs compile ws-test && node out/ws-test.js` passed (`324 tests`, `1799 assertions`, `0 failures`).
+- Baseline hotspot report: `/hyperopen/docs/qa/info-post-hotspot-baseline-2026-03-05.md`.
 
 ## Interfaces and Dependencies
 
 No public API signatures are removed. `request-info!` options gain optional, non-breaking support for `:request-source` attribution. Existing callers can remain unchanged.
 
-Revision note (2026-03-05): Updated after implementing milestone 1 telemetry changes, adding regression tests, and recording validation blockers/evidence.
+Revision note (2026-03-05): Extended telemetry with `type+source` hotspot aggregates, added startup hotspot projection, published baseline hotspot inventory report, and updated validation evidence.

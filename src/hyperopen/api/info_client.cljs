@@ -51,6 +51,12 @@
          key
          (inc (or (get m key) 0))))
 
+(defn- update-nested-counter
+  [m outer-key inner-key]
+  (update-in (or m {})
+             [outer-key inner-key]
+             (fnil inc 0)))
+
 (defn- update-latency-aggregate
   [aggregate duration-ms]
   (let [duration* (max 0 (or duration-ms 0))
@@ -70,11 +76,15 @@
    :completed-by-type {}
    :started-by-source {}
    :completed-by-source {}
+   :started-by-type-source {}
+   :completed-by-type-source {}
    :latency-ms-by-type {}
    :latency-ms-by-source {}
+   :latency-ms-by-type-source {}
    :rate-limited 0
    :rate-limited-by-type {}
    :rate-limited-by-source {}
+   :rate-limited-by-type-source {}
    :max-inflight-observed 0})
 
 (defn- default-request-runtime
@@ -84,6 +94,48 @@
             :low []}
    :high-burst 0
    :stats (default-request-stats)})
+
+(defn top-request-hotspots
+  ([stats]
+   (top-request-hotspots stats {}))
+  ([stats {:keys [limit min-started]
+           :or {limit 5
+                min-started 1}}]
+   (let [limit* (max 0 (or limit 0))
+         min-started* (max 0 (or min-started 0))
+         started-map (or (:started-by-type-source stats) {})
+         completed-map (or (:completed-by-type-source stats) {})
+         rate-limited-map (or (:rate-limited-by-type-source stats) {})
+         latency-map (or (:latency-ms-by-type-source stats) {})]
+     (->> (for [[request-type source-counts] started-map
+                :when (map? source-counts)
+                [request-source started-count] source-counts
+                :let [started-count* (if (number? started-count)
+                                       started-count
+                                       0)]
+                :when (>= started-count* min-started*)]
+            (let [completed-count (or (get-in completed-map [request-type request-source]) 0)
+                  rate-limited-count (or (get-in rate-limited-map [request-type request-source]) 0)
+                  latency-aggregate (or (get-in latency-map [request-type request-source]) {})
+                  latency-count (or (:count latency-aggregate) 0)
+                  total-ms (or (:total-ms latency-aggregate) 0)
+                  avg-latency-ms (when (pos? latency-count)
+                                   (/ total-ms latency-count))]
+              {:request-type request-type
+               :request-source request-source
+               :started started-count*
+               :completed completed-count
+               :rate-limited rate-limited-count
+               :latency-ms latency-aggregate
+               :avg-latency-ms avg-latency-ms}))
+          (sort-by (juxt (comp - :started)
+                         (comp - :rate-limited)
+                         (comp - (fn [row]
+                                   (or (:avg-latency-ms row) 0)))
+                         :request-type
+                         :request-source))
+          (take limit*)
+          vec))))
 
 (defn make-info-client
   [{:keys [config fetch-fn now-ms-fn sleep-ms-fn log-fn]
@@ -212,6 +264,10 @@
                                    (update-in [:stats :started-by-source]
                                               update-counter
                                               request-source)
+                                   (update-in [:stats :started-by-type-source]
+                                              update-nested-counter
+                                              request-type
+                                              request-source)
                                    (update-in [:stats :max-inflight-observed] (fnil max 0) next-inflight)))))))
                 @selected))
             (pump-request-queue! []
@@ -238,10 +294,17 @@
                              (update-in [:stats :completed-by-source]
                                         update-counter
                                         request-source)
+                             (update-in [:stats :completed-by-type-source]
+                                        update-nested-counter
+                                        request-type
+                                        request-source)
                              (update-in [:stats :latency-ms-by-type request-type]
                                         update-latency-aggregate
                                         duration-ms)
                              (update-in [:stats :latency-ms-by-source request-source]
+                                        update-latency-aggregate
+                                        duration-ms)
+                             (update-in [:stats :latency-ms-by-type-source request-type request-source]
                                         update-latency-aggregate
                                         duration-ms)))))
               (pump-request-queue!))
@@ -304,6 +367,10 @@
                                       request-type)
                            (update-in [:stats :rate-limited-by-source]
                                       update-counter
+                                      request-source)
+                           (update-in [:stats :rate-limited-by-type-source]
+                                      update-nested-counter
+                                      request-type
                                       request-source)))))
             (mark-rate-limit-cooldown! [delay-ms]
               (swap! cooldown-until-ms max (+ (now-ms-fn) delay-ms)))

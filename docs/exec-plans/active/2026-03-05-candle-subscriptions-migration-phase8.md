@@ -21,7 +21,7 @@ You can verify this by selecting chart timeframes and active assets in tests: ca
 - [x] (2026-03-05 05:52Z) Added/updated regression coverage across chart actions, subscriptions runtime, websocket adapters, contracts, startup runtime, domain policy/model/health, plus new candle module tests.
 - [x] (2026-03-05 05:55Z) Validation pass: `npx shadow-cljs compile ws-test && node out/ws-test.js` (`323 tests, 1788 assertions, 0 failures`).
 - [ ] Run full required quality gates in an environment with npm-script `shadow-cljs` PATH and `@noble/secp256k1` available.
-- [ ] Close `hyperopen-nhv.3`, then continue remaining epic tasks (`hyperopen-nhv.1`, `hyperopen-nhv.2`, epic closeout).
+- [x] (2026-03-05 04:12Z) Closed `hyperopen-nhv.3` with commit + validation notes; continuing remaining epic tasks (`hyperopen-nhv.1`, `hyperopen-nhv.2`, epic closeout).
 
 ## Surprises & Discoveries
 
