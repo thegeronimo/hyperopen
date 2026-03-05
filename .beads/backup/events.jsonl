@@ -92,3 +92,11 @@
 {"actor":"Geronimo","comment":null,"created_at":"2026-03-04T20:25:55Z","event_type":"created","id":93,"issue_id":"hyperopen-dy4.3","new_value":"","old_value":""}
 {"actor":"Geronimo","comment":null,"created_at":"2026-03-04T20:26:05Z","event_type":"created","id":94,"issue_id":"hyperopen-dy4.4","new_value":"","old_value":""}
 {"actor":"Geronimo","comment":null,"created_at":"2026-03-04T20:32:13Z","event_type":"created","id":95,"issue_id":"hyperopen-dy4.5","new_value":"","old_value":""}
+{"actor":"Geronimo","comment":null,"created_at":"2026-03-04T20:52:01Z","event_type":"closed","id":96,"issue_id":"hyperopen-dy4.1","new_value":"Completed","old_value":""}
+{"actor":"Geronimo","comment":null,"created_at":"2026-03-04T20:52:01Z","event_type":"closed","id":97,"issue_id":"hyperopen-dy4.2","new_value":"Completed","old_value":""}
+{"actor":"Geronimo","comment":null,"created_at":"2026-03-04T20:52:02Z","event_type":"closed","id":98,"issue_id":"hyperopen-dy4.3","new_value":"Completed","old_value":""}
+{"actor":"Geronimo","comment":null,"created_at":"2026-03-04T20:52:02Z","event_type":"closed","id":99,"issue_id":"hyperopen-dy4.4","new_value":"Completed","old_value":""}
+{"actor":"Geronimo","comment":null,"created_at":"2026-03-04T20:52:02Z","event_type":"closed","id":100,"issue_id":"hyperopen-dy4.5","new_value":"Completed","old_value":""}
+{"actor":"Geronimo","comment":null,"created_at":"2026-03-04T20:52:02Z","event_type":"closed","id":101,"issue_id":"hyperopen-dy4","new_value":"all steps complete","old_value":""}
+{"actor":"Geronimo","comment":null,"created_at":"2026-03-04T20:52:02Z","event_type":"closed","id":102,"issue_id":"hyperopen-dy4","new_value":"Completed","old_value":""}
+{"actor":"Geronimo","comment":null,"created_at":"2026-03-04T21:43:23Z","event_type":"created","id":103,"issue_id":"hyperopen-nhv","new_value":"","old_value":""}
