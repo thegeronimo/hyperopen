@@ -1,5 +1,8 @@
 (ns hyperopen.telemetry.console-preload
-  (:require [hyperopen.platform :as platform]
+  (:require [clojure.string :as str]
+            [nexus.registry :as nxr]
+            [hyperopen.platform :as platform]
+            [hyperopen.registry.runtime :as runtime-registry]
             [hyperopen.system :as app-system]
             [hyperopen.telemetry :as telemetry]
             [hyperopen.websocket.market-projection-runtime :as market-projection-runtime]
@@ -8,6 +11,78 @@
 
 (def ^:private debug-api-key
   "HYPEROPEN_DEBUG")
+
+(def ^:private debug-dispatch-prefix
+  "HYPEROPEN_DEBUG.dispatch")
+
+(defn- action-id->debug-string
+  [action-id]
+  (str action-id))
+
+(defn- registered-action-id-strings
+  []
+  (->> (runtime-registry/registered-action-ids)
+       (map action-id->debug-string)
+       sort
+       vec))
+
+(defn- normalize-action-vector-input
+  [action-vector]
+  (cond
+    (vector? action-vector) action-vector
+    (sequential? action-vector) (vec action-vector)
+    (array? action-vector) (js->clj action-vector :keywordize-keys true)
+    :else nil))
+
+(defn- normalize-debug-action-id
+  [action-id]
+  (cond
+    (keyword? action-id) action-id
+    (string? action-id) (let [trimmed (str/trim action-id)
+                              normalized (if (str/starts-with? trimmed ":")
+                                           (subs trimmed 1)
+                                           trimmed)]
+                          (when (seq normalized)
+                            (keyword normalized)))
+    :else nil))
+
+(defn- invalid-dispatch-arg-error
+  []
+  (js/Error.
+   (str debug-dispatch-prefix
+        " expected an action vector whose first item is a registered action id string.")))
+
+(defn- unknown-action-id-error
+  [action-id]
+  (js/Error.
+   (str debug-dispatch-prefix
+        " received unregistered action id "
+        (pr-str action-id)
+        ". Call HYPEROPEN_DEBUG.registeredActionIds() for valid ids.")))
+
+(defn- normalize-debug-action-vector
+  [action-vector]
+  (let [action* (normalize-action-vector-input action-vector)
+        action-id (some-> action* first normalize-debug-action-id)
+        args (vec (rest (or action* [])))
+        registered-action-ids (runtime-registry/registered-action-ids)]
+    (when-not (and (vector? action*)
+                   (seq action*)
+                   (contains? registered-action-ids action-id))
+      (if (some? action-id)
+        (throw (unknown-action-id-error action-id))
+        (throw (invalid-dispatch-arg-error))))
+    (into [action-id] args)))
+
+(defn- dispatch-debug-action!
+  [action-vector]
+  (let [normalized-action (normalize-debug-action-vector action-vector)
+        action-id (first normalized-action)
+        args (vec (rest normalized-action))]
+    (nxr/dispatch app-system/store nil [normalized-action])
+    #js {:dispatched true
+         :actionId (action-id->debug-string action-id)
+         :argCount (count args)}))
 
 (defn- snapshot-map
   []
@@ -68,6 +143,9 @@
   #js {:snapshot snapshot-js
        :snapshotJson snapshot-json
        :downloadSnapshot download-snapshot!
+       :registeredActionIds (fn []
+                              (clj->js (registered-action-id-strings)))
+       :dispatch dispatch-debug-action!
        :flightRecording (fn []
                           (clj->js (ws-client/get-flight-recording)))
        :flightRecordingRedacted (fn []

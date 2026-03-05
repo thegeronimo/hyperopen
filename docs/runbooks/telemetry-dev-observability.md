@@ -80,6 +80,8 @@ The recorder is enabled by default in dev builds (`goog.DEBUG`) through `/hypero
 
 `HYPEROPEN_DEBUG` exposes:
 
+- `registeredActionIds()` => sorted array of registered runtime action id strings such as `:actions/start-ghost-mode`.
+- `dispatch(actionVector)` => dispatches one runtime action vector through the canonical app runtime. `actionVector` must be a JavaScript array whose first item is a registered action id string such as `":actions/stop-ghost-mode"`.
 - `snapshot()` => returns a JS object with:
   - app state,
   - runtime state,
@@ -95,6 +97,21 @@ The recorder is enabled by default in dev builds (`goog.DEBUG`) through `/hypero
 - `events()` => telemetry events only.
 - `eventsJson()` => telemetry events JSON string.
 - `clearEvents()` => clears telemetry event buffer.
+
+### Deterministic Ghost Mode example
+
+Use the debug dispatch bridge for deterministic state transitions and prefer it over DOM targeting when the goal is to drive app state rather than validate a click path.
+
+Examples:
+
+- Enumerate available Ghost Mode action ids:
+  - `HYPEROPEN_DEBUG.registeredActionIds().filter((id) => id.includes("ghost-mode"))`
+- Start Ghost Mode directly for a known address:
+  - `HYPEROPEN_DEBUG.dispatch([":actions/start-ghost-mode", "0x1234..."])`
+- Stop Ghost Mode directly:
+  - `HYPEROPEN_DEBUG.dispatch([":actions/stop-ghost-mode"])`
+
+This is especially useful for automation because the UI-level Ghost Mode open action (`:actions/open-ghost-mode-modal`) depends on popover anchor bounds, while `:actions/start-ghost-mode` and `:actions/stop-ghost-mode` express the deterministic state transition directly.
 
 Aliases:
 
