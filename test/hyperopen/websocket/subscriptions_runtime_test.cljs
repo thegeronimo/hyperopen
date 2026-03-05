@@ -42,6 +42,50 @@
     (is (= "ETH" (:selected-asset @store)))
     (is (= "ETH" (get-in @store [:active-market :coin])))))
 
+(deftest subscribe-active-asset-skips-rest-candle-fetch-when-candle-migration-enabled-and-cache-present-test
+  (let [fetched-timeframes (atom [])
+        store (atom {:asset-selector {:market-by-key {"perp:ETH" {:key "perp:ETH"
+                                                                   :coin "ETH"}}}
+                     :websocket {:migration-flags {:candle-subscriptions? true}}
+                     :candles {"ETH" {:5m [{:t 1 :o 1 :h 1 :l 1 :c 1 :v 1}]}}
+                     :chart-options {:selected-timeframe :5m}
+                     :active-assets {:contexts {}
+                                     :loading false}})]
+    (subscriptions-runtime/subscribe-active-asset!
+     {:store store
+      :coin "ETH"
+      :log-fn (fn [& _] nil)
+      :resolve-market-by-coin-fn (fn [market-by-key coin]
+                                   (get market-by-key (str "perp:" coin)))
+      :persist-active-asset! (fn [_] nil)
+      :persist-active-market-display! (fn [_] nil)
+      :subscribe-active-asset-ctx! (fn [_] nil)
+      :fetch-candle-snapshot! (fn [selected-timeframe]
+                                (swap! fetched-timeframes conj selected-timeframe))})
+    (is (= [] @fetched-timeframes))))
+
+(deftest subscribe-active-asset-keeps-rest-candle-backfill-when-candle-cache-missing-test
+  (let [fetched-timeframes (atom [])
+        store (atom {:asset-selector {:market-by-key {"perp:ETH" {:key "perp:ETH"
+                                                                   :coin "ETH"}}}
+                     :websocket {:migration-flags {:candle-subscriptions? true}}
+                     :candles {"ETH" {:1d [{:t 1 :o 1 :h 1 :l 1 :c 1 :v 1}]}}
+                     :chart-options {:selected-timeframe :5m}
+                     :active-assets {:contexts {}
+                                     :loading false}})]
+    (subscriptions-runtime/subscribe-active-asset!
+     {:store store
+      :coin "ETH"
+      :log-fn (fn [& _] nil)
+      :resolve-market-by-coin-fn (fn [market-by-key coin]
+                                   (get market-by-key (str "perp:" coin)))
+      :persist-active-asset! (fn [_] nil)
+      :persist-active-market-display! (fn [_] nil)
+      :subscribe-active-asset-ctx! (fn [_] nil)
+      :fetch-candle-snapshot! (fn [selected-timeframe]
+                                (swap! fetched-timeframes conj selected-timeframe))})
+    (is (= [:5m] @fetched-timeframes))))
+
 (deftest subscribe-orderbook-uses-config-derived-from-selected-mode-test
   (let [normalize-calls (atom [])
         config-calls (atom [])

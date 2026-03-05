@@ -1,4 +1,5 @@
-(ns hyperopen.websocket.subscriptions-runtime)
+(ns hyperopen.websocket.subscriptions-runtime
+  (:require [hyperopen.websocket.migration-flags :as migration-flags]))
 
 (defn subscribe-active-asset!
   [{:keys [store
@@ -31,7 +32,11 @@
                    (assoc-in [:selected-asset] canonical-coin)
                    (assoc :active-market (or market (:active-market state)))))))
     (subscribe-active-asset-ctx! canonical-coin)
-    (fetch-candle-snapshot! (get-in @store [:chart-options :selected-timeframe] :1d))))
+    (let [selected-timeframe (get-in @store [:chart-options :selected-timeframe] :1d)]
+      (when (migration-flags/should-fetch-candle-snapshot? @store
+                                                           canonical-coin
+                                                           selected-timeframe)
+        (fetch-candle-snapshot! selected-timeframe)))))
 
 (defn unsubscribe-active-asset!
   [{:keys [store coin log-fn unsubscribe-active-asset-ctx!]}]

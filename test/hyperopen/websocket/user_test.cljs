@@ -309,6 +309,81 @@
       (is (= [effective-address]
              @spot-clearinghouse-addresses)))))
 
+(deftest user-ledger-refresh-forces-rest-refresh-when-ws-first-flag-disabled-test
+  (let [effective-address "0xdddddddddddddddddddddddddddddddddddddddd"
+        store (doto (make-store)
+                (swap! assoc :wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+                       :account-context {:ghost-mode {:active? true
+                                                      :address effective-address}}
+                       :websocket {:migration-flags {:order-fill-ws-first? false}
+                                   :health {:transport {:state :connected
+                                                        :freshness :live}
+                                            :streams {["openOrders" nil effective-address nil nil]
+                                                      {:topic "openOrders"
+                                                       :status :live
+                                                       :subscribed? true
+                                                       :descriptor {:type "openOrders"
+                                                                    :user effective-address}}
+                                                      ["webData2" nil effective-address nil nil]
+                                                      {:topic "webData2"
+                                                       :status :live
+                                                       :subscribed? true
+                                                       :descriptor {:type "webData2"
+                                                                    :user effective-address}}}}}))
+        handlers (atom {})
+        scheduled-refresh (atom nil)
+        open-orders-addresses (atom [])
+        perp-clearinghouse-addresses (atom [])
+        spot-clearinghouse-addresses (atom [])]
+    (with-redefs [ws-client/register-handler!
+                  (fn [message-type handler-fn]
+                    (swap! handlers assoc message-type handler-fn)
+                    true)
+                  platform/set-timeout! (fn [callback _ms]
+                                          (reset! scheduled-refresh callback)
+                                          1234)
+                  platform/clear-timeout! (fn [_] nil)
+                  api/request-frontend-open-orders! (fn
+                                                      ([_address]
+                                                       (swap! open-orders-addresses conj _address)
+                                                       (js/Promise.resolve []))
+                                                      ([_address _opts]
+                                                       (swap! open-orders-addresses conj _address)
+                                                       (js/Promise.resolve []))
+                                                      ([_address _dex _opts]
+                                                       (swap! open-orders-addresses conj _address)
+                                                       (js/Promise.resolve [])))
+                  api/request-clearinghouse-state! (fn
+                                                     ([_address _dex]
+                                                      (swap! perp-clearinghouse-addresses conj _address)
+                                                      (js/Promise.resolve {}))
+                                                     ([_address _dex _opts]
+                                                      (swap! perp-clearinghouse-addresses conj _address)
+                                                      (js/Promise.resolve {})))
+                  api/request-spot-clearinghouse-state! (fn
+                                                          ([_address]
+                                                           (swap! spot-clearinghouse-addresses conj _address)
+                                                           (js/Promise.resolve {}))
+                                                          ([_address _opts]
+                                                           (swap! spot-clearinghouse-addresses conj _address)
+                                                           (js/Promise.resolve {})))
+                  market-metadata/ensure-and-apply-perp-dex-metadata! (fn [_deps _opts]
+                                                                        (js/Promise.resolve []))]
+      (user-ws/init! store)
+      ((get @handlers "userNonFundingLedgerUpdates")
+       {:channel "userNonFundingLedgerUpdates"
+        :data {:isSnapshot false
+               :nonFundingLedgerUpdates [{:time 2000 :coin "USDC" :delta "2.0"}]}})
+      (is (fn? @scheduled-refresh))
+      (@scheduled-refresh)
+      (is (= [effective-address]
+             @open-orders-addresses))
+      ;; Flag disabled should restore default clearinghouse snapshot fetch.
+      (is (= [effective-address]
+             @perp-clearinghouse-addresses))
+      (is (= [effective-address]
+             @spot-clearinghouse-addresses)))))
+
 (deftest user-handlers-ignore-messages-for-inactive-address-test
   (let [active-address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         stale-address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"

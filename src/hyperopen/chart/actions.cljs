@@ -1,4 +1,5 @@
-(ns hyperopen.chart.actions)
+(ns hyperopen.chart.actions
+  (:require [hyperopen.websocket.migration-flags :as migration-flags]))
 
 (defn- chart-dropdown-visibility-path-values
   [open-dropdown]
@@ -21,9 +22,12 @@
 
 (defn select-chart-timeframe
   [state timeframe]
-  [(chart-dropdown-projection-effect nil [[[:chart-options :selected-timeframe] timeframe]])
-   [:effects/local-storage-set "chart-timeframe" (name timeframe)]
-   [:effects/fetch-candle-snapshot :interval timeframe]])
+  (cond-> [(chart-dropdown-projection-effect nil [[[:chart-options :selected-timeframe] timeframe]])
+           [:effects/local-storage-set "chart-timeframe" (name timeframe)]]
+    (migration-flags/should-fetch-candle-snapshot? state
+                                                   (:active-asset state)
+                                                   timeframe)
+    (conj [:effects/fetch-candle-snapshot :interval timeframe])))
 
 (defn toggle-chart-type-dropdown
   [state]

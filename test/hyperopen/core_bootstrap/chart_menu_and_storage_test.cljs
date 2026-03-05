@@ -100,6 +100,40 @@
         (is (empty? (effect-extractors/duplicate-heavy-effect-ids effects chart-timeframe-heavy-effect-ids)))
         (is (= :effects/fetch-candle-snapshot (first (last effects))))))))
 
+(deftest select-chart-timeframe-skips-rest-candle-fetch-when-candle-migration-enabled-and-cached-test
+  (with-test-local-storage
+    (fn []
+      (let [effects (core/select-chart-timeframe
+                     {:active-asset "BTC"
+                      :candles {"BTC" {:1h [{:t 1 :o 1 :h 1 :l 1 :c 1 :v 1}]}}
+                      :websocket {:migration-flags {:candle-subscriptions? true}}
+                      :chart-options {:timeframes-dropdown-visible true
+                                      :chart-type-dropdown-visible true
+                                      :indicators-dropdown-visible true}}
+                     :1h)]
+        (is (= [[:effects/save-many [[[:chart-options :selected-timeframe] :1h]
+                                     [[:chart-options :timeframes-dropdown-visible] false]
+                                     [[:chart-options :chart-type-dropdown-visible] false]
+                                     [[:chart-options :indicators-dropdown-visible] false]]]
+                [:effects/local-storage-set "chart-timeframe" "1h"]]
+               effects))
+        (is (not-any? #(= :effects/fetch-candle-snapshot (first %)) effects))))))
+
+(deftest select-chart-timeframe-keeps-rest-backfill-when-candle-migration-enabled-without-cache-test
+  (with-test-local-storage
+    (fn []
+      (let [effects (core/select-chart-timeframe
+                     {:active-asset "BTC"
+                      :candles {"BTC" {:1d [{:t 1 :o 1 :h 1 :l 1 :c 1 :v 1}]}}
+                      :websocket {:migration-flags {:candle-subscriptions? true}}
+                      :chart-options {:timeframes-dropdown-visible true
+                                      :chart-type-dropdown-visible true
+                                      :indicators-dropdown-visible true}}
+                     :1h)]
+        (is (= :effects/fetch-candle-snapshot (first (last effects))))
+        (is (= [:effects/fetch-candle-snapshot :interval :1h]
+               (last effects)))))))
+
 (deftest select-chart-type-emits-single-batched-projection-and-no-network-effects-test
   (with-test-local-storage
     (fn []

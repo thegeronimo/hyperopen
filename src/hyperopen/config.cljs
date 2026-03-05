@@ -12,6 +12,10 @@
                :auto-recover-cooldown-ms 300000}
    :ui {:wallet-copy-feedback-ms 1500
         :order-toast-ms 3500}
+   :ws-migration {:order-fill-ws-first? true
+                  :startup-bootstrap-ws-first? true
+                  :candle-subscriptions? false
+                  :auto-fallback-on-health-degrade? true}
    :startup {:deferred-bootstrap-delay-ms 1200
              :stream-backfill-delay-ms 450
              :per-dex-stagger-ms 120

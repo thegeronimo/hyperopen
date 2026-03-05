@@ -3,6 +3,7 @@
             [hyperopen.account.context :as account-context]
             [hyperopen.platform :as platform]
             [hyperopen.websocket.health-projection :as health-projection]
+            [hyperopen.websocket.migration-flags :as migration-flags]
             [hyperopen.wallet.address-watcher :as address-watcher]))
 
 (defn default-startup-runtime-state
@@ -311,7 +312,8 @@
      (fn []
        ;; Guard against stale async callbacks for an old address.
        (when (= address (account-context/effective-account-address @store))
-         (when-not (topic-live-for-address? store "openOrders" address)
+         (when (or (not (migration-flags/startup-bootstrap-ws-first-enabled? @store))
+                   (not (topic-live-for-address? store "openOrders" address)))
            (fetch-frontend-open-orders! store address {:dex dex
                                                        :priority :low}))
          (fetch-clearinghouse-state! store address dex {:priority :low})))
@@ -356,31 +358,38 @@
       (prefetch-order-history! {:store store
                                 :fetch-historical-orders! fetch-historical-orders!})
       ;; Stage A: critical account data.
-      (schedule-stream-backed-startup-fallback!
-       {:store store
-        :address address
-        :topic "openOrders"
-        :fetch-fn fetch-frontend-open-orders!
-        :opts {:priority :high}
-        :startup-stream-backfill-delay-ms startup-stream-backfill-delay-ms})
-      (schedule-stream-backed-startup-fallback!
-       {:store store
-        :address address
-        :topic "userFills"
-        :fetch-fn fetch-user-fills!
-        :opts {:priority :high}
-        :startup-stream-backfill-delay-ms startup-stream-backfill-delay-ms})
+      (if (migration-flags/startup-bootstrap-ws-first-enabled? @store)
+        (do
+          (schedule-stream-backed-startup-fallback!
+           {:store store
+            :address address
+            :topic "openOrders"
+            :fetch-fn fetch-frontend-open-orders!
+            :opts {:priority :high}
+            :startup-stream-backfill-delay-ms startup-stream-backfill-delay-ms})
+          (schedule-stream-backed-startup-fallback!
+           {:store store
+            :address address
+            :topic "userFills"
+            :fetch-fn fetch-user-fills!
+            :opts {:priority :high}
+            :startup-stream-backfill-delay-ms startup-stream-backfill-delay-ms}))
+        (do
+          (fetch-frontend-open-orders! store address {:priority :high})
+          (fetch-user-fills! store address {:priority :high})))
       (fetch-spot-clearinghouse-state! store address {:priority :high})
       (fetch-user-abstraction! store address {:priority :high})
       (fetch-portfolio! store address {:priority :high})
       (fetch-user-fees! store address {:priority :high})
-      (schedule-stream-backed-startup-fallback!
-       {:store store
-        :address address
-        :topic "userFundings"
-        :fetch-fn fetch-and-merge-funding-history!
-        :opts {:priority :high}
-        :startup-stream-backfill-delay-ms startup-stream-backfill-delay-ms})
+      (if (migration-flags/startup-bootstrap-ws-first-enabled? @store)
+        (schedule-stream-backed-startup-fallback!
+         {:store store
+          :address address
+          :topic "userFundings"
+          :fetch-fn fetch-and-merge-funding-history!
+          :opts {:priority :high}
+          :startup-stream-backfill-delay-ms startup-stream-backfill-delay-ms})
+        (fetch-and-merge-funding-history! store address {:priority :high}))
       ;; Stage B: low-priority, staggered per-dex data.
       (-> (ensure-perp-dexs! store {:priority :low})
           (.then (fn [dexs]

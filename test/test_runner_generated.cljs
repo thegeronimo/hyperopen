@@ -267,6 +267,7 @@
             [hyperopen.websocket.infrastructure.transport-test]
             [hyperopen.websocket.interval-coverage-test]
             [hyperopen.websocket.market-projection-runtime-test]
+            [hyperopen.websocket.migration-flags-test]
             [hyperopen.websocket.order-feedback-runtime-coverage-test]
             [hyperopen.websocket.orderbook-policy-test]
             [hyperopen.websocket.orderbook-test]
@@ -545,6 +546,7 @@
              'hyperopen.websocket.infrastructure.transport-test
              'hyperopen.websocket.interval-coverage-test
              'hyperopen.websocket.market-projection-runtime-test
+             'hyperopen.websocket.migration-flags-test
              'hyperopen.websocket.order-feedback-runtime-coverage-test
              'hyperopen.websocket.orderbook-policy-test
              'hyperopen.websocket.orderbook-test

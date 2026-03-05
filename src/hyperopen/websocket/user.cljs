@@ -13,6 +13,7 @@
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.websocket.client :as ws-client]
             [hyperopen.websocket.health-projection :as health-projection]
+            [hyperopen.websocket.migration-flags :as migration-flags]
             [hyperopen.wallet.address-watcher :as address-watcher]))
 
 (defonce user-state (atom {:subscriptions #{}}))
@@ -166,8 +167,12 @@
 (defn- refresh-account-surfaces-after-user-fill!
   [store address]
   (when address
-    (let [open-orders-live? (topic-live-for-address? store "openOrders" address)
-          webdata2-live? (topic-live-for-address? store "webData2" address)]
+    (let [state @store
+          ws-first-enabled? (migration-flags/order-fill-ws-first-enabled? state)
+          open-orders-live? (and ws-first-enabled?
+                                 (topic-live-for-address? store "openOrders" address))
+          webdata2-live? (and ws-first-enabled?
+                              (topic-live-for-address? store "webData2" address))]
       (when-not open-orders-live?
         (refresh-open-orders-snapshot! store address nil {:priority :high}))
     (refresh-spot-clearinghouse-snapshot! store address {:priority :high})

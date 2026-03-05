@@ -9,7 +9,8 @@
             [hyperopen.account.history.position-margin :as position-margin]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.api.trading :as trading-api]
-            [hyperopen.websocket.health-projection :as health-projection]))
+            [hyperopen.websocket.health-projection :as health-projection]
+            [hyperopen.websocket.migration-flags :as migration-flags]))
 
 (defn- cancel-request-oids
   [request]
@@ -142,8 +143,12 @@
 (defn- refresh-account-surfaces-after-order-mutation!
   [store address]
   (when address
-    (let [open-orders-live? (topic-live-for-address? store "openOrders" address)
-          webdata2-live? (topic-live-for-address? store "webData2" address)]
+    (let [state @store
+          ws-first-enabled? (migration-flags/order-fill-ws-first-enabled? state)
+          open-orders-live? (and ws-first-enabled?
+                                 (topic-live-for-address? store "openOrders" address))
+          webdata2-live? (and ws-first-enabled?
+                              (topic-live-for-address? store "webData2" address))]
       (when-not open-orders-live?
         (refresh-open-orders-snapshot! store address nil {:priority :high}))
       (when-not webdata2-live?

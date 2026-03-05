@@ -569,6 +569,71 @@
          (done))
        0))))
 
+(deftest bootstrap-account-data-flag-off-fetches-stream-backed-surfaces-immediately-test
+  (async done
+    (let [address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          stage-a-calls (atom [])
+          scheduled-delays (atom [])
+          websocket-health {:transport {:state :connected
+                                        :freshness :live}
+                            :streams {"open-orders-stream" {:subscribed? true
+                                                            :status :live
+                                                            :topic "openOrders"
+                                                            :descriptor {:type "openOrders"
+                                                                         :user address}}
+                                      "fills-stream" {:subscribed? true
+                                                      :status :live
+                                                      :topic "userFills"
+                                                      :descriptor {:type "userFills"
+                                                                   :user address}}
+                                      "fundings-stream" {:subscribed? true
+                                                         :status :live
+                                                         :topic "userFundings"
+                                                         :descriptor {:type "userFundings"
+                                                                      :user address}}}}
+          store (atom {:wallet {:address address}
+                       :account-info {:order-history {:request-id 0}}
+                       :websocket {:migration-flags {:startup-bootstrap-ws-first? false}
+                                   :health websocket-health}})
+          startup-runtime-atom (atom {:bootstrapped-address nil})]
+      (with-redefs [platform/set-timeout! (fn [_f delay-ms]
+                                            (swap! scheduled-delays conj delay-ms)
+                                            :timeout-id)]
+        (startup-runtime/bootstrap-account-data!
+         {:startup-runtime startup-runtime-atom
+          :store store
+          :address address
+          :startup-stream-backfill-delay-ms 999
+          :fetch-frontend-open-orders! (fn [_store fetch-address opts]
+                                         (swap! stage-a-calls conj [:open-orders fetch-address opts]))
+          :fetch-user-fills! (fn [_store fetch-address opts]
+                               (swap! stage-a-calls conj [:fills fetch-address opts]))
+          :fetch-spot-clearinghouse-state! (fn [_store fetch-address opts]
+                                             (swap! stage-a-calls conj [:spot fetch-address opts]))
+          :fetch-user-abstraction! (fn [_store fetch-address opts]
+                                     (swap! stage-a-calls conj [:abstraction fetch-address opts]))
+          :fetch-portfolio! (fn [_store fetch-address opts]
+                              (swap! stage-a-calls conj [:portfolio fetch-address opts]))
+          :fetch-user-fees! (fn [_store fetch-address opts]
+                              (swap! stage-a-calls conj [:user-fees fetch-address opts]))
+          :fetch-historical-orders! (fn [_store request-id opts]
+                                      (swap! stage-a-calls conj [:order-history request-id opts]))
+          :fetch-and-merge-funding-history! (fn [_store fetch-address opts]
+                                              (swap! stage-a-calls conj [:fundings fetch-address opts]))
+          :ensure-perp-dexs! (fn [_store _opts]
+                               (js/Promise.resolve []))
+          :stage-b-account-bootstrap! (fn [& _] nil)
+          :log-fn (fn [& _] nil)}))
+      (js/setTimeout
+       (fn []
+         (is (some #(= :open-orders (first %)) @stage-a-calls))
+         (is (some #(= :fills (first %)) @stage-a-calls))
+         (is (some #(= :fundings (first %)) @stage-a-calls))
+         ;; Startup WS-first disabled means no delayed stream-backed fallback scheduling.
+         (is (= [] @scheduled-delays))
+         (done))
+       0))))
+
 (deftest bootstrap-account-data-ws-first-runs-delayed-fallback-when-streams-are-not-live-test
   (async done
     (let [address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
