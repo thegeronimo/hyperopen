@@ -5,11 +5,25 @@
             [hyperopen.api.info-client :as info-client]))
 
 (defn- fake-http-response
-  [status]
-  (doto (js-obj)
-    (aset "status" status)
-    (aset "ok" (= status 200))
-    (aset "json" (fn [] (js/Promise.resolve #js {})))))
+  ([status]
+   (fake-http-response status {}))
+  ([status payload]
+   (doto (js-obj)
+     (aset "status" status)
+     (aset "ok" (= status 200))
+     (aset "json" (fn [] (js/Promise.resolve (clj->js payload)))))))
+
+(defn- stepping-now-ms
+  [values]
+  (let [remaining (atom (vec values))
+        last-value (atom (or (last values) 0))]
+    (fn []
+      (if-let [next-value (first @remaining)]
+        (do
+          (swap! remaining subvec 1)
+          (reset! last-value next-value)
+          next-value)
+        @last-value))))
 
 (use-fixtures
   :each
@@ -103,6 +117,119 @@
                    (is (= 1 (count @sleeps)))
                    (is (= [{:name "dex-a"}] data))
                    (done)))
+          (.catch (fn [err]
+                    (is false (str "Unexpected error: " err))
+                    (done)))))))
+
+(deftest info-client-tracks-request-type-source-and-latency-test
+  (async done
+    (let [now-ms-fn (stepping-now-ms [1000 1030])
+          client (info-client/make-info-client
+                  {:fetch-fn (fn [_ _]
+                               (js/Promise.resolve (fake-http-response 200 {:ok true})))
+                   :now-ms-fn now-ms-fn
+                   :sleep-ms-fn (fn [_] (js/Promise.resolve nil))
+                   :log-fn (fn [& _])})]
+      (-> ((:request-info! client)
+           {"type" "frontendOpenOrders"
+            "user" "0xabc"}
+           {:priority :high
+            :request-source "startup/stage-b"})
+          (.then
+           (fn [_]
+             (let [stats ((:get-request-stats client))]
+               (is (= {:high 1 :low 0}
+                      (:started stats)))
+               (is (= {:high 1 :low 0}
+                      (:completed stats)))
+               (is (= 1
+                      (get-in stats [:started-by-type "frontendOpenOrders"])))
+               (is (= 1
+                      (get-in stats [:completed-by-type "frontendOpenOrders"])))
+               (is (= 1
+                      (get-in stats [:started-by-source "startup/stage-b"])))
+               (is (= 1
+                      (get-in stats [:completed-by-source "startup/stage-b"])))
+               (is (= {:count 1 :total-ms 30 :max-ms 30}
+                      (get-in stats [:latency-ms-by-type "frontendOpenOrders"])))
+               (is (= {:count 1 :total-ms 30 :max-ms 30}
+                      (get-in stats [:latency-ms-by-source "startup/stage-b"]))))
+             (done)))
+          (.catch (fn [err]
+                    (is false (str "Unexpected error: " err))
+                    (done)))))))
+
+(deftest info-client-defaults-to-unknown-request-type-and-source-test
+  (async done
+    (let [now-ms-fn (stepping-now-ms [2000 2015])
+          client (info-client/make-info-client
+                  {:fetch-fn (fn [_ _]
+                               (js/Promise.resolve (fake-http-response 200 {:ok true})))
+                   :now-ms-fn now-ms-fn
+                   :sleep-ms-fn (fn [_] (js/Promise.resolve nil))
+                   :log-fn (fn [& _])})]
+      (-> ((:request-info! client) {} {:priority :low})
+          (.then
+           (fn [_]
+             (let [stats ((:get-request-stats client))]
+               (is (= {:high 0 :low 1}
+                      (:started stats)))
+               (is (= {:high 0 :low 1}
+                      (:completed stats)))
+               (is (= 1
+                      (get-in stats [:started-by-type "unknown"])))
+               (is (= 1
+                      (get-in stats [:completed-by-type "unknown"])))
+               (is (= 1
+                      (get-in stats [:started-by-source "unknown"])))
+               (is (= 1
+                      (get-in stats [:completed-by-source "unknown"])))
+               (is (= {:count 1 :total-ms 15 :max-ms 15}
+                      (get-in stats [:latency-ms-by-type "unknown"])))
+               (is (= {:count 1 :total-ms 15 :max-ms 15}
+                      (get-in stats [:latency-ms-by-source "unknown"]))))
+             (done)))
+          (.catch (fn [err]
+                    (is false (str "Unexpected error: " err))
+                    (done)))))))
+
+(deftest info-client-attributes-rate-limits-by-type-and-source-test
+  (async done
+    (let [attempts (atom 0)
+          sleeps (atom [])
+          now-ms-fn (stepping-now-ms [3000 3010 3020 3040])
+          client (info-client/make-info-client
+                  {:fetch-fn (fn [_ _]
+                               (let [attempt (swap! attempts inc)]
+                                 (if (= attempt 1)
+                                   (js/Promise.resolve (fake-http-response 429))
+                                   (js/Promise.resolve (fake-http-response 200 {:ok true})))))
+                   :now-ms-fn now-ms-fn
+                   :sleep-ms-fn (fn [ms]
+                                  (swap! sleeps conj ms)
+                                  (js/Promise.resolve nil))
+                   :log-fn (fn [& _])})]
+      (-> ((:request-info! client)
+           {"type" "clearinghouseState"
+            "user" "0xabc"}
+           {:priority :high
+            :request-source "websocket/user-fill-refresh"})
+          (.then
+           (fn [_]
+             (let [stats ((:get-request-stats client))]
+               (is (= 2
+                      (get-in stats [:started-by-type "clearinghouseState"])))
+               (is (= 2
+                      (get-in stats [:completed-by-type "clearinghouseState"])))
+               (is (= 1
+                      (:rate-limited stats)))
+               (is (= 1
+                      (get-in stats [:rate-limited-by-type "clearinghouseState"])))
+               (is (= 1
+                      (get-in stats [:rate-limited-by-source "websocket/user-fill-refresh"])))
+               ;; One explicit retry delay plus cooldown wait before next attempt.
+               (is (= 2 (count @sleeps))))
+             (done)))
           (.catch (fn [err]
                     (is false (str "Unexpected error: " err))
                     (done)))))))

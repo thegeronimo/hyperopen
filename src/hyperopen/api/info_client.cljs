@@ -1,5 +1,6 @@
 (ns hyperopen.api.info-client
-  (:require [hyperopen.platform :as platform]
+  (:require [clojure.string :as str]
+            [hyperopen.platform :as platform]
             [hyperopen.telemetry :as telemetry]))
 
 (def default-config
@@ -17,6 +18,72 @@
    (fn [resolve _]
      (platform/set-timeout! resolve ms))))
 
+(def ^:private unknown-request-type
+  "unknown")
+
+(def ^:private unknown-request-source
+  "unknown")
+
+(defn- token-text
+  [value]
+  (let [token (some-> value str str/trim)]
+    (when (seq token)
+      token)))
+
+(defn- request-type-token
+  [body]
+  (or (token-text (when (map? body)
+                    (or (get body "type")
+                        (:type body))))
+      unknown-request-type))
+
+(defn- request-source-token
+  [opts]
+  (let [opts* (or opts {})]
+    (or (token-text (:request-source opts*))
+        (token-text (:dedupe-key opts*))
+        unknown-request-source)))
+
+(defn- update-counter
+  [m key]
+  (assoc (or m {})
+         key
+         (inc (or (get m key) 0))))
+
+(defn- update-latency-aggregate
+  [aggregate duration-ms]
+  (let [duration* (max 0 (or duration-ms 0))
+        aggregate* (or aggregate {})
+        count* (inc (or (:count aggregate*) 0))
+        total-ms* (+ (or (:total-ms aggregate*) 0) duration*)
+        max-ms* (max (or (:max-ms aggregate*) 0) duration*)]
+    {:count count*
+     :total-ms total-ms*
+     :max-ms max-ms*}))
+
+(defn- default-request-stats
+  []
+  {:started {:high 0 :low 0}
+   :completed {:high 0 :low 0}
+   :started-by-type {}
+   :completed-by-type {}
+   :started-by-source {}
+   :completed-by-source {}
+   :latency-ms-by-type {}
+   :latency-ms-by-source {}
+   :rate-limited 0
+   :rate-limited-by-type {}
+   :rate-limited-by-source {}
+   :max-inflight-observed 0})
+
+(defn- default-request-runtime
+  []
+  {:inflight 0
+   :queues {:high []
+            :low []}
+   :high-burst 0
+   :stats (default-request-stats)})
+
 (defn make-info-client
   [{:keys [config fetch-fn now-ms-fn sleep-ms-fn log-fn]
     :or {config default-config
@@ -33,14 +100,7 @@
                 default-priority]} (merge default-config (or config {}))
         cooldown-until-ms (atom 0)
         single-flight-promises (atom {})
-        request-runtime (atom {:inflight 0
-                               :queues {:high []
-                                        :low []}
-                               :high-burst 0
-                               :stats {:started {:high 0 :low 0}
-                                       :completed {:high 0 :low 0}
-                                       :rate-limited 0
-                                       :max-inflight-observed 0}})]
+        request-runtime (atom (default-request-runtime))]
     (letfn [(normalize-priority [priority]
               (if (= priority :low) :low :high))
             (retryable-status? [status]
@@ -81,8 +141,12 @@
                              state
                              (let [queue (get-in state [:queues priority])
                                    task (first queue)
+                                   started-at-ms (now-ms-fn)
+                                   task* (assoc task :started-at-ms started-at-ms)
+                                   request-type (:request-type task*)
+                                   request-source (:request-source task*)
                                    next-inflight (inc inflight)]
-                               (reset! selected task)
+                               (reset! selected task*)
                                (-> state
                                    (assoc :inflight next-inflight)
                                    (assoc :high-burst (if (= priority :high)
@@ -90,6 +154,12 @@
                                                         0))
                                    (assoc-in [:queues priority] (vec (rest queue)))
                                    (update-in [:stats :started priority] (fnil inc 0))
+                                   (update-in [:stats :started-by-type]
+                                              update-counter
+                                              request-type)
+                                   (update-in [:stats :started-by-source]
+                                              update-counter
+                                              request-source)
                                    (update-in [:stats :max-inflight-observed] (fnil max 0) next-inflight)))))))
                 @selected))
             (pump-request-queue! []
@@ -98,53 +168,91 @@
                   (when-let [task (dequeue-request-task!)]
                     (start-request-task! task)
                     (recur)))))
-            (mark-request-complete! [priority]
-              (let [priority* (normalize-priority priority)]
+            (mark-request-complete! [{:keys [priority
+                                             request-type
+                                             request-source
+                                             started-at-ms]}]
+              (let [priority* (normalize-priority priority)
+                    completed-at-ms (now-ms-fn)
+                    duration-ms (- completed-at-ms (or started-at-ms completed-at-ms))]
                 (swap! request-runtime
                        (fn [state]
                          (-> state
                              (update :inflight #(max 0 (dec %)))
-                             (update-in [:stats :completed priority*] (fnil inc 0))))))
+                             (update-in [:stats :completed priority*] (fnil inc 0))
+                             (update-in [:stats :completed-by-type]
+                                        update-counter
+                                        request-type)
+                             (update-in [:stats :completed-by-source]
+                                        update-counter
+                                        request-source)
+                             (update-in [:stats :latency-ms-by-type request-type]
+                                        update-latency-aggregate
+                                        duration-ms)
+                             (update-in [:stats :latency-ms-by-source request-source]
+                                        update-latency-aggregate
+                                        duration-ms)))))
               (pump-request-queue!))
-            (start-request-task! [{:keys [priority request-fn resolve reject]}]
-              (try
-                (-> (js/Promise.resolve (request-fn))
-                    (.then (fn [result]
-                             (resolve result)
-                             result))
-                    (.catch (fn [err]
-                              (reject err)
-                              (js/Promise.reject err)))
-                    (.finally (fn []
-                                (mark-request-complete! priority))))
-                (catch :default e
-                  (reject e)
-                  (mark-request-complete! priority))))
-            (enqueue-request! [priority request-fn]
-              (let [priority* (normalize-priority priority)]
-                (js/Promise.
-                 (fn [resolve reject]
-                   (swap! request-runtime update-in [:queues priority*]
-                          (fnil conj [])
-                          {:priority priority*
-                           :request-fn request-fn
-                           :resolve resolve
-                           :reject reject})
-                   (pump-request-queue!)))))
+            (start-request-task! [task]
+              (let [{:keys [request-fn resolve reject]} task]
+                (try
+                  (-> (js/Promise.resolve (request-fn))
+                      (.then (fn [result]
+                               (resolve result)
+                               result))
+                      (.catch (fn [err]
+                                (reject err)
+                                (js/Promise.reject err)))
+                      (.finally (fn []
+                                  (mark-request-complete! task))))
+                  (catch :default e
+                    (reject e)
+                    (mark-request-complete! task)))))
+            (enqueue-request!
+              ([priority request-fn]
+               (enqueue-request! priority request-fn {}))
+              ([priority request-fn request-meta]
+               (let [priority* (normalize-priority priority)
+                     request-meta* (or request-meta {})
+                     request-type (or (:request-type request-meta*)
+                                      unknown-request-type)
+                     request-source (or (:request-source request-meta*)
+                                        unknown-request-source)]
+                 (js/Promise.
+                  (fn [resolve reject]
+                    (swap! request-runtime update-in [:queues priority*]
+                           (fnil conj [])
+                           {:priority priority*
+                            :request-fn request-fn
+                            :resolve resolve
+                            :reject reject
+                            :request-type request-type
+                            :request-source request-source})
+                    (pump-request-queue!))))))
             (maybe-wait-for-cooldown! []
               (let [remaining-ms (- @cooldown-until-ms (now-ms-fn))]
                 (if (pos? remaining-ms)
                   (sleep-ms-fn remaining-ms)
                   (js/Promise.resolve nil))))
-            (enqueue-info-request! [priority request-fn]
+            (enqueue-info-request! [priority request-fn request-meta]
               (enqueue-request!
                priority
                (fn []
                  (-> (maybe-wait-for-cooldown!)
                      (.then (fn []
-                              (request-fn)))))))
-            (track-rate-limit! []
-              (swap! request-runtime update-in [:stats :rate-limited] (fnil inc 0)))
+                              (request-fn)))))
+               request-meta))
+            (track-rate-limit! [request-type request-source]
+              (swap! request-runtime
+                     (fn [state]
+                       (-> state
+                           (update-in [:stats :rate-limited] (fnil inc 0))
+                           (update-in [:stats :rate-limited-by-type]
+                                      update-counter
+                                      request-type)
+                           (update-in [:stats :rate-limited-by-source]
+                                      update-counter
+                                      request-source)))))
             (mark-rate-limit-cooldown! [delay-ms]
               (swap! cooldown-until-ms max (+ (now-ms-fn) delay-ms)))
             (with-single-flight! [dedupe-key promise-fn]
@@ -170,7 +278,12 @@
               (-> (.json resp)
                   (.then #(js->clj % :keywordize-keys true))))
             (request-attempt! [body opts attempt]
-              (let [priority (normalize-priority (:priority opts))]
+              (let [opts* (or opts {})
+                    priority (normalize-priority (:priority opts*))
+                    request-type (request-type-token body)
+                    request-source (request-source-token opts*)
+                    request-meta {:request-type request-type
+                                  :request-source request-source}]
                 (-> (enqueue-info-request!
                      priority
                      (fn []
@@ -178,7 +291,9 @@
                         info-url
                         (clj->js {:method "POST"
                                   :headers {"Content-Type" "application/json"}
-                                  :body (js/JSON.stringify (clj->js body))}))))
+                                  :body (js/JSON.stringify (clj->js body))})))
+                     request-meta
+                    )
                     (.then
                      (fn [resp]
                        (let [status (.-status resp)]
@@ -190,12 +305,12 @@
                                 (< attempt max-retries))
                            (let [delay-ms (retry-delay-ms attempt)]
                              (when (= status 429)
-                               (track-rate-limit!)
+                               (track-rate-limit! request-type request-source)
                                (mark-rate-limit-cooldown! delay-ms))
                              (log-fn "Rate-limited /info request, retrying in" delay-ms "ms. status:" status "attempt:" (inc attempt))
                              (-> (sleep-ms-fn delay-ms)
                                  (.then (fn []
-                                          (request-attempt! body opts (inc attempt))))))
+                                          (request-attempt! body opts* (inc attempt))))))
 
                            :else
                            (throw (make-http-error status))))))
@@ -207,41 +322,41 @@
                                       (retryable-status? status)))
                            (let [delay-ms (retry-delay-ms attempt)]
                              (when (= status 429)
-                               (track-rate-limit!)
+                               (track-rate-limit! request-type request-source)
                                (mark-rate-limit-cooldown! delay-ms))
                              (log-fn "Error during /info request, retrying in" delay-ms "ms. attempt:" (inc attempt) "error:" err)
                              (-> (sleep-ms-fn delay-ms)
                                  (.then (fn []
-                                          (request-attempt! body opts (inc attempt))))))
+                                          (request-attempt! body opts* (inc attempt))))))
                            (js/Promise.reject err))))))))
             (request-info!
               ([body]
                (request-info! body {}))
               ([body opts]
                (let [opts* (merge {:priority default-priority} (or opts {}))
-                     dedupe-key (:dedupe-key opts*)]
+                     dedupe-key (:dedupe-key opts*)
+                     request-opts (cond-> (dissoc opts* :dedupe-key)
+                                    (and dedupe-key
+                                         (nil? (:request-source opts*)))
+                                    (assoc :request-source dedupe-key))]
                  (with-single-flight!
                   dedupe-key
                   (fn []
-                    (request-attempt! body (dissoc opts* :dedupe-key) 0)))))
+                    (request-attempt! body request-opts 0)))))
               ([body opts attempt]
                (request-attempt! body
-                                 (merge {:priority default-priority} (or opts {}))
+                                 (let [opts* (merge {:priority default-priority} (or opts {}))]
+                                   (cond-> opts*
+                                     (and (:dedupe-key opts*)
+                                          (nil? (:request-source opts*)))
+                                     (assoc :request-source (:dedupe-key opts*))))
                                  attempt)))
             (get-request-stats []
               (:stats @request-runtime))
             (reset-client! []
               (reset! cooldown-until-ms 0)
               (reset! single-flight-promises {})
-              (reset! request-runtime
-                      {:inflight 0
-                       :queues {:high []
-                                :low []}
-                       :high-burst 0
-                       :stats {:started {:high 0 :low 0}
-                               :completed {:high 0 :low 0}
-                               :rate-limited 0
-                               :max-inflight-observed 0}}))]
+              (reset! request-runtime (default-request-runtime)))]
       {:request-info! request-info!
        :enqueue-request! enqueue-request!
        :enqueue-info-request! enqueue-info-request!
