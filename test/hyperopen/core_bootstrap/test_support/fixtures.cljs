@@ -32,6 +32,11 @@
     (swap! runtime-state/runtime assoc-in [:timeouts :wallet-copy] nil)))
 
 (defn clear-order-feedback-toast-timeout! []
-  (when-let [timeout-id (get-in @runtime-state/runtime [:timeouts :order-toast])]
-    (js/clearTimeout timeout-id)
-    (swap! runtime-state/runtime assoc-in [:timeouts :order-toast] nil)))
+  (let [timeout-state (get-in @runtime-state/runtime [:timeouts :order-toast])
+        timeout-ids (cond
+                      (map? timeout-state) (vals timeout-state)
+                      (some? timeout-state) [timeout-state]
+                      :else [])]
+    (doseq [timeout-id timeout-ids]
+      (js/clearTimeout timeout-id))
+    (swap! runtime-state/runtime assoc-in [:timeouts :order-toast] {})))

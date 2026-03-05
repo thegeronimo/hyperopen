@@ -15,18 +15,24 @@
   (order-feedback-runtime/clear-order-feedback-toast! store))
 
 (defn clear-order-feedback-toast-timeout!
-  [runtime]
-  (order-feedback-runtime/clear-order-feedback-toast-timeout-in-runtime!
-   runtime
-   platform/clear-timeout!))
+  ([runtime]
+   (clear-order-feedback-toast-timeout! runtime nil))
+  ([runtime toast-id]
+   (order-feedback-runtime/clear-order-feedback-toast-timeout-in-runtime!
+    runtime
+    platform/clear-timeout!
+    toast-id)))
 
 (defn- schedule-order-feedback-toast-clear!
-  [runtime store]
+  [runtime store toast-id]
   (order-feedback-runtime/schedule-order-feedback-toast-clear!
    {:store store
     :runtime runtime
+    :toast-id toast-id
     :clear-order-feedback-toast! clear-order-feedback-toast!
-    :clear-order-feedback-toast-timeout! #(clear-order-feedback-toast-timeout! runtime)
+    :clear-order-feedback-toast-timeout! (fn
+                                           ([] (clear-order-feedback-toast-timeout! runtime))
+                                           ([id] (clear-order-feedback-toast-timeout! runtime id)))
     :order-feedback-toast-duration-ms runtime-state/order-feedback-toast-duration-ms
     :set-timeout-fn platform/set-timeout!}))
 
@@ -38,7 +44,7 @@
     store
     kind
     message
-    #(schedule-order-feedback-toast-clear! runtime %))))
+    #(schedule-order-feedback-toast-clear! runtime %1 %2))))
 
 (defn- order-api-effect-deps
   [runtime]

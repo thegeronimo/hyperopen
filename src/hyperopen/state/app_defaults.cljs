@@ -76,6 +76,7 @@
 (defn default-ui-state
   []
   {:toast nil
+   :toasts []
    :locale (i18n-locale/resolve-preferred-locale)})
 
 (defn default-asset-selector-state

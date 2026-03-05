@@ -188,6 +188,7 @@
     set-order-price-to-mid
     toggle-order-tpsl-panel
     update-order-form
+    dismiss-order-feedback-toast
     submit-order
     prune-canceled-open-orders
     cancel-order

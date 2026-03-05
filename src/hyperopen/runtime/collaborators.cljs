@@ -199,6 +199,7 @@
    :set-order-price-to-mid order-actions/set-order-price-to-mid
    :toggle-order-tpsl-panel order-actions/toggle-order-tpsl-panel
    :update-order-form order-actions/update-order-form
+   :dismiss-order-feedback-toast order-actions/dismiss-order-feedback-toast
    :submit-order order-actions/submit-order
    :cancel-order order-actions/cancel-order
    :open-funding-transfer-modal funding-actions/open-funding-transfer-modal

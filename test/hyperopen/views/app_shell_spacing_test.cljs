@@ -44,6 +44,21 @@
 
     :else nil))
 
+(defn- find-nodes [node pred]
+  (letfn [(walk [n]
+            (cond
+              (vector? n)
+              (let [attrs (when (map? (second n)) (second n))
+                    children (if attrs (drop 2 n) (drop 1 n))
+                    matches (if (pred n) [n] [])]
+                (into matches (mapcat walk children)))
+
+              (seq? n)
+              (mapcat walk n)
+
+              :else []))]
+    (vec (walk node))))
+
 (defn- collect-strings [node]
   (cond
     (string? node) [node]
@@ -299,6 +314,36 @@
     (is (some? toast-node))
     (is (contains? (set (collect-strings toast-node))
                    "Order submitted."))))
+
+(deftest app-view-renders-stacked-order-feedback-toasts-and-dismiss-actions-test
+  (let [view-node (app-view/app-view (assoc trade-view-test-state
+                                            :router {:path "/trade"}
+                                            :wallet {}
+                                            :ui {:toast {:kind :success
+                                                         :message "Sold 1.25 SOL"}
+                                                 :toasts [{:id "toast-1"
+                                                           :kind :success
+                                                           :headline "Bought 6 HYPE"
+                                                           :subline "At average price of $31.66667"
+                                                           :message "Bought 6 HYPE"}
+                                                          {:id "toast-2"
+                                                           :kind :success
+                                                           :headline "Sold 1.25 SOL"
+                                                           :subline "At average price of $90.79"
+                                                           :message "Sold 1.25 SOL"}]}))
+        toast-nodes (find-nodes view-node #(= "global-toast" (get-in % [1 :data-role])))
+        dismiss-nodes (find-nodes view-node #(= "global-toast-dismiss" (get-in % [1 :data-role])))
+        rendered-strings (set (collect-strings view-node))]
+    (is (= 2 (count toast-nodes)))
+    (is (= 2 (count dismiss-nodes)))
+    (is (contains? rendered-strings "Bought 6 HYPE"))
+    (is (contains? rendered-strings "Sold 1.25 SOL"))
+    (is (contains? rendered-strings "At average price of $31.66667"))
+    (is (contains? rendered-strings "At average price of $90.79"))
+    (is (= [[:actions/dismiss-order-feedback-toast "toast-1"]]
+           (get-in (first dismiss-nodes) [1 :on :click])))
+    (is (= [[:actions/dismiss-order-feedback-toast "toast-2"]]
+           (get-in (second dismiss-nodes) [1 :on :click])))))
 
 (deftest app-view-renders-ghost-mode-banner-when-active-test
   (let [address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"

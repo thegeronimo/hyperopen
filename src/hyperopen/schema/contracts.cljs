@@ -507,6 +507,7 @@
    :actions/set-order-price-to-mid ::no-args
    :actions/toggle-order-tpsl-panel ::no-args
    :actions/update-order-form (s/tuple ::state-path any?)
+   :actions/dismiss-order-feedback-toast ::optional-string-args
    :actions/submit-order ::no-args
    :actions/cancel-order ::cancel-order-args
    :actions/load-user-data ::address-args

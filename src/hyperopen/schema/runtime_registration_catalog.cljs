@@ -208,7 +208,8 @@
      [:actions/set-position-margin-amount-to-max :set-position-margin-amount-to-max]
      [:actions/submit-position-margin-update :submit-position-margin-update]]
     (order-form-command-catalog/runtime-action-bindings)
-    [[:actions/cancel-order :cancel-order]
+    [[:actions/dismiss-order-feedback-toast :dismiss-order-feedback-toast]
+     [:actions/cancel-order :cancel-order]
      [:actions/load-user-data :load-user-data]
      [:actions/set-funding-modal :set-funding-modal]
      [:actions/open-funding-transfer-modal :open-funding-transfer-modal]

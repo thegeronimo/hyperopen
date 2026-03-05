@@ -191,6 +191,31 @@
 (defn update-order-form [state path value]
   (transition-save-many state (transitions/update-order-form state path value)))
 
+(defn- current-order-feedback-toasts
+  [state]
+  (let [toasts (->> (or (get-in state [:ui :toasts]) [])
+                    (filter map?)
+                    vec)
+        legacy-toast (get-in state [:ui :toast])]
+    (if (seq toasts)
+      toasts
+      (if (map? legacy-toast)
+        [legacy-toast]
+        []))))
+
+(defn dismiss-order-feedback-toast
+  [state toast-id]
+  (let [current-toasts (current-order-feedback-toasts state)
+        remaining-toasts (if (some? toast-id)
+                           (->> current-toasts
+                                (remove #(= toast-id (:id %)))
+                                vec)
+                           [])
+        latest-toast (some-> (peek remaining-toasts)
+                             (dissoc :id))]
+    [[:effects/save-many [[[:ui :toasts] remaining-toasts]
+                          [[:ui :toast] latest-toast]]]]))
+
 (defn submit-order [state]
   (let [ghost-mode-message (account-context/mutations-blocked-message state)
         raw-form (trading/order-form-draft state)

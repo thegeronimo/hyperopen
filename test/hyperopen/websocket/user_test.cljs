@@ -12,7 +12,8 @@
                   :fundings []
                   :fundings-raw []
                   :ledger []}
-         :ui {:toast nil}
+         :ui {:toast nil
+              :toasts []}
          :account-info {:funding-history {:filters {:coin-set #{}
                                                    :start-time-ms 0
                                                    :end-time-ms 9999999999999}}}}))
@@ -71,16 +72,30 @@
       ((get @handlers "userFills")
        {:channel "userFills"
         :data {:isSnapshot false
-               :fills [{:tid 2 :coin "ETH" :time 2000}]}})
+               :fills [{:tid 2
+                        :coin "ETH"
+                        :side "A"
+                        :sz "0.0473"
+                        :px "2132.4"
+                        :time 2000}]}})
       (is (= [2 1] (mapv :tid (get-in @store [:orders :fills]))))
       (is (= :success (get-in @store [:ui :toast :kind])))
-      (is (= "Order filled: ETH."
-             (get-in @store [:ui :toast :message])))
-      (swap! store assoc-in [:ui :toast] nil)
+      (is (= "Sold 0.0473 ETH"
+             (get-in @store [:ui :toast :headline])))
+      (is (= "At average price of $2,132.4"
+             (get-in @store [:ui :toast :subline])))
+      (is (= 1 (count (get-in @store [:ui :toasts]))))
+      (swap! store assoc :ui {:toast nil
+                              :toasts []})
       ((get @handlers "userFills")
        {:channel "userFills"
         :data {:isSnapshot false
-               :fills [{:tid 2 :coin "ETH" :time 2000}]}})
+               :fills [{:tid 2
+                        :coin "ETH"
+                        :side "A"
+                        :sz "0.0473"
+                        :px "2132.4"
+                        :time 2000}]}})
       (is (= [2 1] (mapv :tid (get-in @store [:orders :fills]))))
       (is (nil? (get-in @store [:ui :toast])))
       ((get @handlers "userFundings")
@@ -115,6 +130,54 @@
         :data {:isSnapshot false
                :nonFundingLedgerUpdates [{:time 2000 :coin "USDC" :delta "2.0"}]}})
       (is (= ["2.0" "1.0"] (mapv :delta (get-in @store [:orders :ledger])))))))
+
+(deftest user-fills-incrementals-stack-toasts-and-group-summaries-test
+  (let [store (make-store)
+        handlers (atom {})]
+    (with-redefs [ws-client/register-handler!
+                  (fn [message-type handler-fn]
+                    (swap! handlers assoc message-type handler-fn)
+                    true)
+                  runtime-state/runtime (atom (runtime-state/default-runtime-state))
+                  platform/set-timeout! (fn [_ _] 1234)
+                  platform/clear-timeout! (fn [_] nil)]
+      (user-ws/init! store)
+      ((get @handlers "userFills")
+       {:channel "userFills"
+        :data {:isSnapshot false
+               :fills [{:tid 10
+                        :coin "HYPE"
+                        :side "B"
+                        :sz "4.00"
+                        :px "31.00"
+                        :time 1000}
+                       {:tid 11
+                        :coin "HYPE"
+                        :side "B"
+                        :sz "2.00"
+                        :px "33.00"
+                        :time 1001}]}})
+      (is (= "Bought 6 HYPE"
+             (get-in @store [:ui :toast :headline])))
+      (is (= "At average price of $31.66667"
+             (get-in @store [:ui :toast :subline])))
+      (is (= 1 (count (get-in @store [:ui :toasts]))))
+
+      ((get @handlers "userFills")
+       {:channel "userFills"
+        :data {:isSnapshot false
+               :fills [{:tid 12
+                        :coin "SOL"
+                        :side "A"
+                        :sz "1.25"
+                        :px "90.79"
+                        :time 1002}]}})
+      (is (= "Sold 1.25 SOL"
+             (get-in @store [:ui :toast :headline])))
+      (is (= 2 (count (get-in @store [:ui :toasts]))))
+      (is (= ["Bought 6 HYPE"
+              "Sold 1.25 SOL"]
+             (mapv :headline (get-in @store [:ui :toasts])))))))
 
 (deftest user-ledger-incremental-triggers-account-surface-refresh-test
   (let [store (doto (make-store)

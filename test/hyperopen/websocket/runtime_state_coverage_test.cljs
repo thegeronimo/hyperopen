@@ -24,7 +24,7 @@
            :app-started? true
            :runtime-bootstrapped? true
            :timeouts {:wallet-copy :timeout-id
-                      :order-toast :toast-id})
+                      :order-toast {:toast-1 :toast-id}})
     (runtime-state/reset-runtime-state! runtime)
 
     (is (= (runtime-state/default-runtime-state) @runtime))

@@ -374,6 +374,9 @@
 (def update-order-form
   order-actions/update-order-form)
 
+(def dismiss-order-feedback-toast
+  order-actions/dismiss-order-feedback-toast)
+
 (def submit-order
   order-actions/submit-order)
 
