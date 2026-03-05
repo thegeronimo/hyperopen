@@ -292,13 +292,17 @@
    (if is-connecting "Connecting…" "Connect Wallet")])
 
 (defn- ghost-mode-icon []
-  [:svg {:viewBox "0 0 20 20"
-         :fill "currentColor"
-         :class ["h-4" "w-4"]
+  [:svg {:viewBox "0 0 24 24"
+         :fill "none"
+         :stroke "currentColor"
+         :stroke-width "1.9"
+         :stroke-linecap "round"
+         :stroke-linejoin "round"
+         :class ["h-5" "w-5"]
          :data-role "ghost-mode-trigger-icon"}
-   [:path {:fill-rule "evenodd"
-           :clip-rule "evenodd"
-           :d "M10 2a6 6 0 00-6 6v8a1 1 0 001.447.894L10 14.618l4.553 2.276A1 1 0 0016 16V8a6 6 0 00-6-6zm0 2a4 4 0 00-4 4v6.382l3.553-1.776a1 1 0 01.894 0L14 14.382V8a4 4 0 00-4-4z"}]])
+   [:path {:d "M9 10h.01"}]
+   [:path {:d "M15 10h.01"}]
+   [:path {:d "M12 2a7 7 0 0 0-7 7v10l2-2 2 2 2-2 2 2 2-2 2 2V9a7 7 0 0 0-7-7z"}]])
 
 (defn- ghost-mode-trigger-button
   [active?]

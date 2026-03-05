@@ -343,16 +343,22 @@
         watchlist-row (find-first-node view-node
                                        #(= "ghost-mode-watchlist-row"
                                            (get-in % [1 :data-role])))
+        close-button (find-first-node view-node
+                                      #(= "ghost-mode-close"
+                                          (get-in % [1 :data-role])))
         stop-button (find-first-node view-node
                                      #(= "ghost-mode-stop"
                                          (get-in % [1 :data-role])))
         rendered-strings (set (collect-strings modal-root))]
     (is (some? modal-root))
     (is (some? watchlist-row))
+    (is (some? close-button))
     (is (contains? (set (collect-strings modal-root)) "Ghost Mode"))
     (is (contains? (set (collect-strings modal-root)) "Currently spectating: "))
     (is (contains? rendered-strings address))
     (is (not-any? #(str/starts-with? % "[[:li")
                   rendered-strings))
+    (is (= [[:actions/close-ghost-mode-modal]]
+           (get-in close-button [1 :on :click])))
     (is (= [[:actions/stop-ghost-mode]]
            (get-in stop-button [1 :on :click])))))

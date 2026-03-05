@@ -594,6 +594,20 @@
                     "group-focus:translate-y-0"]}
       submit-tooltip])])
 
+(defn- ghost-mode-icon
+  [size-classes]
+  [:svg {:viewBox "0 0 24 24"
+         :fill "none"
+         :stroke "currentColor"
+         :stroke-width "1.9"
+         :stroke-linecap "round"
+         :stroke-linejoin "round"
+         :class size-classes
+         :aria-hidden "true"}
+   [:path {:d "M9 10h.01"}]
+   [:path {:d "M15 10h.01"}]
+   [:path {:d "M12 2a7 7 0 0 0-7 7v10l2-2 2 2 2-2 2 2 2-2 2 2V9a7 7 0 0 0-7-7z"}]])
+
 (defn- ghost-mode-stop-affordance []
   [:div {:data-role "order-form-ghost-mode-stop"}
    [:button {:type "button"
@@ -620,13 +634,7 @@
              :on {:click [[:actions/stop-ghost-mode]]}
              :data-role "order-form-ghost-mode-stop-button"}
     [:span {:class ["inline-flex" "min-w-0" "items-center" "gap-2"]}
-     [:svg {:viewBox "0 0 20 20"
-            :fill "currentColor"
-            :class ["h-3.5" "w-3.5" "shrink-0"]
-            :aria-hidden "true"}
-      [:path {:fill-rule "evenodd"
-              :clip-rule "evenodd"
-              :d "M10 2a6 6 0 00-6 6v8a1 1 0 001.447.894L10 14.618l4.553 2.276A1 1 0 0016 16V8a6 6 0 00-6-6zm0 2a4 4 0 00-4 4v6.382l3.553-1.776a1 1 0 01.894 0L14 14.382V8a4 4 0 00-4-4z"}]]
+     (ghost-mode-icon ["h-5" "w-5" "shrink-0"])
      [:span {:class ["truncate"]} "Stop Ghost Mode"]]
     [:span {:class ["shrink-0"
                     "rounded-[4px]"
