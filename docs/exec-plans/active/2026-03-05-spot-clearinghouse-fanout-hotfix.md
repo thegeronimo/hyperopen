@@ -18,7 +18,7 @@ You can verify this by activating ghost mode with a busy address and observing t
 - [x] (2026-03-05 15:20Z) Added/updated endpoint tests for default policy behavior and explicit override semantics.
 - [x] (2026-03-05 15:25Z) Ran required validation gates (`npm run test:websocket`, `npm test`, `npm run check`) and all passed.
 - [x] (2026-03-05 15:27Z) Executed post-fix manual browser QA (ghost mode address `0x162cc7c861ebd0c06b3d72319201150482518185`) and captured post-reset request stats plus websocket stream health.
-- [ ] Update issue notes and close `hyperopen-918` if validated.
+- [x] (2026-03-05 15:28Z) Updated issue notes and closed `hyperopen-918` with validation evidence.
 
 ## Surprises & Discoveries
 
