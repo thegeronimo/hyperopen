@@ -116,6 +116,13 @@
           [:interval :1m]
           {:phase :test}))))
 
+(deftest assert-effect-args-accepts-sync-active-candle-subscription-interval-test
+  (is (= [:interval :1m]
+         (contracts/assert-effect-args!
+          :effects/sync-active-candle-subscription
+          [:interval :1m]
+          {:phase :test}))))
+
 (deftest assert-effect-args-accepts-fetch-candle-snapshot-interval-and-bars-test
   (is (= [:interval :1m :bars 330]
          (contracts/assert-effect-args!

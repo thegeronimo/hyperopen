@@ -16,6 +16,7 @@
                 :replace-state effect-adapters/replace-state}
    :websocket {:init-websocket effect-adapters/init-websocket
                :subscribe-active-asset effect-adapters/subscribe-active-asset
+               :sync-active-candle-subscription effect-adapters/sync-active-candle-subscription
                :subscribe-orderbook effect-adapters/subscribe-orderbook
                :subscribe-trades effect-adapters/subscribe-trades
                :subscribe-webdata2 effect-adapters/subscribe-webdata2

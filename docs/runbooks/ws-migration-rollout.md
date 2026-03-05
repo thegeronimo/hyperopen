@@ -34,7 +34,7 @@ Default config lives in `/hyperopen/src/hyperopen/config.cljs` under `:ws-migrat
   - `false`: force immediate startup REST fetches for stream-backed surfaces.
 - `:candle-subscriptions?`:
   - `false`: keep current REST candle snapshot behavior.
-  - `true`: enable candle migration canary behavior (skip redundant REST fetch when candle cache is present; keep REST backfill when cache missing).
+  - `true`: keep one live `candle` websocket subscription aligned to active asset + selected timeframe, with bounded REST backfill only when cache is missing.
 - `:auto-fallback-on-health-degrade?`:
   - `true`: if websocket health degrades, force flow-level REST fallback automatically.
   - `false`: keep flow flags active even under degraded health.

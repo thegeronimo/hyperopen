@@ -6,7 +6,8 @@
 
 (def with-test-local-storage browser-mocks/with-test-local-storage)
 (def ^:private chart-timeframe-heavy-effect-ids
-  #{:effects/fetch-candle-snapshot})
+  #{:effects/sync-active-candle-subscription
+    :effects/fetch-candle-snapshot})
 
 (deftest toggle-timeframes-dropdown-opens-timeframes-and-closes-other-chart-menus-test
   (let [effects (core/toggle-timeframes-dropdown
@@ -91,6 +92,7 @@
                                      [[:chart-options :chart-type-dropdown-visible] false]
                                      [[:chart-options :indicators-dropdown-visible] false]]]
                 [:effects/local-storage-set "chart-timeframe" "5m"]
+                [:effects/sync-active-candle-subscription :interval :5m]
                 [:effects/fetch-candle-snapshot :interval :5m]]
                effects))
         (is (= 1 (count (filter #(= :effects/fetch-candle-snapshot (first %)) effects))))
@@ -115,7 +117,8 @@
                                      [[:chart-options :timeframes-dropdown-visible] false]
                                      [[:chart-options :chart-type-dropdown-visible] false]
                                      [[:chart-options :indicators-dropdown-visible] false]]]
-                [:effects/local-storage-set "chart-timeframe" "1h"]]
+                [:effects/local-storage-set "chart-timeframe" "1h"]
+                [:effects/sync-active-candle-subscription :interval :1h]]
                effects))
         (is (not-any? #(= :effects/fetch-candle-snapshot (first %)) effects))))))
 
@@ -132,7 +135,9 @@
                      :1h)]
         (is (= :effects/fetch-candle-snapshot (first (last effects))))
         (is (= [:effects/fetch-candle-snapshot :interval :1h]
-               (last effects)))))))
+               (last effects)))
+        (is (= [:effects/sync-active-candle-subscription :interval :1h]
+               (nth effects 2)))))))
 
 (deftest select-chart-type-emits-single-batched-projection-and-no-network-effects-test
   (with-test-local-storage

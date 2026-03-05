@@ -12,6 +12,7 @@
             [hyperopen.telemetry :as telemetry]
             [hyperopen.wallet.address-watcher :as address-watcher]
             [hyperopen.websocket.active-asset-ctx :as active-ctx]
+            [hyperopen.websocket.candles :as candles]
             [hyperopen.websocket.client :as ws-client]
             [hyperopen.websocket.orderbook :as orderbook]
             [hyperopen.websocket.trades :as trades]
@@ -392,6 +393,7 @@
       :ws-url runtime-state/websocket-url
       :init-connection! ws-client/init-connection!
       :init-active-ctx! active-ctx/init!
+      :init-candles! candles/init!
       :init-orderbook! orderbook/init!
       :init-trades! trades/init!
       :init-user-ws! user-ws/init!

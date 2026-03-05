@@ -16,6 +16,7 @@
             [hyperopen.websocket.health-projection :as health-projection]
             [hyperopen.websocket.health-runtime :as health-runtime]
             [hyperopen.websocket.market-projection-runtime :as market-projection-runtime]
+            [hyperopen.websocket.candles :as candles]
             [hyperopen.websocket.orderbook :as orderbook]
             [hyperopen.websocket.subscriptions-runtime :as subscriptions-runtime]
             [hyperopen.websocket.trades :as trades]
@@ -147,10 +148,14 @@
                       persist-active-market-display-fn
                       log-fn
                       resolve-market-by-coin-fn
-                      subscribe-active-asset-ctx-fn]
+                      subscribe-active-asset-ctx-fn
+                      sync-candle-subscription-fn
+                      clear-candle-subscription-fn]
                :or {log-fn telemetry/log!
                     resolve-market-by-coin-fn markets/resolve-market-by-coin
-                    subscribe-active-asset-ctx-fn active-ctx/subscribe-active-asset-ctx!}}]
+                    subscribe-active-asset-ctx-fn active-ctx/subscribe-active-asset-ctx!
+                    sync-candle-subscription-fn candles/sync-candle-subscription!
+                    clear-candle-subscription-fn candles/clear-owner-subscription!}}]
   (subscriptions-runtime/subscribe-active-asset!
    {:store store
     :coin coin
@@ -159,15 +164,34 @@
     :persist-active-asset! persist-active-asset!
     :persist-active-market-display! persist-active-market-display-fn
     :subscribe-active-asset-ctx! subscribe-active-asset-ctx-fn
+    :sync-candle-subscription! sync-candle-subscription-fn
+    :clear-candle-subscription! clear-candle-subscription-fn
     :fetch-candle-snapshot! fetch-candle-snapshot-fn}))
 
 (defn unsubscribe-active-asset
-  [store coin]
-  (subscriptions-runtime/unsubscribe-active-asset!
-   {:store store
-    :coin coin
-    :log-fn telemetry/log!
-    :unsubscribe-active-asset-ctx! active-ctx/unsubscribe-active-asset-ctx!}))
+  ([store coin]
+   (unsubscribe-active-asset store coin {}))
+  ([store coin {:keys [clear-candle-subscription-fn]
+                :or {clear-candle-subscription-fn candles/clear-owner-subscription!}}]
+   (subscriptions-runtime/unsubscribe-active-asset!
+    {:store store
+     :coin coin
+     :log-fn telemetry/log!
+     :unsubscribe-active-asset-ctx! active-ctx/unsubscribe-active-asset-ctx!
+     :clear-candle-subscription! clear-candle-subscription-fn})))
+
+(defn sync-active-candle-subscription
+  ([store]
+   (sync-active-candle-subscription store {}))
+  ([store {:keys [interval
+                  sync-candle-subscription-fn]
+           :or {sync-candle-subscription-fn candles/sync-candle-subscription!}}]
+   (subscriptions-runtime/sync-active-candle-subscription!
+    {:store store
+     :interval interval
+     :log-fn telemetry/log!
+     :sync-candle-subscription! sync-candle-subscription-fn
+     :clear-candle-subscription! candles/clear-owner-subscription!})))
 
 (defn subscribe-orderbook
   [store coin]

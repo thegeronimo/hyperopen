@@ -6,6 +6,7 @@
   (let [persisted-active-assets (atom [])
         persisted-markets (atom [])
         subscribed-coins (atom [])
+        synced-candles (atom [])
         fetched-timeframes (atom [])
         market {:key "perp:ETH"
                 :coin "ETH"
@@ -13,6 +14,7 @@
                 :base "ETH"
                 :market-type :perp}
         store (atom {:asset-selector {:market-by-key {"perp:ETH" market}}
+                     :websocket {:migration-flags {:candle-subscriptions? true}}
                      :chart-options {:selected-timeframe :5m}
                      :active-assets {:contexts {}
                                      :loading false}
@@ -31,11 +33,16 @@
                                         (swap! persisted-markets conj resolved-market))
       :subscribe-active-asset-ctx! (fn [coin]
                                      (swap! subscribed-coins conj coin))
+      :sync-candle-subscription! (fn [coin interval owner]
+                                   (swap! synced-candles conj [coin interval owner]))
+      :clear-candle-subscription! (fn [_owner]
+                                    (swap! synced-candles conj [:cleared]))
       :fetch-candle-snapshot! (fn [selected-timeframe]
                                 (swap! fetched-timeframes conj selected-timeframe))})
     (is (= ["ETH"] @persisted-active-assets))
     (is (= [market] @persisted-markets))
     (is (= ["ETH"] @subscribed-coins))
+    (is (= [["ETH" :5m :active-chart]] @synced-candles))
     (is (= [:5m] @fetched-timeframes))
     (is (= true (get-in @store [:active-assets :loading])))
     (is (= "ETH" (:active-asset @store)))
@@ -44,6 +51,7 @@
 
 (deftest subscribe-active-asset-skips-rest-candle-fetch-when-candle-migration-enabled-and-cache-present-test
   (let [fetched-timeframes (atom [])
+        synced-candles (atom [])
         store (atom {:asset-selector {:market-by-key {"perp:ETH" {:key "perp:ETH"
                                                                    :coin "ETH"}}}
                      :websocket {:migration-flags {:candle-subscriptions? true}}
@@ -60,12 +68,18 @@
       :persist-active-asset! (fn [_] nil)
       :persist-active-market-display! (fn [_] nil)
       :subscribe-active-asset-ctx! (fn [_] nil)
+      :sync-candle-subscription! (fn [coin interval owner]
+                                   (swap! synced-candles conj [coin interval owner]))
+      :clear-candle-subscription! (fn [_owner]
+                                    (swap! synced-candles conj [:cleared]))
       :fetch-candle-snapshot! (fn [selected-timeframe]
                                 (swap! fetched-timeframes conj selected-timeframe))})
+    (is (= [["ETH" :5m :active-chart]] @synced-candles))
     (is (= [] @fetched-timeframes))))
 
 (deftest subscribe-active-asset-keeps-rest-candle-backfill-when-candle-cache-missing-test
   (let [fetched-timeframes (atom [])
+        synced-candles (atom [])
         store (atom {:asset-selector {:market-by-key {"perp:ETH" {:key "perp:ETH"
                                                                    :coin "ETH"}}}
                      :websocket {:migration-flags {:candle-subscriptions? true}}
@@ -82,9 +96,49 @@
       :persist-active-asset! (fn [_] nil)
       :persist-active-market-display! (fn [_] nil)
       :subscribe-active-asset-ctx! (fn [_] nil)
+      :sync-candle-subscription! (fn [coin interval owner]
+                                   (swap! synced-candles conj [coin interval owner]))
+      :clear-candle-subscription! (fn [_owner]
+                                    (swap! synced-candles conj [:cleared]))
       :fetch-candle-snapshot! (fn [selected-timeframe]
                                 (swap! fetched-timeframes conj selected-timeframe))})
+    (is (= [["ETH" :5m :active-chart]] @synced-candles))
     (is (= [:5m] @fetched-timeframes))))
+
+(deftest sync-active-candle-subscription-uses-active-asset-and-selected-timeframe-test
+  (let [calls (atom [])
+        store (atom {:active-asset "BTC"
+                     :websocket {:migration-flags {:candle-subscriptions? true}}
+                     :chart-options {:selected-timeframe :15m}})]
+    (subscriptions-runtime/sync-active-candle-subscription!
+     {:store store
+      :log-fn (fn [& _] nil)
+      :sync-candle-subscription! (fn [coin interval owner]
+                                   (swap! calls conj [coin interval owner]))})
+    (is (= [["BTC" :15m :active-chart]] @calls))
+    (subscriptions-runtime/sync-active-candle-subscription!
+     {:store store
+     :interval :1h
+      :log-fn (fn [& _] nil)
+      :sync-candle-subscription! (fn [coin interval owner]
+                                   (swap! calls conj [coin interval owner]))})
+    (is (= [["BTC" :15m :active-chart]
+            ["BTC" :1h :active-chart]]
+           @calls))))
+
+(deftest sync-active-candle-subscription-clears-when-candle-migration-disabled-test
+  (let [calls (atom [])
+        store (atom {:active-asset "BTC"
+                     :websocket {:migration-flags {:candle-subscriptions? false}}
+                     :chart-options {:selected-timeframe :15m}})]
+    (subscriptions-runtime/sync-active-candle-subscription!
+     {:store store
+      :log-fn (fn [& _] nil)
+      :sync-candle-subscription! (fn [& _]
+                                   (swap! calls conj :sync))
+      :clear-candle-subscription! (fn [owner]
+                                    (swap! calls conj [:clear owner]))})
+    (is (= [[:clear :active-chart]] @calls))))
 
 (deftest subscribe-orderbook-uses-config-derived-from-selected-mode-test
   (let [normalize-calls (atom [])

@@ -802,6 +802,8 @@
                                     (swap! mark-calls conj [:init-connection url]))
                 :init-active-ctx! (fn [_store]
                                     (swap! mark-calls conj :init-active-ctx))
+                :init-candles! (fn [_store]
+                                 (swap! mark-calls conj :init-candles))
                 :init-orderbook! (fn [_store]
                                    (swap! mark-calls conj :init-orderbook))
                 :init-trades! (fn [_store]
@@ -821,6 +823,7 @@
           startup-runtime-atom (atom {:deferred-scheduled? false})]
       (startup-runtime/initialize-remote-data-streams! deps)
       (is (some #(= [:init-connection "wss://example.test/ws"] %) @mark-calls))
+      (is (some #{:init-candles} @mark-calls))
       (is (some #(= [:dispatch [[:actions/subscribe-to-asset "BTC"]]] %) @mark-calls))
       (is (some #(= [:dispatch [[:actions/load-vault-route "/trade"]]] %) @mark-calls))
       (is (some #(= [:dispatch [[:actions/load-funding-comparison-route "/trade"]]] %) @mark-calls))

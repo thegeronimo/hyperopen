@@ -490,6 +490,7 @@
            log-fn
            init-connection!
            init-active-ctx!
+           init-candles!
            init-orderbook!
            init-trades!
            init-user-ws!
@@ -503,6 +504,7 @@
   (init-connection! ws-url)
   ;; Initialize WebSocket modules.
   (init-active-ctx! store)
+  (init-candles! store)
   (init-orderbook! store)
   (init-trades! store)
   (init-user-ws! store)

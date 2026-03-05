@@ -65,6 +65,10 @@
 
 (def fetch-candle-snapshot ws-adapters/fetch-candle-snapshot)
 
+(defn sync-active-candle-subscription
+  [_ store & {:as opts}]
+  (ws-adapters/sync-active-candle-subscription store opts))
+
 (def make-init-websocket ws-adapters/make-init-websocket)
 
 (def init-websocket ws-adapters/init-websocket)

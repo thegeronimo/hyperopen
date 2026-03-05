@@ -159,6 +159,7 @@
 (def default-topic->group
   {"l2Book" :market_data
    "trades" :market_data
+   "candle" :market_data
    "activeAssetCtx" :market_data
    "openOrders" :orders_oms
    "userFills" :orders_oms

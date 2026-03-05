@@ -5,6 +5,7 @@
 (deftest topic-tier-policy-defaults-test
   (testing "Known topics map to expected tiers"
     (is (= :market (policy/topic->tier "trades")))
+    (is (= :market (policy/topic->tier "candle")))
     (is (= :market (apply policy/topic->tier ["trades"])))
     (is (= :market (policy/topic->tier policy/default-channel-tier-policy "trades")))
     (is (= :lossless (policy/topic->tier policy/default-channel-tier-policy "userFills"))))

@@ -12,6 +12,7 @@
    [:effects/replace-state :replace-state]
    [:effects/init-websocket :init-websocket]
    [:effects/subscribe-active-asset :subscribe-active-asset]
+   [:effects/sync-active-candle-subscription :sync-active-candle-subscription]
    [:effects/subscribe-orderbook :subscribe-orderbook]
    [:effects/subscribe-trades :subscribe-trades]
    [:effects/subscribe-webdata2 :subscribe-webdata2]

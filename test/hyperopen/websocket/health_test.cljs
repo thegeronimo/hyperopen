@@ -154,6 +154,27 @@
     (is (= [eth-key btc-key]
            (health/match-stream-keys streams envelope)))))
 
+(deftest candle-fixture-matches-subscription-key-by-coin-and-interval-test
+  (let [btc-1m {:type "candle" :coin "BTC" :interval "1m"}
+        btc-5m {:type "candle" :coin "BTC" :interval "5m"}
+        btc-1m-key (model/subscription-key btc-1m)
+        btc-5m-key (model/subscription-key btc-5m)
+        streams {btc-1m-key (mk-stream {:subscribed? true
+                                        :topic "candle"
+                                        :descriptor btc-1m
+                                        :stale-threshold-ms 120000})
+                 btc-5m-key (mk-stream {:subscribed? true
+                                        :topic "candle"
+                                        :descriptor btc-5m
+                                        :stale-threshold-ms 120000})}
+        envelope {:topic "candle"
+                  :payload {:channel "candle"
+                            :data [{:s "BTC"
+                                    :i "5m"
+                                    :t 1710000000000}]}}]
+    (is (= [btc-5m-key]
+           (health/match-stream-keys streams envelope)))))
+
 (deftest user-channel-fixture-matching-prefers-user-and-avoids-ambiguous-fallback-test
   (let [alice {:type "openOrders" :user "0xalice"}
         bob {:type "openOrders" :user "0xbob"}

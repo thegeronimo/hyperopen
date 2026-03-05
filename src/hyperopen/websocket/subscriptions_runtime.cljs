@@ -1,6 +1,9 @@
 (ns hyperopen.websocket.subscriptions-runtime
   (:require [hyperopen.websocket.migration-flags :as migration-flags]))
 
+(def ^:private active-candle-owner
+  :active-chart)
+
 (defn subscribe-active-asset!
   [{:keys [store
            coin
@@ -9,6 +12,8 @@
            persist-active-asset!
            persist-active-market-display!
            subscribe-active-asset-ctx!
+           sync-candle-subscription!
+           clear-candle-subscription!
            fetch-candle-snapshot!]}]
   (log-fn "Subscribing to active asset context for:" coin)
   (let [market-by-key (get-in @store [:asset-selector :market-by-key] {})
@@ -33,16 +38,49 @@
                    (assoc :active-market (or market (:active-market state)))))))
     (subscribe-active-asset-ctx! canonical-coin)
     (let [selected-timeframe (get-in @store [:chart-options :selected-timeframe] :1d)]
+      (if (migration-flags/candle-subscriptions-enabled? @store)
+        (when (fn? sync-candle-subscription!)
+          (sync-candle-subscription! canonical-coin selected-timeframe active-candle-owner))
+        (when (fn? clear-candle-subscription!)
+          (clear-candle-subscription! active-candle-owner)))
       (when (migration-flags/should-fetch-candle-snapshot? @store
                                                            canonical-coin
                                                            selected-timeframe)
         (fetch-candle-snapshot! selected-timeframe)))))
 
 (defn unsubscribe-active-asset!
-  [{:keys [store coin log-fn unsubscribe-active-asset-ctx!]}]
+  [{:keys [store
+           coin
+           log-fn
+           unsubscribe-active-asset-ctx!
+           clear-candle-subscription!]}]
   (log-fn "Unsubscribing from active asset context for:" coin)
   (unsubscribe-active-asset-ctx! coin)
+  (when (fn? clear-candle-subscription!)
+    (clear-candle-subscription! active-candle-owner))
   (swap! store update-in [:active-assets :contexts] dissoc coin))
+
+(defn sync-active-candle-subscription!
+  [{:keys [store
+           interval
+           log-fn
+           sync-candle-subscription!
+           clear-candle-subscription!]}]
+  (let [interval* (or interval
+                      (get-in @store [:chart-options :selected-timeframe] :1d))
+        coin (:active-asset @store)]
+    (when (fn? log-fn)
+      (log-fn "Syncing active candle subscription for:"
+              coin
+              "interval:"
+              interval*))
+    (if (migration-flags/candle-subscriptions-enabled? @store)
+      (when (fn? sync-candle-subscription!)
+        (if (string? coin)
+          (sync-candle-subscription! coin interval* active-candle-owner)
+          (sync-candle-subscription! nil nil active-candle-owner)))
+      (when (fn? clear-candle-subscription!)
+        (clear-candle-subscription! active-candle-owner)))))
 
 (defn subscribe-orderbook!
   [{:keys [store

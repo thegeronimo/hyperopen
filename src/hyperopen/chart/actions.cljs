@@ -23,7 +23,8 @@
 (defn select-chart-timeframe
   [state timeframe]
   (cond-> [(chart-dropdown-projection-effect nil [[[:chart-options :selected-timeframe] timeframe]])
-           [:effects/local-storage-set "chart-timeframe" (name timeframe)]]
+           [:effects/local-storage-set "chart-timeframe" (name timeframe)]
+           [:effects/sync-active-candle-subscription :interval timeframe]]
     (migration-flags/should-fetch-candle-snapshot? state
                                                    (:active-asset state)
                                                    timeframe)

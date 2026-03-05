@@ -15,6 +15,7 @@
   (is (identical? ws-adapters/sync-websocket-health! effect-adapters/sync-websocket-health!))
   (is (identical? ws-adapters/make-fetch-candle-snapshot effect-adapters/make-fetch-candle-snapshot))
   (is (identical? ws-adapters/fetch-candle-snapshot effect-adapters/fetch-candle-snapshot))
+  (is (fn? effect-adapters/sync-active-candle-subscription))
   (is (identical? ws-adapters/make-init-websocket effect-adapters/make-init-websocket))
   (is (identical? ws-adapters/init-websocket effect-adapters/init-websocket))
   (is (identical? ws-adapters/make-reconnect-websocket effect-adapters/make-reconnect-websocket))
@@ -37,6 +38,16 @@
                     (persist-active-asset! "ETH"))]
       (effect-adapters/subscribe-active-asset nil store "ETH"))
     (is (= [["active-asset" "ETH"]] @persist-calls))))
+
+(deftest sync-active-candle-subscription-delegates-through-subscriptions-runtime-test
+  (let [calls (atom [])
+        store (atom {:active-asset "ETH"
+                     :chart-options {:selected-timeframe :1h}})]
+    (with-redefs [subscriptions-runtime/sync-active-candle-subscription!
+                  (fn [deps]
+                    (swap! calls conj (select-keys deps [:store :interval])))]
+      (effect-adapters/sync-active-candle-subscription nil store :interval :5m))
+    (is (= [{:store store :interval :5m}] @calls))))
 
 (deftest make-init-and-reconnect-websocket-build-injected-effect-handlers-test
   (let [calls (atom [])

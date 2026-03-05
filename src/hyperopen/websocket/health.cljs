@@ -243,9 +243,46 @@
   (->> (extract-user-candidates payload)
        (mapv user->descriptor)))
 
+(defn- extract-candle-coin
+  [payload row]
+  (or (normalized-string (:s row))
+      (normalized-string (:coin row))
+      (normalized-string (get-in payload [:data :s]))
+      (normalized-string (get-in payload [:data :coin]))
+      (normalized-string (:coin payload))))
+
+(defn- extract-candle-interval
+  [payload row]
+  (or (normalized-string (:i row))
+      (normalized-string (:interval row))
+      (normalized-string (get-in payload [:data :i]))
+      (normalized-string (get-in payload [:data :interval]))
+      (normalized-string (:interval payload))))
+
+(defn- candle-row->descriptor
+  [payload row]
+  (let [coin (extract-candle-coin payload row)
+        interval (extract-candle-interval payload row)]
+    (when (and coin interval)
+      {:coin coin
+       :interval interval})))
+
+(defn- candle-descriptor-candidates
+  [payload]
+  (let [data (:data payload)
+        rows (cond
+               (sequential? data) data
+               (map? data) [data]
+               :else [payload])]
+    (->> rows
+         (keep #(candle-row->descriptor payload (or % {})))
+         distinct
+         vec)))
+
 (def ^:private topic->matcher
   {"l2Book" single-coin-descriptor-candidates
    "trades" trades-descriptor-candidates
+   "candle" candle-descriptor-candidates
    "activeAssetCtx" single-coin-descriptor-candidates
    "webData2" user-descriptor-candidates
    "openOrders" user-descriptor-candidates

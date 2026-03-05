@@ -11,6 +11,7 @@
   (is (fn? effect-adapters/queue-asset-icon-status))
   (is (fn? effect-adapters/make-queue-asset-icon-status))
   (is (fn? effect-adapters/subscribe-active-asset))
+  (is (fn? effect-adapters/sync-active-candle-subscription))
   (is (fn? effect-adapters/sync-asset-selector-active-ctx-subscriptions))
   (is (fn? effect-adapters/connect-wallet))
   (is (fn? effect-adapters/disconnect-wallet))

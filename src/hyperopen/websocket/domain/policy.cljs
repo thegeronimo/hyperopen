@@ -3,6 +3,7 @@
 (def default-channel-tier-policy
   {"l2Book" :market
    "trades" :market
+   "candle" :market
    "activeAssetCtx" :market
    "webData2" :lossless
    "openOrders" :lossless

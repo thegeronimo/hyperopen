@@ -596,6 +596,7 @@
    :effects/subscribe-orderbook ::coin-args
    :effects/subscribe-trades ::coin-args
    :effects/subscribe-webdata2 ::address-args
+   :effects/sync-active-candle-subscription ::fetch-candle-snapshot-args
    :effects/fetch-candle-snapshot ::fetch-candle-snapshot-args
    :effects/unsubscribe-active-asset ::coin-args
    :effects/unsubscribe-orderbook ::coin-args

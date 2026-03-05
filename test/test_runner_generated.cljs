@@ -244,6 +244,7 @@
             [hyperopen.websocket.application.runtime-reducer-test]
             [hyperopen.websocket.application.runtime-test]
             [hyperopen.websocket.asset-selector-coverage-test]
+            [hyperopen.websocket.candles-test]
             [hyperopen.websocket.client-test]
             [hyperopen.websocket.coverage-low-functions-test]
             [hyperopen.websocket.diagnostics-actions-test]
@@ -523,6 +524,7 @@
              'hyperopen.websocket.application.runtime-reducer-test
              'hyperopen.websocket.application.runtime-test
              'hyperopen.websocket.asset-selector-coverage-test
+             'hyperopen.websocket.candles-test
              'hyperopen.websocket.client-test
              'hyperopen.websocket.coverage-low-functions-test
              'hyperopen.websocket.diagnostics-actions-test

@@ -28,8 +28,10 @@
     (let [wrapped (validation/wrap-action-handler :actions/select-chart-timeframe
                                                   (fn [_state timeframe]
                                                     [[:effects/save [:chart-options :selected-timeframe] timeframe]
+                                                     [:effects/sync-active-candle-subscription :interval timeframe]
                                                      [:effects/fetch-candle-snapshot :interval timeframe]]))]
       (is (= [[:effects/save [:chart-options :selected-timeframe] :5m]
+              [:effects/sync-active-candle-subscription :interval :5m]
               [:effects/fetch-candle-snapshot :interval :5m]]
              (wrapped {} :5m))))))
 
@@ -37,7 +39,7 @@
   (with-redefs [validation/validation-enabled? (constantly true)]
     (let [wrapped (validation/wrap-action-handler :actions/select-chart-timeframe
                                                   (fn [_state timeframe]
-                                                    [[:effects/fetch-candle-snapshot :interval timeframe]
+                                                    [[:effects/sync-active-candle-subscription :interval timeframe]
                                                      [:effects/save [:chart-options :selected-timeframe] timeframe]]))]
       (is (thrown-with-msg?
            js/Error
