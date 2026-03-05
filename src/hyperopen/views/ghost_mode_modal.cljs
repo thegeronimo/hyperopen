@@ -227,7 +227,12 @@
 (defn- watchlist-display-label
   [entry]
   (or (:label entry)
-      (wallet/short-addr (:address entry))))
+      ""))
+
+(defn- watchlist-display-address
+  [address]
+  (or (wallet/short-addr address)
+      address))
 
 (defn- watchlist-row
   [entry active? editing?]
@@ -247,14 +252,14 @@
                                          "bg-[#0b1f29]"])
                     editing? (into ["ring-1" "ring-[#4f8f87]/70"]))
         :data-role "ghost-mode-watchlist-row"}
-     [:div {:class ["min-w-0" "truncate"]
+     [:div {:class ["min-w-0"]
             :data-role "ghost-mode-watchlist-label"}
-      [:span {:class ["truncate" "text-sm" "font-medium" "text-[#e5eef1]"]}
+      [:span {:class ["text-sm" "font-medium" "text-[#e5eef1]"]}
        label]]
      [:div {:class ["min-w-0" "truncate"]
             :data-role "ghost-mode-watchlist-address"}
       [:span {:class ["num" "truncate" "text-xs" "text-[#95aab0]"]}
-       address]]
+       (watchlist-display-address address)]]
      [:div {:class ["flex" "items-center" "justify-end" "gap-1.5"]
             :data-role "ghost-mode-watchlist-actions"}
       (watchlist-action-icon-button
