@@ -376,7 +376,8 @@
         label "The Assistance Fund"
         view-node (app-view/app-view (assoc trade-view-test-state
                                             :router {:path "/trade"}
-                                            :wallet {}
+                                            :wallet {:copy-feedback {:kind :success
+                                                                     :message "Address copied to clipboard"}}
                                             :account-context {:ghost-mode {:active? true
                                                                            :address address}
                                                               :ghost-ui {:modal-open? true
@@ -409,6 +410,9 @@
         link-placeholder-button (find-first-node view-node
                                                  #(= "ghost-mode-watchlist-link-placeholder"
                                                      (get-in % [1 :data-role])))
+        copy-feedback-row (find-first-node view-node
+                                           #(= "ghost-mode-copy-feedback"
+                                               (get-in % [1 :data-role])))
         rendered-strings (set (collect-strings modal-root))]
     (is (some? modal-root))
     (is (some? watchlist-row))
@@ -418,6 +422,8 @@
     (is (contains? (set (collect-strings modal-root)) "Currently spectating: "))
     (is (contains? rendered-strings address))
     (is (contains? rendered-strings label))
+    (is (contains? rendered-strings "Address copied to clipboard"))
+    (is (some? copy-feedback-row))
     (is (not-any? #(str/starts-with? % "[[:li")
                   rendered-strings))
     (is (= [[:actions/close-ghost-mode-modal]]

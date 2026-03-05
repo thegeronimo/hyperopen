@@ -167,6 +167,44 @@
             :data-role data-role}
    icon])
 
+(defn- copy-feedback-row
+  [copy-feedback]
+  (let [kind (:kind copy-feedback)
+        message (:message copy-feedback)
+        success? (= :success kind)
+        tone-classes (if success?
+                       ["border-[#1f5247]"
+                        "bg-[#0e2d2f]"
+                        "text-[#aefde8]"]
+                       ["border-[#6d2d3a]"
+                        "bg-[#361b24]"
+                        "text-[#f5b8c6]"])
+        icon-path (if success?
+                    "M16 5.5 7.5 14 4 10.5"
+                    "M6 6 14 14 M14 6 6 14")]
+    [:div {:class (into ["flex"
+                         "items-center"
+                         "gap-2"
+                         "rounded-md"
+                         "border"
+                         "px-2.5"
+                         "py-2"
+                         "text-xs"
+                         "font-medium"]
+                        tone-classes)
+           :data-role "ghost-mode-copy-feedback"}
+     [:svg {:viewBox "0 0 20 20"
+            :class ["h-3.5" "w-3.5" "shrink-0"]
+            :fill "none"
+            :stroke "currentColor"
+            :stroke-width "1.9"
+            :stroke-linecap "round"
+            :stroke-linejoin "round"
+            :aria-hidden "true"}
+      [:path {:d icon-path}]]
+     [:span {:data-role "ghost-mode-copy-feedback-message"}
+      message]]))
+
 (defn- spectate-icon
   []
   [:svg {:viewBox "0 0 24 24"
@@ -303,6 +341,7 @@
         editing-address (account-context/normalize-address
                          (:editing-watchlist-address ui-state))
         search-error (:search-error ui-state)
+        copy-feedback (get-in state [:wallet :copy-feedback])
         watchlist (account-context/normalize-watchlist
                    (get-in state [:account-context :watchlist]))
         active? (account-context/ghost-mode-active? state)
@@ -504,4 +543,7 @@
                           "text-sm"
                           "text-[#90a6ad]"]
                   :data-role "ghost-mode-watchlist-empty"}
-            "No spectated addresses saved yet."])]]])))
+            "No spectated addresses saved yet."])
+         (when (and (map? copy-feedback)
+                    (seq (:message copy-feedback)))
+           (copy-feedback-row copy-feedback))]]])))
