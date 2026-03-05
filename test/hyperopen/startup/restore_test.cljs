@@ -9,19 +9,23 @@
     (with-redefs [platform/local-storage-get (fn [key]
                                                (case key
                                                  "ghost-mode-watchlist:v1"
-                                                 "[\"0x1111111111111111111111111111111111111111\",\"bad\",\"0x2222222222222222222222222222222222222222\"]"
+                                                 "[{\"address\":\"0x1111111111111111111111111111111111111111\",\"label\":\"Core\"},\"bad\",\"0x2222222222222222222222222222222222222222\"]"
                                                  "ghost-mode-last-search:v1"
                                                  " 0x3333333333333333333333333333333333333333 "
                                                  nil))]
       (startup-restore/restore-ghost-mode-preferences! store)
-      (is (= ["0x1111111111111111111111111111111111111111"
-              "0x2222222222222222222222222222222222222222"]
+      (is (= [{:address "0x1111111111111111111111111111111111111111"
+               :label "Core"}
+              {:address "0x2222222222222222222222222222222222222222"
+               :label nil}]
              (get-in @store [:account-context :watchlist])))
       (is (= true (get-in @store [:account-context :watchlist-loaded?])))
       (is (= "0x3333333333333333333333333333333333333333"
              (get-in @store [:account-context :ghost-ui :search])))
       (is (= "0x3333333333333333333333333333333333333333"
              (get-in @store [:account-context :ghost-ui :last-search])))
+      (is (= "" (get-in @store [:account-context :ghost-ui :label])))
+      (is (nil? (get-in @store [:account-context :ghost-ui :editing-watchlist-address])))
       (is (nil? (get-in @store [:account-context :ghost-ui :search-error]))))))
 
 (deftest restore-ghost-mode-preferences-falls-back-on-malformed-storage-test
@@ -34,8 +38,12 @@
                                                  " "
                                                  nil))]
       (startup-restore/restore-ghost-mode-preferences! store)
-      (is (= ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-              "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+      (is (= [{:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+               :label nil}
+              {:address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+               :label nil}]
              (get-in @store [:account-context :watchlist])))
       (is (= "" (get-in @store [:account-context :ghost-ui :search])))
-      (is (= "" (get-in @store [:account-context :ghost-ui :last-search]))))))
+      (is (= "" (get-in @store [:account-context :ghost-ui :last-search])))
+      (is (= "" (get-in @store [:account-context :ghost-ui :label])))
+      (is (nil? (get-in @store [:account-context :ghost-ui :editing-watchlist-address]))))))

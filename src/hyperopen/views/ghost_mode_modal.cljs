@@ -138,33 +138,155 @@
      "hover:border-[#3d666b]"
      "hover:text-[#e5eef1]"]))
 
+(defn- watchlist-action-icon-button
+  [{:keys [aria-label title on-click data-role disabled?]} icon]
+  [:button {:type "button"
+            :class (cond-> ["inline-flex"
+                            "h-7"
+                            "w-7"
+                            "items-center"
+                            "justify-center"
+                            "rounded-md"
+                            "border"
+                            "border-[#254248]"
+                            "bg-[#0a1f28]"
+                            "text-[#9db2b8]"
+                            "focus:outline-none"
+                            "focus:ring-0"
+                            "focus:ring-offset-0"
+                            "hover:border-[#40686d]"
+                            "hover:text-[#e5eef1]"]
+                     disabled? (into ["cursor-not-allowed"
+                                      "opacity-45"
+                                      "hover:border-[#254248]"
+                                      "hover:text-[#9db2b8]"]))
+            :on (when-not disabled? {:click on-click})
+            :aria-label aria-label
+            :title title
+            :disabled disabled?
+            :data-role data-role}
+   icon])
+
+(defn- spectate-icon
+  []
+  [:svg {:viewBox "0 0 24 24"
+         :class ["h-3.5" "w-3.5"]
+         :fill "none"
+         :stroke "currentColor"
+         :stroke-width "1.8"
+         :stroke-linecap "round"
+         :stroke-linejoin "round"
+         :aria-hidden "true"}
+   [:path {:d "M3 12s3.5-5 9-5 9 5 9 5-3.5 5-9 5-9-5-9-5z"}]
+   [:circle {:cx "12" :cy "12" :r "2.25"}]])
+
+(defn- copy-icon
+  []
+  [:svg {:viewBox "0 0 20 20"
+         :class ["h-3.5" "w-3.5"]
+         :fill "currentColor"
+         :aria-hidden "true"}
+   [:path {:d "M4 4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1h-2V4H6v8h1v2H6a2 2 0 0 1-2-2V4z"}]
+   [:path {:d "M8 7a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V7zm2 0h4v7h-4V7z"}]])
+
+(defn- link-icon
+  []
+  [:svg {:viewBox "0 0 20 20"
+         :class ["h-3.5" "w-3.5"]
+         :fill "none"
+         :stroke "currentColor"
+         :stroke-width "1.7"
+         :stroke-linecap "round"
+         :stroke-linejoin "round"
+         :aria-hidden "true"}
+   [:path {:d "M8 12l4-4"}]
+   [:path {:d "M6.4 14.6 4.9 16.1a2.8 2.8 0 0 1-4 0 2.8 2.8 0 0 1 0-4l1.5-1.5"}]
+   [:path {:d "M13.6 5.4 15.1 3.9a2.8 2.8 0 0 1 4 0 2.8 2.8 0 0 1 0 4l-1.5 1.5"}]])
+
+(defn- edit-icon
+  []
+  [:svg {:viewBox "0 0 20 20"
+         :class ["h-3.5" "w-3.5"]
+         :fill "currentColor"
+         :aria-hidden "true"}
+   [:path {:d "M4 13.5V16h2.5L14 8.5 11.5 6 4 13.5Z"}]
+   [:path {:d "M10.5 7 13 9.5"}]])
+
+(defn- remove-icon
+  []
+  [:svg {:viewBox "0 0 20 20"
+         :class ["h-3.5" "w-3.5"]
+         :fill "none"
+         :stroke "currentColor"
+         :stroke-width "1.8"
+         :stroke-linecap "round"
+         :aria-hidden "true"}
+   [:path {:d "M5 5 15 15"}]
+   [:path {:d "M15 5 5 15"}]])
+
+(defn- watchlist-display-label
+  [entry]
+  (or (:label entry)
+      (wallet/short-addr (:address entry))))
+
 (defn- watchlist-row
-  [address active?]
-  [:li {:class ["flex"
-                "items-center"
-                "justify-between"
-                "gap-2"
-                "rounded-lg"
-                "border"
-                "px-2.5"
-                "py-2"]
+  [entry active? editing?]
+  (let [address (:address entry)
+        label (watchlist-display-label entry)]
+    [:li {:class (cond-> ["grid"
+                          "grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto]"
+                          "items-center"
+                          "gap-2"
+                          "rounded-md"
+                          "border"
+                          "px-2.5"
+                          "py-2"]
+                    active? (into ["border-[#2b5e60]"
+                                   "bg-[#0f2934]/55"])
+                    (not active?) (into ["border-[#1e3c44]"
+                                         "bg-[#0b1f29]"])
+                    editing? (into ["ring-1" "ring-[#4f8f87]/70"]))
         :data-role "ghost-mode-watchlist-row"}
-   [:div {:class ["min-w-0" "flex" "flex-col" "gap-0.5"]}
-    [:span {:class ["text-sm" "font-medium" "text-[#e5eef1]"]}
-     (wallet/short-addr address)]
-    [:span {:class ["num" "truncate" "text-xs" "text-[#94a9af]"]}
-     address]]
-   [:div {:class ["flex" "items-center" "gap-1.5"]}
-    [:button {:type "button"
-              :class (modal-button-classes true false)
-              :on {:click [[:actions/spectate-ghost-mode-watchlist-address address]]}
-              :data-role "ghost-mode-watchlist-spectate"}
-     (if active? "Spectating" "Spectate")]
-    [:button {:type "button"
-              :class (modal-button-classes false false)
-              :on {:click [[:actions/remove-ghost-mode-watchlist-address address]]}
-              :data-role "ghost-mode-watchlist-remove"}
-     "Remove"]]])
+     [:div {:class ["min-w-0" "truncate"]
+            :data-role "ghost-mode-watchlist-label"}
+      [:span {:class ["truncate" "text-sm" "font-medium" "text-[#e5eef1]"]}
+       label]]
+     [:div {:class ["min-w-0" "truncate"]
+            :data-role "ghost-mode-watchlist-address"}
+      [:span {:class ["num" "truncate" "text-xs" "text-[#95aab0]"]}
+       address]]
+     [:div {:class ["flex" "items-center" "justify-end" "gap-1.5"]
+            :data-role "ghost-mode-watchlist-actions"}
+      (watchlist-action-icon-button
+       {:aria-label (if active? "Currently spectating this address" "Spectate this address")
+        :title (if active? "Currently spectating" "Spectate this address")
+        :on-click [[:actions/spectate-ghost-mode-watchlist-address address]]
+        :data-role "ghost-mode-watchlist-spectate"}
+       (spectate-icon))
+      (watchlist-action-icon-button
+       {:aria-label "Copy watchlist address"
+        :title "Copy address"
+        :on-click [[:actions/copy-ghost-mode-watchlist-address address]]
+        :data-role "ghost-mode-watchlist-copy"}
+       (copy-icon))
+      (watchlist-action-icon-button
+       {:aria-label "Link feature coming soon"
+        :title "Link address (coming soon)"
+        :data-role "ghost-mode-watchlist-link-placeholder"
+        :disabled? true}
+       (link-icon))
+      (watchlist-action-icon-button
+       {:aria-label "Edit watchlist label"
+        :title "Edit label"
+        :on-click [[:actions/edit-ghost-mode-watchlist-address address]]
+        :data-role "ghost-mode-watchlist-edit"}
+       (edit-icon))
+      (watchlist-action-icon-button
+       {:aria-label "Remove watchlist address"
+        :title "Remove address"
+        :on-click [[:actions/remove-ghost-mode-watchlist-address address]]
+        :data-role "ghost-mode-watchlist-remove"}
+       (remove-icon))]]))
 
 (defn ghost-mode-modal-view
   [state]
@@ -172,6 +294,9 @@
         open? (true? (:modal-open? ui-state))
         anchor (:anchor ui-state)
         search (or (:search ui-state) "")
+        label (or (:label ui-state) "")
+        editing-address (account-context/normalize-address
+                         (:editing-watchlist-address ui-state))
         search-error (:search-error ui-state)
         watchlist (account-context/normalize-watchlist
                    (get-in state [:account-context :watchlist]))
@@ -180,6 +305,10 @@
         valid-search? (some? (account-context/normalize-address search))
         start-disabled? (not valid-search?)
         add-disabled? (not valid-search?)
+        edit-mode? (some? editing-address)
+        add-watchlist-label (if edit-mode?
+                             "Save Label"
+                             "Add To Watchlist")
         stored-anchor* (if (map? anchor) anchor {})
         fallback-anchor* (when-not (complete-anchor? stored-anchor*)
                            (element-anchor-bounds fallback-anchor-selector))
@@ -229,32 +358,61 @@
             "Currently spectating: "]
            [:span {:class ["num"]} active-address]])
         [:div {:class ["space-y-2"]}
-         [:label {:class ["block"
-                          "text-xs"
-                          "font-medium"
-                          "uppercase"
-                          "tracking-[0.08em]"
-                          "text-[#8ea4ab]"]}
-          "Public Address"]
-         [:input {:type "text"
-                  :value search
-                  :placeholder "0x..."
-                  :spell-check false
-                  :auto-capitalize "off"
-                  :auto-complete "off"
-                  :class ["w-full"
-                          "rounded-lg"
-                          "border"
-                          "border-[#28474b]"
-                          "bg-[#0c2028]"
-                          "px-3"
-                          "py-2.5"
-                          "text-sm"
-                          "text-[#e6eff2]"
-                          "outline-none"
-                          "focus:border-[#4f8f87]"]
-                  :on {:input [[:actions/set-ghost-mode-search [:event.target/value]]]}
-                  :data-role "ghost-mode-search-input"}]
+         [:div {:class ["grid" "gap-2" "sm:grid-cols-2"]}
+          [:div {:class ["space-y-1.5"]}
+           [:label {:class ["block"
+                            "text-xs"
+                            "font-medium"
+                            "uppercase"
+                            "tracking-[0.08em]"
+                            "text-[#8ea4ab]"]}
+            "Public Address"]
+           [:input {:type "text"
+                    :value search
+                    :placeholder "0x..."
+                    :spell-check false
+                    :auto-capitalize "off"
+                    :auto-complete "off"
+                    :class ["w-full"
+                            "rounded-lg"
+                            "border"
+                            "border-[#28474b]"
+                            "bg-[#0c2028]"
+                            "px-3"
+                            "py-2.5"
+                            "text-sm"
+                            "text-[#e6eff2]"
+                            "outline-none"
+                            "focus:border-[#4f8f87]"]
+                    :on {:input [[:actions/set-ghost-mode-search [:event.target/value]]]}
+                    :data-role "ghost-mode-search-input"}]]
+          [:div {:class ["space-y-1.5"]}
+           [:label {:class ["block"
+                            "text-xs"
+                            "font-medium"
+                            "uppercase"
+                            "tracking-[0.08em]"
+                            "text-[#8ea4ab]"]}
+            "Label"]
+           [:input {:type "text"
+                    :value label
+                    :placeholder "Label (optional)"
+                    :spell-check false
+                    :auto-capitalize "off"
+                    :auto-complete "off"
+                    :class ["w-full"
+                            "rounded-lg"
+                            "border"
+                            "border-[#28474b]"
+                            "bg-[#0c2028]"
+                            "px-3"
+                            "py-2.5"
+                            "text-sm"
+                            "text-[#e6eff2]"
+                            "outline-none"
+                            "focus:border-[#4f8f87]"]
+                    :on {:input [[:actions/set-ghost-mode-label [:event.target/value]]]}
+                    :data-role "ghost-mode-label-input"}]]]
          (when (seq search-error)
            [:div {:class ["rounded-md"
                           "border"
@@ -283,7 +441,13 @@
                    :disabled add-disabled?
                    :on {:click [[:actions/add-ghost-mode-watchlist-address]]}
                    :data-role "ghost-mode-add-watchlist"}
-          "Add To Watchlist"]
+          add-watchlist-label]
+         (when edit-mode?
+           [:button {:type "button"
+                     :class (modal-button-classes false false)
+                     :on {:click [[:actions/clear-ghost-mode-watchlist-edit]]}
+                     :data-role "ghost-mode-clear-watchlist-edit"}
+            "Cancel Edit"])
          [:button {:type "button"
                    :class (modal-button-classes true start-disabled?)
                    :disabled start-disabled?
@@ -295,13 +459,36 @@
           [:h3 {:class ["text-sm" "font-semibold" "text-[#e5eef1]"]}
            "Watchlist"]]
          (if (seq watchlist)
-           (into
-            [:ul {:class ["max-h-56" "space-y-2" "overflow-y-auto"]
-                  :data-role "ghost-mode-watchlist"}]
-            (map (fn [address]
-                   ^{:key address}
-                   (watchlist-row address (= address active-address)))
-                 watchlist))
+           [:div {:class ["space-y-1"]}
+            [:div {:class ["grid"
+                           "grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto]"
+                           "items-center"
+                           "gap-2"
+                           "rounded-md"
+                           "border"
+                           "border-[#1f3b46]"
+                           "bg-[#0a1e28]"
+                           "px-2.5"
+                           "py-1.5"
+                           "text-xs"
+                           "font-medium"
+                           "uppercase"
+                           "tracking-[0.08em]"
+                           "text-[#7f97a0]"]
+                   :data-role "ghost-mode-watchlist-header"}
+             [:span "Label"]
+             [:span "Address"]
+             [:span {:class ["text-right"]} "Actions"]]
+            (into
+             [:ul {:class ["max-h-56" "space-y-1" "overflow-y-auto"]
+                   :data-role "ghost-mode-watchlist"}]
+             (map (fn [entry]
+                    (let [address (:address entry)]
+                      ^{:key address}
+                      (watchlist-row entry
+                                     (= address active-address)
+                                     (= address editing-address))))
+                  watchlist))]
            [:div {:class ["rounded-lg"
                           "border"
                           "border-dashed"

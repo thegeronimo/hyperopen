@@ -50,6 +50,10 @@
   [state value]
   (ghost-mode-actions/set-ghost-mode-search state value))
 
+(defn set-ghost-mode-label
+  [state value]
+  (ghost-mode-actions/set-ghost-mode-label state value))
+
 (defn start-ghost-mode
   [state & [address]]
   (ghost-mode-actions/start-ghost-mode state address))
@@ -65,6 +69,18 @@
 (defn remove-ghost-mode-watchlist-address
   [state address]
   (ghost-mode-actions/remove-ghost-mode-watchlist-address state address))
+
+(defn edit-ghost-mode-watchlist-address
+  [state address]
+  (ghost-mode-actions/edit-ghost-mode-watchlist-address state address))
+
+(defn clear-ghost-mode-watchlist-edit
+  [state]
+  (ghost-mode-actions/clear-ghost-mode-watchlist-edit state))
+
+(defn copy-ghost-mode-watchlist-address
+  [state address]
+  (ghost-mode-actions/copy-ghost-mode-watchlist-address state address))
 
 (defn spectate-ghost-mode-watchlist-address
   [state address]

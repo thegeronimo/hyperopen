@@ -27,10 +27,14 @@
    :ghost-mode {:open-ghost-mode-modal action-adapters/open-ghost-mode-modal
                 :close-ghost-mode-modal action-adapters/close-ghost-mode-modal
                 :set-ghost-mode-search action-adapters/set-ghost-mode-search
+                :set-ghost-mode-label action-adapters/set-ghost-mode-label
                 :start-ghost-mode action-adapters/start-ghost-mode
                 :stop-ghost-mode action-adapters/stop-ghost-mode
                 :add-ghost-mode-watchlist-address action-adapters/add-ghost-mode-watchlist-address
                 :remove-ghost-mode-watchlist-address action-adapters/remove-ghost-mode-watchlist-address
+                :edit-ghost-mode-watchlist-address action-adapters/edit-ghost-mode-watchlist-address
+                :clear-ghost-mode-watchlist-edit action-adapters/clear-ghost-mode-watchlist-edit
+                :copy-ghost-mode-watchlist-address action-adapters/copy-ghost-mode-watchlist-address
                 :spectate-ghost-mode-watchlist-address action-adapters/spectate-ghost-mode-watchlist-address}
    :orders {:load-user-data action-adapters/load-user-data
             :set-funding-modal action-adapters/set-funding-modal}})

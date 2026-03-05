@@ -160,10 +160,14 @@
   {:open-ghost-mode-modal ghost-mode-actions/open-ghost-mode-modal
    :close-ghost-mode-modal ghost-mode-actions/close-ghost-mode-modal
    :set-ghost-mode-search ghost-mode-actions/set-ghost-mode-search
+   :set-ghost-mode-label ghost-mode-actions/set-ghost-mode-label
    :start-ghost-mode ghost-mode-actions/start-ghost-mode
    :stop-ghost-mode ghost-mode-actions/stop-ghost-mode
    :add-ghost-mode-watchlist-address ghost-mode-actions/add-ghost-mode-watchlist-address
    :remove-ghost-mode-watchlist-address ghost-mode-actions/remove-ghost-mode-watchlist-address
+   :edit-ghost-mode-watchlist-address ghost-mode-actions/edit-ghost-mode-watchlist-address
+   :clear-ghost-mode-watchlist-edit ghost-mode-actions/clear-ghost-mode-watchlist-edit
+   :copy-ghost-mode-watchlist-address ghost-mode-actions/copy-ghost-mode-watchlist-address
    :spectate-ghost-mode-watchlist-address ghost-mode-actions/spectate-ghost-mode-watchlist-address})
 
 (defn- order-action-deps []

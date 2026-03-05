@@ -327,6 +327,16 @@
           :actions/open-ghost-mode-modal
           [{:left 32 :right 96 :top 18 :bottom 52}]
           {:phase :test})))
+  (is (= [""]
+         (contracts/assert-action-args!
+          :actions/set-ghost-mode-search
+          [""]
+          {:phase :test})))
+  (is (= [""]
+         (contracts/assert-action-args!
+          :actions/set-ghost-mode-label
+          [""]
+          {:phase :test})))
   (is (= []
          (contracts/assert-action-args!
           :actions/start-ghost-mode
@@ -345,6 +355,31 @@
   (is (= ["0x123"]
          (contracts/assert-action-args!
           :actions/add-ghost-mode-watchlist-address
+          ["0x123"]
+          {:phase :test})))
+  (is (= ["0x123"]
+         (contracts/assert-action-args!
+          :actions/remove-ghost-mode-watchlist-address
+          ["0x123"]
+          {:phase :test})))
+  (is (= ["0x123"]
+         (contracts/assert-action-args!
+          :actions/edit-ghost-mode-watchlist-address
+          ["0x123"]
+          {:phase :test})))
+  (is (= []
+         (contracts/assert-action-args!
+          :actions/clear-ghost-mode-watchlist-edit
+          []
+          {:phase :test})))
+  (is (= ["0x123"]
+         (contracts/assert-action-args!
+          :actions/copy-ghost-mode-watchlist-address
+          ["0x123"]
+          {:phase :test})))
+  (is (= ["0x123"]
+         (contracts/assert-action-args!
+          :actions/spectate-ghost-mode-watchlist-address
           ["0x123"]
           {:phase :test}))))
 

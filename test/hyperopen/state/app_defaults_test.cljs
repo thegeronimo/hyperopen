@@ -80,6 +80,8 @@
     (is (= false (get-in state [:account-context :ghost-ui :modal-open?])))
     (is (nil? (get-in state [:account-context :ghost-ui :anchor])))
     (is (= "" (get-in state [:account-context :ghost-ui :search])))
+    (is (= "" (get-in state [:account-context :ghost-ui :label])))
+    (is (nil? (get-in state [:account-context :ghost-ui :editing-watchlist-address])))
     (is (= "" (get-in state [:account-context :ghost-ui :last-search])))
     (is (nil? (get-in state [:account-context :ghost-ui :search-error])))
     (is (= [] (get-in state [:account-context :watchlist])))

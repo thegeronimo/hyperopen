@@ -373,6 +373,7 @@
 
 (deftest app-view-renders-ghost-mode-modal-and-stop-control-when-open-and-active-test
   (let [address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+        label "The Assistance Fund"
         view-node (app-view/app-view (assoc trade-view-test-state
                                             :router {:path "/trade"}
                                             :wallet {}
@@ -380,30 +381,51 @@
                                                                            :address address}
                                                               :ghost-ui {:modal-open? true
                                                                          :search address
+                                                                         :label ""
                                                                          :search-error nil}
-                                                              :watchlist [address]}))
+                                                              :watchlist [{:address address
+                                                                           :label label}]}))
         modal-root (find-first-node view-node
                                     #(= "ghost-mode-modal-root"
                                         (get-in % [1 :data-role])))
         watchlist-row (find-first-node view-node
                                        #(= "ghost-mode-watchlist-row"
                                            (get-in % [1 :data-role])))
+        watchlist-label (find-first-node view-node
+                                         #(= "ghost-mode-watchlist-label"
+                                             (get-in % [1 :data-role])))
         close-button (find-first-node view-node
                                       #(= "ghost-mode-close"
                                           (get-in % [1 :data-role])))
         stop-button (find-first-node view-node
                                      #(= "ghost-mode-stop"
                                          (get-in % [1 :data-role])))
+        copy-button (find-first-node view-node
+                                     #(= "ghost-mode-watchlist-copy"
+                                         (get-in % [1 :data-role])))
+        edit-button (find-first-node view-node
+                                     #(= "ghost-mode-watchlist-edit"
+                                         (get-in % [1 :data-role])))
+        link-placeholder-button (find-first-node view-node
+                                                 #(= "ghost-mode-watchlist-link-placeholder"
+                                                     (get-in % [1 :data-role])))
         rendered-strings (set (collect-strings modal-root))]
     (is (some? modal-root))
     (is (some? watchlist-row))
+    (is (some? watchlist-label))
     (is (some? close-button))
     (is (contains? (set (collect-strings modal-root)) "Ghost Mode"))
     (is (contains? (set (collect-strings modal-root)) "Currently spectating: "))
     (is (contains? rendered-strings address))
+    (is (contains? rendered-strings label))
     (is (not-any? #(str/starts-with? % "[[:li")
                   rendered-strings))
     (is (= [[:actions/close-ghost-mode-modal]]
            (get-in close-button [1 :on :click])))
     (is (= [[:actions/stop-ghost-mode]]
-           (get-in stop-button [1 :on :click])))))
+           (get-in stop-button [1 :on :click])))
+    (is (= [[:actions/copy-ghost-mode-watchlist-address address]]
+           (get-in copy-button [1 :on :click])))
+    (is (= [[:actions/edit-ghost-mode-watchlist-address address]]
+           (get-in edit-button [1 :on :click])))
+    (is (true? (get-in link-placeholder-button [1 :disabled])))))

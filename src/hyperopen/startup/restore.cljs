@@ -53,6 +53,8 @@
                  (assoc-in [:account-context :watchlist-loaded?] true)
                  (assoc-in [:account-context :ghost-ui :last-search] (or search-input ""))
                  (assoc-in [:account-context :ghost-ui :search] (or search-input ""))
+                 (assoc-in [:account-context :ghost-ui :label] "")
+                 (assoc-in [:account-context :ghost-ui :editing-watchlist-address] nil)
                  (assoc-in [:account-context :ghost-ui :search-error] nil))))))
 
 (defn restore-active-asset!

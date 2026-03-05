@@ -336,10 +336,14 @@
    :actions/open-ghost-mode-modal ::ghost-mode-open-args
    :actions/close-ghost-mode-modal ::no-args
    :actions/set-ghost-mode-search ::single-input-args
+   :actions/set-ghost-mode-label ::single-input-args
    :actions/start-ghost-mode ::optional-string-args
    :actions/stop-ghost-mode ::no-args
    :actions/add-ghost-mode-watchlist-address ::optional-string-args
    :actions/remove-ghost-mode-watchlist-address ::address-args
+   :actions/edit-ghost-mode-watchlist-address ::address-args
+   :actions/clear-ghost-mode-watchlist-edit ::no-args
+   :actions/copy-ghost-mode-watchlist-address ::address-args
    :actions/spectate-ghost-mode-watchlist-address ::address-args
    :actions/enable-agent-trading ::no-args
    :actions/set-agent-storage-mode ::set-agent-storage-mode-args
