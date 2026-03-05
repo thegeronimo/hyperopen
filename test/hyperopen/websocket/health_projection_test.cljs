@@ -119,3 +119,25 @@
     (is (false? (health-projection/topic-stream-live? delayed
                                                       "openOrders"
                                                       {:user "0xabc"})))))
+
+(deftest topic-stream-usable-allows-event-driven-n-a-status-test
+  (let [base-stream {:topic "openOrders"
+                     :status :n-a
+                     :subscribed? true
+                     :descriptor {:type "openOrders"
+                                  :user "0xabc"}}
+        connected {:transport {:state :connected
+                               :freshness :live}
+                   :streams {["openOrders" nil "0xabc" nil nil] base-stream}}
+        disconnected {:transport {:state :disconnected
+                                  :freshness :offline}
+                      :streams {["openOrders" nil "0xabc" nil nil] base-stream}}]
+    (is (false? (health-projection/topic-stream-live? connected
+                                                      "openOrders"
+                                                      {:user "0xabc"})))
+    (is (true? (health-projection/topic-stream-usable? connected
+                                                       "openOrders"
+                                                       {:user "0xabc"})))
+    (is (false? (health-projection/topic-stream-usable? disconnected
+                                                        "openOrders"
+                                                        {:user "0xabc"})))))

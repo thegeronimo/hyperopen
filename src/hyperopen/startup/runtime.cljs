@@ -169,12 +169,12 @@
 (def ^:private default-startup-stream-backfill-delay-ms
   450)
 
-(defn- topic-live-for-address?
+(defn- topic-usable-for-address?
   [store topic address]
   (when (and (some? store)
              (string? topic)
              (seq address))
-    (health-projection/topic-stream-live?
+    (health-projection/topic-stream-usable?
      (get-in @store [:websocket :health])
      topic
      {:user address})))
@@ -192,12 +192,12 @@
                (seq address)
                (string? topic)
                (fn? fetch-fn))
-      (when-not (topic-live-for-address? store topic address)
+      (when-not (topic-usable-for-address? store topic address)
         (platform/set-timeout!
          (fn []
            ;; Guard against stale async callbacks for an old address.
            (when (= address (account-context/effective-account-address @store))
-             (when-not (topic-live-for-address? store topic address)
+             (when-not (topic-usable-for-address? store topic address)
                (fetch-fn store address (or opts {})))))
          delay-ms)))))
 
@@ -316,7 +316,7 @@
        ;; Guard against stale async callbacks for an old address.
        (when (= address (account-context/effective-account-address @store))
          (when (or (not (migration-flags/startup-bootstrap-ws-first-enabled? @store))
-                   (not (topic-live-for-address? store "openOrders" address)))
+                   (not (topic-usable-for-address? store "openOrders" address)))
            (fetch-frontend-open-orders! store address {:dex dex
                                                        :priority :low}))
          (fetch-clearinghouse-state! store address dex {:priority :low})))

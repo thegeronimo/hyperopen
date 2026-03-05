@@ -90,6 +90,11 @@
   (and (:subscribed? stream)
        (= :live (:status stream))))
 
+(defn- stream-usable?
+  [stream]
+  (and (:subscribed? stream)
+       (contains? #{:live :n-a} (:status stream))))
+
 (defn- transport-live?
   [health]
   (and (= :connected (get-in health [:transport :state]))
@@ -123,21 +128,22 @@
                     selector*)))
          vec)))
 
-(defn find-live-topic-stream
-  [health {:keys [topic selector]}]
+(defn- find-topic-stream
+  [health {:keys [topic selector stream-ready?]}]
   (let [streams (or (:streams health) {})
         selector* (or selector {})]
     (when (and (string? topic)
+               (fn? stream-ready?)
                (transport-live? health))
       (let [exact (exact-stream-entry streams topic selector*)
             selected (cond
-                       (and exact (stream-live? (second exact)))
+                       (and exact (stream-ready? (second exact)))
                        exact
 
                        (seq selector*)
                        (let [matches (->> (selector-matching-entries streams topic selector*)
                                           (filter (fn [[_ stream]]
-                                                    (stream-live? stream)))
+                                                    (stream-ready? stream)))
                                           vec)]
                          (when (= 1 (count matches))
                            (first matches)))
@@ -145,11 +151,25 @@
                        :else
                        (let [active (->> (active-topic-entries streams topic)
                                          (filter (fn [[_ stream]]
-                                                   (stream-live? stream)))
+                                                   (stream-ready? stream)))
                                          vec)]
                          (when (= 1 (count active))
                            (first active))))]
         selected))))
+
+(defn find-live-topic-stream
+  [health {:keys [topic selector]}]
+  (find-topic-stream health
+                     {:topic topic
+                      :selector selector
+                      :stream-ready? stream-live?}))
+
+(defn find-usable-topic-stream
+  [health {:keys [topic selector]}]
+  (find-topic-stream health
+                     {:topic topic
+                      :selector selector
+                      :stream-ready? stream-usable?}))
 
 (defn topic-stream-live?
   [health topic selector]
@@ -157,6 +177,13 @@
    (find-live-topic-stream health
                            {:topic topic
                             :selector selector})))
+
+(defn topic-stream-usable?
+  [health topic selector]
+  (boolean
+   (find-usable-topic-stream health
+                             {:topic topic
+                              :selector selector})))
 
 (defn auto-recover-eligible?
   [state health {:keys [enabled? severe-threshold-ms]}]

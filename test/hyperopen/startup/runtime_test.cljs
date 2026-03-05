@@ -445,6 +445,35 @@
             [address "dex-b" {:priority :low}]]
            @clearinghouse-calls))))
 
+(deftest stage-b-account-bootstrap-skips-open-orders-when-open-orders-stream-event-driven-test
+  (let [open-orders-calls (atom [])
+        clearinghouse-calls (atom [])
+        address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        store (atom {:wallet {:address address}
+                     :websocket {:health {:transport {:state :connected
+                                                      :freshness :live}
+                                          :streams {"stream-1" {:subscribed? true
+                                                                :status :n-a
+                                                                :topic "openOrders"
+                                                                :descriptor {:type "openOrders"
+                                                                             :user "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}}}}})]
+    (with-redefs [platform/set-timeout! (fn [f _delay-ms]
+                                          (f)
+                                          :timeout-id)]
+      (startup-runtime/stage-b-account-bootstrap!
+       {:store store
+        :address address
+        :dexs ["dex-a" "dex-b"]
+        :per-dex-stagger-ms 25
+        :fetch-frontend-open-orders! (fn [_store fetch-address opts]
+                                       (swap! open-orders-calls conj [fetch-address opts]))
+        :fetch-clearinghouse-state! (fn [_store fetch-address dex opts]
+                                      (swap! clearinghouse-calls conj [fetch-address dex opts]))}))
+    (is (empty? @open-orders-calls))
+    (is (= [[address "dex-a" {:priority :low}]
+            [address "dex-b" {:priority :low}]]
+           @clearinghouse-calls))))
+
 (deftest bootstrap-account-data-covers-nil-repeat-success-and-error-branches-test
   (async done
     (let [store (atom {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
@@ -547,6 +576,68 @@
                                                                                    :user address}}
                                                       "fundings-stream" {:subscribed? true
                                                                          :status :live
+                                                                         :topic "userFundings"
+                                                                         :descriptor {:type "userFundings"
+                                                                                      :user address}}}}}})
+          startup-runtime-atom (atom {:bootstrapped-address nil})]
+      (startup-runtime/bootstrap-account-data!
+       {:startup-runtime startup-runtime-atom
+        :store store
+        :address address
+        :startup-stream-backfill-delay-ms 0
+        :fetch-frontend-open-orders! (fn [_store fetch-address opts]
+                                       (swap! stage-a-calls conj [:open-orders fetch-address opts]))
+        :fetch-user-fills! (fn [_store fetch-address opts]
+                             (swap! stage-a-calls conj [:fills fetch-address opts]))
+        :fetch-spot-clearinghouse-state! (fn [_store fetch-address opts]
+                                           (swap! stage-a-calls conj [:spot fetch-address opts]))
+        :fetch-user-abstraction! (fn [_store fetch-address opts]
+                                   (swap! stage-a-calls conj [:abstraction fetch-address opts]))
+        :fetch-portfolio! (fn [_store fetch-address opts]
+                            (swap! stage-a-calls conj [:portfolio fetch-address opts]))
+        :fetch-user-fees! (fn [_store fetch-address opts]
+                            (swap! stage-a-calls conj [:user-fees fetch-address opts]))
+        :fetch-historical-orders! (fn [_store request-id opts]
+                                    (swap! stage-a-calls conj [:order-history request-id opts]))
+        :fetch-and-merge-funding-history! (fn [_store fetch-address opts]
+                                            (swap! stage-a-calls conj [:fundings fetch-address opts]))
+        :ensure-perp-dexs! (fn [_store _opts]
+                             (js/Promise.resolve []))
+        :stage-b-account-bootstrap! (fn [& _] nil)
+        :log-fn (fn [& _] nil)})
+      (js/setTimeout
+       (fn []
+         (is (some #(= :order-history (first %)) @stage-a-calls))
+         (is (some #(= :spot (first %)) @stage-a-calls))
+         (is (some #(= :abstraction (first %)) @stage-a-calls))
+         (is (some #(= :portfolio (first %)) @stage-a-calls))
+         (is (some #(= :user-fees (first %)) @stage-a-calls))
+         (is (not (some #(= :open-orders (first %)) @stage-a-calls)))
+         (is (not (some #(= :fills (first %)) @stage-a-calls)))
+         (is (not (some #(= :fundings (first %)) @stage-a-calls)))
+         (done))
+       0))))
+
+(deftest bootstrap-account-data-ws-first-skips-stream-covered-fetches-when-streams-event-driven-test
+  (async done
+    (let [address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          stage-a-calls (atom [])
+          store (atom {:wallet {:address address}
+                       :account-info {:order-history {:request-id 0}}
+                       :websocket {:health {:transport {:state :connected
+                                                        :freshness :live}
+                                            :streams {"open-orders-stream" {:subscribed? true
+                                                                            :status :n-a
+                                                                            :topic "openOrders"
+                                                                            :descriptor {:type "openOrders"
+                                                                                         :user address}}
+                                                      "fills-stream" {:subscribed? true
+                                                                      :status :n-a
+                                                                      :topic "userFills"
+                                                                      :descriptor {:type "userFills"
+                                                                                   :user address}}
+                                                      "fundings-stream" {:subscribed? true
+                                                                         :status :n-a
                                                                          :topic "userFundings"
                                                                          :descriptor {:type "userFundings"
                                                                                       :user address}}}}}})

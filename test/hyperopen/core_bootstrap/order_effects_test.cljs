@@ -199,6 +199,64 @@
              (done))))
        0))))
 
+(deftest api-submit-order-effect-skips-open-orders-and-default-clearinghouse-when-ws-streams-event-driven-test
+  (async done
+    (let [address "0xabc"
+          store (atom {:wallet {:address address
+                                :agent {:status :ready}}
+                       :websocket {:health {:transport {:state :connected
+                                                        :freshness :live}
+                                            :streams {["openOrders" nil address nil nil]
+                                                      {:topic "openOrders"
+                                                       :status :n-a
+                                                       :subscribed? true
+                                                       :descriptor {:type "openOrders"
+                                                                    :user address}}
+                                                      ["webData2" nil address nil nil]
+                                                      {:topic "webData2"
+                                                       :status :n-a
+                                                       :subscribed? true
+                                                       :descriptor {:type "webData2"
+                                                                    :user address}}}}}
+                       :order-form {}
+                       :order-form-runtime {:submitting? false
+                                            :error nil}
+                       :ui {:toast nil}})
+          dispatched (atom [])
+          refresh-calls (atom [])
+          clearinghouse-calls (atom [])
+          original-submit-order trading-api/submit-order!
+          original-dispatch nxr/dispatch
+          restore-account-refresh-mocks! (install-account-refresh-mocks! refresh-calls
+                                                                      clearinghouse-calls
+                                                                      ["dex-a"])]
+      (clear-order-feedback-toast-timeout!)
+      (set! trading-api/submit-order!
+            (fn [_store _address _action]
+              (js/Promise.resolve {:status "ok"})))
+      (set! nxr/dispatch
+            (fn [_store _evt actions]
+              (swap! dispatched conj actions)))
+      (core/api-submit-order nil store {:action {:type "order"
+                                                 :orders []
+                                                 :grouping "na"}})
+      (js/setTimeout
+       (fn []
+         (try
+           (is (= [[[:actions/refresh-order-history]]]
+                  @dispatched))
+           ;; Event-driven (:n-a) streams are still WS-covered and should suppress high-priority fallbacks.
+           (is (= [] @refresh-calls))
+           (is (= [[address "dex-a" {:priority :low}]]
+                  @clearinghouse-calls))
+           (finally
+             (clear-order-feedback-toast-timeout!)
+             (set! trading-api/submit-order! original-submit-order)
+             (set! nxr/dispatch original-dispatch)
+             (restore-account-refresh-mocks!)
+             (done))))
+       0))))
+
 (deftest api-submit-order-effect-uses-rest-refresh-when-ws-first-flag-disabled-test
   (async done
     (let [address "0xabc"

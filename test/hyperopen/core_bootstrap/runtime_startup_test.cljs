@@ -138,9 +138,10 @@
 
 (deftest account-bootstrap-two-stage-and-guarded-test
   (async done
-    (let [stage-a-calls (atom [])
+    (let [address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          stage-a-calls (atom [])
           stage-b-calls (atom [])
-          test-store (atom {:wallet {:address "0xabc"}})
+          test-store (atom {:wallet {:address address}})
           system {:runtime runtime-state/runtime
                   :store test-store}]
       (with-redefs [startup-collaborators/startup-base-deps
@@ -180,7 +181,7 @@
                         :stage-b-account-bootstrap! (fn [address dexs]
                                                       (swap! stage-b-calls conj [address dexs]))
                         :startup-stream-backfill-delay-ms 0}))]
-        (app-startup/bootstrap-account-data! system "0xabc")
+        (app-startup/bootstrap-account-data! system address)
         (js/setTimeout
          (fn []
            (is (= 8 (count @stage-a-calls)))
@@ -188,9 +189,9 @@
            (is (some #(= :portfolio (first %)) @stage-a-calls))
            (is (some #(= :user-fees (first %)) @stage-a-calls))
            (is (some #(= :order-history (first %)) @stage-a-calls))
-           (is (= [["0xabc" ["dex-1" "dex-2"]]] @stage-b-calls))
+           (is (= [[address ["dex-1" "dex-2"]]] @stage-b-calls))
            ;; Same address should not trigger stage A/B again.
-           (app-startup/bootstrap-account-data! system "0xabc")
+           (app-startup/bootstrap-account-data! system address)
            (js/setTimeout
             (fn []
               (is (= 8 (count @stage-a-calls)))

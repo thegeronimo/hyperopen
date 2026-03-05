@@ -155,11 +155,11 @@
                address
                api-projections/apply-perp-dex-clearinghouse-error))))
 
-(defn- topic-live-for-address?
+(defn- topic-usable-for-address?
   [store topic address]
   (when (and (string? topic)
              (seq address))
-    (health-projection/topic-stream-live?
+    (health-projection/topic-stream-usable?
      (get-in @store [:websocket :health])
      topic
      {:user address})))
@@ -170,9 +170,9 @@
     (let [state @store
           ws-first-enabled? (migration-flags/order-fill-ws-first-enabled? state)
           open-orders-live? (and ws-first-enabled?
-                                 (topic-live-for-address? store "openOrders" address))
+                                 (topic-usable-for-address? store "openOrders" address))
           webdata2-live? (and ws-first-enabled?
-                              (topic-live-for-address? store "webData2" address))]
+                              (topic-usable-for-address? store "webData2" address))]
       (when-not open-orders-live?
         (refresh-open-orders-snapshot! store address nil {:priority :high}))
     (refresh-spot-clearinghouse-snapshot! store address {:priority :high})
