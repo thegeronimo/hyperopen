@@ -834,34 +834,28 @@
         market-type (:market-type market)
         market-key (or (:key market) (markets/coin->market-key coin))
         missing-icon? (contains? missing-icons market-key)
-        loaded-icon? (contains? loaded-icons market-key)
         icon-src (when-not missing-icon?
                    (asset-icon/market-icon-url market))
-        icon-layer? (seq icon-src)
-        probe-icon? (and icon-layer? (not loaded-icon?))
+        show-icon? (seq icon-src)
+        show-monogram? (not show-icon?)
         monogram (symbol-monogram market symbol coin)]
     [:div {:class ["flex" "items-center" "gap-2" "cursor-pointer" "hover:bg-base-300"
                    "rounded" "pr-2" "py-1" "transition-colors" "min-w-0"]
            :on {:click [[:actions/toggle-asset-dropdown :asset-selector]]}}
-     [:div {:class ["relative" "w-6" "h-6" "shrink-0"]}
-      [:div {:class ["w-6" "h-6" "rounded-full" "border" "border-slate-500/40"
-                     "bg-slate-800/80" "text-slate-300/70" "text-[8px]"
-                     "font-semibold" "tracking-tight" "uppercase" "leading-none"
-                     "flex" "items-center" "justify-center" "overflow-hidden"
-                     "px-0.5"]
-             :aria-hidden true}
-       monogram]
-      (when icon-layer?
-        [:div {:class ["absolute" "inset-0" "rounded-full" "bg-center" "bg-cover" "bg-no-repeat"]
-               :aria-hidden true
-               :style {:background-image (str "url('" icon-src "')")}}])
-      (when probe-icon?
-        [:img {:class ["absolute" "inset-0" "w-6" "h-6" "rounded-full" "opacity-0"
-                       "pointer-events-none"]
+     [:div {:class ["w-5" "h-5" "shrink-0" "overflow-hidden" "rounded-full"]}
+      (if show-icon?
+        [:img {:class ["block" "w-5" "h-5" "object-contain" "bg-white" "pointer-events-none"]
                :src icon-src
                :alt ""
+               :aria-hidden true
                :on {:load [[:actions/mark-loaded-asset-icon market-key]]
-                    :error [[:actions/mark-missing-asset-icon market-key]]}}])]
+                    :error [[:actions/mark-missing-asset-icon market-key]]}}]
+        [:div {:class ["w-5" "h-5" "rounded-full" "border" "border-slate-500/40"
+                       "bg-slate-800/80" "text-slate-300/70" "text-[7px]"
+                       "font-semibold" "tracking-tight" "uppercase" "leading-none"
+                       "flex" "items-center" "justify-center" "px-0.5"]
+               :aria-hidden true}
+         monogram])]
      [:div.flex.items-center.space-x-2.min-w-0
       [:span.font-medium.truncate symbol]
       (when (= market-type :spot)

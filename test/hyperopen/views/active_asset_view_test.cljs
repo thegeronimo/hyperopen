@@ -153,11 +153,11 @@
                       set)
         strings (set (collect-strings icon-node))
         path-ds (set (collect-path-ds icon-node))]
-    (is (contains? strings "HYPE"))
+    (is (not (contains? strings "HYPE")))
     (is (contains? img-srcs "https://app.hyperliquid.xyz/coins/HYPE_spot.svg"))
     (is (contains? path-ds "M19 9l-7 7-7-7"))))
 
-(deftest asset-icon-renders-monogram-while-icon-probes-and-wires-load-events-test
+(deftest asset-icon-renders-visible-image-immediately-and-wires-load-events-test
   (let [market {:key "perp:BTC"
                 :coin "BTC"
                 :symbol "BTC-USDC"
@@ -169,8 +169,9 @@
         classes (set (class-values (:class attrs)))
         strings (set (collect-strings icon-node))]
     (is (some? img-node))
-    (is (contains? strings "BTC"))
-    (is (contains? classes "opacity-0"))
+    (is (not (contains? strings "BTC")))
+    (is (contains? classes "bg-white"))
+    (is (not (contains? classes "opacity-0")))
     (is (= [[:actions/mark-loaded-asset-icon "perp:BTC"]]
            (get-in attrs [:on :load])))))
 
@@ -182,12 +183,29 @@
                 :market-type :perp}
         icon-node (view/asset-icon market false #{} #{"perp:BTC"})
         img-nodes (find-img-nodes icon-node)
-        icon-layer (first (find-nodes-with-style-key icon-node :background-image))
-        background-image (get-in icon-layer [1 :style :background-image])]
+        img-node (first img-nodes)
+        attrs (second img-node)
+        classes (set (class-values (:class attrs)))
+        strings (set (collect-strings icon-node))]
+    (is (= 1 (count img-nodes)))
+    (is (= "https://app.hyperliquid.xyz/coins/BTC.svg"
+           (:src attrs)))
+    (is (contains? classes "object-contain"))
+    (is (contains? classes "bg-white"))
+    (is (not (contains? strings "BTC")))
+    (is (empty? (find-nodes-with-style-key icon-node :background-image)))))
+
+(deftest asset-icon-falls-back-to-monogram-when-icon-is-known-missing-test
+  (let [market {:key "perp:BTC"
+                :coin "BTC"
+                :symbol "BTC-USDC"
+                :base "BTC"
+                :market-type :perp}
+        icon-node (view/asset-icon market false #{"perp:BTC"} #{})
+        img-nodes (find-img-nodes icon-node)
+        strings (set (collect-strings icon-node))]
     (is (empty? img-nodes))
-    (is (some? icon-layer))
-    (is (= "url('https://app.hyperliquid.xyz/coins/BTC.svg')"
-           background-image))))
+    (is (contains? strings "BTC"))))
 
 (deftest asset-icon-renders-namespaced-icon-for-component-markets-test
   (let [market {:key "perp:xyz:XYZ100"
