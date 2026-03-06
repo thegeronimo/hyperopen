@@ -8,6 +8,21 @@
 (def market-projection-flush-event-limit
   60)
 
+(def ^:private market-projection-flush-diagnostics-keys
+  [:seq
+   :event
+   :at-ms
+   :store-id
+   :pending-count
+   :overwrite-count
+   :flush-duration-ms
+   :queue-wait-ms
+   :flush-count
+   :max-pending-depth
+   :p95-flush-duration-ms
+   :queued-total
+   :overwrite-total])
+
 (def ^:private market-projection-flush-event
   :websocket/market-projection-flush)
 
@@ -20,6 +35,9 @@
 (defonce ^:private market-projection-flush-event-log
   (atom []))
 
+(defonce ^:private market-projection-flush-diagnostics-event-log
+  (atom []))
+
 (defn dev-enabled?
   "Dev-only guard for local diagnostics logging."
   []
@@ -28,7 +46,8 @@
 (defn clear-events!
   []
   (reset! event-log [])
-  (reset! market-projection-flush-event-log []))
+  (reset! market-projection-flush-event-log [])
+  (reset! market-projection-flush-diagnostics-event-log []))
 
 (defn events
   []
@@ -37,6 +56,10 @@
 (defn market-projection-flush-events
   []
   @market-projection-flush-event-log)
+
+(defn market-projection-flush-diagnostics-events
+  []
+  @market-projection-flush-diagnostics-event-log)
 
 (defn events-json
   []
@@ -72,7 +95,12 @@
   (when (= market-projection-flush-event (:event entry))
     (swap! market-projection-flush-event-log
            (fn [entries]
-             (append-bounded-entry entries entry market-projection-flush-event-limit)))))
+             (append-bounded-entry entries entry market-projection-flush-event-limit)))
+    (swap! market-projection-flush-diagnostics-event-log
+           (fn [entries]
+             (append-bounded-entry entries
+                                   (select-keys entry market-projection-flush-diagnostics-keys)
+                                   market-projection-flush-event-limit)))))
 
 (defn emit!
   ([event]

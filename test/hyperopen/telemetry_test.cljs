@@ -38,11 +38,13 @@
       (is (string? (:message entry)))
       (is (vector? (:args entry))))
     (is (= 1 (count (telemetry/market-projection-flush-events))))
+    (is (= 1 (count (telemetry/market-projection-flush-diagnostics-events))))
     (telemetry/clear-events!)
     (is (= [] (telemetry/events)))
-    (is (= [] (telemetry/market-projection-flush-events)))))
+    (is (= [] (telemetry/market-projection-flush-events)))
+    (is (= [] (telemetry/market-projection-flush-diagnostics-events)))))
 
-(deftest telemetry-market-projection-flush-ring-is-filtered-and-bounded-test
+(deftest telemetry-market-projection-flush-rings-are-filtered-and-bounded-test
   (with-redefs [hyperopen.telemetry/dev-enabled? (constantly true)
                 hyperopen.platform/now-ms (constantly 404)]
     (let [limit telemetry/market-projection-flush-event-limit
@@ -51,16 +53,38 @@
       (doseq [idx (range total-flush-events)]
         (telemetry/emit! :websocket/market-projection-flush
                          {:store-id "emit-store"
-                          :flush-count idx}))
-      (let [flush-events (telemetry/market-projection-flush-events)]
+                          :flush-count idx
+                          :ignored idx}))
+      (let [flush-events (telemetry/market-projection-flush-events)
+            diagnostics-events (telemetry/market-projection-flush-diagnostics-events)]
         (is (= limit (count flush-events)))
+        (is (= limit (count diagnostics-events)))
         (is (every? (fn [entry]
                       (= :websocket/market-projection-flush (:event entry)))
                     flush-events))
+        (is (every? (fn [entry]
+                      (= :websocket/market-projection-flush (:event entry)))
+                    diagnostics-events))
         (is (= (- total-flush-events limit)
                (:flush-count (first flush-events))))
         (is (= (dec total-flush-events)
-               (:flush-count (last flush-events))))))))
+               (:flush-count (last flush-events))))
+        (is (= (select-keys (first flush-events)
+                            [:seq
+                             :event
+                             :at-ms
+                             :store-id
+                             :pending-count
+                             :overwrite-count
+                             :flush-duration-ms
+                             :queue-wait-ms
+                             :flush-count
+                             :max-pending-depth
+                             :p95-flush-duration-ms
+                             :queued-total
+                             :overwrite-total])
+               (first diagnostics-events)))
+        (is (not (contains? (first diagnostics-events) :ignored)))))))
 
 (deftest telemetry-noop-when-disabled-test
   (with-redefs [hyperopen.telemetry/dev-enabled? (constantly false)

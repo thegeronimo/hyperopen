@@ -40,22 +40,7 @@
 
 (defn- market-projection-flush-events
   []
-  (->> (telemetry/market-projection-flush-events)
-       (mapv (fn [entry]
-               (select-keys entry
-                            [:seq
-                             :event
-                             :at-ms
-                             :store-id
-                             :pending-count
-                             :overwrite-count
-                             :flush-duration-ms
-                             :queue-wait-ms
-                             :flush-count
-                             :max-pending-depth
-                             :p95-flush-duration-ms
-                             :queued-total
-                             :overwrite-total])))))
+  (telemetry/market-projection-flush-diagnostics-events))
 
 (defn- market-projection-diagnostics
   []

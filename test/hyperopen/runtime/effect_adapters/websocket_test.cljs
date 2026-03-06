@@ -110,7 +110,9 @@
                                      :overwrite-total])]
     (with-redefs [telemetry/events (fn []
                                      (throw (js/Error. "global telemetry log should not be scanned")))
-                  telemetry/market-projection-flush-events (constantly [ring-entry])
+                  telemetry/market-projection-flush-events (fn []
+                                                            (throw (js/Error. "raw flush events should not be remapped")))
+                  telemetry/market-projection-flush-diagnostics-events (constantly [expected-entry])
                   market-projection-runtime/market-projection-telemetry-snapshot
                   (constantly {:stores [{:store-id "emit-store"
                                          :pending-count 0
