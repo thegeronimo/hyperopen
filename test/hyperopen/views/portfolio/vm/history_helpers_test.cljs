@@ -91,15 +91,16 @@
          (vm-history/aligned-benchmark-return-rows [] [{:time-ms 1}])))
   (is (= []
          (vm-history/aligned-benchmark-return-rows [{:time-ms 1 :value 100}] [])))
-  (let [aligned (vm-history/aligned-benchmark-return-rows [{:time-ms 1 :value 100}
-                                                           {:time-ms 2 :value 110}
-                                                           {:time-ms 3 :value 121}]
-                                                          [{:time-ms 2}
-                                                           {:time-ms 3}
-                                                           {:time-ms 4}])]
-    (is (= [2 3] (mapv :time-ms aligned)))
+  (let [aligned (vm-history/aligned-benchmark-return-rows [{:time-ms 1000 :value 100}
+                                                           {:time-ms 2000 :value 110}
+                                                           {:time-ms 3000 :value 121}]
+                                                          [{:time-ms 1500}
+                                                           {:time-ms 2500}
+                                                           {:time-ms 3500}])]
+    (is (= [1500 2500 3500] (mapv :time-ms aligned)))
     (is (approx= 0 (get-in aligned [0 :value])))
-    (is (approx= 10 (get-in aligned [1 :value]))))
+    (is (approx= 10 (get-in aligned [1 :value])))
+    (is (approx= 21 (get-in aligned [2 :value]))))
   (let [aligned (vm-history/aligned-benchmark-return-rows [{:time-ms 10 :value 50}
                                                            {:time-ms 11 :value 55}]
                                                           [{:time-ms 9}

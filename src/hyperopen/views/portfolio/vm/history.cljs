@@ -113,25 +113,42 @@
 
 (defn aligned-benchmark-return-rows
   [benchmark-points strategy-points]
-  (if (and (seq benchmark-points) (seq strategy-points))
-    (let [strategy-start-ms (:time-ms (first strategy-points))
-          anchor-point (last (filter #(<= (:time-ms %) strategy-start-ms) benchmark-points))
-          anchor-val (or (:value anchor-point)
-                         (:value (first benchmark-points)))
-          relevant-benchmarks (filter #(>= (:time-ms %) strategy-start-ms) benchmark-points)
-          benchmark-by-time (into {} (map (juxt :time-ms :value) relevant-benchmarks))]
-      (if (parsing/finite-number? anchor-val)
-        (->> strategy-points
-             (keep (fn [{:keys [time-ms]}]
-                     (when-let [b-val (get benchmark-by-time time-ms)]
-                       (let [factor (/ b-val anchor-val)
-                             percent (* 100 (- factor 1))]
-                         (when (parsing/finite-number? percent)
-                           {:time-ms time-ms
-                            :value percent})))))
-             vec)
-        []))
-    []))
+  (let [benchmark-count (count benchmark-points)
+        strategy-time-points (mapv :time-ms strategy-points)
+        strategy-count (count strategy-time-points)]
+    (loop [time-idx 0
+           candle-idx 0
+           latest-close nil
+           anchor-close nil
+           output []]
+      (if (>= time-idx strategy-count)
+        output
+        (let [time-ms (nth strategy-time-points time-idx)
+              [candle-idx* latest-close*]
+              (loop [idx candle-idx
+                     latest latest-close]
+                (if (>= idx benchmark-count)
+                  [idx latest]
+                  (let [{candle-time-ms :time-ms
+                         close :value} (nth benchmark-points idx)]
+                    (if (<= candle-time-ms time-ms)
+                      (recur (inc idx) close)
+                      [idx latest]))))
+              anchor-close* (or anchor-close latest-close*)
+              output* (if (and (parsing/finite-number? latest-close*)
+                               (parsing/finite-number? anchor-close*)
+                               (pos? anchor-close*))
+                        (let [cumulative-return (* 100 (- (/ latest-close* anchor-close*) 1))]
+                          (if (parsing/finite-number? cumulative-return)
+                            (conj output {:time-ms time-ms
+                                          :value cumulative-return})
+                            output))
+                        output)]
+          (recur (inc time-idx)
+                 candle-idx*
+                 latest-close*
+                 anchor-close*
+                 output*))))))
 
 (defn cumulative-return-time-points
   [cumulative-rows]

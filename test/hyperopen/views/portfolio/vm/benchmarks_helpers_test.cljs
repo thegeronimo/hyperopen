@@ -197,3 +197,30 @@
         (is (number? (:strategy-source-version context)))
         (is (number? (get (:benchmark-source-version-map context) "SPY")))
         (is (number? (get (:benchmark-source-version-map context) vault-ref)))))))
+
+(deftest benchmark-computation-context-aligns-benchmarks-to-latest-prior-candle-test
+  (let [c0 1704067200000
+        c1 (+ c0 3600000)
+        c2 (+ c1 3600000)
+        state {:candles {"BTC" {:1h [{:t c0 :c 100}
+                                     {:t c1 :c 110}
+                                     {:t c2 :c 121}]}}}
+        selector {:selected-coins ["BTC"]
+                  :label-by-coin {"BTC" "BTC-USDC (PERP)"}}]
+    (with-redefs [portfolio-metrics/returns-history-rows (fn [_state _summary _scope]
+                                                           [[(+ c0 1800000) 0]
+                                                            [(+ c1 1800000) 5]
+                                                            [(+ c2 1800000) 10]])]
+      (let [context (vm-benchmarks/benchmark-computation-context state
+                                                                 {:dummy true}
+                                                                 :all
+                                                                 :month
+                                                                 selector)]
+        (is (= [(+ c0 1800000)
+                (+ c1 1800000)
+                (+ c2 1800000)]
+               (mapv first (get (:benchmark-cumulative-rows-by-coin context) "BTC"))))
+        (is (every? true?
+                    (map approx=
+                         [0 10 21]
+                         (mapv second (get (:benchmark-cumulative-rows-by-coin context) "BTC")))))))))
