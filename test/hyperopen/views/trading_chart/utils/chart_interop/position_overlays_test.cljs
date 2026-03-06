@@ -56,6 +56,14 @@
                           (fn [node]
                             (= "true" (aget node "data-position-liq-drag-hit")))))
 
+(defn- emit-overlay-repaint!
+  [{:keys [subscription-callbacks*]}]
+  (when-let [callback (or (get @subscription-callbacks* :size-change)
+                          (get @subscription-callbacks* :data-changed)
+                          (get @subscription-callbacks* :visible-time-range)
+                          (get @subscription-callbacks* :visible-logical-range))]
+    (callback nil)))
+
 (defn- build-chart-fixture
   [{:keys [width price-to-y time-to-x y-to-price]
     :or {width 320
@@ -66,24 +74,34 @@
                        1700000000 48
                        1700003600 228
                        nil))}}]
-  (let [subscribe-fn (fn [_] nil)
+  (let [subscription-callbacks* (atom {})
+        subscribe-fn (fn [k]
+                       (fn [callback]
+                         (swap! subscription-callbacks* assoc k callback)))
         unsubscribe-calls* (atom 0)
-        unsubscribe-fn (fn [_]
-                         (swap! unsubscribe-calls* inc))
-        time-scale #js {:subscribeVisibleTimeRangeChange subscribe-fn
-                        :unsubscribeVisibleTimeRangeChange unsubscribe-fn
-                        :subscribeVisibleLogicalRangeChange subscribe-fn
-                        :unsubscribeVisibleLogicalRangeChange unsubscribe-fn
-                        :subscribeSizeChange subscribe-fn
-                        :unsubscribeSizeChange unsubscribe-fn
+        unsubscribe-fn (fn [k]
+                         (fn [callback]
+                           (swap! unsubscribe-calls* inc)
+                           (swap! subscription-callbacks*
+                                  (fn [callbacks]
+                                    (if (identical? callback (get callbacks k))
+                                      (dissoc callbacks k)
+                                      callbacks)))))
+        width* (atom width)
+        time-scale #js {:subscribeVisibleTimeRangeChange (subscribe-fn :visible-time-range)
+                        :unsubscribeVisibleTimeRangeChange (unsubscribe-fn :visible-time-range)
+                        :subscribeVisibleLogicalRangeChange (subscribe-fn :visible-logical-range)
+                        :unsubscribeVisibleLogicalRangeChange (unsubscribe-fn :visible-logical-range)
+                        :subscribeSizeChange (subscribe-fn :size-change)
+                        :unsubscribeSizeChange (unsubscribe-fn :size-change)
                         :timeToCoordinate time-to-x}
         main-series #js {:priceToCoordinate price-to-y
                          :coordinateToPrice y-to-price
-                         :subscribeDataChanged subscribe-fn
-                         :unsubscribeDataChanged unsubscribe-fn}
+                         :subscribeDataChanged (subscribe-fn :data-changed)
+                         :unsubscribeDataChanged (unsubscribe-fn :data-changed)}
         chart #js {:timeScale (fn [] time-scale)
                    :paneSize (fn [_pane-index]
-                               #js {:width width})}
+                               #js {:width @width*})}
         chart-obj #js {:chart chart
                        :mainSeries main-series}
         document (fake-dom/make-fake-document)
@@ -94,7 +112,11 @@
     {:chart-obj chart-obj
      :document document
      :container container
+     :chart chart
+     :main-series main-series
+     :subscription-callbacks* subscription-callbacks*
      :window-target window-target
+     :width* width*
      :unsubscribe-calls* unsubscribe-calls*}))
 
 (deftest position-overlays-render-pnl-and-liquidation-rows-and-clear-test
@@ -189,6 +211,112 @@
       :format-price format-price
       :format-size format-size})
     (is (= 4 @price-to-coordinate-calls*))
+    (position-overlays/clear-position-overlays! chart-obj)))
+
+(deftest position-overlays-repaint-retains-dom-nodes-and-patches-coordinates-test
+  (let [{:keys [chart-obj document container main-series] :as fixture}
+        (build-chart-fixture {})
+        overlay {:side :short
+                 :entry-price 100
+                 :unrealized-pnl -2.5
+                 :abs-size 1.5
+                 :liquidation-price 130
+                 :entry-time 1700000000
+                 :entry-time-ms 1700000000000
+                 :latest-time 1700003600}]
+    (position-overlays/sync-position-overlays!
+     chart-obj
+     container
+     overlay
+     {:document document
+      :format-price (fn [price _raw] (str price))
+      :format-size (fn [size] (str size))})
+    (let [overlay-root (aget (.-children container) 0)
+          pnl-chip-before (find-pnl-price-chip overlay-root)
+          liq-chip-before (find-liquidation-price-chip overlay-root)
+          drag-hit-before (find-liquidation-drag-hit overlay-root)
+          pnl-row-before (some-> pnl-chip-before .-parentNode)
+          liq-row-before (some-> liq-chip-before .-parentNode)
+          pnl-top-before (some-> pnl-row-before .-style (aget "top"))
+          liq-top-before (some-> liq-row-before .-style (aget "top"))]
+      (aset main-series
+            "priceToCoordinate"
+            (fn [price]
+              (- 260 price)))
+      (emit-overlay-repaint! fixture)
+      (let [pnl-chip-after (find-pnl-price-chip overlay-root)
+            liq-chip-after (find-liquidation-price-chip overlay-root)
+            drag-hit-after (find-liquidation-drag-hit overlay-root)
+            pnl-top-after (some-> pnl-row-before .-style (aget "top"))
+            liq-top-after (some-> liq-row-before .-style (aget "top"))]
+        (is (identical? pnl-chip-before pnl-chip-after))
+        (is (identical? liq-chip-before liq-chip-after))
+        (is (identical? drag-hit-before drag-hit-after))
+        (is (= "160px" pnl-top-after))
+        (is (= "130px" liq-top-after))
+        (is (not= pnl-top-before pnl-top-after))
+        (is (not= liq-top-before liq-top-after))))
+    (position-overlays/clear-position-overlays! chart-obj)))
+
+(deftest position-overlays-sync-patches-retained-nodes-in-place-test
+  (let [{:keys [chart-obj document container]}
+        (build-chart-fixture {})
+        overlay {:side :short
+                 :entry-price 100
+                 :unrealized-pnl -2.5
+                 :abs-size 1.5
+                 :liquidation-price 130
+                 :entry-time 1700000000
+                 :entry-time-ms 1700000000000
+                 :latest-time 1700003600}
+        next-overlay {:side :short
+                      :entry-price 105
+                      :unrealized-pnl 8.0
+                      :abs-size 3.0
+                      :liquidation-price 125
+                      :entry-time 1700000000
+                      :entry-time-ms 1700000000000
+                      :latest-time 1700003600}
+        format-price (fn [price _raw] (str price))
+        format-size (fn [size] (str size))]
+    (position-overlays/sync-position-overlays!
+     chart-obj
+     container
+     overlay
+     {:document document
+      :format-price format-price
+      :format-size format-size})
+    (let [overlay-root (aget (.-children container) 0)
+          pnl-chip-before (find-pnl-price-chip overlay-root)
+          liq-chip-before (find-liquidation-price-chip overlay-root)
+          pnl-line-before (find-pnl-segment-line overlay-root)]
+      (position-overlays/sync-position-overlays!
+       chart-obj
+       container
+       next-overlay
+       {:document document
+        :format-price format-price
+        :format-size format-size})
+      (let [text (str/join " " (fake-dom/collect-text-content overlay-root))
+            pnl-chip-after (find-pnl-price-chip overlay-root)
+            liq-chip-after (find-liquidation-price-chip overlay-root)
+            pnl-line-after (find-pnl-segment-line overlay-root)
+            pnl-chip-text (some->> pnl-chip-after
+                                   fake-dom/collect-text-content
+                                   (str/join " ")
+                                   str/trim)
+            liq-chip-text (some->> liq-chip-after
+                                   fake-dom/collect-text-content
+                                   (str/join " ")
+                                   str/trim)
+            border-top (some-> pnl-line-after .-style (aget "borderTop"))]
+        (is (identical? pnl-chip-before pnl-chip-after))
+        (is (identical? liq-chip-before liq-chip-after))
+        (is (identical? pnl-line-before pnl-line-after))
+        (is (str/includes? text "PNL +$8.00 | 3"))
+        (is (= "105" pnl-chip-text))
+        (is (= "125" liq-chip-text))
+        (is (str/includes? border-top "34, 201, 151"))))
     (position-overlays/clear-position-overlays! chart-obj)))
 
 (deftest position-overlays-do-not-render-secondary-side-glyphs-test

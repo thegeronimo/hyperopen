@@ -98,8 +98,17 @@
 
 (defn- apply-inline-style!
   [el style-map]
-  (doseq [[k v] style-map]
-    (aset (.-style el) k v))
+  (let [style (.-style el)]
+    (doseq [[k v] style-map]
+      (when (not= v (aget style k))
+        (aset style k v))))
+  el)
+
+(defn- set-text-content!
+  [el text]
+  (let [next-text (or (some-> text str) "")]
+    (when (not= next-text (.-textContent el))
+      (set! (.-textContent el) next-text)))
   el)
 
 (defn- invoke-method
@@ -115,6 +124,16 @@
     (when-let [child (.-firstChild el)]
       (.removeChild el child)
       (recur))))
+
+(defn- append-child!
+  [parent child]
+  (when (and parent child)
+    (when-let [current-parent (.-parentNode child)]
+      (when-not (identical? current-parent parent)
+        (.removeChild current-parent child)))
+    (when-not (identical? (.-parentNode child) parent)
+      (.appendChild parent child)))
+  child)
 
 (defn- resolve-document
   [document]
@@ -322,15 +341,73 @@
     (when (and root (not mounted-root?))
       (when-let [parent (.-parentNode root)]
         (.removeChild parent root)))
-    (when (and next-root
-               (not (identical? (.-parentNode next-root) container)))
-      (.appendChild container next-root))
+    (append-child! container next-root)
     next-root))
 
-(defn- render-pnl-badge!
-  [document row overlay center-x pnl-label-text]
-  (let [badge (.createElement document "div")
-        text-node (.createElement document "span")]
+(defn- visible-overlay-y?
+  [height y]
+  (and (finite-number? y)
+       (or (zero? height)
+           (and (> y -30)
+                (< y (+ height 30))))))
+
+(defn- create-pnl-row-nodes!
+  [document]
+  (let [row (.createElement document "div")
+        line (.createElement document "div")
+        badge (.createElement document "div")
+        badge-text (.createElement document "span")
+        chip (.createElement document "div")
+        chip-text (.createElement document "span")]
+    (.setAttribute row "data-position-pnl-row" "true")
+    (.setAttribute chip "data-position-pnl-price-chip" "true")
+    (.appendChild badge badge-text)
+    (.appendChild chip chip-text)
+    (.appendChild row line)
+    (.appendChild row badge)
+    (.appendChild row chip)
+    {:row row
+     :line line
+     :badge badge
+     :badge-text badge-text
+     :chip chip
+     :chip-text chip-text}))
+
+(defn- hide-pnl-row!
+  [{:keys [row badge-text chip-text]}]
+  (apply-inline-style! row {"display" "none"})
+  (set-text-content! badge-text "")
+  (set-text-content! chip-text ""))
+
+(defn- patch-pnl-row!
+  [{:keys [row line badge badge-text chip chip-text]} overlay y width]
+  (let [pnl-text (format-pnl-text (:unrealized-pnl overlay))
+        size-text (format-size-text (:format-size overlay) (:abs-size overlay))
+        pnl-label-text (str "PNL " pnl-text " | " size-text)
+        estimated-badge-width (estimate-badge-width-px 56 pnl-label-text)
+        center-x (clamp-badge-center-x width
+                                       (preferred-pnl-badge-x width)
+                                       estimated-badge-width)
+        chip-color (pnl-line-color overlay)
+        safe-width (non-negative-number width 0)]
+    (apply-inline-style!
+     row
+     {"position" "absolute"
+      "display" "block"
+      "left" "0px"
+      "right" "0px"
+      "top" (str y "px")
+      "height" "0px"
+      "pointerEvents" "none"})
+    (apply-inline-style!
+     line
+     {"position" "absolute"
+      "left" "0px"
+      "right" "0px"
+      "top" "0px"
+      "borderTop" (str "1px dashed " chip-color)
+      "opacity" "0.88"
+      "pointerEvents" "none"})
     (apply-inline-style!
      badge
      {"position" "absolute"
@@ -344,26 +421,16 @@
       "lineHeight" "16px"
       "fontWeight" "600"
       "borderRadius" "3px"
-      "border" (str "1px solid " (pnl-line-color overlay))
+      "border" (str "1px solid " chip-color)
       "background" (pnl-badge-color overlay)
       "backdropFilter" "blur(0.5px)"
       "color" (pnl-text-color overlay)
       "pointerEvents" "none"})
-    (set! (.-textContent text-node) pnl-label-text)
     (apply-inline-style!
-     text-node
+     badge-text
      {"whiteSpace" "nowrap"
       "userSelect" "none"})
-    (.appendChild badge text-node)
-    (.appendChild row badge)
-    row))
-
-(defn- render-pnl-price-chip!
-  [document row overlay width]
-  (let [chip (.createElement document "div")
-        text-node (.createElement document "span")
-        safe-width (non-negative-number width 0)
-        chip-color (pnl-line-color overlay)]
+    (set-text-content! badge-text pnl-label-text)
     (apply-inline-style!
      chip
      {"position" "absolute"
@@ -382,80 +449,27 @@
       "color" pnl-chip-text-color
       "whiteSpace" "nowrap"
       "pointerEvents" "none"})
-    (.setAttribute chip "data-position-pnl-price-chip" "true")
-    (set! (.-textContent text-node)
-          (format-axis-price-text (:format-price overlay)
-                                  (:entry-price overlay)))
-    (.appendChild chip text-node)
-    (.appendChild row chip)
-    row))
+    (set-text-content!
+     chip-text
+     (format-axis-price-text (:format-price overlay)
+                             (:entry-price overlay)))))
 
-(defn- render-liquidation-price-chip!
-  [document row overlay width]
-  (let [chip (.createElement document "div")
-        text-node (.createElement document "span")
-        safe-width (non-negative-number width 0)]
-    (apply-inline-style!
-     chip
-     {"position" "absolute"
-      "left" (str safe-width "px")
-      "top" "0px"
-      "transform" "translate(2px, -50%)"
-      "display" "inline-flex"
-      "alignItems" "center"
-      "padding" "1px 6px"
-      "fontSize" "11px"
-      "lineHeight" "16px"
-      "fontWeight" "600"
-      "borderRadius" "2px"
-      "border" (str "1px solid " liq-line-color)
-      "background" liq-line-color
-      "color" pnl-chip-text-color
-      "whiteSpace" "nowrap"
-      "pointerEvents" "none"})
-    (.setAttribute chip "data-position-liq-price-chip" "true")
-    (set! (.-textContent text-node)
-          (format-axis-price-text (:format-price overlay)
-                                  (:liquidation-price overlay)))
-    (.appendChild chip text-node)
-    (.appendChild row chip)
-    row))
+(defn- begin-current-liquidation-drag!
+  [chart-obj source-node event]
+  (when event
+    (.preventDefault event)
+    (.stopPropagation event))
+  (let [{:keys [drag rendered-overlay overlay]} (overlay-state chart-obj)
+        overlay-for-drag (or rendered-overlay overlay)]
+    (when (and (not drag)
+               (map? overlay-for-drag))
+      (begin-liquidation-drag! chart-obj
+                               overlay-for-drag
+                               source-node
+                               event))))
 
-(defn- build-pnl-row!
-  [document overlay start-x end-x y width]
-  (let [row (.createElement document "div")
-        line (.createElement document "div")
-        pnl-text (format-pnl-text (:unrealized-pnl overlay))
-        size-text (format-size-text (:format-size overlay) (:abs-size overlay))
-        pnl-label-text (str "PNL " pnl-text " | " size-text)
-        estimated-badge-width (estimate-badge-width-px 56 pnl-label-text)
-        center-x (clamp-badge-center-x width
-                                       (preferred-pnl-badge-x width)
-                                       estimated-badge-width)]
-    (apply-inline-style!
-     row
-     {"position" "absolute"
-      "left" "0px"
-      "right" "0px"
-      "top" (str y "px")
-      "height" "0px"
-      "pointerEvents" "none"})
-    (apply-inline-style!
-     line
-     {"position" "absolute"
-      "left" "0px"
-      "right" "0px"
-      "top" "0px"
-      "borderTop" (str "1px dashed " (pnl-line-color overlay))
-      "opacity" "0.88"
-      "pointerEvents" "none"})
-    (.appendChild row line)
-    (render-pnl-badge! document row overlay center-x pnl-label-text)
-    (render-pnl-price-chip! document row overlay width)
-    row))
-
-(defn- build-liquidation-row!
-  [chart-obj document overlay y width]
+(defn- create-liquidation-row-nodes!
+  [chart-obj document]
   (let [row (.createElement document "div")
         hit-area (.createElement document "div")
         line (.createElement document "div")
@@ -463,7 +477,54 @@
         label (.createElement document "span")
         price (.createElement document "span")
         drag-note (.createElement document "span")
-        liq-price-text (format-price-text (:format-price overlay)
+        chip (.createElement document "div")
+        chip-text (.createElement document "span")
+        on-hit-pointer-down (fn [event]
+                              (begin-current-liquidation-drag! chart-obj hit-area event))
+        on-badge-pointer-down (fn [event]
+                                (begin-current-liquidation-drag! chart-obj badge event))]
+    (.setAttribute row "data-position-liq-row" "true")
+    (.setAttribute hit-area "data-position-liq-drag-hit" "true")
+    (.setAttribute hit-area "data-position-margin-trigger" "true")
+    (.setAttribute badge "title" "Drag to adjust liquidation target")
+    (.setAttribute badge "data-position-liq-drag-handle" "true")
+    (.setAttribute badge "data-position-margin-trigger" "true")
+    (.setAttribute chip "data-position-liq-price-chip" "true")
+    (.addEventListener hit-area "pointerdown" on-hit-pointer-down)
+    (.addEventListener hit-area "mousedown" on-hit-pointer-down)
+    (.addEventListener hit-area "touchstart" on-hit-pointer-down)
+    (.addEventListener badge "pointerdown" on-badge-pointer-down)
+    (.addEventListener badge "mousedown" on-badge-pointer-down)
+    (.addEventListener badge "touchstart" on-badge-pointer-down)
+    (.appendChild badge label)
+    (.appendChild badge price)
+    (.appendChild badge drag-note)
+    (.appendChild chip chip-text)
+    (.appendChild row hit-area)
+    (.appendChild row line)
+    (.appendChild row badge)
+    (.appendChild row chip)
+    {:row row
+     :hit-area hit-area
+     :line line
+     :badge badge
+     :label label
+     :price price
+     :drag-note drag-note
+     :chip chip
+     :chip-text chip-text}))
+
+(defn- hide-liquidation-row!
+  [{:keys [row label price drag-note chip-text]}]
+  (apply-inline-style! row {"display" "none"})
+  (set-text-content! label "")
+  (set-text-content! price "")
+  (set-text-content! drag-note "")
+  (set-text-content! chip-text ""))
+
+(defn- patch-liquidation-row!
+  [{:keys [row hit-area line badge label price drag-note chip chip-text]} overlay y width]
+  (let [liq-price-text (format-price-text (:format-price overlay)
                                           (:liquidation-price overlay))
         drag-label (liquidation-drag-label overlay
                                            (:current-liquidation-price overlay)
@@ -478,10 +539,12 @@
                                          (/ estimated-badge-width 2)
                                          10)
                                       estimated-badge-width)
-        hit-half-height (/ liquidation-drag-hit-height-px 2)]
+        hit-half-height (/ liquidation-drag-hit-height-px 2)
+        safe-width (non-negative-number width 0)]
     (apply-inline-style!
      row
      {"position" "absolute"
+      "display" "block"
       "left" "0px"
       "right" "0px"
       "top" (str y "px")
@@ -497,8 +560,6 @@
       "background" "transparent"
       "cursor" "ns-resize"
       "pointerEvents" "auto"})
-    (.setAttribute hit-area "data-position-liq-drag-hit" "true")
-    (.setAttribute hit-area "data-position-margin-trigger" "true")
     (apply-inline-style!
      line
      {"position" "absolute"
@@ -520,7 +581,7 @@
       "padding" "2px 6px"
       "fontSize" "11px"
       "lineHeight" "16px"
-     "fontWeight" "600"
+      "fontWeight" "600"
       "borderRadius" "3px"
       "border" (str "1px solid " liq-line-color)
       "background" liq-badge-color
@@ -528,43 +589,51 @@
       "color" liq-text-color
       "cursor" "ns-resize"
       "pointerEvents" "auto"})
-    (set! (.-textContent label) "Liq. Price")
-    (set! (.-textContent price) liq-price-text)
-    (set! (.-textContent drag-note) (or drag-label ""))
+    (set-text-content! label "Liq. Price")
+    (set-text-content! price liq-price-text)
+    (set-text-content! drag-note drag-label)
     (apply-inline-style!
      drag-note
      {"color" liq-drag-text-color
       "whiteSpace" "nowrap"
       "display" (if (seq drag-label) "inline" "none")})
-    (.setAttribute badge "title" "Drag to adjust liquidation target")
-    (.setAttribute badge "data-position-liq-drag-handle" "true")
-    (.setAttribute badge "data-position-margin-trigger" "true")
-    (let [drag-started? (atom false)
-          on-pointer-down
-          (fn [event]
-            (when event
-              (.preventDefault event)
-              (.stopPropagation event))
-            (when-not @drag-started?
-              (reset! drag-started? true)
-              (begin-liquidation-drag! chart-obj
-                                       overlay
-                                       (or (some-> event .-currentTarget) badge)
-                                       event)))]
-      (.addEventListener hit-area "pointerdown" on-pointer-down)
-      (.addEventListener hit-area "mousedown" on-pointer-down)
-      (.addEventListener hit-area "touchstart" on-pointer-down)
-      (.addEventListener badge "pointerdown" on-pointer-down)
-      (.addEventListener badge "mousedown" on-pointer-down)
-      (.addEventListener badge "touchstart" on-pointer-down))
-    (.appendChild badge label)
-    (.appendChild badge price)
-    (.appendChild badge drag-note)
-    (.appendChild row hit-area)
-    (.appendChild row line)
-    (.appendChild row badge)
-    (render-liquidation-price-chip! document row overlay width)
-    row))
+    (apply-inline-style!
+     chip
+     {"position" "absolute"
+      "left" (str safe-width "px")
+      "top" "0px"
+      "transform" "translate(2px, -50%)"
+      "display" "inline-flex"
+      "alignItems" "center"
+      "padding" "1px 6px"
+      "fontSize" "11px"
+      "lineHeight" "16px"
+      "fontWeight" "600"
+      "borderRadius" "2px"
+      "border" (str "1px solid " liq-line-color)
+      "background" liq-line-color
+      "color" pnl-chip-text-color
+      "whiteSpace" "nowrap"
+      "pointerEvents" "none"})
+    (set-text-content!
+     chip-text
+     (format-axis-price-text (:format-price overlay)
+                             (:liquidation-price overlay)))))
+
+(defn- create-overlay-dom!
+  [chart-obj document]
+  {:document document
+   :pnl (create-pnl-row-nodes! document)
+   :liquidation (create-liquidation-row-nodes! chart-obj document)})
+
+(defn- ensure-overlay-dom!
+  [state chart-obj document root]
+  (let [overlay-dom (if (identical? document (get-in state [:overlay-dom :document]))
+                      (:overlay-dom state)
+                      (create-overlay-dom! chart-obj document))]
+    (append-child! root (get-in overlay-dom [:pnl :row]))
+    (append-child! root (get-in overlay-dom [:liquidation :row]))
+    [(assoc state :overlay-dom overlay-dom) overlay-dom]))
 
 (declare render-overlays!)
 
@@ -589,12 +658,6 @@
      :main-series main-series
      :time-scale time-scale
      :repaint repaint}))
-
-(defn- resolve-time-coordinate
-  [chart entry-time]
-  (when (finite-number? entry-time)
-    (let [time-scale (invoke-method chart "timeScale")]
-      (invoke-method time-scale "timeToCoordinate" entry-time))))
 
 (defn- remove-event-listener!
   [target event-name handler]
@@ -757,16 +820,17 @@
 
 (defn render-overlays!
   [chart-obj]
-  (let [{:keys [root chart main-series overlay drag]} (overlay-state chart-obj)
+  (let [state (overlay-state chart-obj)
+        {:keys [root chart main-series overlay drag]} state
         document (:document overlay)
         format-price (:format-price overlay)
         format-size (:format-size overlay)]
     (when root
-      (clear-children! root)
-      (when (and (map? overlay)
-                 main-series
-                 document)
-        (let [entry-price (parse-number (:entry-price overlay))
+      (if (and (map? overlay)
+               main-series
+               document)
+        (let [[state* overlay-dom] (ensure-overlay-dom! state chart-obj document root)
+              entry-price (parse-number (:entry-price overlay))
               entry-y (when (and (finite-number? entry-price)
                                  (pos? entry-price))
                         (invoke-method main-series "priceToCoordinate" entry-price))
@@ -785,32 +849,23 @@
               pane-width (some-> pane-size (aget "width"))
               width (non-negative-number pane-width
                                          (non-negative-number (.-clientWidth root) 0))
-              latest-time (parse-number (:latest-time overlay))
-              entry-time (parse-number (:entry-time overlay))
-              latest-x (or (resolve-time-coordinate chart latest-time)
-                           (- width 8))
-              entry-x (or (resolve-time-coordinate chart entry-time)
-                          (max 0 (- latest-x 260)))
-              start-x (clamp (non-negative-number entry-x 0) 0 (max 0 width))
-              end-x (clamp (non-negative-number latest-x width) 0 (max 0 width))
               height (or (.-clientHeight root) 0)
               overlay* (assoc overlay
                               :document document
                               :format-price format-price
                               :format-size format-size
                               :current-liquidation-price current-liq-price)]
-          (when (and (finite-number? entry-y)
-                     (or (zero? height)
-                         (and (> entry-y -30)
-                              (< entry-y (+ height 30)))))
-            (.appendChild root
-                          (build-pnl-row! document overlay* start-x end-x entry-y width)))
-          (when (and (finite-number? liq-y)
-                     (or (zero? height)
-                         (and (> liq-y -30)
-                              (< liq-y (+ height 30)))))
-            (.appendChild root
-                          (build-liquidation-row! chart-obj document overlay* liq-y width))))))))
+          (set-overlay-state! chart-obj (assoc state* :rendered-overlay overlay*))
+          (if (visible-overlay-y? height entry-y)
+            (patch-pnl-row! (:pnl overlay-dom) overlay* entry-y width)
+            (hide-pnl-row! (:pnl overlay-dom)))
+          (if (visible-overlay-y? height liq-y)
+            (patch-liquidation-row! (:liquidation overlay-dom) overlay* liq-y width)
+            (hide-liquidation-row! (:liquidation overlay-dom))))
+        (when-let [overlay-dom (:overlay-dom state)]
+          (hide-pnl-row! (:pnl overlay-dom))
+          (hide-liquidation-row! (:liquidation overlay-dom))
+          (set-overlay-state! chart-obj (dissoc state :rendered-overlay)))))))
 
 (defn clear-position-overlays!
   [chart-obj]
@@ -870,22 +925,24 @@
              (do
                (set-overlay-state!
                 chart-obj
-                (assoc state
-                       :root root
-                       :chart chart
-                       :main-series main-series
-                       :overlay-ref overlay-ref
-                       :overlay (assoc overlay-ref
-                                       :document document*
-                                       :window window*
-                                       :format-price format-price
-                                       :format-size format-size)
-                       :document document*
-                       :window window*
-                       :format-price format-price
-                       :format-size format-size
-                       :on-liquidation-drag-preview on-liquidation-drag-preview
-                       :on-liquidation-drag-confirm on-liquidation-drag-confirm
-                       :subscription next-subscription))
+                (cond-> (assoc state
+                               :root root
+                               :chart chart
+                               :main-series main-series
+                               :overlay-ref overlay-ref
+                               :overlay (assoc overlay-ref
+                                               :document document*
+                                               :window window*
+                                               :format-price format-price
+                                               :format-size format-size)
+                               :document document*
+                               :window window*
+                               :format-price format-price
+                               :format-size format-size
+                               :on-liquidation-drag-preview on-liquidation-drag-preview
+                               :on-liquidation-drag-confirm on-liquidation-drag-confirm
+                               :subscription next-subscription)
+                  (not (identical? document* (get-in state [:overlay-dom :document])))
+                  (dissoc :overlay-dom :rendered-overlay)))
                (render-overlays! chart-obj))))
          (clear-position-overlays! chart-obj))))))
