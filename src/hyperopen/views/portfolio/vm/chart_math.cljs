@@ -1,75 +1,104 @@
 (ns hyperopen.views.portfolio.vm.chart-math
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [hyperopen.views.account-info.projections :as projections]
+            [hyperopen.views.portfolio.vm.constants :as constants]))
 
 (defn non-zero-span
-  [span]
-  (if (zero? span) 1 span))
+  [domain-min domain-max]
+  (let [span (- domain-max domain-min)]
+    (if (zero? span) 1 span)))
 
 (defn normalize-degenerate-domain
   [min-value max-value]
   (if (= min-value max-value)
-    (let [padding (if (zero? min-value) 1 (* (js/Math.abs min-value) 0.1))]
-      [(- min-value padding) (+ max-value padding)])
+    (let [pad (max 1 (* 0.05 (js/Math.abs min-value)))]
+      [(- min-value pad) (+ min-value pad)])
     [min-value max-value]))
 
 (defn chart-domain
   [values]
-  (if (empty? values)
-    [-1 1]
-    (let [min-val (apply min values)
-          max-val (apply max values)]
-      (normalize-degenerate-domain min-val max-val))))
+  (if (seq values)
+    (let [[min-value max-value] (normalize-degenerate-domain (apply min values)
+                                                             (apply max values))
+          step (/ (non-zero-span min-value max-value)
+                  (dec constants/chart-y-tick-count))]
+      {:min min-value
+       :max max-value
+       :step step})
+    {:min 0
+     :max 3
+     :step 1}))
 
 (defn chart-y-ticks
   [{:keys [min max step]}]
-  (let [span (- max min)
-        step* (or step (non-zero-span (/ span 4)))
-        start (if (zero? step*) min (* (js/Math.floor (/ min step*)) step*))]
-    (loop [current start
-           ticks []]
-      (if (> current max)
-        ticks
-        (recur (+ current step*)
-               (conj ticks {:y current}))))))
+  (let [step* (if (and (number? step)
+                       (pos? step))
+                step
+                (/ (non-zero-span min max)
+                   (dec constants/chart-y-tick-count)))
+        span (non-zero-span min max)]
+    (mapv (fn [idx]
+            (let [value (if (= idx (dec constants/chart-y-tick-count))
+                          min
+                          (- max (* step* idx)))]
+              {:value value
+               :y-ratio (/ (- max value) span)}))
+          (range constants/chart-y-tick-count))))
 
 (defn normalize-chart-points
   [points {:keys [min max]}]
-  (let [span (- max min)
-        span* (non-zero-span span)]
-    (mapv (fn [{:keys [time-ms value] :as point}]
-            (assoc point :y (- 1 (/ (- value min) span*))))
+  (let [point-count (count points)
+        span (non-zero-span min max)]
+    (mapv (fn [idx {:keys [value] :as point}]
+            (let [x-ratio (if (> point-count 1)
+                            (/ idx (dec point-count))
+                            0)
+                  y-ratio (/ (- max value) span)]
+              (assoc point
+                     :x-ratio x-ratio
+                     :y-ratio y-ratio)))
+          (range point-count)
           points)))
 
 (defn format-svg-number
   [value]
-  (let [s (.toFixed (js/Number. value) 4)]
-    (str/replace s #"\.?0+$" "")))
+  (let [rounded (/ (js/Math.round (* value 1000)) 1000)]
+    (if (== rounded -0)
+      0
+      rounded)))
 
 (defn chart-line-path
   [points]
-  (if (< (count points) 2)
-    ""
-    (let [n (count points)
-          first-pt (first points)]
-      (loop [idx 1
-             path-str (str "M0," (format-svg-number (:y first-pt)))]
-        (if (>= idx n)
-          path-str
-          (let [pt (nth points idx)
-                x (/ idx (dec n))]
-            (recur (inc idx)
-                   (str path-str " L" (format-svg-number x) "," (format-svg-number (:y pt))))))))))
+  (when (seq points)
+    (let [commands (map-indexed
+                    (fn [idx {:keys [x-ratio y-ratio]}]
+                      (let [x (format-svg-number (* 100 x-ratio))
+                            y (format-svg-number (* 100 y-ratio))]
+                        (str (if (zero? idx) "M " "L ")
+                             x
+                             " "
+                             y)))
+                    points)]
+      (if (= 1 (count points))
+        (let [first-point (first points)
+              y (format-svg-number (* 100 (:y-ratio first-point)))]
+          (str (first commands) " L 100 " y))
+        (str/join " " commands)))))
 
 (defn chart-axis-kind
   [tab]
-  (case tab
-    :returns :percent
-    :account-value :currency
-    :pnl :currency
-    :currency))
+  (if (= tab :returns)
+    :percent
+    :number))
 
 (defn normalize-hover-index
-  [hover-index points-count]
-  (when (and hover-index (pos? points-count))
-    (let [index (int (js/Math.round (* hover-index (dec points-count))))]
-      (max 0 (min index (dec points-count))))))
+  [value point-count]
+  (let [point-count* (if (and (number? point-count)
+                              (pos? point-count))
+                       (js/Math.floor point-count)
+                       0)
+        idx (projections/parse-optional-num value)]
+    (when (and (pos? point-count*)
+               (number? idx))
+      (let [idx* (js/Math.floor idx)]
+        (max 0 (min idx* (dec point-count*)))))))

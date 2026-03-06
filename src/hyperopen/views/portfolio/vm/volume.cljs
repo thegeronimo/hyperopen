@@ -1,82 +1,108 @@
 (ns hyperopen.views.portfolio.vm.volume
-  (:require [clojure.string :as str]
-            [hyperopen.views.portfolio.vm.constants :as constants]
-            [hyperopen.portfolio.metrics.parsing :as parsing]))
+  (:require [hyperopen.views.account-info.projections :as projections]
+            [hyperopen.views.portfolio.vm.constants :as constants]))
+
+(defn- optional-number
+  [value]
+  (projections/parse-optional-num value))
+
+(defn- number-or-zero
+  [value]
+  (if-let [n (optional-number value)]
+    n
+    0))
 
 (defn- fills-source
   [state]
-  (get-in state [:market-data :account-info :agent-webdata :fills]))
+  (or (get-in state [:orders :fills])
+      (get-in state [:webdata2 :fills])
+      []))
 
 (defn- trade-values
   [rows]
-  (->> (or rows [])
-       (keep (fn [row]
-               (when-let [px (parsing/optional-number (:px row))]
-                 (when-let [sz (parsing/optional-number (:sz row))]
-                   (* px sz)))))
-       (reduce + 0)))
+  (keep (fn [row]
+          (let [value (projections/trade-history-value-number row)
+                time-ms (projections/trade-history-time-ms row)]
+            (when (number? value)
+              {:value value
+               :time-ms time-ms})))
+        rows))
 
 (defonce fills-volume-cache (atom nil))
 
 (defn volume-14d-usd
   [state]
   (let [fills (fills-source state)
-        current-sig (hash fills)
-        cached @fills-volume-cache]
-    (if (= current-sig (:signature cached))
-      (:volume cached)
-      (let [now-ms (.getTime (js/Date.))
-            cutoff-ms (- now-ms constants/fourteen-days-ms)
-            recent-fills (filter (fn [row]
-                                   (let [time-ms (parsing/history-point-time-ms row)]
-                                     (and (parsing/finite-number? time-ms)
-                                          (>= time-ms cutoff-ms))))
-                                 fills)
-            volume (trade-values recent-fills)]
-        (reset! fills-volume-cache {:signature current-sig
-                                    :volume volume})
-        volume))))
+        cache @fills-volume-cache
+        values (if (and cache
+                        (identical? fills (:fills cache)))
+                 (:values cache)
+                 (let [new-values (trade-values fills)]
+                   (reset! fills-volume-cache {:fills fills
+                                               :values new-values})
+                   new-values))
+        cutoff (- (.now js/Date) constants/fourteen-days-ms)
+        recent-values (let [timed-values (keep :time-ms values)]
+                        (if (seq timed-values)
+                          (filter (fn [{:keys [time-ms]}]
+                                    (and (number? time-ms)
+                                         (>= time-ms cutoff)))
+                                  values)
+                          values))]
+    (reduce (fn [acc {:keys [value]}]
+              (+ acc value))
+            0
+            recent-values)))
 
 (defn daily-user-vlm-rows
   [state]
-  (let [info (get-in state [:market-data :account-info :agent-webdata])]
-    (or (:dailyUserVlm info) [])))
+  (let [rows (or (get-in state [:portfolio :user-fees :dailyUserVlm])
+                 (get-in state [:portfolio :user-fees :daily-user-vlm]))]
+    (if (sequential? rows)
+      rows
+      [])))
 
 (defn daily-user-vlm-row-volume
   [row]
-  (let [exchange-vlm (parsing/optional-number (:exchangeVlm row))
-        hl-vlm (parsing/optional-number (:hlVlm row))]
-    (if (and exchange-vlm hl-vlm)
-      (+ exchange-vlm hl-vlm)
-      (or exchange-vlm hl-vlm 0))))
+  (cond
+    (map? row)
+    (let [exchange (optional-number (:exchange row))
+          user-cross (optional-number (:userCross row))
+          user-add (optional-number (:userAdd row))]
+      (if (or (number? user-cross)
+              (number? user-add))
+        (+ (or user-cross 0)
+           (or user-add 0))
+        (or exchange 0)))
+
+    (and (sequential? row)
+         (>= (count row) 2))
+    (number-or-zero (second row))
+
+    :else
+    0))
 
 (defn volume-14d-usd-from-user-fees
   [state]
-  (let [rows (daily-user-vlm-rows state)
-        now-ms (.getTime (js/Date.))
-        cutoff-ms (- now-ms constants/fourteen-days-ms)
-        recent-rows (filter (fn [row]
-                              (let [time-ms (parsing/history-point-time-ms row)]
-                                (and (parsing/finite-number? time-ms)
-                                     (>= time-ms cutoff-ms))))
-                            rows)]
-    (reduce (fn [acc row]
-              (+ acc (daily-user-vlm-row-volume row)))
-            0
-            recent-rows)))
+  (let [rows (daily-user-vlm-rows state)]
+    (when (seq rows)
+      (reduce (fn [acc row]
+                (+ acc (daily-user-vlm-row-volume row)))
+              0
+              (butlast rows)))))
 
 (defn fees-from-user-fees
   [user-fees]
-  (when user-fees
-    (let [fee-rows (or (:feeHistory user-fees) [])
-          now-ms (.getTime (js/Date.))
-          cutoff-ms (- now-ms constants/fourteen-days-ms)
-          recent-rows (filter (fn [row]
-                                (let [time-ms (parsing/history-point-time-ms row)]
-                                  (and (parsing/finite-number? time-ms)
-                                       (>= time-ms cutoff-ms))))
-                              fee-rows)]
-      (reduce (fn [acc row]
-                (+ acc (or (parsing/optional-number (:fee row)) 0)))
-              0
-              recent-rows))))
+  (let [referral-discount (number-or-zero (:activeReferralDiscount user-fees))
+        cross-rate (optional-number (:userCrossRate user-fees))
+        add-rate (optional-number (:userAddRate user-fees))
+        adjusted-cross-rate (when (number? cross-rate)
+                              (* cross-rate (- 1 referral-discount)))
+        adjusted-add-rate (when (number? add-rate)
+                            (if (pos? add-rate)
+                              (* add-rate (- 1 referral-discount))
+                              add-rate))]
+    (when (and (number? adjusted-cross-rate)
+               (number? adjusted-add-rate))
+      {:taker (* 100 adjusted-cross-rate)
+       :maker (* 100 adjusted-add-rate)})))

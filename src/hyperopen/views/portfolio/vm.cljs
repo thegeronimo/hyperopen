@@ -4,12 +4,12 @@
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.portfolio.metrics :as portfolio-metrics]
             [hyperopen.views.portfolio.vm.benchmarks :as vm-benchmarks]
+            [hyperopen.views.portfolio.vm.chart-math :as vm-chart-math]
+            [hyperopen.views.portfolio.vm.equity :as vm-equity]
             [hyperopen.views.portfolio.vm.metrics-bridge :as vm-metrics-bridge]
+            [hyperopen.views.portfolio.vm.volume :as vm-volume]
             [hyperopen.views.account-equity-view :as account-equity-view]
             [hyperopen.views.account-info.projections :as projections]))
-
-(def ^:private fourteen-days-ms
-  (* 14 24 60 60 1000))
 
 (def ^:private summary-scope-options
   [{:value :all
@@ -42,9 +42,6 @@
     :label "Account Value"}
    {:value :pnl
     :label "PNL"}])
-
-(def ^:private chart-y-tick-count
-  4)
 
 (def ^:private performance-periods-per-year
   365)
@@ -93,40 +90,8 @@
   (and (number? value)
        (js/isFinite value)))
 
-(defn- fills-source [state]
-  (or (get-in state [:orders :fills])
-      (get-in state [:webdata2 :fills])
-      []))
-
-(defn- trade-values [rows]
-  (keep (fn [row]
-          (let [value (projections/trade-history-value-number row)
-                time-ms (projections/trade-history-time-ms row)]
-            (when (number? value)
-              {:value value
-               :time-ms time-ms})))
-        rows))
-
-(defonce ^:private fills-volume-cache (atom nil))
-
 (defn volume-14d-usd [state]
-  (let [fills (fills-source state)
-        cache @fills-volume-cache
-        values (if (and cache (identical? fills (:fills cache)))
-                 (:values cache)
-                 (let [new-values (trade-values fills)]
-                   (reset! fills-volume-cache {:fills fills :values new-values})
-                   new-values))
-        cutoff (- (.now js/Date) fourteen-days-ms)
-        in-window (filter (fn [{:keys [time-ms]}]
-                            (and (number? time-ms)
-                                 (>= time-ms cutoff)))
-                          values)
-        selected (if (seq in-window) in-window values)]
-    (reduce (fn [acc {:keys [value]}]
-              (+ acc value))
-            0
-            selected)))
+  (vm-volume/volume-14d-usd state))
 
 (defn- selector-option-label [options selected-value]
   (or (some (fn [{:keys [value label]}]
@@ -744,94 +709,35 @@
 
 (defn- non-zero-span
   [domain-min domain-max]
-  (let [span (- domain-max domain-min)]
-    (if (zero? span) 1 span)))
+  (vm-chart-math/non-zero-span domain-min domain-max))
 
 (defn- normalize-degenerate-domain [min-value max-value]
-  (if (= min-value max-value)
-    (let [pad (max 1 (* 0.05 (js/Math.abs min-value)))]
-      [(- min-value pad) (+ min-value pad)])
-    [min-value max-value]))
+  (vm-chart-math/normalize-degenerate-domain min-value max-value))
 
 (defn- chart-domain [values]
-  (if (seq values)
-    (let [[min-value max-value] (normalize-degenerate-domain (apply min values)
-                                                             (apply max values))
-          step (/ (non-zero-span min-value max-value) (dec chart-y-tick-count))]
-      {:min min-value
-       :max max-value
-       :step step})
-    {:min 0
-     :max 3
-     :step 1}))
+  (vm-chart-math/chart-domain values))
 
-(defn- chart-y-ticks [{:keys [min max step]}]
-  (let [step* (if (and (number? step)
-                       (pos? step))
-                step
-                (/ (non-zero-span min max) (dec chart-y-tick-count)))
-        span (non-zero-span min max)]
-    (mapv (fn [idx]
-            (let [value (if (= idx (dec chart-y-tick-count))
-                          min
-                          (- max (* step* idx)))]
-              {:value value
-               :y-ratio (/ (- max value) span)}))
-          (range chart-y-tick-count))))
+(defn- chart-y-ticks [{:keys [min max step] :as domain}]
+  (vm-chart-math/chart-y-ticks (or domain
+                                   {:min min
+                                    :max max
+                                    :step step})))
 
-(defn- normalize-chart-points [points {:keys [min max]}]
-  (let [point-count (count points)
-        span (non-zero-span min max)]
-    (mapv (fn [idx {:keys [value] :as point}]
-            (let [x-ratio (if (> point-count 1)
-                            (/ idx (dec point-count))
-                            0)
-                  y-ratio (/ (- max value) span)]
-              (assoc point
-                     :x-ratio x-ratio
-                     :y-ratio y-ratio)))
-          (range point-count)
-          points)))
+(defn- normalize-chart-points [points domain]
+  (vm-chart-math/normalize-chart-points points domain))
 
 (defn- format-svg-number [value]
-  (let [rounded (/ (js/Math.round (* value 1000)) 1000)]
-    (if (== rounded -0)
-      0
-      rounded)))
+  (vm-chart-math/format-svg-number value))
 
 (defn- chart-line-path [points]
-  (when (seq points)
-    (let [commands (map-indexed
-                    (fn [idx {:keys [x-ratio y-ratio]}]
-                      (let [x (format-svg-number (* 100 x-ratio))
-                            y (format-svg-number (* 100 y-ratio))]
-                        (str (if (zero? idx) "M " "L ")
-                             x
-                             " "
-                             y)))
-                    points)]
-      (if (= 1 (count points))
-        (let [first-point (first points)
-              y (format-svg-number (* 100 (:y-ratio first-point)))]
-          (str (first commands) " L 100 " y))
-        (str/join " " commands)))))
+  (vm-chart-math/chart-line-path points))
 
 (defn- chart-axis-kind [tab]
-  (if (= tab :returns)
-    :percent
-    :number))
+  (vm-chart-math/chart-axis-kind tab))
 
 (defn- normalize-hover-index
   [value point-count]
-  (let [point-count* (if (and (number? point-count)
-                              (pos? point-count))
-                       (js/Math.floor point-count)
-                       0)
-        idx (optional-number value)]
-    (when (and (pos? point-count*)
-               (number? idx))
-      (let [idx* (js/Math.floor idx)]
-        (max 0 (min idx* (dec point-count*)))))))
+  (vm-chart-math/normalize-hover-index value point-count))
 
 (defn- benchmark-series-stroke
   [idx]
@@ -956,98 +862,40 @@
                    max-ratio*)))))))
 
 (defn- daily-user-vlm-rows [state]
-  (let [rows (or (get-in state [:portfolio :user-fees :dailyUserVlm])
-                 (get-in state [:portfolio :user-fees :daily-user-vlm]))]
-    (if (sequential? rows)
-      rows
-      [])))
+  (vm-volume/daily-user-vlm-rows state))
 
 (defn- daily-user-vlm-row-volume [row]
-  (cond
-    (map? row)
-    (let [exchange (optional-number (:exchange row))
-          user-cross (optional-number (:userCross row))
-          user-add (optional-number (:userAdd row))]
-      (if (or (number? user-cross)
-              (number? user-add))
-        (+ (or user-cross 0)
-           (or user-add 0))
-        (or exchange 0)))
-
-    (and (sequential? row)
-         (>= (count row) 2))
-    (number-or-zero (second row))
-
-    :else
-    0))
+  (vm-volume/daily-user-vlm-row-volume row))
 
 (defn- volume-14d-usd-from-user-fees [state]
-  (let [rows (daily-user-vlm-rows state)]
-    (when (seq rows)
-      (reduce (fn [acc row]
-                (+ acc (daily-user-vlm-row-volume row)))
-              0
-              (butlast rows)))))
+  (vm-volume/volume-14d-usd-from-user-fees state))
 
 (defn- fees-from-user-fees [user-fees]
-  (let [referral-discount (number-or-zero (:activeReferralDiscount user-fees))
-        cross-rate (optional-number (:userCrossRate user-fees))
-        add-rate (optional-number (:userAddRate user-fees))
-        adjusted-cross-rate (when (number? cross-rate)
-                              (* cross-rate (- 1 referral-discount)))
-        adjusted-add-rate (when (number? add-rate)
-                            (if (pos? add-rate)
-                              (* add-rate (- 1 referral-discount))
-                              add-rate))]
-    (when (and (number? adjusted-cross-rate)
-               (number? adjusted-add-rate))
-      {:taker (* 100 adjusted-cross-rate)
-       :maker (* 100 adjusted-add-rate)})))
+  (vm-volume/fees-from-user-fees user-fees))
 
 (defn- top-up-abstraction-enabled? [state]
-  (= :unified (get-in state [:account :mode])))
+  (vm-equity/top-up-abstraction-enabled? state))
 
 (defn- earn-balance [state]
-  (number-or-zero (get-in state [:borrow-lend :total-supplied-usd])))
+  (vm-equity/earn-balance state))
 
 (defn- vault-equity [state summary]
-  (or (optional-number (get-in state [:webdata2 :totalVaultEquity]))
-      (optional-number (:totalVaultEquity summary))
-      0))
+  (vm-equity/vault-equity state summary))
 
 (defn- perp-account-equity [state metrics]
-  (or (optional-number (get-in state [:webdata2 :clearinghouseState :marginSummary :accountValue]))
-      (optional-number (get-in state [:webdata2 :clearinghouseState :crossMarginSummary :accountValue]))
-      (optional-number (:cross-account-value metrics))
-      (optional-number (:perps-value metrics))
-      0))
+  (vm-equity/perp-account-equity state metrics))
 
 (defn- spot-account-equity [metrics]
-  (number-or-zero (:spot-equity metrics)))
+  (vm-equity/spot-account-equity metrics))
 
 (defn- staking-account-hype [state]
-  (or (optional-number (get-in state [:staking :total-hype]))
-      (optional-number (get-in state [:staking :total]))
-      0))
+  (vm-equity/staking-account-hype state))
 
-(defn- staking-value-usd [_state _staking-hype]
-  0)
+(defn- staking-value-usd [state staking-hype]
+  (vm-equity/staking-value-usd state staking-hype))
 
-(defn- compute-total-equity
-  [{:keys [top-up-enabled?
-           vault-equity
-           spot-equity
-           staking-value-usd
-           perp-equity
-           earn-equity]}]
-  (let [base-total (+ (number-or-zero vault-equity)
-                      (number-or-zero spot-equity)
-                      (number-or-zero staking-value-usd))]
-    (if top-up-enabled?
-      base-total
-      (+ base-total
-         (number-or-zero perp-equity)
-         (number-or-zero earn-equity)))))
+(defn- compute-total-equity [values]
+  (vm-equity/compute-total-equity values))
 
 (defn portfolio-vm [state]
   (let [metrics (account-equity-view/account-equity-metrics state)

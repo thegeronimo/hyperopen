@@ -28,10 +28,15 @@ After this refactor, `/hyperopen/src/hyperopen/views/portfolio/vm.cljs` will rem
 - [x] (2026-03-06 17:41Z) Updated `/hyperopen/test/hyperopen/views/portfolio/vm/metrics_bridge_helpers_test.cljs` and `/hyperopen/test/hyperopen/views/portfolio/vm/metrics_bridge_test.cljs` so the helper-module coverage matches the extracted module’s normalized worker payload and request-signature contract.
 - [x] Milestone 1: Move benchmark selector caches and benchmark computation context into `/hyperopen/src/hyperopen/views/portfolio/vm/benchmarks.cljs`, then delegate root VM helpers through that module.
 - [x] Milestone 2: Move metrics worker ownership, request dedupe, and store mutation out of `/hyperopen/src/hyperopen/views/portfolio/vm.cljs` into `/hyperopen/src/hyperopen/views/portfolio/vm/metrics_bridge.cljs`.
+- [x] (2026-03-06 17:32Z) Claimed `hyperopen-i8i.4` and started Milestone 3 with the first low-coupling extraction slice: `chart_math`, `volume`, and `equity`.
+- [x] (2026-03-06 17:48Z) Rewrote `/hyperopen/src/hyperopen/views/portfolio/vm/chart_math.cljs`, `/hyperopen/src/hyperopen/views/portfolio/vm/volume.cljs`, and `/hyperopen/src/hyperopen/views/portfolio/vm/equity.cljs` to match the canonical behavior that had still been embedded in the root VM.
+- [x] (2026-03-06 17:48Z) Delegated the root VM’s chart-math, volume, fee, and account-equity helpers through those extracted modules while preserving the root public/private seams used by existing tests.
+- [x] (2026-03-06 17:53Z) Added direct module coverage in `/hyperopen/test/hyperopen/views/portfolio/vm/volume_helpers_test.cljs` and `/hyperopen/test/hyperopen/views/portfolio/vm/equity_helpers_test.cljs`, and updated `/hyperopen/test/hyperopen/views/portfolio/vm/chart_math_test.cljs` plus `/hyperopen/test/hyperopen/views/portfolio/vm/chart_math_additional_test.cljs` to assert the canonical root-VM contract.
 - [ ] Milestone 3: Align `/hyperopen/src/hyperopen/views/portfolio/vm/history.cljs`, `/hyperopen/src/hyperopen/views/portfolio/vm/chart.cljs`, `/hyperopen/src/hyperopen/views/portfolio/vm/chart_math.cljs`, `/hyperopen/src/hyperopen/views/portfolio/vm/equity.cljs`, `/hyperopen/src/hyperopen/views/portfolio/vm/volume.cljs`, and `/hyperopen/src/hyperopen/views/portfolio/vm/summary.cljs` with the behavior currently embedded in the root VM.
 - [ ] Milestone 4: Reduce `/hyperopen/src/hyperopen/views/portfolio/vm.cljs` to a thin facade/composer, remove duplicate private implementations, and update tests toward module ownership.
 - [x] (2026-03-06 17:09Z) Validation for the first slice: `npx shadow-cljs compile test` passed after the benchmark extraction.
 - [x] (2026-03-06 17:47Z) Ran required validation gates after the benchmark and metrics-runtime extractions: `npm test`, `npm run check`, and `npm run test:websocket` all exited `0`.
+- [x] (2026-03-06 18:00Z) Re-ran the required validation gates after the `chart_math`/`volume`/`equity` extraction slice: `npm test`, `npm run check`, and `npm run test:websocket` all exited `0`.
 
 ## Surprises & Discoveries
 
@@ -53,6 +58,9 @@ After this refactor, `/hyperopen/src/hyperopen/views/portfolio/vm.cljs` will rem
 - Observation: The extracted metrics helper module already preserved the root VM's normalization behavior for absent `:metric-status` and `:metric-reason` maps, so the failing expectations were in the new helper tests rather than in the extraction.
   Evidence: The old root helper used `(update :metric-status normalize-metric-token-map)` and `(update :metric-reason normalize-metric-token-map)`, which normalize missing maps to `{}` just like the new module.
 
+- Observation: `chart_math.cljs`, `volume.cljs`, and `equity.cljs` had drifted farther from the root VM than their filenames suggested, including incompatible public contracts and data sources.
+  Evidence: `chart_math.cljs` still exposed ratio-based hover semantics and SVG paths in a different coordinate system, `volume.cljs` still read `:market-data` paths instead of `/hyperopen/src/hyperopen/views/portfolio/vm.cljs`'s `:orders` and `:portfolio :user-fees` sources, and `equity.cljs` still used an older `compute-total-equity` signature.
+
 ## Decision Log
 
 - Decision: Keep `/hyperopen/src/hyperopen/views/portfolio/vm.cljs` as the stable facade namespace for `portfolio-vm` while moving logic behind focused module seams.
@@ -73,7 +81,7 @@ After this refactor, `/hyperopen/src/hyperopen/views/portfolio/vm.cljs` will rem
 
 ## Outcomes & Retrospective
 
-Milestones 1 and 2 are complete. The benchmark selector/cache/context slice now lives in `/hyperopen/src/hyperopen/views/portfolio/vm/benchmarks.cljs`, and the metrics worker/runtime slice now lives in `/hyperopen/src/hyperopen/views/portfolio/vm/metrics_bridge.cljs`. The root VM delegates both areas instead of owning the cache atoms, worker, or direct store mutation, and the required validation gates now pass in this worktree.
+Milestones 1 and 2 are complete, and Milestone 3 is in progress. The benchmark selector/cache/context slice now lives in `/hyperopen/src/hyperopen/views/portfolio/vm/benchmarks.cljs`, the metrics worker/runtime slice now lives in `/hyperopen/src/hyperopen/views/portfolio/vm/metrics_bridge.cljs`, and the `chart_math`/`volume`/`equity` helpers now live canonically in their dedicated modules. The root VM delegates those areas instead of owning the cache atoms, worker, fee-volume logic, or total-equity math directly, and the required validation gates pass in this worktree.
 
 ## Context and Orientation
 
@@ -243,6 +251,7 @@ Baseline evidence captured during planning:
 - `bd ready --json` returned `[]`, so this work starts from new issue creation rather than claiming existing ready work.
 - First implementation-slice validation: `npx shadow-cljs compile test` completed with `0 warnings` after the benchmark extraction.
 - Full validation after environment repair: `npm test`, `npm run check`, and `npm run test:websocket` all exited `0`.
+- Milestone 3 slice validation: after aligning `chart_math.cljs`, `volume.cljs`, and `equity.cljs`, `npm test`, `npm run check`, and `npm run test:websocket` all exited `0` again.
 
 The older note `/hyperopen/docs/exec-plans/active/refactor_portfolio_vm.md` exists but is stale relative to the current source tree. This new plan supersedes it for active implementation because it reflects the present duplicate-module state and the current request to remove runtime behavior from the root view namespace.
 

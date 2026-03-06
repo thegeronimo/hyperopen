@@ -1,52 +1,64 @@
 (ns hyperopen.views.portfolio.vm.equity
-  (:require [hyperopen.domain.trading :as trading]
-            [hyperopen.portfolio.metrics.parsing :as parsing]))
+  (:require [hyperopen.views.account-info.projections :as projections]))
 
-(defn earn-balance
-  [state]
-  (let [info (get-in state [:market-data :account-info :agent-webdata])]
-    (:earn-balance info)))
+(defn- optional-number
+  [value]
+  (projections/parse-optional-num value))
+
+(defn- number-or-zero
+  [value]
+  (if-let [n (optional-number value)]
+    n
+    0))
 
 (defn top-up-abstraction-enabled?
   [state]
-  (boolean (get-in state [:market-data :account-info :agent-webdata :top-up-abstraction-enabled?])))
+  (= :unified (get-in state [:account :mode])))
+
+(defn earn-balance
+  [state]
+  (number-or-zero (get-in state [:borrow-lend :total-supplied-usd])))
 
 (defn vault-equity
   [state summary]
-  (when summary
-    (let [vault-history (get-in state [:portfolio :summaries :all :vaultHistory])]
-      (when-let [last-val (some-> vault-history last parsing/history-point-value)]
-        (when (parsing/finite-number? last-val)
-          last-val)))))
+  (or (optional-number (get-in state [:webdata2 :totalVaultEquity]))
+      (optional-number (:totalVaultEquity summary))
+      0))
 
 (defn perp-account-equity
   [state metrics]
-  (if-let [account-value (:account-value metrics)]
-    account-value
-    (get-in state [:market-data :account-info :clearinghouse-state :margin-summary :account-value])))
+  (or (optional-number (get-in state [:webdata2 :clearinghouseState :marginSummary :accountValue]))
+      (optional-number (get-in state [:webdata2 :clearinghouseState :crossMarginSummary :accountValue]))
+      (optional-number (:cross-account-value metrics))
+      (optional-number (:perps-value metrics))
+      0))
 
 (defn spot-account-equity
   [metrics]
-  (:spot-equity metrics))
+  (number-or-zero (:spot-equity metrics)))
 
 (defn staking-account-hype
   [state]
-  (get-in state [:market-data :account-info :spot-state :balances "HYPE" :total]))
+  (or (optional-number (get-in state [:staking :total-hype]))
+      (optional-number (get-in state [:staking :total]))
+      0))
+
+(defn staking-value-usd
+  [_state _staking-hype]
+  0)
 
 (defn compute-total-equity
-  [state metrics summary]
-  (let [perp (or (perp-account-equity state metrics) 0)
-        spot (or (spot-account-equity metrics) 0)
-        vault (or (vault-equity state summary) 0)
-        earn (if (top-up-abstraction-enabled? state)
-               (or (earn-balance state) 0)
-               0)
-        total-liquid (+ perp spot earn)
-        staking-hype (staking-account-hype state)]
-    {:total-liquid total-liquid
-     :perp perp
-     :spot spot
-     :vault vault
-     :earn earn
-     :staking-hype staking-hype
-     :total-equity (+ total-liquid vault)}))
+  [{:keys [top-up-enabled?
+           vault-equity
+           spot-equity
+           staking-value-usd
+           perp-equity
+           earn-equity]}]
+  (let [base-total (+ (number-or-zero vault-equity)
+                      (number-or-zero spot-equity)
+                      (number-or-zero staking-value-usd))]
+    (if top-up-enabled?
+      base-total
+      (+ base-total
+         (number-or-zero perp-equity)
+         (number-or-zero earn-equity)))))
