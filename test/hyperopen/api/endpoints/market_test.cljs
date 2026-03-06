@@ -5,6 +5,13 @@
             [hyperopen.test-support.async :as async-support]
             [hyperopen.api.endpoints.market :as market]))
 
+(defn- funding-history-row
+  [coin time-ms funding-rate premium]
+  {:coin coin
+   :fundingRate funding-rate
+   :premium premium
+   :time time-ms})
+
 (deftest request-meta-and-asset-ctxs-builds-dedupe-keys-by-dex-test
   (let [calls (atom [])
         post-info! (api-stubs/post-info-stub calls [])]
@@ -192,6 +199,148 @@
                      (is (= [:market-funding-history "BTC" 1699990000000 1700003600000]
                             (:dedupe-key opts)))
                      (is (= 15000 (:cache-ttl-ms opts))))
+                   (done)))
+          (.catch (async-support/unexpected-error done))))))
+
+(deftest request-market-funding-history-paginates-capped-pages-test
+  (async done
+    (let [calls (atom [])
+          coin "BTC"
+          start-time-ms 1700000000000
+          build-row (fn [idx]
+                      (funding-history-row coin
+                                           (+ start-time-ms idx)
+                                           (str (/ (+ idx 1) 1000000))
+                                           "0.0001"))
+          page-1 (mapv build-row (range 500))
+          page-2 (mapv build-row (range 500 720))
+          end-time-ms (+ start-time-ms 719)
+          post-info! (fn [body opts]
+                       (swap! calls conj [body opts])
+                       (js/Promise.resolve
+                        {:data {:fundingHistory (case (count @calls)
+                                                  1 page-1
+                                                  2 page-2
+                                                  [])}}))]
+      (-> (market/request-market-funding-history! post-info!
+                                                  coin
+                                                  {:start-time-ms start-time-ms
+                                                   :end-time-ms end-time-ms
+                                                   :priority :low
+                                                   :dedupe-key :explicit-flight
+                                                   :cache-key :explicit-cache})
+          (.then (fn [rows]
+                   (is (= 720 (count rows)))
+                   (is (= start-time-ms
+                          (get-in rows [0 :time-ms])))
+                   (is (= end-time-ms
+                          (get-in rows [719 :time-ms])))
+                   (is (= 2 (count @calls)))
+                   (let [[[body-1 opts-1] [body-2 opts-2]] @calls
+                         next-start-ms (inc (+ start-time-ms 499))]
+                     (is (= {"type" "fundingHistory"
+                             "coin" coin
+                             "startTime" start-time-ms
+                             "endTime" end-time-ms}
+                            body-1))
+                     (is (= {"type" "fundingHistory"
+                             "coin" coin
+                             "startTime" next-start-ms
+                             "endTime" end-time-ms}
+                            body-2))
+                     (is (= {:priority :low
+                             :dedupe-key [:market-funding-history-page
+                                          :explicit-flight
+                                          start-time-ms
+                                          end-time-ms]
+                             :cache-key [:market-funding-history-page-cache
+                                         :explicit-cache
+                                         start-time-ms
+                                         end-time-ms]
+                             :cache-ttl-ms 15000}
+                            opts-1))
+                     (is (= {:priority :low
+                             :dedupe-key [:market-funding-history-page
+                                          :explicit-flight
+                                          next-start-ms
+                                          end-time-ms]
+                             :cache-key [:market-funding-history-page-cache
+                                         :explicit-cache
+                                         next-start-ms
+                                         end-time-ms]
+                             :cache-ttl-ms 15000}
+                            opts-2)))
+                   (done)))
+          (.catch (async-support/unexpected-error done))))))
+
+(deftest request-market-funding-history-stops-when-capped-page-does-not-advance-test
+  (async done
+    (let [calls (atom [])
+          coin "BTC"
+          start-time-ms 1700000000000
+          build-row (fn [idx]
+                      (funding-history-row coin
+                                           (+ start-time-ms idx)
+                                           "0.0001"
+                                           "0.0"))
+          page-1 (mapv build-row (range 500))
+          repeated-row (build-row 499)
+          page-2 (vec (repeat 500 repeated-row))
+          post-info! (fn [body opts]
+                       (swap! calls conj [body opts])
+                       (js/Promise.resolve
+                        {:data {:fundingHistory (case (count @calls)
+                                                  1 page-1
+                                                  2 page-2
+                                                  [])}}))]
+      (-> (market/request-market-funding-history! post-info!
+                                                  coin
+                                                  {:start-time-ms start-time-ms
+                                                   :end-time-ms (+ start-time-ms 999)})
+          (.then (fn [rows]
+                   (is (= 500 (count rows)))
+                   (is (= 2 (count @calls)))
+                   (is (= (+ start-time-ms 500)
+                          (get-in (second @calls) [0 "startTime"])))
+                   (done)))
+          (.catch (async-support/unexpected-error done))))))
+
+(deftest request-market-funding-history-uses-raw-page-size-for-pagination-test
+  (async done
+    (let [calls (atom [])
+          coin "BTC"
+          start-time-ms 1700000000000
+          build-row (fn [idx]
+                      (funding-history-row coin
+                                           (+ start-time-ms idx)
+                                           "0.0001"
+                                           "0.0"))
+          invalid-row (funding-history-row coin
+                                           (+ start-time-ms 123)
+                                           "bad"
+                                           "0.0")
+          page-1 (vec (concat (map build-row (range 123))
+                              [invalid-row]
+                              (map build-row (range 124 500))))
+          page-2 [(build-row 500)]
+          post-info! (fn [body opts]
+                       (swap! calls conj [body opts])
+                       (js/Promise.resolve
+                        {:data {:fundingHistory (case (count @calls)
+                                                  1 page-1
+                                                  2 page-2
+                                                  [])}}))]
+      (-> (market/request-market-funding-history! post-info!
+                                                  coin
+                                                  {:start-time-ms start-time-ms
+                                                   :end-time-ms (+ start-time-ms 500)})
+          (.then (fn [rows]
+                   (is (= 500 (count rows)))
+                   (is (= (+ start-time-ms 500)
+                          (get-in rows [499 :time-ms])))
+                   (is (= 2 (count @calls)))
+                   (is (= (+ start-time-ms 500)
+                          (get-in (second @calls) [0 "startTime"])))
                    (done)))
           (.catch (async-support/unexpected-error done))))))
 

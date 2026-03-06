@@ -78,6 +78,9 @@
                        :dedupe-key :public-webdata2}
                       opts))))
 
+(def ^:private default-market-funding-history-page-size
+  500)
+
 (defn- finite-number?
   [value]
   (and (number? value)
@@ -152,6 +155,127 @@
     :else
     []))
 
+(defn- normalize-positive-int
+  [value fallback]
+  (let [num (cond
+              (number? value) value
+              (string? value) (js/parseInt value 10)
+              :else js/NaN)]
+    (if (and (number? num)
+             (not (js/isNaN num))
+             (pos? num))
+      (js/Math.floor num)
+      fallback)))
+
+(defn- market-funding-history-page-size
+  [opts]
+  (normalize-positive-int (:market-funding-history-page-size opts)
+                          default-market-funding-history-page-size))
+
+(defn- strip-market-funding-history-pagination-opts
+  [opts]
+  (dissoc (or opts {})
+          :start-time-ms
+          :end-time-ms
+          :startTime
+          :endTime
+          :market-funding-history-page-size))
+
+(defn- market-funding-history-request-body
+  [coin start-time-ms end-time-ms]
+  (cond-> {"type" "fundingHistory"
+           "coin" coin}
+    (number? start-time-ms) (assoc "startTime" (js/Math.floor start-time-ms))
+    (number? end-time-ms) (assoc "endTime" (js/Math.floor end-time-ms))))
+
+(defn- market-funding-history-dedupe-key
+  [coin start-time-ms end-time-ms opts]
+  (if (contains? opts :dedupe-key)
+    [:market-funding-history-page
+     (:dedupe-key opts)
+     start-time-ms
+     end-time-ms]
+    [:market-funding-history coin start-time-ms end-time-ms]))
+
+(defn- market-funding-history-cache-key
+  [start-time-ms end-time-ms opts]
+  (when (contains? opts :cache-key)
+    [:market-funding-history-page-cache
+     (:cache-key opts)
+     start-time-ms
+     end-time-ms]))
+
+(defn- market-funding-history-request-opts
+  [coin start-time-ms end-time-ms opts]
+  (let [start-time* (when (number? start-time-ms)
+                      (js/Math.floor start-time-ms))
+        end-time* (when (number? end-time-ms)
+                    (js/Math.floor end-time-ms))
+        opts* (strip-market-funding-history-pagination-opts opts)
+        request-opts (cond-> (merge {:priority :high
+                                     :dedupe-key (market-funding-history-dedupe-key
+                                                  coin
+                                                  start-time*
+                                                  end-time*
+                                                  opts*)}
+                                    (dissoc opts* :dedupe-key :cache-key))
+                       (contains? opts* :cache-key)
+                       (assoc :cache-key (market-funding-history-cache-key
+                                          start-time*
+                                          end-time*
+                                          opts*)))]
+    (request-policy/apply-info-request-policy
+     :market-funding-history
+     request-opts)))
+
+(defn- fetch-market-funding-history-page!
+  [post-info! coin start-time-ms end-time-ms opts]
+  (post-info! (market-funding-history-request-body coin
+                                                   start-time-ms
+                                                   end-time-ms)
+              (market-funding-history-request-opts coin
+                                                   start-time-ms
+                                                   end-time-ms
+                                                   opts)))
+
+(defn- merge-market-funding-history-rows
+  [existing incoming]
+  (->> (concat (or existing []) (or incoming []))
+       (reduce (fn [acc row]
+                 (assoc acc (:time-ms row) row))
+               {})
+       vals
+       (sort-by :time-ms)
+       vec))
+
+(defn- request-market-funding-history-loop!
+  [post-info! coin start-time-ms end-time-ms opts acc]
+  (-> (fetch-market-funding-history-page! post-info! coin start-time-ms end-time-ms opts)
+      (.then
+       (fn [payload]
+         (let [raw-rows (market-funding-history-seq payload)
+               rows (normalize-market-funding-history-rows raw-rows)
+               acc* (merge-market-funding-history-rows acc rows)
+               last-time-ms (some-> rows last :time-ms)
+               next-start-ms (when (number? last-time-ms)
+                               (inc last-time-ms))
+               capped-page? (>= (count raw-rows)
+                                (market-funding-history-page-size opts))
+               advanced? (and (number? next-start-ms)
+                              (not= next-start-ms start-time-ms))
+               within-request-window? (or (not (number? end-time-ms))
+                                          (<= next-start-ms end-time-ms))]
+           (if (and capped-page?
+                    advanced?
+                    within-request-window?)
+             (request-market-funding-history-loop! post-info!
+                                                   coin
+                                                   next-start-ms
+                                                   end-time-ms
+                                                   opts
+                                                   acc*)
+             acc*))))))
+
 (defn request-market-funding-history!
   [post-info! coin opts]
   (let [coin* (some-> coin str .trim)
@@ -161,22 +285,12 @@
                         (:endTime opts))]
     (if-not (seq coin*)
       (js/Promise.resolve [])
-      (let [body (cond-> {"type" "fundingHistory"
-                          "coin" coin*}
-                   (number? start-time-ms) (assoc "startTime" (js/Math.floor start-time-ms))
-                   (number? end-time-ms) (assoc "endTime" (js/Math.floor end-time-ms)))
-            request-opts (request-policy/apply-info-request-policy
-                          :market-funding-history
-                          (merge {:priority :high
-                                  :dedupe-key [:market-funding-history coin* start-time-ms end-time-ms]}
-                                 (dissoc (or opts {})
-                                         :start-time-ms
-                                         :end-time-ms
-                                         :startTime
-                                         :endTime)))]
-        (-> (post-info! body request-opts)
-            (.then market-funding-history-seq)
-            (.then normalize-market-funding-history-rows))))))
+      (request-market-funding-history-loop! post-info!
+                                            coin*
+                                            start-time-ms
+                                            end-time-ms
+                                            opts
+                                            []))))
 
 (defn request-predicted-fundings!
   [post-info! opts]
