@@ -1,10 +1,9 @@
 (ns hyperopen.startup.runtime
   (:require [clojure.string :as str]
+            [hyperopen.account.surface-service :as account-surface-service]
             [hyperopen.account.context :as account-context]
             [hyperopen.api.info-client :as info-client]
             [hyperopen.platform :as platform]
-            [hyperopen.websocket.health-projection :as health-projection]
-            [hyperopen.websocket.migration-flags :as migration-flags]
             [hyperopen.wallet.address-watcher :as address-watcher]))
 
 (defn default-startup-runtime-state
@@ -100,11 +99,6 @@
 (defonce ^:private position-tpsl-clickaway-cleanup
   (atom nil))
 
-(defn- non-blank-text
-  [value]
-  (let [text (some-> value str str/trim)]
-    (when (seq text) text)))
-
 (defn- editable-shortcut-target?
   [event]
   (let [target (some-> event .-target)
@@ -117,23 +111,6 @@
     (or input-like?
         content-editable?
         within-content-editable?)))
-
-(defn- normalize-stage-b-dex-names
-  [dexs]
-  (let [raw (cond
-              (map? dexs)
-              (or (:dex-names dexs)
-                  (:perp-dexs dexs)
-                  [])
-
-              (sequential? dexs)
-              dexs
-
-              :else
-              [])]
-    (->> raw
-         (keep non-blank-text)
-         vec)))
 
 (defn- next-order-history-request-id
   [state]
@@ -166,9 +143,6 @@
                    (assoc-in [:account-info :order-history :loaded-for-address] nil))))
       (fetch-historical-orders! store request-id {:priority :low}))))
 
-(def ^:private default-startup-stream-backfill-delay-ms
-  450)
-
 (def ^:private default-startup-funding-history-lookback-ms
   (* 7 24 60 60 1000))
 
@@ -186,50 +160,6 @@
     {:priority :high
      :start-time-ms (max 0 (- end-time-ms lookback-ms))
      :end-time-ms end-time-ms}))
-
-(defn- topic-usable-for-address?
-  [store topic address]
-  (when (and (some? store)
-             (string? topic)
-             (seq address))
-    (health-projection/topic-stream-usable?
-     (get-in @store [:websocket :health])
-     topic
-     {:user address})))
-
-(defn- topic-usable-for-address-and-dex?
-  [store topic address dex]
-  (when (and (some? store)
-             (string? topic)
-             (seq address)
-             (seq dex))
-    (health-projection/topic-stream-usable?
-     (get-in @store [:websocket :health])
-     topic
-     {:user address
-      :dex dex})))
-
-(defn- schedule-stream-backed-startup-fallback!
-  [{:keys [store
-           address
-           topic
-           opts
-           fetch-fn
-           startup-stream-backfill-delay-ms]}]
-  (let [delay-ms (max 0 (or startup-stream-backfill-delay-ms
-                            default-startup-stream-backfill-delay-ms))]
-    (when (and (some? store)
-               (seq address)
-               (string? topic)
-               (fn? fetch-fn))
-      (when-not (topic-usable-for-address? store topic address)
-        (platform/set-timeout!
-         (fn []
-           ;; Guard against stale async callbacks for an old address.
-           (when (= address (account-context/effective-account-address @store))
-             (when-not (topic-usable-for-address? store topic address)
-               (fetch-fn store address (or opts {})))))
-         delay-ms)))))
 
 (defn install-asset-selector-shortcuts!
   [{:keys [store dispatch!]}]
@@ -334,33 +264,9 @@
                   (.removeEventListener window-object "mousedown" handler)))))))
 
 (defn stage-b-account-bootstrap!
-  [{:keys [store
-           address
-           dexs
-           per-dex-stagger-ms
-           sync-perp-dex-clearinghouse-subscriptions!
-           fetch-frontend-open-orders!
-           fetch-clearinghouse-state!]}]
-  (let [dex-names (normalize-stage-b-dex-names dexs)]
-    (when (fn? sync-perp-dex-clearinghouse-subscriptions!)
-      (sync-perp-dex-clearinghouse-subscriptions! address dex-names))
-    (doseq [[idx dex] (map-indexed vector dex-names)]
-    (platform/set-timeout!
-     (fn []
-       ;; Guard against stale async callbacks for an old address.
-       (when (= address (account-context/effective-account-address @store))
-         (when (or (not (migration-flags/startup-bootstrap-ws-first-enabled? @store))
-                   (not (topic-usable-for-address? store "openOrders" address)))
-           (fetch-frontend-open-orders! store address {:dex dex
-                                                       :priority :low}))
-         (when (or (not (migration-flags/startup-bootstrap-ws-first-enabled? @store))
-                   (not (topic-usable-for-address-and-dex?
-                         store
-                         "clearinghouseState"
-                         address
-                         dex)))
-           (fetch-clearinghouse-state! store address dex {:priority :low}))))
-     (* per-dex-stagger-ms (inc idx))))))
+  [deps]
+  (account-surface-service/stage-b-account-bootstrap!
+   (assoc deps :resolve-current-address account-context/effective-account-address)))
 
 (defn bootstrap-account-data!
   [{:keys [store
@@ -404,46 +310,22 @@
       (swap! store assoc-in [:portfolio :ledger-loaded-at-ms] nil)
       (prefetch-order-history! {:store store
                                 :fetch-historical-orders! fetch-historical-orders!})
-      ;; Stage A: critical account data.
-      (if (migration-flags/startup-bootstrap-ws-first-enabled? @store)
-        (do
-          (schedule-stream-backed-startup-fallback!
-           {:store store
-            :address address
-            :topic "openOrders"
-            :fetch-fn fetch-frontend-open-orders!
-            :opts {:priority :high}
-            :startup-stream-backfill-delay-ms startup-stream-backfill-delay-ms})
-          (schedule-stream-backed-startup-fallback!
-           {:store store
-            :address address
-            :topic "userFills"
-            :fetch-fn fetch-user-fills!
-            :opts {:priority :high}
-            :startup-stream-backfill-delay-ms startup-stream-backfill-delay-ms}))
-        (do
-          (fetch-frontend-open-orders! store address {:priority :high})
-          (fetch-user-fills! store address {:priority :high})))
-      (fetch-spot-clearinghouse-state! store address {:priority :high})
-      (fetch-user-abstraction! store address {:priority :high})
-      (fetch-portfolio! store address {:priority :high})
-      (fetch-user-fees! store address {:priority :high})
-      (if (migration-flags/startup-bootstrap-ws-first-enabled? @store)
-        (schedule-stream-backed-startup-fallback!
-         {:store store
-          :address address
-          :topic "userFundings"
-          :fetch-fn fetch-and-merge-funding-history!
-          :opts funding-request-opts
-          :startup-stream-backfill-delay-ms startup-stream-backfill-delay-ms})
-        (fetch-and-merge-funding-history! store address funding-request-opts))
-      ;; Stage B: low-priority, staggered per-dex data.
-      (-> (ensure-perp-dexs! store {:priority :low})
-          (.then (fn [dexs]
-                   (stage-b-account-bootstrap! address
-                                               (normalize-stage-b-dex-names dexs))))
-          (.catch (fn [err]
-                    (log-fn "Error bootstrapping per-dex account data:" err))))))))
+      (account-surface-service/bootstrap-account-surfaces!
+       {:store store
+        :address address
+        :fetch-frontend-open-orders! fetch-frontend-open-orders!
+        :fetch-user-fills! fetch-user-fills!
+        :fetch-spot-clearinghouse-state! fetch-spot-clearinghouse-state!
+        :fetch-user-abstraction! fetch-user-abstraction!
+        :fetch-portfolio! fetch-portfolio!
+        :fetch-user-fees! fetch-user-fees!
+        :fetch-and-merge-funding-history! fetch-and-merge-funding-history!
+        :ensure-perp-dexs! ensure-perp-dexs!
+        :stage-b-account-bootstrap! stage-b-account-bootstrap!
+        :startup-stream-backfill-delay-ms startup-stream-backfill-delay-ms
+        :startup-funding-request-opts funding-request-opts
+        :resolve-current-address account-context/effective-account-address
+        :log-fn log-fn})))))
 
 (defn install-address-handlers!
   [{:keys [store

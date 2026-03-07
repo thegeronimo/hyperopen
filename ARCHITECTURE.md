@@ -65,6 +65,9 @@ Dependency direction is intentional: domain -> application -> infrastructure. An
 - MUST follow `/hyperopen/docs/BROWSER_STORAGE.md` for the detailed decision checklist and canonical examples.
 
 ## Domain-Driven Design Layer Boundaries (MUST)
+- Account-surface policy and orchestration ownership:
+  - `/hyperopen/src/hyperopen/account/surface_policy.cljs`
+  - `/hyperopen/src/hyperopen/account/surface_service.cljs`
 - Domain model/policy ownership:
   - `/hyperopen/src/hyperopen/websocket/domain/model.cljs`
   - `/hyperopen/src/hyperopen/websocket/domain/policy.cljs`
@@ -81,6 +84,7 @@ Dependency direction is intentional: domain -> application -> infrastructure. An
 - MUST keep dependency direction intentional: domain -> application -> infrastructure, with Anti-Corruption Layer adapters at system boundaries.
 - MUST ensure domain decisions never directly perform transport/timer/dom/log side effects.
 - MUST absorb external schema changes in Anti-Corruption Layer mapping and keep domain contracts stable.
+- MUST keep account-surface stream-coverage and REST fallback ownership centralized in the account-surface policy/service seam; startup, websocket, and order modules must delegate instead of duplicating those rules.
 
 ## Domain-Driven Design Modeling Checklist
 - [ ] Yes/No: ubiquitous language is consistent in message/effect names.

@@ -1,6 +1,7 @@
 (ns hyperopen.order.effects
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
+            [hyperopen.account.surface-service :as account-surface-service]
             [hyperopen.api.default :as api]
             [hyperopen.api.market-metadata.facade :as market-metadata]
             [hyperopen.api.promise-effects :as promise-effects]
@@ -8,9 +9,7 @@
             [hyperopen.telemetry :as telemetry]
             [hyperopen.account.history.position-margin :as position-margin]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
-            [hyperopen.api.trading :as trading-api]
-            [hyperopen.websocket.health-projection :as health-projection]
-            [hyperopen.websocket.migration-flags :as migration-flags]))
+            [hyperopen.api.trading :as trading-api]))
 
 (defn- cancel-request-oids
   [request]
@@ -131,41 +130,27 @@
                store
                api-projections/apply-perp-dex-clearinghouse-error))))
 
-(defn- topic-usable-for-address?
-  [store topic address]
-  (when (and (string? topic)
-             (seq address))
-    (health-projection/topic-stream-usable?
-     (get-in @store [:websocket :health])
-     topic
-     {:user address})))
+(defn- ensure-perp-dex-metadata!
+  [store opts]
+  (market-metadata/ensure-and-apply-perp-dex-metadata!
+   {:store store
+    :ensure-perp-dexs-data! api/ensure-perp-dexs-data!
+    :apply-perp-dexs-success api-projections/apply-perp-dexs-success
+    :apply-perp-dexs-error api-projections/apply-perp-dexs-error}
+   opts))
 
 (defn- refresh-account-surfaces-after-order-mutation!
   [store address]
-  (when address
-    (let [state @store
-          ws-first-enabled? (migration-flags/order-fill-ws-first-enabled? state)
-          open-orders-live? (and ws-first-enabled?
-                                 (topic-usable-for-address? store "openOrders" address))
-          webdata2-live? (and ws-first-enabled?
-                              (topic-usable-for-address? store "webData2" address))]
-      (when-not open-orders-live?
-        (refresh-open-orders-snapshot! store address nil {:priority :high}))
-      (when-not webdata2-live?
-        (refresh-default-clearinghouse-snapshot! store address {:priority :high}))
-    (-> (market-metadata/ensure-and-apply-perp-dex-metadata!
-         {:store store
-          :ensure-perp-dexs-data! api/ensure-perp-dexs-data!
-          :apply-perp-dexs-success api-projections/apply-perp-dexs-success
-          :apply-perp-dexs-error api-projections/apply-perp-dexs-error}
-         {:priority :low})
-        (.then (fn [dex-names]
-                 (doseq [dex dex-names]
-                   (when-not open-orders-live?
-                     (refresh-open-orders-snapshot! store address dex {:priority :low}))
-                   (refresh-perp-dex-clearinghouse-snapshot! store address dex {:priority :low}))))
-        (.catch (fn [err]
-                  (telemetry/log! "Error refreshing per-dex account surfaces after order mutation:" err)))))))
+  (account-surface-service/refresh-after-order-mutation!
+   {:store store
+    :address address
+    :ensure-perp-dexs! ensure-perp-dex-metadata!
+    :refresh-open-orders! refresh-open-orders-snapshot!
+    :refresh-default-clearinghouse! refresh-default-clearinghouse-snapshot!
+    :refresh-perp-dex-clearinghouse! refresh-perp-dex-clearinghouse-snapshot!
+    :resolve-current-address (fn [state]
+                               (get-in state [:wallet :address]))
+    :log-fn telemetry/log!}))
 
 (defn- submit-order-error-message
   [exchange-response-error resp]

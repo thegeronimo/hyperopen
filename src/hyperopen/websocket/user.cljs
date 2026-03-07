@@ -1,6 +1,8 @@
 (ns hyperopen.websocket.user
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
+            [hyperopen.account.surface-policy :as account-surface-policy]
+            [hyperopen.account.surface-service :as account-surface-service]
             [hyperopen.api.default :as api]
             [hyperopen.api.market-metadata.facade :as market-metadata]
             [hyperopen.api.promise-effects :as promise-effects]
@@ -12,8 +14,6 @@
             [hyperopen.telemetry :as telemetry]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.websocket.client :as ws-client]
-            [hyperopen.websocket.health-projection :as health-projection]
-            [hyperopen.websocket.migration-flags :as migration-flags]
             [hyperopen.wallet.address-watcher :as address-watcher]))
 
 (defonce user-state (atom {:subscriptions #{}
@@ -36,18 +36,6 @@
   (let [token (some-> value str str/trim)]
     (when (seq token)
       token)))
-
-(defn- normalize-dex-names
-  [dex-names]
-  (let [raw (cond
-              (map? dex-names) (or (:dex-names dex-names)
-                                   (:perp-dexs dex-names))
-              (sequential? dex-names) dex-names
-              :else [])]
-    (->> raw
-         (keep normalized-dex)
-         distinct
-         vec)))
 
 (defn- message-address
   [msg]
@@ -139,10 +127,10 @@
   [address dex-names]
   (let [address* (normalized-address address)]
     (when address*
-      (let [desired (into #{}
+        (let [desired (into #{}
                           (keep (fn [dex]
                                   (clearinghouse-sub-key address* dex)))
-                          (normalize-dex-names dex-names))
+                          (account-surface-policy/normalize-dex-names dex-names))
             existing (subscribed-clearinghouse-keys-for-address address*)]
         (doseq [[sub-address dex] desired
                 :when (not (contains? existing [sub-address dex]))]
@@ -230,104 +218,28 @@
                address
                api-projections/apply-perp-dex-clearinghouse-error))))
 
-(defn- topic-usable-for-address?
-  [store topic address]
-  (when (and (string? topic)
-             (seq address))
-    (health-projection/topic-stream-usable?
-     (get-in @store [:websocket :health])
-     topic
-     {:user address})))
-
-(defn- topic-usable-for-address-and-dex?
-  [store topic address dex]
-  (when (and (string? topic)
-             (seq address)
-             (seq dex))
-    (health-projection/topic-stream-usable?
-     (get-in @store [:websocket :health])
-     topic
-     {:user address
-      :dex dex})))
-
-(defn- topic-subscribed-for-address-and-dex?
-  [store topic address dex]
-  (when (and (string? topic)
-             (seq address)
-             (seq dex))
-    (health-projection/topic-stream-subscribed?
-     (get-in @store [:websocket :health])
-     topic
-     {:user address
-      :dex dex})))
-
-(defn- spot-clearinghouse-refresh-surface-active?
-  [state]
-  (let [route (some-> (get-in state [:router :path]) str str/trim)
-        selected-tab (get-in state [:account-info :selected-tab])
-        balances-tab-active? (or (nil? selected-tab)
-                                 (= selected-tab :balances))
-        trade-route-active? (or (str/blank? route)
-                                (str/starts-with? route "/trade"))
-        funding-modal-open? (true? (get-in state [:funding-ui :modal :open?]))
-        position-margin-modal-open? (true? (get-in state [:positions-ui :margin-modal :open?]))
-        vault-transfer-modal-open? (true? (get-in state [:vaults-ui :vault-transfer-modal :open?]))]
-    (or funding-modal-open?
-        position-margin-modal-open?
-        vault-transfer-modal-open?
-        (and trade-route-active?
-             balances-tab-active?))))
+(defn- ensure-perp-dex-metadata!
+  [store opts]
+  (market-metadata/ensure-and-apply-perp-dex-metadata!
+   {:store store
+    :ensure-perp-dexs-data! api/ensure-perp-dexs-data!
+    :apply-perp-dexs-success api-projections/apply-perp-dexs-success
+    :apply-perp-dexs-error api-projections/apply-perp-dexs-error}
+   opts))
 
 (defn- refresh-account-surfaces-after-user-fill!
   [store address]
-  (when address
-    (let [state @store
-          ws-first-enabled? (migration-flags/order-fill-ws-first-enabled? state)
-          open-orders-live? (and ws-first-enabled?
-                                 (topic-usable-for-address? store "openOrders" address))
-          webdata2-live? (and ws-first-enabled?
-                              (topic-usable-for-address? store "webData2" address))
-          spot-refresh-surface-active? (spot-clearinghouse-refresh-surface-active? state)]
-      (when-not open-orders-live?
-        (refresh-open-orders-snapshot! store address nil {:priority :high}))
-      (when spot-refresh-surface-active?
-        (refresh-spot-clearinghouse-snapshot! store address {:priority :high}))
-      (when-not webdata2-live?
-        (refresh-default-clearinghouse-snapshot! store address {:priority :high}))
-      (-> (market-metadata/ensure-and-apply-perp-dex-metadata!
-           {:store store
-            :ensure-perp-dexs-data! api/ensure-perp-dexs-data!
-            :apply-perp-dexs-success api-projections/apply-perp-dexs-success
-            :apply-perp-dexs-error api-projections/apply-perp-dexs-error}
-           {:priority :low})
-          (.then (fn [dex-names]
-                   (let [dex-names* (normalize-dex-names dex-names)]
-                     (sync-perp-dex-clearinghouse-subscriptions! address dex-names*)
-                     (doseq [dex dex-names*]
-                     (let [perp-dex-stream-usable?
-                             (and ws-first-enabled?
-                                  (topic-usable-for-address-and-dex? store
-                                                                     "clearinghouseState"
-                                                                     address
-                                                                     dex))
-                            perp-dex-stream-subscribed?
-                            (and ws-first-enabled?
-                                 (topic-subscribed-for-address-and-dex? store
-                                                                        "clearinghouseState"
-                                                                        address
-                                                                        dex))
-                            perp-dex-snapshot-ready?
-                            (some? (get-in @store [:perp-dex-clearinghouse dex]))
-                            skip-perp-dex-rest-refresh?
-                            (or perp-dex-stream-usable?
-                                (and perp-dex-stream-subscribed?
-                                     perp-dex-snapshot-ready?))]
-                         (when-not open-orders-live?
-                           (refresh-open-orders-snapshot! store address dex {:priority :low}))
-                         (when-not skip-perp-dex-rest-refresh?
-                           (refresh-perp-dex-clearinghouse-snapshot! store address dex {:priority :low})))))))
-          (.catch (fn [err]
-                    (telemetry/log! "Error refreshing per-dex account surfaces after user fill:" err)))))))
+  (account-surface-service/refresh-after-user-fill!
+   {:store store
+    :address address
+    :ensure-perp-dexs! ensure-perp-dex-metadata!
+    :sync-perp-dex-clearinghouse-subscriptions! sync-perp-dex-clearinghouse-subscriptions!
+    :refresh-open-orders! refresh-open-orders-snapshot!
+    :refresh-default-clearinghouse! refresh-default-clearinghouse-snapshot!
+    :refresh-spot-clearinghouse! refresh-spot-clearinghouse-snapshot!
+    :refresh-perp-dex-clearinghouse! refresh-perp-dex-clearinghouse-snapshot!
+    :resolve-current-address account-context/effective-account-address
+    :log-fn telemetry/log!}))
 
 (defn- clear-account-surface-refresh-timeout!
   []

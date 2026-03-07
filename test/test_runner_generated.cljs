@@ -9,6 +9,8 @@
             [hyperopen.account.history.position-tpsl-test]
             [hyperopen.account.spectate-mode-actions-test]
             [hyperopen.account.spectate-mode-links-test]
+            [hyperopen.account.surface-policy-test]
+            [hyperopen.account.surface-service-test]
             [hyperopen.api-test]
             [hyperopen.api.compat-test]
             [hyperopen.api.default-test]
@@ -303,6 +305,8 @@
              'hyperopen.account.history.position-tpsl-test
              'hyperopen.account.spectate-mode-actions-test
              'hyperopen.account.spectate-mode-links-test
+             'hyperopen.account.surface-policy-test
+             'hyperopen.account.surface-service-test
              'hyperopen.api-test
              'hyperopen.api.compat-test
              'hyperopen.api.default-test

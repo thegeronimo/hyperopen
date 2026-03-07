@@ -37,6 +37,9 @@ source_of_truth: true
 - Startup integration tests MUST prefer collaborator/runtime dependency-injection seams over mutating startup facade vars.
 
 ## Account Data Hydration Rules (MUST)
+- Canonical account-surface stream-policy ownership lives in `/hyperopen/src/hyperopen/account/surface_policy.cljs`.
+- Canonical account-surface bootstrap and post-event fallback orchestration lives in `/hyperopen/src/hyperopen/account/surface_service.cljs`.
+- Startup bootstrap, websocket user refresh, and order mutation refresh paths MUST delegate account-surface fallback behavior to that shared seam.
 - Asset-selector and bootstrap loaders that fetch spot metadata MUST project it into `[:spot :meta]`; fetching without projection is considered a contract violation.
 - Balance projections that depend on token metadata (for example contract ids/decimals) MUST treat `[:spot :meta :tokens]` as a required input and emit a debug invariant warning when balances are present but token metadata is empty.
 - Changes to market-loader response shapes MUST include parity updates in all callers that apply projections (`runtime api effects` and `fetch compat` paths).
