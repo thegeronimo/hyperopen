@@ -81,10 +81,14 @@ Dependency direction is intentional: domain -> application -> infrastructure. An
 - Anti-Corruption Layer/adapters/public client seam ownership:
   - `/hyperopen/src/hyperopen/websocket/acl/hyperliquid.cljs`
   - `/hyperopen/src/hyperopen/websocket/client.cljs`
+- User-topic adapter/helper ownership:
+  - `/hyperopen/src/hyperopen/websocket/user.cljs`
+  - `/hyperopen/src/hyperopen/websocket/user_runtime/**`
 - MUST keep dependency direction intentional: domain -> application -> infrastructure, with Anti-Corruption Layer adapters at system boundaries.
 - MUST ensure domain decisions never directly perform transport/timer/dom/log side effects.
 - MUST absorb external schema changes in Anti-Corruption Layer mapping and keep domain contracts stable.
 - MUST keep account-surface stream-coverage and REST fallback ownership centralized in the account-surface policy/service seam; startup, websocket, and order modules must delegate instead of duplicating those rules.
+- MUST keep topic-specific websocket adapters thin: they may wire handlers and focused helper seams, but they must not grow parallel websocket runtime ownership for subscription truth or timer registries when canonical runtime/app runtime seams already exist.
 
 ## Domain-Driven Design Modeling Checklist
 - [ ] Yes/No: ubiquitous language is consistent in message/effect names.

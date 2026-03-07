@@ -18,10 +18,25 @@
                                                    :start-time-ms 0
                                                    :end-time-ms 9999999999999}}}}))
 
-(defn- reset-user-subscription-state!
+(defn- default-runtime-view
   []
-  (reset! user-ws/user-state {:subscriptions #{}
-                              :clearinghouse-subscriptions #{}}))
+  {:active-socket-id nil
+   :connection {:status :disconnected}
+   :stream {:streams {}
+            :metrics {}
+            :tier-depth {:market 0
+                         :lossless 0}
+            :market-coalesce {:pending {}}
+            :transport {:state :disconnected}}})
+
+(defn- reset-user-runtime-view!
+  []
+  (reset! ws-client/runtime-view (default-runtime-view)))
+
+(defn- set-user-runtime-streams!
+  [streams]
+  (reset! ws-client/runtime-view
+          (assoc-in (default-runtime-view) [:stream :streams] streams)))
 
 (deftest init-handlers-parse-nested-user-channel-payloads-test
   (let [store (make-store)
@@ -428,7 +443,7 @@
           open-orders-addresses (atom [])
           perp-clearinghouse-calls (atom [])
           spot-clearinghouse-addresses (atom [])]
-      (reset-user-subscription-state!)
+      (reset-user-runtime-view!)
       (with-redefs [ws-client/register-handler!
                     (fn [message-type handler-fn]
                       (swap! handlers assoc message-type handler-fn)
@@ -477,18 +492,31 @@
            (is (= [] @perp-clearinghouse-calls))
            (is (= [effective-address]
                   @spot-clearinghouse-addresses))
-           (reset-user-subscription-state!)
+           (reset-user-runtime-view!)
            (done))
          0)))))
 
 (deftest sync-perp-dex-clearinghouse-subscriptions-diffs-by-dex-test
   (let [address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        dex-a-key ["clearinghouseState" nil address "dex-a" nil]
+        dex-b-key ["clearinghouseState" nil address "dex-b" nil]
         outbound-messages (atom [])]
-    (reset-user-subscription-state!)
+    (reset-user-runtime-view!)
     (with-redefs [ws-client/send-message! (fn [payload]
                                             (swap! outbound-messages conj payload)
                                             true)]
       (user-ws/sync-perp-dex-clearinghouse-subscriptions! address ["dex-a" "dex-b"])
+      (set-user-runtime-streams!
+       {dex-a-key {:topic "clearinghouseState"
+                   :subscribed? true
+                   :descriptor {:type "clearinghouseState"
+                                :user address
+                                :dex "dex-a"}}
+        dex-b-key {:topic "clearinghouseState"
+                   :subscribed? true
+                   :descriptor {:type "clearinghouseState"
+                                :user address
+                                :dex "dex-b"}}})
       ;; No-op sync should not emit duplicate subscribe messages.
       (user-ws/sync-perp-dex-clearinghouse-subscriptions! address ["dex-a" "dex-b"])
       ;; Removing one dex should emit unsubscribe for the stale dex only.
@@ -502,7 +530,7 @@
                subscribe-subs))
         (is (= #{{:type "clearinghouseState" :user address :dex "dex-a"}}
                unsubscribe-subs))))
-    (reset-user-subscription-state!)))
+    (reset-user-runtime-view!)))
 
 (deftest user-ledger-refresh-skips-open-orders-and-default-clearinghouse-when-ws-event-driven-test
   (let [effective-address "0xdddddddddddddddddddddddddddddddddddddddd"

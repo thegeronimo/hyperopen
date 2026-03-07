@@ -56,7 +56,8 @@
 (defn default-runtime-state
   []
   {:timeouts {:wallet-copy nil
-              :order-toast {}}
+              :order-toast {}
+              :user-account-surface-refresh nil}
    :asset-icons {:pending {}
                  :flush-handle nil}
    :startup (startup-runtime-lib/default-startup-runtime-state)

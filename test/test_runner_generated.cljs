@@ -292,6 +292,9 @@
             [hyperopen.websocket.subscriptions-runtime-test]
             [hyperopen.websocket.trades-policy-test]
             [hyperopen.websocket.trades-test]
+            [hyperopen.websocket.user-runtime.fills-test]
+            [hyperopen.websocket.user-runtime.refresh-test]
+            [hyperopen.websocket.user-runtime.subscriptions-test]
             [hyperopen.websocket.user-test]
             [hyperopen.websocket.webdata2-test]))
 
@@ -588,5 +591,8 @@
              'hyperopen.websocket.subscriptions-runtime-test
              'hyperopen.websocket.trades-policy-test
              'hyperopen.websocket.trades-test
+             'hyperopen.websocket.user-runtime.fills-test
+             'hyperopen.websocket.user-runtime.refresh-test
+             'hyperopen.websocket.user-runtime.subscriptions-test
              'hyperopen.websocket.user-test
              'hyperopen.websocket.webdata2-test))

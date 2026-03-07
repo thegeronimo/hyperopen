@@ -15,6 +15,7 @@ source_of_truth: true
 - MUST treat websocket client canonical read API as `runtime-view` plus accessor functions in `/hyperopen/src/hyperopen/websocket/client.cljs` (`connected?`, `get-connection-status`, `get-runtime-metrics`, `get-tier-depths`, `get-health-snapshot`).
 - MUST keep compatibility reads explicit and read-only through `/hyperopen/src/hyperopen/websocket/client_compat.cljs`; do not expose mutable compatibility projection atoms on the primary websocket client API.
 - MUST execute input and output operations only through effect interpreters (transport, timers, lifecycle hooks, logging, routing, state projections).
+- MUST make topic-specific websocket adapters (for example `/hyperopen/src/hyperopen/websocket/user.cljs` and `/hyperopen/src/hyperopen/websocket/user_runtime/**`) read subscription truth from canonical websocket runtime projection state instead of maintaining parallel subscription registries.
 - MUST NOT perform direct transport/timer/dom/log side effects inside reducers or domain message handling.
 - MUST NOT use multi-loop shared mutable writes for connection/metrics runtime ownership.
 - MUST preserve existing websocket public APIs in `/hyperopen/src/hyperopen/websocket/client.cljs` unless explicitly requested.
@@ -103,6 +104,7 @@ source_of_truth: true
 - DO NOT add hidden synchronous fallback paths that bypass the channel model.
 - DO NOT use unbounded queues for lossless flows.
 - DO NOT bypass message/effect contracts with direct infrastructure calls from domain logic.
+- DO NOT rebuild namespace-local websocket subscription mirrors or timer registries in topic adapter namespaces when canonical runtime or app-runtime ownership already exists.
 - DO NOT read deprecated websocket compatibility fields (`ws-client/connection-state`, `ws-client/stream-runtime`) from production code.
 - DO NOT put business rules in effect interpreters, transport handlers, or UI callbacks.
 - DO NOT leak raw exchange payload shapes directly into domain consumers without Anti-Corruption Layer mapping.
