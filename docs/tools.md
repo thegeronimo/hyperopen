@@ -16,8 +16,9 @@ Use this file as the single starting point for what actions this repo provides t
 2. For local Clojure discovery, semantic references, renames, and diagnostics, use the Local Clojure Navigation and Analysis section below.
 3. For shared command phrase lookup, use `/hyperopen/tools/phrase get "<phrase>"` and `/hyperopen/command-phrases.edn`.
 4. For browser parity/debug workflows, use the Browser Inspection section below.
-5. For issue tracking and session handoff rules, use `/hyperopen/docs/WORK_TRACKING.md`.
-6. For exact browser inspection command syntax, see:
+5. For CRAP hotspot analysis after generating coverage, use `bb tools/crap_report.clj --scope src` or `bb tools/crap_report.clj --module <path> --format json`.
+6. For issue tracking and session handoff rules, use `/hyperopen/docs/WORK_TRACKING.md`.
+7. For exact browser inspection command syntax, see:
    - `/hyperopen/tools/browser-inspection/src/cli.mjs`
    - `/hyperopen/tools/browser-inspection/src/mcp_server.mjs`
 
@@ -27,8 +28,10 @@ Use this file as the single starting point for what actions this repo provides t
 | --- | --- | --- |
 | `npm run check` | Lint, docs checks, and compile app/test builds | Before finishing code changes |
 | `npm test` | Full test suite | Regular validation and regression confidence |
+| `npm run test:crap` | Fast Babashka tests for CRAP-tool parsing and report math | Before changing the CRAP analyzer/reporter |
 | `npm run test:websocket` | Websocket-only suite | Websocket runtime/API changes |
 | `npm run test:runner:generate` | Regenerate test runner list | Usually after adding/removing test namespaces |
+| `bb tools/crap_report.clj --scope src` | Print CRAP hotspots from existing `coverage/lcov.info` | After `npm run coverage` when triaging risky functions/modules |
 | `npm run browser:inspect -- --url <url> --target <label>` | One-off parity capture | Visual/runtime parity evidence and smoke checks |
 | `npm run browser:compare` | One-off compare capture | Compare two targets (Hyperliquid vs local) |
 | `npm run browser:mcp` | Start Codex MCP tools host | When invoking via MCP instead of CLI |

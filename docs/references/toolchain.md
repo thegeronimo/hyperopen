@@ -11,7 +11,9 @@ source_of_truth: true
 Repository build and test entry points:
 - `npm run check`
 - `npm test`
+- `npm run test:crap`
 - `npm run test:websocket`
+- `bb tools/crap_report.clj --scope src`
 - `npm run test:browser-inspection`
 
 Local discovery and semantic analysis commands:
