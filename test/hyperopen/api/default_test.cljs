@@ -106,6 +106,10 @@
                                                                    (record! :request-asset-selector-markets [opts]))
                   api-compat/fetch-spot-clearinghouse-state! (fn [deps store* address opts]
                                                                (record! :fetch-spot-clearinghouse-state [deps store* address opts]))
+                  account-gateway/request-extra-agents! (fn [deps address opts]
+                                                          (record! :request-extra-agents [deps address opts]))
+                  account-gateway/request-user-webdata2! (fn [deps address opts]
+                                                           (record! :request-user-webdata2 [deps address opts]))
                   account-gateway/request-spot-clearinghouse-state! (fn [deps address opts]
                                                                        (record! :request-spot-clearinghouse-state [deps address opts]))
                   api-compat/fetch-user-abstraction! (fn [deps store* address opts]
@@ -305,6 +309,14 @@
              (api/fetch-spot-clearinghouse-state! store "0xabc")))
       (is (= {:ok :fetch-spot-clearinghouse-state}
              (api/fetch-spot-clearinghouse-state! store "0xabc" {:priority :high})))
+      (is (= {:ok :request-extra-agents}
+             (api/request-extra-agents! "0xabc")))
+      (is (= {:ok :request-extra-agents}
+             (api/request-extra-agents! "0xabc" {:priority :high})))
+      (is (= {:ok :request-user-webdata2}
+             (api/request-user-webdata2! "0xabc")))
+      (is (= {:ok :request-user-webdata2}
+             (api/request-user-webdata2! "0xabc" {:priority :high})))
       (is (= {:ok :request-spot-clearinghouse-state}
              (api/request-spot-clearinghouse-state! "0xabc")))
       (is (= {:ok :request-spot-clearinghouse-state}

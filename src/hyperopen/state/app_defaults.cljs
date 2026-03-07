@@ -3,7 +3,7 @@
             [hyperopen.account.history.position-reduce :as position-reduce]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.account.context :as account-context]
-            [hyperopen.api-wallets.actions :as api-wallets-actions]
+            [hyperopen.api-wallets.domain.policy :as api-wallets-policy]
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.i18n.locale :as i18n-locale]
             [hyperopen.platform :as platform]
@@ -236,13 +236,11 @@
 
 (defn default-api-wallets-ui-state
   []
-  {:form (api-wallets-actions/default-api-wallet-form)
+  {:form (api-wallets-policy/default-form)
    :form-error nil
-   :sort {:column api-wallets-actions/default-sort-column
-          :direction api-wallets-actions/default-sort-direction}
-   :modal (api-wallets-actions/default-api-wallet-modal-state)
-   :generated {:address nil
-               :private-key nil}})
+   :sort (api-wallets-policy/default-sort-state)
+   :modal (api-wallets-policy/default-modal-state)
+   :generated (api-wallets-policy/default-generated-state)})
 
 (defn default-api-wallets-state
   []

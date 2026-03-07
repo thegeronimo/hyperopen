@@ -159,6 +159,103 @@
     (is (= 1 @default-state-calls))
     (is (= :local (get-in @store [:wallet :agent :storage-mode])))))
 
+(deftest approve-agent-request-encodes-name-and-skips-session-persistence-when-disabled-test
+  (async done
+    (let [store (atom {:wallet {:address "0xowner"
+                                :chain-id nil}})
+          format-calls (atom [])
+          build-calls (atom [])
+          approve-calls (atom [])
+          persist-calls (atom [])]
+      (-> (agent-runtime/approve-agent-request!
+           {:store store
+            :owner-address "0xowner"
+            :agent-address "0x999"
+            :private-key "0xpriv"
+            :storage-mode :session
+            :is-mainnet false
+            :agent-name "Desk"
+            :days-valid "30"
+            :server-time-ms 1700000000000
+            :persist-session? false
+            :now-ms-fn (fn [] 1700000000000)
+            :normalize-storage-mode identity
+            :default-signature-chain-id-for-environment (fn [is-mainnet]
+                                                          (if is-mainnet
+                                                            "0xa4b1"
+                                                            "0x66eee"))
+            :build-approve-agent-action (fn [agent-address nonce & {:keys [agent-name
+                                                                           is-mainnet
+                                                                           signature-chain-id]}]
+                                          (swap! build-calls conj {:agent-address agent-address
+                                                                   :nonce nonce
+                                                                   :agent-name agent-name
+                                                                   :is-mainnet is-mainnet
+                                                                   :signature-chain-id signature-chain-id})
+                                          {:agentAddress agent-address
+                                           :nonce nonce
+                                           :agentName agent-name
+                                           :signatureChainId signature-chain-id})
+            :format-agent-name-with-valid-until (fn [name server-time-ms days-valid]
+                                                  (swap! format-calls conj [name server-time-ms days-valid])
+                                                  "Desk valid_until 1702592000000")
+            :approve-agent! (fn [_store owner-address action]
+                              (swap! approve-calls conj [owner-address action])
+                              (js/Promise.resolve #js {:json (fn []
+                                                              (js/Promise.resolve #js {:status "ok"}))}))
+            :persist-agent-session-by-mode! (fn [& args]
+                                              (swap! persist-calls conj args)
+                                              true)
+            :runtime-error-message (fn [err] (str err))
+            :exchange-response-error (fn [resp] (pr-str resp))})
+          (.then
+           (fn [result]
+             (is (= [["Desk" 1700000000000 "30"]] @format-calls))
+             (is (= [{:agent-address "0x999"
+                      :nonce 1700000000000
+                      :agent-name "Desk valid_until 1702592000000"
+                      :is-mainnet false
+                      :signature-chain-id "0x66eee"}]
+                    @build-calls))
+             (is (= [["0xowner"
+                      {:agentAddress "0x999"
+                       :nonce 1700000000000
+                       :agentName "Desk valid_until 1702592000000"
+                       :signatureChainId "0x66eee"}]]
+                    @approve-calls))
+             (is (empty? @persist-calls))
+             (is (= "0xowner" (:owner-address result)))
+             (is (= "0x999" (:agent-address result)))
+             (is (= :session (:storage-mode result)))
+             (is (= 1700000000000 (:last-approved-at result)))
+             (done)))
+          (.catch (fn [err]
+                    (is false (str "Unexpected approve-agent-request success-path error: " err))
+                    (done)))))))
+
+(deftest approve-agent-request-rejects-with-missing-owner-error-test
+  (async done
+    (-> (agent-runtime/approve-agent-request!
+         {:store (atom {:wallet {:address nil}})
+          :owner-address nil
+          :agent-address "0x999"
+          :now-ms-fn (fn [] 1)
+          :normalize-storage-mode identity
+          :default-signature-chain-id-for-environment (fn [_] "0xa4b1")
+          :build-approve-agent-action (fn [& _] nil)
+          :format-agent-name-with-valid-until (fn [& _] nil)
+          :approve-agent! (fn [& _] (js/Promise.resolve nil))
+          :persist-agent-session-by-mode! (fn [& _] true)
+          :runtime-error-message (fn [err] (str err))
+          :exchange-response-error (fn [resp] (pr-str resp))
+          :missing-owner-error "Connect first."})
+        (.then (fn [_]
+                 (is false "Expected missing-owner approve-agent-request rejection")
+                 (done)))
+        (.catch (fn [err]
+                  (is (= "Connect first." (.-message err)))
+                  (done))))))
+
 (deftest enable-agent-trading-sets-error-when-session-persist-fails-test
   (async done
     (let [store (atom {:wallet {:address "0x111"

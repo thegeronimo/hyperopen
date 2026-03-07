@@ -1,87 +1,13 @@
 (ns hyperopen.api-wallets.actions
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
-            [hyperopen.wallet.agent-session :as agent-session]))
+            [hyperopen.api-wallets.domain.policy :as policy]))
 
 (def canonical-route
   "/API")
 
-(def default-sort-column
-  :name)
-
-(def default-sort-direction
-  :asc)
-
-(def ^:private valid-sort-columns
-  #{:name :address :valid-until})
-
-(def ^:private valid-sort-directions
-  #{:asc :desc})
-
-(def ^:private valid-form-fields
-  #{:name :address :days-valid})
-
 (def ^:private api-wallet-route-kinds
   #{"/api"})
-
-(defn default-api-wallet-form
-  []
-  {:name ""
-   :address ""
-   :days-valid ""})
-
-(defn default-api-wallet-modal-state
-  []
-  {:open? false
-   :type nil
-   :row nil
-   :error nil
-   :submitting? false})
-
-(defn normalize-api-wallet-sort-column
-  [value]
-  (let [token (cond
-                (keyword? value) value
-                (string? value) (-> value
-                                    str/trim
-                                    str/lower-case
-                                    (str/replace #"[^a-z0-9]+" "-")
-                                    keyword)
-                :else nil)
-        normalized (case token
-                     :wallet :address
-                     :wallet-address :address
-                     :api-wallet-address :address
-                     :validuntil :valid-until
-                     :valid-until-ms :valid-until
-                     token)]
-    (if (contains? valid-sort-columns normalized)
-      normalized
-      default-sort-column)))
-
-(defn normalize-api-wallet-sort-direction
-  [value]
-  (let [direction (cond
-                    (keyword? value) value
-                    (string? value) (-> value str/trim str/lower-case keyword)
-                    :else nil)]
-    (if (contains? valid-sort-directions direction)
-      direction
-      default-sort-direction)))
-
-(defn normalize-api-wallet-form-field
-  [value]
-  (let [field (cond
-                (keyword? value) value
-                (string? value) (-> value
-                                    str/trim
-                                    str/lower-case
-                                    (str/replace #"[^a-z0-9]+" "-")
-                                    keyword)
-                :else nil)]
-    (if (contains? valid-form-fields field)
-      field
-      nil)))
 
 (defn- split-path-from-query-fragment
   [path]
@@ -118,49 +44,6 @@
   [path]
   (= :page (:kind (parse-api-wallet-route path))))
 
-(defn normalize-api-wallet-form-value
-  [field value]
-  (case (normalize-api-wallet-form-field field)
-    :name
-    (str (or value ""))
-
-    :address
-    (-> (str (or value ""))
-        str/trim
-        str/lower-case)
-
-    :days-valid
-    (-> (str (or value ""))
-        str/trim
-        (str/replace #"[^0-9]" ""))
-
-    (str (or value ""))))
-
-(defn api-wallet-form-errors
-  [form]
-  (let [form* (merge (default-api-wallet-form) (or form {}))
-        name* (some-> (:name form*) str str/trim)
-        address* (some-> (:address form*) agent-session/normalize-wallet-address)
-        days-valid* (some-> (:days-valid form*) str str/trim)
-        normalized-days (agent-session/normalize-agent-valid-days days-valid*)]
-    {:name (when-not (seq name*)
-             "Enter an API wallet name.")
-     :address (when-not (seq address*)
-                "Enter a valid wallet address.")
-     :days-valid (when (and (seq days-valid*)
-                            (nil? normalized-days))
-                   (str "Enter a value from 1 to "
-                        agent-session/max-agent-valid-days
-                        " days."))}))
-
-(defn api-wallet-form-valid?
-  [form]
-  (every? nil? (vals (api-wallet-form-errors form))))
-
-(defn- first-form-error
-  [form]
-  (some identity (vals (api-wallet-form-errors form))))
-
 (defn load-api-wallet-route
   [state path]
   (if (api-wallet-route? path)
@@ -176,7 +59,7 @@
                        [[:api-wallets :loaded-at-ms :extra-agents] nil]
                        [[:api-wallets :loaded-at-ms :default-agent] nil]
                        [[:api-wallets-ui :form-error] nil]
-                       [[:api-wallets-ui :modal] (default-api-wallet-modal-state)]]]
+                       [[:api-wallets-ui :modal] (policy/default-modal-state)]]]
       (cond-> [[:effects/save-many path-values]]
         connected-owner?
         (conj [:effects/api-load-api-wallets])))
@@ -184,26 +67,19 @@
 
 (defn set-api-wallet-form-field
   [_state field value]
-  (if-let [field* (normalize-api-wallet-form-field field)]
+  (if-let [field* (policy/normalize-form-field field)]
     [[:effects/save-many [[[:api-wallets-ui :form field*]
-                           (normalize-api-wallet-form-value field* value)]
+                           (policy/normalize-form-value field* value)]
                           [[:api-wallets-ui :form-error] nil]]]]
     []))
 
 (defn set-api-wallet-sort
   [state column]
-  (let [column* (normalize-api-wallet-sort-column column)
-        current-sort (or (get-in state [:api-wallets-ui :sort])
-                         {:column default-sort-column
-                          :direction default-sort-direction})
-        current-column (normalize-api-wallet-sort-column (:column current-sort))
-        current-direction (normalize-api-wallet-sort-direction (:direction current-sort))
-        next-direction (if (= column* current-column)
-                         (if (= :asc current-direction) :desc :asc)
-                         (if (= :valid-until column*) :desc :asc))]
+  (let [next-sort (policy/next-sort-state
+                   (get-in state [:api-wallets-ui :sort])
+                   column)]
     [[:effects/save [:api-wallets-ui :sort]
-      {:column column*
-       :direction next-direction}]]))
+      next-sort]]))
 
 (defn generate-api-wallet
   [_state]
@@ -218,9 +94,9 @@
       [[:effects/save [:api-wallets-ui :form-error]
         "Connect your wallet before authorizing an API wallet."]]
 
-      (not (api-wallet-form-valid? form))
+      (not (policy/form-valid? form))
       [[:effects/save [:api-wallets-ui :form-error]
-        (first-form-error form)]]
+        (policy/first-form-error form)]]
 
       :else
       [[:effects/save [:api-wallets-ui :modal]
@@ -243,9 +119,8 @@
 
 (defn close-api-wallet-modal
   [_state]
-  [[:effects/save-many [[[:api-wallets-ui :modal] (default-api-wallet-modal-state)]
-                        [[:api-wallets-ui :generated] {:address nil
-                                                      :private-key nil}]
+  [[:effects/save-many [[[:api-wallets-ui :modal] (policy/default-modal-state)]
+                        [[:api-wallets-ui :generated] (policy/default-generated-state)]
                         [[:api-wallets-ui :form :days-valid] ""]
                         [[:api-wallets-ui :form-error] nil]]]])
 
@@ -260,7 +135,7 @@
                            "Connect your wallet before approving an API wallet."
 
                            (= :authorize modal-type)
-                           (first-form-error form)
+                           (policy/first-form-error form)
 
                            (and (= :remove modal-type)
                                 (not (map? (:row modal))))

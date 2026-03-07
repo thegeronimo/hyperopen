@@ -99,6 +99,12 @@
     (with-redefs [account-endpoints/request-spot-clearinghouse-state! (fn [& args]
                                                                          (swap! called conj [:request-spot args])
                                                                          {:ok :request-spot})
+                  account-endpoints/request-extra-agents! (fn [& args]
+                                                            (swap! called conj [:request-extra-agents args])
+                                                            {:ok :request-extra-agents})
+                  account-endpoints/request-user-webdata2! (fn [& args]
+                                                             (swap! called conj [:request-user-webdata2 args])
+                                                             {:ok :request-user-webdata2})
                   account-endpoints/request-user-abstraction! (fn [& args]
                                                                 (swap! called conj [:request-abstraction args])
                                                                 {:ok :request-abstraction})
@@ -118,6 +124,14 @@
              (account-gateway/request-spot-clearinghouse-state! {:post-info! post-info!}
                                                                 "0xabc"
                                                                 {:priority :high})))
+      (is (= {:ok :request-extra-agents}
+             (account-gateway/request-extra-agents! {:post-info! post-info!}
+                                                    "0xabc"
+                                                    {:priority :high})))
+      (is (= {:ok :request-user-webdata2}
+             (account-gateway/request-user-webdata2! {:post-info! post-info!}
+                                                     "0xabc"
+                                                     {:priority :high})))
       (is (= {:ok :fetch-spot}
              (account-gateway/fetch-spot-clearinghouse-state! {:log-fn identity
                                                                 :request-spot-clearinghouse-state! identity
@@ -155,4 +169,6 @@
                                                                     ["dex-a" "dex-b"]
                                                                     {:priority :high})))
       (is (some #(= :request-spot (first %)) @called))
+      (is (some #(= :request-extra-agents (first %)) @called))
+      (is (some #(= :request-user-webdata2 (first %)) @called))
       (is (some #(= :fetch-clearinghouse (first %)) @called)))))

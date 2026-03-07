@@ -78,6 +78,10 @@
                                                                        (record! :request-user-funding-history-data [deps address opts]))
                   account-gateway/request-user-funding-history! (fn [{:keys [request-user-funding-history-data!]} address opts]
                                                                   (request-user-funding-history-data! address opts))
+                  account-gateway/request-extra-agents! (fn [deps address opts]
+                                                          (record! :request-extra-agents [deps address opts]))
+                  account-gateway/request-user-webdata2! (fn [deps address opts]
+                                                           (record! :request-user-webdata2 [deps address opts]))
                   account-gateway/request-spot-clearinghouse-state! (fn [deps address opts]
                                                                        (record! :request-spot-clearinghouse-state [deps address opts]))
                   account-gateway/request-user-abstraction! (fn [deps address opts]
@@ -192,6 +196,14 @@
                ((:request-user-funding-history! api) "0xabc")))
         (is (= {:ok :request-user-funding-history-data}
                ((:request-user-funding-history! api) "0xabc" {:priority :high})))
+        (is (= {:ok :request-extra-agents}
+               ((:request-extra-agents! api) "0xabc")))
+        (is (= {:ok :request-extra-agents}
+               ((:request-extra-agents! api) "0xabc" {:priority :high})))
+        (is (= {:ok :request-user-webdata2}
+               ((:request-user-webdata2! api) "0xabc")))
+        (is (= {:ok :request-user-webdata2}
+               ((:request-user-webdata2! api) "0xabc" {:priority :high})))
         (is (= {:ok :request-spot-clearinghouse-state}
                ((:request-spot-clearinghouse-state! api) "0xabc")))
         (is (= {:ok :request-spot-clearinghouse-state}

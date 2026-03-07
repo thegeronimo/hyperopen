@@ -1,6 +1,7 @@
 (ns hyperopen.api-wallets.actions-test
   (:require [cljs.test :refer-macros [deftest is]]
-            [hyperopen.api-wallets.actions :as actions]))
+            [hyperopen.api-wallets.actions :as actions]
+            [hyperopen.api-wallets.domain.policy :as policy]))
 
 (def owner-address
   "0x1234567890abcdef1234567890abcdef12345678")
@@ -27,7 +28,7 @@
     (is (= :effects/save-many (ffirst effects)))
     (is (true? (path-value effects [:api-wallets :loading :extra-agents?])))
     (is (true? (path-value effects [:api-wallets :loading :default-agent?])))
-    (is (= (actions/default-api-wallet-modal-state)
+    (is (= (policy/default-modal-state)
            (path-value effects [:api-wallets-ui :modal])))
     (is (= [:effects/api-load-api-wallets]
            (second effects)))))

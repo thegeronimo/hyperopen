@@ -4,6 +4,7 @@
             [hyperopen.api.promise-effects :as promise-effects]
             [hyperopen.api.projections :as api-projections]
             [hyperopen.api-wallets.actions :as api-wallets-actions]
+            [hyperopen.api-wallets.domain.policy :as policy]
             [hyperopen.wallet.agent-session :as agent-session]))
 
 (defn- parse-ms
@@ -67,10 +68,9 @@
          (fn [state]
            (-> state
                (assoc-in [:api-wallets-ui :modal]
-                         (api-wallets-actions/default-api-wallet-modal-state))
+                         (policy/default-modal-state))
                (assoc-in [:api-wallets-ui :generated]
-                         {:address nil
-                          :private-key nil})
+                         (policy/default-generated-state))
                (assoc-in [:api-wallets-ui :form :days-valid] "")
                (assoc-in [:api-wallets-ui :form-error] nil)))))
 
@@ -80,7 +80,7 @@
          (fn [state]
            (-> state
                (assoc-in [:api-wallets-ui :form]
-                         (api-wallets-actions/default-api-wallet-form))
+                         (policy/default-form))
                (assoc-in [:api-wallets-ui :form-error] nil)))))
 
 (defn- clear-default-agent-session!
@@ -183,11 +183,10 @@
         owner-address (account-context/owner-address state)
         form (get-in state [:api-wallets-ui :form])
         {:keys [name address days-valid]} form
-        validation-error (some identity
-                               (vals (api-wallets-actions/api-wallet-form-errors form)))
-        generated-address (get-in state [:api-wallets-ui :generated :address])
-        generated-private-key (when (same-address? address generated-address)
-                                (get-in state [:api-wallets-ui :generated :private-key]))
+        validation-error (policy/first-form-error form)
+        generated-private-key (policy/generated-private-key
+                               (get-in state [:api-wallets-ui :generated])
+                               address)
         server-time-ms (get-in state [:api-wallets :server-time-ms])]
     (if (seq validation-error)
       (set-modal-error! store validation-error)
@@ -222,11 +221,8 @@
   (let [state @store
         owner-address (account-context/owner-address state)
         row (get-in state [:api-wallets-ui :modal :row])
-        named-row? (= :named (:row-kind row))
         default-row? (= :default (:row-kind row))
-        approval-name (when named-row?
-                        (or (:approval-name row)
-                            (:name row)))]
+        approval-name (policy/approval-name-for-row row)]
     (if-not (map? row)
       (set-modal-error! store "Select an API wallet row to remove.")
       (-> (approve-agent-request!
