@@ -144,12 +144,18 @@
             [hyperopen.utils.parse-test]
             [hyperopen.vaults.actions-test]
             [hyperopen.vaults.adapters.webdata-test]
+            [hyperopen.vaults.application.list-commands-test]
+            [hyperopen.vaults.application.route-loading-test]
+            [hyperopen.vaults.application.transfer-commands-test]
             [hyperopen.vaults.detail.activity-test]
             [hyperopen.vaults.detail.benchmarks-test]
             [hyperopen.vaults.detail.performance-test]
             [hyperopen.vaults.detail.transfer-test]
             [hyperopen.vaults.detail.types-test]
+            [hyperopen.vaults.domain.transfer-policy-test]
             [hyperopen.vaults.effects-test]
+            [hyperopen.vaults.infrastructure.persistence-test]
+            [hyperopen.vaults.infrastructure.routes-test]
             [hyperopen.views.account-equity-view-test]
             [hyperopen.views.account-info-view-test]
             [hyperopen.views.account-info.cache-keys-test]
@@ -432,12 +438,18 @@
              'hyperopen.utils.parse-test
              'hyperopen.vaults.actions-test
              'hyperopen.vaults.adapters.webdata-test
+             'hyperopen.vaults.application.list-commands-test
+             'hyperopen.vaults.application.route-loading-test
+             'hyperopen.vaults.application.transfer-commands-test
              'hyperopen.vaults.detail.activity-test
              'hyperopen.vaults.detail.benchmarks-test
              'hyperopen.vaults.detail.performance-test
              'hyperopen.vaults.detail.transfer-test
              'hyperopen.vaults.detail.types-test
+             'hyperopen.vaults.domain.transfer-policy-test
              'hyperopen.vaults.effects-test
+             'hyperopen.vaults.infrastructure.persistence-test
+             'hyperopen.vaults.infrastructure.routes-test
              'hyperopen.views.account-equity-view-test
              'hyperopen.views.account-info-view-test
              'hyperopen.views.account-info.cache-keys-test

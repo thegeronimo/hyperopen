@@ -1,6 +1,7 @@
 (ns hyperopen.views.vaults.vm
   (:require [clojure.string :as str]
-            [hyperopen.vaults.actions :as vault-actions]))
+            [hyperopen.vaults.domain.ui-state :as vault-ui-state]
+            [hyperopen.vaults.infrastructure.routes :as vault-routes]))
 
 (def ^:private day-ms
   (* 24 60 60 1000))
@@ -32,15 +33,15 @@
 
 (defn vault-route?
   [path]
-  (not= :other (:kind (vault-actions/parse-vault-route path))))
+  (not= :other (:kind (vault-routes/parse-vault-route path))))
 
 (defn vault-detail-route?
   [path]
-  (= :detail (:kind (vault-actions/parse-vault-route path))))
+  (= :detail (:kind (vault-routes/parse-vault-route path))))
 
 (defn selected-vault-address
   [path]
-  (:vault-address (vault-actions/parse-vault-route path)))
+  (:vault-address (vault-routes/parse-vault-route path)))
 
 (defn- snapshot-point-value
   [entry]
@@ -69,7 +70,7 @@
 
 (defn- snapshot-range-keys
   [snapshot-range]
-  (case (vault-actions/normalize-vault-snapshot-range snapshot-range)
+  (case (vault-ui-state/normalize-vault-snapshot-range snapshot-range)
     :day [:day :week :month :all-time]
     :week [:week :month :all-time :day]
     :month [:month :week :all-time :day]
@@ -216,7 +217,7 @@
 
 (defn- sort-rows
   [rows {:keys [column direction]}]
-  (let [column* (vault-actions/normalize-vault-sort-column column)
+  (let [column* (vault-ui-state/normalize-vault-sort-column column)
         direction* (if (= :asc direction) :asc :desc)]
     (sort (fn [left right]
             (compare-rows left right column* direction*))
@@ -238,7 +239,7 @@
   [rows page-size page]
   (let [total-rows (count rows)
         page-count (max 1 (int (js/Math.ceil (/ total-rows page-size))))
-        safe-page (vault-actions/normalize-vault-user-page page page-count)
+        safe-page (vault-ui-state/normalize-vault-user-page page page-count)
         start-idx (* (dec safe-page) page-size)
         end-idx (min total-rows (+ start-idx page-size))
         page-rows (if (< start-idx total-rows)
@@ -262,19 +263,19 @@
   [state]
   (let [wallet-address (normalize-address (get-in state [:wallet :address]))
         query (get-in state [:vaults-ui :search-query] "")
-        snapshot-range (vault-actions/normalize-vault-snapshot-range
+        snapshot-range (vault-ui-state/normalize-vault-snapshot-range
                         (get-in state [:vaults-ui :snapshot-range]))
-        user-page-size (vault-actions/normalize-vault-user-page-size
+        user-page-size (vault-ui-state/normalize-vault-user-page-size
                         (get-in state [:vaults-ui :user-vaults-page-size]))
-        requested-user-page (vault-actions/normalize-vault-user-page
+        requested-user-page (vault-ui-state/normalize-vault-user-page
                              (get-in state [:vaults-ui :user-vaults-page]))
         filters {:leading? (true? (get-in state [:vaults-ui :filter-leading?] true))
                  :deposited? (true? (get-in state [:vaults-ui :filter-deposited?] true))
                  :others? (true? (get-in state [:vaults-ui :filter-others?] true))
                  :show-closed? (true? (get-in state [:vaults-ui :filter-closed?] false))}
         sort-state (or (get-in state [:vaults-ui :sort])
-                       {:column vault-actions/default-vault-sort-column
-                        :direction vault-actions/default-vault-sort-direction})
+                       {:column vault-ui-state/default-vault-sort-column
+                        :direction vault-ui-state/default-vault-sort-direction})
         equity-by-address (or (get-in state [:vaults :user-equity-by-address]) {})
         now-ms (.now js/Date)
         parsed-rows (->> (rows-source state)
@@ -298,7 +299,7 @@
                        (get-in state [:vaults :errors :summaries]))]
     {:query query
      :snapshot-range snapshot-range
-     :sort {:column (vault-actions/normalize-vault-sort-column (:column sort-state))
+     :sort {:column (vault-ui-state/normalize-vault-sort-column (:column sort-state))
             :direction (if (= :asc (:direction sort-state)) :asc :desc)}
      :filters filters
      :loading? list-loading?
@@ -309,7 +310,7 @@
      :visible-user-rows (:rows user-pagination)
      :user-pagination {:total-rows (:total-rows user-pagination)
                        :page-size user-page-size
-                       :page-size-options vault-actions/vault-user-page-size-options
+                       :page-size-options vault-ui-state/vault-user-page-size-options
                        :page-size-dropdown-open? (true? (get-in state [:vaults-ui :user-vaults-page-size-dropdown-open?]))
                        :page (:page user-pagination)
                        :page-count (:page-count user-pagination)}

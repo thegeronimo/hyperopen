@@ -3,7 +3,9 @@
             [hyperopen.account.context :as account-context]
             [hyperopen.api.promise-effects :as promise-effects]
             [hyperopen.api.trading :as trading-api]
-            [hyperopen.vaults.actions :as vault-actions]))
+            [hyperopen.vaults.domain.identity :as vault-identity]
+            [hyperopen.vaults.domain.transfer-policy :as vault-transfer-policy]
+            [hyperopen.vaults.infrastructure.routes :as vault-routes]))
 
 (def ^:private funding-history-lookback-ms
   (* 90 24 60 60 1000))
@@ -11,14 +13,14 @@
 (defn- vault-list-route-active?
   [store]
   (let [path (get-in @store [:router :path] "")
-        {:keys [kind]} (vault-actions/parse-vault-route path)]
+        {:keys [kind]} (vault-routes/parse-vault-route path)]
     (or (contains? #{:list :detail} kind)
         (str/starts-with? (or path "") "/portfolio"))))
 
 (defn- vault-detail-route-active?
   [store]
   (= :detail
-     (:kind (vault-actions/parse-vault-route
+     (:kind (vault-routes/parse-vault-route
              (get-in @store [:router :path] "")))))
 
 (defn- allow-route?
@@ -272,13 +274,13 @@
          exchange-response-error fallback-exchange-response-error
          runtime-error-message fallback-runtime-error-message
          show-toast! (fn [_store _kind _message] nil)
-         default-vault-transfer-modal-state vault-actions/default-vault-transfer-modal-state}}]
+         default-vault-transfer-modal-state vault-transfer-policy/default-vault-transfer-modal-state}}]
   (let [state @store
         spectate-mode-message (account-context/mutations-blocked-message state)
         address (get-in state [:wallet :address])
         agent-status (get-in state [:wallet :agent :status])
-        vault-address (or (vault-actions/normalize-vault-address (:vault-address request))
-                          (vault-actions/normalize-vault-address (get-in request [:action :vaultAddress])))
+        vault-address (or (vault-identity/normalize-vault-address (:vault-address request))
+                          (vault-identity/normalize-vault-address (get-in request [:action :vaultAddress])))
         action (:action request)
         is-deposit? (true? (:isDeposit action))
         mode-label (submit-mode-label is-deposit?)]

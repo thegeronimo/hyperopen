@@ -1,11 +1,13 @@
 (ns hyperopen.views.vaults.detail-vm
   (:require [clojure.string :as str]
             [hyperopen.vaults.adapters.webdata :as webdata-adapter]
-            [hyperopen.vaults.actions :as vault-actions]
             [hyperopen.vaults.detail.activity :as activity-model]
             [hyperopen.vaults.detail.benchmarks :as benchmarks-model]
             [hyperopen.vaults.detail.performance :as performance-model]
             [hyperopen.vaults.detail.transfer :as transfer-model]
+            [hyperopen.vaults.domain.identity :as vault-identity]
+            [hyperopen.vaults.domain.ui-state :as vault-ui-state]
+            [hyperopen.vaults.infrastructure.routes :as vault-routes]
             [hyperopen.views.vaults.detail.chart :as chart-model]))
 
 (def ^:private chart-timeframe-options
@@ -53,22 +55,11 @@
     (when (seq text)
       text)))
 
-(defn- normalize-address
-  [value]
-  (some-> value non-blank-text str/lower-case))
-
-(defn- relationship-child-addresses
-  [relationship]
-  (->> (or (:child-addresses relationship) [])
-       (keep normalize-address)
-       distinct
-       vec))
-
 (defn- activity-addresses
   [vault-address relationship]
   (->> (concat [vault-address]
-               (relationship-child-addresses relationship))
-       (keep normalize-address)
+               (vault-identity/relationship-child-addresses relationship))
+       (keep vault-identity/normalize-vault-address)
        distinct
        vec))
 
@@ -107,14 +98,14 @@
 (defn- row-by-address
   [state vault-address]
   (some (fn [row]
-          (when (= vault-address (normalize-address (:vault-address row)))
+          (when (= vault-address (vault-identity/normalize-vault-address (:vault-address row)))
             row))
         (or (get-in state [:vaults :merged-index-rows]) [])))
 
 (defn- normalize-depositor-row
   [row]
   (when (map? row)
-    {:address (normalize-address (:user row))
+    {:address (vault-identity/normalize-vault-address (:user row))
      :vault-amount (optional-number (:vault-equity row))
      :unrealized-pnl (optional-number (:pnl row))
      :all-time-pnl (optional-number (:all-time-pnl row))
@@ -132,7 +123,7 @@
 
 (defn- resolve-chart-series
   [series-by-key selected-series]
-  (let [selected* (vault-actions/normalize-vault-detail-chart-series selected-series)
+  (let [selected* (vault-ui-state/normalize-vault-detail-chart-series selected-series)
         has-series? (fn [k]
                       (seq (get series-by-key k)))]
     (cond
@@ -156,14 +147,14 @@
    (let [now-ms* (or (optional-number now-ms)
                      (.now js/Date))
          route (get-in state [:router :path])
-        {:keys [kind vault-address]} (vault-actions/parse-vault-route route)
-        detail-tab (vault-actions/normalize-vault-detail-tab
+         {:keys [kind vault-address]} (vault-routes/parse-vault-route route)
+        detail-tab (vault-ui-state/normalize-vault-detail-tab
                     (get-in state [:vaults-ui :detail-tab]))
-        activity-tab (vault-actions/normalize-vault-detail-activity-tab
+        activity-tab (vault-ui-state/normalize-vault-detail-activity-tab
                       (get-in state [:vaults-ui :detail-activity-tab]))
-        chart-series (vault-actions/normalize-vault-detail-chart-series
+        chart-series (vault-ui-state/normalize-vault-detail-chart-series
                       (get-in state [:vaults-ui :detail-chart-series]))
-        snapshot-range (vault-actions/normalize-vault-snapshot-range
+        snapshot-range (vault-ui-state/normalize-vault-snapshot-range
                         (get-in state [:vaults-ui :snapshot-range]))
         detail-loading? (true? (get-in state [:vaults-ui :detail-loading?]))
         details (get-in state [:vaults :details-by-address vault-address])
@@ -220,7 +211,7 @@
                                                          :vault-name vault-name
                                                          :details details
                                                          :webdata webdata})
-        wallet-address (vault-actions/normalize-vault-address (get-in state [:wallet :address]))
+        wallet-address (vault-identity/normalize-vault-address (get-in state [:wallet :address]))
         agent-ready? (= :ready (get-in state [:wallet :agent :status]))
         summary (performance-model/portfolio-summary details snapshot-range)
         returns-benchmark-selector (benchmarks-model/returns-benchmark-selector-model state)

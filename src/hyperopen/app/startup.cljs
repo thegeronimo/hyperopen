@@ -15,7 +15,7 @@
             [hyperopen.startup.restore :as startup-restore]
             [hyperopen.startup.runtime :as startup-runtime-lib]
             [hyperopen.ui.preferences :as ui-preferences]
-            [hyperopen.vaults.actions :as vault-actions]
+            [hyperopen.vaults.infrastructure.persistence :as vault-persistence]
             [hyperopen.wallet.core :as wallet]))
 
 (defn mark-performance!
@@ -128,7 +128,7 @@
        :restore-chart-options! chart-settings/restore-chart-options!
        :restore-orderbook-ui! orderbook-settings/restore-orderbook-ui!
        :restore-portfolio-summary-time-range! portfolio-actions/restore-portfolio-summary-time-range!
-       :restore-vaults-snapshot-range! vault-actions/restore-vaults-snapshot-range!
+       :restore-vaults-snapshot-range! vault-persistence/restore-vaults-snapshot-range!
        :restore-agent-storage-mode! startup-restore/restore-agent-storage-mode!
        :restore-spectate-mode-preferences! startup-restore/restore-spectate-mode-preferences!
        :restore-spectate-mode-url! startup-restore/restore-spectate-mode-url!

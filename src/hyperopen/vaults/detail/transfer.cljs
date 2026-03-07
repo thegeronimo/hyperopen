@@ -1,8 +1,9 @@
 (ns hyperopen.vaults.detail.transfer
   (:require [clojure.string :as str]
             [hyperopen.utils.formatting :as fmt]
-            [hyperopen.vaults.actions :as vault-actions]
-            [hyperopen.vaults.adapters.webdata :as webdata-adapter]))
+            [hyperopen.vaults.adapters.webdata :as webdata-adapter]
+            [hyperopen.vaults.domain.identity :as vault-identity]
+            [hyperopen.vaults.domain.transfer-policy :as vault-transfer-policy]))
 
 (def ^:private ms-per-day
   (* 24 60 60 1000))
@@ -163,18 +164,18 @@
         deposit-max-usdc (vault-transfer-deposit-max-usdc state wallet-webdata webdata)
         deposit-lockup-days (vault-deposit-lockup-days details vault-name*)
         raw-vault-transfer-modal (get-in state [:vaults-ui :vault-transfer-modal])
-        vault-transfer-modal* (merge (vault-actions/default-vault-transfer-modal-state)
+        vault-transfer-modal* (merge (vault-transfer-policy/default-vault-transfer-modal-state)
                                      (if (map? raw-vault-transfer-modal)
                                        raw-vault-transfer-modal
                                        {}))
-        vault-transfer-vault-address (or (vault-actions/normalize-vault-address
+        vault-transfer-vault-address (or (vault-identity/normalize-vault-address
                                           (:vault-address vault-transfer-modal*))
                                          vault-address)
-        vault-transfer-mode (vault-actions/normalize-vault-transfer-mode
+        vault-transfer-mode (vault-transfer-policy/normalize-vault-transfer-mode
                              (:mode vault-transfer-modal*))
         vault-transfer-open? (and (true? (:open? vault-transfer-modal*))
                                   (= vault-transfer-vault-address vault-address))
-        vault-transfer-preview (vault-actions/vault-transfer-preview
+        vault-transfer-preview (vault-transfer-policy/vault-transfer-preview
                                 state
                                 (assoc vault-transfer-modal*
                                        :vault-address vault-transfer-vault-address
@@ -189,7 +190,7 @@
                                       (if (= vault-transfer-mode :deposit)
                                         "Deposit"
                                         "Withdraw"))
-        deposit-allowed? (vault-actions/vault-transfer-deposit-allowed? state vault-address)]
+        deposit-allowed? (vault-transfer-policy/vault-transfer-deposit-allowed? state vault-address)]
     {:can-open-deposit? deposit-allowed?
      :can-open-withdraw? true
      :open? vault-transfer-open?

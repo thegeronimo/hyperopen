@@ -7,13 +7,12 @@
             [hyperopen.i18n.locale :as i18n-locale]
             [hyperopen.platform :as platform]
             [hyperopen.portfolio.actions :as portfolio-actions]
-            [hyperopen.vaults.actions :as vault-actions]))
+            [hyperopen.vaults.domain.transfer-policy :as vault-transfer-policy]
+            [hyperopen.vaults.domain.ui-state :as vault-ui-state]
+            [hyperopen.vaults.infrastructure.persistence :as vault-persistence]))
 
 (def ^:private portfolio-summary-time-range-storage-key
   "portfolio-summary-time-range")
-
-(def ^:private vaults-snapshot-range-storage-key
-  "vaults-snapshot-range")
 
 (defn- default-portfolio-summary-time-range
   []
@@ -22,8 +21,7 @@
 
 (defn- default-vaults-snapshot-range
   []
-  (vault-actions/normalize-vault-snapshot-range
-   (platform/local-storage-get vaults-snapshot-range-storage-key)))
+  (vault-persistence/read-vaults-snapshot-range))
 
 (defn default-websocket-state
   [websocket-health]
@@ -159,23 +157,23 @@
    :filter-others? true
    :filter-closed? false
    :snapshot-range (default-vaults-snapshot-range)
-   :sort {:column :tvl
-          :direction :desc}
-   :user-vaults-page-size 10
-   :user-vaults-page 1
+   :sort {:column vault-ui-state/default-vault-sort-column
+          :direction vault-ui-state/default-vault-sort-direction}
+   :user-vaults-page-size vault-ui-state/default-vault-user-page-size
+   :user-vaults-page vault-ui-state/default-vault-user-page
    :user-vaults-page-size-dropdown-open? false
-   :detail-tab :about
-   :detail-activity-tab :performance-metrics
+   :detail-tab vault-ui-state/default-vault-detail-tab
+   :detail-activity-tab vault-ui-state/default-vault-detail-activity-tab
    :detail-activity-sort-by-tab {}
-   :detail-activity-direction-filter :all
+   :detail-activity-direction-filter vault-ui-state/default-vault-detail-activity-direction-filter
    :detail-activity-filter-open? false
-   :detail-chart-series :returns
+   :detail-chart-series vault-ui-state/default-vault-detail-chart-series
    :detail-returns-benchmark-coins ["BTC"]
    :detail-returns-benchmark-coin "BTC"
    :detail-returns-benchmark-search ""
    :detail-returns-benchmark-suggestions-open? false
    :detail-chart-hover-index nil
-   :vault-transfer-modal (vault-actions/default-vault-transfer-modal-state)
+   :vault-transfer-modal (vault-transfer-policy/default-vault-transfer-modal-state)
    :list-loading? false
    :detail-loading? false})
 
