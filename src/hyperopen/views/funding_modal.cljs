@@ -158,77 +158,109 @@
    [:span {:class ["text-[#7d94a0]"]} label]
    [:span {:class ["text-[#dce9ee]"]} value]])
 
+(defn- lifecycle-stage-row
+  [panel]
+  [:div {:class ["flex" "items-center" "justify-between"]}
+   [:span {:class ["text-xs" "uppercase" "tracking-[0.08em]" "text-[#7d94a0]"]}
+    "Lifecycle Stage"]
+   [:span {:class ["text-xs" "font-medium" "text-[#dce9ee]"]}
+    (:stage-label panel)]])
+
+(defn- outcome-tone-class
+  [tone]
+  (if (= tone :failure)
+    "text-[#f2b8c5]"
+    "text-[#7af2d7]"))
+
+(defn- lifecycle-outcome-row
+  [panel]
+  (when-let [{:keys [label tone]} (:outcome panel)]
+    [:div {:class ["flex" "items-center" "justify-between"]}
+     [:span {:class ["text-[#7d94a0]"]} "Outcome"]
+     [:span {:class ["text-xs"
+                     "font-medium"
+                     (outcome-tone-class tone)]}
+      label]]))
+
+(defn- lifecycle-detail-rows
+  [panel]
+  (remove nil?
+          [(when (number? (:source-confirmations panel))
+             (summary-row {:label "Source confirmations"
+                           :value (str (:source-confirmations panel))}))
+           (when (number? (:destination-confirmations panel))
+             (summary-row {:label "Destination confirmations"
+                           :value (str (:destination-confirmations panel))}))
+           (when (number? (:queue-position panel))
+             (summary-row {:label "Queue position"
+                           :value (str (:queue-position panel))}))]))
+
+(defn- lifecycle-destination-tx-block
+  [panel]
+  (when-let [destination-tx (:destination-tx panel)]
+    [:div {:class ["space-y-1"]}
+     [:p {:class ["text-[#7d94a0]"]} "Destination tx hash"]
+     (lifecycle-tx-hash-content destination-tx)]))
+
+(defn- lifecycle-next-check-row
+  [panel]
+  (when (seq (:next-check-label panel))
+    (summary-row {:label "Next check"
+                  :value (:next-check-label panel)})))
+
+(defn- notice-block
+  [classes message]
+  [:div {:class classes}
+   message])
+
+(defn- lifecycle-notice-blocks
+  [panel]
+  (remove nil?
+          [(when (seq (:error panel))
+             (notice-block ["rounded-md"
+                            "border"
+                            "border-[#7b3340]"
+                            "bg-[#3a1b22]/55"
+                            "px-2.5"
+                            "py-1.5"
+                            "text-xs"
+                            "text-[#f2b8c5]"]
+                           (:error panel)))
+           (when (seq (:recovery-hint panel))
+             (notice-block ["rounded-md"
+                            "border"
+                            "border-[#775331]"
+                            "bg-[#322515]/55"
+                            "px-2.5"
+                            "py-1.5"
+                            "text-xs"
+                            "text-[#f7d8af]"]
+                           (:recovery-hint panel)))]))
+
 (defn- lifecycle-panel
   [panel data-role]
   (when (map? panel)
-    [:div {:class ["rounded-lg"
-                   "border"
-                   "border-[#24485b]"
-                   "bg-[#0c1f2c]"
-                   "px-3"
-                   "py-2.5"
-                   "space-y-1.5"]
-           :data-role data-role}
-     [:div {:class ["flex" "items-center" "justify-between"]}
-      [:span {:class ["text-xs" "uppercase" "tracking-[0.08em]" "text-[#7d94a0]"]}
-       "Lifecycle Stage"]
-      [:span {:class ["text-xs" "font-medium" "text-[#dce9ee]"]}
-       (:stage-label panel)]]
-     [:div {:class ["flex" "items-center" "justify-between"]}
-      [:span {:class ["text-[#7d94a0]"]} "Status"]
-      [:span {:class ["text-[#dce9ee]"]} (:status-label panel)]]
-     (when-let [{:keys [label tone]} (:outcome panel)]
-       [:div {:class ["flex" "items-center" "justify-between"]}
-        [:span {:class ["text-[#7d94a0]"]} "Outcome"]
-        [:span {:class ["text-xs"
-                        "font-medium"
-                        (if (= tone :failure)
-                          "text-[#f2b8c5]"
-                          "text-[#7af2d7]")]}
-         label]])
-     (when (number? (:source-confirmations panel))
-       [:div {:class ["flex" "items-center" "justify-between"]}
-        [:span {:class ["text-[#7d94a0]"]} "Source confirmations"]
-        [:span {:class ["text-[#dce9ee]"]}
-         (str (:source-confirmations panel))]])
-     (when (number? (:destination-confirmations panel))
-       [:div {:class ["flex" "items-center" "justify-between"]}
-        [:span {:class ["text-[#7d94a0]"]} "Destination confirmations"]
-        [:span {:class ["text-[#dce9ee]"]}
-         (str (:destination-confirmations panel))]])
-     (when (number? (:queue-position panel))
-       [:div {:class ["flex" "items-center" "justify-between"]}
-        [:span {:class ["text-[#7d94a0]"]} "Queue position"]
-        [:span {:class ["text-[#dce9ee]"]}
-         (str (:queue-position panel))]])
-     (when-let [destination-tx (:destination-tx panel)]
-       [:div {:class ["space-y-1"]}
-        [:p {:class ["text-[#7d94a0]"]} "Destination tx hash"]
-        (lifecycle-tx-hash-content destination-tx)])
-     (when (seq (:next-check-label panel))
-       [:div {:class ["flex" "items-center" "justify-between"]}
-        [:span {:class ["text-[#7d94a0]"]} "Next check"]
-        [:span {:class ["text-[#dce9ee]"]} (:next-check-label panel)]])
-     (when (seq (:error panel))
-       [:div {:class ["rounded-md"
-                      "border"
-                      "border-[#7b3340]"
-                      "bg-[#3a1b22]/55"
-                      "px-2.5"
-                      "py-1.5"
-                      "text-xs"
-                      "text-[#f2b8c5]"]}
-        (:error panel)])
-     (when (seq (:recovery-hint panel))
-       [:div {:class ["rounded-md"
-                      "border"
-                      "border-[#775331]"
-                      "bg-[#322515]/55"
-                      "px-2.5"
-                      "py-1.5"
-                      "text-xs"
-                      "text-[#f7d8af]"]}
-        (:recovery-hint panel)])]))
+    (into
+     [:div {:class ["rounded-lg"
+                    "border"
+                    "border-[#24485b]"
+                    "bg-[#0c1f2c]"
+                    "px-3"
+                    "py-2.5"
+                    "space-y-1.5"]
+            :data-role data-role}
+      (lifecycle-stage-row panel)
+      (summary-row {:label "Status"
+                    :value (:status-label panel)})]
+     (concat
+      (when-let [row (lifecycle-outcome-row panel)]
+        [row])
+      (lifecycle-detail-rows panel)
+      (when-let [block (lifecycle-destination-tx-block panel)]
+        [block])
+      (when-let [row (lifecycle-next-check-row panel)]
+        [row])
+      (lifecycle-notice-blocks panel)))))
 
 (defn- action-row
   [{:keys [back-action
@@ -616,141 +648,193 @@
     :error "Unavailable"
     "N/A"))
 
-(defn- withdraw-content
-  [{:keys [assets selected-asset destination amount flow summary lifecycle actions]}]
-  [:div {:class ["space-y-3"]}
-   [:div {:class ["space-y-2"]}
-    [:label {:class ["block" "text-xs" "uppercase" "tracking-[0.08em]" "text-[#8ea4ab]"]}
-     "Asset"]
+(defn- hyperunit-address-flow?
+  [flow]
+  (= (:kind flow) :hyperunit-address))
+
+(defn- withdraw-asset-selector
+  [assets selected-asset submitting?]
+  [:div {:class ["space-y-2"]}
+   [:label {:class ["block" "text-xs" "uppercase" "tracking-[0.08em]" "text-[#8ea4ab]"]}
+    "Asset"]
+   [:div {:class ["rounded-lg"
+                  "border"
+                  "border-[#1f3f4f]"
+                  "bg-[#152230]"
+                  "px-3"
+                  "py-2.5"]}
+    [:div {:class ["flex" "items-center" "justify-between" "gap-3"]}
+     [:div {:class ["flex" "items-center" "gap-2.5"]}
+      (funding-asset-icon (:symbol selected-asset) (asset-icon-src selected-asset))
+      [:div {:class ["flex" "flex-col"]}
+       [:span {:class ["text-sm" "font-semibold" "text-[#e6eef2]"]} (:symbol selected-asset)]
+       [:span {:class ["text-xs" "text-[#7e95a0]"]} (:network selected-asset)]]]
+     [:select {:value (or (some-> (:key selected-asset) name) "usdc")
+               :disabled submitting?
+               :class ["rounded-md"
+                       "border"
+                       "border-[#355061]"
+                       "bg-[#0e1f2b]"
+                       "px-2.5"
+                       "py-1.5"
+                       "text-xs"
+                       "text-[#dce9ee]"
+                       "outline-none"
+                       "focus:border-[#4b6c82]"
+                       "disabled:opacity-70"]
+               :on {:input [[:actions/select-funding-withdraw-asset
+                             [:event.target/value]]]}}
+      (for [asset assets]
+        ^{:key (str "withdraw-asset-" (name (:key asset)))}
+        [:option {:value (name (:key asset))}
+         (:symbol asset)])]]]])
+
+(defn- withdraw-destination-label
+  [selected-asset flow]
+  (if (hyperunit-address-flow? flow)
+    (str "Destination Address (" (:network selected-asset) ")")
+    "Destination Address"))
+
+(defn- withdraw-destination-placeholder
+  [selected-asset flow]
+  (if (hyperunit-address-flow? flow)
+    (str "Enter " (:symbol selected-asset) " destination")
+    "0x..."))
+
+(defn- withdraw-destination-field
+  [selected-asset flow destination submitting?]
+  [:div {:class ["space-y-2"]}
+   [:label {:class ["block" "text-xs" "uppercase" "tracking-[0.08em]" "text-[#8ea4ab]"]}
+    (withdraw-destination-label selected-asset flow)]
+   [:input {:type "text"
+            :placeholder (withdraw-destination-placeholder selected-asset flow)
+            :disabled submitting?
+            :value (:value destination)
+            :class ["w-full"
+                    "rounded-lg"
+                    "border"
+                    "border-[#28474b]"
+                    "bg-[#0c2028]"
+                    "px-3"
+                    "py-2"
+                    "text-sm"
+                    "text-[#e6eff2]"
+                    "outline-none"
+                    "focus:border-[#4f8f87]"
+                    "disabled:cursor-not-allowed"
+                    "disabled:opacity-70"]
+            :on {:input [[:actions/enter-funding-withdraw-destination
+                          [:event.target/value]]]}}]])
+
+(defn- queue-operation-link-or-text
+  [{:keys [tx-id explorer-url]}]
+  (if (seq explorer-url)
+    [:a {:href explorer-url
+         :target "_blank"
+         :rel "noreferrer noopener"
+         :class ["max-w-[220px]"
+                 "truncate"
+                 "font-mono"
+                 "text-xs"
+                 "text-[#70e9e1]"
+                 "underline"
+                 "decoration-[#3d8f8a]"
+                 "hover:text-[#9df5ef]"]}
+     tx-id]
+    [:span {:class ["max-w-[220px]"
+                    "truncate"
+                    "font-mono"
+                    "text-xs"
+                    "text-[#dce9ee]"]}
+     tx-id]))
+
+(defn- withdraw-queue-row
+  [flow]
+  (when (hyperunit-address-flow? flow)
+    [:div {:class ["flex" "items-center" "justify-between"]}
+     [:span {:class ["text-[#7d94a0]"]} "Withdrawal queue"]
+     [:span {:class ["text-[#dce9ee]"]}
+      (withdrawal-queue-copy (get-in flow [:withdrawal-queue]))]]))
+
+(defn- withdraw-last-queue-tx-row
+  [flow]
+  (when-let [tx-id (when (hyperunit-address-flow? flow)
+                     (get-in flow [:withdrawal-queue :last-operation :tx-id]))]
+    [:div {:class ["flex" "items-center" "justify-between" "gap-2"]}
+     [:span {:class ["text-[#7d94a0]"]} "Last queue tx"]
+     (queue-operation-link-or-text (assoc (get-in flow [:withdrawal-queue :last-operation])
+                                          :tx-id tx-id))]))
+
+(defn- withdraw-queue-error-message
+  [flow]
+  (when (and (hyperunit-address-flow? flow)
+             (= :error (get-in flow [:withdrawal-queue :state]))
+             (seq (get-in flow [:withdrawal-queue :message])))
+    [:p {:class ["text-xs" "text-[#9db2ba]"]}
+     (str "Live queue status unavailable: "
+          (get-in flow [:withdrawal-queue :message]))]))
+
+(defn- withdraw-fee-estimate-error-message
+  [flow]
+  (when (and (hyperunit-address-flow? flow)
+             (= :error (get-in flow [:fee-estimate :state]))
+             (seq (get-in flow [:fee-estimate :message])))
+    [:p {:class ["text-xs" "text-[#9db2ba]"]}
+     (str "Live HyperUnit estimates unavailable: "
+          (get-in flow [:fee-estimate :message]))]))
+
+(defn- withdraw-summary-section
+  [summary flow]
+  (into
+   [:div {:class ["space-y-1.5" "pt-1" "text-sm"]}]
+   (concat
+    (for [row (:rows summary)]
+      ^{:key (:label row)}
+      (summary-row row))
+    (remove nil?
+            [(withdraw-queue-row flow)
+             (withdraw-last-queue-tx-row flow)
+             (withdraw-queue-error-message flow)
+             (withdraw-fee-estimate-error-message flow)]))))
+
+(defn- withdraw-protocol-address-panel
+  [flow]
+  (when (and (hyperunit-address-flow? flow)
+             (seq (:protocol-address flow)))
     [:div {:class ["rounded-lg"
                    "border"
-                   "border-[#1f3f4f]"
-                   "bg-[#152230]"
+                   "border-[#24485b]"
+                   "bg-[#0f2433]"
                    "px-3"
-                   "py-2.5"]}
-     [:div {:class ["flex" "items-center" "justify-between" "gap-3"]}
-      [:div {:class ["flex" "items-center" "gap-2.5"]}
-       (funding-asset-icon (:symbol selected-asset) (asset-icon-src selected-asset))
-       [:div {:class ["flex" "flex-col"]}
-        [:span {:class ["text-sm" "font-semibold" "text-[#e6eef2]"]} (:symbol selected-asset)]
-        [:span {:class ["text-xs" "text-[#7e95a0]"]} (:network selected-asset)]]]
-      [:select {:value (or (some-> (:key selected-asset) name) "usdc")
-                :disabled (get-in actions [:submitting?])
-                :class ["rounded-md"
-                        "border"
-                        "border-[#355061]"
-                        "bg-[#0e1f2b]"
-                        "px-2.5"
-                        "py-1.5"
-                        "text-xs"
-                        "text-[#dce9ee]"
-                        "outline-none"
-                        "focus:border-[#4b6c82]"
-                        "disabled:opacity-70"]
-                :on {:input [[:actions/select-funding-withdraw-asset
-                              [:event.target/value]]]}}
-       (for [asset assets]
-         ^{:key (str "withdraw-asset-" (name (:key asset)))}
-         [:option {:value (name (:key asset))}
-          (:symbol asset)])]]]]
-   [:div {:class ["space-y-2"]}
-    [:label {:class ["block" "text-xs" "uppercase" "tracking-[0.08em]" "text-[#8ea4ab]"]}
-     (if (= (:kind flow) :hyperunit-address)
-       (str "Destination Address (" (:network selected-asset) ")")
-       "Destination Address")]
-    [:input {:type "text"
-             :placeholder (if (= (:kind flow) :hyperunit-address)
-                            (str "Enter " (:symbol selected-asset) " destination")
-                            "0x...")
-             :disabled (get-in actions [:submitting?])
-             :value (:value destination)
-             :class ["w-full"
-                     "rounded-lg"
-                     "border"
-                     "border-[#28474b]"
-                     "bg-[#0c2028]"
-                     "px-3"
-                     "py-2"
-                     "text-sm"
-                     "text-[#e6eff2]"
-                     "outline-none"
-                     "focus:border-[#4f8f87]"
-                     "disabled:cursor-not-allowed"
-                     "disabled:opacity-70"]
-             :on {:input [[:actions/enter-funding-withdraw-destination
-                           [:event.target/value]]]}}]]
+                   "py-2.5"
+                   "space-y-1.5"]}
+     [:p {:class ["text-xs" "uppercase" "tracking-[0.08em]" "text-[#7c93a0]"]}
+      "HyperUnit Protocol Address"]
+     [:p {:class ["break-all" "font-mono" "text-xs" "text-[#d6e8ee]"]}
+      (:protocol-address flow)]]))
+
+(defn- withdraw-content
+  [{:keys [assets selected-asset destination amount flow summary lifecycle actions]}]
+  (let [submitting? (get-in actions [:submitting?])]
+    [:div {:class ["space-y-3"]}
+     (withdraw-asset-selector assets selected-asset submitting?)
+     (withdraw-destination-field selected-asset flow destination submitting?)
    (amount-input-field {:label (str "Amount (" (:symbol amount) ")")
                         :value (:value amount)
                         :placeholder "Enter amount"
-                        :disabled? (get-in actions [:submitting?])
+                        :disabled? submitting?
                         :input-action :actions/enter-funding-withdraw-amount
                         :max-action :actions/set-funding-amount-to-max
                         :max-label (str "MAX: " (:max-display amount) " " (:symbol amount))
                         :data-role "funding-withdraw-amount-input"})
-   [:div {:class ["space-y-1.5" "pt-1" "text-sm"]}
-    (for [row (:rows summary)]
-      ^{:key (:label row)}
-      (summary-row row))
-    (when (= (:kind flow) :hyperunit-address)
-      [:div {:class ["flex" "items-center" "justify-between"]}
-       [:span {:class ["text-[#7d94a0]"]} "Withdrawal queue"]
-       [:span {:class ["text-[#dce9ee]"]}
-        (withdrawal-queue-copy (get-in flow [:withdrawal-queue]))]])
-    (when (and (= (:kind flow) :hyperunit-address)
-               (seq (get-in flow [:withdrawal-queue :last-operation :tx-id])))
-      [:div {:class ["flex" "items-center" "justify-between" "gap-2"]}
-       [:span {:class ["text-[#7d94a0]"]} "Last queue tx"]
-       (let [{:keys [tx-id explorer-url]} (get-in flow [:withdrawal-queue :last-operation])]
-         (if (seq explorer-url)
-           [:a {:href explorer-url
-                :target "_blank"
-                :rel "noreferrer noopener"
-                :class ["max-w-[220px]"
-                        "truncate"
-                        "font-mono"
-                        "text-xs"
-                        "text-[#70e9e1]"
-                        "underline"
-                        "decoration-[#3d8f8a]"
-                        "hover:text-[#9df5ef]"]}
-            tx-id]
-           [:span {:class ["max-w-[220px]"
-                           "truncate"
-                           "font-mono"
-                           "text-xs"
-                           "text-[#dce9ee]"]}
-            tx-id]))])
-    (when (and (= (:kind flow) :hyperunit-address)
-               (= :error (get-in flow [:withdrawal-queue :state]))
-               (seq (get-in flow [:withdrawal-queue :message])))
-      [:p {:class ["text-xs" "text-[#9db2ba]"]}
-       (str "Live queue status unavailable: "
-            (get-in flow [:withdrawal-queue :message]))])
-    (when (and (= (:kind flow) :hyperunit-address)
-               (= :error (get-in flow [:fee-estimate :state]))
-               (seq (get-in flow [:fee-estimate :message])))
-      [:p {:class ["text-xs" "text-[#9db2ba]"]}
-       (str "Live HyperUnit estimates unavailable: "
-            (get-in flow [:fee-estimate :message]))])
-   (when (and (= (:kind flow) :hyperunit-address)
-              (seq (:protocol-address flow)))
-     [:div {:class ["rounded-lg"
-                    "border"
-                    "border-[#24485b]"
-                    "bg-[#0f2433]"
-                    "px-3"
-                    "py-2.5"
-                    "space-y-1.5"]}
-      [:p {:class ["text-xs" "uppercase" "tracking-[0.08em]" "text-[#7c93a0]"]}
-       "HyperUnit Protocol Address"]
-      [:p {:class ["break-all" "font-mono" "text-xs" "text-[#d6e8ee]"]}
-       (:protocol-address flow)]])
-   (lifecycle-panel lifecycle "funding-withdraw-lifecycle")
-   (action-row {:cancel-action :actions/close-funding-modal
-                :cancel-label "Cancel"
-                :submit-action :actions/submit-funding-withdraw
-                :submit-label (get-in actions [:submit-label])
-                :submit-disabled? (get-in actions [:submit-disabled?])})]])
+     (withdraw-summary-section summary flow)
+     (withdraw-protocol-address-panel flow)
+     (lifecycle-panel lifecycle "funding-withdraw-lifecycle")
+     (action-row {:cancel-action :actions/close-funding-modal
+                  :cancel-label "Cancel"
+                  :submit-action :actions/submit-funding-withdraw
+                  :submit-label (get-in actions [:submit-label])
+                  :submit-disabled? (get-in actions [:submit-disabled?])})]))
 
 (defn- legacy-content
   [{:keys [message]}]
