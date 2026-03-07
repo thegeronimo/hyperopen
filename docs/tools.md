@@ -1,7 +1,7 @@
 ---
 owner: platform
 status: canonical
-last_reviewed: 2026-03-04
+last_reviewed: 2026-03-07
 review_cycle_days: 90
 source_of_truth: true
 ---
@@ -13,10 +13,11 @@ Use this file as the single starting point for what actions this repo provides t
 ## Quick map
 
 1. For a quick list of build/test commands, start with this section in `/hyperopen/docs/references/toolchain.md`.
-2. For shared command phrase lookup, use `/hyperopen/tools/phrase get "<phrase>"` and `/hyperopen/command-phrases.edn`.
-3. For browser parity/debug workflows, use the Browser Inspection section below.
-4. For issue tracking and session handoff rules, use `/hyperopen/docs/WORK_TRACKING.md`.
-5. For exact browser inspection command syntax, see:
+2. For local Clojure discovery, semantic references, renames, and diagnostics, use the Local Clojure Navigation and Analysis section below.
+3. For shared command phrase lookup, use `/hyperopen/tools/phrase get "<phrase>"` and `/hyperopen/command-phrases.edn`.
+4. For browser parity/debug workflows, use the Browser Inspection section below.
+5. For issue tracking and session handoff rules, use `/hyperopen/docs/WORK_TRACKING.md`.
+6. For exact browser inspection command syntax, see:
    - `/hyperopen/tools/browser-inspection/src/cli.mjs`
    - `/hyperopen/tools/browser-inspection/src/mcp_server.mjs`
 
@@ -34,7 +35,26 @@ Use this file as the single starting point for what actions this repo provides t
 | `npm run test:browser-inspection` | Browser-inspection unit tests | Before changing inspection tooling |
 | `npm run test:browser-inspection:smoke` | Optional real-Chrome smoke | Manual confidence check before parity workflows |
 
-## 2) Skills available to agents
+## 2) Local Clojure navigation and analysis
+
+| Command | Purpose | When to use |
+| --- | --- | --- |
+| `rg -n "<pattern>" src test` | Fast text search across repo source and tests | First-pass discovery, unknown symbol names, or broad grep-driven audits |
+| `clojure-lsp diagnostics --project-root .` | Semantic diagnostics using project analysis | After edits or before handoff when you want unresolved-symbol, namespace, and lint feedback |
+| `clojure-lsp references --project-root . --from <fqns> --raw` | Symbol-accurate reference lookup | You know the fully qualified symbol and need real references instead of text matches |
+| `clojure-lsp rename --project-root . --from <old-fqns> --to <new-fqns> --dry` | Preview semantic rename patch without editing files | Rename planning, API moves, and safe scope checks before applying a rename |
+| `clojure-lsp` via a persistent editor/LSP session | Warm semantic navigation for definition, references, and rename | Repeated symbol work where one-time analysis startup can be amortized across many lookups |
+
+Recommended split:
+- Start with `rg` when speed matters most or when you do not yet know the exact symbol you are chasing.
+- Switch to `clojure-lsp` once you know the fully qualified symbol and correctness matters more than raw command latency.
+- Prefer a persistent `clojure-lsp` session for repeated navigation. One-shot CLI calls pay analysis startup cost each time.
+- Treat standalone `clj-kondo` as optional. `clojure-lsp` uses `clj-kondo` analysis internally, but the separate `clj-kondo` binary is not guaranteed to be installed on `PATH` in every local environment.
+
+Benchmark note:
+- Local measurements on 2026-03-07 in this repository showed `rg` discovery runs around `0.03s` to `0.07s`, one-shot `clojure-lsp` CLI reference and rename dry-run commands around `15s` to `17s`, and warm in-session `textDocument/definition` requests around `0.024s` after an initial `16.6s` server startup. Treat these as order-of-magnitude guidance, not a performance contract.
+
+## 3) Skills available to agents
 
 | Skill | Purpose | Trigger |
 | --- | --- | --- |
@@ -44,7 +64,7 @@ Use this file as the single starting point for what actions this repo provides t
 
 If a task explicitly names one of these skills, follow that skill workflow first.
 
-## 3) Shared command phrase lookup
+## 4) Shared command phrase lookup
 
 - Machine-readable registry: `/hyperopen/command-phrases.edn`
 - Lookup command: `/hyperopen/tools/phrase get [--suggest] [--accept-fuzzy] "<phrase>"`
@@ -59,7 +79,7 @@ Example:
 - `/hyperopen/tools/phrase get --suggest "land the work tree"`
 - `/hyperopen/tools/phrase get --accept-fuzzy "land the work tree"`
 
-## 4) Issue tracking tool (`bd`)
+## 5) Issue tracking tool (`bd`)
 
 `bd` is the canonical issue tracker for this repository.
 
@@ -72,7 +92,7 @@ Common commands:
 
 For policy details, including markdown-vs-`bd` boundaries and session-completion workflow, follow `/hyperopen/docs/WORK_TRACKING.md`.
 
-## 5) Browser Inspection tools (CLI)
+## 6) Browser Inspection tools (CLI)
 
 All browser-inspection tooling lives under `/hyperopen/tools/browser-inspection/`.
 
@@ -102,7 +122,7 @@ All browser-inspection tooling lives under `/hyperopen/tools/browser-inspection/
 - Use explicit `--target-id` when attaching to avoid wrong tab capture.
 - For tab-selection stability, follow `/hyperopen/docs/runbooks/browser-live-inspection.md` and use marker verification steps.
 
-## 6) Browser Inspection tools (Codex MCP)
+## 7) Browser Inspection tools (Codex MCP)
 
 Register once in Codex once and then call MCP tools directly:
 - `codex mcp add hyperopen-browser -- node ./tools/browser-inspection/src/mcp_server.mjs`
@@ -119,7 +139,7 @@ Register once in Codex once and then call MCP tools directly:
 | `browser_capture_snapshot` | Capture snapshot artifacts for a target |
 | `browser_compare_targets` | Capture+compare two URLs/targets |
 
-## 7) Where definitions live
+## 8) Where definitions live
 
 - Scripted command surface: `/hyperopen/package.json`
 - Phrase registry: `/hyperopen/command-phrases.edn`
