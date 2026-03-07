@@ -266,6 +266,38 @@
                                           (get-in % [1 :data-parity-id])))]
     (is (some? funding-root))))
 
+(deftest app-view-renders-api-wallet-route-with-api-wallet-root-test
+  (let [view-node (app-view/app-view (assoc trade-view-test-state
+                                            :router {:path "/API"}
+                                            :wallet {}
+                                            :api-wallets-ui {:form {:name ""
+                                                                    :address ""
+                                                                    :days-valid ""}
+                                                             :form-error nil
+                                                             :sort {:column :name
+                                                                    :direction :asc}
+                                                             :modal {:open? false
+                                                                     :type nil
+                                                                     :row nil
+                                                                     :error nil
+                                                                     :submitting? false}
+                                                             :generated {:address nil
+                                                                         :private-key nil}}
+                                            :api-wallets {:extra-agents []
+                                                          :default-agent-row nil
+                                                          :owner-webdata2 nil
+                                                          :server-time-ms nil
+                                                          :loading {:extra-agents? false
+                                                                    :default-agent? false}
+                                                          :errors {:extra-agents nil
+                                                                   :default-agent nil}
+                                                          :loaded-at-ms {:extra-agents nil
+                                                                         :default-agent nil}}))
+        api-root (find-first-node view-node
+                                  #(= "api-wallets-root"
+                                      (get-in % [1 :data-parity-id])))]
+    (is (some? api-root))))
+
 (deftest app-view-renders-vault-routes-with-vault-roots-test
   (let [list-view (app-view/app-view (assoc trade-view-test-state
                                             :router {:path "/vaults"}

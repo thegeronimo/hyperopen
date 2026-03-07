@@ -36,6 +36,10 @@
    :diagnostics {:confirm-ws-diagnostics-reveal effect-adapters/confirm-ws-diagnostics-reveal
                  :copy-websocket-diagnostics effect-adapters/copy-websocket-diagnostics
                  :ws-reset-subscriptions effect-adapters/ws-reset-subscriptions}
+   :api-wallets {:api-load-api-wallets effect-adapters/api-load-api-wallets-effect
+                 :generate-api-wallet effect-adapters/generate-api-wallet-effect
+                 :api-authorize-api-wallet effect-adapters/api-authorize-api-wallet-effect
+                 :api-remove-api-wallet effect-adapters/api-remove-api-wallet-effect}
    :orders {:api-submit-order (effect-adapters/make-api-submit-order runtime)
             :api-cancel-order (effect-adapters/make-api-cancel-order runtime)
             :api-submit-position-tpsl (effect-adapters/make-api-submit-position-tpsl runtime)

@@ -214,6 +214,9 @@
 (s/def ::cancel-order-args (s/tuple map?))
 (s/def ::funding-modal-args (s/tuple any?))
 (s/def ::funding-modal-field-args (s/tuple ::state-path any?))
+(s/def ::api-wallet-form-field #{:name :address :days-valid})
+(s/def ::api-wallet-form-field-args (s/tuple ::api-wallet-form-field any?))
+(s/def ::api-wallet-row-args (s/tuple map?))
 
 (def ^:private hyperunit-lifecycle-keys
   #{:direction
@@ -547,6 +550,14 @@
    :actions/submit-funding-transfer ::no-args
    :actions/submit-funding-withdraw ::no-args
    :actions/submit-funding-deposit ::no-args
+   :actions/load-api-wallet-route ::path-args
+   :actions/set-api-wallet-form-field ::api-wallet-form-field-args
+   :actions/set-api-wallet-sort ::keyword-or-string-args
+   :actions/generate-api-wallet ::no-args
+   :actions/open-api-wallet-authorize-modal ::no-args
+   :actions/open-api-wallet-remove-modal ::api-wallet-row-args
+   :actions/close-api-wallet-modal ::no-args
+   :actions/confirm-api-wallet-modal ::no-args
    :actions/load-funding-comparison-route ::path-args
    :actions/load-funding-comparison ::no-args
    :actions/set-funding-comparison-query ::single-input-args
@@ -632,6 +643,10 @@
    :effects/ws-reset-subscriptions ::ws-reset-subscriptions-args
    :effects/fetch-asset-selector-markets ::fetch-asset-selector-markets-args
    :effects/sync-active-asset-funding-predictability ::coin-args
+   :effects/api-load-api-wallets ::no-args
+   :effects/generate-api-wallet ::no-args
+   :effects/api-authorize-api-wallet ::no-args
+   :effects/api-remove-api-wallet ::no-args
    :effects/api-fetch-user-funding-history ::request-id-args
    :effects/api-fetch-historical-orders ::request-id-args
    :effects/export-funding-history-csv ::export-funding-history-csv-args

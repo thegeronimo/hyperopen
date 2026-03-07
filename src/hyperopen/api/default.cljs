@@ -24,6 +24,8 @@
   (atom {:service (make-default-api-service)}))
 
 (declare request-spot-clearinghouse-state!)
+(declare request-extra-agents!)
+(declare request-user-webdata2!)
 (declare request-user-abstraction!)
 (declare request-portfolio!)
 (declare request-user-fees!)
@@ -275,6 +277,24 @@
   ([address opts]
    (account-gateway/request-user-funding-history!
     {:request-user-funding-history-data! request-user-funding-history-data!}
+    address
+    opts)))
+
+(defn request-extra-agents!
+  ([address]
+   (request-extra-agents! address {}))
+  ([address opts]
+   (account-gateway/request-extra-agents!
+    {:post-info! post-info!}
+    address
+    opts)))
+
+(defn request-user-webdata2!
+  ([address]
+   (request-user-webdata2! address {}))
+  ([address opts]
+   (account-gateway/request-user-webdata2!
+    {:post-info! post-info!}
     address
     opts)))
 

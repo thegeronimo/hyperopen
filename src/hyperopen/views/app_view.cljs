@@ -1,10 +1,12 @@
 (ns hyperopen.views.app-view
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
+            [hyperopen.api-wallets.actions :as api-wallets-actions]
             [hyperopen.funding-comparison.actions :as funding-actions]
             [hyperopen.views.funding-modal :as funding-modal]
             [hyperopen.views.footer-view :as footer-view]
             [hyperopen.views.funding-comparison-view :as funding-comparison-view]
+            [hyperopen.views.api-wallets-view :as api-wallets-view]
             [hyperopen.views.spectate-mode-modal :as spectate-mode-modal]
             [hyperopen.views.header-view :as header-view]
             [hyperopen.views.notifications-view :as notifications-view]
@@ -89,6 +91,7 @@
         trade-route? (str/starts-with? route "/trade")
         portfolio-route? (str/starts-with? route "/portfolio")
         funding-route? (funding-actions/funding-comparison-route? route)
+        api-wallet-route? (api-wallets-actions/api-wallet-route? route)
         vault-route? (vault-vm/vault-route? route)
         vault-detail-route? (vault-vm/vault-detail-route? route)
         root-classes (into ["h-screen" "bg-base-100" "flex" "flex-col" "overflow-y-auto" "scrollbar-hide"]
@@ -104,6 +107,7 @@
         trade-route? (trade-view/trade-view state)
         portfolio-route? (portfolio-view/portfolio-view state)
         funding-route? (funding-comparison-view/funding-comparison-view state)
+        api-wallet-route? (api-wallets-view/api-wallets-view state)
         vault-detail-route? (vault-detail-view/vault-detail-view state)
         vault-route? (vaults-view/vaults-view state)
         :else (trade-view/trade-view state))]

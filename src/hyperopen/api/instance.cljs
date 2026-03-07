@@ -213,6 +213,22 @@
               {:request-user-funding-history-data! request-user-funding-history-data!}
               address
               opts)))
+          (request-extra-agents!
+            ([address]
+             (request-extra-agents! address {}))
+            ([address opts]
+             (account-gateway/request-extra-agents!
+              {:post-info! post-info!}
+              address
+              opts)))
+          (request-user-webdata2!
+            ([address]
+             (request-user-webdata2! address {}))
+            ([address opts]
+             (account-gateway/request-user-webdata2!
+              {:post-info! post-info!}
+              address
+              opts)))
           (request-spot-clearinghouse-state!
             ([address]
              (request-spot-clearinghouse-state! address {}))
@@ -267,6 +283,8 @@
               dex
               opts)))]
     {:request-user-funding-history! request-user-funding-history!
+     :request-extra-agents! request-extra-agents!
+     :request-user-webdata2! request-user-webdata2!
      :request-spot-clearinghouse-state! request-spot-clearinghouse-state!
      :request-user-abstraction! request-user-abstraction!
      :request-portfolio! request-portfolio!

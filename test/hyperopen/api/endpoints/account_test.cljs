@@ -268,6 +268,56 @@
           (.finally (fn []
                       (set! (.-warn console-object) original-warn)))))))
 
+(deftest request-extra-agents-normalizes-encoded-valid-until-and-addresses-test
+  (async done
+    (let [calls (atom [])
+          post-info! (api-stubs/post-info-stub
+                      calls
+                      {:extraAgents [{:agentName "Desk valid_until 1700000000000"
+                                      :agentAddress "0xABCDEFabcdefABCDEFabcdefABCDEFabcdefABCD"}]})]
+      (-> (account/request-extra-agents! post-info!
+                                         "0x1234567890abcdef1234567890abcdef12345678"
+                                         {})
+          (.then (fn [rows]
+                   (is (= [{:row-kind :named
+                            :name "Desk"
+                            :approval-name "Desk valid_until 1700000000000"
+                            :address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+                            :valid-until-ms 1700000000000}]
+                          rows))
+                   (let [[body opts] (first @calls)]
+                     (is (= {"type" "extraAgents"
+                             "user" "0x1234567890abcdef1234567890abcdef12345678"}
+                            body))
+                     (is (= {:priority :high
+                             :dedupe-key [:extra-agents "0x1234567890abcdef1234567890abcdef12345678"]
+                             :cache-ttl-ms 5000}
+                            opts)))
+                   (done)))
+          (.catch (async-support/unexpected-error done))))))
+
+(deftest request-user-webdata2-sends-user-specific-webdata-body-test
+  (async done
+    (let [calls (atom [])
+          snapshot {:serverTime 1700000000000
+                    :agentAddress "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}
+          post-info! (api-stubs/post-info-stub calls snapshot)]
+      (-> (account/request-user-webdata2! post-info!
+                                          "0x1234567890abcdef1234567890abcdef12345678"
+                                          {})
+          (.then (fn [result]
+                   (is (= snapshot result))
+                   (let [[body opts] (first @calls)]
+                     (is (= {"type" "webData2"
+                             "user" "0x1234567890abcdef1234567890abcdef12345678"}
+                            body))
+                     (is (= {:priority :high
+                             :dedupe-key [:user-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]
+                             :cache-ttl-ms 5000}
+                            opts)))
+                   (done)))
+          (.catch (async-support/unexpected-error done))))))
+
 (deftest request-spot-clearinghouse-state-short-circuits-without-address-test
   (async done
     (let [calls (atom 0)

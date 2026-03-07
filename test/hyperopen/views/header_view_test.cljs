@@ -241,3 +241,17 @@
         trade-classes (set (class-values (get-in trade-link [1 :class])))]
     (is (contains? funding-classes "header-nav-link-active"))
     (is (not (contains? trade-classes "header-nav-link-active")))))
+
+(deftest header-more-menu-renders-api-link-and-highlights-api-route-test
+  (let [view (header-view/header-view {:wallet {}
+                                       :router {:path "/API"}})
+        trigger (find-node-by-role view "header-more-trigger")
+        api-link (find-node-by-role view "header-more-link-api")
+        trigger-classes (set (class-values (get-in trigger [1 :class])))
+        api-classes (set (class-values (get-in api-link [1 :class])))]
+    (is (some? trigger))
+    (is (some? api-link))
+    (is (contains? trigger-classes "header-nav-link-active"))
+    (is (contains? api-classes "bg-[#123a36]"))
+    (is (= [[:actions/navigate "/API"]]
+           (get-in api-link [1 :on :click])))))

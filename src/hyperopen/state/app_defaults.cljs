@@ -3,6 +3,7 @@
             [hyperopen.account.history.position-reduce :as position-reduce]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.account.context :as account-context]
+            [hyperopen.api-wallets.actions :as api-wallets-actions]
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.i18n.locale :as i18n-locale]
             [hyperopen.platform :as platform]
@@ -233,6 +234,29 @@
    :error-category nil
    :loaded-at-ms nil})
 
+(defn default-api-wallets-ui-state
+  []
+  {:form (api-wallets-actions/default-api-wallet-form)
+   :form-error nil
+   :sort {:column api-wallets-actions/default-sort-column
+          :direction api-wallets-actions/default-sort-direction}
+   :modal (api-wallets-actions/default-api-wallet-modal-state)
+   :generated {:address nil
+               :private-key nil}})
+
+(defn default-api-wallets-state
+  []
+  {:extra-agents []
+   :default-agent-row nil
+   :owner-webdata2 nil
+   :server-time-ms nil
+   :loading {:extra-agents? false
+             :default-agent? false}
+   :errors {:extra-agents nil
+            :default-agent nil}
+   :loaded-at-ms {:extra-agents nil
+                  :default-agent nil}})
+
 (defn default-account-info-state
   [{:keys [default-trade-history
            default-funding-history
@@ -303,6 +327,8 @@
                 :hypothetical-position-by-coin {}}
    :funding-comparison-ui (default-funding-comparison-ui-state)
    :funding-comparison (default-funding-comparison-state)
+   :api-wallets-ui (default-api-wallets-ui-state)
+   :api-wallets (default-api-wallets-state)
    :asset-selector (default-asset-selector-state)
    :chart-options (default-chart-options-state)
    :orderbook-ui (default-orderbook-ui-state)

@@ -1,6 +1,7 @@
 (ns hyperopen.api.endpoints.account
   (:require [clojure.string :as str]
             [hyperopen.api.request-policy :as request-policy]
+            [hyperopen.wallet.agent-session :as agent-session]
             [hyperopen.platform :as platform]))
 
 (defn- wait-ms
@@ -8,6 +9,99 @@
   (js/Promise.
    (fn [resolve _reject]
      (platform/set-timeout! resolve (max 0 (or delay-ms 0))))))
+
+(defn- parse-ms
+  [value]
+  (let [parsed (cond
+                 (integer? value) value
+                 (and (number? value)
+                      (not (js/isNaN value))) value
+                 (string? value) (js/parseInt (str/trim value) 10)
+                 :else js/NaN)]
+    (when (and (number? parsed)
+               (not (js/isNaN parsed)))
+      (js/Math.floor parsed))))
+
+(defn- normalize-extra-agent-address
+  [row]
+  (some-> (or (:address row)
+              (:agentAddress row)
+              (:walletAddress row))
+          str
+          str/trim
+          str/lower-case
+          not-empty))
+
+(defn- normalize-extra-agent-name
+  [row]
+  (some-> (or (:name row)
+              (:agentName row)
+              (:walletName row)
+              (:label row))
+          str
+          str/trim
+          not-empty))
+
+(defn- normalize-extra-agent-valid-until
+  [row]
+  (some parse-ms
+        [(:validUntil row)
+         (:valid-until row)
+         (:agentValidUntil row)
+         (:validUntilMs row)
+         (:valid-until-ms row)]))
+
+(defn- extra-agents-seq
+  [payload]
+  (cond
+    (sequential? payload)
+    payload
+
+    (map? payload)
+    (let [data (:data payload)
+          nested (or (:extraAgents payload)
+                     (:extra-agents payload)
+                     (:agents payload)
+                     (:wallets payload)
+                     (when (map? data)
+                       (or (:extraAgents data)
+                           (:extra-agents data)
+                           (:agents data)
+                           (:wallets data)))
+                     data)]
+      (if (sequential? nested)
+        nested
+        []))
+
+    :else
+    []))
+
+(defn- normalize-extra-agent-row
+  [row]
+  (when (map? row)
+    (let [approval-name (normalize-extra-agent-name row)
+          {:keys [name valid-until-ms]}
+          (agent-session/parse-agent-name-valid-until approval-name)
+          explicit-valid-until-ms (normalize-extra-agent-valid-until row)
+          address (normalize-extra-agent-address row)]
+      (when address
+        {:row-kind :named
+         :name (or name approval-name)
+         :approval-name approval-name
+         :address address
+         :valid-until-ms (or explicit-valid-until-ms valid-until-ms)}))))
+
+(defn- normalize-extra-agents
+  [payload]
+  (->> (extra-agents-seq payload)
+       (keep normalize-extra-agent-row)
+       vec))
+
+(defn- normalize-user-webdata2-payload
+  [payload]
+  (if (map? payload)
+    payload
+    {}))
 
 (defn- strip-user-funding-pagination-opts
   [opts]
@@ -153,6 +247,36 @@
       (post-info! {"type" "spotClearinghouseState"
                    "user" address}
                   opts*))))
+
+(defn request-extra-agents!
+  [post-info! address opts]
+  (if-not address
+    (js/Promise.resolve [])
+    (let [requested-address (some-> address str str/lower-case)
+          opts* (request-policy/apply-info-request-policy
+                 :extra-agents
+                 (merge {:priority :high
+                         :dedupe-key [:extra-agents requested-address]}
+                        opts))]
+      (-> (post-info! {"type" "extraAgents"
+                       "user" address}
+                      opts*)
+          (.then normalize-extra-agents)))))
+
+(defn request-user-webdata2!
+  [post-info! address opts]
+  (if-not address
+    (js/Promise.resolve {})
+    (let [requested-address (some-> address str str/lower-case)
+          opts* (request-policy/apply-info-request-policy
+                 :user-webdata2
+                 (merge {:priority :high
+                         :dedupe-key [:user-webdata2 requested-address]}
+                        opts))]
+      (-> (post-info! {"type" "webData2"
+                       "user" address}
+                      opts*)
+          (.then normalize-user-webdata2-payload)))))
 
 (defn normalize-user-abstraction-mode
   [abstraction]

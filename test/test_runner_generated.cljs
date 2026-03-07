@@ -12,6 +12,7 @@
             [hyperopen.account.surface-policy-test]
             [hyperopen.account.surface-service-test]
             [hyperopen.api-test]
+            [hyperopen.api-wallets.actions-test]
             [hyperopen.api.compat-test]
             [hyperopen.api.default-test]
             [hyperopen.api.endpoints.account-test]
@@ -175,6 +176,7 @@
             [hyperopen.views.account-info.tabs.trade-history-test]
             [hyperopen.views.account-info.vm-test]
             [hyperopen.views.active-asset-view-test]
+            [hyperopen.views.api-wallets.vm-test]
             [hyperopen.views.app-shell-spacing-test]
             [hyperopen.views.asset-icon-test]
             [hyperopen.views.asset-selector-view-test]
@@ -314,6 +316,7 @@
              'hyperopen.account.surface-policy-test
              'hyperopen.account.surface-service-test
              'hyperopen.api-test
+             'hyperopen.api-wallets.actions-test
              'hyperopen.api.compat-test
              'hyperopen.api.default-test
              'hyperopen.api.endpoints.account-test
@@ -477,6 +480,7 @@
              'hyperopen.views.account-info.tabs.trade-history-test
              'hyperopen.views.account-info.vm-test
              'hyperopen.views.active-asset-view-test
+             'hyperopen.views.api-wallets.vm-test
              'hyperopen.views.app-shell-spacing-test
              'hyperopen.views.asset-icon-test
              'hyperopen.views.asset-selector-view-test

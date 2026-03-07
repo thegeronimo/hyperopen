@@ -6,6 +6,8 @@
    :perp-dexs 60000
    :spot-meta 60000
    :public-webdata2 30000
+   :extra-agents 5000
+   :user-webdata2 5000
    :user-funding-history 5000
    :historical-orders 5000
    :clearinghouse-state 5000

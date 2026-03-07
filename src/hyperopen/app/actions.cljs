@@ -1,5 +1,6 @@
 (ns hyperopen.app.actions
-  (:require [hyperopen.runtime.action-adapters :as action-adapters]
+  (:require [hyperopen.api-wallets.actions :as api-wallets-actions]
+            [hyperopen.runtime.action-adapters :as action-adapters]
             [hyperopen.runtime.collaborators :as runtime-collaborators]))
 
 (defn- runtime-action-overrides
@@ -24,6 +25,14 @@
    :asset-selector {:refresh-asset-markets action-adapters/refresh-asset-markets}
    :vaults {:load-vault-route action-adapters/load-vault-route-action}
    :funding-comparison {:load-funding-comparison-route action-adapters/load-funding-comparison-route-action}
+   :api-wallets {:load-api-wallet-route action-adapters/load-api-wallet-route-action
+                 :set-api-wallet-form-field api-wallets-actions/set-api-wallet-form-field
+                 :set-api-wallet-sort api-wallets-actions/set-api-wallet-sort
+                 :generate-api-wallet api-wallets-actions/generate-api-wallet
+                 :open-api-wallet-authorize-modal api-wallets-actions/open-api-wallet-authorize-modal
+                 :open-api-wallet-remove-modal api-wallets-actions/open-api-wallet-remove-modal
+                 :close-api-wallet-modal api-wallets-actions/close-api-wallet-modal
+                 :confirm-api-wallet-modal api-wallets-actions/confirm-api-wallet-modal}
    :spectate-mode {:open-spectate-mode-modal action-adapters/open-spectate-mode-modal
                 :close-spectate-mode-modal action-adapters/close-spectate-mode-modal
                 :set-spectate-mode-search action-adapters/set-spectate-mode-search

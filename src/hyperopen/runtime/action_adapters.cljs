@@ -4,6 +4,7 @@
             [hyperopen.account.context :as account-context]
             [hyperopen.account.spectate-mode-links :as spectate-mode-links]
             [hyperopen.account.spectate-mode-actions :as spectate-mode-actions]
+            [hyperopen.api-wallets.actions :as api-wallets-actions]
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.platform :as platform]
             [hyperopen.portfolio.actions :as portfolio-actions]
@@ -134,11 +135,12 @@
         replace? (boolean (:replace? opts))
         browser-path (navigation-browser-path state p)
         base-effects (cond-> [[:effects/save [:router :path] p]]
-                       replace? (conj [:effects/replace-state browser-path])
+        replace? (conj [:effects/replace-state browser-path])
                        (not replace?) (conj [:effects/push-state browser-path]))
         route-effects (into []
                             (concat (vault-actions/load-vault-route state p)
-                                    (funding-comparison-actions/load-funding-comparison-route state p)))
+                                    (funding-comparison-actions/load-funding-comparison-route state p)
+                                    (api-wallets-actions/load-api-wallet-route state p)))
         portfolio-effects (portfolio-route-effects state p)
         route-entry-effects (projection-first-effects
                              (into []
@@ -153,6 +155,10 @@
 (defn load-funding-comparison-route-action
   [state path]
   (funding-comparison-actions/load-funding-comparison-route state path))
+
+(defn load-api-wallet-route-action
+  [state path]
+  (api-wallets-actions/load-api-wallet-route state path))
 
 (defn connect-wallet-action [state]
   (wallet-actions/connect-wallet-action state))
@@ -203,6 +209,7 @@
     :normalize-storage-mode agent-session/normalize-storage-mode
     :default-signature-chain-id-for-environment agent-session/default-signature-chain-id-for-environment
     :build-approve-agent-action agent-session/build-approve-agent-action
+    :format-agent-name-with-valid-until agent-session/format-agent-name-with-valid-until
     :approve-agent! trading-api/approve-agent!
     :persist-agent-session-by-mode! agent-session/persist-agent-session-by-mode!
     :runtime-error-message runtime-error-message

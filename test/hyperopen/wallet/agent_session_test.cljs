@@ -11,6 +11,9 @@
 (def ^:private baseline-clear-agent-session-by-mode!
   agent-session/clear-agent-session-by-mode!)
 
+(def ^:private wallet-address
+  "0x1234567890abcdef1234567890abcdef12345678")
+
 (use-fixtures
   :each
   {:before (fn []
@@ -62,8 +65,8 @@
     (is (nil? (:nonce-cursor agent)))))
 
 (deftest storage-key-normalizes-wallet-address-test
-  (is (= "hyperopen:agent-session:v1:0xabc123"
-         (agent-session/session-storage-key "0xAbC123"))))
+  (is (= "hyperopen:agent-session:v1:0x1234567890abcdef1234567890abcdef12345678"
+         (agent-session/session-storage-key "0x1234567890ABCDEF1234567890ABCDEF12345678"))))
 
 (deftest storage-mode-preference-roundtrip-and-normalization-test
   (with-test-local-storage
@@ -103,7 +106,6 @@
 
 (deftest persist-load-and-clear-agent-session-test
   (let [storage (fake-storage)
-        wallet-address "0xabc123"
         session {:agent-address "0x9999999999999999999999999999999999999999"
                  :private-key "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                  :last-approved-at 1700000002222
@@ -126,8 +128,10 @@
 (deftest default-agent-state-and-address-normalization-variants-test
   (let [agent (agent-session/default-agent-state :storage-mode "SESSION")]
     (is (= :session (:storage-mode agent))))
-  (is (= "0xabc123"
-         (agent-session/normalize-wallet-address " 0xAbC123 ")))
+  (is (= "0x1234567890abcdef1234567890abcdef12345678"
+         (agent-session/normalize-wallet-address
+          " 0x1234567890ABCDEF1234567890ABCDEF12345678 ")))
+  (is (nil? (agent-session/normalize-wallet-address "0xabc123")))
   (is (nil? (agent-session/normalize-wallet-address nil))))
 
 (deftest build-approve-agent-action-supports-optional-name-and-signature-chain-id-test
@@ -162,7 +166,6 @@
                                          (throw (js/Error. "get boom")))
                               :removeItem (fn [_]
                                             (throw (js/Error. "remove boom")))}
-        wallet-address "0xabc123"
         valid-session {:agent-address "0x9999999999999999999999999999999999999999"
                        :private-key "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                        :last-approved-at 1700000002222.9
@@ -183,8 +186,7 @@
     (is (nil? (agent-session/clear-agent-session! nil wallet-address)))))
 
 (deftest load-agent-session-returns-nil-for-empty-or-malformed-json-test
-  (let [wallet-address "0xabc123"
-        empty-storage #js {:getItem (fn [_] "")
+  (let [empty-storage #js {:getItem (fn [_] "")
                            :setItem (fn [_ _] nil)
                            :removeItem (fn [_] nil)}
         malformed-storage #js {:getItem (fn [_] "{")
@@ -201,8 +203,7 @@
 (deftest by-mode-storage-wrappers-target-local-and-session-storage-test
   (with-test-storages
     (fn [{:keys [local]}]
-      (let [wallet-address "0xabc123"
-            session-payload {:agent-address "0x9999999999999999999999999999999999999999"
+      (let [session-payload {:agent-address "0x9999999999999999999999999999999999999999"
                              :private-key "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                              :last-approved-at 1700000002222
                              :nonce-cursor 1700000002222}

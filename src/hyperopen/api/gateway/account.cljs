@@ -47,6 +47,18 @@
    opts]
   (account-endpoints/request-spot-clearinghouse-state! post-info! address opts))
 
+(defn request-extra-agents!
+  [{:keys [post-info!]}
+   address
+   opts]
+  (account-endpoints/request-extra-agents! post-info! address opts))
+
+(defn request-user-webdata2!
+  [{:keys [post-info!]}
+   address
+   opts]
+  (account-endpoints/request-user-webdata2! post-info! address opts))
+
 (defn fetch-spot-clearinghouse-state!
   [{:keys [log-fn
            request-spot-clearinghouse-state!

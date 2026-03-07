@@ -2,6 +2,7 @@
   (:require [nexus.registry :as nxr]
             [hyperopen.api.default :as api]
             [hyperopen.api.projections :as api-projections]
+            [hyperopen.api-wallets.effects :as api-wallets-effects]
             [hyperopen.account.history.effects :as account-history-effects]
             [hyperopen.runtime.effect-adapters.asset-selector :as asset-adapters]
             [hyperopen.runtime.effect-adapters.common :as common]
@@ -12,6 +13,10 @@
             [hyperopen.runtime.effect-adapters.websocket :as ws-adapters]
             [hyperopen.runtime.api-effects :as api-effects]
             [hyperopen.runtime.state :as runtime-state]
+            [hyperopen.api.trading :as trading-api]
+            [hyperopen.platform :as platform]
+            [hyperopen.wallet.agent-runtime :as agent-runtime]
+            [hyperopen.wallet.agent-session :as agent-session]
             [hyperopen.websocket.client :as ws-client]))
 
 (def append-diagnostics-event! ws-adapters/append-diagnostics-event!)
@@ -241,6 +246,62 @@
 
 (def api-fetch-vault-ledger-updates-effect
   vault-adapters/api-fetch-vault-ledger-updates-effect)
+
+(defn- api-wallets-load-deps
+  [store]
+  {:store store
+   :request-extra-agents! api/request-extra-agents!
+   :request-user-webdata2! api/request-user-webdata2!
+   :apply-api-wallets-extra-agents-success api-projections/apply-api-wallets-extra-agents-success
+   :apply-api-wallets-extra-agents-error api-projections/apply-api-wallets-extra-agents-error
+   :apply-api-wallets-default-agent-success api-projections/apply-api-wallets-default-agent-success
+   :apply-api-wallets-default-agent-error api-projections/apply-api-wallets-default-agent-error
+   :clear-api-wallets-errors api-projections/clear-api-wallets-errors
+   :reset-api-wallets api-projections/reset-api-wallets
+   :now-ms-fn platform/now-ms})
+
+(defn- api-wallets-approval-deps
+  [store]
+  (merge (api-wallets-load-deps store)
+         {:store store
+          :approve-agent-request! agent-runtime/approve-agent-request!
+          :clear-agent-session-by-mode! agent-session/clear-agent-session-by-mode!
+          :default-agent-state agent-session/default-agent-state
+          :now-ms-fn platform/now-ms
+          :normalize-storage-mode agent-session/normalize-storage-mode
+          :default-signature-chain-id-for-environment agent-session/default-signature-chain-id-for-environment
+          :build-approve-agent-action agent-session/build-approve-agent-action
+          :format-agent-name-with-valid-until agent-session/format-agent-name-with-valid-until
+          :approve-agent! trading-api/approve-agent!
+          :persist-agent-session-by-mode! agent-session/persist-agent-session-by-mode!
+          :runtime-error-message agent-runtime/runtime-error-message
+          :exchange-response-error agent-runtime/exchange-response-error
+          :load-api-wallets! (fn [opts]
+                               (api-wallets-effects/load-api-wallets!
+                                (merge (api-wallets-load-deps store)
+                                       opts)))}))
+
+(defn api-load-api-wallets-effect
+  [_ store]
+  (api-wallets-effects/api-load-api-wallets!
+   (api-wallets-load-deps store)))
+
+(defn generate-api-wallet-effect
+  [_ store]
+  (api-wallets-effects/generate-api-wallet!
+   {:store store
+    :create-agent-credentials! agent-session/create-agent-credentials!
+    :runtime-error-message agent-runtime/runtime-error-message}))
+
+(defn api-authorize-api-wallet-effect
+  [_ store]
+  (api-wallets-effects/api-authorize-api-wallet!
+   (api-wallets-approval-deps store)))
+
+(defn api-remove-api-wallet-effect
+  [_ store]
+  (api-wallets-effects/api-remove-api-wallet!
+   (api-wallets-approval-deps store)))
 
 (defn api-submit-vault-transfer-effect
   [_ store request]

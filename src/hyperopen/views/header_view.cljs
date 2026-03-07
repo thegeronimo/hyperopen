@@ -1,6 +1,7 @@
 (ns hyperopen.views.header-view
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
+            [hyperopen.api-wallets.actions :as api-wallets-actions]
             [hyperopen.wallet.core :as wallet]))
 
 (def header-nav-link-base-classes
@@ -36,6 +37,54 @@
   (let [route (or current-route "")]
     (or (str/starts-with? route "/funding-comparison")
         (str/starts-with? route "/fundingComparison"))))
+
+(defn- more-trigger-classes
+  [active?]
+  (if active?
+    (into header-nav-link-active-classes
+          ["group"
+           "flex"
+           "items-center"
+           "space-x-1"
+           "list-none"
+           "cursor-pointer"])
+    (into header-nav-link-inactive-classes
+          ["group"
+           "flex"
+           "items-center"
+           "space-x-1"
+           "list-none"
+           "cursor-pointer"])))
+
+(defn- more-menu-link
+  [label route active?]
+  [:button {:type "button"
+            :class (into ["flex"
+                          "w-full"
+                          "items-center"
+                          "justify-between"
+                          "gap-3"
+                          "rounded-lg"
+                          "px-3"
+                          "py-2"
+                          "text-left"
+                          "text-sm"
+                          "transition-colors"
+                          "focus:outline-none"
+                          "focus:ring-0"
+                          "focus:ring-offset-0"]
+                          (if active?
+                            ["bg-[#123a36]" "text-[#97fce4]"]
+                            ["text-white" "hover:bg-base-200"]))
+            :data-role (str "header-more-link-" (str/lower-case label))
+            :on {:click [[:actions/navigate route]]}}
+     [:span label]
+     (when active?
+     [:span {:class ["text-xs"
+                     "font-semibold"
+                     "uppercase"
+                     "tracking-[0.08em]"]}
+      "Open"])])
 
 (defn- wallet-chevron-icon []
   [:svg {:viewBox "0 0 20 20"
@@ -403,6 +452,7 @@
 (defn header-view [state]
   (let [wallet-state (get-in state [:wallet] {})
         route (get-in state [:router :path] "/trade")
+        api-wallet-route? (api-wallets-actions/api-wallet-route? route)
         spectate-active? (account-context/spectate-mode-active? state)
         spectate-mode {:active? spectate-active?
                     :address (account-context/spectate-address state)}]
@@ -425,15 +475,29 @@
         (nav-link "Staking" "/staking" false)
         (nav-link "Referrals" "/referrals" false)
         (nav-link "Leaderboard" "/leaderboard" false)
-        [:div.relative.group
-         [:a {:class (into header-nav-link-inactive-classes ["flex" "items-center" "space-x-1"])
-              :href "#"
-              :on {:click [[:actions/navigate "/more"]]}}
+        [:details {:class ["relative" "group"]
+                   :data-role "header-more-menu"}
+         [:summary {:class (more-trigger-classes api-wallet-route?)
+                    :data-role "header-more-trigger"}
           [:span "More"]
           [:svg.w-4.h-4 {:viewBox "0 0 20 20" :fill "currentColor"}
            [:path {:fill-rule "evenodd" :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" :clip-rule "evenodd"}]]]
-         ;; Dropdown menu would go here
-         ]]
+         [:div {:class ["absolute"
+                        "left-0"
+                        "top-full"
+                        "z-[260]"
+                        "mt-2"
+                        "hidden"
+                        "min-w-[220px]"
+                        "rounded-xl"
+                        "border"
+                        "border-base-300"
+                        "bg-trading-bg"
+                        "p-2"
+                        "shadow-2xl"
+                        "group-open:block"]
+                :data-role "header-more-menu-panel"}
+          (more-menu-link "API" api-wallets-actions/canonical-route api-wallet-route?)]]]
 
        ;; Right Section - Wallet Control and Icons
        [:div.flex.items-center.space-x-4

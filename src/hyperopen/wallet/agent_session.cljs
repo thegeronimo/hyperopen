@@ -15,6 +15,18 @@
 (def ^:private default-testnet-signature-chain-id
   "0x66eee")
 
+(def zero-address
+  "0x0000000000000000000000000000000000000000")
+
+(def max-agent-valid-days
+  180)
+
+(def ^:private agent-valid-until-suffix-regex
+  #"^(.*?)(?:\s+valid_until\s+(\d+))?$")
+
+(def ^:private wallet-address-regex
+  #"^0x[0-9a-f]{40}$")
+
 (defn default-signature-chain-id-for-environment
   [is-mainnet]
   (if is-mainnet
@@ -53,15 +65,66 @@
 
 (defn normalize-wallet-address
   [wallet-address]
-  (when (seq wallet-address)
-    (-> wallet-address
-        str
-        str/trim
-        str/lower-case)))
+  (let [normalized (some-> wallet-address
+                           str
+                           str/trim
+                           str/lower-case)]
+    (when (and (seq normalized)
+               (re-matches wallet-address-regex normalized))
+      normalized)))
+
+(defn normalize-agent-valid-days
+  [value]
+  (let [parsed (cond
+                 (number? value) value
+                 (string? value) (js/parseInt (str/trim value) 10)
+                 :else js/NaN)]
+    (when (and (number? parsed)
+               (not (js/isNaN parsed))
+               (pos? parsed))
+      (-> parsed
+          js/Math.floor
+          (min max-agent-valid-days)))))
+
+(defn parse-agent-name-valid-until
+  [agent-name]
+  (let [text (some-> agent-name str str/trim)]
+    (if-not (seq text)
+      {:name nil
+       :valid-until-ms nil}
+      (let [[_ base-name valid-until-text] (re-matches agent-valid-until-suffix-regex text)
+            parsed-valid-until (when (seq valid-until-text)
+                                 (js/parseInt valid-until-text 10))
+            valid-until-ms (when (and (number? parsed-valid-until)
+                                      (not (js/isNaN parsed-valid-until)))
+                             (js/Math.floor parsed-valid-until))
+            display-name (some-> (or base-name text)
+                                 str
+                                 str/trim
+                                 not-empty)]
+        {:name display-name
+         :valid-until-ms valid-until-ms}))))
+
+(defn format-agent-name-with-valid-until
+  [agent-name server-time-ms days-valid]
+  (let [name* (some-> agent-name str str/trim not-empty)
+        days* (normalize-agent-valid-days days-valid)
+        server-time* (when (number? server-time-ms)
+                       (js/Math.floor server-time-ms))]
+    (cond
+      (nil? name*) nil
+      (or (nil? days*)
+          (nil? server-time*)) name*
+      :else
+      (str name*
+           " valid_until "
+           (+ server-time*
+              (* days* 24 60 60 1000))))))
 
 (defn session-storage-key
   [wallet-address]
-  (str session-storage-prefix (normalize-wallet-address wallet-address)))
+  (when-let [address (normalize-wallet-address wallet-address)]
+    (str session-storage-prefix address)))
 
 (defn default-agent-state
   [& {:keys [storage-mode]
@@ -80,12 +143,12 @@
                                signature-chain-id nil}}]
   (let [signature-chain-id* (or signature-chain-id
                                 (default-signature-chain-id-for-environment is-mainnet))]
-  (cond-> {:type "approveAgent"
-           :agentAddress agent-address
-           :nonce nonce
-           :hyperliquidChain (if is-mainnet "Mainnet" "Testnet")
-           :signatureChainId signature-chain-id*}
-    (some? agent-name) (assoc :agentName agent-name))))
+    (cond-> {:type "approveAgent"
+             :agentAddress agent-address
+             :nonce nonce
+             :hyperliquidChain (if is-mainnet "Mainnet" "Testnet")
+             :signatureChainId signature-chain-id*}
+      (some? agent-name) (assoc :agentName agent-name))))
 
 (defn- storage-by-mode
   [storage-mode]
