@@ -19,15 +19,18 @@ A user can verify this by navigating to `/API`, connecting a wallet, generating 
 - [x] (2026-03-07 15:08Z) Verified the live data and action seams Hyperliquid uses for this page: `info` `extraAgents`, existing account `webData2` agent fields, and `approveAgent` for both authorization and removal flows.
 - [x] (2026-03-07 15:08Z) Authored this ExecPlan.
 - [x] (2026-03-07 15:12Z) Filed follow-up feature issue `hyperopen-p0l` in `bd` for implementation tracking.
-- [ ] Implement feature state, route parsing, and navigation entry for `/API`.
-- [ ] Add account/API wallet fetch plumbing for `extraAgents` and default-agent snapshot hydration.
-- [ ] Generalize the existing `approveAgent` runtime so the API page can authorize named wallets and remove wallets without duplicating signing logic.
-- [ ] Implement responsive API page view, confirmation modal, and table sorting behavior.
-- [ ] Add and update tests across endpoint, runtime, action/effect, schema, startup, and view layers.
-- [ ] Run required validation gates:
+- [x] (2026-03-07 15:58Z) Implemented feature state, route parsing, and `More`-menu navigation entry for `/API`, including startup route loading and app-view ownership.
+- [x] (2026-03-07 16:00Z) Added account/API wallet fetch plumbing for `extraAgents` and default-agent snapshot hydration via owner `webData2`.
+- [x] (2026-03-07 16:01Z) Generalized the existing `approveAgent` runtime so the API page can authorize named wallets and remove wallets without duplicating signing logic.
+- [x] (2026-03-07 16:02Z) Implemented the responsive API page view, confirmation modal, generated-key disclosure, and table sorting behavior.
+- [x] (2026-03-07 16:03Z) Added and updated tests across endpoint, runtime, action/effect, schema, startup, and view layers.
+- [x] (2026-03-07 16:18Z) Ran required validation gates:
   `npm run check`
   `npm test`
   `npm run test:websocket`
+- [x] (2026-03-07 16:09Z) Completed in-browser QA against local `/API` on desktop and mobile, plus a Hyperliquid-vs-local parity capture for reference.
+- [x] (2026-03-07 16:09Z) Closed `bd` feature `hyperopen-p0l` after implementation and QA.
+- [x] (2026-03-07 16:10Z) Moved this ExecPlan to `/hyperopen/docs/exec-plans/completed/2026-03-07-api-wallet-page-parity-with-hyperliquid.md`.
 
 ## Surprises & Discoveries
 
@@ -83,9 +86,21 @@ A user can verify this by navigating to `/API`, connecting a wallet, generating 
 
 ## Outcomes & Retrospective
 
-Outcome at planning time: research is complete and the implementation path is de-risked. The largest unknown at the start of this task was whether Hyperliquid’s `/API` page depended on an undocumented private backend. That unknown is now resolved: the page uses the public `info` request type `extraAgents`, current-account `webData2` agent fields, and the same `approveAgent` action Hyperopen already supports.
+Implementation is complete. Hyperopen now has a dedicated `/API` page with Hyperliquid-style route handling, a real `More`-menu entry, owner-scoped loading of named API wallets via `extraAgents`, synthetic default-agent row hydration from `webData2`, shared `approveAgent` authorization/removal plumbing, responsive desktop/mobile layouts, generated-key disclosure for newly created named wallets, and regression coverage across route, endpoint, runtime, schema, startup, and view layers.
 
-The remaining work is implementation only: add route/state/view plumbing, extract reusable approval helpers, and add regression coverage. No retrospective on shipped behavior is possible yet because code has not been changed.
+Required validation gates passed end to end:
+
+- `npm run check`
+- `npm test`
+- `npm run test:websocket`
+
+Browser QA also passed for the local `/API` route on desktop and mobile. The local page rendered the expected disconnected-state copy, form controls, disabled authorize CTA, available generate CTA, empty-state table/card, and `More -> API` navigation entry. A parity compare against Hyperliquid `/API` was captured as reference evidence; the remaining DOM/visual differences are expected shell/parity deltas rather than route breakage.
+
+Retrospective:
+
+- The protocol side was correctly de-risked during planning; the hardest parts were not exchange mutations, but page ownership, route wiring, and fitting the API-wallet flow cleanly into existing app/runtime boundaries.
+- Tightening `normalize-wallet-address` to require a real `0x` address closed a real validation gap and surfaced stale short-address fixtures in existing agent-session tests. Fixing that contract at the shared helper was the correct move.
+- The plan’s original open items are all complete, and this document has been moved to `completed`.
 
 ## Context and Orientation
 
@@ -456,3 +471,4 @@ Refactored wallet/runtime interface:
 - a new shared lower-level helper inside `/hyperopen/src/hyperopen/wallet/agent_runtime.cljs` that both the existing default agent enablement flow and the new page mutation effect call.
 
 Revision note (2026-03-07 / Codex): Initial plan authored after live DOM, network, and production-bundle inspection of Hyperliquid’s `/API` page so implementation can proceed without repeating that research. Updated the progress section to record follow-up issue `hyperopen-p0l` for implementation tracking in `bd`.
+Revision note (2026-03-07 / Codex): Updated progress, outcomes, and retrospective after implementation, validation (`npm run check`, `npm test`, `npm run test:websocket`), browser QA, and local `bd` issue closure; moved plan from `active` to `completed`.
