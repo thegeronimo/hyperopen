@@ -52,6 +52,19 @@
               nil))]
     (boolean (walk node))))
 
+(defn- find-first-node [node pred]
+  (cond
+    (vector? node)
+    (let [attrs (when (map? (second node)) (second node))
+          children (if attrs (drop 2 node) (drop 1 node))]
+      (or (when (pred node) node)
+          (some #(find-first-node % pred) children)))
+
+    (seq? node)
+    (some #(find-first-node % pred) node)
+
+    :else nil))
+
 (defn- find-img-nodes [node]
   (letfn [(walk [n]
             (cond
@@ -435,11 +448,56 @@
         tooltip-node (view/tooltip [[:span "Funding"] [:div "Body"]]
                                    "top"
                                    {:click-pinnable? true
+                                    :open? true
                                     :pin-id pin-id
                                     :pinned? true})
-        dismiss-label (nth tooltip-node 3)]
+        dismiss-target (find-first-node tooltip-node
+                                        #(contains? (set (class-values (get-in % [1 :class])))
+                                                    "fixed"))]
     (is (= [[:actions/set-funding-tooltip-visible pin-id false]]
-           (get-in dismiss-label [1 :on :click])))))
+           (rest (get-in dismiss-target [1 :on :click]))))
+    (is (= [[:actions/set-funding-tooltip-pinned pin-id false]]
+           [(first (get-in dismiss-target [1 :on :click]))]))))
+
+(deftest tooltip-click-pinnable-trigger-toggles-pinned-state-test
+  (let [pin-id (funding-tooltip-pin-id "BTC")
+        closed-tooltip (view/tooltip [[:span "Funding"] [:div "Body"]]
+                                     "top"
+                                     {:click-pinnable? true
+                                      :open? false
+                                      :pin-id pin-id
+                                      :pinned? false})
+        open-tooltip (view/tooltip [[:span "Funding"] [:div "Body"]]
+                                   "top"
+                                   {:click-pinnable? true
+                                    :open? true
+                                    :pin-id pin-id
+                                    :pinned? true})
+        closed-trigger (find-first-node closed-tooltip #(= :button (first %)))
+        open-trigger (find-first-node open-tooltip #(= :button (first %)))]
+    (is (= [[:actions/set-funding-tooltip-pinned pin-id true]
+            [:actions/set-funding-tooltip-visible pin-id true]]
+           (get-in closed-trigger [1 :on :click])))
+    (is (= [[:actions/set-funding-tooltip-pinned pin-id false]
+            [:actions/set-funding-tooltip-visible pin-id false]]
+           (get-in open-trigger [1 :on :click])))))
+
+(deftest tooltip-click-pinnable-renders-body-when-open-test
+  (let [pin-id (funding-tooltip-pin-id "BTC")
+        closed-tooltip (view/tooltip [[:span "Funding"] [:div "Body"]]
+                                     "top"
+                                     {:click-pinnable? true
+                                      :open? false
+                                      :pin-id pin-id
+                                      :pinned? false})
+        open-tooltip (view/tooltip [[:span "Funding"] [:div "Body"]]
+                                   "top"
+                                   {:click-pinnable? true
+                                    :open? true
+                                    :pin-id pin-id
+                                    :pinned? true})]
+    (is (not (contains? (set (collect-strings closed-tooltip)) "Body")))
+    (is (contains? (set (collect-strings open-tooltip)) "Body"))))
 
 (deftest active-asset-row-skips-funding-tooltip-derivation-when-closed-test
   (let [ctx-data {:coin "xyz:GOLD"
@@ -570,7 +628,15 @@
                   hyperopen.utils.formatting/format-funding-countdown
                   (fn [] "00:22:01")]
       (let [view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
-            strings (set (collect-strings view-node))]
+            strings (set (collect-strings view-node))
+            rate-node (find-first-node view-node
+                                       #(and (= :span (first %))
+                                             (contains? (set (collect-strings %)) "+0.1344%")))
+            payment-node (find-first-node view-node
+                                          #(and (= :span (first %))
+                                                (contains? (set (collect-strings %)) "-$0.13")))
+            rate-classes (set (class-values (get-in rate-node [1 :class])))
+            payment-classes (set (class-values (get-in payment-node [1 :class])))]
         (is (contains? strings "Position"))
         (is (contains? strings "Projections"))
         (is (contains? strings "Predictability (30d)"))
@@ -589,7 +655,13 @@
         (is (contains? strings "+49.0560%"))
         (is (not (contains? strings "-$0.01")))
         (is (contains? strings "-$0.13"))
-        (is (contains? strings "-$48.76"))))))
+        (is (contains? strings "-$48.76"))
+        (is (contains? rate-classes "justify-self-end"))
+        (is (not (contains? rate-classes "justify-self-center")))
+        (is (not (contains? rate-classes "text-left")))
+        (is (not (contains? rate-classes "text-center")))
+        (is (contains? payment-classes "text-left"))
+        (is (not (contains? payment-classes "text-center")))))))
 
 (deftest active-asset-row-funding-tooltip-short-position-shows-positive-payment-test
   (let [ctx-data {:coin "xyz:GOLD"

@@ -25,7 +25,7 @@
    (tooltip content "top" {}))
   ([content position]
    (tooltip content position {}))
-  ([content position {:keys [click-pinnable? pin-id pinned?]}]
+  ([content position {:keys [click-pinnable? pin-id pinned? open?]}]
    (let [pos (or position "top")
          tooltip-body (second content)
          body-node (if (string? tooltip-body)
@@ -44,46 +44,57 @@
                              "left" ["right-full" "top-1/2" "transform" "-translate-y-1/2" "mr-2"]
                              "right" ["left-full" "top-1/2" "transform" "-translate-y-1/2" "ml-2"])
          trigger-node (first content)
+         open?* (boolean open?)
          pin-id* (let [text (some-> pin-id str str/trim)]
                    (if (seq text)
                      text
-                     "funding-rate-tooltip-pin"))]
+                     "funding-rate-tooltip-pin"))
+         trigger-click-actions (if pinned?
+                                 [[:actions/set-funding-tooltip-pinned pin-id* false]
+                                  [:actions/set-funding-tooltip-visible pin-id* false]]
+                                 [[:actions/set-funding-tooltip-pinned pin-id* true]
+                                  [:actions/set-funding-tooltip-visible pin-id* true]])]
      (if click-pinnable?
-       [:div {:class ["relative" "group" "inline-flex"]
+       [:div {:class ["relative" "inline-flex"]
               :on {:mouseenter [[:actions/set-funding-tooltip-visible pin-id* true]]
                    :mouseleave [[:actions/set-funding-tooltip-visible pin-id* false]]}}
-        [:input {:id pin-id*
-                 :type "checkbox"
-                 :checked (boolean pinned?)
-                 :class ["peer" "sr-only"]
-                 :on {:change [[:actions/set-funding-tooltip-pinned pin-id* :event.target/checked]]
-                      :focus [[:actions/set-funding-tooltip-visible pin-id* true]]
-                      :blur [[:actions/set-funding-tooltip-visible pin-id* false]]}}]
-        ;; Click outside target that only exists while pinned open.
-        [:label {:for pin-id*
-                 :class ["fixed"
+        (when pinned?
+          [:div {:class ["fixed"
                          "inset-0"
                          "z-40"
-                         "hidden"
-                         "cursor-default"
-                         "peer-checked:block"]
-                 :on {:click [[:actions/set-funding-tooltip-visible pin-id* false]]}}]
-        [:label {:for pin-id*
-                 :class ["relative" "z-50" "inline-flex" "cursor-pointer"]}
+                         "cursor-default"]
+                 :on {:click [[:actions/set-funding-tooltip-pinned pin-id* false]
+                              [:actions/set-funding-tooltip-visible pin-id* false]]}}])
+        [:button {:type "button"
+                  :class ["relative"
+                          "z-50"
+                          "inline-flex"
+                          "cursor-pointer"
+                          "appearance-none"
+                          "border-0"
+                          "bg-transparent"
+                          "p-0"
+                          "text-inherit"
+                          "focus:outline-none"
+                          "focus:ring-0"
+                          "focus:ring-offset-0"]
+                  :aria-expanded open?*
+                  :aria-haspopup "dialog"
+                  :aria-pressed (boolean pinned?)
+                  :on {:click trigger-click-actions
+                       :focus [[:actions/set-funding-tooltip-visible pin-id* true]]
+                       :blur [[:actions/set-funding-tooltip-visible pin-id* false]]}}
          trigger-node]
-        [:div {:class (into ["absolute"
-                             "z-50"
-                             "opacity-0"
-                             "group-hover:opacity-100"
-                             "peer-checked:opacity-100"
-                             "transition-opacity"
-                             "duration-200"
-                             "pointer-events-none"
-                             "peer-checked:pointer-events-auto"]
-                            placement-classes)
-               :style {:min-width "max-content"
-                       :max-width "22rem"}}
-         body-node]]
+        (when open?*
+          [:div {:class (into ["absolute"
+                               "z-50"
+                               "transition-opacity"
+                               "duration-200"
+                               "pointer-events-auto"]
+                              placement-classes)
+                 :style {:min-width "max-content"
+                         :max-width "22rem"}}
+           body-node])]
        [:div {:class ["relative" "group" "inline-flex"]}
         [:div trigger-node]
         [:div {:class (into ["absolute" "opacity-0" "group-hover:opacity-100" "transition-opacity" "duration-200" "pointer-events-none" "z-50"]
@@ -742,7 +753,7 @@
        ^{:key id}
        [:div {:class ["contents"]}
         [:span {:class ["text-gray-100/95" "text-left"]} label]
-        [:span {:class ["num" "text-left" "whitespace-nowrap" "font-medium" (signed-tone-class rate)]}
+        [:span {:class ["num" "justify-self-end" "whitespace-nowrap" "font-medium" (signed-tone-class rate)]}
          (signed-percentage-text rate 4)]
         [:span {:class ["num" "text-left" "whitespace-nowrap" "font-medium" (signed-tone-class payment)]}
          (signed-usd-text payment)]])]]
@@ -1127,6 +1138,7 @@
                 (funding-tooltip-panel funding-tooltip))]
              "bottom"
              {:click-pinnable? true
+              :open? funding-tooltip-open?
               :pin-id funding-tooltip-id
               :pinned? funding-tooltip-pinned?})
            [:span (if is-spot "—" "Loading...")])
