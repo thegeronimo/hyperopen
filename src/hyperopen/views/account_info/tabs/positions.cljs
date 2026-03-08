@@ -451,22 +451,32 @@
 
 (defn- mobile-position-margin-value-node
   [margin margin-mode-label]
-  [:span {:class ["inline-flex"
-                  "max-w-full"
-                  "flex-wrap"
-                  "items-center"
-                  "gap-x-1"
-                  "gap-y-0.5"
-                  "leading-5"]}
+  [:div {:class ["inline-grid"
+                 "grid-cols-[max-content_auto]"
+                 "items-start"
+                 "gap-x-0.5"
+                 "gap-y-0.5"]}
    [:span {:class ["num" "font-medium" "text-trading-text" "whitespace-nowrap"]}
     (str "$" (shared/format-currency margin))]
    (when margin-mode-label
-     [:span {:class ["text-xs"
+     [:span {:class ["col-span-full"
+                     "text-xs"
                      "font-medium"
                      "leading-4"
                      "text-trading-text-secondary"
                      "whitespace-nowrap"]}
       (str "(" margin-mode-label ")")])])
+
+(defn- editable-mobile-margin-value
+  [margin margin-mode-label edit-button]
+  [:div {:class ["inline-grid"
+                 "grid-cols-[max-content_auto]"
+                 "items-start"
+                 "gap-x-0.5"
+                 "gap-y-0.5"
+                 "align-top"]}
+   (mobile-position-margin-value-node margin margin-mode-label)
+   edit-button])
 
 (def ^:private mobile-position-card-shell-classes
   ["overflow-hidden"
@@ -747,10 +757,9 @@
                                    (position-value-copy position-value-num)
                                    {:value-classes ["num" "font-medium" "whitespace-nowrap"]})
          (mobile-cards/detail-item "Margin"
-                                   (editable-mobile-detail-value
-                                    (mobile-position-margin-value-node
-                                     (:marginUsed pos)
-                                     margin-mode-label)
+                                   (editable-mobile-margin-value
+                                    (:marginUsed pos)
+                                    margin-mode-label
                                     (mobile-position-detail-edit-button
                                      "Edit Margin"
                                      (position-overlay-trigger
