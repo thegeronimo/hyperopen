@@ -263,6 +263,20 @@
 (declare processed-assets
          asset-list)
 
+(def ^:private desktop-breakpoint-px
+  1024)
+
+(defn- viewport-width-px []
+  (let [width (some-> js/globalThis .-innerWidth)]
+    (if (number? width)
+      width
+      desktop-breakpoint-px)))
+
+(defn- desktop-selector-layout? [desktop?]
+  (if (boolean? desktop?)
+    desktop?
+    (>= (viewport-width-px) desktop-breakpoint-px)))
+
 (def ^:private selector-tabs
   [["All" :all]
    ["Perps" :perps]
@@ -437,12 +451,12 @@
                       [:event/metaKey]
                       [:event/ctrlKey]
                       ordered-market-keys]]}
-      :style {:transition "opacity 0.2s ease-in-out, transform 0.2s ease-in-out"
+      :style {:transition "opacity 0.12s ease-out, transform 0.12s ease-out"
               :opacity 1
               :transform "translateY(0)"
               :background-color "var(--color-base-100)"}
-      :replicant/mounting {:style {:opacity 0 :transform "translateY(-8px)"}}
-      :replicant/unmounting {:style {:opacity 0 :transform "translateY(-8px)"}}}
+      :replicant/mounting {:style {:opacity 0 :transform "translateY(-4px)"}}
+      :replicant/unmounting {:style {:opacity 0 :transform "translateY(-4px)"}}}
      [:div {:class ["absolute" "inset-0" "pointer-events-none"]
             :style {:background-color "var(--color-base-100)"}}
       nil]
@@ -617,43 +631,46 @@
    - :phase - :bootstrap | :full"
   [{:keys [visible? markets selected-market-key search-term sort-by sort-direction
            favorites favorites-only? strict? active-tab missing-icons loaded-icons
-           highlighted-market-key render-limit scroll-top loading? phase]}]
+           highlighted-market-key render-limit scroll-top loading? phase desktop?]}]
   (when visible?
-    [:div
-     (mobile-asset-selector-dropdown {:loading? loading?
-                                      :phase phase
-                                      :search-term search-term
-                                      :strict? strict?
-                                      :favorites-only? favorites-only?
-                                      :active-tab active-tab
-                                      :sort-by sort-by
-                                      :sort-direction sort-direction
-                                      :markets markets
-                                      :selected-market-key selected-market-key
-                                      :favorites favorites
-                                      :highlighted-market-key highlighted-market-key})
-     (desktop-asset-selector-dropdown {:loading? loading?
-                                       :phase phase
-                                       :search-term search-term
-                                       :strict? strict?
-                                       :favorites-only? favorites-only?
-                                       :active-tab active-tab
-                                       :sort-by sort-by
-                                       :sort-direction sort-direction
-                                       :markets markets
-                                       :selected-market-key selected-market-key
-                                       :favorites favorites
-                                       :missing-icons missing-icons
-                                       :loaded-icons loaded-icons
-                                       :highlighted-market-key highlighted-market-key
-                                       :render-limit render-limit
-                                       :scroll-top scroll-top})]))
+    (let [desktop-layout? (desktop-selector-layout? desktop?)]
+      [:div
+       (if desktop-layout?
+         (desktop-asset-selector-dropdown {:loading? loading?
+                                           :phase phase
+                                           :search-term search-term
+                                           :strict? strict?
+                                           :favorites-only? favorites-only?
+                                           :active-tab active-tab
+                                           :sort-by sort-by
+                                           :sort-direction sort-direction
+                                           :markets markets
+                                           :selected-market-key selected-market-key
+                                           :favorites favorites
+                                           :missing-icons missing-icons
+                                           :loaded-icons loaded-icons
+                                           :highlighted-market-key highlighted-market-key
+                                           :render-limit render-limit
+                                           :scroll-top scroll-top})
+         (mobile-asset-selector-dropdown {:loading? loading?
+                                          :phase phase
+                                          :search-term search-term
+                                          :strict? strict?
+                                          :favorites-only? favorites-only?
+                                          :active-tab active-tab
+                                          :sort-by sort-by
+                                          :sort-direction sort-direction
+                                          :markets markets
+                                          :selected-market-key selected-market-key
+                                          :favorites favorites
+                                          :highlighted-market-key highlighted-market-key}))])))
 
 ;; Wrapper component that can be used in active-asset-view
 (defn asset-selector-wrapper [props]
-  [:div.relative
-   (asset-selector-dropdown props)
-   ;; Invisible overlay to handle click-outside-to-close
-   (when (:visible? props)
-     [:div {:class ["fixed" "inset-0" "z-[210]" "hidden" "transition" "duration-700" "ease-in-out" "lg:block"]
-            :on {:click [[:actions/close-asset-dropdown]]}}])])
+  (let [desktop-layout? (desktop-selector-layout? (:desktop? props))]
+    [:div.relative
+     (asset-selector-dropdown props)
+     ;; Only desktop uses an outside-click overlay; mobile uses its own full-screen shell.
+     (when (and (:visible? props) desktop-layout?)
+       [:div {:class ["fixed" "inset-0" "z-[210]"]
+              :on {:click [[:actions/close-asset-dropdown]]}}])]))
