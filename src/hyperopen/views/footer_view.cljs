@@ -793,19 +793,19 @@
   [{:keys [label active? click icon-kind data-role]}]
   [:button {:type "button"
             :class (into ["inline-flex"
-                          "flex-col"
+                          "h-10"
                           "items-center"
                           "justify-center"
-                          "gap-1"
-                          "rounded-xl"
-                          "px-2"
-                          "py-1.5"
-                          "text-xs"
+                          "gap-1.5"
+                          "whitespace-nowrap"
+                          "px-1"
+                          "py-1"
+                          "text-sm"
                           "font-medium"
                           "transition-colors"]
                          (if active?
-                           ["bg-[#0d2a31]" "text-[#61e6cf]"]
-                           ["text-trading-text-secondary" "hover:bg-base-100" "hover:text-trading-text"]))
+                           ["text-[#61e6cf]"]
+                           ["text-trading-text-secondary" "hover:text-trading-text"]))
             :on {:click click}
             :data-role data-role}
    (mobile-nav-icon icon-kind active?)
@@ -818,28 +818,25 @@
         portfolio-route? (str/starts-with? route "/portfolio")
         mobile-surface (trade-layout-actions/normalize-trade-mobile-surface
                         (get-in state [:trade-ui :mobile-surface]))
-        asset-selector-open? (= :asset-selector (get-in state [:asset-selector :visible-dropdown]))
-        markets-active? (and trade-route? asset-selector-open?)
+        markets-active? (and trade-route?
+                             (contains? #{:chart :orderbook} mobile-surface))
         account-active? (or portfolio-route?
                             (and trade-route? (= mobile-surface :account)))
-        trade-active? (and trade-route?
-                           (not account-active?)
-                           (not markets-active?))]
+        trade-active? (and trade-route? (= mobile-surface :ticket))]
     [:div {:class ["lg:hidden"
                    "w-full"
                    "bg-[#07161b]/95"
                    "backdrop-blur"
                    "app-shell-gutter"
-                   "pt-2"
-                   "pb-[calc(0.5rem+env(safe-area-inset-bottom))]"]
+                   "pt-1"
+                   "pb-[calc(0.25rem+env(safe-area-inset-bottom))]"]
            :data-role "mobile-bottom-nav"}
-     [:div {:class ["grid" "grid-cols-3" "gap-2"]}
+      [:div {:class ["grid" "grid-cols-3" "gap-2"]}
       (mobile-nav-button
        {:label "Markets"
         :active? markets-active?
         :click (if trade-route?
-                 [[:actions/select-trade-mobile-surface :chart]
-                  [:actions/toggle-asset-dropdown :asset-selector]]
+                 [[:actions/select-trade-mobile-surface :chart]]
                  [[:actions/navigate "/trade"]])
         :icon-kind :markets
         :data-role "mobile-bottom-nav-markets"})
@@ -847,7 +844,7 @@
        {:label "Trade"
         :active? trade-active?
         :click (if trade-route?
-                 [[:actions/select-trade-mobile-surface :chart]]
+                 [[:actions/select-trade-mobile-surface :ticket]]
                  [[:actions/navigate "/trade"]])
         :icon-kind :trade
         :data-role "mobile-bottom-nav-trade"})

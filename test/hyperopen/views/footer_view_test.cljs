@@ -168,13 +168,24 @@
         trade-button (find-node #(= "mobile-bottom-nav-trade" (get-in % [1 :data-role])) view)
         account-button (find-node #(= "mobile-bottom-nav-account" (get-in % [1 :data-role])) view)]
     (is (some? mobile-nav))
-    (is (= [[:actions/select-trade-mobile-surface :chart]
-            [:actions/toggle-asset-dropdown :asset-selector]]
-           (get-in markets-button [1 :on :click])))
     (is (= [[:actions/select-trade-mobile-surface :chart]]
+           (get-in markets-button [1 :on :click])))
+    (is (= [[:actions/select-trade-mobile-surface :ticket]]
            (get-in trade-button [1 :on :click])))
     (is (= [[:actions/select-trade-mobile-surface :account]]
            (get-in account-button [1 :on :click])))))
+
+(deftest footer-mobile-bottom-nav-uses-flat-single-line-styling-test
+  (let [view (footer-view/footer-view (assoc (base-state)
+                                             :router {:path "/trade"}))
+        markets-button (find-node #(= "mobile-bottom-nav-markets" (get-in % [1 :data-role])) view)
+        classes (set (class-values (get-in markets-button [1 :class])))]
+    (is (contains? classes "h-10"))
+    (is (contains? classes "whitespace-nowrap"))
+    (is (contains? classes "text-[#61e6cf]"))
+    (is (not (contains? classes "flex-col")))
+    (is (not (contains? classes "rounded-xl")))
+    (is (not (contains? classes "bg-[#0d2a31]")))))
 
 (deftest footer-mobile-bottom-nav-highlights-account-surface-test
   (let [view (footer-view/footer-view (assoc (base-state)
@@ -182,8 +193,8 @@
                                              :trade-ui {:mobile-surface :account}))
         account-button (find-node #(= "mobile-bottom-nav-account" (get-in % [1 :data-role])) view)
         classes (set (class-values (get-in account-button [1 :class])))]
-    (is (contains? classes "bg-[#0d2a31]"))
-    (is (contains? classes "text-[#61e6cf]"))))
+    (is (contains? classes "text-[#61e6cf]"))
+    (is (not (contains? classes "bg-[#0d2a31]")))))
 
 (deftest diagnostics-drawer-renders-only-when-open-test
   (let [closed-view (footer-view/footer-view (base-state))

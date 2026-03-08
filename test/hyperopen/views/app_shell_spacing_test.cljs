@@ -183,35 +183,30 @@
     (is (contains? account-info-cell-classes "min-h-0"))
     (is (contains? account-info-cell-classes "overflow-hidden"))))
 
-(deftest trade-view-renders-mobile-account-shortcuts-only-on-account-surface-test
+(deftest trade-view-renders-account-panel-on-mobile-market-surfaces-test
   (let [chart-view (trade-view/trade-view trade-view-test-state)
-        chart-balances-shortcut (find-first-node chart-view
-                                                 #(= [[:actions/select-trade-mobile-surface :account]
-                                                      [:actions/select-account-info-tab :balances]]
-                                                     (get-in % [1 :on :click])))
-        view-node (trade-view/trade-view (assoc-in trade-view-test-state
-                                                   [:trade-ui :mobile-surface]
-                                                   :account))
-        balances-shortcut (find-first-node view-node
-                                           #(= [[:actions/select-trade-mobile-surface :account]
-                                                [:actions/select-account-info-tab :balances]]
-                                               (get-in % [1 :on :click])))
-        open-orders-shortcut (find-first-node view-node
-                                              #(= [[:actions/select-trade-mobile-surface :account]
-                                                   [:actions/select-account-info-tab :open-orders]]
-                                                  (get-in % [1 :on :click])))
-        trade-history-shortcut (find-first-node view-node
-                                                #(= [[:actions/select-trade-mobile-surface :account]
-                                                    [:actions/select-account-info-tab :trade-history]]
-                                                    (get-in % [1 :on :click])))
-        all-text (set (collect-strings view-node))]
-    (is (nil? chart-balances-shortcut))
-    (is (some? balances-shortcut))
-    (is (some? open-orders-shortcut))
-    (is (some? trade-history-shortcut))
-    (is (contains? all-text "Balances"))
-    (is (contains? all-text "Open Orders"))
-    (is (contains? all-text "Trade History"))))
+        chart-account-panel (find-first-node chart-view
+                                             #(= "trade-account-tables-panel"
+                                                 (get-in % [1 :data-parity-id])))
+        chart-classes (node-class-set chart-account-panel)
+        chart-text (set (collect-strings chart-view))
+        ticket-view (trade-view/trade-view (assoc-in trade-view-test-state
+                                                     [:trade-ui :mobile-surface]
+                                                     :ticket))
+        ticket-account-panel (find-first-node ticket-view
+                                              #(= "trade-account-tables-panel"
+                                                  (get-in % [1 :data-parity-id])))
+        ticket-classes (node-class-set ticket-account-panel)]
+    (is (contains? chart-classes "flex"))
+    (is (not (contains? chart-classes "hidden")))
+    (is (some #(str/starts-with? % "Balances") chart-text))
+    (is (some #(str/starts-with? % "Open Orders") chart-text))
+    (is (contains? chart-text "Trade History"))
+    (is (contains? ticket-classes "hidden"))
+    (is (nil? (find-first-node chart-view
+                               #(= [[:actions/select-trade-mobile-surface :account]
+                                    [:actions/select-account-info-tab :balances]]
+                                   (get-in % [1 :on :click])))))))
 
 (deftest trade-view-primary-mobile-tabs-exclude-account-tab-test
   (let [view-node (trade-view/trade-view trade-view-test-state)

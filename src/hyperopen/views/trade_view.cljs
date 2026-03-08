@@ -12,13 +12,6 @@
    [:orderbook "Order Book"]
    [:ticket "Trade"]])
 
-(def ^:private trade-mobile-account-shortcuts
-  [[:balances "Balances"]
-   [:positions "Positions"]
-   [:open-orders "Open Orders"]
-   [:twap "TWAP"]
-   [:trade-history "Trade History"]])
-
 (defn- mobile-surface-button
   [selected-surface [surface-id label]]
   [:button {:type "button"
@@ -38,35 +31,12 @@
             :on {:click [[:actions/select-trade-mobile-surface surface-id]]}}
    label])
 
-(defn- mobile-account-shortcut-button
-  [mobile-surface selected-account-tab [tab-id label]]
-  [:button {:type "button"
-            :class (into ["shrink-0"
-                          "rounded-md"
-                          "border"
-                          "px-2.5"
-                          "py-1.5"
-                          "text-xs"
-                          "font-medium"
-                          "transition-colors"
-                          "focus:outline-none"
-                          "focus:ring-0"
-                          "focus:ring-offset-0"]
-                         (if (and (= mobile-surface :account)
-                                  (= selected-account-tab tab-id))
-                           ["border-base-300" "bg-base-100" "text-trading-text" "shadow-sm"]
-                           ["border-transparent" "bg-base-200/40" "text-trading-text-secondary" "hover:bg-base-200" "hover:text-trading-text"]))
-            :on {:click [[:actions/select-trade-mobile-surface :account]
-                         [:actions/select-account-info-tab tab-id]]}
-            :data-role (str "trade-mobile-account-shortcut-" (name tab-id))}
-   label])
-
 (defn trade-view [state]
   (let [active-asset (:active-asset state)
         orderbook-data (when active-asset (get-in state [:orderbooks active-asset]))
         mobile-surface (trade-layout-actions/normalize-trade-mobile-surface
                          (get-in state [:trade-ui :mobile-surface]))
-        selected-account-tab (get-in state [:account-info :selected-tab] :balances)
+        mobile-market-surface? (contains? #{:chart :orderbook} mobile-surface)
         show-surface-freshness-cues?
         (boolean (get-in state [:websocket-ui :show-surface-freshness-cues?] false))
         websocket-health (get-in state [:websocket :health])
@@ -84,12 +54,13 @@
       [:div {:class ["relative" "flex-1" "min-h-0"]}
        [:div {:class ["hidden" "xl:block" "absolute" "top-0" "bottom-0" "right-[320px]" "w-px" "bg-base-300" "pointer-events-none" "z-10"]}]
         [:div {:class ["grid"
-                       "h-full"
+                       "h-auto"
                        "min-h-0"
                        "grid-cols-1"
                        "gap-x-0" "gap-y-0"
                        "bg-base-100"
                        "items-stretch"
+                       "lg:h-full"
                        "lg:grid-cols-[minmax(0,1fr)_320px]"
                        "lg:grid-rows-[minmax(520px,1fr)_minmax(300px,auto)]"
                        "xl:grid-cols-[minmax(0,1fr)_280px_320px]"
@@ -112,10 +83,12 @@
         [:div {:class (into [(if (= mobile-surface :orderbook) "block" "hidden")
                              "bg-base-100"
                              "w-full"
-                             "h-full"
-                             "min-h-0"
+                             "h-auto"
+                             "min-h-[360px]"
                              "overflow-hidden"]
                             ["lg:block"
+                             "lg:h-full"
+                             "lg:min-h-0"
                              "lg:col-start-2"
                              "lg:row-start-2"
                              "lg:border-l"
@@ -151,7 +124,10 @@
          [:div {:class ["border-t" "border-base-300"]}
           (account-equity-view/account-equity-view state*)]]
 
-        [:div {:class (into [(if (= mobile-surface :account) "flex" "hidden")
+        [:div {:class (into [(if (or (= mobile-surface :account)
+                                     mobile-market-surface?)
+                               "flex"
+                               "hidden")
                              "bg-base-100"
                              "border-t"
                              "border-base-300"
@@ -163,10 +139,4 @@
                              "lg:row-start-2"
                              "xl:col-start-1"])
                :data-parity-id "trade-account-tables-panel"}
-         (when (= mobile-surface :account)
-           [:div {:class ["lg:hidden" "border-b" "border-base-300" "bg-base-200/60" "px-3" "py-1.5"]}
-            [:div {:class ["flex" "gap-1.5" "overflow-x-auto" "scrollbar-hide" "pb-0.5"]}
-             (for [[tab-id _label :as shortcut] trade-mobile-account-shortcuts]
-               ^{:key (str "trade-mobile-account-shortcut-" (name tab-id))}
-               (mobile-account-shortcut-button mobile-surface selected-account-tab shortcut))]])
          (account-info-view/account-info-view state*)]]]]]))
