@@ -394,7 +394,7 @@
   (let [mode (trading/effective-margin-mode state margin-mode)
         dropdown-open? (and cross-margin-allowed?
                             margin-mode-dropdown-open?)]
-    [:div {:class ["grid" "grid-cols-3" "gap-2"]}
+    [:div {:class ["grid" "grid-cols-3" "gap-1.5" "sm:gap-2"]}
      (margin-mode-chip mode cross-margin-allowed? dropdown-open? leverage-handlers)
      (leverage-control state
                        ui-leverage
@@ -405,7 +405,7 @@
      (primitives/chip-button "Classic" true :disabled? true)]))
 
 (defn- side-row [side side-handlers]
-  [:div {:class ["flex" "items-center" "gap-2" "bg-base-200" "rounded-md" "p-1"]}
+  [:div {:class ["flex" "items-center" "gap-1.5" "bg-base-200" "rounded-md" "p-0.5" "sm:gap-2" "sm:p-1"]}
    (primitives/side-button "Buy / Long"
                            :buy
                            (= side :buy)
@@ -418,12 +418,12 @@
 (defn- balances-row [display]
   [:div {:class ["space-y-1.5"]}
    [:div {:class ["flex" "items-center" "justify-between"]}
-    [:span {:class ["text-sm" "text-gray-400"]} "Available to Trade"]
-    [:span {:class ["text-sm" "font-semibold" "text-gray-100" "num"]}
+    [:span {:class ["text-xs" "text-gray-400" "sm:text-sm"]} "Available to Trade"]
+    [:span {:class ["text-xs" "font-semibold" "text-gray-100" "num" "sm:text-sm"]}
      (:available-to-trade display)]]
    [:div {:class ["flex" "items-center" "justify-between"]}
-    [:span {:class ["text-sm" "text-gray-400"]} "Current position"]
-    [:span {:class ["text-sm" "font-semibold" "text-gray-100" "num"]}
+    [:span {:class ["text-xs" "text-gray-400" "sm:text-sm"]} "Current position"]
+    [:span {:class ["text-xs" "font-semibold" "text-gray-100" "num" "sm:text-sm"]}
      (:current-position display)]]])
 
 (defn- size-row [{:keys [size-display
@@ -435,7 +435,7 @@
                          size-percent
                          notch-overlap-threshold]}
                  size-handlers]
-  [:div {:class ["space-y-2"]}
+  [:div {:class ["space-y-1.5" "sm:space-y-2"]}
    (primitives/row-input size-display
                          "Size"
                          (:on-change-display size-handlers)
@@ -548,7 +548,7 @@
          :tabindex (when (seq submit-tooltip) 0)}
    [:button {:type "button"
              :class (into ["w-full"
-                           "h-11"
+                           "h-10"
                            "rounded-lg"
                            "text-sm"
                            "font-semibold"
@@ -739,7 +739,7 @@
   (let [liquidation-price (:liquidation-price display)
         liquidation-tooltip (when (= liquidation-price "N/A")
                               liquidation-price-tooltip)]
-    [:div {:class ["border-t" "border-base-300" "pt-3" "space-y-2"]}
+    [:div {:class ["border-t" "border-base-300" "pt-2.5" "space-y-1.5" "sm:pt-3" "sm:space-y-2"]}
      (when show-liquidation-row?
        (primitives/metric-row "Liquidation Price"
                               liquidation-price
@@ -815,18 +815,21 @@
                    "border-base-300"
                    "rounded-none"
                    "spectate-none"
-                   "p-3"
+                   "p-2.5"
+                   "sm:p-3"
                    "font-sans"
-                   "min-h-[560px]"
+                   "min-h-[500px]"
+                   "lg:min-h-[560px]"
                    "xl:min-h-[640px]"
                    "flex"
                    "flex-col"
-                   "gap-3"]
+                   "gap-2.5"
+                   "sm:gap-3"]
            :data-parity-id "order-form"}
      (when spot?
        (unsupported-market-banner "Spot trading is not supported yet. You can still view spot charts and order books."))
 
-     [:div {:class (into ["flex" "flex-col" "flex-1" "gap-3"]
+     [:div {:class (into ["flex" "flex-col" "flex-1" "gap-2.5" "sm:gap-3"]
                          (when read-only? ["opacity-60" "pointer-events-none"]))}
       (leverage-row state
                     (:margin-mode form)

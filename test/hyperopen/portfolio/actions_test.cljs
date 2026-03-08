@@ -167,11 +167,15 @@
          (actions/set-portfolio-account-info-tab {} "performanceMetrics")))
   (is (= [[:effects/save
            [:portfolio-ui :account-info-tab]
+           :deposits-withdrawals]]
+         (actions/set-portfolio-account-info-tab {} "depositsWithdrawals")))
+  (is (= [[:effects/save
+           [:portfolio-ui :account-info-tab]
            :open-orders]]
          (actions/set-portfolio-account-info-tab {} "openOrders")))
   (is (= [[:effects/save
            [:portfolio-ui :account-info-tab]
-           :performance-metrics]]
+           :balances]]
          (actions/set-portfolio-account-info-tab {} :unknown))))
 
 (deftest set-and-clear-portfolio-chart-hover-test

@@ -52,23 +52,23 @@
 (defn- control-menu [label summary-text options]
   [:details {:class ["relative"]}
    [:summary {:class ["flex"
-                      "h-9"
+                      "h-8"
                       "list-none"
                       "cursor-pointer"
                       "items-center"
-                      "gap-2"
-                      "rounded-xl"
+                      "gap-1.5"
+                      "rounded-lg"
                       "border"
                       "border-base-300"
                       "bg-base-100"
-                      "px-3"
+                      "px-2.5"
                       "text-xs"
                       "text-trading-text"
                       "hover:bg-base-200"
                       "focus:outline-none"
                       "focus:ring-0"
                       "focus:ring-offset-0"]}
-    [:span {:class ["text-trading-text-secondary"]} label]
+    [:span {:class ["hidden" "sm:inline" "text-trading-text-secondary"]} label]
     [:span {:class ["max-w-[180px]" "truncate"]} summary-text]
     [:svg {:class ["h-3.5" "w-3.5" "text-trading-text-secondary"]
            :viewBox "0 0 20 20"
@@ -254,11 +254,11 @@
   [:a {:href (vault-detail-route vault-address)
        :class ["block"
                "w-full"
-               "rounded-xl"
+               "rounded-lg"
                "border"
-               "border-base-300"
-               "bg-base-100"
-               "p-3"
+               "border-base-300/70"
+               "bg-base-100/85"
+               "p-2.5"
                "text-left"
                "transition-colors"
                "hover:bg-base-200"]}
@@ -269,7 +269,7 @@
       (wallet/short-addr vault-address)]]
     [:div {:class ["num" "text-xs" "text-trading-text-secondary"]}
      (wallet/short-addr leader)]]
-   [:div {:class ["mt-3" "grid" "grid-cols-2" "gap-2" "text-xs"]}
+   [:div {:class ["mt-2.5" "grid" "grid-cols-2" "gap-2" "text-xs"]}
     [:div [:span {:class ["text-trading-text-secondary"]} "APR "] [:span {:class (into ["num"] (percent-text-class apr))} (format-percent apr)]]
     [:div [:span {:class ["text-trading-text-secondary"]} "TVL "] [:span {:class ["num" "text-trading-text"]} (format-currency tvl)]]
     [:div [:span {:class ["text-trading-text-secondary"]} "Your Deposit "] [:span {:class ["num" "text-trading-text"]} (format-currency your-deposit)]]
@@ -534,24 +534,27 @@
                 visible-user-rows
                 user-pagination
                 total-visible-tvl]} (vault-vm/vault-list-vm state)]
-    [:div {:class ["relative" "w-full" "app-shell-gutter" "py-6"]
+    [:div {:class ["relative" "w-full" "app-shell-gutter" "py-4" "md:py-6"]
            :data-parity-id "vaults-root"}
      [:div {:class ["pointer-events-none"
                     "absolute"
                     "inset-x-0"
                     "top-0"
-                    "h-[360px]"
+                    "h-[240px]"
+                    "md:h-[360px]"
                     "rounded-b-[24px]"
                     "opacity-95"]
             :style {:background-image "radial-gradient(120% 120% at 15% -10%, rgba(0, 148, 111, 0.35), rgba(6, 30, 34, 0.05) 60%), radial-gradient(130% 140% at 85% 20%, rgba(0, 138, 96, 0.22), rgba(6, 30, 34, 0) 68%), linear-gradient(180deg, rgba(4, 43, 36, 0.72) 0%, rgba(6, 27, 32, 0.15) 100%)"}}]
 
      [:div {:class ["relative" "mx-auto" "w-full" "max-w-[1280px]" "space-y-4"]}
       [:div {:class ["flex" "flex-wrap" "items-center" "justify-between" "gap-3"]}
-       [:h1 {:class ["text-3xl" "font-normal" "text-trading-text" "sm:text-[48px]" "sm:leading-[52px]"]}
+       [:h1 {:class ["text-2xl" "font-normal" "text-trading-text" "sm:text-[48px]" "sm:leading-[52px]"]}
         "Vaults"]
        [:button {:type "button"
                  :disabled true
-                 :class ["rounded-xl"
+                 :class ["hidden"
+                         "xl:inline-flex"
+                         "rounded-xl"
                          "bg-[#55e6ce]"
                          "px-5"
                          "py-2.5"
@@ -562,7 +565,7 @@
                          "cursor-not-allowed"]}
         "Establish Connection"]]
 
-      [:div {:class ["w-full" "max-w-[360px]" "rounded-2xl" "bg-[#0f1a1f]" "px-3" "py-3"]}
+      [:div {:class ["w-full" "max-w-[320px]" "rounded-xl" "bg-[#0f1a1f]" "px-3" "py-3" "md:max-w-[360px]" "md:rounded-2xl"]}
        [:div {:class ["text-sm" "font-normal" "text-trading-text-secondary"]}
         "Total Value Locked"]
        (if loading?
@@ -571,14 +574,14 @@
          [:div {:class ["mt-1" "num" "text-[44px]" "leading-[46px]" "font-normal" "text-trading-text"]}
           (format-total-currency total-visible-tvl)])]
 
-      [:div {:class ["rounded-2xl" "border" "border-base-300/80" "bg-base-100/90" "p-3"]}
+      [:div {:class ["rounded-xl" "border" "border-base-300/80" "bg-base-100/90" "p-2.5" "md:rounded-2xl" "md:p-3"]}
        [:div {:class ["flex" "flex-wrap" "items-center" "gap-2"]}
         [:input {:id "vaults-search-input"
                  :type "search"
-                 :class ["h-9"
+                 :class ["h-8"
                          "min-w-[260px]"
                          "flex-1"
-                         "rounded-xl"
+                         "rounded-lg"
                          "border"
                          "border-base-300"
                          "bg-base-100"
@@ -599,7 +602,7 @@
         [:div {:class ["rounded-xl" "border" "border-red-500/40" "bg-red-900/20" "px-3" "py-2.5" "text-sm" "text-red-200"]}
          error])
 
-      [:section {:class ["rounded-2xl" "border" "border-base-300/80" "bg-base-100/95" "p-3" "space-y-6"]}
+      [:section {:class ["rounded-xl" "border" "border-base-300/80" "bg-base-100/95" "p-2.5" "space-y-6" "md:rounded-2xl" "md:p-3"]}
        (section-table "Protocol Vaults" protocol-rows sort {:loading? loading?})
        (section-table "User Vaults" visible-user-rows sort {:loading? loading?
                                                             :pagination user-pagination})

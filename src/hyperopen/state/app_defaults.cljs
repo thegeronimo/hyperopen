@@ -121,12 +121,16 @@
    :price-aggregation-by-coin {}
    :active-tab :orderbook})
 
+(defn default-trade-ui-state
+  []
+  {:mobile-surface :chart})
+
 (defn default-portfolio-ui-state
   []
   {:summary-scope :all
    :summary-time-range (default-portfolio-summary-time-range)
    :chart-tab :returns
-   :account-info-tab :performance-metrics
+   :account-info-tab :balances
    :chart-hover-index nil
    :returns-benchmark-coins ["BTC"]
    :returns-benchmark-coin "BTC"
@@ -330,6 +334,7 @@
    :asset-selector (default-asset-selector-state)
    :chart-options (default-chart-options-state)
    :orderbook-ui (default-orderbook-ui-state)
+   :trade-ui (default-trade-ui-state)
    :portfolio-ui (default-portfolio-ui-state)
    :portfolio (default-portfolio-state)
    :vaults-ui (default-vaults-ui-state)

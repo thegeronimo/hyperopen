@@ -41,26 +41,50 @@
        (keep normalize-extra-tab)
        vec))
 
-(defn- merged-tab-definitions [extra-tabs]
+(defn- apply-tab-label-overrides [tab-definitions label-overrides]
+  (reduce-kv (fn [acc tab label]
+               (if (and (keyword? tab)
+                        (string? label)
+                        (seq label)
+                        (contains? acc tab))
+                 (assoc-in acc [tab :label] label)
+                 acc))
+             tab-definitions
+             (or label-overrides {})))
+
+(defn- merged-tab-definitions [extra-tabs label-overrides]
   (let [extra-tabs* (normalized-extra-tabs extra-tabs)
         extra-tab-ids (set (map :id extra-tabs*))
         base-tab-pairs (remove (fn [[tab _]]
                                  (contains? extra-tab-ids tab))
                                base-tab-definitions)]
-    (into (array-map)
-          (concat (map (fn [{:keys [id label]}]
-                         [id {:label label}])
-                       extra-tabs*)
-                  base-tab-pairs))))
+    (apply-tab-label-overrides
+     (into (array-map)
+           (concat (map (fn [{:keys [id label]}]
+                          [id {:label label}])
+                        extra-tabs*)
+                   base-tab-pairs))
+     label-overrides)))
 
-(defn- available-tabs-for [extra-tabs]
-  (vec (keys (merged-tab-definitions extra-tabs))))
+(defn- ordered-tab-ids [tab-definitions tab-order]
+  (let [tabs* (vec (keys tab-definitions))
+        ordered-prefix (->> (or tab-order [])
+                            (filter #(contains? tab-definitions %))
+                            distinct
+                            vec)
+        ordered-set (set ordered-prefix)]
+    (into ordered-prefix
+          (remove ordered-set tabs*))))
 
-(defn- tab-labels-for [extra-tabs]
+(defn- available-tabs-for [extra-tabs tab-order label-overrides]
+  (ordered-tab-ids (merged-tab-definitions extra-tabs label-overrides)
+                   tab-order))
+
+(defn- tab-labels-for [extra-tabs label-overrides]
   (into {}
         (map (fn [[tab {:keys [label]}]]
                [tab label]))
-        (merged-tab-definitions extra-tabs)))
+        (merged-tab-definitions extra-tabs label-overrides)))
 
 (defn tab-label
   ([tab counts]
@@ -328,22 +352,35 @@
    (tab-navigation selected-tab counts hide-small? _funding-history-state trade-history-state order-history-state positions-state open-orders-state freshness-cues "" {}))
   ([selected-tab counts hide-small? _funding-history-state trade-history-state order-history-state positions-state open-orders-state freshness-cues balances-coin-search]
    (tab-navigation selected-tab counts hide-small? _funding-history-state trade-history-state order-history-state positions-state open-orders-state freshness-cues balances-coin-search {}))
-  ([selected-tab counts hide-small? _funding-history-state trade-history-state order-history-state positions-state open-orders-state freshness-cues balances-coin-search {:keys [extra-tabs tab-click-actions-by-tab]
-                                                                                                                                                                                :or {extra-tabs []
-                                                                                                                                                                                     tab-click-actions-by-tab {}}}]
-   (let [tab-labels* (tab-labels-for extra-tabs)
-         tabs* (available-tabs-for extra-tabs)]
-     [:div.flex.items-center.justify-between.border-b.border-base-300.bg-base-200
-      [:div.flex.items-center
-       (for [tab tabs*]
-         [:button.px-4.py-2.text-sm.font-medium.transition-colors.border-b-2
-          {:key (name tab)
-           :class (if (= selected-tab tab)
-                    ["text-trading-text" "border-primary" "bg-base-100"]
-                    ["text-base-content" "border-transparent" "hover:text-trading-text" "hover:bg-base-100"])
-           :on {:click (or (get tab-click-actions-by-tab tab)
-                           [[:actions/select-account-info-tab tab]])}}
-          (tab-label tab counts tab-labels*)])]
+  ([selected-tab counts hide-small? _funding-history-state trade-history-state order-history-state positions-state open-orders-state freshness-cues balances-coin-search {:keys [extra-tabs
+                                                                                                                                                                                tab-click-actions-by-tab
+                                                                                                                                                                                tab-label-overrides
+                                                                                                                                                                                tab-order]
+                                                                                                                                                                         :or {extra-tabs []
+                                                                                                                                                                              tab-click-actions-by-tab {}
+                                                                                                                                                                              tab-label-overrides {}
+                                                                                                                                                                              tab-order []}}]
+   (let [tab-labels* (tab-labels-for extra-tabs tab-label-overrides)
+         tabs* (available-tabs-for extra-tabs tab-order tab-label-overrides)]
+     [:div {:class ["border-b" "border-base-300" "bg-base-200" "flex" "flex-col" "justify-between" "md:flex-row" "md:items-center" "md:justify-between"]}
+      [:div {:class ["overflow-x-auto" "scrollbar-hide" "border-b" "border-base-300" "md:border-b-0"]}
+       [:div {:class ["flex" "min-w-max" "items-center"]}
+        (for [tab tabs*]
+          [:button {:key (name tab)
+                    :class (into ["px-3"
+                                  "py-2"
+                                  "text-xs"
+                                  "font-medium"
+                                  "transition-colors"
+                                  "border-b-2"
+                                  "sm:px-4"
+                                  "sm:text-sm"]
+                                 (if (= selected-tab tab)
+                                   ["text-trading-text" "border-primary" "bg-base-100"]
+                                   ["text-base-content" "border-transparent" "hover:text-trading-text" "hover:bg-base-100"]))
+                    :on {:click (or (get tab-click-actions-by-tab tab)
+                                    [[:actions/select-account-info-tab tab]])}}
+           (tab-label tab counts tab-labels*)])]]
       (case selected-tab
         :balances
         [:div {:class ["flex" "items-center" "gap-3" "px-4" "py-2"]}
@@ -610,9 +647,13 @@
   ([state {:keys [extra-tabs
                   selected-tab-override
                   default-selected-tab
-                  tab-click-actions-by-tab]
+                  tab-click-actions-by-tab
+                  tab-label-overrides
+                  tab-order]
            :or {extra-tabs []
-                tab-click-actions-by-tab {}}}]
+                tab-click-actions-by-tab {}
+                tab-label-overrides {}
+                tab-order []}}]
    (let [view-model (account-info-vm/account-info-vm state)
          {:keys [selected-tab
                  tab-counts
@@ -626,7 +667,7 @@
                  freshness-cues
                  error
                  loading?]} view-model
-         available-tabs* (available-tabs-for extra-tabs)
+         available-tabs* (available-tabs-for extra-tabs tab-order tab-label-overrides)
          fallback-selected-tab (if (some #(= % default-selected-tab) available-tabs*)
                                  default-selected-tab
                                  (or (first available-tabs*)
@@ -650,7 +691,9 @@
                       freshness-cues
                       balances-coin-search
                       {:extra-tabs extra-tabs
-                       :tab-click-actions-by-tab tab-click-actions-by-tab})
+                       :tab-click-actions-by-tab tab-click-actions-by-tab
+                       :tab-label-overrides tab-label-overrides
+                       :tab-order tab-order})
       [:div {:class ["flex-1" "min-h-0" "overflow-hidden"]}
        (cond
          (and (nil? selected-extra-renderer) error)

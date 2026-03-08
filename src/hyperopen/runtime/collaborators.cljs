@@ -10,6 +10,7 @@
             [hyperopen.order.actions :as order-actions]
             [hyperopen.orderbook.actions :as orderbook-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.trade.layout-actions :as trade-layout-actions]
             [hyperopen.funding-comparison.actions :as funding-comparison-actions]
             [hyperopen.vaults.actions :as vault-actions]
             [hyperopen.funding-comparison.effects :as funding-comparison-effects]
@@ -80,6 +81,7 @@
    :toggle-orderbook-price-aggregation-dropdown orderbook-actions/toggle-orderbook-price-aggregation-dropdown
    :select-orderbook-price-aggregation orderbook-actions/select-orderbook-price-aggregation
    :select-orderbook-tab orderbook-actions/select-orderbook-tab
+   :select-trade-mobile-surface trade-layout-actions/select-trade-mobile-surface
    :add-indicator chart-settings/add-indicator
    :remove-indicator chart-settings/remove-indicator
    :update-indicator-period chart-settings/update-indicator-period

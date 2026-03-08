@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio-view
   (:require [clojure.string :as string]
+            [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.account-info-view :as account-info-view]
             [hyperopen.views.portfolio.vm :as portfolio-vm]))
@@ -28,14 +29,19 @@
 
 (def ^:private action-items
   [{:label "Link Staking"
+    :mobile-label "Staking"
     :action [:actions/navigate "/staking"]}
    {:label "Swap Stablecoins"
+    :mobile-label "Swap"
     :action [:actions/navigate "/trade"]}
    {:label "Perps ↔ Spot"
+    :mobile-label "Perp Spot"
     :action [:actions/navigate "/trade"]}
    {:label "EVM ↔ Core"
+    :mobile-label "EVM Core"
     :action [:actions/navigate "/trade"]}
    {:label "Portfolio Margin"
+    :mobile-label "PM"
     :action [:actions/navigate "/portfolio"]}
    {:label "Send"
     :action [:actions/open-funding-transfer-modal :event.currentTarget/bounds]}
@@ -228,13 +234,28 @@
         gutter-width (+ widest-label-px axis-label-horizontal-padding-px)]
     (js/Math.ceil (max axis-label-min-gutter-width-px gutter-width))))
 
-(defn- action-button [{:keys [label action primary?]}]
+(defn- action-button [{:keys [label mobile-label action primary?]}]
   [:button {:type "button"
-            :class (into ["btn" "btn-sm" "rounded-lg" "border" "border-base-300" "bg-base-100" "text-trading-text-secondary" "hover:text-trading-text" "hover:bg-base-200"]
+            :class (into ["btn"
+                          "h-8"
+                          "min-h-8"
+                          "rounded-lg"
+                          "border"
+                          "border-base-300"
+                          "bg-base-100"
+                          "px-2.5"
+                          "text-xs"
+                          "text-trading-text-secondary"
+                          "hover:text-trading-text"
+                          "hover:bg-base-200"
+                          "sm:btn-sm"
+                          "sm:px-3"
+                          "sm:text-xs"]
                          (when primary?
                            ["bg-[#1f5b55]" "text-trading-text" "hover:bg-[#267067]"]))
             :on {:click [action]}}
-   label])
+   [:span {:class ["sm:hidden"]} (or mobile-label label)]
+   [:span {:class ["hidden" "sm:inline"]} label]])
 
 (defn- summary-row [label value & [value-class]]
   [:div {:class ["grid" "grid-cols-[1fr_auto]" "items-center" "gap-3"]}
@@ -894,42 +915,81 @@
 
 (def ^:private portfolio-account-tab-click-actions-by-tab
   (into
-   {:performance-metrics [[:actions/set-portfolio-account-info-tab :performance-metrics]]}
+   {:deposits-withdrawals [[:actions/set-portfolio-account-info-tab :deposits-withdrawals]]
+    :performance-metrics [[:actions/set-portfolio-account-info-tab :performance-metrics]]}
    (map (fn [tab]
           [tab
            [[:actions/set-portfolio-account-info-tab tab]
             [:actions/select-account-info-tab tab]]])
         account-info-view/available-tabs)))
 
+(def ^:private portfolio-account-tab-order
+  [:balances
+   :positions
+   :open-orders
+   :funding-history
+   :deposits-withdrawals
+   :trade-history
+   :order-history
+   :performance-metrics
+   :twap])
+
+(def ^:private portfolio-account-tab-label-overrides
+  {:funding-history "Interest"})
+
+(defn- deposits-withdrawals-card []
+  (section-card
+   "portfolio-deposits-withdrawals-card"
+   [:div {:class ["space-y-4" "px-4" "py-4"]}
+    [:div {:class ["space-y-1"]}
+     [:div {:class ["text-sm" "font-medium" "text-trading-text"]}
+      "Deposits & Withdrawals"]
+     [:div {:class ["text-sm" "text-trading-text-secondary"]}
+      "Move funds between wallet, spot, and trading balances without leaving the portfolio route."]]
+    [:div {:class ["flex" "flex-wrap" "items-center" "gap-2"]}
+     (action-button {:label "Deposit"
+                     :action [:actions/open-funding-deposit-modal :event.currentTarget/bounds]
+                     :primary? true})
+     (action-button {:label "Withdraw"
+                     :action [:actions/open-funding-withdraw-modal :event.currentTarget/bounds]})
+     (action-button {:label "Transfer"
+                     :mobile-label "Transfer"
+                     :action [:actions/open-funding-transfer-modal :event.currentTarget/bounds]})]
+    [:div {:class ["grid" "gap-3" "text-sm" "text-trading-text-secondary" "sm:grid-cols-2"]}
+     [:div {:class ["rounded-lg" "border" "border-base-300" "bg-base-100/90" "px-3" "py-3"]}
+      "Deposit and withdraw flows stay anchored to the same funding modals used from trade."]
+     [:div {:class ["rounded-lg" "border" "border-base-300" "bg-base-100/90" "px-3" "py-3"]}
+      "Portfolio keeps balances and account tables in context while cash movement actions stay one tap away."]]]))
+
 (defn- metric-cards [{:keys [volume-14d-usd fees]}]
-  [:div {:class ["grid" "grid-cols-1" "gap-3" "md:grid-cols-2" "xl:grid-cols-1"]}
+  [:div {:class ["grid" "grid-cols-2" "gap-3" "lg:grid-cols-1"]}
    (section-card
     "portfolio-14d-volume-card"
-    [:div {:class ["space-y-3" "px-4" "py-3"]}
-     [:div {:class ["text-sm" "text-trading-text-secondary"]}
+    [:div {:class ["space-y-2.5" "px-3" "py-3" "sm:px-4"]}
+     [:div {:class ["text-xs" "uppercase" "tracking-wide" "text-trading-text-secondary" "sm:text-sm" "sm:normal-case" "sm:tracking-normal"]}
       "14 Day Volume"]
-     [:div {:class ["num" "text-4xl" "font-medium" "text-trading-text"]}
+     [:div {:class ["num" "text-2xl" "font-medium" "text-trading-text" "sm:text-4xl"]}
       (format-compact-currency volume-14d-usd)]
-     [:button {:class ["btn" "btn-xs" "btn-spectate" "justify-start" "px-0" "text-trading-green" "hover:bg-transparent"]}
+     [:button {:class ["btn" "btn-xs" "btn-spectate" "justify-start" "px-0" "text-xs" "text-trading-green" "hover:bg-transparent" "sm:text-xs"]}
       "View Volume"]])
    (section-card
     "portfolio-fees-card"
-    [:div {:class ["space-y-3" "px-4" "py-3"]}
+    [:div {:class ["space-y-2.5" "px-3" "py-3" "sm:px-4"]}
      [:div {:class ["flex" "items-center" "justify-between" "gap-2"]}
-      [:span {:class ["text-sm" "text-trading-text-secondary"]}
+      [:span {:class ["text-xs" "uppercase" "tracking-wide" "text-trading-text-secondary" "sm:text-sm" "sm:normal-case" "sm:tracking-normal"]}
        "Fees (Taker / Maker)"]
-      [:button {:class ["btn" "btn-spectate" "btn-xs" "text-trading-text"]}
+      [:button {:class ["btn" "btn-spectate" "btn-xs" "px-2" "text-xs" "text-trading-text" "sm:text-xs"]}
        "Perps"]]
-     [:div {:class ["num" "text-4xl" "font-medium" "leading-tight" "text-trading-text"]}
+     [:div {:class ["num" "text-2xl" "font-medium" "leading-tight" "text-trading-text" "sm:text-4xl"]}
       (str (format-fee-pct (:taker fees)) " / " (format-fee-pct (:maker fees)))]
-     [:button {:class ["btn" "btn-xs" "btn-spectate" "justify-start" "px-0" "text-trading-green" "hover:bg-transparent"]}
+     [:button {:class ["btn" "btn-xs" "btn-spectate" "justify-start" "px-0" "text-xs" "text-trading-green" "hover:bg-transparent" "sm:text-xs"]}
       "View Fee Schedule"]])])
 
 (defn- header-actions []
-  [:div {:class ["flex" "flex-wrap" "items-center" "justify-between" "gap-3"]}
-   [:h1 {:class ["text-5xl" "font-medium" "tracking-tight" "text-trading-text"]}
+  [:div {:class ["flex" "flex-wrap" "items-start" "justify-between" "gap-3" "sm:items-center"]}
+   [:h1 {:class ["text-4xl" "font-medium" "tracking-tight" "text-trading-text" "sm:text-5xl"]}
     "Portfolio"]
-   [:div {:class ["flex" "flex-wrap" "items-center" "gap-2"]
+   [:div {:class ["flex" "flex-wrap" "items-center" "gap-1.5" "sm:gap-2"]
           :data-role "portfolio-actions-row"}
     (for [{:keys [label] :as item} action-items]
       ^{:key label}
@@ -950,6 +1010,7 @@
      [:div {:class ["grid"
                     "grid-cols-1"
                     "gap-3"
+                    "lg:grid-cols-[240px_minmax(260px,0.85fr)_minmax(0,1.55fr)]"
                     "xl:grid-cols-[320px_minmax(280px,0.8fr)_minmax(520px,1.8fr)]"]}
      (metric-cards view-model)
       (summary-card view-model)
@@ -958,10 +1019,15 @@
             :data-role "portfolio-account-table"}
       (account-info-view/account-info-view
        state
-       {:extra-tabs [{:id :performance-metrics
+       {:extra-tabs [{:id :deposits-withdrawals
+                      :label "Deposits & Withdrawals"
+                      :content (deposits-withdrawals-card)}
+                     {:id :performance-metrics
                       :label "Performance Metrics"
                       :content (performance-metrics-card (assoc (:performance-metrics view-model)
                                                                 :time-range-selector (get-in view-model [:selectors :performance-metrics-time-range])))}]
-        :selected-tab-override (get-in state [:portfolio-ui :account-info-tab] :performance-metrics)
-        :default-selected-tab :performance-metrics
-        :tab-click-actions-by-tab portfolio-account-tab-click-actions-by-tab})]]))
+        :selected-tab-override (get-in state [:portfolio-ui :account-info-tab] portfolio-actions/default-account-info-tab)
+        :default-selected-tab portfolio-actions/default-account-info-tab
+        :tab-click-actions-by-tab portfolio-account-tab-click-actions-by-tab
+        :tab-label-overrides portfolio-account-tab-label-overrides
+        :tab-order portfolio-account-tab-order})]]))

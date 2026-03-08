@@ -1009,6 +1009,117 @@
                          (when (:numeric? options) ["num"]))}
       value-component]]))
 
+(defn- mobile-stat-chip [label value & [value-classes]]
+  [:div {:class ["min-w-[104px]"
+                 "shrink-0"
+                 "rounded-lg"
+                 "border"
+                 "border-base-300"
+                 "bg-base-100/80"
+                 "px-2.5"
+                 "py-2"]}
+   [:div {:class ["text-xs" "font-medium" "uppercase" "tracking-[0.08em]" "text-trading-text-secondary"]}
+    label]
+   [:div {:class (into ["mt-1" "text-sm" "font-semibold" "num" "text-trading-text"] (or value-classes []))} value]])
+
+(defn- mobile-funding-chip
+  [funding-rate countdown-text funding-tooltip-open? funding-tooltip funding-tooltip-id funding-tooltip-pinned? is-spot]
+  [:div {:class ["min-w-[140px]"
+                 "shrink-0"
+                 "rounded-lg"
+                 "border"
+                 "border-base-300"
+                 "bg-base-100/80"
+                 "px-2.5"
+                 "py-2"]}
+   [:div {:class ["text-xs" "font-medium" "uppercase" "tracking-[0.08em]" "text-trading-text-secondary"]}
+    "Funding"]
+   [:div {:class ["mt-1" "flex" "items-center" "gap-1.5" "text-sm" "text-trading-text"]}
+    (if is-spot
+      [:span {:class ["num" "text-trading-text-secondary"]} "--"]
+      (if (number? funding-rate)
+        (tooltip
+         [[:span {:class ["cursor-help" "num" (signed-tone-class funding-rate)]}
+           (signed-percentage-text funding-rate 4)]
+          (when funding-tooltip-open?
+            (funding-tooltip-panel funding-tooltip))]
+         "bottom"
+         {:click-pinnable? true
+          :pin-id funding-tooltip-id
+          :pinned? funding-tooltip-pinned?})
+        [:span {:class ["num" "text-trading-text-secondary"]} "Loading..."]))
+    [:span {:class ["text-trading-text-secondary"]} "/"]
+    [:span {:class ["num" "text-trading-text-secondary"]} (if is-spot "--" countdown-text)]]])
+
+(defn- mobile-active-asset-row
+  [{:keys [icon-market
+           dropdown-visible?
+           full-state
+           mark
+           mark-raw
+           change-24h
+           change-24h-pct
+           oracle
+           oracle-raw
+           volume-24h
+           open-interest-usd
+           funding-rate
+           countdown-text
+           funding-tooltip-open?
+           funding-tooltip
+           funding-tooltip-id
+           funding-tooltip-pinned?
+           is-spot]}]
+  [:div {:class ["lg:hidden" "space-y-2.5" "px-3" "py-2.5"]}
+   [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
+    [:div {:class ["min-w-0" "flex-1"]}
+     (asset-icon icon-market
+                 dropdown-visible?
+                 (get-in full-state [:asset-selector :missing-icons] #{})
+                 (get-in full-state [:asset-selector :loaded-icons] #{}))]
+    [:div {:class ["text-right" "space-y-1"]}
+     [:div {:class ["num" "text-xl" "font-semibold" "leading-none" "text-trading-text"]}
+      (if mark
+        (fmt/format-trade-price mark mark-raw)
+        "Loading...")]
+     [:div {:class ["text-xs"]}
+      (if change-24h
+        (change-indicator change-24h change-24h-pct)
+        [:span {:class ["text-trading-text-secondary"]} "--"])]]]
+   [:div {:class ["flex" "gap-2" "overflow-x-auto" "scrollbar-hide" "pb-0.5"]}
+    (mobile-stat-chip "Volume" (if volume-24h
+                                 (fmt/format-large-currency volume-24h)
+                                 "Loading..."))
+    (mobile-stat-chip "Oracle" (if (and (not is-spot) oracle)
+                                 (fmt/format-trade-price oracle oracle-raw)
+                                 (if is-spot "—" "Loading...")))
+    (mobile-stat-chip "Open Interest" (cond
+                                        is-spot "—"
+                                        open-interest-usd (fmt/format-large-currency open-interest-usd)
+                                        :else "Loading..."))
+    (mobile-funding-chip funding-rate
+                         countdown-text
+                         funding-tooltip-open?
+                         funding-tooltip
+                         funding-tooltip-id
+                         funding-tooltip-pinned?
+                         is-spot)]])
+
+(defn- mobile-select-asset-row
+  [dropdown-visible?]
+  [:div {:class ["lg:hidden" "space-y-2.5" "px-3" "py-2.5"]}
+   [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
+    [:div {:class ["min-w-0" "flex-1"]}
+     (asset-selector-trigger dropdown-visible?)]
+    [:div {:class ["text-right" "space-y-1"]}
+     [:div {:class ["num" "text-xl" "font-semibold" "leading-none" "text-trading-text-secondary"]} "—"]
+     [:div {:class ["text-xs" "text-trading-text-secondary"]} "--"]]]
+   [:div {:class ["flex" "gap-2" "overflow-x-auto" "scrollbar-hide" "pb-0.5"]}
+    (mobile-stat-chip "Volume" "—")
+    (mobile-stat-chip "Oracle" "—")
+    (mobile-stat-chip "Open Interest" "—")
+    (mobile-stat-chip "Funding" "— / —")]])
+
 (defn active-asset-row [ctx-data market dropdown-state full-state]
   (let [coin (or (:coin market) (:coin ctx-data))
         icon-market (-> (or market {})
@@ -1064,120 +1175,131 @@
         is-spot (= :spot (:market-type market))
         ;; Handle missing data gracefully
         has-perp-data? (and mark oracle change-24h volume-24h open-interest-usd funding-rate)
-        has-spot-data? (and mark change-24h volume-24h)]
-    [:div {:class ["relative"
-                   "grid"
-                   "grid-cols-7"
-                   "gap-2"
-                   "md:gap-3"
-                   "items-center"
-                   "px-0"
-                   "py-2"
-                   active-asset-grid-template]}
-      ;; Asset/Pair column
-      [:div {:class ["flex" "justify-start" "app-shell-gutter-left" "min-w-fit"]}
-       (asset-icon icon-market
-                   dropdown-visible?
-                   (get-in full-state [:asset-selector :missing-icons] #{})
-                   (get-in full-state [:asset-selector :loaded-icons] #{}))]
-      
-      ;; Mark column
-      [:div.flex.justify-center
-       (data-column "Mark"
-                    (if mark
-                      (fmt/format-trade-price mark mark-raw)
-                      "Loading...")
-                    {:underlined true
-                     :numeric? true})]
-      
-      ;; Oracle column
-      [:div.flex.justify-center
-       (data-column "Oracle"
-                    (if (and (not is-spot) oracle)
-                      (fmt/format-trade-price oracle oracle-raw)
-                      (if is-spot "—" "Loading..."))
-                    {:underlined true
-                     :numeric? true})]
-      
-      ;; 24h Change column
-      [:div.flex.justify-center
-       (data-column "24h Change" 
-                    (if (or has-perp-data? has-spot-data?) nil "Loading...")
-                    {:change? (or has-perp-data? has-spot-data?)
-                     :change-value change-24h
-                     :change-pct change-24h-pct
-                     :change-raw nil
-                     :numeric? true})]
-      
-      ;; 24h Volume column
-      [:div.flex.justify-center
-       (data-column "24h Volume"
-                    (if volume-24h (fmt/format-large-currency volume-24h) "Loading...")
-                    {:numeric? true})]
-      
-      ;; Open Interest column 
-      [:div.flex.justify-center 
-       (data-column "Open Interest"
-                    (cond
-                      is-spot "—"
-                      open-interest-usd (fmt/format-large-currency open-interest-usd)
-                      :else "Loading...")
-                    {:underlined true
-                     :numeric? true})]
-      
-      ;; Funding / Countdown column
-     [:div.flex.justify-center
-      [:div.text-center
-        [:div {:class ["text-xs" "text-gray-400" "mb-1"]} "Funding / Countdown"]
-        [:div {:class ["text-xs" "flex" "items-center" "justify-center"]}
-         (if (and (not is-spot) has-perp-data?)
-           (tooltip 
-             [[:span {:class ["cursor-help" "num" (signed-tone-class funding-rate)]}
-               (signed-percentage-text funding-rate 4)]
-              (when funding-tooltip-open?
-                (funding-tooltip-panel funding-tooltip))]
-             "bottom"
-             {:click-pinnable? true
-              :open? funding-tooltip-open?
-              :pin-id funding-tooltip-id
-              :pinned? funding-tooltip-pinned?})
-           [:span (if is-spot "—" "Loading...")])
-         [:span.mx-1 "/"]
-         [:span.num (if is-spot "—" countdown-text)]]]]]))
+        has-spot-data? (and mark change-24h volume-24h)
+        desktop-layout
+        [:div {:class ["relative"
+                       "hidden"
+                       "lg:grid"
+                       "grid-cols-7"
+                       "gap-2"
+                       "md:gap-3"
+                       "items-center"
+                       "px-0"
+                       "py-2"
+                       active-asset-grid-template]}
+         [:div {:class ["flex" "justify-start" "app-shell-gutter-left" "min-w-fit"]}
+          (asset-icon icon-market
+                      dropdown-visible?
+                      (get-in full-state [:asset-selector :missing-icons] #{})
+                      (get-in full-state [:asset-selector :loaded-icons] #{}))]
+         [:div.flex.justify-center
+          (data-column "Mark"
+                       (if mark
+                         (fmt/format-trade-price mark mark-raw)
+                         "Loading...")
+                       {:underlined true
+                        :numeric? true})]
+         [:div.flex.justify-center
+          (data-column "Oracle"
+                       (if (and (not is-spot) oracle)
+                         (fmt/format-trade-price oracle oracle-raw)
+                         (if is-spot "—" "Loading..."))
+                       {:underlined true
+                        :numeric? true})]
+         [:div.flex.justify-center
+          (data-column "24h Change"
+                       (if (or has-perp-data? has-spot-data?) nil "Loading...")
+                       {:change? (or has-perp-data? has-spot-data?)
+                        :change-value change-24h
+                        :change-pct change-24h-pct
+                        :change-raw nil
+                        :numeric? true})]
+         [:div.flex.justify-center
+          (data-column "24h Volume"
+                       (if volume-24h
+                         (fmt/format-large-currency volume-24h)
+                         "Loading...")
+                       {:numeric? true})]
+         [:div.flex.justify-center
+          (data-column "Open Interest"
+                       (cond
+                         is-spot "—"
+                         open-interest-usd (fmt/format-large-currency open-interest-usd)
+                         :else "Loading...")
+                       {:underlined true
+                        :numeric? true})]
+         [:div.flex.justify-center
+          [:div.text-center
+           [:div {:class ["text-xs" "text-gray-400" "mb-1"]} "Funding / Countdown"]
+           [:div {:class ["text-xs" "flex" "items-center" "justify-center"]}
+            (if (and (not is-spot) has-perp-data?)
+              (tooltip
+               [[:span {:class ["cursor-help" "num" (signed-tone-class funding-rate)]}
+                 (signed-percentage-text funding-rate 4)]
+                (when funding-tooltip-open?
+                  (funding-tooltip-panel funding-tooltip))]
+               "bottom"
+               {:click-pinnable? true
+                :open? funding-tooltip-open?
+                :pin-id funding-tooltip-id
+                :pinned? funding-tooltip-pinned?})
+              [:span (if is-spot "—" "Loading...")])
+            [:span.mx-1 "/"]
+            [:span.num (if is-spot "—" countdown-text)]]]]]
+        mobile-layout
+        (mobile-active-asset-row {:icon-market icon-market
+                                  :dropdown-visible? dropdown-visible?
+                                  :full-state full-state
+                                  :mark mark
+                                  :mark-raw mark-raw
+                                  :change-24h change-24h
+                                  :change-24h-pct change-24h-pct
+                                  :oracle oracle
+                                  :oracle-raw oracle-raw
+                                  :volume-24h volume-24h
+                                  :open-interest-usd open-interest-usd
+                                  :funding-rate funding-rate
+                                  :countdown-text countdown-text
+                                  :funding-tooltip-open? funding-tooltip-open?
+                                  :funding-tooltip funding-tooltip
+                                  :funding-tooltip-id funding-tooltip-id
+                                  :funding-tooltip-pinned? funding-tooltip-pinned?
+                                  :is-spot is-spot})]
+    [:div
+     mobile-layout
+     desktop-layout]))
 
 (defn select-asset-row [dropdown-state]
-  (let [dropdown-visible? (= (:visible-dropdown dropdown-state) :asset-selector)]
-    [:div {:class ["relative"
-                   "grid"
-                   "grid-cols-7"
-                   "gap-2"
-                   "md:gap-3"
-                   "items-center"
-                   "px-0"
-                   "py-2"
-                   active-asset-grid-template]}
-     [:div {:class ["flex" "justify-start" "app-shell-gutter-left" "min-w-fit"]}
-      (asset-selector-trigger dropdown-visible?)]
-
-     [:div.flex.justify-center
-      (data-column "Mark" "—" {:underlined true})]
-
-     [:div.flex.justify-center
-      (data-column "Oracle" "—" {:underlined true})]
-
-     [:div.flex.justify-center
-      (data-column "24h Change" "—")]
-
-     [:div.flex.justify-center
-      (data-column "24h Volume" "—")]
-
-     [:div.flex.justify-center 
-      (data-column "Open Interest" "—" {:underlined true})]
-
-     [:div.flex.justify-center
-      [:div.text-center
-       [:div {:class ["text-xs" "text-gray-400" "mb-1"]} "Funding / Countdown"]
-       [:div {:class ["text-xs" "text-gray-400"]} "— / —"]]]]))
+  (let [dropdown-visible? (= (:visible-dropdown dropdown-state) :asset-selector)
+        desktop-layout [:div {:class ["relative"
+                                      "hidden"
+                                      "lg:grid"
+                                      "grid-cols-7"
+                                      "gap-2"
+                                      "md:gap-3"
+                                      "items-center"
+                                      "px-0"
+                                      "py-2"
+                                      active-asset-grid-template]}
+                        [:div {:class ["flex" "justify-start" "app-shell-gutter-left" "min-w-fit"]}
+                         (asset-selector-trigger dropdown-visible?)]
+                        [:div.flex.justify-center
+                         (data-column "Mark" "—" {:underlined true})]
+                        [:div.flex.justify-center
+                         (data-column "Oracle" "—" {:underlined true})]
+                        [:div.flex.justify-center
+                         (data-column "24h Change" "—")]
+                        [:div.flex.justify-center
+                         (data-column "24h Volume" "—")]
+                        [:div.flex.justify-center
+                         (data-column "Open Interest" "—" {:underlined true})]
+                        [:div.flex.justify-center
+                         [:div.text-center
+                          [:div {:class ["text-xs" "text-gray-400" "mb-1"]} "Funding / Countdown"]
+                          [:div {:class ["text-xs" "text-gray-400"]} "— / —"]]]]]
+    [:div
+     (mobile-select-asset-row dropdown-visible?)
+     desktop-layout]))
 
 (defn active-asset-list [contexts dropdown-state full-state]
   (let [active-asset (:active-asset full-state)

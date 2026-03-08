@@ -160,10 +160,10 @@
         root-classes (root-class-set view-node)]
     (is (not (contains? root-classes "overflow-auto")))
     (is (contains? root-classes "min-h-0"))
-    (is (contains-class? view-node "right-[280px]"))
-    (is (contains-class? view-node "lg:grid-cols-[minmax(0,1fr)_280px]"))
-    (is (contains-class? view-node "lg:grid-rows-[minmax(580px,1fr)_auto_auto]"))
-    (is (contains-class? view-node "xl:grid-cols-[minmax(0,1fr)_280px_280px]"))
+    (is (contains-class? view-node "right-[320px]"))
+    (is (contains-class? view-node "lg:grid-cols-[minmax(0,1fr)_320px]"))
+    (is (contains-class? view-node "lg:grid-rows-[minmax(520px,1fr)_minmax(300px,auto)]"))
+    (is (contains-class? view-node "xl:grid-cols-[minmax(0,1fr)_280px_320px]"))
     (is (contains-class? view-node "xl:grid-rows-[minmax(580px,1fr)_auto]"))
     (is (not (contains-class? view-node "xl:grid-rows-[minmax(580px,auto)_auto]")))
     (is (contains-class? view-node "xl:row-span-2"))
@@ -173,13 +173,12 @@
   (let [view-node (trade-view/trade-view trade-view-test-state)
         account-info-cell (find-first-node view-node
                                            (fn [candidate]
-                                             (let [classes (node-class-set candidate)]
-                                               (and (contains? classes "lg:col-span-2")
-                                                    (contains? classes "xl:col-span-2")
-                                                    (contains? classes "border-t")))))
+                                             (= "trade-account-tables-panel"
+                                                (get-in candidate [1 :data-parity-id]))))
         account-info-cell-classes (node-class-set account-info-cell)]
     (is (some? account-info-cell))
-    (is (contains? account-info-cell-classes "flex"))
+    (is (contains? account-info-cell-classes "border-t"))
+    (is (contains? account-info-cell-classes "lg:flex"))
     (is (contains? account-info-cell-classes "flex-col"))
     (is (contains? account-info-cell-classes "min-h-0"))
     (is (contains? account-info-cell-classes "overflow-hidden"))))

@@ -24,10 +24,11 @@
   #{:account-value :pnl :returns})
 
 (def default-account-info-tab
-  :performance-metrics)
+  :balances)
 
 (def ^:private account-info-tab-options
   #{:performance-metrics
+    :deposits-withdrawals
     :balances
     :positions
     :open-orders
@@ -119,6 +120,8 @@
                      :performancemetrics :performance-metrics
                      :performancemetric :performance-metrics
                      :performance :performance-metrics
+                     :depositswithdrawals :deposits-withdrawals
+                     :deposits-withdrawals :deposits-withdrawals
                      :openorders :open-orders
                      :tradehistory :trade-history
                      :fundinghistory :funding-history
