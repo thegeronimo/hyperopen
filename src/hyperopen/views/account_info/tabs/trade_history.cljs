@@ -488,46 +488,126 @@
     [:span {:class ["flex" "min-w-0" "items-center" "gap-1.5"]}
      [:span {:class ["truncate" "text-trading-text"]} base-label]
      (when prefix-label
-       [:span {:class shared/position-chip-classes} prefix-label])]))
+       [:span {:class ["inline-flex"
+                       "items-center"
+                       "rounded-md"
+                       "bg-[#0d5a51]"
+                       "px-2"
+                       "py-0.5"
+                       "text-xs"
+                       "font-medium"
+                       "leading-none"
+                       "text-emerald-300"
+                       "whitespace-nowrap"]}
+        prefix-label])]))
+
+(defn- mobile-trade-history-time-node [row]
+  (let [formatted-time (shared/format-open-orders-time (trade-history-time-ms row))
+        explorer-url (trade-history-explorer-tx-url row)
+        [date-part time-part] (str/split formatted-time #" - " 2)
+        container-children (if time-part
+                             [[:span (str date-part " -")]
+                              [:span {:class ["inline-flex" "items-center" "gap-1"]}
+                               time-part
+                               (when explorer-url
+                                 (external-link-icon ["h-3" "w-3" "shrink-0" "text-trading-green"]))]]
+                             [[:span {:class ["inline-flex" "items-center" "gap-1"]}
+                               formatted-time
+                               (when explorer-url
+                                 (external-link-icon ["h-3" "w-3" "shrink-0" "text-trading-green"]))]])]
+    (into [(if explorer-url :a :div)
+           (cond-> {:class ["inline-flex"
+                            "min-w-0"
+                            "flex-col"
+                            "items-start"
+                            "gap-0.5"
+                            "rounded"
+                            "text-trading-text"
+                            "focus-visible:outline-none"
+                            "focus-visible:ring-2"
+                            "focus-visible:ring-trading-green/70"
+                            "focus-visible:ring-offset-1"
+                            "focus-visible:ring-offset-base-100"]}
+             explorer-url
+             (assoc :href explorer-url
+                    :target "_blank"
+                    :rel "noopener noreferrer"))]
+          container-children)))
+
+(defn- mobile-trade-history-closed-pnl-node [row]
+  (let [formatted-pnl (format-trade-history-closed-pnl row)
+        pnl-class (trade-history-closed-pnl-class row)]
+    (if-let [explorer-url (trade-history-explorer-tx-url row)]
+      [:a {:href explorer-url
+           :target "_blank"
+           :rel "noopener noreferrer"
+           :class ["inline-flex"
+                   "min-h-6"
+                   "items-center"
+                   "gap-1"
+                   "rounded"
+                   pnl-class
+                   "focus-visible:outline-none"
+                   "focus-visible:ring-2"
+                   "focus-visible:ring-trading-green/70"
+                   "focus-visible:ring-offset-1"
+                   "focus-visible:ring-offset-base-100"]}
+       [:span {:class ["num"]} formatted-pnl]
+       (external-link-icon ["h-3" "w-3" "shrink-0" "text-trading-green"])]
+      [:span {:class ["num" pnl-class]} formatted-pnl])))
 
 (defn- mobile-trade-history-card [expanded-row-id row market-by-key]
   (let [row-id (some-> (trade-history-row-id row) str str/trim)
-        expanded? (= expanded-row-id row-id)
-        summary-time (shared/format-open-orders-time (trade-history-time-ms row))]
+        expanded? (= expanded-row-id row-id)]
     (mobile-cards/expandable-card
      {:data-role (str "mobile-trade-history-card-" row-id)
       :expanded? expanded?
       :toggle-actions [[:actions/toggle-account-info-mobile-card :trade-history row-id]]
+      :card-classes ["overflow-hidden"
+                     "rounded-xl"
+                     "border"
+                     "border-[#1c2d36]"
+                     "bg-[#0f1920]"]
+      :button-classes ["w-full"
+                       "px-3"
+                       "py-2.5"
+                       "text-left"
+                       "transition-colors"
+                       "hover:bg-[#132028]"
+                       "focus:outline-none"
+                       "focus:ring-0"
+                       "focus:ring-offset-0"]
+      :summary-grid-classes ["grid"
+                             "grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)_minmax(0,0.72fr)_auto]"
+                             "items-start"
+                             "gap-x-3"
+                             "gap-y-2"]
+      :expanded-container-classes ["border-t" "border-[#1c2d36]" "px-3" "py-2.5"]
       :summary-items [(mobile-cards/summary-item "Coin"
-                                                 (mobile-trade-history-coin-node row market-by-key))
-                      (mobile-cards/summary-item "Time"
-                                                 summary-time
+                                                 (mobile-trade-history-coin-node row market-by-key)
                                                  {:value-classes ["text-trading-text"]})
-                      (mobile-cards/summary-item "Size"
-                                                 (format-trade-history-size row market-by-key)
-                                                 {:value-classes ["num"]})]
+                      (mobile-cards/summary-item "Direction"
+                                                 (trade-history-direction-node row)
+                                                 {:value-classes ["text-trading-text"]})
+                      (mobile-cards/summary-item "Price"
+                                                 (format-trade-history-price row)
+                                                 {:value-classes ["num" "whitespace-nowrap"]})]
       :detail-content (mobile-cards/detail-grid
                        "grid-cols-3"
-                       [(mobile-cards/detail-item "Direction"
-                                                  (trade-history-direction-node row))
-                        (mobile-cards/detail-item "Price"
-                                                  (format-trade-history-price row)
-                                                  {:value-classes ["num"]})
-                        (mobile-cards/detail-item "Trade Value"
-                                                  (format-trade-history-value row)
-                                                  {:value-classes ["num"]})
-                        (mobile-cards/detail-item "Time"
-                                                  (trade-history-time-node row)
+                       [(mobile-cards/detail-item "Time"
+                                                  (mobile-trade-history-time-node row)
                                                   {:value-classes ["text-trading-text"]})
                         (mobile-cards/detail-item "Size"
                                                   (format-trade-history-size row market-by-key)
-                                                  {:value-classes ["num"]})
+                                                  {:value-classes ["num" "whitespace-nowrap"]})
+                        (mobile-cards/detail-item "Trade Value"
+                                                  (format-trade-history-value row)
+                                                  {:value-classes ["num" "whitespace-nowrap"]})
+                        (mobile-cards/detail-item "Closed PNL"
+                                                  (mobile-trade-history-closed-pnl-node row))
                         (mobile-cards/detail-item "Fee"
                                                   (format-trade-history-fee row)
-                                                  {:value-classes ["num"]})
-                        (mobile-cards/detail-item "Closed PNL"
-                                                  [:span {:class ["num" (trade-history-closed-pnl-class row)]}
-                                                   (format-trade-history-closed-pnl row)])])})))
+                                                  {:value-classes ["num" "whitespace-nowrap"]})])})))
 
 (defn trade-history-table [fills trade-history-state]
   (let [all-rows (cond
