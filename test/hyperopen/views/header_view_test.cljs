@@ -245,10 +245,13 @@
 (deftest header-more-menu-renders-api-link-and-highlights-api-route-test
   (let [view (header-view/header-view {:wallet {}
                                        :router {:path "/API"}})
+        details-node (find-node-by-role view "header-more-menu")
         trigger (find-node-by-role view "header-more-trigger")
         api-link (find-node-by-role view "header-more-link-api")
         trigger-classes (set (class-values (get-in trigger [1 :class])))
         api-classes (set (class-values (get-in api-link [1 :class])))]
+    (is (= "header-more-menu:/API"
+           (get-in details-node [1 :replicant/key])))
     (is (some? trigger))
     (is (some? api-link))
     (is (contains? trigger-classes "header-nav-link-active"))

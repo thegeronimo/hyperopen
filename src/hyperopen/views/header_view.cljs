@@ -476,6 +476,7 @@
         (nav-link "Referrals" "/referrals" false)
         (nav-link "Leaderboard" "/leaderboard" false)
         [:details {:class ["relative" "group"]
+                   :replicant/key (str "header-more-menu:" route)
                    :data-role "header-more-menu"}
          [:summary {:class (more-trigger-classes api-wallet-route?)
                     :data-role "header-more-trigger"}
