@@ -332,13 +332,12 @@
 (defn- mobile-position-coin-node [position-data side]
   (let [pos (:position position-data)
         chip-classes (shared/position-chip-classes-for-side side)
-        coin-tone-class (shared/position-side-tone-class side)
         coin-label (display-coin pos)
         dex-label (dex-chip-label {:coin (:coin pos)
                                    :dex (:dex position-data)})
         leverage (get-in pos [:leverage :value])]
-    [:span {:class ["flex" "min-w-0" "items-center" "gap-1.5"]}
-     [:span {:class ["truncate" "font-medium" coin-tone-class]} coin-label]
+    [:span {:class ["flex" "min-w-0" "items-center" "gap-1"]}
+     [:span {:class ["truncate" "font-medium" "leading-4" "text-trading-text"]} coin-label]
      (when (some? leverage)
        [:span {:class chip-classes} (str leverage "x")])
      (when dex-label
@@ -347,25 +346,54 @@
 (defn- mobile-position-action-button [label action]
   [:button {:type "button"
             :class ["inline-flex"
-                    "min-h-8"
                     "items-center"
-                    "rounded-full"
-                    "border"
-                    "border-base-300"
-                    "bg-base-100/70"
-                    "px-3"
-                    "py-1.5"
-                    "text-xs"
+                    "justify-start"
+                    "bg-transparent"
+                    "p-0"
+                    "text-sm"
                     "font-medium"
                     "leading-none"
                     "text-trading-text"
                     "transition-colors"
-                    "hover:bg-base-100"
+                    "hover:text-[#7fffe4]"
                     "focus:outline-none"
                     "focus:ring-0"
-                    "focus:ring-offset-0"]
+                    "focus:ring-offset-0"
+                    "focus-visible:text-[#7fffe4]"
+                    "whitespace-nowrap"]
             :on {:click action}}
    label])
+
+(def ^:private mobile-position-card-shell-classes
+  ["overflow-hidden"
+   "rounded-lg"
+   "border"
+   "border-[#17313d]"
+   "bg-[#08161f]"])
+
+(def ^:private mobile-position-card-button-classes
+  ["w-full"
+   "px-3.5"
+   "py-3"
+   "text-left"
+   "transition-colors"
+   "hover:bg-[#0c1b24]"
+   "focus:outline-none"
+   "focus:ring-0"
+   "focus:ring-offset-0"])
+
+(def ^:private mobile-position-card-summary-grid-classes
+  ["grid"
+   "grid-cols-[minmax(0,1.75fr)_minmax(0,0.95fr)_minmax(0,1.05fr)_auto]"
+   "items-start"
+   "gap-x-2.5"
+   "gap-y-2"])
+
+(def ^:private mobile-position-card-expanded-container-classes
+  ["border-t"
+   "border-[#17313d]"
+   "px-3.5"
+   "py-3"])
 
 (defn position-row
   ([position-data]
@@ -557,7 +585,6 @@
 (defn- mobile-position-card [expanded-row-id position-data tpsl-modal reduce-popover margin-modal]
   (let [pos (:position position-data)
         side (position-side pos)
-        size-tone-class (shared/position-side-size-class side)
         row-id (some-> (position-unique-key position-data) str str/trim)
         expanded? (= expanded-row-id row-id)
         position-value-num (shared/parse-optional-num (:positionValue pos))
@@ -584,56 +611,63 @@
      {:data-role (str "mobile-position-card-" row-id)
       :expanded? expanded?
       :toggle-actions [[:actions/toggle-account-info-mobile-card :positions row-id]]
+      :card-classes mobile-position-card-shell-classes
+      :button-classes mobile-position-card-button-classes
+      :summary-grid-classes mobile-position-card-summary-grid-classes
+      :expanded-container-classes mobile-position-card-expanded-container-classes
       :summary-items [(mobile-cards/summary-item "Coin"
-                                                 (mobile-position-coin-node position-data side))
+                                                 (mobile-position-coin-node position-data side)
+                                                 {:root-classes ["pr-1"]
+                                                  :value-classes ["font-medium" "leading-4"]})
                       (mobile-cards/summary-item "Size"
                                                  (format-position-size pos)
-                                                 {:value-classes ["num" size-tone-class]})
+                                                 {:value-classes ["num" "font-medium" "leading-4" "whitespace-nowrap"]})
                       (mobile-cards/summary-item "PNL (ROE %)"
                                                  [:span {:class ["num" pnl-color-class]}
-                                                  (format-pnl-inline pnl-num pnl-percent)])]
+                                                  (format-pnl-inline pnl-num pnl-percent)]
+                                                 {:value-classes ["font-medium" "leading-4" "whitespace-nowrap"]})]
       :detail-content
       [:div {:class ["space-y-3"]}
        (mobile-cards/detail-grid
         "grid-cols-3"
         [(mobile-cards/detail-item "Entry Price"
                                    (shared/format-trade-price (:entryPx pos))
-                                   {:value-classes ["num"]})
+                                   {:value-classes ["num" "font-medium" "whitespace-nowrap"]})
          (mobile-cards/detail-item "Mark Price"
                                    (shared/format-trade-price (calculate-mark-price pos))
-                                   {:value-classes ["num"]})
+                                   {:value-classes ["num" "font-medium" "whitespace-nowrap"]})
          (mobile-cards/detail-item "Liq. Price"
                                    (format-liquidation-price (:liquidationPx pos))
-                                   {:value-classes ["num"]})
+                                   {:value-classes ["num" "font-medium" "whitespace-nowrap"]})
          (mobile-cards/detail-item "Position Value"
                                    (position-value-copy position-value-num)
-                                   {:value-classes ["num"]})
+                                   {:value-classes ["num" "font-medium" "whitespace-nowrap"]})
          (mobile-cards/detail-item "Margin"
                                    (position-margin-copy (:marginUsed pos) margin-mode-label)
-                                   {:value-classes ["num"]})
+                                   {:value-classes ["num" "font-medium" "whitespace-nowrap"]})
          (mobile-cards/detail-item "TP/SL"
-                                   (tpsl-cell-copy position-data))
+                                   (tpsl-cell-copy position-data)
+                                   {:value-classes ["font-medium" "whitespace-nowrap"]})
          (mobile-cards/detail-item "Funding"
-                                   (funding-value-node display-funding))
-         (mobile-cards/detail-item
-          "Actions"
-          [:div {:class ["relative" "flex" "flex-wrap" "gap-2"]}
-           (mobile-position-action-button
-            "Close"
-            [[:actions/open-position-reduce-popover position-data :event.currentTarget/bounds]])
-           (mobile-position-action-button
-            "Margin"
-            [[:actions/open-position-margin-modal position-data :event.currentTarget/bounds]])
-           (mobile-position-action-button
-            "TP/SL"
-            [[:actions/open-position-tpsl-modal position-data :event.currentTarget/bounds]])
-           (when active-reduce-popover?
-             (position-reduce-popover/position-reduce-popover-view reduce-popover))
-           (when active-margin-modal?
-             (position-margin-modal/position-margin-modal-view margin-modal))
-           (when active-modal?
-             (position-tpsl-modal/position-tpsl-modal-view tpsl-modal))]
-          {:full-width? true})])]})))
+                                   (funding-value-node display-funding)
+                                   {:value-classes ["font-medium" "whitespace-nowrap"]})])
+       [:div {:class ["border-t" "border-[#17313d]" "pt-2.5"]}
+        [:div {:class ["relative" "flex" "flex-wrap" "items-center" "gap-x-5" "gap-y-2"]}
+         (mobile-position-action-button
+          "Close"
+          [[:actions/open-position-reduce-popover position-data :event.currentTarget/bounds]])
+         (mobile-position-action-button
+          "Margin"
+          [[:actions/open-position-margin-modal position-data :event.currentTarget/bounds]])
+         (mobile-position-action-button
+          "TP/SL"
+          [[:actions/open-position-tpsl-modal position-data :event.currentTarget/bounds]])
+         (when active-reduce-popover?
+           (position-reduce-popover/position-reduce-popover-view reduce-popover))
+         (when active-margin-modal?
+           (position-margin-modal/position-margin-modal-view margin-modal))
+         (when active-modal?
+           (position-tpsl-modal/position-tpsl-modal-view tpsl-modal))]]]})))
 
 (defn sort-positions-by-column [positions column direction]
   (sort-kernel/sort-rows-by-column

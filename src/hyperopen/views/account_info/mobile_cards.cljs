@@ -21,13 +21,16 @@
 (defn summary-item
   ([label content]
    (summary-item label content {}))
-  ([label content {:keys [value-classes]
-                   :or {value-classes []}}]
-   [:div {:class ["min-w-0" "space-y-1"]}
-    [:div {:class ["text-xs"
-                   "font-medium"
-                   "leading-4"
-                   "text-trading-text-secondary"]}
+  ([label content {:keys [root-classes label-classes value-classes]
+                   :or {root-classes []
+                        label-classes []
+                        value-classes []}}]
+   [:div {:class (into ["min-w-0" "space-y-1"] root-classes)}
+    [:div {:class (into ["text-xs"
+                         "font-medium"
+                         "leading-4"
+                         "text-trading-text-secondary"]
+                        label-classes)}
      label]
     [:div {:class (into ["min-w-0"
                          "text-sm"
@@ -40,16 +43,20 @@
 (defn detail-item
   ([label content]
    (detail-item label content {}))
-  ([label content {:keys [full-width? value-classes]
+  ([label content {:keys [full-width? root-classes label-classes value-classes]
                    :or {full-width? false
+                        root-classes []
+                        label-classes []
                         value-classes []}}]
    [:div {:class (into ["min-w-0" "space-y-1"]
-                       (when full-width?
-                         ["col-span-full"]))}
-    [:div {:class ["text-xs"
-                   "font-medium"
-                   "leading-4"
-                   "text-trading-text-secondary"]}
+                       (concat root-classes
+                               (when full-width?
+                                 ["col-span-full"])))}
+    [:div {:class (into ["text-xs"
+                         "font-medium"
+                         "leading-4"
+                         "text-trading-text-secondary"]
+                        label-classes)}
      label]
     [:div {:class (into ["min-w-0"
                          "text-sm"
@@ -67,7 +74,34 @@
         (keep identity children)))
 
 (defn expandable-card
-  [{:keys [data-role expanded? toggle-actions summary-items detail-content]}]
+  [{:keys [data-role
+           expanded?
+           toggle-actions
+           summary-items
+           detail-content
+           card-classes
+           button-classes
+           summary-grid-classes
+           expanded-container-classes]
+    :or {card-classes ["overflow-hidden"
+                       "rounded-xl"
+                       "border"
+                       "border-base-300"
+                       "bg-base-200/70"]
+         button-classes ["w-full"
+                         "px-3"
+                         "py-3"
+                         "text-left"
+                         "transition-colors"
+                         "hover:bg-base-200"
+                         "focus:outline-none"
+                         "focus:ring-0"
+                         "focus:ring-offset-0"]
+         summary-grid-classes ["grid"
+                               "grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto]"
+                               "items-start"
+                               "gap-3"]
+         expanded-container-classes ["border-t" "border-base-300" "px-3" "py-3"]}}]
   (let [chevron-node
         [:div {:class ["flex"
                        "h-full"
@@ -76,29 +110,14 @@
                        "pt-1"
                        "text-trading-text-secondary"]}
          (chevron-icon expanded?)]]
-    [:div {:class ["overflow-hidden"
-                   "rounded-xl"
-                   "border"
-                   "border-base-300"
-                   "bg-base-200/70"]
+    [:div {:class card-classes
            :data-role data-role}
      [:button {:type "button"
-               :class ["w-full"
-                       "px-3"
-                       "py-3"
-                       "text-left"
-                       "transition-colors"
-                       "hover:bg-base-200"
-                       "focus:outline-none"
-                       "focus:ring-0"
-                       "focus:ring-offset-0"]
+               :class button-classes
                :aria-expanded (boolean expanded?)
                :on {:click toggle-actions}}
-      (into [:div {:class ["grid"
-                           "grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto]"
-                   "items-start"
-                   "gap-3"]}]
+      (into [:div {:class summary-grid-classes}]
             (concat summary-items [chevron-node]))]
      (when expanded?
-       [:div {:class ["border-t" "border-base-300" "px-3" "py-3"]}
+       [:div {:class expanded-container-classes}
         detail-content])]))
