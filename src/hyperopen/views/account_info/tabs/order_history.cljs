@@ -409,8 +409,8 @@
        [:div {:class ["grid" "gap-2" "py-1" "px-3" "bg-base-200" "text-xs" "font-medium" order-history-grid-template-class]}
         [:div.pr-2.whitespace-nowrap (sortable-order-history-header "Time" sort-state)]
         [:div.pl-1.text-left (sortable-order-history-header "Type" sort-state)]
-        [:div.text-left (sortable-order-history-header "Coin" sort-state)]
-        [:div.text-left (sortable-order-history-header "Direction" sort-state)]
+       [:div.pr-4.text-left (sortable-order-history-header "Coin" sort-state)]
+       [:div.pl-2.text-left (sortable-order-history-header "Direction" sort-state)]
         [:div.text-left (sortable-order-history-header "Size" sort-state)]
         [:div.text-left (sortable-order-history-header "Filled Size" sort-state)]
         [:div.text-left (sortable-order-history-header "Order Value" sort-state)]
@@ -428,8 +428,8 @@
          [:div {:class ["grid" "gap-2" "py-px" "px-3" "hover:bg-base-300" "text-xs" order-history-grid-template-class]}
           [:div.pr-2.whitespace-nowrap (or (shared/format-open-orders-time (:time-ms row)) "--")]
           [:div.pl-1.text-left (title-case-label (:type row))]
-          [:div.text-left (order-history-coin-node (:coin row) market-by-key (:side row))]
-          [:div {:class ["text-left" (order-history-direction-class row)]}
+          [:div.pr-4.text-left (order-history-coin-node (:coin row) market-by-key (:side row))]
+          [:div {:class ["pl-2" "text-left" (order-history-direction-class row)]}
            (order-history-direction-label row)]
           [:div.text-left.num (format-order-history-size (:size row))]
           [:div.text-left.num (format-order-history-filled-size (:filled-size row))]

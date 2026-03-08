@@ -319,6 +319,35 @@
     (is (contains? (hiccup/node-class-set coin-base) "whitespace-nowrap"))
     (is (not (contains? (hiccup/node-class-set coin-base) "truncate")))))
 
+(deftest order-history-desktop-coin-and-direction-columns-keep-readable-separation-test
+  (let [rows [{:order {:coin "xyz:SILVER"
+                       :oid 307891000622
+                       :side "A"
+                       :origSz "1.13"
+                       :remainingSz "0.000"
+                       :limitPx "88.30"
+                       :orderType "Limit"
+                       :reduceOnly true
+                       :isTrigger false
+                       :timestamp 1700000000000}
+               :status "filled"
+               :statusTimestamp 1700000000500}]
+        content (@#'view/order-history-table rows {:sort {:column "Time" :direction :desc}
+                                                   :status-filter :all
+                                                   :loading? false})
+        header-node (hiccup/tab-header-node content)
+        row-node (hiccup/first-viewport-row content)
+        header-cells (vec (hiccup/node-children header-node))
+        row-cells (vec (hiccup/node-children row-node))
+        coin-header (nth header-cells 2)
+        direction-header (nth header-cells 3)
+        coin-cell (nth row-cells 2)
+        direction-cell (nth row-cells 3)]
+    (is (contains? (hiccup/node-class-set coin-header) "pr-4"))
+    (is (contains? (hiccup/node-class-set direction-header) "pl-2"))
+    (is (contains? (hiccup/node-class-set coin-cell) "pr-4"))
+    (is (contains? (hiccup/node-class-set direction-cell) "pl-2"))))
+
 (deftest order-history-coin-cell-dispatches-select-asset-action-test
   (let [rows [{:order {:coin "xyz:NVDA"
                        :oid 307891000622
