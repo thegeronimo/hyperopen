@@ -254,7 +254,15 @@
      (generate-address-input {:value (:address form)
                               :disabled? false})
      (inline-error (:address form-errors))]
-    [:div {:class ["flex" "items-end"]}
+    [:div {:class ["flex" "flex-col" "justify-start" "lg:gap-1.5" "lg:pt-2"]}
+     [:span {:class ["hidden"
+                     "lg:block"
+                     "invisible"
+                     "text-xs"
+                     "font-semibold"
+                     "uppercase"
+                     "tracking-[0.08em]"]}
+      "Authorize API Wallet"]
      [:button {:type "button"
                :class ["h-11"
                        "w-full"
