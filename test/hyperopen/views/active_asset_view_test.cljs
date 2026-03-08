@@ -965,3 +965,32 @@
         (is (contains? ready-strings "Rate History"))
         (is (contains? ready-strings "Past Rate Correlation"))
         (is (contains? ready-strings "Lag 15d needs at least 16 daily points"))))))
+
+(deftest active-asset-row-funding-tooltip-uses-opaque-high-stack-surface-test
+  (let [ctx-data {:coin "xyz:GOLD"
+                  :mark 5000.0
+                  :oracle 4998.0
+                  :change24h 5.0
+                  :change24hPct 0.5
+                  :volume24h 2000000
+                  :openInterest 200
+                  :fundingRate 0.01}
+        market {:coin "xyz:GOLD"
+                :symbol "GOLD-USDC"
+                :base "GOLD"
+                :market-type :perp}
+        full-state (with-visible-funding-tooltip
+                     {:active-asset "xyz:GOLD"
+                      :asset-selector {:missing-icons #{}}}
+                     "xyz:GOLD")]
+    (with-redefs [hyperopen.state.trading/position-for-active-asset
+                  (fn [_]
+                    nil)
+                  hyperopen.utils.formatting/format-funding-countdown
+                  (fn [] "00:10:00")]
+      (let [view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} full-state)]
+        (is (contains-class? view-node "z-[140]"))
+        (is (contains-class? view-node "bg-[#06131a]"))
+        (is (contains-class? view-node "isolate"))
+        (is (contains-class? view-node "bg-[#0b1820]"))
+        (is (not (contains-class? view-node "backdrop-blur-sm")))))))

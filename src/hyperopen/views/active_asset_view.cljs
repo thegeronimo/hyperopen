@@ -61,13 +61,13 @@
         (when pinned?
           [:div {:class ["fixed"
                          "inset-0"
-                         "z-40"
+                         "z-[135]"
                          "cursor-default"]
                  :on {:click [[:actions/set-funding-tooltip-pinned pin-id* false]
                               [:actions/set-funding-tooltip-visible pin-id* false]]}}])
         [:button {:type "button"
                   :class ["relative"
-                          "z-50"
+                          "z-[141]"
                           "inline-flex"
                           "cursor-pointer"
                           "appearance-none"
@@ -87,7 +87,7 @@
          trigger-node]
         (when open?*
           [:div {:class (into ["absolute"
-                               "z-50"
+                               "z-[140]"
                                "transition-opacity"
                                "duration-200"
                                "pointer-events-auto"]
@@ -97,7 +97,7 @@
            body-node])]
        [:div {:class ["relative" "group" "inline-flex"]}
         [:div trigger-node]
-        [:div {:class (into ["absolute" "opacity-0" "group-hover:opacity-100" "transition-opacity" "duration-200" "pointer-events-none" "z-50"]
+        [:div {:class (into ["absolute" "opacity-0" "group-hover:opacity-100" "transition-opacity" "duration-200" "pointer-events-none" "z-[140]"]
                             placement-classes)
                :style {:min-width "max-content"
                        :max-width "22rem"}}
@@ -586,17 +586,21 @@
            predictability-autocorrelation-series
            predictability-lag-note]}]
   [:div {:class ["w-[18rem]"
+                 "relative"
+                 "z-[140]"
+                 "isolate"
+                 "overflow-hidden"
                  "rounded-lg"
                  "border"
-                 "border-base-300"
-                 "bg-base-100"
+                 "border-[#17313d]"
+                 "bg-[#06131a]"
                  "px-3.5"
                  "py-3"
                  "text-xs"
                  "text-left"
                  "text-gray-100"
                  "spectate-xl"
-                 "backdrop-blur-sm"]}
+                 "shadow-[0_20px_45px_rgba(0,0,0,0.45)]"]}
    [:div {:class ["mb-3"]}
     [:h4 {:class ["mb-1.5"
                   "text-[0.9rem]"
@@ -619,8 +623,8 @@
                        "min-w-0"
                        "rounded-md"
                        "border"
-                       "border-slate-600/70"
-                       "bg-slate-900/45"
+                       "border-[#28414d]"
+                       "bg-[#0b1820]"
                        "focus-within:border-emerald-400/60"]}
          [:input {:type "text"
                   :inputmode "decimal"
@@ -664,8 +668,8 @@
                        "min-w-0"
                        "rounded-md"
                        "border"
-                       "border-slate-600/70"
-                       "bg-slate-900/45"
+                       "border-[#28414d]"
+                       "bg-[#0b1820]"
                        "focus-within:border-emerald-400/60"]}
          [:span {:class ["pointer-events-none"
                          "absolute"
