@@ -353,7 +353,7 @@
                     "text-sm"
                     "font-medium"
                     "leading-none"
-                    "text-trading-text"
+                    "text-trading-green"
                     "transition-colors"
                     "hover:text-[#7fffe4]"
                     "focus:outline-none"
