@@ -203,8 +203,12 @@
         inactive-classes (hiccup/node-class-set inactive-tab)]
     (is (contains? selected-classes "text-trading-text"))
     (is (not (contains? selected-classes "text-primary")))
+    (is (not (contains? selected-classes "bg-base-100")))
+    (is (contains? selected-classes "lg:bg-base-100"))
     (is (contains? inactive-classes "hover:text-trading-text"))
-    (is (not (contains? inactive-classes "hover:text-primary")))))
+    (is (not (contains? inactive-classes "hover:text-primary")))
+    (is (not (contains? inactive-classes "hover:bg-base-100")))
+    (is (contains? inactive-classes "lg:hover:bg-base-100"))))
 
 (deftest tab-navigation-renders-neutral-positions-freshness-cue-test
   (let [counts {:balances 2 :positions 4 :open-orders 3}

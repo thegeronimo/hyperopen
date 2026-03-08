@@ -195,6 +195,7 @@
      [:actions/toggle-order-history-filter-open :toggle-order-history-filter-open]
      [:actions/set-order-history-status-filter :set-order-history-status-filter]
      [:actions/set-account-info-coin-search :set-account-info-coin-search]
+     [:actions/toggle-account-info-mobile-card :toggle-account-info-mobile-card]
      [:actions/set-order-history-page-size :set-order-history-page-size]
      [:actions/set-order-history-page :set-order-history-page]
      [:actions/next-order-history-page :next-order-history-page]

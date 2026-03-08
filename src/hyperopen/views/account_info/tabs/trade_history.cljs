@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperopen.views.account-info.cache-keys :as cache-keys]
             [hyperopen.views.account-info.history-pagination :as history-pagination]
+            [hyperopen.views.account-info.mobile-cards :as mobile-cards]
             [hyperopen.views.account-info.projections :as projections]
             [hyperopen.views.account-info.shared :as shared]
             [hyperopen.views.account-info.sort-kernel :as sort-kernel]
@@ -434,6 +435,100 @@
 (defn sortable-trade-history-header [column-name sort-state]
   (table/sortable-header-button column-name sort-state :actions/sort-trade-history))
 
+(defn- trade-history-table-header
+  ([sort-state]
+   (trade-history-table-header sort-state []))
+  ([sort-state extra-classes]
+   [:div {:class (into ["grid"
+                        "gap-2"
+                        "py-1"
+                        "px-3"
+                        "bg-base-200"
+                        "text-sm"
+                        "font-medium"
+                        "text-trading-text-secondary"
+                        "grid-cols-[180px_90px_160px_90px_130px_130px_110px_120px]"]
+                       extra-classes)}
+    [:div {:class ["text-left"]} (sortable-trade-history-header "Time" sort-state)]
+    [:div {:class ["text-left"]} (sortable-trade-history-header "Coin" sort-state)]
+    [:div {:class ["text-left"]} (sortable-trade-history-header "Direction" sort-state)]
+    [:div {:class ["text-left"]} (sortable-trade-history-header "Price" sort-state)]
+    [:div {:class ["text-left"]} (sortable-trade-history-header "Size" sort-state)]
+    [:div {:class ["text-left"]} (sortable-trade-history-header "Trade Value" sort-state)]
+    [:div {:class ["text-left"]} (sortable-trade-history-header "Fee" sort-state)]
+    [:div {:class ["text-left"]} (sortable-trade-history-header "Closed PNL" sort-state)]]))
+
+(defn- trade-history-table-row [row market-by-key]
+  [:div {:class ["grid"
+                 "gap-2"
+                 "py-px"
+                 "px-3"
+                 "hover:bg-base-300"
+                 "text-sm"
+                 "grid-cols-[180px_90px_160px_90px_130px_130px_110px_120px]"]}
+   [:div {:class ["text-left" "text-xs" "whitespace-nowrap"]}
+    (trade-history-time-node row)]
+   [:div {:class ["text-left"]}
+    (trade-history-coin-node row market-by-key)]
+   (trade-history-direction-node row)
+   [:div {:class ["text-left" "num"]}
+    (format-trade-history-price row)]
+   [:div {:class ["text-left" "num"]}
+    (format-trade-history-size row market-by-key)]
+   [:div {:class ["text-left" "num"]}
+    (format-trade-history-value row)]
+   [:div {:class ["text-left" "num"]}
+    (format-trade-history-fee row)]
+   [:div {:class ["text-left" "num" (trade-history-closed-pnl-class row)]}
+    (format-trade-history-closed-pnl row)]])
+
+(defn- mobile-trade-history-coin-node [row market-by-key]
+  (let [{:keys [base-label prefix-label]}
+        (shared/resolve-coin-display (trade-history-coin row) market-by-key)]
+    [:span {:class ["flex" "min-w-0" "items-center" "gap-1.5"]}
+     [:span {:class ["truncate" "text-trading-text"]} base-label]
+     (when prefix-label
+       [:span {:class shared/position-chip-classes} prefix-label])]))
+
+(defn- mobile-trade-history-card [expanded-row-id row market-by-key]
+  (let [row-id (some-> (trade-history-row-id row) str str/trim)
+        expanded? (= expanded-row-id row-id)
+        summary-time (shared/format-open-orders-time (trade-history-time-ms row))]
+    (mobile-cards/expandable-card
+     {:data-role (str "mobile-trade-history-card-" row-id)
+      :expanded? expanded?
+      :toggle-actions [[:actions/toggle-account-info-mobile-card :trade-history row-id]]
+      :summary-items [(mobile-cards/summary-item "Coin"
+                                                 (mobile-trade-history-coin-node row market-by-key))
+                      (mobile-cards/summary-item "Time"
+                                                 summary-time
+                                                 {:value-classes ["text-trading-text"]})
+                      (mobile-cards/summary-item "Size"
+                                                 (format-trade-history-size row market-by-key)
+                                                 {:value-classes ["num"]})]
+      :detail-content (mobile-cards/detail-grid
+                       "grid-cols-3"
+                       [(mobile-cards/detail-item "Direction"
+                                                  (trade-history-direction-node row))
+                        (mobile-cards/detail-item "Price"
+                                                  (format-trade-history-price row)
+                                                  {:value-classes ["num"]})
+                        (mobile-cards/detail-item "Trade Value"
+                                                  (format-trade-history-value row)
+                                                  {:value-classes ["num"]})
+                        (mobile-cards/detail-item "Time"
+                                                  (trade-history-time-node row)
+                                                  {:value-classes ["text-trading-text"]})
+                        (mobile-cards/detail-item "Size"
+                                                  (format-trade-history-size row market-by-key)
+                                                  {:value-classes ["num"]})
+                        (mobile-cards/detail-item "Fee"
+                                                  (format-trade-history-fee row)
+                                                  {:value-classes ["num"]})
+                        (mobile-cards/detail-item "Closed PNL"
+                                                  [:span {:class ["num" (trade-history-closed-pnl-class row)]}
+                                                   (format-trade-history-closed-pnl row)])])})))
+
 (defn trade-history-table [fills trade-history-state]
   (let [all-rows (cond
                    (vector? fills) fills
@@ -443,6 +538,7 @@
         direction-filter (trade-history-direction-filter-key trade-history-state)
         coin-search (:coin-search trade-history-state "")
         sort-state (trade-history-sort-state trade-history-state)
+        mobile-expanded-card-id (get-in trade-history-state [:mobile-expanded-card :trade-history])
         sorted-rows (memoized-sorted-trade-history all-rows
                                                    direction-filter
                                                    sort-state
@@ -450,49 +546,37 @@
                                                    coin-search)
         {:keys [rows] :as pagination} (history-pagination/paginate-history-rows sorted-rows trade-history-state)]
     (if (seq sorted-rows)
-      (table/tab-table-content
-       [:div {:class ["grid"
-                      "gap-2"
-                      "py-1"
-                      "px-3"
-                      "bg-base-200"
-                      "text-sm"
-                      "font-medium"
-                      "text-trading-text-secondary"
-                      "grid-cols-[180px_90px_160px_90px_130px_130px_110px_120px]"]}
-        [:div {:class ["text-left"]} (sortable-trade-history-header "Time" sort-state)]
-        [:div {:class ["text-left"]} (sortable-trade-history-header "Coin" sort-state)]
-        [:div {:class ["text-left"]} (sortable-trade-history-header "Direction" sort-state)]
-        [:div {:class ["text-left"]} (sortable-trade-history-header "Price" sort-state)]
-        [:div {:class ["text-left"]} (sortable-trade-history-header "Size" sort-state)]
-        [:div {:class ["text-left"]} (sortable-trade-history-header "Trade Value" sort-state)]
-        [:div {:class ["text-left"]} (sortable-trade-history-header "Fee" sort-state)]
-        [:div {:class ["text-left"]} (sortable-trade-history-header "Closed PNL" sort-state)]]
-       (for [f rows]
-         ^{:key (trade-history-row-id f)}
-         [:div {:class ["grid"
-                        "gap-2"
-                        "py-px"
-                        "px-3"
-                        "hover:bg-base-300"
-                        "text-sm"
-                        "grid-cols-[180px_90px_160px_90px_130px_130px_110px_120px]"]}
-          [:div {:class ["text-left" "text-xs" "whitespace-nowrap"]}
-           (trade-history-time-node f)]
-          [:div {:class ["text-left"]}
-           (trade-history-coin-node f market-by-key)]
-          (trade-history-direction-node f)
-          [:div {:class ["text-left" "num"]}
-           (format-trade-history-price f)]
-          [:div {:class ["text-left" "num"]}
-           (format-trade-history-size f market-by-key)]
-          [:div {:class ["text-left" "num"]}
-           (format-trade-history-value f)]
-          [:div {:class ["text-left" "num"]}
-           (format-trade-history-fee f)]
-          [:div {:class ["text-left" "num" (trade-history-closed-pnl-class f)]}
-           (format-trade-history-closed-pnl f)]])
-       (history-pagination/trade-history-pagination-controls pagination))
+      [:div {:class ["flex" "h-full" "min-h-0" "flex-col"]}
+       (trade-history-table-header sort-state ["hidden" "lg:grid"])
+       (into [:div {:class ["hidden"
+                            "lg:block"
+                            "flex-1"
+                            "min-h-0"
+                            "overflow-y-auto"
+                            "scrollbar-hide"]
+                   :data-role "account-tab-rows-viewport"}]
+             (map (fn [row]
+                    ^{:key (trade-history-row-id row)}
+                    (trade-history-table-row row market-by-key))
+                  rows))
+       [:div {:class ["hidden" "lg:block"]}
+        (history-pagination/trade-history-pagination-controls pagination)]
+       (into [:div {:class ["lg:hidden"
+                            "flex-1"
+                            "min-h-0"
+                            "overflow-y-auto"
+                            "scrollbar-hide"
+                            "space-y-2.5"
+                            "px-2.5"
+                            "py-2"]
+                   :data-role "trade-history-mobile-cards-viewport"}]
+             (concat
+              (map (fn [row]
+                     ^{:key (str "mobile-" (trade-history-row-id row))}
+                     (mobile-trade-history-card mobile-expanded-card-id row market-by-key))
+                   rows)
+              [[:div {:class ["px-1" "pt-1"]}
+                (history-pagination/trade-history-pagination-controls pagination)]]))]
       (empty-state "No fills"))))
 
 (defn trade-history-tab-content

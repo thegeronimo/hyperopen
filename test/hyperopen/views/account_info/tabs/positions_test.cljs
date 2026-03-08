@@ -108,6 +108,58 @@
     (is (contains? short-search-strings "PUMP"))
     (is (not (contains? short-search-strings "NVDA")))))
 
+(deftest positions-tab-content-renders-mobile-summary-cards-with-inline-expansion-test
+  (let [expanded-row (-> (fixtures/sample-position-row "xyz:GOLD" 20 "0.0185" "xyz")
+                         (assoc-in [:position :positionValue] "95.55")
+                         (assoc-in [:position :entryPx] "5382.4")
+                         (assoc-in [:position :markPx] "5164.6")
+                         (assoc-in [:position :liquidationPx] "4407.1")
+                         (assoc-in [:position :marginUsed] "15.64")
+                         (assoc-in [:position :returnOnEquity] "-0.809")
+                         (assoc-in [:position :unrealizedPnl] "-4.03")
+                         (assoc-in [:position :cumFunding :allTime] "-0.05")
+                         (assoc-in [:position :leverage :type] "isolated"))
+        collapsed-row (fixtures/sample-position-row "SOL" 10 "0.61")
+        expanded-row-id (view/position-unique-key expanded-row)
+        content (view/positions-tab-content [expanded-row collapsed-row]
+                                            fixtures/default-sort-state
+                                            nil
+                                            nil
+                                            nil
+                                            {:direction-filter :all
+                                             :mobile-expanded-card {:positions expanded-row-id}})
+        mobile-viewport (hiccup/find-by-data-role content "positions-mobile-cards-viewport")
+        mobile-cards (vec (hiccup/node-children mobile-viewport))
+        expanded-card (hiccup/find-by-data-role content (str "mobile-position-card-" expanded-row-id))
+        collapsed-card (hiccup/find-by-data-role content (str "mobile-position-card-" (view/position-unique-key collapsed-row)))
+        expanded-button (first (vec (hiccup/node-children expanded-card)))
+        collapsed-button (first (vec (hiccup/node-children collapsed-card)))
+        expanded-strings (set (hiccup/collect-strings expanded-card))
+        collapsed-strings (set (hiccup/collect-strings collapsed-card))]
+    (is (some? mobile-viewport))
+    (is (= 2 (count mobile-cards)))
+    (is (= true (get-in expanded-button [1 :aria-expanded])))
+    (is (= [[:actions/toggle-account-info-mobile-card :positions expanded-row-id]]
+           (get-in expanded-button [1 :on :click])))
+    (is (contains? expanded-strings "Coin"))
+    (is (contains? expanded-strings "Size"))
+    (is (contains? expanded-strings "PNL (ROE %)"))
+    (is (contains? expanded-strings "Entry Price"))
+    (is (contains? expanded-strings "Mark Price"))
+    (is (contains? expanded-strings "Liq. Price"))
+    (is (contains? expanded-strings "Position Value"))
+    (is (contains? expanded-strings "Margin"))
+    (is (contains? expanded-strings "Funding"))
+    (is (contains? expanded-strings "TP/SL"))
+    (is (contains? expanded-strings "Actions"))
+    (is (contains? expanded-strings "Close"))
+    (is (contains? expanded-strings "GOLD"))
+    (is (contains? expanded-strings "20x"))
+    (is (contains? expanded-strings "xyz"))
+    (is (= false (get-in collapsed-button [1 :aria-expanded])))
+    (is (contains? collapsed-strings "SOL"))
+    (is (not (contains? collapsed-strings "Entry Price")))))
+
 (deftest positions-tab-content-re-sorts-when-direction-filter-changes-test
   (let [rows [(fixtures/sample-position-row "ETH" 5 "1.0")
               (fixtures/sample-position-row "BTC" 5 "-1.0")]

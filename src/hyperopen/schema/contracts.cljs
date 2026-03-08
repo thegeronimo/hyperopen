@@ -463,6 +463,7 @@
    :actions/toggle-order-history-filter-open ::no-args
    :actions/set-order-history-status-filter ::keyword-or-string-args
    :actions/set-account-info-coin-search ::tab-and-input-args
+   :actions/toggle-account-info-mobile-card ::tab-and-input-args
    :actions/set-order-history-page-size ::single-input-args
    :actions/set-order-history-page ::page-and-max-page-args
    :actions/next-order-history-page ::max-page-args

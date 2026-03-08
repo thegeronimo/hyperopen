@@ -5,6 +5,7 @@
             [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.account-info.cache-keys :as cache-keys]
+            [hyperopen.views.account-info.mobile-cards :as mobile-cards]
             [hyperopen.views.account-info.position-margin-modal :as position-margin-modal]
             [hyperopen.views.account-info.position-reduce-popover :as position-reduce-popover]
             [hyperopen.views.account-info.projections :as projections]
@@ -308,6 +309,64 @@
 (defn collect-positions [webdata2 perp-dex-states]
   (projections/collect-positions webdata2 perp-dex-states))
 
+(defn- position-value-copy [position-value-num]
+  (if (number? position-value-num)
+    (str (shared/format-currency position-value-num) " USDC")
+    "--"))
+
+(defn- position-margin-copy [margin margin-mode-label]
+  (str "$" (shared/format-currency margin)
+       (when margin-mode-label
+         (str " (" margin-mode-label ")"))))
+
+(defn- funding-value-node [display-funding]
+  [:span {:class [(cond
+                    (and (number? display-funding) (neg? display-funding)) "text-error"
+                    (and (number? display-funding) (pos? display-funding)) "text-success"
+                    :else "text-trading-text")
+                  "num"]}
+   (if (number? display-funding)
+     (str "$" (shared/format-currency display-funding))
+     "--")])
+
+(defn- mobile-position-coin-node [position-data side]
+  (let [pos (:position position-data)
+        chip-classes (shared/position-chip-classes-for-side side)
+        coin-tone-class (shared/position-side-tone-class side)
+        coin-label (display-coin pos)
+        dex-label (dex-chip-label {:coin (:coin pos)
+                                   :dex (:dex position-data)})
+        leverage (get-in pos [:leverage :value])]
+    [:span {:class ["flex" "min-w-0" "items-center" "gap-1.5"]}
+     [:span {:class ["truncate" "font-medium" coin-tone-class]} coin-label]
+     (when (some? leverage)
+       [:span {:class chip-classes} (str leverage "x")])
+     (when dex-label
+       [:span {:class chip-classes} dex-label])]))
+
+(defn- mobile-position-action-button [label action]
+  [:button {:type "button"
+            :class ["inline-flex"
+                    "min-h-8"
+                    "items-center"
+                    "rounded-full"
+                    "border"
+                    "border-base-300"
+                    "bg-base-100/70"
+                    "px-3"
+                    "py-1.5"
+                    "text-xs"
+                    "font-medium"
+                    "leading-none"
+                    "text-trading-text"
+                    "transition-colors"
+                    "hover:bg-base-100"
+                    "focus:outline-none"
+                    "focus:ring-0"
+                    "focus:ring-offset-0"]
+            :on {:click action}}
+   label])
+
 (defn position-row
   ([position-data]
    (position-row position-data nil nil nil))
@@ -495,6 +554,87 @@
        (when active-modal?
          (position-tpsl-modal/position-tpsl-modal-view tpsl-modal))]])))
 
+(defn- mobile-position-card [expanded-row-id position-data tpsl-modal reduce-popover margin-modal]
+  (let [pos (:position position-data)
+        side (position-side pos)
+        size-tone-class (shared/position-side-size-class side)
+        row-id (some-> (position-unique-key position-data) str str/trim)
+        expanded? (= expanded-row-id row-id)
+        position-value-num (shared/parse-optional-num (:positionValue pos))
+        pnl-num (shared/parse-optional-num (:unrealizedPnl pos))
+        pnl-percent (some-> (:returnOnEquity pos) shared/parse-optional-num (* 100))
+        pnl-color-class (cond
+                          (and (number? pnl-num) (pos? pnl-num)) "text-success"
+                          (and (number? pnl-num) (neg? pnl-num)) "text-error"
+                          :else "text-trading-text")
+        margin-mode-label (some-> (position-margin-mode position-data)
+                                  margin-mode-display-label)
+        funding-num (shared/parse-optional-num (get-in pos [:cumFunding :allTime]))
+        display-funding (funding-display-value funding-num)
+        active-modal? (and (position-tpsl/open? tpsl-modal)
+                           (= (position-unique-key position-data)
+                              (:position-key tpsl-modal)))
+        active-reduce-popover? (and (position-reduce/open? reduce-popover)
+                                    (= (position-unique-key position-data)
+                                       (:position-key reduce-popover)))
+        active-margin-modal? (and (position-margin/open? margin-modal)
+                                  (= (position-unique-key position-data)
+                                     (:position-key margin-modal)))]
+    (mobile-cards/expandable-card
+     {:data-role (str "mobile-position-card-" row-id)
+      :expanded? expanded?
+      :toggle-actions [[:actions/toggle-account-info-mobile-card :positions row-id]]
+      :summary-items [(mobile-cards/summary-item "Coin"
+                                                 (mobile-position-coin-node position-data side))
+                      (mobile-cards/summary-item "Size"
+                                                 (format-position-size pos)
+                                                 {:value-classes ["num" size-tone-class]})
+                      (mobile-cards/summary-item "PNL (ROE %)"
+                                                 [:span {:class ["num" pnl-color-class]}
+                                                  (format-pnl-inline pnl-num pnl-percent)])]
+      :detail-content
+      [:div {:class ["space-y-3"]}
+       (mobile-cards/detail-grid
+        "grid-cols-3"
+        [(mobile-cards/detail-item "Entry Price"
+                                   (shared/format-trade-price (:entryPx pos))
+                                   {:value-classes ["num"]})
+         (mobile-cards/detail-item "Mark Price"
+                                   (shared/format-trade-price (calculate-mark-price pos))
+                                   {:value-classes ["num"]})
+         (mobile-cards/detail-item "Liq. Price"
+                                   (format-liquidation-price (:liquidationPx pos))
+                                   {:value-classes ["num"]})
+         (mobile-cards/detail-item "Position Value"
+                                   (position-value-copy position-value-num)
+                                   {:value-classes ["num"]})
+         (mobile-cards/detail-item "Margin"
+                                   (position-margin-copy (:marginUsed pos) margin-mode-label)
+                                   {:value-classes ["num"]})
+         (mobile-cards/detail-item "TP/SL"
+                                   (tpsl-cell-copy position-data))
+         (mobile-cards/detail-item "Funding"
+                                   (funding-value-node display-funding))
+         (mobile-cards/detail-item
+          "Actions"
+          [:div {:class ["relative" "flex" "flex-wrap" "gap-2"]}
+           (mobile-position-action-button
+            "Close"
+            [[:actions/open-position-reduce-popover position-data :event.currentTarget/bounds]])
+           (mobile-position-action-button
+            "Margin"
+            [[:actions/open-position-margin-modal position-data :event.currentTarget/bounds]])
+           (mobile-position-action-button
+            "TP/SL"
+            [[:actions/open-position-tpsl-modal position-data :event.currentTarget/bounds]])
+           (when active-reduce-popover?
+             (position-reduce-popover/position-reduce-popover-view reduce-popover))
+           (when active-margin-modal?
+             (position-margin-modal/position-margin-modal-view margin-modal))
+           (when active-modal?
+             (position-tpsl-modal/position-tpsl-modal-view tpsl-modal))]
+          {:full-width? true})])]})))
+
 (defn sort-positions-by-column [positions column direction]
   (sort-kernel/sort-rows-by-column
    positions
@@ -566,51 +706,82 @@
                                  :actions/sort-positions
                                  {:explanation explanation})))
 
-(defn position-table-header [sort-state]
-  [:div {:class ["grid"
-                 shared/positions-grid-template-class
-                 "gap-2"
-                 "py-1"
-                 "pr-3"
-                 shared/positions-grid-min-width-class
-                 "bg-base-200"]}
-   [:div.text-left.pl-3 (sortable-header "Coin" sort-state)]
-   [:div.text-left (sortable-header "Size" sort-state)]
-   [:div.text-left (sortable-header "Position Value" sort-state)]
-   [:div.text-left (sortable-header "Entry Price" sort-state)]
-   [:div.text-left (sortable-header "Mark Price" sort-state)]
-   [:div.text-left (sortable-header "PNL (ROE %)" sort-state pnl-header-explanation)]
-   [:div.text-left (sortable-header "Liq. Price" sort-state)]
-   [:div.text-left (sortable-header "Margin" sort-state margin-header-explanation)]
-   [:div.text-left (sortable-header "Funding" sort-state funding-header-explanation)]
-   [:div.text-left
-    [:button {:class (into ["w-full"
-                            "text-left"
-                            "focus:outline-none"
-                            "focus:ring-1"
-                            "focus:ring-[#8a96a6]/40"
-                            "focus:ring-offset-0"
-                            "focus:shadow-none"]
-                           (concat table/header-base-text-classes
-                                   table/sortable-header-interaction-classes))
-              :type "button"
-              :on {:click [[:actions/trigger-close-all-positions]]}}
-     "Close All"]]
-   [:div.text-left (table/non-sortable-header "TP/SL")]])
+(defn position-table-header
+  ([sort-state]
+   (position-table-header sort-state []))
+  ([sort-state extra-classes]
+   [:div {:class (into ["grid"
+                        shared/positions-grid-template-class
+                        "gap-2"
+                        "py-1"
+                        "pr-3"
+                        shared/positions-grid-min-width-class
+                        "bg-base-200"]
+                       extra-classes)}
+    [:div.text-left.pl-3 (sortable-header "Coin" sort-state)]
+    [:div.text-left (sortable-header "Size" sort-state)]
+    [:div.text-left (sortable-header "Position Value" sort-state)]
+    [:div.text-left (sortable-header "Entry Price" sort-state)]
+    [:div.text-left (sortable-header "Mark Price" sort-state)]
+    [:div.text-left (sortable-header "PNL (ROE %)" sort-state pnl-header-explanation)]
+    [:div.text-left (sortable-header "Liq. Price" sort-state)]
+    [:div.text-left (sortable-header "Margin" sort-state margin-header-explanation)]
+    [:div.text-left (sortable-header "Funding" sort-state funding-header-explanation)]
+    [:div.text-left
+     [:button {:class (into ["w-full"
+                             "text-left"
+                             "focus:outline-none"
+                             "focus:ring-1"
+                             "focus:ring-[#8a96a6]/40"
+                             "focus:ring-offset-0"
+                             "focus:shadow-none"]
+                            (concat table/header-base-text-classes
+                                    table/sortable-header-interaction-classes))
+               :type "button"
+               :on {:click [[:actions/trigger-close-all-positions]]}}
+      "Close All"]]
+    [:div.text-left (table/non-sortable-header "TP/SL")]]))
 
 (defn- positions-tab-content-from-rows
   [positions sort-state tpsl-modal reduce-popover margin-modal positions-state]
   (let [positions* (or positions [])
         direction-filter (positions-direction-filter-key positions-state)
         coin-search (:coin-search positions-state "")
+        expanded-row-id (get-in positions-state [:mobile-expanded-card :positions])
         sorted-positions (if (seq positions*)
                            (memoized-sorted-positions positions* direction-filter sort-state coin-search)
                            [])]
     (if (seq sorted-positions)
-      (table/tab-table-content (position-table-header sort-state)
-                               (for [position sorted-positions]
-                                 ^{:key (position-unique-key position)}
-                                 (position-row position tpsl-modal reduce-popover margin-modal)))
+      [:div {:class ["flex" "h-full" "min-h-0" "flex-col"]}
+       (position-table-header sort-state ["hidden" "lg:grid"])
+       (into [:div {:class ["hidden"
+                            "lg:block"
+                            "flex-1"
+                            "min-h-0"
+                            "overflow-y-auto"
+                            "scrollbar-hide"]
+                   :data-role "account-tab-rows-viewport"}]
+             (map (fn [position]
+                    ^{:key (position-unique-key position)}
+                    (position-row position tpsl-modal reduce-popover margin-modal))
+                  sorted-positions))
+       (into [:div {:class ["lg:hidden"
+                            "flex-1"
+                            "min-h-0"
+                            "overflow-y-auto"
+                            "scrollbar-hide"
+                            "space-y-2.5"
+                            "px-2.5"
+                            "py-2"]
+                   :data-role "positions-mobile-cards-viewport"}]
+             (map (fn [position]
+                    ^{:key (str "mobile-" (position-unique-key position))}
+                    (mobile-position-card expanded-row-id
+                                          position
+                                          tpsl-modal
+                                          reduce-popover
+                                          margin-modal))
+                  sorted-positions))]
       (empty-state "No active positions"))))
 
 (defn positions-tab-content

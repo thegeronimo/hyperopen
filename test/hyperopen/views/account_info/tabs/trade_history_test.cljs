@@ -652,3 +652,58 @@
     (is (= 10 (count (vec (hiccup/node-children viewport)))))
     (is (contains? all-strings "Page 1 of 1"))
     (is (= "1" (get-in jump-input [1 :value])))))
+
+(deftest trade-history-table-renders-mobile-summary-cards-with-inline-expansion-test
+  (let [fills [{:tid 7
+                :coin "xyz:SILVER"
+                :side "A"
+                :sz "0.52"
+                :px "95.242"
+                :tradeValue "49.53"
+                :fee "0.00"
+                :closedPnl "0.19"
+                :time 1700000000000
+                :hash "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"}
+               {:tid 8
+                :coin "BTC"
+                :side "B"
+                :sz "1.25"
+                :px "100.5"
+                :fee "0.05"
+                :time 1700000001000}]
+        expanded-row-id (@#'trade-history-tab/trade-history-row-id (first fills))
+        collapsed-row-id (@#'trade-history-tab/trade-history-row-id (second fills))
+        content (@#'view/trade-history-table fills {:page-size 25
+                                                    :page 1
+                                                    :page-input "1"
+                                                    :mobile-expanded-card {:trade-history expanded-row-id}})
+        mobile-viewport (hiccup/find-by-data-role content "trade-history-mobile-cards-viewport")
+        mobile-cards (->> (hiccup/node-children mobile-viewport)
+                          (filter vector?)
+                          vec)
+        expanded-card (hiccup/find-by-data-role content (str "mobile-trade-history-card-" expanded-row-id))
+        collapsed-card (hiccup/find-by-data-role content (str "mobile-trade-history-card-" collapsed-row-id))
+        expanded-button (first (vec (hiccup/node-children expanded-card)))
+        collapsed-button (first (vec (hiccup/node-children collapsed-card)))
+        expanded-strings (set (hiccup/collect-strings expanded-card))
+        collapsed-strings (set (hiccup/collect-strings collapsed-card))
+        time-link (hiccup/find-first-node expanded-card #(= :a (first %)))]
+    (is (some? mobile-viewport))
+    (is (= 3 (count mobile-cards)))
+    (is (= true (get-in expanded-button [1 :aria-expanded])))
+    (is (= [[:actions/toggle-account-info-mobile-card :trade-history expanded-row-id]]
+           (get-in expanded-button [1 :on :click])))
+    (is (contains? expanded-strings "Coin"))
+    (is (contains? expanded-strings "Time"))
+    (is (contains? expanded-strings "Size"))
+    (is (contains? expanded-strings "Direction"))
+    (is (contains? expanded-strings "Price"))
+    (is (contains? expanded-strings "Trade Value"))
+    (is (contains? expanded-strings "Fee"))
+    (is (contains? expanded-strings "Closed PNL"))
+    (is (some? time-link))
+    (is (= "https://app.hyperliquid.xyz/explorer/tx/0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+           (get-in time-link [1 :href])))
+    (is (= false (get-in collapsed-button [1 :aria-expanded])))
+    (is (contains? collapsed-strings "BTC"))
+    (is (not (contains? collapsed-strings "Direction")))))

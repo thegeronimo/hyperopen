@@ -166,6 +166,9 @@
 (def set-account-info-coin-search
   surface-actions/set-account-info-coin-search)
 
+(def toggle-account-info-mobile-card
+  surface-actions/toggle-account-info-mobile-card)
+
 (def set-order-history-page-size
   order-actions/set-order-history-page-size)
 

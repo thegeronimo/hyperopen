@@ -271,6 +271,9 @@
   {:selected-tab :balances
    :loading false
    :error nil
+   :mobile-expanded-card {:balances nil
+                          :positions nil
+                          :trade-history nil}
    :hide-small-balances? false
    :balances-coin-search ""
    :balances-sort {:column nil :direction :asc}

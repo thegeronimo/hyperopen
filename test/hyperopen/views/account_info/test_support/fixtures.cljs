@@ -78,6 +78,9 @@
   {:account-info {:selected-tab :balances
                   :loading false
                   :error nil
+                  :mobile-expanded-card {:balances nil
+                                         :positions nil
+                                         :trade-history nil}
                   :hide-small-balances? false
                   :balances-coin-search ""
                   :balances-sort default-sort-state

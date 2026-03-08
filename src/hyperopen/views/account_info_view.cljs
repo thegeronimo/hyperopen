@@ -371,13 +371,15 @@
                                   "py-2"
                                   "text-xs"
                                   "font-medium"
+                                  "leading-none"
                                   "transition-colors"
                                   "border-b-2"
+                                  "bg-transparent"
                                   "sm:px-4"
                                   "sm:text-sm"]
                                  (if (= selected-tab tab)
-                                   ["text-trading-text" "border-primary" "bg-base-100"]
-                                   ["text-base-content" "border-transparent" "hover:text-trading-text" "hover:bg-base-100"]))
+                                   ["text-trading-text" "border-primary" "lg:bg-base-100"]
+                                   ["text-base-content/80" "border-transparent" "hover:text-trading-text" "lg:hover:bg-base-100"]))
                     :on {:click (or (get tab-click-actions-by-tab tab)
                                     [[:actions/select-account-info-tab tab]])}}
            (tab-label tab counts tab-labels*)])]]
@@ -550,11 +552,12 @@
     (empty-state (str (get labels tab-name (name tab-name)) " coming soon"))]))
 
 (def ^:private tab-renderers
-  {:balances (fn [{:keys [balance-rows hide-small? balances-sort balances-coin-search]}]
+  {:balances (fn [{:keys [balance-rows hide-small? balances-sort balances-coin-search mobile-expanded-card]}]
                (balances-tab-content balance-rows
                                      hide-small?
                                      balances-sort
-                                     balances-coin-search))
+                                     balances-coin-search
+                                     mobile-expanded-card))
    :positions (fn [{:keys [positions
                            webdata2
                            positions-sort
@@ -562,27 +565,32 @@
                            position-tpsl-modal
                            position-reduce-popover
                            position-margin-modal
-                           positions-state]}]
+                           positions-state
+                           mobile-expanded-card]}]
                 (if (some? positions)
                   (positions-tab-content positions
                                          positions-sort
                                          position-tpsl-modal
                                          position-reduce-popover
                                          position-margin-modal
-                                         positions-state)
+                                         (assoc positions-state
+                                                :mobile-expanded-card mobile-expanded-card))
                   (positions-tab-content webdata2
                                          positions-sort
                                          perp-dex-states
                                          position-tpsl-modal
                                          position-reduce-popover
                                          position-margin-modal
-                                         positions-state)))
+                                         (assoc positions-state
+                                                :mobile-expanded-card mobile-expanded-card))))
    :open-orders (fn [{:keys [open-orders open-orders-sort open-orders-state]}]
                   (open-orders-tab-content open-orders open-orders-sort open-orders-state))
    :twap (fn [_]
            (placeholder-tab-content :twap))
-   :trade-history (fn [{:keys [trade-history-rows trade-history-state]}]
-                    (trade-history-tab-content trade-history-rows trade-history-state))
+   :trade-history (fn [{:keys [trade-history-rows trade-history-state mobile-expanded-card]}]
+                    (trade-history-tab-content trade-history-rows
+                                               (assoc trade-history-state
+                                                      :mobile-expanded-card mobile-expanded-card)))
    :funding-history (fn [{:keys [funding-history-rows funding-history-state funding-history-raw]}]
                       (funding-history-tab-content funding-history-rows
                                                    funding-history-state

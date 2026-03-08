@@ -1,5 +1,6 @@
 (ns hyperopen.views.account-info.tabs.balances
   (:require [clojure.string :as str]
+            [hyperopen.views.account-info.mobile-cards :as mobile-cards]
             [hyperopen.views.account-info.projections :as projections]
             [hyperopen.views.account-info.shared :as shared]
             [hyperopen.views.account-info.table :as table]))
@@ -284,21 +285,114 @@
      [:div.text-left
       (balance-contract-node contract-id)]]))
 
-(defn balance-table-header [sort-state]
-  [:div.grid.grid-cols-8.gap-2.py-1.px-3.bg-base-200.text-sm.font-medium.text-trading-text
-   [:div (sortable-balances-header "Coin" sort-state :left)]
-   [:div (sortable-balances-header "Total Balance" sort-state :right)]
-   [:div (sortable-balances-header "Available Balance" sort-state :right)]
-   [:div (sortable-balances-header "USDC Value" sort-state :right)]
-   [:div (sortable-balances-header "PNL (ROE %)" sort-state :right)]
-   [:div (table/non-sortable-header "Send" :left)]
-   [:div (table/non-sortable-header "Transfer" :left)]
-   [:div (table/non-sortable-header "Contract" :left)]])
+(defn balance-table-header
+  ([sort-state]
+   (balance-table-header sort-state []))
+  ([sort-state extra-classes]
+   [:div {:class (into ["grid"
+                        "grid-cols-8"
+                        "gap-2"
+                        "py-1"
+                        "px-3"
+                        "bg-base-200"
+                        "text-sm"
+                        "font-medium"
+                        "text-trading-text"]
+                       extra-classes)}
+    [:div (sortable-balances-header "Coin" sort-state :left)]
+    [:div (sortable-balances-header "Total Balance" sort-state :right)]
+    [:div (sortable-balances-header "Available Balance" sort-state :right)]
+    [:div (sortable-balances-header "USDC Value" sort-state :right)]
+    [:div (sortable-balances-header "PNL (ROE %)" sort-state :right)]
+    [:div (table/non-sortable-header "Send" :left)]
+    [:div (table/non-sortable-header "Transfer" :left)]
+    [:div (table/non-sortable-header "Contract" :left)]]))
+
+(defn- mobile-balance-coin-node [{:keys [coin selection-coin]}]
+  (let [{:keys [base-label prefix-label]}
+        (shared/resolve-coin-display (or selection-coin coin) {})]
+    [:span {:class ["flex" "min-w-0" "items-center" "gap-1.5"]}
+     [:span {:class ["truncate" "text-trading-text"]} (or base-label coin "Asset")]
+     (when prefix-label
+       [:span {:class shared/position-chip-classes} prefix-label])]))
+
+(defn- mobile-balance-action-chip [label]
+  [:span {:class ["inline-flex"
+                  "items-center"
+                  "rounded-full"
+                  "border"
+                  "border-base-300"
+                  "bg-base-100/70"
+                  "px-2.5"
+                  "py-1"
+                  "text-xs"
+                  "font-medium"
+                  "leading-none"
+                  "text-trading-text"]}
+   label])
+
+(defn- mobile-balance-card [expanded-row-id row]
+  (let [{:keys [coin
+                key
+                selection-coin
+                total-balance
+                available-balance
+                usdc-value
+                pnl-value
+                pnl-pct
+                amount-decimals
+                contract-id
+                transfer-disabled?
+                available-balance-tooltip-position]} row
+        row-id (some-> key str str/trim)
+        {:keys [base-label]} (shared/resolve-coin-display (or selection-coin coin) {})
+        expanded? (= expanded-row-id row-id)
+        transfer-label (if transfer-disabled? "Unified" "Transfer")]
+    (mobile-cards/expandable-card
+     {:data-role (str "mobile-balance-card-" row-id)
+      :expanded? expanded?
+      :toggle-actions [[:actions/toggle-account-info-mobile-card :balances row-id]]
+      :summary-items [(mobile-cards/summary-item "Coin"
+                                                 (mobile-balance-coin-node row)
+                                                 {:value-classes ["text-trading-text"]})
+                      (mobile-cards/summary-item "USDC Value"
+                                                 (str "$" (shared/format-currency usdc-value))
+                                                 {:value-classes ["num"]})
+                      (mobile-cards/summary-item "Total Balance"
+                                                 (str (shared/format-balance-amount total-balance amount-decimals)
+                                                      " "
+                                                      (or base-label coin ""))
+                                                 {:value-classes ["num"]})]
+      :detail-content (mobile-cards/detail-grid
+                       "grid-cols-2"
+                       [(mobile-cards/detail-item
+                         "Available Balance"
+                         (available-balance-value-node {:coin coin
+                                                        :available-balance available-balance
+                                                        :amount-decimals amount-decimals
+                                                        :transfer-disabled? transfer-disabled?
+                                                        :tooltip-position available-balance-tooltip-position})
+                         {:value-classes ["num"]})
+                        (mobile-cards/detail-item
+                         "PNL (ROE %)"
+                         (shared/format-pnl pnl-value pnl-pct))
+                        (mobile-cards/detail-item
+                         "Actions"
+                         [:div {:class ["flex" "flex-wrap" "gap-2"]}
+                          (mobile-balance-action-chip "Send")
+                          (mobile-balance-action-chip transfer-label)]
+                         {:full-width? true})
+                        (when-let [contract-node (balance-contract-node contract-id)]
+                          (mobile-cards/detail-item "Contract"
+                                                    contract-node
+                                                    {:full-width? true}))])})))
 
 (defn balances-tab-content
   ([balance-rows hide-small? sort-state]
-   (balances-tab-content balance-rows hide-small? sort-state ""))
+   (balances-tab-content balance-rows hide-small? sort-state "" {}))
   ([balance-rows hide-small? sort-state coin-search]
+   (balances-tab-content balance-rows hide-small? sort-state coin-search {}))
+  ([balance-rows hide-small? sort-state coin-search mobile-expanded-card]
    (let [rows* (or balance-rows [])
          visible-rows (if hide-small?
                         (filter (fn [row]
@@ -310,17 +404,36 @@
                        (sort-balances-by-column search-filtered-rows
                                                 (:column sort-state)
                                                 (:direction sort-state))
-                       search-filtered-rows)]
+                       search-filtered-rows)
+         expanded-row-id (:balances mobile-expanded-card)]
      (if (seq search-filtered-rows)
        [:div {:class ["flex" "h-full" "min-h-0" "flex-col"]}
-        (balance-table-header sort-state)
-        (into [:div {:class ["flex-1"
+        (balance-table-header sort-state ["hidden" "lg:grid"])
+        (into [:div {:class ["hidden"
+                             "lg:block"
+                             "flex-1"
                              "min-h-0"
                              "overflow-y-auto"
-                             "scrollbar-hide"]}]
+                             "scrollbar-hide"]
+                    :data-role "account-tab-rows-viewport"}]
               (map-indexed (fn [idx row]
                              (let [tooltip-position (if (zero? idx) :bottom :top)]
                                ^{:key (:key row)}
                                (balance-row (assoc row :available-balance-tooltip-position tooltip-position))))
+                           sorted-rows))
+        (into [:div {:class ["lg:hidden"
+                             "flex-1"
+                             "min-h-0"
+                             "overflow-y-auto"
+                             "scrollbar-hide"
+                             "space-y-2.5"
+                             "px-2.5"
+                             "py-2"]
+                    :data-role "balances-mobile-cards-viewport"}]
+              (map-indexed (fn [idx row]
+                             (let [tooltip-position (if (zero? idx) :bottom :top)]
+                               ^{:key (str "mobile-" (:key row))}
+                               (mobile-balance-card expanded-row-id
+                                                    (assoc row :available-balance-tooltip-position tooltip-position))))
                            sorted-rows))]
        (empty-state "No balance data available")))))

@@ -57,6 +57,9 @@
 
     :else nil))
 
+(defn find-by-data-role [node data-role]
+  (find-first-node node #(= data-role (get-in % [1 :data-role]))))
+
 (defn find-all-nodes [node pred]
   (cond
     (vector? node)

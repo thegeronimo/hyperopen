@@ -324,6 +324,9 @@
 (def set-account-info-coin-search
   account-history-actions/set-account-info-coin-search)
 
+(def toggle-account-info-mobile-card
+  account-history-actions/toggle-account-info-mobile-card)
+
 (def set-order-history-page-size
   account-history-actions/set-order-history-page-size)
 

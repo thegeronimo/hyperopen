@@ -606,3 +606,47 @@
   (let [row-node (view/balance-row (assoc fixtures/sample-balance-row :coin "USDC (Perps)"))
         coin-cell (first (vec (hiccup/node-children row-node)))]
     (is (nil? (get-in coin-cell [1 :style :color])))))
+
+(deftest balances-tab-content-renders-mobile-summary-cards-with-inline-expansion-test
+  (let [rows [(assoc fixtures/sample-balance-row
+                     :key "usdc"
+                     :contract-id "0x1234567890abcdef1234567890abcdef12345678")
+              {:key "meow"
+               :coin "MEOW"
+               :selection-coin "xyz:MEOW"
+               :total-balance 34.634736
+               :available-balance 34.634736
+               :usdc-value 0.01
+               :pnl-value 0
+               :pnl-pct 0
+               :amount-decimals 6}]
+        content (view/balances-tab-content rows
+                                           false
+                                           fixtures/default-sort-state
+                                           ""
+                                           {:balances "usdc"})
+        mobile-viewport (hiccup/find-by-data-role content "balances-mobile-cards-viewport")
+        mobile-cards (vec (hiccup/node-children mobile-viewport))
+        expanded-card (hiccup/find-by-data-role content "mobile-balance-card-usdc")
+        collapsed-card (hiccup/find-by-data-role content "mobile-balance-card-meow")
+        expanded-button (first (vec (hiccup/node-children expanded-card)))
+        collapsed-button (first (vec (hiccup/node-children collapsed-card)))
+        expanded-strings (set (hiccup/collect-strings expanded-card))
+        collapsed-strings (set (hiccup/collect-strings collapsed-card))]
+    (is (some? mobile-viewport))
+    (is (= 2 (count mobile-cards)))
+    (is (= true (get-in expanded-button [1 :aria-expanded])))
+    (is (= [[:actions/toggle-account-info-mobile-card :balances "usdc"]]
+           (get-in expanded-button [1 :on :click])))
+    (is (contains? expanded-strings "Coin"))
+    (is (contains? expanded-strings "USDC Value"))
+    (is (contains? expanded-strings "Total Balance"))
+    (is (contains? expanded-strings "Available Balance"))
+    (is (contains? expanded-strings "PNL (ROE %)"))
+    (is (contains? expanded-strings "Actions"))
+    (is (contains? expanded-strings "Contract"))
+    (is (contains? expanded-strings "Send"))
+    (is (contains? expanded-strings "Transfer"))
+    (is (= false (get-in collapsed-button [1 :aria-expanded])))
+    (is (contains? collapsed-strings "MEOW"))
+    (is (not (contains? collapsed-strings "Available Balance")))))

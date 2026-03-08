@@ -15,6 +15,9 @@
 (def ^:private positions-direction-filter-options
   #{:all :long :short})
 
+(def ^:private mobile-account-card-tabs
+  #{:balances :positions :trade-history})
+
 (defn restore-open-orders-sort-settings! [store]
   (let [stored-column (or (platform/local-storage-get "open-orders-sort-by") "Time")
         stored-direction (keyword (or (platform/local-storage-get "open-orders-sort-direction") "desc"))
@@ -118,6 +121,19 @@
                             [[:account-info :order-history :page-input] "1"]]]]
 
       [[:effects/save [:account-info :balances-coin-search] search*]])))
+
+(defn toggle-account-info-mobile-card [state tab row-id]
+  (let [tab* (history-shared/normalize-account-info-tab tab)
+        row-id* (some-> row-id str str/trim)
+        state-path [:account-info :mobile-expanded-card tab*]]
+    (if (and (contains? mobile-account-card-tabs tab*)
+             (seq row-id*))
+      (let [current-row-id (get-in state state-path)]
+        [[:effects/save state-path
+          (if (= current-row-id row-id*)
+            nil
+            row-id*)]])
+      [])))
 
 (defn set-hide-small-balances [_state checked]
   [[:effects/save [:account-info :hide-small-balances?] checked]])

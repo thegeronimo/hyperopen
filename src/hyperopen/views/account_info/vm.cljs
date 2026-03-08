@@ -244,6 +244,7 @@
         orders (or (:orders state) {})
         loading? (get-in state [:account-info :loading] false)
         error (get-in state [:account-info :error])
+        mobile-expanded-card (get-in state [:account-info :mobile-expanded-card] {})
         positions-sort (get-in state [:account-info :positions-sort] {:column nil :direction :asc})
         balances-sort (get-in state [:account-info :balances-sort] {:column nil :direction :asc})
         balances-coin-search (get-in state [:account-info :balances-coin-search] "")
@@ -313,6 +314,7 @@
     {:selected-tab selected-tab
      :loading? loading?
      :error error
+     :mobile-expanded-card mobile-expanded-card
      :positions-sort positions-sort
      :balances-sort balances-sort
      :balances-coin-search balances-coin-search

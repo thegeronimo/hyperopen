@@ -588,3 +588,20 @@
     (is (= "1.75" (:amount-input modal)))
     (is (= 4.2 (:prefill-liquidation-current-price modal)))
     (is (= 2.1 (:prefill-liquidation-target-price modal)))))
+
+(deftest toggle-account-info-mobile-card-saves-collapses-and-ignores-invalid-inputs-test
+  (let [state {:account-info {:mobile-expanded-card {:balances "btc"
+                                                     :positions nil
+                                                     :trade-history nil}}}]
+    (is (= [[:effects/save [:account-info :mobile-expanded-card :balances] "eth"]]
+           (history-actions/toggle-account-info-mobile-card state :balances "eth")))
+    (is (= [[:effects/save [:account-info :mobile-expanded-card :balances] nil]]
+           (history-actions/toggle-account-info-mobile-card state :balances "btc")))
+    (is (= [[:effects/save [:account-info :mobile-expanded-card :positions] "nvda"]]
+           (history-actions/toggle-account-info-mobile-card state :positions "nvda")))
+    (is (= [[:effects/save [:account-info :mobile-expanded-card :trade-history] "42"]]
+           (history-actions/toggle-account-info-mobile-card state "trade-history" 42)))
+    (is (= []
+           (history-actions/toggle-account-info-mobile-card state :open-orders "btc")))
+    (is (= []
+           (history-actions/toggle-account-info-mobile-card state :balances "   ")))))

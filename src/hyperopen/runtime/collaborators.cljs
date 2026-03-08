@@ -130,6 +130,7 @@
    :toggle-order-history-filter-open account-history-actions/toggle-order-history-filter-open
    :set-order-history-status-filter account-history-actions/set-order-history-status-filter
    :set-account-info-coin-search account-history-actions/set-account-info-coin-search
+   :toggle-account-info-mobile-card account-history-actions/toggle-account-info-mobile-card
    :set-order-history-page-size account-history-actions/set-order-history-page-size
    :set-order-history-page account-history-actions/set-order-history-page
    :next-order-history-page account-history-actions/next-order-history-page
