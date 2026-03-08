@@ -161,28 +161,28 @@
     [:span.text-trading-text "--"]))
 
 (def position-chip-classes
-  ["px-1.5"
-   "py-0.5"
+  ["px-3"
+   "py-[1px]"
    "text-xs"
    "leading-none"
    "font-medium"
-   "rounded"
+   "rounded-lg"
    "border"
-   "bg-emerald-500/20"
+   "bg-[#242924]"
    "text-emerald-300"
-   "border-emerald-500/30"])
+   "border-[#273035]"])
 
 (def position-short-chip-classes
-  ["px-1.5"
-   "py-0.5"
+  ["px-3"
+   "py-[1px]"
    "text-xs"
    "leading-none"
    "font-medium"
-   "rounded"
+   "rounded-lg"
    "border"
-   "bg-red-500/20"
+   "bg-[#242924]"
    "text-red-300"
-   "border-red-500/30"])
+   "border-[#273035]"])
 
 (defn position-chip-classes-for-side [side]
   (case side

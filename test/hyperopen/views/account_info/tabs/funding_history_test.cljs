@@ -148,7 +148,7 @@
     (is (= view/order-history-long-coin-color
            (get-in coin-base [1 :style :color])))
     (is (some? xyz-chip))
-    (is (contains? (hiccup/node-class-set xyz-chip) "bg-emerald-500/20"))))
+    (is (contains? (hiccup/node-class-set xyz-chip) "bg-[#242924]"))))
 
 (deftest funding-history-coin-cell-dispatches-select-asset-action-test
   (let [rows [{:id "1700000000000|xyz:NVDA|0.5|-0.42|0.0006"
@@ -405,7 +405,7 @@
     (is (some? remove-button))
     (is (= [[:actions/toggle-funding-history-filter-coin "xyz:GOOGL"]]
            (get-in remove-button [1 :on :click])))
-    (is (contains? (hiccup/node-class-set xyz-label) "bg-emerald-500/20"))
+    (is (contains? (hiccup/node-class-set xyz-label) "bg-[#242924]"))
     (is (contains? controls-strings "GOOGL"))
     (is (contains? controls-strings "xyz"))
     (is (not (contains? controls-strings "xyz:GOOGL")))

@@ -305,7 +305,7 @@
         coin-strings (set (hiccup/collect-strings coin-cell))
         leverage-chip (hiccup/find-first-node coin-cell #(contains? (hiccup/direct-texts %) "10x"))
         dex-chip (hiccup/find-first-node coin-cell #(contains? (hiccup/direct-texts %) "xyz"))
-        expected-chip-classes #{"bg-emerald-500/20" "text-emerald-300" "border-emerald-500/30"}]
+        expected-chip-classes #{"bg-[#242924]" "text-emerald-300" "border-[#273035]"}]
     (is (contains? coin-strings "NVDA"))
     (is (contains? coin-strings "10x"))
     (is (contains? coin-strings "xyz"))
@@ -323,7 +323,7 @@
         coin-label-node (hiccup/find-first-node coin-cell #(contains? (hiccup/direct-texts %) "NVDA"))
         leverage-chip (hiccup/find-first-node coin-cell #(contains? (hiccup/direct-texts %) "10x"))
         expected-background "transparent linear-gradient(90deg, rgb(237, 112, 136) 0px, rgb(237, 112, 136) 4px, rgba(52, 36, 46, 1) 0%, transparent 100%)"
-        expected-chip-classes #{"bg-red-500/20" "text-red-300" "border-red-500/30"}]
+        expected-chip-classes #{"bg-[#242924]" "text-red-300" "border-[#273035]"}]
     (is (= expected-background
            (get-in coin-cell [1 :style :background])))
     (is (= "12px" (get-in coin-cell [1 :style :padding-left])))
