@@ -79,30 +79,95 @@
     (is (= [[:actions/open-spectate-mode-modal :event.currentTarget/bounds]]
            (get-in spectate-mode-button [1 :on :click])))))
 
-(deftest header-renders-mobile-menu-and-utility-buttons-test
+(deftest header-renders-mobile-menu-trigger-and-utility-buttons-test
   (let [view (header-view/header-view {:wallet {:connected? false}
                                        :router {:path "/trade"}})
         menu-trigger (find-node-by-role view "mobile-header-menu-trigger")
-        menu-panel (find-node-by-role view "mobile-header-menu-panel")
         mobile-brand (find-node-by-role view "mobile-brand")
-        trade-link (find-node-by-role view "mobile-header-menu-link-trade")
-        portfolio-link (find-node-by-role view "mobile-header-menu-link-portfolio")
-        spectate-link (find-node-by-role view "mobile-header-menu-spectate")
+        menu-panel (find-node-by-role view "mobile-header-menu-panel")
         language-button (find-node-by-role view "header-language-button")
         settings-button (find-node-by-role view "header-settings-button")]
     (is (some? menu-trigger))
-    (is (some? menu-panel))
+    (is (= [[:actions/open-mobile-header-menu]]
+           (get-in menu-trigger [1 :on :click])))
     (is (some? mobile-brand))
     (is (= [[:actions/navigate "/trade"]]
            (get-in mobile-brand [1 :on :click])))
-    (is (= [[:actions/navigate "/trade"]]
-           (get-in trade-link [1 :on :click])))
-    (is (= [[:actions/navigate "/portfolio"]]
-           (get-in portfolio-link [1 :on :click])))
-    (is (= [[:actions/open-spectate-mode-modal :event.currentTarget/bounds]]
-           (get-in spectate-link [1 :on :click])))
+    (is (nil? menu-panel))
     (is (some? language-button))
     (is (some? settings-button))))
+
+(deftest header-renders-mobile-menu-drawer-when-open-test
+  (let [view (header-view/header-view {:wallet {:connected? false}
+                                       :router {:path "/trade"}
+                                       :header-ui {:mobile-menu-open? true}})
+        layer (find-node-by-role view "mobile-header-menu-layer")
+        backdrop (find-node-by-role view "mobile-header-menu-backdrop")
+        menu-panel (find-node-by-role view "mobile-header-menu-panel")
+        menu-close (find-node-by-role view "mobile-header-menu-close")
+        menu-brand-mark (find-node-by-role view "mobile-header-menu-brand-mark")
+        trade-link (find-node-by-role view "mobile-header-menu-link-trade")
+        portfolio-link (find-node-by-role view "mobile-header-menu-link-portfolio")
+        funding-link (find-node-by-role view "mobile-header-menu-link-funding")
+        vaults-link (find-node-by-role view "mobile-header-menu-link-vaults")
+        earn-link (find-node-by-role view "mobile-header-menu-link-earn")
+        staking-link (find-node-by-role view "mobile-header-menu-link-staking")
+        referrals-link (find-node-by-role view "mobile-header-menu-link-referrals")
+        leaderboard-link (find-node-by-role view "mobile-header-menu-link-leaderboard")
+        spectate-link (find-node-by-role view "mobile-header-menu-spectate")
+        layer-classes (set (class-values (get-in layer [1 :class])))
+        panel-classes (set (class-values (get-in menu-panel [1 :class])))
+        backdrop-style (get-in backdrop [1 :style])
+        backdrop-mounting (get-in backdrop [1 :replicant/mounting :style])
+        backdrop-unmounting (get-in backdrop [1 :replicant/unmounting :style])
+        panel-style (get-in menu-panel [1 :style])
+        panel-mounting (get-in menu-panel [1 :replicant/mounting :style])
+        panel-unmounting (get-in menu-panel [1 :replicant/unmounting :style])
+        trade-classes (set (class-values (get-in trade-link [1 :class])))]
+    (is (some? layer))
+    (is (some? backdrop))
+    (is (some? menu-panel))
+    (is (some? menu-close))
+    (is (some? menu-brand-mark))
+    (is (= [[:actions/close-mobile-header-menu]]
+           (get-in backdrop [1 :on :click])))
+    (is (= [[:actions/close-mobile-header-menu]]
+           (get-in menu-close [1 :on :click])))
+    (is (= [[:actions/navigate-mobile-header-menu "/trade"]]
+           (get-in trade-link [1 :on :click])))
+    (is (= [[:actions/navigate-mobile-header-menu "/portfolio"]]
+           (get-in portfolio-link [1 :on :click])))
+    (is (= [[:actions/navigate-mobile-header-menu "/funding-comparison"]]
+           (get-in funding-link [1 :on :click])))
+    (is (= [[:actions/navigate-mobile-header-menu "/vaults"]]
+           (get-in vaults-link [1 :on :click])))
+    (is (= [[:actions/navigate-mobile-header-menu "/earn"]]
+           (get-in earn-link [1 :on :click])))
+    (is (= [[:actions/navigate-mobile-header-menu "/staking"]]
+           (get-in staking-link [1 :on :click])))
+    (is (= [[:actions/navigate-mobile-header-menu "/referrals"]]
+           (get-in referrals-link [1 :on :click])))
+    (is (= [[:actions/navigate-mobile-header-menu "/leaderboard"]]
+           (get-in leaderboard-link [1 :on :click])))
+    (is (= [[:actions/open-spectate-mode-mobile-header-menu
+             :event.currentTarget/bounds]]
+           (get-in spectate-link [1 :on :click])))
+    (is (contains? layer-classes "fixed"))
+    (is (contains? layer-classes "inset-0"))
+    (is (contains? panel-classes "left-0"))
+    (is (contains? panel-classes "border-r"))
+    (is (= "opacity 0.14s ease-out" (:transition backdrop-style)))
+    (is (= 1 (:opacity backdrop-style)))
+    (is (= 0 (:opacity backdrop-mounting)))
+    (is (= 0 (:opacity backdrop-unmounting)))
+    (is (= "transform 0.16s ease-out, opacity 0.16s ease-out" (:transition panel-style)))
+    (is (= "translateX(0)" (:transform panel-style)))
+    (is (= 1 (:opacity panel-style)))
+    (is (= "translateX(-18px)" (:transform panel-mounting)))
+    (is (= 0 (:opacity panel-mounting)))
+    (is (= "translateX(-18px)" (:transform panel-unmounting)))
+    (is (= 0 (:opacity panel-unmounting)))
+    (is (contains? trade-classes "text-white"))))
 
 (deftest wallet-menu-renders-copy-and-disconnect-controls-test
   (let [view (header-view/header-view {:wallet {:connected? true

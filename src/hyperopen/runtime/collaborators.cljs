@@ -6,6 +6,7 @@
             [hyperopen.chart.actions :as chart-actions]
             [hyperopen.chart.settings :as chart-settings]
             [hyperopen.funding.actions :as funding-actions]
+            [hyperopen.header.actions :as header-actions]
             [hyperopen.funding.effects :as funding-effects]
             [hyperopen.order.actions :as order-actions]
             [hyperopen.orderbook.actions :as orderbook-actions]
@@ -162,7 +163,11 @@
    :submit-position-margin-update account-history-actions/submit-position-margin-update})
 
 (defn- spectate-mode-action-deps []
-  {:open-spectate-mode-modal spectate-mode-actions/open-spectate-mode-modal
+  {:open-mobile-header-menu header-actions/open-mobile-header-menu
+   :close-mobile-header-menu header-actions/close-mobile-header-menu
+   :navigate-mobile-header-menu header-actions/navigate-mobile-header-menu
+   :open-spectate-mode-mobile-header-menu header-actions/open-spectate-mode-mobile-header-menu
+   :open-spectate-mode-modal spectate-mode-actions/open-spectate-mode-modal
    :close-spectate-mode-modal spectate-mode-actions/close-spectate-mode-modal
    :set-spectate-mode-search spectate-mode-actions/set-spectate-mode-search
    :set-spectate-mode-label spectate-mode-actions/set-spectate-mode-label

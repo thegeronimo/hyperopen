@@ -339,6 +339,10 @@
    :actions/subscribe-to-webdata2 ::address-args
    :actions/connect-wallet ::no-args
    :actions/disconnect-wallet ::no-args
+   :actions/open-mobile-header-menu ::no-args
+   :actions/close-mobile-header-menu ::no-args
+   :actions/navigate-mobile-header-menu ::path-args
+   :actions/open-spectate-mode-mobile-header-menu ::spectate-mode-open-args
    :actions/open-spectate-mode-modal ::spectate-mode-open-args
    :actions/close-spectate-mode-modal ::no-args
    :actions/set-spectate-mode-search ::single-input-args

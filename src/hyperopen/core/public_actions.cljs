@@ -3,6 +3,7 @@
             [hyperopen.asset-selector.actions :as asset-actions]
             [hyperopen.chart.actions :as chart-actions]
             [hyperopen.chart.settings :as chart-settings]
+            [hyperopen.header.actions :as header-actions]
             [hyperopen.order.actions :as order-actions]
             [hyperopen.orderbook.actions :as orderbook-actions]
             [hyperopen.orderbook.settings :as orderbook-settings]
@@ -100,6 +101,18 @@
 
 (def restore-ui-font-preference!
   ui-preferences/restore-ui-font-preference!)
+
+(def open-mobile-header-menu
+  header-actions/open-mobile-header-menu)
+
+(def close-mobile-header-menu
+  header-actions/close-mobile-header-menu)
+
+(def navigate-mobile-header-menu
+  header-actions/navigate-mobile-header-menu)
+
+(def open-spectate-mode-mobile-header-menu
+  header-actions/open-spectate-mode-mobile-header-menu)
 
 (def toggle-timeframes-dropdown
   chart-actions/toggle-timeframes-dropdown)

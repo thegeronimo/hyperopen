@@ -91,6 +91,7 @@
             [hyperopen.funding.effects-test]
             [hyperopen.funding.history-cache-test]
             [hyperopen.funding.predictability-test]
+            [hyperopen.header.actions-test]
             [hyperopen.i18n.locale-test]
             [hyperopen.order.feedback-runtime-test]
             [hyperopen.orderbook.actions-test]
@@ -397,6 +398,7 @@
              'hyperopen.funding.effects-test
              'hyperopen.funding.history-cache-test
              'hyperopen.funding.predictability-test
+             'hyperopen.header.actions-test
              'hyperopen.i18n.locale-test
              'hyperopen.order.feedback-runtime-test
              'hyperopen.orderbook.actions-test

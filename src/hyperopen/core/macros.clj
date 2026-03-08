@@ -104,6 +104,10 @@
     restore-orderbook-ui!
     restore-agent-storage-mode!
     restore-ui-font-preference!
+    open-mobile-header-menu
+    close-mobile-header-menu
+    navigate-mobile-header-menu
+    open-spectate-mode-mobile-header-menu
     toggle-timeframes-dropdown
     select-chart-timeframe
     toggle-chart-type-dropdown

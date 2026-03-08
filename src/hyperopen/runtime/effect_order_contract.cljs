@@ -194,7 +194,7 @@
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true
     :allow-duplicate-heavy-effects? false
-    :heavy-effect-ids #{:effects/api-fetch-vault-index
+   :heavy-effect-ids #{:effects/api-fetch-vault-index
                         :effects/api-fetch-vault-summaries
                         :effects/api-fetch-user-vault-equities
                         :effects/api-fetch-vault-details
@@ -205,6 +205,22 @@
                         :effects/api-fetch-vault-ledger-updates
                         :effects/api-fetch-predicted-fundings
                         :effects/api-load-api-wallets
+                        :effects/fetch-asset-selector-markets}}
+
+   :actions/navigate-mobile-header-menu
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/api-fetch-vault-index
+                        :effects/api-fetch-vault-summaries
+                        :effects/api-fetch-user-vault-equities
+                        :effects/api-fetch-vault-details
+                        :effects/api-fetch-vault-webdata2
+                        :effects/api-fetch-vault-fills
+                        :effects/api-fetch-vault-funding-history
+                        :effects/api-fetch-vault-order-history
+                        :effects/api-fetch-vault-ledger-updates
+                        :effects/api-fetch-predicted-fundings
                         :effects/fetch-asset-selector-markets}}})
 
 (defn action-policy

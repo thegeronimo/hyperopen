@@ -78,6 +78,10 @@
    :toasts []
    :locale (i18n-locale/resolve-preferred-locale)})
 
+(defn default-header-ui-state
+  []
+  {:mobile-menu-open? false})
+
 (defn default-asset-selector-state
   []
   {:visible-dropdown nil
@@ -315,6 +319,7 @@
    :wallet (default-wallet-state default-agent-state)
    :account-context (account-context/default-account-context-state)
    :ui (default-ui-state)
+   :header-ui (default-header-ui-state)
    :account {:mode :classic
              :abstraction-raw nil}
    :router {:path "/trade"}

@@ -491,92 +491,195 @@
             :data-role data-role}
    body])
 
+(def ^:private mobile-primary-nav-items
+  [{:label "Trade"
+    :route "/trade"
+    :data-role "mobile-header-menu-link-trade"
+    :active-fn #(route-active? % "/trade")}
+   {:label "Portfolio"
+    :route "/portfolio"
+    :data-role "mobile-header-menu-link-portfolio"
+    :active-fn #(route-active? % "/portfolio")}
+   {:label "Funding"
+    :route "/funding-comparison"
+    :data-role "mobile-header-menu-link-funding"
+    :active-fn funding-route-active?}
+   {:label "Vaults"
+    :route "/vaults"
+    :data-role "mobile-header-menu-link-vaults"
+    :active-fn #(route-active? % "/vaults")}])
+
+(def ^:private mobile-secondary-nav-items
+  [{:label "Earn"
+    :route "/earn"
+    :data-role "mobile-header-menu-link-earn"
+    :active-fn #(route-active? % "/earn")}
+   {:label "Staking"
+    :route "/staking"
+    :data-role "mobile-header-menu-link-staking"
+    :active-fn #(route-active? % "/staking")}
+   {:label "Referrals"
+    :route "/referrals"
+    :data-role "mobile-header-menu-link-referrals"
+    :active-fn #(route-active? % "/referrals")}
+   {:label "Leaderboard"
+    :route "/leaderboard"
+    :data-role "mobile-header-menu-link-leaderboard"
+    :active-fn #(route-active? % "/leaderboard")}])
+
 (defn- mobile-menu-link
-  [label route active?]
-  [:button {:type "button"
-            :class (into ["flex"
-                          "w-full"
-                          "items-center"
-                          "justify-between"
-                          "rounded-lg"
-                          "px-3"
-                          "py-2.5"
-                          "text-left"
-                          "text-sm"
-                          "font-medium"
-                          "transition-colors"]
-                         (if active?
-                           ["bg-base-100" "text-white"]
-                           ["text-trading-text-secondary" "hover:bg-base-100" "hover:text-white"]))
-            :on {:click [[:actions/navigate route]]}
-            :data-role (str "mobile-header-menu-link-" (name (keyword (subs route 1))))}
-   [:span label]
-   [:svg {:viewBox "0 0 20 20"
-          :fill "currentColor"
-          :class ["h-4" "w-4" "text-trading-text-secondary"]}
-    [:path {:fill-rule "evenodd"
-            :clip-rule "evenodd"
-            :d "M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"}]]])
+  [current-route {:keys [label route data-role active-fn]}]
+  (let [active? (boolean (when (fn? active-fn)
+                           (active-fn current-route)))]
+    [:button {:type "button"
+              :class (into ["flex"
+                            "w-full"
+                            "items-center"
+                            "px-4"
+                            "py-3.5"
+                            "text-left"
+                            "text-[1.35rem]"
+                            "font-medium"
+                            "leading-none"
+                            "transition-colors"]
+                           (if active?
+                             ["text-white"]
+                             ["text-[#d7e7e8]" "hover:bg-[#0d1d22]" "hover:text-white"]))
+              :on {:click [[:actions/navigate-mobile-header-menu route]]}
+              :data-role data-role}
+     [:span label]]))
+
+(defn- mobile-menu-close-icon []
+  [:svg {:viewBox "0 0 20 20"
+         :fill "none"
+         :stroke "currentColor"
+         :class ["h-5" "w-5"]}
+   [:path {:stroke-linecap "round"
+           :stroke-linejoin "round"
+           :stroke-width 1.8
+           :d "M5 5l10 10M15 5L5 15"}]])
+
+(defn- mobile-menu-section
+  [current-route items]
+  [:div {:class ["border-b" "border-[#173038]" "py-2"]}
+   (for [{:keys [route] :as item} items]
+     ^{:key route}
+     (mobile-menu-link current-route item))])
 
 (defn- mobile-header-menu
-  [route]
-  [:details {:class ["relative" "md:hidden" "group"]
-             :data-role "mobile-header-menu"}
-   [:summary {:class ["flex"
-                      "h-9"
-                      "w-9"
-                      "list-none"
-                      "items-center"
-                      "justify-center"
-                      "rounded-xl"
-                      "border"
-                      "border-base-300"
-                      "bg-base-100"
-                      "transition-colors"
-                      "hover:bg-base-200"
-                      "cursor-pointer"]
-              :aria-label "Open mobile menu"
-              :data-role "mobile-header-menu-trigger"}
-    (mobile-menu-icon)]
-   [:div {:class ["absolute"
-                  "left-0"
-                  "top-full"
-                  "z-[260]"
-                  "mt-2"
-                  "w-64"
-                  "overflow-hidden"
-                  "rounded-2xl"
-                  "border"
-                  "border-base-300"
-                  "bg-trading-bg"
-                  "p-2"
-                  "shadow-2xl"]
-          :data-role "mobile-header-menu-panel"}
-    [:div {:class ["px-3" "pb-2" "pt-1" "text-xs" "font-semibold" "uppercase" "tracking-[0.14em]" "text-trading-text-secondary"]}
-     "Navigate"]
-    (mobile-menu-link "Trade" "/trade" (route-active? route "/trade"))
-    (mobile-menu-link "Portfolio" "/portfolio" (route-active? route "/portfolio"))
-    (mobile-menu-link "Funding" "/funding-comparison" (funding-route-active? route))
-    (mobile-menu-link "Vaults" "/vaults" (route-active? route "/vaults"))
-    [:div {:class ["mx-1" "my-2" "h-px" "bg-base-300"]}]
-    [:button {:type "button"
-              :class ["flex"
-                      "w-full"
+  [route menu-open? spectate-active?]
+  [:div {:class ["md:hidden"] :data-role "mobile-header-menu"}
+   [:button {:type "button"
+             :class ["flex"
+                     "h-9"
+                     "w-9"
+                     "items-center"
+                     "justify-center"
+                     "rounded-xl"
+                     "border"
+                     "border-base-300"
+                     "bg-base-100"
+                     "transition-colors"
+                     "hover:bg-base-200"
+                     "focus:outline-none"
+                     "focus:ring-2"
+                     "focus:ring-[#66e3c5]/50"
+                     "focus:ring-offset-0"]
+             :on {:click [[:actions/open-mobile-header-menu]]}
+             :aria-label "Open mobile menu"
+             :data-role "mobile-header-menu-trigger"}
+   (mobile-menu-icon)]
+   (when menu-open?
+     [:div {:class ["fixed" "inset-0" "z-[290]"] :data-role "mobile-header-menu-layer"}
+      [:button {:type "button"
+                :class ["absolute" "inset-0" "bg-black/55" "backdrop-blur-[1px]"]
+                :style {:transition "opacity 0.14s ease-out"
+                        :opacity 1}
+                :replicant/mounting {:style {:opacity 0}}
+                :replicant/unmounting {:style {:opacity 0}}
+                :on {:click [[:actions/close-mobile-header-menu]]}
+                :aria-label "Close mobile menu"
+                :data-role "mobile-header-menu-backdrop"}]
+      [:aside {:class ["absolute"
+                       "inset-y-0"
+                       "left-0"
+                       "flex"
+                       "w-[min(19rem,calc(100vw-2.75rem))]"
+                       "max-w-full"
+                       "flex-col"
+                       "border-r"
+                       "border-[#173038]"
+                       "bg-[#071115]"
+                       "shadow-2xl"]
+               :style {:transition "transform 0.16s ease-out, opacity 0.16s ease-out"
+                       :transform "translateX(0)"
+                       :opacity 1}
+               :replicant/mounting {:style {:transform "translateX(-18px)"
+                                            :opacity 0}}
+               :replicant/unmounting {:style {:transform "translateX(-18px)"
+                                              :opacity 0}}
+               :role "dialog"
+               :aria-modal true
+               :aria-label "Mobile navigation"
+               :data-role "mobile-header-menu-panel"}
+       [:div {:class ["flex"
                       "items-center"
                       "justify-between"
-                      "rounded-lg"
-                      "px-3"
-                      "py-2.5"
-                      "text-left"
-                      "text-sm"
-                      "font-medium"
-                      "text-[#96f8e0]"
-                      "transition-colors"
-                      "hover:bg-base-100"]
-              :on {:click [[:actions/open-spectate-mode-modal :event.currentTarget/bounds]]}
-              :data-role "mobile-header-menu-spectate"}
-     [:span "Spectate Mode"]
-     (spectate-mode-icon)]]])
+                      "border-b"
+                      "border-[#173038]"
+                      "px-4"
+                      "py-4"]}
+        [:div {:class ["flex" "items-center" "gap-3"]}
+         [:span {:class ["font-splash" "text-[1.9rem]" "leading-none" "text-primary"]
+                 :data-role "mobile-header-menu-brand-mark"}
+          "HO"]
+         [:div {:class ["text-xs" "font-semibold" "uppercase" "tracking-[0.18em]" "text-[#85a3a8]"]}
+          "Menu"]]
+        [:button {:type "button"
+                  :class ["inline-flex"
+                          "h-9"
+                          "w-9"
+                          "items-center"
+                          "justify-center"
+                          "rounded-xl"
+                          "border"
+                          "border-[#173038]"
+                          "bg-[#0b181d]"
+                          "text-[#d7e7e8]"
+                          "transition-colors"
+                          "hover:bg-[#102229]"
+                          "focus:outline-none"
+                          "focus:ring-2"
+                          "focus:ring-[#66e3c5]/40"
+                          "focus:ring-offset-0"]
+                  :on {:click [[:actions/close-mobile-header-menu]]}
+                  :aria-label "Close mobile menu"
+                  :data-role "mobile-header-menu-close"}
+         (mobile-menu-close-icon)]]
+       [:div {:class ["flex-1" "overflow-y-auto" "pb-6"]}
+        (mobile-menu-section route mobile-primary-nav-items)
+        (mobile-menu-section route mobile-secondary-nav-items)
+        [:div {:class ["py-2"]}
+         [:button {:type "button"
+                   :class ["flex"
+                           "w-full"
+                           "items-center"
+                           "justify-between"
+                           "px-4"
+                           "py-3.5"
+                           "text-left"
+                           "text-[1.05rem]"
+                           "font-medium"
+                           "text-[#97f7e2]"
+                           "transition-colors"
+                           "hover:bg-[#0d1d22]"]
+                   :on {:click [[:actions/open-spectate-mode-mobile-header-menu
+                                 :event.currentTarget/bounds]]}
+                   :data-role "mobile-header-menu-spectate"}
+         [:span (if spectate-active?
+                   "Manage Spectate Mode"
+                   "Open Spectate Mode")]
+          (spectate-mode-icon)]]]]])])
 
 (defn- wallet-control [wallet-state spectate-mode]
   (let [is-connected (boolean (:connected? wallet-state))
@@ -598,6 +701,8 @@
   (let [wallet-state (get-in state [:wallet] {})
         route (get-in state [:router :path] "/trade")
         api-wallet-route? (api-wallets-actions/api-wallet-route? route)
+        mobile-menu-open? (true? (get-in state [:header-ui :mobile-menu-open?]))
+        api-wallet-route? (api-wallets-actions/api-wallet-route? route)
         spectate-active? (account-context/spectate-mode-active? state)
         spectate-mode {:active? spectate-active?
                        :address (account-context/spectate-address state)}]
@@ -606,7 +711,7 @@
      [:div {:class ["w-full" "app-shell-gutter" "py-2" "md:py-3"]}
       [:div {:class ["flex" "items-center" "gap-2" "md:gap-4"]}
        [:div {:class ["flex" "items-center" "gap-2.5" "md:gap-3" "min-w-0"]}
-        (mobile-header-menu route)
+        (mobile-header-menu route mobile-menu-open? spectate-active?)
         [:button {:type "button"
                   :class ["md:hidden" "inline-flex" "items-center" "rounded-lg" "px-1" "py-0.5"]
                   :on {:click [[:actions/navigate "/trade"]]}
