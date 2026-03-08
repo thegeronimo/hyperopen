@@ -97,6 +97,29 @@
             [:effects/api-fetch-hyperunit-fee-estimate]]
            (funding-actions/open-funding-deposit-modal state anchor)))))
 
+(deftest open-funding-send-modal-normalizes-js-anchor-bounds-test
+  (let [state (base-state)
+        anchor #js {:left "16"
+                    :right 414
+                    :top "760"
+                    :bottom 800
+                    :width 398
+                    :height "40"
+                    "viewport-width" 430
+                    "viewport-height" "932"}]
+    (is (= [[:effects/save [:funding-ui :modal]
+             (assoc (expected-open-modal :send)
+                    :destination-input ""
+                    :anchor {:left 16
+                             :right 414
+                             :top 760
+                             :bottom 800
+                             :width 398
+                             :height 40
+                             :viewport-width 430
+                             :viewport-height 932})]]
+           (funding-actions/open-funding-send-modal state nil anchor)))))
+
 (deftest set-funding-modal-compat-preserves-legacy-fallback-test
   (let [state (base-state)]
     (is (= [[:effects/save [:funding-ui :modal]

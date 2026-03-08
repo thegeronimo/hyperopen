@@ -355,6 +355,10 @@
     (set! (.-innerHeight js/globalThis) 932)
     (try
       (let [view-node (view/funding-modal-view state)
+            layer-node (find-first-node view-node #(= "funding-mobile-sheet-layer"
+                                                      (get-in % [1 :data-role])))
+            backdrop-node (find-first-node view-node #(= "funding-mobile-sheet-backdrop"
+                                                         (get-in % [1 :data-role])))
             modal-node (find-first-node view-node #(= "funding-modal"
                                                       (get-in % [1 :data-role])))
             send-step (find-first-node view-node #(= "funding-send-step"
@@ -364,9 +368,13 @@
             amount-input (find-first-node view-node #(= "funding-send-amount-input"
                                                         (get-in % [1 :data-role])))
             all-text (set (collect-strings view-node))]
+        (is (some? layer-node))
+        (is (some? backdrop-node))
         (is (contains? (set (get-in modal-node [1 :class])) "absolute"))
         (is (contains? (set (get-in modal-node [1 :class])) "bottom-0"))
         (is (contains? (set (get-in modal-node [1 :class])) "rounded-t-[22px]"))
+        (is (contains? (set (get-in modal-node [1 :class])) "bg-[#06131a]"))
+        (is (= "true" (get-in modal-node [1 :data-funding-mobile-sheet-surface])))
         (is (some? send-step))
         (is (some? destination-input))
         (is (some? amount-input))
@@ -375,6 +383,35 @@
         (is (contains? all-text "GOLD"))
         (is (contains? all-text "xyz"))
         (is (contains? all-text "MAX: 4.250000 GOLD")))
+      (finally
+        (set! (.-innerWidth js/globalThis) original-inner-width)
+        (set! (.-innerHeight js/globalThis) original-inner-height)))))
+
+(deftest funding-send-modal-uses-mobile-sheet-layout-without-anchor-on-mobile-viewport-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :send
+                         :send-token "USDC"
+                         :send-symbol "USDC"
+                         :send-max-amount 12.5
+                         :send-max-display "12.500000"
+                         :send-max-input "12.500000"
+                         :amount-input ""
+                         :destination-input ""})
+        original-inner-width (.-innerWidth js/globalThis)
+        original-inner-height (.-innerHeight js/globalThis)]
+    (set! (.-innerWidth js/globalThis) 430)
+    (set! (.-innerHeight js/globalThis) 932)
+    (try
+      (let [view-node (view/funding-modal-view state)
+            layer-node (find-first-node view-node #(= "funding-mobile-sheet-layer"
+                                                      (get-in % [1 :data-role])))
+            modal-node (find-first-node view-node #(= "funding-modal"
+                                                      (get-in % [1 :data-role])))]
+        (is (some? layer-node))
+        (is (contains? (set (get-in modal-node [1 :class])) "bottom-0"))
+        (is (= "true" (get-in modal-node [1 :data-funding-mobile-sheet-surface]))))
       (finally
         (set! (.-innerWidth js/globalThis) original-inner-width)
         (set! (.-innerHeight js/globalThis) original-inner-height)))))

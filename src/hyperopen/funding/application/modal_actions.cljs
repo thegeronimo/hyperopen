@@ -29,15 +29,19 @@
 
 (defn- normalize-anchor
   [anchor]
-  (when (map? anchor)
-    (let [normalized (reduce (fn [acc k]
-                               (if-let [num (parse-num (get anchor k))]
-                                 (assoc acc k num)
-                                 acc))
-                             {}
-                             anchor-keys)]
-      (when (seq normalized)
-        normalized))))
+  (let [anchor* (cond
+                  (map? anchor) anchor
+                  (some? anchor) (js->clj anchor :keywordize-keys true)
+                  :else nil)]
+    (when (map? anchor*)
+      (let [normalized (reduce (fn [acc k]
+                                 (if-let [num (parse-num (get anchor* k))]
+                                   (assoc acc k num)
+                                   acc))
+                               {}
+                               anchor-keys)]
+        (when (seq normalized)
+          normalized)))))
 
 (defn- wallet-address
   [state]

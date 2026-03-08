@@ -150,15 +150,20 @@
 (defn- modal-viewport-width
   [anchor]
   (max 320
-       (anchor-number anchor :viewport-width fallback-viewport-width)
-       (or (some-> js/globalThis .-innerWidth) fallback-viewport-width)
-       (+ (anchor-number anchor :right 0) 16)))
+       (or (when (number? (:viewport-width anchor))
+             (:viewport-width anchor))
+           (some-> js/globalThis .-innerWidth)
+           (when (number? (:right anchor))
+             (+ (:right anchor) 16))
+           fallback-viewport-width)))
 
 (defn- modal-viewport-height
   [anchor]
   (max 320
-       (anchor-number anchor :viewport-height fallback-viewport-height)
-       (or (some-> js/globalThis .-innerHeight) fallback-viewport-height)))
+       (or (when (number? (:viewport-height anchor))
+             (:viewport-height anchor))
+           (some-> js/globalThis .-innerHeight)
+           fallback-viewport-height)))
 
 (defn- mobile-sheet?
   [modal]
@@ -1162,71 +1167,120 @@
                           :preferred-width-px preferred-panel-width-px
                           :estimated-height-px estimated-panel-height-px}))
         sheet-style (when mobile-sheet?
-                      (mobile-sheet-style (assoc modal :anchor anchor)))]
+                      (mobile-sheet-style (assoc modal :anchor anchor)))
+        panel-children
+        [[:div {:class ["flex" "items-center" "justify-between"]}
+          [:h2 {:class ["text-lg" "font-semibold" "text-[#e5eef1]"]}
+           (:title modal)]
+          [:button {:type "button"
+                    :class (into ["h-8"
+                                  "w-8"
+                                  "leading-none"
+                                  "text-xl"
+                                  "transition-colors"
+                                  "focus:outline-none"
+                                  "focus:ring-1"
+                                  "focus:ring-[#66e3c5]/40"
+                                  "focus:ring-offset-0"
+                                  "focus:shadow-none"]
+                                 (if mobile-sheet?
+                                   ["inline-flex"
+                                    "items-center"
+                                    "justify-center"
+                                    "rounded-lg"
+                                    "border"
+                                    "border-[#17313d]"
+                                    "bg-[#0b181d]"
+                                    "text-gray-300"
+                                    "hover:bg-[#102229]"
+                                    "hover:text-gray-100"]
+                                   ["rounded-md"
+                                    "text-[#7f98a0]"
+                                    "hover:bg-[#0f2834]"
+                                    "hover:text-[#dce9ee]"]))
+                    :on {:click [[:actions/close-funding-modal]]}}
+           "×"]]
+         (render-content view-model)
+         (when (:visible? feedback)
+           [:div {:class ["rounded-md"
+                          "border"
+                          "border-[#7b3340]"
+                          "bg-[#3a1b22]/55"
+                          "px-3"
+                          "py-2"
+                          "text-sm"
+                          "text-[#f2b8c5]"]
+                  :data-role "funding-status"}
+            (:message feedback)])]]
     (when open?
-      [:div {:class (into ["fixed" "inset-0" "z-[80]"]
-                          (if (or anchored-popover? mobile-sheet?)
-                            ["pointer-events-none"]
-                            ["flex" "items-center" "justify-center" "p-4"]))}
-       [:button {:type "button"
-                 :class (into ["absolute" "inset-0" "pointer-events-auto"]
-                              (cond
-                                mobile-sheet? ["bg-black/55" "backdrop-blur-[1px]"]
-                                anchored-popover? ["bg-transparent"]
-                                :else ["bg-black/65"]))
-                 :aria-label "Close funding dialog"
-                 :on {:click [[:actions/close-funding-modal]]}}]
-       [:div {:class (into ["relative"
-                            "z-[81]"
-                            "space-y-3"
-                            "border"
-                            "border-[#1f3b3c]"
-                            "bg-[#081b24]"
-                            "shadow-2xl"
-                            "pointer-events-auto"]
-                           (if mobile-sheet?
-                             ["absolute"
+      (if mobile-sheet?
+        [:div {:class ["fixed" "inset-0" "z-[80]"]
+               :data-role "funding-mobile-sheet-layer"}
+         [:button {:type "button"
+                   :class ["absolute" "inset-0" "bg-black/55" "backdrop-blur-[1px]"]
+                   :style {:transition "opacity 0.14s ease-out"
+                           :opacity 1}
+                   :replicant/mounting {:style {:opacity 0}}
+                   :replicant/unmounting {:style {:opacity 0}}
+                   :aria-label "Close funding dialog"
+                   :data-role "funding-mobile-sheet-backdrop"
+                   :on {:click [[:actions/close-funding-modal]]}}]
+         (into [:div {:class ["absolute"
                               "inset-x-0"
                               "bottom-0"
                               "w-full"
                               "overflow-y-auto"
                               "rounded-t-[22px]"
+                              "border"
+                              "border-[#17313d]"
+                              "bg-[#06131a]"
                               "px-4"
-                              "pt-4"]
-                             (cond-> ["rounded-2xl" "p-4"]
-                               (not anchored-popover?)
-                               (conj "w-full" "max-w-md"))))
-              :style (or sheet-style popover-style)
-              :role "dialog"
-              :aria-modal true
-              :aria-label (:title modal)
-              :tab-index 0
-              :data-role "funding-modal"
-              :on {:keydown [[:actions/handle-funding-modal-keydown
-                              [:event/key]]]}}
-        [:div {:class ["flex" "items-center" "justify-between"]}
-         [:h2 {:class ["text-lg" "font-semibold" "text-[#e5eef1]"]}
-          (:title modal)]
+                              "pt-4"
+                              "text-sm"
+                              "shadow-[0_-24px_60px_rgba(0,0,0,0.45)]"
+                              "space-y-3"]
+                      :style sheet-style
+                      :replicant/mounting {:style {:transform "translateY(18px)"
+                                                   :opacity 0}}
+                      :replicant/unmounting {:style {:transform "translateY(18px)"
+                                                     :opacity 0}}
+                      :role "dialog"
+                      :aria-modal true
+                      :aria-label (:title modal)
+                      :tab-index 0
+                      :data-role "funding-modal"
+                      :data-funding-mobile-sheet-surface "true"
+                      :on {:keydown [[:actions/handle-funding-modal-keydown
+                                      [:event/key]]]}}]
+               (keep identity panel-children))]
+        [:div {:class (into ["fixed" "inset-0" "z-[80]"]
+                            (if anchored-popover?
+                              ["pointer-events-none"]
+                              ["flex" "items-center" "justify-center" "p-4"]))}
          [:button {:type "button"
-                   :class ["h-8"
-                           "w-8"
-                           "rounded-md"
-                           "text-xl"
-                           "leading-none"
-                           "text-[#7f98a0]"
-                           "hover:bg-[#0f2834]"
-                           "hover:text-[#dce9ee]"]
-                   :on {:click [[:actions/close-funding-modal]]}}
-          "×"]]
-        (render-content view-model)
-        (when (:visible? feedback)
-          [:div {:class ["rounded-md"
-                         "border"
-                         "border-[#7b3340]"
-                         "bg-[#3a1b22]/55"
-                         "px-3"
-                         "py-2"
-                         "text-sm"
-                         "text-[#f2b8c5]"]
-                 :data-role "funding-status"}
-           (:message feedback)])]])))
+                   :class (into ["absolute" "inset-0"]
+                                (if anchored-popover?
+                                  ["pointer-events-auto" "bg-transparent"]
+                                  ["bg-black/65"]))
+                   :aria-label "Close funding dialog"
+                   :on {:click [[:actions/close-funding-modal]]}}]
+         (into [:div {:class (into ["relative"
+                                    "z-[81]"
+                                    "space-y-3"
+                                    "border"
+                                    "border-[#1f3b3c]"
+                                    "bg-[#081b24]"
+                                    "shadow-2xl"
+                                    "pointer-events-auto"]
+                                   (cond-> ["rounded-2xl" "p-4"]
+                                     (not anchored-popover?)
+                                     (conj "w-full" "max-w-md")))
+                        :style (or popover-style)
+                        :role "dialog"
+                        :aria-modal true
+                        :aria-label (:title modal)
+                        :tab-index 0
+                        :data-role "funding-modal"
+                        :on {:keydown [[:actions/handle-funding-modal-keydown
+                                        [:event/key]]]}}]
+               (keep identity panel-children))]))))
