@@ -250,3 +250,31 @@
         (is (contains? classes "focus:ring-offset-0"))
         (is (contains? classes "focus:shadow-none"))
         (is (contains? classes "focus:border-[#8a96a6]"))))))
+
+(deftest position-tpsl-modal-renders-mobile-bottom-sheet-layout-test
+  (let [modal (position-tpsl/from-position-row
+               (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
+               {:viewport-width 430
+                :viewport-height 932
+                :top 780
+                :bottom 812
+                :right 414})
+        modal-view (position-tpsl-modal/position-tpsl-modal-view modal)
+        layer-node (hiccup/find-by-data-role modal-view "position-tpsl-mobile-sheet-layer")
+        backdrop-node (hiccup/find-by-data-role modal-view "position-tpsl-mobile-sheet-backdrop")
+        surface-node (hiccup/find-first-node modal-view #(= "true" (get-in % [1 :data-position-tpsl-surface])))
+        surface-classes (hiccup/node-class-set surface-node)
+        modal-strings (set (hiccup/collect-strings modal-view))]
+    (is (some? layer-node))
+    (is (some? backdrop-node))
+    (is (contains? surface-classes "rounded-t-[22px]"))
+    (is (contains? surface-classes "bg-[#06131a]"))
+    (is (= true (get-in surface-node [1 :aria-modal])))
+    (is (= "translateY(0)" (get-in surface-node [1 :style :transform])))
+    (is (= "max(env(safe-area-inset-bottom), 1rem)"
+           (get-in surface-node [1 :style :padding-bottom])))
+    (is (nil? (get-in surface-node [1 :style :left])))
+    (is (nil? (get-in surface-node [1 :style :top])))
+    (is (contains? modal-strings "TP/SL for Position"))
+    (is (contains? modal-strings "Coin"))
+    (is (contains? modal-strings "Position"))))

@@ -326,7 +326,10 @@
 (def ^:private panel-margin-px 16)
 (def ^:private preferred-panel-width-px 500)
 (def ^:private fallback-viewport-width 1280)
+(def ^:private fallback-viewport-height 800)
 (def ^:private fallback-anchor-top 640)
+(def ^:private mobile-sheet-breakpoint-px 640)
+(def ^:private mobile-sheet-top-offset-px 20)
 
 (defn- clamp
   [value min-value max-value]
@@ -361,6 +364,26 @@
      :transform "translateY(-100%)"
      :width (str panel-width "px")
      :max-height (str available-above "px")}))
+
+(defn- mobile-sheet?
+  [modal]
+  (let [anchor (or (:anchor modal) {})
+        viewport-width (max 320
+                            (anchor-number anchor :viewport-width fallback-viewport-width)
+                            (+ (anchor-number anchor :right 0) panel-margin-px))]
+    (<= viewport-width mobile-sheet-breakpoint-px)))
+
+(defn- mobile-sheet-style
+  [modal]
+  (let [anchor (or (:anchor modal) {})
+        viewport-height (max 320
+                             (anchor-number anchor :viewport-height fallback-viewport-height))
+        max-height (max 320 (- viewport-height mobile-sheet-top-offset-px))]
+    {:max-height (str max-height "px")
+     :padding-bottom "max(env(safe-area-inset-bottom), 1rem)"
+     :transition "transform 0.16s ease-out, opacity 0.16s ease-out"
+     :transform "translateY(0)"
+     :opacity 1}))
 
 (defn- expected-pnl-text
   [mode usd-value roe-percent position-percent]
@@ -408,128 +431,188 @@
                                (usd-input-text modal* loss))
             expected-profit-value (expected-pnl-text gain-mode gain gain-roe-percent gain-position-percent)
             expected-loss-value (expected-pnl-text loss-mode loss loss-roe-percent loss-position-percent)
-            layout-style (modal-layout-style modal*)]
-        [:div {:class ["fixed"
-                       "z-[260]"
-                       "rounded-[10px]"
-                       "border"
-                       "border-base-300"
-                       "bg-base-100"
-                       "p-4"
-                       "text-sm"
-                       "spectate-[0_24px_60px_rgba(0,0,0,0.45)]"
-                       "space-y-3"
-                       "overflow-y-auto"]
-               :style layout-style
-               :role "dialog"
-               :aria-label "Position TP/SL"
-               :data-position-tpsl-surface "true"
-               :on {:keydown [[:actions/handle-position-tpsl-modal-keydown [:event/key]]]}}
-          [:div {:class ["flex" "items-center" "justify-between"]}
-           [:h2 {:class ["text-2xl" "font-semibold" "text-gray-100"]} "Position TP/SL"]
+            mobile-sheet? (mobile-sheet? modal*)
+            layout-style (if mobile-sheet?
+                           (mobile-sheet-style modal*)
+                           (modal-layout-style modal*))
+            panel-children
+            [[:div {:class ["flex" "items-center" "justify-between"]}
+              [:h2 {:class ["text-2xl" "font-semibold" "text-gray-100"]}
+               "TP/SL for Position"]
+              [:button {:type "button"
+                        :class ["inline-flex"
+                                "h-8"
+                                "w-8"
+                                "items-center"
+                                "justify-center"
+                                "rounded-lg"
+                                "border"
+                                "border-[#17313d]"
+                                (if mobile-sheet? "bg-[#0b181d]" "bg-transparent")
+                                "text-gray-300"
+                                "transition-colors"
+                                "hover:bg-base-300"
+                                "hover:text-gray-100"
+                                "focus:outline-none"
+                                "focus:ring-1"
+                                "focus:ring-[#66e3c5]/40"
+                                "focus:ring-offset-0"
+                                "focus:shadow-none"]
+                        :aria-label "Close TP/SL sheet"
+                        :on {:click [[:actions/close-position-tpsl-modal]]}}
+               "x"]]
+
+             [:div {:class ["space-y-1.5"]}
+              (metric-row "Coin" coin)
+              (metric-row "Position" (str (amount-text position-size) " " coin))
+              (metric-row "Entry Price" (shared/format-trade-price (:entry-price modal*)))
+              (metric-row "Mark Price" (shared/format-trade-price (:mark-price modal*)))]
+
+             [:div {:class ["grid" "grid-cols-2" "gap-2"]}
+              (input-row "TP Price"
+                         (:tp-price modal*)
+                         [[:actions/set-position-tpsl-modal-field [:tp-price] [:event.target/value]]])
+              (input-row "Gain"
+                         gain-input-value
+                         [[:actions/set-position-tpsl-modal-field [:tp-gain] [:event.target/value]]]
+                         {:unit-control (pnl-mode-select gain-mode
+                                                         [:tp-gain-mode]
+                                                         "Gain unit")
+                          :select-on-focus? true})]
+
+             (when (pos? gain)
+               [:div {:class ["flex" "justify-end" "pr-1" "text-sm"]}
+                [:span {:class ["text-gray-400"]} "Expected profit:"]
+                [:span {:class ["ml-1" "font-semibold" "text-gray-100" "num"]}
+                 expected-profit-value]])
+
+             (when (boolean (:limit-price? modal*))
+               [:div {:class ["grid" "grid-cols-2" "gap-2"]}
+                (input-row "TP Limit"
+                           (:tp-limit modal*)
+                           [[:actions/set-position-tpsl-modal-field [:tp-limit] [:event.target/value]]])
+                [:div]])
+
+             [:div {:class ["grid" "grid-cols-2" "gap-2"]}
+              (input-row "SL Price"
+                         (:sl-price modal*)
+                         [[:actions/set-position-tpsl-modal-field [:sl-price] [:event.target/value]]])
+              (input-row "Loss"
+                         loss-input-value
+                         [[:actions/set-position-tpsl-modal-field [:sl-loss] [:event.target/value]]]
+                         {:unit-control (pnl-mode-select loss-mode
+                                                         [:sl-loss-mode]
+                                                         "Loss unit")
+                          :select-on-focus? true})]
+
+             (when (pos? loss)
+               [:div {:class ["flex" "justify-end" "pr-1" "text-sm"]}
+                [:span {:class ["text-gray-400"]} "Expected loss:"]
+                [:span {:class ["ml-1" "font-semibold" "text-gray-100" "num"]}
+                 expected-loss-value]])
+
+             (when (boolean (:limit-price? modal*))
+               [:div {:class ["grid" "grid-cols-2" "gap-2"]}
+                (input-row "SL Limit"
+                           (:sl-limit modal*)
+                           [[:actions/set-position-tpsl-modal-field [:sl-limit] [:event.target/value]]])
+                [:div]])
+
+             [:div {:class ["space-y-1"]}
+              (checkbox-row "position-tpsl-configure-amount"
+                            "Configure Amount"
+                            (:configure-amount? modal*)
+                            [[:actions/set-position-tpsl-configure-amount [:event.target/checked]]])]
+
+             (when (boolean (:configure-amount? modal*))
+               (configure-amount-controls modal* coin configure-size-percent))
+
+             (when-not (boolean (:configure-amount? modal*))
+               (checkbox-row "position-tpsl-limit-price"
+                             "Limit Price"
+                             (:limit-price? modal*)
+                             [[:actions/set-position-tpsl-limit-price [:event.target/checked]]]))
+
+             (when (seq (:error modal*))
+               [:div {:class ["text-xs" "text-[#ED7088]"]} (:error modal*)])
+
+             [:div {:class ["grid" "grid-cols-2" "gap-3" "pt-1"]}
+              [:button {:type "button"
+                        :class ["h-11"
+                                "rounded-lg"
+                                "bg-[#74808F]"
+                                "text-sm"
+                                "font-semibold"
+                                "text-[#1A212B]"
+                                "hover:bg-[#8893a0]"
+                                "disabled:cursor-not-allowed"
+                                "disabled:opacity-50"]
+                        :disabled submit-disabled?
+                        :on {:click [[:actions/submit-position-tpsl]]}}
+               submit-label]
+              [:button {:type "button"
+                        :class ["h-11"
+                                "rounded-lg"
+                                "border"
+                                "border-base-300"
+                                "bg-base-200"
+                                "text-sm"
+                                "font-semibold"
+                                "text-gray-100"
+                                "hover:bg-base-300"]
+                        :on {:click [[:actions/close-position-tpsl-modal]]}}
+               "Close"]]]]
+        (if mobile-sheet?
+          [:div {:class ["fixed" "inset-0" "z-[260]"]
+                 :data-role "position-tpsl-mobile-sheet-layer"}
            [:button {:type "button"
-                     :class ["h-7" "w-7" "rounded-md" "text-gray-400" "hover:bg-base-300" "hover:text-gray-100"]
-                     :on {:click [[:actions/close-position-tpsl-modal]]}}
-            "x"]]
-
-          [:div {:class ["space-y-1.5"]}
-           (metric-row "Asset" coin)
-           (metric-row "Size" (str (amount-text position-size) " " coin))
-           (metric-row "Value" (str (shared/format-currency (:position-value modal*)) " USDC"))
-           (metric-row "Entry Price" (shared/format-trade-price (:entry-price modal*)))
-           (metric-row "Mark Price" (shared/format-trade-price (:mark-price modal*)))]
-
-          [:div {:class ["grid" "grid-cols-2" "gap-2"]}
-           (input-row "TP Price"
-                      (:tp-price modal*)
-                      [[:actions/set-position-tpsl-modal-field [:tp-price] [:event.target/value]]])
-           (input-row "Gain"
-                      gain-input-value
-                      [[:actions/set-position-tpsl-modal-field [:tp-gain] [:event.target/value]]]
-                      {:unit-control (pnl-mode-select gain-mode
-                                                      [:tp-gain-mode]
-                                                      "Gain unit")
-                       :select-on-focus? true})]
-
-          (when (pos? gain)
-            [:div {:class ["flex" "justify-end" "pr-1" "text-sm"]}
-             [:span {:class ["text-gray-400"]} "Expected profit:"]
-             [:span {:class ["ml-1" "font-semibold" "text-gray-100" "num"]}
-              expected-profit-value]])
-
-          (when (boolean (:limit-price? modal*))
-            [:div {:class ["grid" "grid-cols-2" "gap-2"]}
-             (input-row "TP Limit"
-                        (:tp-limit modal*)
-                        [[:actions/set-position-tpsl-modal-field [:tp-limit] [:event.target/value]]])
-             [:div]])
-
-          [:div {:class ["grid" "grid-cols-2" "gap-2"]}
-           (input-row "SL Price"
-                      (:sl-price modal*)
-                      [[:actions/set-position-tpsl-modal-field [:sl-price] [:event.target/value]]])
-           (input-row "Loss"
-                      loss-input-value
-                      [[:actions/set-position-tpsl-modal-field [:sl-loss] [:event.target/value]]]
-                      {:unit-control (pnl-mode-select loss-mode
-                                                      [:sl-loss-mode]
-                                                      "Loss unit")
-                       :select-on-focus? true})]
-
-          (when (pos? loss)
-            [:div {:class ["flex" "justify-end" "pr-1" "text-sm"]}
-             [:span {:class ["text-gray-400"]} "Expected loss:"]
-             [:span {:class ["ml-1" "font-semibold" "text-gray-100" "num"]}
-              expected-loss-value]])
-
-          (when (boolean (:limit-price? modal*))
-            [:div {:class ["grid" "grid-cols-2" "gap-2"]}
-             (input-row "SL Limit"
-                        (:sl-limit modal*)
-                        [[:actions/set-position-tpsl-modal-field [:sl-limit] [:event.target/value]]])
-             [:div]])
-
-          [:div {:class ["space-y-1"]}
-           (checkbox-row "position-tpsl-configure-amount"
-                         "Configure Amount"
-                         (:configure-amount? modal*)
-                         [[:actions/set-position-tpsl-configure-amount [:event.target/checked]]])]
-
-          (when (boolean (:configure-amount? modal*))
-            (configure-amount-controls modal* coin configure-size-percent))
-
-          (when-not (boolean (:configure-amount? modal*))
-            (checkbox-row "position-tpsl-limit-price"
-                          "Limit Price"
-                          (:limit-price? modal*)
-                          [[:actions/set-position-tpsl-limit-price [:event.target/checked]]]))
-
-          (when (seq (:error modal*))
-            [:div {:class ["text-xs" "text-[#ED7088]"]} (:error modal*)])
-
-          [:div {:class ["grid" "grid-cols-2" "gap-3" "pt-1"]}
-           [:button {:type "button"
-                     :class ["h-11"
-                             "rounded-lg"
-                             "bg-[#74808F]"
-                             "text-sm"
-                             "font-semibold"
-                             "text-[#1A212B]"
-                             "hover:bg-[#8893a0]"
-                             "disabled:cursor-not-allowed"
-                             "disabled:opacity-50"]
-                     :disabled submit-disabled?
-                     :on {:click [[:actions/submit-position-tpsl]]}}
-            submit-label]
-           [:button {:type "button"
-                     :class ["h-11"
-                             "rounded-lg"
-                             "border"
-                             "border-base-300"
-                             "bg-base-200"
-                             "text-sm"
-                             "font-semibold"
-                             "text-gray-100"
-                             "hover:bg-base-300"]
-                     :on {:click [[:actions/close-position-tpsl-modal]]}}
-            "Close"]]]))))
+                     :class ["absolute" "inset-0" "bg-black/55" "backdrop-blur-[1px]"]
+                     :style {:transition "opacity 0.14s ease-out"
+                             :opacity 1}
+                     :replicant/mounting {:style {:opacity 0}}
+                     :replicant/unmounting {:style {:opacity 0}}
+                     :on {:click [[:actions/close-position-tpsl-modal]]}
+                     :aria-label "Close TP/SL sheet backdrop"
+                     :data-role "position-tpsl-mobile-sheet-backdrop"}]
+           (into [:div {:class ["absolute"
+                                "inset-x-0"
+                                "bottom-0"
+                                "w-full"
+                                "overflow-y-auto"
+                                "rounded-t-[22px]"
+                                "border"
+                                "border-[#17313d]"
+                                "bg-[#06131a]"
+                                "px-4"
+                                "pt-4"
+                                "text-sm"
+                                "shadow-[0_-24px_60px_rgba(0,0,0,0.45)]"
+                                "space-y-3"]
+                        :style layout-style
+                        :replicant/mounting {:style {:transform "translateY(18px)"
+                                                     :opacity 0}}
+                        :replicant/unmounting {:style {:transform "translateY(18px)"
+                                                       :opacity 0}}
+                        :role "dialog"
+                        :aria-modal true
+                        :aria-label "TP/SL for Position"
+                        :data-position-tpsl-surface "true"
+                        :on {:keydown [[:actions/handle-position-tpsl-modal-keydown [:event/key]]]}}]
+                 (keep identity panel-children))]
+          (into [:div {:class ["fixed"
+                               "z-[260]"
+                               "rounded-[10px]"
+                               "border"
+                               "border-base-300"
+                               "bg-base-100"
+                               "p-4"
+                               "text-sm"
+                               "spectate-[0_24px_60px_rgba(0,0,0,0.45)]"
+                               "space-y-3"
+                               "overflow-y-auto"]
+                       :style layout-style
+                       :role "dialog"
+                       :aria-label "TP/SL for Position"
+                       :data-position-tpsl-surface "true"
+                       :on {:keydown [[:actions/handle-position-tpsl-modal-keydown [:event/key]]]}}]
+                (keep identity panel-children)))))))

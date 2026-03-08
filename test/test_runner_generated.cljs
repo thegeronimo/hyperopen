@@ -167,6 +167,7 @@
             [hyperopen.views.account-info-view-test]
             [hyperopen.views.account-info.cache-keys-test]
             [hyperopen.views.account-info.navigation-test]
+            [hyperopen.views.account-info.position-overlay-mobile-layout-test]
             [hyperopen.views.account-info.position-tpsl-modal-test]
             [hyperopen.views.account-info.projections-test]
             [hyperopen.views.account-info.sort-kernel-test]
@@ -474,6 +475,7 @@
              'hyperopen.views.account-info-view-test
              'hyperopen.views.account-info.cache-keys-test
              'hyperopen.views.account-info.navigation-test
+             'hyperopen.views.account-info.position-overlay-mobile-layout-test
              'hyperopen.views.account-info.position-tpsl-modal-test
              'hyperopen.views.account-info.projections-test
              'hyperopen.views.account-info.sort-kernel-test
