@@ -1,5 +1,29 @@
 (ns hyperopen.views.account-info.mobile-cards)
 
+(def ^:private mobile-account-card-shell-classes
+  ["overflow-hidden"
+   "rounded-lg"
+   "border"
+   "border-[#17313d]"
+   "bg-[#08161f]"])
+
+(def ^:private mobile-account-card-button-classes
+  ["w-full"
+   "px-3.5"
+   "py-3"
+   "text-left"
+   "transition-colors"
+   "hover:bg-[#0c1b24]"
+   "focus:outline-none"
+   "focus:ring-0"
+   "focus:ring-offset-0"])
+
+(def ^:private mobile-account-card-expanded-container-classes
+  ["border-t"
+   "border-[#17313d]"
+   "px-3.5"
+   "py-3"])
+
 (defn- chevron-icon [open?]
   [:svg {:class (into ["h-4"
                        "w-4"
@@ -83,25 +107,13 @@
            button-classes
            summary-grid-classes
            expanded-container-classes]
-    :or {card-classes ["overflow-hidden"
-                       "rounded-xl"
-                       "border"
-                       "border-base-300"
-                       "bg-base-200/70"]
-         button-classes ["w-full"
-                         "px-3"
-                         "py-3"
-                         "text-left"
-                         "transition-colors"
-                         "hover:bg-base-200"
-                         "focus:outline-none"
-                         "focus:ring-0"
-                         "focus:ring-offset-0"]
+    :or {card-classes mobile-account-card-shell-classes
+         button-classes mobile-account-card-button-classes
          summary-grid-classes ["grid"
                                "grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto]"
                                "items-start"
                                "gap-3"]
-         expanded-container-classes ["border-t" "border-base-300" "px-3" "py-3"]}}]
+         expanded-container-classes mobile-account-card-expanded-container-classes}}]
   (let [chevron-node
         [:div {:class ["flex"
                        "h-full"

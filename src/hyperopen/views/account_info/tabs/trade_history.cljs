@@ -488,20 +488,10 @@
 (defn- mobile-trade-history-coin-node [row market-by-key]
   (let [{:keys [base-label prefix-label]}
         (shared/resolve-coin-display (trade-history-coin row) market-by-key)]
-    [:span {:class ["flex" "min-w-0" "items-center" "gap-1.5"]}
-     [:span {:class ["truncate" "text-trading-text"]} base-label]
+    [:span {:class ["flex" "min-w-0" "items-center" "gap-1"]}
+     [:span {:class ["truncate" "font-medium" "leading-4" "text-trading-text"]} base-label]
      (when prefix-label
-       [:span {:class ["inline-flex"
-                       "items-center"
-                       "rounded-md"
-                       "bg-[#0d5a51]"
-                       "px-2"
-                       "py-0.5"
-                       "text-xs"
-                       "font-medium"
-                       "leading-none"
-                       "text-emerald-300"
-                       "whitespace-nowrap"]}
+       [:span {:class shared/position-chip-classes}
         prefix-label])]))
 
 (defn- mobile-trade-history-time-node [row]
@@ -566,51 +556,44 @@
      {:data-role (str "mobile-trade-history-card-" row-id)
       :expanded? expanded?
       :toggle-actions [[:actions/toggle-account-info-mobile-card :trade-history row-id]]
-      :card-classes ["overflow-hidden"
-                     "rounded-xl"
-                     "border"
-                     "border-[#1c2d36]"
-                     "bg-[#0f1920]"]
-      :button-classes ["w-full"
-                       "px-3"
-                       "py-2.5"
-                       "text-left"
-                       "transition-colors"
-                       "hover:bg-[#132028]"
-                       "focus:outline-none"
-                       "focus:ring-0"
-                       "focus:ring-offset-0"]
       :summary-grid-classes ["grid"
                              "grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)_minmax(0,0.72fr)_auto]"
                              "items-start"
                              "gap-x-3"
                              "gap-y-2"]
-      :expanded-container-classes ["border-t" "border-[#1c2d36]" "px-3" "py-2.5"]
       :summary-items [(mobile-cards/summary-item "Coin"
                                                  (mobile-trade-history-coin-node row market-by-key)
-                                                 {:value-classes ["text-trading-text"]})
+                                                 {:value-classes ["font-medium"
+                                                                  "leading-4"
+                                                                  "text-trading-text"]})
                       (mobile-cards/summary-item "Direction"
                                                  (trade-history-direction-node row)
-                                                 {:value-classes ["text-trading-text"]})
+                                                 {:value-classes ["font-medium"
+                                                                  "leading-4"
+                                                                  "text-trading-text"]})
                       (mobile-cards/summary-item "Price"
                                                  (format-trade-history-price row)
-                                                 {:value-classes ["num" "whitespace-nowrap"]})]
+                                                 {:value-classes ["num"
+                                                                  "font-medium"
+                                                                  "leading-4"
+                                                                  "whitespace-nowrap"]})]
       :detail-content (mobile-cards/detail-grid
                        "grid-cols-3"
                        [(mobile-cards/detail-item "Time"
                                                   (mobile-trade-history-time-node row)
-                                                  {:value-classes ["text-trading-text"]})
+                                                  {:value-classes ["font-medium" "text-trading-text"]})
                         (mobile-cards/detail-item "Size"
                                                   (format-trade-history-size row market-by-key)
-                                                  {:value-classes ["num" "whitespace-nowrap"]})
+                                                  {:value-classes ["num" "font-medium" "whitespace-nowrap"]})
                         (mobile-cards/detail-item "Trade Value"
                                                   (format-trade-history-value row)
-                                                  {:value-classes ["num" "whitespace-nowrap"]})
+                                                  {:value-classes ["num" "font-medium" "whitespace-nowrap"]})
                         (mobile-cards/detail-item "Closed PNL"
-                                                  (mobile-trade-history-closed-pnl-node row))
+                                                  (mobile-trade-history-closed-pnl-node row)
+                                                  {:value-classes ["font-medium"]})
                         (mobile-cards/detail-item "Fee"
                                                   (format-trade-history-fee row)
-                                                  {:value-classes ["num" "whitespace-nowrap"]})])})))
+                                                  {:value-classes ["num" "font-medium" "whitespace-nowrap"]})])})))
 
 (defn trade-history-table [fills trade-history-state]
   (let [all-rows (cond

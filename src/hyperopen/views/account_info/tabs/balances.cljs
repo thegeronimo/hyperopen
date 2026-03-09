@@ -357,20 +357,10 @@
 (defn- mobile-balance-coin-node [{:keys [coin selection-coin]}]
   (let [{:keys [base-label prefix-label]}
         (shared/resolve-coin-display (or selection-coin coin) {})]
-    [:span {:class ["flex" "min-w-0" "items-center" "gap-1.5"]}
-     [:span {:class ["truncate" "text-trading-text"]} (or base-label coin "Asset")]
+    [:span {:class ["flex" "min-w-0" "items-center" "gap-1"]}
+     [:span {:class ["truncate" "font-medium" "leading-4" "text-trading-text"]} (or base-label coin "Asset")]
      (when prefix-label
-       [:span {:class ["inline-flex"
-                       "items-center"
-                       "rounded-md"
-                       "bg-[#0d5a51]"
-                       "px-2"
-                       "py-0.5"
-                       "text-xs"
-                       "font-medium"
-                       "leading-none"
-                       "text-emerald-300"
-                       "whitespace-nowrap"]}
+       [:span {:class shared/position-chip-classes}
         prefix-label])]))
 
 (defn- mobile-balance-footer-action
@@ -379,13 +369,21 @@
   ([label enabled? action]
    (let [attrs {:class (into ["inline-flex"
                               "items-center"
+                              "justify-start"
                               "bg-transparent"
                               "p-0"
-                              "text-xs"
+                              "text-sm"
                               "font-medium"
-                              "leading-none"]
+                              "leading-none"
+                              "transition-colors"
+                              "whitespace-nowrap"]
                              (if enabled?
-                               ["text-trading-green"]
+                               ["text-trading-green"
+                                "hover:text-[#7fffe4]"
+                                "focus:outline-none"
+                                "focus:ring-0"
+                                "focus:ring-offset-0"
+                                "focus-visible:text-[#7fffe4]"]
                                ["cursor-default" "text-trading-text-secondary"]))}]
      (if (and enabled? action)
        [:button (assoc attrs
@@ -426,37 +424,29 @@
      {:data-role (str "mobile-balance-card-" row-id)
       :expanded? expanded?
       :toggle-actions [[:actions/toggle-account-info-mobile-card :balances row-id]]
-      :card-classes ["overflow-hidden"
-                     "rounded-lg"
-                     "border"
-                     "border-[#273035]"
-                     "bg-[#1b2429]"]
-      :button-classes ["w-full"
-                       "px-3"
-                       "py-3"
-                       "text-left"
-                       "transition-colors"
-                       "hover:bg-[#223038]"
-                       "focus:outline-none"
-                       "focus:ring-0"
-                       "focus:ring-offset-0"]
       :summary-grid-classes ["grid"
                              "grid-cols-[minmax(0,0.82fr)_minmax(0,0.8fr)_minmax(0,1.25fr)_auto]"
                              "items-start"
                              "gap-x-3"
                              "gap-y-2"]
-      :expanded-container-classes ["border-t" "border-[#273035]" "px-3" "py-3"]
       :summary-items [(mobile-cards/summary-item "Coin"
                                                  (mobile-balance-coin-node row)
-                                                 {:value-classes ["text-trading-text"]})
+                                                 {:value-classes ["font-medium"
+                                                                  "leading-4"
+                                                                  "text-trading-text"]})
                       (mobile-cards/summary-item "USDC Value"
                                                  (str "$" (shared/format-currency usdc-value))
-                                                 {:value-classes ["num" "whitespace-nowrap"]})
+                                                 {:value-classes ["num"
+                                                                  "font-medium"
+                                                                  "leading-4"
+                                                                  "whitespace-nowrap"]})
                       (mobile-cards/summary-item "Total Balance"
                                                  (str (shared/format-balance-amount total-balance amount-decimals)
                                                       " "
                                                       (or base-label coin ""))
                                                  {:value-classes ["num"
+                                                                  "font-medium"
+                                                                  "leading-4"
                                                                   "whitespace-nowrap"]})]
       :detail-content [:div {:class ["space-y-3"]}
                        (mobile-cards/detail-grid
@@ -468,16 +458,17 @@
                                                          :amount-decimals amount-decimals
                                                          :transfer-disabled? transfer-disabled?
                                                          :tooltip-position available-balance-tooltip-position})
-                          {:value-classes ["num" "whitespace-nowrap"]})
+                          {:value-classes ["num" "font-medium" "whitespace-nowrap"]})
                          (mobile-cards/detail-item
                           "PNL (ROE %)"
-                          (shared/format-pnl pnl-value pnl-pct))
+                          (shared/format-pnl pnl-value pnl-pct)
+                          {:value-classes ["font-medium"]})
                          (when-let [contract-node (balance-contract-node contract-id)]
                            (mobile-cards/detail-item "Contract"
                                                      contract-node
                                                      {:full-width? true}))])
-                       [:div {:class ["border-t" "border-[#273035]" "pt-3"]}
-                        [:div {:class ["flex" "items-center" "gap-4"]}
+                       [:div {:class ["border-t" "border-[#17313d]" "pt-2.5"]}
+                        [:div {:class ["flex" "flex-wrap" "items-center" "gap-x-5" "gap-y-2"]}
                          (mobile-balance-footer-action "Send" send-enabled?* send-action)
                          (mobile-balance-footer-action "Transfer to Perps" transfer-enabled?)]]]})))
 

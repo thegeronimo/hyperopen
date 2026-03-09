@@ -478,36 +478,12 @@
    (mobile-position-margin-value-node margin margin-mode-label)
    edit-button])
 
-(def ^:private mobile-position-card-shell-classes
-  ["overflow-hidden"
-   "rounded-lg"
-   "border"
-   "border-[#17313d]"
-   "bg-[#08161f]"])
-
-(def ^:private mobile-position-card-button-classes
-  ["w-full"
-   "px-3.5"
-   "py-3"
-   "text-left"
-   "transition-colors"
-   "hover:bg-[#0c1b24]"
-   "focus:outline-none"
-   "focus:ring-0"
-   "focus:ring-offset-0"])
-
 (def ^:private mobile-position-card-summary-grid-classes
   ["grid"
    "grid-cols-[minmax(0,1.75fr)_minmax(0,0.95fr)_minmax(0,1.05fr)_auto]"
    "items-start"
    "gap-x-2.5"
    "gap-y-2"])
-
-(def ^:private mobile-position-card-expanded-container-classes
-  ["border-t"
-   "border-[#17313d]"
-   "px-3.5"
-   "py-3"])
 
 (defn position-row
   ([position-data]
@@ -725,10 +701,7 @@
      {:data-role (str "mobile-position-card-" row-id)
       :expanded? expanded?
       :toggle-actions [[:actions/toggle-account-info-mobile-card :positions row-id]]
-      :card-classes mobile-position-card-shell-classes
-      :button-classes mobile-position-card-button-classes
       :summary-grid-classes mobile-position-card-summary-grid-classes
-      :expanded-container-classes mobile-position-card-expanded-container-classes
       :summary-items [(mobile-cards/summary-item "Coin"
                                                  (mobile-position-coin-node position-data side)
                                                  {:root-classes ["pr-1"]
