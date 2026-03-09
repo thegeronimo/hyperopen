@@ -924,14 +924,14 @@
         account-info-view/available-tabs)))
 
 (def ^:private portfolio-account-tab-order
-  [:balances
+  [:performance-metrics
+   :balances
    :positions
    :open-orders
    :funding-history
    :deposits-withdrawals
    :trade-history
    :order-history
-   :performance-metrics
    :twap])
 
 (def ^:private portfolio-account-tab-label-overrides

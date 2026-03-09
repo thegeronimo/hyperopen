@@ -175,7 +175,7 @@
          (actions/set-portfolio-account-info-tab {} "openOrders")))
   (is (= [[:effects/save
            [:portfolio-ui :account-info-tab]
-           :balances]]
+           :performance-metrics]]
          (actions/set-portfolio-account-info-tab {} :unknown))))
 
 (deftest set-and-clear-portfolio-chart-hover-test

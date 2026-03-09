@@ -135,7 +135,7 @@
   {:summary-scope :all
    :summary-time-range (default-portfolio-summary-time-range)
    :chart-tab :returns
-   :account-info-tab :balances
+   :account-info-tab :performance-metrics
    :chart-hover-index nil
    :returns-benchmark-coins ["BTC"]
    :returns-benchmark-coin "BTC"

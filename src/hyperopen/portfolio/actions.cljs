@@ -24,7 +24,7 @@
   #{:account-value :pnl :returns})
 
 (def default-account-info-tab
-  :balances)
+  :performance-metrics)
 
 (def ^:private account-info-tab-options
   #{:performance-metrics

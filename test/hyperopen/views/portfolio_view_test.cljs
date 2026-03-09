@@ -22,6 +22,20 @@
 
     :else nil))
 
+(defn- find-nodes [node pred]
+  (cond
+    (vector? node)
+    (let [children (node-children node)
+          child-matches (mapcat #(find-nodes % pred) children)]
+      (if (pred node)
+        (cons node child-matches)
+        child-matches))
+
+    (seq? node)
+    (mapcat #(find-nodes % pred) node)
+
+    :else []))
+
 (defn- count-nodes [node pred]
   (cond
     (vector? node)
@@ -98,9 +112,9 @@
 
 (deftest portfolio-view-renders-phase1-layout-sections-test
   (let [view-node (portfolio-view/portfolio-view sample-state)
-        metrics-view-node (portfolio-view/portfolio-view (assoc-in sample-state
-                                                                   [:portfolio-ui :account-info-tab]
-                                                                   :performance-metrics))
+        balances-view-node (portfolio-view/portfolio-view (assoc-in sample-state
+                                                                    [:portfolio-ui :account-info-tab]
+                                                                    :balances))
         root-node (find-first-node view-node #(= "portfolio-root" (get-in % [1 :data-parity-id])))
         actions-row (find-first-node view-node #(= "portfolio-actions-row" (get-in % [1 :data-role])))
         volume-card (find-first-node view-node #(= "portfolio-14d-volume-card" (get-in % [1 :data-role])))
@@ -123,20 +137,29 @@
                              #(= [[:actions/set-portfolio-account-info-tab :balances]
                                   [:actions/select-account-info-tab :balances]]
                                  (get-in % [1 :on :click])))
-        metrics-performance-tab-button (find-first-node
-                                        metrics-view-node
-                                        #(= [[:actions/set-portfolio-account-info-tab :performance-metrics]]
-                                            (get-in % [1 :on :click])))
-        metrics-balances-tab-button (find-first-node
-                                     metrics-view-node
-                                     #(= [[:actions/set-portfolio-account-info-tab :balances]
-                                          [:actions/select-account-info-tab :balances]]
-                                         (get-in % [1 :on :click])))
-        performance-metrics-card (find-first-node metrics-view-node #(= "portfolio-performance-metrics-card" (get-in % [1 :data-role])))
-        performance-metric-row (find-first-node metrics-view-node #(= "portfolio-performance-metric-cumulative-return" (get-in % [1 :data-role])))
-        metrics-time-range-selector (find-first-node metrics-view-node #(= "portfolio-performance-metrics-time-range-selector" (get-in % [1 :data-role])))
+        balances-view-performance-tab-button (find-first-node
+                                              balances-view-node
+                                              #(= [[:actions/set-portfolio-account-info-tab :performance-metrics]]
+                                                  (get-in % [1 :on :click])))
+        balances-view-balances-tab-button (find-first-node
+                                           balances-view-node
+                                           #(= [[:actions/set-portfolio-account-info-tab :balances]
+                                                [:actions/select-account-info-tab :balances]]
+                                               (get-in % [1 :on :click])))
+        portfolio-tab-buttons (find-nodes
+                               view-node
+                               (fn [node]
+                                 (= :actions/set-portfolio-account-info-tab
+                                    (some-> (get-in node [1 :on :click])
+                                            first
+                                            first))))
+        portfolio-tab-labels (mapv #(first (collect-strings %)) portfolio-tab-buttons)
+        performance-metrics-card (find-first-node view-node #(= "portfolio-performance-metrics-card" (get-in % [1 :data-role])))
+        balances-performance-metrics-card (find-first-node balances-view-node #(= "portfolio-performance-metrics-card" (get-in % [1 :data-role])))
+        performance-metric-row (find-first-node view-node #(= "portfolio-performance-metric-cumulative-return" (get-in % [1 :data-role])))
+        metrics-time-range-selector (find-first-node view-node #(= "portfolio-performance-metrics-time-range-selector" (get-in % [1 :data-role])))
         metrics-time-range-button (find-first-node
-                                   metrics-view-node
+                                   view-node
                                    #(= [[:actions/toggle-portfolio-performance-metrics-time-range-dropdown]]
                                        (get-in % [1 :on :click])))
         metrics-scroll-node (find-first-node performance-metrics-card
@@ -161,15 +184,18 @@
     (is (some? account-table))
     (is (some? performance-tab-button))
     (is (some? balances-tab-button))
-    (is (contains? (set (class-values performance-tab-button)) "border-transparent"))
-    (is (contains? (set (class-values balances-tab-button)) "border-primary"))
-    (is (some? metrics-performance-tab-button))
-    (is (some? metrics-balances-tab-button))
+    (is (= "Performance Metrics" (first portfolio-tab-labels)))
+    (is (str/starts-with? (or (second portfolio-tab-labels) "") "Balances"))
+    (is (contains? (set (class-values performance-tab-button)) "border-primary"))
+    (is (contains? (set (class-values balances-tab-button)) "border-transparent"))
+    (is (some? balances-view-performance-tab-button))
+    (is (some? balances-view-balances-tab-button))
     (is (some? performance-metrics-card))
+    (is (nil? balances-performance-metrics-card))
     (is (some? metrics-time-range-selector))
     (is (some? metrics-time-range-button))
-    (is (contains? (set (class-values metrics-performance-tab-button)) "border-primary"))
-    (is (contains? (set (class-values metrics-balances-tab-button)) "border-transparent"))
+    (is (contains? (set (class-values balances-view-performance-tab-button)) "border-transparent"))
+    (is (contains? (set (class-values balances-view-balances-tab-button)) "border-primary"))
     (is (contains? (set (class-values performance-metric-row)) "hover:bg-base-300"))
     (is (some? metrics-scroll-node))
     (is (contains? (set (class-values metrics-scroll-node)) "flex-1"))
@@ -188,8 +214,6 @@
     (is (contains? all-text "Performance Metrics"))
     (is (contains? all-text "Interest"))
     (is (contains? all-text "Deposits & Withdrawals"))
-    (is (not (contains? all-text "Time in Market")))
-    (is (not (contains? all-text "All-time (ann.)")))
     (is (contains? all-text "Vault Equity"))
     (is (contains? all-text "Staking Account"))
     (is (some #(str/includes? % "Open Orders") all-text))))
