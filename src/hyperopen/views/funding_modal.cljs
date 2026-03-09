@@ -31,6 +31,9 @@
 (def ^:private mobile-sheet-top-offset-px
   20)
 
+(def ^:private mobile-sheet-modes
+  #{:send :deposit :transfer :withdraw})
+
 (defn- base-button-classes
   [primary?]
   (if primary?
@@ -167,7 +170,7 @@
 
 (defn- mobile-sheet?
   [modal]
-  (and (= :send (:mode modal))
+  (and (contains? mobile-sheet-modes (:mode modal))
        (<= (modal-viewport-width (or (:anchor modal) {}))
            mobile-sheet-breakpoint-px)))
 

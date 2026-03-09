@@ -39,6 +39,11 @@
     (seq? node) (mapcat collect-strings node)
     :else []))
 
+(defn- funding-modal-node
+  [view-node]
+  (find-first-node view-node #(= "funding-modal"
+                                 (get-in % [1 :data-role]))))
+
 (deftest deposit-amount-content-renders-minimum-prefill-action-test
   (let [state (assoc-in (base-state)
                         [:funding-ui :modal]
@@ -412,6 +417,62 @@
         (is (some? layer-node))
         (is (contains? (set (get-in modal-node [1 :class])) "bottom-0"))
         (is (= "true" (get-in modal-node [1 :data-funding-mobile-sheet-surface]))))
+      (finally
+        (set! (.-innerWidth js/globalThis) original-inner-width)
+        (set! (.-innerHeight js/globalThis) original-inner-height)))))
+
+(deftest funding-mobile-action-modals-render-as-bottom-sheets-on-mobile-test
+  (let [mobile-anchor {:viewport-width 430
+                       :viewport-height 932}
+        cases [{:name "deposit"
+                :modal {:open? true
+                        :mode :deposit
+                        :deposit-step :asset-select
+                        :deposit-search-input ""
+                        :deposit-selected-asset-key nil
+                        :amount-input ""
+                        :anchor mobile-anchor}
+                :expected-text "Deposit"}
+               {:name "transfer"
+                :modal {:open? true
+                        :mode :transfer
+                        :to-perp? true
+                        :amount-input ""
+                        :destination-input "0x1234567890abcdef1234567890abcdef12345678"
+                        :anchor mobile-anchor}
+                :expected-text "Perps <-> Spot"}
+               {:name "withdraw"
+                :modal {:open? true
+                        :mode :withdraw
+                        :withdraw-selected-asset-key :usdc
+                        :amount-input ""
+                        :destination-input "0x1234567890abcdef1234567890abcdef12345678"
+                        :anchor mobile-anchor}
+                :expected-text "Withdraw"}]
+        original-inner-width (.-innerWidth js/globalThis)
+        original-inner-height (.-innerHeight js/globalThis)]
+    (set! (.-innerWidth js/globalThis) 430)
+    (set! (.-innerHeight js/globalThis) 932)
+    (try
+      (doseq [{:keys [name modal expected-text]} cases]
+        (let [state (assoc-in (base-state) [:funding-ui :modal] modal)
+              view-node (view/funding-modal-view state)
+              layer-node (find-first-node view-node #(= "funding-mobile-sheet-layer"
+                                                        (get-in % [1 :data-role])))
+              backdrop-node (find-first-node view-node #(= "funding-mobile-sheet-backdrop"
+                                                           (get-in % [1 :data-role])))
+              modal-node (funding-modal-node view-node)
+              all-text (set (collect-strings view-node))]
+          (is (some? layer-node) (str name " uses mobile sheet layer"))
+          (is (some? backdrop-node) (str name " uses mobile sheet backdrop"))
+          (is (= "true" (get-in modal-node [1 :data-funding-mobile-sheet-surface]))
+              (str name " marks the surface as a mobile sheet"))
+          (is (contains? (set (get-in modal-node [1 :class])) "bottom-0")
+              (str name " anchors the surface to the bottom"))
+          (is (contains? (set (get-in modal-node [1 :class])) "rounded-t-[22px]")
+              (str name " uses sheet top rounding"))
+          (is (contains? all-text expected-text)
+              (str name " renders expected content"))))
       (finally
         (set! (.-innerWidth js/globalThis) original-inner-width)
         (set! (.-innerHeight js/globalThis) original-inner-height)))))
