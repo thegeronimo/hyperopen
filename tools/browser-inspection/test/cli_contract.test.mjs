@@ -56,3 +56,25 @@ test("cli preflight returns structured JSON", async () => {
   assert.ok(Array.isArray(parsed.checks));
   assert.ok(typeof parsed.mode === "string");
 });
+
+test("cli scenario list returns scenario manifests", async () => {
+  const { stdout } = await execFileAsync(process.execPath, [cliPath, "scenario", "list", "--tags", "critical"]);
+  const parsed = JSON.parse(stdout);
+  assert.ok(Array.isArray(parsed.scenarios));
+  assert.ok(parsed.scenarios.some((scenario) => scenario.id === "trade-route-smoke"));
+});
+
+test("cli scenario run dry-run returns selected scenarios", async () => {
+  const { stdout } = await execFileAsync(process.execPath, [
+    cliPath,
+    "scenario",
+    "run",
+    "--tags",
+    "wallet",
+    "--dry-run"
+  ]);
+  const parsed = JSON.parse(stdout);
+  assert.equal(parsed.dryRun, true);
+  assert.ok(Array.isArray(parsed.selected));
+  assert.ok(parsed.selected.some((scenario) => scenario.id === "wallet-enable-trading-simulated"));
+});

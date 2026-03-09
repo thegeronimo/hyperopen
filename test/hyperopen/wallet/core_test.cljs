@@ -378,6 +378,28 @@
       (wallet/init-wallet! store)
       (is (= [[:attach true] [:check true]] @calls)))))
 
+(deftest provider-override-precedes-window-ethereum-and-reset-clears-listener-state-test
+  (let [original-window (aget js/globalThis "window")
+        window* (or original-window #js {})
+        original-ethereum (aget window* "ethereum")
+        override #js {:request (fn [_] nil)}]
+    (reset! wallet/listeners-installed? true)
+    (try
+      (aset js/globalThis "window" window*)
+      (aset window* "ethereum" #js {:request (fn [_] "window-provider")})
+      (wallet/set-provider-override! override)
+      (is (identical? override (wallet/provider)))
+      (wallet/reset-provider-listener-state!)
+      (is (false? @wallet/listeners-installed?))
+      (wallet/clear-provider-override!)
+      (is (= "window-provider" (.request (wallet/provider) nil)))
+      (finally
+        (wallet/clear-provider-override!)
+        (aset window* "ethereum" original-ethereum)
+        (if (some? original-window)
+          (aset js/globalThis "window" original-window)
+          (js-delete js/globalThis "window"))))))
+
 (deftest wallet-status-renders-all-main-states-test
   (is (= [:span.text-red-600 "Wallet error: denied"]
          (second (wallet/wallet-status {:wallet {:error "denied"}}))))

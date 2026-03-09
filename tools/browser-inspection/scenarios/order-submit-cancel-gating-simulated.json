@@ -1,0 +1,219 @@
+{
+  "id": "order-submit-cancel-gating-simulated",
+  "title": "Order submit and cancel gating with simulated wallet",
+  "route": "/trade",
+  "severity": "critical",
+  "tags": [
+    "critical",
+    "wallet",
+    "trade",
+    "desktop"
+  ],
+  "viewports": [
+    "desktop"
+  ],
+  "url": "http://localhost:8080/trade",
+  "steps": [
+    {
+      "type": "debug_call",
+      "method": "qaReset"
+    },
+    {
+      "type": "navigate"
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 300,
+        "timeoutMs": 6000
+      }
+    },
+    {
+      "type": "debug_call",
+      "method": "installWalletSimulator",
+      "args": [
+        {
+          "accounts": [
+            "0x1111111111111111111111111111111111111111"
+          ],
+          "requestAccounts": [
+            "0x1111111111111111111111111111111111111111"
+          ],
+          "chainId": "0xa4b1"
+        }
+      ]
+    },
+    {
+      "type": "debug_call",
+      "method": "setWalletConnectedHandlerMode",
+      "args": [
+        "suppress"
+      ]
+    },
+    {
+      "type": "dispatch",
+      "action": [
+        ":actions/connect-wallet"
+      ]
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 250,
+        "timeoutMs": 4000
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "wallet-status",
+      "expect": {
+        "connected": true,
+        "address": "0x1111111111111111111111111111111111111111",
+        "agentStatus": "not-ready"
+      }
+    },
+    {
+      "type": "dispatch",
+      "action": [
+        ":actions/select-order-entry-mode",
+        ":limit"
+      ]
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 100,
+        "timeoutMs": 2000
+      }
+    },
+    {
+      "type": "dispatch",
+      "action": [
+        ":actions/set-order-size-input-mode",
+        ":base"
+      ]
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 100,
+        "timeoutMs": 2000
+      }
+    },
+    {
+      "type": "dispatch",
+      "action": [
+        ":actions/update-order-form",
+        [
+          ":price"
+        ],
+        "100"
+      ]
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 100,
+        "timeoutMs": 2000
+      }
+    },
+    {
+      "type": "dispatch",
+      "action": [
+        ":actions/set-order-size-display",
+        "1"
+      ]
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 250,
+        "timeoutMs": 4000
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "order-form",
+      "expect": {
+        "sizeDisplay": "1",
+        "submitDisabled": false,
+        "submitReason": null
+      }
+    },
+    {
+      "type": "dispatch",
+      "action": [
+        ":actions/submit-order"
+      ]
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 250,
+        "timeoutMs": 4000
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "order-form",
+      "expect": {
+        "runtimeError": "Enable trading before submitting orders."
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "effect-order",
+      "args": {
+        "actionId": ":actions/submit-order"
+      },
+      "expect": {
+        "actionId": ":actions/submit-order",
+        "covered": true,
+        "heavyEffectCount": 0,
+        "projectionBeforeHeavy": true,
+        "phaseOrderValid": true
+      }
+    },
+    {
+      "type": "dispatch",
+      "action": [
+        ":actions/cancel-order",
+        {
+          "coin": "BTC",
+          "oid": 101
+        }
+      ]
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 250,
+        "timeoutMs": 4000
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "order-form",
+      "expect": {
+        "cancelError": "Enable trading before cancelling orders."
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "effect-order",
+      "args": {
+        "actionId": ":actions/cancel-order"
+      },
+      "expect": {
+        "actionId": ":actions/cancel-order",
+        "covered": true,
+        "heavyEffectCount": 0,
+        "projectionBeforeHeavy": true,
+        "phaseOrderValid": true
+      }
+    },
+    {
+      "type": "capture"
+    }
+  ]
+}

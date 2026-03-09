@@ -3,7 +3,8 @@
             [hyperopen.api.trading :as trading]
             [hyperopen.api.trading.test-support :as support]
             [hyperopen.platform :as platform]
-            [hyperopen.schema.contracts :as contracts]))
+            [hyperopen.schema.contracts :as contracts]
+            [hyperopen.utils.hl-signing :as signing]))
 
 (deftest safe-private-key->agent-address-catches-errors-test
   (with-redefs [hyperopen.wallet.agent-session/private-key->agent-address
@@ -102,3 +103,43 @@
               (done)))
            (fn []
              (restore-fetch!))))))))
+
+(deftest approve-agent-prefers-debug-exchange-simulator-over-fetch-test
+  (async done
+    (let [fetch-called? (atom false)
+          original-sign signing/sign-approve-agent-action!
+          restore-fetch! (support/install-fetch-stub!
+                          (fn [_url _opts]
+                            (reset! fetch-called? true)
+                            (js/Promise.resolve #js {:ok true})))
+          action {:type "approveAgent"
+                  :agentAddress "0x9999999999999999999999999999999999999999"
+                  :nonce 1700000005555
+                  :hyperliquidChain "Mainnet"
+                  :signatureChainId "0x66eee"}]
+      (set! signing/sign-approve-agent-action!
+            (fn [_address _action]
+              (js/Promise.resolve
+               (clj->js {:r "0x1"
+                         :s "0x2"
+                         :v 27}))))
+      (trading/set-debug-exchange-simulator!
+       {:approveAgent {:responses [{:status "ok"
+                                    :response {:source "simulator"}}]}})
+      (-> (trading/approve-agent! (atom {}) support/owner-address action)
+          (.then (fn [resp]
+                   (-> (.json resp)
+                       (.then (fn [body]
+                                (is (false? @fetch-called?))
+                                (is (= {:status "ok"
+                                        :response {:source "simulator"}}
+                                       (js->clj body :keywordize-keys true)))
+                                (done))))))
+          (.catch (fn [err]
+                    (is false (str "Unexpected error: " err))
+                    (done)))
+          (.finally
+           (fn []
+             (trading/clear-debug-exchange-simulator!)
+             (set! signing/sign-approve-agent-action! original-sign)
+             (restore-fetch!)))))))

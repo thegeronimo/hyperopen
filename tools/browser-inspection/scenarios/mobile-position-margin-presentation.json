@@ -1,0 +1,102 @@
+{
+  "id": "mobile-position-margin-presentation",
+  "title": "Mobile position margin sheet presentation",
+  "route": "/trade",
+  "severity": "high",
+  "tags": [
+    "critical",
+    "overlay",
+    "mobile",
+    "trade"
+  ],
+  "viewports": [
+    "mobile"
+  ],
+  "url": "http://localhost:8080/trade?spectate=0x162cc7c861ebd0c06b3d72319201150482518185",
+  "steps": [
+    {
+      "type": "debug_call",
+      "method": "qaReset"
+    },
+    {
+      "type": "navigate"
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 300,
+        "timeoutMs": 5000
+      }
+    },
+    {
+      "type": "dispatch_many",
+      "actions": [
+        [
+          ":actions/select-trade-mobile-surface",
+          ":account"
+        ],
+        [
+          ":actions/select-account-info-tab",
+          ":positions"
+        ]
+      ]
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 200,
+        "timeoutMs": 4000
+      }
+    },
+    {
+      "type": "wait_for_oracle",
+      "name": "first-position",
+      "saveAs": "firstPosition",
+      "timeoutMs": 8000,
+      "pollMs": 150,
+      "expect": {
+        "present": true
+      }
+    },
+    {
+      "type": "dispatch",
+      "action": [
+        ":actions/open-position-margin-modal",
+        {
+          "$ref": "firstPosition.positionData"
+        },
+        {
+          "left": 16,
+          "right": 414,
+          "top": 820,
+          "bottom": 860,
+          "width": 398,
+          "height": 40,
+          "viewport-width": 430,
+          "viewport-height": 932
+        }
+      ]
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 200,
+        "timeoutMs": 4000
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "position-overlay",
+      "args": {
+        "surface": "margin"
+      },
+      "expect": {
+        "open": true,
+        "presentationMode": "mobile-sheet"
+      }
+    },
+    {
+      "type": "capture"
+    }
+  ]
+}

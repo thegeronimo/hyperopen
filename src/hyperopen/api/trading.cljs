@@ -9,6 +9,80 @@
 (def exchange-url "https://api.hyperliquid.xyz/exchange")
 (def info-url "https://api.hyperliquid.xyz/info")
 
+(defonce ^:private debug-exchange-simulator
+  (atom nil))
+
+(defn set-debug-exchange-simulator!
+  [simulator]
+  (reset! debug-exchange-simulator simulator)
+  true)
+
+(defn clear-debug-exchange-simulator!
+  []
+  (reset! debug-exchange-simulator nil)
+  true)
+
+(defn debug-exchange-simulator-snapshot
+  []
+  @debug-exchange-simulator)
+
+(defn- queued-simulator-response!
+  [path]
+  (let [entry (get-in @debug-exchange-simulator path)]
+    (cond
+      (and (map? entry)
+           (sequential? (:responses entry)))
+      (let [responses (vec (:responses entry))
+            response (first responses)
+            remaining (vec (rest responses))]
+        (swap! debug-exchange-simulator assoc-in path
+               (assoc entry :responses remaining))
+        response)
+
+      (map? entry)
+      (or (:response entry) entry)
+
+      (sequential? entry)
+      (let [responses (vec entry)
+            response (first responses)
+            remaining (vec (rest responses))]
+        (swap! debug-exchange-simulator assoc-in path remaining)
+        response)
+
+      :else
+      entry)))
+
+(defn- simulator-response-body
+  [response]
+  (cond
+    (and (map? response) (contains? response :body))
+    (:body response)
+
+    :else
+    response))
+
+(defn- response-like
+  [response]
+  (let [payload (simulator-response-body response)
+        status (or (:http-status response)
+                   (:httpStatus response)
+                   200)]
+    #js {:status status
+         :json (fn []
+                 (js/Promise.resolve (clj->js payload)))
+         :text (fn []
+                 (js/Promise.resolve (js/JSON.stringify (clj->js payload))))}))
+
+(defn- simulated-fetch-response
+  [paths]
+  (when (seq @debug-exchange-simulator)
+    (let [response (some queued-simulator-response! paths)]
+      (when response
+        (if-let [reject-message (or (:reject-message response)
+                                    (:rejectMessage response))]
+          (js/Promise.reject (js/Error. (str reject-message)))
+          (js/Promise.resolve (response-like response)))))))
+
 (defn- json-post! [url body]
   (js/fetch url
             (clj->js {:method "POST"
@@ -253,11 +327,15 @@
        payload
        {:boundary :api-trading/post-signed-action
         :action-type (:type action)}))
-    (json-post! exchange-url payload)))
+    (or (simulated-fetch-response [[:signedActions (:type action)]
+                                   [:signedActions :default]])
+        (json-post! exchange-url payload))))
 
 (defn- post-info!
   [body]
-  (json-post! info-url body))
+  (or (simulated-fetch-response [[:info (keyword (str (:type body)))]
+                                 [:info :default]])
+      (json-post! info-url body)))
 
 (defn- fetch-user-role!
   [address]
@@ -410,7 +488,8 @@
                               :signature {:r r
                                           :s s
                                           :v v}}]
-                 (json-post! exchange-url payload))))))
+                 (or (simulated-fetch-response [[:approveAgent]])
+                     (json-post! exchange-url payload)))))))
 
 (defn- sign-and-post-user-action!
   [store address action nonce-field sign-action!]

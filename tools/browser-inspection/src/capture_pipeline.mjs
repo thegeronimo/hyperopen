@@ -272,13 +272,16 @@ export async function captureSnapshot(sessionManager, sessionId, options = {}) {
       await setViewport(attached.client, attached.cdpSessionId, viewport);
     }
 
-    const loadEventPromise = attached.client.waitForEvent("Page.loadEventFired", {
-      sessionId: attached.cdpSessionId,
-      timeoutMs: options.navigationTimeoutMs || captureConfig.navigationTimeoutMs
-    });
+    const shouldNavigate = options.navigate !== false;
+    if (shouldNavigate) {
+      const loadEventPromise = attached.client.waitForEvent("Page.loadEventFired", {
+        sessionId: attached.cdpSessionId,
+        timeoutMs: options.navigationTimeoutMs || captureConfig.navigationTimeoutMs
+      });
 
-    await attached.client.send("Page.navigate", { url: options.url }, attached.cdpSessionId);
-    await loadEventPromise;
+      await attached.client.send("Page.navigate", { url: options.url }, attached.cdpSessionId);
+      await loadEventPromise;
+    }
 
     await waitForNetworkIdle(
       inflight,
@@ -325,7 +328,19 @@ export async function captureSnapshot(sessionManager, sessionId, options = {}) {
       const debugSnapshotResult = await attached.client.send(
         "Runtime.evaluate",
         {
-          expression: "globalThis.HYPEROPEN_DEBUG && typeof globalThis.HYPEROPEN_DEBUG.snapshot === 'function' ? globalThis.HYPEROPEN_DEBUG.snapshot() : null",
+          expression: `(() => {
+            const api = globalThis.HYPEROPEN_DEBUG;
+            if (!api) {
+              return null;
+            }
+            if (typeof api.qaSnapshot === "function") {
+              return api.qaSnapshot();
+            }
+            if (typeof api.snapshot === "function") {
+              return api.snapshot();
+            }
+            return null;
+          })()`,
           returnByValue: true,
           awaitPromise: true
         },
@@ -342,7 +357,7 @@ export async function captureSnapshot(sessionManager, sessionId, options = {}) {
       targetLabel: options.targetLabel || "target",
       viewport: options.viewportName || "desktop",
       capturedAt: new Date().toISOString(),
-      url: options.url,
+      url: options.url || pageMetaResult?.result?.value?.url || null,
       page: redactValue(pageMetaResult?.result?.value || {}),
       semantic: redactValue(semanticResult?.result?.value || { nodes: [], maskRects: [] }),
       console: redactValue(consoleEvents),

@@ -4,7 +4,30 @@
 
 ;; ---------- Provider helpers -------------------------------------------------
 
-(defn ^js provider [] (.-ethereum js/window))
+(declare listeners-installed?)
+
+(defonce ^:private provider-override
+  (atom nil))
+
+(defn set-provider-override!
+  [provider]
+  (reset! provider-override provider)
+  provider)
+
+(defn clear-provider-override!
+  []
+  (reset! provider-override nil)
+  true)
+
+(defn reset-provider-listener-state!
+  []
+  (reset! listeners-installed? false)
+  true)
+
+(defn ^js provider []
+  (or @provider-override
+      (some-> js/globalThis .-window .-ethereum)))
+
 (defn has-provider? [] (some? (provider)))
 
 (defn short-addr [a]
@@ -20,6 +43,10 @@
 (defn clear-on-connected-handler!
   []
   (reset! on-connected-handler nil))
+
+(defn current-on-connected-handler
+  []
+  @on-connected-handler)
 
 (defn- notify-connected!
   [store address]

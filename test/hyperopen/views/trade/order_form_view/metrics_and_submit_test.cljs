@@ -149,10 +149,12 @@
         disabled-classes (set (:class disabled-attrs))
         enabled-classes (set (:class enabled-attrs))]
     (is (some? disabled-button))
+    (is (= "trade-submit-order-button" (:data-parity-id disabled-attrs)))
     (is (= true (:disabled disabled-attrs)))
     (is (contains? disabled-classes "bg-[rgb(23,69,63)]"))
     (is (contains? disabled-classes "cursor-not-allowed"))
     (is (some? enabled-button))
+    (is (= "trade-submit-order-button" (:data-parity-id enabled-attrs)))
     (is (not (:disabled enabled-attrs)))
     (is (contains? enabled-classes "bg-primary"))
     (is (contains? enabled-classes "hover:bg-primary/90"))))

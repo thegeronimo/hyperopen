@@ -119,6 +119,7 @@
                                                       (get-in % [1 :data-role])))
             overlay-node (find-first-node view-node #(= "Close funding dialog"
                                                         (get-in % [1 :aria-label])))]
+        (is (= "funding-modal-desktop" (get-in modal-node [1 :data-parity-id])))
         (is (= "448px" (get-in modal-node [1 :style :width])))
         (is (contains? (set (get-in modal-node [1 :class])) "pointer-events-auto"))
         (is (not (contains? (set (get-in modal-node [1 :class])) "w-full")))
@@ -158,6 +159,7 @@
       (let [view-node (view/funding-modal-view state)
             modal-node (find-first-node view-node #(= "funding-modal"
                                                       (get-in % [1 :data-role])))]
+        (is (= "funding-modal-desktop" (get-in modal-node [1 :data-parity-id])))
         (is (= "448px" (get-in modal-node [1 :style :width])))
         (is (= "672px" (get-in modal-node [1 :style :left]))))
       (finally

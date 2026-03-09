@@ -446,6 +446,7 @@
      {:class ["absolute" "top-full" "left-0" "right-0" "mt-1" "hidden" "bg-base-100"
               "border" "border-base-300" "rounded-none" "spectate-none" "z-[220]" "isolate" "lg:block"]
       :data-role "asset-selector-desktop-dropdown"
+      :data-parity-id "asset-selector-desktop"
       :on {:keydown [[:actions/handle-asset-selector-shortcut
                       [:event/key]
                       [:event/metaKey]
@@ -484,6 +485,7 @@
                                   highlighted-market-key)]
     [:div {:class ["fixed" "inset-0" "z-[260]" "bg-base-100" "flex" "flex-col" "lg:hidden"]
            :data-role "asset-selector-mobile-overlay"
+           :data-parity-id "asset-selector-mobile"
            :on {:keydown [[:actions/handle-asset-selector-shortcut
                            [:event/key]
                            [:event/metaKey]

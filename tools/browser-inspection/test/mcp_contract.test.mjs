@@ -11,6 +11,8 @@ test("mcp server registers browser inspection tools", async () => {
   assert.ok(toolNames.includes("browser_targets_list"));
   assert.ok(toolNames.includes("browser_navigate"));
   assert.ok(toolNames.includes("browser_eval"));
+  assert.ok(toolNames.includes("browser_scenarios_list"));
+  assert.ok(toolNames.includes("browser_scenarios_run"));
   assert.ok(toolNames.includes("browser_capture_snapshot"));
   assert.ok(toolNames.includes("browser_compare_targets"));
   assert.ok(toolNames.includes("browser_sessions_list"));

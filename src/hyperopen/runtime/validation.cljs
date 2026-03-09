@@ -10,6 +10,36 @@
 (def ^:private store-state-watch-key
   ::state-schema-validation)
 
+(def ^:private max-debug-action-effect-traces
+  100)
+
+(defonce ^:private debug-action-effect-traces
+  (atom []))
+
+(defn clear-debug-action-effect-traces!
+  []
+  (reset! debug-action-effect-traces [])
+  true)
+
+(defn debug-action-effect-traces-snapshot
+  []
+  @debug-action-effect-traces)
+
+(defn- record-debug-action-effect-trace!
+  [action-id args effects]
+  (when ^boolean goog.DEBUG
+    (let [summary (assoc (effect-order-contract/effect-order-summary action-id effects)
+                         :captured-at-ms (.now js/Date)
+                         :arg-count (count args)
+                         :args (vec args))]
+      (swap! debug-action-effect-traces
+             (fn [entries]
+               (let [next-entries (conj (vec entries) summary)
+                     overflow (- (count next-entries) max-debug-action-effect-traces)]
+                 (if (pos? overflow)
+                   (subvec next-entries overflow)
+                   next-entries)))))))
+
 (defn- parse-fixed-arity-key
   [k]
   (when-let [[_ arity-text] (re-matches #"cljs\$lang\$arity\$(\d+)" (str k))]
@@ -67,17 +97,19 @@
 
 (defn wrap-action-handler
   [action-id handler]
-  (if-not (validation-enabled?)
-    handler
-    (let [arity-contract (dispatch-arity-contract handler 1)]
-      (fn [state & args]
+  (let [validation? (validation-enabled?)
+        arity-contract (when validation?
+                         (dispatch-arity-contract handler 1))]
+    (fn [state & args]
+      (when validation?
         (assert-dispatch-arity! "action payload"
                                 action-id
                                 arity-contract
                                 args
                                 {:phase :dispatch})
-        (contracts/assert-action-args! action-id (vec args) {:phase :dispatch})
-        (let [effects (apply handler state args)]
+        (contracts/assert-action-args! action-id (vec args) {:phase :dispatch}))
+      (let [effects (apply handler state args)]
+        (when validation?
           (contracts/assert-emitted-effects!
            effects
            {:phase :action-emission
@@ -86,8 +118,9 @@
            action-id
            effects
            {:phase :action-emission
-            :action-id action-id})
-          effects)))))
+            :action-id action-id}))
+        (record-debug-action-effect-trace! action-id args effects)
+        effects))))
 
 (defn wrap-effect-handler
   [effect-id handler]

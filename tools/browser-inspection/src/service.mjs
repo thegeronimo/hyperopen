@@ -15,7 +15,7 @@ function resolveViewportNames(config, requested = null) {
   return requested.filter((name) => all.includes(name));
 }
 
-async function writeSnapshotArtifacts(runDir, payload) {
+export async function writeSnapshotArtifacts(runDir, payload) {
   const targetDir = path.join(runDir, payload.targetLabel, payload.viewport);
   await ensureDir(targetDir);
 

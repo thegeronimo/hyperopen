@@ -1,0 +1,92 @@
+{
+  "id": "asset-selection-eth",
+  "title": "Asset selector opens and selects ETH",
+  "route": "/trade",
+  "severity": "high",
+  "tags": [
+    "critical",
+    "trade",
+    "desktop"
+  ],
+  "viewports": [
+    "desktop"
+  ],
+  "url": "http://localhost:8080/trade",
+  "steps": [
+    {
+      "type": "debug_call",
+      "method": "qaReset"
+    },
+    {
+      "type": "navigate"
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 300,
+        "timeoutMs": 6000
+      }
+    },
+    {
+      "type": "dispatch",
+      "action": [
+        ":actions/toggle-asset-dropdown",
+        ":asset-selector"
+      ]
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 150,
+        "timeoutMs": 4000
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "asset-selector",
+      "expect": {
+        "visibleDropdown": "asset-selector",
+        "desktopPresent": true
+      }
+    },
+    {
+      "type": "dispatch",
+      "action": [
+        ":actions/select-asset",
+        "ETH"
+      ]
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 300,
+        "timeoutMs": 7000
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "asset-selector",
+      "expect": {
+        "visibleDropdown": null,
+        "activeAsset": "ETH"
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "effect-order",
+      "args": {
+        "actionId": ":actions/select-asset"
+      },
+      "expect": {
+        "actionId": ":actions/select-asset",
+        "covered": true,
+        "projectionBeforeHeavy": true,
+        "phaseOrderValid": true,
+        "duplicateHeavyEffectIds": []
+      }
+    },
+    {
+      "type": "capture"
+    }
+  ]
+}

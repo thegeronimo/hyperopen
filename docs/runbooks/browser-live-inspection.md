@@ -24,10 +24,16 @@ Run from `/hyperopen`:
   - `npm run browser:inspect -- --url https://app.hyperliquid.xyz/trade --target hyperliquid`
 - One-off parity compare:
   - `npm run browser:compare`
+- List checked-in scenarios:
+  - `node tools/browser-inspection/src/cli.mjs scenario list --tags critical`
+- Run one scenario or tag bundle:
+  - `node tools/browser-inspection/src/cli.mjs scenario run --ids wallet-enable-trading-simulated`
+- Run the PR-critical UI bundle:
+  - `npm run qa:pr-ui`
 - Preflight checks before local or attach workflows:
   - `npm run browser:preflight`
 - Standard nightly UI QA wrapper:
-  - `npm run qa:nightly-ui`
+  - `npm run qa:nightly-ui -- --allow-non-main`
 - List active sessions:
   - `node tools/browser-inspection/src/cli.mjs session list`
 - Start a persistent session:
@@ -61,14 +67,16 @@ Each run creates `/hyperopen/tmp/browser-inspection/<run-id>/` with:
 - `<viewport>-report.json` (compare runs)
 - `<viewport>-report.md` (compare runs)
 - `<viewport>-visual-diff.png` (compare runs)
+- `scenarios/*.json` and `scenarios/*.md` (scenario-bundle runs)
 
 Nightly wrapper runs additionally create `/hyperopen/tmp/browser-inspection/nightly-ui-qa-<timestamp>/` with:
 
 - `run-meta.json`
+- `summary.json`
 - `preflight.json`
 - `attempt-summary.tsv`
 - `failure-classification.json`
-- per-attempt `*.json` and `*.log`
+- per-scenario `scenarios/*.json` and `scenarios/*.md`
 
 ## Safety and Redaction
 
@@ -82,6 +90,10 @@ Read-only guardrails block:
 
 - Restricted URL schemes (for example `chrome:` and `javascript:`)
 - Known mutating eval patterns unless explicitly overridden
+
+Scenario captures prefer `HYPEROPEN_DEBUG.qaSnapshot()` when the debug bridge exposes it. That keeps scenario artifacts bounded while preserving the full `HYPEROPEN_DEBUG.snapshot()` object for manual console debugging.
+
+If the nightly or PR bundle reports `manual-exception`, follow `/hyperopen/docs/qa/agent-first-ui-manual-exceptions.md` instead of inventing an ad hoc manual matrix.
 
 ## Full Compare Workflow
 
@@ -97,12 +109,21 @@ Read-only guardrails block:
 1. Run deterministic preflight:
    - `npm run browser:preflight`
 2. Run nightly matrix:
-   - `npm run qa:nightly-ui`
+   - `npm run qa:nightly-ui -- --allow-non-main`
 3. Read outputs:
    - `/hyperopen/tmp/browser-inspection/nightly-ui-qa-<timestamp>/failure-classification.json`
    - `/hyperopen/docs/qa/nightly-ui-report-<YYYY-MM-DD>.md`
 4. If local bind is blocked, rerun with attach fallback:
    - `npm run qa:nightly-ui -- --attach-port 9222 --target-id <target-id>`
+
+## PR UI QA Workflow
+
+1. Run the critical bundle:
+   - `npm run qa:pr-ui`
+2. Inspect the bundle summary:
+   - `/hyperopen/tmp/browser-inspection/pr-ui-<timestamp>/summary.json`
+3. Drill into a failing scenario when needed:
+   - `/hyperopen/tmp/browser-inspection/pr-ui-<timestamp>/scenarios/<scenario>-<viewport>.md`
 
 ## Optional Smoke Test
 

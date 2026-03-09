@@ -1,0 +1,52 @@
+{
+  "id": "vaults-route-smoke",
+  "title": "Vaults route smoke",
+  "route": "/vaults",
+  "severity": "critical",
+  "tags": [
+    "critical",
+    "vaults",
+    "parity",
+    "desktop"
+  ],
+  "viewports": [
+    "desktop"
+  ],
+  "url": "http://localhost:8080/vaults",
+  "steps": [
+    {
+      "type": "debug_call",
+      "method": "qaReset"
+    },
+    {
+      "type": "navigate"
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 250,
+        "timeoutMs": 4000
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "parity-element",
+      "args": {
+        "parityId": "vaults-root"
+      },
+      "expect": {
+        "present": true
+      }
+    },
+    {
+      "type": "capture"
+    },
+    {
+      "type": "compare",
+      "leftUrl": "https://app.hyperliquid.xyz/vaults",
+      "rightUrl": "http://localhost:8080/vaults",
+      "leftLabel": "hyperliquid",
+      "rightLabel": "vaults-route-smoke"
+    }
+  ]
+}

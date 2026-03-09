@@ -3,6 +3,8 @@ import * as z from "zod/v4";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { BrowserInspectionService } from "./service.mjs";
+import { loadScenarios } from "./scenario_loader.mjs";
+import { runScenarioBundle } from "./scenario_runner.mjs";
 
 function textResult(payload) {
   return {
@@ -34,6 +36,94 @@ export async function buildServer() {
     name: "hyperopen-browser-inspection",
     version: "0.1.0"
   });
+
+  server.registerTool(
+    "browser_scenarios_list",
+    {
+      description: "List browser QA scenario manifests, optionally filtered by scenario ids or tags.",
+      inputSchema: {
+        ids: z.array(z.string()).optional(),
+        tags: z.array(z.string()).optional()
+      }
+    },
+    async ({ ids, tags }) => {
+      try {
+        const scenarios = await loadScenarios({ ids, tags });
+        return textResult({
+          scenarios: scenarios.map((scenario) => ({
+            id: scenario.id,
+            title: scenario.title,
+            route: scenario.route || scenario.url,
+            severity: scenario.severity || "high",
+            tags: scenario.tags,
+            viewports: scenario.viewports,
+            filePath: scenario.filePath
+          }))
+        });
+      } catch (error) {
+        return errorResult(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "browser_scenarios_run",
+    {
+      description:
+        "Run one or more deterministic browser QA scenarios and persist artifacts under the browser inspection artifact root.",
+      inputSchema: {
+        ids: z.array(z.string()).optional(),
+        tags: z.array(z.string()).optional(),
+        viewports: z.array(z.string()).optional(),
+        dryRun: z.boolean().optional(),
+        includeCompare: z.boolean().optional(),
+        sessionId: z.string().optional(),
+        headless: z.boolean().optional(),
+        manageLocalApp: z.boolean().optional(),
+        localUrl: z.string().optional(),
+        attachPort: z.number().int().positive().optional(),
+        attachHost: z.string().optional(),
+        targetId: z.string().optional(),
+        runKind: z.string().optional()
+      }
+    },
+    async ({
+      ids,
+      tags,
+      viewports,
+      dryRun,
+      includeCompare,
+      sessionId,
+      headless,
+      manageLocalApp,
+      localUrl,
+      attachPort,
+      attachHost,
+      targetId,
+      runKind
+    }) => {
+      try {
+        const result = await runScenarioBundle(service, {
+          scenarioIds: ids,
+          tags,
+          viewports,
+          dryRun,
+          includeCompare,
+          sessionId,
+          headless,
+          manageLocalApp,
+          localUrl,
+          attachPort,
+          attachHost,
+          targetId,
+          runKind: runKind || "scenario"
+        });
+        return textResult(result);
+      } catch (error) {
+        return errorResult(error);
+      }
+    }
+  );
 
   server.registerTool(
     "browser_session_start",

@@ -34,6 +34,8 @@ Use this file as the single starting point for what actions this repo provides t
 | `bb tools/crap_report.clj --scope src` | Print CRAP hotspots from existing `coverage/lcov.info` | After `npm run coverage` when triaging risky functions/modules |
 | `npm run browser:inspect -- --url <url> --target <label>` | One-off parity capture | Visual/runtime parity evidence and smoke checks |
 | `npm run browser:compare` | One-off compare capture | Compare two targets (Hyperliquid vs local) |
+| `npm run qa:pr-ui` | Run the fixed critical UI scenario bundle | Required merge-time validation for high-risk UI changes |
+| `npm run qa:nightly-ui` | Run the broader nightly UI scenario bundle | Full desktop/mobile matrix and nightly reporting |
 | `npm run browser:mcp` | Start Codex MCP tools host | When invoking via MCP instead of CLI |
 | `npm run test:browser-inspection` | Browser-inspection unit tests | Before changing inspection tooling |
 | `npm run test:browser-inspection:smoke` | Optional real-Chrome smoke | Manual confidence check before parity workflows |
@@ -118,11 +120,15 @@ All browser-inspection tooling lives under `/hyperopen/tools/browser-inspection/
 | `node tools/browser-inspection/src/cli.mjs preflight` | `... preflight --strict` | Validate local/attach prerequisites before expensive capture workflows |
 | `node tools/browser-inspection/src/cli.mjs inspect` | `... inspect --url https://app.hyperliquid.xyz/trade --target hyperliquid` | One-off snapshot capture |
 | `node tools/browser-inspection/src/cli.mjs compare` | `... compare --left-url ... --right-url ... --left-label ... --right-label ...` | Diff local vs reference across viewports |
+| `node tools/browser-inspection/src/cli.mjs scenario list` | `... scenario list --tags critical,wallet` | Discover checked-in UI scenarios and tag bundles |
+| `node tools/browser-inspection/src/cli.mjs scenario run` | `... scenario run --ids wallet-enable-trading-simulated` | Run one scenario or a tagged bundle through the scenario runner |
 
 ### Safe defaults and constraints
 
 - Session commands are read-only by design.
 - Snapshot output is written to `/hyperopen/tmp/browser-inspection/`.
+- Scenario bundles classify each scenario as `pass`, `product-regression`, `automation-gap`, or `manual-exception`.
+- Scenario captures prefer the compact dev-only `HYPEROPEN_DEBUG.qaSnapshot()` payload when available so artifacts stay bounded even on subscription-heavy routes.
 - Nightly QA wrapper command is `npm run qa:nightly-ui`; each run writes a timestamped bundle under `/hyperopen/tmp/browser-inspection/nightly-ui-qa-*/` including `preflight.json`, `attempt-summary.tsv`, and `failure-classification.json`.
 - Use explicit `--target-id` when attaching to avoid wrong tab capture.
 - For tab-selection stability, follow `/hyperopen/docs/runbooks/browser-live-inspection.md` and use marker verification steps.
@@ -143,6 +149,8 @@ Register once in Codex once and then call MCP tools directly:
 | `browser_eval` | Read-only JS eval in-session |
 | `browser_capture_snapshot` | Capture snapshot artifacts for a target |
 | `browser_compare_targets` | Capture+compare two URLs/targets |
+| `browser_scenarios_list` | List checked-in scenario manifests by id or tag |
+| `browser_scenarios_run` | Run one scenario or a tagged scenario bundle |
 
 ## 8) Where definitions live
 

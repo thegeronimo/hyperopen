@@ -1,8 +1,11 @@
 (ns hyperopen.telemetry.console-preload-test
   (:require [cljs.test :refer-macros [deftest is testing]]
             [nexus.registry :as nxr]
+            [hyperopen.funding.actions :as funding-actions]
             [hyperopen.system :as app-system]
-            [hyperopen.telemetry.console-preload :as console-preload]))
+            [hyperopen.telemetry.console-preload :as console-preload]
+            [hyperopen.views.trade.order-form-vm :as order-form-vm]
+            [hyperopen.wallet.core :as wallet-core]))
 
 (deftest console-preload-installs-debug-global-in-debug-build-test
   (let [api (aget js/globalThis "HYPEROPEN_DEBUG")]
@@ -59,3 +62,104 @@
            js/Error
            #"unregistered action id"
            (dispatch! #js [":actions/not-real"]))))))
+
+(deftest debug-api-exposes-qa-scenario-helpers-test
+  (let [api (@#'console-preload/debug-api)]
+    (is (fn? (aget api "qaSnapshot")))
+    (is (fn? (aget api "dispatchMany")))
+    (is (fn? (aget api "waitForIdle")))
+    (is (fn? (aget api "elementRect")))
+    (is (fn? (aget api "oracle")))
+    (is (fn? (aget api "qaReset")))
+    (is (fn? (aget api "setWalletConnectedHandlerMode")))
+    (is (fn? (aget api "installWalletSimulator")))
+    (is (fn? (aget api "installExchangeSimulator")))))
+
+(deftest dispatch-many-normalizes-keyword-like-args-before-dispatch-test
+  (let [store (atom {})
+        dispatched (atom [])]
+    (with-redefs [app-system/store store
+                  nxr/dispatch (fn [_runtime-store _event actions]
+                                 (reset! dispatched actions))]
+      (let [api (@#'console-preload/debug-api)
+            dispatch-many! (aget api "dispatchMany")]
+        (dispatch-many! #js [#js [":actions/toggle-asset-dropdown" ":asset-selector"]
+                             #js [":actions/select-order-entry-mode" ":limit"]])
+        (is (= [[:actions/toggle-asset-dropdown :asset-selector]
+                [:actions/select-order-entry-mode :limit]]
+               @dispatched))))))
+
+(deftest oracle-api-surfaces-wallet-and-order-form-state-test
+  (let [store (atom {:active-asset "BTC"
+                     :wallet {:connected? true
+                              :address "0xabc"
+                              :chain-id "0xa4b1"
+                              :agent {:status :not-ready}}
+                     :orders {:cancel-error "Enable trading before cancelling orders."}})
+        api (@#'console-preload/debug-api)
+        oracle! (aget api "oracle")]
+    (with-redefs [app-system/store store
+                  order-form-vm/order-form-vm (fn [_]
+                                                {:side :buy
+                                                 :type :limit
+                                                 :entry-mode :limit
+                                                 :size-display "1"
+                                                 :error "Enable trading before submitting orders."
+                                                 :submit {:disabled? true
+                                                          :reason :agent-not-ready
+                                                          :error-message "Enable trading before submitting orders."
+                                                          :tooltip "Enable trading before submitting orders."}})]
+      (let [wallet (js->clj (oracle! "wallet-status" #js {}) :keywordize-keys true)
+            order-form (js->clj (oracle! "order-form" #js {}) :keywordize-keys true)]
+        (is (= {:connected true
+                :address "0xabc"
+                :chainId "0xa4b1"
+                :connecting false
+                :error nil
+                :agentStatus "not-ready"
+                :agentAddress nil
+                :agentError nil}
+               wallet))
+        (is (= "BTC" (:activeAsset order-form)))
+        (is (= "buy" (:side order-form)))
+        (is (= "limit" (:type order-form)))
+        (is (= "1" (:sizeDisplay order-form)))
+        (is (= "Enable trading before submitting orders." (:runtimeError order-form)))
+        (is (= "Enable trading before cancelling orders." (:cancelError order-form)))
+        (is (= "agent-not-ready" (:submitReason order-form)))
+        (is (true? (:submitDisabled order-form)))))))
+
+(deftest funding-modal-oracle-reads-selected-asset-from-view-model-test
+  (let [store (atom {})
+        api (@#'console-preload/debug-api)
+        oracle! (aget api "oracle")]
+    (with-redefs [app-system/store store
+                  funding-actions/funding-modal-view-model
+                  (fn [_]
+                    {:modal {:open? true
+                             :title "Deposit USDC"}
+                     :content {:kind :deposit/amount}
+                     :deposit-selected-asset {:key :usdc}})]
+      (let [funding (js->clj (oracle! "funding-modal" #js {}) :keywordize-keys true)]
+        (is (= true (:open funding)))
+        (is (= "Deposit USDC" (:title funding)))
+        (is (= ":deposit/amount" (:contentKind funding)))
+        (is (= "usdc" (:selectedDepositAssetKey funding)))))))
+
+(deftest set-wallet-connected-handler-mode-suppresses-and-restores-handler-test
+  (let [api (@#'console-preload/debug-api)
+        set-mode! (aget api "setWalletConnectedHandlerMode")
+        handler (fn [_store _address] :handled)]
+    (wallet-core/set-on-connected-handler! handler)
+    (try
+      (let [suppressed (js->clj (set-mode! "suppress") :keywordize-keys true)]
+        (is (true? (:suppressed suppressed)))
+        (is (false? (:hasHandler suppressed)))
+        (is (nil? (wallet-core/current-on-connected-handler))))
+      (let [restored (js->clj (set-mode! "passthrough") :keywordize-keys true)]
+        (is (false? (:suppressed restored)))
+        (is (true? (:hasHandler restored)))
+        (is (identical? handler (wallet-core/current-on-connected-handler))))
+      (finally
+        (wallet-core/clear-on-connected-handler!)
+        (set-mode! "passthrough")))))

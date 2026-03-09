@@ -107,3 +107,21 @@
            js/Error
            #"app state"
            (swap! store assoc :active-market {:coin "BTC"}))))))
+
+(deftest wrap-action-handler-records-debug-effect-traces-when-validation-disabled-test
+  (with-redefs [validation/validation-enabled? (constantly false)]
+    (validation/clear-debug-action-effect-traces!)
+    (let [wrapped (validation/wrap-action-handler :actions/submit-order
+                                                  (fn [_state]
+                                                    [[:effects/save [:order-form-runtime :error] nil]
+                                                     [:effects/api-submit-order {:id 1}]]))
+          effects (wrapped {})]
+      (is (= [[:effects/save [:order-form-runtime :error] nil]
+              [:effects/api-submit-order {:id 1}]]
+             effects))
+      (let [trace (last (validation/debug-action-effect-traces-snapshot))]
+        (is (= :actions/submit-order (:action-id trace)))
+        (is (= 1 (:projection-effect-count trace)))
+        (is (= 1 (:heavy-effect-count trace)))
+        (is (true? (:projection-before-heavy trace)))
+        (is (true? (:phase-order-valid trace)))))))

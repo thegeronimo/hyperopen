@@ -1,0 +1,82 @@
+{
+  "id": "funding-modal-deposit-usdc",
+  "title": "Funding modal deposit workflow",
+  "route": "/trade",
+  "severity": "high",
+  "tags": [
+    "critical",
+    "funding",
+    "trade",
+    "desktop"
+  ],
+  "viewports": [
+    "desktop"
+  ],
+  "url": "http://localhost:8080/trade",
+  "steps": [
+    {
+      "type": "debug_call",
+      "method": "qaReset"
+    },
+    {
+      "type": "navigate"
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 250,
+        "timeoutMs": 4000
+      }
+    },
+    {
+      "type": "dispatch",
+      "action": [
+        ":actions/open-funding-deposit-modal",
+        null
+      ]
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 150,
+        "timeoutMs": 3000
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "funding-modal",
+      "expect": {
+        "open": true,
+        "title": "Deposit",
+        "contentKind": ":deposit/select"
+      }
+    },
+    {
+      "type": "dispatch",
+      "action": [
+        ":actions/select-funding-deposit-asset",
+        "usdc"
+      ]
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 150,
+        "timeoutMs": 3000
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "funding-modal",
+      "expect": {
+        "open": true,
+        "title": "Deposit USDC",
+        "contentKind": ":deposit/amount",
+        "selectedDepositAssetKey": "usdc"
+      }
+    },
+    {
+      "type": "capture"
+    }
+  ]
+}

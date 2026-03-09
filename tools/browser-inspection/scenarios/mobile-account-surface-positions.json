@@ -1,0 +1,64 @@
+{
+  "id": "mobile-account-surface-positions",
+  "title": "Mobile account surface positions selection",
+  "route": "/trade",
+  "severity": "high",
+  "tags": [
+    "critical",
+    "account-surface",
+    "mobile",
+    "trade"
+  ],
+  "viewports": [
+    "mobile"
+  ],
+  "url": "http://localhost:8080/trade?spectate=0x162cc7c861ebd0c06b3d72319201150482518185",
+  "steps": [
+    {
+      "type": "debug_call",
+      "method": "qaReset"
+    },
+    {
+      "type": "navigate"
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 300,
+        "timeoutMs": 5000
+      }
+    },
+    {
+      "type": "dispatch_many",
+      "actions": [
+        [
+          ":actions/select-trade-mobile-surface",
+          ":account"
+        ],
+        [
+          ":actions/select-account-info-tab",
+          ":positions"
+        ]
+      ]
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 200,
+        "timeoutMs": 4000
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "account-surface",
+      "expect": {
+        "mobileSurface": "account",
+        "selectedTab": "positions",
+        "mobileAccountPanelPresent": true
+      }
+    },
+    {
+      "type": "capture"
+    }
+  ]
+}

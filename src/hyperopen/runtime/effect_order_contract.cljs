@@ -1,5 +1,8 @@
 (ns hyperopen.runtime.effect-order-contract)
 
+(declare effect-phase
+         assert-action-effect-order!)
+
 (def ^:private projection-effect-ids
   #{:effects/save
     :effects/save-many})
@@ -125,6 +128,18 @@
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/enable-agent-trading}}
 
+   :actions/submit-order
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/api-submit-order}}
+
+   :actions/cancel-order
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/api-cancel-order}}
+
    :actions/ws-diagnostics-reconnect-now
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true
@@ -240,6 +255,54 @@
 (defn covered-action?
   [action-id]
   (contains? effect-order-policy-by-action-id action-id))
+
+(defn effect-order-summary
+  [action-id effects]
+  (let [policy (action-policy action-id)
+        heavy-effect-ids (:heavy-effect-ids policy #{})
+        effect-ids (mapv first (or effects []))
+        phases (mapv #(effect-phase (or policy {:heavy-effect-ids heavy-effect-ids}) %) effect-ids)
+        projection-indices (keep-indexed (fn [index phase]
+                                           (when (= phase :projection)
+                                             index))
+                                         phases)
+        heavy-indices (keep-indexed (fn [index phase]
+                                      (when (= phase :heavy-io)
+                                        index))
+                                    phases)
+        first-projection-index (first projection-indices)
+        first-heavy-index (first heavy-indices)
+        duplicate-heavy-effect-ids
+        (loop [remaining effect-ids
+               seen #{}
+               duplicates []]
+          (if-let [effect-id (first remaining)]
+            (if (contains? heavy-effect-ids effect-id)
+              (if (contains? seen effect-id)
+                (recur (next remaining) seen (conj duplicates effect-id))
+                (recur (next remaining) (conj seen effect-id) duplicates))
+              (recur (next remaining) seen duplicates))
+            duplicates))
+        projection-before-heavy
+        (cond
+          (empty? heavy-indices) true
+          (nil? first-projection-index) false
+          :else (< first-projection-index first-heavy-index))
+        phase-order-valid?
+        (try
+          (assert-action-effect-order! action-id effects {:phase :debug-summary})
+          true
+          (catch :default _
+            false))]
+    {:action-id action-id
+     :covered? (covered-action? action-id)
+     :effect-ids effect-ids
+     :phases phases
+     :projection-effect-count (count projection-indices)
+     :heavy-effect-count (count heavy-indices)
+     :projection-before-heavy projection-before-heavy
+     :duplicate-heavy-effect-ids duplicate-heavy-effect-ids
+     :phase-order-valid phase-order-valid?}))
 
 (defn- tracked-phase?
   [phase-rank phase]

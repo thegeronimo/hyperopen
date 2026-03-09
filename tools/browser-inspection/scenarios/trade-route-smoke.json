@@ -1,0 +1,52 @@
+{
+  "id": "trade-route-smoke",
+  "title": "Trade route smoke",
+  "route": "/trade",
+  "severity": "critical",
+  "tags": [
+    "critical",
+    "trade",
+    "parity",
+    "desktop"
+  ],
+  "viewports": [
+    "desktop"
+  ],
+  "url": "http://localhost:8080/trade",
+  "steps": [
+    {
+      "type": "debug_call",
+      "method": "qaReset"
+    },
+    {
+      "type": "navigate"
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 250,
+        "timeoutMs": 4000
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "parity-element",
+      "args": {
+        "parityId": "trade-root"
+      },
+      "expect": {
+        "present": true
+      }
+    },
+    {
+      "type": "capture"
+    },
+    {
+      "type": "compare",
+      "leftUrl": "https://app.hyperliquid.xyz/trade",
+      "rightUrl": "http://localhost:8080/trade",
+      "leftLabel": "hyperliquid",
+      "rightLabel": "trade-route-smoke"
+    }
+  ]
+}

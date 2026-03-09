@@ -1252,6 +1252,7 @@
                       :aria-label (:title modal)
                       :tab-index 0
                       :data-role "funding-modal"
+                      :data-parity-id "funding-modal-mobile"
                       :data-funding-mobile-sheet-surface "true"
                       :on {:keydown [[:actions/handle-funding-modal-keydown
                                       [:event/key]]]}}]
@@ -1284,6 +1285,7 @@
                         :aria-label (:title modal)
                         :tab-index 0
                         :data-role "funding-modal"
+                        :data-parity-id "funding-modal-desktop"
                         :on {:keydown [[:actions/handle-funding-modal-keydown
                                         [:event/key]]]}}]
                (keep identity panel-children))]))))

@@ -1,0 +1,54 @@
+{
+  "defaultTags": [
+    "critical"
+  ],
+  "fullCriticalGlobs": [
+    "tools/browser-inspection/**",
+    "src/hyperopen/telemetry/**",
+    "src/hyperopen/runtime/**",
+    "src/hyperopen/wallet/**",
+    "src/styles/**",
+    "src/hyperopen/views/**"
+  ],
+  "tagRules": [
+    {
+      "glob": "src/hyperopen/funding/**",
+      "tags": [
+        "funding"
+      ]
+    },
+    {
+      "glob": "src/hyperopen/wallet/**",
+      "tags": [
+        "wallet"
+      ]
+    },
+    {
+      "glob": "src/hyperopen/views/account_info/**",
+      "tags": [
+        "overlay",
+        "account-surface",
+        "mobile"
+      ]
+    },
+    {
+      "glob": "src/hyperopen/views/trade_view.cljs",
+      "tags": [
+        "trade",
+        "mobile"
+      ]
+    },
+    {
+      "glob": "src/hyperopen/views/portfolio_view.cljs",
+      "tags": [
+        "portfolio"
+      ]
+    },
+    {
+      "glob": "src/hyperopen/views/vaults/**",
+      "tags": [
+        "vaults"
+      ]
+    }
+  ]
+}

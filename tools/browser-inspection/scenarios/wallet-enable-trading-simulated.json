@@ -1,0 +1,128 @@
+{
+  "id": "wallet-enable-trading-simulated",
+  "title": "Wallet connect and enable trading via simulator",
+  "route": "/trade",
+  "severity": "critical",
+  "tags": [
+    "critical",
+    "wallet",
+    "desktop",
+    "trade"
+  ],
+  "viewports": [
+    "desktop"
+  ],
+  "url": "http://localhost:8080/trade",
+  "steps": [
+    {
+      "type": "debug_call",
+      "method": "qaReset"
+    },
+    {
+      "type": "navigate"
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 250,
+        "timeoutMs": 4000
+      }
+    },
+    {
+      "type": "debug_call",
+      "method": "installWalletSimulator",
+      "args": [
+        {
+          "accounts": [
+            "0x1111111111111111111111111111111111111111"
+          ],
+          "requestAccounts": [
+            "0x1111111111111111111111111111111111111111"
+          ],
+          "chainId": "0xa4b1"
+        }
+      ]
+    },
+    {
+      "type": "debug_call",
+      "method": "setWalletConnectedHandlerMode",
+      "args": [
+        "suppress"
+      ]
+    },
+    {
+      "type": "debug_call",
+      "method": "installExchangeSimulator",
+      "args": [
+        {
+          "approveAgent": {
+            "responses": [
+              {
+                "status": "ok"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "dispatch",
+      "action": [
+        ":actions/connect-wallet"
+      ]
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 250,
+        "timeoutMs": 4000
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "wallet-status",
+      "expect": {
+        "connected": true,
+        "address": "0x1111111111111111111111111111111111111111",
+        "agentStatus": "not-ready"
+      }
+    },
+    {
+      "type": "dispatch",
+      "action": [
+        ":actions/enable-agent-trading"
+      ]
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 250,
+        "timeoutMs": 5000
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "wallet-status",
+      "expect": {
+        "connected": true,
+        "agentStatus": "ready",
+        "agentError": null
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "effect-order",
+      "args": {
+        "actionId": ":actions/enable-agent-trading"
+      },
+      "expect": {
+        "actionId": ":actions/enable-agent-trading",
+        "projectionBeforeHeavy": true,
+        "heavyEffectCount": 1
+      }
+    },
+    {
+      "type": "capture"
+    }
+  ]
+}

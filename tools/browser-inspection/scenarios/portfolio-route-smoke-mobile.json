@@ -1,0 +1,51 @@
+{
+  "id": "portfolio-route-smoke-mobile",
+  "title": "Portfolio route smoke mobile",
+  "route": "/portfolio",
+  "severity": "high",
+  "tags": [
+    "mobile",
+    "portfolio",
+    "parity"
+  ],
+  "viewports": [
+    "mobile"
+  ],
+  "url": "http://localhost:8080/portfolio",
+  "steps": [
+    {
+      "type": "debug_call",
+      "method": "qaReset"
+    },
+    {
+      "type": "navigate"
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 300,
+        "timeoutMs": 5000
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "parity-element",
+      "args": {
+        "parityId": "portfolio-root"
+      },
+      "expect": {
+        "present": true
+      }
+    },
+    {
+      "type": "capture"
+    },
+    {
+      "type": "compare",
+      "leftUrl": "https://app.hyperliquid.xyz/portfolio",
+      "rightUrl": "http://localhost:8080/portfolio",
+      "leftLabel": "hyperliquid",
+      "rightLabel": "portfolio-route-smoke-mobile"
+    }
+  ]
+}

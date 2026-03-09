@@ -564,6 +564,7 @@
                             ["bg-primary"
                              "text-primary-content"
                              "hover:bg-primary/90"]))
+             :data-parity-id "trade-submit-order-button"
              :disabled submit-disabled?
              :on {:click on-submit}}
     (if submitting? "Submitting..." "Place Order")]

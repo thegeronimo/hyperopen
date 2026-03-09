@@ -258,6 +258,14 @@
     (is (= 8 (count-selectable-asset-rows hiccup)))
     (is (not (contains? strings "Showing 120 of 8 markets")))))
 
+(deftest asset-selector-dropdown-roots-expose-parity-ids-test
+  (let [desktop-view (view/asset-selector-dropdown (selector-props true))
+        mobile-view (view/asset-selector-dropdown (selector-props false))
+        desktop-dropdown (find-node-by-role desktop-view "asset-selector-desktop-dropdown")
+        mobile-dropdown (find-node-by-role mobile-view "asset-selector-mobile-overlay")]
+    (is (= "asset-selector-desktop" (get-in desktop-dropdown [1 :data-parity-id])))
+    (is (= "asset-selector-mobile" (get-in mobile-dropdown [1 :data-parity-id])))))
+
 (deftest asset-list-virtual-window-tracks-scroll-position-test
   (let [assets (vec (for [n (range 200)]
                       {:key (str "perp:T" n)
