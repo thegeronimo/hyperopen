@@ -6,7 +6,9 @@
             [hyperopen.core :as app-core]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.startup.collaborators :as startup-collaborators]
+            [hyperopen.telemetry :as telemetry]
             [hyperopen.telemetry.console-warning :as console-warning]
+            [hyperopen.wallet.core :as wallet]
             [hyperopen.wallet.address-watcher :as address-watcher]
             [hyperopen.websocket.active-asset-ctx :as active-ctx]
             [hyperopen.websocket.client :as ws-client]
@@ -106,6 +108,34 @@
         (swap! runtime-state/runtime assoc
                :runtime-bootstrapped? original-runtime-bootstrapped?
                :app-started? original-app-started?)))))
+
+(deftest reload-reruns-bootstrap-and-reload-bindings-test
+  (let [bootstrap-calls (atom [])
+        reload-binding-calls (atom [])
+        render-calls (atom [])
+        connected-handler-calls (atom 0)
+        runtime (atom {:runtime-bootstrapped? false})
+        store (atom {:reload :state})]
+    (with-redefs [app-bootstrap/bootstrap-runtime! (fn [system]
+                                                     (swap! bootstrap-calls conj system))
+                  app-startup/reload-runtime-bindings! (fn [system]
+                                                         (swap! reload-binding-calls conj system))
+                  app-bootstrap/render-app! (fn [state]
+                                              (swap! render-calls conj state))
+                  telemetry/log! (fn [& _] nil)
+                  wallet/set-on-connected-handler! (fn [_handler]
+                                                     (swap! connected-handler-calls inc))]
+      (app-bootstrap/reload! {:runtime runtime
+                              :store store})
+      (app-bootstrap/reload! {:runtime runtime
+                              :store store})
+      (is (= 2 (count @bootstrap-calls)))
+      (is (= 2 (count @reload-binding-calls)))
+      (is (= [{:reload :state}
+              {:reload :state}]
+             @render-calls))
+      (is (= 2 @connected-handler-calls))
+      (is (true? (:runtime-bootstrapped? @runtime))))))
 
 (deftest make-system-creates-isolated-store-and-runtime-atoms-test
   (let [system-a (app-core/make-system)

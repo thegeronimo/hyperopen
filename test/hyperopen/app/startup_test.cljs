@@ -73,6 +73,49 @@
               :run-deferred-bootstrap]
              @callback-calls)))))
 
+(deftest reload-runtime-bindings-reinstalls-reload-safe-handlers-test
+  (let [store (atom {})
+        runtime (atom {})
+        calls (atom [])]
+    (with-redefs [startup-collaborators/startup-base-deps
+                  (fn [deps]
+                    (merge
+                     {:store (:store deps)
+                      :runtime (:runtime deps)
+                      :dispatch! (fn [& _] nil)
+                      :init-active-ctx! (fn [runtime-store]
+                                          (swap! calls conj [:active-ctx (identical? store runtime-store)]))
+                      :init-candles! (fn [runtime-store]
+                                       (swap! calls conj [:candles (identical? store runtime-store)]))
+                      :init-orderbook! (fn [runtime-store]
+                                         (swap! calls conj [:orderbook (identical? store runtime-store)]))
+                      :init-trades! (fn [runtime-store]
+                                      (swap! calls conj [:trades (identical? store runtime-store)]))
+                      :init-user-ws! (fn [runtime-store]
+                                       (swap! calls conj [:user-ws (identical? store runtime-store)]))
+                      :init-webdata2! (fn [runtime-store]
+                                        (swap! calls conj [:webdata2 (identical? store runtime-store)]))}
+                     deps))
+                  startup-runtime/install-asset-selector-shortcuts!
+                  (fn [{runtime-store :store
+                        dispatch! :dispatch!}]
+                    (swap! calls conj [:shortcuts (identical? store runtime-store) (fn? dispatch!)]))
+                  startup-runtime/install-position-tpsl-clickaway!
+                  (fn [{runtime-store :store
+                        dispatch! :dispatch!}]
+                    (swap! calls conj [:clickaway (identical? store runtime-store) (fn? dispatch!)]))]
+      (app-startup/reload-runtime-bindings! {:runtime runtime
+                                             :store store})
+      (is (= [[:shortcuts true true]
+              [:clickaway true true]
+              [:active-ctx true]
+              [:candles true]
+              [:orderbook true]
+              [:trades true]
+              [:user-ws true]
+              [:webdata2 true]]
+             @calls)))))
+
 (deftest bootstrap-account-data-forwards-stage-b-through-runtime-boundary-test
   (let [store (atom {})
         runtime (atom {})

@@ -1,6 +1,7 @@
 (ns hyperopen.app.bootstrap
   (:require [nexus.registry :as nxr]
             [replicant.dom :as r]
+            [hyperopen.app.startup :as app-startup]
             [hyperopen.runtime.action-adapters :as runtime-action-adapters]
             [hyperopen.runtime.bootstrap :as runtime-bootstrap]
             [hyperopen.runtime.effect-adapters :as runtime-effect-adapters]
@@ -66,9 +67,13 @@
 
 (defn reload!
   [{:keys [runtime store]}]
-  (ensure-runtime-bootstrapped!
-   runtime
-   #(bootstrap-runtime-once! runtime store))
+  ;; Re-register registry-held handlers and reload-safe listeners on every dev reload.
+  (runtime-state/mark-runtime-bootstrapped! runtime)
+  (bootstrap-runtime! {:runtime runtime
+                       :store store})
+  (app-startup/reload-runtime-bindings!
+   {:runtime runtime
+    :store store})
   (telemetry/log! "Reloading Hyperopen...")
   (wallet/set-on-connected-handler! runtime-action-adapters/handle-wallet-connected)
   (render-app! @store))

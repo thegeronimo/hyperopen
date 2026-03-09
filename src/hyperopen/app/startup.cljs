@@ -113,6 +113,28 @@
           (fn []
             (schedule-deferred-bootstrap! system)))))
 
+(defn reload-runtime-bindings!
+  [system]
+  (let [base-deps (startup-base-deps system)
+        store (:store base-deps)
+        dispatch! (:dispatch! base-deps)]
+    ;; Rebind listener-held handlers without replaying startup fetch/bootstrap work.
+    (when (and (some? store) (fn? dispatch!))
+      (startup-runtime-lib/install-asset-selector-shortcuts!
+       {:store store
+        :dispatch! dispatch!})
+      (startup-runtime-lib/install-position-tpsl-clickaway!
+       {:store store
+        :dispatch! dispatch!}))
+    (doseq [init-fn [(:init-active-ctx! base-deps)
+                     (:init-candles! base-deps)
+                     (:init-orderbook! base-deps)
+                     (:init-trades! base-deps)
+                     (:init-user-ws! base-deps)
+                     (:init-webdata2! base-deps)]]
+      (when (fn? init-fn)
+        (init-fn store)))))
+
 (defn init!
   [system]
   (let [base-deps (startup-base-deps system)]
