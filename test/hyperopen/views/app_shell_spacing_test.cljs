@@ -314,6 +314,9 @@
     (is (contains? account-summary-classes "absolute"))
     (is (contains? account-summary-classes "inset-0"))
     (is (contains? account-actions-classes "mt-auto"))
+    (is (contains? account-actions-classes "pt-2"))
+    (is (contains? account-actions-classes "pb-1.5"))
+    (is (not (contains? account-actions-classes "py-3")))
     (is (contains? account-mobile-text "Account Equity"))
     (is (contains? account-mobile-text "Deposit"))
     (is (contains? account-mobile-text "Withdraw"))
@@ -395,6 +398,30 @@
     (is (contains? root-classes "overflow-y-auto"))
     (is (contains? root-classes "scrollbar-hide"))
     (is (not (contains? root-classes "xl:overflow-y-hidden")))))
+
+(deftest app-view-uses-compact-footer-reserve-for-trade-account-surface-test
+  (let [view-node (app-view/app-view (assoc trade-view-test-state
+                                            :router {:path "/trade"}
+                                            :wallet {}
+                                            :trade-ui {:mobile-surface :account}))
+        app-main (find-first-node view-node
+                                  #(= "app-main"
+                                      (get-in % [1 :data-parity-id])))
+        app-main-classes (node-class-set app-main)]
+    (is (contains? app-main-classes "pb-[calc(3rem+env(safe-area-inset-bottom))]"))
+    (is (not (contains? app-main-classes "pb-[5rem]")))))
+
+(deftest app-view-keeps-standard-footer-reserve-for-trade-market-surface-test
+  (let [view-node (app-view/app-view (assoc trade-view-test-state
+                                            :router {:path "/trade"}
+                                            :wallet {}
+                                            :trade-ui {:mobile-surface :chart}))
+        app-main (find-first-node view-node
+                                  #(= "app-main"
+                                      (get-in % [1 :data-parity-id])))
+        app-main-classes (node-class-set app-main)]
+    (is (contains? app-main-classes "pb-[5rem]"))
+    (is (not (contains? app-main-classes "pb-[calc(3rem+env(safe-area-inset-bottom))]")))))
 
 (deftest app-view-renders-portfolio-route-with-portfolio-root-test
   (let [view-node (app-view/app-view (assoc trade-view-test-state

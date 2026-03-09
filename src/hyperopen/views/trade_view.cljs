@@ -52,7 +52,8 @@
                          "border-base-300"
                          "bg-base-100"
                          "px-3"
-                         "py-3"
+                         "pt-2"
+                         "pb-1.5"
                          "space-y-2"]
      :data-parity-id "trade-mobile-account-actions"})])
 

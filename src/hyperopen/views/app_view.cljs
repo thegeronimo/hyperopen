@@ -3,6 +3,7 @@
             [hyperopen.account.context :as account-context]
             [hyperopen.api-wallets.actions :as api-wallets-actions]
             [hyperopen.funding-comparison.actions :as funding-actions]
+            [hyperopen.trade.layout-actions :as trade-layout-actions]
             [hyperopen.views.funding-modal :as funding-modal]
             [hyperopen.views.footer-view :as footer-view]
             [hyperopen.views.funding-comparison-view :as funding-comparison-view]
@@ -94,6 +95,17 @@
         api-wallet-route? (api-wallets-actions/api-wallet-route? route)
         vault-route? (vault-vm/vault-route? route)
         vault-detail-route? (vault-vm/vault-detail-route? route)
+        mobile-surface (trade-layout-actions/normalize-trade-mobile-surface
+                        (get-in state [:trade-ui :mobile-surface]))
+        mobile-account-surface? (and trade-route? (= mobile-surface :account))
+        app-main-classes (into ["flex-1"
+                                "min-h-0"
+                                "lg:pb-12"
+                                "flex"
+                                "flex-col"]
+                               (if mobile-account-surface?
+                                 ["pb-[calc(3rem+env(safe-area-inset-bottom))]"]
+                                 ["pb-[5rem]"]))
         root-classes (into ["h-screen" "bg-base-100" "flex" "flex-col" "overflow-y-auto" "scrollbar-hide"]
                            (when trade-route?
                              ["xl:overflow-y-hidden"]))]
@@ -101,7 +113,7 @@
            :data-parity-id "app-root"}
      (header-view/header-view state)
      (spectate-mode-banner state)
-     [:div {:class ["flex-1" "min-h-0" "pb-[5rem]" "lg:pb-12" "flex" "flex-col"]
+     [:div {:class app-main-classes
             :data-parity-id "app-main"}
       (cond
         trade-route? (trade-view/trade-view state)
