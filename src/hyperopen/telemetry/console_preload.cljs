@@ -1,6 +1,5 @@
 (ns hyperopen.telemetry.console-preload
   (:require [clojure.string :as str]
-            [hyperopen.api.trading :as trading-api]
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.runtime.validation :as runtime-validation]
             [nexus.registry :as nxr]
@@ -8,9 +7,9 @@
             [hyperopen.registry.runtime :as runtime-registry]
             [hyperopen.system :as app-system]
             [hyperopen.telemetry :as telemetry]
+            [hyperopen.telemetry.console-preload.simulators :as simulators]
             [hyperopen.views.account-info.vm :as account-info-vm]
             [hyperopen.views.trade.order-form-vm :as order-form-vm]
-            [hyperopen.wallet.core :as wallet-core]
             [hyperopen.websocket.market-projection-runtime :as market-projection-runtime]
             [hyperopen.websocket.client-compat :as ws-client-compat]
             [hyperopen.websocket.client :as ws-client]))
@@ -396,213 +395,6 @@
                        (js/setTimeout tick poll-ms)))))]
          (tick))))))
 
-(defonce ^:private wallet-simulator-state
-  (atom nil))
-
-(defonce ^:private wallet-connected-handler-restore
-  (atom nil))
-
-(def ^:private default-simulated-typed-data-signature
-  (str "0x"
-       (apply str (repeat 64 "1"))
-       (apply str (repeat 64 "2"))
-       "1b"))
-
-(defn- normalize-wallet-simulator-config
-  [config]
-  (let [config* (cond
-                  (map? config) config
-                  (js-plain-object? config) (js->clj config :keywordize-keys true)
-                  :else {})]
-    {:accounts (vec (map str (or (:accounts config*) [])))
-     :request-accounts (vec (map str (or (:request-accounts config*)
-                                         (:requestAccounts config*)
-                                         (:accounts config*)
-                                         [])))
-     :chain-id (or (:chain-id config*)
-                   (:chainId config*)
-                   "0xa4b1")
-     :accounts-error (or (:accounts-error config*)
-                         (:accountsError config*))
-     :request-accounts-error (or (:request-accounts-error config*)
-                                 (:requestAccountsError config*))
-     :typed-data-signature (or (:typed-data-signature config*)
-                               (:typedDataSignature config*)
-                               default-simulated-typed-data-signature)
-     :typed-data-error (or (:typed-data-error config*)
-                           (:typedDataError config*))
-     :switch-chain-error (or (:switch-chain-error config*)
-                             (:switchChainError config*))}))
-
-(defn- wallet-simulator-state-snapshot
-  []
-  (let [{:keys [config listeners]} @wallet-simulator-state]
-    {:installed (boolean @wallet-simulator-state)
-     :config config
-     :listenerCounts (into {}
-                           (map (fn [[event handlers]]
-                                  [(name event) (count handlers)]))
-                           (or (some-> listeners deref) {}))}))
-
-(defn- clear-wallet-simulator!
-  []
-  (let [{:keys [previous-global-provider previous-window previous-window-provider]} @wallet-simulator-state
-        current-window (aget js/globalThis "window")]
-    (if (some? previous-global-provider)
-      (aset js/globalThis "ethereum" previous-global-provider)
-      (js-delete js/globalThis "ethereum"))
-    (if (some? previous-window)
-      (do
-        (aset previous-window "ethereum" previous-window-provider)
-        (aset js/globalThis "window" previous-window))
-      (do
-        (when current-window
-          (js-delete current-window "ethereum"))
-        (js-delete js/globalThis "window"))))
-  (reset! wallet-simulator-state nil)
-  (wallet-core/clear-provider-override!)
-  (wallet-core/reset-provider-listener-state!)
-  true)
-
-(defn- wallet-connected-handler-mode-snapshot
-  []
-  {:mode (if @wallet-connected-handler-restore
-           "suppressed"
-           "passthrough")
-   :suppressed (boolean @wallet-connected-handler-restore)
-   :hasHandler (boolean (wallet-core/current-on-connected-handler))})
-
-(defn- set-wallet-connected-handler-mode!
-  [mode]
-  (let [mode* (some-> mode str str/lower-case)]
-    (case mode*
-      "suppress"
-      (do
-        (when-not @wallet-connected-handler-restore
-          (reset! wallet-connected-handler-restore
-                  (wallet-core/current-on-connected-handler)))
-        (wallet-core/clear-on-connected-handler!)
-        (clj->js (wallet-connected-handler-mode-snapshot)))
-
-      ("restore" "passthrough" nil)
-      (do
-        (if-let [handler @wallet-connected-handler-restore]
-          (wallet-core/set-on-connected-handler! handler)
-          (wallet-core/clear-on-connected-handler!))
-        (reset! wallet-connected-handler-restore nil)
-        (clj->js (wallet-connected-handler-mode-snapshot)))
-
-      (throw (js/Error.
-              (str "Unknown wallet connected handler mode: "
-                   mode
-                   ". Expected 'suppress' or 'passthrough'."))))))
-
-(defn- install-wallet-simulator!
-  [config]
-  (let [config* (normalize-wallet-simulator-config config)
-        listeners (atom {})
-        previous-window (aget js/globalThis "window")
-        window-object (or previous-window #js {})
-        previous-window-provider (aget window-object "ethereum")
-        previous-global-provider (aget js/globalThis "ethereum")
-        provider #js {}]
-    (when-not previous-window
-      (aset js/globalThis "window" window-object))
-    (aset provider "request"
-          (fn [request]
-            (let [{:keys [method params]} (js->clj request :keywordize-keys true)
-                  simulator-config (or (get-in @wallet-simulator-state [:config]) config*)]
-              (case method
-                "eth_accounts"
-                (if-let [message (:accounts-error simulator-config)]
-                  (js/Promise.reject (js/Error. (str message)))
-                  (js/Promise.resolve (clj->js (:accounts simulator-config))))
-
-                "eth_requestAccounts"
-                (if-let [message (:request-accounts-error simulator-config)]
-                  (js/Promise.reject (js/Error. (str message)))
-                  (js/Promise.resolve (clj->js (:request-accounts simulator-config))))
-
-                ("eth_signTypedData_v4" "eth_signTypedData")
-                (if-let [message (:typed-data-error simulator-config)]
-                  (js/Promise.reject (js/Error. (str message)))
-                  (js/Promise.resolve (:typed-data-signature simulator-config)))
-
-                "wallet_switchEthereumChain"
-                (if-let [message (:switch-chain-error simulator-config)]
-                  (js/Promise.reject (js/Error. (str message)))
-                  (let [next-chain-id (or (some-> params first (aget "chainId"))
-                                          (some-> params first :chainId)
-                                          (:chain-id simulator-config))]
-                    (swap! wallet-simulator-state assoc-in [:config :chain-id] next-chain-id)
-                    ((aget provider "__emit") "chainChanged" next-chain-id)
-                    (js/Promise.resolve nil)))
-
-                (js/Promise.resolve nil)))))
-    (aset provider "on"
-          (fn [event handler]
-            (swap! listeners update (keyword event) (fnil conj []) handler)
-            true))
-    (aset provider "removeListener"
-          (fn [event handler]
-            (swap! listeners update (keyword event)
-                   (fn [handlers]
-                     (vec (remove #(identical? % handler) (or handlers [])))))
-            true))
-    (aset provider "__emit"
-          (fn [event payload]
-            (doseq [handler (get @listeners (keyword event) [])]
-              (handler (if (or (map? payload)
-                               (vector? payload)
-                               (seq? payload))
-                         (clj->js payload)
-                         payload)))
-            true))
-    (reset! wallet-simulator-state {:config config*
-                                    :listeners listeners
-                                    :provider provider
-                                    :previous-global-provider previous-global-provider
-                                    :previous-window previous-window
-                                    :previous-window-provider previous-window-provider})
-    (aset window-object "ethereum" provider)
-    (aset js/globalThis "ethereum" provider)
-    (wallet-core/set-provider-override! provider)
-    (wallet-core/reset-provider-listener-state!)
-    (wallet-core/attach-listeners! app-system/store)
-    (clj->js (wallet-simulator-state-snapshot))))
-
-(defn- emit-wallet-simulator!
-  [event payload]
-  (if-let [provider (:provider @wallet-simulator-state)]
-    (do
-      ((aget provider "__emit") event payload)
-      (clj->js (wallet-simulator-state-snapshot)))
-    (throw (js/Error. "Wallet simulator is not installed."))))
-
-(defn- install-exchange-simulator!
-  [config]
-  (let [config* (cond
-                  (map? config) config
-                  (js-plain-object? config) (js->clj config :keywordize-keys true)
-                  :else {})]
-    (trading-api/set-debug-exchange-simulator! config*)
-    (clj->js (trading-api/debug-exchange-simulator-snapshot))))
-
-(defn- clear-exchange-simulator!
-  []
-  (trading-api/clear-debug-exchange-simulator!)
-  true)
-
-(defn- qa-reset!
-  []
-  (runtime-validation/clear-debug-action-effect-traces!)
-  (set-wallet-connected-handler-mode! "passthrough")
-  (clear-wallet-simulator!)
-  (clear-exchange-simulator!)
-  (telemetry/clear-events!)
-  (ws-client/clear-flight-recording!)
-  #js {:ok true})
-
 (defn- take-last-vec
   [limit coll]
   (->> (or coll [])
@@ -710,13 +502,13 @@
                                               (map? args) args
                                               (js-plain-object? args) (js->clj args :keywordize-keys true)
                                               :else {}))))
-       :qaReset qa-reset!
-       :setWalletConnectedHandlerMode set-wallet-connected-handler-mode!
-       :installWalletSimulator install-wallet-simulator!
-       :walletSimulatorEmit emit-wallet-simulator!
-       :clearWalletSimulator clear-wallet-simulator!
-       :installExchangeSimulator install-exchange-simulator!
-       :clearExchangeSimulator clear-exchange-simulator!
+       :qaReset simulators/qa-reset!
+       :setWalletConnectedHandlerMode simulators/set-wallet-connected-handler-mode!
+       :installWalletSimulator simulators/install-wallet-simulator!
+       :walletSimulatorEmit simulators/emit-wallet-simulator!
+       :clearWalletSimulator simulators/clear-wallet-simulator!
+       :installExchangeSimulator simulators/install-exchange-simulator!
+       :clearExchangeSimulator simulators/clear-exchange-simulator!
        :flightRecording (fn []
                           (clj->js (ws-client/get-flight-recording)))
        :flightRecordingRedacted (fn []

@@ -1,5 +1,5 @@
 (ns hyperopen.telemetry.console-preload-test
-  (:require [cljs.test :refer-macros [deftest is testing]]
+  (:require [cljs.test :refer-macros [async deftest is testing]]
             [nexus.registry :as nxr]
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.system :as app-system]
@@ -88,6 +88,101 @@
         (is (= [[:actions/toggle-asset-dropdown :asset-selector]
                 [:actions/select-order-entry-mode :limit]]
                @dispatched))))))
+
+(deftest normalize-debug-wire-value-handles-keywords-collections-js-arrays-and-plain-objects-test
+  (let [normalize-wire-value @#'console-preload/normalize-debug-wire-value
+        js-object (doto #js {}
+                    (aset "mode" ":fast")
+                    (aset "labels" #js [":one" "two"]))
+        normalized (normalize-wire-value
+                    {:keyword :already
+                     :keyword-string ":hello"
+                     :plain-string "world"
+                     :vector [":a" "b"]
+                     :seq '(":c" "d")
+                     :array #js [":e" "f"]
+                     :object js-object
+                     ":map-key" ":map-value"
+                     :number 42})]
+    (is (= :already (:keyword normalized)))
+    (is (= :hello (:keyword-string normalized)))
+    (is (= "world" (:plain-string normalized)))
+    (is (= [:a "b"] (:vector normalized)))
+    (is (= [:c "d"] (:seq normalized)))
+    (is (= [:e "f"] (:array normalized)))
+    (is (= {:mode :fast
+            :labels [:one "two"]}
+           (:object normalized)))
+    (is (= :map-value (get normalized :map-key)))
+    (is (= 42 (:number normalized)))))
+
+(deftest wait-for-idle-resolves-true-after-quiet-period-test
+  (async done
+    (let [original-state @app-system/store
+          wait-for-idle @#'console-preload/wait-for-idle]
+      (try
+        (swap! app-system/store assoc :router {:path "/idle-stable"})
+        (-> (wait-for-idle #js {:quietMs 10
+                                :timeoutMs 25
+                                :pollMs 1})
+            (.then (fn [result]
+                     (try
+                       (let [result* (js->clj result :keywordize-keys true)]
+                         (is (true? (:settled result*)))
+                         (is (>= (:quietForMs result*) 10))
+                         (is (>= (:elapsedMs result*) 10)))
+                       (finally
+                         (reset! app-system/store original-state)
+                         (done)))))
+            (.catch (fn [err]
+                      (reset! app-system/store original-state)
+                      (is false (str "Unexpected waitForIdle settle-path error: " err))
+                      (done))))
+        (catch :default err
+          (reset! app-system/store original-state)
+          (is false (str "Unexpected waitForIdle setup error: " err))
+          (done))))))
+
+(deftest wait-for-idle-times-out-false-when-digest-keeps-changing-test
+  (async done
+    (let [original-state @app-system/store
+          wait-for-idle @#'console-preload/wait-for-idle
+          interval-id (atom nil)]
+      (try
+        (swap! app-system/store assoc :router {:path "/idle-one"})
+        (reset! interval-id
+                (js/setInterval
+                 (fn []
+                   (swap! app-system/store update-in [:router :path]
+                          (fn [path]
+                            (if (= path "/idle-one")
+                              "/idle-two"
+                              "/idle-one"))))
+                 1))
+        (-> (wait-for-idle {:quiet-ms 20
+                            :timeout-ms 5
+                            :poll-ms 1})
+            (.then (fn [result]
+                     (try
+                       (let [result* (js->clj result :keywordize-keys true)]
+                         (is (false? (:settled result*)))
+                         (is (>= (:elapsedMs result*) 20))
+                         (is (< (:quietForMs result*) 20)))
+                       (finally
+                         (js/clearInterval @interval-id)
+                         (reset! app-system/store original-state)
+                         (done)))))
+            (.catch (fn [err]
+                      (js/clearInterval @interval-id)
+                      (reset! app-system/store original-state)
+                      (is false (str "Unexpected waitForIdle timeout-path error: " err))
+                      (done))))
+        (catch :default err
+          (when @interval-id
+            (js/clearInterval @interval-id))
+          (reset! app-system/store original-state)
+          (is false (str "Unexpected waitForIdle timeout setup error: " err))
+          (done))))))
 
 (deftest oracle-api-surfaces-wallet-and-order-form-state-test
   (let [store (atom {:active-asset "BTC"
