@@ -1,6 +1,7 @@
 (ns hyperopen.websocket.endpoints-coverage-test
   (:require [cljs.test :refer-macros [async deftest is]]
             [hyperopen.api.endpoints.account :as account-endpoints]
+            [hyperopen.api.endpoints.funding-hyperunit :as funding-hyperunit-endpoints]
             [hyperopen.api.endpoints.market :as market-endpoints]
             [hyperopen.api.endpoints.orders :as orders-endpoints]
             [hyperopen.api.endpoints.vaults :as vaults-endpoints]
@@ -13,6 +14,26 @@
        :status 200
        :json (fn []
                (js/Promise.resolve (clj->js payload)))})
+
+(defn- ok-text-response
+  [payload]
+  #js {:ok true
+       :status 200
+       :text (fn []
+               (js/Promise.resolve
+                (if (string? payload)
+                  payload
+                  (js/JSON.stringify (clj->js payload)))))})
+
+(defn- error-text-response
+  [status payload]
+  #js {:ok false
+       :status status
+       :text (fn []
+               (js/Promise.resolve
+                (if (string? payload)
+                  payload
+                  (js/JSON.stringify (clj->js payload)))))} )
 
 (deftest ws-account-endpoints-coverage-smoke-test
   (async done
@@ -104,6 +125,58 @@
                (done))))
           (.catch (async-support/unexpected-error done))))))
 
+(deftest ws-account-endpoints-extra-agent-and-webdata-normalization-coverage-test
+  (async done
+    (let [calls (atom [])
+          address "0xABCDEFabcdefABCDEFabcdefABCDEFabcdefABCD"
+          post-info! (api-stubs/post-info-stub
+                      calls
+                      (fn [body _opts]
+                        (case (get body "type")
+                          "extraAgents" {:data {:wallets [{:walletName " Desk "
+                                                           :walletAddress address
+                                                           :valid-until-ms "1700"}
+                                                          {:agentName "Ignored"
+                                                           :agentAddress "  "}
+                                                          :invalid]}}
+                          "webData2" "not-a-map"
+                          nil)))]
+      (-> (js/Promise.all
+           #js [(account-endpoints/request-extra-agents! post-info! address {})
+                (account-endpoints/request-user-webdata2! post-info! address {})
+                (account-endpoints/request-extra-agents! post-info! nil {})
+                (account-endpoints/request-user-webdata2! post-info! nil {})])
+          (.then
+           (fn [results]
+             (let [results* (vec (array-seq results))]
+               (is (= [{:row-kind :named
+                        :name "Desk"
+                        :approval-name "Desk"
+                        :address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+                        :valid-until-ms 1700}]
+                      (nth results* 0)))
+               (is (= {} (nth results* 1)))
+               (is (= [] (nth results* 2)))
+               (is (= {} (nth results* 3)))
+               (let [[extra-body extra-opts] (first @calls)
+                     [webdata-body webdata-opts] (second @calls)]
+                 (is (= {"type" "extraAgents"
+                         "user" address}
+                        extra-body))
+                 (is (= {:priority :high
+                         :dedupe-key [:extra-agents "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
+                         :cache-ttl-ms 5000}
+                        extra-opts))
+                 (is (= {"type" "webData2"
+                         "user" address}
+                        webdata-body))
+                 (is (= {:priority :high
+                         :dedupe-key [:user-webdata2 "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
+                         :cache-ttl-ms 5000}
+                        webdata-opts)))
+               (done))))
+          (.catch (async-support/unexpected-error done))))))
+
 (deftest ws-market-endpoints-coverage-smoke-test
   (async done
     (let [calls (atom [])
@@ -181,6 +254,106 @@
                    (done))))
               (.catch (async-support/unexpected-error done))))))))
 
+(deftest ws-market-endpoints-funding-history-pagination-coverage-test
+  (async done
+    (let [calls (atom [])
+          coin "BTC"
+          post-info! (fn [body opts]
+                       (swap! calls conj [body opts])
+                       (js/Promise.resolve
+                        {:data {:fundingHistory (case (count @calls)
+                                                  1 [{:coin coin
+                                                      :fundingRate "0.01"
+                                                      :premium "0.001"
+                                                      :time "100"}
+                                                     {:coin coin
+                                                      :fundingRate "0.02"
+                                                      :premium "bad"
+                                                      :time 101}]
+                                                  2 [{:coin coin
+                                                      :fundingRate "0.02"
+                                                      :premium "0.002"
+                                                      :time 101}
+                                                     {:coin coin
+                                                      :fundingRate "0.03"
+                                                      :premium "0.003"
+                                                      :time-ms "102"}]
+                                                  [])}}))]
+      (-> (js/Promise.all
+           #js [(market-endpoints/request-market-funding-history!
+                 post-info!
+                 coin
+                 {:start-time-ms 100
+                  :end-time-ms 102
+                  :market-funding-history-page-size 2
+                  :dedupe-key :explicit-flight
+                  :cache-key :explicit-cache
+                  :priority :low})
+                (market-endpoints/request-market-funding-history!
+                 post-info!
+                 "   "
+                 {:start-time-ms 100})])
+          (.then
+           (fn [results]
+             (let [results* (vec (array-seq results))
+                   rows (nth results* 0)
+                   [[body-1 opts-1] [body-2 opts-2]] @calls]
+               (is (= [] (nth results* 1)))
+               (is (= [{:coin coin
+                        :time-ms 100
+                        :time 100
+                        :funding-rate-raw 0.01
+                        :fundingRate 0.01
+                        :premium 0.001}
+                       {:coin coin
+                        :time-ms 101
+                        :time 101
+                        :funding-rate-raw 0.02
+                        :fundingRate 0.02
+                        :premium 0.002}
+                       {:coin coin
+                        :time-ms 102
+                        :time 102
+                        :funding-rate-raw 0.03
+                        :fundingRate 0.03
+                        :premium 0.003}]
+                      rows))
+               (is (= 2 (count @calls)))
+               (is (= {"type" "fundingHistory"
+                       "coin" coin
+                       "startTime" 100
+                       "endTime" 102}
+                      body-1))
+               (is (= {"type" "fundingHistory"
+                       "coin" coin
+                       "startTime" 102
+                       "endTime" 102}
+                      body-2))
+               (is (= {:priority :low
+                       :dedupe-key [:market-funding-history-page
+                                    :explicit-flight
+                                    100
+                                    102]
+                       :cache-key [:market-funding-history-page-cache
+                                   :explicit-cache
+                                   100
+                                   102]
+                       :cache-ttl-ms 15000}
+                      opts-1))
+               (is (= {:priority :low
+                       :dedupe-key [:market-funding-history-page
+                                    :explicit-flight
+                                    102
+                                    102]
+                       :cache-key [:market-funding-history-page-cache
+                                   :explicit-cache
+                                   102
+                                   102]
+                       :cache-ttl-ms 15000}
+                      opts-2))
+               (done))))
+          (.catch (async-support/unexpected-error done))))))
+
 (deftest ws-orders-endpoints-coverage-smoke-test
   (async done
     (let [calls (atom [])
@@ -219,6 +392,268 @@
                (is (= 2 (count (nth results* 3))))
                (is (= "SOL" (get-in results* [3 0 :order :coin])))
                (is (= [] (nth results* 4)))
+               (done))))
+          (.catch (async-support/unexpected-error done))))))
+
+(deftest ws-orders-endpoints-historical-orders-payload-shape-coverage-test
+  (async done
+    (let [calls (atom [])
+          post-info! (api-stubs/post-info-stub
+                      calls
+                      (fn [body _opts]
+                        (case (count @calls)
+                          1 {:historicalOrders [{:coin "ETH"
+                                                 :oid 2}]}
+                          2 {:data [{:coin "DOGE"
+                                     :oid 3}]}
+                          {:data {:unexpected true}})))]
+      (-> (js/Promise.all
+           #js [(orders-endpoints/request-historical-orders! post-info! "0xAbC" {:priority :low})
+                (orders-endpoints/request-historical-orders! post-info! "0xAbC" {:priority :low})
+                (orders-endpoints/request-historical-orders! post-info! "0xAbC" {:priority :low})])
+          (.then
+           (fn [results]
+             (let [results* (vec (array-seq results))]
+               (is (= "ETH" (get-in results* [0 0 :order :coin])))
+               (is (= "DOGE" (get-in results* [1 0 :order :coin])))
+               (is (= [] (nth results* 2)))
+               (is (= {:priority :low
+                       :dedupe-key [:historical-orders "0xabc"]
+                       :cache-ttl-ms 5000}
+                      (second (first @calls))))
+               (done))))
+          (.catch (async-support/unexpected-error done))))))
+
+(deftest ws-funding-hyperunit-endpoints-normalizer-coverage-test
+  (let [generate-response (funding-hyperunit-endpoints/normalize-generate-address-response
+                           {:address " 0xProtocol "
+                            :status " signed "
+                            :signatures {:field-node "sig-a"
+                                         :ignored " "}
+                            :signature-operation-id "op-1"
+                            :signature-endpoint-error "signature lag"
+                            :is-sufficiently-signed "false"
+                            :detail "still signing"})
+        operations-response (funding-hyperunit-endpoints/normalize-operations-response
+                             {:addresses [{:sourceCoinType "Bitcoin"
+                                           :sourceChain "bitcoin"
+                                           :destinationChain "hyperliquid"
+                                           :address "tb1x"
+                                           :signatures {"field-node" "sig-a"}}
+                                          {:address "  "}]
+                              :operations [{:operationId "op-1"
+                                            :protocolAddress "tb1x"
+                                            :sourceAddress "tb1src"
+                                            :destinationAddress "0xDest"
+                                            :sourceChain "bitcoin"
+                                            :destinationChain "hyperliquid"
+                                            :sourceAmount 42
+                                            :destinationFeeAmount "0.1"
+                                            :sweepFeeAmount "0"
+                                            :state "waitForSrcTxFinalization"
+                                            :sourceTxConfirmations "2"
+                                            :destinationTxConfirmations 1
+                                            :positionInWithdrawQueue "3"
+                                            :asset "BTC"}
+                                           {:operationId "op-2"
+                                            :state "  "
+                                            :asset "USDC"}]})
+        estimate-fees-response (funding-hyperunit-endpoints/normalize-estimate-fees-response
+                                {"bitcoin" {"bitcoin-depositEta" "21m"
+                                            "bitcoin-depositFee" "2065"
+                                            "bitcoin-withdrawalEta" "14m"
+                                            "bitcoin-withdrawalFee" 715}
+                                 :ethereum {:ethereum-deposit-eta "5m"
+                                            :ethereum-withdrawal-fee "1.2"}})
+        withdrawal-queue-response (funding-hyperunit-endpoints/normalize-withdrawal-queue-response
+                                   {:bitcoin {:lastWithdrawQueueOperationTxID "tx-a"
+                                              :withdrawalQueueLength 2}
+                                    :ethereum {:lastWithdrawQueueOperationTxId "tx-b"
+                                               :withdrawal-queue-length "0"}})]
+    (is (= "https://api.hyperunit-testnet.xyz/gen/bitcoin/hyperliquid/USDC/0xAbC%20123"
+           (funding-hyperunit-endpoints/generate-address-url
+            "https://api.hyperunit-testnet.xyz/"
+            " bitcoin "
+            "hyperliquid"
+            " USDC "
+            "0xAbC 123")))
+    (is (= "https://api.hyperunit.xyz/operations/0xAbC"
+           (funding-hyperunit-endpoints/operations-url
+            funding-hyperunit-endpoints/default-mainnet-base-url
+            "0xAbC")))
+    (is (= "https://api.hyperunit.xyz/v2/estimate-fees"
+           (funding-hyperunit-endpoints/estimate-fees-url nil)))
+    (is (= "https://api.hyperunit.xyz/withdrawal-queue"
+           (funding-hyperunit-endpoints/withdrawal-queue-url nil)))
+    (is (= {:address "0xProtocol"
+            :status "signed"
+            :signatures {"field-node" "sig-a"}
+            :signature-operation-id "op-1"
+            :signature-endpoint-error "signature lag"
+            :sufficiently-signed? false
+            :error "still signing"}
+           generate-response))
+    (is (= [{:source-coin-type "bitcoin"
+             :source-chain "bitcoin"
+             :destination-chain "hyperliquid"
+             :address "tb1x"
+             :signatures {"field-node" "sig-a"}}]
+           (:addresses operations-response)))
+    (is (= "op-1" (get-in operations-response [:operations 0 :operation-id])))
+    (is (= :wait-for-src-tx-finalization
+           (get-in operations-response [:operations 0 :state-key])))
+    (is (= "42"
+           (get-in operations-response [:operations 0 :source-amount])))
+    (is (= 3
+           (get-in operations-response [:operations 0 :position-in-withdraw-queue])))
+    (is (= "usdc"
+           (get-in operations-response [:operations 1 :asset])))
+    (is (= {:chain "bitcoin"
+            :deposit-eta "21m"
+            :withdrawal-eta "14m"
+            :deposit-fee 2065
+            :withdrawal-fee 715
+            :metrics {"bitcoin-depositEta" "21m"
+                      "bitcoin-depositFee" 2065
+                      "bitcoin-withdrawalEta" "14m"
+                      "bitcoin-withdrawalFee" 715}}
+           (get-in estimate-fees-response [:by-chain "bitcoin"])))
+    (is (= 2 (count (:chains estimate-fees-response))))
+    (is (= {:chain "bitcoin"
+            :last-withdraw-queue-operation-tx-id "tx-a"
+            :withdrawal-queue-length 2}
+           (get-in withdrawal-queue-response [:by-chain "bitcoin"])))
+    (is (= {:chain "ethereum"
+            :last-withdraw-queue-operation-tx-id "tx-b"
+            :withdrawal-queue-length 0}
+           (get-in withdrawal-queue-response [:by-chain "ethereum"])))))
+
+(deftest ws-funding-hyperunit-endpoints-request-coverage-test
+  (async done
+    (let [generate-calls (atom [])
+          generate-fetch-fn (fn [url init]
+                              (swap! generate-calls conj [url (js->clj init :keywordize-keys true)])
+                              (js/Promise.resolve
+                               (ok-text-response
+                                {:address "0xProtocolAddress"
+                                 :status "OK"
+                                 :isSufficientlySigned "true"
+                                 :signatures {"field-node" "sig-a"
+                                              "hl-node" "sig-b"}})))
+          error-fetch-fn (fn [_url _init]
+                           (js/Promise.resolve
+                            (error-text-response 422 {:message "invalid request"})))
+          operations-calls (atom 0)
+          operations-fetch-fn (fn [_url _init]
+                                (swap! operations-calls inc)
+                                (js/Promise.resolve
+                                 {:addresses [{:sourceChain "bitcoin"
+                                               :destinationChain "hyperliquid"
+                                               :address "tb1x"}]
+                                  :operations [{:operationId "op-1"
+                                                :state "queued"
+                                                :asset "BTC"}]}))
+          estimate-calls (atom [])
+          estimate-fetch-fn (fn [url init]
+                              (swap! estimate-calls conj [url (js->clj init :keywordize-keys true)])
+                              (js/Promise.resolve
+                               (ok-response
+                                {:bitcoin {"bitcoin-depositFee" 10
+                                           "bitcoin-withdrawalFee" 11}})))
+          queue-fetch-fn (fn [_url _init]
+                           (js/Promise.resolve
+                            #js {:ok true
+                                 :status 200
+                                 :text (fn []
+                                         (js/Promise.resolve ""))}))]
+      (-> (js/Promise.all
+           #js [(funding-hyperunit-endpoints/request-generate-address!
+                 generate-fetch-fn
+                 "https://api.hyperunit-testnet.xyz/"
+                 {:source-chain " Bitcoin "
+                  :destination-chain "hyperliquid"
+                  :asset " BTC "
+                  :destination-address "0xAbC"})
+                (-> (funding-hyperunit-endpoints/request-generate-address!
+                     nil
+                     funding-hyperunit-endpoints/default-mainnet-base-url
+                     {:source-chain nil
+                      :destination-chain "hyperliquid"
+                      :asset "btc"
+                      :destination-address "0xabc"})
+                    (.then (fn [_] {:status :unexpected}))
+                    (.catch (fn [err]
+                              {:message (.-message err)})))
+                (-> (funding-hyperunit-endpoints/request-generate-address!
+                     error-fetch-fn
+                     funding-hyperunit-endpoints/default-mainnet-base-url
+                     {:source-chain "bitcoin"
+                      :destination-chain "hyperliquid"
+                      :asset "btc"
+                      :destination-address "0xabc"})
+                    (.then (fn [_] {:status :unexpected}))
+                    (.catch (fn [err]
+                              {:status (aget err "status")
+                               :message (.-message err)})))
+                (funding-hyperunit-endpoints/request-operations!
+                 operations-fetch-fn
+                 funding-hyperunit-endpoints/default-mainnet-base-url
+                 {:address "0xabc"})
+                (funding-hyperunit-endpoints/request-operations!
+                 operations-fetch-fn
+                 funding-hyperunit-endpoints/default-mainnet-base-url
+                 {:address "   "})
+                (funding-hyperunit-endpoints/request-estimate-fees!
+                 estimate-fetch-fn
+                 funding-hyperunit-endpoints/default-mainnet-base-url
+                 {:fetch-opts {:method "post"
+                               :body "{}"}})
+                (funding-hyperunit-endpoints/request-withdrawal-queue!
+                 queue-fetch-fn
+                 funding-hyperunit-endpoints/default-mainnet-base-url
+                 {})])
+          (.then
+           (fn [results]
+             (let [results* (vec (array-seq results))
+                   [generate-url generate-init] (first @generate-calls)
+                   [estimate-url estimate-init] (first @estimate-calls)]
+               (is (= "https://api.hyperunit-testnet.xyz/gen/bitcoin/hyperliquid/btc/0xAbC"
+                      generate-url))
+               (is (= {:method "GET"}
+                      generate-init))
+               (is (= {:address "0xProtocolAddress"
+                       :status "OK"
+                       :signatures {"field-node" "sig-a"
+                                    "hl-node" "sig-b"}
+                       :signature-operation-id nil
+                       :signature-endpoint-error nil
+                       :sufficiently-signed? true
+                       :error nil}
+                      (nth results* 0)))
+               (is (= {:message "HyperUnit source chain is required."}
+                      (nth results* 1)))
+               (is (= {:status 422
+                       :message "invalid request"}
+                      (nth results* 2)))
+               (is (= "tb1x"
+                      (get-in results* [3 :addresses 0 :address])))
+               (is (= {:addresses []
+                       :operations []
+                       :error nil}
+                      (nth results* 4)))
+               (is (= 1 @operations-calls))
+               (is (= "https://api.hyperunit.xyz/v2/estimate-fees"
+                      estimate-url))
+               (is (= {:method "post"
+                       :headers {:Content-Type "application/json"}
+                       :body "{}"}
+                      estimate-init))
+               (is (= 10
+                      (get-in results* [5 :by-chain "bitcoin" :deposit-fee])))
+               (is (= {:by-chain {}
+                       :chains []
+                       :error nil}
+                      (nth results* 6)))
                (done))))
           (.catch (async-support/unexpected-error done))))))
 
