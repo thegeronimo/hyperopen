@@ -254,6 +254,31 @@
   [state request]
   (order-effects/prune-canceled-open-orders state request))
 
+(defn- cancel-request-oids
+  [request]
+  (->> (get-in request [:action :cancels] [])
+       (keep trading-api/resolve-cancel-order-oid)
+       set))
+
+(defn- next-pending-cancel-oids
+  [state cancel-oids]
+  (when (seq cancel-oids)
+    (into (if-let [pending (get-in state [:orders :pending-cancel-oids])]
+            (if (set? pending)
+              pending
+              (set pending))
+            #{})
+          cancel-oids)))
+
+(defn- cancel-order-projection-effects
+  [state request]
+  (let [cancel-oids (cancel-request-oids request)
+        path-values (cond-> [[[:orders :cancel-error] nil]]
+                      (seq cancel-oids)
+                      (conj [[:orders :pending-cancel-oids]
+                             (next-pending-cancel-oids state cancel-oids)]))]
+    [[:effects/save-many path-values]]))
+
 (defn cancel-order [state order]
   (let [spectate-mode-message (account-context/mutations-blocked-message state)
         agent-ready? (= :ready (get-in state [:wallet :agent :status]))
@@ -266,7 +291,8 @@
       [[:effects/save [:orders :cancel-error] "Enable trading before cancelling orders."]]
 
       (map? request)
-      [[:effects/api-cancel-order request]]
+      (into (cancel-order-projection-effects state request)
+            [[:effects/api-cancel-order request]])
 
       :else
       [[:effects/save [:orders :cancel-error] "Missing asset or order id."]])))

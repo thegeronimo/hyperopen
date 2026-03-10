@@ -1,6 +1,8 @@
 (ns hyperopen.views.trading-chart.core
   (:require [clojure.string :as str]
+            [nexus.registry :as nxr]
             [replicant.core :as replicant-core]
+            [hyperopen.system :as app-system]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.state.trading :as trading-state]
             [hyperopen.views.account-info.projections :as account-projections]
@@ -44,20 +46,42 @@
       (sequential? fills-source) (vec fills-source)
       :else [])))
 
-(defn- dispatch-chart-cancel-order!
-  [order]
-  (let [dispatch-fn replicant-core/*dispatch*]
-    (when (and (ifn? dispatch-fn)
-               (map? order))
-      (dispatch-fn {:replicant/trigger :chart-order-overlay-cancel}
-                   [[:actions/cancel-order order]]))))
+(defn- runtime-dispatch-fn
+  []
+  (when app-system/store
+    (fn [event actions]
+      (nxr/dispatch app-system/store event actions))))
 
-(defn- dispatch-hide-volume-indicator!
+(defn- current-dispatch-fn
   []
   (let [dispatch-fn replicant-core/*dispatch*]
-    (when (ifn? dispatch-fn)
-      (dispatch-fn {:replicant/trigger :chart-volume-indicator-remove}
-                   [[:actions/hide-volume-indicator]]))))
+    (or (when (ifn? dispatch-fn)
+          dispatch-fn)
+        (runtime-dispatch-fn))))
+
+(defn- dispatch-chart-actions!
+  [dispatch-fn trigger actions]
+  (when (and (ifn? dispatch-fn)
+             (seq actions))
+    (dispatch-fn {:replicant/trigger trigger}
+                 actions)))
+
+(defn- dispatch-chart-cancel-order!
+  ([order]
+   (dispatch-chart-cancel-order! (current-dispatch-fn) order))
+  ([dispatch-fn order]
+   (when (map? order)
+     (dispatch-chart-actions! dispatch-fn
+                              :chart-order-overlay-cancel
+                              [[:actions/cancel-order order]]))))
+
+(defn- dispatch-hide-volume-indicator!
+  ([]
+   (dispatch-hide-volume-indicator! (current-dispatch-fn)))
+  ([dispatch-fn]
+   (dispatch-chart-actions! dispatch-fn
+                            :chart-volume-indicator-remove
+                            [[:actions/hide-volume-indicator]])))
 
 (defn- parse-positive-number
   [value]
@@ -101,27 +125,41 @@
       (:anchor suggestion)]]))
 
 (defn- dispatch-chart-liquidation-drag-margin-prefill!
-  [trigger position-data suggestion]
-  (let [dispatch-fn replicant-core/*dispatch*
-        actions (chart-liquidation-drag-prefill-actions position-data suggestion)]
-    (when (and (ifn? dispatch-fn)
-               (seq actions))
-      (dispatch-fn {:replicant/trigger trigger}
-                   actions))))
+  ([trigger position-data suggestion]
+   (dispatch-chart-liquidation-drag-margin-prefill!
+    (current-dispatch-fn)
+    trigger
+    position-data
+    suggestion))
+  ([dispatch-fn trigger position-data suggestion]
+   (let [actions (chart-liquidation-drag-prefill-actions position-data suggestion)]
+     (dispatch-chart-actions! dispatch-fn trigger actions))))
 
 (defn- dispatch-chart-liquidation-drag-margin-preview!
-  [position-data suggestion]
-  (dispatch-chart-liquidation-drag-margin-prefill!
-   :chart-liquidation-drag-margin-preview
-   position-data
-   suggestion))
+  ([position-data suggestion]
+   (dispatch-chart-liquidation-drag-margin-preview!
+    (current-dispatch-fn)
+    position-data
+    suggestion))
+  ([dispatch-fn position-data suggestion]
+   (dispatch-chart-liquidation-drag-margin-prefill!
+    dispatch-fn
+    :chart-liquidation-drag-margin-preview
+    position-data
+    suggestion)))
 
 (defn- dispatch-chart-liquidation-drag-margin-confirm!
-  [position-data suggestion]
-  (dispatch-chart-liquidation-drag-margin-prefill!
-   :chart-liquidation-drag-margin-confirm
-   position-data
-   suggestion))
+  ([position-data suggestion]
+   (dispatch-chart-liquidation-drag-margin-confirm!
+    (current-dispatch-fn)
+    position-data
+    suggestion))
+  ([dispatch-fn position-data suggestion]
+   (dispatch-chart-liquidation-drag-margin-prefill!
+    dispatch-fn
+    :chart-liquidation-drag-margin-confirm
+    position-data
+    suggestion)))
 
 (defn- format-chart-overlay-size
   [value]
@@ -413,6 +451,7 @@
 
 (defn trading-chart-view [state]
   (let [active-asset (:active-asset state)
+        dispatch-fn (current-dispatch-fn)
         active-open-orders (chart-open-orders state)
         active-fills (chart-fills state)
         candles-map (:candles state)
@@ -448,12 +487,16 @@
                                   :liquidation-price (:target-liquidation-price preview)))
         on-liquidation-drag-preview (fn [suggestion]
                                       (dispatch-chart-liquidation-drag-margin-preview!
+                                       dispatch-fn
                                        active-position-data
                                        suggestion))
         on-liquidation-drag-confirm (fn [suggestion]
                                       (dispatch-chart-liquidation-drag-margin-confirm!
+                                       dispatch-fn
                                        active-position-data
                                        suggestion))
+        on-cancel-order (fn [order]
+                          (dispatch-chart-cancel-order! dispatch-fn order))
         symbol (or active-asset "—")
         timeframe-label (str/upper-case (name selected-timeframe))
         price-decimals (or (:price-decimals active-market)
@@ -465,7 +508,7 @@
                                :legend-deps {:format-price fmt/format-trade-price-plain
                                              :format-delta fmt/format-trade-price-delta}
                                :volume-visible? (boolean (get-in state [:chart-options :volume-visible?] true))
-                               :on-hide-volume-indicator dispatch-hide-volume-indicator!
+                               :on-hide-volume-indicator #(dispatch-hide-volume-indicator! dispatch-fn)
                                :persistence-deps {:asset active-asset
                                                   :candles candle-data}
                                :on-liquidation-drag-preview on-liquidation-drag-preview
@@ -490,4 +533,4 @@
                       selected-timeframe
                       chart-runtime-options
                       active-open-orders
-                      dispatch-chart-cancel-order!))]]))
+                      on-cancel-order))]]))

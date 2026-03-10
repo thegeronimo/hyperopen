@@ -3,6 +3,7 @@
             [hyperopen.account.context :as account-context]
             [hyperopen.core.compat :as core]
             [hyperopen.order.actions :as order-actions]
+            [hyperopen.runtime.validation :as validation]
             [hyperopen.state.trading :as trading]
             [hyperopen.core-bootstrap.test-support.effect-extractors :as effect-extractors]))
 
@@ -515,7 +516,12 @@
         order {:coin "BTC"
                :oid 202}
         effects (core/cancel-order state order)
+        save-many-path-values (extract-save-many-path-values effects)
         cancel-effects (filter #(= (first %) :effects/api-cancel-order) effects)]
+    (is (= :effects/save-many (ffirst effects)))
+    (is (nil? (get save-many-path-values [:orders :cancel-error])))
+    (is (= #{202}
+           (get save-many-path-values [:orders :pending-cancel-oids])))
     (is (= 1 (count cancel-effects)))))
 
 (deftest cancel-order-falls-back-to-asset-selector-market-index-test
@@ -523,16 +529,40 @@
                         :address "0xabc"
                         :agent {:status :ready
                                 :storage-mode :session
-                                :agent-address "0xagent"}}
+                :agent-address "0xagent"}}
                :asset-contexts {}
                :asset-selector {:market-by-key {"perp:SOL" {:coin "SOL"
                                                             :idx 12}}}}
         order {:coin "SOL"
                :oid "307891000622"}
         effects (core/cancel-order state order)]
-    (is (= [[:effects/api-cancel-order {:action {:type "cancel"
+    (is (= [[:effects/save-many [[[:orders :cancel-error] nil]
+                                 [[:orders :pending-cancel-oids] #{307891000622}]]]
+            [:effects/api-cancel-order {:action {:type "cancel"
                                                  :cancels [{:a 12 :o 307891000622}]}}]]
            effects))))
+
+(deftest cancel-order-passes-runtime-effect-order-contract-test
+  (let [state {:wallet {:connected? true
+                        :address "0xabc"
+                        :agent {:status :ready
+                                :storage-mode :session
+                                :agent-address "0xagent"}}
+               :asset-contexts {:BTC {:idx 0}}}
+        order {:coin "BTC"
+               :oid 303}]
+    (with-redefs [validation/validation-enabled? (constantly true)]
+      (let [wrapped (validation/wrap-action-handler :actions/cancel-order core/cancel-order)
+            effects (wrapped state order)
+            save-many-path-values (extract-save-many-path-values effects)]
+        (is (= :effects/save-many (ffirst effects)))
+        (is (nil? (get save-many-path-values [:orders :cancel-error])))
+        (is (= #{303}
+               (get save-many-path-values [:orders :pending-cancel-oids])))
+        (is (= [:effects/api-cancel-order
+                {:action {:type "cancel"
+                          :cancels [{:a 0 :o 303}]}}]
+               (last effects)))))))
 
 (deftest prune-canceled-open-orders-removes-canceled-oid-across-all-sources-test
   (let [state {:orders {:open-orders [{:order {:coin "BTC" :oid 101}}

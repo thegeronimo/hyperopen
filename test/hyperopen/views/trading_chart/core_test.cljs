@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is]]
             [replicant.core :as replicant-core]
+            [hyperopen.system :as app-system]
             [hyperopen.state.trading :as trading-state]
             [hyperopen.views.trading-chart.derived-cache :as derived-cache]
             [hyperopen.views.trading-chart.core :as chart-core]
@@ -441,6 +442,72 @@
       (is (= 100 (:entry-price overlay)))
       (is (= :long (:side overlay))))))
 
+(deftest trading-chart-open-order-cancel-callback-captures-render-dispatch-test
+  (let [captured-args (atom nil)
+        dispatch-calls (atom [])
+        state {:active-asset "BTC"
+               :candles {"BTC" {:1d []}}
+               :chart-options {:selected-timeframe :1d
+                               :selected-chart-type :candlestick
+                               :active-indicators {}}}
+        order {:coin "BTC"
+               :oid 42
+               :side "A"
+               :type "limit"
+               :sz "1"
+               :px "100"}]
+    (binding [replicant-core/*dispatch* (fn [event actions]
+                                          (swap! dispatch-calls conj [event actions]))]
+      (with-redefs [chart-core/chart-canvas (fn
+                                              ([a b c d e f]
+                                               (reset! captured-args [a b c d e f])
+                                               [:div])
+                                              ([a b c d e f g h]
+                                               (reset! captured-args [a b c d e f g h])
+                                               [:div]))]
+        (chart-core/trading-chart-view state)))
+    (let [on-cancel-order (nth @captured-args 7)]
+      (is (fn? on-cancel-order))
+      (on-cancel-order order)
+      (let [[event actions] (first @dispatch-calls)]
+        (is (= :chart-order-overlay-cancel (:replicant/trigger event)))
+        (is (= [[:actions/cancel-order order]] actions))))))
+
+(deftest trading-chart-open-order-cancel-callback-falls-back-to-runtime-dispatch-test
+  (let [captured-args (atom nil)
+        store (atom {:wallet {:connected? true
+                              :address "0xabc"
+                              :agent {:status :not-ready
+                                      :storage-mode :session}}})
+        original-store app-system/store
+        state {:active-asset "BTC"
+               :candles {"BTC" {:1d []}}
+               :chart-options {:selected-timeframe :1d
+                               :selected-chart-type :candlestick
+                               :active-indicators {}}}
+        order {:coin "BTC"
+               :oid 43
+               :side "A"
+               :type "limit"
+               :sz "1"
+               :px "101"}]
+    (set! app-system/store store)
+    (binding [replicant-core/*dispatch* nil]
+      (with-redefs [chart-core/chart-canvas (fn
+                                              ([a b c d e f]
+                                               (reset! captured-args [a b c d e f])
+                                               [:div])
+                                              ([a b c d e f g h]
+                                               (reset! captured-args [a b c d e f g h])
+                                               [:div]))]
+        (chart-core/trading-chart-view state)))
+    (let [on-cancel-order (nth @captured-args 7)]
+      (is (fn? on-cancel-order))
+      (on-cancel-order order)
+      (is (= "Enable trading before cancelling orders."
+             (get-in @store [:orders :cancel-error]))))
+    (set! app-system/store original-store)))
+
 (deftest trading-chart-liquidation-drag-callback-dispatches-margin-modal-prefill-test
   (let [captured-args (atom nil)
         dispatch-calls (atom [])
@@ -466,18 +533,18 @@
                                             ([a b c d e f g h]
                                              (reset! captured-args [a b c d e f g h])
                                              [:div]))]
-      (chart-core/trading-chart-view state))
+      (binding [replicant-core/*dispatch* (fn [event actions]
+                                            (swap! dispatch-calls conj [event actions]))]
+        (chart-core/trading-chart-view state)))
     (let [runtime-options (nth @captured-args 5)
           callback (:on-liquidation-drag-confirm runtime-options)
           anchor {:left 10 :right 20 :top 30 :bottom 40 :width 10 :height 10
                   :viewport-width 1200 :viewport-height 800}]
-      (binding [replicant-core/*dispatch* (fn [event actions]
-                                            (swap! dispatch-calls conj [event actions]))]
-        (callback {:mode :add
-                   :amount 2.5
-                   :current-liquidation-price 90
-                   :target-liquidation-price 85
-                   :anchor anchor}))
+      (callback {:mode :add
+                 :amount 2.5
+                 :current-liquidation-price 90
+                 :target-liquidation-price 85
+                 :anchor anchor})
       (let [[event actions] (first @dispatch-calls)
             select-action (first (first actions))
             open-action (first (second actions))]
@@ -521,18 +588,18 @@
                                             ([a b c d e f g h]
                                              (reset! captured-args [a b c d e f g h])
                                              [:div]))]
-      (chart-core/trading-chart-view state))
+      (binding [replicant-core/*dispatch* (fn [event actions]
+                                            (swap! dispatch-calls conj [event actions]))]
+        (chart-core/trading-chart-view state)))
     (let [runtime-options (nth @captured-args 5)
           callback (:on-liquidation-drag-preview runtime-options)
           anchor {:left 10 :right 20 :top 30 :bottom 40 :width 10 :height 10
                   :viewport-width 1200 :viewport-height 800}]
-      (binding [replicant-core/*dispatch* (fn [event actions]
-                                            (swap! dispatch-calls conj [event actions]))]
-        (callback {:mode :add
-                   :amount 2.5
-                   :current-liquidation-price 90
-                   :target-liquidation-price 85
-                   :anchor anchor}))
+      (callback {:mode :add
+                 :amount 2.5
+                 :current-liquidation-price 90
+                 :target-liquidation-price 85
+                 :anchor anchor})
       (let [[event actions] (first @dispatch-calls)
             select-action (first (first actions))
             open-action (first (second actions))]
