@@ -12,6 +12,10 @@
   (is (= [[:effects/disconnect-wallet]]
          (wallet-actions/disconnect-wallet-action {}))))
 
+(deftest close-agent-recovery-modal-action-clears-open-flag-test
+  (is (= [[:effects/save [:wallet :agent :recovery-modal-open?] false]]
+         (wallet-actions/close-agent-recovery-modal-action {}))))
+
 (deftest enable-agent-trading-action-emits-approving-before-effect-test
   (let [state {:wallet {:connected? true
                         :address "0xabc"

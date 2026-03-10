@@ -56,7 +56,8 @@
     (let [store (atom {:wallet {:address "0x111"
                                 :chain-id 42161
                                 :agent {:status :approving
-                                        :storage-mode :session}}})]
+                                        :storage-mode :session
+                                        :recovery-modal-open? true}}})]
       (agent-runtime/enable-agent-trading!
        {:store store
         :options {:storage-mode :session}
@@ -82,6 +83,7 @@
            (is (= "0x999" (get-in @store [:wallet :agent :agent-address])))
            (is (= 1700000000000 (get-in @store [:wallet :agent :last-approved-at])))
            (is (= nil (get-in @store [:wallet :agent :error])))
+           (is (false? (get-in @store [:wallet :agent :recovery-modal-open?])))
            (finally
              (done))))
        0))))

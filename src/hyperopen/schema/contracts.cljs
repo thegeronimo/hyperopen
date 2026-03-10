@@ -362,6 +362,7 @@
    :actions/copy-spectate-mode-watchlist-link ::address-args
    :actions/start-spectate-mode-watchlist-address ::address-args
    :actions/enable-agent-trading ::no-args
+   :actions/close-agent-recovery-modal ::no-args
    :actions/set-agent-storage-mode ::set-agent-storage-mode-args
    :actions/copy-wallet-address ::no-args
    :actions/reconnect-websocket ::no-args

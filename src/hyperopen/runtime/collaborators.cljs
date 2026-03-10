@@ -31,6 +31,7 @@
 (defn- wallet-action-deps []
   {:connect-wallet-action wallet-actions/connect-wallet-action
    :disconnect-wallet-action wallet-actions/disconnect-wallet-action
+   :close-agent-recovery-modal-action wallet-actions/close-agent-recovery-modal-action
    :copy-wallet-address-action wallet-actions/copy-wallet-address-action})
 
 (defn- asset-selector-action-deps []

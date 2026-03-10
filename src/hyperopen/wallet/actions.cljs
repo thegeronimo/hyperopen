@@ -8,6 +8,10 @@
   [_]
   [[:effects/disconnect-wallet]])
 
+(defn close-agent-recovery-modal-action
+  [_state]
+  [[:effects/save [:wallet :agent :recovery-modal-open?] false]])
+
 (defn enable-agent-trading-action
   [state normalize-storage-mode]
   (let [wallet-address (get-in state [:wallet :address])

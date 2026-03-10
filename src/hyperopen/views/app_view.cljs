@@ -4,6 +4,7 @@
             [hyperopen.api-wallets.actions :as api-wallets-actions]
             [hyperopen.funding-comparison.actions :as funding-actions]
             [hyperopen.trade.layout-actions :as trade-layout-actions]
+            [hyperopen.views.agent-trading-recovery-modal :as agent-trading-recovery-modal]
             [hyperopen.views.funding-modal :as funding-modal]
             [hyperopen.views.footer-view :as footer-view]
             [hyperopen.views.funding-comparison-view :as funding-comparison-view]
@@ -125,5 +126,6 @@
         :else (trade-view/trade-view state))]
      (funding-modal/funding-modal-view state)
      (spectate-mode-modal/spectate-mode-modal-view state)
+     (agent-trading-recovery-modal/agent-trading-recovery-modal-view state)
      (notifications-view/notifications-view state)
      (footer-view/footer-view state)]))

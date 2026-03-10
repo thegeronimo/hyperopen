@@ -150,6 +150,14 @@
 (def ^:private missing-api-wallet-preserved-message
   "Agent wallet lookup was inconclusive. Preserved local trading key.")
 
+(defn enable-trading-recovery-error?
+  [value]
+  (let [text (cond
+               (map? value) (response-error-text value)
+               :else (some-> value str))]
+    (= missing-api-wallet-error-message
+       (some-> text str str/trim))))
+
 (defn- normalize-address
   [address]
   (let [text (some-> address str str/trim)]

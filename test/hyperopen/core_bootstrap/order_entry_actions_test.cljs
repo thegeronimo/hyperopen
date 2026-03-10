@@ -446,10 +446,15 @@
                                   :side :buy
                                   :size "1"
                                   :price "100")}
-        effects (core/submit-order state)]
+        effects (core/submit-order state)
+        save-many-path-values (extract-save-many-path-values effects)]
     (is (not-any? #(= (first %) :effects/api-submit-order) effects))
-    (is (= [[:effects/save [:order-form-runtime :error] "Enable trading before submitting orders."]]
-           effects))))
+    (is (= 1 (count effects)))
+    (is (= :effects/save-many (ffirst effects)))
+    (is (nil? (get save-many-path-values [:order-form-runtime :error])))
+    (is (= "Enable trading before submitting orders."
+           (get save-many-path-values [:wallet :agent :error])))
+    (is (true? (get save-many-path-values [:wallet :agent :recovery-modal-open?])))))
 
 (deftest submit-order-blocks-mutations-while-spectate-mode-active-test
   (let [state {:active-asset "BTC"

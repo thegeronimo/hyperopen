@@ -216,6 +216,12 @@
     [[:effects/save-many [[[:ui :toasts] remaining-toasts]
                           [[:ui :toast] latest-toast]]]]))
 
+(defn- open-enable-trading-recovery-effects
+  [error-message]
+  [[:effects/save-many [[[:order-form-runtime :error] nil]
+                        [[:wallet :agent :error] error-message]
+                        [[:wallet :agent :recovery-modal-open?] true]]]])
+
 (defn submit-order [state]
   (let [spectate-mode-message (account-context/mutations-blocked-message state)
         raw-form (trading/order-form-draft state)
@@ -229,6 +235,9 @@
     (cond
       (seq spectate-mode-message)
       [[:effects/save [:order-form-runtime :error] spectate-mode-message]]
+
+      (= :agent-not-ready reason)
+      (open-enable-trading-recovery-effects error-message)
 
       reason
       [[:effects/save [:order-form-runtime :error] error-message]]

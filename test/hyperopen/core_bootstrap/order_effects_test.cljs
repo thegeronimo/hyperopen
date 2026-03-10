@@ -779,6 +779,65 @@
              (done))))
        0))))
 
+(deftest api-submit-order-effect-opens-enable-trading-recovery-modal-for-missing-agent-wallet-test
+  (async done
+    (let [store (atom {:wallet {:address "0xabc"
+                                :agent {:status :ready}}
+                       :order-form {}
+                       :order-form-runtime {:submitting? false
+                                            :error nil}
+                       :ui {:toast nil}})
+          original-submit-order trading-api/submit-order!]
+      (clear-order-feedback-toast-timeout!)
+      (set! trading-api/submit-order!
+            (fn [store _address _action]
+              (swap! store update-in [:wallet :agent] merge
+                     {:status :error
+                      :error "Agent wallet not recognized by Hyperliquid. Enable Trading again."})
+              (js/Promise.resolve
+               {:status "err"
+                :error "Agent wallet not recognized by Hyperliquid. Enable Trading again."})))
+      (core/api-submit-order nil store {:action {:type "order"
+                                                 :orders []
+                                                 :grouping "na"}})
+      (js/setTimeout
+       (fn []
+         (try
+           (is (false? (get-in @store [:order-form-runtime :submitting?])))
+           (is (nil? (get-in @store [:order-form-runtime :error])))
+           (is (= :error (get-in @store [:wallet :agent :status])))
+           (is (= "Agent wallet not recognized by Hyperliquid. Enable Trading again."
+                  (get-in @store [:wallet :agent :error])))
+           (is (true? (get-in @store [:wallet :agent :recovery-modal-open?])))
+           (is (nil? (get-in @store [:ui :toast])))
+           (finally
+             (clear-order-feedback-toast-timeout!)
+             (set! trading-api/submit-order! original-submit-order)
+             (done))))
+       0))))
+
+(deftest api-submit-order-effect-opens-enable-trading-recovery-modal-when-agent-not-ready-locally-test
+  (let [store (atom {:wallet {:address "0xabc"
+                              :agent {:status :not-ready}}
+                     :order-form-runtime {:submitting? false
+                                          :error "old-error"}
+                     :ui {:toast nil}})]
+    (core/api-submit-order {:dispatch! (fn [_store _evt _actions])
+                            :exchange-response-error test-exchange-response-error
+                            :runtime-error-message test-runtime-error-message
+                            :show-toast! test-show-toast!}
+                           nil
+                           store
+                           {:action {:type "order"
+                                     :orders []
+                                     :grouping "na"}})
+    (is (false? (get-in @store [:order-form-runtime :submitting?])))
+    (is (nil? (get-in @store [:order-form-runtime :error])))
+    (is (= "Enable trading before submitting orders."
+           (get-in @store [:wallet :agent :error])))
+    (is (true? (get-in @store [:wallet :agent :recovery-modal-open?])))
+    (is (nil? (get-in @store [:ui :toast])))))
+
 (deftest api-submit-order-effect-handles-runtime-rejections-test
   (async done
     (let [store (atom {:wallet {:address "0xabc"

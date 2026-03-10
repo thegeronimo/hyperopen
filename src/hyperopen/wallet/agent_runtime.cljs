@@ -221,6 +221,7 @@
                                :storage-mode normalized-storage-mode
                                :last-approved-at last-approved-at
                                :error nil
+                               :recovery-modal-open? false
                                :nonce-cursor nonce-cursor})))
               (.catch (fn [err]
                         (set-agent-error! store

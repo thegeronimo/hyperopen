@@ -90,6 +90,7 @@
      [:actions/copy-spectate-mode-watchlist-link :copy-spectate-mode-watchlist-link]
      [:actions/start-spectate-mode-watchlist-address :start-spectate-mode-watchlist-address]
      [:actions/enable-agent-trading :enable-agent-trading-action]
+     [:actions/close-agent-recovery-modal :close-agent-recovery-modal-action]
      [:actions/set-agent-storage-mode :set-agent-storage-mode-action]
      [:actions/copy-wallet-address :copy-wallet-address-action]
      [:actions/reconnect-websocket :reconnect-websocket-action]

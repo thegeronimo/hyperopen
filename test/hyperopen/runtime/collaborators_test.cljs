@@ -42,6 +42,8 @@
   (let [deps (collaborators/runtime-action-deps {})]
     (is (identical? wallet-actions/connect-wallet-action
                     (get-in deps [:wallet :connect-wallet-action])))
+    (is (identical? wallet-actions/close-agent-recovery-modal-action
+                    (get-in deps [:wallet :close-agent-recovery-modal-action])))
     (is (identical? asset-actions/select-asset
                     (get-in deps [:asset-selector :select-asset])))
     (is (identical? asset-actions/set-funding-hypothetical-size
