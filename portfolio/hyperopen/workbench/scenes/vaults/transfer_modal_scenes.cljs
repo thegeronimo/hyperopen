@@ -63,16 +63,16 @@
     (transfer-modal/vault-transfer-modal-view @store))))
 
 (portfolio/defscene deposit
-  :params [deposit-store]
+  :params deposit-store
   [store]
   (transfer-scene store))
 
 (portfolio/defscene withdraw
-  :params [withdraw-store]
+  :params withdraw-store
   [store]
   (transfer-scene store))
 
 (portfolio/defscene disabled-validation
-  :params [validation-store]
+  :params validation-store
   [store]
   (transfer-scene store))

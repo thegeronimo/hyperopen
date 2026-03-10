@@ -100,31 +100,31 @@
      (vaults-view/vaults-view @store)))))
 
 (portfolio/defscene connected
-  :params [connected-store]
+  :params connected-store
   [store]
   (vaults-scene store layout/desktop-shell))
 
 (portfolio/defscene disconnected-cta
-  :params [disconnected-store]
+  :params disconnected-store
   [store]
   (vaults-scene store layout/desktop-shell))
 
 (portfolio/defscene loading
-  :params [loading-store]
+  :params loading-store
   [store]
   (vaults-scene store layout/desktop-shell))
 
 (portfolio/defscene filtered-empty
-  :params [filtered-empty-store]
+  :params filtered-empty-store
   [store]
   (vaults-scene store layout/desktop-shell))
 
 (portfolio/defscene mobile-cards
-  :params [connected-store]
+  :params connected-store
   [store]
   (vaults-scene store layout/mobile-shell))
 
 (portfolio/defscene page-2
-  :params [page-two-store]
+  :params page-two-store
   [store]
   (vaults-scene store layout/desktop-shell))

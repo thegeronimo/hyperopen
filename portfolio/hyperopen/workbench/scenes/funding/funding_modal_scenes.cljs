@@ -184,36 +184,36 @@
      (funding-actions/funding-modal-view-model @store)))))
 
 (portfolio/defscene deposit-select
-  :params [deposit-select-store]
+  :params deposit-select-store
   [store]
   (funding-scene store))
 
 (portfolio/defscene deposit-amount
-  :params [deposit-amount-store]
+  :params deposit-amount-store
   [store]
   (funding-scene store))
 
 (portfolio/defscene send-form
-  :params [send-store]
+  :params send-store
   [store]
   (funding-scene store))
 
 (portfolio/defscene withdraw-select
-  :params [withdraw-select-store]
+  :params withdraw-select-store
   [store]
   (funding-scene store))
 
 (portfolio/defscene withdraw-detail-success
-  :params [withdraw-success-store]
+  :params withdraw-success-store
   [store]
   (funding-scene store))
 
 (portfolio/defscene withdraw-detail-queue-error
-  :params [withdraw-queue-error-store]
+  :params withdraw-queue-error-store
   [store]
   (funding-scene store))
 
 (portfolio/defscene mobile-sheet
-  :params [mobile-sheet-store]
+  :params mobile-sheet-store
   [store]
   (funding-scene store))

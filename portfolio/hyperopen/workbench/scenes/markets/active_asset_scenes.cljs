@@ -145,7 +145,7 @@
                                                                                            :value-input "15351.81"}}}})))
 
 (portfolio/defscene perp-loaded
-  :params [perp-store]
+  :params perp-store
   [store]
   (layout/page-shell
    (layout/interactive-shell
@@ -154,7 +154,7 @@
     (active-asset-view/active-asset-view @store))))
 
 (portfolio/defscene spot-loaded
-  :params [spot-store]
+  :params spot-store
   [store]
   (layout/page-shell
    (layout/interactive-shell
@@ -163,7 +163,7 @@
     (active-asset-view/active-asset-view @store))))
 
 (portfolio/defscene selector-open
-  :params [dropdown-store]
+  :params dropdown-store
   [store]
   (layout/page-shell
    (layout/interactive-shell
@@ -172,7 +172,7 @@
     (active-asset-view/active-asset-view @store))))
 
 (portfolio/defscene funding-tooltip-open
-  :params [tooltip-store]
+  :params tooltip-store
   [store]
   (layout/page-shell
    (layout/interactive-shell

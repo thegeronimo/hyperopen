@@ -145,26 +145,26 @@
      (api-wallets-view/api-wallets-view @store)))))
 
 (portfolio/defscene disconnected
-  :params [disconnected-store]
+  :params disconnected-store
   [store]
   (api-scene store))
 
 (portfolio/defscene connected
-  :params [connected-store]
+  :params connected-store
   [store]
   (api-scene store))
 
 (portfolio/defscene authorize-modal
-  :params [authorize-modal-store]
+  :params authorize-modal-store
   [store]
   (api-scene store))
 
 (portfolio/defscene remove-modal
-  :params [remove-modal-store]
+  :params remove-modal-store
   [store]
   (api-scene store))
 
 (portfolio/defscene validation-errors
-  :params [validation-error-store]
+  :params validation-error-store
   [store]
   (api-scene store))

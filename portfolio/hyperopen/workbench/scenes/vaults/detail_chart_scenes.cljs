@@ -227,21 +227,21 @@
      (chart-view/chart-section @store)))))
 
 (portfolio/defscene returns-with-benchmarks
-  :params [returns-store]
+  :params returns-store
   [store]
   (chart-scene store))
 
 (portfolio/defscene single-series
-  :params [single-series-store]
+  :params single-series-store
   [store]
   (chart-scene store))
 
 (portfolio/defscene hover-state
-  :params [hover-store]
+  :params hover-store
   [store]
   (chart-scene store))
 
 (portfolio/defscene benchmark-search-open
-  :params [benchmark-open-store]
+  :params benchmark-open-store
   [store]
   (chart-scene store))

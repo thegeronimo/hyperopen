@@ -66,21 +66,21 @@
      (activity/activity-panel @store)))))
 
 (portfolio/defscene fills
-  :params [fills-store]
+  :params fills-store
   [store]
   (activity-scene store))
 
 (portfolio/defscene funding
-  :params [funding-store]
+  :params funding-store
   [store]
   (activity-scene store))
 
 (portfolio/defscene order-history
-  :params [orders-store]
+  :params orders-store
   [store]
   (activity-scene store))
 
 (portfolio/defscene empty-state
-  :params [empty-store]
+  :params empty-store
   [store]
   (activity-scene store))

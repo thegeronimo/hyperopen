@@ -96,7 +96,7 @@
                                                 :subline "Address checksum does not match network."}]}})))
 
 (portfolio/defscene trade-header
-  :params [trade-header-store]
+  :params trade-header-store
   [store]
   (layout/page-shell
    (layout/interactive-shell
@@ -107,7 +107,7 @@
       (header-view/header-view @store))))))
 
 (portfolio/defscene vaults-header
-  :params [vaults-header-store]
+  :params vaults-header-store
   [store]
   (layout/page-shell
    (layout/interactive-shell
@@ -118,7 +118,7 @@
       (header-view/header-view @store))))))
 
 (portfolio/defscene mobile-menu-open
-  :params [mobile-header-store]
+  :params mobile-header-store
   [store]
   (layout/page-shell
    (layout/interactive-shell
@@ -128,7 +128,7 @@
      (header-view/header-view @store)))))
 
 (portfolio/defscene footer-connected
-  :params [footer-store]
+  :params footer-store
   [store]
   (layout/page-shell
    (layout/interactive-shell
@@ -138,7 +138,7 @@
      (footer-view/footer-view @store)])))
 
 (portfolio/defscene footer-diagnostics-open
-  :params [diagnostics-footer-store]
+  :params diagnostics-footer-store
   [store]
   (layout/page-shell
    (layout/interactive-shell
@@ -148,7 +148,7 @@
      (footer-view/footer-view @store)])))
 
 (portfolio/defscene notifications-stacked
-  :params [notifications-store]
+  :params notifications-store
   [store]
   (layout/page-shell
    (layout/interactive-shell

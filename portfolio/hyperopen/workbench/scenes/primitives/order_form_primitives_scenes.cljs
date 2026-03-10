@@ -20,7 +20,7 @@
   (swap! primitive-state assoc k value))
 
 (portfolio/defscene controls
-  :params [primitive-state]
+  :params primitive-state
   [state]
   (layout/page-shell
    (layout/desktop-shell

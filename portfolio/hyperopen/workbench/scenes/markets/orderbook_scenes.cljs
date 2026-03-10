@@ -67,7 +67,7 @@
                                                                                :stale-threshold-ms 4000}}}})))
 
 (portfolio/defscene depth-default
-  :params [default-orderbook-store]
+  :params default-orderbook-store
   [store]
   (layout/page-shell
    (layout/interactive-shell
@@ -77,7 +77,7 @@
      (orderbook-view/l2-orderbook-view @store)])))
 
 (portfolio/defscene trades-tab
-  :params [trades-orderbook-store]
+  :params trades-orderbook-store
   [store]
   (layout/page-shell
    (layout/interactive-shell
@@ -87,7 +87,7 @@
      (orderbook-view/l2-orderbook-view @store)])))
 
 (portfolio/defscene quote-units-delayed
-  :params [delayed-orderbook-store]
+  :params delayed-orderbook-store
   [store]
   (layout/page-shell
    (layout/interactive-shell

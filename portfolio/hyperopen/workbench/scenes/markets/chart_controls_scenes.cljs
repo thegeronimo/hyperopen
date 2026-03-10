@@ -105,16 +105,16 @@
        (indicators-dropdown/indicators-dropdown @store)])))))
 
 (portfolio/defscene default-toolbar
-  :params [default-controls-store]
+  :params default-controls-store
   [store]
   (controls-shell store))
 
 (portfolio/defscene chart-type-open
-  :params [chart-type-store]
+  :params chart-type-store
   [store]
   (controls-shell store))
 
 (portfolio/defscene indicators-open
-  :params [indicators-store]
+  :params indicators-store
   [store]
   (controls-shell store))

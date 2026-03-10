@@ -206,51 +206,51 @@
                :order-form-runtime {:error "Order rejected by stubbed workbench runtime"})))
 
 (portfolio/defscene market
-  :params [market-store]
+  :params market-store
   [store]
   (order-form-card store))
 
 (portfolio/defscene limit
-  :params [limit-store]
+  :params limit-store
   [store]
   (order-form-card store))
 
 (portfolio/defscene leverage-popover-open
-  :params [leverage-store]
+  :params leverage-store
   [store]
   (order-form-card store))
 
 (portfolio/defscene tif-open
-  :params [tif-store]
+  :params tif-store
   [store]
   (order-form-card store))
 
 (portfolio/defscene size-unit-open
-  :params [size-unit-store]
+  :params size-unit-store
   [store]
   (order-form-card store))
 
 (portfolio/defscene tpsl-open
-  :params [tpsl-store]
+  :params tpsl-store
   [store]
   (order-form-card store))
 
 (portfolio/defscene scale
-  :params [scale-store]
+  :params scale-store
   [store]
   (order-form-card store))
 
 (portfolio/defscene spectate-read-only
-  :params [read-only-store]
+  :params read-only-store
   [store]
   (order-form-card store))
 
 (portfolio/defscene disabled-submit
-  :params [disabled-store]
+  :params disabled-store
   [store]
   (order-form-card store))
 
 (portfolio/defscene error-state
-  :params [error-store]
+  :params error-store
   [store]
   (order-form-card store))

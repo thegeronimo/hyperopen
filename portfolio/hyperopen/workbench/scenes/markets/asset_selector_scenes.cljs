@@ -121,12 +121,12 @@
       (asset-selector-view/asset-selector-wrapper @store))))))
 
 (portfolio/defscene desktop-open
-  :params [desktop-selector-store]
+  :params desktop-selector-store
   [store]
   (selector-scene store))
 
 (portfolio/defscene mobile-overlay
-  :params [mobile-selector-store]
+  :params mobile-selector-store
   [store]
   (layout/page-shell
    (layout/interactive-shell
@@ -136,11 +136,11 @@
      (asset-selector-view/asset-selector-wrapper @store)))))
 
 (portfolio/defscene loading-and-favorites
-  :params [loading-selector-store]
+  :params loading-selector-store
   [store]
   (selector-scene store))
 
 (portfolio/defscene long-list
-  :params [long-list-selector-store]
+  :params long-list-selector-store
   [store]
   (selector-scene store))
