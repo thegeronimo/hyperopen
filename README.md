@@ -107,6 +107,20 @@ Rendering code generally consumes derived data instead of re-parsing raw exchang
 
 This is useful at the product level because a UI change often becomes "update the projection contract" instead of "thread parsing logic through several components."
 
+### Predictable rendering
+
+Replicant fits this codebase because it keeps the rendering model close to the state model. In [src/hyperopen/app/bootstrap.cljs](src/hyperopen/app/bootstrap.cljs), `render-app!` renders `(app-view/app-view state)`, and [src/hyperopen/runtime/bootstrap.cljs](src/hyperopen/runtime/bootstrap.cljs) installs a render loop that watches the store and schedules the next render from the latest state value.
+
+In practice, that means the main mental model is still:
+
+- state changes
+- projections or view models derive UI-facing data
+- the view renders from that data
+
+This repo still uses lifecycle hooks and runtime sidecars where browser integration requires them, but they are treated as explicit exceptions rather than the default programming model. That keeps the UI more predictable: when behavior changes, there is usually a reducer, action, projection, or view-model change you can point to, instead of a chain of implicit component-local behavior spread across timing and escape hatches.
+
+This is easier to reason about than frontend styles where behavior is spread across component-local state, effect timing, refs, memoization, and imperative escape hatches. Hyperopen keeps more of that logic in explicit data flow, which makes the product easier for humans and agents to reason about and safer to change.
+
 ## Why these choices reduce complexity
 
 - State transitions are explicit return values, not hidden mutations buried in callbacks.
@@ -125,6 +139,37 @@ The architecture is not "AI magic." It is useful for humans and agents for the s
 - Tests are named after those same seams, which makes targeted verification straightforward.
 
 That locality matters in practice. A contributor or agent can usually implement a feature by changing one action or reducer, one boundary adapter if I/O is involved, one projection or view-model if the UI shape changes, and one nearby test. That is safer than hunting through large mutable controller objects with hidden side effects.
+
+## Why ClojureScript
+
+We chose ClojureScript because it reinforces the architectural habits this repo depends on. In Hyperopen, product logic is usually written as functions over plain values. When a function takes a state map or payload map, the default expectation is that it returns a new value or a vector of effects. If something mutates shared state, that mutation is usually obvious because you can see `swap!`, a runtime sidecar, or a boundary namespace that owns the interop.
+
+That is visible in the code:
+
+- [src/hyperopen/websocket/domain/model.cljs](src/hyperopen/websocket/domain/model.cljs) models runtime messages, envelopes, and effects as plain maps with keywords.
+- [src/hyperopen/websocket/application/runtime_reducer.cljs](src/hyperopen/websocket/application/runtime_reducer.cljs) updates runtime state with `assoc`, `assoc-in`, `update`, and `update-in` rather than hiding behavior behind mutable objects.
+- [src/hyperopen/views/portfolio/vm.cljs](src/hyperopen/views/portfolio/vm.cljs) and [src/hyperopen/views/account_info/projections](src/hyperopen/views/account_info/projections) build derived UI data from state instead of teaching components to mutate shared objects.
+- [src/hyperopen/runtime/app_effects.cljs](src/hyperopen/runtime/app_effects.cljs) and [src/hyperopen/websocket/infrastructure/runtime_effects.cljs](src/hyperopen/websocket/infrastructure/runtime_effects.cljs) make the mutation points obvious because they are the places that actually call `swap!`, browser APIs, sockets, and timers.
+
+This matters for humans and LLM-assisted development for the same reason:
+
+- reasoning stays local more often
+- it is easier to tell whether a function transforms data or performs I/O
+- there are fewer hidden aliasing questions about who else might be mutating the same object
+- targeted edits are safer because the mutation and interop points are named and limited
+
+When reasoning is not local, both humans and agents have to spend context answering questions like:
+
+- Did this function mutate its input?
+- Does this library mutate arguments?
+- Are there multiple references to the same object?
+- Could another async path be mutating this state?
+
+Hyperopen leans on ClojureScript because it reduces that uncertainty. Most product logic is written as transformations of plain values, while mutation and I/O are pushed into explicit effect and infrastructure boundaries. That means more of the available context can go toward implementing the change itself, instead of first proving whether the surrounding code is safe to modify.
+
+ClojureScript does not remove the need for discipline, and this repo still uses atoms where runtime state is required. The benefit is that the language makes the pure-data path natural and makes the mutable path explicit. That matches the design goals of this codebase.
+
+Another reason we chose ClojureScript is long-term stability. The language encourages plain data, small composable functions, and a relatively stable core model. In Hyperopen, that matters because most product logic lives in reducers, projections, view models, and boundary adapters instead of framework-heavy object lifecycles. We still depend on browser APIs, exchange protocols, and JavaScript tooling at the edges, but less of the application code has to be rewritten when those surrounding tools change.
 
 ## Quick start
 
