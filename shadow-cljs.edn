@@ -29,7 +29,7 @@
                                     :canvas-path "/ui-workbench-canvas.html"
                                     :viewport/defaults {:viewport/width "100%"
                                                         :viewport/height "100%"
-                                                        :viewport/padding 20}
+                                                        :viewport/padding [20 20 20 20]}
                                     :viewport/options [{:title "Auto"
                                                         :value {:viewport/width "100%"
                                                                 :viewport/height "100%"}}
