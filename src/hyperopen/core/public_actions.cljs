@@ -402,6 +402,21 @@
 (def submit-order
   order-actions/submit-order)
 
+(def confirm-cancel-visible-open-orders
+  order-actions/confirm-cancel-visible-open-orders)
+
+(def close-cancel-visible-open-orders-confirmation
+  order-actions/close-cancel-visible-open-orders-confirmation)
+
+(def handle-cancel-visible-open-orders-confirmation-keydown
+  order-actions/handle-cancel-visible-open-orders-confirmation-keydown)
+
+(def submit-cancel-visible-open-orders-confirmation
+  order-actions/submit-cancel-visible-open-orders-confirmation)
+
+(def cancel-visible-open-orders
+  order-actions/cancel-visible-open-orders)
+
 (def prune-canceled-open-orders
   order-actions/prune-canceled-open-orders)
 

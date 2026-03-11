@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
             [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.order.cancel-visible-confirmation :as cancel-visible-confirmation]
             [hyperopen.views.account-info.derived-cache :as derived-cache]
             [hyperopen.views.account-info.projections :as projections]
             [hyperopen.views.websocket-freshness :as ws-freshness]))
@@ -291,7 +292,8 @@
                                (get-in state [:account-info :positions] {}))
         open-orders-state (-> (merge {:direction-filter :all
                                       :coin-search ""
-                                      :filter-open? false}
+                                      :filter-open? false
+                                      :cancel-visible-confirmation (cancel-visible-confirmation/default-state)}
                                      (get-in state [:account-info :open-orders] {}))
                               (assoc :market-by-key market-by-key))
         websocket-health (get-in state [:websocket :health])

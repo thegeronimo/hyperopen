@@ -160,6 +160,12 @@
   [exchange-response-error resp]
   (str "Order cancellation failed: " (exchange-response-error resp)))
 
+(defn- cancel-success-toast-message
+  [success-count]
+  (if (= 1 success-count)
+    "Order canceled."
+    (str success-count " orders canceled.")))
+
 (defn- submit-status-entries
   [resp]
   (let [statuses (get-in resp [:response :data :statuses])
@@ -215,6 +221,110 @@
       :else
       {:ok? true
        :success-count success-count})))
+
+(defn- cancel-status-entries
+  [request resp]
+  (let [statuses (get-in resp [:response :data :statuses])
+        status (get-in resp [:response :data :status])
+        cancel-count (count (get-in request [:action :cancels]))]
+    (cond
+      (sequential? statuses)
+      (vec
+       (take cancel-count
+             (concat statuses
+                     (repeat {:error "Missing exchange cancel status."}))))
+
+      (some? status)
+      (if (= cancel-count 1)
+        [status]
+        (vec
+         (take cancel-count
+               (concat [status]
+                       (repeat {:error "Missing exchange cancel status."})))))
+
+      (pos? cancel-count)
+      (vec (repeat cancel-count "success"))
+
+      :else
+      [])))
+
+(defn- cancel-status-error-value
+  [status-entry]
+  (let [error-value (cond
+                      (and (map? status-entry)
+                           (contains? status-entry :error))
+                      (:error status-entry)
+
+                      (string? status-entry)
+                      (let [status-text (some-> status-entry str/trim)]
+                        (when (and (seq status-text)
+                                   (not= "success" (str/lower-case status-text)))
+                          status-text))
+
+                      :else
+                      nil)
+        message (cond
+                  (string? error-value) error-value
+                  (map? error-value) (or (:message error-value)
+                                         (pr-str error-value))
+                  :else (some-> error-value str))
+        trimmed (str/trim (or message ""))]
+    (when (seq trimmed)
+      trimmed)))
+
+(defn- cancel-status-error
+  [idx status-entry]
+  (when-let [message (cancel-status-error-value status-entry)]
+    (str "Order " (inc idx) ": " message)))
+
+(defn- successful-cancel-entries
+  [request status-entries]
+  (->> (map vector
+            (get-in request [:action :cancels] [])
+            status-entries)
+       (keep (fn [[cancel status-entry]]
+               (when-not (cancel-status-error-value status-entry)
+                 cancel)))
+       vec))
+
+(defn- successful-cancel-request
+  [request successful-cancels]
+  (when (seq successful-cancels)
+    {:action (assoc (:action request) :cancels (vec successful-cancels))}))
+
+(defn- cancel-outcome
+  [exchange-response-error request resp]
+  (let [top-level-ok? (= "ok" (:status resp))
+        status-entries (cancel-status-entries request resp)
+        successful-cancels (successful-cancel-entries request status-entries)
+        status-errors (->> status-entries
+                           (map-indexed cancel-status-error)
+                           (keep identity)
+                           vec)
+        success-count (count successful-cancels)
+        error-count (count status-errors)
+        partial? (and (pos? success-count) (pos? error-count))]
+    (cond
+      (not top-level-ok?)
+      {:ok? false
+       :success-cancels []
+       :error-text (str (exchange-response-error resp))
+       :toast-message (cancel-order-error-message exchange-response-error resp)}
+
+      (pos? error-count)
+      (let [prefix (if partial?
+                     "Order cancellation partially failed: "
+                     "Order cancellation failed: ")
+            error-detail (str/join "; " status-errors)]
+        {:ok? false
+         :success-cancels successful-cancels
+         :error-text error-detail
+         :toast-message (str prefix error-detail)})
+
+      :else
+      {:ok? true
+       :success-cancels successful-cancels
+       :toast-message (cancel-success-toast-message success-count)})))
 
 (defn- margin-mode-sync-error-message
   [error-text]
@@ -502,25 +612,26 @@
         (swap! store add-pending-cancel-oids cancel-oids)
         (-> (trading-api/cancel-order! store address (:action request))
             (.then (fn [resp]
-                     (if (= "ok" (:status resp))
-                       (do
-                         (swap! store
-                                (fn [state]
-                                  (-> state
-                                      (assoc-in [:orders :cancel-error] nil)
-                                      (assoc-in [:orders :cancel-response] resp)
-                                      (prune-fn request)
-                                      (remove-pending-cancel-oids cancel-oids))))
-                         (show-toast! store :success "Order canceled.")
+                     (let [{:keys [ok? success-cancels error-text toast-message]}
+                           (cancel-outcome exchange-response-error request resp)
+                           success-request (successful-cancel-request request success-cancels)
+                           success-count (count success-cancels)]
+                       (swap! store
+                              (fn [state]
+                                (cond-> (-> state
+                                            (assoc-in [:orders :cancel-error]
+                                                      (when-not ok?
+                                                        error-text))
+                                            (remove-pending-cancel-oids cancel-oids))
+                                  (= "ok" (:status resp))
+                                  (assoc-in [:orders :cancel-response] resp)
+
+                                  (map? success-request)
+                                  (prune-fn success-request))))
+                       (show-toast! store (if ok? :success :error) toast-message)
+                       (when (pos? success-count)
                          (refresh-account-surfaces-after-order-mutation! store address)
-                         (dispatch! store nil [[:actions/refresh-order-history]]))
-                       (let [error-text (str (exchange-response-error resp))]
-                         (swap! store
-                                (fn [state]
-                                  (-> state
-                                      (assoc-in [:orders :cancel-error] error-text)
-                                      (remove-pending-cancel-oids cancel-oids))))
-                         (show-toast! store :error (cancel-order-error-message exchange-response-error resp))))))
+                         (dispatch! store nil [[:actions/refresh-order-history]])))))
             (.catch (fn [err]
                       (let [error-text (runtime-error-message err)]
                         (swap! store

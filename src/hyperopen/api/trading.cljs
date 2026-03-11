@@ -257,6 +257,22 @@
       {:action {:type "cancel"
                 :cancels [{:a asset-idx :o oid}]}})))
 
+(defn build-cancel-orders-request
+  "Normalize a sequence of heterogeneous order row payloads into one batched
+   exchange cancel action. Returns nil when any order is missing required
+   fields, because visible-scope cancel-all must not silently skip rows."
+  [state orders]
+  (let [requests (mapv #(build-cancel-order-request state %) (or orders []))]
+    (when (and (seq requests)
+               (every? map? requests))
+      (let [cancels (->> requests
+                         (mapcat #(get-in % [:action :cancels]))
+                         distinct
+                         vec)]
+        (when (seq cancels)
+          {:action {:type "cancel"
+                    :cancels cancels}})))))
+
 (defn- safe-private-key->agent-address
   [private-key]
   (try

@@ -196,6 +196,11 @@
     update-order-form
     dismiss-order-feedback-toast
     submit-order
+    confirm-cancel-visible-open-orders
+    close-cancel-visible-open-orders-confirmation
+    handle-cancel-visible-open-orders-confirmation-keydown
+    submit-cancel-visible-open-orders-confirmation
+    cancel-visible-open-orders
     prune-canceled-open-orders
     cancel-order
     load-user-data

@@ -77,3 +77,35 @@
   (is (nil? (trading/build-cancel-order-request {:asset-contexts {}
                                                  :asset-selector {:market-by-key {}}}
                                                 {:oid 101}))))
+
+(deftest build-cancel-orders-request-builds-a-batched-cancel-action-test
+  (let [state {:asset-contexts {:BTC {:idx 0}
+                                :ETH {:idx 1}}
+               :asset-selector {:market-by-key {}}}
+        request (trading/build-cancel-orders-request state [{:coin "BTC"
+                                                             :oid "101"}
+                                                            {:coin "ETH"
+                                                             :oid "202"}])]
+    (is (= {:action {:type "cancel"
+                     :cancels [{:a 0 :o 101}
+                               {:a 1 :o 202}]}}
+           request))))
+
+(deftest build-cancel-orders-request-deduplicates-identical-visible-orders-test
+  (let [state {:asset-contexts {:BTC {:idx 0}}
+               :asset-selector {:market-by-key {}}}
+        request (trading/build-cancel-orders-request state [{:coin "BTC"
+                                                             :oid "101"}
+                                                            {:coin "BTC"
+                                                             :oid "101"}])]
+    (is (= {:action {:type "cancel"
+                     :cancels [{:a 0 :o 101}]}}
+           request))))
+
+(deftest build-cancel-orders-request-returns-nil-when-any-order-is-invalid-test
+  (let [state {:asset-contexts {:BTC {:idx 0}}
+               :asset-selector {:market-by-key {}}}]
+    (is (nil? (trading/build-cancel-orders-request state [{:coin "BTC"
+                                                           :oid "101"}
+                                                          {:coin "ETH"}])))
+    (is (nil? (trading/build-cancel-orders-request state [])))))

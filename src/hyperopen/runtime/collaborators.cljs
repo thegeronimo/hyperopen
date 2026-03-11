@@ -218,6 +218,11 @@
    :update-order-form order-actions/update-order-form
    :dismiss-order-feedback-toast order-actions/dismiss-order-feedback-toast
    :submit-order order-actions/submit-order
+   :confirm-cancel-visible-open-orders order-actions/confirm-cancel-visible-open-orders
+   :close-cancel-visible-open-orders-confirmation order-actions/close-cancel-visible-open-orders-confirmation
+   :handle-cancel-visible-open-orders-confirmation-keydown order-actions/handle-cancel-visible-open-orders-confirmation-keydown
+   :submit-cancel-visible-open-orders-confirmation order-actions/submit-cancel-visible-open-orders-confirmation
+   :cancel-visible-open-orders order-actions/cancel-visible-open-orders
    :cancel-order order-actions/cancel-order
    :open-funding-send-modal funding-actions/open-funding-send-modal
    :open-funding-transfer-modal funding-actions/open-funding-transfer-modal

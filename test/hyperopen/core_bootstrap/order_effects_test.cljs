@@ -744,6 +744,90 @@
              (done))))
        0))))
 
+(deftest api-cancel-order-effect-prunes-only-successful-orders-on-partial-batch-failure-test
+  (async done
+    (let [store (atom {:wallet {:address "0xabc"
+                                :agent {:status :ready}}
+                       :orders {:open-orders [{:order {:coin "BTC" :oid 22}}
+                                              {:order {:coin "ETH" :oid 23}}
+                                              {:order {:coin "SOL" :oid 24}}]
+                                :open-orders-snapshot []
+                                :open-orders-snapshot-by-dex {}}
+                       :ui {:toast nil}})
+          dispatched (atom [])
+          refresh-calls (atom [])
+          clearinghouse-calls (atom [])
+          original-cancel-order trading-api/cancel-order!
+          original-dispatch nxr/dispatch
+          original-request-open-orders api/request-frontend-open-orders!
+          original-request-clearinghouse-state api/request-clearinghouse-state!
+          original-ensure-perp-dexs-data api/ensure-perp-dexs-data!]
+      (clear-order-feedback-toast-timeout!)
+      (set! trading-api/cancel-order!
+            (fn [_store _address _action]
+              (js/Promise.resolve {:status "ok"
+                                   :response {:type "cancel"
+                                              :data {:statuses ["success"
+                                                                {:error "too late"}
+                                                                "success"]}}})))
+      (set! nxr/dispatch
+            (fn [_store _evt actions]
+              (swap! dispatched conj actions)))
+      (set! api/request-frontend-open-orders!
+            (fn request-frontend-open-orders-mock
+              ([address]
+               (request-frontend-open-orders-mock address {}))
+              ([address opts]
+               (request-frontend-open-orders-mock address (:dex opts) (dissoc opts :dex)))
+              ([address dex opts]
+               (swap! refresh-calls conj [address dex opts])
+               (js/Promise.resolve []))))
+      (set! api/request-clearinghouse-state!
+            (fn request-clearinghouse-state-mock
+              ([address dex]
+               (request-clearinghouse-state-mock address dex {}))
+              ([address dex opts]
+               (swap! clearinghouse-calls conj [address dex opts])
+               (js/Promise.resolve {:assetPositions []}))))
+      (set! api/ensure-perp-dexs-data!
+            (fn ensure-perp-dexs-data-mock
+              ([_store]
+               (ensure-perp-dexs-data-mock nil {}))
+              ([_store _opts]
+               (js/Promise.resolve ["dex-a"]))))
+      (core/api-cancel-order nil store {:action {:type "cancel"
+                                                 :cancels [{:a 0 :o 22}
+                                                           {:a 1 :o 23}
+                                                           {:a 2 :o 24}]}})
+      (is (= #{22 23 24}
+             (get-in @store [:orders :pending-cancel-oids])))
+      (js/setTimeout
+       (fn []
+         (try
+           (is (= "Order 2: too late"
+                  (get-in @store [:orders :cancel-error])))
+           (is (nil? (get-in @store [:orders :pending-cancel-oids])))
+           (is (= [23]
+                  (->> (get-in @store [:orders :open-orders])
+                       (mapv #(get-in % [:order :oid])))))
+           (is (= :error
+                  (get-in @store [:ui :toast :kind])))
+           (is (str/includes? (get-in @store [:ui :toast :message] "")
+                              "partially failed"))
+           (is (= [[[:actions/refresh-order-history]]]
+                  @dispatched))
+           (is (= 2 (count @refresh-calls)))
+           (is (= 2 (count @clearinghouse-calls)))
+           (finally
+             (clear-order-feedback-toast-timeout!)
+             (set! trading-api/cancel-order! original-cancel-order)
+             (set! nxr/dispatch original-dispatch)
+             (set! api/request-frontend-open-orders! original-request-open-orders)
+             (set! api/request-clearinghouse-state! original-request-clearinghouse-state)
+             (set! api/ensure-perp-dexs-data! original-ensure-perp-dexs-data)
+             (done))))
+       0))))
+
 (deftest api-submit-order-effect-surfaces-top-level-exchange-errors-test
   (async done
     (let [store (atom {:wallet {:address "0xabc"

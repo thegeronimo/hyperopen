@@ -38,7 +38,7 @@
                       :is-position-tpsl false}]
         content (view/open-orders-tab-content open-orders {:column "Time" :direction :desc})
         header-node (hiccup/tab-header-node content)]
-    (doseq [label ["Reduce Only" "Trigger Conditions" "TP/SL" "Cancel All"]
+    (doseq [label ["Reduce Only" "Trigger Conditions" "TP/SL"]
             :let [label-node (hiccup/find-first-node header-node
                                                      #(and (= :div (first %))
                                                            (contains? (hiccup/direct-texts %) label)))
@@ -47,6 +47,117 @@
       (is (contains? label-classes "text-trading-text-secondary"))
       (is (contains? label-classes "min-h-6"))
       (is (contains? label-classes "w-full")))))
+
+(deftest open-orders-cancel-all-header-renders-as-action-button-for-visible-rows-test
+  (let [btc-row {:oid 101
+                 :coin "BTC"
+                 :side "B"
+                 :sz "1.0"
+                 :orig-sz "1.0"
+                 :px "100.0"
+                 :type "Limit"
+                 :time 1700000000000
+                 :reduce-only false
+                 :is-trigger false
+                 :trigger-condition nil
+                 :is-position-tpsl false}
+        sol-short-older {:oid 202
+                         :coin "SOL"
+                         :side "A"
+                         :sz "2.0"
+                         :orig-sz "2.0"
+                         :px "90.0"
+                         :type "Limit"
+                         :time 1700000001000
+                         :reduce-only false
+                         :is-trigger false
+                         :trigger-condition nil
+                         :is-position-tpsl false}
+        sol-short-newer {:oid 303
+                         :coin "SOL"
+                         :side "S"
+                         :sz "3.0"
+                         :orig-sz "3.0"
+                         :px "91.0"
+                         :type "Limit"
+                         :time 1700000002000
+                         :reduce-only false
+                         :is-trigger false
+                         :trigger-condition nil
+                         :is-position-tpsl false}
+        content (view/open-orders-tab-content [btc-row sol-short-older sol-short-newer]
+                                              {:column "Time" :direction :desc}
+                                              {:direction-filter :short
+                                               :coin-search "sol"})
+        header-node (hiccup/tab-header-node content)
+        cancel-button (hiccup/find-first-node header-node
+                                              #(and (= :button (first %))
+                                                    (contains? (hiccup/direct-texts %) "Cancel All")))
+        cancel-button-classes (hiccup/node-class-set cancel-button)]
+    (is (some? cancel-button))
+    (is (= "Cancel all visible open orders"
+           (get-in cancel-button [1 :aria-label])))
+    (is (contains? cancel-button-classes "text-trading-red"))
+    (is (contains? cancel-button-classes "min-h-6"))
+    (is (contains? cancel-button-classes "w-full"))
+    (is (contains? cancel-button-classes "hover:text-[#f2b8c5]"))
+    (is (= [[:actions/confirm-cancel-visible-open-orders [sol-short-newer
+                                                          sol-short-older]
+                                                    :event.currentTarget/bounds]]
+           (get-in cancel-button [1 :on :click])))))
+
+(deftest open-orders-cancel-visible-confirmation-renders-dismiss-and-submit-actions-test
+  (let [btc-row {:oid 101
+                 :coin "BTC"
+                 :side "B"
+                 :sz "1.0"
+                 :orig-sz "1.0"
+                 :px "100.0"
+                 :type "Limit"
+                 :time 1700000000000
+                 :reduce-only false
+                 :is-trigger false
+                 :trigger-condition nil
+                 :is-position-tpsl false}
+        content (view/open-orders-tab-content [btc-row]
+                                              {:column "Time" :direction :desc}
+                                              {:cancel-visible-confirmation
+                                               {:open? true
+                                                :orders [btc-row]
+                                                :anchor {:left 940
+                                                         :right 1012
+                                                         :top 118
+                                                         :bottom 142
+                                                         :viewport-width 1440
+                                                         :viewport-height 900}}})
+        dialog (hiccup/find-by-data-role content "open-orders-cancel-visible-confirmation")
+        backdrop (hiccup/find-by-data-role content "open-orders-cancel-visible-confirmation-backdrop")
+        close-button (hiccup/find-by-data-role content "open-orders-cancel-visible-confirmation-close")
+        cancel-button (hiccup/find-by-data-role content "open-orders-cancel-visible-confirmation-cancel")
+        submit-button (hiccup/find-by-data-role content "open-orders-cancel-visible-confirmation-submit")
+        count-pill (hiccup/find-by-data-role content "open-orders-cancel-visible-confirmation-count")
+        message-node (hiccup/find-by-data-role content "open-orders-cancel-visible-confirmation-message")]
+    (is (some? dialog))
+    (is (= "Cancel Visible Orders?"
+           (first (hiccup/direct-texts
+                   (hiccup/find-by-data-role content
+                                             "open-orders-cancel-visible-confirmation-title")))))
+    (is (= "1 visible open order"
+           (first (hiccup/direct-texts count-pill))))
+    (is (str/includes? (first (hiccup/direct-texts message-node))
+                       "currently shown in Open Orders"))
+    (is (= [[:actions/close-cancel-visible-open-orders-confirmation]]
+           (get-in backdrop [1 :on :click])))
+    (is (= [[:actions/close-cancel-visible-open-orders-confirmation]]
+           (get-in close-button [1 :on :click])))
+    (is (= [[:actions/close-cancel-visible-open-orders-confirmation]]
+           (get-in cancel-button [1 :on :click])))
+    (is (= [[:actions/submit-cancel-visible-open-orders-confirmation]]
+           (get-in submit-button [1 :on :click])))
+    (is (= [[:actions/handle-cancel-visible-open-orders-confirmation-keydown [:event/key]]]
+           (get-in dialog [1 :on :keydown])))
+    (is (string? (get-in dialog [1 :style :left])))
+    (is (string? (get-in dialog [1 :style :top])))))
 
 (deftest open-orders-grid-template-expands-the-coin-track-without-collapsing-tail-columns-test
   (let [open-orders [{:oid 101

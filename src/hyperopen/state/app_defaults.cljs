@@ -6,6 +6,7 @@
             [hyperopen.api-wallets.domain.policy :as api-wallets-policy]
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.i18n.locale :as i18n-locale]
+            [hyperopen.order.cancel-visible-confirmation :as cancel-visible-confirmation]
             [hyperopen.platform :as platform]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.vaults.domain.transfer-policy :as vault-transfer-policy]
@@ -285,7 +286,8 @@
    :open-orders-sort {:column "Time" :direction :desc}
    :open-orders {:direction-filter :all
                  :coin-search ""
-                 :filter-open? false}
+                 :filter-open? false
+                 :cancel-visible-confirmation (cancel-visible-confirmation/default-state)}
    :trade-history default-trade-history
    :funding-history default-funding-history
    :order-history default-order-history})

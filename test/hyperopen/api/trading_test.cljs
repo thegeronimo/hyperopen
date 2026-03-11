@@ -15,6 +15,18 @@
           {:order {:assetIdx "12"
                    :oid "307891000622"}}))))
 
+(deftest build-cancel-orders-request-public-seam-produces-batched-cancel-action-test
+  (is (= {:action {:type "cancel"
+                   :cancels [{:a 12 :o 307891000622}
+                             {:a 13 :o 307891000623}]}}
+         (trading/build-cancel-orders-request
+          {:asset-contexts {}
+           :asset-selector {:market-by-key {}}}
+          [{:order {:assetIdx "12"
+                    :oid "307891000622"}}
+           {:order {:assetIdx "13"
+                    :oid "307891000623"}}]))))
+
 (deftest submit-order-public-seam-rejects-when-session-is-missing-test
   (async done
     (let [store (atom {:wallet {:agent {:status :ready

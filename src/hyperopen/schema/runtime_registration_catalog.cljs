@@ -231,6 +231,11 @@
      [:actions/submit-position-margin-update :submit-position-margin-update]]
     (order-form-command-catalog/runtime-action-bindings)
     [[:actions/dismiss-order-feedback-toast :dismiss-order-feedback-toast]
+     [:actions/confirm-cancel-visible-open-orders :confirm-cancel-visible-open-orders]
+     [:actions/close-cancel-visible-open-orders-confirmation :close-cancel-visible-open-orders-confirmation]
+     [:actions/handle-cancel-visible-open-orders-confirmation-keydown :handle-cancel-visible-open-orders-confirmation-keydown]
+     [:actions/submit-cancel-visible-open-orders-confirmation :submit-cancel-visible-open-orders-confirmation]
+     [:actions/cancel-visible-open-orders :cancel-visible-open-orders]
      [:actions/cancel-order :cancel-order]
      [:actions/load-user-data :load-user-data]
      [:actions/set-funding-modal :set-funding-modal]

@@ -157,6 +157,7 @@
 (s/def ::request-id-args (s/tuple ::request-id))
 (s/def ::map-vector (s/and vector?
                            (s/coll-of map? :kind vector?)))
+(s/def ::non-empty-map-vector (s/and ::map-vector seq))
 (s/def ::export-funding-history-csv-args (s/tuple ::map-vector))
 
 (s/def ::group #{:market_data :orders_oms :all})
@@ -213,6 +214,10 @@
 (s/def ::add-indicator-args (s/tuple keyword? map?))
 (s/def ::update-indicator-period-args (s/tuple keyword? any?))
 (s/def ::cancel-order-args (s/tuple map?))
+(s/def ::cancel-visible-open-orders-args (s/tuple ::non-empty-map-vector))
+(s/def ::confirm-cancel-visible-open-orders-args
+  (s/or :orders-only (s/tuple ::non-empty-map-vector)
+        :orders-and-anchor (s/tuple ::non-empty-map-vector any?)))
 (s/def ::funding-modal-args (s/tuple any?))
 (s/def ::funding-modal-field-args (s/tuple ::state-path any?))
 (s/def ::api-wallet-form-field #{:name :address :days-valid})
@@ -535,6 +540,11 @@
    :actions/update-order-form (s/tuple ::state-path any?)
    :actions/dismiss-order-feedback-toast ::optional-string-args
    :actions/submit-order ::no-args
+   :actions/confirm-cancel-visible-open-orders ::confirm-cancel-visible-open-orders-args
+   :actions/close-cancel-visible-open-orders-confirmation ::no-args
+   :actions/handle-cancel-visible-open-orders-confirmation-keydown ::key-args
+   :actions/submit-cancel-visible-open-orders-confirmation ::no-args
+   :actions/cancel-visible-open-orders ::cancel-visible-open-orders-args
    :actions/cancel-order ::cancel-order-args
    :actions/load-user-data ::address-args
    :actions/set-funding-modal ::funding-modal-args

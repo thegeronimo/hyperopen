@@ -564,6 +564,160 @@
                           :cancels [{:a 0 :o 303}]}}]
                (last effects)))))))
 
+(deftest confirm-cancel-visible-open-orders-opens-confirmation-state-test
+  (let [visible-orders [{:coin "BTC" :oid 101}
+                        {:coin "ETH" :oid 202}]
+        anchor {:left 960
+                :right 1032
+                :top 120
+                :bottom 144
+                :viewport-width 1440
+                :viewport-height 900}]
+    (is (= [[:effects/save
+             [:account-info :open-orders :cancel-visible-confirmation]
+             {:open? true
+              :orders visible-orders
+              :anchor anchor}]]
+           (core/confirm-cancel-visible-open-orders {} visible-orders anchor)))
+    (is (= []
+           (core/confirm-cancel-visible-open-orders {} [] anchor)))))
+
+(deftest close-cancel-visible-open-orders-confirmation-resets-state-test
+  (is (= [[:effects/save
+           [:account-info :open-orders :cancel-visible-confirmation]
+           {:open? false
+            :orders []
+            :anchor nil}]]
+         (core/close-cancel-visible-open-orders-confirmation {}))))
+
+(deftest handle-cancel-visible-open-orders-confirmation-keydown-closes-only-on-escape-test
+  (let [expected [[:effects/save
+                   [:account-info :open-orders :cancel-visible-confirmation]
+                   {:open? false
+                    :orders []
+                    :anchor nil}]]]
+    (is (= expected
+           (core/handle-cancel-visible-open-orders-confirmation-keydown {} "Escape")))
+    (is (= []
+           (core/handle-cancel-visible-open-orders-confirmation-keydown {} "Enter")))))
+
+(deftest submit-cancel-visible-open-orders-confirmation-closes-first-and-cancels-visible-orders-test
+  (let [state {:wallet {:connected? true
+                        :address "0xabc"
+                        :agent {:status :ready
+                                :storage-mode :session
+                                :agent-address "0xagent"}}
+               :asset-contexts {:BTC {:idx 0}
+                                :ETH {:idx 1}}
+               :account-info {:open-orders {:cancel-visible-confirmation
+                                            {:open? true
+                                             :orders [{:coin "BTC" :oid 202}
+                                                      {:coin "ETH" :oid 303}]
+                                             :anchor {:left 800
+                                                      :right 872
+                                                      :top 120
+                                                      :viewport-width 1440
+                                                      :viewport-height 900}}}}}
+        effects (core/submit-cancel-visible-open-orders-confirmation state)
+        save-many-path-values (into {} (second (second effects)))]
+    (is (= [:effects/save
+            [:account-info :open-orders :cancel-visible-confirmation]
+            {:open? false
+             :orders []
+             :anchor nil}]
+           (first effects)))
+    (is (= :effects/save-many (first (second effects))))
+    (is (nil? (get save-many-path-values [:orders :cancel-error])))
+    (is (= #{202 303}
+           (get save-many-path-values [:orders :pending-cancel-oids])))
+    (is (= [:effects/api-cancel-order
+            {:action {:type "cancel"
+                      :cancels [{:a 0 :o 202}
+                                {:a 1 :o 303}]}}]
+           (last effects)))))
+
+(deftest submit-cancel-visible-open-orders-confirmation-passes-runtime-effect-order-contract-test
+  (let [state {:wallet {:connected? true
+                        :address "0xabc"
+                        :agent {:status :ready
+                                :storage-mode :session
+                                :agent-address "0xagent"}}
+               :asset-contexts {:BTC {:idx 0}
+                                :ETH {:idx 1}}
+               :account-info {:open-orders {:cancel-visible-confirmation
+                                            {:open? true
+                                             :orders [{:coin "BTC" :oid 202}
+                                                      {:coin "ETH" :oid 303}]
+                                             :anchor nil}}}}]
+    (with-redefs [validation/validation-enabled? (constantly true)]
+      (let [wrapped (validation/wrap-action-handler
+                     :actions/submit-cancel-visible-open-orders-confirmation
+                     core/submit-cancel-visible-open-orders-confirmation)
+            effects (wrapped state)
+            save-many-path-values (into {} (second (second effects)))]
+        (is (= :effects/save (ffirst effects)))
+        (is (= :effects/save-many (first (second effects))))
+        (is (nil? (get save-many-path-values [:orders :cancel-error])))
+        (is (= #{202 303}
+               (get save-many-path-values [:orders :pending-cancel-oids])))
+        (is (= [:effects/api-cancel-order
+                {:action {:type "cancel"
+                          :cancels [{:a 0 :o 202}
+                                    {:a 1 :o 303}]}}]
+               (last effects)))))))
+
+(deftest cancel-visible-open-orders-ready-agent-emits-batched-api-cancel-effect-test
+  (let [state {:wallet {:connected? true
+                        :address "0xabc"
+                        :agent {:status :ready
+                                :storage-mode :session
+                                :agent-address "0xagent"}}
+               :asset-contexts {:BTC {:idx 0}
+                                :ETH {:idx 1}}}
+        visible-orders [{:coin "BTC"
+                         :oid 202}
+                        {:coin "ETH"
+                         :oid 303}]
+        effects (core/cancel-visible-open-orders state visible-orders)
+        save-many-path-values (extract-save-many-path-values effects)]
+    (is (= :effects/save-many (ffirst effects)))
+    (is (nil? (get save-many-path-values [:orders :cancel-error])))
+    (is (= #{202 303}
+           (get save-many-path-values [:orders :pending-cancel-oids])))
+    (is (= [:effects/api-cancel-order
+            {:action {:type "cancel"
+                      :cancels [{:a 0 :o 202}
+                                {:a 1 :o 303}]}}]
+           (last effects)))))
+
+(deftest cancel-visible-open-orders-passes-runtime-effect-order-contract-test
+  (let [state {:wallet {:connected? true
+                        :address "0xabc"
+                        :agent {:status :ready
+                                :storage-mode :session
+                                :agent-address "0xagent"}}
+               :asset-contexts {:BTC {:idx 0}
+                                :ETH {:idx 1}}}
+        visible-orders [{:coin "BTC"
+                         :oid 202}
+                        {:coin "ETH"
+                         :oid 303}]]
+    (with-redefs [validation/validation-enabled? (constantly true)]
+      (let [wrapped (validation/wrap-action-handler
+                     :actions/cancel-visible-open-orders
+                     core/cancel-visible-open-orders)
+            effects (wrapped state visible-orders)
+            save-many-path-values (extract-save-many-path-values effects)]
+        (is (= :effects/save-many (ffirst effects)))
+        (is (nil? (get save-many-path-values [:orders :cancel-error])))
+        (is (= #{202 303}
+               (get save-many-path-values [:orders :pending-cancel-oids])))
+        (is (= [:effects/api-cancel-order
+                {:action {:type "cancel"
+                          :cancels [{:a 0 :o 202}
+                                    {:a 1 :o 303}]}}]
+               (last effects)))))))
+
 (deftest prune-canceled-open-orders-removes-canceled-oid-across-all-sources-test
   (let [state {:orders {:open-orders [{:order {:coin "BTC" :oid 101}}
                                       {:order {:coin "ETH" :oid 102}}]

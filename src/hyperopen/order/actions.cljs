@@ -1,6 +1,7 @@
 (ns hyperopen.order.actions
   (:require [hyperopen.account.context :as account-context]
             [hyperopen.api.trading :as trading-api]
+            [hyperopen.order.cancel-visible-confirmation :as cancel-visible-confirmation]
             [hyperopen.order.effects :as order-effects]
             [hyperopen.state.trading :as trading]
             [hyperopen.trading.order-form-transitions :as transitions]))
@@ -279,10 +280,10 @@
                              (next-pending-cancel-oids state cancel-oids)]))]
     [[:effects/save-many path-values]]))
 
-(defn cancel-order [state order]
+(defn- emit-cancel-effects
+  [state request missing-request-message]
   (let [spectate-mode-message (account-context/mutations-blocked-message state)
-        agent-ready? (= :ready (get-in state [:wallet :agent :status]))
-        request (trading-api/build-cancel-order-request state order)]
+        agent-ready? (= :ready (get-in state [:wallet :agent :status]))]
     (cond
       (seq spectate-mode-message)
       [[:effects/save [:orders :cancel-error] spectate-mode-message]]
@@ -295,4 +296,57 @@
             [[:effects/api-cancel-order request]])
 
       :else
-      [[:effects/save [:orders :cancel-error] "Missing asset or order id."]])))
+      [[:effects/save [:orders :cancel-error] missing-request-message]])))
+
+(def ^:private cancel-visible-confirmation-path
+  [:account-info :open-orders :cancel-visible-confirmation])
+
+(defn confirm-cancel-visible-open-orders
+  [_state orders trigger-bounds]
+  (let [orders* (->> (or orders [])
+                     (filter map?)
+                     vec)]
+    (if (seq orders*)
+      [[:effects/save cancel-visible-confirmation-path
+        (cancel-visible-confirmation/open-state orders* trigger-bounds)]]
+      [])))
+
+(defn close-cancel-visible-open-orders-confirmation
+  [_state]
+  [[:effects/save cancel-visible-confirmation-path
+    (cancel-visible-confirmation/default-state)]])
+
+(defn handle-cancel-visible-open-orders-confirmation-keydown
+  [state key]
+  (if (= key "Escape")
+    (close-cancel-visible-open-orders-confirmation state)
+    []))
+
+(defn submit-cancel-visible-open-orders-confirmation
+  [state]
+  (let [orders* (->> (get-in state (conj cancel-visible-confirmation-path :orders))
+                     (filter map?)
+                     vec)]
+    (if (seq orders*)
+      (into [[:effects/save cancel-visible-confirmation-path
+              (cancel-visible-confirmation/default-state)]]
+            (emit-cancel-effects state
+                                 (trading-api/build-cancel-orders-request state orders*)
+                                 "Some visible orders are missing asset or order id."))
+      (close-cancel-visible-open-orders-confirmation state))))
+
+(defn cancel-visible-open-orders
+  [state orders]
+  (let [orders* (->> (or orders [])
+                     (filter map?)
+                     vec)]
+    (if (seq orders*)
+      (emit-cancel-effects state
+                           (trading-api/build-cancel-orders-request state orders*)
+                           "Some visible orders are missing asset or order id.")
+      [])))
+
+(defn cancel-order [state order]
+  (emit-cancel-effects state
+                       (trading-api/build-cancel-order-request state order)
+                       "Missing asset or order id."))
