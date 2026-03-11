@@ -118,6 +118,53 @@
     color: rgb(151 252 228);
   }
 
+  .account-info-tab-strip {
+    position: relative;
+    display: flex;
+    min-width: max-content;
+    height: 36px;
+    font-size: 12px;
+    line-height: 34px;
+    font-weight: 400;
+  }
+
+  .account-info-tab-indicator {
+    position: absolute;
+    bottom: 0;
+    left: var(--account-info-tab-indicator-left, 0);
+    width: var(--account-info-tab-indicator-width, 0);
+    height: 1px;
+    background: rgb(80 210 193);
+    transition: left 0.3s ease;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .account-info-tab-button {
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+    padding: 1px 10px 0;
+    background: transparent;
+    font: inherit;
+    color: rgb(148 158 156);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.2s ease-in-out;
+  }
+
+  .account-info-tab-button:hover {
+    color: rgb(255 255 255);
+  }
+
+  .account-info-tab-button-active {
+    color: rgb(246 254 253);
+  }
+
+  .account-info-tab-button-inactive {
+    color: rgb(148 158 156);
+  }
+
   .order-size-slider.range {
     --range-shdw: rgba(0, 212, 170, 0.42);
     --order-size-slider-active: rgb(15, 51, 51);

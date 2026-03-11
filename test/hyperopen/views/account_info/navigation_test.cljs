@@ -193,22 +193,28 @@
     (is (some? positions-tab-base-node))
     (is (nil? positions-tab-count-node))))
 
-(deftest tab-navigation-uses-white-toned-tab-text-for-selected-and-hover-states-test
+(deftest tab-navigation-uses-hyperliquid-style-tab-indicator-and-text-states-test
   (let [nav (view/tab-navigation :funding-history {} false {})
+        tab-strip (hiccup/find-by-data-role nav "account-info-tab-strip")
+        indicator (hiccup/find-by-data-role nav "account-info-tab-indicator")
         selected-tab (hiccup/find-first-node nav #(= [[:actions/select-account-info-tab :funding-history]]
                                                       (get-in % [1 :on :click])))
         selected-classes (hiccup/node-class-set selected-tab)
         inactive-tab (hiccup/find-first-node nav #(= [[:actions/select-account-info-tab :balances]]
                                                       (get-in % [1 :on :click])))
-        inactive-classes (hiccup/node-class-set inactive-tab)]
-    (is (contains? selected-classes "text-trading-text"))
-    (is (not (contains? selected-classes "text-primary")))
-    (is (not (contains? selected-classes "bg-base-100")))
-    (is (contains? selected-classes "lg:bg-base-100"))
-    (is (contains? inactive-classes "hover:text-trading-text"))
-    (is (not (contains? inactive-classes "hover:text-primary")))
-    (is (not (contains? inactive-classes "hover:bg-base-100")))
-    (is (contains? inactive-classes "lg:hover:bg-base-100"))))
+        inactive-classes (hiccup/node-class-set inactive-tab)
+        strip-style (get-in tab-strip [1 :style])]
+    (is (some? tab-strip))
+    (is (some? indicator))
+    (is (contains? (hiccup/node-class-set indicator) "account-info-tab-indicator"))
+    (is (string? (:--account-info-tab-indicator-left strip-style)))
+    (is (string? (:--account-info-tab-indicator-width strip-style)))
+    (is (contains? selected-classes "account-info-tab-button"))
+    (is (contains? selected-classes "account-info-tab-button-active"))
+    (is (not (contains? selected-classes "account-info-tab-button-inactive")))
+    (is (contains? inactive-classes "account-info-tab-button"))
+    (is (contains? inactive-classes "account-info-tab-button-inactive"))
+    (is (not (contains? inactive-classes "account-info-tab-button-active")))))
 
 (deftest tab-navigation-renders-neutral-positions-freshness-cue-test
   (let [counts {:balances 2 :positions 4 :open-orders 3}

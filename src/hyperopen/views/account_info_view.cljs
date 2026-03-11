@@ -111,6 +111,50 @@
     :warning ["text-xs" "font-medium" "text-warning" "tracking-wide"]
     ["text-xs" "font-medium" "text-base-content/70" "tracking-wide"]))
 
+(def ^:private account-tab-horizontal-padding-px
+  10)
+
+(def ^:private account-tab-fallback-char-width-px
+  6.4)
+
+(def ^:private account-tab-measure-context
+  (delay
+    (when (and (exists? js/document)
+               (some? js/document))
+      (let [canvas (.createElement js/document "canvas")]
+        (.getContext canvas "2d")))))
+
+(defn- account-tab-width-px [label]
+  (let [context @account-tab-measure-context
+        label-width (if context
+                      (do
+                        ;; Match the compact 12px tab label metrics used by the tab strip.
+                        (set! (.-font context)
+                              "400 12px \"Inter Variable\", system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif")
+                        (-> context
+                            (.measureText (or label ""))
+                            .-width))
+                      (* account-tab-fallback-char-width-px
+                         (count (or label ""))))]
+    (+ label-width (* 2 account-tab-horizontal-padding-px))))
+
+(defn- format-px [value]
+  (let [safe-value (double (or value 0))]
+    (str (.toFixed safe-value 3) "px")))
+
+(defn- account-tab-strip-style [tabs counts labels selected-tab]
+  (let [tab-labels* (mapv #(tab-label % counts labels) tabs)
+        widths (mapv account-tab-width-px tab-labels*)
+        active-index (or (first (keep-indexed (fn [idx tab]
+                                                (when (= tab selected-tab)
+                                                  idx))
+                                              tabs))
+                         0)
+        left (reduce + 0 (take active-index widths))
+        width (or (nth widths active-index nil) 0)]
+    {:--account-info-tab-indicator-left (format-px left)
+     :--account-info-tab-indicator-width (format-px width)}))
+
 (defn- funding-history-header-actions []
   [:div {:class ["ml-auto" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2"]}
    [:button {:class ["btn" "btn-xs" "btn-spectate" "font-normal" "text-trading-text" "hover:bg-base-100" "hover:text-trading-text"]
@@ -364,23 +408,22 @@
    (let [tab-labels* (tab-labels-for extra-tabs tab-label-overrides)
          tabs* (available-tabs-for extra-tabs tab-order tab-label-overrides)]
      [:div {:class ["border-b" "border-base-300" "bg-base-200" "flex" "flex-col" "justify-between" "md:flex-row" "md:items-center" "md:justify-between"]}
-      [:div {:class ["overflow-x-auto" "scrollbar-hide" "border-b" "border-base-300" "md:border-b-0"]}
-       [:div {:class ["flex" "min-w-max" "items-center"]}
+      [:div {:class ["overflow-x-auto" "scrollbar-hide" "border-b" "border-base-300" "md:flex" "md:self-stretch" "md:items-end" "md:border-b-0"]}
+       [:div {:class ["account-info-tab-strip"]
+              :data-role "account-info-tab-strip"
+              :style (account-tab-strip-style tabs* counts tab-labels* selected-tab)}
+        [:div {:class ["account-info-tab-indicator"]
+               :data-role "account-info-tab-indicator"
+               :aria-hidden true}]
         (for [tab tabs*]
           [:button {:key (name tab)
-                    :class (into ["px-3"
-                                  "py-2"
-                                  "text-xs"
-                                  "font-medium"
-                                  "leading-none"
-                                  "transition-colors"
-                                  "border-b-2"
-                                  "bg-transparent"
-                                  "sm:px-4"
-                                  "sm:text-sm"]
+                    :type "button"
+                    :aria-pressed (= selected-tab tab)
+                    :data-role (str "account-info-tab-" (name tab))
+                    :class (into ["account-info-tab-button"]
                                  (if (= selected-tab tab)
-                                   ["text-trading-text" "border-primary" "lg:bg-base-100"]
-                                   ["text-base-content/80" "border-transparent" "hover:text-trading-text" "lg:hover:bg-base-100"]))
+                                   ["account-info-tab-button-active"]
+                                   ["account-info-tab-button-inactive"]))
                     :on {:click (or (get tab-click-actions-by-tab tab)
                                     [[:actions/select-account-info-tab tab]])}}
            (tab-label tab counts tab-labels*)])]]
