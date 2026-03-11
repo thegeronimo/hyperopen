@@ -139,9 +139,10 @@
              (done))))
        0))))
 
-(deftest api-submit-order-effect-refreshes-dex-open-orders-but-skips-default-open-orders-when-ws-streams-live-test
+(deftest api-submit-order-effect-refreshes-dex-open-orders-and-skips-per-dex-clearinghouse-when-ws-snapshot-ready-test
   (async done
     (let [address "0xabc"
+          dex "dex-a"
           store (atom {:wallet {:address address
                                 :agent {:status :ready}}
                        :websocket {:health {:transport {:state :connected
@@ -157,7 +158,15 @@
                                                        :status :live
                                                        :subscribed? true
                                                        :descriptor {:type "webData2"
-                                                                    :user address}}}}}
+                                                                    :user address}}
+                                                      ["clearinghouseState" nil address dex nil]
+                                                      {:topic "clearinghouseState"
+                                                       :status :live
+                                                       :subscribed? true
+                                                       :descriptor {:type "clearinghouseState"
+                                                                    :user address
+                                                                    :dex dex}}}}}
+                       :perp-dex-clearinghouse {dex {:account-value "1"}}
                        :order-form {}
                        :order-form-runtime {:submitting? false
                                             :error nil}
@@ -169,7 +178,7 @@
           original-dispatch nxr/dispatch
           restore-account-refresh-mocks! (install-account-refresh-mocks! refresh-calls
                                                                       clearinghouse-calls
-                                                                      ["dex-a"])]
+                                                                      [dex])]
       (clear-order-feedback-toast-timeout!)
       (set! trading-api/submit-order!
             (fn [_store _address _action]
@@ -187,12 +196,11 @@
                   @dispatched))
            ;; Generic openOrders coverage suppresses the default refresh, but named DEX
            ;; rows still require explicit snapshot hydration after order mutation.
-           (is (= [[address "dex-a" {:priority :low}]]
+           (is (= [[address dex {:priority :low}]]
                   @refresh-calls))
-           ;; webData2 stream is live, so default clearinghouse refresh is skipped;
-           ;; per-dex backstop refresh remains.
-           (is (= [[address "dex-a" {:priority :low}]]
-                  @clearinghouse-calls))
+           ;; When a matching per-dex clearinghouse stream is healthy and the snapshot
+           ;; is already seeded locally, the order path now trusts websocket state.
+           (is (= [] @clearinghouse-calls))
            (finally
              (clear-order-feedback-toast-timeout!)
              (set! trading-api/submit-order! original-submit-order)

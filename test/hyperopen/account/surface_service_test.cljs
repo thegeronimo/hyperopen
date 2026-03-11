@@ -112,6 +112,60 @@
          (done))
        0))))
 
+(deftest refresh-after-order-mutation-keeps-per-dex-backstop-until-snapshot-ready-test
+  (async done
+    (let [dex "vault"
+          refresh-open-orders-calls (atom [])
+          refresh-default-clearinghouse-calls (atom [])
+          refresh-perp-dex-calls (atom [])
+          store (atom
+                 {:wallet {:address address}
+                  :websocket
+                  {:health
+                   {:transport {:state :connected
+                                :freshness :live}
+                    :streams {["openOrders" nil address nil nil]
+                              {:topic "openOrders"
+                               :status :live
+                               :subscribed? true
+                               :descriptor {:type "openOrders"
+                                            :user address}}
+                              ["webData2" nil address nil nil]
+                              {:topic "webData2"
+                               :status :live
+                               :subscribed? true
+                               :descriptor {:type "webData2"
+                                            :user address}}
+                              ["clearinghouseState" nil address dex nil]
+                              {:topic "clearinghouseState"
+                               :status :live
+                               :subscribed? true
+                               :descriptor {:type "clearinghouseState"
+                                            :user address
+                                            :dex dex}}}}}})]
+      (surface-service/refresh-after-order-mutation!
+       {:store store
+        :address address
+        :ensure-perp-dexs! (fn [_store _opts]
+                             (js/Promise.resolve [dex]))
+        :refresh-open-orders! (fn [_store refresh-address refresh-dex opts]
+                                (swap! refresh-open-orders-calls conj [refresh-address refresh-dex opts]))
+        :refresh-default-clearinghouse! (fn [_store refresh-address opts]
+                                          (swap! refresh-default-clearinghouse-calls conj [refresh-address opts]))
+        :refresh-perp-dex-clearinghouse! (fn [_store refresh-address refresh-dex opts]
+                                           (swap! refresh-perp-dex-calls conj [refresh-address refresh-dex opts]))})
+      (js/setTimeout
+       (fn []
+         (is (= [[address dex {:priority :low}]]
+                @refresh-open-orders-calls))
+         (is (= [] @refresh-default-clearinghouse-calls))
+         ;; A healthy subscription alone is not enough for the order path; until the
+         ;; local per-dex snapshot is seeded, keep the REST backstop.
+         (is (= [[address dex {:priority :low}]]
+                @refresh-perp-dex-calls))
+         (done))
+       0))))
+
 (deftest schedule-stream-backed-fallback-fetches-when-open-orders-stream-is-live-but-surface-not-hydrated-test
   (let [scheduled-callback (atom nil)
         fetch-calls (atom [])

@@ -188,6 +188,7 @@
            refresh-dex-open-orders-when-stream-live?
            gate-perp-dex-by-stream?
            skip-perp-dex-when-subscribed-and-ready?
+           require-perp-dex-snapshot-ready-when-stream-usable?
            perp-dex-snapshot-ready?
            log-fn
            error-prefix]
@@ -240,7 +241,9 @@
                                  (when (fn? perp-dex-snapshot-ready?)
                                    (perp-dex-snapshot-ready? state* dex))
                                  skip-perp-dex-rest-refresh?
-                                 (or perp-dex-stream-usable?
+                                 (or (and perp-dex-stream-usable?
+                                          (or (not require-perp-dex-snapshot-ready-when-stream-usable?)
+                                              perp-dex-snapshot-ready?))
                                      (and skip-perp-dex-when-subscribed-and-ready?
                                           perp-dex-stream-subscribed?
                                           perp-dex-snapshot-ready?))]
@@ -273,16 +276,20 @@
           :refresh-spot? (surface-policy/spot-refresh-surface-active? @store)
           :gate-perp-dex-by-stream? true
           :skip-perp-dex-when-subscribed-and-ready? true
+          :require-perp-dex-snapshot-ready-when-stream-usable? false
           :perp-dex-snapshot-ready? (fn [state dex]
                                       (some? (get-in state [:perp-dex-clearinghouse dex])))
           :error-prefix "Error refreshing per-dex account surfaces after user fill:")))
 
 (defn refresh-after-order-mutation!
   [deps]
-  (run-post-event-refresh!
+   (run-post-event-refresh!
    (assoc deps
           :refresh-spot? false
           :refresh-dex-open-orders-when-stream-live? true
-          :gate-perp-dex-by-stream? false
-          :skip-perp-dex-when-subscribed-and-ready? false
+          :gate-perp-dex-by-stream? true
+          :skip-perp-dex-when-subscribed-and-ready? true
+          :require-perp-dex-snapshot-ready-when-stream-usable? true
+          :perp-dex-snapshot-ready? (fn [state dex]
+                                      (some? (get-in state [:perp-dex-clearinghouse dex])))
           :error-prefix "Error refreshing per-dex account surfaces after order mutation:")))
