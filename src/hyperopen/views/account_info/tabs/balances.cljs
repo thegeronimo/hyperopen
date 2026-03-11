@@ -85,18 +85,24 @@
                              caret-position-classes)}]]]])
       value-text)))
 
-(defn- external-link-icon
-  ([] (external-link-icon ["h-3" "w-3" "shrink-0"]))
-  ([class-names]
-   [:svg {:class class-names
-          :viewBox "0 0 20 20"
-          :fill "none"
-          :stroke "currentColor"
-          :stroke-width "1.8"
-          :aria-hidden true}
-    [:path {:d "M8 4h8v8"}]
-    [:path {:d "M16 4 7 13"}]
-    [:path {:d "M14 10v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"}]]))
+(def ^:private external-link-button-classes
+  ["inline-flex"
+   "h-6"
+   "w-6"
+   "shrink-0"
+   "items-center"
+   "justify-center"
+   "rounded"
+   "transition-opacity"
+   "hover:opacity-80"
+   "focus:outline-none"
+   "focus:ring-0"
+   "focus:ring-offset-0"
+   "focus-visible:outline-none"
+   "focus-visible:ring-2"
+   "focus-visible:ring-trading-green/70"
+   "focus-visible:ring-offset-1"
+   "focus-visible:ring-offset-base-100"])
 
 (defn- normalize-balance-contract-id [contract-id]
   (projections/normalize-balance-contract-id contract-id))
@@ -115,27 +121,47 @@
   (when-let [contract-id* (normalize-balance-contract-id contract-id)]
     (str balance-contract-explorer-token-base-url contract-id*)))
 
+(defn- external-link-button [href aria-label tone-classes]
+  [:a {:href href
+       :target "_blank"
+       :rel "noopener noreferrer"
+       :aria-label aria-label
+       :title aria-label
+       :class (into external-link-button-classes tone-classes)}
+   (shared/external-link-icon ["h-3.5" "w-3.5" "shrink-0"] {:stroke-width 2})])
+
 (defn- balance-contract-node [contract-id]
   (let [display-contract-id (abbreviate-contract-id contract-id)]
     (when-let [explorer-url (balance-contract-explorer-url contract-id)]
-      [:a {:href explorer-url
-           :target "_blank"
-           :rel "noopener noreferrer"
-           :class ["inline-flex"
-                   "min-h-6"
-                   "items-center"
-                   "gap-0.5"
-                   "whitespace-nowrap"
-                   "rounded"
-                   "text-trading-text"
-                   "hover:text-trading-text/80"
-                   "focus-visible:outline-none"
-                   "focus-visible:ring-2"
-                   "focus-visible:ring-trading-green/70"
-                   "focus-visible:ring-offset-1"
-                   "focus-visible:ring-offset-base-100"]}
+      [:span {:class ["inline-flex"
+                      "min-h-6"
+                      "items-center"
+                      "gap-1"
+                      "whitespace-nowrap"
+                      "text-trading-text"]}
        [:span display-contract-id]
-       (external-link-icon ["h-3" "w-3" "shrink-0" "text-trading-green"])])))
+       (external-link-button explorer-url
+                             (str "Open contract " display-contract-id " in Hyperliquid Explorer")
+                             ["text-trading-green"])])))
+
+(defn- balance-pnl-node
+  [{:keys [coin selection-coin pnl-value pnl-pct contract-id]}]
+  (if-let [pnl-text (shared/format-pnl-text pnl-value pnl-pct)]
+    (let [tone-class (shared/pnl-tone-class pnl-value)
+          explorer-url (balance-contract-explorer-url contract-id)
+          asset-label (or selection-coin coin "asset")]
+      [:span {:class ["inline-flex"
+                      "min-h-6"
+                      "items-center"
+                      "justify-end"
+                      "gap-1"
+                      tone-class]}
+       [:span {:class ["num"]} pnl-text]
+       (when explorer-url
+         (external-link-button explorer-url
+                               (str "Open " asset-label " in Hyperliquid Explorer")
+                               [tone-class]))])
+    [:span {:class ["text-trading-text"]} "--"]))
 
 (defn build-balance-rows [webdata2 spot-data]
   (projections/build-balance-rows webdata2 spot-data nil))
@@ -319,7 +345,12 @@
                                      :transfer-disabled? transfer-disabled?
                                      :tooltip-position available-balance-tooltip-position})]
      [:div.text-right.font-semibold.num.num-right "$" (shared/format-currency usdc-value)]
-     [:div.text-right.font-medium.num.num-right (shared/format-pnl pnl-value pnl-pct)]
+     [:div.text-right.font-medium.num.num-right
+      (balance-pnl-node {:coin coin
+                         :selection-coin selection-coin
+                         :pnl-value pnl-value
+                         :pnl-pct pnl-pct
+                         :contract-id contract-id})]
      [:div.text-left
       (if send-enabled?*
         (balance-row-action-button "Send" send-action)
@@ -461,7 +492,11 @@
                           {:value-classes ["num" "font-medium" "whitespace-nowrap"]})
                          (mobile-cards/detail-item
                           "PNL (ROE %)"
-                          (shared/format-pnl pnl-value pnl-pct)
+                          (balance-pnl-node {:coin coin
+                                             :selection-coin selection-coin
+                                             :pnl-value pnl-value
+                                             :pnl-pct pnl-pct
+                                             :contract-id contract-id})
                           {:value-classes ["font-medium"]})
                          (when-let [contract-node (balance-contract-node contract-id)]
                            (mobile-cards/detail-item "Contract"

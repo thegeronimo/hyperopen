@@ -54,6 +54,7 @@
     "@noble/secp256k1": "^3.0.0",
     "indicatorts": "^2.2.2",
     "lightweight-charts": "^5.0.8",
+    "lucide": "^0.577.0",
     "shadow-cljs": "^3.1.7",
     "snabbdom": "3.5.1"
   },

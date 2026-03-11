@@ -1,5 +1,6 @@
 (ns hyperopen.views.account-info.shared
-  (:require [clojure.string :as str]
+  (:require ["lucide/dist/esm/icons/external-link.js" :default lucide-external-link-node]
+            [clojure.string :as str]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.account-info.projections :as projections]))
 
@@ -118,6 +119,28 @@
        [:span attrs
         content]))))
 
+(defn- lucide-node->hiccup [node]
+  (let [tag-name (aget node 0)
+        attrs (js->clj (aget node 1) :keywordize-keys true)]
+    [(keyword tag-name) attrs]))
+
+(defn external-link-icon
+  ([] (external-link-icon ["h-3.5" "w-3.5" "shrink-0"]))
+  ([class-names]
+   (external-link-icon class-names {:stroke-width 2}))
+  ([class-names {:keys [stroke-width]
+                 :or {stroke-width 2}}]
+   (into [:svg {:class class-names
+                :viewBox "0 0 24 24"
+                :fill "none"
+                :stroke "currentColor"
+                :stroke-width stroke-width
+                :stroke-linecap "round"
+                :stroke-linejoin "round"
+                :aria-hidden true}]
+         (map lucide-node->hiccup
+              (array-seq lucide-external-link-node)))))
+
 (defn format-currency [value]
   (fmt/format-fixed-number value fallback-decimals))
 
@@ -146,18 +169,25 @@
 (defn format-funding-history-time [time-ms]
   (fmt/format-local-date-time time-ms))
 
-(defn format-pnl [pnl-value pnl-pct]
-  (if (and (some? pnl-value) (some? pnl-pct))
+(defn pnl-tone-class [pnl-value]
+  (let [pnl-num (parse-num pnl-value)]
+    (cond
+      (pos? pnl-num) "text-success"
+      (neg? pnl-num) "text-error"
+      :else "text-trading-text")))
+
+(defn format-pnl-text [pnl-value pnl-pct]
+  (when (and (some? pnl-value) (some? pnl-pct))
     (let [pnl-num (parse-num pnl-value)
-          pct-num (parse-num pnl-pct)
-          color-class (cond
-                        (pos? pnl-num) "text-success"
-                        (neg? pnl-num) "text-error"
-                        :else "text-trading-text")]
-      [:span {:class [color-class "num"]}
-       (str (if (pos? pnl-num) "+" "")
-            "$" (format-currency pnl-num)
-            " (" (if (pos? pct-num) "+" "") (.toFixed pct-num 2) "%)")])
+          pct-num (parse-num pnl-pct)]
+      (str (if (pos? pnl-num) "+" "")
+           "$" (format-currency pnl-num)
+           " (" (if (pos? pct-num) "+" "") (.toFixed pct-num 2) "%)"))))
+
+(defn format-pnl [pnl-value pnl-pct]
+  (if-let [pnl-text (format-pnl-text pnl-value pnl-pct)]
+    [:span {:class [(pnl-tone-class pnl-value) "num"]}
+     pnl-text]
     [:span.text-trading-text "--"]))
 
 (def position-chip-classes

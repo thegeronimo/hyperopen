@@ -39,19 +39,6 @@
    [:div.text-lg.font-medium message]
    [:div.text-sm.opacity-70.mt-2 "No data available"]])
 
-(defn- external-link-icon
-  ([] (external-link-icon ["h-3" "w-3" "shrink-0"]))
-  ([class-names]
-   [:svg {:class class-names
-          :viewBox "0 0 20 20"
-          :fill "none"
-          :stroke "currentColor"
-          :stroke-width "1.8"
-          :aria-hidden true}
-    [:path {:d "M8 4h8v8"}]
-    [:path {:d "M16 4 7 13"}]
-    [:path {:d "M14 10v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"}]]))
-
 (defn- trade-history-coin [row]
   (projections/trade-history-coin row))
 
@@ -98,7 +85,7 @@
                    "focus-visible:ring-offset-1"
                    "focus-visible:ring-offset-base-100"]}
        [:span formatted-time]
-       (external-link-icon)]
+       (shared/external-link-icon ["h-3" "w-3" "shrink-0"] {:stroke-width 2})]
       formatted-time)))
 
 (defn- format-usdc-amount [value]
@@ -503,11 +490,13 @@
                               [:span {:class ["inline-flex" "items-center" "gap-1"]}
                                time-part
                                (when explorer-url
-                                 (external-link-icon ["h-3" "w-3" "shrink-0" "text-trading-green"]))]]
+                                 (shared/external-link-icon ["h-3" "w-3" "shrink-0" "text-trading-green"]
+                                                            {:stroke-width 2}))]]
                              [[:span {:class ["inline-flex" "items-center" "gap-1"]}
                                formatted-time
                                (when explorer-url
-                                 (external-link-icon ["h-3" "w-3" "shrink-0" "text-trading-green"]))]])]
+                                 (shared/external-link-icon ["h-3" "w-3" "shrink-0" "text-trading-green"]
+                                                            {:stroke-width 2}))]])]
     (into [(if explorer-url :a :div)
            (cond-> {:class ["inline-flex"
                             "min-w-0"
@@ -546,7 +535,8 @@
                    "focus-visible:ring-offset-1"
                    "focus-visible:ring-offset-base-100"]}
        [:span {:class ["num"]} formatted-pnl]
-       (external-link-icon ["h-3" "w-3" "shrink-0" "text-trading-green"])]
+       (shared/external-link-icon ["h-3" "w-3" "shrink-0" "text-trading-green"]
+                                  {:stroke-width 2})]
       [:span {:class ["num" pnl-class]} formatted-pnl])))
 
 (defn- mobile-trade-history-card [expanded-row-id row market-by-key]
