@@ -548,9 +548,9 @@
          :tabindex (when (seq submit-tooltip) 0)}
    [:button {:type "button"
              :class (into ["w-full"
-                           "h-10"
+                           "h-[33px]"
                            "rounded-lg"
-                           "text-sm"
+                           "text-xs"
                            "font-semibold"
                            "transition-colors"
                            "focus:outline-none"
@@ -736,25 +736,31 @@
                        "line-through"]}
         baseline]])]])
 
-(defn- footer-metrics [display show-liquidation-row? show-slippage-row? fee-copy]
+(defn- footer-metrics
+  [display show-liquidation-row? show-slippage-row? fee-copy scale-preview-lines]
   (let [liquidation-price (:liquidation-price display)
         liquidation-tooltip (when (= liquidation-price "N/A")
                               liquidation-price-tooltip)]
-    [:div {:class ["border-t" "border-base-300" "pt-2.5" "space-y-1.5" "sm:pt-3" "sm:space-y-2"]}
-     (when show-liquidation-row?
-       (primitives/metric-row "Liquidation Price"
-                              liquidation-price
-                              nil
-                              liquidation-tooltip))
-   (primitives/metric-row "Order Value"
-                          (:order-value display))
-   (primitives/metric-row "Margin Required"
-                          (:margin-required display))
-   (when show-slippage-row?
-     (primitives/metric-row "Slippage"
-                            (:slippage display)
-                            "text-primary"))
-   (fees-row (:fees display) fee-copy)]))
+    (into
+     [:div {:class ["border-t" "border-base-300" "pt-2" "space-y-1.5" "sm:pt-2.5" "sm:space-y-2"]}]
+     (concat
+      (when scale-preview-lines
+        [(primitives/metric-row "Start" (:start scale-preview-lines))
+         (primitives/metric-row "End" (:end scale-preview-lines))])
+      (when show-liquidation-row?
+        [(primitives/metric-row "Liquidation Price"
+                                liquidation-price
+                                nil
+                                liquidation-tooltip)])
+      [(primitives/metric-row "Order Value"
+                              (:order-value display))
+       (primitives/metric-row "Margin Required"
+                              (:margin-required display))]
+      (when show-slippage-row?
+        [(primitives/metric-row "Slippage"
+                                (:slippage display)
+                                "text-primary")])
+      [(fees-row (:fees display) fee-copy)]))))
 
 (defn render-order-form
   [{:keys [state vm handlers ui]}]
@@ -826,18 +832,15 @@
                    "p-2.5"
                    "sm:p-3"
                    "font-sans"
-                   "min-h-[500px]"
-                   "lg:min-h-[560px]"
-                   "xl:min-h-[640px]"
                    "flex"
                    "flex-col"
-                   "gap-2.5"
-                   "sm:gap-3"]
+                   "gap-2"
+                   "sm:gap-2.5"]
            :data-parity-id "order-form"}
      (when spot?
        (unsupported-market-banner "Spot trading is not supported yet. You can still view spot charts and order books."))
 
-     [:div {:class (into ["flex" "flex-col" "flex-1" "gap-2.5" "sm:gap-3"]
+     [:div {:class (into ["flex" "flex-col" "gap-2" "sm:gap-2.5"]
                          (when read-only? ["opacity-60" "pointer-events-none"]))}
       (leverage-row state
                     (:margin-mode form)
@@ -906,13 +909,6 @@
                                (:post-only form)
                                (:on-toggle-post-only toggle-handlers)))
 
-      [:div {:class ["flex-1"]}]
-
-      (when show-scale-preview?
-        [:div {:class ["space-y-1.5"]}
-         (primitives/metric-row "Start" (:start scale-preview-lines))
-         (primitives/metric-row "End" (:end scale-preview-lines))])
-
       (when error
         [:div {:class ["text-xs" "text-red-400"]} error])
 
@@ -925,7 +921,11 @@
                      :submit-tooltip (:tooltip submit)
                      :on-submit (:on-submit submit-handlers)}))
 
-      (footer-metrics display show-liquidation-row? show-slippage-row? fee-copy)]]))
+      (footer-metrics display
+                      show-liquidation-row?
+                      show-slippage-row?
+                      fee-copy
+                      (when show-scale-preview? scale-preview-lines))]]))
 
 (defn order-form-view [state]
   (render-order-form
