@@ -4,6 +4,36 @@
             [hyperopen.views.trade.order-form-component-primitives :as primitives]
             [hyperopen.views.trade.order-form-type-extensions :as type-extensions]))
 
+(def ^:private entry-mode-indicator-left
+  {:market "0%"
+   :limit "33.333333%"
+   :pro "66.666667%"})
+
+(def ^:private entry-mode-tab-button-base-classes
+  ["relative"
+   "z-10"
+   "cursor-pointer"
+   "flex"
+   "h-[35px]"
+   "min-w-0"
+   "items-center"
+   "justify-center"
+   "overflow-hidden"
+   "px-2"
+   "select-none"
+   "text-sm"
+   "font-normal"
+   "whitespace-nowrap"
+   "transition-colors"
+   "duration-200"
+   "ease-in-out"])
+
+(defn- entry-mode-tab-button-classes [active?]
+  (into entry-mode-tab-button-base-classes
+        (if active?
+          ["text-[#F6FEFD]"]
+          ["text-[#949E9C]" "hover:text-white"])))
+
 (defn entry-mode-tabs
   [{:keys [entry-mode
            type
@@ -21,31 +51,33 @@
    (when pro-dropdown-open?
      [:div {:class ["fixed" "inset-0" "z-[180]"]
             :on {:click on-close-dropdown}}])
-   [:div {:class ["relative" "z-[190]" "flex" "items-center" "border-b" "border-base-300"]}
-    (primitives/mode-button "Market"
-                            (= entry-mode :market)
-                            on-select-entry-market)
-    (primitives/mode-button "Limit"
-                            (= entry-mode :limit)
-                            on-select-entry-limit)
-    [:div {:class ["relative" "flex-1"]}
+   [:div {:class ["relative" "z-[190]" "grid" "h-[35px]" "grid-cols-3" "border-b" "border-[#303030]"]}
+    [:div {:data-role "entry-mode-active-indicator"
+           :aria-hidden true
+           :class ["pointer-events-none"
+                   "absolute"
+                   "bottom-0"
+                   "h-px"
+                   "bg-[#50D2C1]"]
+           :style {:left (get entry-mode-indicator-left entry-mode "0%")
+                   :width "33.333333%"
+                   :transition "left 0.3s ease"}}]
+    [:button {:type "button"
+              :class (entry-mode-tab-button-classes (= entry-mode :market))
+              :on {:click on-select-entry-market}}
+     "Market"]
+    [:button {:type "button"
+              :class (entry-mode-tab-button-classes (= entry-mode :limit))
+              :on {:click on-select-entry-limit}}
+     "Limit"]
+    [:div {:class ["relative" "min-w-0"]}
      [:button {:type "button"
-               :class (into ["w-full"
-                             "h-10"
-                             "text-sm"
-                             "font-medium"
-                             "border-b-2"
-                             "transition-colors"
-                             "inline-flex"
-                             "items-center"
-                             "justify-center"
-                             "gap-1.5"]
-                            (if (= entry-mode :pro)
-                              ["text-gray-100" "border-primary"]
-                              ["text-gray-400" "border-transparent" "hover:text-gray-200"]))
+               :class (into (entry-mode-tab-button-classes (= entry-mode :pro))
+                            ["w-full" "gap-1.5"])
+               :title pro-tab-label
                :on {:click on-toggle-dropdown
                     :keydown on-dropdown-keydown}}
-      [:span pro-tab-label]
+      [:span {:class ["truncate"]} pro-tab-label]
       [:svg {:class (into ["h-3.5" "w-3.5" "transition-transform"]
                           (if pro-dropdown-open?
                             ["rotate-180"]
@@ -55,7 +87,7 @@
        [:path {:fill-rule "evenodd"
                :clip-rule "evenodd"
                :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"}]]]
-     (when pro-dropdown-open?
+      (when pro-dropdown-open?
        [:div {:class ["absolute"
                       "right-0"
                       "top-full"

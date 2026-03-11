@@ -15,12 +15,20 @@
         market-button (button-node-by-label view-node "Market")
         limit-button (button-node-by-label view-node "Limit")
         pro-button (button-node-by-label view-node "Pro")
+        indicator (find-first-node view-node
+                                   (fn [candidate]
+                                     (= "entry-mode-active-indicator"
+                                        (get-in candidate [1 :data-role]))))
         market-classes (set (get-in market-button [1 :class]))
         limit-classes (set (get-in limit-button [1 :class]))
         pro-classes (set (get-in pro-button [1 :class]))]
-    (is (contains? market-classes "border-primary"))
-    (is (not (contains? limit-classes "border-primary")))
-    (is (not (contains? pro-classes "border-primary")))))
+    (is (contains? market-classes "text-[#F6FEFD]"))
+    (is (contains? limit-classes "text-[#949E9C]"))
+    (is (contains? pro-classes "text-[#949E9C]"))
+    (is (= "0%"
+           (get-in indicator [1 :style :left])))
+    (is (= "33.333333%"
+           (get-in indicator [1 :style :width])))))
 
 (deftest market-mode-renders-market-entry-controls-and-hides-limit-pro-fields-test
   (let [view-node (view/order-form-view (base-state {:entry-mode :market :type :limit}))

@@ -60,6 +60,9 @@
         closed-overlay-count (->> (collect-nodes-by-tag closed-node :div)
                                   (filter #(contains? (set (get-in % [1 :class])) "fixed"))
                                   count)
+        closed-indicator (first (filter #(= "entry-mode-active-indicator"
+                                            (get-in % [1 :data-role]))
+                                        (collect-nodes-by-tag closed-node :div)))
         open-overlays (->> (collect-nodes-by-tag open-node :div)
                            (filter #(contains? (set (get-in % [1 :class])) "fixed")))
         option-buttons (->> (collect-nodes-by-tag open-node :button)
@@ -73,6 +76,12 @@
            (get-in (first open-overlays) [1 :on :click])))
 
     (is (= 2 (count option-buttons)))
+    (is (= "33.333333%"
+           (get-in closed-indicator [1 :style :left])))
+    (is (= "33.333333%"
+           (get-in closed-indicator [1 :style :width])))
+    (is (= "left 0.3s ease"
+           (get-in closed-indicator [1 :style :transition])))
     (is (= [[:actions/select-pro-order-type :scale]]
            (get-in (first option-buttons) [1 :on :click])))
     (is (= [[:actions/select-pro-order-type :twap]]
