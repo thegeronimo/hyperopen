@@ -303,6 +303,19 @@
                                         update
                                         :visible-range-interaction-epoch
                                         (fnil inc 0)))
+         reset-visible-range!
+         (fn [node chart candles]
+           (ci/apply-default-visible-range! chart candles)
+           (mark-visible-range-interaction! node))
+         sync-navigation-overlay!
+         (fn [node chart-obj candles]
+           (ci/sync-chart-navigation-overlay!
+            chart-obj
+            node
+            candles
+            {:on-interaction #(mark-visible-range-interaction! node)
+             :on-reset (fn [chart* candles*]
+                         (reset-visible-range! node chart* candles*))}))
          start-visible-range-persistence!
          (fn [node chart]
            (ci/subscribe-visible-range-persistence!
@@ -354,6 +367,7 @@
                         (ci/sync-position-overlays! chart-obj node position-overlay position-overlay-deps)
                         (ci/sync-open-order-overlays! chart-obj node open-order-overlays overlay-deps)
                         (ci/sync-volume-indicator-overlay! chart-obj node candle-data volume-indicator-deps)
+                        (sync-navigation-overlay! node chart-obj candle-data)
                         (chart-runtime/set-state! node {:chart-obj chart-obj
                                                         :legend-control legend-control
                                                         :chart-type chart-type
@@ -415,6 +429,7 @@
                           (ci/sync-position-overlays! chart-obj node position-overlay position-overlay-deps)
                           (ci/sync-open-order-overlays! chart-obj node open-order-overlays overlay-deps))
                         (ci/sync-volume-indicator-overlay! chart-obj node candle-data volume-indicator-deps)
+                        (sync-navigation-overlay! node chart-obj candle-data)
                         (when (and indicator-series (seq indicator-series-data))
                           (doseq [[idx series-entry] (map-indexed vector indicator-series-data)]
                             (when-let [^js indicator-series-entry (aget ^js indicator-series idx)]
@@ -434,6 +449,7 @@
                       (ci/clear-open-order-overlays! chart-obj)
                       (ci/clear-position-overlays! chart-obj)
                       (ci/clear-volume-indicator-overlay! chart-obj)
+                      (ci/clear-chart-navigation-overlay! chart-obj)
                       (ci/clear-baseline-base-value-subscription! chart-obj)
                       (when visible-range-cleanup
                         (try

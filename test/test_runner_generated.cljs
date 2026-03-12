@@ -245,6 +245,7 @@
             [hyperopen.views.trading-chart.utils.chart-interop.baseline-test]
             [hyperopen.views.trading-chart.utils.chart-interop.candle-sync-policy-test]
             [hyperopen.views.trading-chart.utils.chart-interop.chart-creation-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.chart-navigation-overlay-test]
             [hyperopen.views.trading-chart.utils.chart-interop.indicators-test]
             [hyperopen.views.trading-chart.utils.chart-interop.legend-test]
             [hyperopen.views.trading-chart.utils.chart-interop.markers-test]
@@ -578,6 +579,7 @@
              'hyperopen.views.trading-chart.utils.chart-interop.baseline-test
              'hyperopen.views.trading-chart.utils.chart-interop.candle-sync-policy-test
              'hyperopen.views.trading-chart.utils.chart-interop.chart-creation-test
+             'hyperopen.views.trading-chart.utils.chart-interop.chart-navigation-overlay-test
              'hyperopen.views.trading-chart.utils.chart-interop.indicators-test
              'hyperopen.views.trading-chart.utils.chart-interop.legend-test
              'hyperopen.views.trading-chart.utils.chart-interop.markers-test

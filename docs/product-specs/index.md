@@ -11,6 +11,7 @@ source_of_truth: true
 ## Active and Historical Product Specs
 - [Account Information Component PRD](/hyperopen/docs/product-specs/account-info-component-prd.md)
 - [Agent Wallet Trading Enablement PRD](/hyperopen/docs/product-specs/agent-wallet-order-signing-prd.md)
+- [Chart Hover Navigation Controls PRD](/hyperopen/docs/product-specs/chart-hover-navigation-controls-prd.md)
 - [Funding Autocorrelation Plot Component PRD](/hyperopen/docs/product-specs/funding-autocorrelation-plot-component-prd.md)
 - [Hyperliquid Trading Interface PRD](/hyperopen/docs/product-specs/hyperliquid-trading-interface-prd.md)
 - [Trade UI Affordance Parity Spec](/hyperopen/docs/product-specs/hyperliquid-ui-affordance-parity-spec.md)
