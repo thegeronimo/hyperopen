@@ -19,8 +19,13 @@
                                          :staking {:validator-summaries []}})
         connect-btn (find-node #(= "staking-establish-connection"
                                    (get-in % [1 :data-role]))
-                               view)]
+                               view)
+        deposit-input (find-node #(and (= :input (first %))
+                                       (= "staking-deposit-amount"
+                                          (get-in % [1 :id])))
+                                 view)]
     (is (some? connect-btn))
+    (is (nil? deposit-input))
     (is (= [[:actions/connect-wallet]]
            (get-in connect-btn [1 :on :click])))))
 
@@ -47,9 +52,11 @@
         table (find-node #(= "staking-validator-table"
                              (get-in % [1 :data-role]))
                          view)
-        select-btn (find-node #(and (= :button (first %))
-                                    (= [[:actions/select-staking-validator validator]]
-                                       (get-in % [1 :on :click])))
+        row (find-node #(and (= :tr (first %))
+                             (= "staking-validator-row"
+                                (get-in % [1 :data-role])))
                               view)]
     (is (some? table))
-    (is (some? select-btn))))
+    (is (some? row))
+    (is (= [[:actions/select-staking-validator validator]]
+           (get-in row [1 :on :click])))))

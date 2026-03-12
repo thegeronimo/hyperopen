@@ -133,17 +133,27 @@
                           (:sampleCount window)
                           (:sample-count window)])}))
 
+(def ^:private validator-stake-scale
+  100000000)
+
+(defn- normalize-validator-stake
+  [value]
+  (when-let [stake (optional-number value)]
+    (if (> stake 1000000000)
+      (/ stake validator-stake-scale)
+      stake)))
+
 (defn- normalize-validator-summary-row
   [row]
   (when (map? row)
     (let [validator (normalize-address (:validator row))
           signer (normalize-address (:signer row))]
       (when (seq validator)
-        {:validator validator
-         :signer signer
-         :name (some-> (:name row) str str/trim not-empty)
-         :description (some-> (:description row) str str/trim not-empty)
-         :stake (optional-number (:stake row))
+         {:validator validator
+          :signer signer
+          :name (some-> (:name row) str str/trim not-empty)
+          :description (some-> (:description row) str str/trim not-empty)
+         :stake (normalize-validator-stake (:stake row))
          :is-active? (true? (:isActive row))
          :is-jailed? (true? (:isJailed row))
          :commission (optional-number (:commission row))
