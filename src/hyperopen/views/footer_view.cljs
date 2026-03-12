@@ -39,6 +39,45 @@
    :market_data 1
    :account 2})
 
+(def ^:private meter-bars-total
+  4)
+
+(def ^:private meter-bar-heights
+  [6 9 12 15])
+
+(def ^:private meter-group-weight
+  {:orders_oms 1.0
+   :market_data 0.85
+   :account 0.65})
+
+(def ^:private meter-status-penalty
+  {:idle 0
+   :n-a 0
+   :live 0
+   :delayed 14
+   :reconnecting 24
+   :offline 36
+   :unknown 20
+   nil 20})
+
+(def ^:private meter-transport-state-penalty
+  {:connected 0
+   :connecting 12
+   :reconnecting 20
+   :disconnected 32
+   :unknown 20
+   nil 20})
+
+(def ^:private meter-transport-freshness-penalty
+  {:idle 6
+   :n-a 0
+   :live 0
+   :delayed 18
+   :reconnecting 34
+   :offline 55
+   :unknown 28
+   nil 28})
+
 (defn- status-label [status]
   (case status
     :n-a "EVENT-DRIVEN"
@@ -119,6 +158,16 @@
       {:source :transport
        :status (get-in health [:transport :freshness] :offline)}))
 
+(defn- meter-status-label [status]
+  (case status
+    :live "Online"
+    :n-a "Online"
+    :delayed "Delayed"
+    :reconnecting "Reconnecting"
+    :offline "Offline"
+    :idle "Idle"
+    "Offline"))
+
 (defn- format-age-ms [age-ms]
   (cond
     (not (number? age-ms))
@@ -147,6 +196,144 @@
     (when (and (number? generated-at-ms)
                (number? last-payload-at-ms))
       (max 0 (- generated-at-ms last-payload-at-ms)))))
+
+(defn- weighted-status-penalty [group status]
+  (let [weight (get meter-group-weight group 0.5)
+        base (get meter-status-penalty status
+                  (get meter-status-penalty :unknown 20))]
+    (int (js/Math.round (* weight base)))))
+
+(defn- delayed-stream-severity-penalty [generated-at-ms stream]
+  (let [age-ms (or (:age-ms stream)
+                   (stream-age-ms generated-at-ms stream))
+        stale-threshold-ms (:stale-threshold-ms stream)
+        ratio (when (and (= :delayed (:status stream))
+                         (:subscribed? stream)
+                         (number? age-ms)
+                         (number? stale-threshold-ms)
+                         (pos? stale-threshold-ms))
+                (/ age-ms stale-threshold-ms))]
+    (cond
+      (not (number? ratio)) 0
+      (<= ratio 1.25) 3
+      (<= ratio 1.5) 6
+      (<= ratio 2.0) 10
+      (<= ratio 3.0) 14
+      :else 18)))
+
+(defn- stream-delay-penalty [health]
+  (let [generated-at-ms (:generated-at-ms health)
+        penalties (->> (vals (or (:streams health) {}))
+                       (map #(delayed-stream-severity-penalty generated-at-ms %))
+                       (filter pos?)
+                       (sort >)
+                       vec)
+        top-penalty (reduce + (take 3 penalties))
+        overflow-penalty (* 2 (max 0 (- (count penalties) 3)))]
+    (min 28 (+ top-penalty overflow-penalty))))
+
+(defn- any-gap-detected? [health]
+  (boolean
+   (some true?
+         (for [group group-priority]
+           (get-in health [:groups group :gap-detected?])))))
+
+(defn- connection-meter-penalty [health]
+  (let [transport-state (get-in health [:transport :state])
+        transport-freshness (get-in health [:transport :freshness])
+        transport-state-penalty (get meter-transport-state-penalty
+                                     transport-state
+                                     (get meter-transport-state-penalty :unknown 20))
+        transport-freshness-penalty (get meter-transport-freshness-penalty
+                                         transport-freshness
+                                         (get meter-transport-freshness-penalty :unknown 28))
+        groups-penalty (reduce (fn [total group]
+                                 (+ total
+                                    (weighted-status-penalty
+                                     group
+                                     (get-in health [:groups group :worst-status]))))
+                               0
+                               group-priority)
+        delayed-stream-penalty (stream-delay-penalty health)
+        gap-penalty (if (any-gap-detected? health) 8 0)]
+    (+ transport-state-penalty
+       transport-freshness-penalty
+       groups-penalty
+       delayed-stream-penalty
+       gap-penalty)))
+
+(defn- penalty->active-bars [penalty]
+  (let [score (max 0 (- 100 (or penalty 100)))]
+    (cond
+      (>= score 88) 4
+      (>= score 68) 3
+      (>= score 45) 2
+      (>= score 20) 1
+      :else 0)))
+
+(defn- connection-meter-tone [status active-bars]
+  (cond
+    (or (= status :offline) (zero? active-bars))
+    {:border "border-error/50"
+     :bg "bg-error/10"
+     :label-text "text-error"
+     :bar-active "bg-error"}
+
+    (= status :reconnecting)
+    {:border "border-warning/50"
+     :bg "bg-warning/10"
+     :label-text "text-warning"
+     :bar-active "bg-warning"}
+
+    (or (= status :delayed)
+        (<= active-bars 2))
+    {:border "border-warning/50"
+     :bg "bg-warning/10"
+     :label-text "text-warning"
+     :bar-active "bg-warning"}
+
+    :else
+    {:border "border-success/50"
+     :bg "bg-success/10"
+     :label-text "text-success"
+     :bar-active "bg-success"}))
+
+(defn- connection-meter-model [health]
+  (let [{:keys [source status]} (dominant-pill-state health)
+        penalty (connection-meter-penalty health)
+        active-bars (penalty->active-bars penalty)
+        label (meter-status-label status)]
+    {:source source
+     :status status
+     :active-bars active-bars
+     :label label
+     :tooltip (str label
+                   " ("
+                   active-bars
+                   "/"
+                   meter-bars-total
+                   " bars) - "
+                   (source-label source)
+                   " "
+                   (str/lower-case (status-label status)))}))
+
+(defn- signal-meter-bars [active-bars bar-active-class]
+  [:span {:class ["inline-flex" "items-end" "gap-[2px]"]
+          :data-role "footer-connection-meter-bars"}
+   (for [idx (range meter-bars-total)]
+     ^{:key (str "meter-bar|" idx)}
+     (let [active? (< idx active-bars)]
+       [:span {:class (into ["block"
+                             "w-[3px]"
+                             "rounded-sm"
+                             "transition-colors"
+                             "duration-150"]
+                            (if active?
+                              [bar-active-class]
+                              ["bg-base-300/70"]))
+               :style {:height (str (nth meter-bar-heights idx 15) "px")}
+               :data-role "footer-connection-meter-bar"
+               :data-active (if active? "true" "false")}]))])
 
 (defn- threshold-label [stale-threshold-ms]
   (if (number? stale-threshold-ms)
@@ -896,9 +1083,8 @@
 
 (defn footer-view [state]
   (let [health (get-in state [:websocket :health] {})
-        {:keys [status]} (dominant-pill-state health)
-        {:keys [border bg text]} (status-tone status)
-        pill-label (if (= status :live) "Connected" (status-label status))
+        {:keys [status active-bars label tooltip]} (connection-meter-model health)
+        {:keys [border bg label-text bar-active]} (connection-meter-tone status active-bars)
         diagnostics-open? (boolean (get-in state [:websocket-ui :diagnostics-open?] false))
         footer-z-class (if diagnostics-open? "z-[260]" "z-40")
         banner (banner-model state health)]
@@ -924,18 +1110,19 @@
                           "gap-2"
                           "rounded"
                           "border"
-                          "px-3"
+                          "px-2.5"
                           "py-1"
                           "text-xs"
-                          "font-semibold"
-                          "uppercase"
-                          "tracking-wide"
+                          "font-medium"
                           "transition-colors"
                           border
                           bg
-                          text]
-                  :on {:click [[:actions/toggle-ws-diagnostics]]}}
-         [:span pill-label]]]
+                          label-text]
+                  :on {:click [[:actions/toggle-ws-diagnostics]]}
+                  :title tooltip
+                  :data-role "footer-connection-meter-button"}
+         (signal-meter-bars active-bars bar-active)
+         [:span label]]]
 
        [:div {:class ["flex" "space-x-6"]}
         [:a {:class footer-link-classes

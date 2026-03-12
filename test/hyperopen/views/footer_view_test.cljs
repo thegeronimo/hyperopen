@@ -51,9 +51,24 @@
 (defn- find-pill [view]
   (find-node #(and (vector? %)
                    (= :button (first %))
+                   (= "footer-connection-meter-button"
+                      (get-in % [1 :data-role]))
                    (= [[:actions/toggle-ws-diagnostics]]
                       (get-in % [1 :on :click])))
              view))
+
+(defn- meter-bar-count [view]
+  (count-nodes #(and (vector? %)
+                     (= "footer-connection-meter-bar"
+                        (get-in % [1 :data-role])))
+               view))
+
+(defn- meter-active-bar-count [view]
+  (count-nodes #(and (vector? %)
+                     (= "footer-connection-meter-bar"
+                        (get-in % [1 :data-role]))
+                     (= "true" (get-in % [1 :data-active])))
+               view))
 
 (defn- find-surface-freshness-toggle [view]
   (find-node #(and (vector? %)
@@ -91,6 +106,7 @@
    :streams {["trades" "BTC" nil nil nil]
              {:group :market_data
               :topic "trades"
+              :subscribed? true
               :status :live
               :last-payload-at-ms 5000
               :stale-threshold-ms 10000
@@ -104,7 +120,7 @@
                   :copy-status nil
                   :reconnect-cooldown-until-ms nil}})
 
-(deftest status-pill-is-snapshot-driven-and-retry-button-removed-test
+(deftest status-meter-is-snapshot-driven-and-retry-button-removed-test
   (let [state (assoc-in (base-state) [:websocket :health :groups :orders_oms :worst-status] :offline)
         view (footer-view/footer-view state)
         pill (find-pill view)
@@ -113,10 +129,10 @@
                                    (= "Retry" (last %)))
                              view)]
     (is (some? pill))
-    (is (str/includes? (node-text pill) "OFFLINE"))
+    (is (str/includes? (node-text pill) "Offline"))
     (is (nil? retry-btn))))
 
-(deftest status-pill-uses-deterministic-group-precedence-test
+(deftest status-meter-uses-deterministic-group-precedence-test
   (let [state (-> (base-state)
                   (assoc-in [:websocket :health :groups :orders_oms :worst-status] :idle)
                   (assoc-in [:websocket :health :groups :market_data :worst-status] :delayed)
@@ -124,9 +140,9 @@
         view (footer-view/footer-view state)
         pill (find-pill view)]
     (is (some? pill))
-    (is (str/includes? (node-text pill) "DELAYED"))))
+    (is (str/includes? (node-text pill) "Delayed"))))
 
-(deftest status-pill-falls-back-to-transport-when-groups-are-neutral-test
+(deftest status-meter-falls-back-to-transport-when-groups-are-neutral-test
   (let [state (-> (base-state)
                   (assoc-in [:websocket :health :groups :orders_oms :worst-status] :idle)
                   (assoc-in [:websocket :health :groups :market_data :worst-status] :n-a)
@@ -135,19 +151,65 @@
         view (footer-view/footer-view state)
         pill (find-pill view)]
     (is (some? pill))
-    (is (str/includes? (node-text pill) "OFFLINE"))))
+    (is (str/includes? (node-text pill) "Offline"))))
 
-(deftest status-pill-shows-connected-for-live-state-test
+(deftest status-meter-shows-online-for-live-state-test
   (let [view (footer-view/footer-view (base-state))
         pill (find-pill view)]
     (is (some? pill))
-    (is (= "Connected" (node-text pill)))))
+    (is (= "Online" (node-text pill)))))
 
-(deftest status-pill-click-dispatches-diagnostics-toggle-test
+(deftest status-meter-click-dispatches-diagnostics-toggle-test
   (let [view (footer-view/footer-view (base-state))
         pill (find-pill view)]
     (is (= [[:actions/toggle-ws-diagnostics]]
            (get-in pill [1 :on :click])))))
+
+(deftest status-meter-renders-four-bars-and-full-strength-for-base-health-test
+  (let [view (footer-view/footer-view (base-state))]
+    (is (= 4 (meter-bar-count view)))
+    (is (= 4 (meter-active-bar-count view)))))
+
+(deftest status-meter-degrades-in-steps-for-slight-versus-severe-delay-test
+  (let [slight-delay-state (-> (base-state)
+                               (assoc-in [:websocket :health :generated-at-ms] 20000)
+                               (assoc-in [:websocket :health :groups :market_data :worst-status] :delayed)
+                               (assoc-in [:websocket :health :streams ["trades" "BTC" nil nil nil] :status] :delayed)
+                               (assoc-in [:websocket :health :streams ["trades" "BTC" nil nil nil] :last-payload-at-ms] 8000)
+                               (assoc-in [:websocket :health :streams ["trades" "BTC" nil nil nil] :stale-threshold-ms] 10000))
+        severe-delay-state (-> (base-state)
+                               (assoc-in [:websocket :health :generated-at-ms] 40000)
+                               (assoc-in [:websocket :health :transport :freshness] :delayed)
+                               (assoc-in [:websocket :health :groups :orders_oms :worst-status] :delayed)
+                               (assoc-in [:websocket :health :groups :market_data :worst-status] :delayed)
+                               (assoc-in [:websocket :health :groups :account :worst-status] :delayed)
+                               (assoc-in [:websocket :health :streams ["trades" "BTC" nil nil nil] :status] :delayed)
+                               (assoc-in [:websocket :health :streams ["trades" "BTC" nil nil nil] :last-payload-at-ms] 2000)
+                               (assoc-in [:websocket :health :streams ["trades" "BTC" nil nil nil] :stale-threshold-ms] 5000)
+                               (assoc-in [:websocket :health :streams ["l2Book" "BTC" nil nil nil]]
+                                         {:group :market_data
+                                          :topic "l2Book"
+                                          :subscribed? true
+                                          :status :delayed
+                                          :last-payload-at-ms 1000
+                                          :stale-threshold-ms 5000
+                                          :descriptor {:type "l2Book" :coin "BTC"}})
+                               (assoc-in [:websocket :health :streams ["openOrders" nil "0xabc" nil nil]]
+                                         {:group :orders_oms
+                                          :topic "openOrders"
+                                          :subscribed? true
+                                          :status :delayed
+                                          :last-payload-at-ms 1500
+                                          :stale-threshold-ms 4000
+                                          :descriptor {:type "openOrders" :user "0xabc"}}))
+        slight-view (footer-view/footer-view slight-delay-state)
+        severe-view (footer-view/footer-view severe-delay-state)]
+    (is (= "Delayed" (node-text (find-pill slight-view))))
+    (is (= "Delayed" (node-text (find-pill severe-view))))
+    (is (= 3 (meter-active-bar-count slight-view)))
+    (is (<= 0 (meter-active-bar-count severe-view) 1))
+    (is (> (meter-active-bar-count slight-view)
+           (meter-active-bar-count severe-view)))))
 
 (deftest diagnostics-drawer-renders-surface-freshness-toggle-test
   (let [off-view (footer-view/footer-view (base-state))
