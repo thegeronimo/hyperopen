@@ -437,7 +437,15 @@
   [[:effects/save-many
     [[[:staking-ui :validator-timeframe]
       (normalize-staking-validator-timeframe timeframe)]
-     [[:staking-ui :validator-timeframe-dropdown-open?] false]]]])
+     [[:staking-ui :validator-timeframe-dropdown-open?] false]
+     [[:staking-ui :validator-page] 0]]]])
+
+(defn set-staking-validator-page
+  [_state page]
+  (let [page* (or (some-> page trading-domain/parse-num js/Math.floor int)
+                  0)]
+    [[:effects/save [:staking-ui :validator-page]
+      (max 0 page*)]]))
 
 (defn set-staking-validator-sort
   [state column]
@@ -454,7 +462,8 @@
                            default-direction)]
       [[:effects/save [:staking-ui :validator-sort]
         {:column column*
-         :direction next-direction}]])
+         :direction next-direction}]
+       [:effects/save [:staking-ui :validator-page] 0]])
     []))
 
 (defn open-staking-action-popover

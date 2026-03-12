@@ -54,14 +54,16 @@
 (deftest set-staking-validator-sort-toggles-direction-and-switches-columns-test
   (is (= [[:effects/save [:staking-ui :validator-sort]
            {:column :stake
-            :direction :asc}]]
+            :direction :asc}]
+          [:effects/save [:staking-ui :validator-page] 0]]
          (actions/set-staking-validator-sort
           {:staking-ui {:validator-sort {:column :stake
                                          :direction :desc}}}
           :stake)))
   (is (= [[:effects/save [:staking-ui :validator-sort]
            {:column :name
-            :direction :asc}]]
+            :direction :asc}]
+          [:effects/save [:staking-ui :validator-page] 0]]
          (actions/set-staking-validator-sort
           {:staking-ui {:validator-sort {:column :stake
                                          :direction :desc}}}
@@ -78,8 +80,17 @@
          (actions/close-staking-validator-timeframe-menu {})))
   (is (= [[:effects/save-many
            [[[:staking-ui :validator-timeframe] :day]
-            [[:staking-ui :validator-timeframe-dropdown-open?] false]]]]
+            [[:staking-ui :validator-timeframe-dropdown-open?] false]
+            [[:staking-ui :validator-page] 0]]]]
          (actions/set-staking-validator-timeframe {} "1d"))))
+
+(deftest set-staking-validator-page-clamps-to-non-negative-integers-test
+  (is (= [[:effects/save [:staking-ui :validator-page] 3]]
+         (actions/set-staking-validator-page {} "3.7")))
+  (is (= [[:effects/save [:staking-ui :validator-page] 0]]
+         (actions/set-staking-validator-page {} "-5")))
+  (is (= [[:effects/save [:staking-ui :validator-page] 0]]
+         (actions/set-staking-validator-page {} "not-a-number"))))
 
 (deftest set-staking-form-field-normalizes-validator-and-ignores-unknown-fields-test
   (is (= [[:effects/save [:staking-ui :selected-validator]

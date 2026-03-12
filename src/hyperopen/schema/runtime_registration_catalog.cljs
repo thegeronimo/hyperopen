@@ -298,6 +298,7 @@
      [:actions/toggle-staking-validator-timeframe-menu :toggle-staking-validator-timeframe-menu]
      [:actions/close-staking-validator-timeframe-menu :close-staking-validator-timeframe-menu]
      [:actions/set-staking-validator-timeframe :set-staking-validator-timeframe]
+     [:actions/set-staking-validator-page :set-staking-validator-page]
      [:actions/set-staking-validator-sort :set-staking-validator-sort]
      [:actions/open-staking-action-popover :open-staking-action-popover]
      [:actions/close-staking-action-popover :close-staking-action-popover]

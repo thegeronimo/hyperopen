@@ -22,6 +22,12 @@
     (seq? node) (mapcat collect-strings node)
     :else []))
 
+(defn- validator-address
+  [idx]
+  (let [suffix (str idx)
+        zeros (apply str (repeat (- 40 (count suffix)) "0"))]
+    (str "0x" zeros suffix)))
+
 (deftest staking-view-shows-establish-connection-when-wallet-is-disconnected-test
   (let [view (staking-view/staking-view {:wallet {:connected? false}
                                          :staking {:validator-summaries []}})
@@ -121,3 +127,31 @@
     (is (some? tooltip-panel))
     (is (contains? strings
                    "The validator does not have enough stake to participate in the active validator set."))))
+
+(deftest staking-view-renders-validator-pagination-and-total-count-test
+  (let [validator-rows (mapv (fn [idx]
+                               {:validator (validator-address idx)
+                                :name (str "Validator " idx)
+                                :description (str "Description " idx)
+                                :stake (- 1000 idx)
+                                :is-active? true
+                                :is-jailed? false
+                                :commission 0.01
+                                :stats {:week {:uptime-fraction 1
+                                               :predicted-apr 0.02
+                                               :sample-count 7}}})
+                             (range 30))
+        view (staking-view/staking-view
+              {:wallet {:connected? true
+                        :address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}
+               :staking {:validator-summaries validator-rows}})
+        next-page-button (find-node #(= "staking-validator-page-next"
+                                        (get-in % [1 :data-role]))
+                                    view)
+        strings (set (collect-strings view))]
+    (is (some? next-page-button))
+    (is (= [[:actions/set-staking-validator-page 1]]
+           (get-in next-page-button [1 :on :click])))
+    (is (contains? strings "1-25 of 30"))
+    (is (contains? strings "Validator 0"))
+    (is (not (contains? strings "Validator 26")))))

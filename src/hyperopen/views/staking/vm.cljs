@@ -8,6 +8,9 @@
    {:value :week :label "7D"}
    {:value :month :label "30D"}])
 
+(def validator-page-size
+  25)
+
 (defn- finite-number?
   [value]
   (and (number? value)
@@ -205,7 +208,25 @@
         delegations (or (get-in state [:staking :delegations]) [])
         rewards (or (get-in state [:staking :rewards]) [])
         history (or (get-in state [:staking :history]) [])
-        validators (validators-vm validator-summaries delegations timeframe validator-sort)
+        validators-all (validators-vm validator-summaries delegations timeframe validator-sort)
+        validators-total-count (count validators-all)
+        requested-validator-page (or (some-> (get-in state [:staking-ui :validator-page])
+                                             optional-number
+                                             js/Math.floor
+                                             int)
+                                    0)
+        validator-page-count (max 1
+                                  (int (js/Math.ceil (/ validators-total-count
+                                                       validator-page-size))))
+        validator-page (-> requested-validator-page
+                           (max 0)
+                           (min (dec validator-page-count)))
+        validator-page-start-index (* validator-page validator-page-size)
+        validator-page-end-index (min validators-total-count
+                                     (+ validator-page-start-index validator-page-size))
+        validators (if (pos? validators-total-count)
+                     (subvec validators-all validator-page-start-index validator-page-end-index)
+                     [])
         total-staked (or (optional-number (:total-staked delegator-summary))
                          (reduce (fn [sum row]
                                    (+ sum (or (optional-number (:stake row)) 0)))
@@ -231,6 +252,14 @@
             {:value :staking-action-history :label "Staking Action History"}]
      :validator-timeframe timeframe
      :validator-timeframe-dropdown-open? timeframe-dropdown-open?
+     :validator-page validator-page
+     :validator-page-size validator-page-size
+     :validator-page-count validator-page-count
+     :validators-total-count validators-total-count
+     :validator-page-range-start (if (pos? validators-total-count)
+                                   (inc validator-page-start-index)
+                                   0)
+     :validator-page-range-end validator-page-end-index
      :validator-sort validator-sort
      :timeframe-options timeframe-options
      :loading? loading?

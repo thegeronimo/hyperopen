@@ -610,6 +610,7 @@
    :actions/toggle-staking-validator-timeframe-menu ::no-args
    :actions/close-staking-validator-timeframe-menu ::no-args
    :actions/set-staking-validator-timeframe ::keyword-or-string-args
+   :actions/set-staking-validator-page ::single-input-args
    :actions/set-staking-validator-sort ::keyword-or-string-args
    :actions/open-staking-action-popover ::staking-action-popover-open-args
    :actions/close-staking-action-popover ::no-args

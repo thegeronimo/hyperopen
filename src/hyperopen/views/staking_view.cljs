@@ -739,6 +739,61 @@
               :class ["px-3" "py-6" "text-center" "text-sm" "text-[#949e9c]"]}
          empty-text]])]]])
 
+(defn- validator-pagination
+  [{:keys [validator-page
+           validator-page-count
+           validators-total-count
+           validator-page-range-start
+           validator-page-range-end]}]
+  (when (pos? validators-total-count)
+    (let [can-prev? (pos? validator-page)
+          can-next? (< validator-page (dec validator-page-count))
+          prev-page (max 0 (dec validator-page))
+          next-page (min (dec validator-page-count) (inc validator-page))]
+      [:div {:class ["flex" "items-center" "justify-between" "px-3" "py-2" "text-sm"]}
+       [:span {:class ["text-[#5ecfc1]"]} "View All"]
+       [:div {:class ["flex" "items-center" "gap-2" "text-[#f6fefd]"]}
+        [:span {:class ["num" "text-sm" "text-[#f6fefd]"]}
+         (str validator-page-range-start "-" validator-page-range-end " of " validators-total-count)]
+        [:button {:type "button"
+                  :class (into ["h-7"
+                                "w-7"
+                                "inline-flex"
+                                "items-center"
+                                "justify-center"
+                                "rounded-md"
+                                "border"
+                                "transition-colors"
+                                "focus:outline-none"
+                                "focus:ring-0"
+                                "focus:ring-offset-0"]
+                               (if can-prev?
+                                 ["border-[#2a3b42]" "text-[#f6fefd]" "hover:bg-[#14252e]"]
+                                 ["border-[#1b2429]" "text-[#4f5a5d]" "cursor-not-allowed"]))
+                  :disabled (not can-prev?)
+                  :data-role "staking-validator-page-prev"
+                  :on {:click [[:actions/set-staking-validator-page prev-page]]}}
+         "‹"]
+        [:button {:type "button"
+                  :class (into ["h-7"
+                                "w-7"
+                                "inline-flex"
+                                "items-center"
+                                "justify-center"
+                                "rounded-md"
+                                "border"
+                                "transition-colors"
+                                "focus:outline-none"
+                                "focus:ring-0"
+                                "focus:ring-offset-0"]
+                               (if can-next?
+                                 ["border-[#2a3b42]" "text-[#f6fefd]" "hover:bg-[#14252e]"]
+                                 ["border-[#1b2429]" "text-[#4f5a5d]" "cursor-not-allowed"]))
+                  :disabled (not can-next?)
+                  :data-role "staking-validator-page-next"
+                  :on {:click [[:actions/set-staking-validator-page next-page]]}}
+         "›"]]])))
+
 (defn- staking-timeframe-menu
   [selected-timeframe timeframe-options open?]
   (let [selected-label (or (some (fn [{:keys [value label]}]
@@ -834,6 +889,11 @@
                 tabs
                 validator-timeframe
                 validator-timeframe-dropdown-open?
+                validator-page
+                validator-page-count
+                validators-total-count
+                validator-page-range-start
+                validator-page-range-end
                 validator-sort
                 timeframe-options
                 loading?
@@ -851,9 +911,11 @@
                 submitting]} (staking-vm/staking-vm state)]
     [:div {:class ["flex"
                    "flex-1"
+                   "h-full"
                    "min-h-0"
                    "w-full"
                    "overflow-y-auto"
+                   "scrollbar-hide"
                    "flex-col"
                    "gap-2"
                    "app-shell-gutter"
@@ -975,30 +1037,36 @@
              (or (some-> hash (subs 0 (min 10 (count hash)))) "--")]]))
 
         ;; Default: validator performance table
-        [:div {:class ["overflow-x-auto"]}
-         [:table {:class ["min-w-full" "bg-[#0f1a1f]"]
-                  :data-role "staking-validator-table"}
-          [:thead
-           [:tr {:class ["border-b" "border-[#1b2429]" "text-xs" "text-[#949e9c]"]}
-            (sortable-validator-header "Name" :name validator-sort)
-            (sortable-validator-header "Description" :description validator-sort)
-            (sortable-validator-header "Stake" :stake validator-sort)
-            (sortable-validator-header "Your Stake" :your-stake validator-sort)
-            (sortable-validator-header "Uptime" :uptime validator-sort)
-            (sortable-validator-header "Est. APR" :apr validator-sort)
-            (sortable-validator-header "Status" :status validator-sort)
-            (sortable-validator-header "Commission" :commission validator-sort)]]
-          [:tbody
-           (if (seq validators)
-             (for [row validators]
-               ^{:key (:validator row)}
-               (validator-row row selected-validator))
-             [:tr
-               [:td {:col-span 8
-                    :class ["px-3" "py-6" "text-center" "text-sm" "text-[#949e9c]"]}
-               (if loading?
-                 "Loading validators..."
-                 "No validator data available.")]])]]])]
+        [:div {:class ["space-y-1"]}
+         [:div {:class ["overflow-x-auto" "overflow-y-auto" "scrollbar-hide" "max-h-[56vh]"]}
+          [:table {:class ["min-w-full" "bg-[#0f1a1f]"]
+                   :data-role "staking-validator-table"}
+           [:thead
+            [:tr {:class ["border-b" "border-[#1b2429]" "text-xs" "text-[#949e9c]"]}
+             (sortable-validator-header "Name" :name validator-sort)
+             (sortable-validator-header "Description" :description validator-sort)
+             (sortable-validator-header "Stake" :stake validator-sort)
+             (sortable-validator-header "Your Stake" :your-stake validator-sort)
+             (sortable-validator-header "Uptime" :uptime validator-sort)
+             (sortable-validator-header "Est. APR" :apr validator-sort)
+             (sortable-validator-header "Status" :status validator-sort)
+             (sortable-validator-header "Commission" :commission validator-sort)]]
+           [:tbody
+            (if (seq validators)
+              (for [row validators]
+                ^{:key (:validator row)}
+                (validator-row row selected-validator))
+              [:tr
+                [:td {:col-span 8
+                      :class ["px-3" "py-6" "text-center" "text-sm" "text-[#949e9c]"]}
+                 (if loading?
+                   "Loading validators..."
+                   "No validator data available.")]])]]]
+         (validator-pagination {:validator-page validator-page
+                                :validator-page-count validator-page-count
+                                :validators-total-count validators-total-count
+                                :validator-page-range-start validator-page-range-start
+                                :validator-page-range-end validator-page-range-end})])]
 
      (when (seq error)
        [:div {:class ["rounded-xl"
