@@ -386,18 +386,22 @@
                    "hover:bg-base-300"
                    "items-center"
                    "text-sm"]}
-     [:div {:class ["flex" "items-center" "gap-1.5" "self-stretch" "min-w-[150px]"]
+     [:div {:class ["flex" "min-w-0" "items-center" "gap-1.5" "self-stretch"]
             :style coin-cell-style}
       (shared/coin-select-control
        (:coin pos)
-       [:span {:class ["flex" "items-center" "gap-1.5" "min-w-0"]}
-        [:span {:class ["font-medium" "whitespace-nowrap" "shrink-0" coin-tone-class]} coin-label]
+       [:span {:class ["flex" "w-full" "min-w-0" "items-center" "gap-1.5"]}
+        [:span {:class ["block" "min-w-0" "truncate" "font-medium" coin-tone-class]
+                :title coin-label}
+         coin-label]
         (when (some? leverage)
           [:span {:class chip-classes} (str leverage "x")])
         (when dex-label
           [:span {:class chip-classes} dex-label])]
-       {:extra-classes ["w-full" "justify-start" "text-left"]})]
-     [:div {:class ["text-left" "font-semibold" "num" size-tone-class]} (:size-display row-vm)]
+       {:extra-classes ["w-full" "justify-start" "overflow-hidden" "text-left"]})]
+     [:div {:class ["min-w-0" "truncate" "text-left" "font-semibold" "num" size-tone-class]
+            :title (:size-display row-vm)}
+      (:size-display row-vm)]
      [:div.text-left.font-semibold.num
       (if (number? position-value-num)
         (str (shared/format-currency position-value-num) " USDC")
