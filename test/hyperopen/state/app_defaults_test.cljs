@@ -82,6 +82,8 @@
     (is (nil? (get-in state [:staking-ui :action-popover :anchor])))
     (is (= :spot->staking (get-in state [:staking-ui :transfer-direction])))
     (is (= "" (get-in state [:staking-ui :selected-validator])))
+    (is (= "" (get-in state [:staking-ui :validator-search-query])))
+    (is (= false (get-in state [:staking-ui :validator-dropdown-open?])))
     (is (= "" (get-in state [:staking-ui :deposit-amount])))
     (is (= "" (get-in state [:staking-ui :withdraw-amount])))
     (is (= "" (get-in state [:staking-ui :delegate-amount])))

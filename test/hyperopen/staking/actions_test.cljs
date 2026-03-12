@@ -63,8 +63,22 @@
           {}
           :selected-validator
           "not-an-address")))
+  (is (= [[:effects/save [:staking-ui :validator-search-query] "foundation"]]
+         (actions/set-staking-form-field {} :validator-search-query "foundation")))
+  (is (= [[:effects/save [:staking-ui :validator-dropdown-open?] true]]
+         (actions/set-staking-form-field {} :validator-dropdown-open? true)))
   (is (= []
          (actions/set-staking-form-field {} :not-a-field "1"))))
+
+(deftest select-staking-validator-saves-selection-and-resets-search-state-test
+  (is (= [[:effects/save-many
+           [[[:staking-ui :selected-validator]
+             "0x1234567890abcdef1234567890abcdef12345678"]
+            [[:staking-ui :validator-search-query] ""]
+            [[:staking-ui :validator-dropdown-open?] false]]]]
+         (actions/select-staking-validator
+          {}
+          "0x1234567890ABCDEF1234567890ABCDEF12345678"))))
 
 (deftest staking-action-popover-actions-normalize-kind-anchor-and-direction-test
   (is (= [[:effects/save-many
@@ -76,6 +90,8 @@
                        :top 6
                        :viewport-width 1024}}]
             [[:staking-ui :transfer-direction] :spot->staking]
+            [[:staking-ui :validator-search-query] ""]
+            [[:staking-ui :validator-dropdown-open?] false]
             [[:staking-ui :form-error] nil]]]]
          (actions/open-staking-action-popover
           {}
@@ -93,15 +109,21 @@
          (actions/set-staking-transfer-direction {} "staking-to-spot"))))
 
 (deftest staking-action-popover-close-and-escape-actions-test
-  (is (= [[:effects/save [:staking-ui :action-popover]
-           {:open? false
-            :kind nil
-            :anchor nil}]]
+  (is (= [[:effects/save-many
+           [[[:staking-ui :action-popover]
+             {:open? false
+              :kind nil
+              :anchor nil}]
+            [[:staking-ui :validator-search-query] ""]
+            [[:staking-ui :validator-dropdown-open?] false]]]]
          (actions/close-staking-action-popover {})))
-  (is (= [[:effects/save [:staking-ui :action-popover]
-           {:open? false
-            :kind nil
-            :anchor nil}]]
+  (is (= [[:effects/save-many
+           [[[:staking-ui :action-popover]
+             {:open? false
+              :kind nil
+              :anchor nil}]
+            [[:staking-ui :validator-search-query] ""]
+            [[:staking-ui :validator-dropdown-open?] false]]]]
          (actions/handle-staking-action-popover-keydown {} "Escape")))
   (is (= []
          (actions/handle-staking-action-popover-keydown {} "Enter"))))

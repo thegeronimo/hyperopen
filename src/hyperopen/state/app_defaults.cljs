@@ -255,6 +255,8 @@
                     :anchor nil}
    :transfer-direction :spot->staking
    :selected-validator ""
+   :validator-search-query ""
+   :validator-dropdown-open? false
    :deposit-amount ""
    :withdraw-amount ""
    :delegate-amount ""

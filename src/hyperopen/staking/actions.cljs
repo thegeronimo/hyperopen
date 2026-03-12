@@ -35,7 +35,9 @@
     :withdraw-amount
     :delegate-amount
     :undelegate-amount
-    :selected-validator})
+    :selected-validator
+    :validator-search-query
+    :validator-dropdown-open?})
 
 (def ^:private anchor-candidate-keys-by-key
   {:left [:left "left"]
@@ -368,15 +370,20 @@
           :anchor (normalize-anchor trigger-bounds)}]
         [[:staking-ui :transfer-direction]
          (normalize-staking-transfer-direction (get-in state [:staking-ui :transfer-direction]))]
+        [[:staking-ui :validator-search-query] ""]
+        [[:staking-ui :validator-dropdown-open?] false]
         [[:staking-ui :form-error] nil]]]]
      [])))
 
 (defn close-staking-action-popover
   [_state]
-  [[:effects/save [:staking-ui :action-popover]
-    {:open? false
-     :kind nil
-     :anchor nil}]])
+  [[:effects/save-many
+    [[[:staking-ui :action-popover]
+      {:open? false
+       :kind nil
+       :anchor nil}]
+     [[:staking-ui :validator-search-query] ""]
+     [[:staking-ui :validator-dropdown-open?] false]]]])
 
 (defn handle-staking-action-popover-keydown
   [state key]
@@ -394,14 +401,18 @@
   (if-not (contains? valid-form-fields field)
     []
     [[:effects/save [:staking-ui field]
-      (if (= :selected-validator field)
-        (or (normalize-validator-address value) "")
+      (case field
+        :selected-validator (or (normalize-validator-address value) "")
+        :validator-dropdown-open? (true? value)
         (str (or value "")))]]))
 
 (defn select-staking-validator
   [_state validator]
-  [[:effects/save [:staking-ui :selected-validator]
-    (or (normalize-validator-address validator) "")]])
+  [[:effects/save-many
+    [[[:staking-ui :selected-validator]
+      (or (normalize-validator-address validator) "")]
+     [[:staking-ui :validator-search-query] ""]
+     [[:staking-ui :validator-dropdown-open?] false]]]])
 
 (defn set-staking-deposit-amount-to-max
   [state]

@@ -1,5 +1,6 @@
 (ns hyperopen.views.staking-view
-  (:require [hyperopen.utils.formatting :as fmt]
+  (:require [clojure.string :as str]
+            [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.staking.vm :as staking-vm]))
 
 (defn- format-summary-hype
@@ -260,10 +261,11 @@
 
 (defn- validator-options
   [validators selected-validator]
-  (let [validators* (reduce (fn [acc {:keys [validator name]}]
+  (let [validators* (reduce (fn [acc {:keys [validator name stake]}]
                               (if (seq validator)
                                 (conj acc {:validator validator
-                                           :name (or name validator)})
+                                           :name (or name validator)
+                                           :stake stake})
                                 acc))
                             []
                             (or validators []))
@@ -273,13 +275,34 @@
       (and (seq selected-validator)
            (not selected-present?))
       (conj {:validator selected-validator
-             :name selected-validator}))))
+             :name selected-validator
+             :stake nil}))))
+
+(defn- validator-matches-search?
+  [search-token {:keys [name validator]}]
+  (or (str/includes? (str/lower-case (str (or name ""))) search-token)
+      (str/includes? (str/lower-case (str (or validator ""))) search-token)))
 
 (defn- popover-validator-select
-  [selected-validator validators]
-  (let [options (validator-options validators selected-validator)]
+  [{:keys [selected-validator validators search-query dropdown-open?]}]
+  (let [options (validator-options validators selected-validator)
+        selected-option (some #(when (= selected-validator (:validator %))
+                                 %)
+                              options)
+        search-token (-> (or search-query "")
+                         str
+                         str/trim
+                         str/lower-case)
+        filtered-options (if (seq search-token)
+                           (filterv #(validator-matches-search? search-token %)
+                                    options)
+                           options)
+        open? (true? dropdown-open?)]
     [:div {:class ["relative"]}
-     [:select {:value (or selected-validator "")
+     [:div {:class ["relative"]}
+      [:input {:type "text"
+               :value (or search-query "")
+               :placeholder (or (:name selected-option) "Select a Validator")
                :class ["h-10"
                        "w-full"
                        "rounded-[10px]"
@@ -287,28 +310,94 @@
                        "border-[#1b2429]"
                        "bg-[#08161f]"
                        "px-3"
-                       "pr-8"
+                       "pr-9"
                        "text-sm"
                        "text-[#c8d5d7]"
-                       "appearance-none"
+                       "placeholder:text-[#9aa3a4]"
                        "focus:outline-none"
                        "focus:ring-0"
                        "focus:ring-offset-0"]
-               :on {:change [[:actions/set-staking-form-field :selected-validator [:event.target/value]]]}}
-      [:option {:value ""}
-       "Select a Validator"]
-      (for [{:keys [validator name]} options]
-        ^{:key (str "staking-validator-option-" validator)}
-        [:option {:value validator}
-         name])]
-     [:span {:class ["pointer-events-none"
-                     "absolute"
-                     "right-3"
-                     "top-1/2"
-                     "-translate-y-1/2"
-                     "text-xs"
-                     "text-[#949e9c]"]}
-      "▾"]]))
+               :on {:focus [[:actions/set-staking-form-field :validator-dropdown-open? true]]
+                    :input [[:actions/set-staking-form-field :validator-search-query [:event.target/value]]
+                            [:actions/set-staking-form-field :validator-dropdown-open? true]]}}]
+      [:button {:type "button"
+                :class ["absolute"
+                        "right-2.5"
+                        "top-1/2"
+                        "-translate-y-1/2"
+                        "text-sm"
+                        "text-[#949e9c]"
+                        "focus:outline-none"
+                        "focus:ring-0"
+                        "focus:ring-offset-0"]
+                :on {:click (if open?
+                              [[:actions/set-staking-form-field :validator-dropdown-open? false]]
+                              [[:actions/set-staking-form-field :validator-search-query ""]
+                               [:actions/set-staking-form-field :validator-dropdown-open? true]])}}
+       (if open? "⌃" "⌄")]]
+     (when open?
+       [:div {:class ["absolute"
+                      "left-0"
+                      "right-0"
+                      "top-[calc(100%+6px)]"
+                      "z-[12]"
+                      "max-h-64"
+                      "overflow-y-auto"
+                      "rounded-[10px]"
+                      "border"
+                      "border-[#1d3540]"
+                      "bg-[#0f1a1f]"
+                      "p-1"
+                      "shadow-[0_16px_34px_rgba(0,0,0,0.45)]"]}
+        [:button {:type "button"
+                  :class (into ["mb-0.5"
+                                "flex"
+                                "w-full"
+                                "items-center"
+                                "gap-2"
+                                "rounded-[8px]"
+                                "px-2"
+                                "py-1.5"
+                                "text-left"
+                                "text-sm"
+                                "leading-none"]
+                               (if (empty? selected-validator)
+                                 ["bg-[#122c37]" "text-[#f6fefd]"]
+                                 ["text-[#c8d5d7]" "hover:bg-[#112733]"]))
+                  :on {:click [[:actions/select-staking-validator ""]]}}
+         (when (empty? selected-validator)
+           [:span {:class ["text-[#97fce4]"]} "✓"])
+         [:span "Select a Validator"]]
+        (if (seq filtered-options)
+          (for [{:keys [validator name stake]} filtered-options]
+            (let [selected? (= validator selected-validator)]
+              ^{:key (str "staking-validator-option-" validator)}
+              [:button {:type "button"
+                        :class (into ["mb-0.5"
+                                      "flex"
+                                      "w-full"
+                                      "items-center"
+                                      "justify-between"
+                                      "gap-2"
+                                      "rounded-[8px]"
+                                      "px-2"
+                                      "py-1.5"
+                                      "text-left"
+                                      "text-sm"
+                                      "leading-none"]
+                                     (if selected?
+                                       ["bg-[#122c37]" "text-[#f6fefd]"]
+                                       ["text-[#c8d5d7]" "hover:bg-[#112733]"]))
+                        :on {:click [[:actions/select-staking-validator validator]]}}
+               [:span {:class ["truncate"]}
+                (str (when selected? "✓ ")
+                     name)]
+               [:span {:class ["num" "shrink-0" "text-xs" "text-[#9aa3a4]"]}
+                (if (number? stake)
+                  (str (format-table-hype stake) " HYPE")
+                  "")]]))
+          [:div {:class ["px-2" "py-2" "text-sm" "text-[#949e9c]"]}
+           "No validators found"])])]))
 
 (defn- transfer-direction-toggle
   [direction]
@@ -392,13 +481,22 @@
                           :on-submit on-submit})]))
 
 (defn- stake-popover-content
-  [{:keys [form submitting balances selected-validator validators]}]
+  [{:keys [form
+           submitting
+           balances
+           selected-validator
+           validators
+           validator-search-query
+           validator-dropdown-open?]}]
   [:div {:class ["space-y-3"]}
    (popover-amount-input {:input-id "staking-delegate-amount"
                           :amount (:delegate-amount form)
                           :on-change [:actions/set-staking-form-field :delegate-amount [:event.target/value]]
                           :on-max :actions/set-staking-delegate-amount-to-max})
-   (popover-validator-select selected-validator validators)
+   (popover-validator-select {:selected-validator selected-validator
+                              :validators validators
+                              :search-query validator-search-query
+                              :dropdown-open? validator-dropdown-open?})
    [:div {:class ["space-y-1.5"]}
     (key-value-row "Available to Stake" (format-balance-hype (:available-stake balances)))
     (key-value-row "Total Staked" (format-balance-hype (:total-staked balances)))]
@@ -409,13 +507,21 @@
                         :on-submit :actions/submit-staking-delegate})])
 
 (defn- unstake-popover-content
-  [{:keys [form submitting selected-validator validators]}]
+  [{:keys [form
+           submitting
+           selected-validator
+           validators
+           validator-search-query
+           validator-dropdown-open?]}]
   [:div {:class ["space-y-3"]}
    (popover-amount-input {:input-id "staking-undelegate-amount"
                           :amount (:undelegate-amount form)
                           :on-change [:actions/set-staking-form-field :undelegate-amount [:event.target/value]]
                           :on-max :actions/set-staking-undelegate-amount-to-max})
-   (popover-validator-select selected-validator validators)
+   (popover-validator-select {:selected-validator selected-validator
+                              :validators validators
+                              :search-query validator-search-query
+                              :dropdown-open? validator-dropdown-open?})
    (popover-cta-button {:label "Unstake"
                         :submitting? (true? (:undelegate? submitting))
                         :on-submit :actions/submit-staking-undelegate})])
@@ -426,6 +532,8 @@
            submitting
            balances
            selected-validator
+           validator-search-query
+           validator-dropdown-open?
            validators]}]
   (when (:open? action-popover)
     (let [kind (:kind action-popover)
@@ -470,11 +578,15 @@
           (unstake-popover-content {:form form
                                     :submitting submitting
                                     :selected-validator selected-validator
+                                    :validator-search-query validator-search-query
+                                    :validator-dropdown-open? validator-dropdown-open?
                                     :validators validators})
           (stake-popover-content {:form form
                                   :submitting submitting
                                   :balances balances
                                   :selected-validator selected-validator
+                                  :validator-search-query validator-search-query
+                                  :validator-dropdown-open? validator-dropdown-open?
                                   :validators validators}))]])))
 
 (defn- tab-button
@@ -568,6 +680,8 @@
                 history
                 action-popover
                 selected-validator
+                validator-search-query
+                validator-dropdown-open?
                 form
                 submitting]} (staking-vm/staking-vm state)]
     [:div {:class ["flex"
@@ -765,4 +879,6 @@
                               :submitting submitting
                               :balances balances
                               :selected-validator selected-validator
+                              :validator-search-query validator-search-query
+                              :validator-dropdown-open? validator-dropdown-open?
                               :validators validators}))]))

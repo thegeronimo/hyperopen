@@ -227,7 +227,9 @@
                               :withdraw-amount
                               :delegate-amount
                               :undelegate-amount
-                              :selected-validator})
+                              :selected-validator
+                              :validator-search-query
+                              :validator-dropdown-open?})
 (s/def ::staking-form-field-args (s/tuple ::staking-form-field any?))
 
 (def ^:private hyperunit-lifecycle-keys

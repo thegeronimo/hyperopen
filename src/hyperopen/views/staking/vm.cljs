@@ -220,6 +220,8 @@
      :selected-validator (or (normalize-validator-address (get-in state [:staking-ui :selected-validator]))
                              (normalize-validator-address (get-in state [:staking :delegations 0 :validator]))
                              "")
+     :validator-search-query (str (or (get-in state [:staking-ui :validator-search-query]) ""))
+     :validator-dropdown-open? (true? (get-in state [:staking-ui :validator-dropdown-open?]))
      :form {:deposit-amount (str (or (get-in state [:staking-ui :deposit-amount]) ""))
             :withdraw-amount (str (or (get-in state [:staking-ui :withdraw-amount]) ""))
             :delegate-amount (str (or (get-in state [:staking-ui :delegate-amount]) ""))
