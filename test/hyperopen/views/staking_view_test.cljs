@@ -14,6 +14,14 @@
 
     :else nil))
 
+(defn- collect-strings
+  [node]
+  (cond
+    (string? node) [node]
+    (vector? node) (mapcat collect-strings (rest node))
+    (seq? node) (mapcat collect-strings node)
+    :else []))
+
 (deftest staking-view-shows-establish-connection-when-wallet-is-disconnected-test
   (let [view (staking-view/staking-view {:wallet {:connected? false}
                                          :staking {:validator-summaries []}})
@@ -37,8 +45,8 @@
                                                :name "Alpha"
                                                :description "Validator alpha"
                                                :stake 100
-                                               :isActive true
-                                               :isJailed false
+                                               :is-active? true
+                                               :is-jailed? false
                                                :commission 0.1
                                                :stats {:week {:uptime-fraction 0.98
                                                               :predicted-apr 0.12
@@ -73,3 +81,31 @@
     (is (some? row))
     (is (= [[:actions/select-staking-validator validator]]
            (get-in row [1 :on :click])))))
+
+(deftest staking-view-jailed-validator-renders-inactive-with-tooltip-test
+  (let [validator "0x1111111111111111111111111111111111111111"
+        view (staking-view/staking-view
+              {:wallet {:connected? true
+                        :address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}
+               :staking {:validator-summaries [{:validator validator
+                                               :name "Jailed Validator"
+                                               :description "Validator with low stake"
+                                               :stake 10
+                                               :is-active? false
+                                               :is-jailed? true
+                                               :commission 0.03
+                                               :stats {:week {:uptime-fraction 0.2
+                                                              :predicted-apr 0
+                                                              :sample-count 7}}}]}})
+        inactive-label (find-node #(= "staking-validator-status-inactive"
+                                      (get-in % [1 :data-role]))
+                                  view)
+        tooltip-panel (find-node #(= "staking-validator-status-tooltip"
+                                     (get-in % [1 :data-role]))
+                                 view)
+        strings (set (collect-strings view))]
+    (is (some? inactive-label))
+    (is (contains? strings "Inactive"))
+    (is (some? tooltip-panel))
+    (is (contains? strings
+                   "The validator does not have enough stake to participate in the active validator set."))))

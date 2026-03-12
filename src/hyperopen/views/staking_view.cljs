@@ -27,16 +27,51 @@
     (str (fmt/format-fixed-number (* value 100) 2) "%")
     "--"))
 
+(def ^:private inactive-jailed-tooltip-copy
+  "The validator does not have enough stake to participate in the active validator set.")
+
 (defn- status-pill
   [status]
-  (let [[label classes]
-        (case status
-          :active ["Active" ["text-[#97fce4]"]]
-          :jailed ["Jailed" ["text-[#ff99ac]"]]
-          ["Inactive" ["text-[#9aa3a4]"]])]
-    [:span {:class (into ["text-xs" "font-normal" "leading-6"]
-                         classes)}
-     label]))
+  (case status
+    :active
+    [:span {:class ["text-xs" "font-normal" "leading-6" "text-[#97fce4]"]}
+     "Active"]
+
+    :jailed
+    [:span {:class ["group" "relative" "inline-flex" "items-center" "leading-6"]}
+     [:span {:class ["text-xs" "font-normal" "text-[#9aa3a4]" "cursor-help"]
+             :tab-index 0
+             :data-role "staking-validator-status-inactive"}
+      "Inactive"]
+     [:span {:class ["pointer-events-none"
+                     "absolute"
+                     "left-1/2"
+                     "-translate-x-1/2"
+                     "bottom-full"
+                     "mb-2"
+                     "z-20"
+                     "opacity-0"
+                     "transition-opacity"
+                     "duration-200"
+                     "group-hover:opacity-100"
+                     "group-focus-within:opacity-100"]
+             :data-role "staking-validator-status-tooltip"}
+      [:span {:class ["block"
+                      "w-[270px]"
+                      "max-w-[calc(100vw-2rem)]"
+                      "rounded-md"
+                      "bg-[#223038]"
+                      "px-2.5"
+                      "py-1.5"
+                      "text-left"
+                      "text-xs"
+                      "leading-tight"
+                      "text-[#f2f6f8]"
+                      "shadow-[0_4px_16px_rgba(0,0,0,0.35)]"]}
+       inactive-jailed-tooltip-copy]]]
+
+    [:span {:class ["text-xs" "font-normal" "leading-6" "text-[#9aa3a4]"]}
+     "Inactive"]))
 
 (defn- summary-card
   [label value data-role]
