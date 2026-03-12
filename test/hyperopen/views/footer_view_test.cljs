@@ -87,6 +87,9 @@
                       (get-in % [1 :on :click])))
              view))
 
+(defn- pill-label-node [pill]
+  (nth pill 3 nil))
+
 (defn- meter-bar-count [view]
   (count-nodes #(and (vector? %)
                      (= "footer-connection-meter-bar"
@@ -201,6 +204,19 @@
     (is (not (contains? classes "bg-success/10")))
     (is (not (contains? classes "bg-warning/10")))
     (is (not (contains? classes "bg-error/10")))))
+
+(deftest status-meter-button-bottom-aligns-label-with-bars-test
+  (let [view (footer-view/footer-view (base-state))
+        pill (find-pill view)
+        classes (set (class-values (get-in pill [1 :class])))
+        label-node (pill-label-node pill)
+        label-classes (set (class-values (get-in label-node [1 :class])))]
+    (is (some? pill))
+    (is (contains? classes "items-end"))
+    (is (not (contains? classes "items-center")))
+    (is (some? label-node))
+    (is (contains? label-classes "leading-none"))
+    (is (contains? label-classes "top-px"))))
 
 (deftest status-meter-click-dispatches-diagnostics-toggle-test
   (let [view (footer-view/footer-view (base-state))

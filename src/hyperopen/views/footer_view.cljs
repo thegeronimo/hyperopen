@@ -1195,7 +1195,7 @@
         [:button {:type "button"
                   :class ["inline-flex"
                           "min-h-6"
-                          "items-center"
+                          "items-end"
                           "gap-2"
                           "px-1"
                           "py-1"
@@ -1210,7 +1210,7 @@
                   :title tooltip
                   :data-role "footer-connection-meter-button"}
          (signal-meter-bars active-bars bar-active)
-         [:span label]]]
+         [:span {:class ["relative" "top-px" "leading-none"]} label]]]
 
        [:div {:class ["flex" "space-x-6"]}
         [:a {:class footer-link-classes
