@@ -48,6 +48,36 @@
 (defn- node-text [node]
   (str/join " " (collect-strings node)))
 
+(defn- with-browser-connection
+  [connection f]
+  (let [navigator-descriptor (js/Object.getOwnPropertyDescriptor js/globalThis "navigator")
+        original-navigator (or (some-> navigator-descriptor .-value)
+                               (.-navigator js/globalThis))
+        navigator* (or original-navigator #js {})
+        had-navigator? (some? navigator-descriptor)
+        connection-descriptor (js/Object.getOwnPropertyDescriptor navigator* "connection")
+        had-connection? (some? connection-descriptor)]
+    (when-not had-navigator?
+      (js/Object.defineProperty js/globalThis
+                                "navigator"
+                                #js {:value navigator*
+                                     :configurable true
+                                     :writable true}))
+    (js/Object.defineProperty navigator*
+                              "connection"
+                              #js {:value connection
+                                   :configurable true
+                                   :writable true})
+    (try
+      (f)
+      (finally
+        (if had-connection?
+          (js/Object.defineProperty navigator* "connection" connection-descriptor)
+          (js/Reflect.deleteProperty navigator* "connection"))
+        (if had-navigator?
+          (js/Object.defineProperty js/globalThis "navigator" navigator-descriptor)
+          (js/Reflect.deleteProperty js/globalThis "navigator"))))))
+
 (defn- find-pill [view]
   (find-node #(and (vector? %)
                    (= :button (first %))
@@ -169,6 +199,29 @@
   (let [view (footer-view/footer-view (base-state))]
     (is (= 4 (meter-bar-count view)))
     (is (= 4 (meter-active-bar-count view)))))
+
+(deftest status-meter-degrades-for-browser-3g-hints-test
+  (with-browser-connection
+    #js {:effectiveType "3g"
+         :rtt 450
+         :downlink 0.7
+         :saveData false}
+    (fn []
+      (let [view (footer-view/footer-view (base-state))
+            pill (find-pill view)]
+        (is (= "Online" (node-text pill)))
+        (is (= 3 (meter-active-bar-count view)))))))
+
+(deftest status-meter-degrades-for-live-headroom-before-delayed-threshold-test
+  (let [state (-> (base-state)
+                  (assoc-in [:websocket :health :generated-at-ms] 10000)
+                  (assoc-in [:websocket :health :streams ["trades" "BTC" nil nil nil] :status] :live)
+                  (assoc-in [:websocket :health :streams ["trades" "BTC" nil nil nil] :last-payload-at-ms] 2100)
+                  (assoc-in [:websocket :health :streams ["trades" "BTC" nil nil nil] :stale-threshold-ms] 8000))
+        view (footer-view/footer-view state)
+        pill (find-pill view)]
+    (is (= "Online" (node-text pill)))
+    (is (= 3 (meter-active-bar-count view)))))
 
 (deftest status-meter-degrades-in-steps-for-slight-versus-severe-delay-test
   (let [slight-delay-state (-> (base-state)

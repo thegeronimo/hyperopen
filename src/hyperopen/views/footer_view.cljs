@@ -78,6 +78,9 @@
    :unknown 28
    nil 28})
 
+(def ^:private meter-transport-live-threshold-ms
+  10000)
+
 (defn- status-label [status]
   (case status
     :n-a "EVENT-DRIVEN"
@@ -203,6 +206,56 @@
                   (get meter-status-penalty :unknown 20))]
     (int (js/Math.round (* weight base)))))
 
+(defn- age-threshold-ratio [age-ms threshold-ms]
+  (when (and (number? age-ms)
+             (number? threshold-ms)
+             (pos? threshold-ms))
+    (/ age-ms threshold-ms)))
+
+(defn- live-stream-headroom-penalty [generated-at-ms stream]
+  (let [age-ms (or (:age-ms stream)
+                   (stream-age-ms generated-at-ms stream))
+        ratio (age-threshold-ratio age-ms (:stale-threshold-ms stream))]
+    (cond
+      (not (:subscribed? stream)) 0
+      (not= :live (:status stream)) 0
+      (not (number? ratio)) 0
+      (< ratio 0.12) 0
+      (< ratio 0.2) 2
+      (< ratio 0.32) 4
+      (< ratio 0.45) 6
+      (< ratio 0.6) 9
+      (< ratio 0.8) 12
+      :else 16)))
+
+(defn- stream-headroom-penalty [health]
+  (let [generated-at-ms (:generated-at-ms health)
+        penalties (->> (vals (or (:streams health) {}))
+                       (map #(live-stream-headroom-penalty generated-at-ms %))
+                       (filter pos?)
+                       (sort >)
+                       vec)
+        top-penalty (reduce + (take 3 penalties))
+        overflow-penalty (max 0 (- (count penalties) 3))]
+    (min 22 (+ top-penalty overflow-penalty))))
+
+(defn- transport-headroom-penalty [health]
+  (let [transport-state (get-in health [:transport :state])
+        transport-freshness (get-in health [:transport :freshness])
+        age-ms (transport-last-recv-age-ms (:generated-at-ms health) health)
+        ratio (age-threshold-ratio age-ms meter-transport-live-threshold-ms)]
+    (cond
+      (not= :connected transport-state) 0
+      (not= :live transport-freshness) 0
+      (not (number? ratio)) 0
+      (< ratio 0.08) 0
+      (< ratio 0.16) 2
+      (< ratio 0.28) 4
+      (< ratio 0.42) 6
+      (< ratio 0.58) 9
+      (< ratio 0.75) 12
+      :else 16)))
+
 (defn- delayed-stream-severity-penalty [generated-at-ms stream]
   (let [age-ms (or (:age-ms stream)
                    (stream-age-ms generated-at-ms stream))
@@ -238,6 +291,43 @@
          (for [group group-priority]
            (get-in health [:groups group :gap-detected?])))))
 
+(defn- browser-network-connection []
+  (let [navigator (or (.-navigator js/globalThis)
+                      (some-> js/globalThis .-window .-navigator))]
+    (or (some-> navigator .-connection)
+        (some-> navigator (aget "mozConnection"))
+        (some-> navigator (aget "webkitConnection")))))
+
+(defn- browser-network-hint-penalty []
+  (let [connection (browser-network-connection)
+        effective-type (some-> connection .-effectiveType str str/lower-case)
+        rtt (some-> connection .-rtt)
+        downlink (some-> connection .-downlink)
+        save-data? (true? (some-> connection .-saveData))
+        effective-type-penalty (case effective-type
+                                 "slow-2g" 32
+                                 "2g" 24
+                                 "3g" 14
+                                 0)
+        rtt-penalty (cond
+                      (not (number? rtt)) 0
+                      (> rtt 1200) 12
+                      (> rtt 800) 9
+                      (> rtt 400) 6
+                      (> rtt 250) 3
+                      :else 0)
+        downlink-penalty (cond
+                           (not (number? downlink)) 0
+                           (< downlink 0.4) 10
+                           (< downlink 0.8) 7
+                           (< downlink 1.5) 4
+                           :else 0)
+        save-data-penalty (if save-data? 4 0)]
+    (min 20 (+ effective-type-penalty
+               rtt-penalty
+               downlink-penalty
+               save-data-penalty))))
+
 (defn- connection-meter-penalty [health]
   (let [transport-state (get-in health [:transport :state])
         transport-freshness (get-in health [:transport :freshness])
@@ -254,13 +344,19 @@
                                      (get-in health [:groups group :worst-status]))))
                                0
                                group-priority)
+        transport-headroom (transport-headroom-penalty health)
+        stream-headroom (stream-headroom-penalty health)
         delayed-stream-penalty (stream-delay-penalty health)
-        gap-penalty (if (any-gap-detected? health) 8 0)]
+        gap-penalty (if (any-gap-detected? health) 8 0)
+        browser-network-penalty (browser-network-hint-penalty)]
     (+ transport-state-penalty
        transport-freshness-penalty
        groups-penalty
+       transport-headroom
+       stream-headroom
        delayed-stream-penalty
-       gap-penalty)))
+       gap-penalty
+       browser-network-penalty)))
 
 (defn- penalty->active-bars [penalty]
   (let [score (max 0 (- 100 (or penalty 100)))]
