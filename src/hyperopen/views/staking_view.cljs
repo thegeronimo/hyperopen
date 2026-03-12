@@ -88,6 +88,35 @@
       value
       default)))
 
+(def ^:private action-popover-trigger-data-role-by-kind
+  {:transfer "staking-action-transfer-button"
+   :unstake "staking-action-unstake-button"
+   :stake "staking-action-stake-button"})
+
+(defn- query-element-anchor
+  [data-role]
+  (when (and (string? data-role)
+             (some? js/document))
+    (let [selector (str "[data-role=\"" data-role "\"]")
+          element (.querySelector js/document selector)]
+      (when (and element
+                 (fn? (.-getBoundingClientRect element)))
+        (let [rect (.getBoundingClientRect element)]
+          {:left (.-left rect)
+           :right (.-right rect)
+           :top (.-top rect)
+           :bottom (.-bottom rect)
+           :width (.-width rect)
+           :height (.-height rect)
+           :viewport-width (some-> js/globalThis .-innerWidth)
+           :viewport-height (some-> js/globalThis .-innerHeight)})))))
+
+(defn- action-popover-anchor
+  [kind stored-anchor]
+  (let [data-role (get action-popover-trigger-data-role-by-kind kind)]
+    (or (query-element-anchor data-role)
+        stored-anchor)))
+
 (defn- action-popover-layout-style
   [anchor kind]
   (let [anchor* (if (map? anchor) anchor {})
@@ -400,7 +429,8 @@
            validators]}]
   (when (:open? action-popover)
     (let [kind (:kind action-popover)
-          panel-style (action-popover-layout-style (:anchor action-popover) kind)
+          anchor (action-popover-anchor kind (:anchor action-popover))
+          panel-style (action-popover-layout-style anchor kind)
           title (case kind
                   :transfer "Transfer HYPE"
                   :unstake "Unstake"
