@@ -79,6 +79,7 @@
     (is (= :week (get-in state [:staking-ui :validator-timeframe])))
     (is (= false (get-in state [:staking-ui :validator-timeframe-dropdown-open?])))
     (is (= 0 (get-in state [:staking-ui :validator-page])))
+    (is (= false (get-in state [:staking-ui :validator-show-all?])))
     (is (= false (get-in state [:staking-ui :action-popover :open?])))
     (is (nil? (get-in state [:staking-ui :action-popover :kind])))
     (is (nil? (get-in state [:staking-ui :action-popover :anchor])))

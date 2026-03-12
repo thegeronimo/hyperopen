@@ -171,10 +171,42 @@
         next-page-button (find-node #(= "staking-validator-page-next"
                                         (get-in % [1 :data-role]))
                                     view)
+        view-all-toggle (find-node #(= "staking-validator-toggle-view-all"
+                                       (get-in % [1 :data-role]))
+                                   view)
         strings (set (collect-strings view))]
     (is (some? next-page-button))
+    (is (some? view-all-toggle))
+    (is (= [[:actions/set-staking-validator-show-all true]]
+           (get-in view-all-toggle [1 :on :click])))
     (is (= [[:actions/set-staking-validator-page 1]]
            (get-in next-page-button [1 :on :click])))
     (is (contains? strings "1-25 of 30"))
     (is (contains? strings "Validator 0"))
-    (is (not (contains? strings "Validator 26")))))
+    (is (not (contains? strings "Validator 26"))))
+
+  (let [validator-rows (mapv (fn [idx]
+                               {:validator (validator-address idx)
+                                :name (str "Validator " idx)
+                                :description (str "Description " idx)
+                                :stake (- 1000 idx)
+                                :is-active? true
+                                :is-jailed? false
+                                :commission 0.01
+                                :stats {:week {:uptime-fraction 1
+                                               :predicted-apr 0.02
+                                               :sample-count 7}}})
+                             (range 30))
+        view (staking-view/staking-view
+              {:wallet {:connected? true
+                        :address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}
+               :staking-ui {:validator-show-all? true}
+               :staking {:validator-summaries validator-rows}})
+        view-all-toggle (find-node #(= "staking-validator-toggle-view-all"
+                                       (get-in % [1 :data-role]))
+                                   view)
+        strings (set (collect-strings view))]
+    (is (= [[:actions/set-staking-validator-show-all false]]
+           (get-in view-all-toggle [1 :on :click])))
+    (is (contains? strings "1-30 of 30"))
+    (is (contains? strings "Validator 26"))))

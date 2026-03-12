@@ -775,6 +775,7 @@
 (defn- validator-pagination
   [{:keys [validator-page
            validator-page-count
+           validator-show-all?
            validators-total-count
            validator-page-range-start
            validator-page-range-end]}]
@@ -782,15 +783,38 @@
     (let [can-prev? (pos? validator-page)
           can-next? (< validator-page (dec validator-page-count))
           prev-page (max 0 (dec validator-page))
-          next-page (min (dec validator-page-count) (inc validator-page))]
-      [:div {:class ["flex" "items-center" "justify-between" "px-3" "py-2" "text-sm"]}
-       [:span {:class ["text-[#5ecfc1]"]} "View All"]
+          next-page (min (dec validator-page-count) (inc validator-page))
+          toggle-label (if validator-show-all?
+                         "Paginated View"
+                         "View All")
+          toggle-target (not validator-show-all?)]
+      [:div {:class ["flex"
+                     "items-center"
+                     "justify-between"
+                     "px-3"
+                     "py-2"
+                     "text-sm"
+                     "border-t"
+                     "border-[#1b2429]"
+                     "bg-[#0f1a1f]"]
+             :data-role "staking-validator-pagination"}
+       [:button {:type "button"
+                 :class ["text-[#5ecfc1]"
+                         "transition-colors"
+                         "hover:text-[#7ee7d8]"
+                         "focus:outline-none"
+                         "focus:ring-0"
+                         "focus:ring-offset-0"]
+                 :data-role "staking-validator-toggle-view-all"
+                 :on {:click [[:actions/set-staking-validator-show-all toggle-target]]}}
+        toggle-label]
        [:div {:class ["flex" "items-center" "gap-2" "text-[#f6fefd]"]}
         [:span {:class ["num" "text-sm" "text-[#f6fefd]"]}
          (str validator-page-range-start "-" validator-page-range-end " of " validators-total-count)]
         [:button {:type "button"
                   :class (into ["h-7"
-                                "w-7"
+                                "min-w-7"
+                                "px-2"
                                 "inline-flex"
                                 "items-center"
                                 "justify-center"
@@ -806,10 +830,11 @@
                   :disabled (not can-prev?)
                   :data-role "staking-validator-page-prev"
                   :on {:click [[:actions/set-staking-validator-page prev-page]]}}
-         "‹"]
+         "Prev"]
         [:button {:type "button"
                   :class (into ["h-7"
-                                "w-7"
+                                "min-w-7"
+                                "px-2"
                                 "inline-flex"
                                 "items-center"
                                 "justify-center"
@@ -825,7 +850,7 @@
                   :disabled (not can-next?)
                   :data-role "staking-validator-page-next"
                   :on {:click [[:actions/set-staking-validator-page next-page]]}}
-         "›"]]])))
+         "Next"]]])))
 
 (defn- staking-timeframe-menu
   [selected-timeframe timeframe-options open?]
@@ -923,6 +948,7 @@
                 validator-timeframe
                 validator-timeframe-dropdown-open?
                 validator-page
+                validator-show-all?
                 validator-page-count
                 validators-total-count
                 validator-page-range-start
@@ -1070,8 +1096,10 @@
              (or (some-> hash (subs 0 (min 10 (count hash)))) "--")]]))
 
         ;; Default: validator performance table
-        [:div {:class ["space-y-1"]}
-         [:div {:class ["overflow-x-auto" "overflow-y-auto" "scrollbar-hide" "max-h-[56vh]"]}
+        [:div {:class ["space-y-0"]}
+         [:div {:class ["overflow-x-auto" "overflow-y-auto"]
+                :style {:max-height "56vh"}
+                :data-role "staking-validator-table-scroll-region"}
           [:table {:class ["min-w-full" "bg-[#0f1a1f]"]
                    :data-role "staking-validator-table"}
            [:thead
@@ -1096,6 +1124,7 @@
                    "Loading validators..."
                    "No validator data available.")]])]]]
          (validator-pagination {:validator-page validator-page
+                                :validator-show-all? validator-show-all?
                                 :validator-page-count validator-page-count
                                 :validators-total-count validators-total-count
                                 :validator-page-range-start validator-page-range-start

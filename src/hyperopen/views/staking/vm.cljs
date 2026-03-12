@@ -210,6 +210,10 @@
         history (or (get-in state [:staking :history]) [])
         validators-all (validators-vm validator-summaries delegations timeframe validator-sort)
         validators-total-count (count validators-all)
+        validator-show-all? (true? (get-in state [:staking-ui :validator-show-all?]))
+        effective-validator-page-size (if validator-show-all?
+                                      (max 1 validators-total-count)
+                                      validator-page-size)
         requested-validator-page (or (some-> (get-in state [:staking-ui :validator-page])
                                              optional-number
                                              js/Math.floor
@@ -217,13 +221,13 @@
                                     0)
         validator-page-count (max 1
                                   (int (js/Math.ceil (/ validators-total-count
-                                                       validator-page-size))))
+                                                       effective-validator-page-size))))
         validator-page (-> requested-validator-page
                            (max 0)
                            (min (dec validator-page-count)))
-        validator-page-start-index (* validator-page validator-page-size)
+        validator-page-start-index (* validator-page effective-validator-page-size)
         validator-page-end-index (min validators-total-count
-                                     (+ validator-page-start-index validator-page-size))
+                                     (+ validator-page-start-index effective-validator-page-size))
         validators (if (pos? validators-total-count)
                      (subvec validators-all validator-page-start-index validator-page-end-index)
                      [])
@@ -253,6 +257,7 @@
      :validator-timeframe timeframe
      :validator-timeframe-dropdown-open? timeframe-dropdown-open?
      :validator-page validator-page
+     :validator-show-all? validator-show-all?
      :validator-page-size validator-page-size
      :validator-page-count validator-page-count
      :validators-total-count validators-total-count

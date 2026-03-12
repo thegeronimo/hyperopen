@@ -92,6 +92,20 @@
   (is (= [[:effects/save [:staking-ui :validator-page] 0]]
          (actions/set-staking-validator-page {} "not-a-number"))))
 
+(deftest set-staking-validator-show-all-toggles-and-resets-page-test
+  (is (= [[:effects/save-many
+           [[[:staking-ui :validator-show-all?] true]
+            [[:staking-ui :validator-page] 0]]]]
+         (actions/set-staking-validator-show-all
+          {:staking-ui {:validator-page 2}}
+          true)))
+  (is (= [[:effects/save-many
+           [[[:staking-ui :validator-show-all?] false]
+            [[:staking-ui :validator-page] 0]]]]
+         (actions/set-staking-validator-show-all
+          {:staking-ui {:validator-page 1}}
+          false))))
+
 (deftest set-staking-form-field-normalizes-validator-and-ignores-unknown-fields-test
   (is (= [[:effects/save [:staking-ui :selected-validator]
            "0x1234567890abcdef1234567890abcdef12345678"]]

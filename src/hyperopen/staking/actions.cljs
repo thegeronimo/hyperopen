@@ -447,6 +447,12 @@
     [[:effects/save [:staking-ui :validator-page]
       (max 0 page*)]]))
 
+(defn set-staking-validator-show-all
+  [_state show-all?]
+  [[:effects/save-many
+    [[[:staking-ui :validator-show-all?] (true? show-all?)]
+     [[:staking-ui :validator-page] 0]]]])
+
 (defn set-staking-validator-sort
   [state column]
   (if-let [column* (normalize-staking-validator-sort-column column)]

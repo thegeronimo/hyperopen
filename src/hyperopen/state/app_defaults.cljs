@@ -252,6 +252,7 @@
    :validator-timeframe :week
    :validator-timeframe-dropdown-open? false
    :validator-page 0
+   :validator-show-all? false
    :action-popover {:open? false
                     :kind nil
                     :anchor nil}

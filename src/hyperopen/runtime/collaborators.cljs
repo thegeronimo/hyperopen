@@ -307,6 +307,7 @@
    :close-staking-validator-timeframe-menu staking-actions/close-staking-validator-timeframe-menu
    :set-staking-validator-timeframe staking-actions/set-staking-validator-timeframe
    :set-staking-validator-page staking-actions/set-staking-validator-page
+   :set-staking-validator-show-all staking-actions/set-staking-validator-show-all
    :set-staking-validator-sort staking-actions/set-staking-validator-sort
    :open-staking-action-popover staking-actions/open-staking-action-popover
    :close-staking-action-popover staking-actions/close-staking-action-popover
