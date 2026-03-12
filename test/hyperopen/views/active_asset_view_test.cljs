@@ -1,7 +1,12 @@
 (ns hyperopen.views.active-asset-view-test
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is]]
+            [nexus.registry :as nxr]
+            [hyperopen.active-asset.funding-policy :as funding-policy]
             [hyperopen.system :as app-system]
+            [hyperopen.views.active-asset.funding-tooltip :as funding-tooltip]
+            [hyperopen.views.active-asset.icon-button :as icon-button]
+            [hyperopen.views.active-asset.row :as row]
             [hyperopen.views.active-asset-view :as view]))
 
 (defn- collect-strings [node]
@@ -160,7 +165,7 @@
                   :fundingRate 0.001}
         ;; Simulates malformed/partial market state missing display fields.
         market {:market-type :perp}
-        view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})
+        view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})
         strings (set (collect-strings view-node))]
     (is (contains? strings "SOL"))))
 
@@ -179,7 +184,7 @@
                                                                  :change24h 1.0
                                                                  :change24hPct 11.11
                                                                  :volume24h 100000.0}}}}
-        view-node (view/active-asset-list {} {:visible-dropdown nil} full-state)
+        view-node (view/active-asset-view full-state)
         strings (set (collect-strings view-node))]
     (is (contains? strings "HYPE/USDC"))
     (is (contains? strings "SPOT"))
@@ -191,7 +196,7 @@
                      :symbol "HYPE/USDC"
                      :base "HYPE"
                      :market-type :spot}
-        icon-node (view/asset-icon spot-market false #{} #{})
+        icon-node (icon-button/asset-button spot-market false #{} #{})
         img-attrs (->> (find-img-nodes icon-node)
                        (map second))
         img-srcs (->> img-attrs
@@ -205,6 +210,7 @@
         background-image (get-in icon-layer [1 :style :background-image])
         strings (set (collect-strings icon-node))
         path-ds (set (collect-path-ds icon-node))]
+    (is (= :button (first icon-node)))
     (is (not (contains? strings "HYPE")))
     (is (contains? img-srcs "https://app.hyperliquid.xyz/coins/HYPE_spot.svg"))
     (is (not (contains? img-classes "bg-white")))
@@ -219,7 +225,7 @@
                 :symbol "BTC-USDC"
                 :base "BTC"
                 :market-type :perp}
-        icon-node (view/asset-icon market false #{} #{})
+        icon-node (icon-button/asset-button market false #{} #{})
         img-node (first (find-img-nodes icon-node))
         attrs (second img-node)
         classes (set (class-values (:class attrs)))
@@ -240,22 +246,27 @@
                 :symbol "BTC-USDC"
                 :base "BTC"
                 :market-type :perp}
-        icon-node (view/asset-icon market false #{} #{})
+        icon-node (icon-button/asset-button market false #{} #{})
         probe-attrs (-> icon-node find-img-nodes first second)
         on-render (:replicant/on-render probe-attrs)
         remembered (atom nil)
+        dispatched (atom [])
         store (atom {:asset-selector {:loaded-icons #{}
                                       :missing-icons #{}}})
         {node :node listeners :listeners} (fake-image-node {:complete? true
                                                             :natural-width 48})]
-    (with-redefs [app-system/store store]
+    (with-redefs [app-system/store store
+                  nxr/dispatch (fn [_ _ actions]
+                                 (reset! dispatched actions))]
       (on-render {:replicant/life-cycle :replicant.life-cycle/mount
                   :replicant/node node
                   :replicant/remember (fn [memory]
                                         (reset! remembered memory))}))
     (is (contains? @listeners "load"))
     (is (contains? @listeners "error"))
-    (is (= #{"perp:BTC"} (get-in @store [:asset-selector :loaded-icons])))
+    (is (= [[:actions/mark-loaded-asset-icon "perp:BTC"]]
+           @dispatched))
+    (is (= #{} (get-in @store [:asset-selector :loaded-icons])))
     (is (= #{} (get-in @store [:asset-selector :missing-icons])))
     (is (= "https://app.hyperliquid.xyz/coins/BTC.svg"
            (:src @remembered)))))
@@ -266,19 +277,24 @@
                 :symbol "BTC-USDC"
                 :base "BTC"
                 :market-type :perp}
-        icon-node (view/asset-icon market false #{} #{})
+        icon-node (icon-button/asset-button market false #{} #{})
         probe-attrs (-> icon-node find-img-nodes first second)
         on-render (:replicant/on-render probe-attrs)
+        dispatched (atom [])
         store (atom {:asset-selector {:loaded-icons #{}
                                       :missing-icons #{}}})
         {node :node} (fake-image-node {:complete? true
                                        :natural-width 0})]
-    (with-redefs [app-system/store store]
+    (with-redefs [app-system/store store
+                  nxr/dispatch (fn [_ _ actions]
+                                 (reset! dispatched actions))]
       (on-render {:replicant/life-cycle :replicant.life-cycle/mount
                   :replicant/node node
                   :replicant/remember (fn [_] nil)}))
+    (is (= [[:actions/mark-missing-asset-icon "perp:BTC"]]
+           @dispatched))
     (is (= #{} (get-in @store [:asset-selector :loaded-icons])))
-    (is (= #{"perp:BTC"} (get-in @store [:asset-selector :missing-icons])))))
+    (is (= #{} (get-in @store [:asset-selector :missing-icons])))))
 
 (deftest asset-icon-renders-visible-image-when-icon-is-marked-loaded-test
   (let [market {:key "perp:BTC"
@@ -286,7 +302,7 @@
                 :symbol "BTC-USDC"
                 :base "BTC"
                 :market-type :perp}
-        icon-node (view/asset-icon market false #{} #{"perp:BTC"})
+        icon-node (icon-button/asset-button market false #{} #{"perp:BTC"})
         img-nodes (find-img-nodes icon-node)
         img-node (first img-nodes)
         attrs (second img-node)
@@ -307,7 +323,7 @@
                 :symbol "BTC-USDC"
                 :base "BTC"
                 :market-type :perp}
-        icon-node (view/asset-icon market false #{"perp:BTC"} #{})
+        icon-node (icon-button/asset-button market false #{"perp:BTC"} #{})
         img-nodes (find-img-nodes icon-node)
         strings (set (collect-strings icon-node))]
     (is (empty? img-nodes))
@@ -320,7 +336,7 @@
                 :base "XYZ100"
                 :dex "xyz"
                 :market-type :perp}
-        icon-node (view/asset-icon market false #{} #{})
+        icon-node (icon-button/asset-button market false #{} #{})
         img-node (first (find-img-nodes icon-node))
         attrs (second img-node)]
     (is (some? img-node))
@@ -334,7 +350,7 @@
                 :base "MSFT"
                 :dex "cash"
                 :market-type :perp}
-        icon-node (view/asset-icon market false #{} #{})
+        icon-node (icon-button/asset-button market false #{} #{})
         img-node (first (find-img-nodes icon-node))
         attrs (second img-node)]
     (is (some? img-node))
@@ -354,7 +370,7 @@
                 :symbol "SOL"
                 :base "SOL"
                 :market-type :perp}
-        view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})]
+        view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})]
     (is (contains-class? view-node "app-shell-gutter-left"))))
 
 (deftest active-asset-row-applies-numeric-utility-to-live-values-test
@@ -372,7 +388,7 @@
                 :symbol "SOL"
                 :base "SOL"
                 :market-type :perp}
-        view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})]
+        view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})]
     (is (contains-class? view-node "num"))))
 
 (deftest active-asset-row-prioritizes-symbol-column-during-resize-test
@@ -390,7 +406,7 @@
                 :symbol "SOL-USD"
                 :base "SOL"
                 :market-type :perp}
-        view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})]
+        view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})]
     (is (contains-class? view-node "md:grid-cols-[minmax(max-content,1.4fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,1.6fr)]"))))
 
 (deftest active-asset-row-renders-dex-and-leverage-chips-test
@@ -408,7 +424,7 @@
                 :dex "xyz"
                 :maxLeverage 25
                 :market-type :perp}
-        view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})
+        view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})
         strings (set (collect-strings view-node))]
     (is (contains? strings "xyz"))
     (is (contains? strings "25x"))
@@ -429,7 +445,7 @@
                 :base "XYZ100"
                 :maxLeverage 25
                 :market-type :perp}
-        view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})
+        view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})
         strings (set (collect-strings view-node))]
     (is (contains? strings "xyz"))))
 
@@ -448,7 +464,7 @@
                 :symbol "SOL"
                 :base "SOL"
                 :market-type :perp}
-        view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})
+        view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})
         toggle-button (find-node-by-role view-node "trade-mobile-asset-details-toggle")
         details-panel (find-node-by-role view-node "trade-mobile-asset-details-panel")]
     (is (some? toggle-button))
@@ -471,7 +487,7 @@
                 :symbol "SOL"
                 :base "SOL"
                 :market-type :perp}
-        view-node (view/active-asset-row ctx-data
+        view-node (row/active-asset-row ctx-data
                                          market
                                          {:visible-dropdown nil}
                                          {:asset-selector {:missing-icons #{}}
@@ -487,6 +503,52 @@
     (is (not (contains-class? details-panel "rounded-xl")))
     (is (contains-class? details-panel "cursor-help"))
     (is (contains-class? details-panel "decoration-dashed"))))
+
+(deftest mobile-active-asset-row-renders-open-funding-tooltip-content-when-visible-test
+  (let [ctx-data {:coin "xyz:GOLD"
+                  :mark 5000.0
+                  :oracle 4998.0
+                  :change24h 5.0
+                  :change24hPct 0.5
+                  :volume24h 2000000
+                  :openInterest 200
+                  :fundingRate 0.0056}
+        market {:coin "xyz:GOLD"
+                :symbol "GOLD-USDC"
+                :base "GOLD"
+                :market-type :perp}
+        full-state (-> {:active-asset "xyz:GOLD"
+                        :asset-selector {:missing-icons #{}}
+                        :trade-ui {:mobile-asset-details-open? true}}
+                       (with-visible-funding-tooltip "xyz:GOLD"))]
+    (with-redefs [hyperopen.state.trading/position-for-active-asset
+                  (fn [_] nil)
+                  hyperopen.utils.formatting/format-funding-countdown
+                  (fn [] "00:10:00")]
+      (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
+            details-panel (find-node-by-role view-node "trade-mobile-asset-details-panel")
+            strings (set (collect-strings details-panel))]
+        (is (contains? strings "Hypothetical Position"))
+        (is (contains? strings "Projections"))))))
+
+(deftest active-asset-row-renders-24h-change-without-funding-rate-test
+  (let [ctx-data {:coin "SOL"
+                  :mark 87.0
+                  :markRaw "87.0"
+                  :oracle 86.9
+                  :oracleRaw "86.9"
+                  :change24h 1.2
+                  :change24hPct 1.4
+                  :volume24h 1000
+                  :openInterest 100}
+        market {:coin "SOL"
+                :symbol "SOL"
+                :base "SOL"
+                :market-type :perp}
+        view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})
+        loading-count (count (filter #(= "Loading..." %) (collect-strings view-node)))]
+    (is (= 1 loading-count))
+    (is (contains? (set (collect-strings view-node)) "24h Change"))))
 
 (deftest active-asset-panel-passes-scroll-top-to-selector-wrapper-test
   (let [captured-props (atom nil)
@@ -511,17 +573,18 @@
                   (fn [props]
                     (reset! captured-props props)
                     [:div])]
-      (view/active-asset-panel {} false dropdown-state full-state))
+      (view/active-asset-panel (assoc full-state :asset-selector dropdown-state)))
     (is (= 144 (:scroll-top @captured-props)))))
 
 (deftest tooltip-click-pinnable-dismiss-target-clears-visible-state-test
   (let [pin-id (funding-tooltip-pin-id "BTC")
-        tooltip-node (view/tooltip [[:span "Funding"] [:div "Body"]]
-                                   "top"
-                                   {:click-pinnable? true
-                                    :open? true
-                                    :pin-id pin-id
-                                    :pinned? true})
+        tooltip-node (funding-tooltip/funding-tooltip-popover
+                      {:trigger [:span "Funding"]
+                       :body [:div "Body"]
+                       :position "top"
+                       :open? true
+                       :pin-id pin-id
+                       :pinned? true})
         dismiss-target (find-first-node tooltip-node
                                         #(contains? (set (class-values (get-in % [1 :class])))
                                                     "fixed"))]
@@ -532,18 +595,20 @@
 
 (deftest tooltip-click-pinnable-trigger-toggles-pinned-state-test
   (let [pin-id (funding-tooltip-pin-id "BTC")
-        closed-tooltip (view/tooltip [[:span "Funding"] [:div "Body"]]
-                                     "top"
-                                     {:click-pinnable? true
-                                      :open? false
-                                      :pin-id pin-id
-                                      :pinned? false})
-        open-tooltip (view/tooltip [[:span "Funding"] [:div "Body"]]
-                                   "top"
-                                   {:click-pinnable? true
-                                    :open? true
-                                    :pin-id pin-id
-                                    :pinned? true})
+        closed-tooltip (funding-tooltip/funding-tooltip-popover
+                        {:trigger [:span "Funding"]
+                         :body [:div "Body"]
+                         :position "top"
+                         :open? false
+                         :pin-id pin-id
+                         :pinned? false})
+        open-tooltip (funding-tooltip/funding-tooltip-popover
+                      {:trigger [:span "Funding"]
+                       :body [:div "Body"]
+                       :position "top"
+                       :open? true
+                       :pin-id pin-id
+                       :pinned? true})
         closed-trigger (find-first-node closed-tooltip #(= :button (first %)))
         open-trigger (find-first-node open-tooltip #(= :button (first %)))]
     (is (= [[:actions/set-funding-tooltip-pinned pin-id true]
@@ -555,18 +620,20 @@
 
 (deftest tooltip-click-pinnable-renders-body-when-open-test
   (let [pin-id (funding-tooltip-pin-id "BTC")
-        closed-tooltip (view/tooltip [[:span "Funding"] [:div "Body"]]
-                                     "top"
-                                     {:click-pinnable? true
-                                      :open? false
-                                      :pin-id pin-id
-                                      :pinned? false})
-        open-tooltip (view/tooltip [[:span "Funding"] [:div "Body"]]
-                                   "top"
-                                   {:click-pinnable? true
-                                    :open? true
-                                    :pin-id pin-id
-                                    :pinned? true})]
+        closed-tooltip (funding-tooltip/funding-tooltip-popover
+                        {:trigger [:span "Funding"]
+                         :body [:div "Body"]
+                         :position "top"
+                         :open? false
+                         :pin-id pin-id
+                         :pinned? false})
+        open-tooltip (funding-tooltip/funding-tooltip-popover
+                      {:trigger [:span "Funding"]
+                       :body [:div "Body"]
+                       :position "top"
+                       :open? true
+                       :pin-id pin-id
+                       :pinned? true})]
     (is (not (contains? (set (collect-strings closed-tooltip)) "Body")))
     (is (contains? (set (collect-strings open-tooltip)) "Body"))))
 
@@ -585,16 +652,16 @@
                 :market-type :perp}
         full-state {:active-asset "xyz:GOLD"
                     :asset-selector {:missing-icons #{}}}
-        cache* @#'hyperopen.views.active-asset-view/funding-tooltip-model-cache]
+        cache* @#'hyperopen.active-asset.funding-policy/funding-tooltip-model-cache]
     (reset! cache* nil)
     (with-redefs [hyperopen.utils.formatting/format-funding-countdown
                   (fn [] "00:10:00")]
-      (view/active-asset-row ctx-data market {:visible-dropdown nil} full-state))
+      (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state))
     (is (nil? @cache*))))
 
 (deftest active-asset-row-funding-tooltip-memoizes-by-summary-signature-test
-  (let [memoized-tooltip @#'hyperopen.views.active-asset-view/memoized-funding-tooltip-model
-        cache* @#'hyperopen.views.active-asset-view/funding-tooltip-model-cache
+  (let [memoized-tooltip @#'hyperopen.active-asset.funding-policy/memoized-funding-tooltip-model
+        cache* @#'hyperopen.active-asset.funding-policy/funding-tooltip-model-cache
         position {:coin "xyz:GOLD"
                   :szi "1"
                   :positionValue "5000"}
@@ -698,7 +765,7 @@
                      :positionValue "99.39"})
                   hyperopen.utils.formatting/format-funding-countdown
                   (fn [] "00:22:01")]
-      (let [view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
+      (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
             strings (set (collect-strings view-node))
             rate-node (find-first-node view-node
                                        #(and (= :span (first %))
@@ -758,7 +825,7 @@
                      :positionValue "1500"})
                   hyperopen.utils.formatting/format-funding-countdown
                   (fn [] "00:10:00")]
-      (let [view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
+      (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
             strings (set (collect-strings view-node))]
         (is (contains? strings "Short 2 GOLD"))
         (is (not (contains? strings "+$0.15")))
@@ -787,7 +854,7 @@
                     nil)
                   hyperopen.utils.formatting/format-funding-countdown
                   (fn [] "00:10:00")]
-      (let [view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
+      (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
             strings (set (collect-strings view-node))]
         (is (contains? strings "Hypothetical Position"))
         (is (contains? strings "Edit size or value to estimate payments. Use negative size or value for short."))
@@ -820,7 +887,7 @@
                     nil)
                   hyperopen.utils.formatting/format-funding-countdown
                   (fn [] "00:10:00")]
-      (let [view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
+      (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
             strings (set (collect-strings view-node))]
         (is (contains? strings "Hypothetical Position"))
         (is (contains? strings "+$1.34"))
@@ -853,7 +920,7 @@
                     nil)
                   hyperopen.utils.formatting/format-funding-countdown
                   (fn [] "00:10:00")]
-      (let [view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
+      (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
             strings (set (collect-strings view-node))]
         (is (contains? strings "Hypothetical Position"))
         (is (contains? strings "+$1.34"))
@@ -898,7 +965,7 @@
                      :positionValue "5000"})
                   hyperopen.utils.formatting/format-funding-countdown
                   (fn [] "00:10:00")]
-      (let [view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
+      (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
             strings (set (collect-strings view-node))]
         (is (contains? strings "Predictability (30d)"))
         (is (contains? strings "Mean APY"))
@@ -954,12 +1021,12 @@
                      :positionValue "5000"})
                   hyperopen.utils.formatting/format-funding-countdown
                   (fn [] "00:10:00")]
-      (let [loading-view (view/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
+      (let [loading-view (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
             loading-strings (set (collect-strings loading-view))
             ready-state (assoc-in full-state
                                   [:active-assets :funding-predictability :loading-by-coin "XYZ:GOLD"]
                                   false)
-            ready-view (view/active-asset-row ctx-data market {:visible-dropdown nil} ready-state)
+            ready-view (row/active-asset-row ctx-data market {:visible-dropdown nil} ready-state)
             ready-strings (set (collect-strings ready-view))]
         (is (contains? loading-strings "Loading 30d stats..."))
         (is (contains? ready-strings "Rate History"))
@@ -988,7 +1055,7 @@
                     nil)
                   hyperopen.utils.formatting/format-funding-countdown
                   (fn [] "00:10:00")]
-      (let [view-node (view/active-asset-row ctx-data market {:visible-dropdown nil} full-state)]
+      (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)]
         (is (contains-class? view-node "z-[140]"))
         (is (contains-class? view-node "bg-[#06131a]"))
         (is (contains-class? view-node "isolate"))
