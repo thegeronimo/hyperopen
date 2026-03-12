@@ -1,7 +1,6 @@
 (ns hyperopen.views.staking-view
   (:require [hyperopen.utils.formatting :as fmt]
-            [hyperopen.views.staking.vm :as staking-vm]
-            [hyperopen.views.ui.anchored-popover :as anchored-popover]))
+            [hyperopen.views.staking.vm :as staking-vm]))
 
 (defn- format-summary-hype
   [value]
@@ -60,6 +59,61 @@
     label]
    [:span {:class ["num" "text-[#f6fefd]" "font-normal" "leading-[15px]"]}
     value]])
+
+(def ^:private popover-margin-px
+  12)
+
+(def ^:private popover-gap-px
+  8)
+
+(def ^:private popover-fallback-viewport-width
+  1280)
+
+(def ^:private popover-fallback-viewport-height
+  800)
+
+(defn- clamp
+  [value min-value max-value]
+  (-> value
+      (max min-value)
+      (min max-value)))
+
+(defn- anchor-number
+  [anchor k default]
+  (let [value (get anchor k)]
+    (if (number? value)
+      value
+      default)))
+
+(defn- action-popover-layout-style
+  [anchor kind]
+  (let [anchor* (if (map? anchor) anchor {})
+        estimated-height-px (if (= kind :transfer) 440 400)
+        viewport-width (max 320
+                            (anchor-number anchor* :viewport-width popover-fallback-viewport-width)
+                            (+ (anchor-number anchor* :right 0) popover-margin-px))
+        viewport-height (max 320
+                             (anchor-number anchor* :viewport-height popover-fallback-viewport-height))
+        available-width (max 0 (- viewport-width (* 2 popover-margin-px)))
+        panel-width (min 560 available-width)
+        anchor-right (anchor-number anchor*
+                                    :right
+                                    (- viewport-width popover-margin-px))
+        anchor-bottom (anchor-number anchor*
+                                     :bottom
+                                     (+ (anchor-number anchor* :top popover-margin-px) 32))
+        preferred-left (- anchor-right panel-width)
+        left (clamp preferred-left
+                    popover-margin-px
+                    (- viewport-width panel-width popover-margin-px))
+        preferred-top (+ anchor-bottom popover-gap-px)
+        max-top (- viewport-height estimated-height-px popover-margin-px)
+        top (if (> max-top popover-margin-px)
+              (clamp preferred-top popover-margin-px max-top)
+              popover-margin-px)]
+    {:left (str left "px")
+     :top (str top "px")
+     :width (str panel-width "px")}))
 
 (defn- toolbar-action-button
   [{:keys [label data-role primary? action]}]
@@ -219,42 +273,42 @@
                      "text-[#949e9c]"]}
       "▾"]]))
 
-(defn- transfer-direction-button
-  [{:keys [label active? direction]}]
-  [:button {:type "button"
-            :class (into ["h-9"
-                          "rounded-lg"
-                          "px-3"
-                          "text-[18px]"
-                          "font-normal"
-                          "leading-none"
-                          "transition-colors"
-                          "focus:outline-none"
-                          "focus:ring-0"
-                          "focus:ring-offset-0"]
-                         (if active?
-                           ["bg-[#1d2f39]" "text-[#f6fefd]"]
-                           ["bg-transparent" "text-[#9aa3a4]" "hover:text-[#cbd8da]"]))
-            :on {:click [[:actions/set-staking-transfer-direction direction]]}}
-   label])
-
 (defn- transfer-direction-toggle
   [direction]
-  [:div {:class ["mx-auto"
-                 "inline-flex"
-                 "items-center"
-                 "gap-1"
-                 "rounded-[10px]"
-                 "bg-[#13242d]"
-                 "p-1"]}
-   (transfer-direction-button {:label "Spot Balance"
-                               :active? (= direction :spot->staking)
-                               :direction :spot->staking})
-   [:span {:class ["text-xs" "text-[#50d2c1]"]}
-    "<->"]
-   (transfer-direction-button {:label "Staking Balance"
-                               :active? (= direction :staking->spot)
-                               :direction :staking->spot})])
+  (let [spot->staking? (= direction :spot->staking)
+        from-label (if spot->staking?
+                     "Spot Balance"
+                     "Staking Balance")
+        to-label (if spot->staking?
+                   "Staking Balance"
+                   "Spot Balance")
+        next-direction (if spot->staking?
+                         :staking->spot
+                         :spot->staking)]
+    [:button {:type "button"
+              :class ["mx-auto"
+                      "h-9"
+                      "inline-flex"
+                      "items-center"
+                      "gap-2"
+                      "rounded-[10px]"
+                      "bg-[#13242d]"
+                      "px-3"
+                      "text-[18px]"
+                      "font-normal"
+                      "leading-none"
+                      "text-[#c8d5d7]"
+                      "transition-colors"
+                      "hover:bg-[#1a3039]"
+                      "focus:outline-none"
+                      "focus:ring-0"
+                      "focus:ring-offset-0"]
+              :data-role "staking-transfer-direction-toggle"
+              :on {:click [[:actions/set-staking-transfer-direction next-direction]]}}
+     [:span from-label]
+     [:span {:class ["text-[16px]" "text-[#50d2c1]"]}
+      "->"]
+     [:span to-label]]))
 
 (defn- transfer-popover-content
   [{:keys [form submitting balances transfer-direction]}]
@@ -338,12 +392,7 @@
            validators]}]
   (when (:open? action-popover)
     (let [kind (:kind action-popover)
-          panel-style (anchored-popover/anchored-popover-layout-style
-                       {:anchor (:anchor action-popover)
-                        :preferred-width-px 560
-                        :estimated-height-px (if (= kind :transfer)
-                                               440
-                                               400)})
+          panel-style (action-popover-layout-style (:anchor action-popover) kind)
           title (case kind
                   :transfer "Transfer HYPE"
                   :unstake "Unstake"

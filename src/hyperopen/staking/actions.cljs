@@ -37,8 +37,15 @@
     :undelegate-amount
     :selected-validator})
 
-(def ^:private anchor-keys
-  [:left :right :top :bottom :width :height :viewport-width :viewport-height])
+(def ^:private anchor-candidate-keys-by-key
+  {:left [:left "left"]
+   :right [:right "right"]
+   :top [:top "top"]
+   :bottom [:bottom "bottom"]
+   :width [:width "width"]
+   :height [:height "height"]
+   :viewport-width [:viewport-width :viewportWidth "viewport-width" "viewportWidth"]
+   :viewport-height [:viewport-height :viewportHeight "viewport-height" "viewportHeight"]})
 
 (def ^:private hype-decimals
   8)
@@ -284,12 +291,14 @@
                   (some? anchor) (js->clj anchor :keywordize-keys true)
                   :else nil)]
     (when (map? anchor*)
-      (let [normalized (reduce (fn [acc k]
-                                 (if-let [num (optional-number (get anchor* k))]
-                                   (assoc acc k num)
+      (let [normalized (reduce (fn [acc [target-key candidate-keys]]
+                                 (if-let [num (some (fn [candidate-key]
+                                                      (optional-number (get anchor* candidate-key)))
+                                                    candidate-keys)]
+                                   (assoc acc target-key num)
                                    acc))
                                {}
-                               anchor-keys)]
+                               anchor-candidate-keys-by-key)]
         (when (seq normalized)
           normalized)))))
 

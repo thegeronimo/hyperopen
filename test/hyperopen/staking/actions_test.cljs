@@ -80,10 +80,10 @@
          (actions/open-staking-action-popover
           {}
           :transfer
-          {:left "12"
-           :right "44"
+          {"left" "12"
+           "right" "44"
            :top "6"
-           :viewport-width 1024
+           :viewportWidth 1024
            :height "not-a-number"})))
   (is (= []
          (actions/open-staking-action-popover {} :unknown nil)))
