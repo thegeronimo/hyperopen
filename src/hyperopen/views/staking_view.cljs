@@ -64,7 +64,7 @@
   12)
 
 (def ^:private popover-gap-px
-  0)
+  10)
 
 (def ^:private minimum-popover-anchor-height-px
   36)
@@ -199,7 +199,8 @@
                      "right-3"
                      "top-1/2"
                      "-translate-y-1/2"
-                     "text-[22px]"
+                     "text-xs"
+                     "font-medium"
                      "leading-none"
                      "text-[#50d2c1]"
                      "focus:outline-none"
@@ -214,8 +215,6 @@
             :class ["h-10"
                     "w-full"
                     "rounded-[10px]"
-                    "border"
-                    "border-[#2f7f73]"
                     "bg-[#0f544b]"
                     "text-sm"
                     "font-normal"
@@ -429,7 +428,7 @@
               :data-role "staking-action-popover"
               :on {:keydown [[:actions/handle-staking-action-popover-keydown [:event/key]]]}}
         (popover-close-button)
-        [:h2 {:class ["text-[50px]" "font-normal" "leading-none" "text-[#f6fefd]" "text-center"]}
+        [:h2 {:class ["text-[42px]" "font-normal" "leading-none" "text-[#f6fefd]" "text-center"]}
          title]
         (case kind
           :transfer
