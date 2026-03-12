@@ -3,6 +3,7 @@
             [hyperopen.i18n.locale :as i18n-locale]
             [hyperopen.account.context :as account-context]
             [hyperopen.account.spectate-mode-links :as spectate-mode-links]
+            [hyperopen.router :as router]
             [hyperopen.platform :as platform]
             [hyperopen.wallet.agent-session :as agent-session]))
 
@@ -131,14 +132,19 @@
 (defn restore-active-asset!
   [store {:keys [connected?-fn dispatch! load-active-market-display-fn]}]
   (when (nil? (:active-asset @store))
-    (let [stored-asset (platform/local-storage-get "active-asset")
-          asset (if (seq stored-asset) stored-asset "BTC")
+    (let [route-asset (router/trade-route-asset (get-in @store [:router :path]))
+          stored-asset (platform/local-storage-get "active-asset")
+          asset (cond
+                  (seq route-asset) route-asset
+                  (seq stored-asset) stored-asset
+                  :else "BTC")
           cached-market (load-active-market-display-fn asset)]
       (swap! store
              (fn [state]
                (cond-> (assoc state :active-asset asset :selected-asset asset)
                  (map? cached-market) (assoc :active-market cached-market))))
-      (when-not (seq stored-asset)
+      (when (or (seq route-asset)
+                (not (seq stored-asset)))
         (platform/local-storage-set! "active-asset" asset))
       (when (connected?-fn)
         (dispatch! store nil [[:actions/subscribe-to-asset asset]])))))

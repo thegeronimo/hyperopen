@@ -139,6 +139,30 @@
                         (= (second %) [:asset-selector :visible-dropdown]))
                   effects))))
 
+(deftest select-asset-on-trade-route-syncs-router-before-heavy-effects-test
+  (let [market {:key :perp/BTC
+                :coin "BTC"}
+        effects (core/select-asset {:active-asset "ETH"
+                                    :router {:path "/trade"}
+                                    :asset-selector {:visible-dropdown :asset-selector}
+                                    :orderbook-ui {:price-aggregation-dropdown-visible? true
+                                                   :size-unit-dropdown-visible? true}}
+                                   market)]
+    (is (= [[:effects/save [:router :path] "/trade/BTC"]
+            [:effects/push-state "/trade/BTC"]]
+           (subvec effects 2 4)))
+    (is (= [[:effects/unsubscribe-active-asset "ETH"]
+            [:effects/unsubscribe-orderbook "ETH"]
+            [:effects/unsubscribe-trades "ETH"]
+            [:effects/subscribe-active-asset "BTC"]
+            [:effects/subscribe-orderbook "BTC"]
+            [:effects/subscribe-trades "BTC"]
+            [:effects/sync-active-asset-funding-predictability "BTC"]]
+           (subvec effects 4)))
+    (is (effect-extractors/projection-before-heavy? effects select-asset-heavy-effect-ids))
+    (is (effect-extractors/phase-order-valid? effects select-asset-heavy-effect-ids))
+    (is (empty? (effect-extractors/duplicate-heavy-effect-ids effects select-asset-heavy-effect-ids)))))
+
 (deftest select-asset-without-current-asset-still-batches-immediate-ui-close-test
   (let [market {:key :perp/SOL
                 :coin "SOL"}

@@ -24,3 +24,21 @@
          (router/normalize-location-path "/" "#")))
   (is (= "/trade"
          (router/normalize-location-path nil nil))))
+
+(deftest trade-route-helpers-handle-asset-subroutes-and-encoding-test
+  (is (true? (router/trade-route? "/trade")))
+  (is (true? (router/trade-route? "/trade/xyz:GOLD")))
+  (is (false? (router/trade-route? "/portfolio")))
+
+  (is (nil? (router/trade-route-asset "/trade")))
+  (is (= "BTC" (router/trade-route-asset "/trade/BTC")))
+  (is (= "xyz:GOLD" (router/trade-route-asset "/trade/xyz:GOLD")))
+  (is (= "MEOW/USDC" (router/trade-route-asset "/trade/MEOW/USDC")))
+  (is (= "MEOW/USDC" (router/trade-route-asset "/trade/MEOW%2FUSDC")))
+  (is (nil? (router/trade-route-asset "/trade/%E0%A4%A")))
+  (is (nil? (router/trade-route-asset "/portfolio/BTC")))
+
+  (is (= "/trade" (router/trade-route-path nil)))
+  (is (= "/trade/xyz:GOLD" (router/trade-route-path "xyz:GOLD")))
+  (is (= "/trade/MEOW/USDC" (router/trade-route-path "MEOW/USDC")))
+  (is (= "/trade/HYPE%20TOKEN" (router/trade-route-path "HYPE TOKEN"))))

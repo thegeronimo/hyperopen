@@ -1,7 +1,10 @@
 (ns hyperopen.asset-selector.actions
   (:require [clojure.string :as str]
+            [hyperopen.account.context :as account-context]
+            [hyperopen.account.spectate-mode-links :as spectate-mode-links]
             [hyperopen.asset-selector.list-metrics :as list-metrics]
             [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.router :as router]
             [hyperopen.utils.parse :as parse-utils]
             [hyperopen.state.trading :as trading]))
 
@@ -103,6 +106,24 @@
   (let [text (some-> coin str str/trim)]
     (when (seq text)
       (str/upper-case text))))
+
+(defn- trade-route-sync-effects
+  [state canonical-coin]
+  (let [current-route (some-> (get-in state [:router :path]) str str/trim)
+        trade-route-active? (and (seq current-route)
+                                 (router/trade-route? current-route))
+        target-route (router/trade-route-path canonical-coin)]
+    (if (and trade-route-active?
+             (seq canonical-coin)
+             (not= (router/normalize-path current-route)
+                   target-route))
+      (let [browser-route (spectate-mode-links/spectate-url-path
+                           target-route
+                           (when (account-context/spectate-mode-active? state)
+                             (account-context/spectate-address state)))]
+        [[:effects/save [:router :path] target-route]
+         [:effects/push-state browser-route]])
+      [])))
 
 (defn- format-fixed
   [value digits]
@@ -323,6 +344,7 @@
                               [:effects/unsubscribe-orderbook current-asset]
                               [:effects/unsubscribe-trades current-asset]]
                              [])
+        trade-route-effects (trade-route-sync-effects state canonical-coin)
         subscribe-effects [[:effects/subscribe-active-asset canonical-coin]
                            [:effects/subscribe-orderbook canonical-coin]
                            [:effects/subscribe-trades canonical-coin]]
@@ -330,7 +352,8 @@
                              (seq canonical-coin)
                              (conj [:effects/sync-active-asset-funding-predictability canonical-coin]))]
     (into immediate-ui-effects
-          (into unsubscribe-effects subscribe-effects*))))
+          (into trade-route-effects
+                (into unsubscribe-effects subscribe-effects*)))))
 
 (defn update-asset-search
   [_state value]

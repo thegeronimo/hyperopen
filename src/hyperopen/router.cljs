@@ -4,6 +4,12 @@
 (def ^:private default-route
   "/trade")
 
+(def ^:private trade-route-prefix
+  "/trade")
+
+(def ^:private trade-route-prefix-with-separator
+  "/trade/")
+
 (defn- parse-absolute-url-path
   [text]
   (when (and (string? text)
@@ -49,6 +55,40 @@
             (= normalized "/"))
       default-route
       normalized)))
+
+(defn trade-route?
+  [path]
+  (str/starts-with? (normalize-path path) trade-route-prefix))
+
+(defn- decode-trade-route-asset
+  [raw-asset]
+  (try
+    (js/decodeURIComponent raw-asset)
+    (catch :default _
+      nil)))
+
+(defn trade-route-asset
+  [path]
+  (let [path* (normalize-path path)]
+    (when (str/starts-with? path* trade-route-prefix-with-separator)
+      (let [raw-asset (subs path* (count trade-route-prefix-with-separator))
+            raw-asset* (some-> raw-asset str/trim)]
+        (when (seq raw-asset*)
+          (decode-trade-route-asset raw-asset*))))))
+
+(defn- encode-trade-route-asset
+  [asset]
+  (-> (js/encodeURIComponent asset)
+      (str/replace #"%3A" ":")
+      (str/replace #"%2F" "/")))
+
+(defn trade-route-path
+  [asset]
+  (let [asset* (some-> asset str str/trim)]
+    (if (seq asset*)
+      (str trade-route-prefix-with-separator
+           (encode-trade-route-asset asset*))
+      default-route)))
 
 (defn normalize-location-path
   [pathname hash]

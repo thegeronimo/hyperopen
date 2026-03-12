@@ -87,6 +87,54 @@
               [:effects/subscribe-trades nil]]
              effects)))))
 
+(deftest select-asset-syncs-trade-route-to-selected-asset-test
+  (let [market {:key "perp:xyz:GOLD"
+                :coin "xyz:GOLD"}
+        effects (actions/select-asset
+                 {:active-asset "BTC"
+                  :router {:path "/trade"}
+                  :asset-selector {:market-by-key {}}
+                  :orderbook-ui {:price-aggregation-dropdown-visible? true
+                                 :size-unit-dropdown-visible? true}}
+                 market)]
+    (is (= [[:effects/save [:router :path] "/trade/xyz:GOLD"]
+            [:effects/push-state "/trade/xyz:GOLD"]]
+           (subvec effects 2 4)))
+    (is (= [[:effects/unsubscribe-active-asset "BTC"]
+            [:effects/unsubscribe-orderbook "BTC"]
+            [:effects/unsubscribe-trades "BTC"]
+            [:effects/subscribe-active-asset "xyz:GOLD"]
+            [:effects/subscribe-orderbook "xyz:GOLD"]
+            [:effects/subscribe-trades "xyz:GOLD"]
+            [:effects/sync-active-asset-funding-predictability "xyz:GOLD"]]
+           (subvec effects 4))))
+
+  (testing "trade route sync preserves spectate query when spectate mode is active"
+    (let [market {:key "perp:ETH"
+                  :coin "ETH"}
+          spectate-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+          effects (actions/select-asset
+                   {:active-asset "BTC"
+                    :router {:path "/trade"}
+                    :account-context {:spectate-mode {:active? true
+                                                      :address spectate-address}}
+                    :asset-selector {:market-by-key {}}}
+                   market)]
+      (is (= [[:effects/save [:router :path] "/trade/ETH"]
+              [:effects/push-state (str "/trade/ETH?spectate=" spectate-address)]]
+             (subvec effects 2 4)))))
+
+  (testing "non-trade routes do not emit route-sync effects from select-asset"
+    (let [effects (actions/select-asset
+                   {:active-asset "BTC"
+                    :router {:path "/portfolio"}}
+                   {:key "perp:ETH"
+                    :coin "ETH"})]
+      (is (not-any? #(= [:effects/save [:router :path] "/trade/ETH"] %)
+                    effects))
+      (is (not-any? #(= [:effects/push-state "/trade/ETH"] %)
+                    effects)))))
+
 (deftest update-search-sort-strict-favorites-and-tab-actions-test
   (is (= [[:effects/save-many [[[:asset-selector :search-term] ""]
                                [[:asset-selector :scroll-top] 0]

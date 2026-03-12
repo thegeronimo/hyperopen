@@ -59,6 +59,20 @@
         (is (= "ETH" (:active-asset @store)))
         (is (nil? (:active-market @store)))))))
 
+(deftest restore-active-asset-prefers-trade-route-asset-over-local-storage-test
+  (with-test-local-storage
+    (fn []
+      (.setItem js/localStorage "active-asset" "ETH")
+      (let [store (atom {:router {:path "/trade/xyz:GOLD"}
+                         :active-asset nil
+                         :selected-asset nil
+                         :active-market nil})]
+        (with-redefs [ws-client/connected? (fn [] false)]
+          (core/restore-active-asset! store))
+        (is (= "xyz:GOLD" (:active-asset @store)))
+        (is (= "xyz:GOLD" (:selected-asset @store)))
+        (is (= "xyz:GOLD" (.getItem js/localStorage "active-asset")))))))
+
 (deftest subscribe-active-asset-persists-active-market-display-cache-test
   (with-test-local-storage
     (fn []
