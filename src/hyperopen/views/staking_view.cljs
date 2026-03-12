@@ -979,7 +979,7 @@
                    "gap-2"
                    "app-shell-gutter"
                    "pt-3"
-                   "pb-10"]
+                   "pb-16"]
            :data-parity-id "staking-root"}
      [:div {:class ["bg-[#04251f]"
                     "px-4"
@@ -1096,9 +1096,10 @@
              (or (some-> hash (subs 0 (min 10 (count hash)))) "--")]]))
 
         ;; Default: validator performance table
-        [:div {:class ["space-y-0"]}
-         [:div {:class ["overflow-x-auto" "overflow-y-auto"]
-                :style {:max-height "56vh"}
+        [:div {:class ["flex" "min-h-0" "flex-col"]
+               :style {:max-height "52vh"}
+               :data-role "staking-validator-panel"}
+         [:div {:class ["min-h-0" "flex-1" "overflow-x-auto" "overflow-y-auto"]
                 :data-role "staking-validator-table-scroll-region"}
           [:table {:class ["min-w-full" "bg-[#0f1a1f]"]
                    :data-role "staking-validator-table"}
