@@ -942,7 +942,6 @@
 (defn staking-view
   [state]
   (let [{:keys [connected?
-                effective-address
                 active-tab
                 tabs
                 validator-timeframe
@@ -990,11 +989,8 @@
        [:div {:class ["space-y-2" "max-w-[980px]"]}
         [:h1 {:class ["text-[24px]" "md:text-[34px]" "font-normal" "leading-[1.08]" "text-[#ffffff]"]}
          "Staking"]
-        [:p {:class ["text-sm" "leading-[15px]" "text-[#f6fefd]" "max-w-[1200px]"]}
-         "The Hyperliquid L1 is a proof-of-stake blockchain where stakers delegate the native token HYPE to validators to earn staking rewards. Stakers only receive rewards when the validator successfully participates in consensus, so stakers should only delegate to reputable and trusted validators."]
-        (when (seq effective-address)
-          [:p {:class ["text-xs" "text-[#878c8f]" "num"]}
-           (str "Account: " effective-address)])]
+        [:p {:class ["text-base" "leading-5" "text-[#f6fefd]" "max-w-[1200px]"]}
+         "The Hyperliquid L1 is a proof-of-stake blockchain where stakers delegate the native token HYPE to validators to earn staking rewards. Stakers only receive rewards when the validator successfully participates in consensus, so stakers should only delegate to reputable and trusted validators."]]
        (if connected?
          [:div {:class ["flex" "flex-wrap" "items-center" "gap-2"]}
           (toolbar-action-button {:label "Spot <-> Staking Balance Transfer"
