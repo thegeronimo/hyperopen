@@ -158,7 +158,6 @@
                       "py-1"
                       "text-left"
                       "transition-colors"
-                      "hover:bg-base-300"
                       "focus:outline-none"
                       "focus:ring-0"
                       "focus:ring-offset-0"]

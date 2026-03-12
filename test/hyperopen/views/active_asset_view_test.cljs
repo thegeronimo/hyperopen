@@ -219,6 +219,16 @@
            background-image))
     (is (contains? path-ds "M19 9l-7 7-7-7"))))
 
+(deftest active-asset-trigger-does-not-apply-hover-highlight-test
+  (let [market {:key "perp:BTC"
+                :coin "BTC"
+                :symbol "BTC-USDC"
+                :base "BTC"
+                :market-type :perp}
+        icon-node (icon-button/asset-button market false #{} #{})
+        button-classes (set (class-values (get-in icon-node [1 :class])))]
+    (is (not (contains? button-classes "hover:bg-base-300")))))
+
 (deftest asset-icon-renders-neutral-surface-while-probing-and-registers-render-hook-test
   (let [market {:key "perp:BTC"
                 :coin "BTC"
