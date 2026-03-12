@@ -1,5 +1,6 @@
 (ns hyperopen.views.account-info.tabs.positions
-  (:require [clojure.string :as str]
+  (:require ["lucide/dist/esm/icons/pencil.js" :default lucide-pencil-node]
+            [clojure.string :as str]
             [hyperopen.account.history.position-margin :as position-margin]
             [hyperopen.account.history.position-reduce :as position-reduce]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
@@ -122,17 +123,22 @@
           "N/A"))
     "N/A"))
 
+(defn- lucide-node->hiccup [node]
+  (let [tag-name (aget node 0)
+        attrs (js->clj (aget node 1) :keywordize-keys true)]
+    [(keyword tag-name) attrs]))
+
 (defn- edit-icon []
-  [:svg {:class ["h-5" "w-5" "shrink-0"]
-         :viewBox "0 0 20 20"
-         :fill "none"
-         :stroke "currentColor"
-         :stroke-width "1.6"
-         :stroke-linecap "round"
-         :stroke-linejoin "round"
-         :aria-hidden true}
-   [:path {:d "M4 13.5V16h2.5L14 8.5 11.5 6 4 13.5Z"}]
-   [:path {:d "M10.5 7 13 9.5"}]])
+  (into [:svg {:class ["h-5" "w-5" "shrink-0"]
+               :viewBox "0 0 24 24"
+               :fill "none"
+               :stroke "currentColor"
+               :stroke-width "1.6"
+               :stroke-linecap "round"
+               :stroke-linejoin "round"
+               :aria-hidden true}]
+        (map lucide-node->hiccup
+             (array-seq lucide-pencil-node))))
 
 (def ^:private position-detail-edit-button-classes
   ["inline-flex"
