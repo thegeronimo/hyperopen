@@ -65,7 +65,7 @@
     (is (contains? #{11 12} (first @canceled-oids*)))
     (chart-interop/clear-open-order-overlays! chart-obj)
     (is (= 0 (alength (.-children container))))
-    (is (= 6 @unsubscribes*))))
+    (is (= 4 @unsubscribes*))))
 
 (deftest open-order-overlays-inline-cancel-pointerdown-dispatches-once-test
   (let [document (fake-dom/make-fake-document)
@@ -214,13 +214,71 @@
       :format-size format-size
       :on-cancel-order on-cancel-order})
     (is (= 2 @price-to-coordinate-calls*))
+    (let [overlay-root (aget (.-children container) 0)
+          first-row (aget (.-children overlay-root) 0)]
+      (chart-interop/sync-open-order-overlays!
+       chart-obj
+       container
+       (mapv identity orders)
+       {:document document
+        :format-price format-price
+        :format-size format-size
+        :on-cancel-order on-cancel-order})
+      (is (= 4 @price-to-coordinate-calls*))
+      (is (identical? first-row
+                      (aget (.-children overlay-root) 0))))
+    (chart-interop/clear-open-order-overlays! chart-obj)))
+
+(deftest open-order-overlays-repaint-retains-row-dom-on-visible-range-change-test
+  (let [document (fake-dom/make-fake-document)
+        container (fake-dom/make-fake-element "div")
+        logical-handler* (atom nil)
+        subscribe-fn (fn [_] nil)
+        y-offset* (atom 0)
+        time-scale #js {:subscribeVisibleTimeRangeChange subscribe-fn
+                        :unsubscribeVisibleTimeRangeChange subscribe-fn
+                        :subscribeVisibleLogicalRangeChange (fn [handler]
+                                                              (reset! logical-handler* handler))
+                        :unsubscribeVisibleLogicalRangeChange subscribe-fn
+                        :subscribeSizeChange subscribe-fn
+                        :unsubscribeSizeChange subscribe-fn}
+        chart #js {:timeScale (fn [] time-scale)}
+        main-series #js {:priceToCoordinate (fn [price]
+                                              (+ (* 2 price) @y-offset*))
+                         :subscribeDataChanged subscribe-fn
+                         :unsubscribeDataChanged subscribe-fn}
+        chart-obj #js {:chart chart
+                       :mainSeries main-series}
+        order {:coin "SOL" :oid 201 :side "B" :type "limit" :sz "1.0" :px "10"}]
     (chart-interop/sync-open-order-overlays!
      chart-obj
      container
-     (mapv identity orders)
+     [order]
+     {:document document})
+    (let [overlay-root (aget (.-children container) 0)
+          row (aget (.-children overlay-root) 0)
+          badge (fake-dom/find-dom-node row #(= "order" (aget % "data-order-kind")))
+          cancel-button (fake-dom/find-dom-node row
+                                                #(= "button" (some-> (.-tagName %) str/lower-case)))
+          initial-top (some-> row .-style (aget "top"))]
+      (reset! y-offset* 15)
+      (@logical-handler* #js {:from 1 :to 2})
+      (is (identical? row (aget (.-children overlay-root) 0)))
+      (is (identical? badge
+                      (fake-dom/find-dom-node row #(= "order" (aget % "data-order-kind")))))
+      (is (identical? cancel-button
+                      (fake-dom/find-dom-node row
+                                              #(= "button" (some-> (.-tagName %) str/lower-case)))))
+      (is (not= initial-top (some-> row .-style (aget "top")))))
+    (chart-interop/sync-open-order-overlays!
+     chart-obj
+     container
+     [{:coin "SOL" :oid 201 :side "B" :type "limit" :sz "2.5" :px "14"}]
      {:document document
-      :format-price format-price
-      :format-size format-size
-      :on-cancel-order on-cancel-order})
-    (is (= 4 @price-to-coordinate-calls*))
+      :format-price (fn [price _raw] (str price))
+      :format-size (fn [size] (str size))})
+    (let [overlay-root (aget (.-children container) 0)
+          row (aget (.-children overlay-root) 0)
+          text (str/join " " (fake-dom/collect-text-content row))]
+      (is (str/includes? text "Limit 2.5 @ $14")))
     (chart-interop/clear-open-order-overlays! chart-obj)))

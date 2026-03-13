@@ -423,10 +423,16 @@
        (fn [] nil)
        (let [pending-range (atom nil)
              pending-timeout-id (atom nil)
+             interaction-notified? (atom false)
+             notify-visible-range-change! (fn []
+                                            (when-not @interaction-notified?
+                                              (reset! interaction-notified? true)
+                                              (on-visible-range-change!)))
              flush-persist! (fn []
                               (let [range-data @pending-range]
                                 (reset! pending-range nil)
                                 (reset! pending-timeout-id nil)
+                                (reset! interaction-notified? false)
                                 (when range-data
                                   (persist-visible-range!* asset timeframe range-data))))
              queue-persist! (fn [range-data]
@@ -440,12 +446,12 @@
                                 (when-let [range-data (visible-range-from-time-scale time-scale)]
                                   (queue-persist! range-data)))
              logical-handler (fn [range]
-                               (on-visible-range-change!)
+                               (notify-visible-range-change!)
                                (if-let [range-data (range-candidate->data :logical range)]
                                  (queue-persist! range-data)
                                  (persist-current!)))
              time-handler (fn [range]
-                            (on-visible-range-change!)
+                            (notify-visible-range-change!)
                             (if-let [range-data (range-candidate->data :time range)]
                               (queue-persist! range-data)
                               (persist-current!)))

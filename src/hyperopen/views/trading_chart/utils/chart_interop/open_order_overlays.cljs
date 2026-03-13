@@ -216,7 +216,8 @@
 (defn- apply-inline-style!
   [el style-map]
   (doseq [[k v] style-map]
-    (aset (.-style el) k v))
+    (when (not= v (aget (.-style el) k))
+      (aset (.-style el) k v)))
   el)
 
 (defn- invoke-method
@@ -232,6 +233,21 @@
     (when-let [child (.-firstChild el)]
       (.removeChild el child)
       (recur))))
+
+(defn- create-text-node!
+  [document text]
+  (.createTextNode document (or (some-> text str) "")))
+
+(defn- set-text-node-value!
+  [text-node text]
+  (let [next-text (or (some-> text str) "")
+        current-text (or (some-> text-node .-data)
+                         (some-> text-node .-nodeValue)
+                         "")]
+    (when (not= next-text current-text)
+      (aset text-node "data" next-text)
+      (aset text-node "nodeValue" next-text)))
+  text-node)
 
 (defn- resolve-document
   [document]
@@ -339,6 +355,48 @@
          (when-let [execution-label (order-execution-label order)]
            (str " | " execution-label)))))
 
+(defn- order-row-key
+  [order]
+  (str (or (:coin order) "")
+       "::"
+       (or (:oid order) "")))
+
+(defn- overlay-row-presentation
+  [order intent format-price format-size]
+  (let [side (:side order)
+        side-text (side-label side)
+        order-type (order-type-label order)
+        px-text (format-order-price format-price order)
+        px-label (ensure-dollar-prefixed-price px-text)
+        sz-text (format-order-size format-size order)
+        line-color (order-line-color side intent)
+        badge-color (order-badge-color side intent)
+        text-color (order-text-color side intent)
+        kind-text (intent-display-label intent)
+        chip-label (intent-chip-label intent)
+        label-text (overlay-label-text order intent order-type side-text sz-text px-label)
+        cancel-target (if (= intent :standard)
+                        (str/lower-case side-text)
+                        (str kind-text " " (str/lower-case side-text)))]
+    {:chip-label chip-label
+     :label-text label-text
+     :line-color line-color
+     :badge-color badge-color
+     :text-color text-color
+     :kind-attr (case intent
+                  :tp "tp"
+                  :sl "sl"
+                  "order")
+     :title-text (str chip-label " | " label-text)
+     :chip-bg (intent-chip-bg intent)
+     :chip-text-color (intent-chip-text-color intent)
+     :cancel-aria-label (str "Cancel "
+                             cancel-target
+                             " order at "
+                             px-label)}))
+
+(declare patch-overlay-row!)
+
 (defn- build-overlay-row!
   [document
    order
@@ -346,24 +404,97 @@
    on-cancel-order
    format-price
    format-size]
-  (let [side (:side order)
-        side-text (side-label side)
-        order-type (order-type-label order)
-        px-text (format-order-price format-price order)
-        px-label (ensure-dollar-prefixed-price px-text)
-        sz-text (format-order-size format-size order)
-        badge-offset-y (- badge-y line-y)
-        line-color (order-line-color side intent)
-        badge-color (order-badge-color side intent)
-        text-color (order-text-color side intent)
-        kind-text (intent-display-label intent)
-        row (.createElement document "div")
+  (let [row (.createElement document "div")
         line (.createElement document "div")
         connector (.createElement document "div")
         badge (.createElement document "div")
         intent-chip (.createElement document "span")
+        intent-chip-text-node (create-text-node! document "")
         label (.createElement document "span")
-        cancel-button (.createElement document "button")]
+        label-text-node (create-text-node! document "")
+        cancel-button (.createElement document "button")
+        cancel-state (atom {:order order
+                            :on-cancel-order on-cancel-order})]
+    (.setAttribute cancel-button "type" "button")
+    (set! (.-textContent cancel-button) "x")
+    (let [cancel-dispatched? (atom false)
+          emit-cancel!
+          (fn [event]
+            (when event
+              (.preventDefault event)
+              (.stopPropagation event))
+            (let [{:keys [order on-cancel-order]} @cancel-state]
+              (when (and (not @cancel-dispatched?)
+                         (fn? on-cancel-order))
+                (reset! cancel-dispatched? true)
+                (on-cancel-order order))))]
+      ;; Pointer-first handling avoids chart repaint hooks consuming the first click.
+      (.addEventListener cancel-button "pointerdown" emit-cancel!)
+      (.addEventListener cancel-button "touchstart" emit-cancel!)
+      (.addEventListener cancel-button "mousedown" emit-cancel!)
+      (.addEventListener cancel-button "click" emit-cancel!))
+    (.appendChild intent-chip intent-chip-text-node)
+    (.appendChild label label-text-node)
+    (.appendChild badge intent-chip)
+    (.appendChild badge label)
+    (.appendChild badge cancel-button)
+    (.appendChild row line)
+    (.appendChild row connector)
+    (.appendChild row badge)
+    (patch-overlay-row!
+     {:row row
+      :line line
+      :connector connector
+      :badge badge
+      :intent-chip intent-chip
+      :intent-chip-text-node intent-chip-text-node
+      :label label
+      :label-text-node label-text-node
+      :cancel-button cancel-button
+      :cancel-state cancel-state}
+     order
+     {:line-y line-y
+      :badge-y badge-y
+      :badge-x badge-x
+      :intent intent}
+     on-cancel-order
+     format-price
+     format-size)))
+
+(defn- patch-overlay-row!
+  [{:keys [row
+           line
+           connector
+           badge
+           intent-chip
+           intent-chip-text-node
+           label
+           label-text-node
+           cancel-button
+           cancel-state]
+    :as row-dom}
+   order
+   {:keys [line-y badge-y badge-x intent]}
+   on-cancel-order
+   format-price
+   format-size]
+  (let [{:keys [chip-label
+                label-text
+                line-color
+                badge-color
+                text-color
+                kind-attr
+                title-text
+                chip-bg
+                chip-text-color
+                cancel-aria-label]}
+        (overlay-row-presentation order intent format-price format-size)
+        badge-offset-y (- badge-y line-y)
+        connector-visible? (> (js/Math.abs badge-offset-y) 1)
+        connector-top (min 0 badge-offset-y)
+        connector-height (js/Math.abs badge-offset-y)]
+    (reset! cancel-state {:order order
+                          :on-cancel-order on-cancel-order})
     (apply-inline-style!
      row
      {"position" "absolute"
@@ -381,6 +512,16 @@
       "borderTop" (str "1px dashed " line-color)
       "opacity" "0.72"
       "pointerEvents" "none"})
+    (apply-inline-style!
+     connector
+     {"position" "absolute"
+      "left" (str badge-x "px")
+      "top" (str connector-top "px")
+      "height" (str connector-height "px")
+      "borderLeft" (str "1px dashed " line-color)
+      "opacity" "0.72"
+      "pointerEvents" "none"
+      "display" (if connector-visible? "block" "none")})
     (apply-inline-style!
      badge
      {"position" "absolute"
@@ -401,17 +542,8 @@
       "backdropFilter" "blur(0.5px)"
       "color" text-color
       "pointerEvents" "auto"})
-    (.setAttribute badge "data-order-kind"
-                   (case intent
-                     :tp "tp"
-                     :sl "sl"
-                     "order"))
-    (.setAttribute badge "title"
-                   (str (intent-chip-label intent)
-                        " | "
-                        (overlay-label-text order intent order-type side-text sz-text px-label)))
-    (set! (.-textContent intent-chip)
-          (intent-chip-label intent))
+    (.setAttribute badge "data-order-kind" kind-attr)
+    (.setAttribute badge "title" title-text)
     (apply-inline-style!
      intent-chip
      {"display" "inline-flex"
@@ -427,40 +559,18 @@
       "letterSpacing" "0.04em"
       "userSelect" "none"
       "textTransform" "uppercase"
-      "background" (intent-chip-bg intent)
-      "color" (intent-chip-text-color intent)
+      "background" chip-bg
+      "color" chip-text-color
       "border" "1px solid rgba(148, 163, 184, 0.32)"
       "pointerEvents" "none"})
-    (set! (.-textContent label)
-          (overlay-label-text order intent order-type side-text sz-text px-label))
+    (set-text-node-value! intent-chip-text-node chip-label)
     (apply-inline-style!
      label
      {"whiteSpace" "nowrap"
       "userSelect" "none"
       "pointerEvents" "none"})
-    (when (> (js/Math.abs badge-offset-y) 1)
-      (let [connector-top (min 0 badge-offset-y)
-            connector-height (js/Math.abs badge-offset-y)]
-        (apply-inline-style!
-         connector
-         {"position" "absolute"
-          "left" (str badge-x "px")
-          "top" (str connector-top "px")
-          "height" (str connector-height "px")
-          "borderLeft" (str "1px dashed " line-color)
-          "opacity" "0.72"
-          "pointerEvents" "none"})))
-    (.setAttribute cancel-button "type" "button")
-    (.setAttribute cancel-button
-                   "aria-label"
-                   (let [cancel-target (if (= intent :standard)
-                                         (str/lower-case side-text)
-                                         (str kind-text " " (str/lower-case side-text)))]
-                     (str "Cancel "
-                          cancel-target
-                          " order at "
-                          px-label)))
-    (set! (.-textContent cancel-button) "x")
+    (set-text-node-value! label-text-node label-text)
+    (.setAttribute cancel-button "aria-label" cancel-aria-label)
     (apply-inline-style!
      cancel-button
      {"width" "24px"
@@ -478,41 +588,17 @@
       "color" text-color
       "cursor" "pointer"
       "pointerEvents" "auto"})
-    (let [cancel-dispatched? (atom false)
-          emit-cancel!
-          (fn [event]
-            (when event
-              (.preventDefault event)
-              (.stopPropagation event))
-            (when (and (not @cancel-dispatched?)
-                       (fn? on-cancel-order))
-              (reset! cancel-dispatched? true)
-              (on-cancel-order order)))]
-      ;; Pointer-first handling avoids chart repaint hooks consuming the first click.
-      (.addEventListener cancel-button "pointerdown" emit-cancel!)
-      (.addEventListener cancel-button "touchstart" emit-cancel!)
-      (.addEventListener cancel-button "mousedown" emit-cancel!)
-      (.addEventListener cancel-button "click" emit-cancel!))
-    (.appendChild badge intent-chip)
-    (.appendChild badge label)
-    (.appendChild badge cancel-button)
-    (.appendChild row line)
-    (when (> (js/Math.abs badge-offset-y) 1)
-      (.appendChild row connector))
-    (.appendChild row badge)
-    row))
+    row-dom))
 
 (declare render-overlays!)
 
 (defn- teardown-subscription!
-  [{:keys [chart main-series time-scale repaint]}]
+  [{:keys [main-series time-scale repaint]}]
   (when repaint
     (invoke-method time-scale "unsubscribeVisibleTimeRangeChange" repaint)
     (invoke-method time-scale "unsubscribeVisibleLogicalRangeChange" repaint)
     (invoke-method time-scale "unsubscribeSizeChange" repaint)
-    (invoke-method main-series "unsubscribeDataChanged" repaint)
-    (invoke-method chart "unsubscribeCrosshairMove" repaint)
-    (invoke-method chart "unsubscribeClick" repaint)))
+    (invoke-method main-series "unsubscribeDataChanged" repaint)))
 
 (defn- subscribe-overlay-repaint!
   [chart-obj chart main-series]
@@ -523,8 +609,6 @@
     (invoke-method time-scale "subscribeVisibleLogicalRangeChange" repaint)
     (invoke-method time-scale "subscribeSizeChange" repaint)
     (invoke-method main-series "subscribeDataChanged" repaint)
-    (invoke-method chart "subscribeCrosshairMove" repaint)
-    (invoke-method chart "subscribeClick" repaint)
     {:chart chart
      :main-series main-series
      :time-scale time-scale
@@ -542,14 +626,13 @@
                 document]}
         (overlay-state chart-obj)]
     (when root
-      (clear-children! root)
-      (when (and main-series (sequential? orders) (seq orders) document)
-        (let [pane-size (invoke-method chart "paneSize" 0)
-              pane-width (some-> pane-size (aget "width"))
-              width (non-negative-number pane-width
-                                         (non-negative-number (.-clientWidth root) 0))
-              height (or (.-clientHeight root) 0)
-              visible-rows
+      (let [pane-size (invoke-method chart "paneSize" 0)
+            pane-width (some-> pane-size (aget "width"))
+            width (non-negative-number pane-width
+                                       (non-negative-number (.-clientWidth root) 0))
+            height (or (.-clientHeight root) 0)
+            visible-rows
+            (if (and main-series (sequential? orders) (seq orders) document)
               (->> orders
                    (sort-by (fn [o]
                               (or (parse-order-number (:px o)) 0))
@@ -569,15 +652,44 @@
                                 :line-y y
                                 :intent (order-intent order)}))))
                    vec)
-              laid-out-rows (layout-overlapping-badges visible-rows width height)]
-          (doseq [row laid-out-rows]
-            (.appendChild root
-                          (build-overlay-row! document
-                                              (:order row)
-                                              row
-                                              on-cancel-order
-                                              format-price
-                                              format-size))))))))
+              [])
+            laid-out-rows (layout-overlapping-badges visible-rows width height)
+            state (overlay-state chart-obj)
+            current-row-dom-by-key (or (:row-dom-by-key state) {})
+            {:keys [row-dom-by-key visible-keys]}
+            (reduce (fn [{:keys [row-dom-by-key visible-keys]} row-data]
+                      (let [order (:order row-data)
+                            row-key (order-row-key order)
+                            row-dom (or (get row-dom-by-key row-key)
+                                        (build-overlay-row! document
+                                                            order
+                                                            row-data
+                                                            on-cancel-order
+                                                            format-price
+                                                            format-size))
+                            row-dom* (patch-overlay-row! row-dom
+                                                         order
+                                                         row-data
+                                                         on-cancel-order
+                                                         format-price
+                                                         format-size)]
+                        (.appendChild root (:row row-dom*))
+                        {:row-dom-by-key (assoc row-dom-by-key row-key row-dom*)
+                         :visible-keys (conj visible-keys row-key)}))
+                    {:row-dom-by-key current-row-dom-by-key
+                     :visible-keys #{}}
+                    laid-out-rows)
+            stale-keys (remove visible-keys (keys row-dom-by-key))
+            next-row-dom-by-key (reduce (fn [cache stale-key]
+                                          (when-let [stale-row (get cache stale-key)]
+                                            (when-let [parent (.-parentNode (:row stale-row))]
+                                              (.removeChild parent (:row stale-row))))
+                                          (dissoc cache stale-key))
+                                        row-dom-by-key
+                                        stale-keys)]
+        (set-overlay-state!
+         chart-obj
+         (assoc state :row-dom-by-key next-row-dom-by-key))))))
 
 (defn clear-open-order-overlays!
   [chart-obj]

@@ -282,3 +282,37 @@
       (is (= (v2-storage-key :1h "BTC") key))
       (is (= {:kind "time" :from 3 :to 4} payload)))
     (cleanup)))
+
+(deftest subscribe-visible-range-persistence-notifies-interaction-once-per-debounce-window-test
+  (let [handler* (atom nil)
+        writes (atom [])
+        interaction-calls* (atom 0)
+        queued-timeouts (atom {})
+        next-timeout-id (atom 0)
+        time-scale #js {:subscribeVisibleTimeRangeChange (fn [handler]
+                                                           (reset! handler* handler))
+                        :unsubscribeVisibleTimeRangeChange (fn [_] nil)}
+        chart #js {:timeScale (fn [] time-scale)}
+        cleanup (chart-interop/subscribe-visible-range-persistence!
+                 chart
+                 :1h
+                 {:asset "BTC"
+                  :storage-set! (fn [key value]
+                                  (swap! writes conj [key value]))
+                  :on-visible-range-change! (fn []
+                                              (swap! interaction-calls* inc))
+                  :set-timeout-fn (fn [f _ms]
+                                    (let [timeout-id (swap! next-timeout-id inc)]
+                                      (swap! queued-timeouts assoc timeout-id f)
+                                      timeout-id))
+                  :clear-timeout-fn (fn [timeout-id]
+                                      (swap! queued-timeouts dissoc timeout-id))})]
+    (@handler* #js {:from 1 :to 2})
+    (@handler* #js {:from 3 :to 4})
+    (is (= 1 @interaction-calls*))
+    (is (empty? @writes))
+    ((get @queued-timeouts 2))
+    (is (= 1 (count @writes)))
+    (@handler* #js {:from 5 :to 6})
+    (is (= 2 @interaction-calls*))
+    (cleanup)))
