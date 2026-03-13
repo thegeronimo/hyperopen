@@ -63,6 +63,13 @@
       (.cancelAnimationFrame js/globalThis frame-id)
       (js/clearTimeout frame-id))))
 
+(defn- set-style-value!
+  [style prop value]
+  (when (and style
+             (not= (aget style prop) value))
+    (aset style prop value)
+    true))
+
 (defn- normalize-range
   [range-data]
   (let [range* (cond
@@ -327,14 +334,11 @@
         background (if hovered?
                      "rgba(88, 97, 111, 0.95)"
                      "rgba(58, 66, 79, 0.94)")
-        color "#f8fafc"
         box-shadow (if hovered?
                      "0 0 0 2px rgba(226,232,240,0.2)"
                      "0 1px 2px rgba(2,6,23,0.28)")]
-    (set! (.-background style) background)
-    (set! (.-color style) color)
-    (set! (.-boxShadow style) box-shadow)
-    (set! (.-transform style) "translateY(0)")))
+    (set-style-value! style "background" background)
+    (set-style-value! style "boxShadow" box-shadow)))
 
 (defn- make-icon!
   [document path-d]
@@ -375,8 +379,9 @@
       (set! (.-border style) "none")
       (set! (.-cursor style) "pointer")
       (set! (.-outline style) "none")
+      (set! (.-color style) "#f8fafc")
       (set! (.-transition style)
-            "background 120ms ease,color 120ms ease,box-shadow 120ms ease"))
+            "background 120ms ease,box-shadow 120ms ease"))
     (set-control-button-visual-state! button false)
     (.addEventListener button "mouseenter"
                        (fn [_]
@@ -400,15 +405,26 @@
 
 (defn- set-root-visibility!
   [root visible?]
-  (let [style (.-style root)]
-    (set! (.-opacity style) (if visible? "1" "0"))
-    (set! (.-pointerEvents style) (if visible? "auto" "none"))))
+  (let [style (.-style root)
+        opacity (if visible? "1" "0")
+        pointer-events (if visible? "auto" "none")]
+    (set-style-value! style "opacity" opacity)
+    (set-style-value! style "pointerEvents" pointer-events)))
 
 (defn- sync-root-visibility!
   [chart-obj]
   (let [{:keys [root hovered? focus-within?]} (overlay-state chart-obj)]
     (when root
       (set-root-visibility! root (or hovered? focus-within?)))))
+
+(defn- sync-overlay-interactive-flag!
+  [chart-obj state-key active?]
+  (let [next-active? (boolean active?)
+        current-active? (boolean (get (overlay-state chart-obj) state-key))]
+    (when (not= current-active? next-active?)
+      (update-overlay-state! chart-obj assoc state-key next-active?)
+      (sync-root-visibility! chart-obj)
+      true)))
 
 (defn- ensure-relative-container!
   [container]
@@ -420,17 +436,15 @@
 (defn- attach-container-listeners!
   [chart-obj container]
   (let [sync-hover-state! (fn [event]
-                            (update-overlay-state! chart-obj
-                                                   assoc
-                                                   :hovered? (container-hover-active? container event))
-                            (sync-root-visibility! chart-obj))
+                            (sync-overlay-interactive-flag! chart-obj
+                                                            :hovered?
+                                                            (container-hover-active? container event)))
         on-pointer-enter (fn [event]
                            (sync-hover-state! event))
         on-pointer-move (fn [event]
                           (sync-hover-state! event))
         on-pointer-leave (fn [_]
-                           (update-overlay-state! chart-obj assoc :hovered? false)
-                           (sync-root-visibility! chart-obj))]
+                           (sync-overlay-interactive-flag! chart-obj :hovered? false))]
     (.addEventListener container "pointerenter" on-pointer-enter)
     (.addEventListener container "pointermove" on-pointer-move)
     (.addEventListener container "pointerleave" on-pointer-leave)
@@ -521,15 +535,13 @@
       (set! (.-pointerEvents style) "auto"))
     (.addEventListener panel "focusin"
                        (fn [_]
-                         (update-overlay-state! chart-obj assoc :focus-within? true)
-                         (sync-root-visibility! chart-obj)))
+                         (sync-overlay-interactive-flag! chart-obj :focus-within? true)))
     (.addEventListener panel "focusout"
                        (fn [event]
                          (let [next-focused (.-relatedTarget event)]
                            (when (or (nil? next-focused)
                                      (not (.contains panel next-focused)))
-                             (update-overlay-state! chart-obj assoc :focus-within? false)
-                             (sync-root-visibility! chart-obj)))))
+                             (sync-overlay-interactive-flag! chart-obj :focus-within? false)))))
     (doseq [{:keys [aria-label title icon-path on-click shortcut-key]} controls]
       (.appendChild panel
                     (build-control-button!

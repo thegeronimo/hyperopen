@@ -35,6 +35,22 @@
        :queued-frames* queued-frames*
        :cancelled-frame-ids* cancelled-frame-ids*})))
 
+(defn- track-style-writes!
+  [style prop]
+  (let [current-value* (atom (aget style prop))
+        writes* (atom [])]
+    (js/Object.defineProperty
+     style
+     prop
+     #js {:configurable true
+          :enumerable true
+          :get (fn []
+                 @current-value*)
+          :set (fn [value]
+                 (swap! writes* conj value)
+                 (reset! current-value* value))})
+    writes*))
+
 (deftest chart-navigation-overlay-sync-renders-hover-focus-and-controls-test
   (let [document (fake-dom/make-fake-document)
         container (fake-dom/make-fake-element "div")
@@ -163,6 +179,105 @@
     (is (= {} (@#'hyperopen.views.trading-chart.utils.chart-interop.chart-navigation-overlay/overlay-state
                chart-obj)))))
 
+(deftest chart-navigation-overlay-hover-sync-only-writes-root-visibility-on-state-flips-test
+  (let [document (fake-dom/make-fake-document)
+        container (fake-dom/make-fake-element "div")
+        time-scale #js {:getVisibleLogicalRange (fn []
+                                                  (clj->js {:from 100 :to 200}))
+                        :setVisibleLogicalRange (fn [_] nil)}
+        chart #js {:timeScale (fn []
+                                time-scale)}
+        chart-obj #js {:chart chart}]
+    (chart-navigation-overlay/sync-chart-navigation-overlay!
+     chart-obj
+     container
+     []
+     {:document document})
+    (let [state (@#'hyperopen.views.trading-chart.utils.chart-interop.chart-navigation-overlay/overlay-state
+                 chart-obj)
+          root (:root state)
+          style (.-style root)
+          opacity-writes* (track-style-writes! style "opacity")
+          pointer-events-writes* (track-style-writes! style "pointerEvents")]
+      (fake-dom/dispatch-dom-event-with-payload! container "pointerenter" #js {:clientY 60})
+      (fake-dom/dispatch-dom-event-with-payload! container "pointermove" #js {:clientY 80})
+      (is (= [] @opacity-writes*))
+      (is (= [] @pointer-events-writes*))
+
+      (fake-dom/dispatch-dom-event-with-payload! container "pointermove" #js {:clientY 140})
+      (fake-dom/dispatch-dom-event-with-payload! container "pointermove" #js {:clientY 160})
+      (fake-dom/dispatch-dom-event-with-payload! container "pointermove" #js {:clientY 150})
+      (is (= ["1"] @opacity-writes*))
+      (is (= ["auto"] @pointer-events-writes*))
+
+      (fake-dom/dispatch-dom-event-with-payload! container "pointermove" #js {:clientY 70})
+      (fake-dom/dispatch-dom-event-with-payload! container "pointerleave" #js {})
+      (is (= ["1" "0"] @opacity-writes*))
+      (is (= ["auto" "none"] @pointer-events-writes*)))
+
+    (chart-navigation-overlay/clear-chart-navigation-overlay! chart-obj)))
+
+(deftest chart-navigation-overlay-focus-keeps-keyboard-shortcuts-active-test
+  (let [document (fake-dom/make-fake-document)
+        container (fake-dom/make-fake-element "div")
+        animation-clock (make-animation-clock)
+        visible-range* (atom {:from 100 :to 200})
+        time-scale #js {:getVisibleLogicalRange (fn []
+                                                  (clj->js @visible-range*))
+                        :setVisibleLogicalRange (fn [range]
+                                                  (reset! visible-range* (js->clj range :keywordize-keys true)))}
+        chart #js {:timeScale (fn []
+                                time-scale)}
+        chart-obj #js {:chart chart}
+        keydown-event (fn [key]
+                        (let [prevented? (atom false)
+                              stopped? (atom false)]
+                          {:event (doto #js {:key key
+                                             :target #js {:tagName "DIV"}
+                                             :metaKey false
+                                             :ctrlKey false
+                                             :altKey false
+                                             :shiftKey false}
+                                    (aset "preventDefault" (fn [] (reset! prevented? true)))
+                                    (aset "stopPropagation" (fn [] (reset! stopped? true))))
+                           :prevented? prevented?
+                           :stopped? stopped?}))]
+    (chart-navigation-overlay/sync-chart-navigation-overlay!
+     chart-obj
+     container
+     []
+     {:document document
+      :now-ms-fn (:now-ms! animation-clock)
+      :request-animation-frame-fn (:request-frame! animation-clock)
+      :cancel-animation-frame-fn (:cancel-frame! animation-clock)})
+    (let [state (@#'hyperopen.views.trading-chart.utils.chart-interop.chart-navigation-overlay/overlay-state
+                 chart-obj)
+          root (:root state)
+          panel (:panel state)
+          {:keys [event prevented? stopped?]} (keydown-event "ArrowRight")]
+      (fake-dom/dispatch-dom-event! panel "focusin")
+      (fake-dom/dispatch-dom-event-with-payload! container "pointermove" #js {:clientY 40})
+      (is (= "1" (.-opacity (.-style root))))
+      (fake-dom/dispatch-dom-event-with-payload! document "keydown" event)
+      (is @prevented?)
+      (is @stopped?))
+    ((:flush-all! animation-clock))
+    (is (= {:from 104 :to 204} @visible-range*))
+
+    (reset! visible-range* {:from 100 :to 200})
+    (let [state (@#'hyperopen.views.trading-chart.utils.chart-interop.chart-navigation-overlay/overlay-state
+                 chart-obj)
+          panel (:panel state)
+          focusout-handler (aget (.-listeners ^js panel) "focusout")
+          {:keys [event prevented? stopped?]} (keydown-event "ArrowRight")]
+      (focusout-handler #js {:relatedTarget nil})
+      (fake-dom/dispatch-dom-event-with-payload! document "keydown" event)
+      (is (false? @prevented?))
+      (is (false? @stopped?)))
+    (is (empty? @(:queued-frames* animation-clock)))
+
+    (chart-navigation-overlay/clear-chart-navigation-overlay! chart-obj)))
+
 (deftest chart-navigation-overlay-keyboard-shortcuts-require-active-overlay-and-map-actions-test
   (let [document (fake-dom/make-fake-document)
         container (fake-dom/make-fake-element "div")
@@ -278,6 +393,7 @@
       :cancel-animation-frame-fn (:cancel-frame! animation-clock)})
     (is (fn? (aget (.-listeners ^js container-a) "pointerenter")))
     (is (fn? (aget (.-listeners ^js container-a) "pointermove")))
+    (is (fn? (aget (.-listeners ^js container-a) "pointerleave")))
 
     (chart-navigation-overlay/sync-chart-navigation-overlay!
      chart-obj
@@ -291,8 +407,10 @@
       :cancel-animation-frame-fn (:cancel-frame! animation-clock)})
     (is (nil? (aget (.-listeners ^js container-a) "pointerenter")))
     (is (nil? (aget (.-listeners ^js container-a) "pointermove")))
+    (is (nil? (aget (.-listeners ^js container-a) "pointerleave")))
     (is (fn? (aget (.-listeners ^js container-b) "pointerenter")))
     (is (fn? (aget (.-listeners ^js container-b) "pointermove")))
+    (is (fn? (aget (.-listeners ^js container-b) "pointerleave")))
 
     (let [state (@#'hyperopen.views.trading-chart.utils.chart-interop.chart-navigation-overlay/overlay-state
                  chart-obj)
@@ -312,5 +430,6 @@
     (chart-navigation-overlay/clear-chart-navigation-overlay! chart-obj)
     (is (nil? (aget (.-listeners ^js container-b) "pointerenter")))
     (is (nil? (aget (.-listeners ^js container-b) "pointermove")))
+    (is (nil? (aget (.-listeners ^js container-b) "pointerleave")))
     (is (= [1] @(:cancelled-frame-ids* animation-clock)))
     (is (empty? @(:queued-frames* animation-clock)))))
