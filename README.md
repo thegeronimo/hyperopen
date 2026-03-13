@@ -237,10 +237,13 @@ Run validation from the repository root:
 | --- | --- |
 | `npm run check` | Runs lint and compile gates for the app, worker, docs, and test builds. |
 | `npm test` | Compiles the `:test` Shadow build and runs the main Node test suite. |
+| `npm run lint:delimiters -- --changed` | Runs a fast reader-level syntax preflight on changed CLJ/CLJS/EDN files before expensive compiles or tests. |
 | `npm run test:websocket` | Compiles and runs the websocket-focused test suite. |
 | `npm run test:ci` | Runs the local CI gate: `npm run check` followed by `npm test`. |
 | `npm run test:watch` | Watches and recompiles the `:test` build while you iterate. |
 | `npm run test:repl` | Starts a ClojureScript REPL connected to the `:test` build. |
+
+For local ClojureScript edit loops, prefer `npm run lint:delimiters -- --changed` before `npm test`, `npm run test:websocket`, or manual `shadow-cljs` compile commands when you want quick unmatched-delimiter and reader-error feedback.
 
 ## Design direction
 

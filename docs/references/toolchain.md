@@ -12,6 +12,7 @@ Repository build and test entry points:
 - `npm run check`
 - `npm test`
 - `npm run test:crap`
+- `npm run lint:delimiters -- --changed`
 - `npm run test:websocket`
 - `npm run dev`
 - `npm run dev:portfolio`
@@ -21,6 +22,7 @@ Repository build and test entry points:
 
 Local discovery and semantic analysis commands:
 - `rg -n "<pattern>" src test`
+- `bb -m dev.check-delimiters --changed`
 - `clojure-lsp diagnostics --project-root .`
 - `clojure-lsp references --project-root . --from <fqns> --raw`
 - `clojure-lsp rename --project-root . --from <old-fqns> --to <new-fqns> --dry`
@@ -28,6 +30,7 @@ Local discovery and semantic analysis commands:
 
 Usage guidance:
 - Prefer `rg` for fast first-pass discovery, broad audits, and cases where the exact fully qualified symbol is not known yet.
+- Prefer `bb -m dev.check-delimiters --changed` immediately after CLJ/CLJS/EDN edits when you want a cheap reader-level syntax preflight before `shadow-cljs` compiles or tests.
 - Prefer `clojure-lsp` for symbol-accurate references, rename planning, and editor-backed definition jumps once a persistent LSP session is available.
 - Prefer `tools/shadow-nrepl-port` over global process scans when you need the live Shadow nREPL for the current worktree; it reads `target/shadow-cljs/nrepl.port` from the worktree root and verifies the listener is still alive.
 - For live local bug investigation, start with the browser attach/inspection commands when the question is about a running tab, console output, DOM state, or user interaction.

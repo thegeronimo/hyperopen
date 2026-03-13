@@ -29,6 +29,7 @@ Use this file as the single starting point for what actions this repo provides t
 | `npm run check` | Lint, docs checks, and compile app/test builds | Before finishing code changes |
 | `npm test` | Full test suite | Regular validation and regression confidence |
 | `npm run test:crap` | Fast Babashka tests for CRAP-tool parsing and report math | Before changing the CRAP analyzer/reporter |
+| `npm run lint:delimiters -- --changed` | Fast Clojure/CLJS reader preflight on changed files | Before `npm test`, `npm run test:websocket`, or manual `shadow-cljs` compiles after syntax-heavy edits |
 | `npm run test:websocket` | Websocket-only suite | Websocket runtime/API changes |
 | `npm run dev` | Watch app and portfolio worker builds alongside Tailwind | Normal frontend development |
 | `npm run dev:portfolio` | Watch app, Portfolio workbench, and portfolio worker builds alongside Tailwind | When you need the main app and workbench together |
@@ -49,6 +50,7 @@ Use this file as the single starting point for what actions this repo provides t
 | Command | Purpose | When to use |
 | --- | --- | --- |
 | `rg -n "<pattern>" src test` | Fast text search across repo source and tests | First-pass discovery, unknown symbol names, or broad grep-driven audits |
+| `bb -m dev.check-delimiters --changed` | Reader-level syntax preflight for changed Clojure/CLJS/EDN files | Catch unmatched delimiters and EOF reader errors before expensive compiles/tests |
 | `clojure-lsp diagnostics --project-root .` | Semantic diagnostics using project analysis | After edits or before handoff when you want unresolved-symbol, namespace, and lint feedback |
 | `clojure-lsp references --project-root . --from <fqns> --raw` | Symbol-accurate reference lookup | You know the fully qualified symbol and need real references instead of text matches |
 | `clojure-lsp rename --project-root . --from <old-fqns> --to <new-fqns> --dry` | Preview semantic rename patch without editing files | Rename planning, API moves, and safe scope checks before applying a rename |
@@ -57,6 +59,7 @@ Use this file as the single starting point for what actions this repo provides t
 
 Recommended split:
 - Start with `rg` when speed matters most or when you do not yet know the exact symbol you are chasing.
+- Run `bb -m dev.check-delimiters --changed` after Clojure-family edits when you want a cheap reader-only preflight before `shadow-cljs` compile or test commands.
 - Switch to `clojure-lsp` once you know the fully qualified symbol and correctness matters more than raw command latency.
 - Use `tools/shadow-nrepl-port` instead of global `ps`/`lsof` scans when you need the live Shadow nREPL for this worktree. The helper resolves the current git top-level, reads `target/shadow-cljs/nrepl.port`, and verifies the port is still listening before returning JSON.
 - Prefer a persistent `clojure-lsp` session for repeated navigation. One-shot CLI calls pay analysis startup cost each time.
