@@ -93,8 +93,16 @@
                                                #(= "Reset chart view"
                                                    (aget ^js % "aria-label")))]
       (is (= "relative" (.-position (.-style container))))
+      (is (= "50%" (.-left (.-style root))))
+      (is (= "42px" (.-bottom (.-style root))))
+      (is (= "translateX(-50%)" (.-transform (.-style root))))
       (is (= "0" (.-opacity (.-style root))))
       (is (= "none" (.-pointerEvents (.-style root))))
+      (is (= "transparent" (.-background (.-style panel))))
+      (is (= "none" (.-border (.-style panel))))
+      (is (= "4px" (.-gap (.-style panel))))
+      (is (= "rgba(58, 66, 79, 0.94)" (.-background (.-style zoom-out-button))))
+      (is (= "none" (.-border (.-style zoom-out-button))))
       (is (= "Reset chart view" (aget ^js reset-button "title")))
 
       (fake-dom/dispatch-dom-event! container "pointerenter")

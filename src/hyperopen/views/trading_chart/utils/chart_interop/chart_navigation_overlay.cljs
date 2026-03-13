@@ -238,21 +238,17 @@
 (defn- set-control-button-visual-state!
   [button hovered?]
   (let [style (.-style button)
-        border-color (if hovered?
-                       "rgba(96, 165, 250, 0.86)"
-                       "rgba(148, 163, 184, 0.48)")
         background (if hovered?
-                     "linear-gradient(180deg, rgba(32, 53, 78, 0.96) 0%, rgba(21, 38, 57, 0.94) 100%)"
-                     "linear-gradient(180deg, rgba(16, 27, 40, 0.94) 0%, rgba(11, 22, 34, 0.92) 100%)")
-        color (if hovered? "#f8fafc" "#e2e8f0")
+                     "rgba(88, 97, 111, 0.95)"
+                     "rgba(58, 66, 79, 0.94)")
+        color "#f8fafc"
         box-shadow (if hovered?
-                     "inset 0 1px 0 rgba(255,255,255,0.22), 0 2px 8px rgba(2,6,23,0.58)"
-                     "inset 0 1px 0 rgba(255,255,255,0.08), 0 1px 3px rgba(2,6,23,0.52)")]
-    (set! (.-borderColor style) border-color)
+                     "0 0 0 2px rgba(226,232,240,0.2)"
+                     "0 1px 2px rgba(2,6,23,0.28)")]
     (set! (.-background style) background)
     (set! (.-color style) color)
     (set! (.-boxShadow style) box-shadow)
-    (set! (.-transform style) (if hovered? "translateY(-1px)" "translateY(0)"))))
+    (set! (.-transform style) "translateY(0)")))
 
 (defn- make-icon!
   [document path-d]
@@ -279,18 +275,18 @@
     (.setAttribute button "aria-label" aria-label)
     (.setAttribute button "title" title)
     (let [style (.-style button)]
-      (set! (.-width style) "30px")
-      (set! (.-height style) "28px")
+      (set! (.-width style) "28px")
+      (set! (.-height style) "26px")
       (set! (.-padding style) "0")
       (set! (.-display style) "inline-flex")
       (set! (.-alignItems style) "center")
       (set! (.-justifyContent style) "center")
-      (set! (.-borderRadius style) "7px")
-      (set! (.-border style) "1px solid transparent")
+      (set! (.-borderRadius style) "4px")
+      (set! (.-border style) "none")
       (set! (.-cursor style) "pointer")
       (set! (.-outline style) "none")
       (set! (.-transition style)
-            "background 120ms ease,border-color 120ms ease,color 120ms ease,transform 120ms ease,box-shadow 120ms ease"))
+            "background 120ms ease,color 120ms ease,box-shadow 120ms ease"))
     (set-control-button-visual-state! button false)
     (.addEventListener button "mouseenter"
                        (fn [_]
@@ -387,17 +383,25 @@
                    :icon-path "M15 6.8V4.5h-2.3M15 4.5l-2.4 2.3M14.7 10a4.7 4.7 0 1 1-1.3-3.2"
                    :on-click #(reset-view! chart-obj)}]]
     (.setAttribute root "data-role" "chart-navigation-overlay")
-    (set! (.-cssText (.-style root))
-          "position:absolute;left:10px;bottom:10px;z-index:116;opacity:0;pointer-events:none;transition:opacity 120ms ease;")
+    (let [style (.-style root)]
+      (set! (.-position style) "absolute")
+      (set! (.-left style) "50%")
+      (set! (.-bottom style) "42px")
+      (set! (.-transform style) "translateX(-50%)")
+      (set! (.-zIndex style) "116")
+      (set! (.-opacity style) "0")
+      (set! (.-pointerEvents style) "none")
+      (set! (.-transition style) "opacity 120ms ease"))
     (.setAttribute panel "data-role" "chart-navigation-controls")
-    (set! (.-cssText (.-style panel))
-          (str "display:inline-flex;align-items:center;gap:6px;"
-               "padding:5px 6px;border-radius:8px;"
-               "background:rgba(9,17,27,0.72);"
-               "border:1px solid rgba(148,163,184,0.28);"
-               "box-shadow:0 3px 10px rgba(2,6,23,0.36);"
-               "backdrop-filter:blur(1.5px);"
-               "pointer-events:auto;"))
+    (let [style (.-style panel)]
+      (set! (.-display style) "inline-flex")
+      (set! (.-alignItems style) "center")
+      (set! (.-gap style) "4px")
+      (set! (.-padding style) "0")
+      (set! (.-background style) "transparent")
+      (set! (.-border style) "none")
+      (set! (.-boxShadow style) "none")
+      (set! (.-pointerEvents style) "auto"))
     (.addEventListener panel "focusin"
                        (fn [_]
                          (update-overlay-state! chart-obj assoc :focus-within? true)
