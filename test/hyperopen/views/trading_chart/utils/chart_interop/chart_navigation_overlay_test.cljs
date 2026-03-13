@@ -127,12 +127,12 @@
       (reset! visible-range* {:from 100 :to 200})
       (fake-dom/click-dom-node! scroll-left-button)
       ((:flush-all! animation-clock))
-      (is (< (:from @visible-range*) 100))
+      (is (= {:from 96 :to 196} @visible-range*))
 
       (reset! visible-range* {:from 100 :to 200})
       (fake-dom/click-dom-node! scroll-right-button)
       ((:flush-all! animation-clock))
-      (is (> (:from @visible-range*) 100))
+      (is (= {:from 104 :to 204} @visible-range*))
 
       (fake-dom/click-dom-node! reset-button)
       (is (= 1 @reset-count*))

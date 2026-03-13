@@ -5,7 +5,7 @@
 
 (def ^:private min-visible-bars 24)
 (def ^:private zoom-step-fraction 0.20)
-(def ^:private pan-step-fraction 0.25)
+(def ^:private pan-step-bars 4)
 (def ^:private navigation-animation-duration-ms 180)
 
 (defn- overlay-state
@@ -132,8 +132,7 @@
 
 (defn- pan-range
   [range-data direction]
-  (let [span (range-span range-data)
-        step (max 1 (* span pan-step-fraction))
+  (let [step pan-step-bars
         delta (if (= direction :left)
                 (- step)
                 step)]
