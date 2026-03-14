@@ -51,6 +51,21 @@
          (:validUntilMs row)
          (:valid-until-ms row)]))
 
+(def ^:private extra-agent-collection-keys
+  [:extraAgents :extra-agents :agents :wallets])
+
+(defn- first-sequential
+  [candidates]
+  (some #(when (sequential? %) %) candidates))
+
+(defn- extra-agent-candidates
+  [payload]
+  (let [data (:data payload)]
+    (concat (map #(get payload %) extra-agent-collection-keys)
+            (when (map? data)
+              (map #(get data %) extra-agent-collection-keys))
+            [data])))
+
 (defn- extra-agents-seq
   [payload]
   (cond
@@ -58,20 +73,8 @@
     payload
 
     (map? payload)
-    (let [data (:data payload)
-          nested (or (:extraAgents payload)
-                     (:extra-agents payload)
-                     (:agents payload)
-                     (:wallets payload)
-                     (when (map? data)
-                       (or (:extraAgents data)
-                           (:extra-agents data)
-                           (:agents data)
-                           (:wallets data)))
-                     data)]
-      (if (sequential? nested)
-        nested
-        []))
+    (or (first-sequential (extra-agent-candidates payload))
+        [])
 
     :else
     []))
@@ -143,37 +146,59 @@
       (/ stake validator-stake-scale)
       stake)))
 
+(defn- stats-window-token
+  [value]
+  (some-> (if (keyword? value)
+            (name value)
+            value)
+          str
+          str/lower-case))
+
+(defn- validator-stats-entry-name
+  [entry]
+  (cond
+    (and (vector? entry)
+         (= 2 (count entry)))
+    (first entry)
+
+    (map? entry)
+    (or (:window entry)
+        (:name entry)
+        (:period entry)
+        (:key entry))
+
+    :else
+    nil))
+
+(defn- validator-stats-entry-payload
+  [entry]
+  (cond
+    (and (vector? entry)
+         (= 2 (count entry)))
+    (second entry)
+
+    (map? entry)
+    (or (:stats entry)
+        (:value entry)
+        entry)
+
+    :else
+    nil))
+
 (defn- validator-stats-window
   [stats target-window]
-  (let [target (name target-window)]
+  (let [target-token (stats-window-token target-window)]
     (cond
       (map? stats)
       (or (get stats target-window)
-          (get stats target))
+          (get stats target-token))
 
       (sequential? stats)
       (some (fn [entry]
-              (cond
-                (and (vector? entry)
-                     (= 2 (count entry)))
-                (let [[window-name window-payload] entry
-                      window-token (some-> window-name str str/lower-case)]
-                  (when (= target window-token)
-                    window-payload))
-
-                (map? entry)
-                (let [window-name (or (:window entry)
-                                      (:name entry)
-                                      (:period entry)
-                                      (:key entry))
-                      window-token (some-> window-name str str/lower-case)]
-                  (when (= target window-token)
-                    (or (:stats entry)
-                        (:value entry)
-                        entry)))
-
-                :else
-                nil))
+              (when (= target-token
+                       (stats-window-token
+                        (validator-stats-entry-name entry)))
+                (validator-stats-entry-payload entry)))
             stats)
 
       :else
@@ -260,39 +285,56 @@
          vec)
     []))
 
+(def ^:private delegator-history-delta-keys
+  [:delegate :cDeposit :cWithdraw :withdrawal])
+
+(defn- delegator-history-delta-entry
+  [delta entry-key]
+  (let [entry (get delta entry-key)]
+    (when (map? entry)
+      entry)))
+
+(defn- first-delegator-history-delta-entry
+  [delta]
+  (some (fn [entry-key]
+          (when-let [entry (delegator-history-delta-entry delta entry-key)]
+            [entry-key entry]))
+        delegator-history-delta-keys))
+
+(defn- normalize-delegate-history-delta
+  [delegate]
+  (let [undelegate? (true? (:isUndelegate delegate))]
+    {:kind (if undelegate?
+             :undelegate
+             :delegate)
+     :validator (normalize-address (:validator delegate))
+     :amount (optional-number (:amount delegate))
+     :is-undelegate? undelegate?}))
+
+(defn- normalize-c-deposit-history-delta
+  [c-deposit]
+  {:kind :deposit
+   :amount (optional-number (:amount c-deposit))})
+
+(defn- normalize-c-withdraw-history-delta
+  [c-withdraw]
+  {:kind :withdraw
+   :amount (optional-number (:amount c-withdraw))})
+
+(defn- normalize-withdrawal-history-delta
+  [withdrawal]
+  {:kind :withdrawal
+   :amount (optional-number (:amount withdrawal))
+   :phase (keyword (str (or (:phase withdrawal) "unknown")))})
+
 (defn- normalize-delegator-history-delta
   [delta]
-  (let [delegate (when (map? (:delegate delta))
-                   (:delegate delta))
-        c-deposit (when (map? (:cDeposit delta))
-                    (:cDeposit delta))
-        c-withdraw (when (map? (:cWithdraw delta))
-                     (:cWithdraw delta))
-        withdrawal (when (map? (:withdrawal delta))
-                     (:withdrawal delta))]
-    (cond
-      delegate
-      {:kind (if (true? (:isUndelegate delegate))
-               :undelegate
-               :delegate)
-       :validator (normalize-address (:validator delegate))
-       :amount (optional-number (:amount delegate))
-       :is-undelegate? (true? (:isUndelegate delegate))}
-
-      c-deposit
-      {:kind :deposit
-       :amount (optional-number (:amount c-deposit))}
-
-      c-withdraw
-      {:kind :withdraw
-       :amount (optional-number (:amount c-withdraw))}
-
-      withdrawal
-      {:kind :withdrawal
-       :amount (optional-number (:amount withdrawal))
-       :phase (keyword (str (or (:phase withdrawal) "unknown")))}
-
-      :else
+  (let [[entry-key entry] (first-delegator-history-delta-entry delta)]
+    (case entry-key
+      :delegate (normalize-delegate-history-delta entry)
+      :cDeposit (normalize-c-deposit-history-delta entry)
+      :cWithdraw (normalize-c-withdraw-history-delta entry)
+      :withdrawal (normalize-withdrawal-history-delta entry)
       {:kind :unknown
        :raw delta})))
 
@@ -608,94 +650,83 @@
                         opts))]
       (post-info! body opts*))))
 
-(defn- normalize-portfolio-summary-key
+(def ^:private portfolio-summary-base-key-aliases
+  {"day" :day
+   "week" :week
+   "month" :month
+   "3m" :three-month
+   "3-m" :three-month
+   "3month" :three-month
+   "3-month" :three-month
+   "threemonth" :three-month
+   "three-month" :three-month
+   "three-months" :three-month
+   "quarter" :three-month
+   "6m" :six-month
+   "6-m" :six-month
+   "6month" :six-month
+   "6-month" :six-month
+   "sixmonth" :six-month
+   "six-month" :six-month
+   "six-months" :six-month
+   "halfyear" :six-month
+   "half-year" :six-month
+   "1y" :one-year
+   "1-y" :one-year
+   "1year" :one-year
+   "1-year" :one-year
+   "oneyear" :one-year
+   "one-year" :one-year
+   "one-years" :one-year
+   "year" :one-year
+   "2y" :two-year
+   "2-y" :two-year
+   "2year" :two-year
+   "2-year" :two-year
+   "twoyear" :two-year
+   "two-year" :two-year
+   "two-years" :two-year
+   "alltime" :all-time
+   "all-time" :all-time})
+
+(defn- portfolio-summary-token
   [value]
   (let [text (some-> value str str/trim)]
     (when (seq text)
-      (let [token (-> text
-                      (str/replace #"([a-z0-9])([A-Z])" "$1-$2")
-                      str/lower-case
-                      (str/replace #"[^a-z0-9]+" "-")
-                      (str/replace #"(^-+)|(-+$)" ""))]
-        (case token
-          "day" :day
-          "week" :week
-          "month" :month
-          "3m" :three-month
-          "3-m" :three-month
-          "3month" :three-month
-          "3-month" :three-month
-          "threemonth" :three-month
-          "three-month" :three-month
-          "three-months" :three-month
-          "quarter" :three-month
-          "6m" :six-month
-          "6-m" :six-month
-          "6month" :six-month
-          "6-month" :six-month
-          "sixmonth" :six-month
-          "six-month" :six-month
-          "six-months" :six-month
-          "halfyear" :six-month
-          "half-year" :six-month
-          "1y" :one-year
-          "1-y" :one-year
-          "1year" :one-year
-          "1-year" :one-year
-          "oneyear" :one-year
-          "one-year" :one-year
-          "one-years" :one-year
-          "year" :one-year
-          "2y" :two-year
-          "2-y" :two-year
-          "2year" :two-year
-          "2-year" :two-year
-          "twoyear" :two-year
-          "two-year" :two-year
-          "two-years" :two-year
-          "alltime" :all-time
-          "all-time" :all-time
-          "perpday" :perp-day
-          "perp-day" :perp-day
-          "perpweek" :perp-week
-          "perp-week" :perp-week
-          "perpmonth" :perp-month
-          "perp-month" :perp-month
-          "perp3m" :perp-three-month
-          "perp3-m" :perp-three-month
-          "perp3month" :perp-three-month
-          "perp3-month" :perp-three-month
-          "perpthreemonth" :perp-three-month
-          "perp-three-month" :perp-three-month
-          "perp-three-months" :perp-three-month
-          "perpquarter" :perp-three-month
-          "perp6m" :perp-six-month
-          "perp6-m" :perp-six-month
-          "perp6month" :perp-six-month
-          "perp6-month" :perp-six-month
-          "perpsixmonth" :perp-six-month
-          "perp-six-month" :perp-six-month
-          "perp-six-months" :perp-six-month
-          "perphalfyear" :perp-six-month
-          "perp-half-year" :perp-six-month
-          "perp1y" :perp-one-year
-          "perp1-y" :perp-one-year
-          "perp1year" :perp-one-year
-          "perp1-year" :perp-one-year
-          "perponeyear" :perp-one-year
-          "perp-one-year" :perp-one-year
-          "perp-one-years" :perp-one-year
-          "perpyear" :perp-one-year
-          "perp2y" :perp-two-year
-          "perp2-y" :perp-two-year
-          "perp2year" :perp-two-year
-          "perp2-year" :perp-two-year
-          "perptwoyear" :perp-two-year
-          "perp-two-year" :perp-two-year
-          "perp-two-years" :perp-two-year
-          "perpalltime" :perp-all-time
-          "perp-all-time" :perp-all-time
-          (keyword token))))))
+      (-> text
+          (str/replace #"([a-z0-9])([A-Z])" "$1-$2")
+          str/lower-case
+          (str/replace #"[^a-z0-9]+" "-")
+          (str/replace #"(^-+)|(-+$)" "")))))
+
+(defn- split-portfolio-summary-scope
+  [token]
+  (cond
+    (str/starts-with? token "perp-")
+    {:perp? true
+     :base-token (subs token 5)}
+
+    (str/starts-with? token "perp")
+    {:perp? true
+     :base-token (subs token 4)}
+
+    :else
+    {:perp? false
+     :base-token token}))
+
+(defn- perp-portfolio-summary-key
+  [summary-key]
+  (keyword (str "perp-" (name summary-key))))
+
+(defn- normalize-portfolio-summary-key
+  [value]
+  (when-let [token (portfolio-summary-token value)]
+    (let [{:keys [perp? base-token]} (split-portfolio-summary-scope token)
+          base-key (get portfolio-summary-base-key-aliases base-token)]
+      (cond
+        (and perp? base-key) (perp-portfolio-summary-key base-key)
+        base-key base-key
+        :else (keyword token)))))
 
 (defn- portfolio-summary-pairs
   [payload]
