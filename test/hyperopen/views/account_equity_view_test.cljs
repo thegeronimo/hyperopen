@@ -119,6 +119,42 @@
     (is (some? (find-first-node view-node #(contains? (direct-texts %) "Unified Account Leverage"))))
     (is (nil? (find-first-node view-node #(contains? (direct-texts %) "Perps Overview"))))))
 
+(deftest unified-account-summary-uses-hyperliquid-ratio-tooltip-copy-test
+  (let [view-node (view/account-equity-view {:account {:mode :unified}
+                                             :webdata2 {:clearinghouseState {:marginSummary {:accountValue "204.45"
+                                                                                              :totalNtlPos "0.0"
+                                                                                              :totalRawUsd "204.45"
+                                                                                              :totalMarginUsed "0.0"}
+                                                                              :crossMarginSummary {:accountValue "204.45"
+                                                                                                   :totalNtlPos "0.0"
+                                                                                                   :totalRawUsd "204.45"
+                                                                                                   :totalMarginUsed "0.0"}
+                                                                              :crossMaintenanceMarginUsed "0.0"
+                                                                              :assetPositions []}}
+                                             :spot {}
+                                             :perp-dex-clearinghouse {}})]
+    (is (some? (find-first-node view-node
+                                #(contains? (direct-texts %)
+                                            "Represents the risk of portfolio liquidation. When the value is greater than 95%, your portfolio may be liquidated."))))))
+
+(deftest unified-account-summary-uses-hyperliquid-leverage-tooltip-copy-test
+  (let [view-node (view/account-equity-view {:account {:mode :unified}
+                                             :webdata2 {:clearinghouseState {:marginSummary {:accountValue "204.45"
+                                                                                              :totalNtlPos "0.0"
+                                                                                              :totalRawUsd "204.45"
+                                                                                              :totalMarginUsed "0.0"}
+                                                                              :crossMarginSummary {:accountValue "204.45"
+                                                                                                   :totalNtlPos "0.0"
+                                                                                                   :totalRawUsd "204.45"
+                                                                                                   :totalMarginUsed "0.0"}
+                                                                              :crossMaintenanceMarginUsed "0.0"
+                                                                              :assetPositions []}}
+                                             :spot {}
+                                             :perp-dex-clearinghouse {}})]
+    (is (some? (find-first-node view-node
+                                #(contains? (direct-texts %)
+                                            "Unified Account Leverage = Total Cross Positions Value / Total Collateral Balance."))))))
+
 (deftest classic-account-equity-renders-classic-account-value-label-test
   (let [view-node (view/account-equity-view {:account {:mode :classic}
                                              :webdata2 {}

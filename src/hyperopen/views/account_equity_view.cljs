@@ -33,6 +33,12 @@
     (str (fmt/safe-to-fixed ratio 2) "x")
     "--"))
 
+(def ^:private unified-account-ratio-tooltip
+  "Represents the risk of portfolio liquidation. When the value is greater than 95%, your portfolio may be liquidated.")
+
+(def ^:private unified-account-leverage-tooltip
+  "Unified Account Leverage = Total Cross Positions Value / Total Collateral Balance.")
+
 (defn pnl-display [value]
   (if (number? value)
     (let [formatted (fmt/format-currency (js/Math.abs value))
@@ -518,13 +524,13 @@
     (metric-row "Unified Account Value" (display-currency account-value-display)
                 :tooltip "Total portfolio value used for unified account risk and leverage calculations.")
     (metric-row "Unified Account Ratio" (display-percent unified-account-ratio)
-                :tooltip "Perps Maintenance Margin / Portfolio Value.")
+                :tooltip unified-account-ratio-tooltip)
     (metric-row "Unrealized PNL" (:text pnl-info)
                 :value-class (:class pnl-info))
     (metric-row "Perps Maintenance Margin" (display-currency maintenance-margin)
                 :tooltip "The minimum portfolio value required to keep your perps positions open.")
     (metric-row "Unified Account Leverage" (display-leverage unified-account-leverage)
-                :tooltip "Total Perps Positions Value / Portfolio Value.")]])
+                :tooltip unified-account-leverage-tooltip)]])
 
 (defn account-equity-view
   ([state]
