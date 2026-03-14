@@ -57,6 +57,30 @@
              (validation-codes (trading/validate-order-form support/base-state too-small))))
       (is (empty? (trading/validate-order-form support/base-state valid))))))
 
+(deftest positive-required-fields-reject-zero-boundary-test
+  (testing "size zero remains invalid"
+    (let [form (assoc (trading/default-order-form)
+                      :type :market
+                      :size "0")]
+      (is (= #{:order/size-invalid}
+             (validation-codes (trading/validate-order-form form))))))
+
+  (testing "limit price zero remains invalid"
+    (let [form (assoc (trading/default-order-form)
+                      :size "1"
+                      :type :limit
+                      :price "0")]
+      (is (= #{:order/price-required}
+             (validation-codes (trading/validate-order-form form))))))
+
+  (testing "trigger zero remains invalid for stop orders"
+    (let [form (assoc (trading/default-order-form)
+                      :size "1"
+                      :type :stop-market
+                      :trigger-px "0")]
+      (is (= #{:order/trigger-required}
+             (validation-codes (trading/validate-order-form form)))))))
+
 (deftest scale-skew-validation-range-test
   (let [base-scale-form (assoc (trading/default-order-form)
                                :type :scale
@@ -100,6 +124,36 @@
                             :skew "1.00"})]
     (is (contains? (validation-codes (trading/validate-order-form form))
                    :scale/endpoint-notional-too-small))))
+
+(deftest scale-endpoint-min-notional-boundary-test
+  (testing "start endpoint can equal the venue minimum"
+    (let [form (assoc (trading/default-order-form)
+                      :type :scale
+                      :size "2"
+                      :scale {:start "10"
+                              :end "20"
+                              :count 2
+                              :skew "1.00"})]
+      (is (empty? (trading/validate-order-form form)))))
+
+  (testing "end endpoint can equal the venue minimum"
+    (let [form (assoc (trading/default-order-form)
+                      :type :scale
+                      :size "2"
+                      :scale {:start "20"
+                              :end "10"
+                              :count 2
+                              :skew "1.00"})]
+      (is (empty? (trading/validate-order-form form))))))
+
+(deftest twap-suborder-min-notional-boundary-test
+  (let [state (assoc support/base-state :orderbooks {})
+        form (assoc (trading/default-order-form)
+                    :side :buy
+                    :size "6.1"
+                    :type :twap
+                    :twap {:hours 0 :minutes 30 :randomize false})]
+    (is (empty? (trading/validate-order-form state form)))))
 
 (deftest scale-weights-linear-ramp-determinism-test
   (let [first-weights (vec (trading/scale-weights 5 2.5))
