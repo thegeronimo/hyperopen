@@ -36,6 +36,62 @@
    {:time-ms 1700345600000 :value 13150 :x-ratio 0.8 :y-ratio 0.36}
    {:time-ms 1700432000000 :value 13340 :x-ratio 1.0 :y-ratio 0.26}])
 
+(def btc-returns-points
+  [{:time-ms 1700000000000 :value 0.1 :x-ratio 0.0 :y-ratio 0.68}
+   {:time-ms 1700086400000 :value 0.4 :x-ratio 0.2 :y-ratio 0.62}
+   {:time-ms 1700172800000 :value 0.7 :x-ratio 0.4 :y-ratio 0.56}
+   {:time-ms 1700259200000 :value 0.5 :x-ratio 0.6 :y-ratio 0.60}
+   {:time-ms 1700345600000 :value 1.0 :x-ratio 0.8 :y-ratio 0.46}
+   {:time-ms 1700432000000 :value 1.4 :x-ratio 1.0 :y-ratio 0.38}])
+
+(def eth-returns-points
+  [{:time-ms 1700000000000 :value -0.1 :x-ratio 0.0 :y-ratio 0.78}
+   {:time-ms 1700086400000 :value 0.1 :x-ratio 0.2 :y-ratio 0.72}
+   {:time-ms 1700172800000 :value 0.3 :x-ratio 0.4 :y-ratio 0.64}
+   {:time-ms 1700259200000 :value 0.2 :x-ratio 0.6 :y-ratio 0.68}
+   {:time-ms 1700345600000 :value 0.6 :x-ratio 0.8 :y-ratio 0.52}
+   {:time-ms 1700432000000 :value 0.9 :x-ratio 1.0 :y-ratio 0.44}])
+
+(defn- returns-series
+  []
+  [{:id :strategy
+    :label "Vault"
+    :stroke "#16d6a1"
+    :has-data? true
+    :points returns-points}
+   {:id :btc
+    :coin "BTC"
+    :label "Bitcoin"
+    :stroke "#f7931a"
+    :has-data? true
+    :points btc-returns-points}
+   {:id :eth
+    :coin "ETH"
+    :label "Ether"
+    :stroke "#7dd3fc"
+    :has-data? true
+    :points eth-returns-points}])
+
+(defn- pnl-series
+  []
+  [{:id :strategy
+    :label "Vault"
+    :stroke "#16d6a1"
+    :has-data? true
+    :area-positive-fill "rgba(22, 214, 161, 0.24)"
+    :area-negative-fill "rgba(237, 112, 136, 0.24)"
+    :zero-y-ratio 0.84
+    :points pnl-points}])
+
+(defn- account-value-series
+  []
+  [{:id :strategy
+    :label "Vault"
+    :stroke "#f7931a"
+    :has-data? true
+    :area-fill "rgba(247, 147, 26, 0.24)"
+    :points account-value-points}])
+
 (defn- chart-model
   ([]
    (chart-model {}))
@@ -58,28 +114,7 @@
                                :selected-options [{:value "BTC" :label "Bitcoin"}]
                                :empty-message "No symbols."}
            :points returns-points
-           :series [{:id :strategy
-                     :label "Vault"
-                     :stroke "#16d6a1"
-                     :has-data? true
-                     :path "M 0 62 L 20 55 L 40 46 L 60 52 L 80 34 L 100 22"
-                     :area-path "M 0 62 L 20 55 L 40 46 L 60 52 L 80 34 L 100 22 L 100 100 L 0 100 Z"
-                     :area-positive-fill "rgba(22, 214, 161, 0.24)"
-                     :area-negative-fill "rgba(237, 112, 136, 0.18)"
-                     :zero-y-ratio 0.82
-                     :points returns-points}
-                    {:id :btc
-                     :coin "BTC"
-                     :label "Bitcoin"
-                     :stroke "#f7931a"
-                     :has-data? true
-                     :path "M 0 66 L 20 60 L 40 54 L 60 58 L 80 43 L 100 35"
-                     :points [{:time-ms 1700000000000 :value 0.1}
-                              {:time-ms 1700086400000 :value 0.4}
-                              {:time-ms 1700172800000 :value 0.7}
-                              {:time-ms 1700259200000 :value 0.5}
-                              {:time-ms 1700345600000 :value 1.0}
-                              {:time-ms 1700432000000 :value 1.4}]}]
+           :series (returns-series)
            :y-ticks [{:value 0 :y-ratio 0.82}
                      {:value 1 :y-ratio 0.55}
                      {:value 2 :y-ratio 0.22}]
@@ -93,6 +128,7 @@
                 :selected-series :pnl
                 :axis-kind :pnl
                 :points pnl-points
+                :series (pnl-series)
                 :y-ticks [{:value 0 :y-ratio 0.84}
                           {:value 400 :y-ratio 0.48}
                           {:value 800 :y-ratio 0.18}])
@@ -100,6 +136,7 @@
                           :selected-series :account-value
                           :axis-kind :account-value
                           :points account-value-points
+                          :series (account-value-series)
                           :y-ticks [{:value 12000 :y-ratio 0.82}
                                     {:value 12750 :y-ratio 0.52}
                                     {:value 13500 :y-ratio 0.18}])
@@ -107,6 +144,7 @@
            :selected-series :returns
            :axis-kind :returns
            :points returns-points
+           :series (returns-series)
            :y-ticks [{:value 0 :y-ratio 0.82}
                      {:value 1 :y-ratio 0.55}
                      {:value 2 :y-ratio 0.22}])))
@@ -185,28 +223,33 @@
 
 (defonce single-series-store
   (ws/create-store ::single-series
-                   (chart-model {:series [{:id :strategy
-                                          :label "Vault"
-                                          :stroke "#16d6a1"
-                                          :has-data? true
-                                          :path "M 0 62 L 20 55 L 40 46 L 60 52 L 80 34 L 100 22"
-                                          :area-path "M 0 62 L 20 55 L 40 46 L 60 52 L 80 34 L 100 22 L 100 100 L 0 100 Z"
-                                          :area-fill "rgba(22, 214, 161, 0.22)"
-                                          :points returns-points}]
+                   (chart-model {:selected-series :account-value
+                                 :axis-kind :account-value
+                                 :points account-value-points
+                                 :series (account-value-series)
+                                 :y-ticks [{:value 12000 :y-ratio 0.82}
+                                           {:value 12750 :y-ratio 0.52}
+                                           {:value 13500 :y-ratio 0.18}]
                                  :returns-benchmark {:coin-search ""
                                                      :suggestions-open? false
                                                      :candidates []
                                                      :top-coin nil
                                                      :selected-options []}})))
 
+(defonce pnl-store
+  (ws/create-store ::pnl
+                   (chart-model {:selected-series :pnl
+                                 :axis-kind :pnl
+                                 :points pnl-points
+                                 :series (pnl-series)
+                                 :y-ticks [{:value 0 :y-ratio 0.84}
+                                           {:value 400 :y-ratio 0.48}
+                                           {:value 800 :y-ratio 0.18}]
+                                 :returns-benchmark {:selected-options []}})))
+
 (defonce hover-store
   (ws/create-store ::hover
-                   (chart-model {:hover {:active? true
-                                         :index 4
-                                         :point {:time-ms 1700345600000
-                                                 :value 1.9
-                                                 :x-ratio 0.8
-                                                 :y-ratio 0.34}}})))
+                   (chart-model {})))
 
 (defonce benchmark-open-store
   (ws/create-store ::benchmark-open
@@ -233,6 +276,11 @@
 
 (portfolio/defscene single-series
   :params single-series-store
+  [store]
+  (chart-scene store))
+
+(portfolio/defscene pnl-split-fill
+  :params pnl-store
   [store]
   (chart-scene store))
 

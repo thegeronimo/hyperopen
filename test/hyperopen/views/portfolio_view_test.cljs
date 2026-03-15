@@ -3,7 +3,8 @@
             [cljs.test :refer-macros [deftest is]]
             [hyperopen.views.account-info-view :as account-info-view]
             [hyperopen.views.portfolio.vm :as portfolio-vm]
-            [hyperopen.views.portfolio-view :as portfolio-view]))
+            [hyperopen.views.portfolio-view :as portfolio-view]
+            [hyperopen.views.trading-chart.test-support.fake-dom :as fake-dom]))
 
 (defn- node-children [node]
   (if (map? (second node))
@@ -70,6 +71,26 @@
            second
            (#(js/Number.parseInt % 10))))
 
+(defn- mount-d3-host!
+  [on-render]
+  (let [document (fake-dom/make-fake-document)
+        host (fake-dom/make-fake-element "div")
+        remembered* (atom nil)]
+    (aset host "ownerDocument" document)
+    (set! (.-clientWidth host) 400)
+    (set! (.-clientHeight host) 220)
+    (on-render {:replicant/life-cycle :replicant.life-cycle/mount
+                :replicant/node host
+                :replicant/remember (fn [memory]
+                                      (reset! remembered* memory))})
+    {:host host
+     :remembered remembered*}))
+
+(defn- find-dom-node-by-role
+  [root data-role]
+  (fake-dom/find-dom-node root #(and (= 1 (.-nodeType %))
+                                     (= data-role (.getAttribute % "data-role")))))
+
 (def sample-state
   {:account {:mode :classic}
    :portfolio-ui {:summary-scope :all
@@ -126,7 +147,7 @@
         chart-pnl-tab (find-first-node view-node #(= "portfolio-chart-tab-pnl" (get-in % [1 :data-role])))
         chart-returns-tab (find-first-node view-node #(= "portfolio-chart-tab-returns" (get-in % [1 :data-role])))
         chart-shell (find-first-node view-node #(= "portfolio-chart-shell" (get-in % [1 :data-role])))
-        chart-path (find-first-node view-node #(= "portfolio-chart-path" (get-in % [1 :data-role])))
+        chart-host (find-first-node view-node #(= "portfolio-chart-d3-host" (get-in % [1 :data-role])))
         background-status (find-first-node view-node #(= "portfolio-background-status" (get-in % [1 :data-role])))
         account-table (find-first-node view-node #(= "portfolio-account-table" (get-in % [1 :data-role])))
         performance-tab-button (find-first-node
@@ -179,10 +200,9 @@
     (is (some? chart-pnl-tab))
     (is (some? chart-returns-tab))
     (is (some? chart-shell))
-    (is (some? chart-path))
+    (is (some? chart-host))
     (is (nil? background-status))
-    (is (= "round" (get-in chart-path [1 :stroke-linecap])))
-    (is (= "round" (get-in chart-path [1 :stroke-linejoin])))
+    (is (fn? (get-in chart-host [1 :replicant/on-render])))
     (is (some? account-table))
     (is (some? performance-tab-button))
     (is (some? balances-tab-button))
@@ -392,7 +412,7 @@
         chip-node (find-first-node view-node #(= "portfolio-returns-benchmark-chip-SPY" (get-in % [1 :data-role])))
         legend-node (find-first-node view-node #(= "portfolio-chart-legend" (get-in % [1 :data-role])))
         legend-count (count-nodes view-node #(= "portfolio-chart-legend" (get-in % [1 :data-role])))
-        benchmark-path-node (find-first-node view-node #(= "portfolio-chart-path-benchmark-0" (get-in % [1 :data-role])))
+        chart-host (find-first-node view-node #(= "portfolio-chart-d3-host" (get-in % [1 :data-role])))
         all-text (set (collect-strings view-node))
         chip-border-color (get-in chip-node [1 :style :border-color])]
     (is (some? selector-node))
@@ -401,7 +421,8 @@
     (is (some? chip-node))
     (is (some? legend-node))
     (is (= 1 legend-count))
-    (is (some? benchmark-path-node))
+    (is (some? chart-host))
+    (is (fn? (get-in chart-host [1 :replicant/on-render])))
     (is (= "rgba(242, 207, 102, 0.58)" chip-border-color))
     (is (contains? all-text "Portfolio"))
     (is (contains? all-text "SPY (SPOT)"))))
@@ -634,66 +655,59 @@
       (is (contains? overlay-strings "Calculating performance metrics"))
       (is (contains? overlay-strings "Returns stay visible while the remaining analytics finish in the background.")))))
 
-(deftest portfolio-view-chart-plot-area-wires-hover-actions-test
+(deftest portfolio-view-chart-plot-area-renders-d3-host-with-local-hover-runtime-test
   (let [view-node (portfolio-view/portfolio-view sample-state)
         plot-area-node (find-first-node view-node #(= "portfolio-chart-plot-area" (get-in % [1 :data-role])))
-        mousemove-action (get-in plot-area-node [1 :on :mousemove])
-        mouseenter-action (get-in plot-area-node [1 :on :mouseenter])
-        pointermove-action (get-in plot-area-node [1 :on :pointermove])
-        pointerenter-action (get-in plot-area-node [1 :on :pointerenter])
-        mouseleave-action (get-in plot-area-node [1 :on :mouseleave])]
+        chart-host (find-first-node view-node #(= "portfolio-chart-d3-host" (get-in % [1 :data-role])))]
     (is (some? plot-area-node))
-    (is (= [[:actions/set-portfolio-chart-hover [:event/clientX] [:event.currentTarget/bounds] 2]]
-           mousemove-action))
-    (is (= [[:actions/set-portfolio-chart-hover [:event/clientX] [:event.currentTarget/bounds] 2]]
-           mouseenter-action))
-    (is (= [[:actions/set-portfolio-chart-hover [:event/clientX] [:event.currentTarget/bounds] 2]]
-           pointermove-action))
-    (is (= [[:actions/set-portfolio-chart-hover [:event/clientX] [:event.currentTarget/bounds] 2]]
-           pointerenter-action))
-    (is (= [[:actions/clear-portfolio-chart-hover]]
-           mouseleave-action))))
+    (is (nil? (get-in plot-area-node [1 :on])))
+    (is (some? chart-host))
+    (is (fn? (get-in chart-host [1 :replicant/on-render])))))
 
-(deftest portfolio-view-chart-hover-overlay-renders-date-and-time-tooltip-variants-test
+(deftest portfolio-view-chart-hover-runtime-renders-date-and-time-tooltip-variants-test
   (let [time-a (.getTime (js/Date. 2026 1 19 2 4 0))
         time-b (.getTime (js/Date. 2026 1 26 8 30 0))
         base-state (-> sample-state
                        (assoc-in [:portfolio-ui :chart-tab] :pnl)
-                       (assoc-in [:portfolio-ui :chart-hover-index] 1)
                        (assoc-in [:portfolio :summary-by-key :month :pnlHistory]
                                  [[time-a 0] [time-b 203]]))
         month-view-node (portfolio-view/portfolio-view base-state)
-        month-hover-line (find-first-node month-view-node #(= "portfolio-chart-hover-line" (get-in % [1 :data-role])))
-        month-tooltip-node (find-first-node month-view-node #(= "portfolio-chart-hover-tooltip" (get-in % [1 :data-role])))
-        month-tooltip-strings (set (collect-strings month-tooltip-node))
-        month-tooltip-classes (set (class-values month-tooltip-node))
+        month-host-node (find-first-node month-view-node #(= "portfolio-chart-d3-host" (get-in % [1 :data-role])))
+        month-runtime (mount-d3-host! (get-in month-host-node [1 :replicant/on-render]))
         day-state (assoc-in base-state [:portfolio-ui :summary-time-range] :day)
         day-view-node (portfolio-view/portfolio-view day-state)
-        day-tooltip-node (find-first-node day-view-node #(= "portfolio-chart-hover-tooltip" (get-in % [1 :data-role])))
-        day-tooltip-strings (set (collect-strings day-tooltip-node))]
-    (is (some? month-hover-line))
-    (is (some? month-tooltip-node))
-    (is (some #(and (str/includes? % "2026")
-                    (str/includes? % "Feb")
-                    (str/includes? % "26"))
-              month-tooltip-strings))
-    (is (contains? month-tooltip-strings "PNL"))
-    (is (contains? month-tooltip-strings "$203"))
-    (is (contains? month-tooltip-classes "rounded-xl"))
-    (is (contains? month-tooltip-classes "min-w-[188px]"))
-    (is (some? day-tooltip-node))
-    (is (contains? day-tooltip-strings "PNL"))
-    (is (contains? day-tooltip-strings "$203"))
-    (is (some #(re-matches #"[0-9]{2}:[0-9]{2}" %) day-tooltip-strings))))
+        day-host-node (find-first-node day-view-node #(= "portfolio-chart-d3-host" (get-in % [1 :data-role])))
+        day-runtime (mount-d3-host! (get-in day-host-node [1 :replicant/on-render]))]
+    (fake-dom/dispatch-dom-event-with-payload! (:host month-runtime) "pointermove" #js {:clientX 390})
+    (let [month-hover-line (find-dom-node-by-role (:host month-runtime) "portfolio-chart-hover-line")
+          month-tooltip-node (find-dom-node-by-role (:host month-runtime) "portfolio-chart-hover-tooltip")
+          month-tooltip-strings (set (fake-dom/collect-text-content month-tooltip-node))
+          month-tooltip-class (or (.-className month-tooltip-node) "")]
+      (is (some? month-hover-line))
+      (is (some? month-tooltip-node))
+      (is (some #(and (str/includes? % "2026")
+                      (str/includes? % "Feb")
+                      (str/includes? % "26"))
+                month-tooltip-strings))
+      (is (contains? month-tooltip-strings "PNL"))
+      (is (contains? month-tooltip-strings "$203"))
+      (is (str/includes? month-tooltip-class "rounded-xl"))
+      (is (str/includes? month-tooltip-class "min-w-[188px]")))
+    (fake-dom/dispatch-dom-event-with-payload! (:host day-runtime) "pointermove" #js {:clientX 390})
+    (let [day-tooltip-node (find-dom-node-by-role (:host day-runtime) "portfolio-chart-hover-tooltip")
+          day-tooltip-strings (set (fake-dom/collect-text-content day-tooltip-node))]
+      (is (some? day-tooltip-node))
+      (is (contains? day-tooltip-strings "PNL"))
+      (is (contains? day-tooltip-strings "$203"))
+      (is (some #(re-matches #"[0-9]{2}:[0-9]{2}" %) day-tooltip-strings)))))
 
-(deftest portfolio-view-returns-tooltip-renders-selected-benchmark-values-with-series-color-test
+(deftest portfolio-view-returns-tooltip-runtime-renders-selected-benchmark-values-with-series-color-test
   (let [time-a (.getTime (js/Date. 2026 1 19 2 4 0))
         time-b (.getTime (js/Date. 2026 1 26 8 30 0))
         time-c (.getTime (js/Date. 2026 2 3 11 15 0))
         state (-> sample-state
                   (assoc-in [:portfolio-ui :summary-time-range] :month)
                   (assoc-in [:portfolio-ui :chart-tab] :returns)
-                  (assoc-in [:portfolio-ui :chart-hover-index] 2)
                   (assoc-in [:portfolio-ui :returns-benchmark-coins] ["SPY"])
                   (assoc-in [:asset-selector :markets]
                             [{:coin "SPY"
@@ -709,13 +723,16 @@
                              {:t time-b :c 55}
                              {:t time-c :c 57}]))
         view-node (portfolio-view/portfolio-view state)
-        tooltip-node (find-first-node view-node #(= "portfolio-chart-hover-tooltip" (get-in % [1 :data-role])))
-        tooltip-strings (set (collect-strings tooltip-node))
-        benchmark-row (find-first-node view-node #(= "portfolio-chart-hover-tooltip-benchmark-row-SPY" (get-in % [1 :data-role])))
-        benchmark-value (find-first-node view-node #(= "portfolio-chart-hover-tooltip-benchmark-value-SPY" (get-in % [1 :data-role])))]
-    (is (some? tooltip-node))
-    (is (contains? tooltip-strings "Returns"))
-    (is (contains? tooltip-strings "SPY (SPOT)"))
-    (is (contains? tooltip-strings "+14.00%"))
-    (is (some? benchmark-row))
-    (is (= "#f2cf66" (get-in benchmark-value [1 :style :color])))))
+        host-node (find-first-node view-node #(= "portfolio-chart-d3-host" (get-in % [1 :data-role])))
+        runtime (mount-d3-host! (get-in host-node [1 :replicant/on-render]))]
+    (fake-dom/dispatch-dom-event-with-payload! (:host runtime) "pointermove" #js {:clientX 390})
+    (let [tooltip-node (find-dom-node-by-role (:host runtime) "portfolio-chart-hover-tooltip")
+          tooltip-strings (set (fake-dom/collect-text-content tooltip-node))
+          benchmark-row (find-dom-node-by-role (:host runtime) "portfolio-chart-hover-tooltip-benchmark-row-SPY")
+          benchmark-value (find-dom-node-by-role (:host runtime) "portfolio-chart-hover-tooltip-benchmark-value-SPY")]
+      (is (some? tooltip-node))
+      (is (contains? tooltip-strings "Returns"))
+      (is (contains? tooltip-strings "SPY (SPOT)"))
+      (is (contains? tooltip-strings "+14.00%"))
+      (is (some? benchmark-row))
+      (is (= "#f2cf66" (aget (.-style benchmark-value) "color"))))))

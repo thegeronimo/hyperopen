@@ -199,6 +199,8 @@
             [hyperopen.views.asset-icon-test]
             [hyperopen.views.asset-selector-view-test]
             [hyperopen.views.autocorrelation-plot-test]
+            [hyperopen.views.chart.d3.model-test]
+            [hyperopen.views.chart.d3.runtime-test]
             [hyperopen.views.chart.tooltip-core-test]
             [hyperopen.views.footer-view-test]
             [hyperopen.views.funding-comparison-view-test]
@@ -537,6 +539,8 @@
              'hyperopen.views.asset-icon-test
              'hyperopen.views.asset-selector-view-test
              'hyperopen.views.autocorrelation-plot-test
+             'hyperopen.views.chart.d3.model-test
+             'hyperopen.views.chart.d3.runtime-test
              'hyperopen.views.chart.tooltip-core-test
              'hyperopen.views.footer-view-test
              'hyperopen.views.funding-comparison-view-test

@@ -145,12 +145,9 @@
         returns-chart-tab-button (find-first-node view
                                                   #(= [[:actions/set-vault-detail-chart-series :returns]]
                                                       (get-in % [1 :on :click])))
-        pnl-area-positive (find-first-node view
-                                           #(= "vault-detail-chart-area-positive"
-                                               (get-in % [1 :data-role])))
-        pnl-area-negative (find-first-node view
-                                           #(= "vault-detail-chart-area-negative"
-                                               (get-in % [1 :data-role])))
+        chart-host (find-first-node view
+                                    #(= "vault-detail-chart-d3-host"
+                                        (get-in % [1 :data-role])))
         timeframe-selector (find-first-node view
                                             #(= [[:actions/set-vaults-snapshot-range [:event.target/value]]]
                                                 (get-in % [1 :on :change])))
@@ -165,8 +162,8 @@
     (is (some? detail-tab-button))
     (is (some? chart-tab-button))
     (is (some? returns-chart-tab-button))
-    (is (some? pnl-area-positive))
-    (is (some? pnl-area-negative))
+    (is (some? chart-host))
+    (is (fn? (get-in chart-host [1 :replicant/on-render])))
     (is (some? timeframe-selector))
     (is (some? performance-metrics-tab-button))
     (is (some? activity-tab-button))
@@ -180,11 +177,11 @@
 (deftest vault-detail-view-renders-account-value-area-fill-test
   (let [state (assoc-in sample-state [:vaults-ui :detail-chart-series] :account-value)
         view (vault-detail-view/vault-detail-view state)
-        area-node (find-first-node view
-                                   #(= "vault-detail-chart-area" (get-in % [1 :data-role])))]
-    (is (some? area-node))
-    (is (= "rgba(247, 147, 26, 0.24)"
-           (get-in area-node [1 :fill])))))
+        chart-host (find-first-node view
+                                    #(= "vault-detail-chart-d3-host"
+                                        (get-in % [1 :data-role])))]
+    (is (some? chart-host))
+    (is (fn? (get-in chart-host [1 :replicant/on-render])))))
 
 (deftest vault-detail-view-wires-vault-transfer-hero-buttons-and-modal-test
   (let [vault-address "0x1234567890abcdef1234567890abcdef12345678"

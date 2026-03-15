@@ -1,6 +1,9 @@
 (ns hyperopen.views.vaults.detail.chart-view
   (:require [clojure.string :as str]
-            [hyperopen.utils.formatting :as fmt]))
+            [hyperopen.utils.formatting :as fmt]
+            [hyperopen.views.chart.d3.runtime :as chart-d3-runtime]
+            [hyperopen.views.chart.renderer :as chart-renderer]
+            [hyperopen.views.vaults.detail.chart-tooltip :as chart-tooltip]))
 
 (defn- format-chart-axis-value
   [axis-kind value]
@@ -361,12 +364,40 @@
           [:span {:class ["text-xs" "text-[#8aa0a7]"]}
            label]])])))
 
+(def ^:private vault-chart-d3-theme
+  {:data-role-prefix "vault-detail-chart"
+   :baseline-stroke "rgba(140, 157, 165, 0.30)"
+   :baseline-stroke-width 0.8
+   :hover-line-stroke "#9fb3be"
+   :line-stroke-width 1.0
+   :line-linecap "square"
+   :line-linejoin "miter"
+   :tooltip-border-color "rgba(98, 114, 130, 0.65)"
+   :tooltip-background "linear-gradient(138deg, rgba(24, 35, 47, 0.95) 0%, rgba(16, 25, 38, 0.95) 56%, rgba(43, 36, 25, 0.86) 100%)"})
+
+(defn- vault-d3-spec
+  [chart]
+  {:surface :vaults
+   :axis-kind (:axis-kind chart)
+   :time-range (:selected-timeframe chart)
+   :points (:points chart)
+   :series (:series chart)
+   :y-ticks (:y-ticks chart)
+   :theme vault-chart-d3-theme
+   :build-tooltip (fn [hover series]
+                    (chart-tooltip/build-chart-hover-tooltip (:selected-timeframe chart)
+                                                             (:selected-series chart)
+                                                             hover
+                                                             series))})
+
 (defn chart-section
   [chart]
   (let [axis-kind (:axis-kind chart)
         y-ticks (:y-ticks chart)
         selected-series (:selected-series chart)
         series (:series chart)
+        d3-mode? (chart-renderer/d3-performance-chart? :vaults)
+        d3-spec (vault-d3-spec chart)
         hover-tooltip (:hover-tooltip chart)
         returns-benchmark* (add-benchmark-chip-colors (:returns-benchmark chart) series)
         y-axis-width (y-axis-gutter-width axis-kind y-ticks)
@@ -428,105 +459,112 @@
                          "border-t"
                          "border-[#1f3b3c]"]
                  :style {:top (str (* 100 y-ratio) "%")}}])]
-       [:div {:class ["absolute" "right-2" "top-0" "bottom-0" "cursor-crosshair"]
-              :style {:left (str plot-left "px")}
-              :on {:mousemove [[:actions/set-vault-detail-chart-hover [:event/clientX] [:event.currentTarget/bounds] point-count]]
-                   :mouseenter [[:actions/set-vault-detail-chart-hover [:event/clientX] [:event.currentTarget/bounds] point-count]]
-                   :pointermove [[:actions/set-vault-detail-chart-hover [:event/clientX] [:event.currentTarget/bounds] point-count]]
-                   :pointerenter [[:actions/set-vault-detail-chart-hover [:event/clientX] [:event.currentTarget/bounds] point-count]]
-                   :mouseleave [[:actions/clear-vault-detail-chart-hover]]
-                   :pointerleave [[:actions/clear-vault-detail-chart-hover]]
-                   :mouseout [[:actions/clear-vault-detail-chart-hover]]}}
-        [:svg {:viewBox "0 0 100 100"
-               :preserveAspectRatio "none"
-               :class ["h-full" "w-full"]}
-         [:line {:x1 0
-                 :x2 100
-                 :y1 100
-                 :y2 100
-                 :stroke "rgba(140, 157, 165, 0.30)"
-                 :stroke-width 0.8
-                 :vector-effect "non-scaling-stroke"}]
-         (for [{series-id :id :as series-entry} (or series [])]
-           ^{:key (str "vault-detail-chart-area-" (name series-id))}
-           (chart-series-area-layers series-entry))
-         (for [{series-id :id :as series-entry} (or series [])]
-           ^{:key (str "vault-detail-chart-path-" (name series-id))}
-           (chart-series-path series-entry))]
-        (when hover-active?
-          [:div {:class ["absolute"
-                         "top-0"
-                         "bottom-0"
-                         "w-px"
-                         "-translate-x-1/2"
-                         "pointer-events-none"
-                         "bg-[#9fb3be]"
-                         "z-10"]
-                 :style {:left (str hover-line-left-pct "%")}}])
-        (when hover-active?
-          [:div {:class ["absolute"
-                         "pointer-events-none"
-                         "min-w-[188px]"
-                         "rounded-xl"
-                         "border"
-                         "px-3"
-                         "py-2"
-                         "spectate-lg"
-                         "z-20"]
-                 :data-role "vault-detail-chart-hover-tooltip"
-                 :style {:left (str hover-line-left-pct "%")
-                         :top (str hover-tooltip-top-pct "%")
-                         :transform (if hover-tooltip-right?
-                                      "translate(calc(-100% - 8px), -50%)"
-                                      "translate(8px, -50%)")
-                         :white-space "nowrap"
-                         :border-color "rgba(98, 114, 130, 0.65)"
-                         :background "linear-gradient(138deg, rgba(24, 35, 47, 0.95) 0%, rgba(16, 25, 38, 0.95) 56%, rgba(43, 36, 25, 0.86) 100%)"}}
-           [:div {:class ["num"
-                          "text-[12px]"
-                          "font-medium"
-                          "leading-4"
-                          "text-[#8ea1b3]"]}
-            (:timestamp hover-tooltip)]
-           [:div {:class ["mt-2"
-                          "grid"
-                          "grid-cols-[1fr_auto]"
-                          "items-center"
-                          "gap-3"]}
-            [:span {:class ["text-[12px]"
+       (if d3-mode?
+         [:div {:class ["absolute" "right-2" "top-0" "bottom-0" "cursor-crosshair"]
+                :style {:left (str plot-left "px")}
+                :data-role "vault-detail-chart-plot-area"}
+          [:div {:class ["h-full" "w-full"]
+                 :data-role "vault-detail-chart-d3-host"
+                 :replicant/on-render (chart-d3-runtime/on-render d3-spec)}]]
+         [:div {:class ["absolute" "right-2" "top-0" "bottom-0" "cursor-crosshair"]
+                :style {:left (str plot-left "px")}
+                :on {:mousemove [[:actions/set-vault-detail-chart-hover [:event/clientX] [:event.currentTarget/bounds] point-count]]
+                     :mouseenter [[:actions/set-vault-detail-chart-hover [:event/clientX] [:event.currentTarget/bounds] point-count]]
+                     :pointermove [[:actions/set-vault-detail-chart-hover [:event/clientX] [:event.currentTarget/bounds] point-count]]
+                     :pointerenter [[:actions/set-vault-detail-chart-hover [:event/clientX] [:event.currentTarget/bounds] point-count]]
+                     :mouseleave [[:actions/clear-vault-detail-chart-hover]]
+                     :pointerleave [[:actions/clear-vault-detail-chart-hover]]
+                     :mouseout [[:actions/clear-vault-detail-chart-hover]]}}
+          [:svg {:viewBox "0 0 100 100"
+                 :preserveAspectRatio "none"
+                 :class ["h-full" "w-full"]}
+           [:line {:x1 0
+                   :x2 100
+                   :y1 100
+                   :y2 100
+                   :stroke "rgba(140, 157, 165, 0.30)"
+                   :stroke-width 0.8
+                   :vector-effect "non-scaling-stroke"}]
+           (for [{series-id :id :as series-entry} (or series [])]
+             ^{:key (str "vault-detail-chart-area-" (name series-id))}
+             (chart-series-area-layers series-entry))
+           (for [{series-id :id :as series-entry} (or series [])]
+             ^{:key (str "vault-detail-chart-path-" (name series-id))}
+             (chart-series-path series-entry))]
+          (when hover-active?
+            [:div {:class ["absolute"
+                           "top-0"
+                           "bottom-0"
+                           "w-px"
+                           "-translate-x-1/2"
+                           "pointer-events-none"
+                           "bg-[#9fb3be]"
+                           "z-10"]
+                   :style {:left (str hover-line-left-pct "%")}}])
+          (when hover-active?
+            [:div {:class ["absolute"
+                           "pointer-events-none"
+                           "min-w-[188px]"
+                           "rounded-xl"
+                           "border"
+                           "px-3"
+                           "py-2"
+                           "spectate-lg"
+                           "z-20"]
+                   :data-role "vault-detail-chart-hover-tooltip"
+                   :style {:left (str hover-line-left-pct "%")
+                           :top (str hover-tooltip-top-pct "%")
+                           :transform (if hover-tooltip-right?
+                                        "translate(calc(-100% - 8px), -50%)"
+                                        "translate(8px, -50%)")
+                           :white-space "nowrap"
+                           :border-color "rgba(98, 114, 130, 0.65)"
+                           :background "linear-gradient(138deg, rgba(24, 35, 47, 0.95) 0%, rgba(16, 25, 38, 0.95) 56%, rgba(43, 36, 25, 0.86) 100%)"}}
+             [:div {:class ["num"
+                            "text-[12px]"
                             "font-medium"
                             "leading-4"
-                            "text-[#909fac]"]}
-             (:metric-label hover-tooltip)]
-            [:span {:class (into ["num"
-                                  "text-[16px]"
-                                  "font-semibold"
-                                  "leading-[1]"
-                                  "tracking-tight"]
-                                 (:value-classes hover-tooltip))}
-             (:metric-value hover-tooltip)]]
-           (when (seq (:benchmark-values hover-tooltip))
-             [:div {:class ["mt-1.5" "space-y-1"]}
-              (for [{:keys [coin label value stroke]} (:benchmark-values hover-tooltip)]
-                ^{:key (str "vault-detail-chart-hover-tooltip-benchmark-row-" coin)}
-                [:div {:class ["grid"
-                               "grid-cols-[1fr_auto]"
-                               "items-center"
-                               "gap-3"]
-                       :data-role (str "vault-detail-chart-hover-tooltip-benchmark-row-" coin)}
-                 [:span {:class ["text-[12px]"
-                                 "font-medium"
-                                 "leading-4"
-                                 "text-[#909fac]"]}
-                  label]
-                 [:span {:class ["num"
-                                 "text-sm"
-                                 "font-semibold"
-                                 "leading-[1.1]"
-                                 "tracking-tight"]
-                         :data-role (str "vault-detail-chart-hover-tooltip-benchmark-value-" coin)
-                         :style {:color stroke}}
-                  value]])])])]]
+                            "text-[#8ea1b3]"]}
+              (:timestamp hover-tooltip)]
+             [:div {:class ["mt-2"
+                            "grid"
+                            "grid-cols-[1fr_auto]"
+                            "items-center"
+                            "gap-3"]}
+              [:span {:class ["text-[12px]"
+                              "font-medium"
+                              "leading-4"
+                              "text-[#909fac]"]}
+               (:metric-label hover-tooltip)]
+              [:span {:class (into ["num"
+                                    "text-[16px]"
+                                    "font-semibold"
+                                    "leading-[1]"
+                                    "tracking-tight"]
+                                   (:value-classes hover-tooltip))}
+               (:metric-value hover-tooltip)]]
+             (when (seq (:benchmark-values hover-tooltip))
+               [:div {:class ["mt-1.5" "space-y-1"]}
+                (for [{:keys [coin label value stroke]} (:benchmark-values hover-tooltip)]
+                  ^{:key (str "vault-detail-chart-hover-tooltip-benchmark-row-" coin)}
+                  [:div {:class ["grid"
+                                 "grid-cols-[1fr_auto]"
+                                 "items-center"
+                                 "gap-3"]
+                         :data-role (str "vault-detail-chart-hover-tooltip-benchmark-row-" coin)}
+                   [:span {:class ["text-[12px]"
+                                   "font-medium"
+                                   "leading-4"
+                                   "text-[#909fac]"]}
+                    label]
+                   [:span {:class ["num"
+                                   "text-sm"
+                                   "font-semibold"
+                                   "leading-[1.1]"
+                                   "tracking-tight"]
+                           :data-role (str "vault-detail-chart-hover-tooltip-benchmark-value-" coin)
+                           :style {:color stroke}}
+                    value]])])])])]
       (chart-legend series)
       (when (= selected-series :returns)
         (returns-benchmark-chip-rail returns-benchmark*))]]))

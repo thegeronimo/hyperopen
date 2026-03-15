@@ -43,9 +43,10 @@
   (let [children (array)
         child-nodes (array)
         listeners (js-obj)
+        style #js {}
         element #js {:tagName tag
                      :nodeType 1
-                     :style #js {}
+                     :style style
                      :clientWidth 320
                      :clientHeight 200
                      :children children
@@ -92,6 +93,9 @@
                 (when (seq next-text)
                   (append-child-node! (make-fake-text-node next-text)))
                 next-text))]
+      (set! (.-setProperty style)
+            (fn [prop value]
+              (aset style prop value)))
       (js/Object.defineProperty
        element
        "textContent"
@@ -110,6 +114,9 @@
       (set! (.-setAttribute element)
             (fn [attr value]
               (aset element attr value)))
+      (set! (.-getAttribute element)
+            (fn [attr]
+              (aget element attr)))
       (set! (.-addEventListener element)
             (fn [event-name handler]
               (aset listeners event-name handler)))
@@ -132,13 +139,23 @@
 
 (defn make-fake-document []
   (let [listeners (js-obj)
-        document #js {:listeners listeners
-                      :createElement (fn [tag]
-                                       (make-fake-element tag))
-                      :createElementNS (fn [_ns tag]
-                                         (make-fake-element tag))
-                      :createTextNode (fn [text]
-                                        (make-fake-text-node text))}]
+        document #js {:listeners listeners}]
+    (aset document
+          "createElement"
+          (fn [tag]
+            (let [element (make-fake-element tag)]
+              (aset element "ownerDocument" document)
+              element)))
+    (aset document
+          "createElementNS"
+          (fn [_ns tag]
+            (let [element (make-fake-element tag)]
+              (aset element "ownerDocument" document)
+              element)))
+    (aset document
+          "createTextNode"
+          (fn [text]
+            (make-fake-text-node text)))
     (set! (.-addEventListener document)
           (fn [event-name handler]
             (aset listeners event-name handler)))
