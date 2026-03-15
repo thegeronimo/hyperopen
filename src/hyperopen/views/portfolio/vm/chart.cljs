@@ -74,87 +74,97 @@
       strategy-series-stroke)))
 
 (defn build-chart-model
-  [state summary-entry summary-scope summary-time-range returns-benchmark-selector benchmark-context]
-  (let [selected-tab (portfolio-actions/normalize-portfolio-chart-tab
-                      (get-in state [:portfolio-ui :chart-tab]
-                              portfolio-actions/default-chart-tab))
-        axis-kind (vm-chart-math/chart-axis-kind selected-tab)
-        strategy-cumulative-rows (or (:strategy-cumulative-rows benchmark-context)
-                                     [])
-        benchmark-cumulative-rows-by-coin (or (:benchmark-cumulative-rows-by-coin benchmark-context)
-                                              {})
-        strategy-points (if (= selected-tab :returns)
-                          (rows->chart-points strategy-cumulative-rows :returns)
-                          (chart-data-points state summary-entry selected-tab summary-scope))
-        selected-benchmark-coins (if (= selected-tab :returns)
-                                   (vec (:selected-coins returns-benchmark-selector))
-                                   [])
-        benchmark-label-by-coin (or (:label-by-coin returns-benchmark-selector) {})
-        benchmark-series (if (= selected-tab :returns)
-                           (mapv (fn [idx coin]
-                                   (let [label (or (get benchmark-label-by-coin coin)
-                                                   coin)]
-                                     {:id (keyword (str "benchmark-" idx))
-                                      :coin coin
-                                      :label label
-                                      :stroke (benchmark-series-stroke idx)
-                                      :raw-points (rows->chart-points (or (get benchmark-cumulative-rows-by-coin coin)
-                                                                          [])
-                                                                      :returns)}))
-                                 (range)
-                                 selected-benchmark-coins)
-                           [])
-        raw-series (cond-> [{:id :strategy
-                             :label "Portfolio"
-                             :stroke strategy-series-stroke
-                             :raw-points strategy-points}]
-                     (seq benchmark-series)
-                     (into benchmark-series))
-        domain-values (->> raw-series
-                           (mapcat (fn [{:keys [raw-points]}]
-                                     (map :value raw-points)))
-                           vec)
-        domain (when (seq domain-values)
-                 (vm-chart-math/chart-domain domain-values))
-        series (mapv (fn [{:keys [raw-points] :as entry}]
-                       (let [points (if domain
-                                      (vm-chart-math/normalize-chart-points raw-points domain)
-                                      [])]
-                         (assoc entry
-                                :points points
-                                :path (vm-chart-math/chart-line-path points)
-                                :has-data? (seq points))))
-                     raw-series)
-        strategy-series (or (some (fn [series-entry]
-                                    (when (= :strategy (:id series-entry))
-                                      series-entry))
-                                  series)
-                            {:points []
-                             :path nil
-                             :has-data? false})
-        strategy-points (:points strategy-series)
-        hovered-index (vm-chart-math/normalize-hover-index (get-in state [:portfolio-ui :chart-hover-index])
-                                                           (count strategy-points))
-        hovered-point (when (number? hovered-index)
-                        (nth strategy-points hovered-index nil))
-        hover {:index hovered-index
-               :point hovered-point
-               :active? (some? hovered-point)}
-        hover-tooltip (chart-tooltip/build-chart-hover-tooltip summary-time-range
-                                                               selected-tab
-                                                               hover
-                                                               series)]
-    {:selected-tab selected-tab
-     :axis-kind axis-kind
-     :tabs constants/chart-tab-options
-     :points strategy-points
-     :path (:path strategy-series)
-     :series series
-     :hover hover
-     :hover-tooltip hover-tooltip
-     :benchmark-selected? (and (= selected-tab :returns)
-                               (seq selected-benchmark-coins))
-     :y-ticks (if domain
-                (vm-chart-math/chart-y-ticks domain)
-                chart-empty-y-ticks)
-     :has-data? (boolean (:has-data? strategy-series))}))
+  ([state summary-entry summary-scope summary-time-range returns-benchmark-selector benchmark-context]
+   (build-chart-model state
+                      summary-entry
+                      summary-scope
+                      summary-time-range
+                      returns-benchmark-selector
+                      benchmark-context
+                      {}))
+  ([state summary-entry summary-scope summary-time-range returns-benchmark-selector benchmark-context {:keys [include-svg-paths?]
+                                                                                                       :or {include-svg-paths? true}}]
+   (let [selected-tab (portfolio-actions/normalize-portfolio-chart-tab
+                       (get-in state [:portfolio-ui :chart-tab]
+                               portfolio-actions/default-chart-tab))
+         axis-kind (vm-chart-math/chart-axis-kind selected-tab)
+         strategy-cumulative-rows (or (:strategy-cumulative-rows benchmark-context)
+                                      [])
+         benchmark-cumulative-rows-by-coin (or (:benchmark-cumulative-rows-by-coin benchmark-context)
+                                               {})
+         strategy-points (if (= selected-tab :returns)
+                           (rows->chart-points strategy-cumulative-rows :returns)
+                           (chart-data-points state summary-entry selected-tab summary-scope))
+         selected-benchmark-coins (if (= selected-tab :returns)
+                                    (vec (:selected-coins returns-benchmark-selector))
+                                    [])
+         benchmark-label-by-coin (or (:label-by-coin returns-benchmark-selector) {})
+         benchmark-series (if (= selected-tab :returns)
+                            (mapv (fn [idx coin]
+                                    (let [label (or (get benchmark-label-by-coin coin)
+                                                    coin)]
+                                      {:id (keyword (str "benchmark-" idx))
+                                       :coin coin
+                                       :label label
+                                       :stroke (benchmark-series-stroke idx)
+                                       :raw-points (rows->chart-points (or (get benchmark-cumulative-rows-by-coin coin)
+                                                                           [])
+                                                                       :returns)}))
+                                  (range)
+                                  selected-benchmark-coins)
+                            [])
+         raw-series (cond-> [{:id :strategy
+                              :label "Portfolio"
+                              :stroke strategy-series-stroke
+                              :raw-points strategy-points}]
+                      (seq benchmark-series)
+                      (into benchmark-series))
+         domain-values (->> raw-series
+                            (mapcat (fn [{:keys [raw-points]}]
+                                      (map :value raw-points)))
+                            vec)
+         domain (when (seq domain-values)
+                  (vm-chart-math/chart-domain domain-values))
+         series (mapv (fn [{:keys [raw-points] :as entry}]
+                        (let [points (if domain
+                                       (vm-chart-math/normalize-chart-points raw-points domain)
+                                       [])]
+                          (cond-> (assoc entry
+                                         :points points
+                                         :has-data? (seq points))
+                            include-svg-paths?
+                            (assoc :path (vm-chart-math/chart-line-path points)))))
+                      raw-series)
+         strategy-series (or (some (fn [series-entry]
+                                     (when (= :strategy (:id series-entry))
+                                       series-entry))
+                                   series)
+                             {:points []
+                              :path nil
+                              :has-data? false})
+         strategy-points (:points strategy-series)
+         hovered-index (vm-chart-math/normalize-hover-index (get-in state [:portfolio-ui :chart-hover-index])
+                                                            (count strategy-points))
+         hovered-point (when (number? hovered-index)
+                         (nth strategy-points hovered-index nil))
+         hover {:index hovered-index
+                :point hovered-point
+                :active? (some? hovered-point)}
+         hover-tooltip (chart-tooltip/build-chart-hover-tooltip summary-time-range
+                                                                selected-tab
+                                                                hover
+                                                                series)]
+     {:selected-tab selected-tab
+      :axis-kind axis-kind
+      :tabs constants/chart-tab-options
+      :points strategy-points
+      :path (:path strategy-series)
+      :series series
+      :hover hover
+      :hover-tooltip hover-tooltip
+      :benchmark-selected? (and (= selected-tab :returns)
+                                (seq selected-benchmark-coins))
+      :y-ticks (if domain
+                 (vm-chart-math/chart-y-ticks domain)
+                 chart-empty-y-ticks)
+      :has-data? (boolean (:has-data? strategy-series))})))

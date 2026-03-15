@@ -52,3 +52,18 @@
     (is (= 20 (get-in high-hover [:hover :point :value])))
     (is (= 0 (get-in low-hover [:hover :index])))
     (is (= 0 (get-in low-hover [:hover :point :value])))))
+
+(deftest build-chart-model-can-omit-svg-paths-while-preserving-d3-area-metadata-test
+  (let [model (chart/build-chart-model {:selected-series :pnl
+                                        :raw-series [{:id :strategy
+                                                      :raw-points [{:time-ms 1 :value -2}
+                                                                   {:time-ms 2 :value 2}]}]
+                                        :hover-index 1
+                                        :include-svg-paths? false})
+        strategy-series (:strategy-series model)]
+    (is (nil? (:path model)))
+    (is (nil? (:path strategy-series)))
+    (is (nil? (:area-path strategy-series)))
+    (is (= "rgba(22, 214, 161, 0.24)" (:area-positive-fill strategy-series)))
+    (is (= "rgba(237, 112, 136, 0.24)" (:area-negative-fill strategy-series)))
+    (is (= 0.5 (:zero-y-ratio strategy-series)))))

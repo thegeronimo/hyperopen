@@ -377,18 +377,20 @@
 
 (defn- vault-d3-spec
   [chart]
-  {:surface :vaults
-   :axis-kind (:axis-kind chart)
-   :time-range (:selected-timeframe chart)
-   :points (:points chart)
-   :series (:series chart)
-   :y-ticks (:y-ticks chart)
-   :theme vault-chart-d3-theme
-   :build-tooltip (fn [hover series]
-                    (chart-tooltip/build-chart-hover-tooltip (:selected-timeframe chart)
-                                                             (:selected-series chart)
-                                                             hover
-                                                             series))})
+  (let [base-spec {:surface :vaults
+                   :axis-kind (:axis-kind chart)
+                   :time-range (:selected-timeframe chart)
+                   :points (:points chart)
+                   :series (:series chart)
+                   :y-ticks (:y-ticks chart)
+                   :theme vault-chart-d3-theme}]
+    (assoc base-spec
+           :update-key (chart-d3-runtime/spec-update-key base-spec)
+           :build-tooltip (fn [hover series]
+                            (chart-tooltip/build-chart-hover-tooltip (:selected-timeframe chart)
+                                                                     (:selected-series chart)
+                                                                     hover
+                                                                     series)))))
 
 (defn chart-section
   [chart]

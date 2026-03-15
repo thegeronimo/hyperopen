@@ -144,8 +144,8 @@
     (is (= false (get-in vm [:vault-transfer :open?])))
     (is (= 2 (:followers vm)))
     (is (seq (get-in vm [:chart :points])))
-    (is (seq (get-in vm [:chart :path])))
-    (is (seq (:area-path strategy-series)))
+    (is (nil? (get-in vm [:chart :path])))
+    (is (nil? (:area-path strategy-series)))
     (is (= "rgba(22, 214, 161, 0.24)" (:area-positive-fill strategy-series)))
     (is (= "rgba(237, 112, 136, 0.24)" (:area-negative-fill strategy-series)))
     (is (number? (:zero-y-ratio strategy-series)))
@@ -286,7 +286,7 @@
         strategy-series (first (get-in vm [:chart :series]))]
     (is (= :account-value (get-in vm [:chart :selected-series])))
     (is (= "#f7931a" (:stroke strategy-series)))
-    (is (seq (:area-path strategy-series)))
+    (is (nil? (:area-path strategy-series)))
     (is (= "rgba(247, 147, 26, 0.24)" (:area-fill strategy-series)))))
 
 (deftest vault-detail-vm-builds-returns-chart-series-and-benchmark-performance-columns-test

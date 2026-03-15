@@ -479,18 +479,20 @@
 
 (defn- portfolio-d3-spec
   [{:keys [chart summary-time-range]}]
-  {:surface :portfolio
-   :axis-kind (:axis-kind chart)
-   :time-range summary-time-range
-   :points (:points chart)
-   :series (:series chart)
-   :y-ticks (:y-ticks chart)
-   :theme portfolio-chart-d3-theme
-   :build-tooltip (fn [hover series]
-                    (chart-tooltip/build-chart-hover-tooltip summary-time-range
-                                                             (:selected-tab chart)
-                                                             hover
-                                                             series))})
+  (let [base-spec {:surface :portfolio
+                   :axis-kind (:axis-kind chart)
+                   :time-range summary-time-range
+                   :points (:points chart)
+                   :series (:series chart)
+                   :y-ticks (:y-ticks chart)
+                   :theme portfolio-chart-d3-theme}]
+    (assoc base-spec
+           :update-key (chart-d3-runtime/spec-update-key base-spec)
+           :build-tooltip (fn [hover series]
+                            (chart-tooltip/build-chart-hover-tooltip summary-time-range
+                                                                     (:selected-tab chart)
+                                                                     hover
+                                                                     series)))))
 
 (defn- summary-card [{:keys [summary selectors]}]
   (let [pnl-info (pnl-summary (:pnl summary))

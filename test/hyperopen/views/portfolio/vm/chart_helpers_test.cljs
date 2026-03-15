@@ -48,3 +48,22 @@
     (is (= "+5.56%" (get-in chart [:hover-tooltip :metric-value])))
     (is (seq (:path chart)))
     (is (= 4 (count (:y-ticks chart))))))
+
+(deftest build-chart-model-skips-svg-paths-when-explicitly-disabled-test
+  (let [state {:portfolio-ui {:chart-tab :returns
+                              :chart-hover-index 1}}
+        benchmark-context {:strategy-cumulative-rows [[1 0.123]
+                                                      [2 5.555]]
+                           :benchmark-cumulative-rows-by-coin {}}
+        chart (vm-chart/build-chart-model state
+                                          {}
+                                          :all
+                                          :day
+                                          {:selected-coins []
+                                           :label-by-coin {}}
+                                          benchmark-context
+                                          {:include-svg-paths? false})]
+    (is (nil? (:path chart)))
+    (is (every? nil? (map :path (:series chart))))
+    (is (= [0.12 5.56]
+           (mapv :value (:points chart))))))

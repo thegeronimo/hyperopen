@@ -10,6 +10,7 @@
             [hyperopen.vaults.domain.identity :as vault-identity]
             [hyperopen.vaults.domain.ui-state :as vault-ui-state]
             [hyperopen.vaults.infrastructure.routes :as vault-routes]
+            [hyperopen.views.chart.renderer :as chart-renderer]
             [hyperopen.views.vaults.detail.chart :as chart-model]
             [hyperopen.views.vaults.detail.chart-tooltip :as chart-tooltip]))
 
@@ -307,7 +308,8 @@
                      (into benchmark-series))
         chart-model* (chart-model/build-chart-model {:selected-series selected-series
                                                      :raw-series raw-series
-                                                     :hover-index (get-in state [:vaults-ui :detail-chart-hover-index])})
+                                                     :hover-index (get-in state [:vaults-ui :detail-chart-hover-index])
+                                                     :include-svg-paths? (not (chart-renderer/d3-performance-chart? :vaults))})
         series (:series chart-model*)
         strategy-series (:strategy-series chart-model*)
         chart-points (:points chart-model*)

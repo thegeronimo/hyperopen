@@ -189,7 +189,8 @@
         (max 0 (min idx* (dec point-count*)))))))
 
 (defn build-chart-model
-  [{:keys [selected-series raw-series hover-index]}]
+  [{:keys [selected-series raw-series hover-index include-svg-paths?]
+    :or {include-svg-paths? true}}]
   (let [chart-domain-values (->> raw-series
                                  (mapcat (fn [{:keys [raw-points]}]
                                            (map :value raw-points)))
@@ -207,25 +208,29 @@
                                                             (value->y-ratio domain 0))
                                                      :account-value 1
                                                      nil)
-                             area-path* (when (and is-strategy?
-                                                   (not= selected-series :returns)
-                                                   (number? area-baseline-y-ratio))
+                             area-enabled? (and is-strategy?
+                                                (not= selected-series :returns)
+                                                (number? area-baseline-y-ratio))
+                             area-path* (when (and include-svg-paths?
+                                                   area-enabled?)
                                           (area-path points area-baseline-y-ratio))]
                          (cond-> (assoc entry
                                         :points points
-                                        :path (line-path points)
                                         :has-data? (seq points))
+                           include-svg-paths?
+                           (assoc :path (line-path points))
+
                            (seq area-path*)
                            (assoc :area-path area-path*)
 
                            (and is-strategy?
                                 (= selected-series :account-value)
-                                (seq area-path*))
+                                area-enabled?)
                            (assoc :area-fill account-value-area-fill)
 
                            (and is-strategy?
                                 (= selected-series :pnl)
-                                (seq area-path*))
+                                area-enabled?)
                            (assoc :area-positive-fill pnl-area-positive-fill
                                   :area-negative-fill pnl-area-negative-fill
                                   :zero-y-ratio area-baseline-y-ratio))))

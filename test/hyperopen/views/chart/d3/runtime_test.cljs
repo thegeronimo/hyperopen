@@ -30,27 +30,31 @@
   ([]
    (chart-spec {}))
   ([overrides]
-   (merge {:surface :portfolio
-           :axis-kind :returns
-           :time-range :month
-           :points [{:time-ms 1 :value 0.2 :x-ratio 0 :y-ratio 0.7}
-                    {:time-ms 2 :value 0.6 :x-ratio 1 :y-ratio 0.3}]
-           :series [{:id :strategy
-                     :label "Portfolio"
-                     :stroke "#f5f7f8"
-                     :points [{:time-ms 1 :value 0.2 :x-ratio 0 :y-ratio 0.7}
-                              {:time-ms 2 :value 0.6 :x-ratio 1 :y-ratio 0.3}]}
-                    {:id :benchmark-0
-                     :coin "SPY"
-                     :label "SPY"
-                     :stroke "#f2cf66"
-                     :points [{:time-ms 1 :value 0.1 :x-ratio 0 :y-ratio 0.8}
-                              {:time-ms 2 :value 0.5 :x-ratio 1 :y-ratio 0.4}]}]
-           :y-ticks [{:value 1 :y-ratio 0}
-                     {:value 0 :y-ratio 1}]
-           :theme test-theme
-           :build-tooltip build-tooltip}
-          overrides)))
+   (let [base-spec {:surface :portfolio
+                    :axis-kind :returns
+                    :time-range :month
+                    :points [{:time-ms 1 :value 0.2 :x-ratio 0 :y-ratio 0.7}
+                             {:time-ms 2 :value 0.6 :x-ratio 1 :y-ratio 0.3}]
+                    :series [{:id :strategy
+                              :label "Portfolio"
+                              :stroke "#f5f7f8"
+                              :points [{:time-ms 1 :value 0.2 :x-ratio 0 :y-ratio 0.7}
+                                       {:time-ms 2 :value 0.6 :x-ratio 1 :y-ratio 0.3}]}
+                             {:id :benchmark-0
+                              :coin "SPY"
+                              :label "SPY"
+                              :stroke "#f2cf66"
+                              :points [{:time-ms 1 :value 0.1 :x-ratio 0 :y-ratio 0.8}
+                                       {:time-ms 2 :value 0.5 :x-ratio 1 :y-ratio 0.4}]}]
+                    :y-ticks [{:value 1 :y-ratio 0}
+                              {:value 0 :y-ratio 1}]
+                    :theme test-theme}
+         spec (merge base-spec overrides)]
+     (assoc spec
+            :update-key (or (:update-key overrides)
+                            (runtime/spec-update-key spec))
+            :build-tooltip (or (:build-tooltip spec)
+                               build-tooltip)))))
 
 (defn- data-role-node
   [root data-role]
@@ -216,6 +220,40 @@
              (.getAttribute negative-area "fill")))
       (is (some? qqq-path))
       (is (nil? spy-path)))))
+
+(deftest on-render-update-skips-runtime-work-when-update-key-is-unchanged-test
+  (let [document (fake-dom/make-fake-document)
+        host (doto (fake-dom/make-fake-element "div")
+               (aset "ownerDocument" document))
+        remembered* (atom nil)
+        tooltip-build-count* (atom 0)
+        mount! (runtime/on-render (chart-spec {:build-tooltip (fn [{:keys [index]} _series]
+                                                                 (swap! tooltip-build-count* inc)
+                                                                 {:timestamp (str "T" index)
+                                                                  :metric-label "Returns"
+                                                                  :metric-value (str "V" index)
+                                                                  :value-classes []
+                                                                  :benchmark-values []})}))
+        update! (runtime/on-render (chart-spec {:build-tooltip (fn [{:keys [index]} _series]
+                                                                  (swap! tooltip-build-count* inc)
+                                                                  {:timestamp (str "U" index)
+                                                                   :metric-label "Updated"
+                                                                   :metric-value (str "UV" index)
+                                                                   :value-classes []
+                                                                   :benchmark-values []})}))]
+    (set! (.-clientWidth host) 400)
+    (set! (.-clientHeight host) 240)
+    (mount! {:replicant/life-cycle :replicant.life-cycle/mount
+             :replicant/node host
+             :replicant/remember (fn [memory]
+                                   (reset! remembered* memory))})
+    (is (= 2 @tooltip-build-count*))
+    (update! {:replicant/life-cycle :replicant.life-cycle/update
+              :replicant/node host
+              :replicant/memory @remembered*
+              :replicant/remember (fn [memory]
+                                    (reset! remembered* memory))})
+    (is (= 2 @tooltip-build-count*))))
 
 (deftest on-render-observes-resize-and-cleans-up-on-unmount-test
   (let [{:keys [restore!]} (install-fake-raf!)

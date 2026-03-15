@@ -1,6 +1,7 @@
 (ns hyperopen.views.portfolio.vm
   (:require [hyperopen.domain.trading :as trading]
             [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.views.chart.renderer :as chart-renderer]
             [hyperopen.views.portfolio.vm.benchmarks :as vm-benchmarks]
             [hyperopen.views.portfolio.vm.chart :as vm-chart]
             [hyperopen.views.portfolio.vm.chart-math :as vm-chart-math]
@@ -246,7 +247,8 @@
                                           summary-scope
                                           summary-time-range
                                           returns-benchmark-selector
-                                          benchmark-context)]
+                                          benchmark-context
+                                          {:include-svg-paths? (not (chart-renderer/d3-performance-chart? :portfolio))})]
     {:volume-14d-usd volume-14d
      :fees fees
      :background-status (background-status-model state

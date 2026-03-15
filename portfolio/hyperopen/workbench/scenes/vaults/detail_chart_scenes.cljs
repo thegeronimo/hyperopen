@@ -92,6 +92,107 @@
     :area-fill "rgba(247, 147, 26, 0.24)"
     :points account-value-points}])
 
+(def ^:private dense-point-count
+  240)
+
+(def ^:private dense-point-step-ms
+  (* 6 60 60 1000))
+
+(defn- dense-raw-points
+  [{:keys [base trend amplitude secondary tertiary phase]}]
+  (mapv (fn [idx]
+          (let [value (+ base
+                         (* trend idx)
+                         (* amplitude (js/Math.sin (+ phase (* 0.12 idx))))
+                         (* secondary (js/Math.sin (+ (* 0.031 idx) (* 0.7 phase))))
+                         (* tertiary (js/Math.cos (+ (* 0.017 idx) (* 1.3 phase))))
+                         (* 0.35 (js/Math.sin (+ (* 0.23 idx) phase))))]
+            {:time-ms (+ 1700000000000 (* idx dense-point-step-ms))
+             :value (/ (js/Math.round (* value 100)) 100)}))
+        (range dense-point-count)))
+
+(defn- dense-domain
+  [series]
+  (let [values (mapcat (fn [points]
+                         (map :value points))
+                       series)
+        min-value (apply min values)
+        max-value (apply max values)
+        pad (max 1 (* 0.05 (- max-value min-value)))
+        domain-min (- min-value pad)
+        domain-max (+ max-value pad)
+        span (max 1 (- domain-max domain-min))]
+    {:min domain-min
+     :max domain-max
+     :span span}))
+
+(defn- dense-normalized-points
+  [raw-points {:keys [max span]}]
+  (let [point-count (count raw-points)]
+    (mapv (fn [idx {:keys [time-ms value]}]
+            {:time-ms time-ms
+             :value value
+             :x-ratio (if (> point-count 1)
+                        (/ idx (dec point-count))
+                        0)
+             :y-ratio (/ (- max value) span)})
+          (range point-count)
+          raw-points)))
+
+(defn- dense-y-ticks
+  [{:keys [min max span]}]
+  (let [step (/ span 3)]
+    (mapv (fn [idx]
+            (let [value (if (= idx 3)
+                          min
+                          (- max (* step idx)))]
+              {:value (/ (js/Math.round (* value 100)) 100)
+               :y-ratio (/ (- max value) span)}))
+          (range 4))))
+
+(def ^:private dense-returns-data
+  (let [strategy-raw (dense-raw-points {:base 2.8
+                                        :trend 0.055
+                                        :amplitude 4.8
+                                        :secondary 1.7
+                                        :tertiary 1.1
+                                        :phase 0.4})
+        btc-raw (dense-raw-points {:base 1.2
+                                   :trend 0.032
+                                   :amplitude 3.5
+                                   :secondary 1.2
+                                   :tertiary 0.9
+                                   :phase 1.1})
+        eth-raw (dense-raw-points {:base 0.5
+                                   :trend 0.024
+                                   :amplitude 2.9
+                                   :secondary 1.0
+                                   :tertiary 0.8
+                                   :phase 2.1})
+        domain (dense-domain [strategy-raw btc-raw eth-raw])
+        strategy-points (dense-normalized-points strategy-raw domain)
+        btc-points (dense-normalized-points btc-raw domain)
+        eth-points (dense-normalized-points eth-raw domain)]
+    {:points strategy-points
+     :series [{:id :strategy
+               :label "Vault"
+               :stroke "#16d6a1"
+               :has-data? true
+               :points strategy-points}
+              {:id :btc
+               :coin "BTC"
+               :label "Bitcoin"
+               :stroke "#f7931a"
+               :has-data? true
+               :points btc-points}
+              {:id :eth
+               :coin "ETH"
+               :label "Ether"
+               :stroke "#7dd3fc"
+               :has-data? true
+               :points eth-points}]
+     :y-ticks (dense-y-ticks domain)}))
+
 (defn- chart-model
   ([]
    (chart-model {}))
@@ -260,6 +361,21 @@
                                                      :selected-options [{:value "BTC" :label "Bitcoin"}]
                                                      :empty-message "No symbols."}})))
 
+(defonce dense-returns-store
+  (ws/create-store ::dense-returns
+                   (chart-model {:points (:points dense-returns-data)
+                                 :series (:series dense-returns-data)
+                                 :y-ticks (:y-ticks dense-returns-data)
+                                 :returns-benchmark {:coin-search ""
+                                                     :suggestions-open? false
+                                                     :candidates [{:value "BTC" :label "Bitcoin"}
+                                                                  {:value "ETH" :label "Ether"}
+                                                                  {:value "SOL" :label "Solana"}]
+                                                     :top-coin "BTC"
+                                                     :selected-options [{:value "BTC" :label "Bitcoin"}
+                                                                        {:value "ETH" :label "Ether"}]
+                                                     :empty-message "No symbols."}})))
+
 (defn- chart-scene
   [store]
   (layout/page-shell
@@ -291,5 +407,10 @@
 
 (portfolio/defscene benchmark-search-open
   :params benchmark-open-store
+  [store]
+  (chart-scene store))
+
+(portfolio/defscene dense-returns-with-benchmarks
+  :params dense-returns-store
   [store]
   (chart-scene store))

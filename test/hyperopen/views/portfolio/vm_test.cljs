@@ -94,7 +94,7 @@
       (is (true? (get-in view-model [:summary :show-earn-balance?])))
       (is (= :returns (get-in view-model [:chart :selected-tab])))
       (is (= 3 (count (get-in view-model [:chart :points]))))
-      (is (seq (get-in view-model [:chart :path]))))))
+      (is (nil? (get-in view-model [:chart :path]))))))
 
 (deftest portfolio-vm-uses-user-fees-payload-for-14d-volume-and-fee-rates-test
   (with-redefs [account-equity-view/account-equity-metrics (fn [_]
@@ -398,4 +398,4 @@
              (mapv :time-ms (get-in view-model [:chart :points]))))
       (is (= [0 0 -0.49 0]
              (mapv :value (get-in view-model [:chart :points]))))
-      (is (seq (get-in view-model [:chart :path]))))))
+      (is (nil? (get-in view-model [:chart :path]))))))

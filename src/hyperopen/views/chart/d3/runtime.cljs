@@ -112,6 +112,15 @@
   [runtime]
   @(:tooltip-models* runtime))
 
+(defn spec-update-key
+  [spec]
+  (select-keys spec [:surface :axis-kind :time-range :points :series :y-ticks :theme]))
+
+(defn- resolved-update-key
+  [spec]
+  (or (:update-key spec)
+      (spec-update-key spec)))
+
 (defn- build-tooltip-models
   [spec]
   (let [points (vec (or (:points spec) []))
@@ -553,6 +562,7 @@
         runtime {:doc doc
                  :host node
                  :spec* (atom spec)
+                 :update-key* (atom (resolved-update-key spec))
                  :size* (atom {:width 1
                                :height 1
                                :left 0})
@@ -614,10 +624,13 @@
 
 (defn- update-runtime!
   [runtime spec]
-  (reset! (:spec* runtime) spec)
-  (reset! (:tooltip-models* runtime) (build-tooltip-models spec))
-  (reset! (:hover-index* runtime) nil)
-  (render-runtime! runtime))
+  (let [next-update-key (resolved-update-key spec)]
+    (when-not (= next-update-key @(:update-key* runtime))
+      (reset! (:spec* runtime) spec)
+      (reset! (:update-key* runtime) next-update-key)
+      (reset! (:tooltip-models* runtime) (build-tooltip-models spec))
+      (reset! (:hover-index* runtime) nil)
+      (render-runtime! runtime))))
 
 (defn- attach-listeners!
   [runtime]
