@@ -55,7 +55,7 @@
    (interactive-shell store reducers {} content))
   ([store reducers attrs content]
    (let [scene-id* (dispatch/install-dispatch! store reducers)]
-     [:div (-> {:data-workbench-scene-id (dispatch/scene-attr store)}
-               (merge attrs)
-               (merge-class ["min-h-full"]))
+     [:div (merge-class ["min-h-full"]
+                        (merge {:data-workbench-scene-id (dispatch/scene-attr store)}
+                               attrs))
       content])))

@@ -31,21 +31,28 @@
             (clamp nearest-index 0 max-index)))))))
 
 (defn tooltip-layout
-  [width height hovered-point]
-  (when (and (number? width)
-             (pos? width)
-             (number? height)
-             (pos? height)
-             (map? hovered-point))
-    (let [x-ratio (or (:x-ratio hovered-point) 0)
-          y-ratio (or (:y-ratio hovered-point) 0)
-          left-px (* width x-ratio)
-          top-px (clamp (- (* height y-ratio) (* height 0.08))
-                        (* height 0.08)
-                        (* height 0.92))]
-      {:left-px left-px
-       :top-px top-px
-       :right-side? (> left-px (* width 0.74))})))
+  ([width height hovered-point]
+   (tooltip-layout width height nil hovered-point))
+  ([width height pointer-left-px hovered-point]
+   (when (and (number? width)
+              (pos? width)
+              (number? height)
+              (pos? height)
+              (map? hovered-point))
+     (let [x-ratio (or (:x-ratio hovered-point) 0)
+           y-ratio (or (:y-ratio hovered-point) 0)
+           left-px (clamp (if (and (number? pointer-left-px)
+                                   (js/isFinite pointer-left-px))
+                            pointer-left-px
+                            (* width x-ratio))
+                          0
+                          width)
+           top-px (clamp (- (* height y-ratio) (* height 0.08))
+                         (* height 0.08)
+                         (* height 0.92))]
+       {:left-px left-px
+        :top-px top-px
+        :right-side? (> left-px (* width 0.74))}))))
 
 (defn extend-single-point
   [width points]

@@ -108,6 +108,62 @@
   [runtime]
   @(:size* runtime))
 
+(defn- current-tooltip-models
+  [runtime]
+  @(:tooltip-models* runtime))
+
+(defn- build-tooltip-models
+  [spec]
+  (let [points (vec (or (:points spec) []))
+        series (vec (or (:series spec) []))
+        tooltip-builder (:build-tooltip spec)]
+    (if (fn? tooltip-builder)
+      (mapv (fn [idx point]
+              (tooltip-builder {:index idx
+                                :point point
+                                :active? true}
+                               series))
+            (range (count points))
+            points)
+      [])))
+
+(defn- request-animation-frame
+  [callback]
+  (if-let [raf (aget js/globalThis "requestAnimationFrame")]
+    (raf callback)
+    (do
+      (callback)
+      nil)))
+
+(defn- cancel-animation-frame
+  [frame-id]
+  (when frame-id
+    (if-let [cancel-raf (aget js/globalThis "cancelAnimationFrame")]
+      (cancel-raf frame-id)
+      nil)))
+
+(defn- refresh-size!
+  [runtime]
+  (let [{:keys [width height left]} (measure-host (:host runtime))]
+    (reset! (:size* runtime) {:width width
+                              :height height
+                              :left left})
+    {:width width
+     :height height
+     :left left}))
+
+(defn- local-pointer-x
+  [runtime event]
+  (let [{:keys [width left]} (current-size runtime)
+        offset-x (.-offsetX event)]
+    (or (when (and (number? offset-x)
+                   (js/isFinite offset-x))
+          (model/clamp offset-x 0 width))
+        (let [client-x (.-clientX event)]
+          (when (and (number? client-x)
+                     (js/isFinite client-x))
+            (model/clamp (- client-x left) 0 width))))))
+
 (defn- line-path
   [runtime points]
   (let [{:keys [width]} (current-size runtime)
@@ -285,44 +341,63 @@
                                :stroke-linejoin (:line-linejoin theme)
                                :vector-effect "non-scaling-stroke"})))))
 
+(defn- create-tooltip-row-nodes!
+  [runtime coin]
+  (let [doc (:doc runtime)
+        data-role-prefix (get-in (current-spec runtime) [:theme :data-role-prefix])
+        row (create-html-node doc
+                              "div"
+                              {:data-role (str data-role-prefix
+                                               "-hover-tooltip-benchmark-row-"
+                                               coin)
+                               :class ["grid"
+                                       "grid-cols-[1fr_auto]"
+                                       "items-center"
+                                       "gap-3"]}
+                              nil)
+        label-node (create-html-node doc
+                                     "span"
+                                     {:class ["text-[12px]"
+                                              "font-medium"
+                                              "leading-4"
+                                              "text-[#909fac]"]}
+                                     nil)
+        value-node (create-html-node doc
+                                     "span"
+                                     {:data-role (str data-role-prefix
+                                                      "-hover-tooltip-benchmark-value-"
+                                                      coin)
+                                      :class ["num"
+                                              "text-sm"
+                                              "font-semibold"
+                                              "leading-[1.1]"
+                                              "tracking-tight"]}
+                                     nil)
+        row-nodes {:row row
+                   :label-node label-node
+                   :value-node value-node}]
+    (.appendChild row label-node)
+    (.appendChild row value-node)
+    (swap! (:tooltip-row-nodes* runtime) assoc coin row-nodes)
+    row-nodes))
+
 (defn- update-tooltip-rows!
   [runtime benchmark-values]
   (let [rows-node (:tooltip-benchmark-rows runtime)
-        doc (:doc runtime)]
-    (clear-node! rows-node)
-    (doseq [{:keys [coin label value stroke]} (or benchmark-values [])]
-      (let [row (create-html-node doc
-                                  "div"
-                                  {:data-role (str (get-in (current-spec runtime) [:theme :data-role-prefix])
-                                                   "-hover-tooltip-benchmark-row-"
-                                                   coin)
-                                   :class ["grid"
-                                           "grid-cols-[1fr_auto]"
-                                           "items-center"
-                                           "gap-3"]}
-                                  nil)
-            label-node (create-html-node doc
-                                         "span"
-                                         {:class ["text-[12px]"
-                                                  "font-medium"
-                                                  "leading-4"
-                                                  "text-[#909fac]"]
-                                          :text label}
-                                         nil)
-            value-node (create-html-node doc
-                                         "span"
-                                         {:data-role (str (get-in (current-spec runtime) [:theme :data-role-prefix])
-                                                          "-hover-tooltip-benchmark-value-"
-                                                          coin)
-                                          :class ["num"
-                                                  "text-sm"
-                                                  "font-semibold"
-                                                  "leading-[1.1]"
-                                                  "tracking-tight"]
-                                          :text value}
-                                         {:color stroke})]
-        (.appendChild row label-node)
-        (.appendChild row value-node)
+        desired-values (vec (or benchmark-values []))
+        desired-coins (set (map (comp str :coin) desired-values))]
+    (doseq [[coin {:keys [row]}] @(:tooltip-row-nodes* runtime)]
+      (when-not (contains? desired-coins coin)
+        (remove-node! row)
+        (swap! (:tooltip-row-nodes* runtime) dissoc coin)))
+    (doseq [{:keys [coin label value stroke]} desired-values]
+      (let [coin* (str coin)
+            {:keys [row label-node value-node]} (or (get @(:tooltip-row-nodes* runtime) coin*)
+                                                    (create-tooltip-row-nodes! runtime coin*))]
+        (update-html-text! label-node label)
+        (update-html-text! value-node value)
+        (set-style-map! value-node {:color stroke})
+        ;; Re-append to preserve visual order when benchmarks are added or removed.
         (.appendChild rows-node row)))))
 
 (defn- hide-hover!
@@ -331,59 +406,85 @@
   (set-node-display! (:tooltip-root runtime) false)
   (set-node-display! (:hover-line runtime) false))
 
-(defn- show-hover!
-  [runtime hover-index]
+(defn- clear-hover!
+  [runtime]
+  (cancel-animation-frame @(:frame-id* runtime))
+  (reset! (:frame-id* runtime) nil)
+  (reset! (:pointer-x* runtime) nil)
+  (hide-hover! runtime))
+
+(defn- update-tooltip-content!
+  [runtime tooltip-model]
+  (update-html-text! (:tooltip-timestamp runtime) (:timestamp tooltip-model))
+  (update-html-text! (:tooltip-label runtime) (:metric-label tooltip-model))
+  (update-html-text! (:tooltip-value runtime) (:metric-value tooltip-model))
+  (reset-class-name! (:tooltip-value runtime)
+                     (into ["num"
+                            "text-[16px]"
+                            "font-semibold"
+                            "leading-[1]"
+                            "tracking-tight"]
+                           (:value-classes tooltip-model)))
+  (update-tooltip-rows! runtime (:benchmark-values tooltip-model)))
+
+(defn- position-hover!
+  [runtime pointer-x hovered-point]
+  (let [{:keys [width height]} (current-size runtime)
+        {:keys [left-px top-px right-side?]} (model/tooltip-layout width
+                                                                   height
+                                                                   pointer-x
+                                                                   hovered-point)]
+    (set-style-map! (:tooltip-root runtime)
+                    {:left (str left-px "px")
+                     :top (str top-px "px")
+                     :transform (if right-side?
+                                  "translate(calc(-100% - 8px), -50%)"
+                                  "translate(8px, -50%)")})
+    (set-attrs! (:hover-line runtime)
+                {:x1 left-px
+                 :x2 left-px
+                 :y1 0
+                 :y2 height})
+    (set-node-display! (:hover-line runtime) true)
+    (set-node-display! (:tooltip-root runtime) true)))
+
+(defn- apply-hover!
+  [runtime]
   (let [spec (current-spec runtime)
         points (vec (or (:points spec) []))
-        series (vec (or (:series spec) []))
-        hovered-point (nth points hover-index nil)
-        tooltip-builder (:build-tooltip spec)
-        {:keys [width height]} (current-size runtime)]
-    (if (and hovered-point (fn? tooltip-builder))
-      (let [tooltip-model (tooltip-builder {:index hover-index
-                                            :point hovered-point
-                                            :active? true}
-                                           series)
-            {:keys [left-px top-px right-side?]} (model/tooltip-layout width
-                                                                       height
-                                                                       hovered-point)]
-        (reset! (:hover-index* runtime) hover-index)
-        (update-html-text! (:tooltip-timestamp runtime) (:timestamp tooltip-model))
-        (update-html-text! (:tooltip-label runtime) (:metric-label tooltip-model))
-        (update-html-text! (:tooltip-value runtime) (:metric-value tooltip-model))
-        (reset-class-name! (:tooltip-value runtime)
-                           (into ["num"
-                                  "text-[16px]"
-                                  "font-semibold"
-                                  "leading-[1]"
-                                  "tracking-tight"]
-                                 (:value-classes tooltip-model)))
-        (update-tooltip-rows! runtime (:benchmark-values tooltip-model))
-        (set-style-map! (:tooltip-root runtime)
-                        {:left (str left-px "px")
-                         :top (str top-px "px")
-                         :transform (if right-side?
-                                      "translate(calc(-100% - 8px), -50%)"
-                                      "translate(8px, -50%)")})
-        (set-attrs! (:hover-line runtime)
-                    {:x1 (* width (:x-ratio hovered-point))
-                     :x2 (* width (:x-ratio hovered-point))
-                     :y1 0
-                     :y2 height})
-        (set-node-display! (:hover-line runtime) true)
-        (set-node-display! (:tooltip-root runtime) true))
+        pointer-x @(:pointer-x* runtime)
+        {:keys [width]} (current-size runtime)
+        next-index (when (number? pointer-x)
+                     (model/hover-index pointer-x
+                                        0
+                                        width
+                                        (count points)))
+        hovered-point (when (number? next-index)
+                        (nth points next-index nil))
+        tooltip-model (when (number? next-index)
+                        (nth (current-tooltip-models runtime) next-index nil))]
+    (if (and hovered-point tooltip-model)
+      (do
+        (when (not= @(:hover-index* runtime) next-index)
+          (reset! (:hover-index* runtime) next-index)
+          (update-tooltip-content! runtime tooltip-model))
+        (position-hover! runtime pointer-x hovered-point))
       (hide-hover! runtime))))
+
+(defn- schedule-hover-frame!
+  [runtime]
+  (when-not @(:frame-id* runtime)
+    (reset! (:frame-id* runtime)
+            (request-animation-frame
+             (fn []
+               (reset! (:frame-id* runtime) nil)
+               (apply-hover! runtime))))))
 
 (defn- handle-pointer-move!
   [runtime event]
-  (let [{:keys [left width]} (measure-host (:host runtime))
-        next-index (model/hover-index (.-clientX event)
-                                      left
-                                      width
-                                      (count (or (:points (current-spec runtime)) [])))]
-    (if (number? next-index)
-      (show-hover! runtime next-index)
-      (hide-hover! runtime))))
+  (when-let [pointer-x (local-pointer-x runtime event)]
+    (reset! (:pointer-x* runtime) pointer-x)
+    (schedule-hover-frame! runtime)))
 
 (defn- create-runtime
   [node spec]
@@ -453,7 +554,8 @@
                  :host node
                  :spec* (atom spec)
                  :size* (atom {:width 1
-                               :height 1})
+                               :height 1
+                               :left 0})
                  :clip-prefix (str (:data-role-prefix theme) "-" (random-uuid))
                  :svg svg
                  :baseline baseline
@@ -464,7 +566,11 @@
                  :tooltip-label tooltip-label
                  :tooltip-value tooltip-value
                  :tooltip-benchmark-rows tooltip-benchmark-rows
-                 :hover-index* (atom nil)}]
+                 :tooltip-row-nodes* (atom {})
+                 :tooltip-models* (atom (build-tooltip-models spec))
+                 :hover-index* (atom nil)
+                 :pointer-x* (atom nil)
+                 :frame-id* (atom nil)}]
     (set! (.-position (.-style node)) "relative")
     (set! (.-width (.-style node)) "100%")
     (set! (.-height (.-style node)) "100%")
@@ -489,10 +595,8 @@
 
 (defn- render-runtime!
   [runtime]
-  (let [{:keys [width height]} (measure-host (:host runtime))
+  (let [{:keys [width height]} (refresh-size! runtime)
         theme (:theme (current-spec runtime))]
-    (reset! (:size* runtime) {:width width
-                              :height height})
     (set-attrs! (:svg runtime) {:viewBox (str "0 0 " width " " height)})
     (set-attrs! (:baseline runtime) {:x1 0
                                      :x2 width
@@ -504,31 +608,38 @@
     (ensure-series-roots! runtime)
     (doseq [series (or (:series (current-spec runtime)) [])]
       (update-series-root! runtime series))
-    (if-let [hover-index @(:hover-index* runtime)]
-      (show-hover! runtime hover-index)
+    (if (number? @(:pointer-x* runtime))
+      (apply-hover! runtime)
       (hide-hover! runtime))))
 
 (defn- update-runtime!
   [runtime spec]
   (reset! (:spec* runtime) spec)
+  (reset! (:tooltip-models* runtime) (build-tooltip-models spec))
+  (reset! (:hover-index* runtime) nil)
   (render-runtime! runtime))
 
 (defn- attach-listeners!
   [runtime]
   (let [host (:host runtime)
+        on-pointer-enter (fn [event]
+                           (refresh-size! runtime)
+                           (handle-pointer-move! runtime event))
         on-pointer-move (fn [event]
                           (handle-pointer-move! runtime event))
         on-pointer-leave (fn [_event]
-                           (hide-hover! runtime))
+                           (clear-hover! runtime))
         resize-observer (when-let [ctor (.-ResizeObserver js/globalThis)]
                           (new ctor (fn [_entries _observer]
                                       (render-runtime! runtime))))]
+    (.addEventListener host "pointerenter" on-pointer-enter)
     (.addEventListener host "pointermove" on-pointer-move)
     (.addEventListener host "pointerleave" on-pointer-leave)
     (.addEventListener host "mouseleave" on-pointer-leave)
     (when resize-observer
       (.observe resize-observer host))
-    {:pointermove on-pointer-move
+    {:pointerenter on-pointer-enter
+     :pointermove on-pointer-move
      :pointerleave on-pointer-leave
      :mouseleave on-pointer-leave
      :resize-observer resize-observer}))
@@ -536,8 +647,11 @@
 (defn- cleanup-runtime!
   [runtime]
   (when runtime
+    (cancel-animation-frame @(:frame-id* runtime))
     (when-let [listeners (:listeners runtime)]
       (when-let [host (:host runtime)]
+        (when-let [pointerenter (:pointerenter listeners)]
+          (.removeEventListener host "pointerenter" pointerenter))
         (when-let [pointermove (:pointermove listeners)]
           (.removeEventListener host "pointermove" pointermove))
         (when-let [pointerleave (:pointerleave listeners)]

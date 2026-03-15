@@ -40,6 +40,11 @@
           :right-side? false}
          (model/tooltip-layout 400 240 {:x-ratio 0.2
                                         :y-ratio 0.01})))
+  (is (= {:left-px 310
+          :top-px 52.8
+          :right-side? true}
+         (model/tooltip-layout 400 240 310 {:x-ratio 0.2
+                                            :y-ratio 0.3})))
   (is (= {:left-px 320
           :top-px 218.4
           :right-side? true}

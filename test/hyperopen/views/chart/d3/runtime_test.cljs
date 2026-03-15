@@ -62,43 +62,105 @@
   (mapv #(.getAttribute % "data-series-id")
         (array-seq (.-children series-layer))))
 
+(defn- install-fake-raf!
+  []
+  (let [callbacks* (atom {})
+        next-id* (atom 0)
+        original-raf (aget js/globalThis "requestAnimationFrame")
+        original-cancel-raf (aget js/globalThis "cancelAnimationFrame")]
+    (aset js/globalThis
+          "requestAnimationFrame"
+          (fn [callback]
+            (let [frame-id (swap! next-id* inc)]
+              (swap! callbacks* assoc frame-id callback)
+              frame-id)))
+    (aset js/globalThis
+          "cancelAnimationFrame"
+          (fn [frame-id]
+            (swap! callbacks* dissoc frame-id)))
+    {:flush! (fn []
+               (let [pending-callbacks (map second (sort-by first @callbacks*))]
+                 (reset! callbacks* {})
+                 (doseq [callback pending-callbacks]
+                   (callback))))
+     :restore! (fn []
+                 (aset js/globalThis "requestAnimationFrame" original-raf)
+                 (aset js/globalThis "cancelAnimationFrame" original-cancel-raf))}))
+
 (deftest on-render-mounts-and-updates-hover-dom-locally-test
-  (let [document (fake-dom/make-fake-document)
+  (let [{:keys [flush! restore!]} (install-fake-raf!)
+        document (fake-dom/make-fake-document)
         host (doto (fake-dom/make-fake-element "div")
                (aset "ownerDocument" document))
         remember-count* (atom 0)
         remembered* (atom nil)
         mount! (runtime/on-render (chart-spec {}))]
-    (set! (.-clientWidth host) 400)
-    (set! (.-clientHeight host) 240)
-    (mount! {:replicant/life-cycle :replicant.life-cycle/mount
-             :replicant/node host
-             :replicant/remember (fn [memory]
-                                   (swap! remember-count* inc)
-                                   (reset! remembered* memory))})
-    (let [svg (data-role-node host "portfolio-chart-svg")
-          path (data-role-node host "portfolio-chart-path")
-        benchmark-path (data-role-node host "portfolio-chart-path-benchmark-0")
-        hover-line (data-role-node host "portfolio-chart-hover-line")
-        tooltip (data-role-node host "portfolio-chart-hover-tooltip")]
-      (is (= 1 @remember-count*))
-      (is (some? (:runtime @remembered*)))
-      (is (= "0 0 400 240" (.getAttribute svg "viewBox")))
-      (is (string? (.getAttribute path "d")))
-      (is (string? (.getAttribute benchmark-path "d")))
-      (is (= "none" (aget (.-style tooltip) "display")))
-      (fake-dom/dispatch-dom-event-with-payload! host "pointermove" #js {:clientX 380})
-      (is (= 1 @remember-count*))
-      (is (= "" (aget (.-style tooltip) "display")))
-      (is (= "" (aget (.-style hover-line) "display")))
-      (is (= "400" (.getAttribute hover-line "x1")))
-      (is (= "translate(calc(-100% - 8px), -50%)"
-             (aget (.-style tooltip) "transform")))
-      (is (str/includes? (str/join " " (fake-dom/collect-text-content tooltip))
-                         "T1 Returns V1"))
-      (fake-dom/dispatch-dom-event! host "pointerleave")
-      (is (= "none" (aget (.-style tooltip) "display")))
-      (is (= "none" (aget (.-style hover-line) "display"))))))
+    (try
+      (set! (.-clientWidth host) 400)
+      (set! (.-clientHeight host) 240)
+      (mount! {:replicant/life-cycle :replicant.life-cycle/mount
+               :replicant/node host
+               :replicant/remember (fn [memory]
+                                     (swap! remember-count* inc)
+                                     (reset! remembered* memory))})
+      (let [svg (data-role-node host "portfolio-chart-svg")
+            path (data-role-node host "portfolio-chart-path")
+            benchmark-path (data-role-node host "portfolio-chart-path-benchmark-0")
+            hover-line (data-role-node host "portfolio-chart-hover-line")
+            tooltip (data-role-node host "portfolio-chart-hover-tooltip")]
+        (is (= 1 @remember-count*))
+        (is (some? (:runtime @remembered*)))
+        (is (= "0 0 400 240" (.getAttribute svg "viewBox")))
+        (is (string? (.getAttribute path "d")))
+        (is (string? (.getAttribute benchmark-path "d")))
+        (is (= "none" (aget (.-style tooltip) "display")))
+        (fake-dom/dispatch-dom-event-with-payload! host "pointermove" #js {:clientX 380})
+        (is (= "none" (aget (.-style tooltip) "display")))
+        (flush!)
+        (is (= 1 @remember-count*))
+        (is (= "" (aget (.-style tooltip) "display")))
+        (is (= "" (aget (.-style hover-line) "display")))
+        (is (= "380" (.getAttribute hover-line "x1")))
+        (is (= "translate(calc(-100% - 8px), -50%)"
+               (aget (.-style tooltip) "transform")))
+        (is (str/includes? (str/join " " (fake-dom/collect-text-content tooltip))
+                           "T1 Returns V1"))
+        (fake-dom/dispatch-dom-event! host "pointerleave")
+        (is (= "none" (aget (.-style tooltip) "display")))
+        (is (= "none" (aget (.-style hover-line) "display"))))
+      (finally
+        (restore!)))))
+
+(deftest on-render-batches-pointer-moves-and-reuses-tooltip-rows-for-same-index-test
+  (let [{:keys [flush! restore!]} (install-fake-raf!)
+        document (fake-dom/make-fake-document)
+        host (doto (fake-dom/make-fake-element "div")
+               (aset "ownerDocument" document))
+        remembered* (atom nil)
+        mount! (runtime/on-render (chart-spec {}))]
+    (try
+      (set! (.-clientWidth host) 400)
+      (set! (.-clientHeight host) 240)
+      (mount! {:replicant/life-cycle :replicant.life-cycle/mount
+               :replicant/node host
+               :replicant/remember (fn [memory]
+                                     (reset! remembered* memory))})
+      (let [hover-line (data-role-node host "portfolio-chart-hover-line")
+            tooltip (data-role-node host "portfolio-chart-hover-tooltip")]
+        (fake-dom/dispatch-dom-event-with-payload! host "pointermove" #js {:clientX 320})
+        (fake-dom/dispatch-dom-event-with-payload! host "pointermove" #js {:clientX 384})
+        (is (= "none" (aget (.-style tooltip) "display")))
+        (flush!)
+        (let [row-before (data-role-node host "portfolio-chart-hover-tooltip-benchmark-row-SPY")]
+          (is (= "" (aget (.-style tooltip) "display")))
+          (is (= "384" (.getAttribute hover-line "x1")))
+          (fake-dom/dispatch-dom-event-with-payload! host "pointermove" #js {:clientX 360})
+          (flush!)
+          (is (= "360" (.getAttribute hover-line "x1")))
+          (is (identical? row-before
+                          (data-role-node host "portfolio-chart-hover-tooltip-benchmark-row-SPY")))))
+      (finally
+        (restore!)))))
 
 (deftest on-render-update-rekeys-series-roots-and-rebuilds-area-structure-test
   (let [document (fake-dom/make-fake-document)
@@ -156,7 +218,8 @@
       (is (nil? spy-path)))))
 
 (deftest on-render-observes-resize-and-cleans-up-on-unmount-test
-  (let [document (fake-dom/make-fake-document)
+  (let [{:keys [restore!]} (install-fake-raf!)
+        document (fake-dom/make-fake-document)
         host (doto (fake-dom/make-fake-element "div")
                (aset "ownerDocument" document))
         remembered* (atom nil)
@@ -191,8 +254,10 @@
                :replicant/node host
                :replicant/memory @remembered*})
       (is (= 1 @disconnect-count*))
+      (is (nil? (aget (.-listeners host) "pointerenter")))
       (is (nil? (aget (.-listeners host) "pointermove")))
       (is (nil? (aget (.-listeners host) "pointerleave")))
       (is (zero? (alength (.-children host))))
       (finally
-        (aset js/globalThis "ResizeObserver" original-resize-observer)))))
+        (aset js/globalThis "ResizeObserver" original-resize-observer)
+        (restore!)))))

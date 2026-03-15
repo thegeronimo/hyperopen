@@ -337,7 +337,8 @@
             [hyperopen.websocket.user-test]
             [hyperopen.websocket.webdata2-test]
             [hyperopen.workbench.portfolio-client-test]
-            [hyperopen.workbench.support.dispatch-test]))
+            [hyperopen.workbench.support.dispatch-test]
+            [hyperopen.workbench.support.layout-test]))
 
 (defn run-generated-tests
   "Run all generated test namespaces and return the results."
@@ -677,4 +678,5 @@
              'hyperopen.websocket.user-test
              'hyperopen.websocket.webdata2-test
              'hyperopen.workbench.portfolio-client-test
-             'hyperopen.workbench.support.dispatch-test))
+             'hyperopen.workbench.support.dispatch-test
+             'hyperopen.workbench.support.layout-test))
