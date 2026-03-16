@@ -684,6 +684,7 @@
    :effects/push-state ::path-args
    :effects/replace-state ::path-args
    :effects/load-route-module ::path-args
+   :effects/load-trade-chart-module ::no-args
    :effects/init-websocket ::no-args
    :effects/subscribe-active-asset ::coin-args
    :effects/subscribe-orderbook ::coin-args

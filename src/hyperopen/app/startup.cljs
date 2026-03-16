@@ -7,6 +7,7 @@
             [nexus.registry :as nxr]
             [hyperopen.orderbook.settings :as orderbook-settings]
             [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.route-modules :as route-modules]
             [hyperopen.router :as router]
             [hyperopen.runtime.action-adapters :as runtime-action-adapters]
             [hyperopen.runtime.effect-adapters :as runtime-effect-adapters]
@@ -15,6 +16,7 @@
             [hyperopen.startup.init :as startup-init]
             [hyperopen.startup.restore :as startup-restore]
             [hyperopen.startup.runtime :as startup-runtime-lib]
+            [hyperopen.trade-modules :as trade-modules]
             [hyperopen.ui.preferences :as ui-preferences]
             [hyperopen.vaults.infrastructure.persistence :as vault-persistence]
             [hyperopen.wallet.core :as wallet]))
@@ -136,6 +138,18 @@
       (when (fn? init-fn)
         (init-fn store)))))
 
+(defn- route-change-effects
+  [state path]
+  (let [normalized-path (router/normalize-path path)]
+    (cond-> []
+      (some? (route-modules/route-module-id normalized-path))
+      (conj [:effects/load-route-module normalized-path])
+
+      (and (router/trade-route? normalized-path)
+           (not (trade-modules/trade-chart-ready? state))
+           (not (trade-modules/trade-chart-loading? state)))
+      (conj [:effects/load-trade-chart-module]))))
+
 (defn init!
   [system]
   (let [base-deps (startup-base-deps system)]
@@ -170,7 +184,9 @@
                         startup-store
                         {:on-route-change
                          (fn [path]
-                           (nxr/dispatch startup-store nil [[:effects/load-route-module path]]))}))
+                           (let [effects (route-change-effects @startup-store path)]
+                             (when (seq effects)
+                               (nxr/dispatch startup-store nil effects))))}))
        :install-asset-selector-shortcuts! (fn []
                                             (startup-runtime-lib/install-asset-selector-shortcuts!
                                              {:store (:store base-deps)

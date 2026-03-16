@@ -4,7 +4,7 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
 
 This document is maintained in accordance with `/hyperopen/.agents/PLANS.md`.
 
-Linked live work: `hyperopen-0pgn` ("Split trading chart code out of the initial trade bundle").
+Linked live work: `hyperopen-p4dz` ("Reduce initial trade-route startup bootstrap breadth").
 
 ## Purpose / Big Picture
 
@@ -25,9 +25,12 @@ The work is intentionally ordered by leverage. The first wave removes large cold
 - [x] (2026-03-16 17:09Z) Completed the route-level Milestone 2 split: portfolio, funding comparison, staking, API-wallets, and vault screens now compile into separate browser modules and load on demand through the router/runtime effect path.
 - [x] (2026-03-16 17:10Z) Validated the route-level split with `npm test`, `npm run build`, `npm run test:websocket`, and `npm run check`; the release build now emits `portfolio_route.js`, `funding_comparison_route.js`, `staking_route.js`, `api_wallets_route.js`, and `vaults_route.js`.
 - [x] (2026-03-16 17:11Z) Closed `hyperopen-7nop` as completed and opened `hyperopen-0pgn` for the remaining trade-chart split that still belongs to Milestone 2.
+- [x] (2026-03-16 18:31Z) Completed the remaining Milestone 2 split by moving the trade chart stack into a dedicated `trade_chart` browser module, loading it on `/trade` startup and navigation, and rendering a stable chart-panel shell while the async module resolves.
+- [x] (2026-03-16 18:31Z) Validated the completed Milestone 2 split with `npm run check`, `npm test`, `npm run test:websocket`, and `npm run build`; the release output now emits `trade_chart.js` (`516,614` bytes) and the initial `main.js` release bundle is down to `2,398,298` bytes.
+- [x] (2026-03-16 18:31Z) Closed `hyperopen-0pgn` as completed, closed the earlier deferred-route regression issue `hyperopen-8vww`, and opened `hyperopen-p4dz` for Milestone 3 startup-bootstrap reduction work.
 - [ ] Implement Milestone 0 (clean measurement harness and extension-free baseline capture).
 - [x] Implement Milestone 1 (remove non-essential cold-load font payloads).
-- [ ] Implement Milestone 2 (split the monolithic app bundle and defer non-critical route code).
+- [x] Implement Milestone 2 (split the monolithic app bundle and defer non-critical route code).
 - [ ] Implement Milestone 3 (reduce startup fetch and subscription work on initial trade load).
 - [ ] Implement Milestone 4 (reduce whole-app render churn and expensive live-surface layout work).
 - [ ] Implement Milestone 5 (repeat-visit caching and back/forward cache polish).
@@ -64,6 +67,9 @@ The work is intentionally ordered by leverage. The first wave removes large cold
 - Observation: route-level splitting alone does not finish Milestone 2 because the initial trade bundle still contains the entire chart stack.
   Evidence: after the route split, `resources/public/js/main.js` remains `15,007,924` bytes on disk in the release output, which confirms that the next meaningful JavaScript cut is still the trade-chart/libraries path.
 
+- Observation: the dedicated trade-chart module materially shrank the initial release bundle while preserving the existing trade layout shell.
+  Evidence: after completing the trade-chart split, `npm run build` emits `resources/public/js/trade_chart.js` at `516,614` bytes and reduces `resources/public/js/main.js` to `2,398,298` bytes on disk, down from the earlier post-route-split `15,007,924` byte main bundle recorded in this plan.
+
 ## Decision Log
 
 - Decision: Treat the March 16 release report as the performance baseline, but require extension-free reruns before implementation milestones are judged complete.
@@ -98,11 +104,15 @@ The work is intentionally ordered by leverage. The first wave removes large cold
   Rationale: moving non-trade routes out of `:main` removes obvious landing-route waste, but the chart stack remains the largest trade-owned code path still loaded on the default route.
   Date/Author: 2026-03-16 / Codex
 
+- Decision: Finish Milestone 2 by putting the trade chart behind its own browser module and rendering a stable chart-panel shell until that module resolves.
+  Rationale: this moves `lightweight-charts` and the trade-chart interop stack off the cold path without changing the existing trade grid, panel ordering, or retry behavior after async-load failures.
+  Date/Author: 2026-03-16 / Codex
+
 ## Outcomes & Retrospective
 
-Milestone 1 is implemented, and the first route-level wave of Milestone 2 is now implemented as well. The default route no longer cold-loads Splash or Inter, and the browser build now loads portfolio, funding comparison, staking, API-wallets, and vault screens from dedicated async route chunks instead of eagerly requiring those views from the app shell.
+Milestones 1 and 2 are now implemented. The default route no longer cold-loads Splash or Inter, the browser build loads portfolio, funding comparison, staking, API-wallets, and vault screens from dedicated async route chunks, and the trade route now resolves its chart stack from a separate `trade_chart` module instead of baking that code into the initial browser entrypoint.
 
-The verification result is strong for correctness and build topology, and still incomplete for final performance scoring. Repository gates all pass, the release build emits the expected route chunks, and navigation/startup now know how to load them on demand. Milestone 0 remains open as measurement debt, and the remaining Milestone 2 work is now explicitly narrowed to splitting the trade-chart stack under `hyperopen-0pgn`.
+The verification result is strong for correctness and build topology, and still incomplete for final performance scoring. Repository gates all pass, the release build emits the expected async chunks including `trade_chart.js`, startup and navigation now know how to load them on demand, and the cold-path release bundle is substantially smaller than it was after the first route split. Milestone 0 remains open as measurement debt, and the next highest-leverage work is Milestone 3 startup-bootstrap reduction under `hyperopen-p4dz`.
 
 ## Context and Orientation
 

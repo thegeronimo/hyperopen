@@ -280,6 +280,7 @@
     :require-projection-before-heavy? true
     :allow-duplicate-heavy-effects? false
    :heavy-effect-ids #{:effects/load-route-module
+                       :effects/load-trade-chart-module
                         :effects/api-fetch-vault-index
                         :effects/api-fetch-vault-summaries
                         :effects/api-fetch-user-vault-equities
@@ -304,6 +305,7 @@
     :require-projection-before-heavy? true
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/load-route-module
+                        :effects/load-trade-chart-module
                         :effects/api-fetch-vault-index
                         :effects/api-fetch-vault-summaries
                         :effects/api-fetch-user-vault-equities

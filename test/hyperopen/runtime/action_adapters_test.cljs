@@ -8,6 +8,7 @@
             [hyperopen.runtime.action-adapters :as action-adapters]
             [hyperopen.runtime.effect-order-contract :as effect-order-contract]
             [hyperopen.staking.actions :as staking-actions]
+            [hyperopen.trade-modules :as trade-modules]
             [hyperopen.vaults.actions :as vault-actions]
             [hyperopen.wallet.agent-runtime :as agent-runtime]
             [hyperopen.wallet.connection-runtime :as wallet-connection-runtime]))
@@ -72,6 +73,18 @@
             [:effects/load-route-module "/staking"]
             [:effects/api-fetch-staking-validator-summaries]]
            (action-adapters/navigate {} "/staking")))))
+
+(deftest navigate-trade-route-loads-deferred-chart-module-test
+  (with-redefs [vault-actions/load-vault-route (fn [_state _path] [])
+                funding-comparison-actions/load-funding-comparison-route (fn [_state _path] [])
+                api-wallets-actions/load-api-wallet-route (fn [_state _path] [])
+                staking-actions/load-staking-route (fn [_state _path] [])
+                trade-modules/trade-chart-ready? (constantly false)
+                trade-modules/trade-chart-loading? (constantly false)]
+    (is (= [[:effects/save [:router :path] "/trade"]
+            [:effects/push-state "/trade"]
+            [:effects/load-trade-chart-module]]
+           (action-adapters/navigate {} "/trade")))))
 
 (deftest navigate-entering-portfolio-loads-chart-benchmark-effects-test
   (with-redefs [portfolio-actions/select-portfolio-chart-tab (fn [_state tab]
@@ -148,6 +161,21 @@
     (let [effects (action-adapters/navigate {:router {:path "/trade"}
                                              :portfolio-ui {:chart-tab :returns}}
                                             "/portfolio")]
+      (is (= effects
+             (effect-order-contract/assert-action-effect-order!
+              :actions/navigate
+              effects
+              {:phase :action-emission
+               :action-id :actions/navigate}))))))
+
+(deftest navigate-trade-route-satisfies-effect-order-contract-test
+  (with-redefs [vault-actions/load-vault-route (fn [_state _path] [])
+                funding-comparison-actions/load-funding-comparison-route (fn [_state _path] [])
+                api-wallets-actions/load-api-wallet-route (fn [_state _path] [])
+                staking-actions/load-staking-route (fn [_state _path] [])
+                trade-modules/trade-chart-ready? (constantly false)
+                trade-modules/trade-chart-loading? (constantly false)]
+    (let [effects (action-adapters/navigate {:router {:path "/portfolio"}} "/trade")]
       (is (= effects
              (effect-order-contract/assert-action-effect-order!
               :actions/navigate

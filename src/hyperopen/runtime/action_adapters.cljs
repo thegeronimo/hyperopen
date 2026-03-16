@@ -13,6 +13,7 @@
             [hyperopen.route-modules :as route-modules]
             [hyperopen.router :as router]
             [hyperopen.staking.actions :as staking-actions]
+            [hyperopen.trade-modules :as trade-modules]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.vaults.actions :as vault-actions]
             [hyperopen.wallet.agent-runtime :as agent-runtime]
@@ -130,6 +131,13 @@
    (when (account-context/spectate-mode-active? state)
      (account-context/spectate-address state))))
 
+(defn- trade-chart-module-effect
+  [state normalized-path]
+  (when (and (router/trade-route? normalized-path)
+             (not (trade-modules/trade-chart-ready? state))
+             (not (trade-modules/trade-chart-loading? state)))
+    [:effects/load-trade-chart-module]))
+
 (defn navigate
   [state path & [opts]]
   (let [p (router/normalize-path path)
@@ -137,6 +145,7 @@
         browser-path (navigation-browser-path state p)
         module-effect (when-let [_module-id (route-modules/route-module-id p)]
                         [:effects/load-route-module p])
+        trade-chart-effect (trade-chart-module-effect state p)
         route-effects (into []
                             (concat (vault-actions/load-vault-route state p)
                                     (funding-comparison-actions/load-funding-comparison-route state p)
@@ -155,6 +164,7 @@
       (seq projection-effects) (into projection-effects)
       true (conj navigation-effect)
       module-effect (conj module-effect)
+      trade-chart-effect (conj trade-chart-effect)
       (seq follow-up-effects) (into follow-up-effects))))
 
 (defn load-vault-route-action

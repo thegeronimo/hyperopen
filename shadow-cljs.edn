@@ -14,6 +14,8 @@
         :asset-path "/js"
         :module-loader true
         :modules {:main {:init-fn hyperopen.core/start!}
+                  :trade_chart {:entries [hyperopen.views.trading-chart.module]
+                                :depends-on #{:main}}
                   :portfolio_route {:entries [hyperopen.views.portfolio-view]
                                     :depends-on #{:main}}
                   :funding_comparison_route {:entries [hyperopen.views.funding-comparison-view]
@@ -86,6 +88,8 @@
             :asset-path "/js"
             :module-loader true
             :modules {:main {:init-fn hyperopen.core/start!}
+                      :trade_chart {:entries [hyperopen.views.trading-chart.module]
+                                    :depends-on #{:main}}
                       :portfolio_route {:entries [hyperopen.views.portfolio-view]
                                         :depends-on #{:main}}
                       :funding_comparison_route {:entries [hyperopen.views.funding-comparison-view]

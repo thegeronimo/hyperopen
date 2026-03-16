@@ -2,7 +2,9 @@
   (:require [cljs.test :refer-macros [deftest is]]
             [nexus.registry :as nxr]
             [hyperopen.app.startup :as app-startup]
+            [hyperopen.route-modules :as route-modules]
             [hyperopen.router :as router]
+            [hyperopen.trade-modules :as trade-modules]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.startup.collaborators :as startup-collaborators]
             [hyperopen.startup.init :as startup-init]
@@ -159,6 +161,10 @@
                   startup-init/init!
                   (fn [deps]
                     (reset! captured-init-deps deps))
+                  route-modules/route-module-id
+                  (fn [path]
+                    (when (= path "/portfolio")
+                      :portfolio))
                   router/init!
                   (fn
                     ([_store]
@@ -173,4 +179,43 @@
       ((:init-router! @captured-init-deps) store)
       ((:on-route-change @captured-router-opts) "/portfolio"))
     (is (= [[store [[:effects/load-route-module "/portfolio"]]]]
+           @dispatch-calls))))
+
+(deftest init-wraps-router-with-trade-chart-module-loading-dispatch-test
+  (let [store (atom {:router {:path "/portfolio"}})
+        runtime (atom {})
+        captured-init-deps (atom nil)
+        captured-router-opts (atom nil)
+        dispatch-calls (atom [])]
+    (with-redefs [startup-collaborators/startup-base-deps
+                  (fn [deps]
+                    (merge
+                     {:store (:store deps)
+                      :runtime (:runtime deps)
+                      :dispatch! (fn [& _] nil)
+                      :log-fn (fn [& _] nil)}
+                     deps))
+                  startup-init/init!
+                  (fn [deps]
+                    (reset! captured-init-deps deps))
+                  route-modules/route-module-id
+                  (constantly nil)
+                  trade-modules/trade-chart-ready?
+                  (constantly false)
+                  trade-modules/trade-chart-loading?
+                  (constantly false)
+                  router/init!
+                  (fn
+                    ([_store]
+                     nil)
+                    ([_store opts]
+                     (reset! captured-router-opts opts)))
+                  nxr/dispatch
+                  (fn [store-arg _ctx effects]
+                    (swap! dispatch-calls conj [store-arg effects]))]
+      (app-startup/init! {:runtime runtime
+                          :store store})
+      ((:init-router! @captured-init-deps) store)
+      ((:on-route-change @captured-router-opts) "/trade"))
+    (is (= [[store [[:effects/load-trade-chart-module]]]]
            @dispatch-calls))))

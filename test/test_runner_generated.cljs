@@ -154,6 +154,7 @@
             [hyperopen.telemetry.console-preload.simulators-test]
             [hyperopen.telemetry.console-warning-test]
             [hyperopen.test-runner-support-test]
+            [hyperopen.trade-modules-test]
             [hyperopen.trading.order-form-tpsl-policy-test]
             [hyperopen.trading.order-form-transitions-test]
             [hyperopen.ui.preferences-test]
@@ -497,6 +498,7 @@
              'hyperopen.telemetry.console-preload.simulators-test
              'hyperopen.telemetry.console-warning-test
              'hyperopen.test-runner-support-test
+             'hyperopen.trade-modules-test
              'hyperopen.trading.order-form-tpsl-policy-test
              'hyperopen.trading.order-form-transitions-test
              'hyperopen.ui.preferences-test

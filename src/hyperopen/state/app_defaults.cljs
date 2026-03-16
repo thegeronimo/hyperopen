@@ -9,6 +9,7 @@
             [hyperopen.order.cancel-visible-confirmation :as cancel-visible-confirmation]
             [hyperopen.platform :as platform]
             [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.trade-modules :as trade-modules]
             [hyperopen.vaults.domain.transfer-policy :as vault-transfer-policy]
             [hyperopen.vaults.domain.ui-state :as vault-ui-state]
             [hyperopen.vaults.infrastructure.persistence :as vault-persistence]))
@@ -384,6 +385,7 @@
    :route-modules {:loaded #{}
                    :loading nil
                    :errors {}}
+   :trade-modules (trade-modules/default-state)
    :order-form (or default-order-form {})
    :order-form-ui (or default-order-form-ui {})
    :order-form-runtime (or default-order-form-runtime {})

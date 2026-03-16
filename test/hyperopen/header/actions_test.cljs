@@ -11,7 +11,8 @@
 (deftest navigate-mobile-header-menu-closes-before-route-transition-test
   (is (= [[:effects/save [:header-ui :mobile-menu-open?] false]
           [:effects/save [:router :path] "/trade"]
-          [:effects/push-state "/trade"]]
+          [:effects/push-state "/trade"]
+          [:effects/load-trade-chart-module]]
          (actions/navigate-mobile-header-menu {} "/trade"))))
 
 (deftest open-spectate-mode-mobile-header-menu-closes-before-opening-modal-test

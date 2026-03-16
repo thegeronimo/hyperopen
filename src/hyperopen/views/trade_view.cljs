@@ -1,9 +1,9 @@
 (ns hyperopen.views.trade-view
   (:require [hyperopen.trade.layout-actions :as trade-layout-actions]
+            [hyperopen.trade-modules :as trade-modules]
             [hyperopen.views.active-asset-view :as active-asset-view]
             [hyperopen.views.ui.funding-modal-positioning :as funding-modal-positioning]
             [hyperopen.views.l2-orderbook-view :as l2-orderbook-view]
-            [hyperopen.views.trading-chart.core :as trading-chart]
             [hyperopen.views.account-info-view :as account-info-view]
             [hyperopen.views.account-equity-view :as account-equity-view]
             [hyperopen.views.trade.order-form-view :as order-form-view]))
@@ -58,6 +58,57 @@
                          "pb-1.5"
                          "space-y-2"]
      :data-parity-id "trade-mobile-account-actions"})])
+
+(defn- trade-chart-loading-shell
+  [state]
+  (let [error-message (trade-modules/trade-chart-error state)
+        route (get-in state [:router :path] "/trade")]
+    [:div {:class ["flex"
+                   "h-full"
+                   "min-h-0"
+                   "items-center"
+                   "justify-center"
+                   "bg-base-100"
+                   "px-6"
+                   "py-10"]
+           :data-parity-id "trade-chart-module-shell"}
+     [:div {:class ["flex"
+                    "max-w-md"
+                    "flex-col"
+                    "items-center"
+                    "gap-3"
+                    "text-center"]}
+      [:div {:class ["text-sm"
+                     "font-semibold"
+                     "uppercase"
+                     "tracking-[0.12em]"
+                     "text-trading-text-secondary"]}
+       (if error-message
+         "Chart Load Failed"
+         "Loading Chart")]
+      [:p {:class ["text-sm" "text-trading-text-secondary"]}
+       (or error-message
+           "Loading the trade chart on demand to keep the initial trade bundle smaller.")]
+      (when error-message
+        [:button {:type "button"
+                  :class ["rounded-lg"
+                          "border"
+                          "border-base-300"
+                          "px-3"
+                          "py-2"
+                          "text-sm"
+                          "font-medium"
+                          "text-trading-text"
+                          "transition-colors"
+                          "hover:border-primary"
+                          "hover:text-primary"]
+                  :on {:click [[:actions/navigate route {:replace? true}]]}}
+         "Retry"])]]))
+
+(defn- trade-chart-panel-content
+  [state]
+  (or (trade-modules/render-trade-chart-view state)
+      (trade-chart-loading-shell state)))
 
 (defn trade-view [state]
   (let [active-asset (:active-asset state)
@@ -124,7 +175,7 @@
          [:div {:class ["hidden" "lg:block"]}
           (active-asset-view/active-asset-view state*)]
          [:div {:class ["overflow-hidden" "flex-1" "min-h-0"]}
-          (trading-chart/trading-chart-view state*)]]
+          (trade-chart-panel-content state*)]]
 
         [:div {:class (into [(if mobile-orderbook-surface? "block" "hidden")
                              "bg-base-100"
