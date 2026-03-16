@@ -4,7 +4,7 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
 
 This document is maintained in accordance with `/hyperopen/.agents/PLANS.md`.
 
-Linked live work: `hyperopen-p4dz` ("Reduce initial trade-route startup bootstrap breadth").
+Linked live work: `hyperopen-e0cr` ("Reduce trade-route render churn under live market updates").
 
 ## Purpose / Big Picture
 
@@ -28,10 +28,13 @@ The work is intentionally ordered by leverage. The first wave removes large cold
 - [x] (2026-03-16 18:31Z) Completed the remaining Milestone 2 split by moving the trade chart stack into a dedicated `trade_chart` browser module, loading it on `/trade` startup and navigation, and rendering a stable chart-panel shell while the async module resolves.
 - [x] (2026-03-16 18:31Z) Validated the completed Milestone 2 split with `npm run check`, `npm test`, `npm run test:websocket`, and `npm run build`; the release output now emits `trade_chart.js` (`516,614` bytes) and the initial `main.js` release bundle is down to `2,398,298` bytes.
 - [x] (2026-03-16 18:31Z) Closed `hyperopen-0pgn` as completed, closed the earlier deferred-route regression issue `hyperopen-8vww`, and opened `hyperopen-p4dz` for Milestone 3 startup-bootstrap reduction work.
+- [x] (2026-03-16 19:08Z) Completed Milestone 3 by removing asset-selector market bootstrap from the critical startup phase and eliminating the automatic deferred full selector-market fetch from cold `/trade` startup; full selector-market expansion now waits for explicit UI demand such as opening the asset selector or navigating to a route that needs it.
+- [x] (2026-03-16 19:08Z) Validated the completed Milestone 3 cut with `npm run check`, `npm test`, `npm run test:websocket`, and `npm run build`; startup/runtime integration tests now lock in that initial `/trade` startup only fetches asset contexts and does not auto-schedule selector-market expansion.
+- [x] (2026-03-16 19:08Z) Closed `hyperopen-p4dz` as completed and opened `hyperopen-e0cr` for Milestone 4 render-churn reduction work.
 - [ ] Implement Milestone 0 (clean measurement harness and extension-free baseline capture).
 - [x] Implement Milestone 1 (remove non-essential cold-load font payloads).
 - [x] Implement Milestone 2 (split the monolithic app bundle and defer non-critical route code).
-- [ ] Implement Milestone 3 (reduce startup fetch and subscription work on initial trade load).
+- [x] Implement Milestone 3 (reduce startup fetch and subscription work on initial trade load).
 - [ ] Implement Milestone 4 (reduce whole-app render churn and expensive live-surface layout work).
 - [ ] Implement Milestone 5 (repeat-visit caching and back/forward cache polish).
 
@@ -69,6 +72,9 @@ The work is intentionally ordered by leverage. The first wave removes large cold
 
 - Observation: the dedicated trade-chart module materially shrank the initial release bundle while preserving the existing trade layout shell.
   Evidence: after completing the trade-chart split, `npm run build` emits `resources/public/js/trade_chart.js` at `516,614` bytes and reduces `resources/public/js/main.js` to `2,398,298` bytes on disk, down from the earlier post-route-split `15,007,924` byte main bundle recorded in this plan.
+
+- Observation: the startup “deferred bootstrap” still ran only `1200 ms` after initialization, so leaving it enabled would continue to pull the full selector-market catalog into the same cold-load performance window.
+  Evidence: `/hyperopen/src/hyperopen/config.cljs` sets `:startup {:deferred-bootstrap-delay-ms 1200}`, `/hyperopen/src/hyperopen/app/startup.cljs` wires that delay into `schedule-idle-or-timeout!`, and `/hyperopen/src/hyperopen/startup/runtime.cljs` previously used that deferred phase solely for `fetch-asset-selector-markets!`.
 
 ## Decision Log
 
@@ -108,11 +114,15 @@ The work is intentionally ordered by leverage. The first wave removes large cold
   Rationale: this moves `lightweight-charts` and the trade-chart interop stack off the cold path without changing the existing trade grid, panel ordering, or retry behavior after async-load failures.
   Date/Author: 2026-03-16 / Codex
 
+- Decision: Complete Milestone 3 by removing both the critical selector bootstrap fetch and the automatic deferred selector-market expansion from cold startup, relying on explicit UI demand instead.
+  Rationale: the asset selector already refreshes to `:full` on first open and route-specific loaders request the catalog when needed, so keeping these fetches on startup only widens the Lighthouse cold path without improving initial trade correctness.
+  Date/Author: 2026-03-16 / Codex
+
 ## Outcomes & Retrospective
 
-Milestones 1 and 2 are now implemented. The default route no longer cold-loads Splash or Inter, the browser build loads portfolio, funding comparison, staking, API-wallets, and vault screens from dedicated async route chunks, and the trade route now resolves its chart stack from a separate `trade_chart` module instead of baking that code into the initial browser entrypoint.
+Milestones 1 through 3 are now implemented. The default route no longer cold-loads Splash or Inter, the browser build loads portfolio, funding comparison, staking, API-wallets, and vault screens from dedicated async route chunks, the trade route now resolves its chart stack from a separate `trade_chart` module instead of baking that code into the initial browser entrypoint, and cold `/trade` startup no longer fetches or auto-schedules asset-selector market expansion before the user asks for it.
 
-The verification result is strong for correctness and build topology, and still incomplete for final performance scoring. Repository gates all pass, the release build emits the expected async chunks including `trade_chart.js`, startup and navigation now know how to load them on demand, and the cold-path release bundle is substantially smaller than it was after the first route split. Milestone 0 remains open as measurement debt, and the next highest-leverage work is Milestone 3 startup-bootstrap reduction under `hyperopen-p4dz`.
+The verification result is strong for correctness and build topology, and still incomplete for final performance scoring. Repository gates all pass, the release build emits the expected async chunks including `trade_chart.js`, startup and navigation now know how to load them on demand, and the cold `/trade` startup path is narrower because selector-market bootstrap now waits for demand instead of running automatically. Milestone 0 remains open as measurement debt, and the next highest-leverage work is Milestone 4 render-churn reduction under `hyperopen-e0cr`.
 
 ## Context and Orientation
 

@@ -395,11 +395,10 @@
 (defn start-critical-bootstrap!
   [{:keys [store
            fetch-asset-contexts!
-           fetch-asset-selector-markets!
            mark-performance!]}]
-  (-> (js/Promise.all
-       (clj->js [(fetch-asset-contexts! store {:priority :high})
-                 (fetch-asset-selector-markets! store {:phase :bootstrap})]))
+  ;; Keep first-load trade bootstrap narrow. The selector can refresh on demand
+  ;; when opened, and a full fetch still runs in the deferred phase.
+  (-> (fetch-asset-contexts! store {:priority :high})
       (.finally
        (fn []
          (mark-performance! "app:critical-data:ready")))))
@@ -430,8 +429,7 @@
            init-webdata2!
            dispatch!
            install-address-handlers!
-           start-critical-bootstrap!
-           schedule-deferred-bootstrap!]}]
+           start-critical-bootstrap!]}]
   (log-fn "Initializing remote data streams...")
   ;; Initialize websocket client.
   (init-connection! ws-url)
@@ -458,5 +456,6 @@
                          (or (get-in @store [:router :path])
                              "/trade")]])
   (install-address-handlers!)
-  (start-critical-bootstrap!)
-  (schedule-deferred-bootstrap!))
+  ;; Keep startup scoped to the active trade route. Full selector-market expansion
+  ;; now waits for an explicit UI demand such as opening the asset selector.
+  (start-critical-bootstrap!))

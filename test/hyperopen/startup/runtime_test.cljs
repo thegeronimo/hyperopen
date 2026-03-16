@@ -1021,49 +1021,57 @@
       (is (= 2 (count (filter #(= [:dispatch [[:actions/load-funding-comparison-route "/trade"]]] %) @mark-calls))))
       (is (= 2 (count (filter #(= [:dispatch [[:actions/load-staking-route "/trade"]]] %) @mark-calls))))
       (is (= 2 (count (filter #(= [:dispatch [[:actions/load-api-wallet-route "/trade"]]] %) @mark-calls))))
-      (with-redefs [platform/set-timeout! (fn [_f _delay-ms]
-                                            :timer-id)]
-        (startup-runtime/start-critical-bootstrap!
-         {:store (:store deps)
-          :fetch-asset-contexts! (fn [_store _opts] (js/Promise.resolve :ctx))
-          :fetch-asset-selector-markets! (fn [_store _opts] (js/Promise.resolve :markets))
-          :mark-performance! (fn [mark]
-                               (swap! mark-calls conj [:mark mark]))})
-        (startup-runtime/run-deferred-bootstrap!
-         {:store (:store deps)
-          :fetch-asset-selector-markets! (fn [_store _opts] (js/Promise.resolve :full))
-          :mark-performance! (fn [mark]
-                               (swap! mark-calls conj [:mark mark]))})
-        (js/setTimeout
-         (fn []
-           (is (some #(= [:mark "app:critical-data:ready"] %) @mark-calls))
-           (is (some #(= [:mark "app:full-bootstrap:ready"] %) @mark-calls))
-           (startup-runtime/schedule-deferred-bootstrap!
-            {:startup-runtime startup-runtime-atom
-             :schedule-idle-or-timeout! (fn [callback]
-                                          (swap! deferred-callbacks conj callback)
-                                          :scheduled)
-             :run-deferred-bootstrap! (fn []
-                                        (swap! mark-calls conj :run-deferred))})
-           (startup-runtime/schedule-deferred-bootstrap!
-            {:startup-runtime startup-runtime-atom
-             :schedule-idle-or-timeout! (fn [callback]
-                                          (swap! deferred-callbacks conj callback)
-                                          :scheduled)
-             :run-deferred-bootstrap! (fn []
-                                        (swap! mark-calls conj :run-deferred))})
-           (is (= 1 (count @deferred-callbacks)))
-           ((first @deferred-callbacks))
-           (is (some #{:run-deferred} @mark-calls))
-           (let [runtime-atom (atom {:startup {:deferred-scheduled? false}})
-                 fallback-calls (atom 0)]
+      (is (zero? (count (filter #{:schedule-deferred} @mark-calls))))
+      (let [critical-context-fetches (atom [])
+            deferred-selector-fetches (atom [])]
+        (with-redefs [platform/set-timeout! (fn [_f _delay-ms]
+                                              :timer-id)]
+          (startup-runtime/start-critical-bootstrap!
+           {:store (:store deps)
+            :fetch-asset-contexts! (fn [_store opts]
+                                     (swap! critical-context-fetches conj opts)
+                                     (js/Promise.resolve :ctx))
+            :mark-performance! (fn [mark]
+                                 (swap! mark-calls conj [:mark mark]))})
+          (startup-runtime/run-deferred-bootstrap!
+           {:store (:store deps)
+            :fetch-asset-selector-markets! (fn [_store opts]
+                                             (swap! deferred-selector-fetches conj opts)
+                                             (js/Promise.resolve :full))
+            :mark-performance! (fn [mark]
+                                 (swap! mark-calls conj [:mark mark]))})
+          (js/setTimeout
+           (fn []
+             (is (= [{:priority :high}] @critical-context-fetches))
+             (is (= [{:phase :full}] @deferred-selector-fetches))
+             (is (some #(= [:mark "app:critical-data:ready"] %) @mark-calls))
+             (is (some #(= [:mark "app:full-bootstrap:ready"] %) @mark-calls))
              (startup-runtime/schedule-deferred-bootstrap!
-              {:runtime runtime-atom
-               :schedule-idle-or-timeout! (fn [_]
-                                            (swap! fallback-calls inc)
+              {:startup-runtime startup-runtime-atom
+               :schedule-idle-or-timeout! (fn [callback]
+                                            (swap! deferred-callbacks conj callback)
                                             :scheduled)
-               :run-deferred-bootstrap! (fn [] nil)})
-             (is (= true (get-in @runtime-atom [:startup :deferred-scheduled?])))
-             (is (= 1 @fallback-calls)))
-           (done))
-         0)))))
+               :run-deferred-bootstrap! (fn []
+                                          (swap! mark-calls conj :run-deferred))})
+             (startup-runtime/schedule-deferred-bootstrap!
+              {:startup-runtime startup-runtime-atom
+               :schedule-idle-or-timeout! (fn [callback]
+                                            (swap! deferred-callbacks conj callback)
+                                            :scheduled)
+               :run-deferred-bootstrap! (fn []
+                                          (swap! mark-calls conj :run-deferred))})
+             (is (= 1 (count @deferred-callbacks)))
+             ((first @deferred-callbacks))
+             (is (some #{:run-deferred} @mark-calls))
+             (let [runtime-atom (atom {:startup {:deferred-scheduled? false}})
+                   fallback-calls (atom 0)]
+               (startup-runtime/schedule-deferred-bootstrap!
+                {:runtime runtime-atom
+                 :schedule-idle-or-timeout! (fn [_]
+                                              (swap! fallback-calls inc)
+                                              :scheduled)
+                 :run-deferred-bootstrap! (fn [] nil)})
+               (is (= true (get-in @runtime-atom [:startup :deferred-scheduled?])))
+               (is (= 1 @fallback-calls)))
+             (done))
+           0))))))
