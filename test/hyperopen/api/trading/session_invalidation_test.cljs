@@ -156,6 +156,8 @@
                    (is (= "err" (:status resp)))
                    (is (re-find #"Preserved local trading key"
                                 (str (:error resp))))
+                   (is (re-find #"does not exist"
+                                (str (:response resp))))
                    (is (= 1 @info-lookups))
                    (is (= [] @cleared))
                    (is (= 0 @persisted))
@@ -212,6 +214,8 @@
                    (is (= "err" (:status resp)))
                    (is (re-find #"Preserved local trading key"
                                 (str (:error resp))))
+                   (is (re-find #"does not exist"
+                                (str (:response resp))))
                    (is (= 1 @info-lookups))
                    (is (= [] @cleared))
                    (is (= 0 @persisted))

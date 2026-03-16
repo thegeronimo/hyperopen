@@ -45,8 +45,12 @@
                          sign-opts-map (apply hash-map sign-opts)
                          [_ fetch-opts] (first @fetch-calls)
                          payload (support/fetch-body->map fetch-opts)]
+                     (is (true? (:is-mainnet sign-opts-map)))
                      (is (nil? (:vault-address sign-opts-map)))
-                     (is (false? (contains? payload :vaultAddress))))
+                     (is (false? (contains? payload :vaultAddress)))
+                     (is (false? (contains? payload :expiresAfter)))
+                     (is (= {:r "0x01" :s "0x02" :v 27}
+                            (:signature payload))))
                    (is (number? (get-in @store [:wallet :agent :nonce-cursor])))
                    (done)))
           (.catch (async-support/unexpected-error done))
@@ -122,6 +126,31 @@
                                   :grouping "na"})
           (.then (fn [_]
                    (is false "Expected missing agent session to reject")
+                   (done)))
+          (.catch (fn [err]
+                    (is (re-find #"Agent session unavailable" (str err)))
+                    (done)))
+          (.finally
+           (fn []
+             (set! agent-session/load-agent-session-by-mode original-load)))))))
+
+(deftest sign-and-post-agent-action-private-helper-rejects-without-private-key-test
+  (async done
+    (let [store (support/ready-agent-store 1700000017000)
+          original-load agent-session/load-agent-session-by-mode]
+      (set! agent-session/load-agent-session-by-mode
+            (fn [_wallet-address _storage-mode]
+              {:agent-address "0x8fd379246834eac74b8419ffda202cf8051f7a03"
+               :private-key nil
+               :nonce-cursor 1700000017000}))
+      (-> (@#'hyperopen.api.trading/sign-and-post-agent-action!
+           store
+           support/owner-address
+           {:type "order"
+            :orders []
+            :grouping "na"})
+          (.then (fn [_]
+                   (is false "Expected missing private key to reject")
                    (done)))
           (.catch (fn [err]
                     (is (re-find #"Agent session unavailable" (str err)))
@@ -218,6 +247,54 @@
            (fn []
              (set! agent-session/load-agent-session-by-mode original-load)
              (set! agent-session/clear-agent-session-by-mode! original-clear)
+             (set! agent-session/persist-agent-session-by-mode! original-persist)
+             (set! signing/sign-l1-action-with-private-key! original-sign)
+             (restore-fetch!)))))))
+
+(deftest sign-and-post-agent-action-private-helper-stops-after-retry-budget-is-exhausted-test
+  (async done
+    (let [store (support/ready-agent-store 1700000019500)
+          sign-calls (atom [])
+          persist-calls (atom [])
+          fetch-count (atom 0)
+          original-load agent-session/load-agent-session-by-mode
+          original-persist agent-session/persist-agent-session-by-mode!
+          original-sign signing/sign-l1-action-with-private-key!
+          restore-fetch! (support/install-fetch-stub!
+                          (fn [_url _opts]
+                            (swap! fetch-count inc)
+                            (js/Promise.resolve
+                             (support/json-response {:status "err"
+                                                     :error "nonce too low"}))))]
+      (set! agent-session/load-agent-session-by-mode
+            (fn [_wallet-address _storage-mode]
+              {:agent-address "0x8fd379246834eac74b8419ffda202cf8051f7a03"
+               :private-key "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+               :nonce-cursor 1700000019500}))
+      (set! agent-session/persist-agent-session-by-mode!
+            (fn [wallet-address storage-mode session]
+              (swap! persist-calls conj [wallet-address storage-mode session])
+              true))
+      (set! signing/sign-l1-action-with-private-key! (api-stubs/signing-stub sign-calls))
+      (-> (@#'hyperopen.api.trading/sign-and-post-agent-action!
+           store
+           support/owner-address
+           {:type "order"
+            :orders []
+            :grouping "na"}
+           :max-nonce-retries 0)
+          (.then (fn [resp]
+                   (is (= "err" (:status resp)))
+                   (is (re-find #"nonce too low" (str (:error resp))))
+                   (is (= 1 @fetch-count))
+                   (is (= 1 (count @sign-calls)))
+                   (is (= 1 (count @persist-calls)))
+                   (is (number? (get-in @store [:wallet :agent :nonce-cursor])))
+                   (done)))
+          (.catch (async-support/unexpected-error done))
+          (.finally
+           (fn []
+             (set! agent-session/load-agent-session-by-mode original-load)
              (set! agent-session/persist-agent-session-by-mode! original-persist)
              (set! signing/sign-l1-action-with-private-key! original-sign)
              (restore-fetch!)))))))

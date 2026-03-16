@@ -17,6 +17,20 @@
       (is (= [101 "100" "99.5"]
              (mapv :px (policy/sort-asks levels)))))))
 
+(deftest sort-levels-treats-missing-or-invalid-prices-as-zero-test
+  (let [sorted-bids (policy/sort-bids [{:px "101"}
+                                       {:price "invalid"}
+                                       {:size "3"}])]
+    (is (= [101 0 0]
+           (mapv #(or (policy/level-price %) 0) sorted-bids)))))
+
+(deftest sort-levels-puts-invalid-prices-below-small-positive-prices-test
+  (let [sorted-bids (policy/sort-bids [{:id :half :px "0.5"}
+                                       {:id :missing}
+                                       {:id :invalid :price "invalid"}])]
+    (is (= [:half :missing :invalid]
+           (mapv :id sorted-bids)))))
+
 (deftest normalize-levels-and-cumulative-depth-test
   (let [levels (policy/normalize-levels [{:px "101.5" :sz "2"}
                                          {:px "100.5" :sz "3"}])
@@ -26,6 +40,15 @@
            levels))
     (is (= [{:px "101.5" :sz "2" :px-num 101.5 :sz-num 2 :cum-size 2 :cum-value 203}
             {:px "100.5" :sz "3" :px-num 100.5 :sz-num 3 :cum-size 5 :cum-value 504.5}]
+           with-totals))))
+
+(deftest calculate-cumulative-totals-uses-zero-defaults-for-missing-price-and-size-test
+  (let [with-totals (policy/calculate-cumulative-totals [{:px "101"}
+                                                         {:sz "2"}])]
+    (is (= []
+           (policy/calculate-cumulative-totals [])))
+    (is (= [{:px "101" :cum-size 0 :cum-value 0}
+            {:sz "2" :cum-size 2 :cum-value 0}]
            with-totals))))
 
 (deftest build-book-test
@@ -68,6 +91,35 @@
            (get-in book [:render :display-asks])))
     (is (= {:px "101" :sz "1" :px-num 101 :sz-num 1}
            (get-in book [:render :best-ask])))))
+
+(deftest build-book-invalid-max-levels-falls-back-to-default-depth-limit-test
+  (let [bids (mapv (fn [n]
+                     {:px (str n)
+                      :sz "1"})
+                   (range 100 0 -1))
+        asks (mapv (fn [n]
+                     {:px (str n)
+                      :sz "1"})
+                   (range 201 301))
+        book (policy/build-book bids asks 0)]
+    (is (= 100 (count (:bids book))))
+    (is (= 100 (count (:asks book))))
+    (is (= policy/default-max-render-levels-per-side
+           (count (get-in book [:render :display-bids]))))
+    (is (= policy/default-max-render-levels-per-side
+           (count (get-in book [:render :display-asks]))))
+    (is (= 100
+           (get-in book [:render :best-bid :px-num])))
+    (is (= 201
+           (get-in book [:render :best-ask :px-num])))
+    (is (= 100
+           (get-in book [:render :display-bids 0 :px-num])))
+    (is (= 21
+           (get-in book [:render :display-bids 79 :px-num])))
+    (is (= 201
+           (get-in book [:render :display-asks 0 :px-num])))
+    (is (= 280
+           (get-in book [:render :display-asks 79 :px-num])))))
 
 (deftest normalize-aggregation-config-test
   (is (= {:nSigFigs 4}
