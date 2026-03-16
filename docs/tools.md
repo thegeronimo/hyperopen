@@ -19,8 +19,9 @@ Use this file as the single starting point for what actions this repo provides t
 5. For CRAP hotspot analysis after generating coverage, use `bb tools/crap_report.clj --scope src` or `bb tools/crap_report.clj --module <path> --format json`.
 6. For repo-local mutation testing on one covered module at a time, use `bb tools/mutate.clj --scan --module <path>` after `npm run coverage`.
 7. For a checked-in overnight hotspot sweep, use `bb tools/mutate_nightly.clj` with targets from `/hyperopen/tools/mutate/nightly_targets.edn`.
-8. For issue tracking and session handoff rules, use `/hyperopen/docs/WORK_TRACKING.md`.
-9. For exact browser inspection command syntax, see:
+8. For multi-agent role, artifact, and gate rules, use `/hyperopen/docs/MULTI_AGENT.md` and the manager under `/hyperopen/tools/multi-agent/`.
+9. For issue tracking and session handoff rules, use `/hyperopen/docs/WORK_TRACKING.md`.
+10. For exact browser inspection command syntax, see:
    - `/hyperopen/tools/browser-inspection/src/cli.mjs`
    - `/hyperopen/tools/browser-inspection/src/mcp_server.mjs`
 
@@ -40,6 +41,10 @@ Use this file as the single starting point for what actions this repo provides t
 | `npm run portfolio` | Watch only the Portfolio workbench plus Tailwind | Isolated component workbench iteration |
 | `npm run portfolio:watch` | Watch the dedicated Shadow `:portfolio` target | Workbench-only CLJS compile loop |
 | `npm run test:runner:generate` | Regenerate test runner list | Usually after adding/removing test namespaces |
+| `npm run agent:dry-run -- --issue <bd-id>` | Produce a synthetic multi-agent artifact bundle without model execution | Validate manager wiring, artifact paths, and phase ordering locally |
+| `npm run agent:ticket -- --issue <bd-id>` | Run the repo-local multi-agent workflow for one ticket | Local manager-style orchestration for complex tickets |
+| `npm run agent:resume-ticket -- --issue <bd-id>` | Resume a prior multi-agent ticket run from existing artifacts | Continue after an interrupted local run |
+| `npm run test:multi-agent` | Multi-agent manager unit tests | Before changing `/hyperopen/tools/multi-agent/**`, role config, or artifact contracts |
 | `bb tools/crap_report.clj --scope src` | Print CRAP hotspots from existing `coverage/lcov.info` | After `npm run coverage` when triaging risky functions/modules |
 | `bb tools/mutate.clj --scan --module src/hyperopen/...` | Report mutation counts and coverage-aware eligible sites for one module | After `npm run coverage` when validating a hotspot module or pure policy seam |
 | `bb tools/mutate.clj --module src/hyperopen/...` | Run mutation testing for one module and write artifacts under `target/mutation/**` | Local confidence pass on a covered module after targeted refactors or bug fixes |
@@ -88,13 +93,37 @@ Live local bug workflow selection:
 
 | Skill | Purpose | Trigger |
 | --- | --- | --- |
+| `/hyperopen/.agents/skills/spec-writer/SKILL.md` | ExecPlan-first spec writing for multi-agent tickets | Use when acting as `spec_writer` |
+| `/hyperopen/.agents/skills/acceptance-tests/SKILL.md` | Acceptance/integration proposal and materialization workflow | Use when acting as `acceptance_test_writer` |
+| `/hyperopen/.agents/skills/edge-case-tests/SKILL.md` | Boundary-case and invariant proposal workflow | Use when acting as `edge_case_test_writer` |
+| `/hyperopen/.agents/skills/static-review/SKILL.md` | Findings-first read-only review workflow | Use when acting as `reviewer` |
+| `/hyperopen/.agents/skills/browser-qa/SKILL.md` | Browser QA workflow on top of browser-inspection and governed passes | Use when acting as `browser_debugger` |
 | `$CODEX_HOME/skills/pdf/SKILL.md` | PDF reading/creation checks | Ask about PDF processing workflows |
 | `$CODEX_HOME/skills/.system/skill-installer/SKILL.md` | Install Codex skills | Need a new skill or curated skill list |
 | `$CODEX_HOME/skills/.system/skill-creator/SKILL.md` | Create/update new Codex skills | Need to author a reusable skill |
 
 If a task explicitly names one of these skills, follow that skill workflow first.
 
-## 4) Shared command phrase lookup
+## 4) Multi-Agent Manager
+
+All repo-local multi-agent orchestration lives under `/hyperopen/tools/multi-agent/`.
+
+Commands:
+
+- `node tools/multi-agent/src/cli.mjs dry-run --issue <bd-id>`
+- `node tools/multi-agent/src/cli.mjs ticket --issue <bd-id>`
+- `node tools/multi-agent/src/cli.mjs resume-ticket --issue <bd-id>`
+
+Key rules:
+
+- Use a `bd` issue id as the workflow key.
+- Artifacts are written under `/hyperopen/tmp/multi-agent/<bd-id>/`.
+- Role config lives under `/hyperopen/agents/*.toml`.
+- Native Codex project config lives under `/hyperopen/.codex/config.toml`.
+- Real runs require `OPENAI_API_KEY` and a local `codex` CLI.
+- Browser QA still depends on the existing browser-inspection MCP server and contracts.
+
+## 5) Shared command phrase lookup
 
 - Machine-readable registry: `/hyperopen/command-phrases.edn`
 - Lookup command: `/hyperopen/tools/phrase get [--suggest] [--accept-fuzzy] "<phrase>"`
@@ -109,7 +138,7 @@ Example:
 - `/hyperopen/tools/phrase get --suggest "land the work tree"`
 - `/hyperopen/tools/phrase get --accept-fuzzy "land the work tree"`
 
-## 5) Issue tracking tool (`bd`)
+## 6) Issue tracking tool (`bd`)
 
 `bd` is the canonical issue tracker for this repository.
 
@@ -122,7 +151,7 @@ Common commands:
 
 For policy details, including markdown-vs-`bd` boundaries and session-completion workflow, follow `/hyperopen/docs/WORK_TRACKING.md`.
 
-## 6) Browser Inspection tools (CLI)
+## 7) Browser Inspection tools (CLI)
 
 All browser-inspection tooling lives under `/hyperopen/tools/browser-inspection/`.
 
@@ -164,7 +193,7 @@ All browser-inspection tooling lives under `/hyperopen/tools/browser-inspection/
 - Browser attach only works when the user or tool launched a compatible Chromium browser with a reachable CDP endpoint. Without that, use the worktree-scoped Shadow nREPL for runtime-state inspection instead of assuming tab-level browser access exists.
 - For live local bug triage, prefer browser attach first when available. Reach for the worktree-scoped Shadow nREPL only after browser inspection stops being enough to explain the behavior.
 
-## 7) Browser Inspection tools (Codex MCP)
+## 8) Browser Inspection tools (Codex MCP)
 
 Register once in Codex once and then call MCP tools directly:
 - `codex mcp add hyperopen-browser -- node ./tools/browser-inspection/src/mcp_server.mjs`
@@ -189,9 +218,14 @@ Register once in Codex once and then call MCP tools directly:
 | `browser_scenarios_list` | List checked-in scenario manifests by id or tag |
 | `browser_scenarios_run` | Run one scenario or a tagged scenario bundle |
 
-## 8) Where definitions live
+## 9) Where definitions live
 
 - Scripted command surface: `/hyperopen/package.json`
+- Multi-agent manager: `/hyperopen/tools/multi-agent/src/cli.mjs`
+- Multi-agent policy: `/hyperopen/docs/MULTI_AGENT.md`
+- Repo-local Codex project config: `/hyperopen/.codex/config.toml`
+- Repo-local Codex role files: `/hyperopen/agents/*.toml`
+- Repo-local multi-agent skills: `/hyperopen/.agents/skills/**`
 - Worktree-scoped Shadow nREPL helper: `/hyperopen/tools/shadow-nrepl-port`
 - UI workbench source: `/hyperopen/portfolio/hyperopen/workbench/`
 - UI workbench scenes: `/hyperopen/portfolio/hyperopen/workbench/scenes/**`

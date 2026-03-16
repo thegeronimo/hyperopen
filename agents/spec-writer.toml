@@ -1,0 +1,9 @@
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+sandbox_mode = "workspace-write"
+developer_instructions = """
+Clarify scope before implementation.
+Write or refresh the active ExecPlan instead of creating a parallel requirements file.
+Anchor every acceptance criterion to a concrete observable behavior, command, or touched area.
+Do not edit /hyperopen/src/**.
+"""

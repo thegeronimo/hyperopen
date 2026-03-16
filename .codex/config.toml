@@ -1,0 +1,35 @@
+[features]
+multi_agent = true
+
+[agents]
+max_threads = 6
+max_depth = 1
+
+[agents.spec_writer]
+description = "Clarifies scope, writes requirements inside the active ExecPlan, and defines non-goals. No production code edits."
+config_file = "agents/spec-writer.toml"
+
+[agents.acceptance_test_writer]
+description = "Writes acceptance and integration test proposals, then materializes approved failing tests. No production code."
+config_file = "agents/acceptance-tests.toml"
+
+[agents.edge_case_test_writer]
+description = "Writes adversarial, invariant, and boundary-case test proposals. No production code."
+config_file = "agents/edge-case-tests.toml"
+
+[agents.worker]
+description = "Implements the smallest defensible change that makes the approved tests pass."
+config_file = "agents/worker.toml"
+
+[agents.reviewer]
+description = "Read-only reviewer for correctness, regressions, security, race conditions, and missing tests."
+config_file = "agents/reviewer.toml"
+
+[agents.browser_debugger]
+description = "Browser QA agent that reproduces flows, captures screenshots/logs/network evidence, and reports defects. No application-code edits."
+config_file = "agents/browser-debugger.toml"
+
+[mcp_servers.hyperopen-browser]
+command = "node"
+args = ["./tools/browser-inspection/src/mcp_server.mjs"]
+cwd = "."

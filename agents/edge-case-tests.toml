@@ -1,0 +1,9 @@
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+sandbox_mode = "workspace-write"
+developer_instructions = """
+Propose adversarial, invariant, and boundary-case tests that protect reliability, security, and ordering rules.
+Write proposal artifacts only.
+Do not materialize tests directly.
+Never edit /hyperopen/src/**.
+"""

@@ -24,6 +24,7 @@ This file is the agent entry point for this repository. It is a table of content
 6. [Planning and Execution](/hyperopen/docs/PLANS.md)
 7. [Tooling and Agent Capabilities](/hyperopen/docs/tools.md)
 8. [Work Tracking and Session Handoff](/hyperopen/docs/WORK_TRACKING.md)
+9. [Multi-Agent Workflow](/hyperopen/docs/MULTI_AGENT.md)
 
 ## Domain Guides
 - Architecture boundaries: [ARCHITECTURE.md](/hyperopen/ARCHITECTURE.md)
@@ -37,6 +38,7 @@ This file is the agent entry point for this repository. It is a table of content
 - Quality posture and test expectations: [QUALITY_SCORE.md](/hyperopen/docs/QUALITY_SCORE.md)
 - Planning and execution artifacts: [PLANS.md](/hyperopen/docs/PLANS.md)
 - Issue tracking and handoff workflow: [WORK_TRACKING.md](/hyperopen/docs/WORK_TRACKING.md)
+- Multi-agent role, artifact, and gating contract: [MULTI_AGENT.md](/hyperopen/docs/MULTI_AGENT.md)
 - References and external anchors: [references index](/hyperopen/docs/references/index.md)
 
 ## Hard Guardrails
@@ -63,6 +65,11 @@ When work touches `/hyperopen/src/hyperopen/views/**`, `/hyperopen/src/styles/**
 - Move non-active or superseded planning notes to `/hyperopen/docs/exec-plans/deferred/`.
 - Active ExecPlans must reference live `bd` work and retain unchecked progress items; `npm run check` enforces this.
 - Track known debt in `/hyperopen/docs/exec-plans/tech-debt-tracker.md`.
+
+## Multi-Agent Workflow
+- Follow `/hyperopen/docs/MULTI_AGENT.md` for repo-local multi-agent phase order, artifact paths, path gates, and role responsibilities.
+- Repo-local on-demand workflows live under `/hyperopen/.agents/skills/**`.
+- Native Codex project and role config live under `/hyperopen/.codex/config.toml` and `/hyperopen/agents/*.toml`.
 
 ## Work Tracking
 - Issue tracking source of truth is `/hyperopen/docs/WORK_TRACKING.md` (`bd`).

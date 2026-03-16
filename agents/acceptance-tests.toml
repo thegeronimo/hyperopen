@@ -1,0 +1,9 @@
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+sandbox_mode = "workspace-write"
+developer_instructions = """
+Write failing acceptance and integration tests from the approved spec.
+During proposal mode, emit only the proposal artifact and do not edit tracked files.
+During materialization mode, touch only the approved test files and the active ExecPlan.
+Never edit /hyperopen/src/**.
+"""

@@ -13,9 +13,13 @@ Repository build and test entry points:
 - `npm test`
 - `npm run test:crap`
 - `npm run test:mutation`
+- `npm run test:multi-agent`
 - `npm run lint:delimiters -- --changed`
 - `npm run mutate:nightly`
 - `npm run test:websocket`
+- `npm run agent:dry-run -- --issue <bd-id>`
+- `npm run agent:ticket -- --issue <bd-id>`
+- `npm run agent:resume-ticket -- --issue <bd-id>`
 - `npm run dev`
 - `npm run dev:portfolio`
 - `npm run portfolio`
@@ -49,6 +53,11 @@ Browser inspection and parity commands:
 - `node tools/browser-inspection/src/cli.mjs session targets --attach-port <cdp-port>`
 - `node tools/browser-inspection/src/cli.mjs session attach --attach-port <cdp-port>`
 - `node tools/browser-inspection/src/cli.mjs session attach --attach-port <cdp-port> --target-id <cdp-target-id>`
+
+Multi-agent orchestration commands:
+- `node tools/multi-agent/src/cli.mjs dry-run --issue <bd-id>`
+- `node tools/multi-agent/src/cli.mjs ticket --issue <bd-id>`
+- `node tools/multi-agent/src/cli.mjs resume-ticket --issue <bd-id>`
 
 Comprehensive tool surface and use guidance:
 - `/hyperopen/docs/tools.md`
