@@ -30,6 +30,17 @@
                 nearest-index (js/Math.round (* x-ratio max-index))]
             (clamp nearest-index 0 max-index)))))))
 
+(def tooltip-center-ratio
+  0.5)
+
+(defn tooltip-center-top-pct
+  []
+  (* 100 tooltip-center-ratio))
+
+(defn tooltip-center-top-px
+  [height]
+  (* height tooltip-center-ratio))
+
 (defn tooltip-layout
   ([width height hovered-point]
    (tooltip-layout width height nil hovered-point))
@@ -40,16 +51,13 @@
               (pos? height)
               (map? hovered-point))
      (let [x-ratio (or (:x-ratio hovered-point) 0)
-           y-ratio (or (:y-ratio hovered-point) 0)
            left-px (clamp (if (and (number? pointer-left-px)
                                    (js/isFinite pointer-left-px))
                             pointer-left-px
                             (* width x-ratio))
                           0
                           width)
-           top-px (clamp (- (* height y-ratio) (* height 0.08))
-                         (* height 0.08)
-                         (* height 0.92))]
+           top-px (tooltip-center-top-px height)]
        {:left-px left-px
         :top-px top-px
         :right-side? (> left-px (* width 0.74))}))))

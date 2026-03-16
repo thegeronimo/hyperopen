@@ -34,19 +34,19 @@
   (is (= 0 (model/hover-index 120 100 320 1)))
   (is (nil? (model/hover-index 120 100 0 5))))
 
-(deftest tooltip-layout-switches-sides-and-clamps-vertical-position-test
+(deftest tooltip-layout-switches-sides-and-centers-vertical-position-test
   (is (= {:left-px 80
-          :top-px 19.2
+          :top-px 120
           :right-side? false}
          (model/tooltip-layout 400 240 {:x-ratio 0.2
                                         :y-ratio 0.01})))
   (is (= {:left-px 310
-          :top-px 52.8
+          :top-px 120
           :right-side? true}
          (model/tooltip-layout 400 240 310 {:x-ratio 0.2
                                             :y-ratio 0.3})))
   (is (= {:left-px 320
-          :top-px 218.4
+          :top-px 120
           :right-side? true}
          (model/tooltip-layout 400 240 {:x-ratio 0.8
                                         :y-ratio 0.99}))))

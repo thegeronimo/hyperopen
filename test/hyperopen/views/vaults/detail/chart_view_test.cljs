@@ -1,6 +1,7 @@
 (ns hyperopen.views.vaults.detail.chart-view-test
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.views.account-info.test-support.hiccup :as hiccup]
+            [hyperopen.views.chart.renderer :as chart-renderer]
             [hyperopen.views.trading-chart.test-support.fake-dom :as fake-dom]
             [hyperopen.views.vaults.detail.chart-view :as chart]))
 
@@ -107,6 +108,7 @@
           secondary-path (find-dom-node-by-role host "vault-detail-chart-path-btc")
           tooltip-strings (set (fake-dom/collect-text-content hover-tooltip))]
       (is (some? hover-tooltip))
+      (is (= "130px" (aget (.-style hover-tooltip) "top")))
       (is (= "translate(calc(-100% - 8px), -50%)"
              (aget (.-style hover-tooltip) "transform")))
       (is (contains? tooltip-strings "Returns"))
@@ -198,3 +200,53 @@
     (is (= "none"
            (aget (.-style (find-dom-node-by-role host "vault-detail-chart-hover-tooltip"))
                  "display")))))
+
+(deftest chart-section-centers-fallback-hover-tooltip-vertically-test
+  (with-redefs [chart-renderer/d3-performance-chart? (fn [_surface] false)]
+    (let [view (chart/chart-section {:axis-kind :returns
+                                     :y-ticks [{:value 5 :y-ratio 0}
+                                               {:value 0 :y-ratio 0.5}
+                                               {:value -5 :y-ratio 1}]
+                                     :selected-series :returns
+                                     :series-tabs [{:value :returns :label "Returns"}
+                                                   {:value :pnl :label "PNL"}]
+                                     :series [{:id :strategy
+                                               :label "Vault"
+                                               :stroke "#16d6a1"
+                                               :has-data? true
+                                               :path "M 0 70 L 80 20"
+                                               :points [{:time-ms 1700000000000 :value 0.2 :x-ratio 0.0 :y-ratio 0.7}
+                                                        {:time-ms 1700003600000 :value -0.1 :x-ratio 0.8 :y-ratio 0.2}]}
+                                              {:id :btc
+                                               :coin "BTC"
+                                               :label "Bitcoin"
+                                               :stroke "#f7931a"
+                                               :has-data? true
+                                               :path "M 0 50 L 80 30"
+                                               :points [{:time-ms 1700000000000 :value 0.4 :x-ratio 0.0 :y-ratio 0.5}
+                                                        {:time-ms 1700003600000 :value 0.3 :x-ratio 0.8 :y-ratio 0.3}]}]
+                                     :points [{:time-ms 1700000000000 :value 0.2 :x-ratio 0.0 :y-ratio 0.7}
+                                              {:time-ms 1700003600000 :value -0.1 :x-ratio 0.8 :y-ratio 0.2}]
+                                     :hover {:active? true
+                                             :point {:time-ms 1700003600000
+                                                     :value -0.1
+                                                     :x-ratio 0.8
+                                                     :y-ratio 0.2}}
+                                     :hover-tooltip {:timestamp "Nov 14, 2023"
+                                                     :metric-label "Returns"
+                                                     :metric-value "-0.10%"
+                                                     :value-classes ["text-[#ff7b72]"]
+                                                     :benchmark-values [{:coin "BTC"
+                                                                         :label "Bitcoin"
+                                                                         :value "+0.30%"
+                                                                         :stroke "#f7931a"}]}
+                                     :returns-benchmark {:selected-options [{:value "BTC" :label "Bitcoin"}]}
+                                     :timeframe-options [{:value :day :label "24H"}]
+                                     :selected-timeframe :day})
+          tooltip-node (hiccup/find-first-node view
+                                               #(= "vault-detail-chart-hover-tooltip"
+                                                   (get-in % [1 :data-role])))]
+      (is (some? tooltip-node))
+      (is (= "50%" (get-in tooltip-node [1 :style :top])))
+      (is (= "translate(calc(-100% - 8px), -50%)"
+             (get-in tooltip-node [1 :style :transform]))))))

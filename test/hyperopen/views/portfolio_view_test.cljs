@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is]]
             [hyperopen.views.account-info-view :as account-info-view]
+            [hyperopen.views.chart.renderer :as chart-renderer]
             [hyperopen.views.portfolio.vm :as portfolio-vm]
             [hyperopen.views.portfolio-view :as portfolio-view]
             [hyperopen.views.trading-chart.test-support.fake-dom :as fake-dom]))
@@ -692,13 +693,15 @@
       (is (contains? month-tooltip-strings "PNL"))
       (is (contains? month-tooltip-strings "$203"))
       (is (str/includes? month-tooltip-class "rounded-xl"))
-      (is (str/includes? month-tooltip-class "min-w-[188px]")))
+      (is (str/includes? month-tooltip-class "min-w-[188px]"))
+      (is (= "110px" (aget (.-style month-tooltip-node) "top"))))
     (fake-dom/dispatch-dom-event-with-payload! (:host day-runtime) "pointermove" #js {:clientX 390})
     (let [day-tooltip-node (find-dom-node-by-role (:host day-runtime) "portfolio-chart-hover-tooltip")
           day-tooltip-strings (set (fake-dom/collect-text-content day-tooltip-node))]
       (is (some? day-tooltip-node))
       (is (contains? day-tooltip-strings "PNL"))
       (is (contains? day-tooltip-strings "$203"))
+      (is (= "110px" (aget (.-style day-tooltip-node) "top")))
       (is (some #(re-matches #"[0-9]{2}:[0-9]{2}" %) day-tooltip-strings)))))
 
 (deftest portfolio-view-returns-tooltip-runtime-renders-selected-benchmark-values-with-series-color-test
@@ -736,3 +739,15 @@
       (is (contains? tooltip-strings "+14.00%"))
       (is (some? benchmark-row))
       (is (= "#f2cf66" (aget (.-style benchmark-value) "color"))))))
+
+(deftest portfolio-view-centers-fallback-hover-tooltip-vertically-test
+  (with-redefs [chart-renderer/d3-performance-chart? (fn [_surface] false)]
+    (let [view-node (portfolio-view/portfolio-view (assoc-in sample-state
+                                                             [:portfolio-ui :chart-hover-index]
+                                                             1))
+          tooltip-node (find-first-node view-node #(= "portfolio-chart-hover-tooltip"
+                                                      (get-in % [1 :data-role])))]
+      (is (some? tooltip-node))
+      (is (= "50%" (get-in tooltip-node [1 :style :top])))
+      (is (= "translate(calc(-100% - 8px), -50%)"
+             (get-in tooltip-node [1 :style :transform]))))))

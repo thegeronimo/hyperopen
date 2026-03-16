@@ -3,6 +3,7 @@
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.account-info-view :as account-info-view]
+            [hyperopen.views.chart.d3.model :as chart-d3-model]
             [hyperopen.views.chart.d3.runtime :as chart-d3-runtime]
             [hyperopen.views.chart.renderer :as chart-renderer]
             [hyperopen.views.portfolio.vm.chart-tooltip :as chart-tooltip]
@@ -104,12 +105,6 @@
   (if (= axis-kind :percent)
     (format-axis-percent value)
     (format-axis-number value)))
-
-(defn- clamp-number [value min-value max-value]
-  (cond
-    (< value min-value) min-value
-    (> value max-value) max-value
-    :else value))
 
 (def ^:private axis-label-fallback-char-width-px
   7.5)
@@ -539,9 +534,7 @@
         hover-line-left-pct (when hover-active?
                              (* 100 (:x-ratio hovered-point)))
         hover-tooltip-top-pct (when hover-active?
-                               (clamp-number (- (* 100 (:y-ratio hovered-point)) 8)
-                                             8
-                                             92))
+                               (chart-d3-model/tooltip-center-top-pct))
         hover-tooltip-right? (when hover-active?
                                (> hover-line-left-pct 74))]
     (section-card
