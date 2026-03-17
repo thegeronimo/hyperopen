@@ -229,6 +229,13 @@ When using `npm run dev:proxy`, open http://localhost:8081.
 npm run build
 ```
 
+The release-ready static artifact root is generated at `out/release-public`.
+To smoke-test the release artifact locally:
+
+```bash
+npx serve -s out/release-public -l 8082
+```
+
 ## Validation
 
 Run validation from the repository root:
