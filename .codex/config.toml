@@ -29,6 +29,47 @@ config_file = "agents/reviewer.toml"
 description = "Browser QA agent that reproduces flows, captures screenshots/logs/network evidence, and reports defects. No application-code edits."
 config_file = "agents/browser-debugger.toml"
 
+# Explicit registry for additional repo-local Codex agents under .codex/agents.
+[agents.architect_review]
+description = "Use when review changes need rigorous review for correctness, risk, and release readiness."
+config_file = ".codex/agents/architect-review.toml"
+nickname_candidates = ["Atlas", "Keystone"]
+
+[agents.clojure_expert]
+description = "Use when implementing clojure functionality with production-grade patterns and safeguards."
+config_file = ".codex/agents/clojure-expert.toml"
+nickname_candidates = ["Lambda", "Parens"]
+
+[agents.content_writer]
+description = "Use when producing polished written content for docs, blogs, or external communication."
+config_file = ".codex/agents/content_writer.toml"
+nickname_candidates = ["Quill", "Scribe"]
+
+[agents.debugger]
+description = "Use when failures are unclear and root-cause analysis is needed quickly."
+config_file = ".codex/agents/debugger.toml"
+nickname_candidates = ["Tracer", "Probe"]
+
+[agents.documentation_specialist]
+description = "Use when implementing documentation functionality with production-grade patterns and safeguards."
+config_file = ".codex/agents/documentation_specialist.toml"
+nickname_candidates = ["Guide", "Ledger"]
+
+[agents.tdd_test_writer]
+description = "Use when you need high-quality failing tests written first before implementation starts. Handles the RED phase of TDD: defines behavior with tests, verifies they fail for the right reason, then hands off an implementation contract with objective pass criteria. Use for test-first workflows, RED/GREEN cycles, behavior-gating tasks, or bugfix regression tests."
+config_file = ".codex/agents/tdd_test_writer.toml"
+nickname_candidates = ["Redline", "Harness"]
+
+[agents.ui_designer]
+description = "Use when UI expertise is needed to unblock implementation decisions."
+config_file = ".codex/agents/ui-designer.toml"
+nickname_candidates = ["Canvas", "Loom"]
+
+[agents.ui_visual_validator]
+description = "Use when UI visual changes need rigorous review for correctness, risk, and release readiness."
+config_file = ".codex/agents/ui-visual-validator.toml"
+nickname_candidates = ["Pixel", "Prism"]
+
 [mcp_servers.hyperopen-browser]
 command = "node"
 args = ["./tools/browser-inspection/src/mcp_server.mjs"]
