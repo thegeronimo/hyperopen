@@ -34,12 +34,15 @@
                            :spot-meta {:tokens []}
                            :market-state {:markets [{:coin "BTC"}]}}
                           result))
-                   (is (= [{:priority :high}] @ensure-perp-calls))
+                   (is (= [] @ensure-perp-calls))
                    (is (= [{:priority :high}] @ensure-spot-calls))
                    (is (= [{:priority :high}] @ensure-webdata-calls))
-                   (is (= [[nil {:priority :high}]] @meta-calls))
+                   (is (= [[nil {:priority :high
+                                 :dedupe-key :asset-contexts}]]
+                          @meta-calls))
                    (is (= 1 (count @build-calls)))
                    (is (= "BTC" (first (first @build-calls))))
+                   (is (= [] (nth (first @build-calls) 2)))
                    (done)))
           (.catch (fn [err]
                     (is false (str "Unexpected error: " err))

@@ -1,6 +1,16 @@
 (ns hyperopen.api.market-loader
   (:require [hyperopen.api.market-metadata.facade :as market-metadata]))
 
+(defn- meta-and-asset-ctxs-request-opts
+  [phase priority dex]
+  (cond-> {:priority priority}
+    (and (= phase :bootstrap)
+         (nil? dex))
+    ;; Startup already issues a high-priority default `metaAndAssetCtxs` request
+    ;; via `fetch-asset-contexts!`. Share that single-flight instead of sending
+    ;; a second identical `/info` request during bootstrap selector hydration.
+    (assoc :dedupe-key :asset-contexts)))
+
 (defn request-asset-selector-markets!
   [{:keys [opts
            active-asset
@@ -12,10 +22,13 @@
            log-fn]}]
   (let [phase (if (= :bootstrap (:phase opts)) :bootstrap :full)
         priority (if (= phase :bootstrap) :high :low)
-        base-promises (js/Promise.all
-                       (clj->js [(market-metadata/ensure-perp-dex-names!
+        perp-dex-names-promise (if (= phase :bootstrap)
+                                 (js/Promise.resolve [])
+                                 (market-metadata/ensure-perp-dex-names!
                                   {:ensure-perp-dexs-data! ensure-perp-dexs-data!}
-                                  {:priority priority})
+                                  {:priority priority}))
+        base-promises (js/Promise.all
+                       (clj->js [perp-dex-names-promise
                                  (ensure-spot-meta-data! {:priority priority})
                                  (ensure-public-webdata2! {:priority priority})]))]
     (log-fn "Fetching asset selector markets. phase:" (name phase))
@@ -29,7 +42,7 @@
                                 (map (fn [dex]
                                        (request-meta-and-asset-ctxs!
                                         dex
-                                        {:priority priority})))
+                                        (meta-and-asset-ctxs-request-opts phase priority dex))))
                                 (into-array))
              spot-asset-ctxs (:spotAssetCtxs webdata2)]
          (.then

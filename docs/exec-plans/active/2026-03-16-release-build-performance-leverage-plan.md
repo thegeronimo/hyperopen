@@ -46,11 +46,20 @@ The work is intentionally ordered by leverage. The first wave removes large cold
 - [x] (2026-03-16 23:12Z) Captured fresh live render-flush telemetry on `/trade?market=HYPE&tab=positions`; `candles` remains the hottest remaining render root at `67` flushes, `8.03ms` average, `17ms` max, and `538ms` total sampled cost, so Milestone 4 stays open on the chart/candle path.
 - [x] (2026-03-16 23:28Z) Implemented the next Milestone 4 chart/candle cut in `/hyperopen/src/hyperopen/views/trading_chart/utils/chart_interop/transforms.cljs` and `/hyperopen/src/hyperopen/views/trading_chart/utils/chart_interop/series_sync.cljs`: main-series and volume-series sync now reuse cached transformed vectors and derive incremental `:update-last` / `:append-last` tail data instead of remapping the full candle vector on every live tail update, including Heikin Ashi support with safe nil fallback to the full-reset path.
 - [x] (2026-03-16 23:28Z) Validated the incremental chart-series cut with `npm test`, `npm run test:websocket`, `npm run check`, and `npm run build`; new regressions now lock in pure incremental tail derivation in the transform layer and prove the public chart-interop API skips the full transform path on main-series and volume tail updates when the incremental helper is available.
+- [x] (2026-03-17 01:30Z) Reconciled the later March 16 release Lighthouse run captured against `http://localhost:8082/trade?market=HYPE&tab=positions` with the active milestone structure: cold-load paint is now strong enough that the remaining leverage is a narrow Milestone 3 follow-up on the residual critical-path `/info` chain plus a Milestone 4 closeout focused on chart/overlay layout stability and CLS, while a static non-JavaScript app shell is deferred to post-plan scope unless future clean traces regress.
+- [x] (2026-03-17 01:45Z) Created and claimed `hyperopen-xlqu` to execute the narrow Milestone 3 follow-up on the residual critical-path `/info` chain without reopening broader startup/bootstrap scope.
+- [x] (2026-03-17 01:45Z) Implemented the first Milestone 3 follow-up cut in `/hyperopen/src/hyperopen/api/market_loader.cljs` by reusing the existing startup `metaAndAssetCtxs` single-flight for the bootstrap default-dex selector request instead of sending a second identical `/info` request during critical startup.
+- [x] (2026-03-17 01:45Z) Validated the Milestone 3 follow-up cut with `npm run check`, `npm test`, and `npm run test:websocket`; the bootstrap market-loader test now locks in the shared `:asset-contexts` dedupe key for the bootstrap default-dex request while full-phase behavior remains unchanged.
+- [x] (2026-03-17 01:56Z) Extended the Milestone 3 follow-up cut by removing the bootstrap-only `perpDexs` fetch from `/hyperopen/src/hyperopen/api/market_loader.cljs`; bootstrap now skips named perp DEX metadata entirely because that phase only builds the default-dex path.
+- [x] (2026-03-17 01:56Z) Added deterministic single-flight coverage in `/hyperopen/test/hyperopen/api/info_client_test.cljs` and updated the bootstrap loader tests so the request-level performance claim is pinned both at the market-loader boundary and at the shared info-client dedupe layer.
+- [x] (2026-03-17 01:56Z) Revalidated the expanded Milestone 3 follow-up cut with `npm run check`, `npm test`, and `npm run test:websocket`; a post-change headless Lighthouse sample was captured to `/hyperopen/tmp/lighthouse-bootstrap-followup/localhost_8082-trade-bootstrap-followup.json`, but the overall trace was too noisy to use as sign-off-quality before/after evidence, so measurement debt remains open separately from the accepted code change.
+- [x] (2026-03-17 01:56Z) Closed `hyperopen-xlqu` as completed; the startup code cut is accepted, while clean measurement/sign-off remains separate plan debt rather than an open code task.
 - [x] Implement Milestone 0 (clean measurement harness and extension-free baseline capture).
 - [x] Implement Milestone 1 (remove non-essential cold-load font payloads).
 - [x] Implement Milestone 2 (split the monolithic app bundle and defer non-critical route code).
 - [x] Implement Milestone 3 (reduce startup fetch and subscription work on initial trade load).
-- [ ] Implement Milestone 4 (reduce whole-app render churn and expensive live-surface layout work).
+- [ ] Implement Milestone 3 follow-up (trim the remaining critical-path `/info` market-loader chain without regressing the selector metadata that balances and account surfaces require).
+- [ ] Implement Milestone 4 (close out remaining trade-route render churn and chart/overlay layout instability, with CLS as the primary user-visible finish-line metric).
 - [ ] Implement Milestone 5 (repeat-visit caching and back/forward cache polish).
 
 ## Surprises & Discoveries
@@ -78,6 +87,9 @@ The work is intentionally ordered by leverage. The first wave removes large cold
 
 - Observation: a clean extension-free Lighthouse baseline is now available for the trade route, and it is materially slower than the earlier noisy provisional run suggested.
   Evidence: the stable three-run desktop baseline at `http://localhost:8082/trade?market=HYPE&tab=positions` produced scores `47 / 48 / 51` with median Perf `48`, FCP `2.707s`, LCP `2.911s`, TBT `430ms`, TTI `3.853s`, and no Lighthouse warnings or extension noise.
+
+- Observation: a later release Lighthouse run now shows that cold-load paint and interactivity have improved substantially, but the remaining visible issues have shifted to the startup dependency chain and residual CLS rather than raw FCP/LCP/TTI.
+  Evidence: the later March 16 release trace captured against `http://localhost:8082/trade?market=HYPE&tab=positions` reported Perf `95`, FCP `0.8s`, LCP `1.0s`, TTI `1.1s`, TBT `32ms`, and CLS `0.092`, while Lighthouse still highlighted `/js/main.js` as a render-blocking request and showed a dependency chain from that script into several `/info` requests plus `trade_chart.js`.
 
 - Observation: the route-level Milestone 2 split is real at build time; release output now contains dedicated chunks for every non-trade top-level screen.
   Evidence: `npm run build` now emits `resources/public/js/portfolio_route.js` (`413,024` bytes), `resources/public/js/funding_comparison_route.js` (`98,351` bytes), `resources/public/js/staking_route.js` (`211,052` bytes), `resources/public/js/api_wallets_route.js` (`90,718` bytes), and `resources/public/js/vaults_route.js` (`851,863` bytes), alongside `module-loader.edn` and `module-loader.json`.
@@ -186,11 +198,23 @@ The work is intentionally ordered by leverage. The first wave removes large cold
   Rationale: fresh render-flush telemetry proved `candles` was still the hottest remaining root, and the chart sync path was still paying a full-vector transform cost even on tail-only updates that already had a narrower sync decision.
   Date/Author: 2026-03-16 / Codex
 
+- Decision: Treat the remaining critical-path `/info` chain as a narrow Milestone 3 follow-up instead of reopening bundle splitting or jumping ahead to caching work.
+  Rationale: the later release trace shows that cold-load paint and first useful interactivity are already healthy, but the startup dependency tree still includes unnecessary market-loader work after `main.js`; that is still a startup-bootstrap concern, not a route-bundle or repeat-visit concern.
+  Date/Author: 2026-03-17 / Codex
+
+- Decision: Narrow the remaining Milestone 4 scope around chart-shell and overlay layout stability, with CLS as the primary closeout metric for the trade route.
+  Rationale: the later release trace shows FCP, LCP, TTI, and TBT already in a good range, while CLS remains the weakest user-visible metric and the chart/overlay stack is the most plausible owner of the remaining movement.
+  Date/Author: 2026-03-17 / Codex
+
+- Decision: Defer a true static app shell and non-JavaScript first-frame work to post-plan follow-up scope unless future clean release traces regress on cold-load paint.
+  Rationale: that architectural change is directionally valid, but the latest release metrics already meet the plan's cold-load goals, so the higher-leverage remaining work is to trim the startup `/info` chain and stabilize chart/overlay layout before broadening scope.
+  Date/Author: 2026-03-17 / Codex
+
 ## Outcomes & Retrospective
 
 Milestones 1 through 3 are now implemented, and five Milestone 4 cuts are in place. The default route no longer cold-loads Splash or Inter, the browser build loads portfolio, funding comparison, staking, API-wallets, and vault screens from dedicated async route chunks, the trade route now resolves its chart stack from a separate `trade_chart` module instead of baking that code into the initial browser entrypoint, and cold `/trade` startup now fetches only asset contexts plus the minimal selector `:bootstrap` metadata needed by balances/account surfaces instead of auto-expanding the full selector-market catalog. On top of that, duplicate timestamp-only orderbook snapshots no longer write into the app store, queued market projections no longer rewrite the store when they net to the same state, the app render loop now emits per-frame telemetry for changed top-level keys and render duration, hidden mobile/desktop heavy surfaces are no longer invoked just to be hidden by CSS, the visible trade subtrees now render through reduced top-level state slices so unrelated `:orderbooks` and default-path `:websocket` churn stop waking the whole trade screen, and the chart-local overlay path now keeps stable input identities while reconciling legend and volume-overlay candle indexes incrementally instead of rescanning the full candle vector on common live updates.
 
-The verification result is strong for correctness, build topology, and baseline measurement. Repository gates all pass, the release build emits the expected async chunks including `trade_chart.js`, startup and navigation now know how to load them on demand, the cold `/trade` startup path is narrower because the expensive deferred full selector-market expansion no longer runs automatically while critical correctness-only selector metadata still does, and the Milestone 4 regression tests now cover projection-boundary dedupe, responsive hidden-subtree pruning, reduced-slice caching across orderbook-only updates, websocket-only rerender suppression when freshness cues are disabled, stable chart overlay identities across unchanged renders, incremental candle-index reconciliation for the chart legend and volume-indicator overlay, and now incremental transformed-data reuse for both main-series and volume-series tail updates. A fresh clean Lighthouse baseline now closes Milestone 0, and fresh live render-flush telemetry identified `candles` as the remaining highest-leverage target; this latest code cut addresses that root directly, so the next step is to rerun render-flush telemetry and release Lighthouse to see whether the candle path is still dominant before deciding whether Milestone 4 can close or needs one more chart-runtime pass.
+The verification result is strong for correctness, build topology, and baseline measurement. Repository gates all pass, the release build emits the expected async chunks including `trade_chart.js`, startup and navigation now know how to load them on demand, the cold `/trade` startup path is narrower because the expensive deferred full selector-market expansion no longer runs automatically while critical correctness-only selector metadata still does, and the Milestone 4 regression tests now cover projection-boundary dedupe, responsive hidden-subtree pruning, reduced-slice caching across orderbook-only updates, websocket-only rerender suppression when freshness cues are disabled, stable chart overlay identities across unchanged renders, incremental candle-index reconciliation for the chart legend and volume-indicator overlay, and now incremental transformed-data reuse for both main-series and volume-series tail updates. A fresh clean Lighthouse baseline now closes Milestone 0, and the later healthier release trace shifts the remaining work away from broad cold-load rewrites: the next closeout steps are a narrow Milestone 3 follow-up on the residual `/info` chain plus a Milestone 4 finish focused on chart/overlay layout stability and CLS before the plan moves on to Milestone 5.
 
 ## Context and Orientation
 
@@ -246,6 +270,8 @@ Today the app correctly yields one macrotask before post-render startup, but it 
 
 This milestone should make the startup phases explicit: required-for-initial-trade, required-after-first-interaction, and required-only-on-navigation or wallet connection. `start-critical-bootstrap!` and `run-deferred-bootstrap!` already provide a seam for this split. Use that seam to delay or remove work rather than layering more work into the existing phases. The desired result is fewer `/info` requests, less post-render JavaScript, and a shorter path to quiet main-thread time.
 
+The first Milestone 3 wave is now complete, but later release traces show a smaller follow-up still remains. The remaining Milestone 3 work is to keep the correctness-critical selector `:bootstrap` fetch while trimming any residual startup `/info` fan-out that is still landing on the Lighthouse dependency tree for the default trade route. That follow-up should stay narrow: do not reintroduce the balances metadata regression that occurred when selector metadata was removed too aggressively.
+
 ### Milestone 4: Reduce Whole-App Render Churn and Expensive Live-Surface Layout Work
 
 The fourth milestone should target `/hyperopen/src/hyperopen/runtime/bootstrap.cljs`, `/hyperopen/src/hyperopen/websocket/market_projection_runtime.cljs`, `/hyperopen/src/hyperopen/views/trade_view.cljs`, and high-churn views such as `/hyperopen/src/hyperopen/views/l2_orderbook_view.cljs`.
@@ -254,9 +280,15 @@ The report shows that even after the page paints, the browser spends several add
 
 This milestone should first add targeted instrumentation so the team can see which store paths and view subtrees are generating the heaviest render and layout cost during a release trace. Then reduce churn in the highest-cost surfaces. Likely changes include keeping more high-frequency chart and orderbook updates in imperative interop layers instead of whole-app state, memoizing or precomputing display data at the projection boundary instead of during render, and splitting the app shell into smaller independently renderable roots where that aligns with Replicant’s model. The goal is not “no rerenders”; the goal is “only the surfaces that changed should pay, and only at the rate the user can perceive.”
 
+At this stage, the remaining Milestone 4 closeout work is narrower than the original milestone text. Recent release traces suggest the final leverage is less about raw cold-load execution and more about the trade chart shell, overlays, and any layout movement they still induce. Treat CLS and chart/overlay stability as the primary exit criteria for this milestone, with render-flush telemetry used to confirm whether the candle path or another chart-local subtree still dominates.
+
 ### Milestone 5: Repeat-Visit Caching and Back/Forward Cache Polish
 
 The final milestone should address serving concerns that improve repeat visits after the cold-load bottlenecks are reduced. This includes cache lifetimes for the release assets served from `/hyperopen/resources/public`, immutable fingerprinting if asset naming needs to change, and the `bf-cache` failure reason reported by Lighthouse. These changes matter most after the app’s first-load script, startup, and render churn have been reduced. They should not pre-empt the earlier milestones because they will not fix the current `TTI` tail on their own.
+
+### Deferred Follow-Up: Static App Shell and Non-JavaScript First Frame
+
+A real static app shell remains a valid follow-up idea for the release build entrypoint in `/hyperopen/resources/public/index.html`, especially if the team wants to decouple the first visible frame from `main.js` entirely. It is intentionally deferred from the active milestone sequence because the later release trace already shows strong cold-load paint and interactivity. Unless future clean release traces regress on FCP/LCP or product goals explicitly expand to require a non-JavaScript first frame, the higher-leverage remaining work is still the startup `/info` chain and chart/overlay stability.
 
 ## Concrete Steps
 
@@ -303,9 +335,9 @@ From `/hyperopen`:
    - `/hyperopen/src/hyperopen/startup/runtime.cljs`
    - `/hyperopen/src/hyperopen/api/market_loader.cljs`
 
-   Rebuild and re-run Lighthouse plus any manual network inspection. Confirm that the initial trade load sends fewer `/info` requests and that non-essential market bootstrap waits until user demand or idle time.
+   Rebuild and re-run Lighthouse plus manual network inspection. Confirm that the initial trade load sends fewer `/info` requests, that the remaining startup dependency tree no longer contains avoidable `/info` work on the critical chain, and that non-essential market bootstrap still waits until user demand or idle time.
 
-5. Implement Milestone 4 and validate lower main-thread rendering and layout cost.
+5. Implement Milestone 4 and validate lower main-thread rendering and layout cost plus lower CLS.
 
    Edit:
 
@@ -315,7 +347,7 @@ From `/hyperopen`:
    - `/hyperopen/src/hyperopen/views/l2_orderbook_view.cljs`
    - Any new instrumentation or projection helper namespaces added to support churn reduction
 
-   Rebuild and re-run Lighthouse plus a focused performance trace. Confirm that style/layout and rendering shrink materially relative to the clean baseline and that the landing route reaches quiet main-thread time sooner.
+   Rebuild and re-run Lighthouse plus a focused performance trace. Confirm that style/layout and rendering shrink materially relative to the clean baseline, that the landing route reaches quiet main-thread time sooner, and that chart/overlay work no longer produces the remaining meaningful CLS on the trade route.
 
 6. Implement Milestone 5 and validate repeat-visit improvements.
 
@@ -333,9 +365,9 @@ The initial app bundle is smaller and more route-specific. The landing route sho
 
 The startup sequence performs only the work required for the initial trade route. Non-essential market catalog bootstrap, wallet-dependent data work, and dormant-route loaders should not run before the user needs them.
 
-The landing route reaches useful interactivity substantially sooner than the March 16 baseline. As a concrete release goal for the clean desktop trace, target Performance score `>= 90`, FCP `<= 1.5s`, LCP `<= 1.8s`, and TTI `<= 3.5s`, with equal or better CLS and TBT than the current release baseline.
+The landing route reaches useful interactivity substantially sooner than the March 16 baseline and preserves the later improved release result. As a concrete release goal for the clean desktop trace, keep Performance score `>= 90`, FCP `<= 1.5s`, LCP `<= 1.8s`, and TTI `<= 3.5s`, while reducing CLS below the later `0.092` release trace and keeping TBT at or below the current release baseline.
 
-The performance trace shows reduced main-thread rendering and style/layout time during the first several seconds after load, demonstrating that live market updates are no longer driving expensive whole-app rendering by default.
+The performance trace shows reduced main-thread rendering and style/layout time during the first several seconds after load, demonstrating that live market updates are no longer driving expensive whole-app rendering by default, and the startup dependency tree no longer carries avoidable `/info` work on the critical path.
 
 Required repository gates still pass after each milestone that changes code: `npm run check`, `npm test`, and `npm run test:websocket`.
 
@@ -383,3 +415,4 @@ Repository locations most directly implicated by that report:
 
 Plan revision note: 2026-03-16 - Initial deferred performance plan authored from a release-build Lighthouse audit so the next implementation wave can start from a prioritized, evidence-backed roadmap rather than a fresh exploratory pass.
 Plan revision note: 2026-03-16 - Promoted to active work for `hyperopen-finw` and updated with the Milestone 1 implementation approach.
+Plan revision note: 2026-03-17 - Reconciled the later improved release Lighthouse run with the active milestone structure, reopening a narrow Milestone 3 follow-up for residual startup `/info` work, narrowing Milestone 4 around chart/overlay CLS stability, and deferring a static app shell to post-plan scope.

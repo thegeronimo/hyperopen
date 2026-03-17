@@ -31,6 +31,7 @@
             [hyperopen.api.gateway.orders-test]
             [hyperopen.api.gateway.orders.commands-test]
             [hyperopen.api.gateway.vaults-test]
+            [hyperopen.api.info-client-test]
             [hyperopen.api.instance-test]
             [hyperopen.api.market-loader-test]
             [hyperopen.api.market-metadata.facade-test]
@@ -375,6 +376,7 @@
              'hyperopen.api.gateway.orders-test
              'hyperopen.api.gateway.orders.commands-test
              'hyperopen.api.gateway.vaults-test
+             'hyperopen.api.info-client-test
              'hyperopen.api.instance-test
              'hyperopen.api.market-loader-test
              'hyperopen.api.market-metadata.facade-test
