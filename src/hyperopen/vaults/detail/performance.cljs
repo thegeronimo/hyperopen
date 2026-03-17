@@ -167,36 +167,16 @@
            portfolio-metrics/history-point-value
            optional-number))
 
-(defn- history-point
-  [row]
-  (cond
-    (and (sequential? row)
-         (>= (count row) 2))
-    {:time-ms (optional-number (first row))
-     :value (optional-number (second row))}
-
-    (map? row)
-    {:time-ms (or (optional-number (:time row))
-                  (optional-number (:timestamp row))
-                  (optional-number (:time-ms row))
-                  (optional-number (:timeMs row))
-                  (optional-number (:ts row))
-                  (optional-number (:t row)))
-     :value (or (optional-number (:value row))
-                (optional-number (:account-value row))
-                (optional-number (:accountValue row))
-                (optional-number (:pnl row)))}
-
-    :else
-    nil))
-
 (defn- history-points
   [rows]
   (->> (if (sequential? rows) rows [])
-       (keep history-point)
-       (filter (fn [{:keys [time-ms value]}]
-                 (and (number? time-ms)
-                      (number? value))))
+       (keep (fn [row]
+               (let [time-ms (portfolio-metrics/history-point-time-ms row)
+                     value (portfolio-metrics/history-point-value row)]
+                 (when (and (number? time-ms)
+                            (number? value))
+                   {:time-ms time-ms
+                    :value value}))))
        (sort-by :time-ms)
        vec))
 
@@ -214,7 +194,8 @@
   [rows series]
   (->> rows
        (map-indexed (fn [idx row]
-                      (let [{:keys [time-ms value]} (history-point row)
+                      (let [time-ms (portfolio-metrics/history-point-time-ms row)
+                            value (portfolio-metrics/history-point-value row)
                             value* (normalize-chart-point-value series value)]
                         (when (and (number? time-ms)
                                    (number? value*))

@@ -52,6 +52,23 @@
     (is (= [2 8]
            (mapv :value (get rows-by-coin (str "vault:" vault-address)))))))
 
+(deftest benchmark-cumulative-return-points-by-coin-accepts-map-shaped-candles-and-skips-invalid-rows-test
+  (let [state {:candles {"BTC" {:1h [{:timestamp "1" :close "100"}
+                                     {:timeMs 2 :c "110"}
+                                     {:t 3 :c "0"}
+                                     {:t "bad" :c "120"}]}}
+               :vaults {:merged-index-rows []}}
+        strategy-return-points [{:time-ms 1 :value 0}
+                                {:time-ms 2 :value 10}]
+        rows-by-coin (benchmarks/benchmark-cumulative-return-points-by-coin
+                      state
+                      :month
+                      ["BTC"]
+                      strategy-return-points)]
+    (is (= [{:index 0 :time-ms 1 :value 0}
+            {:index 1 :time-ms 2 :value 10}]
+           (get rows-by-coin "BTC")))))
+
 (deftest vault-benchmark-selector-cache-hits-identity-signature-and-invalidation-paths-test
   (let [rows-a [{:name "Alpha"
                  :vault-address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"

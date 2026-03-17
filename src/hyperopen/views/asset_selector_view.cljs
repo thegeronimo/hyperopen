@@ -6,25 +6,39 @@
 
 ;; Asset selector dropdown component
 
+(def ^:private tooltip-panel-position-classes
+  {"top" ["bottom-full" "left-1/2" "transform" "-translate-x-1/2" "mb-2"]
+   "bottom" ["top-full" "left-1/2" "transform" "-translate-x-1/2" "mt-2"]
+   "left" ["right-full" "top-1/2" "transform" "-translate-y-1/2" "mr-2"]
+   "right" ["left-full" "top-1/2" "transform" "-translate-y-1/2" "ml-2"]})
+
+(def ^:private tooltip-arrow-position-classes
+  {"top" ["top-full" "border-t-gray-800"]
+   "bottom" ["bottom-full" "border-b-gray-800"]
+   "left" ["left-full" "border-l-gray-800"]
+   "right" ["right-full" "border-r-gray-800"]})
+
+(defn- tooltip-position-classes
+  [position]
+  (or (get tooltip-panel-position-classes position)
+      (throw (js/Error. (str "Unsupported tooltip position: " position)))))
+
+(defn- tooltip-arrow-classes
+  [position]
+  (or (get tooltip-arrow-position-classes position)
+      (throw (js/Error. (str "Unsupported tooltip position: " position)))))
+
 (defn tooltip [content & [position]]
   (let [pos (or position "top")]
     [:div.relative.group
      [:div (first content)]
      [:div {:class (into ["absolute" "opacity-0" "group-hover:opacity-100" "transition-opacity" "duration-200" "pointer-events-none" "z-50"]
-                         (case pos
-                           "top" ["bottom-full" "left-1/2" "transform" "-translate-x-1/2" "mb-2"]
-                           "bottom" ["top-full" "left-1/2" "transform" "-translate-x-1/2" "mt-2"]
-                           "left" ["right-full" "top-1/2" "transform" "-translate-y-1/2" "mr-2"]
-                           "right" ["left-full" "top-1/2" "transform" "-translate-y-1/2" "ml-2"]))
+                         (tooltip-position-classes pos))
              :style {:min-width "max-content"}}
       [:div.bg-gray-800.text-white.text-xs.rounded.py-1.px-2.whitespace-nowrap
        (second content)
        [:div {:class (into ["absolute" "w-0" "h-0" "border-4" "border-transparent"]
-                           (case pos
-                             "top" ["top-full" "border-t-gray-800"]
-                             "bottom" ["bottom-full" "border-b-gray-800"]
-                             "left" ["left-full" "border-l-gray-800"]
-                             "right" ["right-full" "border-r-gray-800"]))}]]]]))
+                           (tooltip-arrow-classes pos))}]]]]))
 
 (defn chip [label & [extra-classes]]
   [:span {:class (into ["px-1.5" "py-0.5" "text-xs" "font-medium" "rounded" "border" "border-base-300" "bg-base-200" "text-gray-300"]

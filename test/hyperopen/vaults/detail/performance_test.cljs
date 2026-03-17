@@ -1,5 +1,6 @@
 (ns hyperopen.vaults.detail.performance-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.portfolio.metrics :as portfolio-metrics]
             [hyperopen.vaults.detail.metrics-bridge :as metrics-bridge]
             [hyperopen.vaults.detail.performance :as performance]))
 
@@ -25,6 +26,33 @@
            (mapv first (:accountValueHistory summary))))
     (is (= [0 10]
            (mapv second (:pnlHistory summary))))))
+
+(deftest chart-series-data-normalizes-mixed-history-row-shapes-test
+  (with-redefs [portfolio-metrics/returns-history-rows (fn [_state _summary _scope]
+                                                         [{:time-ms 10 :value -0.0001}
+                                                          {:timestamp "11" :pnl "2.345"}
+                                                          ["bad" 4]])]
+    (let [summary {:accountValueHistory [{:time-ms 3 :accountValue "15"}
+                                         [1 "5"]
+                                         {:t 2 :pnl "10"}
+                                         {:time-ms js/NaN :value 4}
+                                         ["bad" 1]]
+                   :pnlHistory [[3 "6"]
+                                {:timestamp 1 :pnl "2"}
+                                {:t 2 :pnl "4"}
+                                {:time-ms "bad" :value 8}]}
+          series (performance/chart-series-data {} summary)]
+      (is (= [{:time-ms 1 :value 5}
+              {:time-ms 2 :value 10}
+              {:time-ms 3 :value 15}]
+             (:account-value series)))
+      (is (= [{:time-ms 1 :value 2}
+              {:time-ms 2 :value 4}
+              {:time-ms 3 :value 6}]
+             (:pnl series)))
+      (is (= [{:index 0 :time-ms 10 :value 0}
+              {:index 1 :time-ms 11 :value 2.35}]
+             (:returns series))))))
 
 (deftest performance-metrics-model-builds-benchmark-columns-test
   (let [selector {:selected-coins ["BTC"]

@@ -43,6 +43,28 @@
 (def ^:private unified-account-leverage-tooltip
   "Unified Account Leverage = Total Cross Positions Value / Total Collateral Balance.")
 
+(def ^:private tooltip-panel-position-classes
+  {"top" ["bottom-full" "left-0" "mb-2"]
+   "bottom" ["top-full" "left-0" "mt-2"]
+   "left" ["right-full" "top-1/2" "-translate-y-1/2" "mr-2"]
+   "right" ["left-full" "top-1/2" "-translate-y-1/2" "ml-2"]})
+
+(def ^:private tooltip-arrow-position-classes
+  {"top" ["top-full" "left-3" "border-t-gray-800"]
+   "bottom" ["bottom-full" "left-3" "border-b-gray-800"]
+   "left" ["left-full" "top-1/2" "-translate-y-1/2" "border-l-gray-800"]
+   "right" ["right-full" "top-1/2" "-translate-y-1/2" "border-r-gray-800"]})
+
+(defn- tooltip-position-classes
+  [position]
+  (or (get tooltip-panel-position-classes position)
+      (throw (js/Error. (str "Unsupported tooltip position: " position)))))
+
+(defn- tooltip-arrow-classes
+  [position]
+  (or (get tooltip-arrow-position-classes position)
+      (throw (js/Error. (str "Unsupported tooltip position: " position)))))
+
 (defn pnl-display [value]
   (if (number? value)
     (let [formatted (fmt/format-currency (js/Math.abs value))
@@ -63,20 +85,12 @@
      trigger
      [:div {:class (into ["absolute" "opacity-0" "group-hover:opacity-100" "transition-opacity" "duration-200"
                           "pointer-events-none" "z-50"]
-                         (case pos
-                           "top" ["bottom-full" "left-0" "mb-2"]
-                           "bottom" ["top-full" "left-0" "mt-2"]
-                           "left" ["right-full" "top-1/2" "-translate-y-1/2" "mr-2"]
-                           "right" ["left-full" "top-1/2" "-translate-y-1/2" "ml-2"]))
+                         (tooltip-position-classes pos))
             :style {:max-width "520px" :min-width "300px"}}
       [:div.bg-gray-800.text-gray-100.text-xs.rounded-md.px-3.py-2.spectate-lg.leading-snug.whitespace-normal
        text
        [:div {:class (into ["absolute" "w-0" "h-0" "border-4" "border-transparent"]
-                           (case pos
-                             "top" ["top-full" "left-3" "border-t-gray-800"]
-                             "bottom" ["bottom-full" "left-3" "border-b-gray-800"]
-                             "left" ["left-full" "top-1/2" "-translate-y-1/2" "border-l-gray-800"]
-                             "right" ["right-full" "top-1/2" "-translate-y-1/2" "border-r-gray-800"]))}]]]]))
+                           (tooltip-arrow-classes pos))}]]]]))
 
 (defn label-with-tooltip [label tooltip-text]
   (tooltip

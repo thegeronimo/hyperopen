@@ -1,6 +1,7 @@
 (ns hyperopen.vaults.detail.benchmarks
   (:require [clojure.string :as str]
             [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.portfolio.metrics :as portfolio-metrics]
             [hyperopen.vaults.detail.types :as detail-types]))
 
 (def ^:private max-vault-benchmark-options
@@ -396,29 +397,6 @@
                                                         :model model})
         model))))
 
-(defn- history-point
-  [row]
-  (cond
-    (and (sequential? row)
-         (>= (count row) 2))
-    {:time-ms (optional-number (first row))
-     :value (optional-number (second row))}
-
-    (map? row)
-    {:time-ms (or (optional-number (:time row))
-                  (optional-number (:timestamp row))
-                  (optional-number (:time-ms row))
-                  (optional-number (:timeMs row))
-                  (optional-number (:ts row))
-                  (optional-number (:t row)))
-     :value (or (optional-number (:value row))
-                (optional-number (:account-value row))
-                (optional-number (:accountValue row))
-                (optional-number (:pnl row)))}
-
-    :else
-    nil))
-
 (defn- normalize-chart-point-value
   [series value]
   (when (number? value)
@@ -433,7 +411,8 @@
   [rows series]
   (->> rows
        (map-indexed (fn [idx row]
-                      (let [{:keys [time-ms value]} (history-point row)
+                      (let [time-ms (portfolio-metrics/history-point-time-ms row)
+                            value (portfolio-metrics/history-point-value row)
                             value* (normalize-chart-point-value series value)]
                         (when (and (number? time-ms)
                                    (number? value*))
@@ -462,7 +441,7 @@
   (if (sequential? rows)
     (->> rows
          (keep (fn [row]
-                 (let [time-ms (some-> row history-point :time-ms)
+                 (let [time-ms (portfolio-metrics/history-point-time-ms row)
                        close (candle-point-close row)]
                    (when (and (number? time-ms)
                               (number? close)

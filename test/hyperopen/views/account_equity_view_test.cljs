@@ -95,6 +95,21 @@
       (is (contains? (node-class-set placeholder-node) "text-trading-text-secondary"))
       (is (contains? (node-class-set placeholder-node) "num")))))
 
+(deftest tooltip-position-classes-cover-default-and-explicit-directions-test
+  (doseq [[position expected-panel-class expected-arrow-class]
+          [[nil "bottom-full" "top-full"]
+           ["bottom" "top-full" "bottom-full"]
+           ["left" "right-full" "left-full"]
+           ["right" "left-full" "right-full"]]]
+    (let [tooltip-node (view/tooltip [:span "Label"] "Tooltip copy" position)
+          panel-node (last (node-children tooltip-node))
+          arrow-node (find-first-node tooltip-node #(contains? (node-class-set %) "border-4"))
+          panel-classes (node-class-set panel-node)
+          arrow-classes (node-class-set arrow-node)]
+      (is (contains? panel-classes expected-panel-class))
+      (is (contains? panel-classes "group-hover:opacity-100"))
+      (is (contains? arrow-classes expected-arrow-class)))))
+
 (deftest pnl-display-color-mapping-test
   (let [positive (view/pnl-display 10.5)
         negative (view/pnl-display -2.25)
