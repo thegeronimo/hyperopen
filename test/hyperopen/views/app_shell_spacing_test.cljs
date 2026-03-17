@@ -254,6 +254,26 @@
     (is (not (identical? (render-panel base-state)
                          (render-panel changed-state))))))
 
+(deftest trade-view-chart-loading-shell-preserves-chart-host-geometry-test
+  (with-redefs [trade-modules/render-trade-chart-view (constantly nil)]
+    (let [view-node (with-viewport-width
+                      1280
+                      #(trade-view/trade-view (active-asset-panel-test-state)))
+          shell-node (find-first-node view-node
+                                      (fn [candidate]
+                                        (= "trade-chart-module-shell"
+                                           (get-in candidate [1 :data-parity-id]))))
+          host-node (find-first-node shell-node
+                                     (fn [candidate]
+                                       (contains? (node-class-set candidate)
+                                                  "trading-chart-host")))]
+      (is (some? shell-node))
+      (is (contains? (node-class-set shell-node) "w-full"))
+      (is (contains? (node-class-set shell-node) "h-full"))
+      (is (some? host-node))
+      (is (contains? (node-class-set host-node) "min-h-[360px]"))
+      (is (some #{"Loading Chart"} (collect-strings shell-node))))))
+
 (deftest trade-view-root-and-right-column-layout-test
   (let [view-node (trade-view/trade-view trade-view-test-state)
         root-classes (root-class-set view-node)]

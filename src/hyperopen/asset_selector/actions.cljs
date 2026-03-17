@@ -1,6 +1,7 @@
 (ns hyperopen.asset-selector.actions
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
+            [hyperopen.active-asset.funding-policy :as funding-policy]
             [hyperopen.account.history.shared :as history-shared]
             [hyperopen.asset-selector.list-metrics :as list-metrics]
             [hyperopen.asset-selector.markets :as markets]
@@ -551,13 +552,19 @@
   [state tooltip-id visible?]
   (let [tooltip-id* (some-> tooltip-id str str/trim)
         current-visible-id (get-in state [:funding-ui :tooltip :visible-id])
+        active-asset (some-> (:active-asset state) str str/trim)
+        active-tooltip-id (some-> active-asset funding-policy/funding-tooltip-pin-id)
         next-visible-id (cond
                           (and (true? visible?) (seq tooltip-id*)) tooltip-id*
                           (= current-visible-id tooltip-id*) nil
                           :else current-visible-id)]
     (if (= current-visible-id next-visible-id)
       []
-      [[:effects/save [:funding-ui :tooltip :visible-id] next-visible-id]])))
+      (cond-> [[:effects/save [:funding-ui :tooltip :visible-id] next-visible-id]]
+        (and (true? visible?)
+             (seq active-asset)
+             (= active-tooltip-id next-visible-id))
+        (conj [:effects/sync-active-asset-funding-predictability active-asset])))))
 
 (defn set-funding-tooltip-pinned
   [state tooltip-id pinned?]

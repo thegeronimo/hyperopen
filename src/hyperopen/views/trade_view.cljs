@@ -233,47 +233,80 @@
   [state]
   (let [error-message (trade-modules/trade-chart-error state)
         route (get-in state [:router :path] "/trade")]
-    [:div {:class ["flex"
-                   "h-full"
-                   "min-h-0"
-                   "items-center"
-                   "justify-center"
-                   "bg-base-100"
-                   "px-6"
-                   "py-10"]
+    [:div {:class ["w-full" "h-full"]
            :data-parity-id "trade-chart-module-shell"}
-     [:div {:class ["flex"
-                    "max-w-md"
-                    "flex-col"
-                    "items-center"
-                    "gap-3"
-                    "text-center"]}
-      [:div {:class ["text-sm"
-                     "font-semibold"
-                     "uppercase"
-                     "tracking-[0.12em]"
-                     "text-trading-text-secondary"]}
-       (if error-message
-         "Chart Load Failed"
-         "Loading Chart")]
-      [:p {:class ["text-sm" "text-trading-text-secondary"]}
-       (or error-message
-           "Loading the trade chart on demand to keep the initial trade bundle smaller.")]
-      (when error-message
-        [:button {:type "button"
-                  :class ["rounded-lg"
-                          "border"
-                          "border-base-300"
-                          "px-3"
-                          "py-2"
-                          "text-sm"
-                          "font-medium"
-                          "text-trading-text"
-                          "transition-colors"
-                          "hover:border-primary"
-                          "hover:text-primary"]
-                  :on {:click [[:actions/navigate route {:replace? true}]]}}
-         "Retry"])]]))
+     [:div {:class ["w-full" "h-full" "flex" "flex-col"]}
+      [:div {:class ["flex"
+                     "items-center"
+                     "justify-between"
+                     "border-b"
+                     "border-gray-700"
+                     "px-4"
+                     "pt-2"
+                     "pb-1"
+                     "w-full"
+                     "space-x-4"
+                     "bg-base-100"]}
+       [:div {:class ["flex" "items-center" "space-x-1"]}
+        (for [label ["5m" "1h" "1d"]]
+          ^{:key (str "trade-chart-shell-timeframe-" label)}
+          [:div {:class ["px-3"
+                         "py-1"
+                         "text-sm"
+                         "font-medium"
+                         "rounded"
+                         "text-trading-text-secondary"
+                         "bg-base-200/70"]}
+           label])]
+       [:div {:class ["ml-auto" "flex" "items-center" "gap-2"]}
+        [:div {:class ["h-7" "w-28" "rounded" "bg-base-200/70"]}]
+        [:div {:class ["h-7" "w-24" "rounded" "bg-base-200/70"]}]]]
+      [:div {:class ["w-full"
+                     "relative"
+                     "flex-1"
+                     "h-full"
+                     "min-h-[360px]"
+                     "bg-base-100"
+                     "trading-chart-host"]}
+       [:div {:class ["absolute"
+                      "inset-0"
+                      "flex"
+                      "items-center"
+                      "justify-center"
+                      "px-6"
+                      "py-10"]}
+        [:div {:class ["flex"
+                       "max-w-md"
+                       "flex-col"
+                       "items-center"
+                       "gap-3"
+                       "text-center"]}
+         [:div {:class ["text-sm"
+                        "font-semibold"
+                        "uppercase"
+                        "tracking-[0.12em]"
+                        "text-trading-text-secondary"]}
+          (if error-message
+            "Chart Load Failed"
+            "Loading Chart")]
+         [:p {:class ["text-sm" "text-trading-text-secondary"]}
+          (or error-message
+              "Loading the trade chart on demand to keep the initial trade bundle smaller.")]
+         (when error-message
+           [:button {:type "button"
+                     :class ["rounded-lg"
+                             "border"
+                             "border-base-300"
+                             "px-3"
+                             "py-2"
+                             "text-sm"
+                             "font-medium"
+                             "text-trading-text"
+                             "transition-colors"
+                             "hover:border-primary"
+                             "hover:text-primary"]
+                     :on {:click [[:actions/navigate route {:replace? true}]]}}
+            "Retry"])]]]]]))
 
 (defn- trade-chart-panel-content
   [state]

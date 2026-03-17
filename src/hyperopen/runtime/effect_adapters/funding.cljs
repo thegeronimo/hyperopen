@@ -1,5 +1,6 @@
 (ns hyperopen.runtime.effect-adapters.funding
   (:require [nexus.registry :as nxr]
+            [hyperopen.active-asset.funding-policy :as funding-policy]
             [hyperopen.api.default :as api]
             [hyperopen.api.projections :as api-projections]
             [hyperopen.funding.history-cache :as funding-cache]
@@ -49,25 +50,36 @@
                (assoc-in (funding-predictability-path :loaded-at-ms-by-coin coin)
                          loaded-at-ms)))))
 
+(defn- active-asset-funding-tooltip-open?
+  [state coin]
+  (let [active-asset (funding-cache/normalize-coin (:active-asset state))
+        tooltip-ui (get-in state [:funding-ui :tooltip] {})
+        active-tooltip-id (some-> active-asset funding-policy/funding-tooltip-pin-id)]
+    (and (= active-asset coin)
+         (or (= active-tooltip-id (:visible-id tooltip-ui))
+             (= active-tooltip-id (:pinned-id tooltip-ui))))))
+
 (defn sync-active-asset-funding-predictability
   [_ store coin]
   (if-let [coin* (funding-cache/normalize-coin coin)]
-    (do
-      (set-funding-predictability-loading! store coin* true)
-      (-> (apply funding-cache/sync-market-funding-history-cache!
-                 [coin*])
-          (.then (fn [{:keys [rows]}]
-                   (let [now-ms (platform/now-ms)
-                         rows* (funding-cache/rows-for-window rows
-                                                              now-ms
-                                                              funding-predictability/thirty-day-window-ms)
-                         summary (funding-predictability/compute-30d-summary rows* now-ms)]
-                     (set-funding-predictability-success! store coin* summary now-ms))))
-          (.catch (fn [error]
-                    (let [now-ms (platform/now-ms)
-                          error-message (or (some-> error .-message)
-                                            (str error))]
-                      (set-funding-predictability-error! store coin* error-message now-ms))))))
+    (if (active-asset-funding-tooltip-open? @store coin*)
+      (do
+        (set-funding-predictability-loading! store coin* true)
+        (-> (apply funding-cache/sync-market-funding-history-cache!
+                   [coin*])
+            (.then (fn [{:keys [rows]}]
+                     (let [now-ms (platform/now-ms)
+                           rows* (funding-cache/rows-for-window rows
+                                                                now-ms
+                                                                funding-predictability/thirty-day-window-ms)
+                           summary (funding-predictability/compute-30d-summary rows* now-ms)]
+                       (set-funding-predictability-success! store coin* summary now-ms))))
+            (.catch (fn [error]
+                      (let [now-ms (platform/now-ms)
+                            error-message (or (some-> error .-message)
+                                              (str error))]
+                        (set-funding-predictability-error! store coin* error-message now-ms))))))
+      (js/Promise.resolve nil))
     (js/Promise.resolve nil)))
 
 (defn api-fetch-predicted-fundings-effect

@@ -1,5 +1,6 @@
 (ns hyperopen.asset-selector.actions-test
   (:require [cljs.test :refer-macros [deftest is testing]]
+            [hyperopen.active-asset.funding-policy :as funding-policy]
             [hyperopen.asset-selector.actions :as actions]))
 
 (defn- save-many-path-values
@@ -146,6 +147,24 @@
                     effects))
       (is (not-any? #(= [:effects/push-state "/trade/ETH"] %)
                     effects)))))
+
+(deftest set-funding-tooltip-visible-syncs-active-asset-predictability-on-open-test
+  (let [btc-pin-id (funding-policy/funding-tooltip-pin-id "BTC")
+        eth-pin-id (funding-policy/funding-tooltip-pin-id "ETH")]
+    (is (= [[:effects/save [:funding-ui :tooltip :visible-id] btc-pin-id]
+            [:effects/sync-active-asset-funding-predictability "BTC"]]
+           (actions/set-funding-tooltip-visible {:active-asset "BTC"}
+                                                btc-pin-id
+                                                true)))
+    (is (= [[:effects/save [:funding-ui :tooltip :visible-id] eth-pin-id]]
+           (actions/set-funding-tooltip-visible {:active-asset "BTC"}
+                                                eth-pin-id
+                                                true)))
+    (is (= [[:effects/save [:funding-ui :tooltip :visible-id] nil]]
+           (actions/set-funding-tooltip-visible {:active-asset "BTC"
+                                                 :funding-ui {:tooltip {:visible-id btc-pin-id}}}
+                                                btc-pin-id
+                                                false)))))
 
 (deftest update-search-sort-strict-favorites-and-tab-actions-test
   (is (= [[:effects/save-many [[[:asset-selector :search-term] ""]

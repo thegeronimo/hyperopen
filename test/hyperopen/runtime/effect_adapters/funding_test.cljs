@@ -1,6 +1,7 @@
 (ns hyperopen.runtime.effect-adapters.funding-test
   (:require [cljs.test :refer-macros [async deftest is]]
             [nexus.registry :as nxr]
+            [hyperopen.active-asset.funding-policy :as funding-policy]
             [hyperopen.api.default :as api]
             [hyperopen.api.projections :as api-projections]
             [hyperopen.funding.effects :as funding-workflow-effects]
@@ -76,8 +77,10 @@
 
 (deftest sync-active-asset-funding-predictability-projects-loading-and-success-test
   (async done
-    (let [store (atom {:active-assets {:contexts {}
-                                       :loading false}})
+    (let [store (atom {:active-asset "BTC"
+                       :active-assets {:contexts {}
+                                       :loading false}
+                       :funding-ui {:tooltip {:visible-id (funding-policy/funding-tooltip-pin-id "BTC")}}})
           request-calls (atom [])
           start-ms (platform/now-ms)
           rows [{:time-ms (- start-ms (* 25 60 60 1000))
@@ -110,12 +113,14 @@
 
 (deftest sync-active-asset-funding-predictability-projects-error-without-clearing-last-summary-test
   (async done
-    (let [store (atom {:active-assets {:contexts {}
+    (let [store (atom {:active-asset "BTC"
+                       :active-assets {:contexts {}
                                        :loading false
                                        :funding-predictability {:by-coin {"BTC" {:mean 0.001}}
                                                                 :loading-by-coin {}
                                                                 :error-by-coin {}
-                                                                :loaded-at-ms-by-coin {}}}})
+                                                                :loaded-at-ms-by-coin {}}}
+                       :funding-ui {:tooltip {:visible-id (funding-policy/funding-tooltip-pin-id "BTC")}}})
           start-ms (platform/now-ms)]
       (with-redefs [funding-cache/sync-market-funding-history-cache!
                     (fn [_coin]
@@ -200,12 +205,36 @@
                      (done)))
             (.catch (async-support/unexpected-error done)))))))
 
-(deftest sync-active-asset-funding-predictability-string-error-falls-back-to-str-test
+(deftest sync-active-asset-funding-predictability-skips-closed-tooltip-test
   (async done
-    (let [store (atom {:active-assets {:funding-predictability {:by-coin {}
+    (let [store (atom {:active-asset "BTC"
+                       :active-assets {:funding-predictability {:by-coin {}
                                                                 :loading-by-coin {}
                                                                 :error-by-coin {}
-                                                                :loaded-at-ms-by-coin {}}}})
+                                                                :loaded-at-ms-by-coin {}}}
+                       :funding-ui {:tooltip {:visible-id nil
+                                              :pinned-id nil}}})
+          request-calls (atom 0)]
+      (with-redefs [funding-cache/sync-market-funding-history-cache!
+                    (fn [& _]
+                      (swap! request-calls inc)
+                      (js/Promise.resolve {:rows []}))]
+        (-> (funding-adapters/sync-active-asset-funding-predictability nil store "BTC")
+            (.then (fn [result]
+                     (is (nil? result))
+                     (is (= 0 @request-calls))
+                     (is (= {} (get-in @store [:active-assets :funding-predictability :loading-by-coin])))
+                     (done)))
+            (.catch (async-support/unexpected-error done)))))))
+
+(deftest sync-active-asset-funding-predictability-string-error-falls-back-to-str-test
+  (async done
+    (let [store (atom {:active-asset "BTC"
+                       :active-assets {:funding-predictability {:by-coin {}
+                                                                :loading-by-coin {}
+                                                                :error-by-coin {}
+                                                                :loaded-at-ms-by-coin {}}}
+                       :funding-ui {:tooltip {:pinned-id (funding-policy/funding-tooltip-pin-id "BTC")}}})
           start-ms (platform/now-ms)]
       (with-redefs [funding-cache/sync-market-funding-history-cache!
                     (fn [_coin]
