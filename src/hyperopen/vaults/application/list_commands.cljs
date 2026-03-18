@@ -5,11 +5,31 @@
 (def ^:private vault-detail-chart-hover-index-path
   [:vaults-ui :detail-chart-hover-index])
 
+(def ^:private vault-detail-chart-timeframe-dropdown-open-path
+  [:vaults-ui :detail-chart-timeframe-dropdown-open?])
+
+(def ^:private vault-detail-performance-metrics-timeframe-dropdown-open-path
+  [:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?])
+
 (def ^:private vault-filter-paths
   {:leading [:vaults-ui :filter-leading?]
    :deposited [:vaults-ui :filter-deposited?]
    :others [:vaults-ui :filter-others?]
    :closed [:vaults-ui :filter-closed?]})
+
+(defn- detail-timeframe-selector-visibility-path-values
+  [open-dropdown]
+  [[vault-detail-chart-timeframe-dropdown-open-path
+    (= open-dropdown :chart)]
+   [vault-detail-performance-metrics-timeframe-dropdown-open-path
+    (= open-dropdown :performance-metrics)]])
+
+(defn- detail-timeframe-selector-projection-effect
+  ([open-dropdown]
+   (detail-timeframe-selector-projection-effect open-dropdown []))
+  ([open-dropdown extra-path-values]
+   [:effects/save-many (into (vec extra-path-values)
+                             (detail-timeframe-selector-visibility-path-values open-dropdown))]))
 
 (defn- save-vault-ui-with-user-page-reset
   [path value]
@@ -30,13 +50,14 @@
 (defn set-vaults-snapshot-range
   [{:keys [snapshot-range-save-effect-fn]
     :as deps}
-   state
-   snapshot-range]
+  state
+  snapshot-range]
   (let [snapshot-range* (ui-state/normalize-vault-snapshot-range snapshot-range)
-        projection-effect [:effects/save-many
+        projection-effect (detail-timeframe-selector-projection-effect
+                           nil
                            [[[:vaults-ui :snapshot-range] snapshot-range*]
                             [[:vaults-ui :user-vaults-page] ui-state/default-vault-user-page]
-                            [vault-detail-chart-hover-index-path nil]]]
+                            [vault-detail-chart-hover-index-path nil]])
         persist-effect (when (fn? snapshot-range-save-effect-fn)
                          (snapshot-range-save-effect-fn snapshot-range*))
         fetch-effects (if (detail-commands/vault-detail-benchmark-fetch-enabled? deps state)
@@ -47,6 +68,26 @@
     (into (cond-> [projection-effect]
             persist-effect (conj persist-effect))
           fetch-effects)))
+
+(defn toggle-vault-detail-chart-timeframe-dropdown
+  [state]
+  (let [current-visible? (boolean (get-in state vault-detail-chart-timeframe-dropdown-open-path))
+        open-dropdown (when-not current-visible? :chart)]
+    [(detail-timeframe-selector-projection-effect open-dropdown)]))
+
+(defn close-vault-detail-chart-timeframe-dropdown
+  [_state]
+  [(detail-timeframe-selector-projection-effect nil)])
+
+(defn toggle-vault-detail-performance-metrics-timeframe-dropdown
+  [state]
+  (let [current-visible? (boolean (get-in state vault-detail-performance-metrics-timeframe-dropdown-open-path))
+        open-dropdown (when-not current-visible? :performance-metrics)]
+    [(detail-timeframe-selector-projection-effect open-dropdown)]))
+
+(defn close-vault-detail-performance-metrics-timeframe-dropdown
+  [_state]
+  [(detail-timeframe-selector-projection-effect nil)])
 
 (defn set-vaults-sort
   [state sort-column]

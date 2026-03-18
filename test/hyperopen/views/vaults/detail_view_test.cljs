@@ -34,6 +34,8 @@
                :detail-activity-sort-by-tab {}
                :detail-activity-direction-filter :all
                :detail-activity-filter-open? false
+               :detail-chart-timeframe-dropdown-open? false
+               :detail-performance-metrics-timeframe-dropdown-open? false
                :detail-chart-series :pnl
                :detail-returns-benchmark-coins ["BTC"]
                :detail-returns-benchmark-coin "BTC"
@@ -320,6 +322,28 @@
                                                        (get-in % [1 :data-role])))]
     (is (contains? (set (collect-strings chart-trigger)) "6M"))
     (is (contains? (set (collect-strings selected-timeframe-option)) "ON"))))
+
+(deftest vault-detail-view-uses-vault-timeframe-open-state-for-both-menus-test
+  (let [state (-> sample-state
+                  (assoc-in [:vaults-ui :detail-chart-timeframe-dropdown-open?] true)
+                  (assoc-in [:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] true))
+        view (vault-detail-view/vault-detail-view state)
+        chart-trigger (find-first-node view
+                                       #(= "vault-detail-chart-timeframe-trigger"
+                                           (get-in % [1 :data-role])))
+        chart-panel (find-first-node view
+                                     #(= "vault-detail-chart-timeframe-options"
+                                         (get-in % [1 :data-role])))
+        metrics-trigger (find-first-node view
+                                         #(= "vault-detail-performance-metrics-timeframe-trigger"
+                                             (get-in % [1 :data-role])))
+        metrics-panel (find-first-node view
+                                       #(= "vault-detail-performance-metrics-timeframe-options"
+                                           (get-in % [1 :data-role])))]
+    (is (= true (get-in chart-trigger [1 :aria-expanded])))
+    (is (= "open" (get-in chart-panel [1 :data-ui-state])))
+    (is (= true (get-in metrics-trigger [1 :aria-expanded])))
+    (is (= "open" (get-in metrics-panel [1 :data-ui-state])))))
 
 (deftest vault-detail-view-shows-invalid-message-when-route-address-is-invalid-test
   (let [view (vault-detail-view/vault-detail-view (assoc-in sample-state [:router :path] "/vaults/not-an-address"))

@@ -531,6 +531,8 @@
         activity-direction-filter (activity-model/normalize-direction-filter
                                    (get-in state [:vaults-ui :detail-activity-direction-filter]))
         activity-filter-open? (true? (get-in state [:vaults-ui :detail-activity-filter-open?]))
+        chart-timeframe-menu-open? (true? (get-in state [:vaults-ui :detail-chart-timeframe-dropdown-open?]))
+        performance-metrics-timeframe-menu-open? (true? (get-in state [:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?]))
         activity-tabs* activity-model/tabs
         activity-columns-by-tab (activity-model/columns-by-tab)
         activity-sort-state-by-tab (into {}
@@ -622,7 +624,8 @@
                 :all-time (return-for-range :all-time)}
      :performance-metrics (assoc performance-metrics
                                  :timeframe-options chart-timeframe-options
-                                 :selected-timeframe snapshot-range)
+                                 :selected-timeframe snapshot-range
+                                 :timeframe-menu-open? performance-metrics-timeframe-menu-open?)
      :chart {:axis-kind (case selected-series
                           :pnl :pnl
                           :returns :returns
@@ -635,6 +638,7 @@
                            {:value :pnl
                             :label "PNL"}]
              :timeframe-options chart-timeframe-options
+             :timeframe-menu-open? chart-timeframe-menu-open?
              :selected-timeframe snapshot-range
              :selected-series selected-series
              :returns-benchmark returns-benchmark-selector

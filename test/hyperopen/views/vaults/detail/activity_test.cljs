@@ -119,6 +119,7 @@
                                                                 :label "Bitcoin"}]
                                            :benchmark-coin "BTC"
                                            :timeframe-options [{:value :month :label "30D"}]
+                                           :timeframe-menu-open? true
                                            :selected-timeframe :month
                                            :groups [{:id :risk
                                                      :rows [{:key :sharpe
@@ -143,6 +144,9 @@
         timeframe-trigger (hiccup/find-first-node view
                                                   #(= "vault-detail-performance-metrics-timeframe-trigger"
                                                       (get-in % [1 :data-role])))
+        timeframe-menu (hiccup/find-first-node view
+                                               #(= "vault-detail-performance-metrics-timeframe-options"
+                                                   (get-in % [1 :data-role])))
         timeframe-option (hiccup/find-first-node view
                                                  #(= "vault-detail-performance-metrics-timeframe-option-month"
                                                      (get-in % [1 :data-role])))]
@@ -150,6 +154,10 @@
     (is (nil? hidden-row))
     (is (some? benchmark-label))
     (is (some? timeframe-trigger))
+    (is (= [[:actions/toggle-vault-detail-performance-metrics-timeframe-dropdown]]
+           (get-in timeframe-trigger [1 :on :click])))
+    (is (= true (get-in timeframe-trigger [1 :aria-expanded])))
+    (is (= "open" (get-in timeframe-menu [1 :data-ui-state])))
     (is (some? timeframe-option))
     (is (nil? (hiccup/find-first-node view #(= :select (first %)))))))
 
@@ -193,6 +201,7 @@
                                                                 :label "Bitcoin"}]
                                            :benchmark-coin "BTC"
                                            :timeframe-options [{:value :month :label "30D"}]
+                                           :timeframe-menu-open? false
                                            :selected-timeframe :month
                                            :groups [{:id :risk
                                                      :rows [{:key :sharpe

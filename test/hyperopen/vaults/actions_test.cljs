@@ -119,17 +119,23 @@
          (actions/toggle-vaults-filter {:vaults-ui {:filter-leading? true}} :unknown)))
   (is (= [[:effects/save-many [[[:vaults-ui :snapshot-range] :all-time]
                                [[:vaults-ui :user-vaults-page] 1]
-                               [[:vaults-ui :detail-chart-hover-index] nil]]]
+                               [[:vaults-ui :detail-chart-hover-index] nil]
+                               [[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
+                               [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]
           [:effects/local-storage-set "vaults-snapshot-range" "all-time"]]
          (actions/set-vaults-snapshot-range {} "allTime")))
   (is (= [[:effects/save-many [[[:vaults-ui :snapshot-range] :three-month]
                                [[:vaults-ui :user-vaults-page] 1]
-                               [[:vaults-ui :detail-chart-hover-index] nil]]]
+                               [[:vaults-ui :detail-chart-hover-index] nil]
+                               [[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
+                               [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]
           [:effects/local-storage-set "vaults-snapshot-range" "three-month"]]
          (actions/set-vaults-snapshot-range {} "3m")))
   (is (= [[:effects/save-many [[[:vaults-ui :snapshot-range] :week]
                                [[:vaults-ui :user-vaults-page] 1]
-                               [[:vaults-ui :detail-chart-hover-index] nil]]]
+                               [[:vaults-ui :detail-chart-hover-index] nil]
+                               [[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
+                               [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]
           [:effects/local-storage-set "vaults-snapshot-range" "week"]
           [:effects/fetch-candle-snapshot :coin "BTC" :interval :15m :bars 800]
           [:effects/fetch-candle-snapshot :coin "ETH" :interval :15m :bars 800]]
@@ -139,6 +145,22 @@
                                                                                           "ETH"]}
                                              :router {:path "/vaults/0x1234567890abcdef1234567890abcdef12345678"}}
                                             :week)))
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-timeframe-dropdown-open?] true]
+                               [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]]
+         (actions/toggle-vault-detail-chart-timeframe-dropdown
+          {:vaults-ui {:detail-chart-timeframe-dropdown-open? false
+                       :detail-performance-metrics-timeframe-dropdown-open? true}})))
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
+                               [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]]
+         (actions/close-vault-detail-chart-timeframe-dropdown {})))
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
+                               [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] true]]]]
+         (actions/toggle-vault-detail-performance-metrics-timeframe-dropdown
+          {:vaults-ui {:detail-chart-timeframe-dropdown-open? true
+                       :detail-performance-metrics-timeframe-dropdown-open? false}})))
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
+                               [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]]
+         (actions/close-vault-detail-performance-metrics-timeframe-dropdown {})))
   (is (= [[:effects/save-many [[[:vaults-ui :sort] {:column :tvl
                                                     :direction :asc}]
                                [[:vaults-ui :user-vaults-page] 1]]]]

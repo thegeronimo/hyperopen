@@ -180,6 +180,8 @@
    :detail-activity-sort-by-tab {}
    :detail-activity-direction-filter vault-ui-state/default-vault-detail-activity-direction-filter
    :detail-activity-filter-open? false
+   :detail-chart-timeframe-dropdown-open? false
+   :detail-performance-metrics-timeframe-dropdown-open? false
    :detail-chart-series vault-ui-state/default-vault-detail-chart-series
    :detail-returns-benchmark-coins ["BTC"]
    :detail-returns-benchmark-coin "BTC"

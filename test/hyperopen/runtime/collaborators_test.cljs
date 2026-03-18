@@ -84,6 +84,14 @@
                     (get-in deps [:vaults :load-vault-route])))
     (is (identical? vault-actions/set-vaults-user-page-size
                     (get-in deps [:vaults :set-vaults-user-page-size])))
+    (is (identical? vault-actions/toggle-vault-detail-chart-timeframe-dropdown
+                    (get-in deps [:vaults :toggle-vault-detail-chart-timeframe-dropdown])))
+    (is (identical? vault-actions/close-vault-detail-chart-timeframe-dropdown
+                    (get-in deps [:vaults :close-vault-detail-chart-timeframe-dropdown])))
+    (is (identical? vault-actions/toggle-vault-detail-performance-metrics-timeframe-dropdown
+                    (get-in deps [:vaults :toggle-vault-detail-performance-metrics-timeframe-dropdown])))
+    (is (identical? vault-actions/close-vault-detail-performance-metrics-timeframe-dropdown
+                    (get-in deps [:vaults :close-vault-detail-performance-metrics-timeframe-dropdown])))
     (is (identical? vault-actions/toggle-vaults-user-page-size-dropdown
                     (get-in deps [:vaults :toggle-vaults-user-page-size-dropdown])))
     (is (identical? vault-actions/close-vaults-user-page-size-dropdown

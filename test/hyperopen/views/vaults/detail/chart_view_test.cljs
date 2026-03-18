@@ -27,7 +27,10 @@
                                                                 :label "7D"}
                                                                {:value "month"
                                                                 :label "30D"}]
-                                          :selected-timeframe nil})
+                                          :selected-timeframe nil
+                                          :open? true
+                                          :toggle-action :actions/toggle-vault-detail-performance-metrics-timeframe-dropdown
+                                          :close-action :actions/close-vault-detail-performance-metrics-timeframe-dropdown})
         trigger (hiccup/find-first-node menu
                                         #(= "vault-detail-timeframe-trigger"
                                             (get-in % [1 :data-role])))
@@ -37,18 +40,27 @@
         selected-option (hiccup/find-first-node menu
                                                 #(= "vault-detail-timeframe-option-week"
                                                     (get-in % [1 :data-role])))
+        close-button (hiccup/find-first-node menu
+                                             #(= "Close timeframe menu"
+                                                 (get-in % [1 :aria-label])))
         fallback-menu (chart/chart-timeframe-menu {:timeframe-options []
                                                    :selected-timeframe nil})
         fallback-trigger (hiccup/find-first-node fallback-menu
                                                  #(= "vault-detail-timeframe-trigger"
                                                      (get-in % [1 :data-role])))]
     (is (nil? (hiccup/find-first-node menu #(= :select (first %)))))
+    (is (= [[:actions/toggle-vault-detail-performance-metrics-timeframe-dropdown]]
+           (get-in trigger [1 :on :click])))
     (is (= [[:actions/set-vaults-snapshot-range :week]]
            (get-in selected-option [1 :on :click])))
+    (is (= [[:actions/close-vault-detail-performance-metrics-timeframe-dropdown]]
+           (get-in close-button [1 :on :click])))
     (is (contains? (set (hiccup/collect-strings trigger)) "Range "))
     (is (contains? (set (hiccup/collect-strings trigger)) "7D"))
     (is (contains? (set (get-in options-panel [1 :class])) "ui-dropdown-panel"))
-    (is (= "true" (get-in options-panel [1 :data-ui-native-details-panel])))
+    (is (= "open" (get-in options-panel [1 :data-ui-state])))
+    (is (= "menu" (get-in options-panel [1 :role])))
+    (is (= true (get-in trigger [1 :aria-expanded])))
     (is (contains? (set (hiccup/collect-strings selected-option)) "ON"))
     (is (contains? (set (hiccup/collect-strings fallback-trigger)) "24H"))))
 
@@ -84,6 +96,7 @@
                                                        :empty-message "No symbols."}
                                    :timeframe-options [{:value :day :label "24H"}
                                                        {:value :month :label "30D"}]
+                                   :timeframe-menu-open? true
                                    :selected-timeframe :day})
         selector (hiccup/find-first-node view
                                          #(= "vault-detail-returns-benchmark-selector"
@@ -150,6 +163,7 @@
                                    :returns-benchmark {:selected-options [{:value "BTC"
                                                                            :label "Bitcoin"}]}
                                    :timeframe-options [{:value :day :label "24H"}]
+                                   :timeframe-menu-open? false
                                    :selected-timeframe :month})
         selector (hiccup/find-first-node view
                                          #(= "vault-detail-returns-benchmark-selector"
@@ -186,6 +200,7 @@
                                    :returns-benchmark {:selected-options [{:value "BTC"
                                                                            :label "Bitcoin"}]}
                                    :timeframe-options [{:value :day :label "24H"}]
+                                   :timeframe-menu-open? false
                                    :selected-timeframe :month})
         selector (hiccup/find-first-node view
                                          #(= "vault-detail-returns-benchmark-selector"
@@ -252,6 +267,7 @@
                                                                          :stroke "#f7931a"}]}
                                      :returns-benchmark {:selected-options [{:value "BTC" :label "Bitcoin"}]}
                                      :timeframe-options [{:value :day :label "24H"}]
+                                     :timeframe-menu-open? false
                                      :selected-timeframe :day})
           tooltip-node (hiccup/find-first-node view
                                                #(= "vault-detail-chart-hover-tooltip"

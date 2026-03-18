@@ -144,6 +144,7 @@
                                          loading?
                                          groups
                                          timeframe-options
+                                         timeframe-menu-open?
                                          selected-timeframe]}]
   (let [benchmark-columns* (resolved-benchmark-metric-columns {:benchmark-columns benchmark-columns
                                                                :benchmark-selected? benchmark-selected?
@@ -188,6 +189,9 @@
        (when (and (seq timeframe-options)
                   (keyword? selected-timeframe))
          (chart/chart-timeframe-menu {:timeframe-options timeframe-options
+                                      :open? timeframe-menu-open?
+                                      :toggle-action :actions/toggle-vault-detail-performance-metrics-timeframe-dropdown
+                                      :close-action :actions/close-vault-detail-performance-metrics-timeframe-dropdown
                                       :selected-timeframe selected-timeframe
                                       :data-role-prefix "vault-detail-performance-metrics-timeframe"}))]
       (for [[idx {:keys [coin label]}] (map-indexed vector benchmark-columns*)]

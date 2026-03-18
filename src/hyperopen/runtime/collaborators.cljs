@@ -262,6 +262,10 @@
    :load-vault-detail vault-actions/load-vault-detail
    :set-vaults-search-query vault-actions/set-vaults-search-query
    :toggle-vaults-filter vault-actions/toggle-vaults-filter
+   :toggle-vault-detail-chart-timeframe-dropdown vault-actions/toggle-vault-detail-chart-timeframe-dropdown
+   :close-vault-detail-chart-timeframe-dropdown vault-actions/close-vault-detail-chart-timeframe-dropdown
+   :toggle-vault-detail-performance-metrics-timeframe-dropdown vault-actions/toggle-vault-detail-performance-metrics-timeframe-dropdown
+   :close-vault-detail-performance-metrics-timeframe-dropdown vault-actions/close-vault-detail-performance-metrics-timeframe-dropdown
    :set-vaults-snapshot-range vault-actions/set-vaults-snapshot-range
    :set-vaults-sort vault-actions/set-vaults-sort
    :set-vaults-user-page-size vault-actions/set-vaults-user-page-size

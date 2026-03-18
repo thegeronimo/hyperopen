@@ -632,6 +632,10 @@
    :actions/load-vault-detail ::address-args
    :actions/set-vaults-search-query ::single-input-args
    :actions/toggle-vaults-filter ::keyword-args
+   :actions/toggle-vault-detail-chart-timeframe-dropdown ::no-args
+   :actions/close-vault-detail-chart-timeframe-dropdown ::no-args
+   :actions/toggle-vault-detail-performance-metrics-timeframe-dropdown ::no-args
+   :actions/close-vault-detail-performance-metrics-timeframe-dropdown ::no-args
    :actions/set-vaults-snapshot-range ::keyword-or-string-args
    :actions/set-vaults-sort ::keyword-or-string-args
    :actions/set-vaults-user-page-size ::single-input-args

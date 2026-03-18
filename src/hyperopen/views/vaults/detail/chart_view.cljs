@@ -96,6 +96,8 @@
   [{:keys [value label]} selected-token data-role-prefix]
   (let [option-token (or (timeframe-token value) "day")]
     [:button {:type "button"
+              :role "menuitemradio"
+              :aria-checked (= option-token selected-token)
               :class (into ["flex"
                             "w-full"
                             "items-center"
@@ -114,32 +116,49 @@
      (when (= option-token selected-token)
        [:span {:aria-hidden true} "ON"])]))
 
-(defn chart-timeframe-menu [{:keys [timeframe-options selected-timeframe data-role-prefix]}]
+(defn chart-timeframe-menu [{:keys [timeframe-options
+                                    selected-timeframe
+                                    data-role-prefix
+                                    open?
+                                    toggle-action
+                                    close-action]}]
   (let [selected-token (or (timeframe-token selected-timeframe)
                            (timeframe-token (some-> timeframe-options first :value))
                            "day")
         selected-label (selected-timeframe-label timeframe-options selected-token)
-        role-prefix (or data-role-prefix "vault-detail-timeframe")]
-    [:details {:class ["relative" "group"]
-               :data-role (str role-prefix "-menu")}
-     [:summary {:class ["flex"
-                        "h-8"
-                        "list-none"
-                        "cursor-pointer"
-                        "items-center"
-                        "gap-1.5"
-                        "rounded-md"
-                        "border"
-                        "border-[#1f3b3c]"
-                        "bg-[#071e25]"
-                        "px-2.5"
-                        "text-xs"
-                        "text-trading-text"
-                        "hover:bg-[#0d252f]"
-                        "focus:outline-none"
-                        "focus:ring-0"
-                        "focus:ring-offset-0"]
-                :data-role (str role-prefix "-trigger")}
+        role-prefix (or data-role-prefix "vault-detail-timeframe")
+        toggle-action* (or toggle-action :actions/toggle-vault-detail-chart-timeframe-dropdown)
+        close-action* (or close-action :actions/close-vault-detail-chart-timeframe-dropdown)]
+    [:div {:class ["relative"]
+           :data-role (str role-prefix "-menu")}
+     (when open?
+       [:button {:type "button"
+                 :class ["fixed" "inset-0" "z-20" "cursor-default"]
+                 :aria-label "Close timeframe menu"
+                 :on {:click [[close-action*]]}}])
+     [:button {:type "button"
+               :class ["relative"
+                       "z-[21]"
+                       "flex"
+                       "h-8"
+                       "items-center"
+                       "gap-1.5"
+                       "rounded-md"
+                       "border"
+                       "border-[#1f3b3c]"
+                       "bg-[#071e25]"
+                       "px-2.5"
+                       "text-xs"
+                       "text-trading-text"
+                       "transition-colors"
+                       "hover:bg-[#0d252f]"
+                       "focus:outline-none"
+                       "focus:ring-0"
+                       "focus:ring-offset-0"]
+               :aria-expanded (boolean open?)
+               :aria-haspopup "menu"
+               :data-role (str role-prefix "-trigger")
+               :on {:click [[toggle-action*]]}}
       [:span "Range "]
       [:span selected-label]
       [:svg {:class ["h-3.5"
@@ -147,8 +166,8 @@
                      "text-[#8aa0a7]"
                      "transition-transform"
                      "duration-150"
-                     "ease-out"
-                     "group-open:rotate-180"]
+                     "ease-out"]
+             :style {:transform (when open? "rotate(180deg)")}
              :viewBox "0 0 20 20"
              :fill "currentColor"
              :aria-hidden true}
@@ -159,7 +178,7 @@
                     "absolute"
                     "right-0"
                     "top-full"
-                    "z-30"
+                    "z-[21]"
                     "mt-1.5"
                     "min-w-[140px]"
                     "rounded-xl"
@@ -168,7 +187,8 @@
                     "bg-[#071e25]"
                     "p-2"
                     "shadow-2xl"]
-            :data-ui-native-details-panel "true"
+            :data-ui-state (if open? "open" "closed")
+            :role "menu"
             :data-role (str role-prefix "-options")}
       (for [{:keys [value] :as option} timeframe-options
             :let [option-token (or (timeframe-token value) "day")]]
@@ -483,6 +503,9 @@
        (when (= selected-series :returns)
          (returns-benchmark-selector returns-benchmark*))
        (chart-timeframe-menu {:timeframe-options (:timeframe-options chart)
+                              :open? (:timeframe-menu-open? chart)
+                              :toggle-action :actions/toggle-vault-detail-chart-timeframe-dropdown
+                              :close-action :actions/close-vault-detail-chart-timeframe-dropdown
                               :selected-timeframe (:selected-timeframe chart)
                               :data-role-prefix "vault-detail-chart-timeframe"})]]
      [:div {:class ["space-y-2"]}

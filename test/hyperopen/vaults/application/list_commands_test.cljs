@@ -6,7 +6,9 @@
 (deftest set-vaults-snapshot-range-persists-preference-and-fetches-benchmarks-on-detail-route-test
   (is (= [[:effects/save-many [[[:vaults-ui :snapshot-range] :week]
                                [[:vaults-ui :user-vaults-page] 1]
-                               [[:vaults-ui :detail-chart-hover-index] nil]]]
+                               [[:vaults-ui :detail-chart-hover-index] nil]
+                               [[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
+                               [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]
           [:effects/local-storage-set "vaults-snapshot-range" "week"]
           [:effects/fetch-candle-snapshot :coin "BTC" :interval :15m :bars 800]
           [:effects/fetch-candle-snapshot :coin "ETH" :interval :15m :bars 800]]
@@ -20,3 +22,26 @@
                                                         "ETH"]}
            :router {:path "/vaults/0x1234567890abcdef1234567890abcdef12345678"}}
           :week))))
+
+(deftest vault-detail-timeframe-dropdown-actions-open-one-menu-and-close-both-test
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-timeframe-dropdown-open?] true]
+                               [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]]
+         (list-commands/toggle-vault-detail-chart-timeframe-dropdown
+          {:vaults-ui {:detail-chart-timeframe-dropdown-open? false
+                       :detail-performance-metrics-timeframe-dropdown-open? true}})))
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
+                               [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]]
+         (list-commands/toggle-vault-detail-chart-timeframe-dropdown
+          {:vaults-ui {:detail-chart-timeframe-dropdown-open? true
+                       :detail-performance-metrics-timeframe-dropdown-open? false}})))
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
+                               [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] true]]]]
+         (list-commands/toggle-vault-detail-performance-metrics-timeframe-dropdown
+          {:vaults-ui {:detail-chart-timeframe-dropdown-open? true
+                       :detail-performance-metrics-timeframe-dropdown-open? false}})))
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
+                               [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]]
+         (list-commands/close-vault-detail-chart-timeframe-dropdown {})))
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
+                               [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]]
+         (list-commands/close-vault-detail-performance-metrics-timeframe-dropdown {}))))

@@ -45,6 +45,14 @@
 (def set-vaults-search-query list-commands/set-vaults-search-query)
 (def toggle-vaults-filter list-commands/toggle-vaults-filter)
 (def restore-vaults-snapshot-range! persistence/restore-vaults-snapshot-range!)
+(def toggle-vault-detail-chart-timeframe-dropdown
+  list-commands/toggle-vault-detail-chart-timeframe-dropdown)
+(def close-vault-detail-chart-timeframe-dropdown
+  list-commands/close-vault-detail-chart-timeframe-dropdown)
+(def toggle-vault-detail-performance-metrics-timeframe-dropdown
+  list-commands/toggle-vault-detail-performance-metrics-timeframe-dropdown)
+(def close-vault-detail-performance-metrics-timeframe-dropdown
+  list-commands/close-vault-detail-performance-metrics-timeframe-dropdown)
 (def set-vaults-sort list-commands/set-vaults-sort)
 (def set-vaults-user-page-size list-commands/set-vaults-user-page-size)
 (def toggle-vaults-user-page-size-dropdown list-commands/toggle-vaults-user-page-size-dropdown)

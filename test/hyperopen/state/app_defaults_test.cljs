@@ -60,6 +60,8 @@
     (is (= {} (get-in state [:vaults-ui :detail-activity-sort-by-tab])))
     (is (= :all (get-in state [:vaults-ui :detail-activity-direction-filter])))
     (is (= false (get-in state [:vaults-ui :detail-activity-filter-open?])))
+    (is (= false (get-in state [:vaults-ui :detail-chart-timeframe-dropdown-open?])))
+    (is (= false (get-in state [:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?])))
     (is (= :returns (get-in state [:vaults-ui :detail-chart-series])))
     (is (= ["BTC"] (get-in state [:vaults-ui :detail-returns-benchmark-coins])))
     (is (= "BTC" (get-in state [:vaults-ui :detail-returns-benchmark-coin])))
