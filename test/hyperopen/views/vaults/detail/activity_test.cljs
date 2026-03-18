@@ -140,13 +140,18 @@
         benchmark-label (hiccup/find-first-node view
                                                 #(= "vault-detail-performance-metrics-benchmark-label"
                                                     (get-in % [1 :data-role])))
-        timeframe-select (hiccup/find-first-node view
-                                                 #(and (= :select (first %))
-                                                       (= "month" (get-in % [1 :value]))))]
+        timeframe-trigger (hiccup/find-first-node view
+                                                  #(= "vault-detail-performance-metrics-timeframe-trigger"
+                                                      (get-in % [1 :data-role])))
+        timeframe-option (hiccup/find-first-node view
+                                                 #(= "vault-detail-performance-metrics-timeframe-option-month"
+                                                     (get-in % [1 :data-role])))]
     (is (some? sharpe-row))
     (is (nil? hidden-row))
     (is (some? benchmark-label))
-    (is (some? timeframe-select))))
+    (is (some? timeframe-trigger))
+    (is (some? timeframe-option))
+    (is (nil? (hiccup/find-first-node view #(= :select (first %)))))))
 
 (deftest activity-panel-renders-filter-states-and-fallback-tab-message-test
   (let [positions-view (activity/activity-panel

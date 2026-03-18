@@ -84,44 +84,88 @@
     (when (seq token)
       token)))
 
-(defn chart-timeframe-menu [{:keys [timeframe-options selected-timeframe]}]
+(defn- selected-timeframe-label
+  [timeframe-options selected-token]
+  (or (some (fn [{:keys [value label]}]
+              (when (= selected-token (timeframe-token value))
+                label))
+            timeframe-options)
+      "24H"))
+
+(defn- timeframe-option-button
+  [{:keys [value label]} selected-token data-role-prefix]
+  (let [option-token (or (timeframe-token value) "day")]
+    [:button {:type "button"
+              :class (into ["flex"
+                            "w-full"
+                            "items-center"
+                            "justify-between"
+                            "rounded-md"
+                            "px-2.5"
+                            "py-1.5"
+                            "text-xs"
+                            "transition-colors"]
+                           (if (= option-token selected-token)
+                             ["bg-[#123a36]" "text-[#97fce4]"]
+                             ["text-[#9fb4bb]" "hover:bg-[#0d252f]" "hover:text-trading-text"]))
+              :data-role (str data-role-prefix "-option-" option-token)
+              :on {:click [[:actions/set-vaults-snapshot-range value]]}}
+     [:span label]
+     (when (= option-token selected-token)
+       [:span {:aria-hidden true} "ON"])]))
+
+(defn chart-timeframe-menu [{:keys [timeframe-options selected-timeframe data-role-prefix]}]
   (let [selected-token (or (timeframe-token selected-timeframe)
                            (timeframe-token (some-> timeframe-options first :value))
-                           "day")]
-    [:label {:class ["inline-flex"
-                     "items-center"
-                     "gap-1.5"
-                     "rounded-md"
-                     "border"
-                     "border-[#1f3b3c]"
-                     "bg-[#071e25]"
-                     "px-2.5"
-                     "py-1"
-                     "text-xs"
-                     "text-trading-text"]}
-     [:span "Range "]
-     [:select {:class ["bg-transparent"
-                       "text-trading-text"
-                       "outline-none"
-                       "focus:outline-none"
-                       "focus:ring-0"
-                       "focus:border-transparent"
-                       "focus-visible:outline-none"
-                       "focus-visible:ring-0"
-                       "border-none"
-                       "p-0"
-                       "pr-4"
-                       "text-xs"]
-               :value selected-token
-               :on {:change [[:actions/set-vaults-snapshot-range [:event.target/value]]]}}
-      (for [{:keys [value label]} timeframe-options
-            :let [option-token (or (timeframe-token value)
-                                   "day")]]
-        ^{:key (str "vault-chart-timeframe-" option-token)}
-        [:option (cond-> {:value option-token}
-                   (= option-token selected-token)
-                   (assoc :selected true))
-         label])]]))
+                           "day")
+        selected-label (selected-timeframe-label timeframe-options selected-token)
+        role-prefix (or data-role-prefix "vault-detail-timeframe")]
+    [:details {:class ["relative"]
+               :data-role (str role-prefix "-menu")}
+     [:summary {:class ["flex"
+                        "h-8"
+                        "list-none"
+                        "cursor-pointer"
+                        "items-center"
+                        "gap-1.5"
+                        "rounded-md"
+                        "border"
+                        "border-[#1f3b3c]"
+                        "bg-[#071e25]"
+                        "px-2.5"
+                        "text-xs"
+                        "text-trading-text"
+                        "hover:bg-[#0d252f]"
+                        "focus:outline-none"
+                        "focus:ring-0"
+                        "focus:ring-offset-0"]
+                :data-role (str role-prefix "-trigger")}
+      [:span "Range "]
+      [:span selected-label]
+      [:svg {:class ["h-3.5" "w-3.5" "text-[#8aa0a7]"]
+             :viewBox "0 0 20 20"
+             :fill "currentColor"
+             :aria-hidden true}
+       [:path {:fill-rule "evenodd"
+               :clip-rule "evenodd"
+               :d "M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"}]]]
+     [:div {:class ["absolute"
+                    "right-0"
+                    "top-full"
+                    "z-30"
+                    "mt-1.5"
+                    "min-w-[140px]"
+                    "rounded-xl"
+                    "border"
+                    "border-[#1f3b3c]"
+                    "bg-[#071e25]"
+                    "p-2"
+                    "shadow-2xl"]
+            :data-role (str role-prefix "-options")}
+      (for [{:keys [value] :as option} timeframe-options
+            :let [option-token (or (timeframe-token value) "day")]]
+        ^{:key (str role-prefix "-option-" option-token)}
+        (timeframe-option-button option selected-token role-prefix))]]))
 
 (defn- hex-color->rgba [hex alpha]
   (let [hex* (if (and (string? hex)
@@ -431,7 +475,8 @@
        (when (= selected-series :returns)
          (returns-benchmark-selector returns-benchmark*))
        (chart-timeframe-menu {:timeframe-options (:timeframe-options chart)
-                              :selected-timeframe (:selected-timeframe chart)})]]
+                              :selected-timeframe (:selected-timeframe chart)
+                              :data-role-prefix "vault-detail-chart-timeframe"})]]
      [:div {:class ["space-y-2"]}
       [:div {:class ["relative" "mt-3" "h-[260px]"]}
        [:div {:class ["absolute" "left-0" "top-0" "bottom-0"]

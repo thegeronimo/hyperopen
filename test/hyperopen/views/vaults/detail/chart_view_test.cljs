@@ -28,18 +28,24 @@
                                                                {:value "month"
                                                                 :label "30D"}]
                                           :selected-timeframe nil})
-        select (hiccup/find-first-node menu #(= :select (first %)))
+        trigger (hiccup/find-first-node menu
+                                        #(= "vault-detail-timeframe-trigger"
+                                            (get-in % [1 :data-role])))
         selected-option (hiccup/find-first-node menu
-                                                #(and (= :option (first %))
-                                                      (true? (get-in % [1 :selected]))))
+                                                #(= "vault-detail-timeframe-option-week"
+                                                    (get-in % [1 :data-role])))
         fallback-menu (chart/chart-timeframe-menu {:timeframe-options []
                                                    :selected-timeframe nil})
-        fallback-select (hiccup/find-first-node fallback-menu #(= :select (first %)))]
-    (is (= "week" (get-in select [1 :value])))
-    (is (= [[:actions/set-vaults-snapshot-range [:event.target/value]]]
-           (get-in select [1 :on :change])))
-    (is (= "week" (get-in selected-option [1 :value])))
-    (is (= "day" (get-in fallback-select [1 :value])))))
+        fallback-trigger (hiccup/find-first-node fallback-menu
+                                                 #(= "vault-detail-timeframe-trigger"
+                                                     (get-in % [1 :data-role])))]
+    (is (nil? (hiccup/find-first-node menu #(= :select (first %)))))
+    (is (= [[:actions/set-vaults-snapshot-range :week]]
+           (get-in selected-option [1 :on :click])))
+    (is (contains? (set (hiccup/collect-strings trigger)) "Range "))
+    (is (contains? (set (hiccup/collect-strings trigger)) "7D"))
+    (is (contains? (set (hiccup/collect-strings selected-option)) "ON"))
+    (is (contains? (set (hiccup/collect-strings fallback-trigger)) "24H"))))
 
 (deftest chart-section-renders-returns-benchmark-controls-and-d3-tooltip-test
   (let [view (chart/chart-section {:axis-kind :returns

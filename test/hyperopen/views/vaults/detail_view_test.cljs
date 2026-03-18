@@ -148,9 +148,12 @@
         chart-host (find-first-node view
                                     #(= "vault-detail-chart-d3-host"
                                         (get-in % [1 :data-role])))
-        timeframe-selector (find-first-node view
-                                            #(= [[:actions/set-vaults-snapshot-range [:event.target/value]]]
-                                                (get-in % [1 :on :change])))
+        chart-timeframe-trigger (find-first-node view
+                                                 #(= "vault-detail-chart-timeframe-trigger"
+                                                     (get-in % [1 :data-role])))
+        metrics-timeframe-trigger (find-first-node view
+                                                   #(= "vault-detail-performance-metrics-timeframe-trigger"
+                                                       (get-in % [1 :data-role])))
         performance-metrics-tab-button (find-first-node view
                                                         #(= [[:actions/set-vault-detail-activity-tab :performance-metrics]]
                                                             (get-in % [1 :on :click])))
@@ -164,7 +167,8 @@
     (is (some? returns-chart-tab-button))
     (is (some? chart-host))
     (is (fn? (get-in chart-host [1 :replicant/on-render])))
-    (is (some? timeframe-selector))
+    (is (some? chart-timeframe-trigger))
+    (is (some? metrics-timeframe-trigger))
     (is (some? performance-metrics-tab-button))
     (is (some? activity-tab-button))
     (is (contains? text "Vault Detail"))
@@ -308,15 +312,14 @@
 (deftest vault-detail-view-selects-active-snapshot-timeframe-option-test
   (let [state (assoc-in sample-state [:vaults-ui :snapshot-range] :six-month)
         view (vault-detail-view/vault-detail-view state)
+        chart-trigger (find-first-node view
+                                       #(= "vault-detail-chart-timeframe-trigger"
+                                           (get-in % [1 :data-role])))
         selected-timeframe-option (find-first-node view
-                                                   #(and (= :option (first %))
-                                                         (= "six-month" (get-in % [1 :value]))
-                                                         (true? (get-in % [1 :selected]))))
-        timeframe-selector (find-first-node view
-                                            #(and (= :select (first %))
-                                                  (= "six-month" (get-in % [1 :value]))))]
-    (is (some? timeframe-selector))
-    (is (some? selected-timeframe-option))))
+                                                   #(= "vault-detail-chart-timeframe-option-six-month"
+                                                       (get-in % [1 :data-role])))]
+    (is (contains? (set (collect-strings chart-trigger)) "6M"))
+    (is (contains? (set (collect-strings selected-timeframe-option)) "ON"))))
 
 (deftest vault-detail-view-shows-invalid-message-when-route-address-is-invalid-test
   (let [view (vault-detail-view/vault-detail-view (assoc-in sample-state [:router :path] "/vaults/not-an-address"))

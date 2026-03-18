@@ -188,7 +188,8 @@
        (when (and (seq timeframe-options)
                   (keyword? selected-timeframe))
          (chart/chart-timeframe-menu {:timeframe-options timeframe-options
-                                      :selected-timeframe selected-timeframe}))]
+                                      :selected-timeframe selected-timeframe
+                                      :data-role-prefix "vault-detail-performance-metrics-timeframe"}))]
       (for [[idx {:keys [coin label]}] (map-indexed vector benchmark-columns*)]
         ^{:key (str "vault-detail-performance-metrics-benchmark-label-" coin)}
         [:span {:class ["justify-self-start" "text-xs" "font-medium" "uppercase" "tracking-wide" "text-left" "text-[#8aa0a7]"]
