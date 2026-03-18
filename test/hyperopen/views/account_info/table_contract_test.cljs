@@ -137,3 +137,17 @@
       (is (not (contains? (hiccup/node-class-set (nth order-header-cells idx)) "text-right")))
       (is (not (contains? (hiccup/node-class-set (nth order-row-cells idx)) "text-right")))
       (is (not (contains? (hiccup/node-class-set (nth order-row-cells idx)) "num-right"))))))
+
+(deftest balances-table-left-aligns-desktop-value-columns-test
+  (let [balances-node (view/balances-tab-content [fixtures/sample-balance-row] false fixtures/default-sort-state)
+        total-header (view/sortable-balances-header "Total Balance" fixtures/default-sort-state :left)
+        available-header (view/sortable-balances-header "Available Balance" fixtures/default-sort-state :left)
+        usdc-header (view/sortable-balances-header "USDC Value" fixtures/default-sort-state :left)
+        pnl-header (view/sortable-balances-header "PNL (ROE %)" fixtures/default-sort-state :left)
+        row-cells (vec (hiccup/node-children (hiccup/first-viewport-row balances-node)))]
+    (doseq [header-node [total-header available-header usdc-header pnl-header]]
+      (is (contains? (hiccup/node-class-set header-node) "justify-start")))
+    (doseq [idx [1 2 3 4]]
+      (is (contains? (hiccup/node-class-set (nth row-cells idx)) "text-left"))
+      (is (not (contains? (hiccup/node-class-set (nth row-cells idx)) "text-right")))
+      (is (not (contains? (hiccup/node-class-set (nth row-cells idx)) "num-right"))))))

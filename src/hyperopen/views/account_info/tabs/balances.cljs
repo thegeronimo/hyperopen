@@ -43,7 +43,7 @@
             caret-position-classes (case position
                                      :bottom ["bottom-full" "border-b-gray-800"]
                                      ["top-full" "border-t-gray-800"])]
-        [:div {:class ["group" "relative" "inline-flex" "min-h-6" "items-center" "justify-end"]}
+        [:div {:class ["group" "relative" "inline-flex" "min-h-6" "items-center" "justify-start"]}
        [:span {:class ["cursor-help"
                        "rounded"
                        "underline"
@@ -160,7 +160,7 @@
       [:span {:class ["inline-flex"
                       "min-h-6"
                       "items-center"
-                      "justify-end"
+                      "justify-start"
                       "gap-1"
                       "whitespace-nowrap"
                       tone-class]}
@@ -185,8 +185,8 @@
       prefix-label])])
 
 (defn- balance-amount-cell [amount amount-decimals unit-label]
-  [:div {:class ["text-right" "font-semibold" "num" "num-right" "whitespace-nowrap"]}
-   [:span {:class ["num" "num-right"]}
+  [:div {:class ["text-left" "font-semibold" "num" "whitespace-nowrap"]}
+   [:span {:class ["num"]}
     (shared/format-balance-amount amount amount-decimals)]
    " "
    [:span unit-label]])
@@ -378,15 +378,15 @@
                                                   "font-semibold"
                                                   "truncate"]})
      (balance-amount-cell total-balance amount-decimals base-label)
-     [:div.text-right.font-semibold.num.num-right.whitespace-nowrap
+     [:div.text-left.font-semibold.num.whitespace-nowrap
       (available-balance-value-node {:coin coin
                                      :unit-label base-label
                                      :available-balance available-balance
                                      :amount-decimals amount-decimals
                                      :transfer-disabled? transfer-disabled?
                                      :tooltip-position available-balance-tooltip-position})]
-     [:div.text-right.font-semibold.num.num-right "$" (shared/format-currency usdc-value)]
-     [:div.text-right.font-medium.num.num-right.pr-4
+     [:div.text-left.font-semibold.num "$" (shared/format-currency usdc-value)]
+     [:div.text-left.font-medium.num.pr-4
       (balance-pnl-node {:coin coin
                          :selection-coin selection-coin
                          :pnl-value pnl-value
@@ -419,10 +419,10 @@
                         "text-trading-text"]
                        extra-classes)}
     [:div (sortable-balances-header "Coin" sort-state :left)]
-    [:div (sortable-balances-header "Total Balance" sort-state :right)]
-    [:div (sortable-balances-header "Available Balance" sort-state :right)]
-    [:div (sortable-balances-header "USDC Value" sort-state :right)]
-    [:div.pr-4 (sortable-balances-header "PNL (ROE %)" sort-state :right)]
+    [:div (sortable-balances-header "Total Balance" sort-state :left)]
+    [:div (sortable-balances-header "Available Balance" sort-state :left)]
+    [:div (sortable-balances-header "USDC Value" sort-state :left)]
+    [:div.pr-4 (sortable-balances-header "PNL (ROE %)" sort-state :left)]
     [:div.pl-2 (table/non-sortable-header "Send" :left)]
     [:div (table/non-sortable-header "Transfer" :left)]
     [:div (table/non-sortable-header "Repay" :left)]
