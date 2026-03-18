@@ -70,9 +70,8 @@
                             (diagnostics-drawer/banner-classes (:tone banner)))}
          (:message banner)])
       [:div {:class ["flex" "justify-between" "items-center"]}
-       [:div {:class ["flex" "items-center" "space-x-3"]}
-        (connection-meter/render (:connection-meter vm))
-        (footer-links/render-social-placeholders)]
+       [:div {:class ["flex" "items-center"]}
+        (connection-meter/render (:connection-meter vm))]
        (footer-links/render (:footer-links vm))]
       (when-let [diagnostics (:diagnostics vm)]
         (diagnostics-drawer/render diagnostics))]]))

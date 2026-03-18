@@ -110,6 +110,12 @@
                       (get-in % [1 :on :click])))
              view))
 
+(defn- find-node-by-data-role
+  [node data-role]
+  (find-node #(and (vector? %)
+                   (= data-role (get-in % [1 :data-role])))
+             node))
+
 (defn- button-tag? [node]
   (and (keyword? node)
        (str/starts-with? (name node) "button")))
@@ -764,12 +770,29 @@
         (is (contains? classes "text-trading-text"))
         (is (not (contains? classes "opacity-70")))))))
 
-(deftest footer-telegram-icon-uses-canonical-logo-asset-test
+(deftest footer-social-icons-render-inline-current-color-svgs-in-utility-cluster-test
   (let [view (footer-view/footer-view (base-state))
-        telegram-icon (find-node #(and (vector? %)
-                                       (= :img (first %))
-                                       (= "/telegram_logo.svg" (get-in % [1 :src])))
-                                 view)]
+        utility-links (find-node-by-data-role view "footer-utility-links")
+        telegram-icon (find-node-by-data-role utility-links "footer-social-telegram")
+        github-icon (find-node-by-data-role utility-links "footer-social-github")
+        telegram-svg (find-node #(and (vector? %)
+                                      (= :svg (first %)))
+                                telegram-icon)
+        github-svg (find-node #(and (vector? %)
+                                    (= :svg (first %)))
+                              github-icon)
+        legacy-telegram-img (find-node #(and (vector? %)
+                                             (= :img (first %))
+                                             (= "/telegram_logo.svg" (get-in % [1 :src])))
+                                       view)]
+    (is (some? utility-links))
+    (is (some? (find-node-by-data-role utility-links "footer-social-links")))
     (is (some? telegram-icon))
-    (is (= "" (get-in telegram-icon [1 :alt])))
-    (is (true? (get-in telegram-icon [1 :aria-hidden])))))
+    (is (some? github-icon))
+    (is (= "Telegram" (get-in telegram-icon [1 :aria-label])))
+    (is (= "GitHub" (get-in github-icon [1 :aria-label])))
+    (is (nil? legacy-telegram-img))
+    (doseq [svg [telegram-svg github-svg]]
+      (is (some? svg))
+      (is (= "currentColor" (get-in svg [1 :fill])))
+      (is (= "none" (get-in svg [1 :stroke]))))))
