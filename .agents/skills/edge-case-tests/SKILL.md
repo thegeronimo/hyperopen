@@ -1,3 +1,8 @@
+---
+name: "edge-case-tests"
+description: "Use when acting as `edge_case_test_writer` to propose adversarial, boundary, and invariant coverage that complements acceptance coverage. Do not use to materialize tests or edit production code."
+---
+
 # Edge-Case Tests
 
 Use this skill when acting as the `edge_case_test_writer` role for a multi-agent ticket.

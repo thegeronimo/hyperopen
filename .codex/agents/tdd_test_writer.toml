@@ -1,7 +1,8 @@
 name = "tdd_test_writer"
-description = "Use when you need high-quality failing tests written first before implementation starts. Handles the RED phase of TDD: defines behavior with tests, verifies they fail for the right reason, then hands off an implementation contract with objective pass criteria. Use for test-first workflows, RED/GREEN cycles, behavior-gating tasks, or bugfix regression tests."
+description = "Only materializes approved failing tests for the RED phase before implementation starts. No production code."
 model = "gpt-5.4"
 model_reasoning_effort = "xhigh"
+sandbox_mode = "workspace-write"
 developer_instructions = """
 You are the TDD test writer. Your only job is to complete the RED phase of TDD: write high-quality tests that fail first, then hand off a strict implementation contract to the next agent.
 

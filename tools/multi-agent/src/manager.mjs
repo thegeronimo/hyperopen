@@ -5,7 +5,7 @@ import {
   approvedTestContractSchema,
   browserReportSchema,
   implementationResultSchema,
-  materializationResultSchema,
+  redPhaseResultSchema,
   mergeTestProposals,
   phaseNames,
   reviewReportSchema,
@@ -104,7 +104,7 @@ Return structured JSON with:
 `;
 }
 
-function buildMaterializationPrompt({ issue, repoRoot, artifactPaths, approvedContract }) {
+function buildRedPhasePrompt({ issue, repoRoot, artifactPaths, approvedContract }) {
   return `${buildPromptPreamble({ issue, repoRoot, artifactPaths })}
 
 Use this approved test contract:
@@ -340,10 +340,10 @@ export function buildDryRunArtifacts({ issue, repoRoot }) {
     ]
   });
   const approvedContract = mergeTestProposals(specArtifact, acceptanceProposal, edgeProposal);
-  const materialization = materializationResultSchema.parse({
+  const redPhase = redPhaseResultSchema.parse({
     version: 1,
     issueId: issue.id,
-    summary: "Dry-run placeholder materialization artifact.",
+    summary: "Dry-run placeholder RED-phase artifact.",
     changedFiles: ["tools/multi-agent/test/cli_contract.test.mjs", "tools/multi-agent/test/gates.test.mjs"]
   });
   const implementation = implementationResultSchema.parse({
@@ -376,7 +376,7 @@ export function buildDryRunArtifacts({ issue, repoRoot }) {
     acceptanceProposal,
     edgeProposal,
     approvedContract,
-    materialization,
+    redPhase,
     implementation,
     review,
     browser
@@ -392,7 +392,7 @@ export async function runDryRun({ repoRoot, issue }) {
   await writeJson(artifacts.artifactPaths.acceptanceProposal, artifacts.acceptanceProposal);
   await writeJson(artifacts.artifactPaths.edgeProposal, artifacts.edgeProposal);
   await writeJson(artifacts.artifactPaths.approvedContract, artifacts.approvedContract);
-  await writeJson(artifacts.artifactPaths.materialization, artifacts.materialization);
+  await writeJson(artifacts.artifactPaths.redPhase, artifacts.redPhase);
   await writeJson(artifacts.artifactPaths.implementation, artifacts.implementation);
   await writeJson(artifacts.artifactPaths.review, artifacts.review);
   await writeJson(artifacts.artifactPaths.browser, artifacts.browser);
@@ -521,26 +521,26 @@ export async function runTicket({ repoRoot, issue, resume = false }) {
     });
   }
 
-  let materializationResult = await resolveCachedArtifact(
-    artifactPaths.materialization,
-    materializationResultSchema
+  let redPhaseResult = await resolveCachedArtifact(
+    artifactPaths.redPhase,
+    redPhaseResultSchema
   );
-  if (!materializationResult) {
-    const materializePhase = await runPhaseWithGate({
+  if (!redPhaseResult) {
+    const redPhase = await runPhaseWithGate({
       repoRoot,
-      roleName: "acceptance_test_writer",
-      prompt: buildMaterializationPrompt({ issue, repoRoot, artifactPaths, approvedContract }),
-      outputSchema: materializationResultSchema,
+      roleName: "tdd_test_writer",
+      prompt: buildRedPhasePrompt({ issue, repoRoot, artifactPaths, approvedContract }),
+      outputSchema: redPhaseResultSchema,
       beforeSnapshot: currentSnapshot,
       allowedPaths: [approvedContract.activeExecPlanPath, ...approvedContract.targetFiles, "tmp/multi-agent/**"]
     });
-    materializationResult = materializationResultSchema.parse(materializePhase.result);
-    await writeJson(artifactPaths.materialization, materializationResult);
-    currentSnapshot = materializePhase.afterSnapshot;
+    redPhaseResult = redPhaseResultSchema.parse(redPhase.result);
+    await writeJson(artifactPaths.redPhase, redPhaseResult);
+    currentSnapshot = redPhase.afterSnapshot;
     phases.push({
-      phase: "acceptance_test_writer.materialize",
+      phase: "tdd_test_writer.red_phase",
       status: "completed",
-      artifactPath: repoRelative(repoRoot, artifactPaths.materialization)
+      artifactPath: repoRelative(repoRoot, artifactPaths.redPhase)
     });
     await verifyCommandFails(repoRoot, approvedContract.validationCommand);
     phases.push({ phase: "verify_red_phase", status: "completed" });

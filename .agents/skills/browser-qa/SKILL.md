@@ -1,3 +1,8 @@
+---
+name: "browser-qa"
+description: "Use when acting as `browser_debugger` to gather browser evidence, run the governed QA passes, and report PASS/FAIL/BLOCKED outcomes for UI-facing work. Do not use for application-code edits."
+---
+
 # Browser QA
 
 Use this skill when acting as the `browser_debugger` role for a multi-agent ticket.

@@ -10,7 +10,7 @@ description = "Clarifies scope, writes requirements inside the active ExecPlan, 
 config_file = ".codex/agents/spec-writer.toml"
 
 [agents.acceptance_test_writer]
-description = "Writes acceptance and integration test proposals, then materializes approved failing tests. No production code."
+description = "Proposes happy-path acceptance and integration coverage only. No production code or tracked test edits."
 config_file = ".codex/agents/acceptance-tests.toml"
 
 [agents.edge_case_test_writer]
@@ -56,7 +56,7 @@ config_file = ".codex/agents/documentation_specialist.toml"
 nickname_candidates = ["Guide", "Ledger"]
 
 [agents.tdd_test_writer]
-description = "Use when you need high-quality failing tests written first before implementation starts. Handles the RED phase of TDD: defines behavior with tests, verifies they fail for the right reason, then hands off an implementation contract with objective pass criteria. Use for test-first workflows, RED/GREEN cycles, behavior-gating tasks, or bugfix regression tests."
+description = "Only materializes approved failing tests for the RED phase before implementation starts. No production code."
 config_file = ".codex/agents/tdd_test_writer.toml"
 nickname_candidates = ["Redline", "Harness"]
 

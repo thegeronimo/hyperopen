@@ -1,4 +1,4 @@
-name = "ui-designer"
+name = "ui_designer"
 description = "Use when UI expertise is needed to unblock implementation decisions."
 model = "gpt-5.4"
 model_reasoning_effort = "xhigh"

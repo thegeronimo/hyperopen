@@ -1,7 +1,7 @@
 ---
 owner: platform
 status: canonical
-last_reviewed: 2026-03-17
+last_reviewed: 2026-03-18
 review_cycle_days: 90
 source_of_truth: true
 ---
@@ -10,125 +10,109 @@ source_of_truth: true
 
 ## Purpose
 
-Define the canonical multi-agent workflow for Hyperopen so local orchestration, native Codex multi-agent use, and future CI automation all follow the same role boundaries, artifact contract, and gating rules.
+Describe the actual Hyperopen multi-agent workflow without duplicating the full imperative steps that already live in the workflow skills and runtime code. The executable workflow surfaces are the repo skills under `/hyperopen/.agents/skills/**`, the project agent config under `/hyperopen/.codex/config.toml`, the checked-in custom agents under `/hyperopen/.codex/agents/*.toml`, and the manager under `/hyperopen/tools/multi-agent/`.
 
-## Scope
+## Scope And Precedence
 
-This document governs repo-local multi-agent work for tickets that are large enough to justify an ExecPlan. It does not replace `/hyperopen/docs/PLANS.md`, `/hyperopen/.agents/PLANS.md`, `/hyperopen/docs/WORK_TRACKING.md`, or `/hyperopen/docs/agent-guides/browser-qa.md`; it layers on top of them.
+- This document governs how Hyperopen expects multi-agent orchestration to work.
+- `/hyperopen/AGENTS.md` is the root operating contract.
+- `/hyperopen/docs/PLANS.md` is the public planning entry point for ExecPlans.
+- `/hyperopen/docs/WORK_TRACKING.md` remains the source of truth for `bd` workflow and handoff.
+- If the runtime code and prose docs drift, fix the runtime or clearly mark compatibility behavior; do not document two equal “canonical” flows.
 
-## Preconditions
+## Workflow Entry Points
 
-- Use a `bd` issue id as the workflow key.
-- Complex work still requires an ExecPlan under `/hyperopen/docs/exec-plans/**`.
-- Local transient artifacts live under `/hyperopen/tmp/multi-agent/<bd-id>/`.
-- Durably useful UI QA notes still live under `/hyperopen/docs/qa/`.
-- The manager uses the JavaScript Agents SDK plus `codex mcp-server` for real runs.
-- Real runs require `OPENAI_API_KEY` plus a locally available `codex` CLI.
+- `$feature-flow`: explicit-only workflow skill for complex features and significant refactors.
+- `$bug-flow`: explicit-only workflow skill for diagnosis-first bug work.
+- `$ui-flow`: explicit-only workflow skill for UI-facing work that requires governed browser QA.
 
-## Phase Order
+These workflow skills are explicit-only by policy. They do not trigger ambiently; a user or parent agent must invoke them directly.
 
-The pipeline is fixed:
+## Troubleshooting Preflight
 
-1. `spec_writer` creates or refreshes the active ExecPlan and emits the structured spec artifact.
-2. `acceptance_test_writer` and `edge_case_test_writer` run in parallel and emit separate proposal artifacts only.
-3. The manager merges the proposals into one approved test contract and rejects overlaps, contradictions, or unclear ownership.
-4. `acceptance_test_writer` materializes the failing tests from the frozen contract.
-5. The manager verifies the new tests fail before implementation starts.
-6. `worker` makes the smallest change that satisfies the frozen contract.
-7. `reviewer` and `browser_debugger` run in parallel.
-8. The manager records summaries, optional follow-up `bd` issues, and final quality-gate results.
+Use these checks when instruction loading looks wrong, after changing `/hyperopen/AGENTS.md` or `/hyperopen/.codex/config.toml`, or when validating this workflow tooling in tests:
 
-## Role Responsibilities
+- `env -u TERM codex exec -s read-only --cd /hyperopen "Summarize the current instructions."`
+- `env -u TERM codex exec -s read-only --cd /hyperopen/src/hyperopen/views "Show which instruction files are active."`
 
-### `spec_writer`
+Expected behavior in this repo:
 
-- Clarifies scope, non-goals, acceptance criteria, touched areas, and validation commands.
-- Creates or refreshes the active ExecPlan instead of creating a parallel `REQUIREMENTS.md`.
-- Must not edit production code.
+- project-scoped `/hyperopen/.codex/config.toml` is active in trusted runs
+- `/hyperopen/AGENTS.md` is the root repo instruction file
+- UI subdirectories still pick up the root contract plus the governed UI docs
+- repo skills under `/hyperopen/.agents/skills/**` load without frontmatter errors
 
-### `acceptance_test_writer`
+## Exact Agent Registry
 
-- Produces acceptance/integration test proposals first.
-- Materializes the approved failing tests only after the merged contract is frozen.
-- Must not edit production code outside approved `test/**` files.
+Use exact agent `name` values. Nicknames are display-only.
 
-### `edge_case_test_writer`
+- `spec_writer`: creates or refreshes the active ExecPlan and freezes scope. Do not use for production-code edits.
+- `acceptance_test_writer`: proposes happy-path acceptance and integration coverage only. Do not use to materialize tests.
+- `edge_case_test_writer`: proposes adversarial, boundary, and invariant coverage only. Do not use to materialize tests.
+- `tdd_test_writer`: materializes approved failing tests for the RED phase. Do not use for production-code edits.
+- `worker`: default implementation agent and the only role allowed to edit `/hyperopen/src/**`.
+- `reviewer`: read-only correctness, regression, security, and missing-test reviewer.
+- `browser_debugger`: browser evidence collector and PASS / FAIL / BLOCKED QA reporter.
+- `debugger`: diagnosis-first bug investigator.
+- `ui_designer`: UI decision-making support when the design direction is unclear.
+- `ui_visual_validator`: read-only final UI validation.
+- `architect_review`: optional release-readiness and design-coherence review for risky changes.
+- `documentation_specialist`, `content_writer`, and `clojure_expert`: specialist roles used only when the task needs them.
 
-- Produces adversarial, boundary-case, and invariant test proposals.
-- Must not materialize tests directly and must not edit production code.
+## Execution Modes
 
-### `worker`
+### Interactive Codex Work
 
-- The only role allowed to edit `/hyperopen/src/**`.
-- Implements the smallest defensible change that satisfies the frozen test contract.
-- May update owned test files and the active ExecPlan.
+Use the workflow skills as the primary interactive entry points. The skills carry the operational step-by-step contract; this document only summarizes the shape of each flow:
 
-### `reviewer`
+- `feature-flow`: `spec_writer` -> `acceptance_test_writer` and `edge_case_test_writer` -> approved test contract -> `tdd_test_writer` -> RED verification -> `worker` -> `reviewer` -> `browser_debugger` when UI-facing -> repo gates
+- `bug-flow`: `debugger` and optional `browser_debugger` -> agreed failure mode -> `tdd_test_writer` when testable -> `worker` -> `reviewer` -> browser rerun when needed -> repo gates
+- `ui-flow`: `browser_debugger` and optional `ui_designer` -> optional `tdd_test_writer` when deterministic tests are appropriate -> `worker` -> `ui_visual_validator` and `reviewer` -> governed browser-QA matrix
 
-- Read-only reviewer for correctness, regressions, security, race conditions, and missing tests.
-- Must leave no tracked-file diff.
-- Reports findings first and style concerns only when they hide real defects.
+### Repo-Local Manager
 
-### `browser_debugger`
+`npm run agent:ticket -- --issue <bd-id>` implements the ticket-runner path for complex tracked work:
 
-- Uses the existing browser-inspection MCP server and QA contract.
-- May write browser artifacts under `/hyperopen/tmp/browser-inspection/**`.
-- May write a durable note under `/hyperopen/docs/qa/**` only when the workflow calls for a lasting UI QA record.
-- Must not edit application code.
+1. `spec_writer` refreshes the active ExecPlan and emits `spec.json`
+2. `acceptance_test_writer` and `edge_case_test_writer` emit proposal artifacts
+3. the manager freezes `approved-test-contract.json`
+4. `tdd_test_writer` writes the RED-phase failing tests
+5. the manager verifies the RED phase fails for the intended reason
+6. `worker` implements the smallest change that satisfies the contract
+7. `reviewer` and `browser_debugger` run before final quality gates
 
-## Allowed Write Surfaces
+The manager writes artifacts under `/hyperopen/tmp/multi-agent/<bd-id>/` and the tests under `/hyperopen/tools/multi-agent/test/**` enforce that contract.
+
+## Planning Integration
+
+- Complex multi-agent work still requires an ExecPlan under `/hyperopen/docs/exec-plans/**`.
+- `spec_writer` owns creating or refreshing the active ExecPlan instead of creating a parallel requirements document.
+- The approved test contract and any important workflow decisions must be reflected back into the active ExecPlan.
+- `bd` remains the lifecycle source of truth; markdown artifacts do not replace it.
+
+## Write Surfaces
 
 - `spec_writer`: active ExecPlan path and `/hyperopen/tmp/multi-agent/**`
-- `acceptance_test_writer` proposal pass: `/hyperopen/tmp/multi-agent/**`
-- `acceptance_test_writer` materialization pass: approved `test/**` files, active ExecPlan path, `/hyperopen/tmp/multi-agent/**`
-- `edge_case_test_writer`: `/hyperopen/tmp/multi-agent/**`
-- `worker`: `/hyperopen/src/**`, approved `test/**` files, active ExecPlan path, `/hyperopen/tmp/multi-agent/**`
-- `reviewer`: no tracked-file writes
+- `acceptance_test_writer`: proposal artifacts only
+- `edge_case_test_writer`: proposal artifacts only
+- `tdd_test_writer`: approved `test/**` files, active ExecPlan path, and `/hyperopen/tmp/multi-agent/**`
+- `worker`: `/hyperopen/src/**`, approved `test/**` files, active ExecPlan path, and `/hyperopen/tmp/multi-agent/**`
+- `reviewer`, `architect_review`, `ui_visual_validator`: no tracked-file writes
 - `browser_debugger`: `/hyperopen/tmp/browser-inspection/**`, `/hyperopen/tmp/multi-agent/**`, and optional `/hyperopen/docs/qa/**`
-
-The manager enforces these through phase-level diff gates.
-
-## Artifact Contract
-
-Manager-owned artifacts are JSON and fail closed on schema mismatch:
-
-- `spec.json`
-- `acceptance-tests.proposal.json`
-- `edge-case-tests.proposal.json`
-- `approved-test-contract.json`
-- `review-report.json`
-- `browser-report.json`
-- `run-summary.json`
-
-These files live under `/hyperopen/tmp/multi-agent/<bd-id>/`.
 
 ## Failure Semantics
 
-- Real runs fail fast when `OPENAI_API_KEY` is missing.
-- Real runs fail fast in a dirty worktree unless explicitly overridden.
-- A phase fails if its artifact does not validate.
-- A phase fails if its diff touches disallowed paths.
-- Proposal merge fails when both test-design roles claim the same concrete test file.
-- Browser QA is required only when the spec marks the ticket as UI-facing or interaction-heavy. Otherwise the browser report must explicitly record a skip.
+- Real manager runs fail fast when `OPENAI_API_KEY` is missing.
+- Real manager runs fail fast in a dirty worktree unless explicitly resumed.
+- A phase fails if its artifact does not validate or its diff touches disallowed paths.
+- Test-proposal merge fails when proposal roles claim overlapping target files or conflicting validation commands.
+- Browser QA is required only when the spec marks the ticket as UI-facing or interaction-heavy; otherwise the browser report must record an explicit skip.
 
-## `bd` Integration
+## Validation
 
-- The issue id is the artifact key and run identifier.
-- Follow-up work discovered by `reviewer` or `browser_debugger` should be filed with `discovered-from:<parent-id>`.
-- `bd` remains the source of truth for issue lifecycle state; markdown artifacts do not replace it.
-
-## Native Codex Support
-
-- Repo-local Codex project configuration lives in `/hyperopen/.codex/config.toml`.
-- Repo-local checked-in agent definitions live under `/hyperopen/.codex/agents/*.toml`.
-- Repo-local skills live under `/hyperopen/.agents/skills/**`.
-- The checked-in agent and skill files are the source of truth for native Codex usage and for the JavaScript manager.
-
-## Command Surface
-
-- `npm run agent:dry-run -- --issue <bd-id>`
-- `npm run agent:ticket -- --issue <bd-id>`
-- `npm run agent:resume-ticket -- --issue <bd-id>`
 - `npm run test:multi-agent`
+- `npm run check`
+- `npm test`
+- `npm run test:websocket`
 
-For browser QA specifics, follow `/hyperopen/docs/agent-guides/browser-qa.md` and `/hyperopen/docs/runbooks/browser-live-inspection.md`.
+Use a fresh Codex run after changing `/hyperopen/AGENTS.md` or `/hyperopen/.codex/config.toml`. Skill content changes are detected automatically, but if a skill update does not appear, restart and re-run the checks above.

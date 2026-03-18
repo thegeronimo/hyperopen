@@ -1,7 +1,7 @@
 ---
 owner: platform
 status: canonical
-last_reviewed: 2026-03-17
+last_reviewed: 2026-03-18
 review_cycle_days: 90
 source_of_truth: true
 ---
@@ -19,9 +19,10 @@ Use this file as the single starting point for what actions this repo provides t
 5. For CRAP hotspot analysis after generating coverage, use `bb tools/crap_report.clj --scope src` or `bb tools/crap_report.clj --module <path> --format json`.
 6. For repo-local mutation testing on one covered module at a time, use `bb tools/mutate.clj --scan --module <path>` after `npm run coverage`.
 7. For a checked-in overnight hotspot sweep, use `bb tools/mutate_nightly.clj` with targets from `/hyperopen/tools/mutate/nightly_targets.edn`.
-8. For multi-agent role, artifact, and gate rules, use `/hyperopen/docs/MULTI_AGENT.md` and the manager under `/hyperopen/tools/multi-agent/`.
-9. For issue tracking and session handoff rules, use `/hyperopen/docs/WORK_TRACKING.md`.
-10. For exact browser inspection command syntax, see:
+8. For interactive feature, bug, and UI orchestration, invoke `$feature-flow`, `$bug-flow`, or `$ui-flow` explicitly.
+9. For multi-agent role, artifact, and gate rules, use `/hyperopen/docs/MULTI_AGENT.md` and the manager under `/hyperopen/tools/multi-agent/`.
+10. For issue tracking and session handoff rules, use `/hyperopen/docs/WORK_TRACKING.md`.
+11. For exact browser inspection command syntax, see:
    - `/hyperopen/tools/browser-inspection/src/cli.mjs`
    - `/hyperopen/tools/browser-inspection/src/mcp_server.mjs`
 
@@ -93,8 +94,11 @@ Live local bug workflow selection:
 
 | Skill | Purpose | Trigger |
 | --- | --- | --- |
+| `/hyperopen/.agents/skills/feature-flow/SKILL.md` | Explicit workflow for complex features and refactors | Invoke explicitly with `$feature-flow` |
+| `/hyperopen/.agents/skills/bug-flow/SKILL.md` | Explicit workflow for diagnosis-first bug work | Invoke explicitly with `$bug-flow` |
+| `/hyperopen/.agents/skills/ui-flow/SKILL.md` | Explicit workflow for governed UI work | Invoke explicitly with `$ui-flow` |
 | `/hyperopen/.agents/skills/spec-writer/SKILL.md` | ExecPlan-first spec writing for multi-agent tickets | Use when acting as `spec_writer` |
-| `/hyperopen/.agents/skills/acceptance-tests/SKILL.md` | Acceptance/integration proposal and materialization workflow | Use when acting as `acceptance_test_writer` |
+| `/hyperopen/.agents/skills/acceptance-tests/SKILL.md` | Acceptance/integration proposal workflow | Use when acting as `acceptance_test_writer` |
 | `/hyperopen/.agents/skills/edge-case-tests/SKILL.md` | Boundary-case and invariant proposal workflow | Use when acting as `edge_case_test_writer` |
 | `/hyperopen/.agents/skills/static-review/SKILL.md` | Findings-first read-only review workflow | Use when acting as `reviewer` |
 | `/hyperopen/.agents/skills/browser-qa/SKILL.md` | Browser QA workflow on top of browser-inspection and governed passes | Use when acting as `browser_debugger` |
@@ -102,7 +106,7 @@ Live local bug workflow selection:
 | `$CODEX_HOME/skills/.system/skill-installer/SKILL.md` | Install Codex skills | Need a new skill or curated skill list |
 | `$CODEX_HOME/skills/.system/skill-creator/SKILL.md` | Create/update new Codex skills | Need to author a reusable skill |
 
-If a task explicitly names one of these skills, follow that skill workflow first.
+If a task explicitly names one of these skills, follow that skill workflow first. The workflow skills are explicit-only by policy and do not trigger ambiently.
 
 ## 4) Multi-Agent Manager
 

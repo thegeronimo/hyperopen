@@ -42,6 +42,13 @@ model_reasoning_effort = "xhigh"
 sandbox_mode = "workspace-write"
 developer_instructions = "Write edge-case tests."
 `,
+  ".codex/agents/tdd_test_writer.toml": `name = "tdd_test_writer"
+description = "Writes RED-phase tests."
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+sandbox_mode = "workspace-write"
+developer_instructions = "Write failing tests."
+`,
   ".codex/agents/worker.toml": `name = "worker"
 description = "Implements the smallest change."
 model = "gpt-5.4"
@@ -83,6 +90,10 @@ config_file = ".codex/agents/acceptance-tests.toml"
 [agents.edge_case_test_writer]
 description = "Writes edge-case tests."
 config_file = ".codex/agents/edge-case-tests.toml"
+
+[agents.tdd_test_writer]
+description = "Writes RED-phase tests."
+config_file = ".codex/agents/tdd_test_writer.toml"
 
 [agents.worker]
 description = "Implements the change."
@@ -128,12 +139,12 @@ test("validateProjectConfig rejects manager role paths outside .codex/agents", a
 test("validateProjectConfig rejects missing required role entries", async () => {
   const repoRoot = await makeTempRepo({
     configToml: validProjectConfig.replace(
-      '\n[agents.browser_debugger]\ndescription = "Runs browser QA."\nconfig_file = ".codex/agents/browser-debugger.toml"\n',
+      '\n[agents.tdd_test_writer]\ndescription = "Writes RED-phase tests."\nconfig_file = ".codex/agents/tdd_test_writer.toml"\n',
       "\n"
     ),
     files: validRoleFiles
   });
-  await assert.rejects(() => validateProjectConfig(repoRoot), /expected project config to define required role browser_debugger/);
+  await assert.rejects(() => validateProjectConfig(repoRoot), /expected project config to define role tdd_test_writer/);
 });
 
 test("validateProjectConfig rejects role files whose custom-agent name does not match the required role", async () => {
@@ -151,4 +162,25 @@ developer_instructions = "Implement the fix."
     }
   });
   await assert.rejects(() => validateProjectConfig(repoRoot), /expected \.codex\/agents\/worker\.toml to declare name = "worker"/);
+});
+
+test("validateProjectConfig rejects configured optional roles whose custom-agent name does not match the config key", async () => {
+  const repoRoot = await makeTempRepo({
+    configToml: `${validProjectConfig}
+
+[agents.architect_review]
+description = "Architect review."
+config_file = ".codex/agents/architect-review.toml"
+`,
+    files: {
+      ...validRoleFiles,
+      ".codex/agents/architect-review.toml": `name = "architect-review"
+description = "Wrong optional role name."
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+developer_instructions = "Review architecture."
+`
+    }
+  });
+  await assert.rejects(() => validateProjectConfig(repoRoot), /expected \.codex\/agents\/architect-review\.toml to declare name = "architect_review"/);
 });

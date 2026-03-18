@@ -43,7 +43,7 @@ export function buildArtifactPaths(repoRoot, issueId) {
     acceptanceProposal: path.join(runDir, "acceptance-tests.proposal.json"),
     edgeProposal: path.join(runDir, "edge-case-tests.proposal.json"),
     approvedContract: path.join(runDir, "approved-test-contract.json"),
-    materialization: path.join(runDir, "materialization.json"),
+    redPhase: path.join(runDir, "red-phase.json"),
     implementation: path.join(runDir, "implementation.json"),
     review: path.join(runDir, "review-report.json"),
     browser: path.join(runDir, "browser-report.json"),

@@ -3,16 +3,24 @@ import path from "node:path";
 import * as TOML from "smol-toml";
 import { z } from "zod";
 
-const requiredRoleNames = [
+const managerRoleNames = [
   "spec_writer",
   "acceptance_test_writer",
   "edge_case_test_writer",
+  "tdd_test_writer",
   "worker",
   "reviewer",
   "browser_debugger"
 ];
 
-const roleConfigSchema = z
+const customAgentIdentitySchema = z
+  .object({
+    name: z.string().min(1),
+    description: z.string().min(1)
+  })
+  .passthrough();
+
+const managerRoleConfigSchema = z
   .object({
     name: z.string().min(1),
     description: z.string().min(1),
@@ -37,17 +45,32 @@ function normalizeRoleConfigPath(roleName, configFile) {
   return normalized;
 }
 
-function resolveRequiredRoleConfig(config, roleName) {
+function resolveConfiguredRoleConfig(config, roleName) {
   const roleConfig = config?.agents?.[roleName];
   if (!roleConfig || typeof roleConfig !== "object") {
-    throw new Error(`expected project config to define required role ${roleName}`);
+    throw new Error(`expected project config to define role ${roleName}`);
   }
   return normalizeRoleConfigPath(roleName, roleConfig.config_file);
 }
 
-async function parseRoleConfig(repoRoot, roleName, configFile) {
+function listConfiguredRoleNames(config) {
+  return Object.entries(config?.agents ?? {})
+    .filter(([, value]) => value && typeof value === "object")
+    .map(([roleName]) => roleName);
+}
+
+async function parseCustomAgentIdentity(repoRoot, roleName, configFile) {
   const parsed = TOML.parse(await fs.readFile(path.join(repoRoot, configFile), "utf8"));
-  const roleConfig = roleConfigSchema.parse(parsed);
+  const roleConfig = customAgentIdentitySchema.parse(parsed);
+  if (roleConfig.name !== roleName) {
+    throw new Error(`expected ${configFile} to declare name = "${roleName}"`);
+  }
+  return roleConfig;
+}
+
+async function parseManagerRoleConfig(repoRoot, roleName, configFile) {
+  const parsed = TOML.parse(await fs.readFile(path.join(repoRoot, configFile), "utf8"));
+  const roleConfig = managerRoleConfigSchema.parse(parsed);
   if (roleConfig.name !== roleName) {
     throw new Error(`expected ${configFile} to declare name = "${roleName}"`);
   }
@@ -73,9 +96,13 @@ export async function validateProjectConfig(repoRoot) {
   if (config?.agents?.max_threads !== 6 || config?.agents?.max_depth !== 1) {
     throw new Error("expected .codex/config.toml to set agents.max_threads=6 and agents.max_depth=1");
   }
-  for (const roleName of requiredRoleNames) {
-    const configFile = resolveRequiredRoleConfig(config, roleName);
-    await parseRoleConfig(repoRoot, roleName, configFile);
+  for (const roleName of listConfiguredRoleNames(config)) {
+    const configFile = resolveConfiguredRoleConfig(config, roleName);
+    await parseCustomAgentIdentity(repoRoot, roleName, configFile);
+  }
+  for (const roleName of managerRoleNames) {
+    const configFile = resolveConfiguredRoleConfig(config, roleName);
+    await parseManagerRoleConfig(repoRoot, roleName, configFile);
   }
   if (config?.mcp_servers?.["hyperopen-browser"]?.args?.[0] !== "./tools/browser-inspection/src/mcp_server.mjs") {
     throw new Error("expected project config to register the hyperopen-browser MCP server");
@@ -84,17 +111,17 @@ export async function validateProjectConfig(repoRoot) {
 }
 
 export async function loadRoleConfig(repoRoot, roleName) {
-  if (!requiredRoleNames.includes(roleName)) {
+  if (!managerRoleNames.includes(roleName)) {
     throw new Error(`unknown role: ${roleName}`);
   }
   const config = await readProjectConfig(repoRoot);
-  const configFile = resolveRequiredRoleConfig(config, roleName);
-  return parseRoleConfig(repoRoot, roleName, configFile);
+  const configFile = resolveConfiguredRoleConfig(config, roleName);
+  return parseManagerRoleConfig(repoRoot, roleName, configFile);
 }
 
 export async function loadAllRoleConfigs(repoRoot) {
   const configs = {};
-  for (const roleName of requiredRoleNames) {
+  for (const roleName of managerRoleNames) {
     configs[roleName] = await loadRoleConfig(repoRoot, roleName);
   }
   return configs;

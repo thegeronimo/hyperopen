@@ -1,4 +1,4 @@
-name = "documentation-specialist"
+name = "documentation_specialist"
 description = "Use when implementing documentation functionality with production-grade patterns and safeguards."
 model = "gpt-5.4"
 model_reasoning_effort = "xhigh"

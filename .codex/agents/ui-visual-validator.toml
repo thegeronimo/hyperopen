@@ -1,4 +1,4 @@
-name = "ui-visual-validator"
+name = "ui_visual_validator"
 description = "Use when UI visual changes need rigorous review for correctness, risk, and release readiness."
 model = "gpt-5.4"
 model_reasoning_effort = "xhigh"

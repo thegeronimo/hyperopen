@@ -1,3 +1,8 @@
+---
+name: "acceptance-tests"
+description: "Use when acting as `acceptance_test_writer` to propose happy-path acceptance and integration coverage from an approved spec or ExecPlan. Do not use to materialize tests directly or to edit production code."
+---
+
 # Acceptance Tests
 
 Use this skill when acting as the `acceptance_test_writer` role for a multi-agent ticket.
@@ -11,16 +16,15 @@ Use this skill when acting as the `acceptance_test_writer` role for a multi-agen
 
 ## Job
 
-- Proposal pass: design failing acceptance and integration tests from the spec only.
-- Materialization pass: write the approved failing tests from the frozen contract.
+- Proposal pass only: design acceptance and integration tests from the frozen spec.
+- Focus on user-visible happy-path and integration behavior, not boundary or adversarial coverage.
 
 ## Guardrails
 
-- Proposal pass may write only manager artifacts under `/hyperopen/tmp/multi-agent/<bd-id>/`.
-- Materialization may write only approved `test/**` files and the active ExecPlan.
+- Write only manager artifacts under `/hyperopen/tmp/multi-agent/<bd-id>/`.
+- Do not materialize tests directly.
 - Never edit `/hyperopen/src/**`.
 
 ## Expected Outputs
 
 - `acceptance-tests.proposal.json`
-- After approval, failing tests that exercise the frozen contract

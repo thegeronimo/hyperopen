@@ -1,4 +1,4 @@
-name = "architect-review"
+name = "architect_review"
 description = "Use when review changes need rigorous review for correctness, risk, and release readiness."
 model = "gpt-5.4"
 model_reasoning_effort = "xhigh"

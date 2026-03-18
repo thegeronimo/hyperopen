@@ -15,6 +15,7 @@ test("buildDryRunArtifacts returns the expected contract bundle", () => {
   assert.equal(artifacts.acceptanceProposal.role, "acceptance_test_writer");
   assert.equal(artifacts.edgeProposal.role, "edge_case_test_writer");
   assert.equal(artifacts.approvedContract.issueId, sampleIssue.id);
+  assert.equal(artifacts.redPhase.issueId, sampleIssue.id);
   assert.equal(artifacts.browser.skipped, true);
   assert.ok(artifacts.specArtifact.touchedAreas.includes(".codex/agents/*.toml"));
 });

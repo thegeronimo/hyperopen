@@ -5,7 +5,7 @@ export const phaseNames = [
   "acceptance_test_writer.proposal",
   "edge_case_test_writer.proposal",
   "merge_test_contract",
-  "acceptance_test_writer.materialize",
+  "tdd_test_writer.red_phase",
   "verify_red_phase",
   "worker",
   "reviewer",
@@ -148,7 +148,7 @@ export const browserReportSchema = z
     }
   });
 
-export const materializationResultSchema = z.object({
+export const redPhaseResultSchema = z.object({
   version: z.literal(1),
   issueId: z.string().min(1),
   summary: z.string().min(1),

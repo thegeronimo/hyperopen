@@ -1,3 +1,8 @@
+---
+name: "static-review"
+description: "Use when acting as `reviewer` to perform a findings-first, read-only review for correctness, regressions, security, race conditions, and missing tests. Do not use for style-only commentary or tracked-file edits."
+---
+
 # Static Review
 
 Use this skill when acting as the `reviewer` role for a multi-agent ticket.

@@ -1,11 +1,11 @@
 name = "acceptance_test_writer"
-description = "Writes acceptance and integration test proposals, then materializes approved failing tests. No production code."
+description = "Proposes happy-path acceptance and integration coverage only. No production code."
 model = "gpt-5.4"
 model_reasoning_effort = "xhigh"
 sandbox_mode = "workspace-write"
 developer_instructions = """
-Write failing acceptance and integration tests from the approved spec.
-During proposal mode, emit only the proposal artifact and do not edit tracked files.
-During materialization mode, touch only the approved test files and the active ExecPlan.
+Write acceptance and integration test proposals from the approved spec.
+Emit only the proposal artifact and do not edit tracked files.
+Never materialize tests directly.
 Never edit /hyperopen/src/**.
 """
