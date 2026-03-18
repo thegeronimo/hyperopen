@@ -176,13 +176,15 @@
         details-node (find-node-by-role view "wallet-menu-details")
         menu-panel (find-node-by-role view "wallet-menu-panel")
         copy-button (find-node-by-role view "wallet-menu-copy")
-        storage-mode-toggle (find-node-by-role view "wallet-agent-storage-mode-toggle")
+        status-row (find-node-by-role view "wallet-agent-status")
+        spectate-button (find-node-by-role view "wallet-menu-open-spectate-mode")
         enable-button (find-node-by-role view "wallet-enable-trading")
         disconnect-button (find-node-by-role view "wallet-menu-disconnect")]
     (is (some? details-node))
     (is (some? menu-panel))
     (is (some? copy-button))
-    (is (some? storage-mode-toggle))
+    (is (nil? status-row))
+    (is (nil? spectate-button))
     (is (some? enable-button))
     (is (some? disconnect-button))
     (is (= "Disconnect" (last disconnect-button)))))
@@ -190,41 +192,16 @@
 (deftest wallet-menu-copy-and-disconnect-dispatch-actions-test
   (let [view (header-view/header-view {:wallet {:connected? true
                                                  :address connected-address
-                                                 :agent {:status :not-ready
-                                                         :storage-mode :session}}})
+                                                 :agent {:status :not-ready}}})
         copy-button (find-node-by-role view "wallet-menu-copy")
-        storage-mode-toggle (find-node-by-role view "wallet-agent-storage-mode-toggle")
         enable-button (find-node-by-role view "wallet-enable-trading")
         disconnect-button (find-node-by-role view "wallet-menu-disconnect")]
     (is (= [[:actions/copy-wallet-address]]
            (get-in copy-button [1 :on :click])))
-    (is (= [[:actions/set-agent-storage-mode :local]]
-           (get-in storage-mode-toggle [1 :on :click])))
     (is (= [[:actions/enable-agent-trading]]
            (get-in enable-button [1 :on :click])))
     (is (= [[:actions/disconnect-wallet]]
            (get-in disconnect-button [1 :on :click])))))
-
-(deftest wallet-menu-storage-toggle-defaults-to-device-when-mode-is-missing-test
-  (let [view (header-view/header-view {:wallet {:connected? true
-                                                 :address connected-address
-                                                 :agent {:status :not-ready}}})
-        storage-mode-toggle (find-node-by-role view "wallet-agent-storage-mode-toggle")
-        mode-value (find-node-by-role view "wallet-agent-storage-mode-value")]
-    (is (= [[:actions/set-agent-storage-mode :session]]
-           (get-in storage-mode-toggle [1 :on :click])))
-    (is (contains? (set (collect-strings mode-value)) "Device"))))
-
-(deftest wallet-menu-storage-toggle-dispatches-session-when-local-selected-test
-  (let [view (header-view/header-view {:wallet {:connected? true
-                                                 :address connected-address
-                                                 :agent {:status :not-ready
-                                                         :storage-mode :local}}})
-        storage-mode-toggle (find-node-by-role view "wallet-agent-storage-mode-toggle")
-        mode-value (find-node-by-role view "wallet-agent-storage-mode-value")]
-    (is (= [[:actions/set-agent-storage-mode :session]]
-           (get-in storage-mode-toggle [1 :on :click])))
-    (is (contains? (set (collect-strings mode-value)) "Device"))))
 
 (deftest wallet-menu-hides-enable-button-when-trading-ready-test
   (let [view (header-view/header-view {:wallet {:connected? true
@@ -232,8 +209,7 @@
                                                  :agent {:status :ready}}})
         status-row (find-node-by-role view "wallet-agent-status")
         enable-button (find-node-by-role view "wallet-enable-trading")]
-    (is (some? status-row))
-    (is (contains? (set (collect-strings status-row)) "Trading enabled"))
+    (is (nil? status-row))
     (is (nil? enable-button))))
 
 (deftest wallet-menu-copy-feedback-renders-success-message-and-icon-test
@@ -248,7 +224,7 @@
     (is (some? success-icon))
     (is (contains? text "Address copied to clipboard"))))
 
-(deftest wallet-menu-shows-active-spectate-state-when-spectating-test
+(deftest wallet-menu-omits-spectate-controls-when-spectating-test
   (let [spectate-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
         spectate-state {:spectate-mode {:active? true
                                   :address spectate-address
@@ -266,16 +242,14 @@
         spectate-mode-button (find-node-by-role view "spectate-mode-open-button")
         spectate-mode-tooltip (find-node-by-role view "spectate-mode-open-tooltip")
         menu-open-spectate (find-node-by-role view "wallet-menu-open-spectate-mode")
-        spectate-active-row (find-node-by-role view "wallet-menu-spectate-active-address")
-        menu-text (set (collect-strings menu-open-spectate))
-        active-text (set (collect-strings spectate-active-row))]
+        spectate-active-row (find-node-by-role view "wallet-menu-spectate-active-address")]
     (is (true? (account-context/spectate-mode-active?
                 {:account-context spectate-state})))
     (is (= "Manage Spectate Mode" (get-in spectate-mode-button [1 :aria-label])))
     (is (contains? (set (collect-strings spectate-mode-tooltip))
                    "Spectate Mode is active. Click to manage the address you are viewing or stop spectating."))
-    (is (contains? menu-text "Manage Spectate Mode"))
-    (is (contains? active-text (wallet/short-addr spectate-address)))))
+    (is (nil? menu-open-spectate))
+    (is (nil? spectate-active-row))))
 
 (deftest wallet-menu-class-attributes-are-tokenized-collections-test
   (let [view (header-view/header-view {:wallet {:connected? true

@@ -149,64 +149,6 @@
                 :d "M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"}]])
      [:span message]]))
 
-(defn- trading-agent-status-row [agent-state]
-  (let [status (:status agent-state)
-        status-text (case status
-                      :ready "Trading enabled"
-                      :approving "Awaiting signature..."
-                      :error "Trading setup failed"
-                      "Trading not enabled")
-        status-classes (case status
-                         :ready ["text-success"]
-                         :approving ["text-warning"]
-                         :error ["text-error"]
-                         ["text-gray-300"])]
-    [:div {:class ["px-3" "pt-2" "pb-1.5"]}
-     [:div {:class (into ["text-xs" "font-medium"] status-classes)
-            :data-role "wallet-agent-status"}
-      status-text]
-     (when (seq (:error agent-state))
-       [:div {:class ["mt-1" "text-xs" "text-error"]
-              :data-role "wallet-agent-error"}
-        (:error agent-state)])]))
-
-(defn- agent-storage-mode-row [agent-state]
-  (let [storage-mode (if (= :session (:storage-mode agent-state)) :session :local)
-        persistent? (= :local storage-mode)
-        next-mode (if persistent? :session :local)
-        disabled? (= :approving (:status agent-state))]
-    [:div {:class ["px-3" "pb-1.5" "pt-2"]
-           :data-role "wallet-agent-storage-mode-row"}
-     [:button {:type "button"
-               :class ["flex"
-                       "w-full"
-                       "items-center"
-                       "justify-between"
-                       "gap-2"
-                       "rounded-lg"
-                       "border"
-                       "border-base-300"
-                       "bg-base-100"
-                       "px-2.5"
-                       "py-2"
-                       "text-left"
-                       "text-xs"
-                       "text-gray-200"
-                       "transition-colors"
-                       "hover:bg-base-200"
-                       "disabled:cursor-not-allowed"
-                       "disabled:opacity-60"]
-               :disabled disabled?
-               :on {:click [[:actions/set-agent-storage-mode next-mode]]}
-               :data-role "wallet-agent-storage-mode-toggle"}
-      [:span "Persist trading key"]
-      [:span {:class ["font-medium" "text-white"]
-              :data-role "wallet-agent-storage-mode-value"}
-       (if persistent? "Device" "Session")]]
-     [:div {:class ["mt-1" "text-xs" "text-gray-400"]
-            :data-role "wallet-agent-storage-mode-hint"}
-      "Switching mode resets trading setup."]]))
-
 (defn- enable-trading-button [agent-state]
   (let [status (:status agent-state)
         disabled? (= :approving status)]
@@ -233,90 +175,66 @@
                 :data-role "wallet-enable-trading"}
        (if disabled? "Awaiting signature..." "Enable Trading")])))
 
-(defn- wallet-menu [wallet-address copy-feedback agent-state spectate-active? spectate-address]
-  [:div {:class ["ui-dropdown-panel"
-                 "absolute"
-                 "right-0"
-                 "top-full"
-                 "mt-2"
-                 "w-48"
-                 "overflow-hidden"
-                 "rounded-xl"
-                 "border"
-                 "border-base-300"
-                 "bg-trading-bg"
-                 "isolate"
-                 "shadow-2xl"
-                 "z-[260]"]
-         :data-ui-native-details-panel "true"
-         :data-role "wallet-menu-panel"}
-   [:button {:type "button"
-             :class ["flex"
-                     "w-full"
-                     "items-center"
-                     "justify-between"
-                     "gap-2"
-                     "px-3"
-                     "py-3"
-                     "text-left"
-                     "text-sm"
-                     "text-white"
-                     "transition-colors"
-                     "hover:bg-base-200"
-                     "focus:outline-none"]
-             :on {:click [[:actions/copy-wallet-address]]}
-             :title "Copy address"
-             :aria-label "Copy address"
-                     :data-role "wallet-menu-copy"}
-    [:span {:class ["truncate" "num"]} (or (wallet/short-addr wallet-address) "Unavailable")]
-    (wallet-copy-icon)]
-   (when (and (map? copy-feedback)
-              (seq (:message copy-feedback)))
-     (wallet-copy-feedback-row copy-feedback))
-   (agent-storage-mode-row agent-state)
-   (trading-agent-status-row agent-state)
-   (enable-trading-button agent-state)
-   [:div {:class ["h-px" "w-full" "bg-base-300"]}]
-   [:button {:type "button"
-             :class ["block"
-                     "w-full"
-                     "px-3"
-                     "py-3"
-                     "text-left"
-                     "text-sm"
-                     "font-medium"
-                     "text-[#96f8e0]"
-                     "transition-colors"
-                     "hover:bg-base-200"
-                     "focus:outline-none"]
-             :on {:click [[:actions/open-spectate-mode-modal :event.currentTarget/bounds]]}
-             :data-spectate-mode-trigger "true"
-             :data-role "wallet-menu-open-spectate-mode"}
-    (if spectate-active? "Manage Spectate Mode" "Open Spectate Mode")]
-   (when spectate-active?
-     [:div {:class ["px-3"
-                    "pb-2"
-                    "text-xs"
-                    "text-[#9fb4b9]"]
-            :data-role "wallet-menu-spectate-active-address"}
-      [:span {:class ["num"]}
-       (or (wallet/short-addr spectate-address) spectate-address)]])
-   [:div {:class ["h-px" "w-full" "bg-base-300"]}]
-   [:button {:type "button"
-             :class ["block"
-                     "w-full"
-                     "px-3"
-                     "py-3"
-                     "text-left"
-                     "text-sm"
-                     "font-medium"
-                     "text-[#50f6d2]"
-                     "transition-colors"
-                     "hover:bg-base-200"
-                     "focus:outline-none"]
-             :on {:click [[:actions/disconnect-wallet]]}
-             :data-role "wallet-menu-disconnect"}
-    "Disconnect"]])
+(defn- wallet-menu [wallet-address copy-feedback agent-state]
+  (let [enable-trading-cta (enable-trading-button agent-state)]
+    [:div {:class ["ui-dropdown-panel"
+                   "absolute"
+                   "right-0"
+                   "top-full"
+                   "mt-2"
+                   "w-48"
+                   "overflow-hidden"
+                   "rounded-xl"
+                   "border"
+                   "border-base-300"
+                   "bg-trading-bg"
+                   "isolate"
+                   "shadow-2xl"
+                   "z-[260]"]
+           :data-ui-native-details-panel "true"
+           :data-role "wallet-menu-panel"}
+     [:button {:type "button"
+               :class ["flex"
+                       "w-full"
+                       "items-center"
+                       "justify-between"
+                       "gap-2"
+                       "px-3"
+                       "py-3"
+                       "text-left"
+                       "text-sm"
+                       "text-white"
+                       "transition-colors"
+                       "hover:bg-base-200"
+                       "focus:outline-none"]
+               :on {:click [[:actions/copy-wallet-address]]}
+               :title "Copy address"
+               :aria-label "Copy address"
+               :data-role "wallet-menu-copy"}
+      [:span {:class ["truncate" "num"]} (or (wallet/short-addr wallet-address) "Unavailable")]
+      (wallet-copy-icon)]
+     (when (and (map? copy-feedback)
+                (seq (:message copy-feedback)))
+       (wallet-copy-feedback-row copy-feedback))
+     (when enable-trading-cta
+       enable-trading-cta)
+     (when enable-trading-cta
+       [:div {:class ["h-px" "w-full" "bg-base-300"]}])
+     [:button {:type "button"
+               :class ["block"
+                       "w-full"
+                       "px-3"
+                       "py-3"
+                       "text-left"
+                       "text-sm"
+                       "font-medium"
+                       "text-[#50f6d2]"
+                       "transition-colors"
+                       "hover:bg-base-200"
+                       "focus:outline-none"]
+               :on {:click [[:actions/disconnect-wallet]]}
+               :data-role "wallet-menu-disconnect"}
+      "Disconnect"]]))
 
 (defn- wallet-trigger [wallet-address]
   [:summary {:class ["relative"
@@ -697,7 +615,7 @@
                    "Open Spectate Mode")]
           (spectate-mode-icon)]]]]])])
 
-(defn- wallet-control [wallet-state spectate-mode]
+(defn- wallet-control [wallet-state]
   (let [is-connected (boolean (:connected? wallet-state))
         wallet-address (:address wallet-state)
         copy-feedback (:copy-feedback wallet-state)
@@ -706,11 +624,7 @@
     (if is-connected
       [:details {:class ["relative" "group"] :data-role "wallet-menu-details"}
        (wallet-trigger wallet-address)
-       (wallet-menu wallet-address
-                    copy-feedback
-                    agent-state
-                    (true? (:active? spectate-mode))
-                    (:address spectate-mode))]
+       (wallet-menu wallet-address copy-feedback agent-state)]
       (connect-wallet-button is-connecting))))
 
 (defn header-view [state]
@@ -790,7 +704,7 @@
               :data-parity-id "header-wallet-control"}
         [:div {:class ["inline-flex" "md:hidden" "lg:inline-flex"]}
          (spectate-mode-trigger-button spectate-active?)]
-        (wallet-control wallet-state spectate-mode)
+        (wallet-control wallet-state)
         [:div {:class ["flex" "items-center" "gap-1.5" "md:hidden" "lg:flex"]}
          (utility-icon-button "Language/Region" (globe-icon) "header-language-button")
          (utility-icon-button "Settings" (settings-icon) "header-settings-button")]]]]]))
