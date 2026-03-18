@@ -211,18 +211,27 @@
                                           (let [attrs (when (map? (second node)) (second node))]
                                             (and (= :button (first node))
                                                  (= "Close size unit menu" (:aria-label attrs))))))
-        listbox (find-first-node open-view
-                                 (fn [node]
-                                   (let [attrs (when (map? (second node)) (second node))]
-                                     (and (= :div (first node))
-                                          (= "Size unit options" (:aria-label attrs))))))]
+        closed-listbox (find-first-node closed-view
+                                        (fn [node]
+                                          (let [attrs (when (map? (second node)) (second node))]
+                                            (and (= :div (first node))
+                                                 (= "Size unit options" (:aria-label attrs))))))
+        open-listbox (find-first-node open-view
+                                      (fn [node]
+                                        (let [attrs (when (map? (second node)) (second node))]
+                                          (and (= :div (first node))
+                                               (= "Size unit options" (:aria-label attrs))))))]
     (is (= [[:actions/toggle-size-unit-dropdown]]
            (get-in trigger-button [1 :on :click])))
     (is (= [[:actions/handle-size-unit-dropdown-keydown [:event/key]]]
            (get-in trigger-button [1 :on :keydown])))
     (is (= [[:actions/close-size-unit-dropdown]]
            (get-in overlay-button [1 :on :click])))
-    (is (= 1202 (get-in listbox [1 :style :z-index])))))
+    (is (= "closed" (get-in closed-listbox [1 :data-ui-state])))
+    (is (= true (get-in closed-listbox [1 :aria-hidden])))
+    (is (= "open" (get-in open-listbox [1 :data-ui-state])))
+    (is (= false (get-in open-listbox [1 :aria-hidden])))
+    (is (= 1202 (get-in open-listbox [1 :style :z-index])))))
 
 (deftest leverage-row-margin-mode-dropdown-toggle-and-selection-actions-test
   (let [closed-view (view/order-form-view (base-state {:type :limit
@@ -241,11 +250,16 @@
                                           (let [attrs (when (map? (second node)) (second node))]
                                             (and (= :button (first node))
                                                  (= "Close margin mode menu" (:aria-label attrs))))))
-        listbox (find-first-node open-view
-                                 (fn [node]
-                                   (let [attrs (when (map? (second node)) (second node))]
-                                     (and (= :div (first node))
-                                          (= "Margin mode options" (:aria-label attrs))))))
+        closed-listbox (find-first-node closed-view
+                                        (fn [node]
+                                          (let [attrs (when (map? (second node)) (second node))]
+                                            (and (= :div (first node))
+                                                 (= "Margin mode options" (:aria-label attrs))))))
+        open-listbox (find-first-node open-view
+                                      (fn [node]
+                                        (let [attrs (when (map? (second node)) (second node))]
+                                          (and (= :div (first node))
+                                               (= "Margin mode options" (:aria-label attrs))))))
         option-buttons (find-all-nodes open-view
                                        (fn [node]
                                          (and (= :button (first node))
@@ -270,7 +284,11 @@
            click-payloads))
     (is (contains? isolated-option-classes "bg-[#273035]"))
     (is (contains? isolated-option-classes "text-[#50D2C1]"))
-    (is (= 1202 (get-in listbox [1 :style :z-index])))))
+    (is (= "closed" (get-in closed-listbox [1 :data-ui-state])))
+    (is (= true (get-in closed-listbox [1 :aria-hidden])))
+    (is (= "open" (get-in open-listbox [1 :data-ui-state])))
+    (is (= false (get-in open-listbox [1 :aria-hidden])))
+    (is (= 1202 (get-in open-listbox [1 :style :z-index])))))
 
 (deftest leverage-row-margin-mode-renders-static-isolated-chip-when-cross-is-disallowed-test
   (let [state (assoc (base-state {:type :limit
@@ -328,6 +346,14 @@
                                           (let [attrs (when (map? (second node)) (second node))]
                                             (and (= :input (first node))
                                                  (= "Leverage value" (:aria-label attrs))))))
+        closed-popover (find-first-node closed-view
+                                        (fn [node]
+                                          (let [attrs (when (map? (second node)) (second node))]
+                                            (= "Adjust Leverage" (:aria-label attrs)))))
+        open-popover (find-first-node open-view
+                                      (fn [node]
+                                        (let [attrs (when (map? (second node)) (second node))]
+                                          (= "Adjust Leverage" (:aria-label attrs)))))
         confirm-button (find-first-node open-view
                                         (fn [node]
                                           (let [attrs (when (map? (second node)) (second node))]
@@ -344,10 +370,10 @@
     (is (= [[:actions/set-order-ui-leverage-draft [:event.target/value]]]
            (get-in leverage-input [1 :on :input])))
     (is (= "18" (str (:value (second leverage-input)))))
-    (is (= 1202 (get-in (find-first-node open-view
-                                         (fn [node]
-                                           (let [attrs (when (map? (second node)) (second node))]
-                                             (= "Adjust Leverage" (:aria-label attrs)))))
-                       [1 :style :z-index])))
+    (is (= "closed" (get-in closed-popover [1 :data-ui-state])))
+    (is (= true (get-in closed-popover [1 :aria-hidden])))
+    (is (= "open" (get-in open-popover [1 :data-ui-state])))
+    (is (= false (get-in open-popover [1 :aria-hidden])))
+    (is (= 1202 (get-in open-popover [1 :style :z-index])))
     (is (some? overlay-button))
     (is (some? confirm-button))))

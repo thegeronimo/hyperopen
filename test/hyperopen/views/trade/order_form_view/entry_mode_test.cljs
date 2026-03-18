@@ -76,16 +76,34 @@
         pro-click (get-in pro-button [1 :on :click])]
     (is (= [[:actions/toggle-pro-order-type-dropdown]] pro-click))))
 
-(deftest pro-dropdown-renders-only-when-open-flag-is-true-test
+(deftest pro-dropdown-panel-exposes-open-and-closed-state-test
   (let [closed-view (view/order-form-view (base-state {:entry-mode :limit
                                                         :type :limit
                                                         :pro-order-type-dropdown-open? false}))
         open-view (view/order-form-view (base-state {:entry-mode :limit
                                                      :type :limit
                                                      :pro-order-type-dropdown-open? true}))
-        closed-options (pro-dropdown-option-nodes closed-view)
+        closed-panel (find-first-node closed-view
+                                      (fn [candidate]
+                                        (let [attrs (when (map? (second candidate))
+                                                      (second candidate))
+                                              classes (set (:class attrs))]
+                                          (and (= :div (first candidate))
+                                               (= "closed" (:data-ui-state attrs))
+                                               (contains? classes "w-36")))))
+        open-panel (find-first-node open-view
+                                    (fn [candidate]
+                                      (let [attrs (when (map? (second candidate))
+                                                    (second candidate))
+                                            classes (set (:class attrs))]
+                                        (and (= :div (first candidate))
+                                             (= "open" (:data-ui-state attrs))
+                                             (contains? classes "w-36")))))
         open-options (pro-dropdown-option-nodes open-view)]
-    (is (= 0 (count closed-options)))
+    (is (some? closed-panel))
+    (is (= true (get-in closed-panel [1 :aria-hidden])))
+    (is (some? open-panel))
+    (is (= false (get-in open-panel [1 :aria-hidden])))
     (is (= 6 (count open-options)))))
 
 (deftest pro-dropdown-renders-options-in-hyperliquid-order-test

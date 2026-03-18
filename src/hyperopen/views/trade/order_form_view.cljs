@@ -145,34 +145,46 @@
                :on {:click (:on-toggle-margin-mode-dropdown leverage-handlers)
                     :keydown (:on-margin-mode-dropdown-keydown leverage-handlers)}}
       [:span (margin-mode-label margin-mode)]
-      [:svg {:class ["pointer-events-none" "h-3.5" "w-3.5" "text-gray-400"]
+      [:svg {:class (into ["pointer-events-none"
+                           "h-3.5"
+                           "w-3.5"
+                           "text-gray-400"
+                           "transition-transform"
+                           "duration-150"
+                           "ease-out"]
+                          (if dropdown-open?
+                            ["rotate-180"]
+                            ["rotate-0"]))
              :viewBox "0 0 20 20"
              :fill "currentColor"}
        [:path {:fill-rule "evenodd"
                :clip-rule "evenodd"
                :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"}]]]
-     (when dropdown-open?
-       [:div {:class ["absolute"
-                      "left-0"
-                      "top-full"
-                      "mt-1"
-                      "min-w-[116px]"
-                      "rounded-lg"
-                      "border"
-                      "border-[#273035]"
-                      "bg-[#1B2429]"
-                      "p-1"
-                      "spectate-[0_10px_24px_rgba(0,0,0,0.35)]"]
-              :style {:z-index 1202}
-              :role "listbox"
-              :aria-label "Margin mode options"
-              :on {:keydown (:on-margin-mode-dropdown-keydown leverage-handlers)}}
-        (margin-mode-option :cross
-                            (= margin-mode :cross)
-                            (:on-select-margin-mode leverage-handlers))
-        (margin-mode-option :isolated
-                            (= margin-mode :isolated)
-                            (:on-select-margin-mode leverage-handlers))])]))
+     [:div {:class ["ui-dropdown-panel"
+                    "absolute"
+                    "left-0"
+                    "top-full"
+                    "mt-1"
+                    "min-w-[116px]"
+                    "rounded-lg"
+                    "border"
+                    "border-[#273035]"
+                    "bg-[#1B2429]"
+                    "p-1"
+                    "spectate-[0_10px_24px_rgba(0,0,0,0.35)]"]
+            :style {:z-index 1202
+                    :--ui-dropdown-origin "top left"}
+            :data-ui-state (if dropdown-open? "open" "closed")
+            :role "listbox"
+            :aria-label "Margin mode options"
+            :aria-hidden (not dropdown-open?)
+            :on {:keydown (:on-margin-mode-dropdown-keydown leverage-handlers)}}
+      (margin-mode-option :cross
+                          (= margin-mode :cross)
+                          (:on-select-margin-mode leverage-handlers))
+      (margin-mode-option :isolated
+                          (= margin-mode :isolated)
+                          (:on-select-margin-mode leverage-handlers))]]))
 
 (defn- size-unit-accessory [{:keys [size-input-mode quote-symbol base-symbol]}
                             {:keys [dropdown-open?
@@ -217,30 +229,41 @@
                :on {:click on-toggle-dropdown
                     :keydown on-dropdown-keydown}}
       [:span selected-label]
-      [:svg {:class ["pointer-events-none" "h-3.5" "w-3.5" "text-gray-400"]
+      [:svg {:class (into ["pointer-events-none"
+                           "h-3.5"
+                           "w-3.5"
+                           "text-gray-400"
+                           "transition-transform"
+                           "duration-150"
+                           "ease-out"]
+                          (if dropdown-open?
+                            ["rotate-180"]
+                            ["rotate-0"]))
              :viewBox "0 0 20 20"
              :fill "currentColor"}
        [:path {:fill-rule "evenodd"
                :clip-rule "evenodd"
                :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"}]]]
-     (when dropdown-open?
-       [:div {:class ["absolute"
-                      "right-0"
-                      "top-full"
-                      "mt-1"
-                      "min-w-[88px]"
-                      "rounded-lg"
-                      "border"
-                      "border-[#273035]"
-                      "bg-[#1B2429]"
-                      "p-1"
-                      "spectate-[0_10px_24px_rgba(0,0,0,0.35)]"]
-              :style {:z-index 1202}
-              :role "listbox"
-              :aria-label "Size unit options"
-              :on {:keydown on-dropdown-keydown}}
-        (size-unit-option :quote quote-symbol (= selected-mode :quote) on-select-mode)
-        (size-unit-option :base base-symbol (= selected-mode :base) on-select-mode)])]))
+     [:div {:class ["ui-dropdown-panel"
+                    "absolute"
+                    "right-0"
+                    "top-full"
+                    "mt-1"
+                    "min-w-[88px]"
+                    "rounded-lg"
+                    "border"
+                    "border-[#273035]"
+                    "bg-[#1B2429]"
+                    "p-1"
+                    "spectate-[0_10px_24px_rgba(0,0,0,0.35)]"]
+            :style {:z-index 1202}
+            :data-ui-state (if dropdown-open? "open" "closed")
+            :role "listbox"
+            :aria-label "Size unit options"
+            :aria-hidden (not dropdown-open?)
+            :on {:keydown on-dropdown-keydown}}
+      (size-unit-option :quote quote-symbol (= selected-mode :quote) on-select-mode)
+      (size-unit-option :base base-symbol (= selected-mode :base) on-select-mode)]]))
 
 (defn- leverage-control
   [state ui-leverage leverage-draft max-leverage popover-open? leverage-handlers]
@@ -307,6 +330,8 @@
                      "w-3.5"
                      "text-gray-400"
                      "transition-transform"
+                     "duration-150"
+                     "ease-out"
                      (when popover-open? "rotate-180")]
              :viewBox "0 0 16 16"
              :fill "none"
@@ -316,101 +341,103 @@
                :stroke-width "1.5"
                :stroke-linecap "round"
                :stroke-linejoin "round"}]]]
-     (when popover-open?
-       [:div {:class ["absolute"
-                      "right-0"
-                      "top-full"
-                      "mt-2"
-                      "w-[320px]"
-                      "rounded-xl"
-                      "border"
-                      "border-base-300"
-                      "bg-base-100"
-                      "p-3"
-                      "spectate-[0_18px_36px_rgba(0,0,0,0.35)]"
-                      "space-y-2.5"]
-              :style {:z-index 1202}
-              :role "dialog"
-              :aria-label "Adjust Leverage"
-              :on {:keydown (:on-leverage-popover-keydown leverage-handlers)}}
-        [:div {:class ["text-sm" "font-semibold" "text-gray-100"]} "Adjust Leverage"]
-        [:div {:class ["space-y-1" "text-xs"]}
-         [:div {:class ["flex" "items-center" "justify-between" "gap-2"]}
-          [:span {:class ["text-gray-400"]} "Maximum leverage"]
-          [:span {:class ["font-semibold" "text-gray-100" "num"]} (str max-leverage* "x")]]
-         [:div {:class ["flex" "items-center" "justify-between" "gap-2"]}
-          [:span {:class ["text-gray-400"]} "Max position size"]
-          [:span {:class ["font-semibold" "text-gray-100" "num"]} "N/A"]]]
-        [:div {:class ["pt-1" "flex" "items-center" "gap-2"]}
-         [:input {:class ["leverage-adjust-slider" "range" "range-sm" "w-full" "flex-1"]
-                  :type "range"
-                  :min 1
-                  :max max-leverage*
-                  :step 1
-                  :value draft*
-                  :style {:--leverage-adjust-slider-progress (str slider-progress "%")}
-                  :aria-label "Leverage slider"
-                  :on {:input (:on-set-leverage-draft leverage-handlers)}}]
-         [:div {:class ["relative" "w-[92px]" "shrink-0"]}
-          [:input {:class (into ["h-10"
-                                 "w-full"
-                                 "rounded-lg"
-                                 "border"
-                                 "border-base-300"
-                                 "bg-base-200"
-                                 "px-3"
-                                 "pr-7"
-                                 "text-center"
-                                 "text-base"
-                                 "font-semibold"
-                                 "text-gray-100"
-                                 "num"
-                                 "appearance-none"]
-                                primitives/neutral-input-focus-classes)
-                   :type "text"
-                   :inputmode "numeric"
-                   :pattern "[0-9]*"
-                   :value draft*
-                   :aria-label "Leverage value"
-                   :on {:input (:on-set-leverage-draft leverage-handlers)}}]
-          [:button {:type "button"
-                    :class ["absolute"
-                            "right-1"
-                            "top-1/2"
-                            "-translate-y-1/2"
-                            "h-8"
-                            "w-6"
-                            "rounded-md"
-                            "text-sm"
-                            "font-semibold"
-                            "text-gray-400"
-                            "hover:bg-base-300"
-                            "hover:text-gray-100"
-                            "focus:outline-none"
-                            "focus:ring-0"
-                            "focus:ring-offset-0"]
-                    :aria-label "Close leverage menu"
-                    :on {:click (:on-close-leverage-popover leverage-handlers)}}
-           "x"]]
-         ]
+     [:div {:class ["ui-dropdown-panel"
+                    "absolute"
+                    "right-0"
+                    "top-full"
+                    "mt-2"
+                    "w-[320px]"
+                    "rounded-xl"
+                    "border"
+                    "border-base-300"
+                    "bg-base-100"
+                    "p-3"
+                    "spectate-[0_18px_36px_rgba(0,0,0,0.35)]"
+                    "space-y-2.5"]
+            :style {:z-index 1202}
+            :data-ui-state (if popover-open? "open" "closed")
+            :role "dialog"
+            :aria-label "Adjust Leverage"
+            :aria-hidden (not popover-open?)
+            :on {:keydown (:on-leverage-popover-keydown leverage-handlers)}}
+      [:div {:class ["text-sm" "font-semibold" "text-gray-100"]} "Adjust Leverage"]
+      [:div {:class ["space-y-1" "text-xs"]}
+       [:div {:class ["flex" "items-center" "justify-between" "gap-2"]}
+        [:span {:class ["text-gray-400"]} "Maximum leverage"]
+        [:span {:class ["font-semibold" "text-gray-100" "num"]} (str max-leverage* "x")]]
+       [:div {:class ["flex" "items-center" "justify-between" "gap-2"]}
+        [:span {:class ["text-gray-400"]} "Max position size"]
+        [:span {:class ["font-semibold" "text-gray-100" "num"]} "N/A"]]]
+      [:div {:class ["pt-1" "flex" "items-center" "gap-2"]}
+       [:input {:class ["leverage-adjust-slider" "range" "range-sm" "w-full" "flex-1"]
+                :type "range"
+                :min 1
+                :max max-leverage*
+                :step 1
+                :value draft*
+                :style {:--leverage-adjust-slider-progress (str slider-progress "%")}
+                :aria-label "Leverage slider"
+                :on {:input (:on-set-leverage-draft leverage-handlers)}}]
+       [:div {:class ["relative" "w-[92px]" "shrink-0"]}
+        [:input {:class (into ["h-10"
+                               "w-full"
+                               "rounded-lg"
+                               "border"
+                               "border-base-300"
+                               "bg-base-200"
+                               "px-3"
+                               "pr-7"
+                               "text-center"
+                               "text-base"
+                               "font-semibold"
+                               "text-gray-100"
+                               "num"
+                               "appearance-none"]
+                              primitives/neutral-input-focus-classes)
+                 :type "text"
+                 :inputmode "numeric"
+                 :pattern "[0-9]*"
+                 :value draft*
+                 :aria-label "Leverage value"
+                 :on {:input (:on-set-leverage-draft leverage-handlers)}}]
         [:button {:type "button"
-                  :class ["h-10"
-                          "w-full"
-                          "rounded-lg"
-                          "border"
-                          "border-base-300"
-                          "bg-base-200"
-                          "px-3"
+                  :class ["absolute"
+                          "right-1"
+                          "top-1/2"
+                          "-translate-y-1/2"
+                          "h-8"
+                          "w-6"
+                          "rounded-md"
                           "text-sm"
                           "font-semibold"
-                          "text-gray-100"
-                          "transition-colors"
+                          "text-gray-400"
                           "hover:bg-base-300"
+                          "hover:text-gray-100"
                           "focus:outline-none"
                           "focus:ring-0"
                           "focus:ring-offset-0"]
-                  :on {:click (:on-confirm-leverage leverage-handlers)}}
-         "Confirm"]])]))
+                  :aria-label "Close leverage menu"
+                  :on {:click (:on-close-leverage-popover leverage-handlers)}}
+         "x"]]
+       ]
+      [:button {:type "button"
+                :class ["h-10"
+                        "w-full"
+                        "rounded-lg"
+                        "border"
+                        "border-base-300"
+                        "bg-base-200"
+                        "px-3"
+                        "text-sm"
+                        "font-semibold"
+                        "text-gray-100"
+                        "transition-colors"
+                        "hover:bg-base-300"
+                        "focus:outline-none"
+                        "focus:ring-0"
+                        "focus:ring-offset-0"]
+                :on {:click (:on-confirm-leverage leverage-handlers)}}
+       "Confirm"]]]))
 
 (defn- leverage-row
   [state margin-mode cross-margin-allowed? margin-mode-dropdown-open? leverage-popover-open? ui-leverage leverage-draft max-leverage leverage-handlers]

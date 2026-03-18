@@ -283,11 +283,14 @@
         details-node (find-node-by-role view "wallet-menu-details")
         trigger (find-node-by-role view "wallet-menu-trigger")
         chevron (find-node-by-role view "wallet-menu-chevron")
-        panel (find-node-by-role view "wallet-menu-panel")]
+        panel (find-node-by-role view "wallet-menu-panel")
+        panel-classes (set (class-values (get-in panel [1 :class])))]
     (is (sequential? (get-in details-node [1 :class])))
     (is (sequential? (get-in trigger [1 :class])))
     (is (sequential? (get-in chevron [1 :class])))
     (is (sequential? (get-in panel [1 :class])))
+    (is (contains? panel-classes "ui-dropdown-panel"))
+    (is (= "true" (get-in panel [1 :data-ui-native-details-panel])))
     (is (contains? (set (class-values (get-in chevron [1 :class])))
                    "group-open:rotate-180"))))
 
@@ -344,14 +347,19 @@
                                        :router {:path "/API"}})
         details-node (find-node-by-role view "header-more-menu")
         trigger (find-node-by-role view "header-more-trigger")
+        panel (find-node-by-role view "header-more-menu-panel")
         api-link (find-node-by-role view "header-more-link-api")
         trigger-classes (set (class-values (get-in trigger [1 :class])))
+        panel-classes (set (class-values (get-in panel [1 :class])))
         api-classes (set (class-values (get-in api-link [1 :class])))]
     (is (= "header-more-menu:/API"
            (get-in details-node [1 :replicant/key])))
     (is (some? trigger))
+    (is (some? panel))
     (is (some? api-link))
     (is (contains? trigger-classes "header-nav-link-active"))
+    (is (contains? panel-classes "ui-dropdown-panel"))
+    (is (= "true" (get-in panel [1 :data-ui-native-details-panel])))
     (is (contains? api-classes "bg-[#123a36]"))
     (is (= [[:actions/navigate "/API"]]
            (get-in api-link [1 :on :click])))))

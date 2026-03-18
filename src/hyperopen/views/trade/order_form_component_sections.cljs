@@ -78,7 +78,11 @@
                :on {:click on-toggle-dropdown
                     :keydown on-dropdown-keydown}}
       [:span {:class ["truncate"]} pro-tab-label]
-      [:svg {:class (into ["h-3.5" "w-3.5" "transition-transform"]
+      [:svg {:class (into ["h-3.5"
+                           "w-3.5"
+                           "transition-transform"
+                           "duration-150"
+                           "ease-out"]
                           (if pro-dropdown-open?
                             ["rotate-180"]
                             ["rotate-0"]))
@@ -87,34 +91,36 @@
        [:path {:fill-rule "evenodd"
                :clip-rule "evenodd"
                :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"}]]]
-      (when pro-dropdown-open?
-       [:div {:class ["absolute"
-                      "right-0"
-                      "top-full"
-                      "mt-1"
-                      "w-36"
-                      "overflow-hidden"
-                      "rounded-lg"
-                      "border"
-                      "border-base-300"
-                      "bg-base-100"
-                      "spectate-lg"
-                      "z-[210]"]}
-        (for [pro-order-type pro-dropdown-options]
-          ^{:key (name pro-order-type)}
-          [:button {:type "button"
-                    :class (into ["block"
-                                  "w-full"
-                                  "px-3"
-                                  "py-2"
-                                  "text-left"
-                                  "text-sm"
-                                  "transition-colors"]
-                                 (if (= type pro-order-type)
-                                   ["bg-base-200" "text-gray-100"]
-                                   ["text-gray-300" "hover:bg-base-200" "hover:text-gray-100"]))
-                    :on {:click (on-select-pro-order-type pro-order-type)}}
-           (order-type-label pro-order-type)])])]]])
+     [:div {:class ["ui-dropdown-panel"
+                    "absolute"
+                    "right-0"
+                    "top-full"
+                    "mt-1"
+                    "w-36"
+                    "overflow-hidden"
+                    "rounded-lg"
+                    "border"
+                    "border-base-300"
+                    "bg-base-100"
+                    "spectate-lg"
+                    "z-[210]"]
+            :data-ui-state (if pro-dropdown-open? "open" "closed")
+            :aria-hidden (not pro-dropdown-open?)}
+      (for [pro-order-type pro-dropdown-options]
+        ^{:key (name pro-order-type)}
+        [:button {:type "button"
+                  :class (into ["block"
+                                "w-full"
+                                "px-3"
+                                "py-2"
+                                "text-left"
+                                "text-sm"
+                                "transition-colors"]
+                               (if (= type pro-order-type)
+                                 ["bg-base-200" "text-gray-100"]
+                                 ["text-gray-300" "hover:bg-base-200" "hover:text-gray-100"]))
+                  :on {:click (on-select-pro-order-type pro-order-type)}}
+         (order-type-label pro-order-type)])]]]])
 
 (def ^:private tpsl-unit-options
   [:usd :roe-percent :position-percent])
@@ -203,7 +209,7 @@
                              "w-2.5"
                              "text-[#94A0A6]"
                              "transition-transform"
-                             "duration-300"
+                             "duration-150"
                              "ease-out"]
                             (if open?
                               ["rotate-180"]
@@ -214,32 +220,21 @@
                  :clip-rule "evenodd"
                  :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"}]]]
        (when menu-enabled?
-         [:div {:class (into ["absolute"
-                             "right-[-4px]"
-                              "top-full"
-                              "mt-1"
-                              "min-w-[136px]"
-                              "rounded-lg"
-                              "border"
-                              "border-[#273035]"
-                              "bg-[#1B2429]"
-                              "px-2"
-                              "py-1"
-                              "origin-top-right"
-                              "transition-all"
-                              "duration-300"
-                              "ease-out"
-                              "spectate-[0_8px_16px_rgba(0,0,0,0.25)]"]
-                             (if menu-open?
-                               ["visible"
-                                "opacity-100"
-                                "translate-y-0"
-                                "pointer-events-auto"]
-                               ["invisible"
-                                "opacity-0"
-                                "-translate-y-[5px]"
-                                "pointer-events-none"]))
+         [:div {:class ["ui-dropdown-panel"
+                        "absolute"
+                        "right-[-4px]"
+                        "top-full"
+                        "mt-1"
+                        "min-w-[136px]"
+                        "rounded-lg"
+                        "border"
+                        "border-[#273035]"
+                        "bg-[#1B2429]"
+                        "px-2"
+                        "py-1"
+                        "spectate-[0_8px_16px_rgba(0,0,0,0.25)]"]
                 :style {:z-index 1202}
+                :data-ui-state (if menu-open? "open" "closed")
                 :role "listbox"
                 :aria-label "TP/SL gain-loss unit options"
                 :aria-hidden (not menu-open?)
@@ -386,7 +381,7 @@
                            "w-3.5"
                            "text-gray-400"
                            "transition-transform"
-                           "duration-300"
+                           "duration-150"
                            "ease-out"]
                           (if open?
                             ["rotate-180"]
@@ -396,32 +391,21 @@
        [:path {:fill-rule "evenodd"
                :clip-rule "evenodd"
                :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"}]]]
-     [:div {:class (into ["absolute"
-                          "right-0"
-                          "top-full"
-                          "mt-1"
-                          "min-w-[46px]"
-                          "rounded-lg"
-                          "border"
-                          "border-[#273035]"
-                          "bg-[#1B2429]"
-                          "px-2"
-                          "py-1"
-                          "origin-top-right"
-                          "transition-all"
-                          "duration-300"
-                          "ease-out"
-                          "spectate-[0_8px_16px_rgba(0,0,0,0.25)]"]
-                         (if open?
-                           ["visible"
-                            "opacity-100"
-                            "translate-y-0"
-                            "pointer-events-auto"]
-                           ["invisible"
-                            "opacity-0"
-                            "-translate-y-[5px]"
-                            "pointer-events-none"]))
+     [:div {:class ["ui-dropdown-panel"
+                    "absolute"
+                    "right-0"
+                    "top-full"
+                    "mt-1"
+                    "min-w-[46px]"
+                    "rounded-lg"
+                    "border"
+                    "border-[#273035]"
+                    "bg-[#1B2429]"
+                    "px-2"
+                    "py-1"
+                    "spectate-[0_8px_16px_rgba(0,0,0,0.25)]"]
             :style {:z-index 1202}
+            :data-ui-state (if open? "open" "closed")
             :role "listbox"
             :aria-label "TIF options"
             :aria-hidden (not open?)

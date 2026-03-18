@@ -20,9 +20,13 @@
 
 (deftest leverage-row-renders-isolated-margin-label-when-selected-test
   (let [view-node (view/order-form-view (base-state {:margin-mode :isolated}))
-        strings (set (collect-strings view-node))]
-    (is (contains? strings "Isolated"))
-    (is (not (contains? strings "Cross")))))
+        trigger (find-first-node view-node
+                                 (fn [node]
+                                   (let [attrs (when (map? (second node)) (second node))]
+                                     (= "Margin mode" (:aria-label attrs)))))
+        trigger-strings (set (collect-strings trigger))]
+    (is (contains? trigger-strings "Isolated"))
+    (is (not (contains? trigger-strings "Cross")))))
 
 (deftest leverage-row-forces-isolated-label-when-market-disallows-cross-test
   (let [state (assoc (base-state {:margin-mode :cross})

@@ -234,7 +234,8 @@
        (if disabled? "Awaiting signature..." "Enable Trading")])))
 
 (defn- wallet-menu [wallet-address copy-feedback agent-state spectate-active? spectate-address]
-  [:div {:class ["absolute"
+  [:div {:class ["ui-dropdown-panel"
+                 "absolute"
                  "right-0"
                  "top-full"
                  "mt-2"
@@ -244,10 +245,10 @@
                  "border"
                  "border-base-300"
                  "bg-trading-bg"
-                 "opacity-100"
                  "isolate"
                  "shadow-2xl"
                  "z-[260]"]
+         :data-ui-native-details-panel "true"
          :data-role "wallet-menu-panel"}
    [:button {:type "button"
              :class ["flex"
@@ -758,20 +759,21 @@
           [:span "More"]
           [:svg.w-4.h-4 {:viewBox "0 0 20 20" :fill "currentColor"}
            [:path {:fill-rule "evenodd" :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" :clip-rule "evenodd"}]]]
-         [:div {:class ["absolute"
+         [:div {:class ["ui-dropdown-panel"
+                        "absolute"
                         "left-0"
                         "top-full"
                         "z-[260]"
                         "mt-2"
-                        "hidden"
                         "min-w-[220px]"
                         "rounded-xl"
                         "border"
                         "border-base-300"
                         "bg-trading-bg"
                         "p-2"
-                        "shadow-2xl"
-                        "group-open:block"]
+                        "shadow-2xl"]
+                :style {:--ui-dropdown-origin "top left"}
+                :data-ui-native-details-panel "true"
                 :data-role "header-more-menu-panel"}
           (more-menu-link "API" api-wallets-actions/canonical-route api-wallet-route?)]]]
 

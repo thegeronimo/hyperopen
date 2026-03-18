@@ -60,20 +60,26 @@
         closed-overlay-count (->> (collect-nodes-by-tag closed-node :div)
                                   (filter #(contains? (set (get-in % [1 :class])) "fixed"))
                                   count)
+        closed-panel (first (filter #(= "closed" (get-in % [1 :data-ui-state]))
+                                    (collect-nodes-by-tag closed-node :div)))
         closed-indicator (first (filter #(= "entry-mode-active-indicator"
                                             (get-in % [1 :data-role]))
                                         (collect-nodes-by-tag closed-node :div)))
         open-overlays (->> (collect-nodes-by-tag open-node :div)
                            (filter #(contains? (set (get-in % [1 :class])) "fixed")))
+        open-panel (first (filter #(= "open" (get-in % [1 :data-ui-state]))
+                                  (collect-nodes-by-tag open-node :div)))
         option-buttons (->> (collect-nodes-by-tag open-node :button)
                             (filter #(= :actions/select-pro-order-type
                                         (ffirst (get-in % [1 :on :click])))))
         selected-option-classes (set (get-in (first option-buttons) [1 :class]))
         unselected-option-classes (set (get-in (second option-buttons) [1 :class]))]
     (is (= 0 closed-overlay-count))
+    (is (= true (get-in closed-panel [1 :aria-hidden])))
     (is (= 1 (count open-overlays)))
     (is (= [[:actions/close-pro-order-type-dropdown]]
            (get-in (first open-overlays) [1 :on :click])))
+    (is (= false (get-in open-panel [1 :aria-hidden])))
 
     (is (= 2 (count option-buttons)))
     (is (= "33.333333%"
@@ -190,6 +196,7 @@
     (is (= "%(E): percent of margin/equity used (ROE)."
            (get-in roe-option [1 :title])))
     (is (true? (get-in roe-option [1 :aria-selected])))
+    (is (= "open" (get-in menu [1 :data-ui-state])))
     (is (false? (get-in menu [1 :aria-hidden])))))
 
 (deftest tif-inline-control-renders-custom-trigger-caret-and-dispatches-toggle-test
@@ -213,6 +220,7 @@
     (is (= [[:actions/handle-tif-dropdown-keydown [:event/key]]]
            (get-in trigger [1 :on :keydown])))
     (is (contains? (set (get-in chevron [1 :class])) "rotate-0"))
+    (is (= "closed" (get-in menu [1 :data-ui-state])))
     (is (true? (get-in menu [1 :aria-hidden])))))
 
 (deftest tif-inline-control-renders-open-menu-overlay-and-option-actions-test
@@ -241,6 +249,7 @@
     (is (true? (get-in selected-option [1 :aria-selected])))
     (is (contains? (set (get-in selected-option [1 :class])) "text-[#F6FEFD]"))
     (is (contains? (set (get-in chevron [1 :class])) "rotate-180"))
+    (is (= "open" (get-in menu [1 :data-ui-state])))
     (is (false? (get-in menu [1 :aria-hidden])))))
 
 (deftest twap-section-renders-runtime-inputs-randomize-and-preview-test
