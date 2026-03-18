@@ -57,7 +57,15 @@
                 chart] :as vm} (detail-vm/vault-detail-vm state)
         vault-transfer* (or vault-transfer {})]
     [:div
-     {:class ["w-full" "app-shell-gutter" "py-4" "space-y-4"]
+     {:class ["flex-1"
+              "min-h-0"
+              "overflow-y-auto"
+              "scrollbar-hide"
+              "w-full"
+              "app-shell-gutter"
+              "py-4"
+              "space-y-4"
+              "md:py-5"]
       :data-parity-id "vault-detail-root"}
      (cond
        invalid-address?

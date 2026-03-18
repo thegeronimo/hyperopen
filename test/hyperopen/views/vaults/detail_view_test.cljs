@@ -162,8 +162,12 @@
         activity-tab-button (find-first-node view
                                              #(= [[:actions/set-vault-detail-activity-tab :open-orders]]
                                                  (get-in % [1 :on :click])))
-        text (set (collect-strings view))]
+        text (set (collect-strings view))
+        root-classes (set (get-in root [1 :class]))]
     (is (some? root))
+    (is (contains? root-classes "flex-1"))
+    (is (contains? root-classes "overflow-y-auto"))
+    (is (contains? root-classes "scrollbar-hide"))
     (is (some? detail-tab-button))
     (is (some? chart-tab-button))
     (is (some? returns-chart-tab-button))

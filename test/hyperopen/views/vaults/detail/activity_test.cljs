@@ -141,6 +141,12 @@
         benchmark-label (hiccup/find-first-node view
                                                 #(= "vault-detail-performance-metrics-benchmark-label"
                                                     (get-in % [1 :data-role])))
+        activity-panel (hiccup/find-first-node view
+                                               #(= "vault-detail-activity-panel"
+                                                   (get-in % [1 :data-role])))
+        scroll-region (hiccup/find-first-node view
+                                              #(= "vault-detail-performance-metrics-scroll-region"
+                                                  (get-in % [1 :data-role])))
         timeframe-trigger (hiccup/find-first-node view
                                                   #(= "vault-detail-performance-metrics-timeframe-trigger"
                                                       (get-in % [1 :data-role])))
@@ -153,6 +159,11 @@
     (is (some? sharpe-row))
     (is (nil? hidden-row))
     (is (some? benchmark-label))
+    (is (contains? (set (get-in activity-panel [1 :class])) "max-h-[75vh]"))
+    (is (some? scroll-region))
+    (is (= "region" (get-in scroll-region [1 :role])))
+    (is (= "Vault performance metrics" (get-in scroll-region [1 :aria-label])))
+    (is (= 0 (get-in scroll-region [1 :tab-index])))
     (is (some? timeframe-trigger))
     (is (= [[:actions/toggle-vault-detail-performance-metrics-timeframe-dropdown]]
            (get-in timeframe-trigger [1 :on :click])))

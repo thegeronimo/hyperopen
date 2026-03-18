@@ -159,7 +159,7 @@
                                      (when (seq rows*)
                                         (assoc group :rows rows*)))))
                             vec)]
-    [:div {:class ["relative" "flex" "h-full" "min-h-0" "flex-col"]
+    [:div {:class ["relative" "flex" "flex-1" "min-h-0" "flex-col"]
            :data-role "vault-detail-performance-metrics-card"}
      (when loading?
        [:div {:class ["absolute" "inset-0" "z-10" "flex" "items-center" "justify-center" "bg-[#071820]/70" "backdrop-blur-sm"]
@@ -203,7 +203,21 @@
          label])
       [:span {:class ["justify-self-start" "text-xs" "font-medium" "uppercase" "tracking-wide" "text-left" "text-[#8aa0a7]"]}
        "Vault"]]
-     [:div {:class ["flex-1" "min-h-0" "space-y-2.5" "overflow-y-auto" "scrollbar-hide" "px-4" "py-3"]}
+     [:div {:class ["flex-1"
+                    "min-h-0"
+                    "space-y-2.5"
+                    "overflow-y-auto"
+                    "scrollbar-hide"
+                    "px-4"
+                    "py-3"
+                    "focus:outline-none"
+                    "focus:ring-1"
+                    "focus:ring-inset"
+                    "focus:ring-[#2c6666]"]
+            :data-role "vault-detail-performance-metrics-scroll-region"
+            :role "region"
+            :aria-label "Vault performance metrics"
+            :tab-index 0}
       (for [[idx {:keys [id rows]}] (map-indexed vector visible-groups)]
         ^{:key (str "vault-detail-performance-metrics-group-" (name id))}
         [:div {:class (into ["space-y-1.5"]
@@ -590,12 +604,18 @@
         filter-enabled? (true? (:supports-direction-filter? table-config))
         table-columns (fn [tab]
                         (vec (or (get-in table-config-by-tab [tab :columns]) [])))]
-    [:section {:class ["rounded-2xl"
-                       "border"
-                       "border-[#1b3237]"
-                       "bg-[#071820]"
-                       "overflow-hidden"
-                       "w-full"]}
+    [:section {:class (into ["rounded-2xl"
+                             "border"
+                             "border-[#1b3237]"
+                             "bg-[#071820]"
+                             "overflow-hidden"
+                             "w-full"
+                             "flex"
+                             "min-h-0"
+                             "flex-col"]
+                            (when (= selected-activity-tab :performance-metrics)
+                              ["max-h-[75vh]" "xl:max-h-[46rem]"]))
+               :data-role "vault-detail-activity-panel"}
      [:div {:class ["flex" "items-center" "justify-between" "border-b" "border-[#1b3237]" "bg-transparent" "gap-2" "pr-3"]}
       [:div {:class ["min-w-0" "overflow-x-auto"]}
        [:div {:class ["flex" "min-w-max" "items-center"]}
