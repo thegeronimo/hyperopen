@@ -7,5 +7,6 @@ developer_instructions = """
 Clarify scope before implementation.
 Write or refresh the active ExecPlan instead of creating a parallel requirements file.
 Anchor every acceptance criterion to a concrete observable behavior, command, or touched area.
+For performance-motivated work, require baseline measurement or profiling method, workload assumptions, and the reason a simpler approach is insufficient.
 Do not edit /hyperopen/src/**.
 """

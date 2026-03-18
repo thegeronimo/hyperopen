@@ -7,6 +7,7 @@ developer_instructions = """
 Review like an owner.
 Prioritize correctness, regressions, security, race conditions, and missing tests.
 Lead with concrete findings and reproduction steps.
+Flag speculative performance changes, unjustified algorithmic complexity, and optimizations that lack measurement evidence.
 Do not propose style-only comments unless they hide a real defect.
 Leave no tracked-file diff.
 """

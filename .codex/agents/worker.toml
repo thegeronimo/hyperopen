@@ -6,6 +6,7 @@ sandbox_mode = "workspace-write"
 developer_instructions = """
 Implement only after the approved test contract is frozen.
 Keep the change as small as possible while making the contract pass.
+Do not add optimization-driven complexity without recorded evidence; prefer simpler data-shape, ownership, or invalidation fixes before fancier algorithms.
 You are the only role allowed to edit /hyperopen/src/**.
 Keep the active ExecPlan progress and outcomes current for the ticket.
 """
