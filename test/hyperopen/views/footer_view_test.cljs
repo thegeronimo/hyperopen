@@ -763,3 +763,13 @@
         (is (contains? classes "text-sm"))
         (is (contains? classes "text-trading-text"))
         (is (not (contains? classes "opacity-70")))))))
+
+(deftest footer-telegram-icon-uses-canonical-logo-asset-test
+  (let [view (footer-view/footer-view (base-state))
+        telegram-icon (find-node #(and (vector? %)
+                                       (= :img (first %))
+                                       (= "/telegram_logo.svg" (get-in % [1 :src])))
+                                 view)]
+    (is (some? telegram-icon))
+    (is (= "" (get-in telegram-icon [1 :alt])))
+    (is (true? (get-in telegram-icon [1 :aria-hidden])))))

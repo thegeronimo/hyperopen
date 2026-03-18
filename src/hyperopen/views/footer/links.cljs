@@ -1,6 +1,5 @@
 (ns hyperopen.views.footer.links
-  (:require ["lucide/dist/esm/icons/github.js" :default lucide-github-node]
-            ["lucide/dist/esm/icons/send-horizontal.js" :default lucide-send-horizontal-node]))
+  (:require ["lucide/dist/esm/icons/github.js" :default lucide-github-node]))
 
 (def footer-link-classes
   ["text-sm" "text-trading-text" "hover:text-primary" "transition-colors"])
@@ -10,6 +9,15 @@
    "w-4"
    "shrink-0"
    "text-trading-text"])
+
+(def ^:private social-placeholder-image-classes
+  ["block"
+   "h-4"
+   "w-4"
+   "shrink-0"])
+
+(def ^:private social-placeholder-src
+  "/telegram_logo.svg")
 
 (defn- lucide-node->hiccup
   [node]
@@ -33,11 +41,21 @@
          (map lucide-node->hiccup
               (array-seq lucide-node)))])
 
+(defn- social-image-icon
+  [label src]
+  [:span {:class ["inline-flex" "items-center" "justify-center"]
+          :role "img"
+          :aria-label label}
+   [:img {:class social-placeholder-image-classes
+          :src src
+          :alt ""
+          :aria-hidden true}]])
+
 (defn render-social-placeholders
   []
   [:div {:class ["flex" "items-center" "gap-3"]}
    ^{:key :footer-telegram-placeholder}
-   (social-icon "Telegram" lucide-send-horizontal-node)
+   (social-image-icon "Telegram" social-placeholder-src)
    ^{:key :footer-github-placeholder}
    (social-icon "GitHub" lucide-github-node)])
 
