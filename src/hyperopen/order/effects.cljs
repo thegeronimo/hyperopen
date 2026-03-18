@@ -248,29 +248,44 @@
       :else
       [])))
 
-(defn- cancel-status-error-value
+(defn- non-success-status-text
   [status-entry]
-  (let [error-value (cond
-                      (and (map? status-entry)
-                           (contains? status-entry :error))
-                      (:error status-entry)
+  (when (string? status-entry)
+    (let [status-text (str/trim status-entry)]
+      (when (and (seq status-text)
+                 (not= "success" (str/lower-case status-text)))
+        status-text))))
 
-                      (string? status-entry)
-                      (let [status-text (some-> status-entry str/trim)]
-                        (when (and (seq status-text)
-                                   (not= "success" (str/lower-case status-text)))
-                          status-text))
+(defn- status-entry-error-value
+  [status-entry]
+  (cond
+    (and (map? status-entry)
+         (contains? status-entry :error))
+    (:error status-entry)
 
-                      :else
-                      nil)
-        message (cond
-                  (string? error-value) error-value
-                  (map? error-value) (or (:message error-value)
-                                         (pr-str error-value))
-                  :else (some-> error-value str))
-        trimmed (str/trim (or message ""))]
+    :else
+    (non-success-status-text status-entry)))
+
+(defn- error-value-message
+  [error-value]
+  (cond
+    (string? error-value) error-value
+    (map? error-value) (or (:message error-value)
+                           (pr-str error-value))
+    :else (some-> error-value str)))
+
+(defn- nonblank-message
+  [message]
+  (let [trimmed (str/trim (or message ""))]
     (when (seq trimmed)
       trimmed)))
+
+(defn- cancel-status-error-value
+  [status-entry]
+  (some-> status-entry
+          status-entry-error-value
+          error-value-message
+          nonblank-message))
 
 (defn- cancel-status-error
   [idx status-entry]
@@ -285,29 +300,6 @@
   [exchange-response-error resp]
   (str "TWAP termination failed: " (exchange-response-error resp)))
 
-(defn- twap-cancel-status-error-value
-  [status-entry]
-  (let [error-value (cond
-                      (and (map? status-entry)
-                           (contains? status-entry :error))
-                      (:error status-entry)
-
-                      (string? status-entry)
-                      (let [status-text (some-> status-entry str/trim)]
-                        (when (and (seq status-text)
-                                   (not= "success" (str/lower-case status-text)))
-                          status-text))
-
-                      :else nil)
-        message (cond
-                  (string? error-value) error-value
-                  (map? error-value) (or (:message error-value)
-                                         (pr-str error-value))
-                  :else (some-> error-value str))
-        trimmed (str/trim (or message ""))]
-    (when (seq trimmed)
-      trimmed)))
-
 (defn- twap-cancel-outcome
   [exchange-response-error resp]
   (let [top-level-ok? (= "ok" (:status resp))
@@ -317,7 +309,7 @@
                      (sequential? values) (vec values)
                      (some? value) [value]
                      :else []))
-        first-error (some twap-cancel-status-error-value statuses)]
+        first-error (some cancel-status-error-value statuses)]
     (cond
       (not top-level-ok?)
       {:ok? false

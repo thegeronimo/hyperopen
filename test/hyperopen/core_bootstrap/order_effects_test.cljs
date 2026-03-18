@@ -29,6 +29,11 @@
   [err]
   (or (.-message err) (str err)))
 
+(def ^:private twap-cancel-request
+  {:action {:type "twapCancel"
+            :a 12
+            :t 77}})
+
 (defn- position-submit-deps
   [dispatched]
   {:dispatch! (fn [_store _evt actions]
@@ -837,6 +842,152 @@
              (set! api/request-frontend-open-orders! original-request-open-orders)
              (set! api/request-clearinghouse-state! original-request-clearinghouse-state)
              (set! api/ensure-perp-dexs-data! original-ensure-perp-dexs-data)
+             (done))))
+       0))))
+
+(deftest api-cancel-order-effect-shows-twap-success-toast-and-refreshes-account-surfaces-test
+  (async done
+    (let [store (atom {:wallet {:address "0xabc"
+                                :agent {:status :ready}}
+                       :orders {:cancel-error "old-error"}
+                       :ui {:toast nil}})
+          dispatched (atom [])
+          refresh-calls (atom [])
+          clearinghouse-calls (atom [])
+          original-cancel-order trading-api/cancel-order!
+          original-dispatch nxr/dispatch
+          restore-account-refresh-mocks! (install-account-refresh-mocks! refresh-calls
+                                                                      clearinghouse-calls
+                                                                      ["dex-a"])]
+      (clear-order-feedback-toast-timeout!)
+      (set! trading-api/cancel-order!
+            (fn [_store _address _action]
+              (js/Promise.resolve {:status "ok"
+                                   :response {:type "twapCancel"
+                                              :data {:status "success"}}})))
+      (set! nxr/dispatch
+            (fn [_store _evt actions]
+              (swap! dispatched conj actions)))
+      (core/api-cancel-order nil store twap-cancel-request)
+      (js/setTimeout
+       (fn []
+         (try
+           (is (nil? (get-in @store [:orders :cancel-error])))
+           (is (= :success
+                  (get-in @store [:ui :toast :kind])))
+           (is (= "TWAP terminated."
+                  (get-in @store [:ui :toast :message])))
+           (is (= [[[:actions/refresh-order-history]]]
+                  @dispatched))
+           (is (= 2 (count @refresh-calls)))
+           (is (= 2 (count @clearinghouse-calls)))
+           (finally
+             (clear-order-feedback-toast-timeout!)
+             (set! trading-api/cancel-order! original-cancel-order)
+             (set! nxr/dispatch original-dispatch)
+             (restore-account-refresh-mocks!)
+             (done))))
+       0))))
+
+(deftest api-cancel-order-effect-surfaces-twap-string-status-errors-test
+  (async done
+    (let [store (atom {:wallet {:address "0xabc"
+                                :agent {:status :ready}}
+                       :orders {:cancel-error nil}
+                       :ui {:toast nil}})
+          original-cancel-order trading-api/cancel-order!]
+      (clear-order-feedback-toast-timeout!)
+      (set! trading-api/cancel-order!
+            (fn [_store _address _action]
+              (js/Promise.resolve {:status "ok"
+                                   :response {:type "twapCancel"
+                                              :data {:statuses [" already stopped "]}}})))
+      (core/api-cancel-order nil store twap-cancel-request)
+      (js/setTimeout
+       (fn []
+         (try
+           (is (= "already stopped"
+                  (get-in @store [:orders :cancel-error])))
+           (is (= :error
+                  (get-in @store [:ui :toast :kind])))
+           (is (= "TWAP termination failed: already stopped"
+                  (get-in @store [:ui :toast :message])))
+           (finally
+             (clear-order-feedback-toast-timeout!)
+             (set! trading-api/cancel-order! original-cancel-order)
+             (done))))
+       0))))
+
+(deftest api-cancel-order-effect-surfaces-twap-error-map-messages-test
+  (async done
+    (let [store (atom {:wallet {:address "0xabc"
+                                :agent {:status :ready}}
+                       :orders {:cancel-error nil}
+                       :ui {:toast nil}})
+          original-cancel-order trading-api/cancel-order!]
+      (clear-order-feedback-toast-timeout!)
+      (set! trading-api/cancel-order!
+            (fn [_store _address _action]
+              (js/Promise.resolve {:status "ok"
+                                   :response {:type "twapCancel"
+                                              :data {:status {:error {:message "twap missing"}}}}})))
+      (core/api-cancel-order nil store twap-cancel-request)
+      (js/setTimeout
+       (fn []
+         (try
+           (is (= "twap missing"
+                  (get-in @store [:orders :cancel-error])))
+           (is (= :error
+                  (get-in @store [:ui :toast :kind])))
+           (is (= "TWAP termination failed: twap missing"
+                  (get-in @store [:ui :toast :message])))
+           (finally
+             (clear-order-feedback-toast-timeout!)
+             (set! trading-api/cancel-order! original-cancel-order)
+             (done))))
+       0))))
+
+(deftest api-cancel-order-effect-ignores-blank-twap-error-values-test
+  (async done
+    (let [store (atom {:wallet {:address "0xabc"
+                                :agent {:status :ready}}
+                       :orders {:cancel-error "stale"}
+                       :ui {:toast nil}})
+          dispatched (atom [])
+          refresh-calls (atom [])
+          clearinghouse-calls (atom [])
+          original-cancel-order trading-api/cancel-order!
+          original-dispatch nxr/dispatch
+          restore-account-refresh-mocks! (install-account-refresh-mocks! refresh-calls
+                                                                      clearinghouse-calls
+                                                                      ["dex-a"])]
+      (clear-order-feedback-toast-timeout!)
+      (set! trading-api/cancel-order!
+            (fn [_store _address _action]
+              (js/Promise.resolve {:status "ok"
+                                   :response {:type "twapCancel"
+                                              :data {:status {:error "   "}}}})))
+      (set! nxr/dispatch
+            (fn [_store _evt actions]
+              (swap! dispatched conj actions)))
+      (core/api-cancel-order nil store twap-cancel-request)
+      (js/setTimeout
+       (fn []
+         (try
+           (is (nil? (get-in @store [:orders :cancel-error])))
+           (is (= :success
+                  (get-in @store [:ui :toast :kind])))
+           (is (= "TWAP terminated."
+                  (get-in @store [:ui :toast :message])))
+           (is (= [[[:actions/refresh-order-history]]]
+                  @dispatched))
+           (is (= 2 (count @refresh-calls)))
+           (is (= 2 (count @clearinghouse-calls)))
+           (finally
+             (clear-order-feedback-toast-timeout!)
+             (set! trading-api/cancel-order! original-cancel-order)
+             (set! nxr/dispatch original-dispatch)
+             (restore-account-refresh-mocks!)
              (done))))
        0))))
 
