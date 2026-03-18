@@ -30,6 +30,13 @@
                [tab label]))
         base-tab-definitions))
 
+(defn- normalize-panel-classes [panel-classes]
+  (let [classes* (->> (or panel-classes [])
+                      (filter string?)
+                      vec)]
+    (when (seq classes*)
+      classes*)))
+
 (defn- normalize-extra-tab [{:keys [id label] :as tab}]
   (when (and (keyword? id)
              (string? label)
@@ -37,7 +44,10 @@
     {:id id
      :label label
      :content (:content tab)
-     :render (:render tab)}))
+     :render (:render tab)
+     :panel-classes (normalize-panel-classes (:panel-classes tab))
+     :panel-style (when (map? (:panel-style tab))
+                    (:panel-style tab))}))
 
 (defn- normalized-extra-tabs [extra-tabs]
   (->> (or extra-tabs [])
@@ -720,6 +730,7 @@
                 tab-label-overrides {}
                 tab-order []}}]
    (let [view-model (account-info-vm/account-info-vm state)
+         extra-tabs* (normalized-extra-tabs extra-tabs)
          {:keys [selected-tab
                  tab-counts
                  hide-small?
@@ -732,7 +743,7 @@
                  freshness-cues
                  error
                  loading?]} view-model
-         available-tabs* (available-tabs-for extra-tabs tab-order tab-label-overrides)
+         available-tabs* (available-tabs-for extra-tabs* tab-order tab-label-overrides)
          fallback-selected-tab (if (some #(= % default-selected-tab) available-tabs*)
                                  default-selected-tab
                                  (or (first available-tabs*)
@@ -741,11 +752,17 @@
                          (if (some #(= % candidate) available-tabs*)
                            candidate
                            fallback-selected-tab))
+         selected-extra-tab (some (fn [{:keys [id] :as tab}]
+                                    (when (= id selected-tab*)
+                                      tab))
+                                  extra-tabs*)
          extra-renderers (extra-tab-renderers extra-tabs)
          selected-extra-renderer (get extra-renderers selected-tab*)
-         panel-height-classes (if (= selected-tab* :balances)
-                                ["h-96" "lg:h-[29rem]"]
-                                ["h-96"])]
+         panel-shell-classes (or (:panel-classes selected-extra-tab)
+                                 (if (= selected-tab* :balances)
+                                   ["h-96" "lg:h-[29rem]"]
+                                   ["h-96"]))
+         panel-shell-style (:panel-style selected-extra-tab)]
      [:div {:class (into ["bg-base-100"
                           "border-t"
                           "border-base-300"
@@ -756,7 +773,8 @@
                           "flex"
                           "flex-col"
                           "min-h-0"]
-                         panel-height-classes)
+                         panel-shell-classes)
+            :style panel-shell-style
             :data-parity-id "account-tables"}
       (tab-navigation selected-tab*
                       tab-counts

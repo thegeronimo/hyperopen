@@ -38,3 +38,18 @@
     (is (contains? strings "Terminate"))
     (is (contains? strings "Active (1)"))
     (is (not (contains? strings "TWAP coming soon")))))
+
+(deftest account-info-panel-applies-selected-extra-tab-panel-sizing-overrides-test
+  (let [panel (view/account-info-panel
+               {:account-info {:selected-tab :performance-metrics}}
+               {:extra-tabs [{:id :performance-metrics
+                              :label "Performance Metrics"
+                              :panel-classes ["min-h-96"]
+                              :panel-style {:max-height "min(44rem, calc(100dvh - 22rem))"}
+                              :content [:div "Metrics"]}]})
+        panel-classes (hiccup/node-class-set panel)
+        panel-style (get-in panel [1 :style])]
+    (is (contains? panel-classes "min-h-96"))
+    (is (not (contains? panel-classes "h-96")))
+    (is (= "min(44rem, calc(100dvh - 22rem))"
+           (:max-height panel-style)))))

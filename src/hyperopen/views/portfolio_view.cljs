@@ -1007,6 +1007,8 @@
                                 (deposits-withdrawals-card))}
                      {:id :performance-metrics
                       :label "Performance Metrics"
+                      :panel-classes ["min-h-96"]
+                      :panel-style {:max-height "min(44rem, calc(100dvh - 22rem))"}
                       :render (fn [_]
                                 (performance-metrics-card
                                  (assoc (:performance-metrics view-model)
