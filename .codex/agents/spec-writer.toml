@@ -1,3 +1,5 @@
+name = "spec_writer"
+description = "Clarifies scope, writes requirements inside the active ExecPlan, and defines non-goals. No production code edits."
 model = "gpt-5.4"
 model_reasoning_effort = "xhigh"
 sandbox_mode = "workspace-write"

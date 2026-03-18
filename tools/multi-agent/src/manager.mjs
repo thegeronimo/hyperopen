@@ -296,7 +296,7 @@ export function buildDryRunArtifacts({ issue, repoRoot }) {
     touchedAreas: [
       "docs/MULTI_AGENT.md",
       ".codex/config.toml",
-      "agents/*.toml",
+      ".codex/agents/*.toml",
       "tools/multi-agent/**"
     ],
     browserQaRequired: false,

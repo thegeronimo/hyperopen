@@ -1,3 +1,5 @@
+name = "browser_debugger"
+description = "Browser QA agent that reproduces flows, captures screenshots/logs/network evidence, and reports defects. No application-code edits."
 model = "gpt-5.4"
 model_reasoning_effort = "xhigh"
 sandbox_mode = "workspace-write"

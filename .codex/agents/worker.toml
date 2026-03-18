@@ -1,3 +1,5 @@
+name = "worker"
+description = "Implements the smallest defensible change that makes the approved tests pass."
 model = "gpt-5.4"
 model_reasoning_effort = "xhigh"
 sandbox_mode = "workspace-write"

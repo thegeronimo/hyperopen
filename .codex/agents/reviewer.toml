@@ -1,3 +1,5 @@
+name = "reviewer"
+description = "Read-only reviewer for correctness, regressions, security, race conditions, and missing tests."
 model = "gpt-5.4"
 model_reasoning_effort = "xhigh"
 sandbox_mode = "read-only"

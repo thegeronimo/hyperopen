@@ -1,7 +1,7 @@
 ---
 owner: platform
 status: canonical
-last_reviewed: 2026-03-16
+last_reviewed: 2026-03-17
 review_cycle_days: 90
 source_of_truth: true
 ---
@@ -118,8 +118,8 @@ Key rules:
 
 - Use a `bd` issue id as the workflow key.
 - Artifacts are written under `/hyperopen/tmp/multi-agent/<bd-id>/`.
-- Role config lives under `/hyperopen/agents/*.toml`.
 - Native Codex project config lives under `/hyperopen/.codex/config.toml`.
+- Repo-local checked-in agent definitions live under `/hyperopen/.codex/agents/*.toml`.
 - Real runs require `OPENAI_API_KEY` and a local `codex` CLI.
 - Browser QA still depends on the existing browser-inspection MCP server and contracts.
 
@@ -224,7 +224,7 @@ Register once in Codex once and then call MCP tools directly:
 - Multi-agent manager: `/hyperopen/tools/multi-agent/src/cli.mjs`
 - Multi-agent policy: `/hyperopen/docs/MULTI_AGENT.md`
 - Repo-local Codex project config: `/hyperopen/.codex/config.toml`
-- Repo-local Codex role files: `/hyperopen/agents/*.toml`
+- Repo-local checked-in agent files: `/hyperopen/.codex/agents/*.toml`
 - Repo-local multi-agent skills: `/hyperopen/.agents/skills/**`
 - Worktree-scoped Shadow nREPL helper: `/hyperopen/tools/shadow-nrepl-port`
 - UI workbench source: `/hyperopen/portfolio/hyperopen/workbench/`

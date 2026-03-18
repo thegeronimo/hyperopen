@@ -1,3 +1,5 @@
+name = "edge_case_test_writer"
+description = "Writes adversarial, invariant, and boundary-case test proposals. No production code."
 model = "gpt-5.4"
 model_reasoning_effort = "xhigh"
 sandbox_mode = "workspace-write"

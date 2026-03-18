@@ -7,29 +7,29 @@ max_depth = 1
 
 [agents.spec_writer]
 description = "Clarifies scope, writes requirements inside the active ExecPlan, and defines non-goals. No production code edits."
-config_file = "agents/spec-writer.toml"
+config_file = ".codex/agents/spec-writer.toml"
 
 [agents.acceptance_test_writer]
 description = "Writes acceptance and integration test proposals, then materializes approved failing tests. No production code."
-config_file = "agents/acceptance-tests.toml"
+config_file = ".codex/agents/acceptance-tests.toml"
 
 [agents.edge_case_test_writer]
 description = "Writes adversarial, invariant, and boundary-case test proposals. No production code."
-config_file = "agents/edge-case-tests.toml"
+config_file = ".codex/agents/edge-case-tests.toml"
 
 [agents.worker]
 description = "Implements the smallest defensible change that makes the approved tests pass."
-config_file = "agents/worker.toml"
+config_file = ".codex/agents/worker.toml"
 
 [agents.reviewer]
 description = "Read-only reviewer for correctness, regressions, security, race conditions, and missing tests."
-config_file = "agents/reviewer.toml"
+config_file = ".codex/agents/reviewer.toml"
 
 [agents.browser_debugger]
 description = "Browser QA agent that reproduces flows, captures screenshots/logs/network evidence, and reports defects. No application-code edits."
-config_file = "agents/browser-debugger.toml"
+config_file = ".codex/agents/browser-debugger.toml"
 
-# Explicit registry for additional repo-local Codex agents under .codex/agents.
+# Explicit registry for repo-local Codex agents under .codex/agents.
 [agents.architect_review]
 description = "Use when review changes need rigorous review for correctness, risk, and release readiness."
 config_file = ".codex/agents/architect-review.toml"

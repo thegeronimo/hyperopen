@@ -1,7 +1,7 @@
 ---
 owner: platform
 status: canonical
-last_reviewed: 2026-03-16
+last_reviewed: 2026-03-17
 review_cycle_days: 90
 source_of_truth: true
 ---
@@ -69,7 +69,7 @@ When work touches `/hyperopen/src/hyperopen/views/**`, `/hyperopen/src/styles/**
 ## Multi-Agent Workflow
 - Follow `/hyperopen/docs/MULTI_AGENT.md` for repo-local multi-agent phase order, artifact paths, path gates, and role responsibilities.
 - Repo-local on-demand workflows live under `/hyperopen/.agents/skills/**`.
-- Native Codex project and role config live under `/hyperopen/.codex/config.toml` and `/hyperopen/agents/*.toml`.
+- Repo-local Codex project config and all checked-in agent definitions live under `/hyperopen/.codex/config.toml` and `/hyperopen/.codex/agents/*.toml`.
 
 ## Work Tracking
 - Issue tracking source of truth is `/hyperopen/docs/WORK_TRACKING.md` (`bd`).

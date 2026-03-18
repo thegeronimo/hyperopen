@@ -1,7 +1,7 @@
 ---
 owner: platform
 status: canonical
-last_reviewed: 2026-03-16
+last_reviewed: 2026-03-17
 review_cycle_days: 90
 source_of_truth: true
 ---
@@ -120,9 +120,9 @@ These files live under `/hyperopen/tmp/multi-agent/<bd-id>/`.
 ## Native Codex Support
 
 - Repo-local Codex project configuration lives in `/hyperopen/.codex/config.toml`.
-- Role definitions live under `/hyperopen/agents/*.toml`.
+- Repo-local checked-in agent definitions live under `/hyperopen/.codex/agents/*.toml`.
 - Repo-local skills live under `/hyperopen/.agents/skills/**`.
-- The checked-in role and skill files are the source of truth for native Codex multi-agent usage and for the JavaScript manager.
+- The checked-in agent and skill files are the source of truth for native Codex usage and for the JavaScript manager.
 
 ## Command Surface
 
