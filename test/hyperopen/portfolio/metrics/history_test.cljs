@@ -57,6 +57,40 @@
     (is (= (metrics/returns-history-rows-from-summary summary)
            (metrics/returns-history-rows {} summary :all)))))
 
+(deftest returns-history-rows-skips-leading-nonpositive-account-values-test
+  (let [summary {:accountValueHistory [[1 0]
+                                       [2 -10]
+                                       [3 100]
+                                       [4 110]]
+                 :pnlHistory [[1 0]
+                              [2 0]
+                              [3 0]
+                              [4 10]]}
+        rows (metrics/returns-history-rows {} summary :all)]
+    (is (= [3 4]
+           (mapv first rows)))
+    (is (approx= 0 (second (first rows)) 1e-12))
+    (is (approx= 10 (second (second rows)) 1e-12))))
+
+(deftest returns-history-rows-empty-without-positive-account-anchor-test
+  (let [summary {:accountValueHistory [[1 0]
+                                       [2 -10]]
+                 :pnlHistory [[1 0]
+                              [2 5]]}]
+    (is (= []
+           (metrics/returns-history-rows {} summary :all)))))
+
+(deftest returns-history-rows-clamps-losses-below-negative-one-hundred-percent-test
+  (let [summary {:accountValueHistory [[1 100]
+                                       [2 0]]
+                 :pnlHistory [[1 0]
+                              [2 -200]]}
+        rows (metrics/returns-history-rows {} summary :all)]
+    (is (= [1 2]
+           (mapv first rows)))
+    (is (approx= 0 (second (first rows)) 1e-12))
+    (is (approx= -99.9999 (second (second rows)) 1e-9))))
+
 (deftest daily-compounded-returns-builds-canonical-daily-series-test
   (let [rows [[1000 0]
               [2000 10]

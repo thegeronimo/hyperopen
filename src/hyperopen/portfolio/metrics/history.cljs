@@ -59,62 +59,99 @@
                     :pnl-value pnl-value})))
          vec)))
 
-(defn returns-history-rows-from-summary
+(defn- first-positive-account-index
+  [points]
+  (first (keep-indexed (fn [idx {:keys [account-value]}]
+                         (when (pos? account-value)
+                           idx))
+                       points)))
+
+(defn- anchored-account-pnl-points
   [summary]
   (let [points (aligned-account-pnl-points summary)
-        anchor-index (first (keep-indexed (fn [idx {:keys [account-value]}]
-                                            (when (pos? account-value)
-                                              idx))
-                                          points))]
-    (if (number? anchor-index)
-      (let [points* (subvec points anchor-index)]
-        (if (seq points*)
-          (loop [idx 1
-                 previous (first points*)
-                 cumulative-factor 1
-                 output [[(:time-ms (first points*)) 0]]
-                 point-count (count points*)]
-            (if (>= idx point-count)
-              output
-              (let [current (nth points* idx)
-                    previous-account-value (:account-value previous)
-                    delta-account (- (:account-value current)
-                                     (:account-value previous))
-                    delta-pnl (- (:pnl-value current)
-                                 (:pnl-value previous))
-                    implied-cash-flow (- delta-account delta-pnl)
-                    denominator (+ (:account-value previous)
-                                   (* 0.5 implied-cash-flow))
-                    flow-ratio (if (finite-number? previous-account-value)
-                                 (js/Math.abs (/ implied-cash-flow
-                                                 (max previous-account-value 1)))
-                                 js/Number.POSITIVE_INFINITY)
-                    period-return (cond
-                                    (and (finite-number? denominator)
-                                         (pos? denominator)
-                                         (finite-number? flow-ratio)
-                                         (< flow-ratio 0.5))
-                                    (/ delta-pnl denominator)
+        anchor-index (first-positive-account-index points)]
+    (if (some? anchor-index)
+      (subvec points anchor-index)
+      [])))
 
-                                    (and (finite-number? previous-account-value)
-                                         (pos? previous-account-value))
-                                    (/ delta-pnl previous-account-value)
+(defn- implied-cash-flow
+  [previous current]
+  (let [delta-account (- (:account-value current)
+                         (:account-value previous))
+        delta-pnl (- (:pnl-value current)
+                     (:pnl-value previous))]
+    (- delta-account delta-pnl)))
 
-                                    :else 0)
-                    period-return* (if (finite-number? period-return)
-                                     (max -0.999999 period-return)
-                                     0)
-                    cumulative-factor* (* cumulative-factor (+ 1 period-return*))
-                    cumulative-percent (* 100 (- cumulative-factor* 1))
-                    cumulative-percent* (if (finite-number? cumulative-percent)
-                                          cumulative-percent
-                                          (* 100 (- cumulative-factor 1)))]
-                (recur (inc idx)
-                       current
-                       cumulative-factor*
-                       (conj output [(:time-ms current) cumulative-percent*])
-                       point-count))))
-          []))
+(defn- cash-flow-ratio
+  [previous-account-value implied-cash-flow*]
+  (if (finite-number? previous-account-value)
+    (js/Math.abs (/ implied-cash-flow*
+                    (max previous-account-value 1)))
+    js/Number.POSITIVE_INFINITY))
+
+(defn- modified-dietz-return
+  [delta-pnl previous-account-value implied-cash-flow*]
+  (let [denominator (+ previous-account-value
+                       (* 0.5 implied-cash-flow*))
+        flow-ratio (cash-flow-ratio previous-account-value implied-cash-flow*)]
+    (when (and (finite-number? denominator)
+               (pos? denominator)
+               (finite-number? flow-ratio)
+               (< flow-ratio 0.5))
+      (/ delta-pnl denominator))))
+
+(defn- fallback-period-return
+  [delta-pnl previous-account-value]
+  (when (and (finite-number? previous-account-value)
+             (pos? previous-account-value))
+    (/ delta-pnl previous-account-value)))
+
+(defn- bounded-period-return
+  [previous current]
+  (let [previous-account-value (:account-value previous)
+        delta-pnl (- (:pnl-value current)
+                     (:pnl-value previous))
+        implied-cash-flow* (implied-cash-flow previous current)
+        period-return (or (modified-dietz-return delta-pnl
+                                                 previous-account-value
+                                                 implied-cash-flow*)
+                          (fallback-period-return delta-pnl previous-account-value)
+                          0)]
+    (if (finite-number? period-return)
+      (max -0.999999 period-return)
+      0)))
+
+(defn- cumulative-percent-from-factor
+  [cumulative-factor]
+  (* 100 (- cumulative-factor 1)))
+
+(defn- initial-returns-history-state
+  [point]
+  {:previous point
+   :cumulative-factor 1
+   :cumulative-percent 0
+   :rows [[(:time-ms point) 0]]})
+
+(defn- append-returns-history-row
+  [{:keys [previous cumulative-factor cumulative-percent rows]} current]
+  (let [period-return (bounded-period-return previous current)
+        cumulative-factor* (* cumulative-factor (+ 1 period-return))
+        cumulative-percent* (let [candidate (cumulative-percent-from-factor cumulative-factor*)]
+                              (if (finite-number? candidate)
+                                candidate
+                                cumulative-percent))]
+    {:previous current
+     :cumulative-factor cumulative-factor*
+     :cumulative-percent cumulative-percent*
+     :rows (conj rows [(:time-ms current) cumulative-percent*])}))
+
+(defn returns-history-rows-from-summary
+  [summary]
+  (let [points (anchored-account-pnl-points summary)]
+    (if-let [first-point (first points)]
+      (:rows (reduce append-returns-history-row
+                     (initial-returns-history-state first-point)
+                     (rest points)))
       [])))
 
 (defn returns-history-rows
