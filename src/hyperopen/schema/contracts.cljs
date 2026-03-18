@@ -726,6 +726,7 @@
    :effects/api-fetch-vault-summaries ::no-args
    :effects/api-fetch-user-vault-equities ::optional-address-args
    :effects/api-fetch-vault-details ::address-and-optional-address-args
+   :effects/api-fetch-vault-benchmark-details ::address-args
    :effects/api-fetch-vault-webdata2 ::address-args
    :effects/api-fetch-vault-fills ::address-args
    :effects/api-fetch-vault-funding-history ::address-args

@@ -178,6 +178,7 @@
     (is (= [] (get-in state [:vaults :user-equities])))
     (is (= {} (get-in state [:vaults :user-equity-by-address])))
     (is (= {} (get-in state [:vaults :details-by-address])))
+    (is (= {} (get-in state [:vaults :benchmark-details-by-address])))
     (is (= {} (get-in state [:vaults :webdata-by-vault])))
     (is (= {} (get-in state [:vaults :fills-by-vault])))
     (is (= {} (get-in state [:vaults :funding-history-by-vault])))

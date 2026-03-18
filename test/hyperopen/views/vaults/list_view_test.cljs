@@ -127,6 +127,18 @@
     (is (contains? text "Prev"))
     (is (contains? text "Next"))))
 
+(deftest vaults-view-range-menu-options-dispatch-snapshot-range-action-test
+  (let [view (vaults-view/vaults-view sample-state)
+        six-month-option (find-first-node view
+                                          (fn [candidate]
+                                            (and (= :button (first candidate))
+                                                 (= [[:actions/set-vaults-snapshot-range :six-month]]
+                                                    (get-in candidate [1 :on :click]))
+                                                 (some #{"6M"} (collect-strings candidate)))))]
+    (is (some? six-month-option))
+    (is (= [[:actions/set-vaults-snapshot-range :six-month]]
+           (get-in six-month-option [1 :on :click])))))
+
 (deftest vaults-view-renders-skeleton-rows-when-loading-test
   (let [view (vaults-view/vaults-view (-> sample-state
                                           (assoc-in [:vaults :loading :index?] true)

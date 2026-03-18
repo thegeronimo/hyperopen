@@ -1,5 +1,6 @@
 (ns hyperopen.vaults.detail.benchmarks-test
   (:require [cljs.test :refer-macros [deftest is use-fixtures]]
+            [hyperopen.portfolio.metrics :as portfolio-metrics]
             [hyperopen.vaults.detail.benchmarks :as benchmarks]))
 
 (use-fixtures :each
@@ -33,24 +34,27 @@
 
 (deftest benchmark-cumulative-return-points-by-coin-supports-market-and-vault-benchmarks-test
   (let [vault-address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        benchmark-summary {:summary-id :peer-vault-month}
         state {:candles {"BTC" {:1h [[1 0 0 0 100]
                                      [2 0 0 0 110]]}}
-               :vaults {:merged-index-rows [{:name "Peer Vault"
-                                             :vault-address vault-address
-                                             :relationship {:type :normal}
-                                             :tvl 120
-                                             :snapshot-by-key {:month [0.02 0.08]}}]}}
+               :vaults {:benchmark-details-by-address
+                        {vault-address {:portfolio {:month benchmark-summary}}}}}
         strategy-return-points [{:time-ms 1 :value 0}
-                                {:time-ms 2 :value 10}]
-        rows-by-coin (benchmarks/benchmark-cumulative-return-points-by-coin
-                      state
-                      :month
-                      ["BTC" (str "vault:" vault-address)]
-                      strategy-return-points)]
-    (is (= [0 10]
-           (mapv :value (get rows-by-coin "BTC"))))
-    (is (= [2 8]
-           (mapv :value (get rows-by-coin (str "vault:" vault-address)))))))
+                                {:time-ms 2 :value 10}]]
+    (with-redefs [portfolio-metrics/returns-history-rows
+                  (fn [_state summary _scope]
+                    (if (= benchmark-summary summary)
+                      [[1 0] [2 8]]
+                      []))]
+      (let [rows-by-coin (benchmarks/benchmark-cumulative-return-points-by-coin
+                          state
+                          :month
+                          ["BTC" (str "vault:" vault-address)]
+                          strategy-return-points)]
+        (is (= [0 10]
+               (mapv :value (get rows-by-coin "BTC"))))
+        (is (= [0 8]
+               (mapv :value (get rows-by-coin (str "vault:" vault-address)))))))))
 
 (deftest benchmark-cumulative-return-points-by-coin-accepts-map-shaped-candles-and-skips-invalid-rows-test
   (let [state {:candles {"BTC" {:1h [{:timestamp "1" :close "100"}

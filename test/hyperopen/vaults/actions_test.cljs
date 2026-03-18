@@ -42,11 +42,8 @@
           "0x1234567890ABCDEF1234567890ABCDEF12345678")))
   (is (= []
          (actions/load-vault-detail {} "not-a-vault")))
-  (is (= [[:effects/save [:vaults-ui :list-loading?] true]
-          [:effects/save [:vaults-ui :detail-loading?] true]
+  (is (= [[:effects/save [:vaults-ui :detail-loading?] true]
           [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
-          [:effects/api-fetch-vault-index]
-          [:effects/api-fetch-vault-summaries]
           [:effects/api-fetch-user-vault-equities "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
           [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
           [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]
@@ -57,10 +54,7 @@
          (actions/load-vault-route
           {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}}
           "/vaults/0x1234567890abcdef1234567890abcdef12345678")))
-  (is (= [[:effects/save [:vaults-ui :list-loading?] true]
-          [:effects/api-fetch-vault-index]
-          [:effects/api-fetch-vault-summaries]
-          [:effects/api-fetch-user-vault-equities "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]]
+  (is (= []
          (actions/load-vault-route
           {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}}
           "/portfolio")))
@@ -230,7 +224,15 @@
   (is (= [[:effects/save [:vaults-ui :detail-returns-benchmark-search] "42"]]
          (actions/set-vault-detail-returns-benchmark-search {} 42)))
   (is (= [[:effects/save [:vaults-ui :detail-returns-benchmark-suggestions-open?] true]]
-         (actions/set-vault-detail-returns-benchmark-suggestions-open {} true)))
+         (actions/set-vault-detail-returns-benchmark-suggestions-open
+          {:vaults {:merged-index-rows [{:vault-address "0xabc"}]}}
+          true)))
+  (is (= [[:effects/save [:vaults-ui :detail-returns-benchmark-suggestions-open?] true]
+          [:effects/api-fetch-vault-index]
+          [:effects/api-fetch-vault-summaries]]
+         (actions/set-vault-detail-returns-benchmark-suggestions-open
+          {:vaults {}}
+          true)))
   (is (= [[:effects/save-many [[[:vaults-ui :detail-returns-benchmark-coins] ["ETH"]]
                                [[:vaults-ui :detail-returns-benchmark-coin] "ETH"]
                                [[:vaults-ui :detail-returns-benchmark-search] ""]
@@ -244,7 +246,8 @@
   (is (= [[:effects/save-many [[[:vaults-ui :detail-returns-benchmark-coins] ["vault:0x1234567890abcdef1234567890abcdef12345678"]]
                                [[:vaults-ui :detail-returns-benchmark-coin] "vault:0x1234567890abcdef1234567890abcdef12345678"]
                                [[:vaults-ui :detail-returns-benchmark-search] ""]
-                               [[:vaults-ui :detail-returns-benchmark-suggestions-open?] true]]]]
+                               [[:vaults-ui :detail-returns-benchmark-suggestions-open?] true]]]
+          [:effects/api-fetch-vault-benchmark-details "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/select-vault-detail-returns-benchmark {:vaults-ui {:snapshot-range :month
                                                                      :detail-chart-series :returns
                                                                      :detail-returns-benchmark-coins []}

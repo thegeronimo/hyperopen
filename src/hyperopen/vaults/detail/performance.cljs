@@ -50,6 +50,12 @@
     :else
     nil))
 
+(defn- snapshot-preview-entry
+  [row snapshot-range]
+  (let [entry (get-in row [:snapshot-preview-by-key snapshot-range])]
+    (when (map? entry)
+      entry)))
+
 (defn- last-snapshot-value
   [snapshot-values]
   (when (sequential? snapshot-values)
@@ -60,9 +66,12 @@
 
 (defn snapshot-value-by-range
   [row snapshot-range tvl]
-  (let [raw (some-> (get-in row [:snapshot-by-key snapshot-range])
-                    last-snapshot-value
-                    optional-number)]
+  (let [raw (or (some-> (snapshot-preview-entry row snapshot-range)
+                        :last-value
+                        optional-number)
+                (some-> (get-in row [:snapshot-by-key snapshot-range])
+                        last-snapshot-value
+                        optional-number))]
     (cond
       (nil? raw) nil
       (and (number? tvl)

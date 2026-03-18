@@ -117,6 +117,28 @@
                    vault-address))))
     (js/Promise.resolve nil)))
 
+(defn api-fetch-vault-benchmark-details!
+  [{:keys [store
+           vault-address
+           request-vault-details!
+           begin-vault-benchmark-details-load
+           apply-vault-benchmark-details-success
+           apply-vault-benchmark-details-error
+           opts]}]
+  (if (allow-route? store opts false)
+    (let [request-opts* (request-opts opts)]
+      (swap! store begin-vault-benchmark-details-load vault-address)
+      (-> (request-vault-details! vault-address request-opts*)
+          (.then (promise-effects/apply-success-and-return
+                  store
+                  apply-vault-benchmark-details-success
+                  vault-address))
+          (.catch (promise-effects/apply-error-and-reject
+                   store
+                   apply-vault-benchmark-details-error
+                   vault-address))))
+    (js/Promise.resolve nil)))
+
 (defn api-fetch-vault-webdata2!
   [{:keys [store
            vault-address

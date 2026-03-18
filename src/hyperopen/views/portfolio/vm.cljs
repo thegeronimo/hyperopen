@@ -197,6 +197,8 @@
                                           []))
         candles (get state :candles)
         merged-index-rows (get-in state [:vaults :merged-index-rows])
+        benchmark-details-by-address (get-in state [:vaults :benchmark-details-by-address])
+        details-by-address (get-in state [:vaults :details-by-address])
         cache @benchmark-computation-context-cache]
     (if (and (map? cache)
              (= summary-source-version (:summary-source-version cache))
@@ -204,7 +206,9 @@
              (= summary-time-range (:summary-time-range cache))
              (= selected-benchmark-coins (:selected-benchmark-coins cache))
              (identical? candles (:candles cache))
-             (identical? merged-index-rows (:merged-index-rows cache)))
+             (identical? merged-index-rows (:merged-index-rows cache))
+             (identical? benchmark-details-by-address (:benchmark-details-by-address cache))
+             (identical? details-by-address (:details-by-address cache)))
       (:context cache)
       (let [context (vm-benchmarks/benchmark-computation-context state
                                                                  summary-entry
@@ -217,6 +221,8 @@
                                                      :selected-benchmark-coins selected-benchmark-coins
                                                      :candles candles
                                                      :merged-index-rows merged-index-rows
+                                                     :benchmark-details-by-address benchmark-details-by-address
+                                                     :details-by-address details-by-address
                                                      :context context})
         context))))
 

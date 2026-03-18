@@ -42,7 +42,7 @@
                             :create-time-ms 100
                             :apr 0
                             :apr-raw nil
-                            :snapshot-by-key {}}]
+                            :snapshot-preview-by-key {}}]
                           rows))
                    (done)))
           (.catch (async-support/unexpected-error done))))))

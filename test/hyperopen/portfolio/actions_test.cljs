@@ -237,8 +237,18 @@
          (actions/set-portfolio-returns-benchmark-search {} 42)))
   (is (= [[:effects/save
            [:portfolio-ui :returns-benchmark-suggestions-open?]
-           true]]
+           true]
+          [:effects/api-fetch-vault-index]
+          [:effects/api-fetch-vault-summaries]]
          (actions/set-portfolio-returns-benchmark-suggestions-open {} true)))
+  (is (= [[:effects/save
+           [:portfolio-ui :returns-benchmark-suggestions-open?]
+           true]
+          [:effects/api-fetch-vault-index]
+          [:effects/api-fetch-vault-summaries]]
+         (actions/set-portfolio-returns-benchmark-suggestions-open
+          {:vaults {}}
+          true)))
   (is (= [[:effects/save
            [:portfolio-ui :returns-benchmark-suggestions-open?]
            false]]
@@ -277,7 +287,8 @@
            [[[:portfolio-ui :returns-benchmark-coins] ["vault:0x1234567890abcdef1234567890abcdef12345678"]]
             [[:portfolio-ui :returns-benchmark-coin] "vault:0x1234567890abcdef1234567890abcdef12345678"]
             [[:portfolio-ui :returns-benchmark-search] ""]
-            [[:portfolio-ui :returns-benchmark-suggestions-open?] true]]]]
+            [[:portfolio-ui :returns-benchmark-suggestions-open?] true]]]
+          [:effects/api-fetch-vault-benchmark-details "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/select-portfolio-returns-benchmark
           {:portfolio-ui {:summary-time-range :all-time
                           :returns-benchmark-coins []}}
@@ -330,7 +341,8 @@
            [[[:portfolio-ui :returns-benchmark-coins] ["vault:0x1234567890abcdef1234567890abcdef12345678"]]
             [[:portfolio-ui :returns-benchmark-coin] "vault:0x1234567890abcdef1234567890abcdef12345678"]
             [[:portfolio-ui :returns-benchmark-search] ""]
-            [[:portfolio-ui :returns-benchmark-suggestions-open?] true]]]]
+            [[:portfolio-ui :returns-benchmark-suggestions-open?] true]]]
+          [:effects/api-fetch-vault-benchmark-details "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/handle-portfolio-returns-benchmark-search-keydown
           {:portfolio-ui {:summary-time-range :week}}
           "Enter"

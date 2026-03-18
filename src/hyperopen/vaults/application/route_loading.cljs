@@ -1,6 +1,7 @@
 (ns hyperopen.vaults.application.route-loading
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
+            [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.vaults.application.detail-commands :as detail-commands]
             [hyperopen.vaults.domain.identity :as identity]))
 
@@ -26,6 +27,38 @@
              [:effects/api-fetch-vault-summaries]]
       viewer-address
       (conj [:effects/api-fetch-user-vault-equities viewer-address]))))
+
+(def ^:private vault-list-effect-ids
+  #{:effects/api-fetch-vault-index
+    :effects/api-fetch-vault-summaries})
+
+(defn- list-fetch-effect?
+  [effect]
+  (contains? vault-list-effect-ids (first effect)))
+
+(defn- maybe-prepend-list-loading-effect
+  [effects]
+  (let [effects* (vec (or effects []))]
+    (if (some list-fetch-effect? effects*)
+      (into [[:effects/save [:vaults-ui :list-loading?] true]]
+            effects*)
+      effects*)))
+
+(defn- user-vault-equity-effects
+  [state]
+  (if-let [viewer-address (account-context/effective-account-address state)]
+    [[:effects/api-fetch-user-vault-equities viewer-address]]
+    []))
+
+(defn- detail-route-support-effects
+  [state]
+  (into []
+        (concat (user-vault-equity-effects state)
+                (detail-commands/ensure-vault-detail-vault-benchmark-effects state))))
+
+(defn- portfolio-route-support-effects
+  [state]
+  (portfolio-actions/ensure-portfolio-vault-benchmark-effects state))
 
 (defn- component-vault-history-effects
   [state vault-address]
@@ -70,12 +103,14 @@
 
       :detail
       (projection-first-effects
-       (into (load-vault-list-effects state)
+       (into (maybe-prepend-list-loading-effect
+              (detail-route-support-effects state))
              (load-vault-detail state vault-address)))
 
       :other
       (if (str/starts-with? (or path "") "/portfolio")
-        (load-vault-list-effects state)
+        (maybe-prepend-list-loading-effect
+         (portfolio-route-support-effects state))
         [])
 
       [])))

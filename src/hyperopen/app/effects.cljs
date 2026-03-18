@@ -54,6 +54,7 @@
          :api-fetch-vault-summaries effect-adapters/api-fetch-vault-summaries-effect
          :api-fetch-user-vault-equities effect-adapters/api-fetch-user-vault-equities-effect
          :api-fetch-vault-details effect-adapters/api-fetch-vault-details-effect
+         :api-fetch-vault-benchmark-details effect-adapters/api-fetch-vault-benchmark-details-effect
          :api-fetch-vault-webdata2 effect-adapters/api-fetch-vault-webdata2-effect
          :api-fetch-vault-fills effect-adapters/api-fetch-vault-fills-effect
          :api-fetch-vault-funding-history effect-adapters/api-fetch-vault-funding-history-effect

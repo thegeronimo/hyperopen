@@ -16,6 +16,14 @@
 (defonce ^:private vault-list-model-cache
   (atom nil))
 
+(declare snapshot-last-value
+         normalize-age-days
+         row-search-text)
+
+(declare snapshot-last-value
+         row-search-text
+         normalize-age-days)
+
 (defn- optional-number
   [value]
   (cond
@@ -67,6 +75,12 @@
     :else
     nil))
 
+(defn- snapshot-preview-entry
+  [row snapshot-key]
+  (let [entry (get-in row [:snapshot-preview-by-key snapshot-key])]
+    (when (map? entry)
+      entry)))
+
 (defn- normalize-percent-value
   [value]
   (let [n (or (optional-number value) 0)]
@@ -88,17 +102,37 @@
     [:month :week :all-time :day]))
 
 (defn- snapshot-series-for-range
-  [snapshot-by-key snapshot-range]
+  [row snapshot-range]
   (or (some (fn [snapshot-key]
-              (let [snapshot-values (get snapshot-by-key snapshot-key)]
-                (when (sequential? snapshot-values)
-                  (let [normalized-values (->> snapshot-values
-                                               (keep snapshot-point-value)
-                                               (mapv normalize-percent-value))]
+              (if-let [{:keys [series]} (snapshot-preview-entry row snapshot-key)]
+                (when (sequential? series)
+                  (let [normalized-values (->> series
+                                               (keep optional-number)
+                                               vec)]
                     (when (seq normalized-values)
-                      normalized-values)))))
+                      normalized-values)))
+                (let [snapshot-values (get-in row [:snapshot-by-key snapshot-key])]
+                  (when (sequential? snapshot-values)
+                    (let [normalized-values (->> snapshot-values
+                                                 (keep snapshot-point-value)
+                                                 (mapv normalize-percent-value))]
+                      (when (seq normalized-values)
+                        normalized-values))))))
             (snapshot-range-keys snapshot-range))
       []))
+
+(defn- snapshot-last-value-for-range
+  [row snapshot-range]
+  (or (some (fn [snapshot-key]
+              (if-let [{:keys [last-value]} (snapshot-preview-entry row snapshot-key)]
+                (optional-number last-value)
+                (let [snapshot-values (get-in row [:snapshot-by-key snapshot-key])]
+                  (when (sequential? snapshot-values)
+                    (some-> snapshot-values
+                            snapshot-last-value
+                            normalize-percent-value)))))
+            (snapshot-range-keys snapshot-range))
+      0))
 
 (defn- snapshot-last-value
   [values]
@@ -109,6 +143,51 @@
                  last)
         0)
     0))
+
+(defn- parse-vault-row
+  [row wallet-address equity-by-address snapshot-range now-ms]
+  (let [vault-address (normalize-address (:vault-address row))
+        name (or (some-> (:name row) str str/trim)
+                 vault-address
+                 "Unknown Vault")
+        name-token (str/lower-case name)
+        leader (normalize-address (:leader row))
+        tvl (or (optional-number (:tvl row)) 0)
+        apr (normalize-percent-value (:apr row))
+        user-equity-row (get equity-by-address vault-address)
+        your-deposit (or (optional-number (:equity user-equity-row)) 0)
+        snapshot-series (snapshot-series-for-range row snapshot-range)
+        snapshot-value (snapshot-last-value-for-range row snapshot-range)
+        is-leading? (and (seq wallet-address)
+                         (= wallet-address leader))
+        has-deposit? (pos? your-deposit)
+        is-other? (and (not is-leading?)
+                       (not has-deposit?))
+        is-closed? (true? (:is-closed? row))
+        create-time-ms (:create-time-ms row)
+        search-text (str/lower-case (row-search-text {:name name
+                                                      :leader leader
+                                                      :vault-address vault-address}))
+        relationship-type (get-in row [:relationship :type] :normal)]
+    {:name name
+     :vault-address vault-address
+     :leader leader
+     :tvl tvl
+     :apr apr
+     :your-deposit your-deposit
+     :snapshot snapshot-value
+     :snapshot-series snapshot-series
+     :search-text search-text
+     :vault-sort-key (str/lower-case name)
+     :leader-sort-key (str/lower-case (or leader ""))
+     :is-leading? is-leading?
+     :has-deposit? has-deposit?
+     :is-other? is-other?
+     :is-closed? is-closed?
+     :is-protocol? (contains? protocol-vault-names name-token)
+     :create-time-ms create-time-ms
+     :age-days (normalize-age-days create-time-ms now-ms)
+     :relationship-type relationship-type}))
 
 (defn- normalize-age-days
   [create-time-ms now-ms]
@@ -140,53 +219,6 @@
         (str/includes? (or (:search-text row)
                            (str/lower-case (row-search-text row)))
                        query*))))
-
-(defn- parse-vault-row
-  [row wallet-address equity-by-address snapshot-range now-ms]
-  (let [vault-address (normalize-address (:vault-address row))
-        name (or (some-> (:name row) str str/trim)
-                 vault-address
-                 "Unknown Vault")
-        name-token (str/lower-case name)
-        leader (normalize-address (:leader row))
-        tvl (or (optional-number (:tvl row)) 0)
-        apr (normalize-percent-value (:apr row))
-        user-equity-row (get equity-by-address vault-address)
-        your-deposit (or (optional-number (:equity user-equity-row)) 0)
-        snapshot-series (snapshot-series-for-range
-                         (or (:snapshot-by-key row) {})
-                         snapshot-range)
-        snapshot-value (normalize-percent-value (snapshot-last-value snapshot-series))
-        is-leading? (and (seq wallet-address)
-                         (= wallet-address leader))
-        has-deposit? (pos? your-deposit)
-        is-other? (and (not is-leading?)
-                       (not has-deposit?))
-        is-closed? (true? (:is-closed? row))
-        create-time-ms (:create-time-ms row)
-        search-text (str/lower-case (row-search-text {:name name
-                                                      :leader leader
-                                                      :vault-address vault-address}))
-        relationship-type (get-in row [:relationship :type] :normal)]
-    {:name name
-     :vault-address vault-address
-     :leader leader
-     :tvl tvl
-     :apr apr
-     :your-deposit your-deposit
-     :snapshot snapshot-value
-     :snapshot-series snapshot-series
-     :search-text search-text
-     :vault-sort-key (str/lower-case name)
-     :leader-sort-key (str/lower-case (or leader ""))
-     :is-leading? is-leading?
-     :has-deposit? has-deposit?
-     :is-other? is-other?
-     :is-closed? is-closed?
-     :is-protocol? (contains? protocol-vault-names name-token)
-     :create-time-ms create-time-ms
-     :age-days (normalize-age-days create-time-ms now-ms)
-     :relationship-type relationship-type}))
 
 (defn- include-by-role-filter?
   [row {:keys [leading? deposited? others?]}]

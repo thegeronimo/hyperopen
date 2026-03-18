@@ -44,6 +44,16 @@
     :apply-vault-details-success api-projections/apply-vault-details-success
     :apply-vault-details-error api-projections/apply-vault-details-error}))
 
+(defn api-fetch-vault-benchmark-details-effect
+  [_ store vault-address]
+  (vault-effects/api-fetch-vault-benchmark-details!
+   {:store store
+    :vault-address vault-address
+    :request-vault-details! api/request-vault-details!
+    :begin-vault-benchmark-details-load api-projections/begin-vault-benchmark-details-load
+    :apply-vault-benchmark-details-success api-projections/apply-vault-benchmark-details-success
+    :apply-vault-benchmark-details-error api-projections/apply-vault-benchmark-details-error}))
+
 (defn api-fetch-vault-webdata2-effect
   [_ store vault-address]
   (vault-effects/api-fetch-vault-webdata2!

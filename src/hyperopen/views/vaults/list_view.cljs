@@ -47,7 +47,7 @@
                          (if active?
                            ["bg-[#123a36]" "text-[#97fce4]"]
                            ["text-trading-text-secondary" "hover:bg-base-200" "hover:text-trading-text"]))
-            :on {:click [[action]]}}
+            :on {:click [action]}}
    [:span label]
    (when active?
      [:span {:aria-hidden true} "ON"])])

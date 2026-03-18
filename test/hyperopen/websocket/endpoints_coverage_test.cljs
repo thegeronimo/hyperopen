@@ -713,7 +713,9 @@
     (is (= "0xdef" (:leader summary)))
     (is (= 12.5 (:tvl summary)))
     (is (= "0xa1" (:vault-address index-row)))
-    (is (= {:day [1]} (:snapshot-by-key index-row)))
+    (is (= {:day {:series [100]
+                  :last-value 100}}
+           (:snapshot-preview-by-key index-row)))
     (is (= 2 (:followers-count normalized-details)))
     (is (true? (:allow-deposits? normalized-details)))
     (is (false? (:always-close-on-withdraw? normalized-details)))

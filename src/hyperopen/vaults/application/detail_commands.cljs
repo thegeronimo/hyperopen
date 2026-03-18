@@ -27,6 +27,40 @@
         [legacy-coin]
         []))))
 
+(defn selected-vault-detail-vault-benchmark-addresses
+  [state]
+  (->> (selected-vault-detail-returns-benchmark-coins state)
+       (keep detail-types/vault-benchmark-address)
+       distinct
+       vec))
+
+(defn- vault-list-metadata-fetch-effects
+  [state]
+  (if (seq (get-in state [:vaults :merged-index-rows]))
+    []
+    [[:effects/api-fetch-vault-index]
+     [:effects/api-fetch-vault-summaries]]))
+
+(defn- vault-benchmark-details-fetch-effects
+  [state addresses]
+  (->> addresses
+       (remove (fn [vault-address]
+                 (or (get-in state [:vaults :benchmark-details-by-address vault-address])
+                     (get-in state [:vaults :details-by-address vault-address])
+                     (true? (get-in state [:vaults :loading :benchmark-details-by-address vault-address])))))
+       (mapv (fn [vault-address]
+               [:effects/api-fetch-vault-benchmark-details vault-address]))))
+
+(defn ensure-vault-detail-vault-benchmark-effects
+  [state]
+  (let [addresses (selected-vault-detail-vault-benchmark-addresses state)
+        metadata-needed? (or (true? (get-in state [:vaults-ui :detail-returns-benchmark-suggestions-open?]))
+                             (seq addresses))]
+    (into []
+          (concat (when metadata-needed?
+                    (vault-list-metadata-fetch-effects state))
+                  (vault-benchmark-details-fetch-effects state addresses)))))
+
 (defn- vault-detail-returns-chart-selected?
   [state]
   (= :returns
@@ -132,10 +166,15 @@
     (normalize-vault-detail-returns-benchmark-search search)]])
 
 (defn set-vault-detail-returns-benchmark-suggestions-open
-  [_state open?]
-  [[:effects/save
-    [:vaults-ui :detail-returns-benchmark-suggestions-open?]
-    (boolean open?)]])
+  [state open?]
+  (let [open?* (boolean open?)
+        projection-effect [:effects/save
+                           [:vaults-ui :detail-returns-benchmark-suggestions-open?]
+                           open?*]
+        fetch-effects (if open?*
+                        (vault-list-metadata-fetch-effects state)
+                        [])]
+    (into [projection-effect] fetch-effects)))
 
 (declare clear-vault-detail-returns-benchmark)
 
@@ -154,11 +193,18 @@
                               [[:vaults-ui :detail-returns-benchmark-coin] (first next-coins)]
                               [[:vaults-ui :detail-returns-benchmark-search] ""]
                               [[:vaults-ui :detail-returns-benchmark-suggestions-open?] true]]]
-          fetch-effects (if (and (not already-selected?)
-                                 (vault-detail-benchmark-fetch-enabled? deps state))
-                          (vault-detail-returns-benchmark-fetch-effects snapshot-range [coin])
-                          [])]
-      (into [projection-effect] fetch-effects))
+          candle-effects (if (and (not already-selected?)
+                                  (vault-detail-benchmark-fetch-enabled? deps state))
+                           (vault-detail-returns-benchmark-fetch-effects snapshot-range [coin])
+                           [])
+          benchmark-detail-effects (if already-selected?
+                                     []
+                                     (if-let [vault-address (detail-types/vault-benchmark-address coin)]
+                                       (vault-benchmark-details-fetch-effects state [vault-address])
+                                       []))]
+      (into [projection-effect]
+            (concat candle-effects
+                    benchmark-detail-effects)))
     (clear-vault-detail-returns-benchmark state)))
 
 (defn remove-vault-detail-returns-benchmark

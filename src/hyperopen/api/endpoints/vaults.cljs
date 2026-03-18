@@ -6,6 +6,9 @@
 (def default-vault-index-url
   "https://stats-data.hyperliquid.xyz/Mainnet/vaults")
 
+(def ^:private snapshot-preview-point-limit
+  8)
+
 (defn- non-blank-text
   [value]
   (let [text (some-> value str str/trim)]
@@ -101,6 +104,71 @@
          vec)
     []))
 
+(defn- normalize-vault-snapshot-return
+  [raw tvl]
+  (cond
+    (not (number? raw))
+    nil
+
+    (and (number? tvl)
+         (pos? tvl)
+         (> (js/Math.abs raw) 1000))
+    (* 100 (/ raw tvl))
+
+    (<= (js/Math.abs raw) 1)
+    (* 100 raw)
+
+    :else
+    raw))
+
+(defn- sample-snapshot-preview-series
+  [values]
+  (let [values* (vec (or values []))
+        value-count (count values*)]
+    (cond
+      (<= value-count snapshot-preview-point-limit)
+      values*
+
+      :else
+      (let [last-idx (dec value-count)
+            slot-count (dec snapshot-preview-point-limit)
+            step (if (pos? slot-count)
+                   (/ last-idx slot-count)
+                   0)]
+        (mapv (fn [idx]
+                (let [value-idx (if (= idx slot-count)
+                                  last-idx
+                                  (js/Math.round (* idx step)))
+                      value-idx* (max 0 (min last-idx value-idx))]
+                  (nth values* value-idx*)))
+              (range snapshot-preview-point-limit))))))
+
+(defn- preview-snapshot-key?
+  [snapshot-key]
+  (contains? #{:day :week :month :all-time} snapshot-key))
+
+(defn normalize-vault-snapshot-preview
+  [payload tvl]
+  (reduce (fn [acc entry]
+            (if (and (sequential? entry)
+                     (= 2 (count entry)))
+              (let [[range-key values] entry
+                    snapshot-key (normalize-snapshot-key range-key)]
+                (if (preview-snapshot-key? snapshot-key)
+                  (let [normalized-values (->> values
+                                               normalize-pnl-values
+                                               (keep #(normalize-vault-snapshot-return % tvl))
+                                               vec)]
+                    (if (seq normalized-values)
+                      (assoc acc snapshot-key
+                             {:series (sample-snapshot-preview-series normalized-values)
+                              :last-value (peek normalized-values)})
+                      acc))
+                  acc))
+              acc))
+          {}
+          (if (sequential? payload) payload [])))
+
 (defn normalize-vault-pnls
   [payload]
   (reduce (fn [acc entry]
@@ -165,7 +233,8 @@
         (assoc summary
                :apr (or (parse-optional-num apr-source) 0)
                :apr-raw apr-source
-               :snapshot-by-key (normalize-vault-pnls pnls-source))))))
+               :snapshot-preview-by-key (normalize-vault-snapshot-preview pnls-source
+                                                                         (:tvl summary)))))))
 
 (defn normalize-vault-index-rows
   [payload]

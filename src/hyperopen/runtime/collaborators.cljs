@@ -335,6 +335,7 @@
           :api-fetch-vault-summaries vault-effects/api-fetch-vault-summaries!
           :api-fetch-user-vault-equities vault-effects/api-fetch-user-vault-equities!
           :api-fetch-vault-details vault-effects/api-fetch-vault-details!
+          :api-fetch-vault-benchmark-details vault-effects/api-fetch-vault-benchmark-details!
           :api-fetch-vault-webdata2 vault-effects/api-fetch-vault-webdata2!
           :api-fetch-vault-fills vault-effects/api-fetch-vault-fills!
           :api-fetch-vault-funding-history vault-effects/api-fetch-vault-funding-history!

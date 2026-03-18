@@ -317,13 +317,17 @@
   (let [strategy-source-version (sampled-series-source-version strategy-return-points)
         candles (get state :candles)
         merged-index-rows (get-in state [:vaults :merged-index-rows])
+        benchmark-details-by-address (get-in state [:vaults :benchmark-details-by-address])
+        details-by-address (get-in state [:vaults :details-by-address])
         cache @benchmark-points-cache]
     (if (and (map? cache)
              (= snapshot-range (:snapshot-range cache))
              (= selected-benchmark-coins (:selected-benchmark-coins cache))
              (= strategy-source-version (:strategy-source-version cache))
              (identical? candles (:candles cache))
-             (identical? merged-index-rows (:merged-index-rows cache)))
+             (identical? merged-index-rows (:merged-index-rows cache))
+             (identical? benchmark-details-by-address (:benchmark-details-by-address cache))
+             (identical? details-by-address (:details-by-address cache)))
       (:benchmark-points-by-coin cache)
       (let [benchmark-points-by-coin (benchmarks-model/benchmark-cumulative-return-points-by-coin
                                       state
@@ -335,6 +339,8 @@
                                         :strategy-source-version strategy-source-version
                                         :candles candles
                                         :merged-index-rows merged-index-rows
+                                        :benchmark-details-by-address benchmark-details-by-address
+                                        :details-by-address details-by-address
                                         :benchmark-points-by-coin benchmark-points-by-coin})
         benchmark-points-by-coin))))
 

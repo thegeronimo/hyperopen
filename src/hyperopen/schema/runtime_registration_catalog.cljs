@@ -53,6 +53,7 @@
    [:effects/api-fetch-vault-summaries :api-fetch-vault-summaries]
    [:effects/api-fetch-user-vault-equities :api-fetch-user-vault-equities]
    [:effects/api-fetch-vault-details :api-fetch-vault-details]
+   [:effects/api-fetch-vault-benchmark-details :api-fetch-vault-benchmark-details]
    [:effects/api-fetch-vault-webdata2 :api-fetch-vault-webdata2]
    [:effects/api-fetch-vault-fills :api-fetch-vault-fills]
    [:effects/api-fetch-vault-funding-history :api-fetch-vault-funding-history]

@@ -174,6 +174,52 @@
 (def ^:private vault-benchmark-prefix
   "vault:")
 
+(defn vault-benchmark-address
+  [value]
+  (let [coin (normalize-portfolio-returns-benchmark-coin value)
+        coin-lower (some-> coin str/lower-case)]
+    (when (and (seq coin-lower)
+               (str/starts-with? coin-lower vault-benchmark-prefix))
+      (some-> (subs coin (count vault-benchmark-prefix))
+              str
+              str/trim
+              str/lower-case
+              not-empty))))
+
+(defn selected-portfolio-vault-benchmark-addresses
+  [state]
+  (->> (selected-returns-benchmark-coins state)
+       (keep vault-benchmark-address)
+       distinct
+       vec))
+
+(defn- vault-list-metadata-fetch-effects
+  [state]
+  (if (seq (get-in state [:vaults :merged-index-rows]))
+    []
+    [[:effects/api-fetch-vault-index]
+     [:effects/api-fetch-vault-summaries]]))
+
+(defn- vault-benchmark-details-fetch-effects
+  [state addresses]
+  (->> addresses
+       (remove (fn [vault-address]
+                 (or (get-in state [:vaults :benchmark-details-by-address vault-address])
+                     (get-in state [:vaults :details-by-address vault-address])
+                     (true? (get-in state [:vaults :loading :benchmark-details-by-address vault-address])))))
+       (mapv (fn [vault-address]
+               [:effects/api-fetch-vault-benchmark-details vault-address]))))
+
+(defn ensure-portfolio-vault-benchmark-effects
+  [state]
+  (let [addresses (selected-portfolio-vault-benchmark-addresses state)
+        metadata-needed? (or (true? (get-in state [:portfolio-ui :returns-benchmark-suggestions-open?]))
+                             (seq addresses))]
+    (into []
+          (concat (when metadata-needed?
+                    (vault-list-metadata-fetch-effects state))
+                  (vault-benchmark-details-fetch-effects state addresses)))))
+
 (defn- fetchable-benchmark-coin
   [value]
   (let [coin (normalize-portfolio-returns-benchmark-coin value)
@@ -370,10 +416,15 @@
     (normalize-returns-benchmark-search search)]])
 
 (defn set-portfolio-returns-benchmark-suggestions-open
-  [_state open?]
-  [[:effects/save
-    [:portfolio-ui :returns-benchmark-suggestions-open?]
-    (boolean open?)]])
+  [state open?]
+  (let [open?* (boolean open?)
+        projection-effect [:effects/save
+                           [:portfolio-ui :returns-benchmark-suggestions-open?]
+                           open?*]
+        fetch-effects (if open?*
+                        (vault-list-metadata-fetch-effects state)
+                        [])]
+    (into [projection-effect] fetch-effects)))
 
 (declare clear-portfolio-returns-benchmark)
 
@@ -393,10 +444,17 @@
                               [[:portfolio-ui :returns-benchmark-coin] (first next-coins)]
                               [[:portfolio-ui :returns-benchmark-search] ""]
                               [[:portfolio-ui :returns-benchmark-suggestions-open?] true]]]
-          fetch-effects (if already-selected?
-                          []
-                          (returns-benchmark-fetch-effects summary-time-range [coin]))]
-      (into [projection-effect] fetch-effects))
+          candle-effects (if already-selected?
+                           []
+                           (returns-benchmark-fetch-effects summary-time-range [coin]))
+          benchmark-detail-effects (if already-selected?
+                                     []
+                                     (if-let [vault-address (vault-benchmark-address coin)]
+                                       (vault-benchmark-details-fetch-effects state [vault-address])
+                                       []))]
+      (into [projection-effect]
+            (concat candle-effects
+                    benchmark-detail-effects)))
     (clear-portfolio-returns-benchmark state)))
 
 (defn remove-portfolio-returns-benchmark

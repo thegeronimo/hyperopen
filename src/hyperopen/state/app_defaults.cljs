@@ -200,6 +200,7 @@
    :user-equities []
    :user-equity-by-address {}
    :details-by-address {}
+   :benchmark-details-by-address {}
    :viewer-details-by-address {}
    :webdata-by-vault {}
    :fills-by-vault {}
@@ -210,6 +211,7 @@
              :summaries? false
              :user-equities? false
              :details-by-address {}
+             :benchmark-details-by-address {}
              :webdata-by-vault {}
              :fills-by-vault {}
              :funding-history-by-vault {}
@@ -219,6 +221,7 @@
             :summaries nil
             :user-equities nil
             :details-by-address {}
+            :benchmark-details-by-address {}
             :webdata-by-vault {}
             :fills-by-vault {}
             :funding-history-by-vault {}
@@ -228,6 +231,7 @@
                   :summaries nil
                   :user-equities nil
                   :details-by-address {}
+                  :benchmark-details-by-address {}
                   :webdata-by-vault {}
                   :fills-by-vault {}
                   :funding-history-by-vault {}

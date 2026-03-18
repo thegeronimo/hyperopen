@@ -47,7 +47,15 @@
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true
     :allow-duplicate-heavy-effects? false
-    :heavy-effect-ids #{:effects/fetch-candle-snapshot}}
+    :heavy-effect-ids #{:effects/fetch-candle-snapshot
+                        :effects/api-fetch-vault-benchmark-details}}
+
+   :actions/set-portfolio-returns-benchmark-suggestions-open
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/api-fetch-vault-index
+                        :effects/api-fetch-vault-summaries}}
 
    :actions/set-vaults-snapshot-range
    {:required-phase-order [:projection :persistence :heavy-io]
@@ -65,7 +73,15 @@
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true
     :allow-duplicate-heavy-effects? false
-    :heavy-effect-ids #{:effects/fetch-candle-snapshot}}
+    :heavy-effect-ids #{:effects/fetch-candle-snapshot
+                        :effects/api-fetch-vault-benchmark-details}}
+
+   :actions/set-vault-detail-returns-benchmark-suggestions-open
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/api-fetch-vault-index
+                        :effects/api-fetch-vault-summaries}}
 
    :actions/select-account-info-tab
    {:required-phase-order [:projection :persistence :heavy-io]
@@ -196,6 +212,7 @@
     :heavy-effect-ids #{:effects/api-fetch-vault-index
                         :effects/api-fetch-vault-summaries
                         :effects/api-fetch-user-vault-equities
+                        :effects/api-fetch-vault-benchmark-details
                         :effects/api-fetch-vault-details
                         :effects/api-fetch-vault-webdata2
                         :effects/api-fetch-vault-fills

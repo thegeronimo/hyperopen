@@ -48,11 +48,11 @@
                      (is (= {:type :parent
                              :child-addresses ["0xc1"]}
                             (:relationship row)))
-                     (is (= {:day [1.5 2.5]
-                             :three-month [4.5]
-                             :one-year [5.5]
-                             :all-time [3.5]}
-                            (:snapshot-by-key row))))
+                     (is (= {:day {:series [1.5 2.5]
+                                   :last-value 2.5}
+                             :all-time {:series [3.5]
+                                        :last-value 3.5}}
+                            (:snapshot-preview-by-key row))))
                    (done)))
           (.catch (async-support/unexpected-error done))))))
 
@@ -111,18 +111,18 @@
                            :dedupe-key :vault-summaries
                            :cache-ttl-ms 15000}
                           (second (first @calls))))
-                   (is (= [{:name "Summary Vault"
-                            :vault-address "0xa1"
-                            :leader "0xb2"
-                            :tvl 9
-                            :tvl-raw "9.0"
-                            :is-closed? false
-                            :relationship {:type :normal}
-                            :create-time-ms 22
-                            :apr 0
-                            :apr-raw nil
-                            :snapshot-by-key {}}]
-                          rows))
+                     (is (= [{:name "Summary Vault"
+                              :vault-address "0xa1"
+                              :leader "0xb2"
+                              :tvl 9
+                              :tvl-raw "9.0"
+                              :is-closed? false
+                              :relationship {:type :normal}
+                              :create-time-ms 22
+                              :apr 0
+                              :apr-raw nil
+                              :snapshot-preview-by-key {}}]
+                            rows))
                    (done)))
           (.catch (async-support/unexpected-error done))))))
 

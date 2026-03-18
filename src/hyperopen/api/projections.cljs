@@ -647,6 +647,33 @@
         (assoc-in state* [:vaults-ui :detail-loading?] (vault-detail-loading? state* vault-address*))))
     state))
 
+(defn begin-vault-benchmark-details-load
+  [state vault-address]
+  (if-let [vault-address* (normalize-vault-address vault-address)]
+    (-> state
+        (assoc-in [:vaults :loading :benchmark-details-by-address vault-address*] true)
+        (assoc-in [:vaults :errors :benchmark-details-by-address vault-address*] nil))
+    state))
+
+(defn apply-vault-benchmark-details-success
+  [state vault-address payload]
+  (if-let [vault-address* (normalize-vault-address vault-address)]
+    (-> state
+        (assoc-in [:vaults :benchmark-details-by-address vault-address*] payload)
+        (assoc-in [:vaults :loading :benchmark-details-by-address vault-address*] false)
+        (assoc-in [:vaults :errors :benchmark-details-by-address vault-address*] nil)
+        (assoc-in [:vaults :loaded-at-ms :benchmark-details-by-address vault-address*] (.now js/Date)))
+    state))
+
+(defn apply-vault-benchmark-details-error
+  [state vault-address err]
+  (if-let [vault-address* (normalize-vault-address vault-address)]
+    (let [{:keys [message]} (normalized-error err)]
+      (-> state
+          (assoc-in [:vaults :loading :benchmark-details-by-address vault-address*] false)
+          (assoc-in [:vaults :errors :benchmark-details-by-address vault-address*] message)))
+    state))
+
 (defn begin-vault-webdata2-load
   [state vault-address]
   (if-let [vault-address* (normalize-vault-address vault-address)]

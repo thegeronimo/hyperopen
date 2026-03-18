@@ -243,6 +243,9 @@
 (def api-fetch-vault-details-effect
   vault-adapters/api-fetch-vault-details-effect)
 
+(def api-fetch-vault-benchmark-details-effect
+  vault-adapters/api-fetch-vault-benchmark-details-effect)
+
 (def api-fetch-vault-webdata2-effect
   vault-adapters/api-fetch-vault-webdata2-effect)
 
