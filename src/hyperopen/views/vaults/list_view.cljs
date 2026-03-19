@@ -5,7 +5,19 @@
             [hyperopen.views.vaults.vm :as vault-vm]))
 
 (def ^:private desktop-breakpoint-px
-  768)
+  1024)
+
+(def ^:private focus-visible-ring-classes
+  ["focus:outline-none"
+   "focus:ring-2"
+   "focus:ring-[#66e3c5]/45"
+   "focus:ring-offset-1"
+   "focus:ring-offset-base-100"
+   "focus-visible:outline-none"
+   "focus-visible:ring-2"
+   "focus-visible:ring-[#66e3c5]/45"
+   "focus-visible:ring-offset-1"
+   "focus-visible:ring-offset-base-100"])
 
 (defn- format-total-currency
   [value]
@@ -44,9 +56,10 @@
                           "py-1.5"
                           "text-xs"
                           "transition-colors"]
-                         (if active?
-                           ["bg-[#123a36]" "text-[#97fce4]"]
-                           ["text-trading-text-secondary" "hover:bg-base-200" "hover:text-trading-text"]))
+                         (concat (if active?
+                                   ["bg-[#123a36]" "text-[#97fce4]"]
+                                   ["text-trading-text-secondary" "hover:bg-base-200" "hover:text-trading-text"])
+                                 focus-visible-ring-classes))
             :on {:click [action]}}
    [:span label]
    (when active?
@@ -63,23 +76,21 @@
   (let [role-token (menu-role-token label)]
     [:details {:class ["relative" "group"]
                :data-role (str "vaults-" role-token "-menu")}
-     [:summary {:class ["flex"
-                      "h-8"
-                      "list-none"
-                      "cursor-pointer"
-                      "items-center"
-                      "gap-1.5"
-                      "rounded-lg"
-                      "border"
-                      "border-base-300"
-                      "bg-base-100"
-                      "px-2.5"
-                      "text-xs"
-                      "text-trading-text"
-                      "hover:bg-base-200"
-                      "focus:outline-none"
-                      "focus:ring-0"
-                      "focus:ring-offset-0"]
+     [:summary {:class (into ["flex"
+                              "h-8"
+                              "list-none"
+                              "cursor-pointer"
+                              "items-center"
+                              "gap-1.5"
+                              "rounded-lg"
+                              "border"
+                              "border-base-300"
+                              "bg-base-100"
+                              "px-2.5"
+                              "text-xs"
+                              "text-trading-text"
+                              "hover:bg-base-200"]
+                             focus-visible-ring-classes)
                :data-role (str "vaults-" role-token "-menu-trigger")}
       [:span {:class ["hidden" "sm:inline" "text-trading-text-secondary"]} label]
       [:span {:class ["max-w-[180px]" "truncate"]} summary-text]
@@ -163,13 +174,14 @@
   (let [active? (= column (:column sort-state))
         direction (:direction sort-state)]
     [:button {:type "button"
-              :class ["inline-flex"
-                      "items-center"
-                      "gap-1"
-                      "text-xs"
-                      "font-normal"
-                      "text-trading-text-secondary"
-                      "hover:text-trading-text"]
+              :class (into ["inline-flex"
+                            "items-center"
+                            "gap-1"
+                            "text-xs"
+                            "font-normal"
+                            "text-trading-text-secondary"
+                            "hover:text-trading-text"]
+                           focus-visible-ring-classes)
               :on {:click [[:actions/set-vaults-sort column]]}}
       [:span label]
       (when active?
@@ -250,12 +262,10 @@
         :data-role "vault-row"}
    [:td {:class ["px-3" "py-2.5"]}
     [:a {:href (vault-detail-route vault-address)
-         :class ["block"
-                 "w-full"
-                 "text-left"
-                 "focus:outline-none"
-                 "focus:ring-0"
-                 "focus:ring-offset-0"]
+         :class (into ["block"
+                       "w-full"
+                       "text-left"]
+                      focus-visible-ring-classes)
          :data-role "vault-row-link"}
      [:div {:class ["flex" "items-center" "gap-2"]}
       [:span {:class ["truncate" "font-semibold" "text-trading-text"]} name]
@@ -288,17 +298,18 @@
   [{:keys [name vault-address leader apr tvl your-deposit age-days snapshot-series]}]
   [:a {:href (vault-detail-route vault-address)
        :data-role "vault-mobile-card"
-       :class ["block"
-               "w-full"
-               "rounded-lg"
-               "border"
-               "border-base-300/70"
-               "bg-base-100/68"
-               "px-3"
-               "py-2.5"
-               "text-left"
-               "transition-colors"
-               "hover:bg-base-200"]}
+       :class (into ["block"
+                     "w-full"
+                     "rounded-lg"
+                     "border"
+                     "border-base-300/70"
+                     "bg-base-100/68"
+                     "px-3"
+                     "py-2.5"
+                     "text-left"
+                     "transition-colors"
+                     "hover:bg-base-200"]
+                    focus-visible-ring-classes)}
    [:div {:class ["min-w-0" "space-y-0.5"]}
     [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
      [:div {:class ["min-w-0" "flex-1"]}
@@ -412,26 +423,24 @@
                    :aria-haspopup "listbox"
                    :aria-expanded (boolean page-size-dropdown-open?)
                    :aria-labelledby "vaults-user-page-size-label"
-                   :class ["relative"
-                           "flex"
-                           "h-8"
-                           "min-w-[72px]"
-                           "cursor-pointer"
-                           "items-center"
-                           "justify-between"
-                           "gap-2"
-                           "rounded-lg"
-                           "border"
-                           "border-base-300"
-                           "bg-base-100"
-                           "pl-3"
-                           "pr-2"
-                           "text-xs"
-                           "text-trading-text"
-                           "hover:bg-base-200"
-                           "focus:outline-none"
-                           "focus:ring-0"
-                           "focus:ring-offset-0"]
+                   :class (into ["relative"
+                                 "flex"
+                                 "h-8"
+                                 "min-w-[72px]"
+                                 "cursor-pointer"
+                                 "items-center"
+                                 "justify-between"
+                                 "gap-2"
+                                 "rounded-lg"
+                                 "border"
+                                 "border-base-300"
+                                 "bg-base-100"
+                                 "pl-3"
+                                 "pr-2"
+                                 "text-xs"
+                                 "text-trading-text"
+                                 "hover:bg-base-200"]
+                                focus-visible-ring-classes)
                    :style (when page-size-dropdown-open?
                             {:z-index 1201})
                    :on {:click [[:actions/toggle-vaults-user-page-size-dropdown]]}}
@@ -473,9 +482,10 @@
                                         "text-xs"
                                         "num"
                                         "transition-colors"]
-                                       (if active?
-                                         ["bg-[#123a36]" "text-[#97fce4]"]
-                                         ["text-trading-text-secondary" "hover:bg-base-200" "hover:text-trading-text"]))
+                                       (concat (if active?
+                                                 ["bg-[#123a36]" "text-[#97fce4]"]
+                                                 ["text-trading-text-secondary" "hover:bg-base-200" "hover:text-trading-text"])
+                                               focus-visible-ring-classes))
                           :role "option"
                           :aria-selected (boolean active?)
                           :on {:click [[:actions/set-vaults-user-page-size size]]}}
@@ -483,31 +493,33 @@
         [:span {:class ["text-trading-text-secondary"]}
          (str "Total: " total-rows)]]
        [:div {:class ["flex" "items-center" "gap-2"]}
-        [:button {:type "button"
-                  :class ["h-7"
-                          "rounded-md"
-                          "border"
-                          "border-base-300"
-                          "px-2"
-                          "text-xs"
-                          "text-trading-text"
-                          "disabled:cursor-not-allowed"
-                          "disabled:opacity-40"]
+       [:button {:type "button"
+                  :class (into ["h-7"
+                                "rounded-md"
+                                "border"
+                                "border-base-300"
+                                "px-2"
+                                "text-xs"
+                                "text-trading-text"
+                                "disabled:cursor-not-allowed"
+                                "disabled:opacity-40"]
+                               focus-visible-ring-classes)
                   :disabled (<= page 1)
                   :on {:click [[:actions/prev-vaults-user-page page-count]]}}
          "Prev"]
         [:span {:class ["min-w-[6rem]" "text-center" "text-trading-text-secondary"]}
          (str "Page " page " of " page-count)]
-        [:button {:type "button"
-                  :class ["h-7"
-                          "rounded-md"
-                          "border"
-                          "border-base-300"
-                          "px-2"
-                          "text-xs"
-                          "text-trading-text"
-                          "disabled:cursor-not-allowed"
-                          "disabled:opacity-40"]
+       [:button {:type "button"
+                  :class (into ["h-7"
+                                "rounded-md"
+                                "border"
+                                "border-base-300"
+                                "px-2"
+                                "text-xs"
+                                "text-trading-text"
+                                "disabled:cursor-not-allowed"
+                                "disabled:opacity-40"]
+                               focus-visible-ring-classes)
                   :disabled (>= page page-count)
                   :on {:click [[:actions/next-vaults-user-page page-count]]}}
          "Next"]]])))
@@ -623,20 +635,21 @@
 
       (when-not wallet-connected?
         [:button {:type "button"
-                  :class ["inline-flex"
-                          "w-full"
-                          "items-center"
-                          "justify-center"
-                          "rounded-xl"
-                          "bg-[#55e6ce]"
-                          "px-5"
-                          "py-2.5"
-                          "text-sm"
-                          "font-medium"
-                          "text-[#043a33]"
-                          "transition-colors"
-                          "hover:bg-[#6ef0da]"
-                          "sm:w-auto"]
+                  :class (into ["inline-flex"
+                                "w-full"
+                                "items-center"
+                                "justify-center"
+                                "rounded-xl"
+                                "bg-[#55e6ce]"
+                                "px-5"
+                                "py-2.5"
+                                "text-sm"
+                                "font-medium"
+                                "text-[#043a33]"
+                                "transition-colors"
+                                "hover:bg-[#6ef0da]"
+                                "sm:w-auto"]
+                               focus-visible-ring-classes)
                   :disabled wallet-connecting?
                   :on {:click [[:actions/connect-wallet]]}
                   :data-role "vaults-route-connect"}
@@ -655,20 +668,18 @@
        [:div {:class ["flex" "flex-wrap" "items-center" "gap-2"]}
         [:input {:id "vaults-search-input"
                  :type "search"
-                 :class ["h-8"
-                         "min-w-[260px]"
-                         "flex-1"
-                         "rounded-lg"
-                         "border"
-                         "border-base-300"
-                         "bg-base-100"
-                         "px-3"
-                         "text-xs"
-                         "text-trading-text"
-                         "placeholder:text-trading-text-secondary"
-                         "focus:outline-none"
-                         "focus:ring-0"
-                         "focus:ring-offset-0"]
+                 :class (into ["h-8"
+                               "min-w-[260px]"
+                               "flex-1"
+                               "rounded-lg"
+                               "border"
+                               "border-base-300"
+                               "bg-base-100"
+                               "px-3"
+                               "text-xs"
+                               "text-trading-text"
+                               "placeholder:text-trading-text-secondary"]
+                              focus-visible-ring-classes)
                  :placeholder "Search by vault address, name or leader..."
                  :value query
                  :on {:input [[:actions/set-vaults-search-query [:event.target/value]]]}}]

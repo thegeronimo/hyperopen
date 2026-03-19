@@ -1,5 +1,6 @@
 (ns hyperopen.views.vaults.list-view-test
-  (:require [cljs.test :refer-macros [deftest is]]
+  (:require [clojure.string :as str]
+            [cljs.test :refer-macros [deftest is]]
             [hyperopen.views.vaults.list-view :as vaults-view]))
 
 (defn- node-children [node]
@@ -38,6 +39,16 @@
     (vector? node) (mapcat collect-strings (node-children node))
     (seq? node) (mapcat collect-strings node)
     :else []))
+
+(defn- class-values [class-attr]
+  (cond
+    (nil? class-attr) []
+    (string? class-attr) (remove str/blank? (str/split class-attr #"\s+"))
+    (sequential? class-attr) (mapcat class-values class-attr)
+    :else []))
+
+(defn- class-token-set [node]
+  (set (class-values (get-in node [1 :class]))))
 
 (defn- with-viewport-width
   [width f]
@@ -114,9 +125,20 @@
                                        (fn [candidate]
                                          (and (= :a (first candidate))
                                               (= "vault-row-link" (get-in candidate [1 :data-role]))
-                                              (= "/vaults/0x1111111111111111111111111111111111111111"
-                                                 (get-in candidate [1 :href])))))]
+                                                 (= "/vaults/0x1111111111111111111111111111111111111111"
+                                                     (get-in candidate [1 :href])))))]
     (is (some? row-link-node))))
+
+(deftest vaults-view-focusable-controls-expose-focus-visible-rings-test
+  (let [view (vaults-view/vaults-view sample-state)
+        route-connect (find-first-node view #(= "vaults-route-connect" (get-in % [1 :data-role])))
+        range-trigger (find-first-node view #(= "vaults-range-menu-trigger" (get-in % [1 :data-role])))
+        row-link-node (find-first-node view #(= "vault-row-link" (get-in % [1 :data-role])))
+        search-input (find-first-node view #(= "vaults-search-input" (get-in % [1 :id])))]
+    (is (contains? (class-token-set route-connect) "focus-visible:ring-2"))
+    (is (contains? (class-token-set range-trigger) "focus-visible:ring-2"))
+    (is (contains? (class-token-set row-link-node) "focus-visible:ring-2"))
+    (is (contains? (class-token-set search-input) "focus-visible:ring-2"))))
 
 (deftest vaults-view-renders-user-pagination-controls-test
   (let [view (vaults-view/vaults-view sample-state)
@@ -176,6 +198,19 @@
 (deftest vaults-view-mobile-layout-skips-desktop-table-subtree-test
   (with-viewport-width
     430
+    (fn []
+      (let [view (vaults-view/vaults-view sample-state)
+            desktop-table (find-first-node view #(= "vaults-user-vaults-table"
+                                                    (get-in % [1 :data-role])))
+            desktop-rows (find-nodes view #(= "vault-row" (get-in % [1 :data-role])))
+            mobile-cards (find-nodes view #(= "vault-mobile-card" (get-in % [1 :data-role])))]
+        (is (nil? desktop-table))
+        (is (= 0 (count desktop-rows)))
+        (is (= 2 (count mobile-cards)))))))
+
+(deftest vaults-view-tablet-layout-uses-mobile-cards-to-avoid-overflow-test
+  (with-viewport-width
+    768
     (fn []
       (let [view (vaults-view/vaults-view sample-state)
             desktop-table (find-first-node view #(= "vaults-user-vaults-table"
