@@ -132,6 +132,7 @@ If push is explicitly requested but cannot complete due environment or permissio
 
 ### `land the worktree`
 - Registry id: `land-the-worktree`
+- Alias: `$land`
 - Scope: local integration cleanup for commit/rebase/fast-forward merge/worktree cleanup.
 
 Long-form workflow:

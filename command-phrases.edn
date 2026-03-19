@@ -20,4 +20,5 @@
     "Feature worktree and branch are removed after successful landing."]}}
  :alias->id
  {"land the worktree" "land-the-worktree"
-  "lan the worktree" "land-the-worktree"}}
+  "lan the worktree" "land-the-worktree"
+  "$land" "land-the-worktree"}}
