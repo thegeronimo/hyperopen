@@ -6,11 +6,12 @@
             [hyperopen.account.spectate-mode-links :as spectate-mode-links]
             [hyperopen.router :as router]
             [hyperopen.platform :as platform]
+            [hyperopen.trading-settings :as trading-settings]
             [hyperopen.wallet.agent-session :as agent-session]))
 
 (defn restore-agent-storage-mode!
   [store]
-  (let [storage-mode (agent-session/load-storage-mode-preference)]
+  (let [storage-mode (agent-session/load-storage-mode-preference :session)]
     (swap! store assoc-in [:wallet :agent :storage-mode] storage-mode)))
 
 (defn restore-ui-locale-preference!
@@ -19,6 +20,10 @@
          assoc-in
          [:ui :locale]
          (i18n-locale/resolve-preferred-locale)))
+
+(defn restore-trading-settings!
+  [store]
+  (swap! store assoc :trading-settings (trading-settings/restore-state)))
 
 (defn- parse-watchlist-storage
   [raw]

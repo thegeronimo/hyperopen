@@ -38,6 +38,25 @@
       (is (= [runtime-state/startup-summary-delay-ms]
              (map :delay-ms @summary-calls))))))
 
+(deftest init-passes-trading-settings-restore-hook-into-startup-init-test
+  (let [store (atom {})
+        runtime (atom {})
+        captured-init-deps (atom nil)]
+    (with-redefs [startup-collaborators/startup-base-deps
+                  (fn [deps]
+                    (merge
+                     {:store (:store deps)
+                      :runtime (:runtime deps)
+                      :dispatch! (fn [& _] nil)
+                      :log-fn (fn [& _] nil)}
+                     deps))
+                  startup-init/init!
+                  (fn [deps]
+                    (reset! captured-init-deps deps))]
+      (app-startup/init! {:runtime runtime
+                          :store store})
+      (is (fn? (:restore-trading-settings! @captured-init-deps))))))
+
 (deftest initialize-remote-data-streams-routes-through-runtime-owned-callbacks-test
   (let [store (atom {})
         runtime (atom {})

@@ -22,6 +22,7 @@
            restore-portfolio-summary-time-range!
            restore-vaults-snapshot-range!
            restore-agent-storage-mode!
+           restore-trading-settings!
            restore-spectate-mode-preferences!
            restore-spectate-mode-url!
            restore-trade-route-tab!
@@ -47,6 +48,9 @@
   (restore-vaults-snapshot-range! store)
   ;; Restore agent storage preference from localStorage.
   (restore-agent-storage-mode! store)
+  ;; Restore bounded trading settings from localStorage.
+  (when (fn? restore-trading-settings!)
+    (restore-trading-settings! store))
   ;; Restore Spectate Mode watchlist and last-used modal search preference.
   (restore-spectate-mode-preferences! store)
   ;; Restore Spectate Mode directly from the current URL query when present.

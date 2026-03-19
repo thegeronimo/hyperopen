@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is]]
             [hyperopen.account.context :as account-context]
+            [hyperopen.platform :as platform]
             [hyperopen.views.header-view :as header-view]
             [hyperopen.wallet.core :as wallet]))
 
@@ -34,6 +35,9 @@
     (string? class-attr) (remove str/blank? (str/split class-attr #"\s+"))
     (sequential? class-attr) (mapcat class-values class-attr)
     :else []))
+
+(defn- class-token-set [node]
+  (set (class-values (get-in node [1 :class]))))
 
 (def connected-address
   "0x1234567890abcdef1234567890abcdef12345678")
@@ -96,6 +100,77 @@
     (is (nil? menu-panel))
     (is (some? language-button))
     (is (some? settings-button))))
+
+(deftest header-renders-settings-trigger-at-tablet-breakpoint-with-open-dispatch-test
+  (let [view (header-view/header-view {:wallet {:connected? false}
+                                       :router {:path "/trade"}})
+        settings-button (find-node-by-role view "header-settings-button")
+        settings-toolbar (find-node-by-role view "header-settings-toolbar")]
+    (is (some? settings-button))
+    (is (= [[:actions/open-header-settings]]
+           (get-in settings-button [1 :on :click])))
+    (is (some? settings-toolbar))
+    (is (not (contains? (class-token-set settings-toolbar) "md:hidden")))))
+
+(deftest header-renders-trading-settings-shell-when-open-test
+  (let [view (header-view/header-view {:wallet {:connected? false
+                                                :agent {:storage-mode :local}}
+                                       :router {:path "/trade"}
+                                       :header-ui {:settings-open? true
+                                                   :settings-confirmation nil}
+                                       :trading-settings {:fill-alerts-enabled? true}})
+        panel (find-node-by-role view "trading-settings-panel")
+        sheet (find-node-by-role view "trading-settings-sheet")
+        title (find-node-by-role view "trading-settings-title")
+        storage-row (find-node-by-role view "trading-settings-storage-mode-row")
+        fill-alerts-row (find-node-by-role view "trading-settings-fill-alerts-row")
+        all-text (set (collect-strings view))]
+    (is (some? panel))
+    (is (some? sheet))
+    (is (= "dialog" (get-in panel [1 :role])))
+    (is (= true (get-in panel [1 :aria-modal])))
+    (is (contains? (set (collect-strings title)) "Trading Settings"))
+    (is (some? storage-row))
+    (is (some? fill-alerts-row))
+    (is (contains? all-text "Remember trading session on this device"))
+    (is (contains? all-text "Show fill alerts in app"))
+    (is (contains? all-text "This device"))
+    (is (contains? all-text "Requires re-enable"))
+    (is (contains? all-text "In app"))
+    (is (not (contains? all-text "Disable Unified Account Mode")))
+    (is (not (contains? all-text "Disable HIP-3 Dex Abstraction")))
+    (is (not (contains? all-text "Disable Transaction Delay Protection")))))
+
+(deftest header-renders-session-default-when-storage-mode-is-missing-test
+  (let [view (header-view/header-view {:wallet {:connected? false}
+                                       :router {:path "/trade"}
+                                       :header-ui {:settings-open? true
+                                                   :settings-confirmation nil}
+                                       :trading-settings {:fill-alerts-enabled? true}})
+        all-text (set (collect-strings view))]
+    (is (contains? all-text "This session"))
+    (is (not (contains? all-text "This device")))))
+
+(deftest header-settings-trigger-focus-return-hook-focuses-trigger-when-flagged-test
+  (let [focus-calls (atom 0)
+        view (header-view/header-view {:wallet {:connected? false}
+                                       :router {:path "/trade"}
+                                       :header-ui {:settings-return-focus? true}})
+        settings-button (find-node-by-role view "header-settings-button")
+        on-render (get-in settings-button [1 :replicant/on-render])
+        original-get-computed-style (.-getComputedStyle js/globalThis)]
+    (is (fn? on-render))
+    (set! (.-getComputedStyle js/globalThis)
+          (fn [_node]
+            #js {:display "inline-flex"}))
+    (try
+      (with-redefs [platform/queue-microtask! (fn [f] (f))]
+        (on-render #js {:isConnected true
+                        :focus (fn []
+                                 (swap! focus-calls inc))}))
+      (finally
+        (set! (.-getComputedStyle js/globalThis) original-get-computed-style)))
+    (is (= 1 @focus-calls))))
 
 (deftest header-renders-mobile-menu-drawer-when-open-test
   (let [view (header-view/header-view {:wallet {:connected? false}

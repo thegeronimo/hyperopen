@@ -74,7 +74,9 @@
 (deftest restore-agent-storage-mode-applies-preference-before-wallet-bootstrap-test
   (let [store (atom {:wallet {:agent {:storage-mode :session}}})]
     (with-redefs [agent-session/load-storage-mode-preference
-                  (fn [] :local)]
+                  (fn
+                    ([] :local)
+                    ([_missing-default] :local))]
       (core/restore-agent-storage-mode! store)
       (is (= :local
              (get-in @store [:wallet :agent :storage-mode]))))))

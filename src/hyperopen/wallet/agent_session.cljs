@@ -42,14 +42,18 @@
     (if (= :session mode) :session :local)))
 
 (defn load-storage-mode-preference
-  []
-  (let [storage (some-> js/globalThis .-localStorage)]
-    (if-not storage
-      :local
-      (try
-        (normalize-storage-mode (.getItem storage storage-mode-preference-key))
-        (catch :default _
-          :local)))))
+  ([] (load-storage-mode-preference :local))
+  ([missing-default]
+   (let [storage (some-> js/globalThis .-localStorage)
+         fallback (normalize-storage-mode missing-default)]
+     (if-not storage
+       fallback
+       (try
+         (if-some [raw (.getItem storage storage-mode-preference-key)]
+           (normalize-storage-mode raw)
+           fallback)
+         (catch :default _
+           fallback))))))
 
 (defn persist-storage-mode-preference!
   [storage-mode]

@@ -1,5 +1,7 @@
 (ns hyperopen.websocket.user-runtime.handlers-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.websocket.user-runtime.fills :as fill-runtime]
+            [hyperopen.websocket.user-runtime.refresh :as refresh-runtime]
             [hyperopen.websocket.user-runtime.handlers :as handlers]))
 
 (def ^:private address
@@ -102,3 +104,28 @@
     (is (= [] (get-in @store [:orders :twap-states])))
     (is (= [] (get-in @store [:orders :twap-history])))
     (is (= [] (get-in @store [:orders :twap-slice-fills])))))
+
+(deftest user-fills-handler-merges-novel-fills-schedules-refresh-and-skips-toasts-when-disabled-test
+  (let [store (atom {:wallet {:address address}
+                     :orders {:fills []}
+                     :trading-settings {:fill-alerts-enabled? false}})
+        handle-user-fills! (handlers/user-fills-handler store)
+        toast-calls (atom [])
+        refresh-calls (atom [])]
+    (with-redefs [fill-runtime/show-user-fill-toast!
+                  (fn [& args]
+                    (swap! toast-calls conj args))
+                  refresh-runtime/schedule-account-surface-refresh-after-fill!
+                  (fn [store-arg]
+                    (swap! refresh-calls conj store-arg))]
+      (handle-user-fills! {:channel "userFills"
+                           :data {:user address
+                                  :fills [{:fillId "fill-1"
+                                           :coin "HYPE"
+                                           :side "B"
+                                           :sz "1.0"
+                                           :px "30.0"}]}})
+      (is (= 1 (count (get-in @store [:orders :fills]))))
+      (is (= "fill-1" (get-in @store [:orders :fills 0 :fillId])))
+      (is (= 1 (count @refresh-calls)))
+      (is (empty? @toast-calls)))))

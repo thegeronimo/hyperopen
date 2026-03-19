@@ -2,6 +2,9 @@
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
             [hyperopen.api-wallets.actions :as api-wallets-actions]
+            [hyperopen.platform :as platform]
+            [hyperopen.trading-settings :as trading-settings]
+            [hyperopen.wallet.agent-session :as agent-session]
             [hyperopen.wallet.core :as wallet]))
 
 (def header-nav-link-base-classes
@@ -406,23 +409,311 @@
            :d "M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"}]])
 
 (defn- utility-icon-button
-  [title body data-role]
-  [:button {:type "button"
-            :class ["inline-flex"
-                    "h-9"
-                    "w-9"
-                    "items-center"
-                    "justify-center"
-                    "rounded-xl"
-                    "border"
-                    "border-base-300"
-                    "bg-base-100"
-                    "transition-colors"
-                    "hover:bg-base-200"]
-            :title title
-            :aria-label title
-            :data-role data-role}
+  ([title body data-role]
+   (utility-icon-button title body data-role {}))
+  ([title body data-role extra-attrs]
+   [:button (merge
+             {:type "button"
+              :class ["inline-flex"
+                      "h-9"
+                      "w-9"
+                      "items-center"
+                      "justify-center"
+                      "rounded-xl"
+                      "border"
+                      "border-base-300"
+                      "bg-base-100"
+                      "transition-colors"
+                      "hover:bg-base-200"]
+              :title title
+              :aria-label title
+              :data-role data-role}
+             extra-attrs)
+    body]))
+
+(def ^:private trading-settings-intro-copy
+  "Controls Hyperopen can honor today. Changes apply only to this browser on this device.")
+
+(def ^:private trading-settings-close-actions
+  [[:actions/close-header-settings]])
+
+(defn- trading-settings-storage-mode
+  [state]
+  (if-some [storage-mode (get-in state [:wallet :agent :storage-mode])]
+    (agent-session/normalize-storage-mode storage-mode)
+    :session))
+
+(defn- remember-trading-session?
+  [state]
+  (= :local (trading-settings-storage-mode state)))
+
+(defn- trading-settings-badge
+  [label tone]
+  [:span {:class (into ["inline-flex"
+                        "items-center"
+                        "rounded-full"
+                        "border"
+                        "px-2.5"
+                        "py-1"
+                        "text-[0.68rem]"
+                        "font-medium"
+                        "uppercase"
+                        "tracking-[0.08em]"]
+                       tone)}
+   label])
+
+(defn- focus-visible-settings-surface!
+  [node]
+  (when node
+    (platform/queue-microtask!
+     (fn []
+       (when (and (.-isConnected node)
+                  (not= "none"
+                        (some-> (js/getComputedStyle node) .-display)))
+         (.focus node))))))
+
+(defn- focus-settings-trigger!
+  [node]
+  (when node
+    (platform/queue-microtask!
+     (fn []
+       (when (and (.-isConnected node)
+                  (not= "none"
+                        (some-> (js/getComputedStyle node) .-display)))
+         (.focus node))))))
+
+(defn- agent-storage-confirmation-copy
+  [confirmation]
+  (case (some-> (:next-mode confirmation)
+                agent-session/normalize-storage-mode)
+    :local
+    {:title "Remember trading on this device?"
+     :body "Hyperopen will keep your trading session on this browser and device after restart. This applies only here. To finish the change, you’ll need to Enable Trading again."
+     :confirm-label "Remember on this device"}
+
+    :session
+    {:title "Stop remembering this trading session?"
+     :body "Hyperopen will stop keeping your trading session after browser restart on this device. Trading will stay enabled only for the current browser session. To finish the change, you’ll need to Enable Trading again."
+     :confirm-label "Keep session-only"}
+
+    nil))
+
+(defn- trading-settings-confirmation-card
+  [confirmation]
+  (when-let [{:keys [title body confirm-label]}
+             (agent-storage-confirmation-copy confirmation)]
+    [:div {:class ["rounded-2xl"
+                   "border"
+                   "border-base-300"
+                   "bg-base-100"
+                   "p-4"
+                   "shadow-2xl"]
+           :data-role "trading-settings-storage-mode-confirmation"}
+     [:div {:class ["space-y-2"]}
+      [:h4 {:class ["text-sm" "font-semibold" "text-white"]}
+       title]
+      [:p {:class ["text-sm" "leading-6" "text-gray-300"]}
+       body]]
+     [:div {:class ["mt-4" "flex" "flex-wrap" "justify-end" "gap-2"]}
+      [:button {:type "button"
+                :class ["rounded-xl"
+                        "border"
+                        "border-base-300"
+                        "bg-transparent"
+                        "px-3.5"
+                        "py-2"
+                        "text-sm"
+                        "font-medium"
+                        "text-gray-200"
+                        "transition-colors"
+                        "hover:bg-base-200"
+                        "hover:text-white"]
+                :on {:click [[:actions/cancel-agent-storage-mode-change]]}}
+       "Cancel"]
+      [:button {:type "button"
+                :class ["rounded-xl"
+                        "border"
+                        "border-teal-500/40"
+                        "bg-teal-600/20"
+                        "px-3.5"
+                        "py-2"
+                        "text-sm"
+                        "font-medium"
+                        "text-teal-100"
+                        "transition-colors"
+                        "hover:bg-teal-600/30"]
+                :on {:click [[:actions/confirm-agent-storage-mode-change]]}}
+       confirm-label]]]))
+
+(defn- trading-settings-row
+  [{:keys [aria-label
+           checked?
+           data-role
+           helper-copy
+           on-change
+           status-cues
+           title]}
+   body]
+  [:div {:class ["space-y-3"
+                 "rounded-2xl"
+                 "border"
+                 "border-base-300"
+                 "bg-base-100"
+                 "p-4"]
+         :data-role data-role}
+   [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
+    [:div {:class ["min-w-0" "space-y-2"]}
+     [:div {:class ["text-sm" "font-medium" "text-white"]}
+      title]
+     [:p {:class ["text-sm" "leading-6" "text-gray-300"]}
+      helper-copy]
+     [:div {:class ["flex" "flex-wrap" "gap-2"]}
+      (for [{:keys [label tone]} status-cues]
+        ^{:key label}
+        (trading-settings-badge label tone))]]
+    [:input {:type "checkbox"
+             :checked (boolean checked?)
+             :class ["mt-1"
+                     "h-4"
+                     "w-4"
+                     "shrink-0"
+                     "rounded-[4px]"
+                     "border"
+                     "border-[#436267]"
+                     "bg-transparent"
+                     "text-[#50f6d2]"
+                     "accent-[#50f6d2]"]
+             :aria-label aria-label
+             :on {:change on-change}}]]
    body])
+
+(defn- trading-settings-content
+  [state surface-id]
+  (let [remember? (remember-trading-session? state)
+        fill-alerts-enabled? (trading-settings/fill-alerts-enabled? state)
+        confirmation (get-in state [:header-ui :settings-confirmation])]
+    [:div {:class ["flex" "max-h-full" "flex-col"]}
+    [:div {:class ["flex"
+                    "items-start"
+                    "justify-between"
+                    "gap-4"
+                    "border-b"
+                    "border-base-300"
+                    "px-5"
+                    "py-4"]}
+      [:div {:class ["space-y-2"]}
+       [:h3 {:class ["text-lg" "font-semibold" "text-white"]
+             :data-role "trading-settings-title"}
+        "Trading Settings"]
+       [:p {:class ["max-w-[24rem]" "text-sm" "leading-6" "text-gray-300"]}
+        trading-settings-intro-copy]]
+      [:button {:type "button"
+                :class ["inline-flex"
+                        "h-9"
+                        "w-9"
+                        "items-center"
+                        "justify-center"
+                        "rounded-xl"
+                        "border"
+                        "border-base-300"
+                        "bg-transparent"
+                        "text-gray-300"
+                        "transition-colors"
+                        "hover:bg-base-200"
+                        "hover:text-white"]
+                :aria-label "Close trading settings"
+                :data-role "trading-settings-close"
+                :on {:click trading-settings-close-actions}}
+       "×"]]
+     [:div {:class ["space-y-4" "overflow-y-auto" "px-5" "py-4"]}
+      [:div {:class ["space-y-3"]}
+       [:div {:class ["text-[0.68rem]"
+                      "font-semibold"
+                      "uppercase"
+                      "tracking-[0.14em]"
+                      "text-gray-400"]}
+        "Trading Session"]
+       (trading-settings-row
+        {:title "Remember trading session on this device"
+         :helper-copy "When on, Hyperopen can keep trading enabled after this browser restarts on this device. When off, trading stays enabled only for the current browser session."
+         :checked? remember?
+         :aria-label "Remember trading session on this device"
+         :status-cues [{:label (if remember? "This device" "This session")
+                        :tone ["border-base-300" "bg-base-200" "text-gray-300"]}
+                       {:label "Requires re-enable"
+                        :tone ["border-base-300" "bg-base-200" "text-gray-200"]}]
+         :data-role "trading-settings-storage-mode-row"
+         :on-change [[:actions/request-agent-storage-mode-change :event.target/checked]]}
+        (trading-settings-confirmation-card confirmation))]
+      [:div {:class ["h-px" "bg-base-300"]}]
+      [:div {:class ["space-y-3"]}
+       [:div {:class ["text-[0.68rem]"
+                      "font-semibold"
+                      "uppercase"
+                      "tracking-[0.14em]"
+                      "text-gray-400"]}
+        "Alerts"]
+       (trading-settings-row
+        {:title "Show fill alerts in app"
+         :helper-copy "Shows fill alerts while Hyperopen is open. This does not enable browser or system notifications."
+         :checked? fill-alerts-enabled?
+         :aria-label "Show fill alerts in app"
+         :status-cues [{:label "In app"
+                        :tone ["border-base-300" "bg-base-200" "text-primary"]}]
+         :data-role "trading-settings-fill-alerts-row"
+         :on-change [[:actions/set-fill-alerts-enabled :event.target/checked]]}
+        nil)]]]))
+
+(defn- trading-settings-shell
+  [state]
+  (list
+   [:button {:type "button"
+             :class ["fixed" "inset-0" "z-[275]" "bg-black/45" "backdrop-blur-[1px]"]
+             :aria-label "Dismiss trading settings"
+             :data-role "trading-settings-backdrop"
+             :on {:click trading-settings-close-actions}}]
+   [:section {:class ["absolute"
+                      "right-0"
+                      "top-full"
+                      "z-[285]"
+                      "mt-2"
+                      "hidden"
+                      "w-[344px]"
+                      "max-h-[70vh]"
+                      "max-w-[calc(100vw-1.5rem)]"
+                      "overflow-hidden"
+                      "rounded-xl"
+                      "border"
+                      "border-base-300"
+                      "bg-trading-bg"
+                      "shadow-2xl"
+                      "md:block"]
+              :role "dialog"
+              :aria-modal true
+              :tab-index 0
+              :data-role "trading-settings-panel"
+              :on {:keydown [[:actions/handle-header-settings-keydown [:event/key]]]}
+              :replicant/on-render focus-visible-settings-surface!}
+    (trading-settings-content state :panel)]
+   [:section {:class ["fixed"
+                      "inset-x-0"
+                      "bottom-0"
+                      "z-[285]"
+                      "max-h-[82vh]"
+                      "overflow-hidden"
+                      "rounded-t-[28px]"
+                      "border-t"
+                      "border-base-300"
+                      "bg-trading-bg"
+                      "shadow-2xl"
+                      "md:hidden"]
+              :role "dialog"
+              :aria-modal true
+              :tab-index 0
+              :data-role "trading-settings-sheet"
+              :on {:keydown [[:actions/handle-header-settings-keydown [:event/key]]]}
+              :replicant/on-render focus-visible-settings-surface!}
+    (trading-settings-content state :sheet)]))
 
 (def ^:private mobile-primary-nav-items
   [{:label "Trade"
@@ -632,10 +923,10 @@
         route (get-in state [:router :path] "/trade")
         api-wallet-route? (api-wallets-actions/api-wallet-route? route)
         mobile-menu-open? (true? (get-in state [:header-ui :mobile-menu-open?]))
+        settings-open? (true? (get-in state [:header-ui :settings-open?]))
+        settings-return-focus? (true? (get-in state [:header-ui :settings-return-focus?]))
         api-wallet-route? (api-wallets-actions/api-wallet-route? route)
-        spectate-active? (account-context/spectate-mode-active? state)
-        spectate-mode {:active? spectate-active?
-                       :address (account-context/spectate-address state)}]
+        spectate-active? (account-context/spectate-mode-active? state)]
     [:header.bg-base-200.border-b.border-base-300.w-full
      {:data-parity-id "header"}
      [:div {:class ["w-full" "app-shell-gutter" "py-2" "md:py-3"]}
@@ -705,6 +996,18 @@
         [:div {:class ["inline-flex" "md:hidden" "lg:inline-flex"]}
          (spectate-mode-trigger-button spectate-active?)]
         (wallet-control wallet-state)
-        [:div {:class ["flex" "items-center" "gap-1.5" "md:hidden" "lg:flex"]}
+        [:div {:class ["relative" "flex" "items-center" "gap-1.5" "sm:gap-2"]
+               :data-role "header-settings-toolbar"}
          (utility-icon-button "Language/Region" (globe-icon) "header-language-button")
-         (utility-icon-button "Settings" (settings-icon) "header-settings-button")]]]]]))
+         (utility-icon-button
+          "Settings"
+          (settings-icon)
+          "header-settings-button"
+          {:on {:click [[:actions/open-header-settings]]}
+           :replicant/key (str "header-settings-button:" settings-open? ":" settings-return-focus?)
+           :replicant/on-render (when settings-return-focus?
+                                  focus-settings-trigger!)
+           :aria-haspopup "dialog"
+           :aria-expanded settings-open?})
+         (when settings-open?
+           (trading-settings-shell state))]]]]]))

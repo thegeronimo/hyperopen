@@ -2,7 +2,34 @@
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.account.context :as account-context]
             [hyperopen.platform :as platform]
-            [hyperopen.startup.restore :as startup-restore]))
+            [hyperopen.startup.restore :as startup-restore]
+            [hyperopen.wallet.agent-session :as agent-session]))
+
+(defn- restore-trading-settings-fn
+  []
+  (resolve 'hyperopen.startup.restore/restore-trading-settings!))
+
+(deftest restore-agent-storage-mode-uses-session-default-for-missing-preference-test
+  (let [store (atom {})
+        defaults (atom [])]
+    (with-redefs [agent-session/load-storage-mode-preference
+                  (fn
+                    ([] :local)
+                    ([missing-default]
+                     (swap! defaults conj missing-default)
+                     :session))]
+      (startup-restore/restore-agent-storage-mode! store)
+      (is (= [:session] @defaults))
+      (is (= :session (get-in @store [:wallet :agent :storage-mode]))))))
+
+(deftest restore-agent-storage-mode-preserves-existing-stored-choice-test
+  (let [store (atom {})]
+    (with-redefs [agent-session/load-storage-mode-preference
+                  (fn
+                    ([] :local)
+                    ([_missing-default] :local))]
+      (startup-restore/restore-agent-storage-mode! store)
+      (is (= :local (get-in @store [:wallet :agent :storage-mode]))))))
 
 (deftest restore-spectate-mode-preferences-loads-watchlist-and-search-test
   (let [store (atom {:account-context {:spectate-ui {:search-error "old"}}})]
@@ -153,6 +180,41 @@
              (get-in @store [:account-context :spectate-ui :search])))
       (is (empty? @set-calls))
       (is (empty? @remove-calls)))))
+
+(deftest restore-trading-settings-valid-storage-restores-fill-alerts-disabled-test
+  (let [store (atom {})
+        restore-fn (restore-trading-settings-fn)]
+    (is (some? restore-fn))
+    (when restore-fn
+      (with-redefs [platform/local-storage-get (fn [key]
+                                                 (case key
+                                                   "hyperopen:trading-settings:v1"
+                                                   "{\"fill-alerts-enabled?\":false}"
+                                                   nil))]
+        (restore-fn store)
+        (is (= false (get-in @store [:trading-settings :fill-alerts-enabled?])))))))
+
+(deftest restore-trading-settings-missing-storage-defaults-fill-alerts-enabled-to-true-test
+  (let [store (atom {})
+        restore-fn (restore-trading-settings-fn)]
+    (is (some? restore-fn))
+    (when restore-fn
+      (with-redefs [platform/local-storage-get (constantly nil)]
+        (restore-fn store)
+        (is (= true (get-in @store [:trading-settings :fill-alerts-enabled?])))))))
+
+(deftest restore-trading-settings-malformed-storage-falls-back-safely-test
+  (let [store (atom {:trading-settings {:fill-alerts-enabled? false}})
+        restore-fn (restore-trading-settings-fn)]
+    (is (some? restore-fn))
+    (when restore-fn
+      (with-redefs [platform/local-storage-get (fn [key]
+                                                 (case key
+                                                   "hyperopen:trading-settings:v1"
+                                                   "{not-json"
+                                                   nil))]
+        (restore-fn store)
+        (is (= true (get-in @store [:trading-settings :fill-alerts-enabled?])))))))
 
 (deftest restore-spectate-mode-url-activates-spectate-without-mutating-watchlist-test
   (let [store (atom {:account-context {:spectate-mode {:active? false

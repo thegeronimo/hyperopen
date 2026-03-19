@@ -2,6 +2,17 @@
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.header.actions :as actions]))
 
+(def ^:private action-vars
+  {'open-header-settings (resolve 'hyperopen.header.actions/open-header-settings)
+   'close-header-settings (resolve 'hyperopen.header.actions/close-header-settings)
+   'handle-header-settings-keydown (resolve 'hyperopen.header.actions/handle-header-settings-keydown)
+   'request-agent-storage-mode-change (resolve 'hyperopen.header.actions/request-agent-storage-mode-change)
+   'confirm-agent-storage-mode-change (resolve 'hyperopen.header.actions/confirm-agent-storage-mode-change)})
+
+(defn- resolve-action
+  [sym]
+  (get action-vars sym))
+
 (deftest mobile-header-open-and-close-actions-save-deterministic-state-test
   (is (= [[:effects/save [:header-ui :mobile-menu-open?] true]]
          (actions/open-mobile-header-menu {})))
@@ -37,3 +48,54 @@
                    (when (= path [:account-context :spectate-ui :anchor])
                      value))
                  saved-path-values)))))
+
+(deftest header-settings-open-and-close-actions-save-deterministic-state-test
+  (let [open-action (resolve-action 'open-header-settings)
+        close-action (resolve-action 'close-header-settings)]
+    (is (some? open-action))
+    (is (some? close-action))
+    (is (= [[:effects/save [:header-ui :settings-return-focus?] false]
+            [:effects/save [:header-ui :settings-open?] true]]
+           (when open-action
+             (open-action {}))))
+    (is (= [[:effects/save [:header-ui :settings-confirmation] nil]
+            [:effects/save [:header-ui :settings-open?] false]
+            [:effects/save [:header-ui :settings-return-focus?] true]]
+           (when close-action
+             (close-action {}))))))
+
+(deftest header-settings-escape-key-closes-only-on-escape-test
+  (let [keydown-action (resolve-action 'handle-header-settings-keydown)]
+    (is (some? keydown-action))
+    (is (= [[:effects/save [:header-ui :settings-confirmation] nil]
+            [:effects/save [:header-ui :settings-open?] false]
+            [:effects/save [:header-ui :settings-return-focus?] true]]
+           (when keydown-action
+             (keydown-action {:header-ui {:settings-open? true}}
+                             "Escape"))))
+    (is (= []
+           (when keydown-action
+             (keydown-action {:header-ui {:settings-open? true}}
+                             "Enter"))))))
+
+(deftest header-settings-storage-mode-change-uses-confirmation-step-test
+  (let [request-action (resolve-action 'request-agent-storage-mode-change)
+        confirm-action (resolve-action 'confirm-agent-storage-mode-change)
+        state {:header-ui {:settings-open? true
+                           :settings-confirmation nil}
+               :wallet {:agent {:storage-mode :session}}}]
+    (is (some? request-action))
+    (is (some? confirm-action))
+    (is (= [[:effects/save [:header-ui :settings-confirmation]
+             {:kind :agent-storage-mode
+              :next-mode :local}]]
+           (when request-action
+             (request-action state :local))))
+    (is (= [[:effects/save [:header-ui :settings-confirmation] nil]
+            [:effects/save [:header-ui :settings-open?] false]
+            [:effects/save [:header-ui :settings-return-focus?] true]
+            [:effects/set-agent-storage-mode :local]]
+           (when confirm-action
+             (confirm-action (assoc-in state [:header-ui :settings-confirmation]
+                                       {:kind :agent-storage-mode
+                                        :next-mode :local})))))))

@@ -170,6 +170,13 @@
 (defn- spectate-mode-action-deps []
   {:open-mobile-header-menu header-actions/open-mobile-header-menu
    :close-mobile-header-menu header-actions/close-mobile-header-menu
+   :open-header-settings header-actions/open-header-settings
+   :close-header-settings header-actions/close-header-settings
+   :handle-header-settings-keydown header-actions/handle-header-settings-keydown
+   :request-agent-storage-mode-change header-actions/request-agent-storage-mode-change
+   :cancel-agent-storage-mode-change header-actions/cancel-agent-storage-mode-change
+   :confirm-agent-storage-mode-change header-actions/confirm-agent-storage-mode-change
+   :set-fill-alerts-enabled header-actions/set-fill-alerts-enabled
    :navigate-mobile-header-menu header-actions/navigate-mobile-header-menu
    :open-spectate-mode-mobile-header-menu header-actions/open-spectate-mode-mobile-header-menu
    :open-spectate-mode-modal spectate-mode-actions/open-spectate-mode-modal

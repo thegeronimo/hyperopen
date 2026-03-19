@@ -3,6 +3,7 @@
             [hyperopen.order.feedback-runtime :as order-feedback-runtime]
             [hyperopen.platform :as platform]
             [hyperopen.runtime.state :as runtime-state]
+            [hyperopen.trading-settings :as trading-settings]
             [hyperopen.utils.formatting :as fmt]))
 
 (def ^:private fill-size-format-options
@@ -207,9 +208,10 @@
 
 (defn show-user-fill-toast!
   [store rows]
-  (doseq [payload (fill-toast-payloads rows)]
-    (order-feedback-runtime/show-order-feedback-toast!
-     store
-     :success
-     payload
-     schedule-order-feedback-toast-clear!)))
+  (when (trading-settings/fill-alerts-enabled? @store)
+    (doseq [payload (fill-toast-payloads rows)]
+      (order-feedback-runtime/show-order-feedback-toast!
+       store
+       :success
+       payload
+       schedule-order-feedback-toast-clear!))))

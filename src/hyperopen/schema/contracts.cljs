@@ -133,6 +133,10 @@
 (s/def ::address-and-optional-address-args
   (s/tuple ::non-empty-string (s/nilable ::non-empty-string)))
 (s/def ::set-agent-storage-mode-args (s/tuple keyword?))
+(s/def ::storage-mode-request-input (s/or :checked boolean?
+                                          :mode ::keyword-or-string))
+(s/def ::storage-mode-request-args
+  (s/tuple ::storage-mode-request-input))
 (s/def ::enable-agent-trading-args (s/tuple map?))
 (s/def ::api-submit-request (s/keys :req-un [::action]))
 (s/def ::api-submit-order-args (s/tuple ::api-submit-request))
@@ -202,6 +206,10 @@
 (s/def ::max-page-args (s/tuple (s/nilable ::intish)))
 (s/def ::page-and-max-page-args (s/tuple ::intish (s/nilable ::intish)))
 (s/def ::address-and-mode-args (s/tuple ::non-empty-string ::keyword-or-string))
+(s/def ::storage-mode-request-input #(or (keyword? %)
+                                        (string? %)
+                                        (boolean? %)))
+(s/def ::storage-mode-request-args (s/tuple ::storage-mode-request-input))
 (s/def ::sort-column-args (s/tuple ::non-empty-string))
 (s/def ::vault-detail-activity-sort-args (s/tuple ::keyword-or-string ::keyword-or-string))
 (s/def ::key-args (s/tuple ::non-empty-string))
@@ -365,6 +373,13 @@
    :actions/disconnect-wallet ::no-args
    :actions/open-mobile-header-menu ::no-args
    :actions/close-mobile-header-menu ::no-args
+   :actions/open-header-settings ::no-args
+   :actions/close-header-settings ::no-args
+   :actions/handle-header-settings-keydown ::key-args
+   :actions/request-agent-storage-mode-change ::storage-mode-request-args
+   :actions/cancel-agent-storage-mode-change ::no-args
+   :actions/confirm-agent-storage-mode-change ::no-args
+   :actions/set-fill-alerts-enabled ::boolean-args
    :actions/navigate-mobile-header-menu ::path-args
    :actions/open-spectate-mode-mobile-header-menu ::spectate-mode-open-args
    :actions/open-spectate-mode-modal ::spectate-mode-open-args

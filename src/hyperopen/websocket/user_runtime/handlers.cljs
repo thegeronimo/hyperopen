@@ -2,6 +2,7 @@
   (:require [hyperopen.domain.funding-history :as funding-history]
             [hyperopen.platform :as platform]
             [hyperopen.api.projections :as api-projections]
+            [hyperopen.trading-settings :as trading-settings]
             [hyperopen.websocket.user-runtime.common :as common]
             [hyperopen.websocket.user-runtime.fills :as fill-runtime]
             [hyperopen.websocket.user-runtime.refresh :as refresh-runtime]))
@@ -98,7 +99,8 @@
                   new-rows (vec (fill-runtime/novel-fills existing rows))]
               (when (seq new-rows)
                 (swap! store update-in [:orders :fills] #(upsert-seq (or % []) new-rows))
-                (fill-runtime/show-user-fill-toast! store new-rows)
+                (when (trading-settings/fill-alerts-enabled? @store)
+                  (fill-runtime/show-user-fill-toast! store new-rows))
                 (refresh-runtime/schedule-account-surface-refresh-after-fill! store)))))))))
 
 (defn user-fundings-handler

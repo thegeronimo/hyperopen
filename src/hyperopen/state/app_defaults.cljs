@@ -10,6 +10,7 @@
             [hyperopen.platform :as platform]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.trade-modules :as trade-modules]
+            [hyperopen.trading-settings :as trading-settings]
             [hyperopen.vaults.domain.transfer-policy :as vault-transfer-policy]
             [hyperopen.vaults.domain.ui-state :as vault-ui-state]
             [hyperopen.vaults.infrastructure.persistence :as vault-persistence]))
@@ -83,7 +84,14 @@
 
 (defn default-header-ui-state
   []
-  {:mobile-menu-open? false})
+  {:mobile-menu-open? false
+   :settings-open? false
+   :settings-confirmation nil
+   :settings-return-focus? false})
+
+(defn default-trading-settings-state
+  []
+  trading-settings/default-state)
 
 (defn default-asset-selector-state
   []
@@ -385,6 +393,7 @@
    :account-context (account-context/default-account-context-state)
    :ui (default-ui-state)
    :header-ui (default-header-ui-state)
+   :trading-settings (default-trading-settings-state)
    :account {:mode :classic
              :abstraction-raw nil}
    :router {:path "/trade"}

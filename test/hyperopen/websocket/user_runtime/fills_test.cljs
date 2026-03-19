@@ -1,5 +1,6 @@
 (ns hyperopen.websocket.user-runtime.fills-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.order.feedback-runtime :as feedback-runtime]
             [hyperopen.platform :as platform]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.websocket.user-runtime.fills :as fill-runtime]))
@@ -199,3 +200,45 @@
       (is (nil? (get-in @store [:ui :toast])))
       (is (empty? (get-in @store [:ui :toasts])))
       (is (empty? @cleared)))))
+
+(deftest show-user-fill-toast-respects-fill-alert-preference-test
+  (let [runtime (atom (runtime-state/default-runtime-state))
+        enabled-store (atom {:trading-settings {:fill-alerts-enabled? true}
+                             :ui {:toast nil
+                                  :toasts []}})
+        disabled-store (atom {:trading-settings {:fill-alerts-enabled? false}
+                              :ui {:toast nil
+                                   :toasts []}})
+        toast-calls (atom [])]
+    (with-redefs [runtime-state/runtime runtime
+                  feedback-runtime/show-order-feedback-toast! (fn [store kind payload clear-fn]
+                                                                (swap! toast-calls conj [store kind payload clear-fn])
+                                                                nil)]
+      (fill-runtime/show-user-fill-toast!
+       enabled-store
+       [{:coin "HYPE"
+         :side "B"
+         :sz "1.5"
+         :px "31.25"}
+        {:asset "btc"
+         :direction "close short"
+         :filledSz "-2"}])
+      (is (= 2 (count @toast-calls)))
+      (is (= ["Bought 1.5 HYPE"
+              "Bought 2 BTC"]
+             (mapv #(get-in % [2 :headline]) @toast-calls)))
+      (reset! toast-calls [])
+      (fill-runtime/show-user-fill-toast!
+       disabled-store
+       [{:coin "HYPE"
+         :side "B"
+         :sz "1.5"
+         :px "31.25"}
+        {:asset "btc"
+         :direction "close short"
+         :filledSz "-2"}])
+      (is (empty? @toast-calls))
+      (is (= {:trading-settings {:fill-alerts-enabled? false}
+              :ui {:toast nil
+                   :toasts []}}
+             @disabled-store)))))
