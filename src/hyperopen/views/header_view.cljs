@@ -483,52 +483,206 @@
 
     nil))
 
+(defn- trading-settings-close-icon []
+  [:svg {:viewBox "0 0 20 20"
+         :fill "none"
+         :stroke "currentColor"
+         :class ["h-4.5" "w-4.5"]}
+   [:path {:stroke-linecap "round"
+           :stroke-linejoin "round"
+           :stroke-width 1.8
+           :d "M5 5l10 10M15 5L5 15"}]])
+
+(defn- trading-settings-row-icon
+  [kind active?]
+  (let [icon-classes (into ["h-5" "w-5" "shrink-0"]
+                           (if active?
+                             ["text-[#9ba4ac]"]
+                             ["text-[#7f8991]"]))]
+    (case kind
+      :session
+      [:svg {:viewBox "0 0 20 20"
+             :fill "none"
+             :stroke "currentColor"
+             :class icon-classes}
+       [:circle {:cx "10" :cy "10" :r "6.5" :stroke-width "1.7"}]
+       [:path {:d "M10 6.7v3.5l2.4 1.4"
+               :stroke-width "1.7"
+               :stroke-linecap "round"
+               :stroke-linejoin "round"}]]
+
+      :alerts
+      [:svg {:viewBox "0 0 20 20"
+             :fill "none"
+             :stroke "currentColor"
+             :class icon-classes}
+       [:path {:d "M10 4.4a3 3 0 0 0-3 3v1.1c0 .9-.24 1.8-.7 2.56L5.15 13h9.7l-1.15-1.94A4.94 4.94 0 0 1 13 8.5V7.4a3 3 0 0 0-3-3Z"
+               :stroke-width "1.6"
+               :stroke-linecap "round"
+               :stroke-linejoin "round"}]
+       [:path {:d "M8.5 14.55a1.7 1.7 0 0 0 3 0"
+               :stroke-width "1.6"
+               :stroke-linecap "round"}]]
+
+      :animate-orderbook
+      [:svg {:viewBox "0 0 20 20"
+             :fill "none"
+             :stroke "currentColor"
+             :class icon-classes}
+       [:path {:d "M3.75 13.5h3.15l2.05-5.2 2.8 7 2.1-4.05h2.4"
+               :stroke-width "1.75"
+               :stroke-linecap "round"
+               :stroke-linejoin "round"}]
+       [:path {:d "M14.9 5.2h1.9v1.9"
+               :stroke-width "1.75"
+               :stroke-linecap "round"
+               :stroke-linejoin "round"}]]
+
+      :fill-markers
+      [:svg {:viewBox "0 0 20 20"
+             :fill "none"
+             :stroke "currentColor"
+             :class icon-classes}
+       [:path {:d "M10 16.1s4.2-4.15 4.2-7.2A4.2 4.2 0 0 0 5.8 8.9c0 3.05 4.2 7.2 4.2 7.2Z"
+               :stroke-width "1.65"
+               :stroke-linecap "round"
+               :stroke-linejoin "round"}]
+       [:circle {:cx "10" :cy "8.8" :r "1.35" :stroke-width "1.6"}]]
+
+      nil)))
+
+(defn- trading-settings-icon-shell
+  [kind active?]
+  [:div {:class ["mt-0.5"
+                 "flex"
+                 "h-5"
+                 "w-5"
+                 "shrink-0"
+                 "items-center"
+                 "justify-center"]}
+   (trading-settings-row-icon kind active?)])
+
+(defn- trading-settings-toggle
+  [{:keys [aria-label checked? on-change]}]
+  [:label {:class ["relative"
+                   "mt-0.5"
+                   "inline-flex"
+                   "h-[22px]"
+                   "w-[42px]"
+                   "shrink-0"
+                   "cursor-pointer"
+                   "items-center"]}
+   [:input {:type "checkbox"
+            :checked (boolean checked?)
+            :class ["peer"
+                    "absolute"
+                    "inset-0"
+                    "h-full"
+                    "w-full"
+                    "cursor-pointer"
+                    "opacity-0"]
+            :aria-label aria-label
+            :on {:change on-change}}]
+   [:span {:aria-hidden true
+           :class (into ["absolute"
+                         "inset-0"
+                         "rounded-full"
+                         "border"
+                         "shadow-[inset_0_1px_0_rgba(255,255,255,0.05),inset_0_-1px_1px_rgba(0,0,0,0.18)]"
+                         "transition-all"
+                         "duration-200"
+                         "peer-focus-visible:ring-2"
+                         "peer-focus-visible:ring-[#66e3c5]/45"
+                         "peer-focus-visible:ring-offset-0"]
+                        (if checked?
+                          ["border-[#67e5ba]"
+                           "bg-[#67e5ba]"]
+                          ["border-[#434b52]"
+                           "bg-[#2b3238]"]))}]
+   [:span {:aria-hidden true
+           :class (into ["absolute"
+                         "left-[3px]"
+                         "top-[3px]"
+                         "h-4"
+                         "w-4"
+                         "rounded-full"
+                         "shadow-[0_1px_4px_rgba(0,0,0,0.32)]"
+                         "transition-transform"
+                         "duration-200"]
+                        (if checked?
+                          ["translate-x-[18px]" "bg-[#1e262b]"]
+                          ["translate-x-0" "bg-[#69727a]"]))}]])
+
+(defn- trading-settings-section
+  [{:keys [data-role title]} & children]
+  [:section {:class ["overflow-hidden"
+                     "rounded-[14px]"
+                     "border"
+                     "border-[#394047]"
+                     "bg-[#262d33]"
+                     "shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_8px_18px_rgba(0,0,0,0.22)]"]
+             :data-role data-role}
+   [:div {:class ["px-4"
+                  "pt-3.5"
+                  "text-[0.68rem]"
+                  "font-semibold"
+                  "uppercase"
+                  "tracking-[0.14em]"
+                  "text-[#8a939b]"]}
+    title]
+   children])
+
 (defn- trading-settings-confirmation-strip
   [confirmation]
   (when-let [{:keys [title body confirm-label]}
              (agent-storage-confirmation-copy confirmation)]
     [:div {:class ["mt-3"
                    "flex"
-                   "items-center"
+                   "items-start"
                    "justify-between"
                    "gap-3"
-                   "border-t"
-                   "border-base-300/70"
-                   "pt-3"]
+                   "rounded-[12px]"
+                   "border"
+                   "border-[#394047]"
+                   "bg-[#22282d]"
+                   "shadow-[inset_0_1px_0_rgba(255,255,255,0.02),0_6px_14px_rgba(0,0,0,0.18)]"
+                   "px-3"
+                   "py-3"]
            :data-role "trading-settings-storage-mode-confirmation"}
      [:div {:class ["min-w-0" "space-y-1"]}
       [:div {:class ["text-[0.84rem]" "font-semibold" "text-white"]}
        title]
-      [:p {:class ["text-[0.75rem]" "leading-5" "text-gray-400"]}
+      [:p {:class ["text-[0.76rem]" "leading-5" "text-[#9ba1a6]"]}
        body]]
      [:div {:class ["flex" "shrink-0" "gap-2"]}
       [:button {:type "button"
                 :class ["rounded-lg"
                         "border"
-                        "border-base-300"
+                        "border-[#32373d]"
                         "bg-transparent"
                         "px-3"
                         "py-1.5"
                         "text-[0.8rem]"
                         "font-medium"
-                        "text-gray-200"
+                        "text-[#d9dfe4]"
                         "transition-colors"
-                        "hover:bg-base-200"
+                        "hover:bg-[#2c3338]"
                         "hover:text-white"]
                 :on {:click [[:actions/cancel-agent-storage-mode-change]]}}
        "Cancel"]
       [:button {:type "button"
                 :class ["rounded-lg"
                         "border"
-                        "border-teal-500/40"
-                        "bg-teal-600/20"
+                        "border-[#44ccb5]/35"
+                        "bg-[#18342e]"
+                        "shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
                         "px-3"
                         "py-1.5"
                         "text-[0.8rem]"
                         "font-medium"
-                        "text-teal-100"
+                        "text-[#a9f5e4]"
                         "transition-colors"
-                        "hover:bg-teal-600/30"]
+                        "hover:bg-[#21473f]"]
                 :on {:click [[:actions/confirm-agent-storage-mode-change]]}}
        confirm-label]]]))
 
@@ -537,31 +691,30 @@
            checked?
            data-role
            helper-copy
+           icon-kind
            on-change
            title]}
    body]
-  [:div {:class ["px-4" "py-3.5"]
+  [:div {:class ["px-3" "py-2"]
          :data-role data-role}
-   [:div {:class ["flex" "items-start" "justify-between" "gap-4"]}
-    [:div {:class ["min-w-0" "space-y-1"]}
+   [:div {:class ["flex"
+                  "items-start"
+                  "gap-3"
+                  "rounded-[10px]"
+                  "px-1"
+                  "py-1.5"
+                  "transition-colors"
+                  "hover:bg-[#20262b]"]}
+    (trading-settings-icon-shell icon-kind checked?)
+    [:div {:class ["min-w-0" "flex-1" "space-y-1" "pt-0.5"]}
      [:div {:class ["text-[0.95rem]" "font-semibold" "leading-5" "text-white"]}
       title]
-     [:p {:class ["text-[0.75rem]" "leading-5" "text-gray-400"]}
+     [:p {:class ["text-[0.76rem]" "leading-5" "text-[#9ba1a6]"]}
       helper-copy]]
-    [:input {:type "checkbox"
-             :checked (boolean checked?)
-             :class ["mt-0.5"
-                     "h-4"
-                     "w-4"
-                     "shrink-0"
-                     "rounded-[4px]"
-                     "border"
-                     "border-[#436267]"
-                     "bg-transparent"
-                     "text-[#50f6d2]"
-                     "accent-[#50f6d2]"]
-             :aria-label aria-label
-             :on {:change on-change}}]]
+    [:div {:class ["flex" "shrink-0" "items-start" "pt-1"]}
+     (trading-settings-toggle {:aria-label aria-label
+                               :checked? checked?
+                               :on-change on-change})]]
    body])
 
 (defn- trading-settings-content
@@ -571,88 +724,100 @@
         animate-orderbook? (trading-settings/animate-orderbook? state)
         show-fill-markers? (trading-settings/show-fill-markers? state)
         confirmation (get-in state [:header-ui :settings-confirmation])]
-    [:div {:class ["flex" "max-h-full" "flex-col"]}
+    [:div {:class (into ["flex" "max-h-full" "flex-col"]
+                        (when (= surface-id :sheet)
+                          ["pb-[max(0.5rem,env(safe-area-inset-bottom))]"]))}
      [:div {:class ["flex"
                     "items-center"
                     "justify-between"
                     "gap-4"
-                    "border-b"
-                    "border-base-300"
                     "px-4"
-                    "py-3.5"]}
-      [:h3 {:class ["text-[1rem]" "font-semibold" "text-white"]
+                    "pb-2"
+                    "pt-4"]}
+      [:h3 {:class ["text-[1rem]" "font-semibold" "tracking-[-0.01em]" "text-white"]
             :data-role "trading-settings-title"}
        "Trading settings"]
       [:button {:type "button"
                 :class ["inline-flex"
-                        "h-9"
-                        "w-9"
+                        "h-8.5"
+                        "w-8.5"
                         "items-center"
                         "justify-center"
-                        "rounded-xl"
+                        "rounded-[10px]"
                         "border"
-                        "border-base-300"
-                        "bg-transparent"
-                        "text-gray-300"
+                        "border-[#40484f]"
+                        "bg-[#2a3137]"
+                        "shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
+                        "text-[#aeb6bc]"
                         "transition-colors"
-                        "hover:bg-base-200"
+                        "hover:bg-[#333b42]"
                         "hover:text-white"]
                 :aria-label "Close trading settings"
                 :data-role "trading-settings-close"
                 :on {:click trading-settings-close-actions}}
-       "×"]]
-     [:div {:class ["overflow-y-auto" "py-2"]}
-      (list
-       [:div {:class ["px-4" "pb-2" "pt-2" "text-[0.68rem]" "font-semibold" "uppercase" "tracking-[0.14em]" "text-gray-400"]}
-        "Session"]
-       (trading-settings-row
-        {:title "Remember session"
-         :helper-copy "Keep trading enabled across browser restarts on this device."
-         :checked? remember?
-         :aria-label "Remember session"
-         :data-role "trading-settings-storage-mode-row"
-         :on-change [[:actions/request-agent-storage-mode-change :event.target/checked]]}
-        (trading-settings-confirmation-strip confirmation))
-       [:div {:class ["h-px" "bg-base-300/70"]}]
-       [:div {:class ["px-4" "pb-2" "pt-3" "text-[0.68rem]" "font-semibold" "uppercase" "tracking-[0.14em]" "text-gray-400"]}
-        "Alerts"]
-       (trading-settings-row
-        {:title "Fill alerts"
-         :helper-copy "Show fill alerts while Hyperopen is open."
-         :checked? fill-alerts-enabled?
-         :aria-label "Fill alerts"
-         :data-role "trading-settings-fill-alerts-row"
-         :on-change [[:actions/set-fill-alerts-enabled :event.target/checked]]}
-        nil)
-       [:div {:class ["h-px" "bg-base-300/70"]}]
-       [:div {:class ["px-4" "pb-2" "pt-3" "text-[0.68rem]" "font-semibold" "uppercase" "tracking-[0.14em]" "text-gray-400"]}
-        "Display"]
-       (trading-settings-row
-        {:title "Animate order book"
-         :helper-copy "Smooth bid and ask depth changes as the book updates."
-         :checked? animate-orderbook?
-         :aria-label "Animate order book"
-         :data-role "trading-settings-animate-orderbook-row"
-         :on-change [[:actions/set-animate-orderbook-enabled :event.target/checked]]}
-        nil)
-       [:div {:class ["h-px" "bg-base-300/70"]}]
-       (trading-settings-row
-        {:title "Fill markers"
-         :helper-copy "Show buy and sell markers for the active asset on the chart."
-         :checked? show-fill-markers?
-         :aria-label "Fill markers"
-         :data-role "trading-settings-fill-markers-row"
-         :on-change [[:actions/set-fill-markers-enabled :event.target/checked]]}
-        nil)
-       [:div {:class ["border-t" "border-base-300/70" "px-4" "py-3" "text-[0.75rem]" "leading-5" "text-gray-400"]
-              :data-role "trading-settings-footer-note"}
-        trading-settings-footer-copy])]]))
+       (trading-settings-close-icon)]]
+     [:div {:class ["overflow-y-auto" "px-3" "pb-3" "pt-1"]}
+      [:div {:class ["space-y-3"]}
+       (trading-settings-section
+        {:title "Session"
+         :data-role "trading-settings-session-section"}
+        (trading-settings-row
+         {:title "Remember session"
+          :helper-copy "Keep trading enabled across browser restarts on this device."
+          :checked? remember?
+          :icon-kind :session
+          :aria-label "Remember session"
+          :data-role "trading-settings-storage-mode-row"
+          :on-change [[:actions/request-agent-storage-mode-change :event.target/checked]]}
+         (trading-settings-confirmation-strip confirmation)))
+       (trading-settings-section
+        {:title "Alerts"
+         :data-role "trading-settings-alerts-section"}
+        (trading-settings-row
+         {:title "Fill alerts"
+          :helper-copy "Show fill alerts while Hyperopen is open."
+          :checked? fill-alerts-enabled?
+          :icon-kind :alerts
+          :aria-label "Fill alerts"
+          :data-role "trading-settings-fill-alerts-row"
+          :on-change [[:actions/set-fill-alerts-enabled :event.target/checked]]}
+         nil))
+       (trading-settings-section
+        {:title "Display"
+         :data-role "trading-settings-display-section"}
+        (trading-settings-row
+         {:title "Animate order book"
+          :helper-copy "Smooth bid and ask depth changes as the book updates."
+          :checked? animate-orderbook?
+          :icon-kind :animate-orderbook
+          :aria-label "Animate order book"
+          :data-role "trading-settings-animate-orderbook-row"
+          :on-change [[:actions/set-animate-orderbook-enabled :event.target/checked]]}
+         nil)
+        [:div {:class ["mx-4" "h-px" "bg-[#353b42]"]}]
+        (trading-settings-row
+         {:title "Fill markers"
+          :helper-copy "Show buy and sell markers for the active asset on the chart."
+          :checked? show-fill-markers?
+          :icon-kind :fill-markers
+          :aria-label "Fill markers"
+          :data-role "trading-settings-fill-markers-row"
+          :on-change [[:actions/set-fill-markers-enabled :event.target/checked]]}
+         nil)
+        [:div {:class ["mx-4" "h-px" "bg-[#353b42]"]}]
+        [:div {:class ["px-4" "py-3" "text-[0.75rem]" "leading-5" "text-[#9ba1a6]"]
+               :data-role "trading-settings-footer-note"}
+         trading-settings-footer-copy])]]]))
 
 (defn- trading-settings-shell
   [state]
   (list
    [:button {:type "button"
-             :class ["fixed" "inset-0" "z-[275]" "bg-black/45" "backdrop-blur-[1px]"]
+             :class ["fixed" "inset-0" "z-[275]" "bg-black/45"]
+             :style {:transition "opacity 0.2s ease-out"
+                     :opacity 1}
+             :replicant/mounting {:style {:opacity 0}}
+             :replicant/unmounting {:style {:opacity 0}}
              :aria-label "Dismiss trading settings"
              :data-role "trading-settings-backdrop"
              :on {:click trading-settings-close-actions}}]
@@ -666,35 +831,52 @@
                       "max-h-[70vh]"
                       "max-w-[calc(100vw-1.5rem)]"
                       "overflow-hidden"
-                      "rounded-xl"
+                      "rounded-[16px]"
                       "border"
-                      "border-base-300"
-                      "bg-trading-bg"
-                      "shadow-2xl"
+                      "border-[#394147]"
+                      "bg-[#20272d]"
+                      "shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_20px_40px_rgba(0,0,0,0.42)]"
                       "md:block"]
               :role "dialog"
               :aria-modal true
+              :aria-label "Trading settings"
               :tab-index 0
               :data-role "trading-settings-panel"
+              :style {:transition "transform 0.22s cubic-bezier(0.22,1,0.36,1), opacity 0.22s ease-out"
+                      :transform "translateY(0) scale(1)"
+                      :transform-origin "top right"
+                      :opacity 1}
+              :replicant/mounting {:style {:transform "translateY(-8px) scale(0.97)"
+                                           :opacity 0}}
+              :replicant/unmounting {:style {:transform "translateY(-8px) scale(0.97)"
+                                             :opacity 0}}
               :on {:keydown [[:actions/handle-header-settings-keydown [:event/key]]]}
               :replicant/on-render focus-visible-settings-surface!}
     (trading-settings-content state :panel)]
    [:section {:class ["fixed"
-                      "inset-x-0"
-                      "bottom-0"
+                      "inset-x-3"
+                      "bottom-3"
                       "z-[285]"
                       "max-h-[76vh]"
                       "overflow-hidden"
-                      "rounded-t-[24px]"
-                      "border-t"
-                      "border-base-300"
-                      "bg-trading-bg"
-                      "shadow-2xl"
+                      "rounded-[18px]"
+                      "border"
+                      "border-[#394147]"
+                      "bg-[#20272d]"
+                      "shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_20px_40px_rgba(0,0,0,0.42)]"
                       "md:hidden"]
               :role "dialog"
               :aria-modal true
+              :aria-label "Trading settings"
               :tab-index 0
               :data-role "trading-settings-sheet"
+              :style {:transition "transform 0.22s cubic-bezier(0.22,1,0.36,1), opacity 0.22s ease-out"
+                      :transform "translateY(0)"
+                      :opacity 1}
+              :replicant/mounting {:style {:transform "translateY(18px)"
+                                           :opacity 0}}
+              :replicant/unmounting {:style {:transform "translateY(18px)"
+                                             :opacity 0}}
               :on {:keydown [[:actions/handle-header-settings-keydown [:event/key]]]}
               :replicant/on-render focus-visible-settings-surface!}
     (trading-settings-content state :sheet)]))
