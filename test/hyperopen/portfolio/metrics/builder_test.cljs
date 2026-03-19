@@ -104,7 +104,7 @@
     (is (contains? quality :daily-min?))
     (is (contains? quality :drawdown-reliable?))))
 
-(deftest compute-performance-metrics-suppresses-daily-horizon-metrics-when-coverage-gates-fail-test
+(deftest compute-performance-metrics-keeps-daily-horizon-metrics-as-low-confidence-when-coverage-gates-fail-test
   (let [rows [[(day->ms "2024-01-01") 0]
               [(day->ms "2024-01-15") 5]
               [(day->ms "2024-01-29") 3]
@@ -119,10 +119,10 @@
         metrics* (metrics/compute-performance-metrics {:strategy-cumulative-rows rows
                                                        :rf 0
                                                        :periods-per-year 365})]
-    (is (nil? (:omega metrics*)))
-    (is (nil? (:gain-pain-ratio metrics*)))
-    (is (nil? (:prob-sharpe-ratio metrics*)))
-    (is (= :suppressed (get-in metrics* [:metric-status :omega])))
+    (is (number? (:omega metrics*)))
+    (is (number? (:gain-pain-ratio metrics*)))
+    (is (number? (:prob-sharpe-ratio metrics*)))
+    (is (= :low-confidence (get-in metrics* [:metric-status :omega])))
     (is (= :daily-coverage-gate-failed (get-in metrics* [:metric-reason :omega])))))
 
 (deftest compute-performance-metrics-parity-test

@@ -127,6 +127,15 @@
                                                              :kind :ratio
                                                              :value 1.23
                                                              :benchmark-values {"BTC" 0.98}}
+                                                            {:key :omega
+                                                             :label "Omega"
+                                                             :kind :ratio
+                                                             :value 1.11
+                                                             :portfolio-status :low-confidence
+                                                             :portfolio-reason :daily-coverage-gate-failed
+                                                             :benchmark-values {"BTC" 0.94}
+                                                             :benchmark-statuses {"BTC" :low-confidence}
+                                                             :benchmark-reasons {"BTC" :daily-coverage-gate-failed}}
                                                             {:key :hidden
                                                              :label "Hidden"
                                                              :kind :ratio
@@ -138,6 +147,12 @@
         hidden-row (hiccup/find-first-node view
                                            #(= "vault-detail-performance-metric-hidden"
                                                (get-in % [1 :data-role])))
+        vault-low-confidence-badge (hiccup/find-first-node view
+                                                           #(= "vault-detail-performance-metric-omega-vault-value-status-badge"
+                                                               (get-in % [1 :data-role])))
+        benchmark-low-confidence-badge (hiccup/find-first-node view
+                                                               #(= "vault-detail-performance-metric-omega-benchmark-value-BTC-status-badge"
+                                                                   (get-in % [1 :data-role])))
         benchmark-label (hiccup/find-first-node view
                                                 #(= "vault-detail-performance-metrics-benchmark-label"
                                                     (get-in % [1 :data-role])))
@@ -158,6 +173,10 @@
                                                      (get-in % [1 :data-role])))]
     (is (some? sharpe-row))
     (is (nil? hidden-row))
+    (is (= "Est." (first (hiccup/collect-strings vault-low-confidence-badge))))
+    (is (= "Estimated from incomplete daily coverage."
+           (get-in vault-low-confidence-badge [1 :title])))
+    (is (= "Est." (first (hiccup/collect-strings benchmark-low-confidence-badge))))
     (is (some? benchmark-label))
     (is (contains? (set (get-in activity-panel [1 :class])) "max-h-[75vh]"))
     (is (some? scroll-region))

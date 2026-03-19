@@ -59,15 +59,52 @@
             "--")
     "--"))
 
+(defn- low-confidence-metric-title
+  [reason]
+  (case reason
+    :daily-coverage-gate-failed "Estimated from incomplete daily coverage."
+    :psr-gate-failed "Estimated from limited daily history."
+    :drawdown-reliability-gate-failed "Estimated from sparse drawdown observations."
+    :drawdown-unavailable "Estimated from sparse drawdown observations."
+    :rolling-window-span-insufficient "Estimated from limited history in this window."
+    :benchmark-coverage-gate-failed "Estimated from limited benchmark overlap."
+    "Low-confidence estimate."))
+
 (defn- performance-metric-value-cell
   ([kind value]
    (performance-metric-value-cell kind value nil))
-  ([kind value attrs]
-   [:span (merge {:class (into ["justify-self-start" "text-sm" "text-trading-text" "text-left"]
-                               (when (not= kind :date)
-                                 ["num"]))}
-                 attrs)
-    (format-metric-value kind value)]))
+  ([kind value {:keys [status reason data-role] :as attrs}]
+   (let [attrs* (dissoc attrs :status :reason)
+         formatted-value (format-metric-value kind value)
+         low-confidence? (= status :low-confidence)]
+     [:span (merge {:class ["justify-self-start"
+                            "inline-flex"
+                            "items-center"
+                            "gap-1.5"
+                            "text-left"
+                            "text-sm"
+                            "text-trading-text"]}
+                   attrs*)
+      [:span {:class (into []
+                           (when (not= kind :date)
+                             ["num"]))}
+       formatted-value]
+      (when low-confidence?
+        [:span {:class ["rounded-full"
+                        "border"
+                        "border-[#35535d]"
+                        "bg-[#0d2430]"
+                        "px-1.5"
+                        "py-0.5"
+                        "text-xs"
+                        "font-medium"
+                        "uppercase"
+                        "tracking-[0.16em]"
+                        "text-[#8fb2bc]"]
+                :title (low-confidence-metric-title reason)
+                :data-role (when data-role
+                             (str data-role "-status-badge"))}
+         "Est."])])))
 
 (defn- resolved-benchmark-metric-columns
   [{:keys [benchmark-columns benchmark-selected? benchmark-label benchmark-coin]}]
@@ -94,6 +131,22 @@
              (contains? values coin))
       (get values coin)
       (:benchmark-value row))))
+
+(defn- benchmark-row-status
+  [row coin]
+  (let [statuses (:benchmark-statuses row)]
+    (if (and (map? statuses)
+             (contains? statuses coin))
+      (get statuses coin)
+      (:benchmark-status row))))
+
+(defn- benchmark-row-reason
+  [row coin]
+  (let [reasons (:benchmark-reasons row)]
+    (if (and (map? reasons)
+             (contains? reasons coin))
+      (get reasons coin)
+      (:benchmark-reason row))))
 
 (defn- metric-value-present?
   [kind value]
@@ -131,11 +184,18 @@
              :style {:color "#9CA3AF"}}
       label]
      (for [{:keys [coin]} benchmark-columns]
-       ^{:key (str "vault-detail-performance-metric-" (name key) "-benchmark-" coin)}
-       (performance-metric-value-cell kind
-                                      (benchmark-row-value row coin)
-                                      {:data-role (str "vault-detail-performance-metric-" (name key) "-benchmark-value-" coin)}))
-     (performance-metric-value-cell kind portfolio-value)]))
+       (let [cell-data-role (str "vault-detail-performance-metric-" (name key) "-benchmark-value-" coin)]
+         ^{:key (str "vault-detail-performance-metric-" (name key) "-benchmark-" coin)}
+         (performance-metric-value-cell kind
+                                        (benchmark-row-value row coin)
+                                        {:status (benchmark-row-status row coin)
+                                         :reason (benchmark-row-reason row coin)
+                                         :data-role cell-data-role})))
+     (performance-metric-value-cell kind
+                                    portfolio-value
+                                    {:status (:portfolio-status row)
+                                     :reason (:portfolio-reason row)
+                                     :data-role (str "vault-detail-performance-metric-" (name key) "-vault-value")})]))
 
 (defn- performance-metrics-card [{:keys [benchmark-selected?
                                          benchmark-label

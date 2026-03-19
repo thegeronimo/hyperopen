@@ -66,6 +66,35 @@
     (is (= "BTC (HL PERP)" (:benchmark-label model)))
     (is (seq (:groups model)))))
 
+(deftest performance-metrics-model-carries-status-metadata-into-vault-rows-test
+  (let [selector {:selected-coins ["BTC"]
+                  :label-by-coin {"BTC" "BTC (HL PERP)"}}
+        metrics-result {:portfolio-values {:omega 1.11
+                                           :metric-status {:omega :low-confidence}
+                                           :metric-reason {:omega :daily-coverage-gate-failed}}
+                        :benchmark-values-by-coin {"BTC" {:omega 0.87
+                                                          :metric-status {:omega :low-confidence}
+                                                          :metric-reason {:omega :daily-coverage-gate-failed}}}}]
+    (binding [performance/*compute-metrics-sync* (fn [_] metrics-result)]
+      (with-redefs [portfolio-metrics/metric-rows (fn [_]
+                                                    [{:id :risk-adjusted
+                                                      :rows [{:key :omega
+                                                              :label "Omega"
+                                                              :kind :ratio}]}])]
+        (let [model (performance/performance-metrics-model
+                     selector
+                     [[1 0] [2 10] [3 20]]
+                     {"BTC" [[1 0] [2 5] [3 7]]})
+              row (-> model :groups first :rows first)]
+          (is (= 1.11 (:portfolio-value row)))
+          (is (= :low-confidence (:portfolio-status row)))
+          (is (= :daily-coverage-gate-failed (:portfolio-reason row)))
+          (is (= 0.87 (:benchmark-value row)))
+          (is (= :low-confidence (:benchmark-status row)))
+          (is (= :daily-coverage-gate-failed (:benchmark-reason row)))
+          (is (= {"BTC" :low-confidence} (:benchmark-statuses row)))
+          (is (= {"BTC" :daily-coverage-gate-failed} (:benchmark-reasons row))))))))
+
 (deftest performance-metrics-model-skips-request-build-when-worker-signature-is-unchanged-test
   (let [request-signature {:summary-time-range :month
                            :selected-benchmark-coins ["BTC"]

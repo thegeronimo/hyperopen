@@ -533,8 +533,13 @@
                                                                                       :label "Daily Value-at-Risk"
                                                                                       :kind :percent
                                                                                       :value -0.045
+                                                                                      :portfolio-status :low-confidence
+                                                                                      :portfolio-reason :daily-coverage-gate-failed
                                                                                       :benchmark-values {"SPY" -0.033
-                                                                                                         "QQQ" -0.022}}
+                                                                                                         "QQQ" -0.022}
+                                                                                      :benchmark-statuses {"SPY" :low-confidence
+                                                                                                           "QQQ" :ok}
+                                                                                      :benchmark-reasons {"SPY" :daily-coverage-gate-failed}}
                                                                                      {:key :information-ratio
                                                                                       :label "Information Ratio"
                                                                                       :kind :ratio
@@ -566,6 +571,10 @@
           all-text (set (collect-strings view-node))
           benchmark-label (find-first-node view-node #(= "portfolio-performance-metrics-benchmark-label" (get-in % [1 :data-role])))
           benchmark-label-qqq (find-first-node view-node #(= "portfolio-performance-metrics-benchmark-label-QQQ" (get-in % [1 :data-role])))
+          portfolio-low-confidence-badge (find-first-node view-node #(= "portfolio-performance-metric-daily-var-portfolio-value-status-badge"
+                                                                        (get-in % [1 :data-role])))
+          benchmark-low-confidence-badge (find-first-node view-node #(= "portfolio-performance-metric-daily-var-benchmark-value-SPY-status-badge"
+                                                                        (get-in % [1 :data-role])))
           nil-row (find-first-node view-node #(= "portfolio-performance-metric-r2" (get-in % [1 :data-role])))]
       (is (contains? all-text "Metric"))
       (is (contains? all-text "Portfolio"))
@@ -580,6 +589,10 @@
       (is (contains? all-text "1.23"))
       (is (contains? all-text "2024-01-02"))
       (is (contains? all-text "7"))
+      (is (= "Est." (first (collect-strings portfolio-low-confidence-badge))))
+      (is (= "Estimated from incomplete daily coverage."
+             (get-in portfolio-low-confidence-badge [1 :title])))
+      (is (= "Est." (first (collect-strings benchmark-low-confidence-badge))))
       (is (nil? nil-row)))))
 
 (deftest portfolio-view-performance-metrics-loading-overlay-renders-explainer-copy-test

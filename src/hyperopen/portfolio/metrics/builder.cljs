@@ -226,12 +226,23 @@
                   (nil? value) :suppressed
                   :else status)
         value* (when (not= status* :suppressed) value)
-        reason* (when (= status* :suppressed) reason)]
+        reason* (when (not= status* :ok) reason)]
     (-> acc
         (assoc key value*)
         (assoc-in [:metric-status key] status*)
         (cond-> reason*
           (assoc-in [:metric-reason key] reason*)))))
+
+(defn- assoc-estimated-metric-result
+  [acc key value high-confidence? reason]
+  (assoc-metric-result acc
+                       key
+                       value
+                       true
+                       (if high-confidence?
+                         :ok
+                         :low-confidence)
+                       reason))
 
 (defn- core-status-token
   [core-low-confidence?]
@@ -364,60 +375,65 @@
                smart-sortino*
                daily-enabled?
                psr-enabled?]}]
-  (-> acc
-      (assoc-metric-result :omega
-                           (returns/omega strategy-returns {:rf rf
-                                                    :required-return 0
-                                                    :periods-per-year periods-per-year})
-                           daily-enabled?
-                           :ok
-                           :daily-coverage-gate-failed)
-      (assoc-metric-result :smart-sharpe smart-sharpe* daily-enabled? :ok :daily-coverage-gate-failed)
-      (assoc-metric-result :smart-sortino smart-sortino* daily-enabled? :ok :daily-coverage-gate-failed)
-      (assoc-metric-result :smart-sortino-sqrt2
-                           (some-> smart-sortino* (/ (js/Math.sqrt 2)))
-                           daily-enabled?
-                           :ok
-                           :daily-coverage-gate-failed)
-      (assoc-metric-result :prob-sharpe-ratio
-                           (returns/probabilistic-sharpe-ratio strategy-returns {:rf rf
-                                                                           :periods-per-year periods-per-year})
-                           psr-enabled?
-                           :ok
-                           :psr-gate-failed)
-      (assoc-metric-result :gain-pain-ratio (distribution/gain-to-pain-ratio strategy-rows :day) daily-enabled? :ok :daily-coverage-gate-failed)
-      (assoc-metric-result :gain-pain-1m (distribution/gain-to-pain-ratio strategy-rows :month) daily-enabled? :ok :daily-coverage-gate-failed)))
+  (let [psr-high-confidence? (and daily-enabled? psr-enabled?)
+        psr-reason (if daily-enabled?
+                     :psr-gate-failed
+                     :daily-coverage-gate-failed)]
+    (-> acc
+        (assoc-estimated-metric-result :omega
+                                       (returns/omega strategy-returns {:rf rf
+                                                                        :required-return 0
+                                                                        :periods-per-year periods-per-year})
+                                       daily-enabled?
+                                       :daily-coverage-gate-failed)
+        (assoc-estimated-metric-result :smart-sharpe smart-sharpe* daily-enabled? :daily-coverage-gate-failed)
+        (assoc-estimated-metric-result :smart-sortino smart-sortino* daily-enabled? :daily-coverage-gate-failed)
+        (assoc-estimated-metric-result :smart-sortino-sqrt2
+                                       (some-> smart-sortino* (/ (js/Math.sqrt 2)))
+                                       daily-enabled?
+                                       :daily-coverage-gate-failed)
+        (assoc-estimated-metric-result :prob-sharpe-ratio
+                                       (returns/probabilistic-sharpe-ratio strategy-returns {:rf rf
+                                                                                              :periods-per-year periods-per-year})
+                                       psr-high-confidence?
+                                       psr-reason)
+        (assoc-estimated-metric-result :gain-pain-ratio
+                                       (distribution/gain-to-pain-ratio strategy-rows :day)
+                                       daily-enabled?
+                                       :daily-coverage-gate-failed)
+        (assoc-estimated-metric-result :gain-pain-1m
+                                       (distribution/gain-to-pain-ratio strategy-rows :month)
+                                       daily-enabled?
+                                       :daily-coverage-gate-failed))))
 
 (defn- add-daily-distribution-metrics
   [acc {:keys [strategy-returns daily-enabled?]}]
   (-> acc
-      (assoc-metric-result :payoff-ratio (distribution/payoff-ratio strategy-returns) daily-enabled? :ok :daily-coverage-gate-failed)
-      (assoc-metric-result :profit-factor (distribution/profit-factor strategy-returns) daily-enabled? :ok :daily-coverage-gate-failed)
-      (assoc-metric-result :common-sense-ratio (distribution/common-sense-ratio strategy-returns) daily-enabled? :ok :daily-coverage-gate-failed)
-      (assoc-metric-result :cpc-index (distribution/cpc-index strategy-returns) daily-enabled? :ok :daily-coverage-gate-failed)
-      (assoc-metric-result :tail-ratio (distribution/tail-ratio strategy-returns) daily-enabled? :ok :daily-coverage-gate-failed)
-      (assoc-metric-result :outlier-win-ratio (distribution/outlier-win-ratio strategy-returns) daily-enabled? :ok :daily-coverage-gate-failed)
-      (assoc-metric-result :outlier-loss-ratio (distribution/outlier-loss-ratio strategy-returns) daily-enabled? :ok :daily-coverage-gate-failed)
-      (assoc-metric-result :skew (math/skew strategy-returns) daily-enabled? :ok :daily-coverage-gate-failed)
-      (assoc-metric-result :kurtosis (math/kurtosis strategy-returns) daily-enabled? :ok :daily-coverage-gate-failed)
-      (assoc-metric-result :kelly-criterion (distribution/kelly-criterion strategy-returns) daily-enabled? :ok :daily-coverage-gate-failed)
-      (assoc-metric-result :risk-of-ruin (distribution/risk-of-ruin strategy-returns) daily-enabled? :ok :daily-coverage-gate-failed)
-      (assoc-metric-result :daily-var
-                           (some-> (distribution/value-at-risk strategy-returns)
-                                   js/Math.abs
-                                   (-))
-                           daily-enabled?
-                           :ok
-                           :daily-coverage-gate-failed)
-      (assoc-metric-result :expected-shortfall
-                           (some-> (distribution/expected-shortfall strategy-returns)
-                                   js/Math.abs
-                                   (-))
-                           daily-enabled?
-                           :ok
-                           :daily-coverage-gate-failed)
-      (assoc-metric-result :max-consecutive-wins (distribution/consecutive-wins strategy-returns) daily-enabled? :ok :daily-coverage-gate-failed)
-      (assoc-metric-result :max-consecutive-losses (distribution/consecutive-losses strategy-returns) daily-enabled? :ok :daily-coverage-gate-failed)))
+      (assoc-estimated-metric-result :payoff-ratio (distribution/payoff-ratio strategy-returns) daily-enabled? :daily-coverage-gate-failed)
+      (assoc-estimated-metric-result :profit-factor (distribution/profit-factor strategy-returns) daily-enabled? :daily-coverage-gate-failed)
+      (assoc-estimated-metric-result :common-sense-ratio (distribution/common-sense-ratio strategy-returns) daily-enabled? :daily-coverage-gate-failed)
+      (assoc-estimated-metric-result :cpc-index (distribution/cpc-index strategy-returns) daily-enabled? :daily-coverage-gate-failed)
+      (assoc-estimated-metric-result :tail-ratio (distribution/tail-ratio strategy-returns) daily-enabled? :daily-coverage-gate-failed)
+      (assoc-estimated-metric-result :outlier-win-ratio (distribution/outlier-win-ratio strategy-returns) daily-enabled? :daily-coverage-gate-failed)
+      (assoc-estimated-metric-result :outlier-loss-ratio (distribution/outlier-loss-ratio strategy-returns) daily-enabled? :daily-coverage-gate-failed)
+      (assoc-estimated-metric-result :skew (math/skew strategy-returns) daily-enabled? :daily-coverage-gate-failed)
+      (assoc-estimated-metric-result :kurtosis (math/kurtosis strategy-returns) daily-enabled? :daily-coverage-gate-failed)
+      (assoc-estimated-metric-result :kelly-criterion (distribution/kelly-criterion strategy-returns) daily-enabled? :daily-coverage-gate-failed)
+      (assoc-estimated-metric-result :risk-of-ruin (distribution/risk-of-ruin strategy-returns) daily-enabled? :daily-coverage-gate-failed)
+      (assoc-estimated-metric-result :daily-var
+                                     (some-> (distribution/value-at-risk strategy-returns)
+                                             js/Math.abs
+                                             (-))
+                                     daily-enabled?
+                                     :daily-coverage-gate-failed)
+      (assoc-estimated-metric-result :expected-shortfall
+                                     (some-> (distribution/expected-shortfall strategy-returns)
+                                             js/Math.abs
+                                             (-))
+                                     daily-enabled?
+                                     :daily-coverage-gate-failed)
+      (assoc-estimated-metric-result :max-consecutive-wins (distribution/consecutive-wins strategy-returns) daily-enabled? :daily-coverage-gate-failed)
+      (assoc-estimated-metric-result :max-consecutive-losses (distribution/consecutive-losses strategy-returns) daily-enabled? :daily-coverage-gate-failed)))
 
 (defn- add-benchmark-relative-metrics
   [acc {:keys [aligned-benchmark
