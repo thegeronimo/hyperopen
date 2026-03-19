@@ -1,13 +1,16 @@
 (ns hyperopen.header.actions-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.trading-settings :as trading-settings]
             [hyperopen.header.actions :as actions]))
 
 (def ^:private action-vars
   {'open-header-settings (resolve 'hyperopen.header.actions/open-header-settings)
    'close-header-settings (resolve 'hyperopen.header.actions/close-header-settings)
-   'handle-header-settings-keydown (resolve 'hyperopen.header.actions/handle-header-settings-keydown)
-   'request-agent-storage-mode-change (resolve 'hyperopen.header.actions/request-agent-storage-mode-change)
-   'confirm-agent-storage-mode-change (resolve 'hyperopen.header.actions/confirm-agent-storage-mode-change)})
+  'handle-header-settings-keydown (resolve 'hyperopen.header.actions/handle-header-settings-keydown)
+  'request-agent-storage-mode-change (resolve 'hyperopen.header.actions/request-agent-storage-mode-change)
+   'confirm-agent-storage-mode-change (resolve 'hyperopen.header.actions/confirm-agent-storage-mode-change)
+   'set-animate-orderbook-enabled (resolve 'hyperopen.header.actions/set-animate-orderbook-enabled)
+   'set-fill-markers-enabled (resolve 'hyperopen.header.actions/set-fill-markers-enabled)})
 
 (defn- resolve-action
   [sym]
@@ -91,11 +94,40 @@
               :next-mode :local}]]
            (when request-action
              (request-action state :local))))
-    (is (= [[:effects/save [:header-ui :settings-confirmation] nil]
-            [:effects/save [:header-ui :settings-open?] false]
-            [:effects/save [:header-ui :settings-return-focus?] true]
-            [:effects/set-agent-storage-mode :local]]
+      (is (= [[:effects/save [:header-ui :settings-confirmation] nil]
+              [:effects/save [:header-ui :settings-open?] false]
+              [:effects/save [:header-ui :settings-return-focus?] true]
+              [:effects/set-agent-storage-mode :local]]
            (when confirm-action
              (confirm-action (assoc-in state [:header-ui :settings-confirmation]
                                        {:kind :agent-storage-mode
                                         :next-mode :local})))))))
+
+(deftest header-settings-phase-1-5-toggle-actions-persist-bound-local-preferences-test
+  (let [animate-action (resolve-action 'set-animate-orderbook-enabled)
+        fill-markers-action (resolve-action 'set-fill-markers-enabled)
+        base-state {:trading-settings {:fill-alerts-enabled? true
+                                       :animate-orderbook? true
+                                       :show-fill-markers? false}}]
+    (is (some? animate-action))
+    (is (some? fill-markers-action))
+    (when animate-action
+      (is (= [[:effects/save [:trading-settings]
+               {:fill-alerts-enabled? true
+                :animate-orderbook? false
+                :show-fill-markers? false}]
+              [:effects/local-storage-set-json trading-settings/storage-key
+               {:fill-alerts-enabled? true
+                :animate-orderbook? false
+                :show-fill-markers? false}]]
+             (animate-action base-state false))))
+    (when fill-markers-action
+      (is (= [[:effects/save [:trading-settings]
+               {:fill-alerts-enabled? true
+                :animate-orderbook? true
+                :show-fill-markers? true}]
+              [:effects/local-storage-set-json trading-settings/storage-key
+               {:fill-alerts-enabled? true
+                :animate-orderbook? true
+                :show-fill-markers? true}]]
+             (fill-markers-action base-state true))))))

@@ -64,15 +64,26 @@
        [:effects/save [:header-ui :settings-return-focus?] true]
        [:effects/set-agent-storage-mode next-mode]])))
 
-(defn set-fill-alerts-enabled
-  [state enabled?]
+(defn- persist-trading-settings
+  [state updates]
   (let [next-state (trading-settings/normalize-state
-                    (assoc (or (:trading-settings state)
+                    (merge (or (:trading-settings state)
                                trading-settings/default-state)
-                           :fill-alerts-enabled?
-                           (boolean enabled?)))]
+                           updates))]
     [[:effects/save [:trading-settings] next-state]
      [:effects/local-storage-set-json trading-settings/storage-key next-state]]))
+
+(defn set-fill-alerts-enabled
+  [state enabled?]
+  (persist-trading-settings state {:fill-alerts-enabled? (boolean enabled?)}))
+
+(defn set-animate-orderbook-enabled
+  [state enabled?]
+  (persist-trading-settings state {:animate-orderbook? (boolean enabled?)}))
+
+(defn set-fill-markers-enabled
+  [state enabled?]
+  (persist-trading-settings state {:show-fill-markers? (boolean enabled?)}))
 
 (defn navigate-mobile-header-menu
   [state path]

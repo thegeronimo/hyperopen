@@ -41,6 +41,13 @@
       (:symbol fill)
       (:asset fill)))
 
+(defn- fill-direction-text
+  [fill]
+  (some-> (or (:dir fill) (:direction fill))
+          str
+          str/trim
+          str/lower-case))
+
 (defn- resolve-base-token
   [coin market-by-key]
   (let [{:keys [base-label]} (projections/resolve-coin-display coin (or market-by-key {}))]
@@ -65,10 +72,21 @@
 
 (defn- fill-side-sign
   [fill]
-  (let [side (some-> (:side fill) str str/trim str/upper-case)]
+  (let [side (some-> (:side fill) str str/trim str/upper-case)
+        direction (fill-direction-text fill)]
     (cond
       (contains? #{"B" "BUY" "BID" "LONG"} side) 1
       (contains? #{"A" "S" "SELL" "ASK" "SHORT"} side) -1
+      (and (seq direction)
+           (or (str/includes? direction "sell")
+               (str/includes? direction "open short")
+               (str/includes? direction "close long")))
+      -1
+      (and (seq direction)
+           (or (str/includes? direction "buy")
+               (str/includes? direction "open long")
+               (str/includes? direction "close short")))
+      1
       :else nil)))
 
 (defn- fill-time
@@ -80,16 +98,18 @@
 
 (defn- open-direction-from-dir-text
   [fill]
-  (let [dir* (some-> (:dir fill) str str/trim str/lower-case)]
+  (let [dir* (fill-direction-text fill)]
     (cond
       (and dir* (str/includes? dir* "open long")) :long
       (and dir* (str/includes? dir* "open short")) :short
       :else nil)))
 
+(declare fill-size)
+
 (defn- entry-transition-direction
   [fill]
   (let [start-position (parse-num (:startPosition fill))
-        fill-size (parse-num (:sz fill))
+        fill-size (fill-size fill)
         side-sign (fill-side-sign fill)
         open-direction (open-direction-from-dir-text fill)]
     (cond
@@ -163,6 +183,92 @@
   [side]
   (if (= side :long) "L" "S"))
 
+(defn- fill-marker-shape
+  [side]
+  (if (= side :long) "arrowUp" "arrowDown"))
+
+(defn- fill-marker-label
+  [side]
+  (if (= side :long) "B" "S"))
+
+(defn- fill-side
+  [fill]
+  (case (fill-side-sign fill)
+    1 :long
+    -1 :short
+    nil))
+
+(defn- fill-price
+  [fill]
+  (or (parse-num (:price fill))
+      (parse-num (:px fill))
+      (parse-num (:p fill))
+      (parse-num (:fillPx fill))
+      (parse-num (:avgPx fill))))
+
+(defn- fill-size
+  [fill]
+  (or (parse-num (:sz fill))
+      (parse-num (:size fill))
+      (parse-num (:s fill))
+      (parse-num (:filledSz fill))
+      (parse-num (:filled fill))))
+
+(defn- fill-identity
+  [fill]
+  (or (non-blank-text (:tid fill))
+      (non-blank-text (:fill-id fill))
+      (non-blank-text (:id fill))
+      (non-blank-text (:fillId fill))
+      (non-blank-text (:oid fill))
+      [(fill-coin fill)
+       (fill-time fill)
+       (fill-side-sign fill)
+       (fill-price fill)
+       (fill-size fill)
+       (parse-num (:startPosition fill))
+       (non-blank-text (:dir fill))
+       (non-blank-text (:direction fill))]))
+
+(defn build-fill-markers
+  [{:keys [active-asset
+           fills
+           market-by-key
+           selected-timeframe
+           show-fill-markers?]}]
+  (if-not show-fill-markers?
+    []
+    (->> (or fills [])
+         (keep-indexed
+          (fn [idx fill]
+            (when (and (map? fill)
+                       (asset-fill-match? active-asset fill market-by-key))
+              (let [side (fill-side fill)
+                    time-ms (fill-time fill)
+                    aligned-time (align-time-to-timeframe time-ms selected-timeframe)]
+                (when (and (#{:long :short} side)
+                           (finite-number? aligned-time))
+                  {:identity (fill-identity fill)
+                   :sort-time (or time-ms 0)
+                   :sort-index idx
+                   :marker {:coin (fill-coin fill)
+                            :time aligned-time
+                            :position (marker-position side)
+                            :shape (fill-marker-shape side)
+                            :color (marker-color side)
+                            :text (fill-marker-label side)}})))))
+         (reduce (fn [{:keys [seen markers]} {:keys [identity] :as candidate}]
+                   (if (contains? seen identity)
+                     {:seen seen
+                      :markers markers}
+                     {:seen (conj seen identity)
+                      :markers (conj markers candidate)}))
+                 {:seen #{}
+                  :markers []})
+         :markers
+         (sort-by (juxt :sort-time :sort-index))
+         (mapv :marker))))
+
 (defn- open-position-side
   [position]
   (let [size (parse-num (:szi position))]
@@ -177,12 +283,18 @@
            fills
            market-by-key
            selected-timeframe
-           candle-data]}]
+           candle-data
+           show-fill-markers?]}]
   (let [position* (or position {})
         side (open-position-side position*)
         size (parse-num (:szi position*))
         abs-size (when (finite-number? size)
-                   (js/Math.abs size))]
+                   (js/Math.abs size))
+        fill-markers (build-fill-markers {:active-asset active-asset
+                                          :fills fills
+                                          :market-by-key market-by-key
+                                          :selected-timeframe selected-timeframe
+                                          :show-fill-markers? show-fill-markers?})]
     (when (and (#{:long :short} side)
                (finite-number? abs-size)
                (pos? abs-size))
@@ -205,6 +317,7 @@
            :liquidation-price (when (and (finite-number? liquidation-price)
                                          (pos? liquidation-price))
                                 liquidation-price)
+           :fill-markers fill-markers
            :entry-time entry-time
            :entry-time-ms entry-time-ms
            :latest-time latest-time

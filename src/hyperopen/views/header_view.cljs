@@ -591,6 +591,8 @@
   [state surface-id]
   (let [remember? (remember-trading-session? state)
         fill-alerts-enabled? (trading-settings/fill-alerts-enabled? state)
+        animate-orderbook? (trading-settings/animate-orderbook? state)
+        show-fill-markers? (trading-settings/show-fill-markers? state)
         confirmation (get-in state [:header-ui :settings-confirmation])]
     [:div {:class ["flex" "max-h-full" "flex-col"]}
     [:div {:class ["flex"
@@ -662,6 +664,38 @@
                         :tone ["border-base-300" "bg-base-200" "text-primary"]}]
          :data-role "trading-settings-fill-alerts-row"
          :on-change [[:actions/set-fill-alerts-enabled :event.target/checked]]}
+        nil)]
+      [:div {:class ["h-px" "bg-base-300"]}]
+      [:div {:class ["space-y-3"]}
+       [:div {:class ["text-[0.68rem]"
+                      "font-semibold"
+                      "uppercase"
+                      "tracking-[0.14em]"
+                      "text-gray-400"]}
+        "Display"]
+       (trading-settings-row
+        {:title "Animate order book"
+         :helper-copy "Smooths bid and ask depth-bar changes when the order book updates. Turning it off keeps the same data, just without motion."
+         :checked? animate-orderbook?
+         :aria-label "Animate order book"
+         :status-cues [{:label "Order Book"
+                        :tone ["border-base-300" "bg-base-200" "text-gray-200"]}
+                       {:label "Motion"
+                        :tone ["border-base-300" "bg-base-200" "text-primary"]}]
+         :data-role "trading-settings-animate-orderbook-row"
+         :on-change [[:actions/set-animate-orderbook-enabled :event.target/checked]]}
+        nil)
+       (trading-settings-row
+        {:title "Show fill markers on chart"
+         :helper-copy "Shows fill markers for the active asset on the price chart. This does not add account-wide markers or markers for other assets."
+         :checked? show-fill-markers?
+         :aria-label "Show fill markers on chart"
+         :status-cues [{:label "Chart"
+                        :tone ["border-base-300" "bg-base-200" "text-gray-200"]}
+                       {:label "Active Asset"
+                        :tone ["border-base-300" "bg-base-200" "text-primary"]}]
+         :data-role "trading-settings-fill-markers-row"
+         :on-change [[:actions/set-fill-markers-enabled :event.target/checked]]}
         nil)]]]))
 
 (defn- trading-settings-shell

@@ -380,6 +380,8 @@
    :actions/cancel-agent-storage-mode-change ::no-args
    :actions/confirm-agent-storage-mode-change ::no-args
    :actions/set-fill-alerts-enabled ::boolean-args
+   :actions/set-animate-orderbook-enabled ::boolean-args
+   :actions/set-fill-markers-enabled ::boolean-args
    :actions/navigate-mobile-header-menu ::path-args
    :actions/open-spectate-mode-mobile-header-menu ::spectate-mode-open-args
    :actions/open-spectate-mode-modal ::spectate-mode-open-args

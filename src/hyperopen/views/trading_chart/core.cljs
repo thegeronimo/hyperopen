@@ -5,6 +5,7 @@
             [hyperopen.system :as app-system]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.state.trading :as trading-state]
+            [hyperopen.trading-settings :as trading-settings]
             [hyperopen.views.account-info.projections :as account-projections]
             [hyperopen.views.trading-chart.runtime-state :as chart-runtime]
             [hyperopen.views.trading-chart.utils.chart-interop :as ci]
@@ -66,14 +67,25 @@
 
 (def ^:private memoized-position-overlay-base
   (memoize-last
-   (fn [active-asset active-position active-fills market-by-key selected-timeframe candle-data]
+   (fn [active-asset active-position active-fills market-by-key selected-timeframe candle-data show-fill-markers?]
      (position-overlay-model/build-position-overlay
       {:active-asset active-asset
        :position active-position
        :fills active-fills
        :market-by-key market-by-key
        :selected-timeframe selected-timeframe
-       :candle-data candle-data}))))
+       :candle-data candle-data
+       :show-fill-markers? show-fill-markers?}))))
+
+(def ^:private memoized-fill-markers
+  (memoize-last
+   (fn [active-asset active-fills market-by-key selected-timeframe show-fill-markers?]
+     (position-overlay-model/build-fill-markers
+      {:active-asset active-asset
+       :fills active-fills
+       :market-by-key market-by-key
+       :selected-timeframe selected-timeframe
+       :show-fill-markers? show-fill-markers?}))))
 
 (def ^:private memoized-position-overlay
   (memoize-last
@@ -123,17 +135,21 @@
         candle-data
         on-liquidation-drag-preview
         on-liquidation-drag-confirm
-        position-overlay]
+        position-overlay
+        fill-markers
+        show-fill-markers?]
      {:series-options {:price-decimals price-decimals}
       :legend-deps {:format-price fmt/format-trade-price-plain
                     :format-delta fmt/format-trade-price-delta}
       :volume-visible? volume-visible?
+      :show-fill-markers? show-fill-markers?
       :on-hide-volume-indicator on-hide-volume-indicator
       :persistence-deps {:asset active-asset
                          :candles candle-data}
       :on-liquidation-drag-preview on-liquidation-drag-preview
       :on-liquidation-drag-confirm on-liquidation-drag-confirm
-      :position-overlay position-overlay})))
+      :position-overlay position-overlay
+      :fill-markers fill-markers})))
 
 (def ^:private memoized-legend-meta
   (memoize-last
@@ -283,15 +299,18 @@
   (fmt/format-fixed-number value 2))
 
 (defn- merge-main-series-markers
-  [indicator-markers position-overlay]
+  [indicator-markers fill-markers position-overlay]
   (let [base-markers (cond
                        (vector? indicator-markers) indicator-markers
                        (sequential? indicator-markers) (vec indicator-markers)
                        :else [])
+        fill-markers* (cond
+                        (vector? fill-markers) fill-markers
+                        (sequential? fill-markers) (vec fill-markers)
+                        :else [])
         entry-marker (:entry-marker position-overlay)]
-    (if (map? entry-marker)
-      (conj base-markers entry-marker)
-      base-markers)))
+    (cond-> (into base-markers fill-markers*)
+      (map? entry-marker) (conj entry-marker))))
 
 ;; Top menu component with timeframe selection and bars indicator
 (defn chart-top-menu [state]
@@ -386,9 +405,10 @@
    (chart-canvas candle-data chart-type active-indicators legend-meta selected-timeframe chart-runtime-options [] nil))
   ([candle-data chart-type active-indicators legend-meta selected-timeframe chart-runtime-options open-order-overlays on-cancel-order]
    (let [{:keys [indicators-data indicator-markers]
-          indicator-series-data :indicator-series}
+         indicator-series-data :indicator-series}
          (derived-cache/memoized-indicator-outputs candle-data selected-timeframe active-indicators)
          position-overlay (:position-overlay chart-runtime-options)
+         fill-markers (:fill-markers chart-runtime-options)
          on-liquidation-drag-preview (:on-liquidation-drag-preview chart-runtime-options)
          on-liquidation-drag-confirm (:on-liquidation-drag-confirm chart-runtime-options)
          series-options (:series-options chart-runtime-options)
@@ -396,7 +416,7 @@
          persistence-deps (:persistence-deps chart-runtime-options)
          volume-visible? (boolean (get chart-runtime-options :volume-visible? true))
          on-hide-volume-indicator (:on-hide-volume-indicator chart-runtime-options)
-         main-series-markers (merge-main-series-markers indicator-markers position-overlay)
+         main-series-markers (merge-main-series-markers indicator-markers fill-markers position-overlay)
          overlay-deps {:on-cancel-order on-cancel-order
                        :format-price fmt/format-trade-price-plain
                        :format-size format-chart-overlay-size}
@@ -607,6 +627,7 @@
                       api-response  ; Direct array
                       (get api-response :data []))  ; Wrapped in :data
         candle-data (derived-cache/memoized-candle-data raw-candles selected-timeframe)
+        show-fill-markers? (trading-settings/show-fill-markers? state)
         preview (pending-liquidation-preview state active-position-data)
         position-overlay-base (memoized-position-overlay-base
                                active-asset
@@ -614,8 +635,15 @@
                                active-fills
                                market-by-key
                                selected-timeframe
-                               candle-data)
+                               candle-data
+                               show-fill-markers?)
         position-overlay (memoized-position-overlay position-overlay-base preview)
+        fill-markers (or (:fill-markers position-overlay)
+                         (memoized-fill-markers active-asset
+                                                active-fills
+                                                market-by-key
+                                                selected-timeframe
+                                                show-fill-markers?))
         on-liquidation-drag-preview (memoized-liquidation-drag-preview-callback
                                      dispatch-fn
                                      active-position-data)
@@ -640,7 +668,9 @@
                                candle-data
                                on-liquidation-drag-preview
                                on-liquidation-drag-confirm
-                               position-overlay)
+                               position-overlay
+                               fill-markers
+                               show-fill-markers?)
         legend-meta (memoized-legend-meta symbol timeframe-label candle-data)]
     [:div {:class ["w-full" "h-full"]
            :data-parity-id "chart-panel"}

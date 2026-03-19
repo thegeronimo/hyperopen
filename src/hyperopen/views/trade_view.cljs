@@ -30,6 +30,7 @@
    :positions-ui
    :router
    :spot
+   :trading-settings
    :trade-modules
    :webdata2])
 
@@ -341,6 +342,7 @@
                               :market (:active-market state)
                               :orderbook orderbook-data
                               :orderbook-ui (:orderbook-ui state)
+                              :trading-settings (:trading-settings state)
                               :show-surface-freshness-cues? show-surface-freshness-cues?
                               :websocket-health (when show-surface-freshness-cues?
                                                   websocket-health)

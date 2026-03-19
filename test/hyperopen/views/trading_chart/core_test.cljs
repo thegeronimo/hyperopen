@@ -453,6 +453,25 @@
       (is (= :1d (:selected-timeframe @overlay-inputs*)))
       (is (= [] (:fills @overlay-inputs*))))))
 
+(deftest trading-chart-view-threads-fill-marker-preference-into-runtime-options-test
+  (let [captured-args (atom nil)
+        state {:active-asset "BTC"
+               :candles {"BTC" {:1d []}}
+               :chart-options {:selected-timeframe :1d
+                               :selected-chart-type :candlestick
+                               :active-indicators {}}
+               :trading-settings {:show-fill-markers? true}}]
+    (with-redefs [chart-core/chart-canvas (fn
+                                            ([a b c d e f]
+                                             (reset! captured-args [a b c d e f])
+                                             [:div])
+                                            ([a b c d e f g h]
+                                             (reset! captured-args [a b c d e f g h])
+                                             [:div]))]
+      (chart-core/trading-chart-view state))
+    (let [runtime-options (nth @captured-args 5)]
+      (is (true? (:show-fill-markers? runtime-options))))))
+
 (deftest trading-chart-view-keeps-chart-drag-liquidation-preview-while-margin-modal-open-test
   (let [captured-args (atom nil)
         overlay-result {:side :long

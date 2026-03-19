@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperopen.domain.market.instrument :as instrument]
             [hyperopen.orderbook.price-aggregation :as price-agg]
+            [hyperopen.trading-settings :as trading-settings]
             [hyperopen.websocket.orderbook-policy :as orderbook-policy]
             [hyperopen.websocket.trades :as trades]
             [hyperopen.utils.formatting :as fmt]
@@ -29,6 +30,10 @@
 (def ^:private bid-price-text-class "text-[rgb(31,166,125)]")
 (def ^:private orderbook-tab-indicator-class "bg-[rgb(80,210,193)]")
 (def ^:private desktop-breakpoint-px 1024)
+(def ^:private depth-bar-transition-classes
+  ["transition-all"
+   "duration-300"
+   "ease-[cubic-bezier(0.68,-0.6,0.32,1.6)]"])
 
 (defn normalize-orderbook-tab [tab]
   (let [tab* (cond
@@ -349,32 +354,40 @@
                0)
            "%")))
 
+(defn- depth-bar-classes
+  [bar-color animate?]
+  (cond-> ["h-full" bar-color]
+    animate? (into depth-bar-transition-classes)))
+
 ;; Component for individual order row
-(defn order-row [row size-unit]
-  (let [is-ask? (= :ask (:side row))
-        bar-color (if is-ask? ask-depth-bar-class bid-depth-bar-class)
-        price-text-color (if is-ask? ask-price-text-class bid-price-text-class)]
-    [:div {:class ["flex" "items-center" "h-[23px]" "relative" "bg-base-100" "text-xs" "orderbook-level-row"]
-           :data-role "orderbook-level-row"}
-     ;; Size bar background - always positioned from left
-     [:div.absolute.inset-0.flex.items-center.justify-start
-      [:div {:class ["h-full" bar-color "transition-all" "duration-300" "ease-[cubic-bezier(0.68,-0.6,0.32,1.6)]"]
-             :style {:width (row-bar-width row size-unit)}}]]
-     ;; Content
-     [:div {:class ["grid" orderbook-columns-class "w-full" "items-center" "pl-2" "pr-2" "relative" "z-10"]
-            :data-role "orderbook-level-content-row"}
-      [:div {:class ["text-left"]
-             :data-role "orderbook-level-price-cell"}
-       [:span {:class [price-text-color "num" "orderbook-level-value"]}
-        (row-price-label row)]]
-      [:div {:class ["text-right" "num-right"]
-             :data-role "orderbook-level-size-cell"}
-       [:span {:class [body-neutral-text-class "num" "orderbook-level-value"]}
-        (row-size-label row size-unit)]]
-      [:div {:class ["text-right" "num-right"]
-             :data-role "orderbook-level-total-cell"}
-       [:span {:class [body-neutral-text-class "num" "orderbook-level-value"]}
-        (row-total-label row size-unit)]]]]))
+(defn order-row
+  ([row size-unit]
+   (order-row row size-unit true))
+  ([row size-unit animate?]
+   (let [is-ask? (= :ask (:side row))
+         bar-color (if is-ask? ask-depth-bar-class bid-depth-bar-class)
+         price-text-color (if is-ask? ask-price-text-class bid-price-text-class)]
+     [:div {:class ["flex" "items-center" "h-[23px]" "relative" "bg-base-100" "text-xs" "orderbook-level-row"]
+            :data-role "orderbook-level-row"}
+      ;; Size bar background - always positioned from left
+      [:div.absolute.inset-0.flex.items-center.justify-start
+       [:div {:class (depth-bar-classes bar-color animate?)
+              :style {:width (row-bar-width row size-unit)}}]]
+      ;; Content
+      [:div {:class ["grid" orderbook-columns-class "w-full" "items-center" "pl-2" "pr-2" "relative" "z-10"]
+             :data-role "orderbook-level-content-row"}
+       [:div {:class ["text-left"]
+              :data-role "orderbook-level-price-cell"}
+        [:span {:class [price-text-color "num" "orderbook-level-value"]}
+         (row-price-label row)]]
+       [:div {:class ["text-right" "num-right"]
+              :data-role "orderbook-level-size-cell"}
+        [:span {:class [body-neutral-text-class "num" "orderbook-level-value"]}
+         (row-size-label row size-unit)]]
+       [:div {:class ["text-right" "num-right"]
+              :data-role "orderbook-level-total-cell"}
+        [:span {:class [body-neutral-text-class "num" "orderbook-level-value"]}
+         (row-total-label row size-unit)]]]])))
 
 ;; Spread component
 (defn spread-row [spread]
@@ -416,33 +429,36 @@
           :data-role "orderbook-mobile-ask-total-header-cell"}
     [:span {:class [header-neutral-text-class "text-xs" "num"]} (str "Total (" size-symbol ")")]]])
 
-(defn- mobile-split-order-row [{:keys [bid ask]} size-unit]
-  (let [bid-total (when bid (row-total-label bid size-unit))
-        ask-total (when ask (row-total-label ask size-unit))
-        bid-price (when bid (row-price-label bid))
-        ask-price (when ask (row-price-label ask))]
-    [:div {:class ["relative" "grid" mobile-split-columns-class "items-center" "gap-x-2" "px-2" "h-5" "bg-base-100" "text-xs" "border-b" "border-base-300/60"]
-           :data-role "orderbook-mobile-split-row"}
-     [:div {:class ["pointer-events-none" "absolute" "inset-y-0" "left-0" "flex" "w-1/2" "items-center" "justify-end" "pr-1"]}
-      (when bid
-        [:div {:class ["h-full" bid-depth-bar-class "transition-all" "duration-300" "ease-[cubic-bezier(0.68,-0.6,0.32,1.6)]"]
-               :style {:width (row-bar-width bid size-unit)}}])]
-     [:div {:class ["pointer-events-none" "absolute" "inset-y-0" "right-0" "flex" "w-1/2" "items-center" "justify-start" "pl-1"]}
-      (when ask
-        [:div {:class ["h-full" ask-depth-bar-class "transition-all" "duration-300" "ease-[cubic-bezier(0.68,-0.6,0.32,1.6)]"]
-               :style {:width (row-bar-width ask size-unit)}}])]
-     [:div {:class ["relative" "z-10" "text-left"]
-            :data-role "orderbook-mobile-bid-total-cell"}
-      [:span {:class [body-neutral-text-class "num"]} bid-total]]
-     [:div {:class ["relative" "z-10" "text-right" "num-right"]
-            :data-role "orderbook-mobile-bid-price-cell"}
-      [:span {:class [bid-price-text-class "num"]} bid-price]]
-     [:div {:class ["relative" "z-10" "text-left"]
-            :data-role "orderbook-mobile-ask-price-cell"}
-      [:span {:class [ask-price-text-class "num"]} ask-price]]
-     [:div {:class ["relative" "z-10" "text-right" "num-right"]
-            :data-role "orderbook-mobile-ask-total-cell"}
-      [:span {:class [body-neutral-text-class "num"]} ask-total]]]))
+(defn- mobile-split-order-row
+  ([row size-unit]
+   (mobile-split-order-row row size-unit true))
+  ([{:keys [bid ask]} size-unit animate?]
+   (let [bid-total (when bid (row-total-label bid size-unit))
+         ask-total (when ask (row-total-label ask size-unit))
+         bid-price (when bid (row-price-label bid))
+         ask-price (when ask (row-price-label ask))]
+     [:div {:class ["relative" "grid" mobile-split-columns-class "items-center" "gap-x-2" "px-2" "h-5" "bg-base-100" "text-xs" "border-b" "border-base-300/60"]
+            :data-role "orderbook-mobile-split-row"}
+      [:div {:class ["pointer-events-none" "absolute" "inset-y-0" "left-0" "flex" "w-1/2" "items-center" "justify-end" "pr-1"]}
+       (when bid
+         [:div {:class (depth-bar-classes bid-depth-bar-class animate?)
+                :style {:width (row-bar-width bid size-unit)}}])]
+      [:div {:class ["pointer-events-none" "absolute" "inset-y-0" "right-0" "flex" "w-1/2" "items-center" "justify-start" "pl-1"]}
+       (when ask
+         [:div {:class (depth-bar-classes ask-depth-bar-class animate?)
+                :style {:width (row-bar-width ask size-unit)}}])]
+      [:div {:class ["relative" "z-10" "text-left"]
+             :data-role "orderbook-mobile-bid-total-cell"}
+       [:span {:class [body-neutral-text-class "num"]} bid-total]]
+      [:div {:class ["relative" "z-10" "text-right" "num-right"]
+             :data-role "orderbook-mobile-bid-price-cell"}
+       [:span {:class [bid-price-text-class "num"]} bid-price]]
+      [:div {:class ["relative" "z-10" "text-left"]
+             :data-role "orderbook-mobile-ask-price-cell"}
+       [:span {:class [ask-price-text-class "num"]} ask-price]]
+      [:div {:class ["relative" "z-10" "text-right" "num-right"]
+             :data-role "orderbook-mobile-ask-total-cell"}
+       [:span {:class [body-neutral-text-class "num"]} ask-total]]])))
 
 (defn- strip-cumulative-totals [levels]
   (mapv #(dissoc % :cum-size :cum-value) (or levels [])))
@@ -506,6 +522,8 @@
   ([coin market orderbook-data orderbook-ui websocket-health show-freshness-cue?]
    (l2-orderbook-panel coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? nil))
   ([coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? layout]
+   (l2-orderbook-panel coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? layout true))
+  ([coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? layout animate-orderbook?]
    (let [size-unit (normalize-size-unit (:size-unit orderbook-ui))
          size-unit-dropdown-visible? (boolean (:size-unit-dropdown-visible? orderbook-ui))
          price-dropdown-visible? (boolean (:price-aggregation-dropdown-visible? orderbook-ui))
@@ -559,14 +577,14 @@
                  :data-role "orderbook-asks-pane"}
            (for [ask desktop-asks]
              ^{:key (:row-key ask)}
-             (order-row ask size-unit))]
+             (order-row ask size-unit animate-orderbook?))]
           (when spread
             (spread-row spread))
           [:div {:class ["flex-1" "min-h-0" "overflow-hidden" "flex" "flex-col" "gap-0.5"]
                  :data-role "orderbook-bids-pane"}
            (for [bid desktop-bids]
              ^{:key (:row-key bid)}
-             (order-row bid size-unit))]]]
+             (order-row bid size-unit animate-orderbook?))]]]
         [:div {:class (cond-> ["flex" "flex-1" "min-h-0" "flex-col" "lg:hidden"]
                         depth-dimmed? (conj "opacity-90"))
                :data-role "orderbook-mobile-split-panel"}
@@ -575,7 +593,7 @@
                 :data-role "orderbook-mobile-split-body"}
           (for [split-row mobile-pairs]
             ^{:key (:row-key split-row)}
-            (mobile-split-order-row split-row size-unit))]])])))
+            (mobile-split-order-row split-row size-unit animate-orderbook?))]])])))
 
 ;; Empty state
 (defn empty-orderbook []
@@ -610,6 +628,7 @@
                             (:orderbook-ui state))
         layout {:desktop-layout? (:desktop-layout? state)
                 :viewport-width (:viewport-width state)}
+        animate-orderbook? (trading-settings/animate-orderbook? state)
         loading? (:loading state)
         active-tab (normalize-orderbook-tab (or active-tab-override
                                                (:active-tab orderbook-ui)))
@@ -631,5 +650,6 @@
                                                           orderbook-ui
                                                           websocket-health
                                                           show-surface-freshness-cues?
-                                                          layout)
+                                                          layout
+                                                          animate-orderbook?)
            :else (empty-orderbook))))]]))

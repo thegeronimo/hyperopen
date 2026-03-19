@@ -5,12 +5,16 @@
   "hyperopen:trading-settings:v1")
 
 (def default-state
-  {:fill-alerts-enabled? true})
+  {:fill-alerts-enabled? true
+   :animate-orderbook? true
+   :show-fill-markers? false})
 
 (defn normalize-state
   [value]
   (let [settings (if (map? value) value {})]
-    {:fill-alerts-enabled? (not (false? (:fill-alerts-enabled? settings)))}))
+    {:fill-alerts-enabled? (not (false? (:fill-alerts-enabled? settings)))
+     :animate-orderbook? (not (false? (:animate-orderbook? settings)))
+     :show-fill-markers? (true? (:show-fill-markers? settings))}))
 
 (defn restore-state
   []
@@ -22,6 +26,18 @@
     (catch :default _
       default-state)))
 
+(defn- state-settings
+  [state]
+  (normalize-state (:trading-settings state)))
+
 (defn fill-alerts-enabled?
   [state]
-  (not (false? (get-in state [:trading-settings :fill-alerts-enabled?]))))
+  (:fill-alerts-enabled? (state-settings state)))
+
+(defn animate-orderbook?
+  [state]
+  (:animate-orderbook? (state-settings state)))
+
+(defn show-fill-markers?
+  [state]
+  (:show-fill-markers? (state-settings state)))

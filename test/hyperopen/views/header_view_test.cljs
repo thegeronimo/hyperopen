@@ -141,6 +141,26 @@
     (is (not (contains? all-text "Disable HIP-3 Dex Abstraction")))
     (is (not (contains? all-text "Disable Transaction Delay Protection")))))
 
+(deftest header-renders-phase-1-5-display-settings-when-open-test
+  (let [view (header-view/header-view {:wallet {:connected? false
+                                                :agent {:storage-mode :local}}
+                                       :router {:path "/trade"}
+                                       :header-ui {:settings-open? true
+                                                   :settings-confirmation nil}
+                                       :trading-settings {:fill-alerts-enabled? true
+                                                          :animate-orderbook? true
+                                                          :show-fill-markers? false}})
+        all-text (set (collect-strings view))]
+    (is (contains? all-text "Display"))
+    (is (contains? all-text "Animate order book"))
+    (is (contains? all-text "Smooths bid and ask depth-bar changes when the order book updates. Turning it off keeps the same data, just without motion."))
+    (is (contains? all-text "Show fill markers on chart"))
+    (is (contains? all-text "Shows fill markers for the active asset on the price chart. This does not add account-wide markers or markers for other assets."))
+    (is (contains? all-text "Order Book"))
+    (is (contains? all-text "Motion"))
+    (is (contains? all-text "Chart"))
+    (is (contains? all-text "Active Asset"))))
+
 (deftest header-renders-session-default-when-storage-mode-is-missing-test
   (let [view (header-view/header-view {:wallet {:connected? false}
                                        :router {:path "/trade"}

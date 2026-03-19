@@ -94,6 +94,8 @@
      [:actions/cancel-agent-storage-mode-change :cancel-agent-storage-mode-change]
      [:actions/confirm-agent-storage-mode-change :confirm-agent-storage-mode-change]
      [:actions/set-fill-alerts-enabled :set-fill-alerts-enabled]
+     [:actions/set-animate-orderbook-enabled :set-animate-orderbook-enabled]
+     [:actions/set-fill-markers-enabled :set-fill-markers-enabled]
      [:actions/navigate-mobile-header-menu :navigate-mobile-header-menu]
      [:actions/open-spectate-mode-mobile-header-menu :open-spectate-mode-mobile-header-menu]
      [:actions/open-spectate-mode-modal :open-spectate-mode-modal]

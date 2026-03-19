@@ -73,6 +73,12 @@
 
     :else 0))
 
+(defn- animated-depth-bar-node? [node]
+  (let [classes (node-class-set node)]
+    (and (contains? classes "transition-all")
+         (contains? classes "duration-300")
+         (contains? classes "ease-[cubic-bezier(0.68,-0.6,0.32,1.6)]"))))
+
 (defn- collect-strings [node]
   (cond
     (string? node) [node]
@@ -428,9 +434,19 @@
         orderbook-classes (node-class-set orderbook-viewport)
         trades-classes (node-class-set trades-viewport)]
     (is (some? orderbook-viewport))
-    (is (some? trades-viewport))
-    (is (= orderbook-classes trades-classes))
-    (is (every? orderbook-classes required-classes))))
+      (is (some? trades-viewport))
+      (is (= orderbook-classes trades-classes))
+      (is (every? orderbook-classes required-classes))))
+
+(deftest orderbook-depth-bar-transitions-are-suppressed-when-animation-is-disabled-test
+  (let [view-node (view/l2-orderbook-view {:coin "BTC"
+                                           :market {:base "BTC" :quote "USDC"}
+                                           :orderbook {:bids [{:px "99" :sz "2"}]
+                                                       :asks [{:px "101" :sz "1"}]}
+                                           :orderbook-ui {:active-tab :orderbook}
+                                           :trading-settings {:animate-orderbook? false}})
+        animated-depth-bar-count (count-nodes view-node animated-depth-bar-node?)]
+    (is (= 0 animated-depth-bar-count))))
 
 (deftest orderbook-panel-renders-full-available-depth-instead-of-hard-capping-at-nine-test
   (let [asks (mapv (fn [idx]
