@@ -1,4 +1,5 @@
 (ns hyperopen.api.default-test
+  (:require-macros [hyperopen.test-support.redefs :refer [with-direct-redefs]])
   (:require [cljs.test :refer-macros [deftest is use-fixtures]]
             [hyperopen.api.compat :as api-compat]
             [hyperopen.api.default :as api]
@@ -24,135 +25,135 @@
         record! (fn [label args]
                   (swap! calls conj [label args])
                   {:ok label})]
-    (with-redefs [api-instance/make-api (fn [opts]
-                                          (record! :make-api [opts]))
-                  api-service/log-fn (fn [_service]
-                                       (fn [& _] nil))
-                  api-service/get-request-stats (fn [service]
-                                                  (record! :get-request-stats [service]))
-                  api-service/reset-service! (fn [service]
-                                               (record! :reset-service [service]))
-                  api-service/ensure-perp-dexs-data! (fn [service store* request-perp-dexs! opts]
-                                                       (request-perp-dexs! opts)
-                                                       (record! :ensure-perp-dexs-data [service store* opts]))
-                  api-service/ensure-spot-meta-data! (fn [service store* request-spot-meta! opts]
-                                                       (request-spot-meta! opts)
-                                                       (record! :ensure-spot-meta-data [service store* opts]))
-                  api-service/ensure-public-webdata2! (fn [service request-public-webdata2! opts]
-                                                        (request-public-webdata2! opts)
-                                                        (record! :ensure-public-webdata2 [service opts]))
-                  market-gateway/request-asset-contexts! (fn [deps opts]
-                                                           (record! :request-asset-contexts [deps opts]))
-                  api-compat/fetch-asset-contexts! (fn [deps store* opts]
-                                                     (record! :fetch-asset-contexts [deps store* opts]))
-                  market-gateway/request-meta-and-asset-ctxs! (fn [deps dex opts]
-                                                                (record! :request-meta-and-asset-ctxs [deps dex opts]))
-                  market-gateway/request-perp-dexs! (fn [deps opts]
-                                                      (record! :request-perp-dexs [deps opts]))
-                  api-compat/fetch-perp-dexs! (fn [deps store* opts]
-                                                (record! :fetch-perp-dexs [deps store* opts]))
-                  market-gateway/request-candle-snapshot! (fn [deps coin opts]
-                                                            (record! :request-candle-snapshot [deps coin opts]))
-                  api-compat/fetch-candle-snapshot! (fn [deps store* opts]
-                                                      (record! :fetch-candle-snapshot [deps store* opts]))
-                  order-endpoints/request-frontend-open-orders! (fn [post-info! address dex opts]
-                                                                  (record! :request-frontend-open-orders [post-info! address dex opts]))
-                  api-compat/fetch-frontend-open-orders! (fn [deps store* address opts]
-                                                          (record! :fetch-frontend-open-orders [deps store* address opts]))
-                  order-gateway/request-user-fills! (fn [deps address opts]
-                                                     (record! :request-user-fills [deps address opts]))
-                  api-compat/fetch-user-fills! (fn [deps store* address opts]
-                                                 (record! :fetch-user-fills [deps store* address opts]))
-                  api-compat/fetch-historical-orders! (fn [deps address opts]
-                                                        (record! :fetch-historical-orders [deps address opts]))
-                  order-gateway/request-historical-orders! (fn [{:keys [request-historical-orders-data!]} address opts]
-                                                            (request-historical-orders-data! address opts))
-                  account-gateway/request-user-funding-history-data! (fn [deps address opts]
-                                                                       ((:normalize-funding-history-filters deps) {:coin-set #{"BTC"}})
-                                                                       (record! :request-user-funding-history-data [deps address opts]))
-                  account-gateway/request-user-funding-history! (fn [{:keys [request-user-funding-history-data!]} address opts]
-                                                                  (request-user-funding-history-data! address opts))
-                  market-gateway/request-spot-meta! (fn [deps opts]
-                                                      (record! :request-spot-meta [deps opts]))
-                  api-compat/fetch-spot-meta! (fn [deps store* opts]
-                                                (record! :fetch-spot-meta [deps store* opts]))
-                  market-gateway/request-public-webdata2! (fn [deps opts]
-                                                            (record! :request-public-webdata2 [deps opts]))
-                  market-gateway/request-market-funding-history! (fn [deps coin opts]
-                                                                   (record! :request-market-funding-history [deps coin opts]))
-                  market-gateway/request-predicted-fundings! (fn [deps opts]
-                                                               (record! :request-predicted-fundings [deps opts]))
-                  api-compat/ensure-perp-dexs! (fn [deps store* opts]
-                                                 ((:ensure-perp-dexs-data! deps) store* opts)
-                                                 (record! :ensure-perp-dexs [deps store* opts]))
-                  api-compat/ensure-spot-meta! (fn [deps store* opts]
-                                                 ((:ensure-spot-meta-data! deps) store* opts)
-                                                 (record! :ensure-spot-meta [deps store* opts]))
-                  api-compat/fetch-asset-selector-markets! (fn [deps store* opts]
-                                                             (record! :fetch-asset-selector-markets [deps store* opts]))
-                  market-gateway/build-market-state (fn [now-ms-fn active-asset phase _dexs _spot-meta _spot-asset-ctxs _perp-results]
-                                                      (record! :build-market-state [active-asset phase (now-ms-fn)]))
-                  market-gateway/request-asset-selector-markets! (fn [{:keys [opts
-                                                                               ensure-perp-dexs-data!
-                                                                               ensure-spot-meta-data!
-                                                                               ensure-public-webdata2!
-                                                                               request-meta-and-asset-ctxs!
-                                                                               build-market-state]}]
-                                                                   (ensure-perp-dexs-data! {:priority :high})
-                                                                   (ensure-spot-meta-data! {:priority :high})
-                                                                   (ensure-public-webdata2! {:priority :high})
-                                                                   (request-meta-and-asset-ctxs! "dex-a" {:priority :high})
-                                                                   (build-market-state "BTC" (:phase opts) [] {} {} [])
-                                                                   (record! :request-asset-selector-markets [opts]))
-                  api-compat/fetch-spot-clearinghouse-state! (fn [deps store* address opts]
-                                                               (record! :fetch-spot-clearinghouse-state [deps store* address opts]))
-                  account-gateway/request-extra-agents! (fn [deps address opts]
-                                                          (record! :request-extra-agents [deps address opts]))
-                  account-gateway/request-user-webdata2! (fn [deps address opts]
-                                                           (record! :request-user-webdata2 [deps address opts]))
-                  account-gateway/request-staking-validator-summaries! (fn [deps opts]
-                                                                         (record! :request-staking-validator-summaries [deps opts]))
-                  account-gateway/request-staking-delegator-summary! (fn [deps address opts]
-                                                                       (record! :request-staking-delegator-summary [deps address opts]))
-                  account-gateway/request-staking-delegations! (fn [deps address opts]
-                                                                 (record! :request-staking-delegations [deps address opts]))
-                  account-gateway/request-staking-delegator-rewards! (fn [deps address opts]
-                                                                       (record! :request-staking-delegator-rewards [deps address opts]))
-                  account-gateway/request-staking-delegator-history! (fn [deps address opts]
-                                                                       (record! :request-staking-delegator-history [deps address opts]))
-                  account-gateway/request-spot-clearinghouse-state! (fn [deps address opts]
-                                                                       (record! :request-spot-clearinghouse-state [deps address opts]))
-                  api-compat/fetch-user-abstraction! (fn [deps store* address opts]
-                                                       (record! :fetch-user-abstraction [deps store* address opts]))
-                  account-gateway/request-user-abstraction! (fn [deps address opts]
-                                                              (record! :request-user-abstraction [deps address opts]))
-                  account-gateway/request-clearinghouse-state! (fn [deps address dex opts]
-                                                                 (record! :request-clearinghouse-state [deps address dex opts]))
-                  vault-gateway/request-vault-index! (fn
-                                                       ([deps]
-                                                        (record! :request-vault-index [deps {}]))
-                                                       ([deps opts]
-                                                        (record! :request-vault-index [deps opts])))
-                  vault-gateway/request-vault-summaries! (fn [deps opts]
-                                                           (record! :request-vault-summaries [deps opts]))
-                  vault-gateway/request-merged-vault-index! (fn
+    (with-direct-redefs [api-instance/make-api (fn [opts]
+                                                 (record! :make-api [opts]))
+                         api-service/log-fn (fn [_service]
+                                              (fn [& _] nil))
+                         api-service/get-request-stats (fn [service]
+                                                         (record! :get-request-stats [service]))
+                         api-service/reset-service! (fn [service]
+                                                      (record! :reset-service [service]))
+                         api-service/ensure-perp-dexs-data! (fn [service store* request-perp-dexs! opts]
+                                                              (request-perp-dexs! opts)
+                                                              (record! :ensure-perp-dexs-data [service store* opts]))
+                         api-service/ensure-spot-meta-data! (fn [service store* request-spot-meta! opts]
+                                                              (request-spot-meta! opts)
+                                                              (record! :ensure-spot-meta-data [service store* opts]))
+                         api-service/ensure-public-webdata2! (fn [service request-public-webdata2! opts]
+                                                               (request-public-webdata2! opts)
+                                                               (record! :ensure-public-webdata2 [service opts]))
+                         market-gateway/request-asset-contexts! (fn [deps opts]
+                                                                  (record! :request-asset-contexts [deps opts]))
+                         api-compat/fetch-asset-contexts! (fn [deps store* opts]
+                                                            (record! :fetch-asset-contexts [deps store* opts]))
+                         market-gateway/request-meta-and-asset-ctxs! (fn [deps dex opts]
+                                                                       (record! :request-meta-and-asset-ctxs [deps dex opts]))
+                         market-gateway/request-perp-dexs! (fn [deps opts]
+                                                             (record! :request-perp-dexs [deps opts]))
+                         api-compat/fetch-perp-dexs! (fn [deps store* opts]
+                                                       (record! :fetch-perp-dexs [deps store* opts]))
+                         market-gateway/request-candle-snapshot! (fn [deps coin opts]
+                                                                   (record! :request-candle-snapshot [deps coin opts]))
+                         api-compat/fetch-candle-snapshot! (fn [deps store* opts]
+                                                             (record! :fetch-candle-snapshot [deps store* opts]))
+                         order-endpoints/request-frontend-open-orders! (fn [post-info! address dex opts]
+                                                                         (record! :request-frontend-open-orders [post-info! address dex opts]))
+                         api-compat/fetch-frontend-open-orders! (fn [deps store* address opts]
+                                                                 (record! :fetch-frontend-open-orders [deps store* address opts]))
+                         order-gateway/request-user-fills! (fn [deps address opts]
+                                                            (record! :request-user-fills [deps address opts]))
+                         api-compat/fetch-user-fills! (fn [deps store* address opts]
+                                                        (record! :fetch-user-fills [deps store* address opts]))
+                         api-compat/fetch-historical-orders! (fn [deps address opts]
+                                                               (record! :fetch-historical-orders [deps address opts]))
+                         order-gateway/request-historical-orders! (fn [{:keys [request-historical-orders-data!]} address opts]
+                                                                   (request-historical-orders-data! address opts))
+                         account-gateway/request-user-funding-history-data! (fn [deps address opts]
+                                                                              ((:normalize-funding-history-filters deps) {:coin-set #{"BTC"}})
+                                                                              (record! :request-user-funding-history-data [deps address opts]))
+                         account-gateway/request-user-funding-history! (fn [{:keys [request-user-funding-history-data!]} address opts]
+                                                                         (request-user-funding-history-data! address opts))
+                         market-gateway/request-spot-meta! (fn [deps opts]
+                                                             (record! :request-spot-meta [deps opts]))
+                         api-compat/fetch-spot-meta! (fn [deps store* opts]
+                                                       (record! :fetch-spot-meta [deps store* opts]))
+                         market-gateway/request-public-webdata2! (fn [deps opts]
+                                                                   (record! :request-public-webdata2 [deps opts]))
+                         market-gateway/request-market-funding-history! (fn [deps coin opts]
+                                                                          (record! :request-market-funding-history [deps coin opts]))
+                         market-gateway/request-predicted-fundings! (fn [deps opts]
+                                                                      (record! :request-predicted-fundings [deps opts]))
+                         api-compat/ensure-perp-dexs! (fn [deps store* opts]
+                                                        ((:ensure-perp-dexs-data! deps) store* opts)
+                                                        (record! :ensure-perp-dexs [deps store* opts]))
+                         api-compat/ensure-spot-meta! (fn [deps store* opts]
+                                                        ((:ensure-spot-meta-data! deps) store* opts)
+                                                        (record! :ensure-spot-meta [deps store* opts]))
+                         api-compat/fetch-asset-selector-markets! (fn [deps store* opts]
+                                                                    (record! :fetch-asset-selector-markets [deps store* opts]))
+                         market-gateway/build-market-state (fn [now-ms-fn active-asset phase _dexs _spot-meta _spot-asset-ctxs _perp-results]
+                                                             (record! :build-market-state [active-asset phase (now-ms-fn)]))
+                         market-gateway/request-asset-selector-markets! (fn [{:keys [opts
+                                                                                      ensure-perp-dexs-data!
+                                                                                      ensure-spot-meta-data!
+                                                                                      ensure-public-webdata2!
+                                                                                      request-meta-and-asset-ctxs!
+                                                                                      build-market-state]}]
+                                                                          (ensure-perp-dexs-data! {:priority :high})
+                                                                          (ensure-spot-meta-data! {:priority :high})
+                                                                          (ensure-public-webdata2! {:priority :high})
+                                                                          (request-meta-and-asset-ctxs! "dex-a" {:priority :high})
+                                                                          (build-market-state "BTC" (:phase opts) [] {} {} [])
+                                                                          (record! :request-asset-selector-markets [opts]))
+                         api-compat/fetch-spot-clearinghouse-state! (fn [deps store* address opts]
+                                                                      (record! :fetch-spot-clearinghouse-state [deps store* address opts]))
+                         account-gateway/request-extra-agents! (fn [deps address opts]
+                                                                 (record! :request-extra-agents [deps address opts]))
+                         account-gateway/request-user-webdata2! (fn [deps address opts]
+                                                                  (record! :request-user-webdata2 [deps address opts]))
+                         account-gateway/request-staking-validator-summaries! (fn [deps opts]
+                                                                                (record! :request-staking-validator-summaries [deps opts]))
+                         account-gateway/request-staking-delegator-summary! (fn [deps address opts]
+                                                                              (record! :request-staking-delegator-summary [deps address opts]))
+                         account-gateway/request-staking-delegations! (fn [deps address opts]
+                                                                        (record! :request-staking-delegations [deps address opts]))
+                         account-gateway/request-staking-delegator-rewards! (fn [deps address opts]
+                                                                              (record! :request-staking-delegator-rewards [deps address opts]))
+                         account-gateway/request-staking-delegator-history! (fn [deps address opts]
+                                                                              (record! :request-staking-delegator-history [deps address opts]))
+                         account-gateway/request-spot-clearinghouse-state! (fn [deps address opts]
+                                                                              (record! :request-spot-clearinghouse-state [deps address opts]))
+                         api-compat/fetch-user-abstraction! (fn [deps store* address opts]
+                                                              (record! :fetch-user-abstraction [deps store* address opts]))
+                         account-gateway/request-user-abstraction! (fn [deps address opts]
+                                                                     (record! :request-user-abstraction [deps address opts]))
+                         account-gateway/request-clearinghouse-state! (fn [deps address dex opts]
+                                                                        (record! :request-clearinghouse-state [deps address dex opts]))
+                         vault-gateway/request-vault-index! (fn
                                                               ([deps]
-                                                               (record! :request-merged-vault-index [deps {}]))
+                                                               (record! :request-vault-index [deps {}]))
                                                               ([deps opts]
-                                                               (record! :request-merged-vault-index [deps opts])))
-                  vault-gateway/request-user-vault-equities! (fn [deps address opts]
-                                                               (record! :request-user-vault-equities [deps address opts]))
-                  vault-gateway/request-vault-details! (fn [deps vault-address opts]
-                                                        (record! :request-vault-details [deps vault-address opts]))
-                  vault-gateway/request-vault-webdata2! (fn [deps vault-address opts]
-                                                         (record! :request-vault-webdata2 [deps vault-address opts]))
-                  api-compat/fetch-clearinghouse-state! (fn [deps store* address dex opts]
-                                                          (record! :fetch-clearinghouse-state [deps store* address dex opts]))
-                  api-compat/fetch-perp-dex-clearinghouse-states! (fn [deps store* address dex-names opts]
-                                                                     ((:fetch-clearinghouse-state! deps) store* address (first dex-names) opts)
-                                                                     (record! :fetch-perp-dex-clearinghouse-states [deps store* address dex-names opts]))
-                  platform/now-ms (fn []
-                                    1700000000000)]
+                                                               (record! :request-vault-index [deps opts])))
+                         vault-gateway/request-vault-summaries! (fn [deps opts]
+                                                                  (record! :request-vault-summaries [deps opts]))
+                         vault-gateway/request-merged-vault-index! (fn
+                                                                     ([deps]
+                                                                      (record! :request-merged-vault-index [deps {}]))
+                                                                     ([deps opts]
+                                                                      (record! :request-merged-vault-index [deps opts])))
+                         vault-gateway/request-user-vault-equities! (fn [deps address opts]
+                                                                      (record! :request-user-vault-equities [deps address opts]))
+                         vault-gateway/request-vault-details! (fn [deps vault-address opts]
+                                                               (record! :request-vault-details [deps vault-address opts]))
+                         vault-gateway/request-vault-webdata2! (fn [deps vault-address opts]
+                                                                (record! :request-vault-webdata2 [deps vault-address opts]))
+                         api-compat/fetch-clearinghouse-state! (fn [deps store* address dex opts]
+                                                                 (record! :fetch-clearinghouse-state [deps store* address dex opts]))
+                         api-compat/fetch-perp-dex-clearinghouse-states! (fn [deps store* address dex-names opts]
+                                                                            ((:fetch-clearinghouse-state! deps) store* address (first dex-names) opts)
+                                                                            (record! :fetch-perp-dex-clearinghouse-states [deps store* address dex-names opts]))
+                         platform/now-ms (fn []
+                                           1700000000000)]
       (api/install-api-service! {:id :default-test-service})
 
       (is (= {:ok :make-api}

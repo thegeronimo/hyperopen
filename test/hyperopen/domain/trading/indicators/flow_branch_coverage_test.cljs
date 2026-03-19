@@ -1,4 +1,5 @@
 (ns hyperopen.domain.trading.indicators.flow-branch-coverage-test
+  (:require-macros [hyperopen.test-support.redefs :refer [with-direct-redefs]])
   (:require [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.domain.trading.indicators.flow.money :as money]
             [hyperopen.domain.trading.indicators.flow.volume :as volume]
@@ -42,12 +43,12 @@
 
 (deftest volume-oscillator-parse-period-branches-are-covered-test
   (let [captured-opts (atom nil)]
-    (with-redefs [math-engine/percentage-volume-oscillator
-                  (fn [_volume-values opts]
-                    (reset! captured-opts opts)
-                    {:pvoResult [1 2 3]
-                     :signal [3 2 1]
-                     :histogram [0 1 0]})]
+    (with-direct-redefs [math-engine/percentage-volume-oscillator
+                         (fn [_volume-values opts]
+                           (reset! captured-opts opts)
+                           {:pvoResult [1 2 3]
+                            :signal [3 2 1]
+                            :histogram [0 1 0]})]
       (let [result (volume/calculate-volume-oscillator support/sample-candles
                                                        {:fast "-5"
                                                         :slow "9999"
@@ -59,27 +60,27 @@
 
 (deftest money-family-parse-period-fallback-and-clamp-branches-test
   (let [captured (atom {})]
-    (with-redefs [math-engine/chaikin-money-flow
-                  (fn [_high _low _close _volume opts]
-                    (swap! captured assoc :cmf opts)
-                    [0.1 0.2 0.3])
-                  math-engine/chaikin-oscillator
-                  (fn [_high _low _close _volume opts]
-                    (swap! captured assoc :cmo opts)
-                    {:adResult [1 2 3]
-                     :cmoResult [3 2 1]})
-                  math-engine/ease-of-movement
-                  (fn [_high _low _volume opts]
-                    (swap! captured assoc :eom opts)
-                    [1 1 1])
-                  math-engine/elders-force-index
-                  (fn [_close _volume opts]
-                    (swap! captured assoc :efi opts)
-                    [2 2 2])
-                  math-engine/money-flow-index
-                  (fn [_high _low _close _volume opts]
-                    (swap! captured assoc :mfi opts)
-                    [3 3 3])]
+    (with-direct-redefs [math-engine/chaikin-money-flow
+                         (fn [_high _low _close _volume opts]
+                           (swap! captured assoc :cmf opts)
+                           [0.1 0.2 0.3])
+                         math-engine/chaikin-oscillator
+                         (fn [_high _low _close _volume opts]
+                           (swap! captured assoc :cmo opts)
+                           {:adResult [1 2 3]
+                            :cmoResult [3 2 1]})
+                         math-engine/ease-of-movement
+                         (fn [_high _low _volume opts]
+                           (swap! captured assoc :eom opts)
+                           [1 1 1])
+                         math-engine/elders-force-index
+                         (fn [_close _volume opts]
+                           (swap! captured assoc :efi opts)
+                           [2 2 2])
+                         math-engine/money-flow-index
+                         (fn [_high _low _close _volume opts]
+                           (swap! captured assoc :mfi opts)
+                           [3 3 3])]
       (testing "nil params use defaults"
         (is (= :chaikin-money-flow
                (:type (money/calculate-chaikin-money-flow support/sample-candles nil))))
