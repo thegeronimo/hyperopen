@@ -7,6 +7,7 @@
             [hyperopen.views.chart.d3.model :as chart-d3-model]
             [hyperopen.views.chart.d3.runtime :as chart-d3-runtime]
             [hyperopen.views.chart.renderer :as chart-renderer]
+            [hyperopen.views.ui.performance-metrics-tooltip :as metrics-tooltip]
             [hyperopen.views.portfolio.vm.chart-tooltip :as chart-tooltip]
             [hyperopen.views.portfolio.vm :as portfolio-vm]))
 
@@ -148,95 +149,6 @@
              :fill "currentColor"
              :stroke "none"}]])
 
-(defn- estimated-banner-tooltip
-  [reasons data-role]
-  [:div {:class ["pointer-events-none"
-                 "absolute"
-                 "left-0"
-                 "top-full"
-                 "z-50"
-                 "mt-2"
-                 "max-w-[min(420px,calc(100vw-2rem))]"
-                 "opacity-0"
-                 "transition-opacity"
-                 "duration-100"
-                 "group-hover:opacity-100"
-                 "group-focus-within:opacity-100"]
-         :data-role (when data-role
-                      (str data-role "-tooltip"))}
-   [:div {:class ["relative"
-                  "rounded-lg"
-                  "border"
-                  "border-base-300"
-                  "bg-gray-800"
-                  "px-3"
-                  "py-2.5"
-                  "text-left"
-                  "text-xs"
-                  "leading-5"
-                  "text-gray-100"
-                  "spectate-lg"
-                  "whitespace-normal"]
-          :role "tooltip"}
-    [:div {:class ["text-xs" "font-medium" "uppercase" "tracking-[0.18em]" "text-[#8ea1b3]"]}
-     "Estimation Method"]
-    [:div {:class ["mt-1.5" "text-xs" "leading-5" "text-gray-100"]}
-     "Estimated rows stay visible when the selected range does not meet the usual reliability gates."]
-    (when (seq reasons)
-      [:ul {:class ["mt-2" "space-y-1" "pl-4" "list-disc" "text-[#c7d4da]"]}
-       (for [reason reasons]
-         ^{:key (str data-role "-reason-" (name reason))}
-         [:li (low-confidence-metric-title reason)])])
-    [:div {:class ["absolute"
-                   "bottom-full"
-                   "left-5"
-                   "h-0"
-                   "w-0"
-                   "border-4"
-                   "border-transparent"
-                   "border-b-gray-800"]}]]])
-
-(defn- metric-label-tooltip
-  [label description data-role]
-  (when (seq description)
-    [:div {:class ["pointer-events-none"
-                   "absolute"
-                   "left-0"
-                   "top-full"
-                   "z-50"
-                   "mt-2"
-                   "w-[min(420px,calc(100vw-2rem))]"
-                   "min-w-[280px]"
-                   "opacity-0"
-                   "transition-opacity"
-                   "duration-100"
-                   "group-hover:opacity-100"]
-           :data-role (when data-role
-                        (str data-role "-tooltip"))}
-     [:div {:class ["relative"
-                    "rounded-lg"
-                    "border"
-                    "border-base-300"
-                    "bg-gray-800"
-                    "px-3"
-                    "py-2.5"
-                    "text-left"
-                    "spectate-lg"
-                    "whitespace-normal"]
-            :role "tooltip"}
-      [:div {:class ["text-xs" "font-medium" "uppercase" "tracking-[0.18em]" "text-[#8ea1b3]"]}
-       label]
-      [:div {:class ["mt-1.5" "text-xs" "leading-5" "text-gray-100"]}
-       description]
-      [:div {:class ["absolute"
-                     "bottom-full"
-                     "left-5"
-                     "h-0"
-                     "w-0"
-                     "border-4"
-                     "border-transparent"
-                     "border-b-gray-800"]}]]]))
-
 (defn- estimated-metrics-banner
   [reasons]
   (when-let [summary (low-confidence-banner-summary reasons)]
@@ -254,7 +166,9 @@
       (low-confidence-info-icon ["mt-0.5" "h-4" "w-4" "shrink-0" "text-[#7fb5ff]"])
       [:div {:class ["min-w-0" "text-sm" "leading-5" "text-[#d5e4ff]"]}
        summary]]
-     (estimated-banner-tooltip reasons "portfolio-performance-metrics-estimated-banner")]))
+     (metrics-tooltip/estimated-banner-tooltip reasons
+                                               "portfolio-performance-metrics-estimated-banner"
+                                               low-confidence-metric-title)]))
 
 (defn- format-drawdown [ratio]
   (if (number? ratio)
@@ -1006,9 +920,9 @@
         [:span {:class ["text-xs" "font-semibold" "leading-none" "text-[#7fb5ff]"]
                 :data-role (str "portfolio-performance-metric-" (name key) "-estimated-mark")}
          "~"])
-      (metric-label-tooltip label
-                            description
-                            (str "portfolio-performance-metric-" (name key) "-label"))]
+      (metrics-tooltip/metric-label-tooltip label
+                                            description
+                                            (str "portfolio-performance-metric-" (name key) "-label"))]
      (for [{:keys [coin]} benchmark-columns]
        (let [cell-data-role (str "portfolio-performance-metric-" (name key) "-benchmark-value-" coin)]
          ^{:key (str "portfolio-performance-metric-" (name key) "-benchmark-" coin)}

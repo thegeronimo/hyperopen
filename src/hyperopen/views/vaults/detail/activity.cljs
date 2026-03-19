@@ -1,5 +1,6 @@
 (ns hyperopen.views.vaults.detail.activity
   (:require [clojure.string :as str]
+            [hyperopen.views.ui.performance-metrics-tooltip :as metrics-tooltip]
             [hyperopen.views.vaults.detail.chart-view :as chart]
             [hyperopen.views.vaults.detail.format :as vf]
             [hyperopen.wallet.core :as wallet]))
@@ -124,95 +125,6 @@
              :fill "currentColor"
              :stroke "none"}]])
 
-(defn- estimated-banner-tooltip
-  [reasons data-role]
-  [:div {:class ["pointer-events-none"
-                 "absolute"
-                 "left-0"
-                 "top-full"
-                 "z-50"
-                 "mt-2"
-                 "max-w-[min(420px,calc(100vw-2rem))]"
-                 "opacity-0"
-                 "transition-opacity"
-                 "duration-100"
-                 "group-hover:opacity-100"
-                 "group-focus-within:opacity-100"]
-         :data-role (when data-role
-                      (str data-role "-tooltip"))}
-   [:div {:class ["relative"
-                  "rounded-lg"
-                  "border"
-                  "border-[#2b5562]"
-                  "bg-[#081923]"
-                  "px-3"
-                  "py-2.5"
-                  "text-left"
-                  "text-xs"
-                  "leading-5"
-                  "text-[#d7e9ed]"
-                  "spectate-lg"
-                  "whitespace-normal"]
-          :role "tooltip"}
-    [:div {:class ["text-xs" "font-medium" "uppercase" "tracking-[0.18em]" "text-[#8fb2bc]"]}
-     "Estimation Method"]
-    [:div {:class ["mt-1.5" "text-xs" "leading-5" "text-[#d7e9ed]"]}
-     "Estimated rows stay visible when the selected range does not meet the usual reliability gates."]
-    (when (seq reasons)
-      [:ul {:class ["mt-2" "space-y-1" "pl-4" "list-disc" "text-[#bcd2d7]"]}
-       (for [reason reasons]
-         ^{:key (str data-role "-reason-" (name reason))}
-         [:li (low-confidence-metric-title reason)])])
-    [:div {:class ["absolute"
-                   "bottom-full"
-                   "left-5"
-                   "h-0"
-                   "w-0"
-                   "border-4"
-                   "border-transparent"
-                   "border-b-[#081923]"]}]]])
-
-(defn- metric-label-tooltip
-  [label description data-role]
-  (when (seq description)
-    [:div {:class ["pointer-events-none"
-                   "absolute"
-                   "left-0"
-                   "top-full"
-                   "z-50"
-                   "mt-2"
-                   "w-[min(420px,calc(100vw-2rem))]"
-                   "min-w-[280px]"
-                   "opacity-0"
-                   "transition-opacity"
-                   "duration-100"
-                   "group-hover:opacity-100"]
-           :data-role (when data-role
-                        (str data-role "-tooltip"))}
-     [:div {:class ["relative"
-                    "rounded-lg"
-                    "border"
-                    "border-[#2b5562]"
-                    "bg-[#081923]"
-                    "px-3"
-                    "py-2.5"
-                    "text-left"
-                    "spectate-lg"
-                    "whitespace-normal"]
-            :role "tooltip"}
-      [:div {:class ["text-xs" "font-medium" "uppercase" "tracking-[0.18em]" "text-[#8fb2bc]"]}
-       label]
-      [:div {:class ["mt-1.5" "text-xs" "leading-5" "text-[#d7e9ed]"]}
-       description]
-      [:div {:class ["absolute"
-                     "bottom-full"
-                     "left-5"
-                     "h-0"
-                     "w-0"
-                     "border-4"
-                     "border-transparent"
-                     "border-b-[#081923]"]}]]]))
-
 (defn- estimated-metrics-banner
   [reasons]
   (when-let [summary (low-confidence-banner-summary reasons)]
@@ -230,7 +142,9 @@
       (low-confidence-info-icon ["mt-0.5" "h-4" "w-4" "shrink-0" "text-[#8fc7ff]"])
       [:div {:class ["min-w-0" "text-sm" "leading-5" "text-[#d5e8ff]"]}
        summary]]
-     (estimated-banner-tooltip reasons "vault-detail-performance-metrics-estimated-banner")]))
+     (metrics-tooltip/estimated-banner-tooltip reasons
+                                               "vault-detail-performance-metrics-estimated-banner"
+                                               low-confidence-metric-title)]))
 
 (defn- performance-metric-value-cell
   ([kind value]
@@ -361,9 +275,9 @@
         [:span {:class ["text-xs" "font-semibold" "leading-none" "text-[#8fc7ff]"]
                 :data-role (str "vault-detail-performance-metric-" (name key) "-estimated-mark")}
          "~"])
-      (metric-label-tooltip label
-                            description
-                            (str "vault-detail-performance-metric-" (name key) "-label"))]
+      (metrics-tooltip/metric-label-tooltip label
+                                            description
+                                            (str "vault-detail-performance-metric-" (name key) "-label"))]
      (for [{:keys [coin]} benchmark-columns]
        (let [cell-data-role (str "vault-detail-performance-metric-" (name key) "-benchmark-value-" coin)]
          ^{:key (str "vault-detail-performance-metric-" (name key) "-benchmark-" coin)}

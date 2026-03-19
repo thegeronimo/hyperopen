@@ -154,9 +154,13 @@
         estimated-banner-tooltip (hiccup/find-first-node view
                                                          #(= "vault-detail-performance-metrics-estimated-banner-tooltip"
                                                              (get-in % [1 :data-role])))
+        estimated-banner-panel (hiccup/find-first-node estimated-banner-tooltip
+                                                       #(= "tooltip" (get-in % [1 :role])))
         omega-label-tooltip (hiccup/find-first-node view
                                                     #(= "vault-detail-performance-metric-omega-label-tooltip"
                                                         (get-in % [1 :data-role])))
+        omega-label-tooltip-panel (hiccup/find-first-node omega-label-tooltip
+                                                          #(= "tooltip" (get-in % [1 :role])))
         estimated-mark (hiccup/find-first-node view
                                                #(= "vault-detail-performance-metric-omega-estimated-mark"
                                                    (get-in % [1 :data-role])))
@@ -196,10 +200,14 @@
                    "Estimated rows stay visible when the selected range does not meet the usual reliability gates."))
     (is (contains? (set (hiccup/collect-strings estimated-banner-tooltip))
                    "Estimated from incomplete daily coverage."))
+    (is (contains? (hiccup/node-class-set estimated-banner-panel) "border-base-300"))
+    (is (contains? (hiccup/node-class-set estimated-banner-panel) "bg-gray-800"))
     (is (contains? (set (hiccup/collect-strings omega-label-tooltip))
                    "Omega"))
     (is (contains? (set (hiccup/collect-strings omega-label-tooltip))
                    "Ratio of gains above the target return to losses below it."))
+    (is (contains? (hiccup/node-class-set omega-label-tooltip-panel) "border-base-300"))
+    (is (contains? (hiccup/node-class-set omega-label-tooltip-panel) "bg-gray-800"))
     (is (= "~" (first (hiccup/collect-strings estimated-mark))))
     (is (contains? (set (get-in vault-low-confidence-cell [1 :class]))
                    "text-[#9fb4bb]"))
