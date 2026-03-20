@@ -88,18 +88,27 @@
       (* 100 n)
       n)))
 
+(def ^:private default-snapshot-range-keys
+  [:month :week :all-time :day])
+
+(def ^:private extended-snapshot-range-keys
+  [:all-time :month :week :day])
+
+(def ^:private snapshot-range-keys-by-range
+  {:day [:day :week :month :all-time]
+   :week [:week :month :all-time :day]
+   :month default-snapshot-range-keys
+   :three-month extended-snapshot-range-keys
+   :six-month extended-snapshot-range-keys
+   :one-year extended-snapshot-range-keys
+   :two-year extended-snapshot-range-keys
+   :all-time extended-snapshot-range-keys})
+
 (defn- snapshot-range-keys
   [snapshot-range]
-  (case (vault-ui-state/normalize-vault-snapshot-range snapshot-range)
-    :day [:day :week :month :all-time]
-    :week [:week :month :all-time :day]
-    :month [:month :week :all-time :day]
-    :three-month [:all-time :month :week :day]
-    :six-month [:all-time :month :week :day]
-    :one-year [:all-time :month :week :day]
-    :two-year [:all-time :month :week :day]
-    :all-time [:all-time :month :week :day]
-    [:month :week :all-time :day]))
+  (get snapshot-range-keys-by-range
+       (vault-ui-state/normalize-vault-snapshot-range snapshot-range)
+       default-snapshot-range-keys))
 
 (defn- snapshot-series-for-range
   [row snapshot-range]

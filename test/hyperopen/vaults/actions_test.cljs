@@ -475,3 +475,52 @@
                                                 :withdraw-all? false})]
     (is (true? (:ok? result)))
     (is (= 2500000 (get-in result [:request :action :usd])))))
+
+(deftest set-and-clear-vault-detail-chart-hover-test
+  (is (= [[:effects/save [:vaults-ui :detail-chart-hover-index] 2]]
+         (actions/set-vault-detail-chart-hover
+          {}
+          140
+          {:left 100
+           :width 80}
+          5)))
+  (is (= [[:effects/save [:vaults-ui :detail-chart-hover-index] 4]]
+         (actions/set-vault-detail-chart-hover
+          {}
+          1000
+          {:left 100
+           :width 80}
+          5)))
+  (is (= []
+         (actions/set-vault-detail-chart-hover
+          {:vaults-ui {:detail-chart-hover-index 4}}
+          1000
+          {:left 100
+           :width 80}
+          5)))
+  (is (= []
+         (actions/set-vault-detail-chart-hover
+          {:vaults-ui {:detail-chart-hover-index 2}}
+          nil
+          {:left 100
+           :width 80}
+          5)))
+  (is (= [[:effects/save [:vaults-ui :detail-chart-hover-index] 0]]
+         (actions/set-vault-detail-chart-hover
+          {:vaults-ui {:detail-chart-hover-index nil}}
+          nil
+          nil
+          5)))
+  (is (= []
+         (actions/set-vault-detail-chart-hover
+          {:vaults-ui {:detail-chart-hover-index 2}}
+          nil
+          {:left 100
+           :width 0}
+          5)))
+  (is (= [[:effects/save [:vaults-ui :detail-chart-hover-index] nil]]
+         (actions/clear-vault-detail-chart-hover
+          {:vaults-ui {:detail-chart-hover-index 1}})))
+  (is (= []
+         (actions/clear-vault-detail-chart-hover
+          {:vaults-ui {:detail-chart-hover-index nil}}))))

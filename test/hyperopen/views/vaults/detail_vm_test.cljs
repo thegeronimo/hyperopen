@@ -481,6 +481,30 @@
     (is (= 1 (count (:activity-deposits-withdrawals vm))))
     (is (= 3 (get-in vm [:activity-summary :fill-count])))))
 
+(deftest vault-detail-vm-collates-loading-and-errors-across-component-history-addresses-test
+  (let [child-address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        state (-> sample-state
+                  (assoc-in [:vaults :details-by-address "0x1234567890abcdef1234567890abcdef12345678" :relationship]
+                            {:type :parent
+                             :child-addresses [child-address]})
+                  (assoc-in [:vaults :loading :fills-by-vault child-address] true)
+                  (assoc-in [:vaults :loading :funding-history-by-vault child-address] true)
+                  (assoc-in [:vaults :loading :order-history-by-vault child-address] true)
+                  (assoc-in [:vaults :loading :ledger-updates-by-vault "0x1234567890abcdef1234567890abcdef12345678"] true)
+                  (assoc-in [:vaults :errors :fills-by-vault child-address] "fill error")
+                  (assoc-in [:vaults :errors :funding-history-by-vault child-address] "funding error")
+                  (assoc-in [:vaults :errors :order-history-by-vault child-address] "order error")
+                  (assoc-in [:vaults :errors :ledger-updates-by-vault "0x1234567890abcdef1234567890abcdef12345678"] "ledger error"))
+        vm (detail-vm/vault-detail-vm state)]
+    (is (true? (get-in vm [:activity-loading :trade-history])))
+    (is (true? (get-in vm [:activity-loading :funding-history])))
+    (is (true? (get-in vm [:activity-loading :order-history])))
+    (is (true? (get-in vm [:activity-loading :deposits-withdrawals])))
+    (is (= "fill error" (get-in vm [:activity-errors :trade-history])))
+    (is (= "funding error" (get-in vm [:activity-errors :funding-history])))
+    (is (= "order error" (get-in vm [:activity-errors :order-history])))
+    (is (= "ledger error" (get-in vm [:activity-errors :deposits-withdrawals])))))
+
 (deftest vault-detail-vm-accepts-injected-now-ms-for-deterministic-twap-runtime-test
   (let [state (assoc-in sample-state
                         [:vaults :webdata-by-vault "0x1234567890abcdef1234567890abcdef12345678" :twapStates]

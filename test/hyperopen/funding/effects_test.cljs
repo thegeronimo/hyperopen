@@ -26,6 +26,43 @@
     (is (= :eth (normalize-asset-key :eth)))
     (is (nil? (normalize-asset-key 42)))))
 
+(deftest funding-effect-protocol-address-validation-covers-supported-and-mismatched-source-shapes-test
+  (let [protocol-address-matches-source-chain?
+        @#'hyperopen.funding.effects/protocol-address-matches-source-chain?]
+    (is (true? (protocol-address-matches-source-chain?
+                "bitcoin"
+                "bc1qpz0qv7jw4x3kg8qdpv9k7n4kl2f5dx6n9d5p3s")))
+    (is (true? (protocol-address-matches-source-chain?
+                "bitcoin"
+                "tb1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq8m4h69")))
+    (is (true? (protocol-address-matches-source-chain?
+                "bitcoin"
+                "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy")))
+    (is (true? (protocol-address-matches-source-chain?
+                "ethereum"
+                "0x1111111111111111111111111111111111111111")))
+    (is (true? (protocol-address-matches-source-chain?
+                "monad"
+                "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")))
+    (is (true? (protocol-address-matches-source-chain?
+                "plasma"
+                "0x2222222222222222222222222222222222222222")))
+    (is (true? (protocol-address-matches-source-chain?
+                "solana"
+                "So11111111111111111111111111111111111111112")))
+    (is (false? (protocol-address-matches-source-chain?
+                 "ethereum"
+                 "bc1qpz0qv7jw4x3kg8qdpv9k7n4kl2f5dx6n9d5p3s")))
+    (is (false? (protocol-address-matches-source-chain?
+                 "solana"
+                 "0x1111111111111111111111111111111111111111")))
+    (is (false? (protocol-address-matches-source-chain?
+                 "unknown"
+                 "0x1111111111111111111111111111111111111111")))
+    (is (false? (protocol-address-matches-source-chain?
+                 "bitcoin"
+                 "   ")))))
+
 (deftest funding-effect-unit-and-error-helpers-cover-numeric-and-message-fallbacks-test
   (let [parse-usdc-units @#'hyperopen.funding.effects/parse-usdc-units
         parse-usdh-units @#'hyperopen.funding.effects/parse-usdh-units

@@ -40,23 +40,28 @@
     (and (seq token)
          (str/starts-with? token "USDC"))))
 
+(defn- direct-balance-row-available
+  [row]
+  (some optional-number
+        [(:available row)
+         (:availableBalance row)
+         (:free row)]))
+
+(defn- derived-balance-row-available
+  [row]
+  (let [total (or (optional-number (:total row))
+                  (optional-number (:totalBalance row)))
+        hold (optional-number (:hold row))]
+    (when (number? total)
+      (if (number? hold)
+        (- total hold)
+        total))))
+
 (defn- balance-row-available
   [row]
   (when (map? row)
-    (let [available-direct (or (optional-number (:available row))
-                               (optional-number (:availableBalance row))
-                               (optional-number (:free row)))
-          total (or (optional-number (:total row))
-                    (optional-number (:totalBalance row)))
-          hold (optional-number (:hold row))
-          available-derived (cond
-                              (number? total)
-                              (if (number? hold)
-                                (- total hold)
-                                total)
-
-                              :else nil)
-          available (or available-direct available-derived)]
+    (let [available (or (direct-balance-row-available row)
+                        (derived-balance-row-available row))]
       (when (number? available)
         (max 0 available)))))
 

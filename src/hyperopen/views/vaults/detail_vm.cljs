@@ -373,66 +373,60 @@
                                            :model model})
         model))))
 
-(defn vault-detail-vm
-  ([state]
-   (vault-detail-vm state {:now-ms (.now js/Date)}))
-  ([state {:keys [now-ms]}]
-   (let [now-ms* (or (optional-number now-ms)
-                     (.now js/Date))
-         route (get-in state [:router :path])
-         {:keys [kind vault-address]} (vault-routes/parse-vault-route route)
-         viewer-address (account-context/effective-account-address state)
-        detail-tab (vault-ui-state/normalize-vault-detail-tab
-                    (get-in state [:vaults-ui :detail-tab]))
-        activity-tab (vault-ui-state/normalize-vault-detail-activity-tab
-                      (get-in state [:vaults-ui :detail-activity-tab]))
-        chart-series (vault-ui-state/normalize-vault-detail-chart-series
-                      (get-in state [:vaults-ui :detail-chart-series]))
-        snapshot-range (vault-ui-state/normalize-vault-snapshot-range
-                        (get-in state [:vaults-ui :snapshot-range]))
-        detail-loading? (true? (get-in state [:vaults-ui :detail-loading?]))
-        details-base (get-in state [:vaults :details-by-address vault-address])
-        viewer-details (viewer-details-by-address state vault-address viewer-address)
-        details (merge (or details-base {})
-                       (or viewer-details {}))
-        row (row-by-address state vault-address)
-        webdata (get-in state [:vaults :webdata-by-vault vault-address])
-        user-equity (get-in state [:vaults :user-equity-by-address vault-address])
-        viewer-follower (viewer-follower-row details viewer-address)
-        relationship (or (:relationship details)
-                         (:relationship row)
-                         {:type :normal})
-        history-addresses (activity-addresses vault-address relationship)
-        fills-source (let [rows (concat-address-rows state [:vaults :fills-by-vault] history-addresses)]
-                       (if (seq rows)
-                         rows
-                         (or (:fills webdata)
-                             (:userFills webdata)
-                             (get-in webdata [:data :fills])
-                             (get-in webdata [:data :userFills]))))
-        funding-source (let [rows (concat-address-rows state [:vaults :funding-history-by-vault] history-addresses)]
-                         (if (seq rows)
-                           rows
-                           (or (:fundings webdata)
-                               (:userFundings webdata)
-                               (:funding-history webdata)
-                               (get-in webdata [:data :fundings])
-                               (get-in webdata [:data :userFundings]))))
-        order-history-source (let [rows (concat-address-rows state [:vaults :order-history-by-vault] history-addresses)]
-                               (if (seq rows)
-                                 rows
-                                 (or (:order-history webdata)
-                                     (:orderHistory webdata)
-                                     (:historicalOrders webdata)
-                                     (get-in webdata [:data :order-history])
-                                     (get-in webdata [:data :orderHistory])
-                                     (get-in webdata [:data :historicalOrders]))))
-        ledger-source (or (get-in state [:vaults :ledger-updates-by-vault vault-address])
-                          (:depositsWithdrawals webdata)
-                          (:nonFundingLedgerUpdates webdata)
-                          (get-in webdata [:data :depositsWithdrawals])
-                          (get-in webdata [:data :nonFundingLedgerUpdates]))
-        tvl (or (optional-number (:tvl details))
+(defn- resolve-webdata-source
+  [webdata fallback-paths]
+  (some (fn [path]
+          (get-in webdata path))
+        fallback-paths))
+
+(defn- preferred-history-source
+  [state state-path addresses webdata fallback-paths]
+  (let [rows (concat-address-rows state state-path addresses)]
+    (if (seq rows)
+      rows
+      (resolve-webdata-source webdata fallback-paths))))
+
+(defn- detail-activity-sources
+  [state vault-address relationship webdata]
+  (let [history-addresses (activity-addresses vault-address relationship)]
+    {:history-addresses history-addresses
+     :fills-source (preferred-history-source state
+                                             [:vaults :fills-by-vault]
+                                             history-addresses
+                                             webdata
+                                             [[:fills]
+                                              [:userFills]
+                                              [:data :fills]
+                                              [:data :userFills]])
+     :funding-source (preferred-history-source state
+                                               [:vaults :funding-history-by-vault]
+                                               history-addresses
+                                               webdata
+                                               [[:fundings]
+                                                [:userFundings]
+                                                [:funding-history]
+                                                [:data :fundings]
+                                                [:data :userFundings]])
+     :order-history-source (preferred-history-source state
+                                                     [:vaults :order-history-by-vault]
+                                                     history-addresses
+                                                     webdata
+                                                     [[:order-history]
+                                                      [:orderHistory]
+                                                      [:historicalOrders]
+                                                      [:data :order-history]
+                                                      [:data :orderHistory]
+                                                      [:data :historicalOrders]])
+     :ledger-source (or (get-in state [:vaults :ledger-updates-by-vault vault-address])
+                        (resolve-webdata-source webdata
+                                                [[:depositsWithdrawals]
+                                                 [:nonFundingLedgerUpdates]
+                                                 [:data :depositsWithdrawals]
+                                                 [:data :nonFundingLedgerUpdates]]))}))
+
+(defn- detail-metrics-context
+  [state details row user-equity viewer-follower]
+  (let [tvl (or (optional-number (:tvl details))
                 (optional-number (:tvl row))
                 0)
         apr (or (optional-number (:apr details))
@@ -447,18 +441,53 @@
                          (optional-number (:vault-equity viewer-follower))
                          (optional-number (get-in details [:follower-state :vault-equity])))
         all-time-earned (or (optional-number (:all-time-pnl viewer-follower))
-                            (optional-number (get-in details [:follower-state :all-time-pnl])))
-        vault-name (or (non-blank-text (:name details))
-                       (non-blank-text (:name row))
-                       vault-address
-                       "Vault")
-        vault-transfer (transfer-model/read-model state {:vault-address vault-address
-                                                         :vault-name vault-name
-                                                         :details details
-                                                         :webdata webdata})
-        wallet-address (vault-identity/normalize-vault-address (get-in state [:wallet :address]))
-        agent-ready? (= :ready (get-in state [:wallet :agent :status]))
-        summary (cached-portfolio-summary details-base viewer-details snapshot-range)
+                            (optional-number (get-in details [:follower-state :all-time-pnl])))]
+    {:tvl tvl
+     :apr apr
+     :return-for-range return-for-range
+     :month-return month-return
+     :your-deposit your-deposit
+     :all-time-earned all-time-earned}))
+
+(defn- resolve-vault-name
+  [details row vault-address]
+  (or (non-blank-text (:name details))
+      (non-blank-text (:name row))
+      vault-address
+      "Vault"))
+
+(defn- build-benchmark-series
+  [selected-series selected-benchmark-coins benchmark-label-by-coin benchmark-points-by-coin]
+  (if (= selected-series :returns)
+    (mapv (fn [idx coin]
+            {:id (keyword (str "benchmark-" idx))
+             :coin coin
+             :label (or (get benchmark-label-by-coin coin)
+                        coin)
+             :stroke (chart-model/benchmark-series-stroke idx)
+             :raw-points (vec (or (get benchmark-points-by-coin coin) []))})
+          (range)
+          selected-benchmark-coins)
+    []))
+
+(defn- build-benchmark-context
+  [strategy-return-points benchmark-points-by-coin selected-benchmark-coins]
+  (let [strategy-cumulative-rows (performance-model/cumulative-rows strategy-return-points)
+        benchmark-cumulative-rows-by-coin
+        (into {}
+              (map (fn [coin]
+                     [coin (performance-model/cumulative-rows
+                            (get benchmark-points-by-coin coin))]))
+              selected-benchmark-coins)]
+    {:strategy-cumulative-rows strategy-cumulative-rows
+     :benchmark-cumulative-rows-by-coin benchmark-cumulative-rows-by-coin
+     :strategy-source-version (sampled-series-source-version strategy-cumulative-rows)
+     :benchmark-source-version-map (benchmark-source-version-map benchmark-cumulative-rows-by-coin
+                                                                selected-benchmark-coins)}))
+
+(defn- build-vault-detail-chart-section
+  [state snapshot-range activity-tab chart-series details-base viewer-details metrics-context]
+  (let [summary (cached-portfolio-summary details-base viewer-details snapshot-range)
         returns-benchmark-selector (benchmarks-model/returns-benchmark-selector-model state)
         series-by-key (cached-chart-series-data state summary)
         selected-series (resolve-chart-series series-by-key chart-series)
@@ -475,17 +504,10 @@
                                                                strategy-return-points
                                                                selected-benchmark-coins
                                                                benchmark-points-by-coin)
-        benchmark-series (if (= selected-series :returns)
-                           (mapv (fn [idx coin]
-                                   {:id (keyword (str "benchmark-" idx))
-                                    :coin coin
-                                    :label (or (get benchmark-label-by-coin coin)
-                                               coin)
-                                    :stroke (chart-model/benchmark-series-stroke idx)
-                                    :raw-points (vec (or (get benchmark-points-by-coin coin) []))})
-                                 (range)
-                                 selected-benchmark-coins)
-                           [])
+        benchmark-series (build-benchmark-series selected-series
+                                                 selected-benchmark-coins
+                                                 benchmark-label-by-coin
+                                                 benchmark-points-by-coin)
         raw-series (cond-> [{:id :strategy
                              :label "Vault"
                              :stroke (chart-model/strategy-series-stroke selected-series)
@@ -498,23 +520,14 @@
                                                      :include-svg-paths? (not (chart-renderer/d3-performance-chart? :vaults))})
         series (:series chart-model*)
         strategy-series (:strategy-series chart-model*)
-        chart-points (:points chart-model*)
         hover (:hover chart-model*)
         hover-tooltip (chart-tooltip/build-chart-hover-tooltip snapshot-range
                                                               selected-series
                                                               hover
                                                               series)
-        strategy-cumulative-rows (performance-model/cumulative-rows strategy-return-points)
-        benchmark-cumulative-rows-by-coin (into {}
-                                                (map (fn [coin]
-                                                       [coin (performance-model/cumulative-rows
-                                                              (get benchmark-points-by-coin coin))]))
-                                                selected-benchmark-coins)
-        benchmark-context {:strategy-cumulative-rows strategy-cumulative-rows
-                           :benchmark-cumulative-rows-by-coin benchmark-cumulative-rows-by-coin
-                           :strategy-source-version (sampled-series-source-version strategy-cumulative-rows)
-                           :benchmark-source-version-map (benchmark-source-version-map benchmark-cumulative-rows-by-coin
-                                                                                      selected-benchmark-coins)}
+        benchmark-context (build-benchmark-context strategy-return-points
+                                                   benchmark-points-by-coin
+                                                   selected-benchmark-coins)
         performance-metrics-base (cached-performance-metrics-model state
                                                                    snapshot-range
                                                                    returns-benchmark-selector
@@ -522,17 +535,48 @@
         performance-metrics (assoc performance-metrics-base
                                    :loading? (or benchmark-history-loading?
                                                  (:loading? performance-metrics-base)))
-        detail-error (get-in state [:vaults :errors :details-by-address vault-address])
-        webdata-error (get-in state [:vaults :errors :webdata-by-vault vault-address])
-        fills-error (first-address-error state :fills-by-vault history-addresses)
-        funding-error (first-address-error state :funding-history-by-vault history-addresses)
-        order-history-error (first-address-error state :order-history-by-vault history-addresses)
-        ledger-error (get-in state [:vaults :errors :ledger-updates-by-vault vault-address])
+        return-for-range (:return-for-range metrics-context)
+        month-return (:month-return metrics-context)]
+    {:background-status (background-status-model benchmark-history-loading?)
+     :snapshot-range snapshot-range
+     :snapshot {:day (return-for-range :day)
+                :week (return-for-range :week)
+                :month month-return
+                :all-time (return-for-range :all-time)}
+     :performance-metrics (assoc performance-metrics
+                                 :timeframe-options chart-timeframe-options
+                                 :selected-timeframe snapshot-range
+                                 :timeframe-menu-open? (true? (get-in state [:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?])))
+     :chart {:axis-kind (case selected-series
+                          :pnl :pnl
+                          :returns :returns
+                          :account-value :account-value
+                          :account-value)
+             :series-tabs [{:value :returns
+                            :label "Returns"}
+                           {:value :account-value
+                            :label "Account Value"}
+                           {:value :pnl
+                            :label "PNL"}]
+             :timeframe-options chart-timeframe-options
+             :timeframe-menu-open? (true? (get-in state [:vaults-ui :detail-chart-timeframe-dropdown-open?]))
+             :selected-timeframe snapshot-range
+             :selected-series selected-series
+             :returns-benchmark returns-benchmark-selector
+             :hover hover
+             :hover-tooltip hover-tooltip
+             :y-ticks (:y-ticks chart-model*)
+             :points (:points chart-model*)
+             :path (:path strategy-series)
+             :series series}}))
+
+(defn- build-vault-detail-activity-section
+  [state details webdata vault-address now-ms activity-tab activity-sources]
+  (let [{:keys [history-addresses fills-source funding-source order-history-source ledger-source]}
+        activity-sources
         activity-direction-filter (activity-model/normalize-direction-filter
                                    (get-in state [:vaults-ui :detail-activity-direction-filter]))
         activity-filter-open? (true? (get-in state [:vaults-ui :detail-activity-filter-open?]))
-        chart-timeframe-menu-open? (true? (get-in state [:vaults-ui :detail-chart-timeframe-dropdown-open?]))
-        performance-metrics-timeframe-menu-open? (true? (get-in state [:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?]))
         activity-tabs* activity-model/tabs
         activity-columns-by-tab (activity-model/columns-by-tab)
         activity-sort-state-by-tab (into {}
@@ -547,7 +591,7 @@
         positions-raw (webdata-adapter/positions webdata)
         open-orders-raw (webdata-adapter/open-orders webdata)
         balances-raw (webdata-adapter/balances webdata)
-        twaps-raw (webdata-adapter/twaps webdata now-ms*)
+        twaps-raw (webdata-adapter/twaps webdata now-ms)
         fills-raw (webdata-adapter/fills fills-source)
         funding-history-raw (webdata-adapter/funding-history funding-source)
         order-history-raw (webdata-adapter/order-history order-history-source)
@@ -571,10 +615,10 @@
                           :funding-history (address-loading? state :funding-history-by-vault history-addresses)
                           :order-history (address-loading? state :order-history-by-vault history-addresses)
                           :deposits-withdrawals (true? (get-in state [:vaults :loading :ledger-updates-by-vault vault-address]))}
-        activity-errors {:trade-history fills-error
-                         :funding-history funding-error
-                         :order-history order-history-error
-                         :deposits-withdrawals ledger-error}
+        activity-errors {:trade-history (first-address-error state :fills-by-vault history-addresses)
+                         :funding-history (first-address-error state :funding-history-by-vault history-addresses)
+                         :order-history (first-address-error state :order-history-by-vault history-addresses)
+                         :deposits-withdrawals (get-in state [:vaults :errors :ledger-updates-by-vault vault-address])}
         activity-count-by-tab {:balances (count balances-raw)
                                :positions (count positions-raw)
                                :open-orders (count open-orders-raw)
@@ -585,70 +629,7 @@
                                :deposits-withdrawals (count deposits-withdrawals-raw)
                                :depositors (max (count depositors-raw)
                                                 (followers-count details))}]
-    {:kind kind
-     :vault-address vault-address
-     :invalid-address? (and (= :detail kind)
-                            (nil? vault-address))
-     :loading? detail-loading?
-     :error (or detail-error webdata-error)
-     :name vault-name
-     :leader (or (:leader details)
-                 (:leader row))
-     :description (or (:description details) "")
-     :relationship relationship
-     :allow-deposits? (true? (:allow-deposits? details))
-     :always-close-on-withdraw? (true? (:always-close-on-withdraw? details))
-     :wallet-connected? (string? wallet-address)
-     :agent-ready? agent-ready?
-     :followers (followers-count details)
-     :leader-commission (normalize-percent-value (:leader-commission details))
-     :leader-fraction (normalize-percent-value (:leader-fraction details))
-     :metrics {:tvl tvl
-               :past-month-return month-return
-               :your-deposit your-deposit
-               :all-time-earned all-time-earned
-               :apr (normalize-percent-value apr)}
-     :background-status (background-status-model benchmark-history-loading?)
-     :vault-transfer vault-transfer
-     :tabs [{:value :about
-             :label "About"}
-            {:value :vault-performance
-             :label "Vault Performance"}
-            {:value :your-performance
-             :label "Your Performance"}]
-     :selected-tab detail-tab
-     :snapshot-range snapshot-range
-     :snapshot {:day (return-for-range :day)
-                :week (return-for-range :week)
-                :month month-return
-                :all-time (return-for-range :all-time)}
-     :performance-metrics (assoc performance-metrics
-                                 :timeframe-options chart-timeframe-options
-                                 :selected-timeframe snapshot-range
-                                 :timeframe-menu-open? performance-metrics-timeframe-menu-open?)
-     :chart {:axis-kind (case selected-series
-                          :pnl :pnl
-                          :returns :returns
-                          :account-value :account-value
-                          :account-value)
-             :series-tabs [{:value :returns
-                            :label "Returns"}
-                           {:value :account-value
-                            :label "Account Value"}
-                           {:value :pnl
-                            :label "PNL"}]
-             :timeframe-options chart-timeframe-options
-             :timeframe-menu-open? chart-timeframe-menu-open?
-             :selected-timeframe snapshot-range
-             :selected-series selected-series
-             :returns-benchmark returns-benchmark-selector
-             :hover hover
-             :hover-tooltip hover-tooltip
-             :y-ticks (:y-ticks chart-model*)
-             :points chart-points
-             :path (:path strategy-series)
-             :series series}
-     :activity-tabs (mapv (fn [{:keys [value label]}]
+    {:activity-tabs (mapv (fn [{:keys [value label]}]
                             {:value value
                              :label label
                              :count (get activity-count-by-tab value 0)})
@@ -674,4 +655,93 @@
      :activity-errors activity-errors
      :activity-summary {:fill-count (count fills)
                         :open-order-count (count open-orders)
-                        :position-count (count positions)}})))
+                        :position-count (count positions)}}))
+
+(defn vault-detail-vm
+  ([state]
+   (vault-detail-vm state {:now-ms (.now js/Date)}))
+  ([state {:keys [now-ms]}]
+   (let [now-ms* (or (optional-number now-ms)
+                     (.now js/Date))
+         route (get-in state [:router :path])
+         {:keys [kind vault-address]} (vault-routes/parse-vault-route route)
+         viewer-address (account-context/effective-account-address state)
+         detail-tab (vault-ui-state/normalize-vault-detail-tab
+                     (get-in state [:vaults-ui :detail-tab]))
+         activity-tab (vault-ui-state/normalize-vault-detail-activity-tab
+                       (get-in state [:vaults-ui :detail-activity-tab]))
+         chart-series (vault-ui-state/normalize-vault-detail-chart-series
+                       (get-in state [:vaults-ui :detail-chart-series]))
+         snapshot-range (vault-ui-state/normalize-vault-snapshot-range
+                         (get-in state [:vaults-ui :snapshot-range]))
+         detail-loading? (true? (get-in state [:vaults-ui :detail-loading?]))
+         details-base (get-in state [:vaults :details-by-address vault-address])
+         viewer-details (viewer-details-by-address state vault-address viewer-address)
+         details (merge (or details-base {})
+                        (or viewer-details {}))
+         row (row-by-address state vault-address)
+         webdata (get-in state [:vaults :webdata-by-vault vault-address])
+         user-equity (get-in state [:vaults :user-equity-by-address vault-address])
+         viewer-follower (viewer-follower-row details viewer-address)
+         relationship (or (:relationship details)
+                          (:relationship row)
+                          {:type :normal})
+         activity-sources (detail-activity-sources state vault-address relationship webdata)
+         metrics-context (detail-metrics-context state details row user-equity viewer-follower)
+         vault-name (resolve-vault-name details row vault-address)
+         vault-transfer (transfer-model/read-model state {:vault-address vault-address
+                                                          :vault-name vault-name
+                                                          :details details
+                                                          :webdata webdata})
+         wallet-address (vault-identity/normalize-vault-address (get-in state [:wallet :address]))
+         agent-ready? (= :ready (get-in state [:wallet :agent :status]))
+         chart-section (build-vault-detail-chart-section state
+                                                         snapshot-range
+                                                         activity-tab
+                                                         chart-series
+                                                         details-base
+                                                         viewer-details
+                                                         metrics-context)
+         activity-section (build-vault-detail-activity-section state
+                                                               details
+                                                               webdata
+                                                               vault-address
+                                                               now-ms*
+                                                               activity-tab
+                                                               activity-sources)
+         {:keys [tvl apr month-return your-deposit all-time-earned]} metrics-context]
+     (merge
+      {:kind kind
+       :vault-address vault-address
+       :invalid-address? (and (= :detail kind)
+                              (nil? vault-address))
+       :loading? detail-loading?
+       :error (or (get-in state [:vaults :errors :details-by-address vault-address])
+                  (get-in state [:vaults :errors :webdata-by-vault vault-address]))
+       :name vault-name
+       :leader (or (:leader details)
+                   (:leader row))
+       :description (or (:description details) "")
+       :relationship relationship
+       :allow-deposits? (true? (:allow-deposits? details))
+       :always-close-on-withdraw? (true? (:always-close-on-withdraw? details))
+       :wallet-connected? (string? wallet-address)
+       :agent-ready? agent-ready?
+       :followers (followers-count details)
+       :leader-commission (normalize-percent-value (:leader-commission details))
+       :leader-fraction (normalize-percent-value (:leader-fraction details))
+       :metrics {:tvl tvl
+                 :past-month-return month-return
+                 :your-deposit your-deposit
+                 :all-time-earned all-time-earned
+                 :apr (normalize-percent-value apr)}
+       :vault-transfer vault-transfer
+       :tabs [{:value :about
+               :label "About"}
+              {:value :vault-performance
+               :label "Vault Performance"}
+              {:value :your-performance
+               :label "Your Performance"}]
+       :selected-tab detail-tab}
+      chart-section
+      activity-section))))

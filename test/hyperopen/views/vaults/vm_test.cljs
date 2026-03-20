@@ -72,6 +72,17 @@
          (vm/selected-vault-address "/vaults/0x1234567890abcdef1234567890abcdef12345678")))
   (is (false? (vm/vault-route? "/trade"))))
 
+(deftest snapshot-range-keys-normalizes-short-and-default-fallback-orders-test
+  (let [snapshot-range-keys @#'hyperopen.views.vaults.vm/snapshot-range-keys]
+    (is (= [:day :week :month :all-time]
+           (snapshot-range-keys :day)))
+    (is (= [:week :month :all-time :day]
+           (snapshot-range-keys :week)))
+    (is (= [:month :week :all-time :day]
+           (snapshot-range-keys "not-a-range")))
+    (is (= [:all-time :month :week :day]
+           (snapshot-range-keys :one-year)))))
+
 (deftest vault-list-vm-groups-filters-and-sorts-rows-test
   (let [view-model (vm/vault-list-vm sample-state)]
     (is (= 3 (:visible-count view-model)))

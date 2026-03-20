@@ -274,36 +274,48 @@
          (seq right*)
          (= left* right*))))
 
+(defn- bitcoin-protocol-address?
+  [address address-lower]
+  (boolean
+   (and (seq address-lower)
+        (or (re-matches #"^bc1[a-z0-9]{20,}$" address-lower)
+            (re-matches #"^tb1[a-z0-9]{20,}$" address-lower)
+            (re-matches #"^[13][a-km-zA-HJ-NP-Z1-9]{20,}$" address)))))
+
+(defn- evm-protocol-address?
+  [address-lower]
+  (boolean
+   (and (seq address-lower)
+        (re-matches #"^0x[0-9a-f]{40}$" address-lower))))
+
+(defn- solana-protocol-address?
+  [address]
+  (boolean
+   (and (seq address)
+        (re-matches #"^[1-9A-HJ-NP-Za-km-z]{32,44}$" address))))
+
+(def ^:private evm-protocol-source-chains
+  ;; Monad and Plasma currently use EVM-style protocol addresses.
+  #{"ethereum"
+    "monad"
+    "plasma"})
+
 (defn- protocol-address-matches-source-chain?
   [source-chain address]
   (let [source* (canonical-chain-token source-chain)
         address* (non-blank-text address)
         address-lower (some-> address* str/lower-case)]
-    (case source*
-      "bitcoin"
-      (boolean (and (seq address-lower)
-                    (or (re-matches #"^bc1[a-z0-9]{20,}$" address-lower)
-                        (re-matches #"^tb1[a-z0-9]{20,}$" address-lower)
-                        (re-matches #"^[13][a-km-zA-HJ-NP-Z1-9]{20,}$" address*))))
+    (cond
+      (= source* "bitcoin")
+      (bitcoin-protocol-address? address* address-lower)
 
-      "ethereum"
-      (boolean (and (seq address-lower)
-                    (re-matches #"^0x[0-9a-f]{40}$" address-lower)))
+      (contains? evm-protocol-source-chains source*)
+      (evm-protocol-address? address-lower)
 
-      "solana"
-      (boolean (and (seq address*)
-                    (re-matches #"^[1-9A-HJ-NP-Za-km-z]{32,44}$" address*)))
+      (= source* "solana")
+      (solana-protocol-address? address*)
 
-      ;; Monad and Plasma currently use EVM-style protocol addresses.
-      "monad"
-      (boolean (and (seq address-lower)
-                    (re-matches #"^0x[0-9a-f]{40}$" address-lower)))
-
-      "plasma"
-      (boolean (and (seq address-lower)
-                    (re-matches #"^0x[0-9a-f]{40}$" address-lower)))
-
-      false)))
+      :else false)))
 
 (defn- hyperunit-source-chain-candidates
   [value]

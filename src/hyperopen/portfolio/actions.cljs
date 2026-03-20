@@ -1,6 +1,7 @@
 (ns hyperopen.portfolio.actions
   (:require [clojure.string :as str]
-            [hyperopen.platform :as platform]))
+            [hyperopen.platform :as platform]
+            [hyperopen.views.chart.hover :as chart-hover]))
 
 (def ^:private portfolio-summary-time-range-storage-key
   "portfolio-summary-time-range")
@@ -278,58 +279,6 @@
    [:effects/save-many (into (vec extra-path-values)
                              (selector-visibility-path-values open-dropdown))]))
 
-(defn- finite-number
-  [value]
-  (let [n (cond
-            (number? value) value
-            (string? value) (js/Number value)
-            :else js/NaN)]
-    (when (and (number? n)
-               (js/isFinite n))
-      n)))
-
-(defn- positive-point-count
-  [value]
-  (when-let [n (finite-number value)]
-    (let [count* (js/Math.floor n)]
-      (when (pos? count*)
-        count*))))
-
-(defn- clamp
-  [value min-value max-value]
-  (cond
-    (< value min-value) min-value
-    (> value max-value) max-value
-    :else value))
-
-(defn- hover-index-from-pointer
-  [client-x bounds point-count]
-  (let [point-count* (positive-point-count point-count)]
-    (when point-count*
-      (if (= point-count* 1)
-        0
-        (let [client-x* (finite-number client-x)
-              left (finite-number (:left bounds))
-              width (finite-number (:width bounds))]
-          (when (and (number? client-x*)
-                     (number? left)
-                     (number? width)
-                     (pos? width))
-            (let [x-ratio (clamp (/ (- client-x* left) width) 0 1)
-                  max-index (dec point-count*)
-                  nearest-index (js/Math.round (* x-ratio max-index))]
-              (clamp nearest-index 0 max-index))))))))
-
-(defn- normalize-hover-index
-  [value point-count]
-  (let [point-count* (positive-point-count point-count)
-        idx (finite-number value)]
-    (when (and point-count*
-               (number? idx))
-      (let [max-index (dec point-count*)
-            idx* (js/Math.floor idx)]
-        (clamp idx* 0 max-index)))))
-
 (defn toggle-portfolio-summary-scope-dropdown
   [state]
   (let [current-visible? (boolean (get-in state [:portfolio-ui :summary-scope-dropdown-open?]))
@@ -396,12 +345,12 @@
 
 (defn set-portfolio-chart-hover
   [state client-x bounds point-count]
-  (let [current-index (normalize-hover-index (get-in state chart-hover-index-path)
-                                             point-count)
-        pointer-index (hover-index-from-pointer client-x bounds point-count)
+  (let [current-index (chart-hover/normalize-hover-index (get-in state chart-hover-index-path)
+                                                         point-count)
+        pointer-index (chart-hover/hover-index-from-pointer client-x bounds point-count)
         next-index (or pointer-index
                        current-index
-                       (normalize-hover-index 0 point-count))]
+                       (chart-hover/normalize-hover-index 0 point-count))]
     (if (= current-index next-index)
       []
       [[:effects/save chart-hover-index-path next-index]])))
