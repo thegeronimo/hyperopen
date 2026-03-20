@@ -17,6 +17,9 @@
 (def ^:private desktop-breakpoint-px
   1024)
 
+(def ^:private desktop-account-panel-height
+  "29rem")
+
 (def ^:private trade-chart-view-base-state-keys
   [:active-asset
    :active-market
@@ -126,8 +129,8 @@
                       (trade-chart-loading-shell state)))))
 
 (def ^:private memoized-account-info-view
-  (memoize-last (fn [render-fn state]
-                  (render-fn state))))
+  (memoize-last (fn [render-fn state opts]
+                  (render-fn state opts))))
 
 (def ^:private memoized-account-equity-view
   (memoize-last (fn [render-fn state opts]
@@ -188,9 +191,12 @@
                               (active-asset-view-state state)))
 
 (defn- render-account-info-panel
-  [state]
-  (memoized-account-info-view account-info-view/account-info-view
-                              (account-info-view-state state)))
+  ([state]
+   (render-account-info-panel state {}))
+  ([state opts]
+   (memoized-account-info-view account-info-view/account-info-view
+                               (account-info-view-state state)
+                               opts)))
 
 (defn- render-account-equity-panel
   [state equity-metrics opts]
@@ -236,7 +242,7 @@
         route (get-in state [:router :path] "/trade")]
     [:div {:class ["w-full" "h-full" "min-h-0" "min-w-0" "overflow-hidden"]
            :data-parity-id "trade-chart-module-shell"}
-     [:div {:class ["w-full" "flex" "flex-col" "min-h-0" "min-w-0" "overflow-hidden"]}
+     [:div {:class ["w-full" "h-full" "flex" "flex-col" "min-h-0" "min-w-0" "overflow-hidden"]}
       [:div {:class ["flex"
                      "items-center"
                      "justify-between"
@@ -385,9 +391,9 @@
                       "items-stretch"
                       "lg:h-full"
                       "lg:grid-cols-[minmax(0,1fr)_320px]"
-                      "lg:grid-rows-[minmax(520px,1fr)_minmax(300px,auto)]"
+                      (str "lg:grid-rows-[minmax(520px,1fr)_" desktop-account-panel-height "]")
                       "xl:grid-cols-[minmax(0,1fr)_280px_320px]"
-                      "xl:grid-rows-[minmax(580px,1fr)_auto]"]}
+                      (str "xl:grid-rows-[minmax(580px,1fr)_" desktop-account-panel-height "]")]}
         [:div {:class (into [(if (= mobile-surface :chart) "flex" "hidden")
                              "bg-base-100"
                              "flex-col"
@@ -470,6 +476,7 @@
                             ["lg:flex"
                              "lg:col-start-1"
                              "lg:row-start-2"
+                             "lg:h-full"
                              "xl:col-start-1"
                              "xl:col-span-2"])
                :data-parity-id "trade-account-tables-panel"}
@@ -482,7 +489,7 @@
                 :data-parity-id "trade-desktop-account-panel"}
           (when (and account-panel-visible?
                      desktop-layout?)
-            (render-account-info-panel state))]]]
+            (render-account-info-panel state {:default-panel-classes ["h-full"]}))]]]
 
        (when mobile-account-summary-visible?
          [:div {:class ["absolute"

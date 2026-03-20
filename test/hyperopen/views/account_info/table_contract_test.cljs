@@ -58,7 +58,8 @@
           :let [rows-viewport-classes (hiccup/node-class-set (hiccup/tab-rows-viewport-node content))]]
     (is (contains? rows-viewport-classes "flex-1"))
     (is (contains? rows-viewport-classes "min-h-0"))
-    (is (contains? rows-viewport-classes "overflow-y-auto"))
+    (is (contains? rows-viewport-classes "min-w-0"))
+    (is (contains? rows-viewport-classes "overflow-auto"))
     (is (contains? rows-viewport-classes "scrollbar-hide"))))
 
 (deftest account-info-table-rows-use-hover-highlight-without-divider-lines-test

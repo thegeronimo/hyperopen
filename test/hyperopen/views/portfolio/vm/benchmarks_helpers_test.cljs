@@ -207,6 +207,40 @@
       (is (not (identical? first-model reopened-model)))
       (is (= ["ETH"] (mapv :value (:candidates first-model)))))))
 
+(deftest returns-benchmark-selector-model-keeps-candidate-derivation-stable-across-open-toggle-test
+  (let [state {:asset-selector {:markets [{:coin "BTC"
+                                           :symbol "BTC-USD"
+                                           :dex "hl"
+                                           :market-type :perp
+                                           :openInterest "300"
+                                           :cache-order 1}
+                                          {:coin "ETH"
+                                           :symbol "ETH-USD"
+                                           :dex "hl"
+                                           :market-type :perp
+                                           :openInterest "200"
+                                           :cache-order 2}]}
+               :portfolio-ui {:returns-benchmark-coins []
+                              :returns-benchmark-search "eth"
+                              :returns-benchmark-suggestions-open? false}}
+        match-count (atom 0)
+        original-match vm-benchmarks/benchmark-option-matches-search?]
+    (with-redefs [vm-benchmarks/benchmark-option-matches-search?
+                  (fn [option search-query]
+                    (swap! match-count inc)
+                    (original-match option search-query))]
+      (let [closed-model (vm-benchmarks/returns-benchmark-selector-model state)
+            open-model (vm-benchmarks/returns-benchmark-selector-model
+                        (assoc-in state [:portfolio-ui :returns-benchmark-suggestions-open?] true))
+            open-model-again (vm-benchmarks/returns-benchmark-selector-model
+                              (assoc-in state [:portfolio-ui :returns-benchmark-suggestions-open?] true))]
+        (is (= 2 @match-count))
+        (is (false? (:suggestions-open? closed-model)))
+        (is (true? (:suggestions-open? open-model)))
+        (is (identical? open-model open-model-again))
+        (is (= ["ETH"] (mapv :value (:candidates closed-model))))
+        (is (= ["ETH"] (mapv :value (:candidates open-model))))))))
+
 (deftest benchmark-computation-context-builds_strategy_and_benchmark_rows-test
   (let [t0 1704067200000
         t1 (+ t0 (* 24 60 60 1000))

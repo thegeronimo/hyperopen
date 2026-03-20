@@ -8,6 +8,7 @@ test("loadConfig returns validated defaults", async () => {
   assert.equal(typeof config.artifactRoot, "string");
   assert.equal(typeof config.chrome.path, "string");
   assert.equal(config.chrome.headless, true);
+  assert.equal(config.localApp.url, "http://localhost:8080/index.html");
   assert.ok(config.viewports.desktop.width > 0);
   assert.ok(config.viewports.mobile.height > 0);
 });

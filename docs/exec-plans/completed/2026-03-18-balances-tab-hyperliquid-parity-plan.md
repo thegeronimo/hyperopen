@@ -24,7 +24,8 @@ The user explicitly excluded action-semantics work from this pass. That means th
 - [x] (2026-03-18 19:28Z) Re-ran `npm test`, `npm run test:websocket`, and `npm run check` successfully after the visible-search and PNL-width follow-up patch.
 - [x] (2026-03-18 19:33Z) Tightened `Coin`, `Total Balance`, and `Repay` again, widened `PNL (ROE %)` further, and added an explicit `PNL -> Send` gutter via padding and alignment adjustments.
 - [x] (2026-03-18 19:33Z) Re-ran `npm test`, `npm run test:websocket`, and `npm run check` successfully after the second balances-spacing pass.
-- [x] (2026-03-20 00:55Z) Accepted manual live-route review from the user and treated browser signoff as complete for this issue closeout.
+<<<<<<< HEAD
+- [x] (2026-03-20 12:11Z) Recorded that the final live-route browser rerun never happened before `hyperopen-46t7` was closed because the `8083` process was still serving a stale balances bundle; moving this plan to `completed` preserves that blocked validation as historical context rather than active work.
 
 ## Surprises & Discoveries
 
@@ -75,13 +76,22 @@ The user explicitly excluded action-semantics work from this pass. That means th
   Rationale: the user feedback and UI-agent review both pointed to the `USDC Value -> PNL -> Send` pinch point, so the effective fix was to reclaim width from low-value columns and combine a wider PNL track with extra right padding on `PNL` and left padding on `Send`.
   Date/Author: 2026-03-18 / Codex
 
+<<<<<<< HEAD
 - Decision: accept the user's manual live-route inspection as the final browser signoff for this issue and close the tracked work.
   Rationale: the remaining incomplete item was acceptance-only, the implementation and required repository gates were already complete, and the user explicitly confirmed they manually reviewed the live result and wanted the work closed out.
+=======
+- Decision: move this plan to `completed` once `hyperopen-46t7` was closed even though the final `8083` browser rerun remained blocked.
+  Rationale: `/hyperopen/docs/PLANS.md` treats `completed` as the home for accepted or otherwise closed historical records. The only remaining gap was live-route confirmation against a stale local process, not additional implementation work in this repo.
+>>>>>>> 90109262 (Fix trade layout shell regressions)
   Date/Author: 2026-03-20 / Codex
 
 ## Outcomes & Retrospective
 
+<<<<<<< HEAD
 The implementation work completed successfully. The balances header now keeps `Coins...` visible inline next to `Hide Small Balances`, the desktop shell can opt into a taller balances panel, zero counts are suppressed for the tabs that should stay unlabeled at zero, and the balances desktop grid now exposes the missing `Repay` lane while tightening formatting around coin labels, units, and PNL density. Two follow-up spacing passes reclaimed width from `Coin`, `Total Balance`, and the empty `Repay` lane, then used that room to enlarge `PNL (ROE %)` and create a more deliberate gutter between `PNL` and `Send`. Automated validation passed through `npm test`, `npm run test:websocket`, and `npm run check` again after the latest patch, and the user subsequently performed the final live-route manual review and approved closing the issue.
+=======
+The implementation work completed successfully. The balances header now keeps `Coins...` visible inline next to `Hide Small Balances`, the desktop shell can opt into a taller balances panel, zero counts are suppressed for the tabs that should stay unlabeled at zero, and the balances desktop grid now exposes the missing `Repay` lane while tightening formatting around coin labels, units, and PNL density. Two follow-up spacing passes reclaimed width from `Coin`, `Total Balance`, and the empty `Repay` lane, then used that room to enlarge `PNL (ROE %)` and create a more deliberate gutter between `PNL` and `Send`. Automated validation passed through `npm test`, `npm run test:websocket`, and `npm run check` again after the latest patch. Because `hyperopen-46t7` is now closed, this plan moves to `completed` as a historical record even though the final live-route browser rerun on `8083` never landed.
+>>>>>>> 90109262 (Fix trade layout shell regressions)
 
 The earlier `8083` stale-bundle observation remains useful historical context for why agent-run browser evidence stopped short of final signoff during implementation, but it is no longer an open blocker for this plan. The tracked work is accepted and ready to move into `/hyperopen/docs/exec-plans/completed/`.
 
@@ -208,4 +218,4 @@ No new libraries are required. This work should stay inside the existing view an
 
 The implementation must preserve the existing public surface of `account-info-view` and the existing action identifiers already wired into the row actions. The only intended interface expansion inside this scope is the balances desktop table structure itself, which must expose a visible `Repay` lane.
 
-Revision note: created this ExecPlan on 2026-03-18 to execute user-requested balances-tab parity work from live browser evidence while explicitly excluding action-semantics changes.
+Revision note: created this ExecPlan on 2026-03-18 to execute user-requested balances-tab parity work from live browser evidence while explicitly excluding action-semantics changes. Updated on 2026-03-20 to record `hyperopen-46t7` closure, preserve the blocked `8083` browser rerun as historical context, and move the plan to `completed`.

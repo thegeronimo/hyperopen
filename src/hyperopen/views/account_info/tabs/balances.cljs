@@ -577,7 +577,8 @@
                              "lg:block"
                              "flex-1"
                              "min-h-0"
-                             "overflow-y-auto"
+                             "min-w-0"
+                             "overflow-auto"
                              "scrollbar-hide"]
                     :data-role "account-tab-rows-viewport"}]
               (map-indexed (fn [idx row]

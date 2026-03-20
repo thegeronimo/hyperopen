@@ -9,6 +9,9 @@
   (let [counts {:balances 1 :positions 1}
         balances-nav (view/tab-navigation :balances counts true {} {} {} {} {} nil "hype")
         positions-nav (view/tab-navigation :positions counts true {})
+        balances-actions-shell (hiccup/find-first-node balances-nav
+                                                       #(= "account-info-tab-actions-shell"
+                                                           (get-in % [1 :data-role])))
         balances-toggle-input (hiccup/find-first-node balances-nav
                                                #(= "hide-small-balances"
                                                    (get-in % [1 :id])))
@@ -21,7 +24,9 @@
         positions-toggle-input (hiccup/find-first-node positions-nav
                                                 #(= "hide-small-balances"
                                                     (get-in % [1 :id])))]
-    (is (contains? (hiccup/node-class-set balances-nav) "justify-between"))
+    (is (contains? (hiccup/node-class-set balances-nav) "md:min-h-12"))
+    (is (some? balances-actions-shell))
+    (is (contains? (hiccup/node-class-set balances-actions-shell) "md:min-h-12"))
     (is (some? balances-toggle-input))
     (is (true? (get-in balances-toggle-input [1 :checked])))
     (is (contains? balances-toggle-classes "trade-toggle-checkbox"))
@@ -32,6 +37,17 @@
     (is (= "hype" (get-in balances-search-input [1 :value])))
     (is (= "Coins..." (get-in balances-search-input [1 :placeholder])))
     (is (nil? positions-toggle-input))))
+
+(deftest tab-navigation-reserves-a-stable-desktop-action-shell-for-tabs-without-actions-test
+  (let [nav (view/tab-navigation :twap {:twap 1} false {})
+        action-shell (hiccup/find-first-node nav
+                                             #(= "account-info-tab-actions-shell"
+                                                 (get-in % [1 :data-role])))
+        shell-classes (hiccup/node-class-set action-shell)]
+    (is (some? action-shell))
+    (is (contains? shell-classes "hidden"))
+    (is (contains? shell-classes "md:flex"))
+    (is (contains? shell-classes "md:min-h-12"))))
 
 (deftest tab-navigation-renders-funding-history-actions-in-right-controls-test
   (let [counts {:balances 2 :positions 4 :open-orders 3}

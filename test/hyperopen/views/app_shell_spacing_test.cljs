@@ -291,10 +291,9 @@
     (is (contains? scroll-shell-classes "overflow-y-auto"))
     (is (contains-class? view-node "right-[320px]"))
     (is (contains-class? view-node "lg:grid-cols-[minmax(0,1fr)_320px]"))
-    (is (contains-class? view-node "lg:grid-rows-[minmax(520px,1fr)_minmax(300px,auto)]"))
+    (is (contains-class? view-node "lg:grid-rows-[minmax(520px,1fr)_29rem]"))
     (is (contains-class? view-node "xl:grid-cols-[minmax(0,1fr)_280px_320px]"))
-    (is (contains-class? view-node "xl:grid-rows-[minmax(580px,1fr)_auto]"))
-    (is (not (contains-class? view-node "xl:grid-rows-[minmax(580px,auto)_auto]")))
+    (is (contains-class? view-node "xl:grid-rows-[minmax(580px,1fr)_29rem]"))
     (is (contains-class? view-node "xl:row-span-2"))))
 
 (deftest trade-view-xl-panel-span-contract-test
@@ -342,6 +341,54 @@
     (is (contains? account-info-cell-classes "flex-col"))
     (is (contains? account-info-cell-classes "min-h-0"))
     (is (contains? account-info-cell-classes "overflow-hidden"))))
+
+(deftest trade-view-keeps-account-table-height-stable-across-standard-tabs-test
+  (let [standard-tabs [:balances
+                       :positions
+                       :open-orders
+                       :twap
+                       :trade-history
+                       :funding-history
+                       :order-history]
+        account-table-nodes (mapv (fn [tab]
+                                    (find-first-node
+                                     (trade-view/trade-view (assoc-in trade-view-test-state
+                                                                      [:account-info :selected-tab]
+                                                                      tab))
+                                     #(= "account-tables"
+                                         (get-in % [1 :data-parity-id]))))
+                                  standard-tabs)
+        class-sets (mapv node-class-set account-table-nodes)
+        reference-classes (first class-sets)]
+    (is (every? some? account-table-nodes))
+    (is (every? #(= reference-classes %) class-sets))
+    (is (contains? reference-classes "h-full"))
+    (is (not (contains? reference-classes "h-96")))
+    (is (not (contains? reference-classes "lg:h-[29rem]")))
+    (is (contains? reference-classes "overflow-hidden"))
+    (is (contains? reference-classes "min-h-0"))))
+
+(deftest trade-view-chart-shell-fills-the-desktop-top-row-test
+  (with-redefs [trade-modules/render-trade-chart-view (constantly nil)]
+    (let [view-node (with-viewport-width
+                      1280
+                      #(trade-view/trade-view (active-asset-panel-test-state)))
+          chart-panel (find-first-node view-node
+                                       #(= "trade-chart-panel"
+                                           (get-in % [1 :data-parity-id])))
+          loading-shell (find-first-node view-node
+                                         #(= "trade-chart-module-shell"
+                                             (get-in % [1 :data-parity-id])))
+          shell-inner (nth loading-shell 2)
+          chart-panel-classes (node-class-set chart-panel)
+          shell-inner-classes (node-class-set shell-inner)]
+      (is (some? chart-panel))
+      (is (some? loading-shell))
+      (is (contains? chart-panel-classes "lg:row-start-1"))
+      (is (contains? chart-panel-classes "lg:col-start-1"))
+      (is (contains? shell-inner-classes "h-full"))
+      (is (contains? shell-inner-classes "flex"))
+      (is (contains? shell-inner-classes "flex-col")))))
 
 (deftest trade-view-orderbook-panel-uses-compact-mobile-height-with-desktop-override-test
   (let [view-node (trade-view/trade-view trade-view-test-state)

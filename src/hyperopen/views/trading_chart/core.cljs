@@ -764,7 +764,7 @@
     [:div {:class ["w-full" "h-full" "min-h-0" "min-w-0" "overflow-hidden"]
            :data-parity-id "chart-panel"}
      ;; Chart container with consistent width for both menu and chart
-     [:div {:class ["w-full" "flex" "flex-col" "min-h-0" "min-w-0" "overflow-hidden"]}
+     [:div {:class ["w-full" "h-full" "flex" "flex-col" "min-h-0" "min-w-0" "overflow-hidden"]}
       ;; Add the top menu above the chart
       (chart-top-menu state)
       (if has-error?

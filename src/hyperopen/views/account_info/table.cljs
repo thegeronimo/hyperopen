@@ -82,9 +82,9 @@
   ([header rows]
    (tab-table-content header rows nil))
   ([header rows footer]
-   [:div {:class ["flex" "h-full" "min-h-0" "flex-col"]}
+   [:div {:class ["flex" "h-full" "min-h-0" "min-w-0" "flex-col"]}
     header
-    (into [:div {:class ["flex-1" "min-h-0" "overflow-y-auto" "scrollbar-hide"]}]
+    (into [:div {:class ["flex-1" "min-h-0" "min-w-0" "overflow-auto" "scrollbar-hide"]}]
           rows)
     (when footer
       footer)]))

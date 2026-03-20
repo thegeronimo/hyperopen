@@ -281,7 +281,6 @@
     (is (contains? classes "min-w-0"))
     (is (contains? classes "overflow-hidden"))
     (is (contains? classes "trading-chart-host"))
-    (is (not (contains? classes "h-full")))
     (is (not (contains? bg-colors "rgb(30, 41, 55)")))))
 
 (deftest trading-chart-view-clips-chart-panel-overflow-test
@@ -298,6 +297,7 @@
     (is (contains? panel-classes "overflow-hidden"))
     (is (contains? panel-classes "min-h-0"))
     (is (contains? panel-classes "min-w-0"))
+    (is (contains? shell-classes "h-full"))
     (is (contains? shell-classes "overflow-hidden"))
     (is (contains? shell-classes "min-w-0"))
     (is (contains? shell-classes "min-h-0"))))

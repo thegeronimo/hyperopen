@@ -134,7 +134,7 @@
   "localApp": {
     "command": "npm run dev",
     "cwd": ".",
-    "url": "http://localhost:8080/trade",
+    "url": "http://localhost:8080/index.html",
     "startupTimeoutMs": 120000,
     "pollIntervalMs": 1000
   }

@@ -170,7 +170,8 @@
      :--account-info-tab-indicator-width (format-px width)}))
 
 (defn- funding-history-header-actions []
-  [:div {:class ["ml-auto" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2"]}
+  [:div {:class ["ml-auto" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2" "md:min-h-12" "md:py-0"]
+         :data-role "account-info-tab-actions-shell"}
    [:button {:class ["btn" "btn-xs" "btn-spectate" "font-normal" "text-trading-text" "hover:bg-base-100" "hover:text-trading-text"]
              :on {:click [[:actions/toggle-funding-history-filter-open]]}}
     "Filter"]
@@ -233,16 +234,55 @@
    "focus:outline-none"
    "focus:ring-0"])
 
+(def ^:private account-tab-default-panel-classes
+  ["h-96" "lg:h-[29rem]"])
+
+(def ^:private account-tab-header-shell-classes
+  ["border-b"
+   "border-base-300"
+   "bg-base-200"
+   "flex"
+   "flex-col"
+   "justify-between"
+   "md:flex-row"
+   "md:items-stretch"
+   "md:min-h-12"])
+
+(def ^:private account-tab-strip-viewport-classes
+  ["overflow-x-auto"
+   "scrollbar-hide"
+   "border-b"
+   "border-base-300"
+   "min-w-0"
+   "md:flex"
+   "md:flex-1"
+   "md:self-stretch"
+   "md:items-center"
+   "md:min-h-12"
+   "md:border-b-0"])
+
+(def ^:private account-tab-empty-actions-shell-classes
+  ["hidden"
+   "md:flex"
+   "md:min-h-12"
+   "md:items-center"
+   "md:justify-end"
+   "md:px-4"])
+
 (defn- search-icon []
   [:svg {:class ["h-3.5" "w-3.5"]
          :fill "none"
          :stroke "currentColor"
          :viewBox "0 0 24 24"
          :aria-hidden true}
-   [:path {:stroke-linecap "round"
-           :stroke-linejoin "round"
-           :stroke-width "2"
-           :d "m21 21-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"}]])
+  [:path {:stroke-linecap "round"
+          :stroke-linejoin "round"
+          :stroke-width "2"
+          :d "m21 21-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"}]])
+
+(defn- empty-tab-actions-shell []
+  [:div {:class account-tab-empty-actions-shell-classes
+         :data-role "account-info-tab-actions-shell"}])
 
 (defn- account-info-coin-search-control
   [tab search-value]
@@ -264,7 +304,8 @@
         status-filter (order-history-status-filter-key order-history-state)
         status-label (get order-history-status-labels status-filter "All")
         coin-search (:coin-search order-history-state "")]
-    [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2"]}
+    [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2" "md:min-h-12" "md:py-0"]
+           :data-role "account-info-tab-actions-shell"}
      (account-info-coin-search-control :order-history coin-search)
      [:button {:class filter-trigger-button-classes
                :style {:--btn-focus-scale "1"}
@@ -298,7 +339,8 @@
         direction-filter (positions-direction-filter-key positions-state)
         direction-label (get positions-direction-filter-labels direction-filter "All")
         coin-search (:coin-search positions-state "")]
-    [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2"]}
+    [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2" "md:min-h-12" "md:py-0"]
+           :data-role "account-info-tab-actions-shell"}
      (when (map? freshness-cue)
        [:div {:class ["px-1" "py-1"]
               :data-role "account-tab-freshness-cue"}
@@ -333,7 +375,8 @@
   (open-orders-tab/open-orders-direction-filter-key open-orders-state))
 
 (defn- balances-header-actions [hide-small? coin-search]
-  [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-3" "px-4" "py-2"]}
+  [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-3" "px-4" "py-2" "md:min-h-12" "md:py-0"]
+         :data-role "account-info-tab-actions-shell"}
    (account-info-coin-search-control :balances coin-search)
    [:div {:class ["flex" "items-center" "space-x-2"]}
     [:input
@@ -362,7 +405,8 @@
         direction-filter (open-orders-direction-filter-key open-orders-state)
         direction-label (get open-orders-direction-filter-labels direction-filter "All")
         coin-search (:coin-search open-orders-state "")]
-    [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2"]}
+    [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2" "md:min-h-12" "md:py-0"]
+           :data-role "account-info-tab-actions-shell"}
      (when (map? freshness-cue)
        [:div {:class ["px-1" "py-1"]
               :data-role "account-tab-freshness-cue"}
@@ -401,7 +445,8 @@
         direction-filter (trade-history-direction-filter-key trade-history-state)
         direction-label (get trade-history-direction-filter-labels direction-filter "All")
         coin-search (:coin-search trade-history-state "")]
-    [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2"]}
+    [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-2" "px-4" "py-2" "md:min-h-12" "md:py-0"]
+           :data-role "account-info-tab-actions-shell"}
      (account-info-coin-search-control :trade-history coin-search)
      [:button {:class filter-trigger-button-classes
                :style {:--btn-focus-scale "1"}
@@ -445,9 +490,31 @@
                                                                                                                                                                               tab-label-overrides {}
                                                                                                                                                                               tab-order []}}]
    (let [tab-labels* (tab-labels-for extra-tabs tab-label-overrides)
-         tabs* (available-tabs-for extra-tabs tab-order tab-label-overrides)]
-     [:div {:class ["border-b" "border-base-300" "bg-base-200" "flex" "flex-col" "justify-between" "md:flex-row" "md:items-center" "md:justify-between"]}
-      [:div {:class ["overflow-x-auto" "scrollbar-hide" "border-b" "border-base-300" "md:flex" "md:self-stretch" "md:items-end" "md:border-b-0"]}
+         tabs* (available-tabs-for extra-tabs tab-order tab-label-overrides)
+         actions-node (case selected-tab
+                        :balances
+                        (balances-header-actions hide-small? balances-coin-search)
+
+                        :funding-history
+                        (funding-history-header-actions)
+
+                        :order-history
+                        (order-history-header-actions order-history-state)
+
+                        :trade-history
+                        (trade-history-header-actions trade-history-state)
+
+                        :positions
+                        (positions-header-actions positions-state
+                                                  (get freshness-cues :positions))
+
+                        :open-orders
+                        (open-orders-header-actions open-orders-state
+                                                    (get freshness-cues :open-orders))
+
+                        nil)]
+     [:div {:class account-tab-header-shell-classes}
+      [:div {:class account-tab-strip-viewport-classes}
        [:div {:class ["account-info-tab-strip"]
               :data-role "account-info-tab-strip"
               :style (account-tab-strip-style tabs* counts tab-labels* selected-tab)}
@@ -466,28 +533,8 @@
                     :on {:click (or (get tab-click-actions-by-tab tab)
                                     [[:actions/select-account-info-tab tab]])}}
            (tab-label tab counts tab-labels*)])]]
-      (case selected-tab
-        :balances
-        (balances-header-actions hide-small? balances-coin-search)
-
-        :funding-history
-        (funding-history-header-actions)
-
-        :order-history
-        (order-history-header-actions order-history-state)
-
-        :trade-history
-        (trade-history-header-actions trade-history-state)
-
-        :positions
-        (positions-header-actions positions-state
-                                  (get freshness-cues :positions))
-
-        :open-orders
-        (open-orders-header-actions open-orders-state
-                                    (get freshness-cues :open-orders))
-
-        nil)])))
+      (or actions-node
+          (empty-tab-actions-shell))])))
 
 (defn loading-spinner []
   [:div.flex.justify-center.items-center.py-8
@@ -722,10 +769,12 @@
   ([state {:keys [extra-tabs
                   selected-tab-override
                   default-selected-tab
+                  default-panel-classes
                   tab-click-actions-by-tab
                   tab-label-overrides
                   tab-order]
            :or {extra-tabs []
+                default-panel-classes account-tab-default-panel-classes
                 tab-click-actions-by-tab {}
                 tab-label-overrides {}
                 tab-order []}}]
@@ -759,9 +808,7 @@
          extra-renderers (extra-tab-renderers extra-tabs)
          selected-extra-renderer (get extra-renderers selected-tab*)
          panel-shell-classes (or (:panel-classes selected-extra-tab)
-                                 (if (= selected-tab* :balances)
-                                   ["h-96" "lg:h-[29rem]"]
-                                   ["h-96"]))
+                                 default-panel-classes)
          panel-shell-style (:panel-style selected-extra-tab)]
      [:div {:class (into ["bg-base-100"
                           "border-t"
@@ -790,7 +837,7 @@
                        :tab-click-actions-by-tab tab-click-actions-by-tab
                        :tab-label-overrides tab-label-overrides
                        :tab-order tab-order})
-      [:div {:class ["flex-1" "min-h-0" "overflow-hidden"]}
+      [:div {:class ["flex-1" "min-h-0" "min-w-0" "overflow-hidden"]}
        (cond
          (and (nil? selected-extra-renderer) error)
          (error-state error)

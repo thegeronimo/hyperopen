@@ -59,7 +59,7 @@ async function probeUrl(url, timeoutMs = 2500) {
     const response = await fetch(url, { signal: timeout, redirect: "follow" });
     return toCheck({
       id: "local-url-reachable",
-      ok: response.status >= 200 && response.status < 500,
+      ok: response.status >= 200 && response.status < 300,
       required: false,
       message: `Local URL probe returned HTTP ${response.status}.`,
       details: { url, status: response.status }

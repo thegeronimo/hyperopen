@@ -257,6 +257,7 @@
    edit-button])
 
 (def ^:private mobile-position-overlay-breakpoint-px 640)
+(def ^:private mobile-position-card-layout-breakpoint-px 1024)
 (def ^:private mobile-position-overlay-trigger-size-px 24)
 (def ^:private mobile-position-overlay-horizontal-padding-px 16)
 (def ^:private mobile-position-overlay-bottom-padding-px 24)
@@ -277,6 +278,17 @@
 (defn- current-viewport-height []
   (current-viewport-number (some-> js/globalThis .-innerHeight)
                            mobile-position-overlay-fallback-height-px))
+
+(defn- active-card-layout?
+  []
+  (let [width (some-> js/globalThis .-innerWidth)]
+    (and (number? width)
+         (pos? width)
+         (< width mobile-position-card-layout-breakpoint-px))))
+
+(defn- active-desktop-table-layout?
+  []
+  (not (active-card-layout?)))
 
 (defn- phone-overlay-trigger?
   []
@@ -428,7 +440,8 @@
           [[:actions/open-position-margin-modal position-data :event.currentTarget/bounds]]
           :data-position-margin-trigger))]
       (when active-margin-modal?
-        (position-margin-modal/position-margin-modal-view margin-modal))]
+        (when (active-desktop-table-layout?)
+          (position-margin-modal/position-margin-modal-view margin-modal)))]
      [:div.text-left.font-semibold.num
       (explainable-value-node
        [:span {:class [(:funding-tone-class row-vm) "num"]}
@@ -461,16 +474,18 @@
                 :on {:click [[:actions/open-position-reduce-popover position-data :event.currentTarget/bounds]]}}
        "Reduce"]
       (when active-reduce-popover?
-        (position-reduce-popover/position-reduce-popover-view reduce-popover))]
+        (when (active-desktop-table-layout?)
+          (position-reduce-popover/position-reduce-popover-view reduce-popover)))]
      [:div {:class ["text-left" "relative"]}
       [:div {:class ["inline-flex" "items-center" "gap-0.5" "whitespace-nowrap"]}
        [:span {:class ["font-normal" "text-trading-text" "whitespace-nowrap" "select-text"]} tpsl-copy]
-       (position-detail-edit-button
+      (position-detail-edit-button
         "Edit TP/SL"
         [[:actions/open-position-tpsl-modal position-data :event.currentTarget/bounds]]
         :data-position-tpsl-trigger)]
       (when active-modal?
-        (position-tpsl-modal/position-tpsl-modal-view tpsl-modal))]]))
+        (when (active-desktop-table-layout?)
+          (position-tpsl-modal/position-tpsl-modal-view tpsl-modal)))]]))
 
 (defn position-row
   ([position-data]
@@ -498,14 +513,7 @@
         pnl-color-class (:pnl-color-class row-vm)
         margin-editable? (:margin-editable? row-vm)
         margin-mode-label (:margin-mode-label row-vm)
-        display-funding (:funding-display row-vm)
-        row-key (:row-key row-vm)
-        active-modal? (and (position-tpsl/open? tpsl-modal)
-                           (= row-key (:position-key tpsl-modal)))
-        active-reduce-popover? (and (position-reduce/open? reduce-popover)
-                                    (= row-key (:position-key reduce-popover)))
-        active-margin-modal? (and (position-margin/open? margin-modal)
-                                  (= row-key (:position-key margin-modal)))]
+        display-funding (:funding-display row-vm)]
     (mobile-cards/expandable-card
      {:data-role (str "mobile-position-card-" row-id)
       :expanded? expanded?
@@ -584,13 +592,41 @@
           "TP/SL"
           (position-overlay-trigger
            :actions/open-position-tpsl-modal
-           position-data))
-         (when active-reduce-popover?
-           (position-reduce-popover/position-reduce-popover-view reduce-popover))
-         (when active-margin-modal?
-           (position-margin-modal/position-margin-modal-view margin-modal))
-         (when active-modal?
-           (position-tpsl-modal/position-tpsl-modal-view tpsl-modal))]]]})))
+           position-data))]]]})))
+
+(defn- active-position-key-visible?
+  [visible-row-keys overlay]
+  (contains? visible-row-keys (:position-key overlay)))
+
+(defn- ensure-active-layout-anchor
+  [overlay]
+  (if (and (map? overlay)
+           (active-card-layout?)
+           (not (map? (:anchor overlay))))
+    (assoc overlay :anchor (mobile-position-overlay-anchor))
+    overlay))
+
+(defn- mobile-position-overlay-outlet
+  [visible-row-keys tpsl-modal reduce-popover margin-modal]
+  (when (active-card-layout?)
+    (let [margin-modal* (ensure-active-layout-anchor margin-modal)
+          reduce-popover* (ensure-active-layout-anchor reduce-popover)
+          tpsl-modal* (ensure-active-layout-anchor tpsl-modal)]
+      (cond
+        (and (position-margin/open? margin-modal*)
+             (active-position-key-visible? visible-row-keys margin-modal*))
+        (position-margin-modal/position-margin-modal-view margin-modal*)
+
+        (and (position-reduce/open? reduce-popover*)
+             (active-position-key-visible? visible-row-keys reduce-popover*))
+        (position-reduce-popover/position-reduce-popover-view reduce-popover*)
+
+        (and (position-tpsl/open? tpsl-modal*)
+             (active-position-key-visible? visible-row-keys tpsl-modal*))
+        (position-tpsl-modal/position-tpsl-modal-view tpsl-modal*)
+
+        :else
+        nil))))
 
 (defn sort-positions-by-column [positions column direction]
   (positions-vm/sort-position-rows-by-column positions column direction))
@@ -672,7 +708,10 @@
         filtered-row-vms (positions-vm/filter-row-vms row-vms direction-filter coin-search)
         sorted-row-vms (vec (positions-vm/sort-row-vms-by-column filtered-row-vms
                                                                   (:column sort-state*)
-                                                                  (:direction sort-state*)))]
+                                                                  (:direction sort-state*)))
+        visible-row-keys (into #{}
+                               (keep :row-key)
+                               sorted-row-vms)]
     (if (seq sorted-row-vms)
       [:div {:class ["flex" "h-full" "min-h-0" "flex-col"]}
        (position-table-header sort-state* ["hidden" "lg:grid"])
@@ -680,7 +719,8 @@
                             "lg:block"
                             "flex-1"
                             "min-h-0"
-                            "overflow-y-auto"
+                            "min-w-0"
+                            "overflow-auto"
                             "scrollbar-hide"]
                    :data-role "account-tab-rows-viewport"}]
              (map (fn [row-vm]
@@ -708,7 +748,11 @@
                                                   tpsl-modal
                                                   reduce-popover
                                                   margin-modal))
-                  sorted-row-vms))]
+                  sorted-row-vms))
+       (mobile-position-overlay-outlet visible-row-keys
+                                       tpsl-modal
+                                       reduce-popover
+                                       margin-modal)]
       (empty-state (if (seq positions*)
                      "No matching positions"
                      "No active positions")))))

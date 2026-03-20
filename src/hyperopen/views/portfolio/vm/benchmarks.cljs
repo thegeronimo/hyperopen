@@ -243,6 +243,9 @@
 (defonce returns-benchmark-selector-model-cache
   (atom nil))
 
+(defonce returns-benchmark-selector-derived-cache
+  (atom nil))
+
 (defn memoized-eligible-vault-benchmark-rows
   [rows]
   (let [cache @eligible-vault-benchmark-rows-cache]
@@ -331,6 +334,7 @@
   (reset! benchmark-selector-options-cache nil)
   (reset! eligible-vault-benchmark-rows-cache nil)
   (reset! vault-benchmark-selector-options-cache nil)
+  (reset! returns-benchmark-selector-derived-cache nil)
   (reset! returns-benchmark-selector-model-cache nil))
 
 (defn- benchmark-selector-options-result
@@ -382,7 +386,7 @@
                  :open-interest 0}))
           selected-coins)))
 
-(defn returns-benchmark-selector-model
+(defn- memoized-returns-benchmark-selector-derived
   [state]
   (let [{:keys [options options-signature]} (benchmark-selector-options-result state)
         option-values (into #{} (map :value) options)
@@ -393,39 +397,60 @@
                                         true)))
                             vec)
         search (or (get-in state [:portfolio-ui :returns-benchmark-search]) "")
-        suggestions-open? (boolean (get-in state [:portfolio-ui :returns-benchmark-suggestions-open?]))
-        cache @returns-benchmark-selector-model-cache]
+        cache @returns-benchmark-selector-derived-cache]
     (if (and (map? cache)
              (= options-signature (:options-signature cache))
              (= selected-coins (:selected-coins cache))
-             (= search (:search cache))
-             (= suggestions-open? (:suggestions-open? cache)))
-      (:model cache)
+             (= search (:search cache)))
+      cache
       (let [selected-coin-set (set selected-coins)
             search-query (normalize-benchmark-search-query search)
             selected-options (selected-benchmark-options options selected-coins)
-            candidates (->> options
-                            (remove (fn [{:keys [value]}]
-                                      (contains? selected-coin-set value)))
-                            (filter #(benchmark-option-matches-search? % search-query))
-                            vec)
+            candidates (if (str/blank? search-query)
+                         (->> options
+                              (remove (fn [{:keys [value]}]
+                                        (contains? selected-coin-set value)))
+                              vec)
+                         (->> options
+                              (remove (fn [{:keys [value]}]
+                                        (contains? selected-coin-set value)))
+                              (filter #(benchmark-option-matches-search? % search-query))
+                              vec))
             top-coin (some-> candidates first :value)
             empty-message (cond
                             (empty? options) "No benchmark symbols available."
                             (seq candidates) nil
                             (seq search-query) "No matching symbols."
                             :else "All symbols selected.")
-            model {:selected-coins selected-coins
-                   :selected-options selected-options
-                   :coin-search search
-                   :suggestions-open? suggestions-open?
-                   :candidates candidates
-                   :top-coin top-coin
-                   :empty-message empty-message
-                   :label-by-coin (into {} (map (juxt :value :label)) options)}]
-        (reset! returns-benchmark-selector-model-cache {:options-signature options-signature
-                                                        :selected-coins selected-coins
-                                                        :search search
+            derived {:options-signature options-signature
+                     :selected-coins selected-coins
+                     :search search
+                     :selected-options selected-options
+                     :candidates candidates
+                     :top-coin top-coin
+                     :empty-message empty-message
+                     :label-by-coin (into {} (map (juxt :value :label)) options)}]
+        (reset! returns-benchmark-selector-derived-cache derived)
+        derived))))
+
+(defn returns-benchmark-selector-model
+  [state]
+  (let [derived (memoized-returns-benchmark-selector-derived state)
+        suggestions-open? (boolean (get-in state [:portfolio-ui :returns-benchmark-suggestions-open?]))
+        cache @returns-benchmark-selector-model-cache]
+    (if (and (map? cache)
+             (= (:options-signature derived) (:options-signature cache))
+             (= (:selected-coins derived) (:selected-coins cache))
+             (= (:search derived) (:search cache))
+             (= suggestions-open? (:suggestions-open? cache)))
+      (:model cache)
+      (let [model (-> derived
+                      (dissoc :options-signature :search)
+                      (assoc :coin-search (:search derived)
+                             :suggestions-open? suggestions-open?))]
+        (reset! returns-benchmark-selector-model-cache {:options-signature (:options-signature derived)
+                                                        :selected-coins (:selected-coins derived)
+                                                        :search (:search derived)
                                                         :suggestions-open? suggestions-open?
                                                         :model model})
         model))))

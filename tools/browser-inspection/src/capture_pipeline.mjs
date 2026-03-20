@@ -1,5 +1,6 @@
 import { assertSnapshotPayload } from "./contracts.mjs";
 import { redactHeaders, redactValue } from "./redaction.mjs";
+import { navigateAttachedTarget } from "./session_manager.mjs";
 import { sleep } from "./util.mjs";
 
 function consoleArgsToStrings(args = []) {
@@ -129,19 +130,6 @@ function semanticScript(maskSelectors, styleKeys, maxNodes) {
   })();`;
 }
 
-async function setViewport(client, cdpSessionId, viewport) {
-  await client.send(
-    "Emulation.setDeviceMetricsOverride",
-    {
-      width: viewport.width,
-      height: viewport.height,
-      mobile: Boolean(viewport.mobile),
-      deviceScaleFactor: viewport.deviceScaleFactor || 1
-    },
-    cdpSessionId
-  );
-}
-
 export async function captureSnapshot(sessionManager, sessionId, options = {}) {
   const config = sessionManager.config;
   const session = await sessionManager.getSession(sessionId);
@@ -264,23 +252,16 @@ export async function captureSnapshot(sessionManager, sessionId, options = {}) {
   );
 
   try {
-    await attached.client.send("Page.enable", {}, attached.cdpSessionId);
-    await attached.client.send("Runtime.enable", {}, attached.cdpSessionId);
     await attached.client.send("Network.enable", {}, attached.cdpSessionId);
-
-    if (viewport) {
-      await setViewport(attached.client, attached.cdpSessionId, viewport);
-    }
 
     const shouldNavigate = options.navigate !== false;
     if (shouldNavigate) {
-      const loadEventPromise = attached.client.waitForEvent("Page.loadEventFired", {
-        sessionId: attached.cdpSessionId,
-        timeoutMs: options.navigationTimeoutMs || captureConfig.navigationTimeoutMs
+      await navigateAttachedTarget(attached, session, options.url, {
+        viewport,
+        timeoutMs: options.navigationTimeoutMs || captureConfig.navigationTimeoutMs,
+        bootstrapUrl: session.localApp?.url || config.localApp.url,
+        useBootstrap: options.useBootstrap
       });
-
-      await attached.client.send("Page.navigate", { url: options.url }, attached.cdpSessionId);
-      await loadEventPromise;
     }
 
     await waitForNetworkIdle(

@@ -8,7 +8,7 @@ export async function waitForUrl(url, timeoutMs = 120000, pollIntervalMs = 1000)
   while (Date.now() < deadline) {
     try {
       const response = await fetch(url, { redirect: "follow" });
-      if (response.status >= 200 && response.status < 500) {
+      if (response.status >= 200 && response.status < 300) {
         return true;
       }
     } catch (_err) {

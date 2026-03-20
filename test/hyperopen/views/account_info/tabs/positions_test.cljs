@@ -16,16 +16,19 @@
   (f)
   (positions-tab/reset-positions-sort-cache!))
 
-(defn- with-phone-viewport [f]
+(defn- with-viewport [width height f]
   (let [original-inner-width (.-innerWidth js/globalThis)
         original-inner-height (.-innerHeight js/globalThis)]
-    (set! (.-innerWidth js/globalThis) 430)
-    (set! (.-innerHeight js/globalThis) 932)
+    (set! (.-innerWidth js/globalThis) width)
+    (set! (.-innerHeight js/globalThis) height)
     (try
       (f)
       (finally
         (set! (.-innerWidth js/globalThis) original-inner-width)
         (set! (.-innerHeight js/globalThis) original-inner-height)))))
+
+(defn- with-phone-viewport [f]
+  (with-viewport 430 932 f))
 
 (use-fixtures :each reset-positions-sort-cache-fixture)
 
@@ -727,6 +730,68 @@
         (is (contains? expanded-strings "(Cross)"))
         (is (nil? margin-edit-button))
         (is (nil? margin-footer-button))))))
+
+(deftest positions-tab-content-mobile-collapsed-row-still-renders-hoisted-margin-overlay-test
+  (with-phone-viewport
+    (fn []
+      (let [row-data (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
+            content (render-positions-tab-from-rows [row-data]
+                                                    fixtures/default-sort-state
+                                                    nil
+                                                    nil
+                                                    (position-margin/from-position-row {} row-data)
+                                                    {:direction-filter :all})
+            collapsed-card (hiccup/find-by-data-role content
+                                                     (str "mobile-position-card-"
+                                                          (view/position-unique-key row-data)))
+            card-strings (set (hiccup/collect-strings collapsed-card))
+            overlay-layer (hiccup/find-by-data-role content "position-margin-mobile-sheet-layer")
+            overlay-surface (hiccup/find-first-node content
+                                                    #(= "true" (get-in % [1 :data-position-margin-surface])))]
+        (is (some? collapsed-card))
+        (is (contains? card-strings "NVDA"))
+        (is (not (contains? card-strings "Adjust Margin")))
+        (is (some? overlay-layer))
+        (is (some? overlay-surface))))))
+
+(deftest positions-tab-content-mobile-renders-one-active-margin-overlay-test
+  (with-phone-viewport
+    (fn []
+      (let [row-data (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
+            row-id (view/position-unique-key row-data)
+            content (render-positions-tab-from-rows [row-data]
+                                                    fixtures/default-sort-state
+                                                    nil
+                                                    nil
+                                                    (position-margin/from-position-row {} row-data)
+                                                    {:direction-filter :all
+                                                     :mobile-expanded-card {:positions row-id}})
+            overlay-surfaces (hiccup/find-all-nodes content
+                                                    #(= "true" (get-in % [1 :data-position-margin-surface])))
+            overlay-layers (hiccup/find-all-nodes content
+                                                  #(= "position-margin-mobile-sheet-layer"
+                                                      (get-in % [1 :data-role])))]
+        (is (= 1 (count overlay-surfaces)))
+        (is (= 1 (count overlay-layers)))))))
+
+(deftest positions-tab-content-card-layout-renders-hoisted-margin-overlay-at-tablet-width-test
+  (with-viewport
+    768
+    1024
+    (fn []
+      (let [row-data (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
+            content (render-positions-tab-from-rows [row-data]
+                                                    fixtures/default-sort-state
+                                                    nil
+                                                    nil
+                                                    (position-margin/from-position-row {} row-data)
+                                                    {:direction-filter :all})
+            overlay-layer (hiccup/find-by-data-role content "position-margin-mobile-sheet-layer")
+            overlay-surface (hiccup/find-first-node content
+                                                    #(= "true" (get-in % [1 :data-position-margin-surface])))]
+        (is (nil? overlay-layer))
+        (is (some? overlay-surface))
+        (is (contains? (hiccup/node-class-set overlay-surface) "fixed"))))))
 
 (deftest position-row-renders-inline-margin-modal-for-active-row-key-test
   (let [row-data (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")

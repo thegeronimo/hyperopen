@@ -6,7 +6,7 @@ import { killProcess, launchChrome, processIsAlive } from "./chrome_launcher.mjs
 import { classifyErrorMessage, remediationForClassification } from "./failure_classification.mjs";
 import { maybeStartLocalApp, maybeStopLocalApp } from "./local_app_manager.mjs";
 import { runPreflightChecks } from "./preflight.mjs";
-import { safeNowIso } from "./util.mjs";
+import { safeNowIso, sleep } from "./util.mjs";
 
 function validateUrlForReadOnly(config, url) {
   const blockedSchemes = config.readOnly?.blockedSchemes || [];
@@ -75,6 +75,163 @@ function withActionableStartupError(error, phaseLabel) {
   const wrapped = new Error(`${phaseLabel} failed: ${classification.summary}${detail}`, { cause: error });
   wrapped.classification = classification;
   return wrapped;
+}
+
+
+function parseUrlOrNull(rawUrl) {
+  try {
+    return new URL(rawUrl);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function localBootstrapNavigationDetails(url, bootstrapUrl) {
+  const target = parseUrlOrNull(url);
+  const bootstrap = parseUrlOrNull(bootstrapUrl);
+  if (!target || !bootstrap || target.origin !== bootstrap.origin) {
+    return null;
+  }
+  const bootstrapUrlWithSearch = new URL(bootstrap.toString());
+  bootstrapUrlWithSearch.search = target.search;
+  bootstrapUrlWithSearch.hash = target.hash;
+  return {
+    bootstrapUrl: bootstrapUrlWithSearch.toString(),
+    routePath: `${target.pathname}${target.search}${target.hash}`
+  };
+}
+
+async function waitForDebugBridge(attached, timeoutMs = 15000, pollMs = 50) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const result = await attached.client.send(
+        "Runtime.evaluate",
+        {
+          expression: `Boolean(globalThis.HYPEROPEN_DEBUG &&
+                             typeof globalThis.HYPEROPEN_DEBUG.dispatch === "function" &&
+                             typeof globalThis.HYPEROPEN_DEBUG.waitForIdle === "function")`,
+          returnByValue: true
+        },
+        attached.cdpSessionId,
+        Math.min(timeoutMs, 1500)
+      );
+      if (result?.result?.value === true) {
+        return true;
+      }
+    } catch (_error) {
+      // keep polling until the bridge is available
+    }
+    await sleep(pollMs);
+  }
+  throw new Error("Timed out waiting for HYPEROPEN_DEBUG to initialize.");
+}
+
+async function waitForDebugIdle(attached, options = {}) {
+  const idleOptions = {
+    quietMs: options.quietMs || 200,
+    timeoutMs: options.timeoutMs || 6000,
+    pollMs: options.pollMs || 50
+  };
+  return attached.client.send(
+    "Runtime.evaluate",
+    {
+      expression: `(async () => {
+        const api = globalThis.HYPEROPEN_DEBUG;
+        if (!api || typeof api.waitForIdle !== "function") {
+          return null;
+        }
+        return await api.waitForIdle(${JSON.stringify(idleOptions)});
+      })()`,
+      returnByValue: true,
+      awaitPromise: true
+    },
+    attached.cdpSessionId,
+    idleOptions.timeoutMs
+  );
+}
+
+async function dispatchNavigationAction(attached, routePath, timeoutMs = 15000) {
+  return attached.client.send(
+    "Runtime.evaluate",
+    {
+      expression: `(async () => {
+        const api = globalThis.HYPEROPEN_DEBUG;
+        if (!api || typeof api.dispatch !== "function") {
+          throw new Error("HYPEROPEN_DEBUG.dispatch unavailable");
+        }
+        return await api.dispatch([":actions/navigate", ${JSON.stringify(routePath)}]);
+      })()`,
+      returnByValue: true,
+      awaitPromise: true
+    },
+    attached.cdpSessionId,
+    timeoutMs
+  );
+}
+
+export async function prepareAttachedTarget(attached, options = {}) {
+  await attached.client.send("Page.enable", {}, attached.cdpSessionId);
+  await attached.client.send("Runtime.enable", {}, attached.cdpSessionId);
+  if (options.viewport) {
+    await attached.client.send(
+      "Emulation.setDeviceMetricsOverride",
+      {
+        width: options.viewport.width,
+        height: options.viewport.height,
+        mobile: Boolean(options.viewport.mobile),
+        deviceScaleFactor: options.viewport.deviceScaleFactor || 1
+      },
+      attached.cdpSessionId
+    );
+  }
+}
+
+export async function navigateAttachedTarget(attached, session, url, options = {}) {
+  const timeoutMs = options.timeoutMs || 15000;
+  await prepareAttachedTarget(attached, options);
+
+  const loadEvent = attached.client.waitForEvent("Page.loadEventFired", {
+    sessionId: attached.cdpSessionId,
+    timeoutMs
+  });
+
+  const bootstrapUrl = options.bootstrapUrl || session?.localApp?.url || null;
+  const bootstrapDetails =
+    options.useBootstrap !== false && bootstrapUrl ? localBootstrapNavigationDetails(url, bootstrapUrl) : null;
+  const navigateUrl = bootstrapDetails?.bootstrapUrl || url;
+
+  await attached.client.send("Page.navigate", { url: navigateUrl }, attached.cdpSessionId);
+  await loadEvent;
+
+  if (bootstrapDetails) {
+    await waitForDebugBridge(attached, options.debugBridgeTimeoutMs || 15000, options.debugBridgePollMs || 50);
+    await dispatchNavigationAction(attached, bootstrapDetails.routePath, options.dispatchTimeoutMs || 15000);
+    await waitForDebugIdle(
+      attached,
+      options.waitForIdle || {
+        quietMs: 200,
+        timeoutMs: 6000,
+        pollMs: 50
+      }
+    );
+  }
+
+  const titleResult = await attached.client.send(
+    "Runtime.evaluate",
+    {
+      expression: "document.title",
+      returnByValue: true
+    },
+    attached.cdpSessionId
+  );
+
+  return {
+    sessionId: session?.id || null,
+    url,
+    navigatedUrl: navigateUrl,
+    title: titleResult?.result?.value ?? null
+  };
 }
 
 export class SessionManager {
@@ -352,42 +509,12 @@ export class SessionManager {
 
     const attached = await this.ensureAttachedTarget(sessionId);
     try {
-      await attached.client.send("Page.enable", {}, attached.cdpSessionId);
-      await attached.client.send("Runtime.enable", {}, attached.cdpSessionId);
-      if (options.viewport) {
-        await attached.client.send(
-          "Emulation.setDeviceMetricsOverride",
-          {
-            width: options.viewport.width,
-            height: options.viewport.height,
-            mobile: Boolean(options.viewport.mobile),
-            deviceScaleFactor: options.viewport.deviceScaleFactor || 1
-          },
-          attached.cdpSessionId
-        );
-      }
-
-      const loadEvent = attached.client.waitForEvent("Page.loadEventFired", {
-        sessionId: attached.cdpSessionId,
-        timeoutMs: options.timeoutMs || this.config.capture.navigationTimeoutMs
+      return await navigateAttachedTarget(attached, session, url, {
+        viewport: options.viewport,
+        timeoutMs: options.timeoutMs || this.config.capture.navigationTimeoutMs,
+        bootstrapUrl: options.bootstrapUrl || session.localApp?.url || this.config.localApp.url,
+        useBootstrap: options.useBootstrap
       });
-      await attached.client.send("Page.navigate", { url }, attached.cdpSessionId);
-      await loadEvent;
-
-      const titleResult = await attached.client.send(
-        "Runtime.evaluate",
-        {
-          expression: "document.title",
-          returnByValue: true
-        },
-        attached.cdpSessionId
-      );
-
-      return {
-        sessionId,
-        url,
-        title: titleResult?.result?.value ?? null
-      };
     } finally {
       await attached.cleanup();
     }

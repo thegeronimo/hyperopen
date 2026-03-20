@@ -33,7 +33,7 @@
       "actions": [
         [
           ":actions/select-trade-mobile-surface",
-          ":account"
+          ":chart"
         ],
         [
           ":actions/select-account-info-tab",

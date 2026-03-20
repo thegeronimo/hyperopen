@@ -4,17 +4,23 @@
             [hyperopen.views.account-info.test-support.hiccup :as hiccup]
             [hyperopen.views.account-info-view :as view]))
 
-(deftest account-info-panel-uses-taller-balances-height-and-bounded-content-test
-  (let [panel (view/account-info-panel fixtures/sample-account-info-state)
-        panel-classes (hiccup/node-class-set panel)
-        content-node (second (vec (hiccup/node-children panel)))
+(deftest account-info-panel-keeps-a-stable-default-height-across-standard-tabs-test
+  (let [balances-panel (view/account-info-panel fixtures/sample-account-info-state)
+        positions-panel (view/account-info-panel (assoc-in fixtures/sample-account-info-state
+                                                          [:account-info :selected-tab]
+                                                          :positions))
+        balances-classes (hiccup/node-class-set balances-panel)
+        positions-classes (hiccup/node-class-set positions-panel)
+        content-node (second (vec (hiccup/node-children balances-panel)))
         content-classes (hiccup/node-class-set content-node)]
-    (is (contains? panel-classes "h-96"))
-    (is (contains? panel-classes "lg:h-[29rem]"))
-    (is (contains? panel-classes "flex"))
-    (is (contains? panel-classes "flex-col"))
-    (is (contains? panel-classes "min-h-0"))
-    (is (contains? panel-classes "overflow-hidden"))
+    (is (contains? balances-classes "h-96"))
+    (is (contains? balances-classes "lg:h-[29rem]"))
+    (is (contains? positions-classes "h-96"))
+    (is (contains? positions-classes "lg:h-[29rem]"))
+    (is (contains? balances-classes "flex"))
+    (is (contains? balances-classes "flex-col"))
+    (is (contains? balances-classes "min-h-0"))
+    (is (contains? balances-classes "overflow-hidden"))
     (is (contains? content-classes "flex-1"))
     (is (contains? content-classes "min-h-0"))
     (is (contains? content-classes "overflow-hidden"))))
@@ -53,3 +59,11 @@
     (is (not (contains? panel-classes "h-96")))
     (is (= "min(44rem, calc(100dvh - 22rem))"
            (:max-height panel-style)))))
+
+(deftest account-info-panel-allows-default-panel-class-overrides-test
+  (let [panel (view/account-info-panel fixtures/sample-account-info-state
+                                       {:default-panel-classes ["h-full"]})
+        panel-classes (hiccup/node-class-set panel)]
+    (is (contains? panel-classes "h-full"))
+    (is (not (contains? panel-classes "h-96")))
+    (is (not (contains? panel-classes "lg:h-[29rem]")))))
