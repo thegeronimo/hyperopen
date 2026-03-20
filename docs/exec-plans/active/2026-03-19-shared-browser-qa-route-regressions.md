@@ -24,7 +24,7 @@ This plan tracks the combined cleanup needed to get managed local browser QA gre
 - [x] (2026-03-20) Removed benchmark-selector candidate recompute on `/portfolio` focus/blur toggles at `768px` and added cache-stability regressions.
 - [x] (2026-03-20) Restored stable default height for the desktop trade account-table panel across standard tabs so chart/order-book alignment no longer shifts when switching between balances, positions, and history tabs.
 - [x] (2026-03-20) Diagnosed the remaining desktop trade layout regression from live browser evidence and two explorer audits: the chart shell was under-filling the top row, while the lower account panel still had competing row, panel, header, and viewport sizing contracts.
-- [ ] Finalize the desktop trade layout cleanup so the chart fills the full top row and the lower account panel keeps one stable outer height and width across balances, positions, open orders, TWAP, trade history, funding history, and order history.
+- [x] (2026-03-20) Replaced the stale desktop row-class path with an explicit inline desktop grid contract so the lower account panel keeps a stable viewport-scaled height and the chart/order-book row no longer collapses toward content auto-height.
 - [ ] Re-run targeted scenarios, required repo gates, `qa:design-ui`, and `qa:nightly-ui` with `--manage-local-app`.
 
 ## Surprises & Discoveries
@@ -65,6 +65,9 @@ This plan tracks the combined cleanup needed to get managed local browser QA gre
 - Observation: the lower account panel still changed perceived geometry across the seven standard tabs because desktop trade sizing was owned by multiple layers at once: the trade grid row, the embedded panel root, the header band, and inconsistent desktop table viewports.
   Evidence: `/hyperopen/src/hyperopen/views/trade_view.cljs` row 2 remained content-sized, `/hyperopen/src/hyperopen/views/account_info_view.cljs` imposed its own desktop height, `tab-navigation` collapsed the action slot for `:twap`, and desktop table viewports across balances, positions, trade history, and `table/tab-table-content` did not share one `min-w-0 overflow-auto` contract.
 
+- Observation: the desktop trade grid row classes were not the effective runtime source of truth in the live app, so the lower account row kept collapsing toward content height while the chart row absorbed the rest of the viewport.
+  Evidence: live browser inspection on 2026-03-20 measured the pre-fix local grid at `1440x900` with computed `gridTemplateRows` of `588px 199px`, and at `1440x1213` with computed `gridTemplateRows` of `901px 199px`, despite the class list still advertising the older desktop row classes. After moving the contract to inline style, the same surfaces measured `445px 342px` at `1440x900` and `639.0625px 460.9375px` at `1440x1213`.
+
 ## Decision Log
 
 - Decision: treat the route-smoke cluster as managed-local browser-QA bootstrap debt, not as missing production route code.
@@ -95,6 +98,10 @@ This plan tracks the combined cleanup needed to get managed local browser QA gre
   Rationale: the header and table shell should not visually jump when switching between balances, TWAP, and the history tabs. A stable action slot plus one overflow contract addresses the remaining width and spacing drift without changing the tab-specific tools.
   Date/Author: 2026-03-20 / Codex
 
+- Decision: make the desktop trade shell own its row proportions through inline `grid-template-rows`, using a viewport-scaled lower account row (`clamp(21rem, 38vh, 29rem)`) plus a chart-row minimum, instead of relying on Tailwind-generated arbitrary row classes for this contract.
+  Rationale: live browser evidence showed the class-based row split was not the effective runtime contract in the loaded app, while the inline style immediately produced the intended stable geometry across viewport heights and tab switches.
+  Date/Author: 2026-03-20 / Codex
+
 ## Outcomes & Retrospective
 
 Work in progress. Success for this pass requires:
@@ -106,6 +113,7 @@ Work in progress. Success for this pass requires:
 - required repo gates passing
 - the desktop trade chart fills the full top row with no blank gap above the account panel
 - the desktop account panel keeps one stable outer height and width while switching between balances, positions, open orders, TWAP, trade history, funding history, and order history
+- the desktop trade shell keeps the lower account panel near the Hyperliquid reference proportion instead of collapsing it toward content height as viewport height grows
 
 ## Context and Orientation
 

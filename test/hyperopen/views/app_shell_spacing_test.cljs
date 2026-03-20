@@ -280,7 +280,11 @@
         scroll-shell (find-first-node view-node
                                       #(= "trade-scroll-shell"
                                           (get-in % [1 :data-role])))
-        scroll-shell-classes (node-class-set scroll-shell)]
+        scroll-shell-classes (node-class-set scroll-shell)
+        grid-shell (find-first-node view-node
+                                    #(and (contains? (node-class-set %) "lg:grid-cols-[minmax(0,1fr)_320px]")
+                                          (contains? (node-class-set %) "xl:grid-cols-[minmax(0,1fr)_280px_320px]")))
+        grid-style (get-in grid-shell [1 :style])]
     (is (not (contains? root-classes "overflow-auto")))
     (is (contains? root-classes "min-h-0"))
     (is (contains? root-classes "overflow-hidden"))
@@ -291,9 +295,10 @@
     (is (contains? scroll-shell-classes "overflow-y-auto"))
     (is (contains-class? view-node "right-[320px]"))
     (is (contains-class? view-node "lg:grid-cols-[minmax(0,1fr)_320px]"))
-    (is (contains-class? view-node "lg:grid-rows-[minmax(520px,1fr)_29rem]"))
+    (is (some? grid-shell))
+    (is (= "minmax(27.75rem, 1fr) clamp(21rem, 38vh, 29rem)"
+           (:grid-template-rows grid-style)))
     (is (contains-class? view-node "xl:grid-cols-[minmax(0,1fr)_280px_320px]"))
-    (is (contains-class? view-node "xl:grid-rows-[minmax(580px,1fr)_29rem]"))
     (is (contains-class? view-node "xl:row-span-2"))))
 
 (deftest trade-view-xl-panel-span-contract-test

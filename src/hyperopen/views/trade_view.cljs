@@ -18,7 +18,10 @@
   1024)
 
 (def ^:private desktop-account-panel-height
-  "29rem")
+  "clamp(21rem, 38vh, 29rem)")
+
+(def ^:private desktop-chart-row-min-height
+  "27.75rem")
 
 (def ^:private trade-chart-view-base-state-keys
   [:active-asset
@@ -156,6 +159,12 @@
 
 (defn- desktop-trade-layout? []
   (>= (viewport-width-px) desktop-breakpoint-px))
+
+(defn- desktop-trade-grid-style
+  [desktop-layout?]
+  (when desktop-layout?
+    {:grid-template-rows (str "minmax(" desktop-chart-row-min-height ", 1fr) "
+                              desktop-account-panel-height)}))
 
 (defn- mobile-surface-button
   [selected-surface [surface-id label]]
@@ -391,9 +400,8 @@
                       "items-stretch"
                       "lg:h-full"
                       "lg:grid-cols-[minmax(0,1fr)_320px]"
-                      (str "lg:grid-rows-[minmax(520px,1fr)_" desktop-account-panel-height "]")
-                      "xl:grid-cols-[minmax(0,1fr)_280px_320px]"
-                      (str "xl:grid-rows-[minmax(580px,1fr)_" desktop-account-panel-height "]")]}
+                      "xl:grid-cols-[minmax(0,1fr)_280px_320px]"]
+               :style (desktop-trade-grid-style desktop-layout?)}
         [:div {:class (into [(if (= mobile-surface :chart) "flex" "hidden")
                              "bg-base-100"
                              "flex-col"
