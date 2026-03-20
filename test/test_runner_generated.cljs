@@ -62,7 +62,11 @@
             [hyperopen.core-bootstrap.asset-cache-persistence-test]
             [hyperopen.core-bootstrap.asset-selector-actions-test]
             [hyperopen.core-bootstrap.chart-menu-and-storage-test]
-            [hyperopen.core-bootstrap.order-effects-test]
+            [hyperopen.core-bootstrap.order-effects.cancel-test]
+            [hyperopen.core-bootstrap.order-effects.position-margin-test]
+            [hyperopen.core-bootstrap.order-effects.position-tpsl-test]
+            [hyperopen.core-bootstrap.order-effects.submit-failures-test]
+            [hyperopen.core-bootstrap.order-effects.submit-refresh-test]
             [hyperopen.core-bootstrap.order-entry-actions-test]
             [hyperopen.core-bootstrap.runtime-startup-test]
             [hyperopen.core-bootstrap.wallet-actions-effects-test]
@@ -88,7 +92,12 @@
             [hyperopen.funding-comparison.actions-test]
             [hyperopen.funding-comparison.effects-test]
             [hyperopen.funding.actions-test]
+            [hyperopen.funding.application.deposit-submit-test]
+            [hyperopen.funding.application.hyperunit-query-test]
+            [hyperopen.funding.application.hyperunit-submit-test]
+            [hyperopen.funding.application.lifecycle-polling-test]
             [hyperopen.funding.application.modal-vm-test]
+            [hyperopen.funding.application.submit-effects-test]
             [hyperopen.funding.effects-test]
             [hyperopen.funding.history-cache-test]
             [hyperopen.funding.infrastructure.erc20-rpc-test]
@@ -197,6 +206,11 @@
             [hyperopen.views.account-info.tabs.twap-test]
             [hyperopen.views.account-info.vm-test]
             [hyperopen.views.active-asset-view-test]
+            [hyperopen.views.active-asset.funding-tooltip-model-test]
+            [hyperopen.views.active-asset.funding-tooltip-popover-test]
+            [hyperopen.views.active-asset.icon-button-test]
+            [hyperopen.views.active-asset.row-test]
+            [hyperopen.views.active-asset.vm-test]
             [hyperopen.views.agent-trading-recovery-modal-test]
             [hyperopen.views.api-wallets-view-test]
             [hyperopen.views.api-wallets.vm-test]
@@ -408,7 +422,11 @@
              'hyperopen.core-bootstrap.asset-cache-persistence-test
              'hyperopen.core-bootstrap.asset-selector-actions-test
              'hyperopen.core-bootstrap.chart-menu-and-storage-test
-             'hyperopen.core-bootstrap.order-effects-test
+             'hyperopen.core-bootstrap.order-effects.cancel-test
+             'hyperopen.core-bootstrap.order-effects.position-margin-test
+             'hyperopen.core-bootstrap.order-effects.position-tpsl-test
+             'hyperopen.core-bootstrap.order-effects.submit-failures-test
+             'hyperopen.core-bootstrap.order-effects.submit-refresh-test
              'hyperopen.core-bootstrap.order-entry-actions-test
              'hyperopen.core-bootstrap.runtime-startup-test
              'hyperopen.core-bootstrap.wallet-actions-effects-test
@@ -434,7 +452,12 @@
              'hyperopen.funding-comparison.actions-test
              'hyperopen.funding-comparison.effects-test
              'hyperopen.funding.actions-test
+             'hyperopen.funding.application.deposit-submit-test
+             'hyperopen.funding.application.hyperunit-query-test
+             'hyperopen.funding.application.hyperunit-submit-test
+             'hyperopen.funding.application.lifecycle-polling-test
              'hyperopen.funding.application.modal-vm-test
+             'hyperopen.funding.application.submit-effects-test
              'hyperopen.funding.effects-test
              'hyperopen.funding.history-cache-test
              'hyperopen.funding.infrastructure.erc20-rpc-test
@@ -543,6 +566,11 @@
              'hyperopen.views.account-info.tabs.twap-test
              'hyperopen.views.account-info.vm-test
              'hyperopen.views.active-asset-view-test
+             'hyperopen.views.active-asset.funding-tooltip-model-test
+             'hyperopen.views.active-asset.funding-tooltip-popover-test
+             'hyperopen.views.active-asset.icon-button-test
+             'hyperopen.views.active-asset.row-test
+             'hyperopen.views.active-asset.vm-test
              'hyperopen.views.agent-trading-recovery-modal-test
              'hyperopen.views.api-wallets-view-test
              'hyperopen.views.api-wallets.vm-test
