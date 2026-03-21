@@ -9,8 +9,11 @@
 
 (defn active-asset-panel [state]
   (let [{:keys [active-asset row-vm dropdown-state asset-selector-props]}
-        (active-asset-vm/active-asset-panel-vm state)]
-    [:div {:class ["relative" "bg-base-200" "border-b" "border-base-300" "rounded-none" "spectate-none"]
+        (active-asset-vm/active-asset-panel-vm state)
+        funding-tooltip-open? (true? (:funding-tooltip-open? row-vm))]
+    [:div {:class (into ["relative" "bg-base-200" "border-b" "border-base-300" "rounded-none" "spectate-none"]
+                        (when funding-tooltip-open?
+                          ["z-[160]"]))
            :data-parity-id "market-strip"}
      [:div
       (if active-asset

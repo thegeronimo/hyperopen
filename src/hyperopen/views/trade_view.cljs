@@ -330,7 +330,8 @@
                                       (trade-chart-view-state state)))
 
 (defn trade-view [state]
-  (let [active-asset (:active-asset state)
+  (let [funding-tooltip-open? (true? (active-asset-vm/active-asset-funding-tooltip-open? state))
+        active-asset (:active-asset state)
         orderbook-data (when active-asset (get-in state [:orderbooks active-asset]))
         mobile-surface (trade-layout-actions/normalize-trade-mobile-surface
                          (get-in state [:trade-ui :mobile-surface]))
@@ -376,8 +377,11 @@
                     "overflow-y-auto"]
             :data-role "trade-scroll-shell"}
       [:div {:class (into ["lg:hidden" "border-b" "border-base-300" "bg-base-200"]
-                          (when mobile-account-surface?
-                            ["hidden"]))
+                          (concat
+                           (when funding-tooltip-open?
+                             ["relative" "z-[160]" "overflow-visible"])
+                           (when mobile-account-surface?
+                             ["hidden"])))
              :data-parity-id "trade-mobile-active-asset-strip"}
        (when show-mobile-active-asset?
          (render-active-asset-panel state))]
@@ -406,15 +410,20 @@
                              "bg-base-100"
                              "flex-col"
                              "min-h-0"
-                             "min-w-0"
-                             "overflow-hidden"]
-                            ["lg:flex"
-                             "lg:row-start-1"
-                             "lg:col-start-1"
-                             "lg:border-r"
-                             "lg:border-base-300"])
+                             "min-w-0"]
+                            (concat
+                             (if funding-tooltip-open?
+                               ["relative" "z-[160]" "overflow-visible"]
+                               ["overflow-hidden"])
+                             ["lg:flex"
+                              "lg:row-start-1"
+                              "lg:col-start-1"
+                              "lg:border-r"
+                              "lg:border-base-300"]))
                :data-parity-id "trade-chart-panel"}
-         [:div {:class ["hidden" "lg:block"]}
+         [:div {:class (into ["hidden" "lg:block"]
+                             (when funding-tooltip-open?
+                               ["relative" "z-[160]" "overflow-visible"]))}
          (when desktop-layout?
             (render-active-asset-panel state))]
          (when chart-panel-visible?

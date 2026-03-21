@@ -159,6 +159,13 @@
              :spot (:spot state)
              :ui {:locale (get-in state [:ui :locale])}))))
 
+(defn active-asset-funding-tooltip-open?
+  [state]
+  (let [active-asset (:active-asset state)
+        tooltip-ui (get-in state [:funding-ui :tooltip] {})]
+    (and active-asset
+         (funding-tooltip-open? tooltip-ui active-asset))))
+
 (defn resolve-active-market [full-state active-asset]
   (let [projected-market (:active-market full-state)
         market-by-key (get-in full-state [:asset-selector :market-by-key] {})]
