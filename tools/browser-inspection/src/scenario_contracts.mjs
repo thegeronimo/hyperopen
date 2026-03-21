@@ -54,6 +54,12 @@ function assertStep(step, index) {
         assertArray(step.args, `scenario.steps[${index}].args`);
       }
       break;
+    case "eval":
+      assertString(step.expression, `scenario.steps[${index}].expression`);
+      break;
+    case "wait_for_eval":
+      assertString(step.expression, `scenario.steps[${index}].expression`);
+      break;
     case "oracle":
       assertString(step.name, `scenario.steps[${index}].name`);
       break;

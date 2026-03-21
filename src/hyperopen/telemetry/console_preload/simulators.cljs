@@ -297,6 +297,65 @@
   (trading-api/clear-debug-exchange-simulator!)
   true)
 
+(defn seed-funding-tooltip-fixture!
+  ([] (seed-funding-tooltip-fixture! nil))
+  ([config]
+   (let [config* (simulator-config-map config)
+         coin (or (some-> (or (:coin config*)
+                              (:asset config*))
+                          str
+                          str/upper-case
+                          not-empty)
+                  "BTC")
+         mark (or (:mark config*) 64000)
+         oracle (or (:oracle config*) 63990)
+         funding-rate (or (:funding-rate config*)
+                          (:fundingRate config*)
+                          0.00015)
+         volume-24h (or (:volume-24h config*)
+                        (:volume24h config*)
+                        1250000)
+         open-interest (or (:open-interest config*)
+                           (:openInterest config*)
+                           250000)
+         market {:key (or (:market-key config*)
+                          (:marketKey config*)
+                          (str "perp:" coin))
+                 :coin coin
+                 :symbol (or (:symbol config*)
+                             (str coin "-USDC"))
+                 :base coin
+                 :market-type :perp}
+         predictability-summary {:mean 0.164527
+                                 :next24h 0.00015
+                                 :apy 0.05475
+                                 :volatility 0.021975
+                                 :lower-payment -0.04
+                                 :upper-payment -0.03}
+         next-state (-> @app-system/store
+                        (assoc :active-asset coin)
+                        (assoc :active-market market)
+                        (assoc-in [:active-assets :contexts coin]
+                                  {:coin coin
+                                   :mark mark
+                                   :markRaw (str mark)
+                                   :oracle oracle
+                                   :oracleRaw (str oracle)
+                                   :change24h 1500
+                                   :change24hPct 2.4
+                                   :volume24h volume-24h
+                                   :openInterest open-interest
+                                   :fundingRate funding-rate})
+                        (assoc-in [:active-assets :funding-predictability :by-coin coin]
+                                  predictability-summary)
+                        (assoc-in [:active-assets :funding-predictability :loading-by-coin coin] false)
+                        (assoc-in [:active-assets :funding-predictability :error-by-coin coin] nil))]
+     (reset! app-system/store next-state)
+     (clj->js {:ok true
+               :coin coin
+               :marketKey (:key market)
+               :fundingRate funding-rate}))))
+
 (defn qa-reset!
   []
   (runtime-validation/clear-debug-action-effect-traces!)

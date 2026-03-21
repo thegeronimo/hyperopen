@@ -1,0 +1,93 @@
+{
+  "id": "trade-funding-tooltip-layering",
+  "title": "Trade funding tooltip stays above adjacent panels",
+  "route": "/trade",
+  "severity": "high",
+  "tags": [
+    "critical",
+    "trade",
+    "overlay",
+    "funding",
+    "desktop"
+  ],
+  "viewports": [
+    "desktop"
+  ],
+  "url": "http://localhost:8080/trade?market=BTC",
+  "steps": [
+    {
+      "type": "debug_call",
+      "method": "qaReset"
+    },
+    {
+      "type": "navigate"
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 300,
+        "timeoutMs": 6000
+      }
+    },
+    {
+      "type": "debug_call",
+      "method": "seedFundingTooltipFixture",
+      "args": [
+        {
+          "coin": "BTC"
+        }
+      ]
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 200,
+        "timeoutMs": 4000
+      }
+    },
+    {
+      "type": "wait_for_eval",
+      "expression": "(() => ({ triggerPresent: Boolean(document.querySelector(\"[data-role='active-asset-funding-trigger']\")) }))()",
+      "timeoutMs": 12000,
+      "pollMs": 150,
+      "expect": {
+        "triggerPresent": true
+      }
+    },
+    {
+      "type": "eval",
+      "allowUnsafeEval": true,
+      "expression": "(() => { const trigger = document.querySelector(\"[data-role='active-asset-funding-trigger']\"); if (!trigger) { return { clicked: false, reason: \"missing-trigger\" }; } trigger.click(); return { clicked: true, ariaExpanded: trigger.getAttribute(\"aria-expanded\") }; })()",
+      "expect": {
+        "clicked": true
+      }
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 200,
+        "timeoutMs": 4000
+      }
+    },
+    {
+      "type": "eval",
+      "saveAs": "tooltipGeometry",
+      "expression": "(() => { const panel = document.querySelector(\"[data-role='active-asset-funding-tooltip']\"); const orderbook = document.querySelector(\"[data-parity-id='trade-orderbook-panel']\"); const account = document.querySelector(\"[data-parity-id='trade-account-tables-panel']\"); const trigger = document.querySelector(\"[data-role='active-asset-funding-trigger']\"); if (!panel || !orderbook || !account || !trigger) { return { panelPresent: Boolean(panel), orderbookPresent: Boolean(orderbook), accountPresent: Boolean(account), triggerPresent: Boolean(trigger) }; } const rect = (node) => { const box = node.getBoundingClientRect(); return { left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: box.width, height: box.height }; }; const overlaps = (left, right) => left.left < right.right && left.right > right.left && left.top < right.bottom && left.bottom > right.top; const panelRect = rect(panel); const orderbookRect = rect(orderbook); const accountRect = rect(account); const samplePoint = (x, y) => { const element = document.elementFromPoint(x, y); return { x, y, withinViewport: x >= 0 && y >= 0 && x <= window.innerWidth && y <= window.innerHeight, topDataRole: element?.closest(\"[data-role]\")?.getAttribute(\"data-role\") || null, insidePanel: Boolean(element && panel.contains(element)) }; }; const clamp = (value, lower, upper) => Math.max(lower, Math.min(upper, value)); const centerSample = samplePoint(clamp(panelRect.left + panelRect.width / 2, 1, window.innerWidth - 1), clamp(panelRect.top + panelRect.height / 2, 1, window.innerHeight - 1)); const rightOverlap = overlaps(panelRect, orderbookRect); const bottomOverlap = overlaps(panelRect, accountRect); const rightSample = rightOverlap ? samplePoint(clamp(Math.max(orderbookRect.left + 8, panelRect.left + 8), 1, window.innerWidth - 1), clamp(panelRect.top + Math.min(panelRect.height / 2, 24), 1, window.innerHeight - 1)) : null; const bottomSample = bottomOverlap ? samplePoint(clamp(panelRect.left + Math.min(panelRect.width / 2, 24), 1, window.innerWidth - 1), clamp(Math.max(accountRect.top + 8, panelRect.top + 8), 1, window.innerHeight - 1)) : null; return { panelPresent: true, triggerPressed: trigger.getAttribute(\"aria-pressed\"), panelRect, orderbookRect, accountRect, centerSample, rightOverlap, rightSample, bottomOverlap, bottomSample }; })()",
+      "expect": {
+        "panelPresent": true,
+        "triggerPressed": "true",
+        "centerSample": {
+          "insidePanel": true
+        },
+        "rightOverlap": true,
+        "rightSample": {
+          "insidePanel": true,
+          "topDataRole": "active-asset-funding-tooltip"
+        }
+      }
+    },
+    {
+      "type": "capture"
+    }
+  ]
+}

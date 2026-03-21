@@ -3,6 +3,7 @@
             [cljs.test :refer-macros [deftest is]]
             [hyperopen.trade-modules :as trade-modules]
             [hyperopen.state.trading :as trading]
+            [hyperopen.views.active-asset.test-support :as active-asset-support]
             [hyperopen.views.account-info-view :as account-info-view]
             [hyperopen.views.active-asset-view :as active-asset-view]
             [hyperopen.views.account-equity-view :as account-equity-view]
@@ -332,6 +333,35 @@
     (is (contains? order-entry-classes "xl:row-span-2"))
     (is (contains? account-panel-classes "xl:col-start-1"))
     (is (contains? account-panel-classes "xl:col-span-2"))))
+
+(deftest trade-view-funding-tooltip-open-state-lifts-chart-shell-test
+  (let [closed-view (with-viewport-width
+                      1280
+                      #(trade-view/trade-view (active-asset-panel-test-state)))
+        open-view (with-viewport-width
+                    1280
+                    #(trade-view/trade-view
+                      (active-asset-support/with-visible-funding-tooltip
+                       (active-asset-panel-test-state)
+                       "BTC")))
+        closed-chart-panel (find-first-node closed-view
+                                            #(= "trade-chart-panel"
+                                                (get-in % [1 :data-parity-id])))
+        open-chart-panel (find-first-node open-view
+                                          #(= "trade-chart-panel"
+                                              (get-in % [1 :data-parity-id])))
+        open-market-strip (find-first-node open-view
+                                           #(= "market-strip"
+                                               (get-in % [1 :data-parity-id])))
+        closed-chart-classes (node-class-set closed-chart-panel)
+        open-chart-classes (node-class-set open-chart-panel)
+        open-market-strip-classes (node-class-set open-market-strip)]
+    (is (contains? closed-chart-classes "overflow-hidden"))
+    (is (not (contains? closed-chart-classes "overflow-visible")))
+    (is (contains? open-chart-classes "overflow-visible"))
+    (is (contains? open-chart-classes "z-[160]"))
+    (is (not (contains? open-chart-classes "overflow-hidden")))
+    (is (contains? open-market-strip-classes "z-[160]"))))
 
 (deftest trade-view-account-info-cell-bounds-overflow-test
   (let [view-node (trade-view/trade-view trade-view-test-state)

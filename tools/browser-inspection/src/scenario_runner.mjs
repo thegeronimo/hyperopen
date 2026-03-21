@@ -206,6 +206,16 @@ async function debugCall(service, sessionId, method, args = [], timeoutMs = 1500
   return result.result;
 }
 
+async function evalExpression(service, sessionId, step) {
+  const result = await service.evaluate({
+    sessionId,
+    expression: step.expression,
+    allowUnsafeEval: Boolean(step.allowUnsafeEval),
+    timeoutMs: step.timeoutMs || 15000
+  });
+  return result.result;
+}
+
 async function executeStep({
   service,
   sessionId,
@@ -249,6 +259,28 @@ async function executeStep({
         resolvedStep.args || [],
         resolvedStep.timeoutMs || 15000
       );
+    case "eval":
+      return evalExpression(service, sessionId, resolvedStep);
+    case "wait_for_eval": {
+      const timeoutMs = resolvedStep.timeoutMs || 5000;
+      const pollMs = resolvedStep.pollMs || 100;
+      const startedAt = Date.now();
+      let lastResult = null;
+      let lastMismatches = [];
+      do {
+        lastResult = await evalExpression(service, sessionId, resolvedStep);
+        lastMismatches = resolvedStep.expect
+          ? compareExpectation(lastResult, resolvedStep.expect)
+          : [];
+        if (lastMismatches.length === 0) {
+          return lastResult;
+        }
+        await sleep(pollMs);
+      } while (Date.now() - startedAt < timeoutMs);
+      throw new Error(
+        `wait_for_eval timed out for ${label}: ${lastMismatches.join("; ")}`
+      );
+    }
     case "oracle":
       return debugCall(
         service,

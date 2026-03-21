@@ -45,6 +45,31 @@
             [:actions/set-funding-tooltip-visible pin-id false]]
            (get-in open-trigger [1 :on :click])))))
 
+(deftest tooltip-renders-stable-browser-targeting-roles-test
+  (let [pin-id (support/funding-tooltip-pin-id "BTC")
+        closed-tooltip (funding-tooltip/funding-tooltip-popover
+                        {:trigger [:span "Funding"]
+                         :body [:div "Body"]
+                         :position "top"
+                         :open? false
+                         :pin-id pin-id
+                         :pinned? false})
+        open-tooltip (funding-tooltip/funding-tooltip-popover
+                      {:trigger [:span "Funding"]
+                       :body [:div "Body"]
+                       :position "top"
+                       :open? true
+                       :pin-id pin-id
+                       :pinned? true})
+        closed-trigger (support/find-node-by-role closed-tooltip "active-asset-funding-trigger")
+        open-trigger (support/find-node-by-role open-tooltip "active-asset-funding-trigger")
+        closed-panel (support/find-node-by-role closed-tooltip "active-asset-funding-tooltip")
+        open-panel (support/find-node-by-role open-tooltip "active-asset-funding-tooltip")]
+    (is (= :button (first closed-trigger)))
+    (is (= :button (first open-trigger)))
+    (is (nil? closed-panel))
+    (is (= :div (first open-panel)))))
+
 (deftest tooltip-click-pinnable-renders-body-when-open-test
   (let [pin-id (support/funding-tooltip-pin-id "BTC")
         closed-tooltip (funding-tooltip/funding-tooltip-popover

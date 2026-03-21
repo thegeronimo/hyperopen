@@ -392,6 +392,7 @@
                        "focus:outline-none"
                        "focus:ring-0"
                        "focus:ring-offset-0"]
+               :data-role "active-asset-funding-trigger"
                :aria-expanded open?*
                :aria-haspopup "dialog"
                :aria-pressed (boolean pinned?)
@@ -406,6 +407,7 @@
                             "duration-200"
                             "pointer-events-auto"]
                            placement-classes)
+              :data-role "active-asset-funding-tooltip"
               :style {:min-width "max-content"
                       :max-width "22rem"}}
         body])]))

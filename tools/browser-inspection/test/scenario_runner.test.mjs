@@ -167,3 +167,87 @@ test("runScenarioBundle waits for oracle expectations to settle", async () => {
   await fs.rm(scenarioDir, { recursive: true, force: true });
   await fs.rm(artifactRoot, { recursive: true, force: true });
 });
+
+test("runScenarioBundle supports eval steps with unsafe opt-in", async () => {
+  const scenarioDir = await fs.mkdtemp(path.join(os.tmpdir(), "hyperopen-scenario-eval-"));
+  const artifactRoot = await fs.mkdtemp(path.join(os.tmpdir(), "hyperopen-scenario-eval-artifacts-"));
+  await writeJson(path.join(scenarioDir, "eval.json"), {
+    id: "eval-scenario",
+    title: "Eval",
+    severity: "high",
+    tags: ["critical"],
+    viewports: ["desktop"],
+    url: "http://localhost:8080/trade",
+    steps: [
+      {
+        type: "eval",
+        expression: "({ clicked: true })",
+        allowUnsafeEval: true,
+        expect: { clicked: true }
+      }
+    ]
+  });
+
+  const evaluateCalls = [];
+  const service = buildFakeService(artifactRoot, {
+    async evaluate(options) {
+      evaluateCalls.push(options);
+      return { result: { clicked: true } };
+    }
+  });
+
+  const result = await runScenarioBundle(service, {
+    scenarioDir,
+    tags: ["critical"],
+    runKind: "scenario"
+  });
+
+  assert.equal(result.state, "pass");
+  assert.equal(evaluateCalls.length, 1);
+  assert.equal(evaluateCalls[0].allowUnsafeEval, true);
+  assert.equal(evaluateCalls[0].expression, "({ clicked: true })");
+
+  await fs.rm(scenarioDir, { recursive: true, force: true });
+  await fs.rm(artifactRoot, { recursive: true, force: true });
+});
+
+test("runScenarioBundle waits for eval expectations to settle", async () => {
+  const scenarioDir = await fs.mkdtemp(path.join(os.tmpdir(), "hyperopen-scenario-wait-eval-"));
+  const artifactRoot = await fs.mkdtemp(path.join(os.tmpdir(), "hyperopen-scenario-wait-eval-artifacts-"));
+  await writeJson(path.join(scenarioDir, "wait-eval.json"), {
+    id: "wait-eval-scenario",
+    title: "Wait eval",
+    severity: "high",
+    tags: ["critical"],
+    viewports: ["desktop"],
+    url: "http://localhost:8080/trade",
+    steps: [
+      {
+        type: "wait_for_eval",
+        expression: "({ ready: true })",
+        timeoutMs: 100,
+        pollMs: 1,
+        expect: { ready: true }
+      }
+    ]
+  });
+
+  const evaluateResults = [{ result: { ready: false } }, { result: { ready: true } }];
+  const service = buildFakeService(artifactRoot, {
+    async evaluate() {
+      return evaluateResults.shift() ?? { result: { ready: true } };
+    }
+  });
+
+  const result = await runScenarioBundle(service, {
+    scenarioDir,
+    tags: ["critical"],
+    runKind: "scenario"
+  });
+
+  assert.equal(result.state, "pass");
+  assert.equal(result.results[0].state, "pass");
+
+  await fs.rm(scenarioDir, { recursive: true, force: true });
+  await fs.rm(artifactRoot, { recursive: true, force: true });
+});

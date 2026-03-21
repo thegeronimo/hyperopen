@@ -511,6 +511,7 @@
                                               (js-plain-object? args) (js->clj args :keywordize-keys true)
                                               :else {}))))
        :qaReset simulators/qa-reset!
+       :seedFundingTooltipFixture simulators/seed-funding-tooltip-fixture!
        :setWalletConnectedHandlerMode simulators/set-wallet-connected-handler-mode!
        :installWalletSimulator simulators/install-wallet-simulator!
        :walletSimulatorEmit simulators/emit-wallet-simulator!
