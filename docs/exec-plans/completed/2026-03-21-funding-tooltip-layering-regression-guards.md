@@ -16,7 +16,7 @@ Users should be able to open the active-asset funding tooltip on `/trade` at sma
 - [x] (2026-03-21 19:24Z) Added stable `data-role` anchors for the active-asset funding trigger and tooltip panel in `/hyperopen/src/hyperopen/views/active_asset/funding_tooltip.cljs`.
 - [x] (2026-03-21 19:35Z) Added deterministic browser-inspection coverage in `/hyperopen/tools/browser-inspection/scenarios/trade-funding-tooltip-layering.json`, plus minimal `eval` / `wait_for_eval` scenario support and a narrow QA fixture seeding hook so the scenario can click the real trigger on cold boot.
 - [x] (2026-03-21 19:36Z) Ran `npm run test:browser-inspection`, `npm test`, `npm run test:websocket`, the targeted funding-tooltip scenario, and the governed `/trade` design review with passing results for the new guardrail stack.
-- [ ] Move this ExecPlan out of `active/` once the implementation is landed and the issue lifecycle is closed so docs lint stays green.
+- [x] (2026-03-21 19:55Z) Closed `hyperopen-huu2` with `bd close ... --reason "Completed"` and prepared this ExecPlan to move from `active/` to `completed/`.
 
 ## Surprises & Discoveries
 
@@ -59,14 +59,14 @@ Users should be able to open the active-asset funding tooltip on `/trade` at sma
 
 ## Outcomes & Retrospective
 
-Implementation is complete; only archival/issue-close cleanup remains. The completed outcome is:
+Implementation is complete. The completed outcome is:
 
 - `/trade` now has a deterministic view test that fails if the funding-tooltip-open state stops elevating the market strip and unclipping the chart cell.
 - the active-asset funding tooltip exposes stable selectors that browser tooling can target directly.
 - the browser-inspection toolchain now has a deterministic path that opens the tooltip via the real trigger, samples the overlap region against the order book at `1280px`, and fails if the tooltip stops being the topmost surface there.
 - the governed `/trade` design review now passes again across `375`, `768`, `1280`, and `1440`.
 
-This plan reduced risk more than raw complexity. The final shape is one explicit selector seam, one explicit shell-state regression test, one reusable browser-scenario polling primitive, and one narrow QA fixture seed for cold-boot determinism. The only remaining repo-wide blocker is unrelated: `npm run check` still fails because `/hyperopen/docs/exec-plans/active/2026-03-20-decrap-vault-and-funding-hotspots.md` has no unchecked progress items and still lives under `active/`.
+This plan reduced risk more than raw complexity. The final shape is one explicit selector seam, one explicit shell-state regression test, one reusable browser-scenario polling primitive, and one narrow QA fixture seed for cold-boot determinism. The remaining repo-wide docs-lint blocker is unrelated: `/hyperopen/docs/exec-plans/active/2026-03-20-decrap-vault-and-funding-hotspots.md` still has no unchecked progress items and still lives under `active/`.
 
 ## Context and Orientation
 
