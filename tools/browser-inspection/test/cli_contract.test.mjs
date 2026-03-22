@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
+import { DESIGN_REVIEW_PASS_NAMES } from "../src/design_review/pass_registry.mjs";
 
 const execFileAsync = promisify(execFile);
 const cliPath = path.resolve("tools/browser-inspection/src/cli.mjs");
@@ -89,13 +90,6 @@ test("cli design-review dry-run returns review targets and pass matrix", async (
   ]);
   const parsed = JSON.parse(stdout);
   assert.equal(parsed.dryRun, true);
-  assert.deepEqual(parsed.passes, [
-    "visual",
-    "native-control",
-    "styling-consistency",
-    "interaction",
-    "layout-regression",
-    "jank-perf"
-  ]);
+  assert.deepEqual(parsed.passes, DESIGN_REVIEW_PASS_NAMES);
   assert.deepEqual(parsed.selection.targets.map((target) => target.id), ["trade-route"]);
 });

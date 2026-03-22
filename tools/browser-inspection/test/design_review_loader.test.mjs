@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { DESIGN_REVIEW_PASS_NAMES } from "../src/design_review/pass_registry.mjs";
 import {
   loadDesignReviewConfig,
   loadDesignReviewRouting,
@@ -9,14 +10,7 @@ import {
 
 test("design review config locks the required passes and widths", async () => {
   const config = await loadDesignReviewConfig();
-  assert.deepEqual(config.passes, [
-    "visual",
-    "native-control",
-    "styling-consistency",
-    "interaction",
-    "layout-regression",
-    "jank-perf"
-  ]);
+  assert.deepEqual(config.passes, DESIGN_REVIEW_PASS_NAMES);
   assert.deepEqual(
     Object.fromEntries(
       Object.entries(config.viewports).map(([name, viewport]) => [name, viewport.width])

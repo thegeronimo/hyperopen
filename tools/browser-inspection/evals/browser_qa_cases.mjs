@@ -1,13 +1,12 @@
-const REQUIRED_PASSES = [
-  "visual",
-  "native-control",
-  "styling-consistency",
-  "interaction",
-  "layout-regression",
-  "jank-perf"
-];
+import { REQUIRED_VIEWPORTS } from "../src/design_review_contracts.mjs";
+import { DESIGN_REVIEW_PASS_NAMES } from "../src/design_review/pass_registry.mjs";
 
-const REQUIRED_WIDTHS = [375, 768, 1280, 1440];
+const REQUIRED_PASSES = DESIGN_REVIEW_PASS_NAMES;
+const REQUIRED_VIEWPORT_SPECS = Object.entries(REQUIRED_VIEWPORTS).map(([name, viewport]) => ({
+  name,
+  width: viewport.width,
+  height: viewport.height
+}));
 
 function passForCategories(passName, categories, index) {
   const failedByCategory = {
@@ -43,6 +42,8 @@ function issueForCategory(caseId, category, route, selector, index) {
   };
   return {
     id: `${caseId}:${category}`,
+    fingerprint: `${caseId}:${category}:fingerprint`,
+    targetId: `${route.slice(1)}-route`,
     severity: ["focus-regression", "layout-overflow", "native-control-leak"].includes(category)
       ? "high"
       : "medium",
@@ -52,10 +53,16 @@ function issueForCategory(caseId, category, route, selector, index) {
     selector,
     reproSteps: [`Open ${route}.`, `Inspect ${selector}.`],
     artifactPath: `/hyperopen/tmp/browser-inspection/design-review-evals/${index}/${category}.png`,
+    evidenceRefs: [
+      {
+        kind: "artifact",
+        path: `/hyperopen/tmp/browser-inspection/design-review-evals/${index}/${category}.png`
+      }
+    ],
     observedBehavior: `${category} was detected during design review.`,
     expectedBehavior: "The reviewed UI should conform to the design-system browser QA contract.",
-    confidence: 0.86,
-    category
+    category,
+    ruleCode: category
   };
 }
 
@@ -68,13 +75,27 @@ function makeCase(index, { id, sourcePath, route, selector, categories }) {
     report: {
       runId: `design-review-eval-${index}`,
       runDir: `/hyperopen/tmp/browser-inspection/design-review-evals/${index}`,
+      runStatus: "completed",
+      reviewOutcome: "FAIL",
       state: "FAIL",
       startedAt: "2026-03-16T00:00:00.000Z",
       endedAt: "2026-03-16T00:01:00.000Z",
-      inspectedViewports: REQUIRED_WIDTHS,
+      inspectedViewports: REQUIRED_VIEWPORT_SPECS,
       targets: [{ id: `${route.slice(1)}-route`, route }],
       passes: REQUIRED_PASSES.map((passName) => passForCategories(passName, categories, index)),
       issues,
+      blindSpots: [
+        {
+          pass: "interaction",
+          targetId: `${route.slice(1)}-route`,
+          route,
+          viewport: "review-375",
+          reasonCode: "state-coverage-gap",
+          message:
+            "Hover, active, disabled, and loading states still require route-specific actions when not present by default.",
+          evidenceRefs: []
+        }
+      ],
       residualBlindSpots: [
         `${route}: hover, active, disabled, and loading states still require targeted route actions when not present by default.`
       ]

@@ -1,16 +1,10 @@
 #!/usr/bin/env node
 import { browserQaEvalCorpus } from "../evals/browser_qa_cases.mjs";
-import { assertBrowserQaEvalCorpus } from "./design_review_contracts.mjs";
+import { assertBrowserQaEvalCorpus, REQUIRED_VIEWPORTS } from "./design_review_contracts.mjs";
+import { DESIGN_REVIEW_PASS_NAMES } from "./design_review/pass_registry.mjs";
 
-const REQUIRED_PASSES = [
-  "visual",
-  "native-control",
-  "styling-consistency",
-  "interaction",
-  "layout-regression",
-  "jank-perf"
-];
-const REQUIRED_WIDTHS = [375, 768, 1280, 1440];
+const REQUIRED_PASSES = DESIGN_REVIEW_PASS_NAMES;
+const REQUIRED_WIDTHS = Object.values(REQUIRED_VIEWPORTS).map((entry) => entry.width);
 
 function passMap(report) {
   return new Map((report.passes || []).map((entry) => [entry.pass, entry]));
@@ -22,7 +16,10 @@ function graderPassCoverage(caseEntry) {
 }
 
 function graderRequiredWidths(caseEntry) {
-  const widths = [...(caseEntry.report.inspectedViewports || [])].sort((a, b) => a - b);
+  const widths = [...(caseEntry.report.inspectedViewports || [])]
+    .map((entry) => (typeof entry === "number" ? entry : entry?.width))
+    .filter((entry) => typeof entry === "number")
+    .sort((a, b) => a - b);
   return JSON.stringify(widths) === JSON.stringify(REQUIRED_WIDTHS);
 }
 

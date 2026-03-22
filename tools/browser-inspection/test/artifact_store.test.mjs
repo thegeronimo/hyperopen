@@ -62,3 +62,31 @@ test("ArtifactStore creates runs and tracks session registry", async () => {
 
   await fs.rm(root, { recursive: true, force: true });
 });
+
+test("ArtifactStore finalizes completed audit failures separately from execution failures", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "hyperopen-artifacts-"));
+  const store = new ArtifactStore(baseConfig(root));
+  await store.init();
+
+  const auditRun = await store.createRun("design-review", { foo: "bar" });
+  const completedManifest = await store.finalizeRun(auditRun.runDir, {
+    runStatus: "completed",
+    reviewOutcome: "FAIL",
+    summaryPath: "/tmp/summary.json"
+  });
+  assert.equal(completedManifest.status, "complete");
+  assert.equal(completedManifest.metadata.runStatus, "completed");
+  assert.equal(completedManifest.metadata.reviewOutcome, "FAIL");
+  assert.equal(completedManifest.error, undefined);
+
+  const failedRun = await store.createRun("design-review", { foo: "bar" });
+  const failedManifest = await store.finalizeRun(failedRun.runDir, {
+    runStatus: "failed",
+    errorMessage: "chrome crashed"
+  });
+  assert.equal(failedManifest.status, "failed");
+  assert.equal(failedManifest.metadata.runStatus, "failed");
+  assert.equal(failedManifest.error, "chrome crashed");
+
+  await fs.rm(root, { recursive: true, force: true });
+});

@@ -1,6 +1,6 @@
 {
   "passes": [
-    "visual",
+    "visual-evidence-captured",
     "native-control",
     "styling-consistency",
     "interaction",

@@ -58,22 +58,33 @@ export class ArtifactStore {
     return manifest;
   }
 
-  async completeRun(runDir, finalMetadata = {}) {
+  async finalizeRun(runDir, result = {}) {
     const manifest = await this.readManifest(runDir);
-    manifest.status = "complete";
+    const runStatus = result.runStatus === "failed" ? "failed" : "completed";
+    manifest.status = runStatus === "failed" ? "failed" : "complete";
     manifest.completedAt = safeNowIso();
-    manifest.metadata = { ...(manifest.metadata || {}), ...finalMetadata };
+    manifest.metadata = { ...(manifest.metadata || {}), ...result, runStatus };
+    if (runStatus === "failed") {
+      manifest.error = result.errorMessage || result.reviewOutcome || "Run failed";
+    } else {
+      delete manifest.error;
+    }
     await this.writeManifest(runDir, manifest);
     return manifest;
   }
 
+  async completeRun(runDir, finalMetadata = {}) {
+    return this.finalizeRun(runDir, {
+      runStatus: "completed",
+      ...finalMetadata
+    });
+  }
+
   async failRun(runDir, errorMessage) {
-    const manifest = await this.readManifest(runDir);
-    manifest.status = "failed";
-    manifest.completedAt = safeNowIso();
-    manifest.error = errorMessage;
-    await this.writeManifest(runDir, manifest);
-    return manifest;
+    return this.finalizeRun(runDir, {
+      runStatus: "failed",
+      errorMessage
+    });
   }
 
   async readSessionRegistry() {

@@ -1,19 +1,19 @@
+import {
+  PASS_STATUS_VALUES,
+  REVIEW_OUTCOME_VALUES,
+  RUN_STATUS_VALUES
+} from "./design_review/models.mjs";
+import { DESIGN_REVIEW_PASS_NAMES } from "./design_review/pass_registry.mjs";
+
 function fail(message) {
   const error = new Error(`DesignReviewContractError: ${message}`);
   error.name = "DesignReviewContractError";
   throw error;
 }
 
-const REQUIRED_PASSES = [
-  "visual",
-  "native-control",
-  "styling-consistency",
-  "interaction",
-  "layout-regression",
-  "jank-perf"
-];
+export const REQUIRED_PASSES = [...DESIGN_REVIEW_PASS_NAMES];
 
-const REQUIRED_VIEWPORTS = {
+export const REQUIRED_VIEWPORTS = {
   "review-375": { width: 375, height: 812 },
   "review-768": { width: 768, height: 1024 },
   "review-1280": { width: 1280, height: 900 },
@@ -110,27 +110,52 @@ export function assertDesignReviewSummary(value) {
   assertObject(value, "designReviewSummary");
   assertString(value.runId, "designReviewSummary.runId");
   assertString(value.runDir, "designReviewSummary.runDir");
+  assertString(value.runStatus, "designReviewSummary.runStatus");
+  if (!RUN_STATUS_VALUES.includes(value.runStatus)) {
+    fail(`designReviewSummary.runStatus must be one of ${RUN_STATUS_VALUES.join(", ")}`);
+  }
+  assertString(value.reviewOutcome, "designReviewSummary.reviewOutcome");
+  if (!REVIEW_OUTCOME_VALUES.includes(value.reviewOutcome)) {
+    fail(
+      `designReviewSummary.reviewOutcome must be one of ${REVIEW_OUTCOME_VALUES.join(", ")}`
+    );
+  }
   assertString(value.state, "designReviewSummary.state");
-  if (!["PASS", "FAIL", "BLOCKED"].includes(value.state)) {
-    fail("designReviewSummary.state must be PASS, FAIL, or BLOCKED");
+  if (!REVIEW_OUTCOME_VALUES.includes(value.state)) {
+    fail(`designReviewSummary.state must be one of ${REVIEW_OUTCOME_VALUES.join(", ")}`);
+  }
+  if (value.state !== value.reviewOutcome) {
+    fail("designReviewSummary.state must mirror designReviewSummary.reviewOutcome");
   }
   assertString(value.startedAt, "designReviewSummary.startedAt");
   assertString(value.endedAt, "designReviewSummary.endedAt");
   assertArray(value.passes || [], "designReviewSummary.passes");
   assertArray(value.issues || [], "designReviewSummary.issues");
-  assertArray(
-    value.inspectedViewports || [],
-    "designReviewSummary.inspectedViewports"
-  );
+  assertArray(value.inspectedViewports || [], "designReviewSummary.inspectedViewports");
   assertArray(value.targets || [], "designReviewSummary.targets");
+  assertArray(value.targetResults || [], "designReviewSummary.targetResults");
+  assertArray(value.blindSpots || [], "designReviewSummary.blindSpots");
   assertArray(value.residualBlindSpots || [], "designReviewSummary.residualBlindSpots");
+
+  for (const [index, viewport] of (value.inspectedViewports || []).entries()) {
+    assertObject(viewport, `designReviewSummary.inspectedViewports[${index}]`);
+    assertString(viewport.name, `designReviewSummary.inspectedViewports[${index}].name`);
+    if (typeof viewport.width !== "number" || Number.isNaN(viewport.width)) {
+      fail(`designReviewSummary.inspectedViewports[${index}].width must be a number`);
+    }
+    if (typeof viewport.height !== "number" || Number.isNaN(viewport.height)) {
+      fail(`designReviewSummary.inspectedViewports[${index}].height must be a number`);
+    }
+  }
 
   for (const [index, passEntry] of (value.passes || []).entries()) {
     assertObject(passEntry, `designReviewSummary.passes[${index}]`);
     assertString(passEntry.pass, `designReviewSummary.passes[${index}].pass`);
     assertString(passEntry.status, `designReviewSummary.passes[${index}].status`);
-    if (!["PASS", "FAIL", "BLOCKED"].includes(passEntry.status)) {
-      fail(`designReviewSummary.passes[${index}].status must be PASS, FAIL, or BLOCKED`);
+    if (!PASS_STATUS_VALUES.includes(passEntry.status)) {
+      fail(
+        `designReviewSummary.passes[${index}].status must be one of ${PASS_STATUS_VALUES.join(", ")}`
+      );
     }
     if (typeof passEntry.issueCount !== "number" || Number.isNaN(passEntry.issueCount)) {
       fail(`designReviewSummary.passes[${index}].issueCount must be a number`);
@@ -143,6 +168,10 @@ export function assertDesignReviewSummary(value) {
 
   for (const [index, issue] of (value.issues || []).entries()) {
     assertObject(issue, `designReviewSummary.issues[${index}]`);
+    assertString(issue.id, `designReviewSummary.issues[${index}].id`);
+    assertString(issue.fingerprint, `designReviewSummary.issues[${index}].fingerprint`);
+    assertString(issue.targetId, `designReviewSummary.issues[${index}].targetId`);
+    assertString(issue.ruleCode, `designReviewSummary.issues[${index}].ruleCode`);
     assertString(issue.severity, `designReviewSummary.issues[${index}].severity`);
     assertString(issue.pass, `designReviewSummary.issues[${index}].pass`);
     assertString(issue.route, `designReviewSummary.issues[${index}].route`);
@@ -150,6 +179,7 @@ export function assertDesignReviewSummary(value) {
     assertString(issue.selector, `designReviewSummary.issues[${index}].selector`);
     assertArray(issue.reproSteps || [], `designReviewSummary.issues[${index}].reproSteps`);
     assertString(issue.artifactPath, `designReviewSummary.issues[${index}].artifactPath`);
+    assertArray(issue.evidenceRefs || [], `designReviewSummary.issues[${index}].evidenceRefs`);
     assertString(
       issue.observedBehavior,
       `designReviewSummary.issues[${index}].observedBehavior`
@@ -158,8 +188,49 @@ export function assertDesignReviewSummary(value) {
       issue.expectedBehavior,
       `designReviewSummary.issues[${index}].expectedBehavior`
     );
-    if (typeof issue.confidence !== "number" || Number.isNaN(issue.confidence)) {
-      fail(`designReviewSummary.issues[${index}].confidence must be a number`);
+    assertString(issue.category, `designReviewSummary.issues[${index}].category`);
+  }
+
+  for (const [index, blindSpot] of (value.blindSpots || []).entries()) {
+    assertObject(blindSpot, `designReviewSummary.blindSpots[${index}]`);
+    assertString(blindSpot.pass, `designReviewSummary.blindSpots[${index}].pass`);
+    assertString(blindSpot.targetId, `designReviewSummary.blindSpots[${index}].targetId`);
+    assertString(blindSpot.route, `designReviewSummary.blindSpots[${index}].route`);
+    assertString(blindSpot.reasonCode, `designReviewSummary.blindSpots[${index}].reasonCode`);
+    assertString(blindSpot.message, `designReviewSummary.blindSpots[${index}].message`);
+    assertArray(
+      blindSpot.evidenceRefs || [],
+      `designReviewSummary.blindSpots[${index}].evidenceRefs`
+    );
+  }
+
+  for (const [index, targetResult] of (value.targetResults || []).entries()) {
+    assertObject(targetResult, `designReviewSummary.targetResults[${index}]`);
+    assertString(targetResult.id, `designReviewSummary.targetResults[${index}].id`);
+    assertString(targetResult.route, `designReviewSummary.targetResults[${index}].route`);
+    assertArray(
+      targetResult.viewports || [],
+      `designReviewSummary.targetResults[${index}].viewports`
+    );
+    for (const [viewportIndex, viewport] of (targetResult.viewports || []).entries()) {
+      assertObject(
+        viewport,
+        `designReviewSummary.targetResults[${index}].viewports[${viewportIndex}]`
+      );
+      assertString(
+        viewport.name,
+        `designReviewSummary.targetResults[${index}].viewports[${viewportIndex}].name`
+      );
+      if (typeof viewport.width !== "number" || Number.isNaN(viewport.width)) {
+        fail(
+          `designReviewSummary.targetResults[${index}].viewports[${viewportIndex}].width must be a number`
+        );
+      }
+      if (typeof viewport.height !== "number" || Number.isNaN(viewport.height)) {
+        fail(
+          `designReviewSummary.targetResults[${index}].viewports[${viewportIndex}].height must be a number`
+        );
+      }
     }
   }
 }
