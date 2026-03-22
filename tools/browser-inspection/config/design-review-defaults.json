@@ -90,6 +90,7 @@
     "focusLimit": 4,
     "scrollFractions": [0, 0.5, 0],
     "delayMs": 90,
+    "settleDelayMs": 0,
     "layoutShiftFailThreshold": 0.1,
     "longTaskFailThresholdMs": 120
   }

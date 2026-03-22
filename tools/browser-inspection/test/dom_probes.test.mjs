@@ -383,3 +383,42 @@ test("interactionTraceExpression records layout shift and long-task metrics", as
   assert.equal(result.dispatchedActionCount, 1);
   assert.deepEqual(Array.from(result.scrolledFractions), [0, 0.5, 0]);
 });
+
+test("interactionTraceExpression supports an additional post-idle settle delay", async () => {
+  const delays = [];
+  const context = buildContext();
+  context.setTimeout = (callback, ms) => {
+    delays.push(ms);
+    callback();
+    return delays.length;
+  };
+
+  const root = createElement(context, { tagName: "div", className: "scope" });
+  const button = createElement(context, { tagName: "button", id: "trace-button" });
+  button.parentElement = root;
+  root.querySelectorAll = (selector) =>
+    selector === "a[href], button, input, select, textarea, [tabindex]:not([tabindex='-1'])"
+      ? [button]
+      : [];
+  context.document.body = root;
+  context.document.activeElement = root;
+  context.document.querySelectorAll = (selector) => (selector === ".scope" ? [root] : []);
+  context.HYPEROPEN_DEBUG = {
+    async waitForIdle() {
+      return { settled: true };
+    }
+  };
+
+  await vm.runInNewContext(
+    interactionTraceExpression({
+      selectors: [".scope"],
+      focusLimit: 1,
+      scrollFractions: [0],
+      delayMs: 7,
+      settleDelayMs: 25
+    }),
+    context
+  );
+
+  assert.deepEqual(delays, [25, 7, 7]);
+});

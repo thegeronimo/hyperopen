@@ -227,6 +227,7 @@
             [hyperopen.views.funding-comparison.vm-test]
             [hyperopen.views.funding-modal-test]
             [hyperopen.views.header-view-test]
+            [hyperopen.views.header.vm-test]
             [hyperopen.views.l2-orderbook-view-test]
             [hyperopen.views.portfolio-view-test]
             [hyperopen.views.portfolio.vm-test]
@@ -588,6 +589,7 @@
              'hyperopen.views.funding-comparison.vm-test
              'hyperopen.views.funding-modal-test
              'hyperopen.views.header-view-test
+             'hyperopen.views.header.vm-test
              'hyperopen.views.l2-orderbook-view-test
              'hyperopen.views.portfolio-view-test
              'hyperopen.views.portfolio.vm-test

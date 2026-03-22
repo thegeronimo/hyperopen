@@ -354,6 +354,7 @@ export function interactionTraceExpression({
   focusLimit = 4,
   scrollFractions = [0, 0.5, 0],
   delayMs = 90,
+  settleDelayMs = 0,
   dispatchActions = []
 } = {}) {
   return `(async () => {
@@ -362,6 +363,7 @@ export function interactionTraceExpression({
     const focusLimit = ${Number(focusLimit) || 4};
     const scrollFractions = ${jsString(scrollFractions)};
     const delayMs = ${Number(delayMs) || 90};
+    const settleDelayMs = ${Math.max(0, Number(settleDelayMs) || 0)};
     const dispatchActions = ${jsString(dispatchActions)};
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     const metrics = {
@@ -380,6 +382,9 @@ export function interactionTraceExpression({
         await globalThis.HYPEROPEN_DEBUG.waitForIdle({ quietMs: 160, timeoutMs: 4000, pollMs: 30 });
       } catch (_error) {
       }
+    }
+    if (settleDelayMs > 0) {
+      await sleep(settleDelayMs);
     }
 
     const observers = [];

@@ -46,6 +46,9 @@
       "workbenchScenes": [
         "/hyperopen/portfolio/hyperopen/workbench/scenes/account/portfolio_chart_scenes.cljs"
       ],
+      "interactionTrace": {
+        "settleDelayMs": 5000
+      },
       "nativeControlAllowlist": []
     },
     {

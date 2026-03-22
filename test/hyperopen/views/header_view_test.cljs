@@ -95,13 +95,12 @@
     (is (= [[:actions/open-spectate-mode-modal :event.currentTarget/bounds]]
            (get-in spectate-mode-button [1 :on :click])))))
 
-(deftest header-renders-mobile-menu-trigger-and-utility-buttons-test
+(deftest header-renders-mobile-menu-trigger-and-settings-button-test
   (let [view (header-view/header-view {:wallet {:connected? false}
                                        :router {:path "/trade"}})
         menu-trigger (find-node-by-role view "mobile-header-menu-trigger")
         mobile-brand (find-node-by-role view "mobile-brand")
         menu-panel (find-node-by-role view "mobile-header-menu-panel")
-        language-button (find-node-by-role view "header-language-button")
         settings-button (find-node-by-role view "header-settings-button")]
     (is (some? menu-trigger))
     (is (= [[:actions/open-mobile-header-menu]]
@@ -110,7 +109,6 @@
     (is (= [[:actions/navigate "/trade"]]
            (get-in mobile-brand [1 :on :click])))
     (is (nil? menu-panel))
-    (is (some? language-button))
     (is (some? settings-button))))
 
 (deftest header-renders-settings-trigger-at-tablet-breakpoint-with-open-dispatch-test

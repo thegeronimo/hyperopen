@@ -149,7 +149,10 @@ export function createDesignReviewRuntime(service, overrides = {}) {
             selectors: target.selectors,
             focusLimit: designConfig.interactionTrace?.focusLimit,
             scrollFractions: designConfig.interactionTrace?.scrollFractions,
-            delayMs: designConfig.interactionTrace?.delayMs
+            delayMs: designConfig.interactionTrace?.delayMs,
+            settleDelayMs:
+              target.interactionTrace?.settleDelayMs ??
+              designConfig.interactionTrace?.settleDelayMs
           })
         )
     }
