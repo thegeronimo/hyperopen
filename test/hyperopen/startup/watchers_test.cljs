@@ -132,16 +132,50 @@
       :request-animation-frame! (fn [f]
                                   (reset! queued-frame f)
                                   :frame-id)})
-    (swap! store assoc-in [:asset-selector :sort-by] :volume)
-    (swap! store assoc-in [:asset-selector :markets] [{:key "perp:BTC" :coin "BTC"}])
-    (swap! store assoc-in [:asset-selector :sort-by] :name)
-    (swap! store assoc-in [:asset-selector :markets] [{:key "perp:ETH" :coin "ETH"}])
+    (swap! store (fn [state]
+                   (-> state
+                       (assoc-in [:asset-selector :sort-by] :volume)
+                       (assoc-in [:asset-selector :loaded-at-ms] 100)
+                       (assoc-in [:asset-selector :markets] [{:key "perp:BTC" :coin "BTC"}]))))
+    (swap! store (fn [state]
+                   (-> state
+                       (assoc-in [:asset-selector :sort-by] :name)
+                       (assoc-in [:asset-selector :loaded-at-ms] 200)
+                       (assoc-in [:asset-selector :markets] [{:key "perp:ETH" :coin "ETH"}]))))
     (is (= 1 (count (keep some? [@queued-frame]))))
     (is (empty? @persisted))
     (@queued-frame 0)
     (is (= [{:markets [{:key "perp:ETH" :coin "ETH"}]
              :sort-by :name}]
            @persisted))))
+
+(deftest asset-selector-cache-watch-ignores-live-market-patches-without-refresh-test
+  (let [store (atom (base-store))
+        queued-frame (atom nil)
+        persisted (atom [])]
+    (watchers/install-store-cache-watchers!
+     store
+     {:persist-active-market-display! (fn [_] nil)
+      :persist-asset-selector-markets-cache! (fn [markets state]
+                                               (swap! persisted conj {:markets markets
+                                                                      :loaded-at-ms (get-in state [:asset-selector :loaded-at-ms])}))
+      :request-animation-frame! (fn [f]
+                                  (reset! queued-frame f)
+                                  :frame-id)})
+    (swap! store (fn [state]
+                   (-> state
+                       (assoc-in [:asset-selector :loaded-at-ms] 100)
+                       (assoc-in [:asset-selector :markets] [{:key "perp:BTC"
+                                                             :coin "BTC"
+                                                             :mark 1.0}]))))
+    (@queued-frame 0)
+    (reset! queued-frame nil)
+    (reset! persisted [])
+    (swap! store assoc-in [:asset-selector :markets] [{:key "perp:BTC"
+                                                       :coin "BTC"
+                                                       :mark 2.0}])
+    (is (nil? @queued-frame))
+    (is (empty? @persisted))))
 
 (deftest install-store-cache-watchers-replaces-existing-selector-watchers-test
   (let [store (atom (base-store))
@@ -163,7 +197,10 @@
       :request-animation-frame! (fn [f]
                                   (swap! frame-callbacks conj f)
                                   :frame-id-2)})
-    (swap! store assoc-in [:asset-selector :markets] [{:key "perp:BTC" :coin "BTC"}])
+    (swap! store (fn [state]
+                   (-> state
+                       (assoc-in [:asset-selector :loaded-at-ms] 100)
+                       (assoc-in [:asset-selector :markets] [{:key "perp:BTC" :coin "BTC"}]))))
     (doseq [callback @frame-callbacks]
       (callback 0))
     (is (= [[{:key "perp:BTC" :coin "BTC"}]]

@@ -3,6 +3,7 @@
             [hyperopen.trade-modules :as trade-modules]
             [hyperopen.views.active-asset.vm :as active-asset-vm]
             [hyperopen.views.active-asset-view :as active-asset-view]
+            [hyperopen.views.asset-selector-view :as asset-selector-view]
             [hyperopen.views.ui.funding-modal-positioning :as funding-modal-positioning]
             [hyperopen.views.l2-orderbook-view :as l2-orderbook-view]
             [hyperopen.views.account-info-view :as account-info-view]
@@ -28,7 +29,6 @@
    :active-market
    :account
    :asset-contexts
-   :asset-selector
    :candles
    :chart-options
    :orders
@@ -43,7 +43,6 @@
 (def ^:private account-info-view-base-state-keys
   [:account
    :account-info
-   :asset-selector
    :orders
    :perp-dex-clearinghouse
    :positions-ui
@@ -52,7 +51,6 @@
 
 (def ^:private account-equity-view-state-keys
   [:account
-   :asset-selector
    :perp-dex-clearinghouse
    :spot
    :webdata2])
@@ -63,7 +61,6 @@
    :active-assets
    :active-market
    :asset-contexts
-   :asset-selector
    :order-form
    :order-form-runtime
    :order-form-ui
@@ -74,6 +71,11 @@
    :webdata2])
 
 (declare trade-chart-loading-shell)
+(declare render-active-asset-panel-state
+         render-account-info-panel-state
+         render-account-equity-panel-state
+         render-account-equity-metrics-state
+         trade-chart-panel-content-state)
 
 (defn- memoize-last
   [f]
@@ -100,23 +102,30 @@
   [state]
   (active-asset-vm/panel-dependency-state state))
 
+(defn- asset-selector-market-lookup-state
+  [state]
+  {:asset-selector {:market-by-key (get-in state [:asset-selector :market-by-key] {})}})
+
 (defn- trade-chart-view-state
   [state]
-  (cond-> (select-view-state state trade-chart-view-base-state-keys)
+  (cond-> (merge (select-view-state state trade-chart-view-base-state-keys)
+                 (asset-selector-market-lookup-state state))
     (surface-freshness-cues-enabled? state)
     (assoc :websocket (:websocket state)
            :websocket-ui (:websocket-ui state))))
 
 (defn- account-info-view-state
   [state]
-  (cond-> (select-view-state state account-info-view-base-state-keys)
+  (cond-> (merge (select-view-state state account-info-view-base-state-keys)
+                 (asset-selector-market-lookup-state state))
     (surface-freshness-cues-enabled? state)
     (assoc :websocket (:websocket state)
            :websocket-ui (:websocket-ui state))))
 
 (defn- account-equity-view-state
   [state]
-  (select-view-state state account-equity-view-state-keys))
+  (merge (select-view-state state account-equity-view-state-keys)
+         (asset-selector-market-lookup-state state)))
 
 (defn- order-form-view-state
   [state]
@@ -150,6 +159,18 @@
 (def ^:private memoized-account-equity-metrics
   (memoize-last (fn [metrics-fn state]
                   (metrics-fn state))))
+
+(defonce ^:private frozen-trade-chart-view-state* (atom nil))
+
+(defonce ^:private frozen-active-asset-view-state* (atom nil))
+
+(defonce ^:private frozen-account-info-view-state* (atom nil))
+
+(defonce ^:private frozen-account-equity-view-state* (atom nil))
+
+(defonce ^:private frozen-orderbook-view-state* (atom nil))
+
+(defonce ^:private frozen-order-form-view-state* (atom nil))
 
 (defn- viewport-width-px []
   (let [width (some-> js/globalThis .-innerWidth)]
@@ -196,27 +217,54 @@
 
 (defn- render-active-asset-panel
   [state]
+  (render-active-asset-panel-state (active-asset-view-state state)))
+
+(defn- render-active-asset-panel-state
+  [view-state]
   (memoized-active-asset-view active-asset-view/active-asset-view
-                              (active-asset-view-state state)))
+                              view-state))
 
 (defn- render-account-info-panel
   ([state]
    (render-account-info-panel state {}))
   ([state opts]
-   (memoized-account-info-view account-info-view/account-info-view
-                               (account-info-view-state state)
-                               opts)))
+   (render-account-info-panel-state (account-info-view-state state) opts)))
+
+(defn- render-account-info-panel-state
+  [view-state opts]
+  (memoized-account-info-view account-info-view/account-info-view
+                              view-state
+                              opts))
 
 (defn- render-account-equity-panel
   [state equity-metrics opts]
+  (render-account-equity-panel-state (account-equity-view-state state)
+                                     equity-metrics
+                                     opts))
+
+(defn- render-account-equity-panel-state
+  [view-state equity-metrics opts]
   (memoized-account-equity-view account-equity-view/account-equity-view
-                                (account-equity-view-state state)
+                                view-state
                                 (assoc opts :metrics equity-metrics)))
 
 (defn- render-account-equity-metrics
   [state]
+  (render-account-equity-metrics-state (account-equity-view-state state)))
+
+(defn- render-account-equity-metrics-state
+  [view-state]
   (memoized-account-equity-metrics account-equity-view/account-equity-metrics
-                                   (account-equity-view-state state)))
+                                   view-state))
+
+(defn- trade-chart-panel-content
+  [state]
+  (trade-chart-panel-content-state (trade-chart-view-state state)))
+
+(defn- trade-chart-panel-content-state
+  [view-state]
+  (memoized-trade-chart-panel-content trade-modules/render-trade-chart-view
+                                      view-state))
 
 (defn- render-orderbook-panel
   [state]
@@ -226,7 +274,26 @@
 (defn- render-order-form-panel
   [state]
   (memoized-order-form-view order-form-view/order-form-view
-                            (order-form-view-state state)))
+                            state))
+
+(defn- freeze-heavy-trade-panels?
+  [state desktop-layout?]
+  (and desktop-layout?
+       (= :asset-selector (get-in state [:asset-selector :visible-dropdown]))
+       (asset-selector-view/asset-list-scroll-active?)))
+
+(defn- selector-scroll-snapshot
+  [snapshot* freeze? next-state]
+  (if freeze?
+    (let [snapshot @snapshot*]
+      (if (some? snapshot)
+        snapshot
+        (do
+          (reset! snapshot* next-state)
+          next-state)))
+    (do
+      (reset! snapshot* next-state)
+      next-state)))
 
 (defn- mobile-account-surface [state equity-metrics]
   [:div {:class ["flex" "h-full" "min-h-0" "flex-col" "bg-base-100"]
@@ -324,11 +391,6 @@
                      :on {:click [[:actions/navigate route {:replace? true}]]}}
             "Retry"])]]]]]))
 
-(defn- trade-chart-panel-content
-  [state]
-  (memoized-trade-chart-panel-content trade-modules/render-trade-chart-view
-                                      (trade-chart-view-state state)))
-
 (defn trade-view [state]
   (let [funding-tooltip-open? (true? (active-asset-vm/active-asset-funding-tooltip-open? state))
         active-asset (:active-asset state)
@@ -348,21 +410,45 @@
                                              mobile-account-surface?)
         show-mobile-active-asset? (and (not desktop-layout?)
                                        (not mobile-account-surface?))
+        freeze-heavy-panels? (freeze-heavy-trade-panels? state desktop-layout?)
+        active-asset-panel-state (selector-scroll-snapshot
+                                   frozen-active-asset-view-state*
+                                   freeze-heavy-panels?
+                                   (active-asset-view-state state))
+        trade-chart-panel-state (selector-scroll-snapshot
+                                  frozen-trade-chart-view-state*
+                                  freeze-heavy-panels?
+                                  (trade-chart-view-state state))
+        account-info-panel-state (selector-scroll-snapshot
+                                   frozen-account-info-view-state*
+                                   freeze-heavy-panels?
+                                   (account-info-view-state state))
+        account-equity-panel-state (selector-scroll-snapshot
+                                     frozen-account-equity-view-state*
+                                     freeze-heavy-panels?
+                                     (account-equity-view-state state))
         show-equity-surface? (or desktop-layout?
                                  mobile-account-summary-visible?)
         show-surface-freshness-cues? (surface-freshness-cues-enabled? state)
         websocket-health (get-in state [:websocket :health])
         equity-metrics (when show-equity-surface?
-                         (render-account-equity-metrics state))
-        orderbook-view-state {:coin (or active-asset "No Asset Selected")
-                              :market (:active-market state)
-                              :orderbook orderbook-data
-                              :orderbook-ui (:orderbook-ui state)
-                              :trading-settings (:trading-settings state)
-                              :show-surface-freshness-cues? show-surface-freshness-cues?
-                              :websocket-health (when show-surface-freshness-cues?
-                                                  websocket-health)
-                              :loading (and active-asset (nil? orderbook-data))}]
+                         (render-account-equity-metrics-state account-equity-panel-state))
+        orderbook-view-state (selector-scroll-snapshot
+                               frozen-orderbook-view-state*
+                               freeze-heavy-panels?
+                               {:coin (or active-asset "No Asset Selected")
+                                :market (:active-market state)
+                                :orderbook orderbook-data
+                                :orderbook-ui (:orderbook-ui state)
+                                :trading-settings (:trading-settings state)
+                                :show-surface-freshness-cues? show-surface-freshness-cues?
+                                :websocket-health (when show-surface-freshness-cues?
+                                                    websocket-health)
+                                :loading (and active-asset (nil? orderbook-data))})
+        order-form-panel-state (selector-scroll-snapshot
+                                 frozen-order-form-view-state*
+                                 freeze-heavy-panels?
+                                 (order-form-view-state state))]
     [:div {:class ["flex-1" "flex" "flex-col" "min-h-0" "overflow-hidden"]
            :data-parity-id "trade-root"}
      [:div {:class ["w-full"
@@ -425,10 +511,10 @@
                              (when funding-tooltip-open?
                                ["relative" "z-[160]" "overflow-visible"]))}
          (when desktop-layout?
-            (render-active-asset-panel state))]
+            (render-active-asset-panel-state active-asset-panel-state))]
          (when chart-panel-visible?
            [:div {:class ["overflow-hidden" "flex-1" "min-h-0" "min-w-0"]}
-            (trade-chart-panel-content state)])]
+            (trade-chart-panel-content-state trade-chart-panel-state)])]
 
         [:div {:class (into [(if mobile-orderbook-surface? "block" "hidden")
                              "bg-base-100"
@@ -474,12 +560,12 @@
                              "xl:row-span-2"])
                :data-parity-id funding-modal-positioning/trade-order-entry-panel-parity-id}
          (when order-entry-panel-visible?
-           (render-order-form-panel state))
+           (render-order-form-panel order-form-panel-state))
          [:div {:class ["hidden" "border-t" "border-base-300" "lg:block"]
                 :data-parity-id "trade-desktop-account-equity-panel"}
           (when (and desktop-layout?
                      order-entry-panel-visible?)
-            (render-account-equity-panel state equity-metrics {}))]]
+            (render-account-equity-panel-state account-equity-panel-state equity-metrics {}))]]
 
         [:div {:class (into [(if (= mobile-surface :account)
                                "hidden"
@@ -506,7 +592,7 @@
                 :data-parity-id "trade-desktop-account-panel"}
           (when (and account-panel-visible?
                      desktop-layout?)
-            (render-account-info-panel state {:default-panel-classes ["h-full"]}))]]]
+            (render-account-info-panel-state account-info-panel-state {:default-panel-classes ["h-full"]}))]]]
 
        (when mobile-account-summary-visible?
          [:div {:class ["absolute"

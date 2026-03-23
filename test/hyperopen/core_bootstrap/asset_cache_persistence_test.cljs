@@ -238,7 +238,10 @@
                (swap! app-core/store assoc-in [:asset-selector :sort-direction] :desc)
                (swap! app-core/store assoc-in [:asset-selector :markets] [])
                (swap! app-core/store assoc-in [:asset-selector :market-by-key] {})
-               (swap! app-core/store assoc-in [:asset-selector :markets] markets)
+               (swap! app-core/store (fn [state]
+                                       (-> state
+                                           (assoc-in [:asset-selector :loaded-at-ms] 123)
+                                           (assoc-in [:asset-selector :markets] markets))))
                (js/setTimeout
                 (fn []
                   (-> (markets-cache/load-asset-selector-markets-cache)

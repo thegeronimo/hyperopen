@@ -125,6 +125,56 @@
     (is (identical? first-result second-result))
     (is (not (identical? second-result changed-result)))))
 
+(deftest processed-assets-keeps-stable-order-across-live-market-churn-test
+  (view/reset-processed-assets-cache!)
+  (let [favorites #{}
+        initial-results (view/processed-assets sample-markets "" :volume :desc favorites false false :all)
+        live-markets [{:key "perp:BTC"
+                       :symbol "BTC-USDC"
+                       :coin "BTC"
+                       :base "BTC"
+                       :market-type :perp
+                       :category :crypto
+                       :hip3? false
+                       :mark 99
+                       :volume24h 999
+                       :change24hPct 8}
+                      {:key "perp:xyz:GOLD"
+                       :symbol "GOLD-USDC"
+                       :coin "xyz:GOLD"
+                       :base "GOLD"
+                       :market-type :perp
+                       :category :tradfi
+                       :hip3? true
+                       :hip3-eligible? true
+                       :mark 1
+                       :volume24h 1
+                       :change24hPct -4}
+                      {:key "spot:PURR/USDC"
+                       :symbol "PURR/USDC"
+                       :coin "PURR/USDC"
+                       :base "PURR"
+                       :market-type :spot
+                       :category :spot
+                       :hip3? false
+                       :mark 0.75
+                       :volume24h 3
+                       :change24hPct 2}]
+        live-market-by-key (into {} (map (juxt :key identity) live-markets))
+        live-results (view/processed-assets live-markets live-market-by-key "" :volume :desc favorites false false :all)]
+    (is (= (mapv :key initial-results)
+           (mapv :key live-results)))
+    (is (= 99
+           (some->> live-results
+                    (filter #(= "perp:BTC" (:key %)))
+                    first
+                    :mark)))
+    (is (= 0.75
+           (some->> live-results
+                    (filter #(= "spot:PURR/USDC" (:key %)))
+                    first
+                    :mark)))))
+
 (defn- collect-strings [node]
   (cond
     (string? node) [node]
@@ -203,6 +253,38 @@
 
     :else 0))
 
+(defn- render-asset-list-body
+  [& args]
+  (apply @#'hyperopen.views.asset-selector-view/asset-list-body args))
+
+(defn- asset-list-window-state
+  [assets scroll-top]
+  (@#'hyperopen.views.asset-selector-view/asset-list-window-state
+    {:assets assets}
+    scroll-top))
+
+(defn- asset-list-viewport-covered?
+  [current-window-state next-window-state]
+  (@#'hyperopen.views.asset-selector-view/asset-list-viewport-covered?
+    current-window-state
+    next-window-state))
+
+(defn- fake-scroll-node
+  []
+  (let [listeners* (atom {})
+        host-node #js {}
+        node #js {}]
+    (set! (.-scrollTop node) 0)
+    (aset node "querySelector" (fn [_selector] host-node))
+    (aset node "firstElementChild" host-node)
+    (aset node "addEventListener" (fn [event-type handler]
+                                     (swap! listeners* assoc event-type handler)))
+    (aset node "removeEventListener" (fn [event-type _handler]
+                                        (swap! listeners* dissoc event-type)))
+    {:node node
+     :host-node host-node
+     :listeners* listeners*}))
+
 (deftest tooltip-position-classes-cover-default-and-explicit-directions-test
   (doseq [[position expected-panel-class expected-arrow-class]
           [[nil "bottom-full" "top-full"]
@@ -236,7 +318,14 @@
    :render-limit 120
    :scroll-top 0})
 
-(deftest asset-list-wires-scroll-action-and-renders-progressive-chunk-test
+(deftest asset-selector-wrapper-reuses-cached-hiccup-for-equal-props-test
+  (let [props (assoc (selector-props true)
+                     :market-by-key {"perp:BTC" (first sample-markets)})
+        first-result (view/asset-selector-wrapper props)
+        second-result (view/asset-selector-wrapper (into {} props))]
+    (is (identical? first-result second-result))))
+
+(deftest asset-list-uses-runtime-backed-scroll-container-and-renders-progressive-chunk-test
   (let [assets (vec (for [n (range 150)]
                       {:key (str "perp:T" n)
                        :symbol (str "T" n "-USDC")
@@ -248,15 +337,15 @@
         attrs (second scroll-container)
         inner-wrapper (first (node-children scroll-container))
         inner-attrs (second inner-wrapper)
-        strings (set (collect-strings hiccup))]
-    (is (= [[:actions/maybe-increase-asset-selector-render-limit
-             [:event.target/scrollTop]
-             [:event/timeStamp]]]
-           (get-in attrs [:on :scroll])))
+        body-hiccup (render-asset-list-body assets nil nil #{} #{} #{} 40 0 false)
+        strings (set (collect-strings body-hiccup))]
+    (is (ifn? (:replicant/on-render attrs)))
+    (is (= "asset-selector-list" (:replicant/key attrs)))
     (is (= "none" (get-in attrs [:style :overflow-anchor])))
+    (is (= "asset-selector-list-body-host" (:data-role inner-attrs)))
     (is (= "none" (get-in inner-attrs [:style :overflow-anchor])))
-    (is (< (count-selectable-asset-rows hiccup) 40))
-    (is (>= (count-selectable-asset-rows hiccup) 8))
+    (is (< (count-selectable-asset-rows body-hiccup) 40))
+    (is (>= (count-selectable-asset-rows body-hiccup) 8))
     (is (not (contains? strings "Showing 40 of 150 markets")))
     (is (not (contains? strings "Load more")))
     (is (not (contains? strings "Show all")))))
@@ -268,10 +357,16 @@
                        :coin (str "T" n)
                        :base (str "T" n)
                        :market-type :perp}))
-        hiccup (view/asset-list assets nil nil #{} #{} #{} 120 0)
+        hiccup (render-asset-list-body assets nil nil #{} #{} #{} 120 0 false)
         strings (set (collect-strings hiccup))]
     (is (= 8 (count-selectable-asset-rows hiccup)))
     (is (not (contains? strings "Showing 120 of 8 markets")))))
+
+(deftest asset-list-allows-callers-to-force-a-scroll-runtime-reset-key-test
+  (let [hiccup (view/asset-list sample-markets nil nil #{} #{} #{} 120 0 false "search-session")
+        attrs (second hiccup)]
+    (is (= "search-session" (:replicant/key attrs)))
+    (is (ifn? (:replicant/on-render attrs)))))
 
 (deftest asset-selector-dropdown-roots-expose-parity-ids-test
   (let [desktop-view (view/asset-selector-dropdown (selector-props true))
@@ -288,13 +383,126 @@
                        :coin (str "T" n)
                        :base (str "T" n)
                        :market-type :perp}))
-        top-hiccup (view/asset-list assets nil nil #{} #{} #{} 120 0)
-        deep-hiccup (view/asset-list assets nil nil #{} #{} #{} 120 2200)
+        top-hiccup (render-asset-list-body assets nil nil #{} #{} #{} 120 0 false)
+        deep-hiccup (render-asset-list-body assets nil nil #{} #{} #{} 120 2200 false)
         top-strings (set (collect-strings top-hiccup))
         deep-strings (set (collect-strings deep-hiccup))]
     (is (contains? top-strings "T0-USDC"))
     (is (not (contains? deep-strings "T0-USDC")))
     (is (contains? deep-strings "T90-USDC"))))
+
+(deftest asset-list-scroll-window-does-not-clip-to-render-limit-test
+  (let [assets (vec (for [n (range 200)]
+                      {:key (str "perp:T" n)
+                       :symbol (str "T" n "-USDC")
+                       :coin (str "T" n)
+                       :base (str "T" n)
+                       :market-type :perp}))
+        deep-hiccup (render-asset-list-body assets nil nil #{} #{} #{} 40 2200 false)
+        deep-strings (set (collect-strings deep-hiccup))]
+    (is (contains? deep-strings "T90-USDC"))
+    (is (not (contains? deep-strings "T0-USDC")))))
+
+(deftest asset-list-viewport-coverage-only-breaks-when-scroll-leaves-current-window-test
+  (let [assets (vec (for [n (range 200)]
+                      {:key (str "perp:T" n)
+                       :symbol (str "T" n "-USDC")
+                       :coin (str "T" n)
+                       :base (str "T" n)
+                       :market-type :perp}))
+        current-window-state (asset-list-window-state assets 0)
+        covered-window-state (asset-list-window-state assets 72)
+        uncovered-window-state (asset-list-window-state assets 720)]
+    (is (true? (asset-list-viewport-covered? current-window-state covered-window-state)))
+    (is (false? (asset-list-viewport-covered? current-window-state uncovered-window-state)))))
+
+(deftest asset-list-runtime-defers-prop-sync-until-scroll-settles-test
+  (let [assets (vec (for [n (range 60)]
+                      {:key (str "perp:T" n)
+                       :symbol (str "T" n "-USDC")
+                       :coin (str "T" n)
+                       :base (str "T" n)
+                       :market-type :perp}))
+        mount-on-render (get-in (view/asset-list assets "perp:T0" nil #{} #{} #{} 120 0 false)
+                                [1 :replicant/on-render])
+        update-assets (vec (reverse assets))
+        update-on-render (get-in (view/asset-list update-assets "perp:T5" nil #{} #{} #{} 120 0 false)
+                                 [1 :replicant/on-render])
+        remembered* (atom nil)
+        rendered* (atom [])
+        timeout-installs* (atom 0)
+        {node :node host-node :host-node listeners* :listeners*} (fake-scroll-node)]
+    (with-redefs [view/render-asset-list-body!
+                  (fn [runtime-host props scroll-top]
+                    (swap! rendered* conj {:host runtime-host
+                                           :selected-market-key (:selected-market-key props)
+                                           :first-key (-> props :assets first :key)
+                                           :scroll-top scroll-top}))
+                  view/schedule-asset-list-render-limit-sync!
+                  (fn [& _] nil)
+                  view/asset-list-set-timeout!
+                  (fn [_f _delay-ms]
+                    (swap! timeout-installs* inc)
+                    :timeout-handle)
+                  view/asset-list-clear-timeout!
+                  (fn [_timeout-handle] nil)]
+      (mount-on-render {:replicant/life-cycle :replicant.life-cycle/mount
+                        :replicant/node node
+                        :replicant/remember (fn [memory]
+                                              (reset! remembered* memory))})
+      (set! (.-scrollTop node) 72)
+      ((get @listeners* "scroll") #js {:timeStamp 1})
+      (update-on-render {:replicant/life-cycle :replicant.life-cycle/update
+                         :replicant/node node
+                         :replicant/memory @remembered*
+                         :replicant/remember (fn [memory]
+                                               (reset! remembered* memory))})
+      (is (= 1 @timeout-installs*))
+      (is (= [{:host host-node
+               :selected-market-key "perp:T0"
+               :first-key "perp:T0"
+               :scroll-top 0}]
+             @rendered*))
+      ((:on-scroll-end @remembered*) #js {})
+      (is (= [{:host host-node
+               :selected-market-key "perp:T0"
+               :first-key "perp:T0"
+               :scroll-top 0}
+              {:host host-node
+               :selected-market-key "perp:T5"
+               :first-key "perp:T59"
+               :scroll-top 72}]
+             @rendered*)))))
+
+(deftest asset-list-runtime-reuses-one-settle-timer-during-active-scroll-test
+  (let [assets (vec (for [n (range 60)]
+                      {:key (str "perp:T" n)
+                       :symbol (str "T" n "-USDC")
+                       :coin (str "T" n)
+                       :base (str "T" n)
+                       :market-type :perp}))
+        on-render (get-in (view/asset-list assets nil nil #{} #{} #{} 120 0 false)
+                          [1 :replicant/on-render])
+        remembered* (atom nil)
+        timeout-installs* (atom 0)
+        {node :node listeners* :listeners*} (fake-scroll-node)]
+    (with-redefs [view/render-asset-list-body!
+                  (fn [& _] nil)
+                  view/schedule-asset-list-render-limit-sync!
+                  (fn [& _] nil)
+                  view/asset-list-set-timeout!
+                  (fn [_f _delay-ms]
+                    (swap! timeout-installs* inc)
+                    :timeout-handle)]
+      (on-render {:replicant/life-cycle :replicant.life-cycle/mount
+                  :replicant/node node
+                  :replicant/remember (fn [memory]
+                                        (reset! remembered* memory))})
+      (set! (.-scrollTop node) 48)
+      ((get @listeners* "scroll") #js {:timeStamp 1})
+      (set! (.-scrollTop node) 96)
+      ((get @listeners* "scroll") #js {:timeStamp 2})
+      (is (= 1 @timeout-installs*)))))
 
 (deftest asset-list-item-sub-cent-formatting-test
   (testing "last price renders adaptive decimals for tiny assets"

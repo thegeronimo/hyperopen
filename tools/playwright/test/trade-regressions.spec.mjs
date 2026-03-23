@@ -37,6 +37,75 @@ test("asset selector opens and selects ETH @regression", async ({ page }) => {
   );
 });
 
+test("asset selector rapid scroll keeps rows visible @regression", async ({ page }) => {
+  const nestedRenderWarnings = [];
+  const pageErrors = [];
+  page.on("console", (message) => {
+    const text = message.text();
+    if (
+      text.includes("Triggered a render while rendering") ||
+      text.includes("replicant.dom/render was called while working on a previous render")
+    ) {
+      nestedRenderWarnings.push(text);
+    }
+  });
+  page.on("pageerror", (error) => {
+    pageErrors.push(String(error));
+  });
+
+  await visitRoute(page, "/trade");
+
+  await dispatch(page, [":actions/toggle-asset-dropdown", ":asset-selector"]);
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(page.locator('[data-role="asset-selector-scroll-container"]')).toBeVisible();
+  await expect(page.locator('[data-role="asset-selector-row"]').first()).toBeVisible();
+
+  const visibility = await page.evaluate(async () => {
+    const container = document.querySelector('[data-role="asset-selector-scroll-container"]');
+    if (!container) {
+      throw new Error("asset selector scroll container not found");
+    }
+
+    const visibleRowCount = () => {
+      const containerRect = container.getBoundingClientRect();
+      return Array.from(document.querySelectorAll('[data-role="asset-selector-row"]')).filter((row) => {
+        const rect = row.getBoundingClientRect();
+        return rect.bottom > containerRect.top && rect.top < containerRect.bottom;
+      }).length;
+    };
+
+    const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+    const targets = [0.15, 0.3, 0.45, 0.6, 0.75, 0.9]
+      .map((fraction) => Math.max(0, Math.min(maxScrollTop, Math.floor(maxScrollTop * fraction))))
+      .filter((target, index, allTargets) => index === 0 || target !== allTargets[index - 1]);
+
+    const sampleTarget = async (target) => {
+      container.scrollTop = target;
+      container.dispatchEvent(new Event("scroll"));
+      const immediateVisibleRows = visibleRowCount();
+      await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+      const nextFrameVisibleRows = visibleRowCount();
+      await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+      return { target, immediateVisibleRows, nextFrameVisibleRows, visibleRows: visibleRowCount() };
+    };
+
+    const samples = [];
+    for (const target of targets) {
+      samples.push(await sampleTarget(target));
+    }
+
+    return samples;
+  });
+
+  for (const sample of visibility) {
+    expect(sample.immediateVisibleRows).toBeGreaterThan(0);
+    expect(sample.nextFrameVisibleRows).toBeGreaterThan(0);
+    expect(sample.visibleRows).toBeGreaterThan(0);
+  }
+  expect(nestedRenderWarnings).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
 test("funding modal deposit flow selects USDC @regression", async ({ page }) => {
   await visitRoute(page, "/trade");
 

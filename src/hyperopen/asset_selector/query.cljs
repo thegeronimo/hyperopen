@@ -13,7 +13,7 @@
   list-metrics/viewport-height-px)
 
 (def ^:private asset-list-overscan-rows
-  6)
+  12)
 
 (defn- parse-cache-order [value]
   (let [parsed (cond
@@ -132,27 +132,33 @@
   (max 0 (or (parse-cache-order scroll-top) 0)))
 
 (defn virtual-window
-  [limit scroll-top]
-  (let [rows-in-view (-> (/ asset-list-viewport-height-px asset-list-row-height-px)
-                         js/Math.ceil
-                         int)
-        window-size (+ rows-in-view (* 2 asset-list-overscan-rows))
-        first-visible-row (-> (/ scroll-top asset-list-row-height-px)
-                              js/Math.floor
-                              int)
-        start-index (-> first-visible-row
-                        (- asset-list-overscan-rows)
-                        (max 0)
-                        (min limit))
-        end-index (-> (+ start-index window-size)
-                      (min limit)
-                      (max start-index))
-        top-spacer-px (* start-index asset-list-row-height-px)
-        bottom-spacer-px (* (- limit end-index) asset-list-row-height-px)]
-    {:start-index start-index
-     :end-index end-index
-     :top-spacer-px top-spacer-px
-     :bottom-spacer-px bottom-spacer-px}))
+  ([limit scroll-top]
+   (virtual-window limit scroll-top asset-list-overscan-rows))
+  ([limit scroll-top overscan-rows]
+   (let [overscan-rows* (let [candidate (parse-cache-order overscan-rows)]
+                          (if (number? candidate)
+                            (max 0 candidate)
+                            asset-list-overscan-rows))
+         rows-in-view (-> (/ asset-list-viewport-height-px asset-list-row-height-px)
+                          js/Math.ceil
+                          int)
+         window-size (+ rows-in-view (* 2 overscan-rows*))
+         first-visible-row (-> (/ scroll-top asset-list-row-height-px)
+                               js/Math.floor
+                               int)
+         start-index (-> first-visible-row
+                         (- overscan-rows*)
+                         (max 0)
+                         (min limit))
+         end-index (-> (+ start-index window-size)
+                       (min limit)
+                       (max start-index))
+         top-spacer-px (* start-index asset-list-row-height-px)
+         bottom-spacer-px (* (- limit end-index) asset-list-row-height-px)]
+     {:start-index start-index
+      :end-index end-index
+      :top-spacer-px top-spacer-px
+      :bottom-spacer-px bottom-spacer-px})))
 
 (defn selector-visible-market-coins
   [state]

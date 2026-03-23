@@ -39,6 +39,7 @@
    :favorites-only?
    :strict?
    :active-tab
+   :market-by-key
    :markets])
 
 (defn- non-blank-text [value]
@@ -273,6 +274,7 @@
      :asset-selector-props (when (:visible-dropdown dropdown)
                              {:visible? true
                               :markets (available-assets state)
+                              :market-by-key (:market-by-key dropdown)
                               :selected-market-key selected-key
                               :loading? (:loading? dropdown)
                               :phase (:phase dropdown)

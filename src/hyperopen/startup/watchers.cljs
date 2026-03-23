@@ -10,6 +10,12 @@
 (def ^:private websocket-runtime-view-watch-key
   ::ws-runtime-view)
 
+(defn- selector-cache-refresh?
+  [old-state new-state]
+  (let [old-loaded-at-ms (get-in old-state [:asset-selector :loaded-at-ms])
+        new-loaded-at-ms (get-in new-state [:asset-selector :loaded-at-ms])]
+    (not= old-loaded-at-ms new-loaded-at-ms)))
+
 (defn install-store-cache-watchers!
   [store {:keys [persist-active-market-display!
                  persist-asset-selector-markets-cache!
@@ -38,7 +44,9 @@
     (fn [_ _ old-state new-state]
       (let [old-markets (get-in old-state [:asset-selector :markets] [])
             new-markets (get-in new-state [:asset-selector :markets] [])]
-        (when (not= old-markets new-markets)
+        (when (and (seq new-markets)
+                   (not= old-markets new-markets)
+                   (selector-cache-refresh? old-state new-state))
           (reset! pending-selector-cache-write {:markets new-markets
                                                 :state new-state})
           (when-not @selector-cache-write-scheduled?

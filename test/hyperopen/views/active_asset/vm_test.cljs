@@ -109,6 +109,8 @@
     (is (= [market]
            (get-in deps [:asset-selector :markets])))
     (is (true? (get-in panel-vm [:asset-selector-props :visible?])))
+    (is (= {"spot:@1" market}
+           (get-in panel-vm [:asset-selector-props :market-by-key])))
     (is (= "spot:@1"
            (get-in panel-vm [:asset-selector-props :selected-market-key])))
     (is (= "HYPE/USDC"

@@ -1,10 +1,26 @@
 (ns hyperopen.views.asset-selector-view
   (:require [clojure.string :as str]
+            [hyperopen.asset-selector.list-metrics :as list-metrics]
             [hyperopen.asset-selector.query :as query]
+            [hyperopen.system :as app-system]
             [hyperopen.utils.formatting :as fmt]
+            [nexus.registry :as nxr]
             [replicant.dom :as r]))
 
 ;; Asset selector dropdown component
+
+(defn- memoize-last
+  [f]
+  (let [cache (atom nil)]
+    (fn [& args]
+      (let [cached @cache]
+        (if (and (map? cached)
+                 (= args (:args cached)))
+          (:result cached)
+          (let [result (apply f args)]
+            (reset! cache {:args args
+                           :result result})
+            result))))))
 
 (def ^:private tooltip-panel-position-classes
   {"top" ["bottom-full" "left-1/2" "transform" "-translate-x-1/2" "mb-2"]
@@ -168,6 +184,7 @@
                                 selected? (into ["bg-base-200"]))]
     [:div.grid.grid-cols-12.gap-2.items-center.px-2.h-6.box-border.cursor-pointer.bg-base-100.hover:bg-base-200.transition-colors
      {:class row-highlight-classes
+      :data-role "asset-selector-row"
       :on {:click [[:actions/select-asset asset]]}}
      ;; Symbol column
      [:div.col-span-3.flex.items-center.space-x-1.5.min-w-0
@@ -449,11 +466,12 @@
 
 (defn- desktop-asset-selector-dropdown
   [{:keys [loading? phase search-term strict? favorites-only? active-tab sort-by sort-direction
-           markets selected-market-key favorites missing-icons loaded-icons highlighted-market-key
+           markets market-by-key selected-market-key favorites missing-icons loaded-icons highlighted-market-key
            render-limit scroll-top]}]
-  (let [processed-assets-list (processed-assets markets search-term sort-by sort-direction
+  (let [processed-assets-list (processed-assets markets market-by-key search-term sort-by sort-direction
                                                 favorites favorites-only? strict? active-tab)
         suppress-empty-state? (and loading? (empty? markets))
+        scroll-reset-key (pr-str [search-term strict? favorites-only? active-tab sort-by sort-direction])
         ordered-market-keys (mapv :key processed-assets-list)
         highlighted-market-key* (effective-highlighted-market-key
                                   processed-assets-list
@@ -487,13 +505,13 @@
       (search-controls search-term strict? favorites-only?)
       (tab-row active-tab)
       (sort-controls sort-by sort-direction)
-      (asset-list processed-assets-list selected-market-key highlighted-market-key* favorites missing-icons loaded-icons render-limit scroll-top suppress-empty-state?)
+      (asset-list processed-assets-list selected-market-key highlighted-market-key* favorites missing-icons loaded-icons render-limit scroll-top suppress-empty-state? scroll-reset-key)
       (selector-shortcut-footer)]]))
 
 (defn- mobile-asset-selector-dropdown
   [{:keys [loading? phase search-term strict? favorites-only? active-tab sort-by sort-direction
-           markets selected-market-key favorites highlighted-market-key]}]
-  (let [processed-assets-list (processed-assets markets search-term sort-by sort-direction
+           markets market-by-key selected-market-key favorites highlighted-market-key]}]
+  (let [processed-assets-list (processed-assets markets market-by-key search-term sort-by sort-direction
                                                 favorites favorites-only? strict? active-tab)
         suppress-empty-state? (and loading? (empty? markets))
         ordered-market-keys (mapv :key processed-assets-list)
@@ -542,46 +560,327 @@
       (mobile-sort-header sort-by sort-direction)
       (mobile-asset-list processed-assets-list selected-market-key highlighted-market-key* favorites suppress-empty-state?)]]))
 
+(defn- asset-list-body
+  [assets selected-market-key highlighted-market-key favorites missing-icons loaded-icons render-limit scroll-top suppress-empty-state?]
+  (let [assets* (if (vector? assets) assets (vec assets))
+        total (count assets*)]
+    (if (zero? total)
+      (if suppress-empty-state?
+        [:div.py-8]
+        [:div.text-center.py-8.text-gray-400
+         [:div "No assets found"]
+         [:div.text-xs "Try adjusting your search"]])
+      (let [limit total
+            scroll-top* (query/normalize-scroll-top scroll-top)
+            {:keys [start-index end-index top-spacer-px bottom-spacer-px]}
+            (query/virtual-window limit scroll-top*)
+            visible-assets (subvec assets* start-index end-index)
+            rows (mapv (fn [asset]
+                         ^{:key (:key asset)}
+                         (asset-list-item asset
+                                          (= selected-market-key (:key asset))
+                                          (= highlighted-market-key (:key asset))
+                                          favorites
+                                          missing-icons
+                                          loaded-icons))
+                       visible-assets)]
+        (into
+          [:div {:style {:overflow-anchor "none"}}]
+          (concat
+            (when (pos? top-spacer-px)
+              [[:div {:style {:height (str top-spacer-px "px")}}]])
+            rows
+            (when (pos? bottom-spacer-px)
+              [[:div {:style {:height (str bottom-spacer-px "px")}}]])))))))
+
+(defn- render-asset-list-body!
+  [host-node {:keys [assets selected-market-key highlighted-market-key favorites missing-icons loaded-icons
+                     render-limit suppress-empty-state?]}
+   scroll-top]
+  (when host-node
+    (r/render host-node
+              (asset-list-body assets
+                               selected-market-key
+                               highlighted-market-key
+                               favorites
+                               missing-icons
+                               loaded-icons
+                               render-limit
+                               scroll-top
+                               suppress-empty-state?))))
+
+(def ^:private asset-list-scroll-settle-delay-ms
+  120)
+
+(defonce ^:private asset-list-scroll-active* (atom false))
+
+(defn asset-list-scroll-active?
+  []
+  (true? @asset-list-scroll-active*))
+
+(defn- set-asset-list-scroll-active!
+  [active?]
+  (reset! asset-list-scroll-active* (boolean active?)))
+
+(defn- asset-list-now-ms
+  []
+  (if (exists? js/performance)
+    (.now js/performance)
+    (.now js/Date)))
+
+(defn- asset-list-set-timeout!
+  [f delay-ms]
+  (js/setTimeout f delay-ms))
+
+(defn- asset-list-clear-timeout!
+  [timeout-handle]
+  (js/clearTimeout timeout-handle))
+
+(defn- asset-list-render-limit-sync-required?
+  [{:keys [assets render-limit]}]
+  (let [assets* (if (vector? assets) assets (vec assets))
+        total (count assets*)]
+    (and (pos? total)
+         (< (query/normalize-render-limit render-limit total)
+            total))))
+
+(defn- schedule-asset-list-render-limit-sync!
+  [props render-limit-sync-timeout*]
+  (when (and (asset-list-render-limit-sync-required? props)
+             (nil? @render-limit-sync-timeout*)
+             app-system/store)
+    (reset! render-limit-sync-timeout*
+            (js/setTimeout
+              (fn []
+                (reset! render-limit-sync-timeout* nil)
+                (when (asset-list-render-limit-sync-required? props)
+                  (nxr/dispatch app-system/store
+                                nil
+                                [[:actions/show-all-asset-selector-markets]])))
+              0))))
+
+(defn- persist-asset-list-scroll-top!
+  [scroll-top]
+  (when app-system/store
+    (nxr/dispatch app-system/store
+                  nil
+                  [[:actions/set-asset-selector-scroll-top
+                    scroll-top]])))
+
+(declare asset-list-window-state
+         ensure-asset-list-scroll-settle!)
+
+(defn- sync-asset-list-props!
+  [host-node props* pending-props* last-window-state* next-props scroll-top]
+  (reset! props* next-props)
+  (reset! pending-props* nil)
+  (render-asset-list-body! host-node next-props scroll-top)
+  (reset! last-window-state* (asset-list-window-state next-props scroll-top)))
+
+(defn- finalize-asset-list-scroll!
+  [{:keys [host-node* props* pending-props* last-window-state* scroll-top*
+           scroll-settle-timeout* scrolling?* render-limit-sync-timeout*]}]
+  (when-let [timeout-handle @scroll-settle-timeout*]
+    (asset-list-clear-timeout! timeout-handle)
+    (reset! scroll-settle-timeout* nil))
+  (reset! scrolling?* false)
+  (set-asset-list-scroll-active! false)
+  (persist-asset-list-scroll-top! @scroll-top*)
+  (when-let [pending-props @pending-props*]
+    (when-let [host-node @host-node*]
+      (sync-asset-list-props! host-node
+                              props*
+                              pending-props*
+                              last-window-state*
+                              pending-props
+                              @scroll-top*)
+      (schedule-asset-list-render-limit-sync! pending-props render-limit-sync-timeout*))))
+
+(defn- ensure-asset-list-scroll-settle!
+  [{:keys [last-scroll-activity-ms* scroll-settle-timeout*] :as runtime-state}]
+  (reset! last-scroll-activity-ms* (asset-list-now-ms))
+  (when-not @scroll-settle-timeout*
+    (letfn [(tick []
+              (let [elapsed-ms (- (asset-list-now-ms)
+                                  (or @last-scroll-activity-ms* 0))
+                    remaining-ms (- asset-list-scroll-settle-delay-ms elapsed-ms)]
+                (if (pos? remaining-ms)
+                  (reset! scroll-settle-timeout*
+                          (asset-list-set-timeout! tick remaining-ms))
+                  (finalize-asset-list-scroll! runtime-state))))]
+      (reset! scroll-settle-timeout*
+              (asset-list-set-timeout! tick asset-list-scroll-settle-delay-ms)))))
+
+(defn- asset-list-window-state
+  [{:keys [assets]} scroll-top]
+  (let [assets* (if (vector? assets) assets (vec assets))
+        total (count assets*)
+        limit total
+        scroll-top* (query/normalize-scroll-top scroll-top)
+        visible-row-count (-> (/ list-metrics/viewport-height-px
+                                 list-metrics/row-height-px)
+                              js/Math.ceil
+                              int)
+        first-visible-row (-> (/ scroll-top* list-metrics/row-height-px)
+                              js/Math.floor
+                              int)
+        last-visible-row (-> (+ first-visible-row visible-row-count)
+                             (min limit)
+                             (max first-visible-row))]
+    {:total total
+     :limit limit
+     :scroll-top scroll-top*
+     :first-visible-row first-visible-row
+     :last-visible-row last-visible-row
+     :window (when (pos? total)
+               (query/virtual-window limit scroll-top*))}))
+
+(defn- asset-list-viewport-covered?
+  [current-window-state next-window-state]
+  (let [{:keys [start-index end-index]} (:window current-window-state)]
+    (and start-index
+         end-index
+         (<= start-index (:first-visible-row next-window-state))
+         (>= end-index (:last-visible-row next-window-state)))))
+
+(defn- asset-list-host-node
+  [node]
+  (or (.querySelector node "[data-role='asset-selector-list-body-host']")
+      (.-firstElementChild node)))
+
+(defn- asset-list-on-render
+  [props]
+  (fn [{:keys [:replicant/life-cycle :replicant/node :replicant/memory :replicant/remember]}]
+    (case life-cycle
+      :replicant.life-cycle/mount
+      (let [props* (atom props)
+            pending-props* (atom nil)
+            scroll-top* (atom (query/normalize-scroll-top (:scroll-top props)))
+            host-node* (atom (asset-list-host-node node))
+            last-window-state* (atom nil)
+            last-scroll-activity-ms* (atom nil)
+            scrolling?* (atom false)
+            scroll-settle-timeout* (atom nil)
+            render-limit-sync-timeout* (atom nil)
+            runtime-state {:host-node* host-node*
+                           :props* props*
+                           :pending-props* pending-props*
+                           :last-window-state* last-window-state*
+                           :last-scroll-activity-ms* last-scroll-activity-ms*
+                           :scroll-top* scroll-top*
+                           :scroll-settle-timeout* scroll-settle-timeout*
+                           :scrolling?* scrolling?*
+                           :render-limit-sync-timeout* render-limit-sync-timeout*}
+            on-scroll-end (fn [_]
+                            (finalize-asset-list-scroll! runtime-state))
+            on-scroll (fn [_event]
+                        (let [next-scroll-top (.-scrollTop node)
+                              next-window-state (asset-list-window-state @props* next-scroll-top)
+                              host-node (or @host-node* (asset-list-host-node node))]
+                          (reset! scroll-top* next-scroll-top)
+                          (reset! host-node* host-node)
+                          (reset! scrolling?* true)
+                          (set-asset-list-scroll-active! true)
+                          (when-not (asset-list-viewport-covered? @last-window-state* next-window-state)
+                            (render-asset-list-body! host-node @props* next-scroll-top)
+                            (reset! last-window-state* next-window-state))
+                          (ensure-asset-list-scroll-settle! runtime-state)))]
+        (set-asset-list-scroll-active! false)
+        (set! (.-scrollTop node) @scroll-top*)
+        (.addEventListener node "scroll" on-scroll)
+        (.addEventListener node "scrollend" on-scroll-end)
+        (render-asset-list-body! @host-node* @props* @scroll-top*)
+        (reset! last-window-state* (asset-list-window-state @props* @scroll-top*))
+        (schedule-asset-list-render-limit-sync! @props* render-limit-sync-timeout*)
+        (remember {:on-scroll on-scroll
+                   :on-scroll-end on-scroll-end
+                   :props* props*
+                   :pending-props* pending-props*
+                   :scroll-top* scroll-top*
+                   :host-node* host-node*
+                   :last-window-state* last-window-state*
+                   :last-scroll-activity-ms* last-scroll-activity-ms*
+                   :scrolling?* scrolling?*
+                   :scroll-settle-timeout* scroll-settle-timeout*
+                   :render-limit-sync-timeout* render-limit-sync-timeout*}))
+
+      :replicant.life-cycle/update
+      (let [props* (or (:props* memory) (atom props))
+            pending-props* (or (:pending-props* memory) (atom nil))
+            scroll-top* (or (:scroll-top* memory)
+                            (atom (query/normalize-scroll-top (:scroll-top props))))
+            host-node* (or (:host-node* memory) (atom (asset-list-host-node node)))
+            last-window-state* (or (:last-window-state* memory) (atom nil))
+            last-scroll-activity-ms* (or (:last-scroll-activity-ms* memory) (atom nil))
+            scrolling?* (or (:scrolling?* memory) (atom false))
+            scroll-settle-timeout* (or (:scroll-settle-timeout* memory) (atom nil))
+            render-limit-sync-timeout* (or (:render-limit-sync-timeout* memory) (atom nil))
+            on-scroll (:on-scroll memory)
+            on-scroll-end (:on-scroll-end memory)
+            live-scroll-top (or (.-scrollTop node) @scroll-top*)
+            host-node (or @host-node* (asset-list-host-node node))]
+        (reset! scroll-top* live-scroll-top)
+        (reset! host-node* host-node)
+        (if @scrolling?*
+          (reset! pending-props* props)
+          (do
+            (sync-asset-list-props! host-node
+                                    props*
+                                    pending-props*
+                                    last-window-state*
+                                    props
+                                    @scroll-top*)
+            (schedule-asset-list-render-limit-sync! @props* render-limit-sync-timeout*)))
+        (remember {:on-scroll on-scroll
+                   :on-scroll-end on-scroll-end
+                   :props* props*
+                   :pending-props* pending-props*
+                   :scroll-top* scroll-top*
+                   :host-node* host-node*
+                   :last-window-state* last-window-state*
+                   :last-scroll-activity-ms* last-scroll-activity-ms*
+                   :scrolling?* scrolling?*
+                   :scroll-settle-timeout* scroll-settle-timeout*
+                   :render-limit-sync-timeout* render-limit-sync-timeout*}))
+
+      :replicant.life-cycle/unmount
+      (do
+        (set-asset-list-scroll-active! false)
+        (when-let [on-scroll (:on-scroll memory)]
+          (.removeEventListener node "scroll" on-scroll))
+        (when-let [on-scroll-end (:on-scroll-end memory)]
+          (.removeEventListener node "scrollend" on-scroll-end))
+        (when-let [timeout-handle (some-> (:scroll-settle-timeout* memory) deref)]
+          (asset-list-clear-timeout! timeout-handle))
+        (when-let [timeout-handle (some-> (:render-limit-sync-timeout* memory) deref)]
+          (asset-list-clear-timeout! timeout-handle))
+        (when-let [host-node (some-> (:host-node* memory) deref)]
+          (r/unmount host-node)))
+
+      nil)))
+
 (defn asset-list
   ([assets selected-market-key highlighted-market-key favorites missing-icons loaded-icons render-limit scroll-top]
-   (asset-list assets selected-market-key highlighted-market-key favorites missing-icons loaded-icons render-limit scroll-top false))
+   (asset-list assets selected-market-key highlighted-market-key favorites missing-icons loaded-icons render-limit scroll-top false nil))
   ([assets selected-market-key highlighted-market-key favorites missing-icons loaded-icons render-limit scroll-top suppress-empty-state?]
-   (let [assets* (if (vector? assets) assets (vec assets))
-         total (count assets*)]
-     (if (zero? total)
-       [:div.max-h-64.overflow-y-auto.scrollbar-hide
-        (if suppress-empty-state?
-          [:div.py-8]
-          [:div.text-center.py-8.text-gray-400
-           [:div "No assets found"]
-           [:div.text-xs "Try adjusting your search"]])]
-       (let [limit (query/normalize-render-limit render-limit total)
-             scroll-top* (query/normalize-scroll-top scroll-top)
-             {:keys [start-index end-index top-spacer-px bottom-spacer-px]}
-             (query/virtual-window limit scroll-top*)
-             visible-assets (subvec assets* start-index end-index)
-             rows (mapv (fn [asset]
-                          ^{:key (:key asset)}
-                          (asset-list-item asset
-                                           (= selected-market-key (:key asset))
-                                           (= highlighted-market-key (:key asset))
-                                           favorites
-                                           missing-icons
-                                           loaded-icons))
-                        visible-assets)]
-         [:div.max-h-64.overflow-y-auto.scrollbar-hide
-          {:style {:overflow-anchor "none"}
-           :on {:scroll [[:actions/maybe-increase-asset-selector-render-limit
-                          [:event.target/scrollTop]
-                          [:event/timeStamp]]]}}
-          (into
-            [:div {:style {:overflow-anchor "none"}}]
-            (concat
-              (when (pos? top-spacer-px)
-                [[:div {:style {:height (str top-spacer-px "px")}}]])
-              rows
-              (when (pos? bottom-spacer-px)
-                [[:div {:style {:height (str bottom-spacer-px "px")}}]])))])))))
+   (asset-list assets selected-market-key highlighted-market-key favorites missing-icons loaded-icons render-limit scroll-top suppress-empty-state? nil))
+  ([assets selected-market-key highlighted-market-key favorites missing-icons loaded-icons render-limit scroll-top suppress-empty-state? scroll-reset-key]
+   (let [props {:assets assets
+                :selected-market-key selected-market-key
+                :highlighted-market-key highlighted-market-key
+                :favorites favorites
+                :missing-icons missing-icons
+                :loaded-icons loaded-icons
+                :render-limit render-limit
+                :scroll-top scroll-top
+                :suppress-empty-state? suppress-empty-state?}]
+     [:div.max-h-64.overflow-y-auto.scrollbar-hide
+      {:style {:overflow-anchor "none"}
+       :data-role "asset-selector-scroll-container"
+       :replicant/key (or scroll-reset-key "asset-selector-list")
+       :replicant/on-render (asset-list-on-render props)}
+      [:div {:style {:overflow-anchor "none"}
+             :data-role "asset-selector-list-body-host"}]])))
 
 (defn matches-search? [asset search-term strict?]
   (query/matches-search? asset search-term strict?))
@@ -604,41 +903,87 @@
 (defonce ^:private processed-assets-cache
   (atom nil))
 
+(defn- processed-assets-market-signature
+  [markets]
+  (mapv (fn [{:keys [key symbol coin base market-type category hip3? hip3-eligible? cache-order]}]
+          [key symbol coin base market-type category hip3? hip3-eligible? cache-order])
+        markets))
+
+(defn- processed-assets-market-by-key
+  [markets]
+  (persistent!
+    (reduce (fn [acc market]
+              (if-let [market-key (:key market)]
+                (assoc! acc market-key market)
+                acc))
+            (transient {})
+            markets)))
+
+(defn- ordered-market-keys->assets
+  [ordered-market-keys market-by-key]
+  (into []
+        (keep #(get market-by-key %))
+        ordered-market-keys))
+
 (defn reset-processed-assets-cache! []
   (reset! processed-assets-cache nil))
 
 (defn processed-assets
-  [markets search-term sort-key sort-direction favorites favorites-only? strict? active-tab]
-  (let [cache @processed-assets-cache
-        cache-hit? (and (map? cache)
-                        (identical? markets (:markets cache))
-                        (identical? favorites (:favorites cache))
-                        (= search-term (:search-term cache))
-                        (= sort-key (:sort-key cache))
-                        (= sort-direction (:sort-direction cache))
-                        (= favorites-only? (:favorites-only? cache))
-                        (= strict? (:strict? cache))
-                        (= active-tab (:active-tab cache)))]
-    (if cache-hit?
-      (:result cache)
-      (let [result (filter-and-sort-assets markets search-term sort-key sort-direction
-                                           favorites favorites-only? strict? active-tab)]
-        (reset! processed-assets-cache {:markets markets
-                                        :favorites favorites
-                                        :search-term search-term
-                                        :sort-key sort-key
-                                        :sort-direction sort-direction
-                                        :favorites-only? favorites-only?
-                                        :strict? strict?
-                                        :active-tab active-tab
-                                        :result result})
-        result))))
+  ([markets search-term sort-key sort-direction favorites favorites-only? strict? active-tab]
+   (processed-assets markets nil search-term sort-key sort-direction favorites favorites-only? strict? active-tab))
+  ([markets market-by-key search-term sort-key sort-direction favorites favorites-only? strict? active-tab]
+   (let [cache @processed-assets-cache
+         market-signature (processed-assets-market-signature markets)
+         cache-hit? (and (map? cache)
+                         (= market-signature (:market-signature cache))
+                         (= favorites (:favorites cache))
+                         (= search-term (:search-term cache))
+                         (= sort-key (:sort-key cache))
+                         (= sort-direction (:sort-direction cache))
+                         (= favorites-only? (:favorites-only? cache))
+                         (= strict? (:strict? cache))
+                         (= active-tab (:active-tab cache)))
+         market-by-key* (or market-by-key
+                            (:market-by-key cache)
+                            (processed-assets-market-by-key markets))
+         exact-input-hit? (and cache-hit?
+                               (identical? markets (:markets cache))
+                               (identical? market-by-key* (:market-by-key cache)))]
+     (cond
+       exact-input-hit?
+       (:result cache)
+
+       cache-hit?
+       (let [result (ordered-market-keys->assets (:ordered-market-keys cache) market-by-key*)]
+         (reset! processed-assets-cache (assoc cache
+                                               :markets markets
+                                               :market-by-key market-by-key*
+                                               :result result))
+         result)
+
+       :else
+       (let [result (filter-and-sort-assets markets search-term sort-key sort-direction
+                                            favorites favorites-only? strict? active-tab)]
+         (reset! processed-assets-cache {:market-signature market-signature
+                                         :markets markets
+                                         :market-by-key market-by-key*
+                                         :favorites favorites
+                                         :search-term search-term
+                                         :sort-key sort-key
+                                         :sort-direction sort-direction
+                                         :favorites-only? favorites-only?
+                                         :strict? strict?
+                                         :active-tab active-tab
+                                         :ordered-market-keys (mapv :key result)
+                                         :result result})
+         result)))))
 
 (defn asset-selector-dropdown
   "Asset selector dropdown component
    Props:
    - :visible? - whether the dropdown is shown
    - :markets - list of market data
+   - :market-by-key - current market lookup map keyed by market key
    - :selected-market-key - currently selected market key
    - :search-term - current search query
    - :sort-by - current sort field (:name, :price, :volume, :change, :openInterest, :funding)
@@ -650,18 +995,18 @@
    - :missing-icons - set of market keys with missing icons
    - :loaded-icons - set of market keys with loaded icons
    - :highlighted-market-key - keyboard navigation highlighted row
-   - :render-limit - max rows currently rendered in list
+   - :render-limit - progressive store-side prefetch limit for selector subscriptions
    - :scroll-top - current row-viewport scroll offset
    - :loading? - whether market refresh is in flight
    - :phase - :bootstrap | :full"
   [{:keys [visible? markets selected-market-key search-term sort-by sort-direction
-           favorites favorites-only? strict? active-tab missing-icons loaded-icons
+           market-by-key favorites favorites-only? strict? active-tab missing-icons loaded-icons
            highlighted-market-key render-limit scroll-top loading? phase desktop?]}]
   (when visible?
     (let [desktop-layout? (desktop-selector-layout? desktop?)]
       [:div
        (if desktop-layout?
-         (desktop-asset-selector-dropdown {:loading? loading?
+          (desktop-asset-selector-dropdown {:loading? loading?
                                            :phase phase
                                            :search-term search-term
                                            :strict? strict?
@@ -670,6 +1015,7 @@
                                            :sort-by sort-by
                                            :sort-direction sort-direction
                                            :markets markets
+                                           :market-by-key market-by-key
                                            :selected-market-key selected-market-key
                                            :favorites favorites
                                            :missing-icons missing-icons
@@ -677,7 +1023,7 @@
                                            :highlighted-market-key highlighted-market-key
                                            :render-limit render-limit
                                            :scroll-top scroll-top})
-         (mobile-asset-selector-dropdown {:loading? loading?
+          (mobile-asset-selector-dropdown {:loading? loading?
                                           :phase phase
                                           :search-term search-term
                                           :strict? strict?
@@ -686,16 +1032,22 @@
                                           :sort-by sort-by
                                           :sort-direction sort-direction
                                           :markets markets
+                                          :market-by-key market-by-key
                                           :selected-market-key selected-market-key
                                           :favorites favorites
                                           :highlighted-market-key highlighted-market-key}))])))
 
+(def ^:private memoized-asset-selector-wrapper
+  (memoize-last
+    (fn [props]
+      (let [desktop-layout? (desktop-selector-layout? (:desktop? props))]
+        [:div.relative
+         (asset-selector-dropdown props)
+         ;; Only desktop uses an outside-click overlay; mobile uses its own full-screen shell.
+         (when (and (:visible? props) desktop-layout?)
+           [:div {:class ["fixed" "inset-0" "z-[210]"]
+                  :on {:click [[:actions/close-asset-dropdown]]}}])]))))
+
 ;; Wrapper component that can be used in active-asset-view
 (defn asset-selector-wrapper [props]
-  (let [desktop-layout? (desktop-selector-layout? (:desktop? props))]
-    [:div.relative
-     (asset-selector-dropdown props)
-     ;; Only desktop uses an outside-click overlay; mobile uses its own full-screen shell.
-     (when (and (:visible? props) desktop-layout?)
-       [:div {:class ["fixed" "inset-0" "z-[210]"]
-              :on {:click [[:actions/close-asset-dropdown]]}}])]))
+  (memoized-asset-selector-wrapper props))
