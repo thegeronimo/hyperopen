@@ -399,6 +399,15 @@
 (def dismiss-order-feedback-toast
   order-actions/dismiss-order-feedback-toast)
 
+(def dismiss-order-submission-confirmation
+  order-actions/dismiss-order-submission-confirmation)
+
+(def handle-order-submission-confirmation-keydown
+  order-actions/handle-order-submission-confirmation-keydown)
+
+(def confirm-order-submission
+  order-actions/confirm-order-submission)
+
 (def submit-order
   order-actions/submit-order)
 

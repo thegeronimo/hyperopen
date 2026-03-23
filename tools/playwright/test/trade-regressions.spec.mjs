@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
   debugCall,
   dispatch,
@@ -172,4 +172,69 @@ test("order submit and cancel gating uses simulator-backed assertions @regressio
     },
     { args: { actionId: ":actions/cancel-order" } }
   );
+});
+
+test("order submit confirmation renders in-app instead of opening a browser dialog @regression", async ({
+  page
+}) => {
+  await visitRoute(page, "/trade");
+
+  let browserDialogSeen = false;
+  page.on("dialog", async (dialog) => {
+    browserDialogSeen = true;
+    await dialog.dismiss();
+  });
+
+  await debugCall(page, "installWalletSimulator", {
+    accounts: ["0x1111111111111111111111111111111111111111"],
+    requestAccounts: ["0x1111111111111111111111111111111111111111"],
+    chainId: "0xa4b1"
+  });
+  await debugCall(page, "setWalletConnectedHandlerMode", "suppress");
+  await debugCall(page, "installExchangeSimulator", {
+    approveAgent: { responses: [{ status: "ok" }] }
+  });
+
+  await dispatch(page, [":actions/connect-wallet"]);
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+  await dispatch(page, [":actions/enable-agent-trading"]);
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 5_000, pollMs: 50 });
+  await expectOracle(page, "wallet-status", {
+    connected: true,
+    agentStatus: "ready",
+    agentError: null
+  });
+
+  await dispatch(page, [":actions/select-order-entry-mode", ":limit"]);
+  await waitForIdle(page, { quietMs: 100, timeoutMs: 2_000, pollMs: 50 });
+  await dispatch(page, [":actions/set-order-size-input-mode", ":base"]);
+  await waitForIdle(page, { quietMs: 100, timeoutMs: 2_000, pollMs: 50 });
+  await dispatch(page, [":actions/update-order-form", [":price"], "100"]);
+  await waitForIdle(page, { quietMs: 100, timeoutMs: 2_000, pollMs: 50 });
+  await dispatch(page, [":actions/set-order-size-display", "1"]);
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+
+  await dispatch(page, [":actions/submit-order"]);
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+
+  await expect(page.locator('[data-role="order-submit-confirmation-dialog"]')).toBeVisible();
+  await expect(page.locator('[data-role="order-submit-confirmation-title"]')).toHaveText(
+    "Submit Order?"
+  );
+  await expect(browserDialogSeen).toBe(false);
+  await expectOracle(
+    page,
+    "effect-order",
+    {
+      actionId: ":actions/submit-order",
+      covered: true,
+      heavyEffectCount: 0,
+      projectionBeforeHeavy: true,
+      phaseOrderValid: true
+    },
+    { args: { actionId: ":actions/submit-order" } }
+  );
+
+  await page.locator('[data-role="order-submit-confirmation-cancel"]').click();
+  await expect(page.locator('[data-role="order-submit-confirmation-dialog"]')).toHaveCount(0);
 });

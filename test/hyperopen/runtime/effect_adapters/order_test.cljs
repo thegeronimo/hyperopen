@@ -185,44 +185,27 @@
       (order-adapters/clear-order-feedback-toast! store)
       (is (= {} (get-in @runtime [:timeouts :order-toast]))))))
 
-(deftest confirm-api-submit-order-saves-path-values-only-after-confirmation-test
-  (let [store (atom {:order-form-runtime {:error "old"}})
-        submit-calls (atom [])
-        confirm-calls (atom [])]
-    (with-redefs [hyperopen.platform/confirm! (fn [message]
-                                                (swap! confirm-calls conj message)
-                                                true)
-                  order-effects/api-submit-order (fn [_deps ctx store* request]
-                                                   (swap! submit-calls conj [ctx store* request])
-                                                   :submitted)]
-      (is (= :submitted
-             (order-adapters/confirm-api-submit-order
-              runtime-state/runtime
-              :confirm-ctx
-              store
-              {:message "Submit?"
-               :request {:action {:type "order"}}
-               :path-values [[[:order-form-runtime :error] nil]
-                             [[:order-form :size] "1"]]})))
-      (is (= ["Submit?"] @confirm-calls))
-      (is (= {:order-form-runtime {:error nil}
-              :order-form {:size "1"}}
-             @store))
-      (is (= [[:confirm-ctx store {:action {:type "order"}}]]
-             @submit-calls))))
+(deftest confirm-api-submit-order-opens-app-owned-confirmation-state-test
   (let [store (atom {:order-form-runtime {:error "old"}})
         submit-calls (atom [])]
-    (with-redefs [hyperopen.platform/confirm! (constantly false)
-                  order-effects/api-submit-order (fn [& args]
+    (with-redefs [order-effects/api-submit-order (fn [& args]
                                                    (swap! submit-calls conj args))]
       (is (nil?
            (order-adapters/confirm-api-submit-order
             runtime-state/runtime
             :confirm-ctx
             store
-            {:message "Submit?"
+            {:variant :open-order
+             :message "Submit?"
              :request {:action {:type "order"}}
-             :path-values [[[:order-form-runtime :error] nil]]})))
-      (is (= {:order-form-runtime {:error "old"}}
+             :path-values [[[:order-form-runtime :error] nil]
+                           [[:order-form :size] "1"]]})))
+      (is (= {:order-form-runtime {:error "old"}
+              :order-submit-confirmation {:open? true
+                                          :variant :open-order
+                                          :message "Submit?"
+                                          :request {:action {:type "order"}}
+                                          :path-values [[[:order-form-runtime :error] nil]
+                                                        [[:order-form :size] "1"]]}}
              @store))
       (is (empty? @submit-calls)))))

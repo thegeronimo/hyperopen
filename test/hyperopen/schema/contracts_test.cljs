@@ -182,6 +182,19 @@
         [-1]
         {:phase :test}))))
 
+(deftest assert-effect-args-accepts-confirm-api-submit-order-variant-test
+  (is (= [{:variant :open-order
+           :message "Submit?"
+           :request {:action {:type "order"}}
+           :path-values [[[:order-form-runtime :error] nil]]}]
+         (contracts/assert-effect-args!
+          :effects/confirm-api-submit-order
+          [{:variant :open-order
+            :message "Submit?"
+            :request {:action {:type "order"}}
+            :path-values [[[:order-form-runtime :error] nil]]}]
+          {:phase :test}))))
+
 (deftest assert-effect-args-rejects-export-funding-history-csv-when-not-vector-of-maps-test
   (is (thrown-with-msg?
        js/Error
@@ -320,6 +333,23 @@
   (is (= []
          (contracts/assert-action-args!
           :actions/clear-portfolio-returns-benchmark
+          []
+          {:phase :test}))))
+
+(deftest assert-action-args-accepts-order-submission-confirmation-actions-test
+  (is (= []
+         (contracts/assert-action-args!
+          :actions/dismiss-order-submission-confirmation
+          []
+          {:phase :test})))
+  (is (= ["Escape"]
+         (contracts/assert-action-args!
+          :actions/handle-order-submission-confirmation-keydown
+          ["Escape"]
+          {:phase :test})))
+  (is (= []
+         (contracts/assert-action-args!
+          :actions/confirm-order-submission
           []
           {:phase :test}))))
 

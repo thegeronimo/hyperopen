@@ -2,6 +2,7 @@
   (:require [nexus.registry :as nxr]
             [hyperopen.order.effects :as order-effects]
             [hyperopen.order.feedback-runtime :as order-feedback-runtime]
+            [hyperopen.order.submit-confirmation :as submit-confirmation]
             [hyperopen.platform :as platform]
             [hyperopen.runtime.effect-adapters.common :as common]
             [hyperopen.runtime.state :as runtime-state]))
@@ -79,23 +80,13 @@
   ([runtime ctx store request]
    (order-effects/api-submit-position-margin (order-api-effect-deps runtime) ctx store request)))
 
-(defn- apply-path-values!
-  [store path-values]
-  (when (seq path-values)
-    (swap! store
-           (fn [state]
-             (reduce (fn [acc [path value]]
-                       (assoc-in acc path value))
-                     state
-                     path-values)))))
-
 (defn confirm-api-submit-order
   ([ctx store payload]
    (confirm-api-submit-order runtime-state/runtime ctx store payload))
-  ([runtime ctx store {:keys [message request path-values]}]
-   (when (platform/confirm! message)
-     (apply-path-values! store path-values)
-     (api-submit-order runtime ctx store request))))
+  ([_runtime _ctx store payload]
+   (swap! store assoc :order-submit-confirmation
+          (submit-confirmation/open-state payload))
+   nil))
 
 (defn make-api-submit-order
   [runtime]

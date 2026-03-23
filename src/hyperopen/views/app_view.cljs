@@ -11,6 +11,7 @@
             [hyperopen.views.spectate-mode-modal :as spectate-mode-modal]
             [hyperopen.views.header-view :as header-view]
             [hyperopen.views.notifications-view :as notifications-view]
+            [hyperopen.views.order-submit-confirmation-modal :as order-submit-confirmation-modal]
             [hyperopen.views.trade-view :as trade-view]
             [hyperopen.views.vaults.preview-shell :as vaults-preview-shell]
             [hyperopen.vaults.infrastructure.routes :as vault-routes]
@@ -176,5 +177,6 @@
      (funding-modal/funding-modal-view state)
      (spectate-mode-modal/spectate-mode-modal-view state)
      (agent-trading-recovery-modal/agent-trading-recovery-modal-view state)
+     (order-submit-confirmation-modal/order-submit-confirmation-modal-view state)
      (notifications-view/notifications-view state)
      (footer-view/footer-view state)]))

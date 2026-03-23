@@ -10,6 +10,7 @@
     :actions/select-asset
     :actions/select-chart-timeframe
     :actions/submit-order
+    :actions/confirm-order-submission
     :actions/confirm-cancel-visible-open-orders
     :actions/submit-cancel-visible-open-orders-confirmation
     :actions/cancel-visible-open-orders

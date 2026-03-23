@@ -569,6 +569,8 @@
         payload (second confirm-effect)]
     (is (= 1 (count effects)))
     (is (= :effects/confirm-api-submit-order (first confirm-effect)))
+    (is (= :close-position
+           (:variant payload)))
     (is (= "Submit this close order?\n\nDisable close-position confirmation in Trading settings if you prefer one-click closes."
            (:message payload)))
     (is (= [[:positions-ui :reduce-popover] (assoc popover :error nil)]

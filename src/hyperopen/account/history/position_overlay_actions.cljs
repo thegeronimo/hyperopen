@@ -122,7 +122,8 @@
         (assoc popover :error (:display-message result))]]
       (let [next-popover (assoc popover :error nil)]
         (if (trading-settings/confirm-close-position? state)
-          [[:effects/confirm-api-submit-order {:message confirm-close-position-message
+          [[:effects/confirm-api-submit-order {:variant :close-position
+                                               :message confirm-close-position-message
                                                :request (:request result)
                                                :path-values [[[:positions-ui :reduce-popover] next-popover]]}]]
           [[:effects/save [:positions-ui :reduce-popover]

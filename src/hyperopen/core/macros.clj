@@ -195,6 +195,9 @@
     toggle-order-tpsl-panel
     update-order-form
     dismiss-order-feedback-toast
+    dismiss-order-submission-confirmation
+    handle-order-submission-confirmation-keydown
+    confirm-order-submission
     submit-order
     confirm-cancel-visible-open-orders
     close-cancel-visible-open-orders-confirmation

@@ -7,6 +7,7 @@
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.i18n.locale :as i18n-locale]
             [hyperopen.order.cancel-visible-confirmation :as cancel-visible-confirmation]
+            [hyperopen.order.submit-confirmation :as submit-confirmation]
             [hyperopen.platform :as platform]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.trade-modules :as trade-modules]
@@ -397,6 +398,7 @@
    :wallet (default-wallet-state default-agent-state)
    :account-context (account-context/default-account-context-state)
    :ui (default-ui-state)
+   :order-submit-confirmation (submit-confirmation/default-state)
    :header-ui (default-header-ui-state)
    :trading-settings (default-trading-settings-state)
    :account {:mode :classic

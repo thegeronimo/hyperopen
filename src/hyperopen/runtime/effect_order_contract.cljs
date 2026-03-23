@@ -151,6 +151,12 @@
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/api-submit-order}}
 
+   :actions/confirm-order-submission
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/api-submit-order}}
+
    :actions/submit-cancel-visible-open-orders-confirmation
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true

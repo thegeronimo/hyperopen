@@ -2,6 +2,7 @@
   (:require [hyperopen.account.context :as account-context]
             [hyperopen.api.trading :as trading-api]
             [hyperopen.order.cancel-visible-confirmation :as cancel-visible-confirmation]
+            [hyperopen.order.submit-confirmation :as submit-confirmation]
             [hyperopen.order.effects :as order-effects]
             [hyperopen.state.trading :as trading]
             [hyperopen.trading-settings :as trading-settings]
@@ -227,6 +228,35 @@
 (def ^:private confirm-open-order-message
   "Submit this order?\n\nDisable open-order confirmation in Trading settings if you prefer one-click submits.")
 
+(def ^:private order-submission-confirmation-path
+  [:order-submit-confirmation])
+
+(defn dismiss-order-submission-confirmation
+  [_state]
+  [[:effects/save order-submission-confirmation-path
+    (submit-confirmation/default-state)]])
+
+(defn handle-order-submission-confirmation-keydown
+  [state key]
+  (if (= key "Escape")
+    (dismiss-order-submission-confirmation state)
+    []))
+
+(defn confirm-order-submission
+  [state]
+  (let [confirmation (or (:order-submit-confirmation state)
+                         (submit-confirmation/default-state))
+        request (:request confirmation)
+        path-values (vec (:path-values confirmation))
+        projection-values (conj path-values
+                                [order-submission-confirmation-path
+                                 (submit-confirmation/default-state)])]
+    (if (and (submit-confirmation/open? confirmation)
+             (map? request))
+      [[:effects/save-many projection-values]
+       [:effects/api-submit-order request]]
+      (dismiss-order-submission-confirmation state))))
+
 (defn submit-order [state]
   (let [spectate-mode-message (account-context/mutations-blocked-message state)
         raw-form (trading/order-form-draft state)
@@ -254,7 +284,8 @@
                          [[:order-form] persisted-form]
                          [[:order-form-ui] persisted-ui]]]
         (if (trading-settings/confirm-open-orders? state)
-          [[:effects/confirm-api-submit-order {:message confirm-open-order-message
+          [[:effects/confirm-api-submit-order {:variant :open-order
+                                               :message confirm-open-order-message
                                                :request request
                                                :path-values path-values}]]
           [[:effects/save [:order-form-runtime :error] nil]

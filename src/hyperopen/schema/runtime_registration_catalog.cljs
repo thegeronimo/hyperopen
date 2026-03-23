@@ -258,6 +258,9 @@
      [:actions/submit-position-margin-update :submit-position-margin-update]]
     (order-form-command-catalog/runtime-action-bindings)
     [[:actions/dismiss-order-feedback-toast :dismiss-order-feedback-toast]
+     [:actions/dismiss-order-submission-confirmation :dismiss-order-submission-confirmation]
+     [:actions/handle-order-submission-confirmation-keydown :handle-order-submission-confirmation-keydown]
+     [:actions/confirm-order-submission :confirm-order-submission]
      [:actions/confirm-cancel-visible-open-orders :confirm-cancel-visible-open-orders]
      [:actions/close-cancel-visible-open-orders-confirmation :close-cancel-visible-open-orders-confirmation]
      [:actions/handle-cancel-visible-open-orders-confirmation-keydown :handle-cancel-visible-open-orders-confirmation-keydown]

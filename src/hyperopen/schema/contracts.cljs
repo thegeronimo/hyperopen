@@ -137,14 +137,18 @@
                                           :mode ::keyword-or-string))
 (s/def ::storage-mode-request-args
   (s/tuple ::storage-mode-request-input))
+(s/def ::order-submit-confirmation-variant
+  #{:open-order :close-position})
 (s/def ::enable-agent-trading-args (s/tuple map?))
 (s/def ::api-submit-request (s/keys :req-un [::action]))
 (s/def ::api-submit-order-args (s/tuple ::api-submit-request))
 (defn- confirm-api-submit-order-args?
   [args]
   (and (= 1 (count args))
-       (let [{:keys [message request path-values]} (first args)]
+       (let [{:keys [variant message request path-values]} (first args)]
          (and (non-empty-string? message)
+              (or (nil? variant)
+                  (s/valid? ::order-submit-confirmation-variant variant))
               (s/valid? ::api-submit-request request)
               (s/valid? ::path-values path-values)))))
 
@@ -582,6 +586,9 @@
    :actions/toggle-order-tpsl-panel ::no-args
    :actions/update-order-form (s/tuple ::state-path any?)
    :actions/dismiss-order-feedback-toast ::optional-string-args
+   :actions/dismiss-order-submission-confirmation ::no-args
+   :actions/handle-order-submission-confirmation-keydown ::key-args
+   :actions/confirm-order-submission ::no-args
    :actions/submit-order ::no-args
    :actions/confirm-cancel-visible-open-orders ::confirm-cancel-visible-open-orders-args
    :actions/close-cancel-visible-open-orders-confirmation ::no-args

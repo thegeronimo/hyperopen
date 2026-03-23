@@ -3,6 +3,7 @@
             [hyperopen.account.context :as account-context]
             [hyperopen.core.compat :as core]
             [hyperopen.order.actions :as order-actions]
+            [hyperopen.order.submit-confirmation :as submit-confirmation]
             [hyperopen.runtime.validation :as validation]
             [hyperopen.state.trading :as trading]
             [hyperopen.core-bootstrap.test-support.effect-extractors :as effect-extractors]))
@@ -401,12 +402,47 @@
         payload (second confirm-effect)]
     (is (= 1 (count effects)))
     (is (= :effects/confirm-api-submit-order (first confirm-effect)))
+    (is (= :open-order
+           (:variant payload)))
     (is (= "Submit this order?\n\nDisable open-order confirmation in Trading settings if you prefer one-click submits."
            (:message payload)))
     (is (= [[:order-form-runtime :error] nil]
            (first (:path-values payload))))
     (is (= "order"
            (get-in payload [:request :action :type])))))
+
+(deftest confirm-order-submission-applies-projection-before-submit-test
+  (let [state {:order-submit-confirmation {:open? true
+                                           :variant :open-order
+                                           :message "Submit?"
+                                           :request {:action {:type "order"}}
+                                           :path-values [[[:order-form-runtime :error] nil]
+                                                         [[:order-form :size] "1"]]}}
+        effects (core/confirm-order-submission state)
+        save-many-path-values (extract-save-many-path-values effects)
+        submit-effect (second effects)]
+    (is (= :effects/save-many (ffirst effects)))
+    (is (= nil
+           (get save-many-path-values [:order-form-runtime :error])))
+    (is (= "1"
+           (get save-many-path-values [:order-form :size])))
+    (is (= (submit-confirmation/default-state)
+           (get save-many-path-values [:order-submit-confirmation])))
+    (is (= :effects/api-submit-order
+           (first submit-effect)))
+    (is (= "order"
+           (get-in submit-effect [1 :action :type])))))
+
+(deftest order-submission-confirmation-keydown-dismisses-on-escape-test
+  (is (= [[:effects/save [:order-submit-confirmation]
+           (submit-confirmation/default-state)]]
+         (core/handle-order-submission-confirmation-keydown
+          {:order-submit-confirmation {:open? true}}
+          "Escape")))
+  (is (= []
+         (core/handle-order-submission-confirmation-keydown
+          {:order-submit-confirmation {:open? true}}
+          "Enter"))))
 
 (deftest submit-order-limit-with-blank-price-uses-fallback-and-emits-single-submit-effect-test
   (let [state {:active-asset "BTC"

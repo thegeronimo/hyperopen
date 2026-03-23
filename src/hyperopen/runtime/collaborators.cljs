@@ -231,6 +231,9 @@
    :toggle-order-tpsl-panel order-actions/toggle-order-tpsl-panel
    :update-order-form order-actions/update-order-form
    :dismiss-order-feedback-toast order-actions/dismiss-order-feedback-toast
+   :dismiss-order-submission-confirmation order-actions/dismiss-order-submission-confirmation
+   :handle-order-submission-confirmation-keydown order-actions/handle-order-submission-confirmation-keydown
+   :confirm-order-submission order-actions/confirm-order-submission
    :submit-order order-actions/submit-order
    :confirm-cancel-visible-open-orders order-actions/confirm-cancel-visible-open-orders
    :close-cancel-visible-open-orders-confirmation order-actions/close-cancel-visible-open-orders-confirmation

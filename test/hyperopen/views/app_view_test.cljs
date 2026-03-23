@@ -431,3 +431,33 @@
            (get-in edit-button [1 :on :click])))
     (is (= [[:actions/copy-spectate-mode-watchlist-link address]]
            (get-in link-button [1 :on :click])))))
+
+(deftest app-view-renders-order-submit-confirmation-modal-when-open-test
+  (let [view-node (app-view/app-view (assoc (base-state)
+                                            :router {:path "/trade"}
+                                            :wallet {}
+                                            :order-submit-confirmation {:open? true
+                                                                        :variant :open-order
+                                                                        :message "Submit?"
+                                                                        :request {:action {:type "order"}}
+                                                                        :path-values []}))
+        dialog (hiccup/find-by-data-role view-node "order-submit-confirmation-dialog")
+        backdrop (hiccup/find-by-data-role view-node "order-submit-confirmation-backdrop")
+        cancel-button (hiccup/find-by-data-role view-node "order-submit-confirmation-cancel")
+        confirm-button (hiccup/find-by-data-role view-node "order-submit-confirmation-submit")
+        close-button (hiccup/find-by-data-role view-node "order-submit-confirmation-close")
+        rendered-strings (set (hiccup/collect-strings dialog))]
+    (is (some? dialog))
+    (is (contains? rendered-strings "Submit Order?"))
+    (is (contains? rendered-strings "This order will be sent immediately to the exchange."))
+    (is (contains? rendered-strings "Turn off open-order confirmation in Trading settings if you prefer one-click submits."))
+    (is (= [[:actions/handle-order-submission-confirmation-keydown [:event/key]]]
+           (get-in dialog [1 :on :keydown])))
+    (is (= [[:actions/dismiss-order-submission-confirmation]]
+           (get-in backdrop [1 :on :click])))
+    (is (= [[:actions/dismiss-order-submission-confirmation]]
+           (get-in cancel-button [1 :on :click])))
+    (is (= [[:actions/dismiss-order-submission-confirmation]]
+           (get-in close-button [1 :on :click])))
+    (is (= [[:actions/confirm-order-submission]]
+           (get-in confirm-button [1 :on :click])))))
