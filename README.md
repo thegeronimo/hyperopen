@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/thegeronimo/hyperopen/actions/workflows/tests.yml">
-    <img src="https://github.com/thegeronimo/hyperopen/actions/workflows/tests.yml/badge.svg?branch=main" alt="Tests" />
+    <img src=".github/badges/tests-status.svg" alt="Tests Status" />
   </a>
   <a href="https://github.com/thegeronimo/hyperopen/actions/workflows/tests.yml">
     <img src=".github/badges/coverage.svg" alt="Coverage" />

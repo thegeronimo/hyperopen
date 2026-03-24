@@ -9,12 +9,17 @@ const TESTS_BADGE_JSON_PATH =
   process.env.TESTS_BADGE_JSON_PATH ?? ".github/badges/tests-total.json";
 const TESTS_BADGE_SVG_PATH =
   process.env.TESTS_BADGE_SVG_PATH ?? ".github/badges/tests-total.svg";
+const TESTS_STATUS_BADGE_JSON_PATH =
+  process.env.TESTS_STATUS_BADGE_JSON_PATH ?? ".github/badges/tests-status.json";
+const TESTS_STATUS_BADGE_SVG_PATH =
+  process.env.TESTS_STATUS_BADGE_SVG_PATH ?? ".github/badges/tests-status.svg";
 const ASSERTIONS_BADGE_JSON_PATH =
   process.env.ASSERTIONS_BADGE_JSON_PATH ?? ".github/badges/assertions-total.json";
 const ASSERTIONS_BADGE_SVG_PATH =
   process.env.ASSERTIONS_BADGE_SVG_PATH ?? ".github/badges/assertions-total.svg";
 
 const COLOR_HEX_BY_NAME = {
+  brightgreen: "#4c1",
   blue: "#007ec6",
   red: "#e05d44",
 };
@@ -130,6 +135,12 @@ async function buildBadgePayloads() {
       mainSummary.assertions + websocketSummary.assertions;
 
     return {
+      testsStatusBadgePayload: {
+        schemaVersion: 1,
+        label: "tests",
+        message: "passing",
+        color: "brightgreen",
+      },
       testsBadgePayload: {
         schemaVersion: 1,
         label: "tests",
@@ -148,20 +159,37 @@ async function buildBadgePayloads() {
       throw error;
     }
 
-    const [testsBadgePayload, assertionsBadgePayload] = await Promise.all([
+    const [
+      testsStatusBadgePayload,
+      testsBadgePayload,
+      assertionsBadgePayload,
+    ] = await Promise.all([
+      readBadgePayloadFromJson(TESTS_STATUS_BADGE_JSON_PATH),
       readBadgePayloadFromJson(TESTS_BADGE_JSON_PATH),
       readBadgePayloadFromJson(ASSERTIONS_BADGE_JSON_PATH),
     ]);
 
-    return { testsBadgePayload, assertionsBadgePayload };
+    return {
+      testsStatusBadgePayload,
+      testsBadgePayload,
+      assertionsBadgePayload,
+    };
   }
 }
 
 async function main() {
-  const { testsBadgePayload, assertionsBadgePayload } =
-    await buildBadgePayloads();
+  const {
+    testsStatusBadgePayload,
+    testsBadgePayload,
+    assertionsBadgePayload,
+  } = await buildBadgePayloads();
 
   await Promise.all([
+    writeBadge(
+      TESTS_STATUS_BADGE_JSON_PATH,
+      TESTS_STATUS_BADGE_SVG_PATH,
+      testsStatusBadgePayload,
+    ),
     writeBadge(TESTS_BADGE_JSON_PATH, TESTS_BADGE_SVG_PATH, testsBadgePayload),
     writeBadge(
       ASSERTIONS_BADGE_JSON_PATH,
@@ -171,7 +199,7 @@ async function main() {
   ]);
 
   console.log(
-    `Wrote test metric badges (tests=${testsBadgePayload.message}, assertions=${assertionsBadgePayload.message}).`,
+    `Wrote test metric badges (status=${testsStatusBadgePayload.message}, tests=${testsBadgePayload.message}, assertions=${assertionsBadgePayload.message}).`,
   );
 }
 
