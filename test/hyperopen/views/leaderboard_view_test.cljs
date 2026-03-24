@@ -180,8 +180,13 @@
                                                                   :error nil
                                                                   :loaded-at-ms nil}))
             loading-node (find-first-node view-node #(= "leaderboard-loading" (get-in % [1 :data-role])))
+            shimmer-node (find-first-node view-node
+                                          (fn [node]
+                                            (contains? (set (get-in node [1 :class]))
+                                                       "ui-loading-shimmer")))
             table-node (find-first-node view-node #(= "leaderboard-table" (get-in % [1 :data-role])))
             text (set (collect-strings view-node))]
         (is (some? loading-node))
+        (is (some? shimmer-node))
         (is (nil? table-node))
         (is (contains? text "Loading ranked traders and vault exclusions..."))))))

@@ -248,8 +248,7 @@
   [:span {:class (into ["block"
                         "h-3.5"
                         "rounded"
-                        "bg-base-300/70"
-                        "animate-pulse"]
+                        "ui-loading-shimmer"]
                        extra-classes)}])
 
 (defn- desktop-loading-row

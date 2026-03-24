@@ -199,12 +199,38 @@
     will-change: opacity, transform;
   }
 
+  @keyframes ui-loading-shimmer {
+    from {
+      background-position: 200% 0;
+    }
+
+    to {
+      background-position: -200% 0;
+    }
+  }
+
+  .ui-loading-shimmer {
+    background-color: rgb(61 74 80 / 0.56);
+    background-image: linear-gradient(
+      90deg,
+      rgb(61 74 80 / 0.42) 0%,
+      rgb(126 151 159 / 0.18) 24%,
+      rgb(206 233 229 / 0.28) 42%,
+      rgb(126 151 159 / 0.18) 60%,
+      rgb(61 74 80 / 0.42) 100%
+    );
+    background-size: 220% 100%;
+    animation: ui-loading-shimmer 1.5s linear infinite;
+    will-change: background-position;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .ui-dropdown-panel,
     .ui-dropdown-panel[data-ui-state="open"],
     details[open] > .ui-dropdown-panel[data-ui-native-details-panel="true"],
     .ui-confirmation-backdrop,
-    .ui-confirmation-panel {
+    .ui-confirmation-panel,
+    .ui-loading-shimmer {
       transition: none;
       animation: none;
       transform: none;
