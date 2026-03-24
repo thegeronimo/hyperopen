@@ -1,7 +1,10 @@
 (ns hyperopen.views.funding-modal-test
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.funding.actions :as funding-actions]
-            [hyperopen.views.funding-modal :as view]))
+            [hyperopen.views.funding-modal :as view]
+            [hyperopen.views.funding-modal.deposit :as deposit]
+            [hyperopen.views.funding-modal.shared :as shared]
+            [hyperopen.views.funding-modal.withdraw :as withdraw]))
 
 (defn- base-state
   []
@@ -239,7 +242,7 @@
     (is (contains? all-text "1.25 BTC available"))))
 
 (deftest deposit-address-content-uses-address-step-role-test
-  (let [content (@#'view/deposit-address-content {:selected-asset {:symbol "BTC"
+  (let [content (deposit/deposit-address-content {:selected-asset {:symbol "BTC"
                                                                    :network "Bitcoin"}
                                                   :flow {}
                                                   :summary {:rows []}
@@ -254,7 +257,7 @@
     (is (nil? amount-step))))
 
 (deftest deposit-amount-content-disables-quick-controls-while-submitting-test
-  (let [content (@#'view/deposit-amount-content {:selected-asset {:symbol "USDC"
+  (let [content (deposit/deposit-amount-content {:selected-asset {:symbol "USDC"
                                                                   :network "Ethereum"}
                                                  :amount {:minimum-value "5"
                                                           :value "12.5"
@@ -281,28 +284,28 @@
   (let [selected-asset {:key :btc
                         :symbol "BTC"
                         :network "Bitcoin"}
-        content (@#'view/withdraw-detail-content {:selected-asset selected-asset
-                                                  :destination {:value "bc1qexamplexyz0p4y0p4y0p4y0p4y0p4y0p4y0p"}
-                                                  :amount {:value "0.25"
-                                                           :max-display "1.25"
-                                                           :max-input "1.25"
-                                                           :available-label "1.25 BTC available"
-                                                           :symbol "BTC"}
-                                                  :flow {:kind :hyperunit-address
-                                                         :protocol-address "bridge-protocol-address"
-                                                         :fee-estimate {:state :error
-                                                                        :message "Estimator offline"}
-                                                         :withdrawal-queue {:state :error
-                                                                            :length nil
-                                                                            :last-operation {:tx-id "0xqueue123"
-                                                                                             :explorer-url "https://mempool.space/tx/0xqueue123"}
-                                                                            :message "Queue service offline"}}
-                                                  :summary {:rows [{:label "Estimated time"
-                                                                    :value "Depends on destination chain"}]}
-                                                  :lifecycle nil
-                                                  :actions {:submit-label "Withdraw"
-                                                            :submit-disabled? false
-                                                            :submitting? false}})
+        content (withdraw/withdraw-detail-content {:selected-asset selected-asset
+                                                   :destination {:value "bc1qexamplexyz0p4y0p4y0p4y0p4y0p4y0p4y0p"}
+                                                   :amount {:value "0.25"
+                                                            :max-display "1.25"
+                                                            :max-input "1.25"
+                                                            :available-label "1.25 BTC available"
+                                                            :symbol "BTC"}
+                                                   :flow {:kind :hyperunit-address
+                                                          :protocol-address "bridge-protocol-address"
+                                                          :fee-estimate {:state :error
+                                                                         :message "Estimator offline"}
+                                                          :withdrawal-queue {:state :error
+                                                                             :length nil
+                                                                             :last-operation {:tx-id "0xqueue123"
+                                                                                              :explorer-url "https://mempool.space/tx/0xqueue123"}
+                                                                             :message "Queue service offline"}}
+                                                   :summary {:rows [{:label "Estimated time"
+                                                                     :value "Depends on destination chain"}]}
+                                                   :lifecycle nil
+                                                   :actions {:submit-label "Withdraw"
+                                                             :submit-disabled? false
+                                                             :submitting? false}})
         queue-link (find-first-node content #(= "https://mempool.space/tx/0xqueue123"
                                                 (get-in % [1 :href])))
         all-text (set (collect-strings content))]
@@ -379,12 +382,12 @@
     (is (nil? lifecycle-node))))
 
 (deftest lifecycle-panel-renders-plain-text-destination-tx-when-explorer-is-missing-test
-  (let [panel (@#'view/lifecycle-panel {:stage-label "Queued"
-                                        :status-label "Pending"
-                                        :destination-tx {:hash "tx-raw"
-                                                         :explorer-url nil}
-                                        :next-check-label "Scheduled"}
-                                       "funding-lifecycle-test")
+  (let [panel (shared/lifecycle-panel {:stage-label "Queued"
+                                       :status-label "Pending"
+                                       :destination-tx {:hash "tx-raw"
+                                                        :explorer-url nil}
+                                       :next-check-label "Scheduled"}
+                                      "funding-lifecycle-test")
         tx-node (find-first-node panel #(and (= :p (first %))
                                              (= "tx-raw" (last %))))
         link-node (find-first-node panel #(= :a (first %)))
