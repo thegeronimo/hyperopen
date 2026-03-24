@@ -5,6 +5,7 @@ import { CDPClient, getBrowserWsUrl } from "./cdp_client.mjs";
 import { killProcess, launchChrome, processIsAlive } from "./chrome_launcher.mjs";
 import { classifyErrorMessage, remediationForClassification } from "./failure_classification.mjs";
 import { maybeStartLocalApp, maybeStopLocalApp } from "./local_app_manager.mjs";
+import { resolveManagedLocalUrl } from "./local_origin.mjs";
 import { runPreflightChecks } from "./preflight.mjs";
 import { safeNowIso, sleep } from "./util.mjs";
 
@@ -86,10 +87,52 @@ function parseUrlOrNull(rawUrl) {
   }
 }
 
-function localBootstrapNavigationDetails(url, bootstrapUrl) {
+function normalizedPort(url) {
+  if (url.port) {
+    return url.port;
+  }
+  if (url.protocol === "https:") {
+    return "443";
+  }
+  if (url.protocol === "http:") {
+    return "80";
+  }
+  return "";
+}
+
+function normalizeHostname(hostname) {
+  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
+    return "loopback";
+  }
+  return hostname;
+}
+
+function originKeyForUrl(url) {
+  return `${url.protocol}//${normalizeHostname(url.hostname)}:${normalizedPort(url)}`;
+}
+
+function localBootstrapOriginKeys(session, bootstrapUrl) {
+  return new Set(
+    [
+      session?.localApp?.requestedUrl,
+      session?.localApp?.url,
+      ...(session?.localApp?.candidateUrls || []),
+      bootstrapUrl
+    ]
+      .map(parseUrlOrNull)
+      .filter(Boolean)
+      .map(originKeyForUrl)
+  );
+}
+
+function localBootstrapNavigationDetails(url, bootstrapUrl, session) {
   const target = parseUrlOrNull(url);
   const bootstrap = parseUrlOrNull(bootstrapUrl);
-  if (!target || !bootstrap || target.origin !== bootstrap.origin) {
+  if (!target || !bootstrap) {
+    return null;
+  }
+  const localOrigins = localBootstrapOriginKeys(session, bootstrapUrl);
+  if (!localOrigins.has(originKeyForUrl(target)) || !localOrigins.has(originKeyForUrl(bootstrap))) {
     return null;
   }
   const bootstrapUrlWithSearch = new URL(bootstrap.toString());
@@ -99,6 +142,15 @@ function localBootstrapNavigationDetails(url, bootstrapUrl) {
     bootstrapUrl: bootstrapUrlWithSearch.toString(),
     routePath: `${target.pathname}${target.search}${target.hash}`
   };
+}
+
+function bootstrapCandidates(session, options = {}) {
+  const candidates = [
+    options.bootstrapUrl,
+    session?.localApp?.url,
+    ...(session?.localApp?.candidateUrls || [])
+  ].filter(Boolean);
+  return [...new Set(candidates)];
 }
 
 function isDebugBridgeTimeout(error) {
@@ -207,37 +259,65 @@ export async function navigateAttachedTarget(attached, session, url, options = {
   const timeoutMs = options.timeoutMs || 15000;
   await prepareAttachedTarget(attached, options);
 
-  const bootstrapUrl = options.bootstrapUrl || session?.localApp?.url || null;
-  const bootstrapDetails =
-    options.useBootstrap !== false && bootstrapUrl ? localBootstrapNavigationDetails(url, bootstrapUrl) : null;
-  const navigateUrl = bootstrapDetails?.bootstrapUrl || url;
+  const bootstrapOptions =
+    options.useBootstrap === false ? [] : bootstrapCandidates(session, options);
+  let navigateUrl = url;
+  let selectedBootstrapDetails = null;
+  let lastBootstrapError = null;
 
-  await navigatePage(attached, navigateUrl, timeoutMs);
+  for (const bootstrapUrl of bootstrapOptions) {
+    const bootstrapDetails = localBootstrapNavigationDetails(url, bootstrapUrl, session);
+    if (!bootstrapDetails) {
+      continue;
+    }
 
-  if (bootstrapDetails) {
     const debugBridgeTimeoutMs = options.debugBridgeTimeoutMs ?? 15000;
     const debugBridgePollMs = options.debugBridgePollMs ?? 50;
     const debugBridgeRetryCount = options.debugBridgeRetryCount ?? 1;
     const debugBridgeRetryDelayMs = options.debugBridgeRetryDelayMs ?? 250;
-
     let attempt = 0;
-    while (true) {
-      try {
-        await waitForDebugBridge(attached, debugBridgeTimeoutMs, debugBridgePollMs);
-        break;
-      } catch (error) {
-        if (!isDebugBridgeTimeout(error) || attempt >= debugBridgeRetryCount) {
-          throw error;
+
+    try {
+      await navigatePage(attached, bootstrapDetails.bootstrapUrl, timeoutMs);
+      while (true) {
+        try {
+          await waitForDebugBridge(attached, debugBridgeTimeoutMs, debugBridgePollMs);
+          break;
+        } catch (error) {
+          if (!isDebugBridgeTimeout(error) || attempt >= debugBridgeRetryCount) {
+            throw error;
+          }
+          attempt += 1;
+          if (debugBridgeRetryDelayMs > 0) {
+            await sleep(debugBridgeRetryDelayMs);
+          }
+          await navigatePage(attached, bootstrapDetails.bootstrapUrl, timeoutMs);
         }
-        attempt += 1;
-        if (debugBridgeRetryDelayMs > 0) {
-          await sleep(debugBridgeRetryDelayMs);
-        }
-        await navigatePage(attached, navigateUrl, timeoutMs);
+      }
+
+      navigateUrl = bootstrapDetails.bootstrapUrl;
+      selectedBootstrapDetails = bootstrapDetails;
+      lastBootstrapError = null;
+      break;
+    } catch (error) {
+      lastBootstrapError = error;
+      if (!isDebugBridgeTimeout(error)) {
+        throw error;
       }
     }
+  }
 
-    await dispatchNavigationAction(attached, bootstrapDetails.routePath, options.dispatchTimeoutMs || 15000);
+  if (!selectedBootstrapDetails) {
+    if (lastBootstrapError) {
+      throw lastBootstrapError;
+    }
+    await navigatePage(attached, url, timeoutMs);
+  } else {
+    await dispatchNavigationAction(
+      attached,
+      selectedBootstrapDetails.routePath,
+      options.dispatchTimeoutMs || 15000
+    );
     await waitForDebugIdle(
       attached,
       options.waitForIdle || {
@@ -534,13 +614,14 @@ export class SessionManager {
 
   async navigate(sessionId, url, options = {}) {
     const session = await this.getSession(sessionId);
+    const resolvedUrl = resolveManagedLocalUrl(url, session, this.config);
     if (session.readOnly) {
-      validateUrlForReadOnly(this.config, url);
+      validateUrlForReadOnly(this.config, resolvedUrl);
     }
 
     const attached = await this.ensureAttachedTarget(sessionId);
     try {
-      return await navigateAttachedTarget(attached, session, url, {
+      return await navigateAttachedTarget(attached, session, resolvedUrl, {
         viewport: options.viewport,
         timeoutMs: options.timeoutMs || this.config.capture.navigationTimeoutMs,
         bootstrapUrl: options.bootstrapUrl || session.localApp?.url || this.config.localApp.url,

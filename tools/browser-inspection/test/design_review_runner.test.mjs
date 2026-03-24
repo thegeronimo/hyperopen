@@ -215,6 +215,44 @@ test("runDesignReview keeps failed viewport entries and finalizes audit failures
   assert.equal(writtenSummaries[0].reviewOutcome, "FAIL");
 });
 
+test("runDesignReview rebases local target URLs to the managed-local session origin", async () => {
+  const { runtime, writtenSummaries } = createRuntime({
+    sessionGateway: {
+      async startSession() {
+        return {
+          id: "session-1",
+          localApp: {
+            url: "http://127.0.0.1:8084/index.html",
+            requestedUrl: "http://localhost:8080/index.html"
+          }
+        };
+      },
+      async stopSession() {
+        return true;
+      }
+    }
+  });
+
+  const result = await runDesignReview(
+    {
+      config: {
+        localApp: { url: "http://localhost:8080/index.html" },
+        targets: { local: { url: "http://localhost:8080/trade" } }
+      }
+    },
+    {
+      runtime,
+      headless: true,
+      manageLocalApp: true,
+      targetIds: ["trade-route"],
+      viewports: ["review-375"]
+    }
+  );
+
+  assert.equal(result.targetResults[0].url, "http://127.0.0.1:8084/trade");
+  assert.equal(writtenSummaries[0].targetResults[0].url, "http://127.0.0.1:8084/trade");
+});
+
 test("runDesignReview finalizes execution failures as failed runs", async () => {
   const { runtime, finalizations } = createRuntime({
     artifactStore: {

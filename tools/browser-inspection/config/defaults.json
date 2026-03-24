@@ -132,7 +132,7 @@
     }
   },
   "localApp": {
-    "command": "npm run dev",
+    "command": "npm run dev:browser-inspection",
     "cwd": ".",
     "url": "http://localhost:8080/index.html",
     "startupTimeoutMs": 120000,

@@ -18,6 +18,11 @@ Governed browser design-review is currently hard to trust for `/trade` even when
 - [x] (2026-03-24 13:32Z) Hardened same-origin managed-local bootstrap navigation in `/hyperopen/tools/browser-inspection/src/session_manager.mjs` with a bounded `HYPEROPEN_DEBUG` retry policy that preserves the original timeout classification when startup never recovers.
 - [x] (2026-03-24 13:53Z) Added focused regressions in `/hyperopen/tools/browser-inspection/test/design_review_pass_registry.test.mjs` and `/hyperopen/tools/browser-inspection/test/session_manager.test.mjs`, then reran the smallest relevant Playwright smoke, the focused Node tests, `npm run test:browser-inspection`, `npm run check`, `npm test`, `npm run test:websocket`, and a warm governed `/trade` design-review rerun.
 - [x] (2026-03-24 14:16Z) Validated the cold managed-local startup seam end to end through the same design-review engine on an isolated same-origin fallback port (`8083`) using a temporary config/routing override, covering both `review-375` and the full `/trade` viewport matrix while the stock `8080` CLI path remained occupied by another checkout.
+- [x] (2026-03-24 14:31Z) Extended the managed-local scope to eliminate the stock `--manage-local-app` dependency on `localhost:8080`, rebasing design-review, scenario, capture, and session navigation URLs to the actual managed-local origin announced by the spawned local app.
+- [x] (2026-03-24 14:36Z) Added occupied-port startup regressions in `/hyperopen/tools/browser-inspection/test/local_app_manager.test.mjs`, plus origin-rebasing coverage in `/hyperopen/tools/browser-inspection/test/design_review_runner.test.mjs` and `/hyperopen/tools/browser-inspection/test/scenario_runner.test.mjs`.
+- [x] (2026-03-24 14:43Z) Hardened the managed-local startup selection logic so browser bootstrap keeps the full ordered candidate URL list from Shadow startup logs and can fall back to a later candidate when an earlier candidate never exposes `HYPEROPEN_DEBUG`.
+- [x] (2026-03-24 14:47Z) Finished the broadened validation stack for the stock `npm run qa:design-ui -- --targets trade-route --manage-local-app` path while another process already owns `localhost:8080`, confirming governed `PASS` outcomes for both `review-375` and the full viewport matrix.
+- [ ] Move this ExecPlan to `/hyperopen/docs/exec-plans/completed/` after the managed-local concurrency hardening is accepted.
 
 ## Surprises & Discoveries
 
@@ -51,8 +56,17 @@ Governed browser design-review is currently hard to trust for `/trade` even when
 - Observation: a local isolated Shadow watch can be forced away from the occupied default ports, but Shadow still auto-selects the next free HTTP ports rather than honoring the requested `8091` override literally.
   Evidence: a manual smoke of `npx shadow-cljs --force-spawn --config-merge ... watch ...` logged `TCP Port 8080 in use`, `TCP Port 8081 in use`, then `shadow-cljs - HTTP server available at http://localhost:8082` and `http://localhost:8083`, and the isolated managed-local validation succeeded when the temporary design-review bootstrap and target URLs used `http://localhost:8083/...`.
 
+- Observation: the real managed-local Shadow startup path can announce more than one viable HTTP server URL during a single launch.
+  Evidence: the local `shadow-cljs --force-spawn ... watch app` probe logged both `shadow-cljs - HTTP server available at http://localhost:8082` and `shadow-cljs - HTTP server available at http://localhost:8083` before the browser-inspection run completed.
+
+- Observation: preserving the full announced URL list and letting bootstrap fall back on the browser-side debug-bridge check removes the remaining nondeterminism from the managed-local port choice.
+  Evidence: `/hyperopen/tools/browser-inspection/test/local_app_manager.test.mjs` now pins ordered multi-announcement discovery, and `/hyperopen/tools/browser-inspection/test/session_manager.test.mjs` now pins fallback from `http://127.0.0.1:8082/index.html` to `http://127.0.0.1:8083/index.html` when the first candidate never exposes `HYPEROPEN_DEBUG`.
+
 - Observation: the required `npm test` gate still fails, but the failure appears unrelated to the browser-inspection changes in this plan.
   Evidence: `npm test` fails in `/hyperopen/test/hyperopen/views/asset_selector_view_test.cljs` at `asset-list-item-applies-highlight-class-for-keyboard-navigation-test`, where the expected keyboard highlight class `bg-base-200/70` is absent.
+
+- Observation: the stock managed-local governed design-review command is no longer pinned to the external `localhost:8080` listener in this shell.
+  Evidence: with `lsof -iTCP:8080 -sTCP:LISTEN -n -P` still reporting an unrelated `java` listener, `npm run qa:design-ui -- --targets trade-route --manage-local-app --viewports review-375` produced `/hyperopen/tmp/browser-inspection/design-review-2026-03-24T14-46-13-702Z-10195c84/` and `npm run qa:design-ui -- --targets trade-route --manage-local-app` produced `/hyperopen/tmp/browser-inspection/design-review-2026-03-24T14-46-36-467Z-c8ba8ded/`, with both summaries reporting `reviewOutcome: "PASS"` and the target URL rebased to `http://localhost:8082/trade`.
 
 ## Decision Log
 
@@ -72,6 +86,10 @@ Governed browser design-review is currently hard to trust for `/trade` even when
   Rationale: the user reported frequent browser-QA blockage, and the investigation reproduced two distinct failure modes. The fix is not complete unless both the warm `BLOCKED` false positive and the cold managed-local startup failure are gone.
   Date/Author: 2026-03-24 / Codex
 
+- Decision: retain the full ordered list of announced managed-local HTTP origins and let browser bootstrap fall back across that list when the first candidate never exposes `HYPEROPEN_DEBUG`.
+  Rationale: Shadow can announce multiple HTTP servers in one startup, and the combined stdout/stderr ordering is not a stable source of truth for which candidate will host the working app shell. The browser can verify the correct candidate directly by checking the debug bridge, so the final selection logic belongs at bootstrap time rather than in log parsing alone.
+  Date/Author: 2026-03-24 / Codex
+
 ## Outcomes & Retrospective
 
 Implementation is complete for the two targeted tooling seams, and the resulting behavior is measurably better:
@@ -79,14 +97,15 @@ Implementation is complete for the two targeted tooling seams, and the resulting
 - The warm governed `/trade` review no longer reports `styling-consistency: TOOLING_GAP` for the previously observed `normal` computed values. The post-change artifact bundle is `/hyperopen/tmp/browser-inspection/design-review-2026-03-24T13-40-48-003Z-55ad79bc/`, whose summary reports overall `PASS`.
 - The style grader is now narrower and more explicit. It normalizes only the known-safe keyword cases (`letterSpacing: normal` and default non-multicol gap-family `normal`) and still reports unsupported computed-style strings as explicit blind spots.
 - Same-origin bootstrap navigation now retries the `/index.html` bootstrap once when the specific `HYPEROPEN_DEBUG` startup timeout occurs, which covers the reproduced cold-start race without masking a permanently missing bridge.
-- The cold managed-local startup seam is now validated end to end through the same design-review runner on an isolated same-origin port. The focused cold run artifact is `/hyperopen/tmp/browser-inspection/design-review-2026-03-24T14-15-12-460Z-fe35de15/`, and the isolated full matrix artifact is `/hyperopen/tmp/browser-inspection/design-review-2026-03-24T14-15-50-111Z-de03c03e/`; both end in `PASS`.
-- The focused validation stack passes: `npx playwright test tools/playwright/test/routes.smoke.spec.mjs --grep "trade desktop root renders"`, `node --test tools/browser-inspection/test/design_review_pass_registry.test.mjs tools/browser-inspection/test/design_review_runner.test.mjs tools/browser-inspection/test/session_manager.test.mjs tools/browser-inspection/test/preflight.test.mjs`, `npm run test:browser-inspection`, `npm run check`, and `npm run test:websocket`.
+- Managed-local startup no longer depends on a single parsed port. The startup helper records all announced candidate URLs in order, and the browser bootstrap path can fall back to a later candidate if an earlier candidate never yields `HYPEROPEN_DEBUG`.
+- The cold managed-local startup seam is now validated both through the earlier isolated same-origin path and through the stock CLI path while an unrelated external process still owns `localhost:8080`. The focused stock run artifact is `/hyperopen/tmp/browser-inspection/design-review-2026-03-24T14-46-13-702Z-10195c84/`, and the stock full matrix artifact is `/hyperopen/tmp/browser-inspection/design-review-2026-03-24T14-46-36-467Z-c8ba8ded/`; both end in `PASS`.
+- The focused validation stack passes: `npx playwright test tools/playwright/test/routes.smoke.spec.mjs --grep "trade desktop root renders"`, `node --test tools/browser-inspection/test/local_app_manager.test.mjs tools/browser-inspection/test/session_manager.test.mjs tools/browser-inspection/test/design_review_runner.test.mjs tools/browser-inspection/test/scenario_runner.test.mjs tools/browser-inspection/test/preflight.test.mjs tools/browser-inspection/test/config.test.mjs`, `npm run test:browser-inspection`, `npm run check`, and `npm run test:websocket`.
 
 One closure condition remains outside the code change itself:
 
 - `npm test` is still red due to the unrelated existing failure in `/hyperopen/test/hyperopen/views/asset_selector_view_test.cljs` (`asset-list-item-applies-highlight-class-for-keyboard-navigation-test`).
 
-The stock `npm run qa:design-ui -- --targets trade-route --manage-local-app` command in this shell remains environment-sensitive as long as another checkout owns `localhost:8080`, but the underlying managed-local startup behavior tracked by `hyperopen-jm4w` is now proven through an isolated same-engine path. The intended end state still reduces overall complexity: the grader now documents the small set of keyword defaults it can interpret honestly, and the managed-local startup policy now lives in the browser-facing seam that actually observes bridge readiness instead of being inferred from HTTP success.
+The stock `npm run qa:design-ui -- --targets trade-route --manage-local-app` command in this shell is now resilient to another checkout or process owning `localhost:8080`. The intended end state still reduces overall complexity: the grader now documents the small set of keyword defaults it can interpret honestly, and the managed-local startup policy now lives in the browser-facing seam that actually observes bridge readiness instead of being inferred from HTTP success or a single startup log line.
 
 The tracked code changes that produced this state are:
 
@@ -206,6 +225,8 @@ The post-change validation artifacts recorded so far are:
 - warm pass run: `/hyperopen/tmp/browser-inspection/design-review-2026-03-24T13-40-48-003Z-55ad79bc/`
 - isolated cold managed-local `review-375` pass run: `/hyperopen/tmp/browser-inspection/design-review-2026-03-24T14-15-12-460Z-fe35de15/`
 - isolated cold managed-local full matrix pass run: `/hyperopen/tmp/browser-inspection/design-review-2026-03-24T14-15-50-111Z-de03c03e/`
+- stock managed-local occupied-`8080` `review-375` pass run: `/hyperopen/tmp/browser-inspection/design-review-2026-03-24T14-46-13-702Z-10195c84/`
+- stock managed-local occupied-`8080` full matrix pass run: `/hyperopen/tmp/browser-inspection/design-review-2026-03-24T14-46-36-467Z-c8ba8ded/`
 
 The most important implementation and test files are:
 
@@ -217,6 +238,7 @@ The most important implementation and test files are:
 - `/hyperopen/tools/browser-inspection/config/defaults.json`
 - `/hyperopen/tools/browser-inspection/test/design_review_pass_registry.test.mjs`
 - `/hyperopen/tools/browser-inspection/test/design_review_runner.test.mjs`
+- `/hyperopen/tools/browser-inspection/test/local_app_manager.test.mjs`
 - `/hyperopen/tools/browser-inspection/test/session_manager.test.mjs`
 - `/hyperopen/tools/browser-inspection/test/preflight.test.mjs`
 - `/hyperopen/tools/playwright/test/routes.smoke.spec.mjs`

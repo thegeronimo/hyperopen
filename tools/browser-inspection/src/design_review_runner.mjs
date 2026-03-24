@@ -1,4 +1,5 @@
 import { loadDesignReviewConfig, resolveDesignReviewSelection } from "./design_review_loader.mjs";
+import { resolveManagedLocalTarget } from "./local_origin.mjs";
 import { assertDesignReviewSummary } from "./design_review_contracts.mjs";
 import {
   aggregatePassStatus,
@@ -303,6 +304,9 @@ export async function runDesignReview(service, options = {}) {
         readOnly: true
       });
       sessionId = tempSession.id;
+      selection.targets = selection.targets.map((target) =>
+        resolveManagedLocalTarget(target, tempSession, service.config)
+      );
     }
 
     const inspectedViewports = viewports.map(([name, viewport]) => makeViewportSpec(name, viewport));

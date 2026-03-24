@@ -1,4 +1,5 @@
 import { assertSnapshotPayload } from "./contracts.mjs";
+import { resolveManagedLocalUrl } from "./local_origin.mjs";
 import { redactHeaders, redactValue } from "./redaction.mjs";
 import { navigateAttachedTarget } from "./session_manager.mjs";
 import { sleep } from "./util.mjs";
@@ -255,8 +256,9 @@ export async function captureSnapshot(sessionManager, sessionId, options = {}) {
     await attached.client.send("Network.enable", {}, attached.cdpSessionId);
 
     const shouldNavigate = options.navigate !== false;
+    const resolvedUrl = resolveManagedLocalUrl(options.url, session, config);
     if (shouldNavigate) {
-      await navigateAttachedTarget(attached, session, options.url, {
+      await navigateAttachedTarget(attached, session, resolvedUrl, {
         viewport,
         timeoutMs: options.navigationTimeoutMs || captureConfig.navigationTimeoutMs,
         bootstrapUrl: session.localApp?.url || config.localApp.url,
@@ -338,7 +340,7 @@ export async function captureSnapshot(sessionManager, sessionId, options = {}) {
       targetLabel: options.targetLabel || "target",
       viewport: options.viewportName || "desktop",
       capturedAt: new Date().toISOString(),
-      url: options.url || pageMetaResult?.result?.value?.url || null,
+      url: resolvedUrl || pageMetaResult?.result?.value?.url || null,
       page: redactValue(pageMetaResult?.result?.value || {}),
       semantic: redactValue(semanticResult?.result?.value || { nodes: [], maskRects: [] }),
       console: redactValue(consoleEvents),

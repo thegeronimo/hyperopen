@@ -251,3 +251,48 @@ test("runScenarioBundle waits for eval expectations to settle", async () => {
   await fs.rm(scenarioDir, { recursive: true, force: true });
   await fs.rm(artifactRoot, { recursive: true, force: true });
 });
+
+test("runScenarioBundle rebases managed-local navigation URLs to the session origin", async () => {
+  const scenarioDir = await fs.mkdtemp(path.join(os.tmpdir(), "hyperopen-scenario-managed-local-"));
+  const artifactRoot = await fs.mkdtemp(path.join(os.tmpdir(), "hyperopen-scenario-managed-local-artifacts-"));
+  await writeJson(path.join(scenarioDir, "managed-local.json"), {
+    id: "managed-local-scenario",
+    title: "Managed local",
+    severity: "high",
+    tags: ["critical"],
+    viewports: ["desktop"],
+    url: "http://localhost:8080/trade",
+    steps: [{ type: "navigate" }]
+  });
+
+  const navigateCalls = [];
+  const service = buildFakeService(artifactRoot, {
+    async startSession() {
+      return {
+        id: "session-1",
+        localApp: {
+          url: "http://127.0.0.1:8086/index.html",
+          requestedUrl: "http://localhost:8080/index.html"
+        }
+      };
+    },
+    async navigate(options) {
+      navigateCalls.push(options);
+      return { navigated: true, url: options.url, viewportName: options.viewportName };
+    }
+  });
+
+  const result = await runScenarioBundle(service, {
+    scenarioDir,
+    tags: ["critical"],
+    manageLocalApp: true,
+    runKind: "scenario"
+  });
+
+  assert.equal(result.state, "pass");
+  assert.equal(navigateCalls.length, 1);
+  assert.equal(navigateCalls[0].url, "http://127.0.0.1:8086/trade");
+
+  await fs.rm(scenarioDir, { recursive: true, force: true });
+  await fs.rm(artifactRoot, { recursive: true, force: true });
+});

@@ -236,3 +236,71 @@ test("navigateAttachedTarget preserves the bridge timeout error when startup nev
 
   assert.equal(calls.filter((call) => call.method === "Page.navigate").length, 2);
 });
+
+test("navigateAttachedTarget falls back to later managed-local candidates when an earlier bootstrap never exposes the debug bridge", async () => {
+  const calls = [];
+  let lastNavigatedUrl = null;
+  const attached = {
+    cdpSessionId: "cdp-1",
+    client: {
+      async send(method, params = {}, sessionId) {
+        calls.push({ method, params, sessionId });
+        if (method === "Page.navigate") {
+          lastNavigatedUrl = params.url;
+          return {};
+        }
+        if (method === "Runtime.evaluate") {
+          if (params.expression.includes("Boolean(globalThis.HYPEROPEN_DEBUG")) {
+            await new Promise((resolve) => setTimeout(resolve, 2));
+            return {
+              result: {
+                value: lastNavigatedUrl === "http://127.0.0.1:8083/index.html"
+              }
+            };
+          }
+          if (params.expression.includes("document.title")) {
+            return { result: { value: "Trade" } };
+          }
+          return { result: { value: null } };
+        }
+        return {};
+      },
+      async waitForEvent(method, options = {}) {
+        calls.push({ method: `waitForEvent:${method}`, params: options, sessionId: options.sessionId });
+        return { method, options };
+      }
+    }
+  };
+
+  const session = {
+    id: "sess-1",
+    localApp: {
+      requestedUrl: "http://localhost:8080/index.html",
+      url: "http://127.0.0.1:8082/index.html",
+      candidateUrls: [
+        "http://127.0.0.1:8082/index.html",
+        "http://127.0.0.1:8083/index.html"
+      ]
+    }
+  };
+
+  const result = await navigateAttachedTarget(attached, session, "http://127.0.0.1:8082/trade", {
+    debugBridgeTimeoutMs: 3,
+    debugBridgePollMs: 0,
+    debugBridgeRetryCount: 0
+  });
+
+  const navigateCalls = calls.filter((call) => call.method === "Page.navigate");
+  assert.deepEqual(
+    navigateCalls.map((call) => call.params.url),
+    ["http://127.0.0.1:8082/index.html", "http://127.0.0.1:8083/index.html"]
+  );
+  assert.equal(result.navigatedUrl, "http://127.0.0.1:8083/index.html");
+  assert.equal(
+    calls.some(
+      (call) =>
+        call.method === "Runtime.evaluate" && call.params.expression.includes(":actions/navigate")
+    ),
+    true
+  );
+});

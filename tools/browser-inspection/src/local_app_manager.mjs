@@ -1,7 +1,49 @@
 import { spawn } from "node:child_process";
 import { killProcess, processIsAlive } from "./chrome_launcher.mjs";
 import { classifyErrorMessage, remediationForClassification } from "./failure_classification.mjs";
+import { rebaseUrlToOrigin } from "./local_origin.mjs";
 import { sleep } from "./util.mjs";
+
+const HTTP_SERVER_URL_PATTERN = /HTTP server available at (https?:\/\/\S+)/g;
+
+function extractHttpServerUrls(text) {
+  if (!text) {
+    return [];
+  }
+  return [...new Set([...String(text).matchAll(HTTP_SERVER_URL_PATTERN)].map((match) => match[1]))];
+}
+
+async function waitForResolvedUrl(getUrl, timeoutMs = 120000, pollIntervalMs = 1000) {
+  const deadline = Date.now() + timeoutMs;
+  let lastUrls = [];
+  while (Date.now() < deadline) {
+    const nextUrls = getUrl();
+    if (Array.isArray(nextUrls) && nextUrls.length > 0) {
+      lastUrls = nextUrls;
+    }
+    if (lastUrls.length === 0) {
+      await sleep(pollIntervalMs);
+      continue;
+    }
+    for (const candidateUrl of lastUrls) {
+      try {
+        const response = await fetch(candidateUrl, { redirect: "follow" });
+        if (response.status >= 200 && response.status < 300) {
+          return {
+            readyUrl: candidateUrl,
+            candidateUrls: lastUrls
+          };
+        }
+      } catch (_err) {
+        // keep polling
+      }
+    }
+    await sleep(pollIntervalMs);
+  }
+  throw new Error(
+    `Timed out waiting for local app at ${lastUrls.length > 0 ? lastUrls.join(", ") : "the managed local app URL"}`
+  );
+}
 
 export async function waitForUrl(url, timeoutMs = 120000, pollIntervalMs = 1000) {
   const deadline = Date.now() + timeoutMs;
@@ -40,28 +82,27 @@ export async function maybeStartLocalApp(config, options = {}) {
     };
   }
 
-  const existing = await waitForUrl(url, 3000, 300).then(() => true).catch(() => false);
-  if (existing) {
-    return {
-      managed: false,
-      startedByTool: false,
-      pid: null,
-      url,
-      command
-    };
-  }
-
   const child = spawn("sh", ["-lc", command], {
     cwd,
     detached: true,
-    stdio: ["ignore", "ignore", "pipe"]
+    stdio: ["ignore", "pipe", "pipe"]
   });
-  let stderrBuffer = "";
-  if (child.stderr) {
-    child.stderr.setEncoding("utf8");
-    child.stderr.on("data", (chunk) => {
-      stderrBuffer = `${stderrBuffer}${chunk}`.slice(-4000);
-    });
+  let outputBuffer = "";
+  let candidateUrls = [];
+  const handleOutputChunk = (chunk) => {
+    outputBuffer = `${outputBuffer}${chunk}`.slice(-8000);
+    const discoveredUrls = extractHttpServerUrls(outputBuffer);
+    if (discoveredUrls.length > 0) {
+      candidateUrls = discoveredUrls.map((discoveredUrl) => rebaseUrlToOrigin(url, discoveredUrl));
+    }
+  };
+
+  for (const stream of [child.stdout, child.stderr]) {
+    if (!stream) {
+      continue;
+    }
+    stream.setEncoding("utf8");
+    stream.on("data", handleOutputChunk);
   }
 
   const exitPromise = new Promise((resolve) => {
@@ -71,16 +112,19 @@ export async function maybeStartLocalApp(config, options = {}) {
   });
 
   const winner = await Promise.race([
-    waitForUrl(url, startupTimeoutMs, pollIntervalMs).then(() => ({ kind: "ready" })),
+    waitForResolvedUrl(() => candidateUrls, startupTimeoutMs, pollIntervalMs).then((details) => ({
+      kind: "ready",
+      ...details
+    })),
     exitPromise.then((details) => ({ kind: "exit", details }))
   ]);
 
   if (winner.kind === "exit") {
     const status = winner.details?.code !== null ? `code ${winner.details?.code}` : `signal ${winner.details?.signal || "unknown"}`;
-    const classified = classifyErrorMessage(stderrBuffer || `Local app exited early (${status}).`);
+    const classified = classifyErrorMessage(outputBuffer || `Local app exited early (${status}).`);
     const remediation = classified ? remediationForClassification(classified) : null;
     const remediationSuffix = remediation ? ` Remediation: ${remediation}` : "";
-    const stderrSuffix = stderrBuffer ? ` Stderr tail: ${stderrBuffer.replace(/\\s+/g, " ").trim()}` : "";
+    const stderrSuffix = outputBuffer ? ` Output tail: ${outputBuffer.replace(/\s+/g, " ").trim()}` : "";
     throw new Error(`Local app command exited early (${status}).${stderrSuffix}${remediationSuffix}`);
   }
 
@@ -89,7 +133,9 @@ export async function maybeStartLocalApp(config, options = {}) {
     managed: true,
     startedByTool: true,
     pid: child.pid,
-    url,
+    requestedUrl: url,
+    candidateUrls: winner.candidateUrls,
+    url: winner.readyUrl,
     command
   };
 }

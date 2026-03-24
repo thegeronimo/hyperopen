@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { captureSnapshot } from "./capture_pipeline.mjs";
 import { classifyErrorMessage } from "./failure_classification.mjs";
+import { resolveManagedLocalUrl } from "./local_origin.mjs";
 import {
   getDefaultScenarioDir,
   loadScenarios,
@@ -219,6 +220,7 @@ async function evalExpression(service, sessionId, step) {
 async function executeStep({
   service,
   sessionId,
+  session,
   scenario,
   viewportName,
   step,
@@ -232,7 +234,7 @@ async function executeStep({
     case "navigate":
       return service.navigate({
         sessionId,
-        url: resolvedStep.url || scenario.url,
+        url: resolveManagedLocalUrl(resolvedStep.url || scenario.url, session, service.config),
         viewportName
       });
     case "dispatch":
@@ -337,7 +339,11 @@ async function executeStep({
       }
       const result = await service.compare({
         leftUrl: resolvedStep.leftUrl || service.config.targets.remote.url,
-        rightUrl: resolvedStep.rightUrl || scenario.url,
+        rightUrl: resolveManagedLocalUrl(
+          resolvedStep.rightUrl || scenario.url,
+          session,
+          service.config
+        ),
         leftLabel: resolvedStep.leftLabel || service.config.targets.remote.label,
         rightLabel: resolvedStep.rightLabel || scenario.id,
         viewports: [viewportName],
@@ -356,6 +362,7 @@ async function executeStep({
 async function executeScenarioViewport({
   service,
   sessionId,
+  session,
   scenario,
   viewportName,
   runDir,
@@ -377,6 +384,7 @@ async function executeScenarioViewport({
       const result = await executeStep({
         service,
         sessionId,
+        session,
         scenario,
         viewportName,
         step: rawStep,
@@ -520,6 +528,7 @@ export async function runScenarioBundle(service, options = {}) {
         const result = await executeScenarioViewport({
           service,
           sessionId: session.id,
+          session,
           scenario,
           viewportName,
           runDir,
