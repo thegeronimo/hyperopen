@@ -178,6 +178,7 @@
                                             first))))
         portfolio-tab-labels (mapv #(first (collect-strings %)) portfolio-tab-buttons)
         account-tables-panel (find-first-node view-node #(= "account-tables" (get-in % [1 :data-parity-id])))
+        balances-account-tables-panel (find-first-node balances-view-node #(= "account-tables" (get-in % [1 :data-parity-id])))
         performance-metrics-card (find-first-node view-node #(= "portfolio-performance-metrics-card" (get-in % [1 :data-role])))
         balances-performance-metrics-card (find-first-node balances-view-node #(= "portfolio-performance-metrics-card" (get-in % [1 :data-role])))
         performance-metric-row (find-first-node view-node #(= "portfolio-performance-metric-cumulative-return" (get-in % [1 :data-role])))
@@ -197,6 +198,7 @@
     (is (not (contains? (set (class-values root-node)) "flex-1")))
     (is (not (contains? (set (class-values root-node)) "min-h-0")))
     (is (not (contains? (set (class-values root-node)) "overflow-y-auto")))
+    (is (= "3.5rem" (get-in root-node [1 :style :padding-bottom])))
     (is (some? actions-row))
     (is (some? volume-card))
     (is (some? fees-card))
@@ -211,16 +213,24 @@
     (is (nil? background-status))
     (is (fn? (get-in chart-host [1 :replicant/on-render])))
     (is (some? account-table))
+    (is (not (contains? (set (class-values account-table)) "mb-2")))
+    (is (not (contains? (set (class-values account-table)) "lg:mb-3")))
     (is (some? performance-tab-button))
     (is (some? balances-tab-button))
     (is (= "Performance Metrics" (first portfolio-tab-labels)))
     (is (str/starts-with? (or (second portfolio-tab-labels) "") "Balances"))
     (is (contains? (set (class-values account-tables-panel)) "min-h-0"))
     (is (not (contains? (set (class-values account-tables-panel)) "h-96")))
-    (is (= "min(44rem, calc(100dvh - 22rem))"
+    (is (= "min(44rem, calc(100dvh - 24rem))"
            (get-in account-tables-panel [1 :style :height])))
-    (is (= "min(44rem, calc(100dvh - 22rem))"
+    (is (= "min(44rem, calc(100dvh - 24rem))"
            (get-in account-tables-panel [1 :style :max-height])))
+    (is (contains? (set (class-values balances-account-tables-panel)) "min-h-0"))
+    (is (not (contains? (set (class-values balances-account-tables-panel)) "h-96")))
+    (is (= "min(44rem, calc(100dvh - 24rem))"
+           (get-in balances-account-tables-panel [1 :style :height])))
+    (is (= "min(44rem, calc(100dvh - 24rem))"
+           (get-in balances-account-tables-panel [1 :style :max-height])))
     (is (contains? (set (class-values performance-tab-button)) "account-info-tab-button-active"))
     (is (contains? (set (class-values balances-tab-button)) "account-info-tab-button-inactive"))
     (is (some? balances-view-performance-tab-button))

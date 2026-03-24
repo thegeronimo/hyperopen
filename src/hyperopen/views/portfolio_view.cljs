@@ -21,7 +21,11 @@
    :maximumFractionDigits 1})
 
 (def ^:private performance-metrics-panel-height
-  "min(44rem, calc(100dvh - 22rem))")
+  "min(44rem, calc(100dvh - 24rem))")
+
+(def ^:private portfolio-account-panel-style
+  {:height performance-metrics-panel-height
+   :max-height performance-metrics-panel-height})
 
 (def ^:private action-items
   [{:label "Link Staking"
@@ -1259,8 +1263,7 @@
         extra-tabs (cond-> [{:id :performance-metrics
                              :label "Performance Metrics"
                              :panel-classes ["min-h-0"]
-                             :panel-style {:height performance-metrics-panel-height
-                                           :max-height performance-metrics-panel-height}
+                             :panel-style portfolio-account-panel-style
                              :render (fn [_]
                                        (performance-metrics-card
                                         (assoc (:performance-metrics view-model)
@@ -1275,7 +1278,8 @@
                    "py-4"
                    "space-y-4"
                    "md:py-5"]
-           :style {:background-image "radial-gradient(circle at 15% 0%, rgba(0, 212, 170, 0.10), transparent 35%), radial-gradient(circle at 85% 100%, rgba(0, 212, 170, 0.08), transparent 40%)"}
+           :style {:background-image "radial-gradient(circle at 15% 0%, rgba(0, 212, 170, 0.10), transparent 35%), radial-gradient(circle at 85% 100%, rgba(0, 212, 170, 0.08), transparent 40%)"
+                   :padding-bottom "3.5rem"}
            :data-parity-id "portfolio-root"}
      (if trader-portfolio-route?
        (portfolio-inspection-header state)
@@ -1294,6 +1298,8 @@
       (account-info-view/account-info-view
        state
        {:extra-tabs extra-tabs
+        :default-panel-classes ["min-h-0"]
+        :default-panel-style portfolio-account-panel-style
         :selected-tab-override (get-in state [:portfolio-ui :account-info-tab] portfolio-actions/default-account-info-tab)
         :default-selected-tab portfolio-actions/default-account-info-tab
         :tab-click-actions-by-tab portfolio-account-tab-click-actions-by-tab

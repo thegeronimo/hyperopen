@@ -770,6 +770,7 @@
                   selected-tab-override
                   default-selected-tab
                   default-panel-classes
+                  default-panel-style
                   tab-click-actions-by-tab
                   tab-label-overrides
                   tab-order]
@@ -809,7 +810,8 @@
          selected-extra-renderer (get extra-renderers selected-tab*)
          panel-shell-classes (or (:panel-classes selected-extra-tab)
                                  default-panel-classes)
-         panel-shell-style (:panel-style selected-extra-tab)]
+         panel-shell-style (or (:panel-style selected-extra-tab)
+                               default-panel-style)]
      [:div {:class (into ["bg-base-100"
                           "border-t"
                           "border-base-300"
