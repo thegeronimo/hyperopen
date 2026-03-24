@@ -49,6 +49,7 @@
             :api-submit-position-margin (effect-adapters/make-api-submit-position-margin runtime)}
    :api {:fetch-asset-selector-markets effect-adapters/fetch-asset-selector-markets-effect
          :sync-active-asset-funding-predictability effect-adapters/sync-active-asset-funding-predictability
+         :api-fetch-leaderboard effect-adapters/api-fetch-leaderboard-effect
          :api-fetch-predicted-fundings effect-adapters/api-fetch-predicted-fundings-effect
          :api-load-user-data effect-adapters/api-load-user-data-effect
          :api-fetch-vault-index effect-adapters/api-fetch-vault-index-effect

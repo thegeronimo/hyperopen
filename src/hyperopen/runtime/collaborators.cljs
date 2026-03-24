@@ -8,6 +8,8 @@
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.header.actions :as header-actions]
             [hyperopen.funding.effects :as funding-effects]
+            [hyperopen.leaderboard.actions :as leaderboard-actions]
+            [hyperopen.leaderboard.effects :as leaderboard-effects]
             [hyperopen.order.actions :as order-actions]
             [hyperopen.orderbook.actions :as orderbook-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
@@ -311,6 +313,16 @@
    :set-vault-detail-chart-hover vault-actions/set-vault-detail-chart-hover
    :clear-vault-detail-chart-hover vault-actions/clear-vault-detail-chart-hover})
 
+(defn- leaderboard-action-deps []
+  {:load-leaderboard-route leaderboard-actions/load-leaderboard-route
+   :load-leaderboard leaderboard-actions/load-leaderboard
+   :set-leaderboard-query leaderboard-actions/set-leaderboard-query
+   :set-leaderboard-timeframe leaderboard-actions/set-leaderboard-timeframe
+   :set-leaderboard-sort leaderboard-actions/set-leaderboard-sort
+   :set-leaderboard-page leaderboard-actions/set-leaderboard-page
+   :next-leaderboard-page leaderboard-actions/next-leaderboard-page
+   :prev-leaderboard-page leaderboard-actions/prev-leaderboard-page})
+
 (defn- funding-comparison-action-deps []
   {:load-funding-comparison-route funding-comparison-actions/load-funding-comparison-route
    :load-funding-comparison funding-comparison-actions/load-funding-comparison
@@ -349,6 +361,7 @@
    {:api {:api-fetch-user-funding-history account-history-effects/api-fetch-user-funding-history-effect
           :api-fetch-historical-orders account-history-effects/api-fetch-historical-orders-effect
           :export-funding-history-csv account-history-effects/export-funding-history-csv-effect
+          :api-fetch-leaderboard leaderboard-effects/api-fetch-leaderboard!
           :api-fetch-predicted-fundings funding-comparison-effects/api-fetch-predicted-fundings!
           :api-fetch-vault-index vault-effects/api-fetch-vault-index!
           :api-fetch-vault-index-with-cache vault-effects/api-fetch-vault-index-with-cache!
@@ -385,11 +398,12 @@
   (merge-nested
    {:core {}
     :wallet (wallet-action-deps)
-    :asset-selector (asset-selector-action-deps)
-    :chart (chart-and-orderbook-action-deps)
-    :account-history (account-history-action-deps)
-    :spectate-mode (spectate-mode-action-deps)
-    :vaults (vault-action-deps)
+   :asset-selector (asset-selector-action-deps)
+   :chart (chart-and-orderbook-action-deps)
+   :account-history (account-history-action-deps)
+   :spectate-mode (spectate-mode-action-deps)
+   :leaderboard (leaderboard-action-deps)
+   :vaults (vault-action-deps)
     :funding-comparison (funding-comparison-action-deps)
     :staking (staking-action-deps)
     :orders (order-action-deps)}

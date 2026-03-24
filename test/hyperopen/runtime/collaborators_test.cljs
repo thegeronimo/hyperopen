@@ -6,6 +6,8 @@
             [hyperopen.chart.actions :as chart-actions]
             [hyperopen.chart.settings :as chart-settings]
             [hyperopen.funding.actions :as funding-actions]
+            [hyperopen.leaderboard.actions :as leaderboard-actions]
+            [hyperopen.leaderboard.effects :as leaderboard-effects]
             [hyperopen.order.actions :as order-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.staking.actions :as staking-actions]
@@ -29,6 +31,8 @@
                     (get-in deps [:api :api-fetch-user-funding-history])))
     (is (identical? account-history-effects/api-fetch-historical-orders-effect
                     (get-in deps [:api :api-fetch-historical-orders])))
+    (is (identical? leaderboard-effects/api-fetch-leaderboard!
+                    (get-in deps [:api :api-fetch-leaderboard])))
     (is (identical? funding-comparison-effects/api-fetch-predicted-fundings!
                     (get-in deps [:api :api-fetch-predicted-fundings])))
     (is (identical? vault-effects/api-fetch-vault-index!
@@ -82,6 +86,10 @@
                     (get-in deps [:account-history :select-account-info-tab])))
     (is (identical? account-history-actions/toggle-positions-direction-filter-open
                     (get-in deps [:account-history :toggle-positions-direction-filter-open])))
+    (is (identical? leaderboard-actions/load-leaderboard-route
+                    (get-in deps [:leaderboard :load-leaderboard-route])))
+    (is (identical? leaderboard-actions/set-leaderboard-sort
+                    (get-in deps [:leaderboard :set-leaderboard-sort])))
     (is (identical? vault-actions/load-vault-route
                     (get-in deps [:vaults :load-vault-route])))
     (is (identical? vault-actions/set-vaults-user-page-size

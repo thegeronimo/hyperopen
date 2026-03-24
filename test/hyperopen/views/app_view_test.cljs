@@ -170,6 +170,20 @@
         funding-root (hiccup/find-by-parity-id view-node "funding-comparison-root")]
     (is (some? funding-root))))
 
+(deftest app-view-renders-leaderboard-route-with-leaderboard-root-test
+  (let [view-node (with-redefs [route-modules/route-ready? (constantly true)
+                                route-modules/render-route-view
+                                (fn [_state route]
+                                  (when (= "/leaderboard" route)
+                                    [:div {:data-parity-id "leaderboard-root"}]))]
+                    (app-view/app-view (assoc (base-state)
+                                              :router {:path "/leaderboard"}
+                                              :wallet {})))
+        leaderboard-root (hiccup/find-by-parity-id view-node "leaderboard-root")
+        trade-root (hiccup/find-by-parity-id view-node "trade-root")]
+    (is (some? leaderboard-root))
+    (is (nil? trade-root))))
+
 (deftest app-view-renders-api-wallet-route-with-api-wallet-root-test
   (let [view-node (app-view/app-view (assoc (base-state)
                                             :router {:path "/API"}

@@ -6,6 +6,7 @@
             [hyperopen.account.spectate-mode-actions :as spectate-mode-actions]
             [hyperopen.api-wallets.actions :as api-wallets-actions]
             [hyperopen.funding.actions :as funding-actions]
+            [hyperopen.leaderboard.actions :as leaderboard-actions]
             [hyperopen.platform :as platform]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.api.trading :as trading-api]
@@ -141,7 +142,8 @@
 (defn- route-loader-effects
   [state normalized-path]
   (into []
-        (concat (vault-actions/load-vault-route state normalized-path)
+        (concat (leaderboard-actions/load-leaderboard-route state normalized-path)
+                (vault-actions/load-vault-route state normalized-path)
                 (funding-comparison-actions/load-funding-comparison-route state normalized-path)
                 (staking-actions/load-staking-route state normalized-path)
                 (api-wallets-actions/load-api-wallet-route state normalized-path))))
@@ -184,6 +186,10 @@
 (defn load-vault-route-action
   [state path]
   (vault-actions/load-vault-route state path))
+
+(defn load-leaderboard-route-action
+  [state path]
+  (leaderboard-actions/load-leaderboard-route state path))
 
 (defn load-funding-comparison-route-action
   [state path]

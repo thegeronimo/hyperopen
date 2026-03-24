@@ -627,6 +627,14 @@
    :actions/submit-funding-transfer ::no-args
    :actions/submit-funding-withdraw ::no-args
    :actions/submit-funding-deposit ::no-args
+   :actions/load-leaderboard-route ::path-args
+   :actions/load-leaderboard ::no-args
+   :actions/set-leaderboard-query ::single-input-args
+   :actions/set-leaderboard-timeframe ::keyword-or-string-args
+   :actions/set-leaderboard-sort ::keyword-or-string-args
+   :actions/set-leaderboard-page ::page-and-max-page-args
+   :actions/next-leaderboard-page ::max-page-args
+   :actions/prev-leaderboard-page ::max-page-args
    :actions/load-api-wallet-route ::path-args
    :actions/set-api-wallet-form-field ::api-wallet-form-field-args
    :actions/set-api-wallet-sort ::keyword-or-string-args
@@ -756,6 +764,7 @@
    :effects/api-fetch-user-funding-history ::request-id-args
    :effects/api-fetch-historical-orders ::request-id-args
    :effects/export-funding-history-csv ::export-funding-history-csv-args
+   :effects/api-fetch-leaderboard ::no-args
    :effects/api-fetch-predicted-fundings ::no-args
    :effects/api-submit-order ::api-submit-order-args
    :effects/confirm-api-submit-order ::confirm-api-submit-order-args

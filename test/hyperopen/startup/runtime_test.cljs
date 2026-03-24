@@ -969,7 +969,8 @@
       :address-handler-name "startup-account-bootstrap-handler"})
     (let [address-handler (last @handlers)]
       ((:on-change address-handler) "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-      (is (= [[store [[:actions/load-vault-route "/portfolio"]]]
+      (is (= [[store [[:actions/load-leaderboard-route "/portfolio"]]]
+              [store [[:actions/load-vault-route "/portfolio"]]]
               [store [[:actions/load-funding-comparison-route "/portfolio"]]]
               [store [[:actions/load-staking-route "/portfolio"]]]
               [store [[:actions/load-api-wallet-route "/portfolio"]]]
@@ -1010,6 +1011,7 @@
       (is (some #(= [:init-connection "wss://example.test/ws"] %) @mark-calls))
       (is (some #{:init-candles} @mark-calls))
       (is (some #(= [:dispatch [[:actions/subscribe-to-asset "BTC"]]] %) @mark-calls))
+      (is (some #(= [:dispatch [[:actions/load-leaderboard-route "/trade"]]] %) @mark-calls))
       (is (some #(= [:dispatch [[:actions/load-vault-route "/trade"]]] %) @mark-calls))
       (is (some #(= [:dispatch [[:actions/load-funding-comparison-route "/trade"]]] %) @mark-calls))
       (is (some #(= [:dispatch [[:actions/load-staking-route "/trade"]]] %) @mark-calls))
@@ -1017,6 +1019,7 @@
       (swap! (:store deps) assoc :active-asset nil)
       (startup-runtime/initialize-remote-data-streams! deps)
       (is (= 1 (count (filter #(= [:dispatch [[:actions/subscribe-to-asset "BTC"]]] %) @mark-calls))))
+      (is (= 2 (count (filter #(= [:dispatch [[:actions/load-leaderboard-route "/trade"]]] %) @mark-calls))))
       (is (= 2 (count (filter #(= [:dispatch [[:actions/load-vault-route "/trade"]]] %) @mark-calls))))
       (is (= 2 (count (filter #(= [:dispatch [[:actions/load-funding-comparison-route "/trade"]]] %) @mark-calls))))
       (is (= 2 (count (filter #(= [:dispatch [[:actions/load-staking-route "/trade"]]] %) @mark-calls))))

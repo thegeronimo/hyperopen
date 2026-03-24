@@ -3,6 +3,7 @@
             [goog.object :as gobj]
             [hyperopen.api-wallets.actions :as api-wallets-actions]
             [hyperopen.funding-comparison.actions :as funding-comparison-actions]
+            [hyperopen.leaderboard.actions :as leaderboard-actions]
             [hyperopen.router :as router]
             [hyperopen.staking.actions :as staking-actions]
             [hyperopen.views.vaults.vm :as vault-vm]
@@ -10,6 +11,7 @@
 
 (def ^:private module-name-by-id
   {:portfolio "portfolio_route"
+   :leaderboard "leaderboard_route"
    :funding-comparison "funding_comparison_route"
    :staking "staking_route"
    :api-wallets "api_wallets_route"
@@ -17,6 +19,7 @@
 
 (def ^:private exported-view-paths-by-module
   {:portfolio [["hyperopen" "views" "portfolio_view" "route_view"]]
+   :leaderboard [["hyperopen" "views" "leaderboard_view" "route_view"]]
    :funding-comparison [["hyperopen" "views" "funding_comparison_view" "route_view"]]
    :staking [["hyperopen" "views" "staking_view" "route_view"]]
    :api-wallets [["hyperopen" "views" "api_wallets_view" "route_view"]]
@@ -39,6 +42,7 @@
     (cond
       (router/trade-route? route) nil
       (str/starts-with? route "/portfolio") :portfolio
+      (leaderboard-actions/leaderboard-route? route) :leaderboard
       (funding-comparison-actions/funding-comparison-route? route) :funding-comparison
       (staking-actions/staking-route? route) :staking
       (api-wallets-actions/api-wallet-route? route) :api-wallets

@@ -23,6 +23,7 @@
                  :ws-diagnostics-reset-orders-subscriptions action-adapters/ws-diagnostics-reset-orders-subscriptions
                  :ws-diagnostics-reset-all-subscriptions action-adapters/ws-diagnostics-reset-all-subscriptions}
    :asset-selector {:refresh-asset-markets action-adapters/refresh-asset-markets}
+   :leaderboard {:load-leaderboard-route action-adapters/load-leaderboard-route-action}
    :vaults {:load-vault-route action-adapters/load-vault-route-action}
    :funding-comparison {:load-funding-comparison-route action-adapters/load-funding-comparison-route-action}
    :staking {:load-staking-route action-adapters/load-staking-route-action}

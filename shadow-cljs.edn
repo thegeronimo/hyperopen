@@ -20,6 +20,8 @@
                                 :depends-on #{:main}}
                   :portfolio_route {:entries [hyperopen.views.portfolio-view]
                                     :depends-on #{:main}}
+                  :leaderboard_route {:entries [hyperopen.views.leaderboard-view]
+                                      :depends-on #{:main}}
                   :funding_comparison_route {:entries [hyperopen.views.funding-comparison-view]
                                              :depends-on #{:main}}
                   :staking_route {:entries [hyperopen.views.staking-view]
@@ -96,6 +98,8 @@
                                     :depends-on #{:main}}
                       :portfolio_route {:entries [hyperopen.views.portfolio-view]
                                         :depends-on #{:main}}
+                      :leaderboard_route {:entries [hyperopen.views.leaderboard-view]
+                                          :depends-on #{:main}}
                       :funding_comparison_route {:entries [hyperopen.views.funding-comparison-view]
                                                  :depends-on #{:main}}
                       :staking_route {:entries [hyperopen.views.staking-view]

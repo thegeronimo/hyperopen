@@ -7,6 +7,7 @@
             [hyperopen.runtime.effect-adapters.asset-selector :as asset-adapters]
             [hyperopen.runtime.effect-adapters.common :as common]
             [hyperopen.runtime.effect-adapters.funding :as funding-adapters]
+            [hyperopen.runtime.effect-adapters.leaderboard :as leaderboard-adapters]
             [hyperopen.runtime.effect-adapters.order :as order-adapters]
             [hyperopen.runtime.effect-adapters.staking :as staking-adapters]
             [hyperopen.runtime.effect-adapters.vaults :as vault-adapters]
@@ -232,6 +233,9 @@
 
 (def api-fetch-predicted-fundings-effect
   funding-adapters/api-fetch-predicted-fundings-effect)
+
+(def api-fetch-leaderboard-effect
+  leaderboard-adapters/api-fetch-leaderboard-effect)
 
 (def api-fetch-vault-index-effect
   vault-adapters/api-fetch-vault-index-effect)

@@ -27,6 +27,8 @@
                     (get-in deps [:diagnostics :ws-reset-subscriptions])))
     (is (identical? effect-adapters/api-fetch-predicted-fundings-effect
                     (get-in deps [:api :api-fetch-predicted-fundings])))
+    (is (identical? effect-adapters/api-fetch-leaderboard-effect
+                    (get-in deps [:api :api-fetch-leaderboard])))
     (is (identical? effect-adapters/api-fetch-vault-index-effect
                     (get-in deps [:api :api-fetch-vault-index])))
     (is (identical? effect-adapters/api-fetch-vault-index-with-cache-effect
@@ -50,6 +52,8 @@
                     (get-in deps [:vaults :load-vault-route])))
     (is (identical? action-adapters/load-funding-comparison-route-action
                     (get-in deps [:funding-comparison :load-funding-comparison-route])))
+    (is (identical? action-adapters/load-leaderboard-route-action
+                    (get-in deps [:leaderboard :load-leaderboard-route])))
     (is (identical? action-adapters/load-staking-route-action
                     (get-in deps [:staking :load-staking-route])))
     (is (identical? action-adapters/navigate

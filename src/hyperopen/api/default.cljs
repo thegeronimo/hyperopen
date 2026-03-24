@@ -2,6 +2,7 @@
   (:require [hyperopen.api.compat :as api-compat]
             [hyperopen.api.gateway.account :as account-gateway]
             [hyperopen.api.gateway.funding-hyperunit :as funding-hyperunit-gateway]
+            [hyperopen.api.gateway.leaderboard :as leaderboard-gateway]
             [hyperopen.api.gateway.market :as market-gateway]
             [hyperopen.api.gateway.orders :as order-gateway]
             [hyperopen.api.gateway.vaults :as vault-gateway]
@@ -25,6 +26,7 @@
 
 (declare request-spot-clearinghouse-state!)
 (declare request-extra-agents!)
+(declare request-leaderboard!)
 (declare request-user-webdata2!)
 (declare request-user-abstraction!)
 (declare request-portfolio!)
@@ -409,6 +411,12 @@
    (vault-gateway/request-vault-webdata2! {:post-info! post-info!}
                                           vault-address
                                           opts)))
+
+(defn request-leaderboard!
+  ([] (request-leaderboard! {}))
+  ([opts]
+   (leaderboard-gateway/request-leaderboard! {:fetch-fn js/fetch}
+                                             opts)))
 
 (defn request-spot-meta!
   ([] (request-spot-meta! {}))

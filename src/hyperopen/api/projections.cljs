@@ -204,6 +204,35 @@
         (assoc-in [:funding-comparison :error] message)
         (assoc-in [:funding-comparison :error-category] category))))
 
+(defn begin-leaderboard-load
+  [state]
+  (-> state
+      (assoc-in [:leaderboard :loading?] true)
+      (assoc-in [:leaderboard :error] nil)
+      (assoc-in [:leaderboard :error-category] nil)))
+
+(defn apply-leaderboard-success
+  [state {:keys [rows excluded-addresses]}]
+  (-> state
+      (assoc-in [:leaderboard :rows]
+                (if (sequential? rows) (vec rows) []))
+      (assoc-in [:leaderboard :excluded-addresses]
+                (if (set? excluded-addresses)
+                  excluded-addresses
+                  (set (or excluded-addresses []))))
+      (assoc-in [:leaderboard :loading?] false)
+      (assoc-in [:leaderboard :error] nil)
+      (assoc-in [:leaderboard :error-category] nil)
+      (assoc-in [:leaderboard :loaded-at-ms] (.now js/Date))))
+
+(defn apply-leaderboard-error
+  [state err]
+  (let [{:keys [message category]} (normalized-error err)]
+    (-> state
+        (assoc-in [:leaderboard :loading?] false)
+        (assoc-in [:leaderboard :error] message)
+        (assoc-in [:leaderboard :error-category] category))))
+
 (defn begin-staking-validator-summaries-load
   [state]
   (-> state

@@ -15,6 +15,7 @@ source_of_truth: true
 - [Funding Autocorrelation Plot Component PRD](/hyperopen/docs/product-specs/funding-autocorrelation-plot-component-prd.md)
 - [Hyperliquid Trading Interface PRD](/hyperopen/docs/product-specs/hyperliquid-trading-interface-prd.md)
 - [Trade UI Affordance Parity Spec](/hyperopen/docs/product-specs/hyperliquid-ui-affordance-parity-spec.md)
+- [Leaderboard Page Parity PRD](/hyperopen/docs/product-specs/leaderboard-page-parity-prd.md)
 - [Portfolio Page Parity PRD](/hyperopen/docs/product-specs/portfolio-page-parity-prd.md)
 - [Phase 1 Trade Parity Notes](/hyperopen/docs/product-specs/phase1-trade-parity-notes.md)
 - [Product Roadmap](/hyperopen/docs/product-specs/product-roadmap.md)

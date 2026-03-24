@@ -60,6 +60,18 @@
             [:effects/api-fetch-predicted-fundings]]
            (action-adapters/navigate {} "/funding-comparison")))))
 
+(deftest navigate-appends-leaderboard-route-effects-after-route-projection-test
+  (with-redefs [vault-actions/load-vault-route (fn [_state _path] [])
+                funding-comparison-actions/load-funding-comparison-route (fn [_state _path] [])
+                api-wallets-actions/load-api-wallet-route (fn [_state _path] [])
+                staking-actions/load-staking-route (fn [_state _path] [])]
+    (is (= [[:effects/save [:router :path] "/leaderboard"]
+            [:effects/save [:leaderboard-ui :page] 1]
+            [:effects/push-state "/leaderboard"]
+            [:effects/load-route-module "/leaderboard"]
+            [:effects/api-fetch-leaderboard]]
+           (action-adapters/navigate {} "/leaderboard")))))
+
 (deftest navigate-appends-staking-route-effects-after-route-projection-test
   (with-redefs [vault-actions/load-vault-route (fn [_state _path] [])
                 funding-comparison-actions/load-funding-comparison-route (fn [_state _path] [])

@@ -108,6 +108,7 @@
             [hyperopen.funding.predictability-test]
             [hyperopen.header.actions-test]
             [hyperopen.i18n.locale-test]
+            [hyperopen.leaderboard.actions-test]
             [hyperopen.order.feedback-runtime-test]
             [hyperopen.orderbook.actions-test]
             [hyperopen.orderbook.price-aggregation-test]
@@ -229,6 +230,8 @@
             [hyperopen.views.header-view-test]
             [hyperopen.views.header.vm-test]
             [hyperopen.views.l2-orderbook-view-test]
+            [hyperopen.views.leaderboard-view-test]
+            [hyperopen.views.leaderboard.vm-test]
             [hyperopen.views.portfolio-view-test]
             [hyperopen.views.portfolio.vm-test]
             [hyperopen.views.portfolio.vm.benchmarks-helpers-test]
@@ -474,6 +477,7 @@
              'hyperopen.funding.predictability-test
              'hyperopen.header.actions-test
              'hyperopen.i18n.locale-test
+             'hyperopen.leaderboard.actions-test
              'hyperopen.order.feedback-runtime-test
              'hyperopen.orderbook.actions-test
              'hyperopen.orderbook.price-aggregation-test
@@ -595,6 +599,8 @@
              'hyperopen.views.header-view-test
              'hyperopen.views.header.vm-test
              'hyperopen.views.l2-orderbook-view-test
+             'hyperopen.views.leaderboard-view-test
+             'hyperopen.views.leaderboard.vm-test
              'hyperopen.views.portfolio-view-test
              'hyperopen.views.portfolio.vm-test
              'hyperopen.views.portfolio.vm.benchmarks-helpers-test

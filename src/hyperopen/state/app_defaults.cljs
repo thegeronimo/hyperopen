@@ -269,6 +269,23 @@
    :error-category nil
    :loaded-at-ms nil})
 
+(defn default-leaderboard-ui-state
+  []
+  {:query ""
+   :timeframe :month
+   :sort {:column :pnl
+          :direction :desc}
+   :page 1})
+
+(defn default-leaderboard-state
+  []
+  {:rows []
+   :excluded-addresses #{}
+   :loading? false
+   :error nil
+   :error-category nil
+   :loaded-at-ms nil})
+
 (defn default-staking-ui-state
   []
   {:active-tab :validator-performance
@@ -418,6 +435,8 @@
                 :tooltip {:visible-id nil
                           :pinned-id nil}
                 :hypothetical-position-by-coin {}}
+   :leaderboard-ui (default-leaderboard-ui-state)
+   :leaderboard (default-leaderboard-state)
    :funding-comparison-ui (default-funding-comparison-ui-state)
    :funding-comparison (default-funding-comparison-state)
    :staking-ui (default-staking-ui-state)

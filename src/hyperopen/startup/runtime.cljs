@@ -379,6 +379,7 @@
       (when (fn? dispatch!)
         (let [route (or (get-in @store [:router :path])
                         "/trade")]
+          (dispatch! store nil [[:actions/load-leaderboard-route route]])
           (dispatch! store nil [[:actions/load-vault-route route]])
           (dispatch! store nil [[:actions/load-funding-comparison-route route]])
           (dispatch! store nil [[:actions/load-staking-route route]])
@@ -447,6 +448,9 @@
   ;; Ensure active-asset market streams are requested on startup.
   (when-let [asset (:active-asset @store)]
     (dispatch! store nil [[:actions/subscribe-to-asset asset]]))
+  (dispatch! store nil [[:actions/load-leaderboard-route
+                         (or (get-in @store [:router :path])
+                             "/trade")]])
   (dispatch! store nil [[:actions/load-vault-route
                          (or (get-in @store [:router :path])
                              "/trade")]])

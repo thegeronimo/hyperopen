@@ -235,6 +235,18 @@
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/api-fetch-predicted-fundings}}
 
+   :actions/load-leaderboard
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/api-fetch-leaderboard}}
+
+   :actions/load-leaderboard-route
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/api-fetch-leaderboard}}
+
    :actions/load-funding-comparison-route
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true
@@ -307,6 +319,7 @@
     :allow-duplicate-heavy-effects? false
    :heavy-effect-ids #{:effects/load-route-module
                        :effects/load-trade-chart-module
+                        :effects/api-fetch-leaderboard
                         :effects/api-fetch-vault-index
                         :effects/api-fetch-vault-index-with-cache
                         :effects/api-fetch-vault-summaries
@@ -333,6 +346,7 @@
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/load-route-module
                         :effects/load-trade-chart-module
+                        :effects/api-fetch-leaderboard
                         :effects/api-fetch-vault-index
                         :effects/api-fetch-vault-index-with-cache
                         :effects/api-fetch-vault-summaries

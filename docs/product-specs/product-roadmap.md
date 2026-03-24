@@ -60,7 +60,7 @@ Status legend: Implemented, Partial, Missing, Needs app verification.
 | Referrals | Referral page for create/enter code | Missing | Not implemented. citeturn0search0 |
 | Referrals | Referral link generation | Missing | Not implemented. citeturn0search0 |
 | Staking | Staking account and delegation UI | Missing | Not implemented. citeturn0search3 |
-| Leaderboard | Leaderboard page | Needs app verification | Not documented in docs; verify in app UI. |
+| Leaderboard | Leaderboard page | Supporting spec exists | See `/hyperopen/docs/product-specs/leaderboard-page-parity-prd.md` for the live app parity contract captured on March 24, 2026. |
 
 ## Roadmap (Phased Delivery)
 
@@ -98,10 +98,9 @@ Goal: Referral creation and usage parity.
 
 ### Phase 6: App-Only UI Parity (Verify in app)
 Goal: Close gaps that are visible in app but not documented.
-- Leaderboard page: confirm sections and metrics directly from app.
+- Leaderboard page parity now documented in `/hyperopen/docs/product-specs/leaderboard-page-parity-prd.md`.
 - Any additional trade-side panels (news, notifications, etc.) that aren’t documented.
 
 ## Open Questions / Needs App Verification
 - Exact order types and order-entry behavior on `app.hyperliquid.xyz`.
-- Leaderboard page structure and metrics.
 - Any additional tabs or modals present in the Trade UI beyond those referenced in docs.
