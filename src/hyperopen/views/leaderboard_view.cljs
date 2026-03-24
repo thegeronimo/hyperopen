@@ -3,6 +3,24 @@
             [hyperopen.views.leaderboard.vm :as leaderboard-vm]
             [hyperopen.wallet.core :as wallet]))
 
+(def ^:private leaderboard-background-style
+  {:background-image "radial-gradient(circle at 15% 0%, rgba(0, 212, 170, 0.10), transparent 35%), radial-gradient(circle at 85% 100%, rgba(0, 212, 170, 0.08), transparent 40%)"})
+
+(def ^:private workspace-shell-classes
+  ["rounded-xl"
+   "border"
+   "border-base-300/80"
+   "bg-base-100/95"
+   "overflow-hidden"])
+
+(def ^:private control-shell-classes
+  ["rounded-xl"
+   "border"
+   "border-base-300/80"
+   "bg-base-100/95"
+   "p-2.5"
+   "md:p-3"])
+
 (def ^:private focus-visible-ring-classes
   ["focus:outline-none"
    "focus:ring-2"
@@ -140,8 +158,8 @@
                             "w-full"
                             "rounded-xl"
                             "border"
-                            "border-base-300"
-                            "bg-base-100"
+                            "border-base-300/80"
+                            "bg-base-100/95"
                             "p-3"
                             "space-y-3"
                             "transition-colors"
@@ -188,8 +206,8 @@
                           "transition-colors"]
                          (concat focus-visible-ring-classes
                                  (if selected?
-                                   ["border-[#2f7f73]" "bg-[#123a36]" "text-[#97fce4]"]
-                                   ["border-base-300"
+                                   ["border-[#2f7f73]" "bg-[#123a36]/85" "text-[#97fce4]"]
+                                   ["border-base-300/80"
                                     "text-trading-text-secondary"
                                     "hover:bg-base-200"
                                     "hover:text-trading-text"])))
@@ -198,7 +216,7 @@
 
 (defn- loading-state
   []
-  [:div {:class ["rounded-xl" "border" "border-base-300" "bg-base-100" "p-4" "space-y-3"]
+  [:div {:class ["space-y-3" "p-4" "md:p-5"]
          :data-role "leaderboard-loading"}
    (for [idx (range 4)]
      ^{:key (str "leaderboard-loading-" idx)}
@@ -215,11 +233,7 @@
 
 (defn- empty-state
   []
-  [:div {:class ["rounded-xl"
-                 "border"
-                 "border-base-300"
-                 "bg-base-100"
-                 "px-4"
+  [:div {:class ["px-4"
                  "py-10"
                  "text-center"
                  "text-sm"
@@ -229,16 +243,18 @@
 
 (defn- error-state
   [message]
-  [:div {:class ["rounded-xl"
-                 "border"
-                 "border-[#7a2836]"
-                 "bg-[#2b1118]"
+  [:div {:class ["space-y-3"
                  "px-4"
-                 "py-4"
-                 "space-y-3"]
+                 "py-4"]
          :data-role "leaderboard-error"}
-   [:p {:class ["text-sm" "text-[#ffb0c0]"]}
-    (or message "Failed to load leaderboard data.")]
+   [:div {:class ["rounded-lg"
+                  "border"
+                  "border-[#7a2836]/70"
+                  "bg-[#2b1118]/80"
+                  "px-4"
+                  "py-4"]}
+    [:p {:class ["text-sm" "text-[#ffb0c0]"]}
+     (or message "Failed to load leaderboard data.")]]
    [:button {:type "button"
              :class (into ["rounded-lg"
                            "border"
@@ -259,12 +275,11 @@
 (defn- pinned-row-card
   [row timeframe-label desktop-layout?]
   (when row
-    [:section {:class ["rounded-xl"
-                       "border"
-                       "border-[#2c6d64]"
-                       "bg-[#0f2220]"
-                       "p-4"
-                       "space-y-3"]
+    [:div {:class ["border-b"
+                   "border-base-300/60"
+                   "bg-[#0f2220]/65"
+                   "p-4"
+                   "space-y-3"]
                :data-role "leaderboard-pinned-row"}
      [:div {:class ["flex" "items-center" "justify-between" "gap-3"]}
      [:div
@@ -296,10 +311,8 @@
                  "items-center"
                  "justify-between"
                  "gap-3"
-                 "rounded-xl"
-                 "border"
-                 "border-base-300"
-                 "bg-base-100"
+                 "border-t"
+                 "border-base-300/60"
                  "px-4"
                  "py-3"]
          :data-role "leaderboard-pagination"}
@@ -346,11 +359,7 @@
 
 (defn- table-shell
   [rows timeframe-label sort]
-  [:div {:class ["overflow-x-auto"
-                 "rounded-xl"
-                 "border"
-                 "border-base-300"
-                 "bg-base-100"]}
+  [:div {:class ["overflow-x-auto"]}
    [:table {:class ["min-w-full"]
             :data-role "leaderboard-table"}
     [:thead
@@ -380,12 +389,9 @@
 
 (defn- methodology-note
   [timeframe-label]
-  [:section {:class ["rounded-xl"
-                     "border"
-                     "border-base-300"
-                     "bg-base-100"
-                     "p-4"
-                     "space-y-2"]
+  [:section {:class ["space-y-2"
+                     "px-1"
+                     "pt-1"]
              :data-role "leaderboard-methodology"}
    [:h2 {:class ["text-sm" "font-semibold" "text-trading-text"]}
     "Methodology"]
@@ -411,75 +417,84 @@
                 total-rows
                 has-results?]}
         (leaderboard-vm/leaderboard-vm state)]
-    [:div {:class ["flex"
-                   "h-full"
+    [:div {:class ["relative"
                    "w-full"
-                   "flex-col"
-                   "gap-4"
                    "app-shell-gutter"
-                   "pt-4"
-                   "pb-16"]
+                   "py-4"
+                   "space-y-4"
+                   "md:py-5"]
+           :style leaderboard-background-style
            :data-parity-id "leaderboard-root"}
-     [:section {:class ["rounded-xl"
-                        "border"
-                        "border-base-300"
-                        "bg-base-100"
-                        "p-4"
-                        "space-y-4"]}
-      [:div {:class ["space-y-1"]}
-       [:h1 {:class ["text-xl" "font-semibold" "text-white"]}
-        "Leaderboard"]
-       [:p {:class ["text-sm" "text-trading-text-secondary"]}
-        "Track ranked traders across selectable performance windows."]]
-      [:div {:class ["flex" "flex-col" "gap-3" "lg:flex-row" "lg:items-center" "lg:justify-between"]}
-       [:input {:id "leaderboard-search"
-                :type "text"
-                :placeholder "Search wallet or display name"
-                :value query
-                :class (into ["h-10"
-                              "w-full"
-                              "max-w-xl"
-                              "rounded-xl"
-                              "border"
-                              "border-base-300"
-                              "bg-base-100"
-                              "px-3"
-                              "text-sm"
-                              "text-trading-text"]
-                             focus-visible-ring-classes)
-                :on {:input [[:actions/set-leaderboard-query [:event.target/value]]]}}]
-       [:div {:class ["flex" "flex-wrap" "items-center" "gap-2"]
-              :data-role "leaderboard-timeframes"}
-        (for [option timeframe-options]
-          ^{:key (:value option)}
-          (timeframe-button (= timeframe (:value option)) option))]]]
+     [:div {:class ["pointer-events-none"
+                    "absolute"
+                    "inset-x-0"
+                    "top-0"
+                    "h-[180px]"
+                    "md:h-[280px]"
+                    "rounded-b-[24px]"
+                    "opacity-90"]
+            :style {:background-image "radial-gradient(120% 120% at 15% -10%, rgba(0, 148, 111, 0.22), rgba(6, 30, 34, 0.02) 60%), radial-gradient(130% 140% at 85% 20%, rgba(0, 138, 96, 0.14), rgba(6, 30, 34, 0) 68%), linear-gradient(180deg, rgba(4, 43, 36, 0.54) 0%, rgba(6, 27, 32, 0.08) 100%)"}}]
+     [:div {:class ["relative" "mx-auto" "w-full" "max-w-[1280px]" "space-y-4"]}
+      [:div {:class ["flex" "flex-wrap" "items-end" "justify-between" "gap-3"]}
+       [:div {:class ["space-y-1"]}
+        [:h1 {:class ["text-2xl" "font-normal" "text-trading-text"]}
+         "Leaderboard"]
+        [:p {:class ["max-w-2xl" "text-sm" "text-trading-text-secondary"]}
+         "Track ranked traders across selectable performance windows."]]
+       [:div {:class ["text-xs" "uppercase" "tracking-[0.08em]" "text-trading-text-secondary"]}
+        "Read-only ranking surface"]]
+      [:div {:class control-shell-classes}
+       [:div {:class ["flex" "flex-col" "gap-2.5" "lg:flex-row" "lg:items-center" "lg:justify-between"]}
+        [:input {:id "leaderboard-search"
+                 :type "text"
+                 :placeholder "Search wallet or display name"
+                 :value query
+                 :class (into ["h-8"
+                               "w-full"
+                               "max-w-[360px]"
+                               "rounded-lg"
+                               "border"
+                               "border-base-300/80"
+                               "bg-base-100"
+                               "px-3"
+                               "text-xs"
+                               "text-trading-text"
+                               "placeholder:text-trading-text-secondary"]
+                              focus-visible-ring-classes)
+                 :on {:input [[:actions/set-leaderboard-query [:event.target/value]]]}}]
+        [:div {:class ["flex" "flex-wrap" "items-center" "gap-2" "lg:justify-end"]
+               :data-role "leaderboard-timeframes"}
+         (for [option timeframe-options]
+           ^{:key (:value option)}
+           (timeframe-button (= timeframe (:value option)) option))]]]
 
-     (pinned-row-card pinned-row timeframe-label desktop-layout?)
+      [:section {:class workspace-shell-classes}
+       (pinned-row-card pinned-row timeframe-label desktop-layout?)
 
-     (cond
-       (seq error)
-       (error-state error)
+       (cond
+         (seq error)
+         (error-state error)
 
-       loading?
-       (loading-state)
+         loading?
+         (loading-state)
 
-       (not has-results?)
-       (empty-state)
+         (not has-results?)
+         (empty-state)
 
-       desktop-layout?
-       (table-shell rows timeframe-label sort)
+         desktop-layout?
+         (table-shell rows timeframe-label sort)
 
-       :else
-       (mobile-shell rows timeframe-label))
+         :else
+         (mobile-shell rows timeframe-label))
 
-     (when (and (not loading?)
-                (not (seq error))
-                has-results?)
-       (pagination-controls {:page page
-                             :page-count page-count
-                             :total-rows total-rows}))
+       (when (and (not loading?)
+                  (not (seq error))
+                  has-results?)
+         (pagination-controls {:page page
+                               :page-count page-count
+                               :total-rows total-rows}))]
 
-     (methodology-note timeframe-label)]))
+      (methodology-note timeframe-label)]]))
 
 (defn ^:export route-view
   [state]

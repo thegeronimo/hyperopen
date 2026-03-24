@@ -84,14 +84,19 @@
             pinned-row (find-first-node view-node #(= "leaderboard-pinned-row" (get-in % [1 :data-role])))
             table-node (find-first-node view-node #(= "leaderboard-table" (get-in % [1 :data-role])))
             methodology (find-first-node view-node #(= "leaderboard-methodology" (get-in % [1 :data-role])))
+            control-shell (find-first-node view-node #(= ["rounded-xl" "border" "border-base-300/80" "bg-base-100/95" "p-2.5" "md:p-3"]
+                                                         (get-in % [1 :class])))
             text (set (collect-strings view-node))]
         (is (some? root))
         (is (some? search-input))
         (is (some? pinned-row))
         (is (some? table-node))
         (is (some? methodology))
+        (is (some? control-shell))
+        (is (string? (get-in root [1 :style :background-image])))
         (is (contains? text "Leaderboard"))
         (is (contains? text "Methodology"))
+        (is (contains? text "Read-only ranking surface"))
         (is (contains? text "Pinned separately from paginated results."))))))
 
 (deftest leaderboard-view-timeframe-and-retry-actions-are-wired-test
