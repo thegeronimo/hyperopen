@@ -41,6 +41,20 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/bb" --version
 
+      - name: Setup bd
+        run: |
+          BD_VERSION=0.59.0
+          BD_TARBALL="beads_${BD_VERSION}_linux_amd64.tar.gz"
+          BD_BASE_URL="https://github.com/steveyegge/beads/releases/download/v${BD_VERSION}"
+          curl -fsSL -o "${BD_TARBALL}" "${BD_BASE_URL}/${BD_TARBALL}"
+          curl -fsSL -o checksums.txt "${BD_BASE_URL}/checksums.txt"
+          grep " ${BD_TARBALL}$" checksums.txt | sha256sum --check
+          tar -xzf "${BD_TARBALL}" bd
+          mkdir -p "$HOME/.local/bin"
+          mv bd "$HOME/.local/bin/"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/bd" --version
+
       - name: Cache Clojure Dependencies
         uses: actions/cache@v4
         with:
