@@ -71,7 +71,7 @@
   [store]
   (fn [msg]
     (when (and (= "openOrders" (:channel msg))
-               (common/message-for-active-address? store msg))
+               (common/message-for-live-user-address? store msg))
       (swap! store
              (fn [state]
                (-> state
@@ -82,7 +82,7 @@
   [store]
   (fn [msg]
     (when (and (= "twapStates" (:channel msg))
-               (common/message-for-active-address? store msg))
+               (common/message-for-live-user-address? store msg))
       (let [{:keys [rows]} (extract-channel-rows msg :states)]
         (swap! store assoc-in [:orders :twap-states] rows)))))
 
@@ -90,7 +90,7 @@
   [store]
   (fn [msg]
     (when (and (= "userFills" (:channel msg))
-               (common/message-for-active-address? store msg))
+               (common/message-for-live-user-address? store msg))
       (let [{:keys [rows snapshot?]} (extract-channel-rows msg :fills)]
         (when (seq rows)
           (if snapshot?
@@ -107,7 +107,7 @@
   [store]
   (fn [msg]
     (when (and (= "userFundings" (:channel msg))
-               (common/message-for-active-address? store msg))
+               (common/message-for-live-user-address? store msg))
       (let [{:keys [rows]} (extract-channel-rows msg :fundings)
             normalized (funding-history/normalize-ws-funding-rows rows)]
         (when (seq normalized)
@@ -128,7 +128,7 @@
   [store]
   (fn [msg]
     (when (and (= "userNonFundingLedgerUpdates" (:channel msg))
-               (common/message-for-active-address? store msg))
+               (common/message-for-live-user-address? store msg))
       (let [{:keys [rows snapshot?]} (extract-channel-rows msg :nonFundingLedgerUpdates)]
         (when (seq rows)
           (if snapshot?
@@ -141,7 +141,7 @@
   [store]
   (fn [msg]
     (when (and (= "userTwapHistory" (:channel msg))
-               (common/message-for-active-address? store msg))
+               (common/message-for-live-user-address? store msg))
       (let [{:keys [rows snapshot?]} (extract-channel-rows msg :history)]
         (swap! store update :orders
                (fn [orders]
@@ -155,7 +155,7 @@
   [store]
   (fn [msg]
     (when (and (= "userTwapSliceFills" (:channel msg))
-               (common/message-for-active-address? store msg))
+               (common/message-for-live-user-address? store msg))
       (let [{:keys [rows snapshot?]} (extract-channel-rows msg :twapSliceFills)
             fills (twap-slice-fill-rows rows)]
         (if snapshot?
@@ -182,7 +182,7 @@
   [store]
   (fn [msg]
     (when (and (= "clearinghouseState" (:channel msg))
-               (common/message-for-active-address? store msg))
+               (common/message-for-live-user-address? store msg))
       (when-let [dex (clear-dex-from-clearinghouse-message msg)]
         (swap! store
                api-projections/apply-perp-dex-clearinghouse-success

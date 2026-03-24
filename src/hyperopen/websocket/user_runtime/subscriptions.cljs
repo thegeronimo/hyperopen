@@ -1,5 +1,6 @@
 (ns hyperopen.websocket.user-runtime.subscriptions
-  (:require [hyperopen.account.surface-policy :as account-surface-policy]
+  (:require [hyperopen.account.context :as account-context]
+            [hyperopen.account.surface-policy :as account-surface-policy]
             [hyperopen.telemetry :as telemetry]
             [hyperopen.wallet.address-watcher :as address-watcher]
             [hyperopen.websocket.client :as ws-client]
@@ -101,13 +102,23 @@
                                   :dex dex}))
     (telemetry/log! "Unsubscribed from user streams for:" address*)))
 
+(defn desired-user-stream-address
+  [state]
+  (when (account-context/user-stream-subscriptions-enabled? state)
+    (account-context/effective-account-address state)))
+
 (defn create-user-handler
   [subscribe-fn unsubscribe-fn]
-  (reify address-watcher/IAddressChangeHandler
+  (reify
+    address-watcher/IAddressChangeHandler
     (on-address-changed [_ old-address new-address]
       (when old-address
         (unsubscribe-fn old-address))
       (when new-address
         (subscribe-fn new-address)))
     (get-handler-name [_]
-      "user-ws-subscription-handler")))
+      "user-ws-subscription-handler")
+
+    address-watcher/IWatchedValueHandler
+    (watched-value [_ state]
+      (desired-user-stream-address state))))

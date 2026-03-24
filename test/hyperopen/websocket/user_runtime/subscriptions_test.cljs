@@ -213,3 +213,74 @@
            @calls))
     (is (= "user-ws-subscription-handler"
            (address-watcher/get-handler-name handler)))))
+
+(deftest user-handler-watched-value-disables-trader-portfolio-routes-test
+  (let [address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        handler (subscriptions-runtime/create-user-handler
+                 (fn [_address] nil)
+                 (fn [_address] nil))]
+    (is (= address
+           (address-watcher/watched-value
+            handler
+            {:wallet {:address address}
+             :router {:path "/portfolio"}})))
+    (is (= address
+           (address-watcher/watched-value
+            handler
+            {:wallet {:address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
+             :account-context {:spectate-mode {:active? true
+                                               :address address}}})))
+    (is (nil? (address-watcher/watched-value
+               handler
+               {:wallet {:address address}
+                :router {:path (str "/portfolio/trader/" address)}})))))
+
+(deftest desired-user-stream-address-disables-trader-portfolio-routes-but-keeps-spectate-test
+  (let [owner "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        spectate "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        trader "0xcccccccccccccccccccccccccccccccccccccccc"]
+    (is (= owner
+           (subscriptions-runtime/desired-user-stream-address
+            {:wallet {:address owner}
+             :router {:path "/portfolio"}})))
+    (is (nil?
+         (subscriptions-runtime/desired-user-stream-address
+          {:wallet {:address owner}
+           :router {:path (str "/portfolio/trader/" trader)}})))
+    (is (= spectate
+           (subscriptions-runtime/desired-user-stream-address
+            {:wallet {:address owner}
+             :account-context {:spectate-mode {:active? true
+                                               :address spectate}}})))))
+
+(deftest user-handler-unsubscribes-when-trader-portfolio-policy-disables-same-address-test
+  (let [address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        calls (atom [])
+        handler (subscriptions-runtime/create-user-handler
+                 (fn [value]
+                   (swap! calls conj [:subscribe value]))
+                 (fn [value]
+                   (swap! calls conj [:unsubscribe value])))]
+    (reset! @#'hyperopen.wallet.address-watcher/address-watcher-state
+            {:handlers [handler]
+             :current-address nil
+             :watching? true
+             :pending-subscription nil
+             :ws-connected? true})
+    (@#'hyperopen.wallet.address-watcher/address-change-listener
+     nil nil
+     {:wallet {:address address}
+      :router {:path "/portfolio"}}
+     {:wallet {:address address}
+      :router {:path (str "/portfolio/trader/" address)}})
+    (is (= [[:unsubscribe address]]
+           @calls))
+    (@#'hyperopen.wallet.address-watcher/address-change-listener
+     nil nil
+     {:wallet {:address address}
+      :router {:path (str "/portfolio/trader/" address)}}
+     {:wallet {:address address}
+      :router {:path "/portfolio"}})
+    (is (= [[:unsubscribe address]
+            [:subscribe address]]
+           @calls))))

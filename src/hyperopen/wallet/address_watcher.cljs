@@ -19,6 +19,12 @@
   (get-handler-name [this]
     "Returns a unique name for this handler for logging/debugging"))
 
+(defprotocol IWatchedValueHandler
+  "Optional protocol for handlers that need to react to a state-derived value
+   other than the plain effective account address."
+  (watched-value [this state]
+    "Returns the comparable watched value for the given state. State can be nil."))
+
 ;; ---------- WebData2 Subscription Handler -----------------------------------
 
 (defrecord WebData2Handler [unsubscribe-fn subscribe-fn]
@@ -44,6 +50,29 @@
          :pending-subscription nil
          :ws-connected? false}))
 
+(defn- default-watch-value
+  [state]
+  (account-context/effective-account-address state))
+
+(defn- handler-watch-value
+  [handler state]
+  (if (satisfies? IWatchedValueHandler handler)
+    (watched-value handler state)
+    (default-watch-value state)))
+
+(defn- handler-change-events
+  [handlers old-state new-state]
+  (reduce (fn [acc handler]
+            (let [old-value (handler-watch-value handler old-state)
+                  new-value (handler-watch-value handler new-state)]
+              (if (not= old-value new-value)
+                (conj acc {:handler handler
+                           :old-value old-value
+                           :new-value new-value})
+                acc)))
+          []
+          handlers))
+
 (defn add-handler!
   "Add a handler for address changes. Handler must implement IAddressChangeHandler"
   [handler]
@@ -62,50 +91,60 @@
 
 (defn- notify-handlers!
   "Notify all registered handlers of address change"
-  [old-address new-address]
-  (let [{:keys [handlers ws-connected?]} @address-watcher-state]
-    (if ws-connected?
-      ;; WebSocket is connected, notify handlers immediately
-      (doseq [handler handlers]
-        (try
-          (on-address-changed handler old-address new-address)
-          (catch js/Error e
-            (telemetry/log! (str "Error in address change handler "
-                                 (get-handler-name handler) ": "
-                                 (.-message e))))))
-      ;; WebSocket not connected, store pending subscription
-      (do
-        (telemetry/log! "WebSocket not connected, storing pending subscription for address:" new-address)
-        (swap! address-watcher-state assoc :pending-subscription {:old-address old-address
-                                                                   :new-address new-address})))))
+  [old-state new-state]
+  (let [{:keys [handlers ws-connected?]} @address-watcher-state
+        events (handler-change-events handlers old-state new-state)
+        old-address (default-watch-value old-state)
+        new-address (default-watch-value new-state)]
+    (when (seq events)
+      (if ws-connected?
+        ;; WebSocket is connected, notify handlers immediately
+        (doseq [{:keys [handler old-value new-value]} events]
+          (try
+            (on-address-changed handler old-value new-value)
+            (catch js/Error e
+              (telemetry/log! (str "Error in address change handler "
+                                   (get-handler-name handler) ": "
+                                   (.-message e))))))
+        ;; WebSocket not connected, store the latest observed state transition
+        (do
+          (telemetry/log! "WebSocket not connected, storing pending subscription for address:" new-address)
+          (swap! address-watcher-state assoc :pending-subscription {:old-state old-state
+                                                                     :new-state new-state
+                                                                     :old-address old-address
+                                                                     :new-address new-address}))))))
 
 (defn- address-change-listener
   "Watch function that detects address changes"
   [_ _ old-state new-state]
-  (let [old-address (account-context/effective-account-address old-state)
-        new-address (account-context/effective-account-address new-state)]
+  (let [old-address (default-watch-value old-state)
+        new-address (default-watch-value new-state)
+        handlers (get @address-watcher-state :handlers)
+        events (handler-change-events handlers old-state new-state)]
     
-    ;; Only process if address actually changed and we're watching
+    ;; Only process if a handler-observed value actually changed and we're watching
     (when (and (get @address-watcher-state :watching?)
-               (not= old-address new-address))
-      (telemetry/log! (str "Wallet address changed: " old-address " -> " new-address))
-      
+               (seq events))
+      (when (not= old-address new-address)
+        (telemetry/log! (str "Wallet address changed: " old-address " -> " new-address)))
+
       ;; Update our tracked address
       (swap! address-watcher-state assoc :current-address new-address)
       
       ;; Notify all handlers
-      (notify-handlers! old-address new-address))))
+      (notify-handlers! old-state new-state))))
 
 (defn- process-pending-subscription!
   "Process any pending subscription when WebSocket connects"
   []
   (when-let [pending (get @address-watcher-state :pending-subscription)]
-    (let [{:keys [old-address new-address]} pending
-          handlers (get @address-watcher-state :handlers)]
+    (let [{:keys [old-state new-state new-address]} pending
+          handlers (get @address-watcher-state :handlers)
+          events (handler-change-events handlers old-state new-state)]
       (telemetry/log! "Processing pending subscription for address:" new-address)
-      (doseq [handler handlers]
+      (doseq [{:keys [handler old-value new-value]} events]
         (try
-          (on-address-changed handler old-address new-address)
+          (on-address-changed handler old-value new-value)
           (catch js/Error e
             (telemetry/log! (str "Error in pending subscription handler "
                                  (get-handler-name handler) ": "
@@ -137,7 +176,7 @@
     (swap! address-watcher-state assoc :watching? true)
     
     ;; Initialize current effective account address
-    (let [current-address (account-context/effective-account-address @store)]
+    (let [current-address (default-watch-value @store)]
       (swap! address-watcher-state assoc :current-address current-address)
       (telemetry/log! (str "Initial effective account address: " current-address)))))
 
@@ -154,10 +193,9 @@
    This ensures an already-connected wallet is bootstrapped even without
    a fresh `accountsChanged` event."
   [store]
-  (let [current-address (account-context/effective-account-address @store)]
+  (let [current-address (default-watch-value @store)]
     (swap! address-watcher-state assoc :current-address current-address)
-    (when current-address
-      (notify-handlers! nil current-address))))
+    (notify-handlers! nil @store)))
 
 (defn create-webdata2-handler
   "Factory function to create a WebData2 subscription handler"

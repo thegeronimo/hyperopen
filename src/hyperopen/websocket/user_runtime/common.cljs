@@ -13,6 +13,13 @@
    (some-> (resolve-current-address @store)
            normalized-address)))
 
+(defn active-live-user-address
+  ([store]
+   (active-live-user-address store account-context/live-user-stream-address))
+  ([store resolve-live-user-stream-address]
+   (some-> (resolve-live-user-stream-address @store)
+           normalized-address)))
+
 (defn normalized-dex
   [value]
   (let [token (some-> value str str/trim)]
@@ -39,6 +46,20 @@
        (and active-address
             (= msg-address active-address))
        true))))
+
+(defn message-for-live-user-address?
+  ([store msg]
+   (message-for-live-user-address? store
+                                   msg
+                                   account-context/live-user-stream-address))
+  ([store msg resolve-live-user-stream-address]
+   (let [msg-address (message-address msg)
+         active-address (active-live-user-address store
+                                                  resolve-live-user-stream-address)]
+     (if msg-address
+       (and active-address
+            (= msg-address active-address))
+       (some? active-address)))))
 
 (defn requested-address-active?
   ([store requested-address]

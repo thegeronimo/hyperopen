@@ -752,3 +752,25 @@
         :data {:orders [{:oid 22}]}})
       (is (= {:orders [{:oid 22}]}
              (get-in @store [:orders :open-orders]))))))
+
+(deftest user-handlers-ignore-addressless-live-messages-when-user-streams-are-disabled-test
+  (let [trader-address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        store (doto (make-store)
+                (swap! assoc :router {:path (str "/portfolio/trader/" trader-address)}))
+        handlers (atom {})]
+    (with-redefs [ws-client/register-handler!
+                  (fn [message-type handler-fn]
+                    (swap! handlers assoc message-type handler-fn)
+                    true)]
+      (user-ws/init! store)
+      ((get @handlers "userFills")
+       {:channel "userFills"
+        :data {:isSnapshot false
+               :fills [{:tid 2
+                        :coin "ETH"
+                        :side "B"
+                        :sz "1.0"
+                        :px "2000"
+                        :time 2000}]}})
+      (is (empty? (get-in @store [:orders :fills])))
+      (is (nil? (get-in @store [:ui :toast]))))))

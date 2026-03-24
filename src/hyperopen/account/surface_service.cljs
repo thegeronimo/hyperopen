@@ -79,7 +79,8 @@
     :or {set-timeout-fn platform/set-timeout!}}]
   (let [dex-names (surface-policy/normalize-dex-names dexs)
         stagger-ms (max 0 (or per-dex-stagger-ms 0))]
-    (call-when-fn! sync-perp-dex-clearinghouse-subscriptions! address dex-names)
+    (when (account-context/user-stream-subscriptions-enabled? @store)
+      (call-when-fn! sync-perp-dex-clearinghouse-subscriptions! address dex-names))
     (doseq [[idx dex] (map-indexed vector dex-names)]
       (set-timeout-fn
        (fn []
@@ -216,9 +217,10 @@
             (.then (fn [dex-names]
                      (when (active-address? store address resolve-current-address)
                        (let [dex-names* (surface-policy/normalize-dex-names dex-names)]
-                         (call-when-fn! sync-perp-dex-clearinghouse-subscriptions!
-                                        address
-                                        dex-names*)
+                         (when (account-context/user-stream-subscriptions-enabled? @store)
+                           (call-when-fn! sync-perp-dex-clearinghouse-subscriptions!
+                                          address
+                                          dex-names*))
                          (doseq [dex dex-names*]
                            (let [state* @store
                                  perp-dex-stream-usable?

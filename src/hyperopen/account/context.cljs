@@ -148,6 +148,14 @@
   [state]
   (some? (trader-portfolio-address state)))
 
+(defn live-user-streams-enabled?
+  [state]
+  (not (trader-portfolio-route-active? state)))
+
+(defn user-stream-subscriptions-enabled?
+  [state]
+  (live-user-streams-enabled? state))
+
 (defn effective-account-address
   [state]
   (if-let [trader-address (trader-portfolio-address state)]
@@ -155,6 +163,11 @@
     (if (spectate-mode-active? state)
       (spectate-address state)
       (owner-address state))))
+
+(defn live-user-stream-address
+  [state]
+  (when (user-stream-subscriptions-enabled? state)
+    (effective-account-address state)))
 
 (defn inspected-account-read-only?
   [state]

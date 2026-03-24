@@ -93,3 +93,26 @@
     (is (= account-context/trader-portfolio-read-only-message
            (account-context/mutations-blocked-message
             {:router {:path (str "/portfolio/trader/" trader)}})))))
+
+(deftest user-stream-subscriptions-are-disabled-only-on-trader-portfolio-routes-test
+  (let [owner "0x1111111111111111111111111111111111111111"
+        spectate "0x2222222222222222222222222222222222222222"
+        trader "0x3333333333333333333333333333333333333333"]
+    (is (true? (account-context/user-stream-subscriptions-enabled?
+                {:wallet {:address owner}
+                 :router {:path "/portfolio"}})))
+    (is (true? (account-context/user-stream-subscriptions-enabled?
+                {:wallet {:address owner}
+                 :account-context {:spectate-mode {:active? true
+                                                   :address spectate}}})))
+    (is (false? (account-context/user-stream-subscriptions-enabled?
+                 {:wallet {:address owner}
+                  :router {:path (str "/portfolio/trader/" trader)}})))
+    (is (= spectate
+           (account-context/live-user-stream-address
+            {:wallet {:address owner}
+             :account-context {:spectate-mode {:active? true
+                                               :address spectate}}})))
+    (is (nil? (account-context/live-user-stream-address
+               {:wallet {:address owner}
+                :router {:path (str "/portfolio/trader/" trader)}})))))

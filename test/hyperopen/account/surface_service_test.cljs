@@ -213,3 +213,38 @@
                         :timeout-id)})
     (is (nil? @scheduled-callback))
     (is (= [] @fetch-calls))))
+
+(deftest bootstrap-account-surfaces-skips-live-clearinghouse-subscriptions-on-trader-portfolio-route-test
+  (async done
+    (let [dex "vault"
+          sync-calls (atom [])
+          clearinghouse-calls (atom [])
+          store (atom {:wallet {:address address}
+                       :router {:path (str "/portfolio/trader/" address)}
+                       :websocket {:migration-flags {:startup-bootstrap-ws-first? false}}})]
+      (surface-service/bootstrap-account-surfaces!
+       {:store store
+        :address address
+        :fetch-frontend-open-orders! (fn [_store _address _opts] nil)
+        :fetch-user-fills! (fn [_store _address _opts] nil)
+        :fetch-spot-clearinghouse-state! (fn [_store _address _opts] nil)
+        :fetch-user-abstraction! (fn [_store _address _opts] nil)
+        :fetch-portfolio! (fn [_store _address _opts] nil)
+        :fetch-user-fees! (fn [_store _address _opts] nil)
+        :fetch-and-merge-funding-history! (fn [_store _address _opts] nil)
+        :ensure-perp-dexs! (fn [_store _opts]
+                             (js/Promise.resolve [dex]))
+        :set-timeout-fn (fn [callback _delay-ms]
+                          (callback)
+                          :timeout-id)
+        :sync-perp-dex-clearinghouse-subscriptions! (fn [sync-address dex-names]
+                                                      (swap! sync-calls conj [sync-address dex-names]))
+        :fetch-clearinghouse-state! (fn [_store fetch-address fetch-dex opts]
+                                      (swap! clearinghouse-calls conj [fetch-address fetch-dex opts]))})
+      (js/setTimeout
+       (fn []
+         (is (= [] @sync-calls))
+         (is (= [[address dex {:priority :low}]]
+                @clearinghouse-calls))
+         (done))
+       0))))
