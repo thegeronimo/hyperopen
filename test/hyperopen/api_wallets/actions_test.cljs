@@ -1,7 +1,7 @@
 (ns hyperopen.api-wallets.actions-test
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.api-wallets.actions :as actions]
-            [hyperopen.api-wallets.domain.policy :as policy]))
+            [hyperopen.api-wallets.application.ui-state :as ui-state]))
 
 (def owner-address
   "0x1234567890abcdef1234567890abcdef12345678")
@@ -45,7 +45,7 @@
     (is (= :effects/save-many (ffirst effects)))
     (is (true? (path-value effects [:api-wallets :loading :extra-agents?])))
     (is (true? (path-value effects [:api-wallets :loading :default-agent?])))
-    (is (= (policy/default-modal-state)
+    (is (= (ui-state/default-modal-state)
            (path-value effects [:api-wallets-ui :modal])))
     (is (= [:effects/api-load-api-wallets]
            (second effects)))))
@@ -67,7 +67,7 @@
                                  [[:api-wallets :loaded-at-ms :extra-agents] nil]
                                  [[:api-wallets :loaded-at-ms :default-agent] nil]
                                  [[:api-wallets-ui :form-error] nil]
-                                 [[:api-wallets-ui :modal] (policy/default-modal-state)]]]]
+                                 [[:api-wallets-ui :modal] (ui-state/default-modal-state)]]]]
            effects))
     (is (false? (path-value effects [:api-wallets :loading :extra-agents?])))
     (is (false? (path-value effects [:api-wallets :loading :default-agent?])))))
@@ -139,8 +139,8 @@
           {:row-kind :named
            :name "Desk"
            :address api-wallet-address})))
-  (is (= [[:effects/save-many [[[:api-wallets-ui :modal] (policy/default-modal-state)]
-                                [[:api-wallets-ui :generated] (policy/default-generated-state)]
+  (is (= [[:effects/save-many [[[:api-wallets-ui :modal] (ui-state/default-modal-state)]
+                                [[:api-wallets-ui :generated] (ui-state/default-generated-state)]
                                 [[:api-wallets-ui :form :days-valid] ""]
                                 [[:api-wallets-ui :form-error] nil]]]]
          (actions/close-api-wallet-modal {}))))

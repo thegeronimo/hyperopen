@@ -1,20 +1,22 @@
 (ns hyperopen.views.api-wallets.vm
   (:require [hyperopen.account.context :as account-context]
+            [hyperopen.api-wallets.application.form-policy :as form-policy]
+            [hyperopen.api-wallets.application.ui-state :as ui-state]
             [hyperopen.api-wallets.domain.policy :as policy]))
 
 (defn- sort-state
   [state]
-  (policy/normalize-sort-state
+  (ui-state/normalize-sort-state
    (get-in state [:api-wallets-ui :sort])))
 
 (defn api-wallets-vm
   [state]
   (let [owner-address (account-context/owner-address state)
         spectating? (account-context/spectate-mode-active? state)
-        form (merge (policy/default-form)
+        form (merge (ui-state/default-form)
                     (get-in state [:api-wallets-ui :form]))
-        form-errors (policy/form-errors form)
-        modal (merge (policy/default-modal-state)
+        form-errors (form-policy/form-errors form)
+        modal (merge (ui-state/default-modal-state)
                      (get-in state [:api-wallets-ui :modal]))
         sort (sort-state state)
         rows (policy/sorted-rows
@@ -26,12 +28,12 @@
         error (or (get-in state [:api-wallets :errors :extra-agents])
                   (get-in state [:api-wallets :errors :default-agent]))
         server-time-ms (get-in state [:api-wallets :server-time-ms])
-        generated-private-key (policy/generated-private-key
+        generated-private-key (form-policy/generated-private-key
                                (get-in state [:api-wallets-ui :generated])
                                (:address form))
         authorize-disabled? (or loading?
                                 (not (seq owner-address))
-                                (not (policy/form-valid? form))
+                                (not (form-policy/form-valid? form))
                                 (true? (:submitting? modal)))
         modal-type (:type modal)
         modal-confirm-disabled? (or (true? (:submitting? modal))
@@ -53,6 +55,6 @@
      :modal modal
      :generated-private-key generated-private-key
      :generated-address (get-in state [:api-wallets-ui :generated :address])
-     :valid-until-preview-ms (policy/valid-until-preview-ms server-time-ms
-                                                            (:days-valid form))
+     :valid-until-preview-ms (form-policy/valid-until-preview-ms server-time-ms
+                                                                 (:days-valid form))
      :modal-confirm-disabled? modal-confirm-disabled?}))

@@ -1,5 +1,6 @@
 (ns hyperopen.state.app-defaults-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.api-wallets.application.ui-state :as api-wallets-ui-state]
             [hyperopen.i18n.locale :as i18n-locale]
             [hyperopen.platform :as platform]
             [hyperopen.state.app-defaults :as app-defaults]))
@@ -207,6 +208,25 @@
     (is (= [] (get-in state [:staking :history])))
     (is (= {} (get-in state [:perp-dex-fee-config-by-name])))
     (is (nil? (get-in state [:portfolio :user-fees])))))
+
+(deftest default-app-state-sources-api-wallet-ui-defaults-from-the-application-owner-test
+  (let [state (app-defaults/default-app-state
+               {:websocket-health {}
+                :default-agent-state {}
+                :default-order-form {}
+                :default-order-form-ui {}
+                :default-order-form-runtime {}
+                :default-trade-history {}
+                :default-funding-history {}
+                :default-order-history {}})]
+    (is (= (api-wallets-ui-state/default-form)
+           (get-in state [:api-wallets-ui :form])))
+    (is (= (api-wallets-ui-state/default-sort-state)
+           (get-in state [:api-wallets-ui :sort])))
+    (is (= (api-wallets-ui-state/default-modal-state)
+           (get-in state [:api-wallets-ui :modal])))
+    (is (= (api-wallets-ui-state/default-generated-state)
+           (get-in state [:api-wallets-ui :generated])))))
 
 (deftest default-app-state-loads-persisted-summary-and-vault-ranges-when-present-test
   (let [state (with-redefs [platform/local-storage-get (fn [key]

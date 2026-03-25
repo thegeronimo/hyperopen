@@ -1,6 +1,6 @@
 (ns hyperopen.api-wallets.effects-test
   (:require [cljs.test :refer-macros [async deftest is]]
-            [hyperopen.api-wallets.domain.policy :as policy]
+            [hyperopen.api-wallets.application.ui-state :as ui-state]
             [hyperopen.api-wallets.effects :as effects]
             [hyperopen.wallet.agent-session :as agent-session]))
 
@@ -350,11 +350,11 @@
                             :persist-session? false}]
                           @approve-calls))
                    (is (= [{:force-refresh? true}] @refresh-calls))
-                   (is (= (policy/default-form)
+                   (is (= (ui-state/default-form)
                           (get-in @store [:api-wallets-ui :form])))
-                   (is (= (policy/default-modal-state)
+                   (is (= (ui-state/default-modal-state)
                           (get-in @store [:api-wallets-ui :modal])))
-                   (is (= (policy/default-generated-state)
+                   (is (= (ui-state/default-generated-state)
                           (get-in @store [:api-wallets-ui :generated])))
                    (is (nil? (get-in @store [:api-wallets-ui :form-error])))
                    (done)))
@@ -477,9 +477,9 @@
                    (is (= [{:force-refresh? true}] @refresh-calls))
                    (is (= :not-ready (get-in @store [:wallet :agent :status])))
                    (is (= :session (get-in @store [:wallet :agent :storage-mode])))
-                   (is (= (policy/default-modal-state)
+                   (is (= (ui-state/default-modal-state)
                           (get-in @store [:api-wallets-ui :modal])))
-                   (is (= (policy/default-generated-state)
+                   (is (= (ui-state/default-generated-state)
                           (get-in @store [:api-wallets-ui :generated])))
                    (done)))
           (.catch (fn [err]

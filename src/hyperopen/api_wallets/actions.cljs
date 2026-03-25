@@ -1,7 +1,8 @@
 (ns hyperopen.api-wallets.actions
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
-            [hyperopen.api-wallets.domain.policy :as policy]))
+            [hyperopen.api-wallets.application.form-policy :as form-policy]
+            [hyperopen.api-wallets.application.ui-state :as ui-state]))
 
 (def canonical-route
   "/API")
@@ -59,7 +60,7 @@
                        [[:api-wallets :loaded-at-ms :extra-agents] nil]
                        [[:api-wallets :loaded-at-ms :default-agent] nil]
                        [[:api-wallets-ui :form-error] nil]
-                       [[:api-wallets-ui :modal] (policy/default-modal-state)]]]
+                       [[:api-wallets-ui :modal] (ui-state/default-modal-state)]]]
       (cond-> [[:effects/save-many path-values]]
         connected-owner?
         (conj [:effects/api-load-api-wallets])))
@@ -67,15 +68,15 @@
 
 (defn set-api-wallet-form-field
   [_state field value]
-  (if-let [field* (policy/normalize-form-field field)]
+  (if-let [field* (ui-state/normalize-form-field field)]
     [[:effects/save-many [[[:api-wallets-ui :form field*]
-                           (policy/normalize-form-value field* value)]
+                           (ui-state/normalize-form-value field* value)]
                           [[:api-wallets-ui :form-error] nil]]]]
     []))
 
 (defn set-api-wallet-sort
   [state column]
-  (let [next-sort (policy/next-sort-state
+  (let [next-sort (ui-state/next-sort-state
                    (get-in state [:api-wallets-ui :sort])
                    column)]
     [[:effects/save [:api-wallets-ui :sort]
@@ -94,33 +95,30 @@
       [[:effects/save [:api-wallets-ui :form-error]
         "Connect your wallet before authorizing an API wallet."]]
 
-      (not (policy/form-valid? form))
+      (not (form-policy/form-valid? form))
       [[:effects/save [:api-wallets-ui :form-error]
-        (policy/first-form-error form)]]
+        (form-policy/first-form-error form)]]
 
       :else
       [[:effects/save [:api-wallets-ui :modal]
-        {:open? true
-         :type :authorize
-         :row nil
-         :error nil
-         :submitting? false}]])))
+        (assoc (ui-state/default-modal-state)
+               :open? true
+               :type :authorize)]])))
 
 (defn open-api-wallet-remove-modal
   [_state row]
   (if (map? row)
     [[:effects/save [:api-wallets-ui :modal]
-      {:open? true
-       :type :remove
-       :row row
-       :error nil
-       :submitting? false}]]
+      (assoc (ui-state/default-modal-state)
+             :open? true
+             :type :remove
+             :row row)]]
     []))
 
 (defn close-api-wallet-modal
   [_state]
-  [[:effects/save-many [[[:api-wallets-ui :modal] (policy/default-modal-state)]
-                        [[:api-wallets-ui :generated] (policy/default-generated-state)]
+  [[:effects/save-many [[[:api-wallets-ui :modal] (ui-state/default-modal-state)]
+                        [[:api-wallets-ui :generated] (ui-state/default-generated-state)]
                         [[:api-wallets-ui :form :days-valid] ""]
                         [[:api-wallets-ui :form-error] nil]]]])
 
@@ -135,7 +133,7 @@
                            "Connect your wallet before approving an API wallet."
 
                            (= :authorize modal-type)
-                           (policy/first-form-error form)
+                           (form-policy/first-form-error form)
 
                            (and (= :remove modal-type)
                                 (not (map? (:row modal))))

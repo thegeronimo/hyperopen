@@ -13,6 +13,8 @@
             [hyperopen.account.surface-service-test]
             [hyperopen.api-test]
             [hyperopen.api-wallets.actions-test]
+            [hyperopen.api-wallets.application.form-policy-test]
+            [hyperopen.api-wallets.application.ui-state-test]
             [hyperopen.api-wallets.domain.policy-test]
             [hyperopen.api-wallets.effects-test]
             [hyperopen.api.compat-test]
@@ -388,6 +390,8 @@
              'hyperopen.account.surface-service-test
              'hyperopen.api-test
              'hyperopen.api-wallets.actions-test
+             'hyperopen.api-wallets.application.form-policy-test
+             'hyperopen.api-wallets.application.ui-state-test
              'hyperopen.api-wallets.domain.policy-test
              'hyperopen.api-wallets.effects-test
              'hyperopen.api.compat-test

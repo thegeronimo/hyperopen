@@ -4,6 +4,8 @@
             [hyperopen.api.promise-effects :as promise-effects]
             [hyperopen.api.projections :as api-projections]
             [hyperopen.api-wallets.actions :as api-wallets-actions]
+            [hyperopen.api-wallets.application.form-policy :as form-policy]
+            [hyperopen.api-wallets.application.ui-state :as ui-state]
             [hyperopen.api-wallets.domain.policy :as policy]
             [hyperopen.wallet.agent-session :as agent-session]))
 
@@ -68,9 +70,9 @@
          (fn [state]
            (-> state
                (assoc-in [:api-wallets-ui :modal]
-                         (policy/default-modal-state))
+                         (ui-state/default-modal-state))
                (assoc-in [:api-wallets-ui :generated]
-                         (policy/default-generated-state))
+                         (ui-state/default-generated-state))
                (assoc-in [:api-wallets-ui :form :days-valid] "")
                (assoc-in [:api-wallets-ui :form-error] nil)))))
 
@@ -80,7 +82,7 @@
          (fn [state]
            (-> state
                (assoc-in [:api-wallets-ui :form]
-                         (policy/default-form))
+                         (ui-state/default-form))
                (assoc-in [:api-wallets-ui :form-error] nil)))))
 
 (defn- clear-default-agent-session!
@@ -183,8 +185,8 @@
         owner-address (account-context/owner-address state)
         form (get-in state [:api-wallets-ui :form])
         {:keys [name address days-valid]} form
-        validation-error (policy/first-form-error form)
-        generated-private-key (policy/generated-private-key
+        validation-error (form-policy/first-form-error form)
+        generated-private-key (form-policy/generated-private-key
                                (get-in state [:api-wallets-ui :generated])
                                address)
         server-time-ms (get-in state [:api-wallets :server-time-ms])]
