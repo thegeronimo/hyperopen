@@ -100,6 +100,12 @@
             [hyperopen.funding.application.lifecycle-polling-test]
             [hyperopen.funding.application.modal-state-test]
             [hyperopen.funding.application.modal-vm-test]
+            [hyperopen.funding.application.modal-vm.amounts-test]
+            [hyperopen.funding.application.modal-vm.async-test]
+            [hyperopen.funding.application.modal-vm.context-test]
+            [hyperopen.funding.application.modal-vm.lifecycle-test]
+            [hyperopen.funding.application.modal-vm.models-test]
+            [hyperopen.funding.application.modal-vm.presentation-test]
             [hyperopen.funding.application.submit-effects-test]
             [hyperopen.funding.effects-test]
             [hyperopen.funding.history-cache-test]
@@ -495,6 +501,12 @@
              'hyperopen.funding.application.lifecycle-polling-test
              'hyperopen.funding.application.modal-state-test
              'hyperopen.funding.application.modal-vm-test
+             'hyperopen.funding.application.modal-vm.amounts-test
+             'hyperopen.funding.application.modal-vm.async-test
+             'hyperopen.funding.application.modal-vm.context-test
+             'hyperopen.funding.application.modal-vm.lifecycle-test
+             'hyperopen.funding.application.modal-vm.models-test
+             'hyperopen.funding.application.modal-vm.presentation-test
              'hyperopen.funding.application.submit-effects-test
              'hyperopen.funding.effects-test
              'hyperopen.funding.history-cache-test
