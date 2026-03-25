@@ -236,6 +236,10 @@
             [hyperopen.views.app-view-test]
             [hyperopen.views.asset-icon-test]
             [hyperopen.views.asset-selector-view-test]
+            [hyperopen.views.asset-selector.controls-test]
+            [hyperopen.views.asset-selector.processing-test]
+            [hyperopen.views.asset-selector.rows-test]
+            [hyperopen.views.asset-selector.runtime-test]
             [hyperopen.views.autocorrelation-plot-test]
             [hyperopen.views.chart.d3.model-test]
             [hyperopen.views.chart.d3.runtime-test]
@@ -624,6 +628,10 @@
              'hyperopen.views.app-view-test
              'hyperopen.views.asset-icon-test
              'hyperopen.views.asset-selector-view-test
+             'hyperopen.views.asset-selector.controls-test
+             'hyperopen.views.asset-selector.processing-test
+             'hyperopen.views.asset-selector.rows-test
+             'hyperopen.views.asset-selector.runtime-test
              'hyperopen.views.autocorrelation-plot-test
              'hyperopen.views.chart.d3.model-test
              'hyperopen.views.chart.d3.runtime-test
