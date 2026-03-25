@@ -21,7 +21,7 @@ Both toggles must be backed by actual behavior, not placeholder UI. Open-order s
 - [x] (2026-03-19 19:34Z) Updated deterministic coverage for Trading Settings rendering, settings persistence, order-submit behavior, close-position behavior, and the new confirm effect adapter.
 - [x] (2026-03-19 19:34Z) Ran `npm test`, `npm run test:websocket`, and `npm run check` successfully.
 - [x] (2026-03-19 19:34Z) Ran governed browser QA for the changed header surface. `/trade` remained visually clean for the header slice, while the overall review still failed on standing `/portfolio`, desktop `/trade`, and `/vaults` route debt unrelated to this feature.
-- [ ] Move this ExecPlan out of `active` once the next user-directed Trading Settings follow-up or closeout pass is complete.
+- [x] (2026-03-25 13:49 EDT) Verified the persisted confirmation toggles, confirm-gated submit seams, and deterministic coverage are still present on the current branch, then closed out the ticket by moving this ExecPlan to `completed` and closing `hyperopen-v894` in `bd`.
 
 ## Surprises & Discoveries
 
@@ -64,6 +64,8 @@ Repo gates are green:
 - `npm run check`
 
 Governed browser QA still fails overall, but for the same unrelated shared-route debt already present on `/portfolio`, desktop `/trade`, and `/vaults`. The header-facing `/trade` pass stayed green for `visual`, `native-control`, and `styling-consistency`, and mobile/tablet `/trade` layout remained clean.
+
+The 2026-03-25 closeout pass did not require new code changes. The feature implementation and deterministic coverage were already present in the branch; the remaining work was to verify the landed state, archive this ExecPlan, and close `hyperopen-v894`.
 
 ## Context and Orientation
 
@@ -144,3 +146,5 @@ Finally, update the existing deterministic tests and rerun the required repo gat
    `npm run test:websocket`
    `npm run check`
    `npm run qa:design-ui -- --changed-files src/hyperopen/views/header_view.cljs --manage-local-app`
+
+Plan update note: 2026-03-25 13:49 EDT - Confirmed the current branch still contains the Trading Settings confirmation toggles, the confirm-before-submit effect path, and the associated deterministic coverage in the files named above. No additional implementation changes were needed for closeout, so this plan is ready to move to `/completed/` and `hyperopen-v894` is ready to close in `bd`.
