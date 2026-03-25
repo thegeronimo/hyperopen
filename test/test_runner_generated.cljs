@@ -161,6 +161,10 @@
             [hyperopen.schema.chart-interop-contracts-test]
             [hyperopen.schema.contracts-coverage-test]
             [hyperopen.schema.contracts-test]
+            [hyperopen.schema.contracts.action-args-test]
+            [hyperopen.schema.contracts.assertions-test]
+            [hyperopen.schema.contracts.effect-args-test]
+            [hyperopen.schema.contracts.state-test]
             [hyperopen.schema.order-form-command-catalog-test]
             [hyperopen.staking.actions-test]
             [hyperopen.staking.effects-test]
@@ -562,6 +566,10 @@
              'hyperopen.schema.chart-interop-contracts-test
              'hyperopen.schema.contracts-coverage-test
              'hyperopen.schema.contracts-test
+             'hyperopen.schema.contracts.action-args-test
+             'hyperopen.schema.contracts.assertions-test
+             'hyperopen.schema.contracts.effect-args-test
+             'hyperopen.schema.contracts.state-test
              'hyperopen.schema.order-form-command-catalog-test
              'hyperopen.staking.actions-test
              'hyperopen.staking.effects-test
