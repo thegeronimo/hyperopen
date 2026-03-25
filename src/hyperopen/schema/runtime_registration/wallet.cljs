@@ -1,0 +1,30 @@
+(ns hyperopen.schema.runtime-registration.wallet)
+
+(def effect-binding-rows
+  [[:effects/connect-wallet :connect-wallet]
+   [:effects/disconnect-wallet :disconnect-wallet]
+   [:effects/enable-agent-trading :enable-agent-trading]
+   [:effects/set-agent-storage-mode :set-agent-storage-mode]
+   [:effects/copy-wallet-address :copy-wallet-address]])
+
+(def action-binding-rows
+  [[:actions/connect-wallet :connect-wallet-action]
+   [:actions/disconnect-wallet :disconnect-wallet-action]
+   [:actions/open-mobile-header-menu :open-mobile-header-menu]
+   [:actions/close-mobile-header-menu :close-mobile-header-menu]
+   [:actions/open-header-settings :open-header-settings]
+   [:actions/close-header-settings :close-header-settings]
+   [:actions/handle-header-settings-keydown :handle-header-settings-keydown]
+   [:actions/set-fill-alerts-enabled :set-fill-alerts-enabled]
+   [:actions/set-animate-orderbook-enabled :set-animate-orderbook-enabled]
+   [:actions/set-fill-markers-enabled :set-fill-markers-enabled]
+   [:actions/set-confirm-open-orders-enabled :set-confirm-open-orders-enabled]
+   [:actions/set-confirm-close-position-enabled :set-confirm-close-position-enabled]
+   [:actions/navigate-mobile-header-menu :navigate-mobile-header-menu]
+   [:actions/request-agent-storage-mode-change :request-agent-storage-mode-change]
+   [:actions/cancel-agent-storage-mode-change :cancel-agent-storage-mode-change]
+   [:actions/confirm-agent-storage-mode-change :confirm-agent-storage-mode-change]
+   [:actions/enable-agent-trading :enable-agent-trading-action]
+   [:actions/close-agent-recovery-modal :close-agent-recovery-modal-action]
+   [:actions/set-agent-storage-mode :set-agent-storage-mode-action]
+   [:actions/copy-wallet-address :copy-wallet-address-action]])

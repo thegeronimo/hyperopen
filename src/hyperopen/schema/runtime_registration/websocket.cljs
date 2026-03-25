@@ -1,0 +1,35 @@
+(ns hyperopen.schema.runtime-registration.websocket)
+
+(def effect-binding-rows
+  [[:effects/init-websocket :init-websocket]
+   [:effects/subscribe-active-asset :subscribe-active-asset]
+   [:effects/sync-active-candle-subscription :sync-active-candle-subscription]
+   [:effects/subscribe-orderbook :subscribe-orderbook]
+   [:effects/subscribe-trades :subscribe-trades]
+   [:effects/subscribe-webdata2 :subscribe-webdata2]
+   [:effects/fetch-candle-snapshot :fetch-candle-snapshot]
+   [:effects/unsubscribe-active-asset :unsubscribe-active-asset]
+   [:effects/unsubscribe-orderbook :unsubscribe-orderbook]
+   [:effects/unsubscribe-trades :unsubscribe-trades]
+   [:effects/unsubscribe-webdata2 :unsubscribe-webdata2]
+   [:effects/reconnect-websocket :reconnect-websocket]
+   [:effects/refresh-websocket-health :refresh-websocket-health]
+   [:effects/confirm-ws-diagnostics-reveal :confirm-ws-diagnostics-reveal]
+   [:effects/copy-websocket-diagnostics :copy-websocket-diagnostics]
+   [:effects/ws-reset-subscriptions :ws-reset-subscriptions]])
+
+(def action-binding-rows
+  [[:actions/init-websockets :init-websockets]
+   [:actions/subscribe-to-asset :subscribe-to-asset]
+   [:actions/subscribe-to-webdata2 :subscribe-to-webdata2]
+   [:actions/reconnect-websocket :reconnect-websocket-action]
+   [:actions/toggle-ws-diagnostics :toggle-ws-diagnostics]
+   [:actions/close-ws-diagnostics :close-ws-diagnostics]
+   [:actions/toggle-ws-diagnostics-sensitive :toggle-ws-diagnostics-sensitive]
+   [:actions/ws-diagnostics-reconnect-now :ws-diagnostics-reconnect-now]
+   [:actions/ws-diagnostics-copy :ws-diagnostics-copy]
+   [:actions/set-show-surface-freshness-cues :set-show-surface-freshness-cues]
+   [:actions/toggle-show-surface-freshness-cues :toggle-show-surface-freshness-cues]
+   [:actions/ws-diagnostics-reset-market-subscriptions :ws-diagnostics-reset-market-subscriptions]
+   [:actions/ws-diagnostics-reset-orders-subscriptions :ws-diagnostics-reset-orders-subscriptions]
+   [:actions/ws-diagnostics-reset-all-subscriptions :ws-diagnostics-reset-all-subscriptions]])

@@ -1,0 +1,38 @@
+(ns hyperopen.schema.runtime-registration.staking)
+
+(def effect-binding-rows
+  [[:effects/api-fetch-staking-validator-summaries :api-fetch-staking-validator-summaries]
+   [:effects/api-fetch-staking-delegator-summary :api-fetch-staking-delegator-summary]
+   [:effects/api-fetch-staking-delegations :api-fetch-staking-delegations]
+   [:effects/api-fetch-staking-rewards :api-fetch-staking-rewards]
+   [:effects/api-fetch-staking-history :api-fetch-staking-history]
+   [:effects/api-fetch-staking-spot-state :api-fetch-staking-spot-state]
+   [:effects/api-submit-staking-deposit :api-submit-staking-deposit]
+   [:effects/api-submit-staking-withdraw :api-submit-staking-withdraw]
+   [:effects/api-submit-staking-delegate :api-submit-staking-delegate]
+   [:effects/api-submit-staking-undelegate :api-submit-staking-undelegate]])
+
+(def action-binding-rows
+  [[:actions/load-staking-route :load-staking-route]
+   [:actions/load-staking :load-staking]
+   [:actions/set-staking-active-tab :set-staking-active-tab]
+   [:actions/toggle-staking-validator-timeframe-menu :toggle-staking-validator-timeframe-menu]
+   [:actions/close-staking-validator-timeframe-menu :close-staking-validator-timeframe-menu]
+   [:actions/set-staking-validator-timeframe :set-staking-validator-timeframe]
+   [:actions/set-staking-validator-page :set-staking-validator-page]
+   [:actions/set-staking-validator-show-all :set-staking-validator-show-all]
+   [:actions/set-staking-validator-sort :set-staking-validator-sort]
+   [:actions/open-staking-action-popover :open-staking-action-popover]
+   [:actions/close-staking-action-popover :close-staking-action-popover]
+   [:actions/handle-staking-action-popover-keydown :handle-staking-action-popover-keydown]
+   [:actions/set-staking-transfer-direction :set-staking-transfer-direction]
+   [:actions/set-staking-form-field :set-staking-form-field]
+   [:actions/select-staking-validator :select-staking-validator]
+   [:actions/set-staking-deposit-amount-to-max :set-staking-deposit-amount-to-max]
+   [:actions/set-staking-withdraw-amount-to-max :set-staking-withdraw-amount-to-max]
+   [:actions/set-staking-delegate-amount-to-max :set-staking-delegate-amount-to-max]
+   [:actions/set-staking-undelegate-amount-to-max :set-staking-undelegate-amount-to-max]
+   [:actions/submit-staking-deposit :submit-staking-deposit]
+   [:actions/submit-staking-withdraw :submit-staking-withdraw]
+   [:actions/submit-staking-delegate :submit-staking-delegate]
+   [:actions/submit-staking-undelegate :submit-staking-undelegate]])
