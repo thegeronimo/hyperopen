@@ -1,7 +1,6 @@
 (ns hyperopen.vaults.infrastructure.preview-cache-test
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.platform :as platform]
-            [hyperopen.vaults.application.list-vm :as list-vm]
             [hyperopen.vaults.infrastructure.preview-cache :as preview-cache]))
 
 (deftest build-vault-startup-preview-record-wraps-envelope-test

@@ -7,8 +7,7 @@
             [hyperopen.runtime.effect-adapters.common :as common]
             [hyperopen.runtime.effect-adapters.vaults :as vault-adapters]
             [hyperopen.vaults.effects :as vault-effects]
-            [hyperopen.vaults.infrastructure.list-cache :as vault-list-cache]
-            [hyperopen.vaults.infrastructure.preview-cache :as vault-preview-cache]))
+            [hyperopen.vaults.infrastructure.list-cache :as vault-list-cache]))
 
 (deftest facade-vault-adapters-delegate-to-vault-module-test
   (is (identical? vault-adapters/api-fetch-vault-index-effect
@@ -126,7 +125,7 @@
                       (get-in captured [:index :apply-vault-index-success])))
       (is (identical? api-projections/apply-vault-index-error
                       (get-in captured [:index :apply-vault-index-error])))
-      (is (identical? vault-preview-cache/persist-vault-startup-preview-record!
+      (is (identical? vault-adapters/persist-vault-startup-preview-record!
                       (get-in captured [:index :persist-vault-startup-preview-record!])))
       (is (identical? vault-list-cache/persist-vault-index-cache-record!
                       (get-in captured [:index :persist-vault-index-cache-record!])))
@@ -146,7 +145,7 @@
                       (get-in captured [:index-with-cache :apply-vault-index-success])))
       (is (identical? api-projections/apply-vault-index-error
                       (get-in captured [:index-with-cache :apply-vault-index-error])))
-      (is (identical? vault-preview-cache/persist-vault-startup-preview-record!
+      (is (identical? vault-adapters/persist-vault-startup-preview-record!
                       (get-in captured [:index-with-cache :persist-vault-startup-preview-record!])))
 
       (is (= store (get-in captured [:summaries :store])))
@@ -236,6 +235,20 @@
                       (get-in captured [:ledger-updates :apply-vault-ledger-updates-success])))
       (is (identical? api-projections/apply-vault-ledger-updates-error
                       (get-in captured [:ledger-updates :apply-vault-ledger-updates-error])))))
+
+(deftest vault-preview-persist-helper-delegates-only-when-route-module-hook-is-loaded-test
+  (let [calls (atom [])]
+    (with-redefs [hyperopen.runtime.effect-adapters.vaults/resolve-global-value
+                  (fn [_path]
+                    (fn [state]
+                      (swap! calls conj state)
+                      :persisted))]
+      (is (= :persisted
+             (vault-adapters/persist-vault-startup-preview-record! {:vaults {}})))
+      (is (= [{:vaults {}}] @calls)))
+    (with-redefs [hyperopen.runtime.effect-adapters.vaults/resolve-global-value
+                  (constantly nil)]
+      (is (nil? (vault-adapters/persist-vault-startup-preview-record! {:vaults {}}))))))
 
 (deftest vault-submit-adapter-injects-default-and-custom-toast-seams-test
   (let [store (atom {})

@@ -17,6 +17,12 @@
     (or (contains? #{:list :detail} kind)
         (str/starts-with? (or path "") "/portfolio"))))
 
+(defn- vault-startup-preview-route-active?
+  [store]
+  (= :list
+     (:kind (vault-routes/parse-vault-route
+             (get-in @store [:router :path] "")))))
+
 (defn- vault-detail-route-active?
   [store]
   (= :detail
@@ -80,7 +86,8 @@
   [{:keys [store
            persist-vault-startup-preview-record!]}
    result]
-  (when (fn? persist-vault-startup-preview-record!)
+  (when (and (vault-startup-preview-route-active? store)
+             (fn? persist-vault-startup-preview-record!))
     (let [rows (or (get-in @store [:vaults :merged-index-rows])
                    (get-in @store [:vaults :index-rows]))]
       (when (seq rows)

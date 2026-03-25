@@ -1,31 +1,4 @@
-(ns hyperopen.startup.init
-  (:require [hyperopen.platform :as platform]
-            [hyperopen.vaults.infrastructure.preview-cache :as vault-startup-preview]
-            [hyperopen.vaults.infrastructure.routes :as vault-routes]))
-
-(defn- current-pathname
-  []
-  (or (some-> js/window .-location .-pathname)
-      ""))
-
-(defn- vaults-list-route?
-  [path]
-  (= :list
-     (:kind (vault-routes/parse-vault-route
-             path))))
-
-(defn restore-vaults-startup-preview!
-  [store]
-  (when (vaults-list-route? (current-pathname))
-    (when-let [preview-record (vault-startup-preview/load-vault-startup-preview-record!)]
-      (let [restored-preview (vault-startup-preview/restore-vault-startup-preview
-                              preview-record
-                              {:snapshot-range (get-in @store [:vaults-ui :snapshot-range])
-                               :wallet-address (get-in @store [:wallet :address])
-                               :now-ms (platform/now-ms)})]
-        (if restored-preview
-          (swap! store assoc-in [:vaults :startup-preview] restored-preview)
-          (vault-startup-preview/clear-vault-startup-preview!))))))
+(ns hyperopen.startup.init)
 
 (defn reset-startup-state!
   [{:keys [startup-runtime
@@ -74,8 +47,6 @@
   (restore-portfolio-summary-time-range! store)
   ;; Restore vault snapshot range selector from localStorage.
   (restore-vaults-snapshot-range! store)
-  ;; Restore a tiny synchronous vault preview snapshot before the first render.
-  (restore-vaults-startup-preview! store)
   ;; Restore agent storage preference from localStorage.
   (restore-agent-storage-mode! store)
   ;; Restore bounded trading settings from localStorage.

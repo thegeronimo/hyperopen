@@ -1,7 +1,5 @@
 (ns hyperopen.startup.init-test
   (:require [cljs.test :refer-macros [deftest is]]
-            [hyperopen.platform :as platform]
-            [hyperopen.vaults.infrastructure.preview-cache :as vault-preview-cache]
             [hyperopen.startup.init :as startup-init]))
 
 (deftest init-runs-startup-sequence-in-deterministic-order-test
@@ -15,52 +13,49 @@
         record-store-call (fn [label]
                             (fn [store-arg]
                               (swap! calls conj [label (= store store-arg)])))]
-    (with-redefs [startup-init/restore-vaults-startup-preview!
-                  (fn [store-arg]
-                    (swap! calls conj [:restore-vaults-startup-preview (= store store-arg)]))]
-      (startup-init/init!
-       {:log-fn (fn [message]
-                  (swap! calls conj [:log message]))
-        :startup-runtime startup-runtime
-        :default-startup-runtime-state (fn [] default-startup-state)
-        :mark-performance! (fn [mark-name]
-                             (swap! calls conj [:mark mark-name]))
-        :schedule-startup-summary-log! (fn []
-                                         (swap! calls conj :schedule-summary))
-        :store store
-        :restore-ui-font-preference! (fn []
-                                       (swap! calls conj :restore-font))
-        :restore-ui-locale-preference! (record-store-call :restore-ui-locale)
-        :restore-asset-selector-sort-settings! (record-store-call :restore-asset-selector-sort)
-        :restore-chart-options! (record-store-call :restore-chart-options)
-        :restore-orderbook-ui! (record-store-call :restore-orderbook-ui)
-        :restore-portfolio-summary-time-range! (record-store-call :restore-portfolio-summary-time-range)
-        :restore-vaults-snapshot-range! (record-store-call :restore-vaults-snapshot-range)
-        :restore-agent-storage-mode! (record-store-call :restore-agent-storage-mode)
-        :restore-spectate-mode-preferences! (record-store-call :restore-spectate-mode-preferences)
-        :restore-spectate-mode-url! (record-store-call :restore-spectate-mode-url)
-        :restore-trade-route-tab! (record-store-call :restore-trade-route-tab)
-        :restore-active-asset! (record-store-call :restore-active-asset)
-        :restore-asset-selector-markets-cache! (record-store-call :restore-selector-markets-cache)
-        :restore-leaderboard-preferences! (record-store-call :restore-leaderboard-preferences)
-        :restore-open-orders-sort-settings! (record-store-call :restore-open-orders-sort)
-        :restore-funding-history-pagination-settings! (record-store-call :restore-funding-history-pagination)
-        :restore-trade-history-pagination-settings! (record-store-call :restore-trade-history-pagination)
-        :restore-order-history-pagination-settings! (record-store-call :restore-order-history-pagination)
-        :set-on-connected-handler! (fn [handler]
-                                     (swap! calls conj [:set-on-connected-handler (= handle-wallet-connected handler)]))
-        :handle-wallet-connected handle-wallet-connected
-        :init-wallet! (record-store-call :init-wallet)
-        :init-router! (record-store-call :init-router)
-        :install-asset-selector-shortcuts! (fn []
-                                             (swap! calls conj :install-asset-selector-shortcuts))
-        :install-position-tpsl-clickaway! (fn []
-                                            (swap! calls conj :install-position-tpsl-clickaway))
-        :register-icon-service-worker! (fn []
-                                         (swap! calls conj :register-icon-service-worker))
-        :initialize-remote-data-streams! (fn []
-                                           (swap! calls conj :initialize-remote-data-streams))
-        :kick-render! (record-store-call :kick-render)}))
+    (startup-init/init!
+     {:log-fn (fn [message]
+                (swap! calls conj [:log message]))
+      :startup-runtime startup-runtime
+      :default-startup-runtime-state (fn [] default-startup-state)
+      :mark-performance! (fn [mark-name]
+                           (swap! calls conj [:mark mark-name]))
+      :schedule-startup-summary-log! (fn []
+                                       (swap! calls conj :schedule-summary))
+      :store store
+      :restore-ui-font-preference! (fn []
+                                     (swap! calls conj :restore-font))
+      :restore-ui-locale-preference! (record-store-call :restore-ui-locale)
+      :restore-asset-selector-sort-settings! (record-store-call :restore-asset-selector-sort)
+      :restore-chart-options! (record-store-call :restore-chart-options)
+      :restore-orderbook-ui! (record-store-call :restore-orderbook-ui)
+      :restore-portfolio-summary-time-range! (record-store-call :restore-portfolio-summary-time-range)
+      :restore-vaults-snapshot-range! (record-store-call :restore-vaults-snapshot-range)
+      :restore-agent-storage-mode! (record-store-call :restore-agent-storage-mode)
+      :restore-spectate-mode-preferences! (record-store-call :restore-spectate-mode-preferences)
+      :restore-spectate-mode-url! (record-store-call :restore-spectate-mode-url)
+      :restore-trade-route-tab! (record-store-call :restore-trade-route-tab)
+      :restore-active-asset! (record-store-call :restore-active-asset)
+      :restore-asset-selector-markets-cache! (record-store-call :restore-selector-markets-cache)
+      :restore-leaderboard-preferences! (record-store-call :restore-leaderboard-preferences)
+      :restore-open-orders-sort-settings! (record-store-call :restore-open-orders-sort)
+      :restore-funding-history-pagination-settings! (record-store-call :restore-funding-history-pagination)
+      :restore-trade-history-pagination-settings! (record-store-call :restore-trade-history-pagination)
+      :restore-order-history-pagination-settings! (record-store-call :restore-order-history-pagination)
+      :set-on-connected-handler! (fn [handler]
+                                   (swap! calls conj [:set-on-connected-handler (= handle-wallet-connected handler)]))
+      :handle-wallet-connected handle-wallet-connected
+      :init-wallet! (record-store-call :init-wallet)
+      :init-router! (record-store-call :init-router)
+      :install-asset-selector-shortcuts! (fn []
+                                           (swap! calls conj :install-asset-selector-shortcuts))
+      :install-position-tpsl-clickaway! (fn []
+                                          (swap! calls conj :install-position-tpsl-clickaway))
+      :register-icon-service-worker! (fn []
+                                       (swap! calls conj :register-icon-service-worker))
+      :initialize-remote-data-streams! (fn []
+                                         (swap! calls conj :initialize-remote-data-streams))
+      :kick-render! (record-store-call :kick-render)})
 
     (is (= default-startup-state @startup-runtime))
     (is (= [[:log "Initializing Hyperopen..."]
@@ -73,7 +68,6 @@
             [:restore-orderbook-ui true]
             [:restore-portfolio-summary-time-range true]
             [:restore-vaults-snapshot-range true]
-            [:restore-vaults-startup-preview true]
             [:restore-agent-storage-mode true]
             [:restore-spectate-mode-preferences true]
             [:restore-spectate-mode-url true]
@@ -95,69 +89,6 @@
             :register-icon-service-worker
             :initialize-remote-data-streams]
            @calls))))
-
-(deftest restore-vault-startup-preview-loads-into-vault-state-before-first-render-test
-  (let [store (atom {:router {:path "/trade"}
-                     :wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}
-                     :vaults-ui {:snapshot-range :month}
-                     :vaults {:index-rows []}})
-        preview-record {:id "vault-startup-preview:v1"
-                        :version 1
-                        :saved-at-ms 1700000000000
-                        :snapshot-range :month
-                        :wallet-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
-                        :total-visible-tvl 42
-                        :protocol-rows [{:name "Preview Vault"
-                                         :vault-address "0xpreview"
-                                         :leader "0xleader"
-                                         :tvl 42
-                                         :apr 12
-                                         :your-deposit 0
-                                         :age-days 2
-                                         :snapshot-series [1 2]}]
-                        :user-rows []}
-        restored-preview (assoc preview-record :stale? false)
-        restore-call (atom nil)]
-    (with-redefs [startup-init/current-pathname (fn []
-                                                  "/vaults")
-                  vault-preview-cache/load-vault-startup-preview-record! (fn []
-                                                                            preview-record)
-                  vault-preview-cache/restore-vault-startup-preview (fn [record opts]
-                                                                      (reset! restore-call {:record record
-                                                                                            :opts opts})
-                                                                      restored-preview)
-                  vault-preview-cache/clear-vault-startup-preview! (fn []
-                                                                     (throw (js/Error. "should-not-clear")))
-                  platform/now-ms (fn [] (+ 1700000000000 (* 5 60 1000)))]
-      (startup-init/restore-vaults-startup-preview! store)
-      (is (= restored-preview (get-in @store [:vaults :startup-preview])))
-      (is (= {:record preview-record
-              :opts {:snapshot-range :month
-                     :wallet-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
-                     :now-ms (+ 1700000000000 (* 5 60 1000))}}
-             @restore-call)))))
-
-(deftest restore-vault-startup-preview-clears-invalidated-preview-records-test
-  (let [store (atom {:vaults-ui {:snapshot-range :month}
-                     :vaults {:startup-preview {:stale? false}}})
-        cleared? (atom false)]
-    (with-redefs [startup-init/current-pathname (fn []
-                                                  "/vaults")
-                  vault-preview-cache/load-vault-startup-preview-record! (fn []
-                                                                            {:id "vault-startup-preview:v1"
-                                                                             :version 1
-                                                                             :saved-at-ms 1700000000000
-                                                                             :snapshot-range :month
-                                                                             :protocol-rows [{:vault-address "0xpreview"}]})
-                  vault-preview-cache/restore-vault-startup-preview (fn [_record _opts]
-                                                                      nil)
-                  vault-preview-cache/clear-vault-startup-preview! (fn []
-                                                                     (reset! cleared? true))
-                  platform/now-ms (fn [] (+ 1700000000000 (* 2 60 60 1000)))]
-      (startup-init/restore-vaults-startup-preview! store)
-      (is (true? @cleared?))
-      (is (= {:stale? false}
-             (get-in @store [:vaults :startup-preview]))))))
 
 (deftest reset-startup-state-falls-back-to-runtime-when-startup-runtime-atom-is-absent-test
   (let [runtime (atom {:startup {:deferred-scheduled? true

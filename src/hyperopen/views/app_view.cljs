@@ -13,8 +13,6 @@
             [hyperopen.views.notifications-view :as notifications-view]
             [hyperopen.views.order-submit-confirmation-modal :as order-submit-confirmation-modal]
             [hyperopen.views.trade-view :as trade-view]
-            [hyperopen.views.vaults.preview-shell :as vaults-preview-shell]
-            [hyperopen.vaults.infrastructure.routes :as vault-routes]
             [hyperopen.wallet.core :as wallet]))
 
 (defn- spectate-mode-banner
@@ -132,10 +130,6 @@
                   :on {:click [[:actions/navigate route {:replace? true}]]}}
          "Retry"])]]))
 
-(defn- vaults-list-route?
-  [route]
-  (= :list (:kind (vault-routes/parse-vault-route route))))
-
 (defn app-view [state]
   (let [route (get-in state [:router :path] "/trade")
         trade-route? (router/trade-route? route)
@@ -170,10 +164,6 @@
              (route-modules/route-ready? state route))
         (or (route-modules/render-route-view state route)
             (deferred-route-loading-shell state route))
-        (and deferred-route?
-             (vaults-list-route? route)
-             (vaults-preview-shell/startup-preview-valid? (get-in state [:vaults :startup-preview])))
-        (vaults-preview-shell/startup-preview-shell state)
         deferred-route? (deferred-route-loading-shell state route)
         :else (trade-view/trade-view state))]
      (funding-modal/funding-modal-view state)

@@ -60,3 +60,32 @@
                       (is (= "Loaded route module without exported view: :vaults"
                              (route-modules/route-error @store "/vaults")))
                       (done)))))))))
+
+(deftest load-route-module-restores-vault-preview-only-for-list-route-test
+  (async done
+    (let [store (atom {:route-modules (route-modules/default-state)})
+          restore-calls (atom [])]
+      (with-redefs [loader/loaded? (constantly true)
+                    route-modules/resolved-route-view (fn [_module-id] nil)
+                    hyperopen.route-modules/resolve-module-view
+                    (fn [module-id]
+                      (when (= module-id :vaults)
+                        {:list (fn [_state] [:div "list"])
+                         :detail (fn [_state] [:div "detail"])}))
+                    hyperopen.route-modules/maybe-restore-vaults-list-preview!
+                    (fn [store-arg path]
+                      (swap! restore-calls conj [store-arg path]))]
+        (-> (route-modules/load-route-module! store "/vaults")
+            (.then (fn [_]
+                     (is (= [[store "/vaults"]] @restore-calls))
+                     (reset! restore-calls [])
+                     (-> (route-modules/load-route-module! store "/vaults/0x1234567890abcdef1234567890abcdef12345678")
+                         (.then (fn [_]
+                                  (is (= [] @restore-calls))
+                                  (done)))
+                         (.catch (fn [err]
+                                   (is false (str "unexpected detail-route module load failure: " err))
+                                   (done))))))
+            (.catch (fn [err]
+                      (is false (str "unexpected list-route module load failure: " err))
+                      (done))))))))

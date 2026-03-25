@@ -215,41 +215,40 @@
     (is (some? api-root))))
 
 (deftest app-view-renders-vault-routes-with-vault-roots-test
-  (let [list-view (app-view/app-view (assoc (base-state)
-                                            :router {:path "/vaults"}
-                                            :wallet {}
-                                            :vaults-ui {:search-query ""
-                                                        :filter-leading? true
-                                                        :filter-deposited? true
-                                                        :filter-others? true
-                                                        :filter-closed? false
-                                                        :snapshot-range :month
-                                                        :sort {:column :tvl
-                                                               :direction :desc}}
-                                            :vaults {:loading {:index? false
-                                                               :summaries? false}
-                                                     :errors {:index nil
-                                                              :summaries nil}
-                                                     :user-equity-by-address {}
-                                                     :merged-index-rows []}))
-        detail-view (app-view/app-view (assoc (base-state)
-                                              :router {:path "/vaults/0x1234567890abcdef1234567890abcdef12345678"}
-                                              :wallet {}
-                                              :vaults-ui {:detail-tab :about
-                                                          :snapshot-range :month
-                                                          :detail-loading? false}
-                                              :vaults {:errors {:details-by-address {}
-                                                                :webdata-by-vault {}}
-                                                       :details-by-address {}
-                                                       :webdata-by-vault {}
-                                                       :user-equity-by-address {}
-                                                       :merged-index-rows []}))
+  (let [list-view (with-redefs [route-modules/route-ready? (constantly true)
+                                route-modules/render-route-view
+                                (fn [_state route]
+                                  (cond
+                                    (= "/vaults" route)
+                                    [:div {:data-parity-id "vaults-root"}]
+
+                                    (= "/vaults/0x1234567890abcdef1234567890abcdef12345678" route)
+                                    [:div {:data-parity-id "vault-detail-root"}]
+
+                                    :else nil))]
+                    (app-view/app-view (assoc (base-state)
+                                              :router {:path "/vaults"}
+                                              :wallet {})))
+        detail-view (with-redefs [route-modules/route-ready? (constantly true)
+                                  route-modules/render-route-view
+                                  (fn [_state route]
+                                    (cond
+                                      (= "/vaults" route)
+                                      [:div {:data-parity-id "vaults-root"}]
+
+                                      (= "/vaults/0x1234567890abcdef1234567890abcdef12345678" route)
+                                      [:div {:data-parity-id "vault-detail-root"}]
+
+                                      :else nil))]
+                      (app-view/app-view (assoc (base-state)
+                                                :router {:path "/vaults/0x1234567890abcdef1234567890abcdef12345678"}
+                                                :wallet {})))
         list-root (hiccup/find-by-parity-id list-view "vaults-root")
         detail-root (hiccup/find-by-parity-id detail-view "vault-detail-root")]
     (is (some? list-root))
     (is (some? detail-root))))
 
-(deftest app-view-renders-vault-startup-preview-when-route-module-is-still-loading-test
+(deftest app-view-keeps-generic-route-loader-for-unresolved-vault-route-test
   (let [view-node (with-redefs [route-modules/route-ready? (constantly false)
                                 route-modules/render-route-view (constantly nil)
                                 route-modules/route-error (constantly nil)]
@@ -282,17 +281,14 @@
                                                                                      :tvl 42000
                                                                                      :your-deposit 900
                                                                                      :age-days 21}]}})))
-        preview-shell (hiccup/find-by-data-role view-node "vaults-startup-preview-shell")
-        refreshing-banner (hiccup/find-by-data-role view-node "vaults-refreshing-banner")
-        rendered-strings (set (hiccup/collect-strings view-node))]
-    (is (some? preview-shell))
-    (is (some? refreshing-banner))
-    (is (contains? rendered-strings "Vaults"))
-    (is (contains? rendered-strings "Refreshing vaults…"))
-    (is (contains? rendered-strings "Alpha Vault"))
-    (is (contains? rendered-strings "Beta Vault"))
-    (is (contains? rendered-strings "Gamma Vault"))
-    (is (not (contains? rendered-strings "Loading Route")))
+        route-shell (hiccup/find-by-parity-id view-node "app-route-module-shell")
+        rendered-strings (set (hiccup/collect-strings route-shell))]
+    (is (some? route-shell))
+    (is (contains? rendered-strings "Loading Route"))
+    (is (not (contains? rendered-strings "Refreshing vaults…")))
+    (is (not (contains? rendered-strings "Alpha Vault")))
+    (is (not (contains? rendered-strings "Beta Vault")))
+    (is (not (contains? rendered-strings "Gamma Vault")))
     (is (not (contains? rendered-strings "Route Load Failed")))))
 
 (deftest app-view-keeps-generic-route-loader-for-route-errors-and-other-routes-test

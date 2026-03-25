@@ -27,6 +27,9 @@
    :vaults [["hyperopen" "views" "vaults" "list_view" "route_view"]
             ["hyperopen" "views" "vaults" "detail_view" "route_view"]]})
 
+(def ^:private vaults-startup-preview-restore-path
+  ["hyperopen" "views" "vaults" "startup_preview" "restore_startup_preview_BANG_"])
+
 (defonce ^:private resolved-route-views (atom {}))
 
 (declare resolve-module-view)
@@ -114,6 +117,14 @@
                :detail (nth views 1 nil)}
       (nth views 0 nil))))
 
+(defn- maybe-restore-vaults-list-preview!
+  [store path]
+  (when (= :list
+           (:kind (vault-routes/parse-vault-route path)))
+    (when-let [restore-fn (resolve-exported-view vaults-startup-preview-restore-path)]
+      (when (fn? restore-fn)
+        (restore-fn store)))))
+
 (defn render-route-view
   [state path]
   (when-let [module-id (route-module-id path)]
@@ -159,6 +170,8 @@
   (if-let [module-id (route-module-id path)]
     (if-let [existing-view (cached-or-exported-view module-id)]
       (do
+        (when (= module-id :vaults)
+          (maybe-restore-vaults-list-preview! store path))
         (swap! store mark-route-module-loaded module-id)
         (js/Promise.resolve existing-view))
       (let [module-name (get module-name-by-id module-id)
@@ -169,6 +182,8 @@
                   (throw (js/Error.
                           (str "Loaded route module without exported view: " module-id))))
                 (swap! resolved-route-views assoc module-id resolved-view)
+                (when (= module-id :vaults)
+                  (maybe-restore-vaults-list-preview! store path))
                 (swap! store mark-route-module-loaded module-id)
                 resolved-view))]
         (swap! store mark-route-module-loading path)

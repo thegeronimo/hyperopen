@@ -1,8 +1,14 @@
 (ns hyperopen.vaults.infrastructure.preview-cache
   (:require [clojure.string :as str]
             [hyperopen.platform :as platform]
-            [hyperopen.vaults.application.list-vm :as list-vm]
             [hyperopen.vaults.application.ui-state :as vault-ui-state]))
+
+(def ^:private day-ms
+  (* 24 60 60 1000))
+
+(def ^:private protocol-vault-names
+  #{"hyperliquidity provider (hlp)"
+    "liquidator"})
 
 (def vault-startup-preview-storage-key
   "vault-startup-preview:v1")
@@ -63,6 +69,170 @@
          (take 32)
          vec)
     []))
+
+(defn- snapshot-point-value
+  [entry]
+  (cond
+    (number? entry) entry
+
+    (and (sequential? entry)
+         (>= (count entry) 2))
+    (optional-number (second entry))
+
+    (map? entry)
+    (or (optional-number (:value entry))
+        (optional-number (:pnl entry))
+        (optional-number (:account-value entry))
+        (optional-number (:accountValue entry)))
+
+    :else
+    nil))
+
+(defn- snapshot-preview-entry
+  [row snapshot-key]
+  (let [entry (get-in row [:snapshot-preview-by-key snapshot-key])]
+    (when (map? entry)
+      entry)))
+
+(defn- normalize-percent-value
+  [value]
+  (let [n (or (optional-number value) 0)]
+    (if (<= (js/Math.abs n) 1)
+      (* 100 n)
+      n)))
+
+(def ^:private default-snapshot-range-keys
+  [:month :week :all-time :day])
+
+(def ^:private extended-snapshot-range-keys
+  [:all-time :month :week :day])
+
+(def ^:private snapshot-range-keys-by-range
+  {:day [:day :week :month :all-time]
+   :week [:week :month :all-time :day]
+   :month default-snapshot-range-keys
+   :three-month extended-snapshot-range-keys
+   :six-month extended-snapshot-range-keys
+   :one-year extended-snapshot-range-keys
+   :two-year extended-snapshot-range-keys
+   :all-time extended-snapshot-range-keys})
+
+(defn- snapshot-range-keys
+  [snapshot-range]
+  (get snapshot-range-keys-by-range
+       (vault-ui-state/normalize-vault-snapshot-range snapshot-range)
+       default-snapshot-range-keys))
+
+(defn- snapshot-series-for-range
+  [row snapshot-range]
+  (or (some (fn [snapshot-key]
+              (if-let [{:keys [series]} (snapshot-preview-entry row snapshot-key)]
+                (when (sequential? series)
+                  (let [normalized-values (->> series
+                                               (keep optional-number)
+                                               vec)]
+                    (when (seq normalized-values)
+                      normalized-values)))
+                (let [snapshot-values (get-in row [:snapshot-by-key snapshot-key])]
+                  (when (sequential? snapshot-values)
+                    (let [normalized-values (->> snapshot-values
+                                                 (keep snapshot-point-value)
+                                                 (mapv normalize-percent-value))]
+                      (when (seq normalized-values)
+                        normalized-values))))))
+            (snapshot-range-keys snapshot-range))
+      []))
+
+(defn- normalize-age-days
+  [create-time-ms now-ms]
+  (if (and (number? create-time-ms)
+           (number? now-ms)
+           (>= now-ms create-time-ms))
+    (js/Math.floor (/ (- now-ms create-time-ms) day-ms))
+    0))
+
+(defn- visible-vault-rows
+  [state]
+  (let [merged-index-rows (get-in state [:vaults :merged-index-rows])
+        index-rows (get-in state [:vaults :index-rows])]
+    (cond
+      (seq merged-index-rows) merged-index-rows
+      (seq index-rows) index-rows
+      :else [])))
+
+(defn- preview-row-model
+  [row wallet-address equity-by-address snapshot-range now-ms]
+  (let [vault-address (normalize-address (:vault-address row))
+        name (or (some-> (:name row) str str/trim)
+                 vault-address
+                 "Unknown Vault")
+        leader (normalize-address (:leader row))
+        user-equity-row (get equity-by-address vault-address)
+        your-deposit (or (optional-number (:equity user-equity-row)) 0)
+        relationship-type (get-in row [:relationship :type] :normal)
+        name-token (str/lower-case name)]
+    (when (and vault-address
+               (not= :child relationship-type)
+               (not (true? (:is-closed? row))))
+      {:name name
+       :vault-address vault-address
+       :leader leader
+       :apr (normalize-percent-value (:apr row))
+       :tvl (or (optional-number (:tvl row)) 0)
+       :your-deposit your-deposit
+       :age-days (normalize-age-days (:create-time-ms row) now-ms)
+       :snapshot-series (snapshot-series-for-range row snapshot-range)
+       :is-closed? (boolean (:is-closed? row))
+       :is-protocol? (contains? protocol-vault-names name-token)
+       :has-deposit? (pos? your-deposit)
+       :is-leading? (and (seq wallet-address)
+                         (= wallet-address leader))})))
+
+(defn- sort-key
+  [row column]
+  (case column
+    :vault (str/lower-case (or (:name row) ""))
+    :leader (str/lower-case (or (:leader row) ""))
+    :apr (or (:apr row) 0)
+    :tvl (or (:tvl row) 0)
+    :your-deposit (or (:your-deposit row) 0)
+    :age (or (:age-days row) 0)
+    :snapshot 0
+    (or (:tvl row) 0)))
+
+(defn- compare-preview-rows
+  [left right column direction]
+  (let [deposit-priority (compare (if (:has-deposit? left) 0 1)
+                                  (if (:has-deposit? right) 0 1))]
+    (if (not (zero? deposit-priority))
+      deposit-priority
+      (let [primary (compare (sort-key left column)
+                             (sort-key right column))
+            primary* (if (= :asc direction) primary (- primary))]
+        (if (zero? primary*)
+          (compare (or (:vault-address left) "")
+                   (or (:vault-address right) ""))
+          primary*)))))
+
+(defn- sorted-preview-rows
+  [rows]
+  (let [sort-column vault-ui-state/default-vault-sort-column
+        sort-direction vault-ui-state/default-vault-sort-direction]
+    (sort (fn [left right]
+            (compare-preview-rows left right sort-column sort-direction))
+          rows)))
+
+(defn- partition-preview-rows
+  [rows]
+  (reduce (fn [{:keys [protocol-rows user-rows]} row]
+            (if (:is-protocol? row)
+              {:protocol-rows (conj protocol-rows row)
+               :user-rows user-rows}
+              {:protocol-rows protocol-rows
+               :user-rows (conj user-rows row)}))
+          {:protocol-rows []
+           :user-rows []}
+          rows))
 
 (defn- normalize-preview-row
   [row]
@@ -125,14 +295,44 @@
 
 (defn build-vault-startup-preview-record
   [state]
-  (when-let [preview (list-vm/build-startup-preview-record
-                      state
-                      {:protocol-row-limit vault-startup-preview-protocol-row-limit
-                       :user-row-limit vault-startup-preview-user-row-limit
-                       :now-ms (platform/now-ms)})]
-    (assoc preview
-           :id vault-startup-preview-storage-key
-           :version vault-startup-preview-version)))
+  (let [snapshot-range (vault-ui-state/normalize-vault-snapshot-range
+                        (get-in state [:vaults-ui :snapshot-range]))
+        now-ms (platform/now-ms)
+        wallet-address (normalize-address (get-in state [:wallet :address]))
+        equity-by-address (or (get-in state [:vaults :user-equity-by-address]) {})
+        rows (visible-vault-rows state)
+        parsed-rows (->> rows
+                         (keep #(preview-row-model %
+                                                   wallet-address
+                                                   equity-by-address
+                                                   snapshot-range
+                                                   now-ms))
+                         sorted-preview-rows
+                         vec)
+        {:keys [protocol-rows user-rows]} (partition-preview-rows parsed-rows)
+        visible-user-rows (->> user-rows
+                               (take vault-ui-state/default-vault-user-page-size)
+                               vec)
+        preview-protocol-rows (->> protocol-rows
+                                   (take vault-startup-preview-protocol-row-limit)
+                                   vec)
+        preview-user-rows (->> visible-user-rows
+                               (take vault-startup-preview-user-row-limit)
+                               vec)]
+    (when (or (seq preview-protocol-rows)
+              (seq preview-user-rows))
+      {:id vault-startup-preview-storage-key
+       :version vault-startup-preview-version
+       :saved-at-ms now-ms
+       :snapshot-range snapshot-range
+       :wallet-address wallet-address
+       :total-visible-tvl (reduce (fn [acc row]
+                                    (+ acc (or (:tvl row) 0)))
+                                  0
+                                  parsed-rows)
+       :protocol-rows preview-protocol-rows
+       :user-rows preview-user-rows
+       :stale? false})))
 
 (defn load-vault-startup-preview-record!
   []

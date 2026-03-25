@@ -213,6 +213,7 @@
             [hyperopen.vaults.detail.transfer-test]
             [hyperopen.vaults.detail.types-test]
             [hyperopen.vaults.domain.transfer-policy-test]
+            [hyperopen.vaults.effects-preview-scope-test]
             [hyperopen.vaults.effects-test]
             [hyperopen.vaults.infrastructure.list-cache-test]
             [hyperopen.vaults.infrastructure.persistence-test]
@@ -340,6 +341,7 @@
             [hyperopen.views.vaults.detail.panels-test]
             [hyperopen.views.vaults.detail.transfer-modal-test]
             [hyperopen.views.vaults.list-view-test]
+            [hyperopen.views.vaults.startup-preview-test]
             [hyperopen.views.vaults.vm-test]
             [hyperopen.views.workbench-render-seams-test]
             [hyperopen.wallet.actions-test]
@@ -618,6 +620,7 @@
              'hyperopen.vaults.detail.transfer-test
              'hyperopen.vaults.detail.types-test
              'hyperopen.vaults.domain.transfer-policy-test
+             'hyperopen.vaults.effects-preview-scope-test
              'hyperopen.vaults.effects-test
              'hyperopen.vaults.infrastructure.list-cache-test
              'hyperopen.vaults.infrastructure.persistence-test
@@ -745,6 +748,7 @@
              'hyperopen.views.vaults.detail.panels-test
              'hyperopen.views.vaults.detail.transfer-modal-test
              'hyperopen.views.vaults.list-view-test
+             'hyperopen.views.vaults.startup-preview-test
              'hyperopen.views.vaults.vm-test
              'hyperopen.views.workbench-render-seams-test
              'hyperopen.wallet.actions-test

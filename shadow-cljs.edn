@@ -29,7 +29,8 @@
                   :api_wallets_route {:entries [hyperopen.views.api-wallets-view]
                                       :depends-on #{:main}}
                   :vaults_route {:entries [hyperopen.views.vaults.list-view
-                                           hyperopen.views.vaults.detail-view]
+                                           hyperopen.views.vaults.detail-view
+                                           hyperopen.views.vaults.startup-preview]
                                  :depends-on #{:main}}}
         :devtools {:preloads [hyperopen.telemetry.console-preload]
                    :http-root "resources/public"
@@ -107,6 +108,7 @@
                       :api_wallets_route {:entries [hyperopen.views.api-wallets-view]
                                           :depends-on #{:main}}
                       :vaults_route {:entries [hyperopen.views.vaults.list-view
-                                               hyperopen.views.vaults.detail-view]
+                                               hyperopen.views.vaults.detail-view
+                                               hyperopen.views.vaults.startup-preview]
                                      :depends-on #{:main}}}
             :compiler-options {:optimizations :advanced}}}} 
