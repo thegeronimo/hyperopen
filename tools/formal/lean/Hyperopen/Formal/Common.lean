@@ -39,7 +39,7 @@ def surfaceModuleName : Surface → String
 
 def surfaceStatus : Surface → String
   | .vaultTransfer => "modeled"
-  | .orderRequestStandard => "bootstrap"
+  | .orderRequestStandard => "modeled"
   | .orderRequestAdvanced => "bootstrap"
 
 def surfaceManifestPath : Surface → String :=
@@ -47,7 +47,7 @@ def surfaceManifestPath : Surface → String :=
 
 def surfaceGeneratedSourcePath? : Surface → Option String
   | .vaultTransfer => some "../../../target/formal/vault-transfer-vectors.cljs"
-  | .orderRequestStandard => none
+  | .orderRequestStandard => some "../../../target/formal/order-request-standard-vectors.cljs"
   | .orderRequestAdvanced => none
 
 def surfaceManifest : Surface → String :=

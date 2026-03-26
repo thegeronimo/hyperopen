@@ -82,7 +82,7 @@ Supported surfaces:
 Current surface state:
 
 - `vault-transfer`: modeled; emits transient generated source under `/hyperopen/target/formal/` and syncs the checked-in bridge under `/hyperopen/test/hyperopen/formal/vault_transfer_vectors.cljs`
-- `order-request-standard`: bootstrap manifest only
+- `order-request-standard`: modeled; emits transient generated source under `/hyperopen/target/formal/` and syncs the checked-in bridge under `/hyperopen/test/hyperopen/formal/order_request_standard_vectors.cljs`
 - `order-request-advanced`: bootstrap manifest only
 
 The generated manifests live under `/hyperopen/tools/formal/generated/`, transient generated source lives under `/hyperopen/target/formal/`, and the Lean workspace lives under `/hyperopen/tools/formal/lean/`.

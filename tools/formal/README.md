@@ -28,7 +28,7 @@ Supported surfaces are:
 Current surface state:
 
 - `vault-transfer`: modeled, emits `target/formal/vault-transfer-vectors.cljs`, and syncs `test/hyperopen/formal/vault_transfer_vectors.cljs`
-- `order-request-standard`: bootstrap manifest only
+- `order-request-standard`: modeled, emits `target/formal/order-request-standard-vectors.cljs`, and syncs `test/hyperopen/formal/order_request_standard_vectors.cljs`
 - `order-request-advanced`: bootstrap manifest only
 
 ## Layout

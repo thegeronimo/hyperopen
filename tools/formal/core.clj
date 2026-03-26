@@ -10,8 +10,10 @@
                      :target-source "target/formal/vault-transfer-vectors.cljs"
                      :committed-source "test/hyperopen/formal/vault_transfer_vectors.cljs"}
    "order-request-standard" {:lean-module "Hyperopen.Formal.OrderRequest.Standard"
-                             :status "bootstrap"
-                             :manifest "generated/order-request-standard.edn"}
+                             :status "modeled"
+                             :manifest "generated/order-request-standard.edn"
+                             :target-source "target/formal/order-request-standard-vectors.cljs"
+                             :committed-source "test/hyperopen/formal/order_request_standard_vectors.cljs"}
    "order-request-advanced" {:lean-module "Hyperopen.Formal.OrderRequest.Advanced"
                              :status "bootstrap"
                              :manifest "generated/order-request-advanced.edn"}})
