@@ -28,6 +28,7 @@
             :class ["peer"
                     "absolute"
                     "inset-0"
+                    "z-[1]"
                     "h-full"
                     "w-full"
                     "cursor-pointer"
@@ -37,6 +38,7 @@
    [:span {:aria-hidden true
            :class (into ["absolute"
                          "inset-0"
+                         "pointer-events-none"
                          "rounded-full"
                          "border"
                          "shadow-[inset_0_1px_0_rgba(255,255,255,0.04),inset_0_-1px_1px_rgba(0,0,0,0.22)]"
@@ -54,6 +56,7 @@
            :class (into ["absolute"
                          "left-[3px]"
                          "top-[3px]"
+                         "pointer-events-none"
                          "h-[14px]"
                          "w-[14px]"
                          "rounded-full"

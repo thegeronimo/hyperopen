@@ -170,7 +170,7 @@
                                        (remember-trading-session? state)
                                        :session
                                        [[:actions/request-agent-storage-mode-change
-                                         :event.target/checked]])
+                                         (not (remember-trading-session? state))]])
                          :confirmation confirmation)])
                 (settings-section
                  :confirmations
@@ -181,14 +181,14 @@
                                 (trading-settings/confirm-open-orders? state)
                                 :confirm-open-orders
                                 [[:actions/set-confirm-open-orders-enabled
-                                  :event.target/checked]])
+                                  (not (trading-settings/confirm-open-orders? state))]])
                   (settings-row :confirm-close-position
                                 "Confirm close position"
                                 "Ask before submitting from the close-position popover."
                                 (trading-settings/confirm-close-position? state)
                                 :confirm-close-position
                                 [[:actions/set-confirm-close-position-enabled
-                                  :event.target/checked]])])
+                                  (not (trading-settings/confirm-close-position? state))]])])
                 (settings-section
                  :alerts
                  "Alerts"
@@ -198,7 +198,7 @@
                                 (trading-settings/fill-alerts-enabled? state)
                                 :alerts
                                 [[:actions/set-fill-alerts-enabled
-                                  :event.target/checked]])])
+                                  (not (trading-settings/fill-alerts-enabled? state))]])])
                 (settings-section
                  :display
                  "Display"
@@ -208,14 +208,14 @@
                                 (trading-settings/animate-orderbook? state)
                                 :animate-orderbook
                                 [[:actions/set-animate-orderbook-enabled
-                                  :event.target/checked]])
+                                  (not (trading-settings/animate-orderbook? state))]])
                   (settings-row :fill-markers
                                 "Fill markers"
                                 "Show buy and sell markers for the active asset on the chart."
                                 (trading-settings/show-fill-markers? state)
                                 :fill-markers
                                 [[:actions/set-fill-markers-enabled
-                                  :event.target/checked]])])]}))
+                                  (not (trading-settings/show-fill-markers? state))]])])]}))
 
 (defn header-vm
   [state]

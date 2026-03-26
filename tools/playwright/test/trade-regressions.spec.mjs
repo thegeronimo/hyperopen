@@ -353,3 +353,73 @@ test("order submit confirmation renders in-app instead of opening a browser dial
   await page.locator('[data-role="order-submit-confirmation-cancel"]').click();
   await expect(page.locator('[data-role="order-submit-confirmation-dialog"]')).toHaveCount(0);
 });
+
+test("trading settings confirmation toggles respond to visible switch clicks @regression", async ({
+  page
+}) => {
+  await visitRoute(page, "/trade");
+
+  await page.locator('[data-role="header-settings-button"]').click();
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+
+  const openToggleLabel = page
+    .locator(
+      '[data-role="trading-settings-panel"] [data-role="trading-settings-confirm-open-orders-row"] label'
+    )
+    .first();
+  const openToggleInput = page
+    .locator(
+      '[data-role="trading-settings-panel"] [data-role="trading-settings-confirm-open-orders-row"] input[type="checkbox"]'
+    )
+    .first();
+  const closeToggleLabel = page
+    .locator(
+      '[data-role="trading-settings-panel"] [data-role="trading-settings-confirm-close-position-row"] label'
+    )
+    .first();
+  const closeToggleInput = page
+    .locator(
+      '[data-role="trading-settings-panel"] [data-role="trading-settings-confirm-close-position-row"] input[type="checkbox"]'
+    )
+    .first();
+
+  await expect(openToggleInput).toBeChecked();
+  await expect(closeToggleInput).toBeChecked();
+
+  await openToggleLabel.click();
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+
+  await expect(openToggleInput).not.toBeChecked();
+  await expect
+    .poll(
+      async () =>
+        (await debugCall(page, "snapshot"))["app-state"]["trading-settings"]["confirm-open-orders?"],
+      { timeout: 4_000 }
+    )
+    .toBe(false);
+
+  await closeToggleLabel.click();
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+
+  await expect(closeToggleInput).not.toBeChecked();
+  await expect
+    .poll(
+      async () =>
+        (await debugCall(page, "snapshot"))["app-state"]["trading-settings"]["confirm-close-position?"],
+      { timeout: 4_000 }
+    )
+    .toBe(false);
+
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          JSON.parse(localStorage.getItem("hyperopen:trading-settings:v1") || "{}")
+        ),
+      { timeout: 4_000 }
+    )
+    .toMatchObject({
+      "confirm-open-orders?": false,
+      "confirm-close-position?": false
+    });
+});

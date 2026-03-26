@@ -53,6 +53,7 @@
         sections (get-in result [:settings :sections])
         session-row (row-by-id sections :session :storage-mode)
         open-orders-row (row-by-id sections :confirmations :confirm-open-orders)
+        close-position-row (row-by-id sections :confirmations :confirm-close-position)
         fill-markers-row (row-by-id sections :display :fill-markers)]
     (is (= [:session :confirmations :alerts :display]
            (mapv :id sections)))
@@ -62,6 +63,12 @@
     (is (= "Changes trading persistence on this device and will require Enable Trading again."
            (get-in session-row [:confirmation :body])))
     (is (= "Confirm open orders" (:title open-orders-row)))
+    (is (= [[:actions/request-agent-storage-mode-change true]]
+           (:on-change session-row)))
+    (is (= [[:actions/set-confirm-open-orders-enabled false]]
+           (:on-change open-orders-row)))
+    (is (= [[:actions/set-confirm-close-position-enabled true]]
+           (:on-change close-position-row)))
     (is (= "Fill markers" (:title fill-markers-row)))))
 
 (deftest header-vm-projects-spectate-copy-from-state-test
