@@ -52,6 +52,24 @@
             :sz "1.25"
             :px "90.79"}]))))
 
+(deftest fill-toast-payloads-resolve-raw-market-ids-through-market-state-test
+  (let [market-by-key {"spot:@107" {:coin "@107"
+                                    :market-type :spot
+                                    :symbol "AAPL/USDC"
+                                    :base "AAPL"
+                                    :quote "USDC"}}]
+    (is (= [{:headline "Bought 1 AAPL"
+             :message "Bought 1 AAPL"}]
+           (fill-runtime/fill-toast-payloads
+            [{:coin "@107"
+              :side "B"
+              :sz "1"}]
+            market-by-key)))
+    (is (= [{:message "Order filled: AAPL."}]
+           (fill-runtime/fill-toast-payloads
+            [{:coin "@107"}]
+            market-by-key)))))
+
 (deftest fill-identity-and-novel-fills-cover-direct-id-and-unkeyed-rows-test
   (let [fill-identity @#'fill-runtime/fill-identity]
     (is (nil? (fill-identity nil)))
@@ -87,6 +105,7 @@
            (normalize-fill-side {:dir "close short"})))
     (is (nil? (normalize-fill-side {:direction "hold"})))
     (is (= {:coin "BTC"
+            :display-coin "BTC"
             :side :buy
             :size 3
             :price 42000.5}
@@ -95,6 +114,7 @@
                                  :filledSz "-3"
                                  :avgPx "42000.5"})))
     (is (= {:coin "SOL"
+            :display-coin "SOL"
             :side :sell
             :size 2.5
             :price nil}
@@ -200,6 +220,30 @@
       (is (nil? (get-in @store [:ui :toast])))
       (is (empty? (get-in @store [:ui :toasts])))
       (is (empty? @cleared)))))
+
+(deftest show-user-fill-toast-resolves-raw-market-ids-through-store-market-state-test
+  (let [runtime (atom (runtime-state/default-runtime-state))
+        store (atom {:asset-selector {:market-by-key {"spot:@107" {:coin "@107"
+                                                                   :market-type :spot
+                                                                   :symbol "AAPL/USDC"
+                                                                   :base "AAPL"
+                                                                   :quote "USDC"}}}
+                     :ui {:toast nil
+                          :toasts []}})
+        captured-timeouts (atom [])]
+    (with-redefs [runtime-state/runtime runtime
+                  platform/set-timeout! (fn [callback ms]
+                                          (let [timeout-id (keyword (str "timeout-" (inc (count @captured-timeouts))))]
+                                            (swap! captured-timeouts conj [callback ms timeout-id])
+                                            timeout-id))
+                  platform/clear-timeout! (fn [_timeout-id] nil)]
+      (fill-runtime/show-user-fill-toast!
+       store
+       [{:coin "@107"
+         :side "B"
+         :sz "1.5"}])
+      (is (= ["Bought 1.5 AAPL"]
+             (mapv :headline (get-in @store [:ui :toasts])))))))
 
 (deftest show-user-fill-toast-respects-fill-alert-preference-test
   (let [runtime (atom (runtime-state/default-runtime-state))

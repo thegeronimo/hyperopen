@@ -1,5 +1,7 @@
 (ns hyperopen.websocket.user-runtime.fills
   (:require [clojure.string :as str]
+            [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.domain.market.instrument :as instrument]
             [hyperopen.order.feedback-runtime :as order-feedback-runtime]
             [hyperopen.platform :as platform]
             [hyperopen.runtime.state :as runtime-state]
@@ -76,15 +78,22 @@
              (or incoming [])))))
 
 (defn- fill-toast-message
-  [rows]
-  (let [coin* (some-> (or (:coin (first rows))
-                          (:symbol (first rows))
-                          (:asset (first rows)))
-                      str
-                      str/trim)]
-    (if (seq coin*)
-      (str "Order filled: " coin* ".")
-      "Order filled.")))
+  ([rows]
+   (fill-toast-message rows nil))
+  ([rows market-by-key]
+   (let [coin* (some-> (or (:coin (first rows))
+                           (:symbol (first rows))
+                           (:asset (first rows)))
+                       str
+                       str/trim)
+         market (markets/resolve-market-by-coin (or market-by-key {}) coin*)
+         display-coin (some-> (instrument/resolve-base-symbol coin* market nil)
+                              str
+                              str/trim
+                              str/upper-case)]
+     (if (seq display-coin)
+       (str "Order filled: " display-coin ".")
+       "Order filled."))))
 
 (defn- parse-finite-number
   [value]
@@ -127,34 +136,54 @@
   (or (fmt/format-currency-with-digits price 0 5)
       (str "$" (fmt/safe-to-fixed price 2))))
 
-(defn- normalized-fill-row
+(defn- fill-coin-token
   [row]
-  (let [coin* (some-> (or (:coin row)
-                          (:symbol row)
-                          (:asset row))
-                      str
-                      str/trim
-                      str/upper-case)
-        side* (normalize-fill-side row)
-        size* (some-> (or (:sz row)
-                          (:size row)
-                          (:filledSz row)
-                          (:filled row))
-                      parse-finite-number
-                      js/Math.abs)
-        price* (some-> (or (:px row)
-                           (:price row)
-                           (:fillPx row)
-                           (:avgPx row))
-                       parse-finite-number)]
-    (when (and (seq coin*)
-               (some? side*)
-               (number? size*)
-               (pos? size*))
-      {:coin coin*
-       :side side*
-       :size size*
-       :price price*})))
+  (some-> (or (:coin row)
+              (:symbol row)
+              (:asset row))
+          str
+          str/trim))
+
+(defn- fill-display-coin
+  [row market-by-key]
+  (let [coin* (fill-coin-token row)
+        market (markets/resolve-market-by-coin (or market-by-key {}) coin*)]
+    (some-> (instrument/resolve-base-symbol coin* market nil)
+            str
+            str/trim
+            str/upper-case)))
+
+(defn- normalized-fill-row
+  ([row]
+   (normalized-fill-row row nil))
+  ([row market-by-key]
+   (let [coin-token (fill-coin-token row)
+         coin* (some-> coin-token
+                       str/upper-case)
+         display-coin* (or (fill-display-coin row market-by-key)
+                           coin*)
+         side* (normalize-fill-side row)
+         size* (some-> (or (:sz row)
+                           (:size row)
+                           (:filledSz row)
+                           (:filled row))
+                       parse-finite-number
+                       js/Math.abs)
+         price* (some-> (or (:px row)
+                            (:price row)
+                            (:fillPx row)
+                            (:avgPx row))
+                        parse-finite-number)]
+     (when (and (seq coin*)
+                (seq display-coin*)
+                (some? side*)
+                (number? size*)
+                (pos? size*))
+       {:coin coin*
+        :display-coin display-coin*
+        :side side*
+        :size size*
+        :price price*}))))
 
 (defn- add-fill-group
   [acc fill]
@@ -180,38 +209,44 @@
                 fills)
         average-price (when (pos? weighted-size)
                         (/ weighted-notional weighted-size))
-        {:keys [coin side]} (first fills)
+        {:keys [coin display-coin side]} (first fills)
         action-label (if (= :buy side) "Bought" "Sold")
-        headline (str action-label " " (format-fill-size total-size) " " coin)]
+        headline (str action-label " "
+                      (format-fill-size total-size)
+                      " "
+                      (or display-coin coin))]
     {:headline headline
      :subline (when (number? average-price)
                 (str "At average price of " (format-fill-price average-price)))}))
 
 (defn fill-toast-payloads
-  [rows]
-  (let [parsed-rows (->> (or rows [])
-                         (keep normalized-fill-row)
-                         vec)
-        {:keys [group-order groups]}
-        (reduce add-fill-group
-                {:group-order []
-                 :groups {}}
-                parsed-rows)]
-    (if (seq group-order)
-      (mapv (fn [group-key]
-              (let [{:keys [headline subline]} (summarize-fill-group (get groups group-key))]
-                (cond-> {:headline headline
-                         :message headline}
-                  (seq subline) (assoc :subline subline))))
-            group-order)
-      [{:message (fill-toast-message rows)}])))
+  ([rows]
+   (fill-toast-payloads rows nil))
+  ([rows market-by-key]
+   (let [parsed-rows (->> (or rows [])
+                          (keep #(normalized-fill-row % market-by-key))
+                          vec)
+         {:keys [group-order groups]}
+         (reduce add-fill-group
+                 {:group-order []
+                  :groups {}}
+                 parsed-rows)]
+     (if (seq group-order)
+       (mapv (fn [group-key]
+               (let [{:keys [headline subline]} (summarize-fill-group (get groups group-key))]
+                 (cond-> {:headline headline
+                          :message headline}
+                   (seq subline) (assoc :subline subline))))
+             group-order)
+       [{:message (fill-toast-message rows market-by-key)}]))))
 
 (defn show-user-fill-toast!
   [store rows]
   (when (trading-settings/fill-alerts-enabled? @store)
-    (doseq [payload (fill-toast-payloads rows)]
-      (order-feedback-runtime/show-order-feedback-toast!
-       store
-       :success
-       payload
-       schedule-order-feedback-toast-clear!))))
+    (let [market-by-key (get-in @store [:asset-selector :market-by-key] {})]
+      (doseq [payload (fill-toast-payloads rows market-by-key)]
+        (order-feedback-runtime/show-order-feedback-toast!
+         store
+         :success
+         payload
+         schedule-order-feedback-toast-clear!)))))
