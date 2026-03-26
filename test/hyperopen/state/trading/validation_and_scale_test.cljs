@@ -1,5 +1,6 @@
 (ns hyperopen.state.trading.validation-and-scale-test
   (:require [cljs.test :refer-macros [deftest is testing]]
+            [hyperopen.formal.order-request-advanced-vectors :as advanced-vectors]
             [hyperopen.state.trading :as trading]
             [hyperopen.state.trading.test-support :as support]))
 
@@ -281,3 +282,19 @@
     (is (approx= (get-in preview [:start :size]) (trading/parse-num (:s first-order))))
     (is (approx= (get-in preview [:end :price]) (trading/parse-num (:p last-order))))
     (is (approx= (get-in preview [:end :size]) (trading/parse-num (:s last-order))))))
+
+(deftest formal-advanced-order-vectors-preserve-domain-arithmetic-invariants-test
+  (let [scale-case (first advanced-vectors/order-request-advanced-vectors)
+        scale-request (:expected scale-case)
+        scale-orders (:orders scale-request)
+        parsed-sizes (mapv #(trading/parse-num (:s %)) scale-orders)
+        parsed-prices (mapv #(trading/parse-num (:p %)) scale-orders)
+        twap-case (second advanced-vectors/order-request-advanced-vectors)
+        twap-form (:form twap-case)
+        total-minutes (trading/twap-total-minutes (:twap twap-form))]
+    (is (= [100 95 90] parsed-prices))
+    (is (every? pos? parsed-sizes))
+    (is (<= (reduce + parsed-sizes)
+            (trading/parse-num (:size (:form scale-case)))))
+    (is (= 181 (trading/twap-suborder-count total-minutes)))
+    (is (= 90 (get-in (:expected twap-case) [:action :twap :m])))))

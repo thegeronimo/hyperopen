@@ -172,6 +172,8 @@
             [hyperopen.schema.contracts.effect-args-test]
             [hyperopen.schema.contracts.state-test]
             [hyperopen.schema.order-form-command-catalog-test]
+            [hyperopen.schema.order-request-contracts-test]
+            [hyperopen.schema.vault-transfer-contracts-test]
             [hyperopen.staking.actions-test]
             [hyperopen.staking.effects-test]
             [hyperopen.startup.collaborators-test]
@@ -220,6 +222,7 @@
             [hyperopen.vaults.detail.performance-test]
             [hyperopen.vaults.detail.transfer-test]
             [hyperopen.vaults.detail.types-test]
+            [hyperopen.vaults.domain.transfer-policy-properties-test]
             [hyperopen.vaults.domain.transfer-policy-test]
             [hyperopen.vaults.effects-preview-scope-test]
             [hyperopen.vaults.effects-test]
@@ -589,6 +592,8 @@
              'hyperopen.schema.contracts.effect-args-test
              'hyperopen.schema.contracts.state-test
              'hyperopen.schema.order-form-command-catalog-test
+             'hyperopen.schema.order-request-contracts-test
+             'hyperopen.schema.vault-transfer-contracts-test
              'hyperopen.staking.actions-test
              'hyperopen.staking.effects-test
              'hyperopen.startup.collaborators-test
@@ -637,6 +642,7 @@
              'hyperopen.vaults.detail.performance-test
              'hyperopen.vaults.detail.transfer-test
              'hyperopen.vaults.detail.types-test
+             'hyperopen.vaults.domain.transfer-policy-properties-test
              'hyperopen.vaults.domain.transfer-policy-test
              'hyperopen.vaults.effects-preview-scope-test
              'hyperopen.vaults.effects-test

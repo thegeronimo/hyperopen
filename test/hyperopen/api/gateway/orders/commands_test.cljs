@@ -1,5 +1,8 @@
 (ns hyperopen.api.gateway.orders.commands-test
   (:require [cljs.test :refer-macros [deftest is testing]]
+            [hyperopen.formal.order-request-advanced-vectors :as advanced-vectors]
+            [hyperopen.formal.order-request-standard-vectors :as standard-vectors]
+            [hyperopen.schema.order-request-contracts :as contracts]
             [hyperopen.api.gateway.orders.commands :as commands]))
 
 (def command-context
@@ -170,6 +173,16 @@
       (is (= "0.019698" (get-in take-limit [:orders 0 :p])))
       (is (= "0.019698" (get-in take-limit [:orders 0 :t :trigger :triggerPx]))))))
 
+(deftest build-order-request-conforms-to-committed-formal-standard-vectors-test
+  (doseq [{:keys [id contract context form expected]} standard-vectors/standard-order-request-vectors]
+    (testing (name id)
+      (let [actual (commands/build-order-request context form)]
+        (is (= expected actual))
+        (if (= :submit-ready contract)
+          (is (= expected
+                 (contracts/assert-standard-order-request! actual {:vector id})))
+          (is (nil? actual)))))))
+
 (deftest build-order-request-builds-scale-and-twap-requests-test
   (let [scale-request (commands/build-order-request command-context {:type :scale
                                                                      :side :sell
@@ -212,6 +225,19 @@
     (is (= "2" (get-in legacy-twap-request [:action :twap :s])))
     (is (= 15 (get-in legacy-twap-request [:action :twap :m])))
     (is (= true (get-in legacy-twap-request [:action :twap :t])))))
+
+(deftest build-order-request-conforms-to-committed-formal-advanced-vectors-test
+  (doseq [{:keys [id contract context form expected]} advanced-vectors/order-request-advanced-vectors]
+    (testing (name id)
+      (let [actual (commands/build-order-request context form)]
+        (is (= expected actual))
+        (if (= :submit-ready contract)
+          (case (:type form)
+            :scale (is (= expected
+                          (contracts/assert-scale-request! actual {:vector id})))
+            :twap (is (= expected
+                         (contracts/assert-twap-request! actual {:vector id}))))
+          (is (nil? actual)))))))
 
 (deftest build-order-request-includes-update-leverage-pre-action-test
   (let [cross-request (commands/build-order-request command-context {:type :limit

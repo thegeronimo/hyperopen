@@ -34,6 +34,8 @@
     "crap:report": "bb tools/crap_report.clj",
     "mutate": "bb tools/mutate.clj",
     "mutate:nightly": "bb tools/mutate_nightly.clj",
+    "formal:verify": "bb tools/formal.clj verify",
+    "formal:sync": "bb tools/formal.clj sync",
     "test-metrics:badge": "node tools/coverage/write-test-metrics-badges.mjs",
     "lint:test": "bb -m dev.hiccup-lint-test",
     "lint:hiccup": "bb -m dev.check-hiccup-attrs",

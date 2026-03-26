@@ -7,6 +7,7 @@
             [hyperopen.api.trading :as trading-api]
             [hyperopen.core.compat :as core]
             [hyperopen.order.effects :as order-effects]
+            [hyperopen.schema.order-request-contracts :as order-request-contracts]
             [hyperopen.core-bootstrap.order-effects.test-support :as support]))
 
 (deftest api-submit-order-effect-treats-nested-status-errors-as-failures-test
@@ -189,6 +190,22 @@
                (ensure-perp-dexs-data-mock nil {}))
               ([_store _opts]
                (js/Promise.resolve []))))
+      (is (order-request-contracts/order-request-valid?
+           (let [order (array-map :a 0
+                                  :b true
+                                  :p "100"
+                                  :s "1"
+                                  :r false
+                                  :t (array-map :limit (array-map :tif "Gtc")))]
+             (array-map :action (array-map :type "order"
+                                           :orders [order]
+                                           :grouping "na")
+                        :asset-idx 0
+                        :orders [order]
+                        :pre-actions [(array-map :type "updateLeverage"
+                                                 :asset 0
+                                                 :isCross true
+                                                 :leverage 20)]))))
       (core/api-submit-order nil
                              store
                              {:pre-actions [{:type "updateLeverage"

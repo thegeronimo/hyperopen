@@ -23,7 +23,8 @@ Use this file as the single starting point for what actions this repo provides t
 9. For interactive feature, bug, and UI orchestration, invoke `$feature-flow`, `$bug-flow`, or `$ui-flow` explicitly.
 10. For multi-agent role, artifact, and gate rules, use `/hyperopen/docs/MULTI_AGENT.md` and the manager under `/hyperopen/tools/multi-agent/`.
 11. For issue tracking and session handoff rules, use `/hyperopen/docs/WORK_TRACKING.md`.
-12. For exact browser inspection command syntax, see:
+12. For Lean-backed formal-tool bootstrap commands, use `npm run formal:verify -- --surface <vault-transfer|order-request-standard|order-request-advanced>` and `npm run formal:sync -- --surface <surface>`.
+13. For exact browser inspection command syntax, see:
    - `/hyperopen/tools/browser-inspection/src/cli.mjs`
    - `/hyperopen/tools/browser-inspection/src/mcp_server.mjs`
 
@@ -55,6 +56,8 @@ Use this file as the single starting point for what actions this repo provides t
 | `bb tools/mutate.clj --scan --module src/hyperopen/...` | Report mutation counts and coverage-aware eligible sites for one module | After `npm run coverage` when validating a hotspot module or pure policy seam |
 | `bb tools/mutate.clj --module src/hyperopen/...` | Run mutation testing for one module and write artifacts under `target/mutation/**` | Local confidence pass on a covered module after targeted refactors or bug fixes |
 | `bb tools/mutate_nightly.clj` | Run the checked-in nightly mutation target list serially and aggregate markdown/JSON summaries | Overnight mutation sweeps, regression spotting, or local ranking of weak modules |
+| `npm run formal:verify -- --surface vault-transfer` | Build the Lean workspace and check the selected formal surface manifest | After changing formal tooling or surface manifests |
+| `npm run formal:sync -- --surface vault-transfer` | Regenerate the deterministic formal manifest for a selected surface | When you need to refresh the checked-in manifest after a proof or model update |
 | `npm run browser:inspect -- --url <url> --target <label>` | One-off parity capture | Visual/runtime parity evidence and smoke checks |
 | `npm run browser:compare` | One-off compare capture | Compare two targets (Hyperliquid vs local) |
 | `npm run qa:design-ui` | Run the design-system browser QA contract | Required evidence-backed conformance review for UI-facing changes |
@@ -64,6 +67,18 @@ Use this file as the single starting point for what actions this repo provides t
 | `npm run test:browser-qa-evals` | Run the design-review eval corpus and narrow graders | Before changing design-review report rules or browser-QA prompts |
 | `npm run test:browser-inspection` | Browser-inspection unit tests | Before changing inspection tooling |
 | `npm run test:browser-inspection:smoke` | Optional real-Chrome smoke | Manual confidence check before parity workflows |
+
+## 10) Formal tooling bootstrap
+
+Use `tools/formal.clj` for the repo-local Lean bootstrap. The wrapper stays out of `npm run check` for now so the proof workflow remains opt-in while it settles.
+
+Supported surfaces:
+
+- `vault-transfer`
+- `order-request-standard`
+- `order-request-advanced`
+
+The generated bootstrap manifests live under `/hyperopen/tools/formal/generated/`, and the Lean workspace lives under `/hyperopen/tools/formal/lean/`.
 
 ## 2) Local Clojure navigation and analysis
 

@@ -1,5 +1,7 @@
 (ns hyperopen.state.trading.order-request-test
   (:require [cljs.test :refer-macros [deftest is testing]]
+            [hyperopen.formal.order-request-standard-vectors :as standard-vectors]
+            [hyperopen.schema.order-request-contracts :as contracts]
             [hyperopen.state.trading :as trading]
             [hyperopen.state.trading.test-support :as support]))
 
@@ -8,6 +10,16 @@
 (defn- js-object-keys
   [value]
   (support/js-object-keys value))
+
+(defn- state-from-command-context
+  [{:keys [active-asset asset-idx market]}]
+  {:active-asset active-asset
+   :active-market (merge {:coin active-asset}
+                         (or market {}))
+   :asset-contexts (cond-> {}
+                     (and (string? active-asset)
+                          (number? asset-idx))
+                     (assoc active-asset {:idx asset-idx}))})
 
 (deftest build-order-request-uses-canonical-key-order-for-l1-signing-test
   (let [state (assoc base-state
@@ -20,10 +32,36 @@
         request (trading/build-order-request state form)
         action-js (clj->js (:action request))
         order-js (aget (aget action-js "orders") 0)]
+    (is (= request
+           (contracts/assert-order-request! request {:test :canonical-key-order})))
     (is (= ["type" "orders" "grouping"] (js-object-keys action-js)))
     (is (= ["a" "b" "p" "s" "r" "t"] (js-object-keys order-js)))
     (is (= ["limit"] (js-object-keys (aget order-js "t"))))
     (is (= ["tif"] (js-object-keys (aget (aget order-js "t") "limit"))))))
+
+(deftest build-order-request-state-wrapper-conforms-to-committed-formal-vectors-test
+  (doseq [{:keys [id context form expected]} (filter #(= :submit-ready (:contract %))
+                                                     standard-vectors/standard-order-request-vectors)]
+    (when (some? expected)
+      (testing (name id)
+        (let [state (state-from-command-context context)
+              request (trading/build-order-request state form)]
+          (is (= expected request))
+          (is (= expected
+                 (contracts/assert-order-request! request {:vector id}))))))))
+
+(deftest build-order-request-preserves-pre-action-key-order-for-signing-test
+  (let [state (state-from-command-context standard-vectors/btc-perp-context)
+        form {:type :limit
+              :side :buy
+              :size "1"
+              :price "100"
+              :ui-leverage 17
+              :margin-mode :cross}
+        request (trading/build-order-request state form)
+        pre-action-js (clj->js (first (:pre-actions request)))]
+    (is (= ["type" "asset" "isCross" "leverage"]
+           (js-object-keys pre-action-js)))))
 
 (deftest build-order-request-fails-closed-when-required-numerics-missing-test
   (let [state (assoc base-state
@@ -66,6 +104,8 @@
                                                                    :totalMarginUsed "250"}}}
                    :asset-contexts {}}
             request (trading/build-order-request state form)]
+        (is (= request
+               (contracts/assert-order-request! request {:test :hip3-canonical-asset-id})))
         (is (= 110005 (get-in request [:action :orders 0 :a])))))
 
     (testing "named-dex perp fails closed when canonical asset-id is unavailable"

@@ -1,0 +1,10 @@
+name = "hyperopen-formal"
+version = "0.1.0"
+defaultTargets = ["formal"]
+
+[[lean_lib]]
+name = "Hyperopen.Formal"
+
+[[lean_exe]]
+name = "formal"
+root = "Main"

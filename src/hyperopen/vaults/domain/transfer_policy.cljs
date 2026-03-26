@@ -62,7 +62,8 @@
   ([{:keys [route-vault-address-fn]} state modal]
    (let [modal* (if (map? modal) modal {})
          route-vault-address (when (fn? route-vault-address-fn)
-                               (route-vault-address-fn state))
+                               (some-> (route-vault-address-fn state)
+                                       identity/normalize-vault-address))
          vault-address (or (identity/normalize-vault-address (:vault-address modal*))
                            route-vault-address)
          mode (normalize-vault-transfer-mode (:mode modal*))

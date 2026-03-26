@@ -1,5 +1,7 @@
 (ns hyperopen.vaults.domain.transfer-policy-test
-  (:require [cljs.test :refer-macros [deftest is]]
+  (:require [cljs.test :refer-macros [deftest is testing]]
+            [hyperopen.formal.vault-transfer-vectors :as formal-vectors]
+            [hyperopen.schema.vault-transfer-contracts :as contracts]
             [hyperopen.vaults.domain.transfer-policy :as transfer-policy]))
 
 (def ^:private vault-address
@@ -18,6 +20,29 @@
             :merged-index-rows [{:vault-address vault-address
                                  :name "Vault Detail"
                                  :leader leader-address}]}})
+
+(deftest parse-usdc-micros-conforms-to-committed-formal-vectors-test
+  (doseq [{:keys [id input expected]} formal-vectors/parse-usdc-micros-vectors]
+    (testing (name id)
+      (is (= expected
+             (transfer-policy/parse-usdc-micros input))))))
+
+(deftest vault-transfer-deposit-allowed-conforms-to-committed-formal-vectors-test
+  (doseq [{:keys [id state vault-address expected]} formal-vectors/deposit-eligibility-vectors]
+    (testing (name id)
+      (is (= expected
+             (transfer-policy/vault-transfer-deposit-allowed? state vault-address))))))
+
+(deftest vault-transfer-preview-conforms-to-committed-formal-vectors-test
+  (doseq [{:keys [id route-vault-address state modal expected]} formal-vectors/vault-transfer-preview-vectors]
+    (testing (name id)
+      (let [result (transfer-policy/vault-transfer-preview
+                    {:route-vault-address-fn (when route-vault-address
+                                               (fn [_] route-vault-address))}
+                    state
+                    modal)]
+        (is (= expected result))
+        (is (contracts/preview-result-valid? result))))))
 
 (deftest parse-usdc-micros-handles-integer-padding-truncation-zero-and-overflow-test
   (is (= 12000000
@@ -45,7 +70,21 @@
                  :withdraw-all? false})]
     (is (true? (:ok? result)))
     (is (= vault-address (:vault-address result)))
-    (is (= 2500000 (get-in result [:request :action :usd])))))
+    (is (= 2500000 (get-in result [:request :action :usd])))
+    (is (contracts/preview-result-valid? result))))
+
+(deftest vault-transfer-preview-normalizes-route-fallback-address-test
+  (let [state (base-state "en-US" true)
+        result (transfer-policy/vault-transfer-preview
+                {:route-vault-address-fn (fn [_] " 0X1234567890ABCDEF1234567890ABCDEF12345678 ")}
+                state
+                {:open? true
+                 :mode :withdraw
+                 :amount-input "1"
+                 :withdraw-all? false})]
+    (is (true? (:ok? result)))
+    (is (= vault-address (:vault-address result)))
+    (is (= vault-address (get-in result [:request :vault-address])))))
 
 (deftest vault-transfer-preview-rejects-invalid-vault-address-test
   (let [result (transfer-policy/vault-transfer-preview
@@ -118,7 +157,8 @@
                      :vaultAddress vault-address
                      :isDeposit false
                      :usd 0}}
-           (:request result)))))
+           (:request result)))
+    (is (contracts/preview-result-valid? result))))
 
 (deftest vault-transfer-preview-allows-smallest-positive-usdc-amount-test
   (let [state (base-state "en-US" true)

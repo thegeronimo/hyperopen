@@ -1,5 +1,6 @@
 (ns hyperopen.vaults.application.transfer-commands-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.schema.vault-transfer-contracts :as contracts]
             [hyperopen.vaults.application.transfer-commands :as transfer-commands]
             [hyperopen.vaults.application.transfer-state :as transfer-state]))
 
@@ -57,4 +58,37 @@
                        :usd 2500000}}]]
            (transfer-commands/submit-vault-transfer
             {:route-vault-address-fn (fn [_] vault-address)}
-            state)))))
+            state)))
+    (is (= {:vault-address vault-address
+            :action {:type "vaultTransfer"
+                     :vaultAddress vault-address
+                     :isDeposit true
+                     :usd 2500000}}
+           (contracts/assert-vault-transfer-request!
+            {:vault-address vault-address
+             :action {:type "vaultTransfer"
+                      :vaultAddress vault-address
+                      :isDeposit true
+                      :usd 2500000}}
+            {:test :submit-vault-transfer-wrapper})))))
+
+(deftest submit-vault-transfer-surfaces-preview-failure-message-test
+  (let [vault-address "0x1234567890abcdef1234567890abcdef12345678"
+        leader-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+        state {:wallet {:address leader-address}
+               :vaults {:details-by-address {vault-address {:name "Liquidator"
+                                                            :leader leader-address
+                                                            :allow-deposits? true}}
+                        :merged-index-rows [{:vault-address vault-address
+                                             :name "Liquidator"
+                                             :leader leader-address}]}
+               :vaults-ui {:vault-transfer-modal {:open? true
+                                                  :mode :deposit
+                                                  :vault-address vault-address
+                                                  :amount-input "1"
+                                                  :withdraw-all? false
+                                                  :submitting? false
+                                                  :error nil}}}]
+    (is (= [[:effects/save-many [[[:vaults-ui :vault-transfer-modal :submitting?] false]
+                                 [[:vaults-ui :vault-transfer-modal :error] "Deposits are disabled for this vault."]]]]
+           (transfer-commands/submit-vault-transfer {} state)))))

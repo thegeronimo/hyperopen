@@ -1,6 +1,7 @@
 (ns hyperopen.state.trading.identity-and-submit-policy-test
   (:require [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.account.context :as account-context]
+            [hyperopen.schema.order-request-contracts :as order-request-contracts]
             [hyperopen.state.trading :as trading]
             [hyperopen.state.trading.test-support :as support]))
 
@@ -147,6 +148,7 @@
                                                     :agent-ready? true})]
       (is (nil? (:reason policy)))
       (is (false? (:disabled? policy)))
+      (is (order-request-contracts/order-request-valid? (:request policy)))
       (is (= 110005 (get-in policy [:request :action :orders 0 :a]))))))
 
 (deftest submit-policy-additional-branch-coverage-test
@@ -244,6 +246,7 @@
           prepared (trading/prepare-order-form-for-submit state form)
           request (trading/build-order-request state (:form prepared))]
       (is (false? (:market-price-missing? prepared)))
+      (is (order-request-contracts/order-request-valid? request))
       (is (= "0.020295" (get-in request [:action :orders 0 :p])))))
 
   (testing "market price truncates to 5 significant figures when decimals alone are insufficient"
@@ -265,4 +268,5 @@
           prepared (trading/prepare-order-form-for-submit state form)
           request (trading/build-order-request state (:form prepared))]
       (is (false? (:market-price-missing? prepared)))
+      (is (order-request-contracts/order-request-valid? request))
       (is (= "123.45" (get-in request [:action :orders 0 :p]))))))
