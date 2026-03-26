@@ -408,12 +408,21 @@
        (fn []
          (mark-performance! "app:critical-data:ready")))))
 
+(defn- skip-deferred-bootstrap?
+  [store]
+  (true? (get-in @store [:asset-selector :cache-hydrated?])))
+
 (defn run-deferred-bootstrap!
   [{:keys [store fetch-asset-selector-markets! mark-performance!]}]
-  (-> (fetch-asset-selector-markets! store {:phase :full})
-      (.finally
-       (fn []
-         (mark-performance! "app:full-bootstrap:ready")))))
+  (let [bootstrap-promise (if (skip-deferred-bootstrap? store)
+                            ;; Restored selector markets are enough for immediate trade rendering.
+                            ;; Keep the full fan-out on demand when the selector is opened.
+                            (js/Promise.resolve nil)
+                            (fetch-asset-selector-markets! store {:phase :full}))]
+    (-> bootstrap-promise
+        (.finally
+         (fn []
+           (mark-performance! "app:full-bootstrap:ready"))))))
 
 (defn schedule-deferred-bootstrap!
   [{:keys [schedule-idle-or-timeout! run-deferred-bootstrap!] :as deps}]

@@ -34,7 +34,8 @@
 (defn- refresh-open-orders-snapshot!
   [store address dex opts]
   (-> (api/request-frontend-open-orders! address
-                                         (cond-> (or opts {})
+                                         (cond-> (merge {:force-refresh? true}
+                                                        (or opts {}))
                                            (and dex (not= dex "")) (assoc :dex dex)))
       (.then (apply-success-and-return-when-address-active
               store

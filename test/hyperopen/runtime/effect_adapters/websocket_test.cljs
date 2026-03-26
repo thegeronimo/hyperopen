@@ -231,6 +231,29 @@
       (is (identical? custom-error-fn
                       (:apply-candle-snapshot-error custom-call))))))
 
+(deftest fetch-candle-snapshot-adapter-builds-live-detail-route-activity-guard-test
+  (let [store (atom {:router {:path "/vaults/0x1234567890abcdef1234567890abcdef12345678"}})
+        captured (atom nil)
+        upstream-active? (atom true)]
+    (with-redefs [app-effects/fetch-candle-snapshot!
+                  (fn [deps]
+                    (reset! captured deps)
+                    :fetch-result)]
+      (is (= :fetch-result
+             (ws-adapters/fetch-candle-snapshot
+              nil
+              store
+              :coin "SPY"
+              :detail-route-vault-address "0x1234567890abcdef1234567890abcdef12345678"
+              :active?-fn (fn [] @upstream-active?)))))
+    (is (fn? (:active?-fn @captured)))
+    (is (true? ((:active?-fn @captured))))
+    (swap! store assoc-in [:router :path] "/trade")
+    (is (false? ((:active?-fn @captured))))
+    (reset! upstream-active? false)
+    (swap! store assoc-in [:router :path] "/vaults/0x1234567890abcdef1234567890abcdef12345678")
+    (is (false? ((:active?-fn @captured))))))
+
 (deftest subscribe-active-asset-adapter-wires-callbacks-and-string-only-persistence-test
   (let [store (atom {})
         captured (atom nil)

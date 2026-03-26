@@ -2,22 +2,39 @@
   (:require [clojure.string :as str]
             [hyperopen.api.request-policy :as request-policy]))
 
+(defn- normalize-address
+  [value]
+  (some-> value str str/trim str/lower-case))
+
+(defn- normalize-dex
+  [value]
+  (some-> value str str/trim not-empty))
+
 (defn request-frontend-open-orders!
   [post-info! address dex opts]
-  (let [body (cond-> {"type" "frontendOpenOrders"
+  (let [requested-address (normalize-address address)
+        requested-dex (normalize-dex dex)
+        body (cond-> {"type" "frontendOpenOrders"
                       "user" address}
-               (and dex (not= dex "")) (assoc "dex" dex))]
+               requested-dex (assoc "dex" requested-dex))]
     (post-info! body
-                (merge {:priority :high}
-                       opts))))
+                (request-policy/apply-info-request-policy
+                 :frontend-open-orders
+                 (merge {:priority :high
+                         :dedupe-key [:frontend-open-orders requested-address requested-dex]}
+                        opts)))))
 
 (defn request-user-fills!
   [post-info! address opts]
-  (post-info! {"type" "userFills"
-               "user" address
-               "aggregateByTime" true}
-              (merge {:priority :high}
-                     opts)))
+  (let [requested-address (normalize-address address)]
+    (post-info! {"type" "userFills"
+                 "user" address
+                 "aggregateByTime" true}
+                (request-policy/apply-info-request-policy
+                 :user-fills
+                 (merge {:priority :high
+                         :dedupe-key [:user-fills requested-address]}
+                        opts)))))
 
 (defn- historical-orders-seq
   [payload]

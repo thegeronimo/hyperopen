@@ -1090,32 +1090,49 @@
              (is (= [{:phase :full}] @deferred-selector-fetches))
              (is (some #(= [:mark "app:critical-data:ready"] %) @mark-calls))
              (is (some #(= [:mark "app:full-bootstrap:ready"] %) @mark-calls))
-             (startup-runtime/schedule-deferred-bootstrap!
-              {:startup-runtime startup-runtime-atom
-               :schedule-idle-or-timeout! (fn [callback]
-                                            (swap! deferred-callbacks conj callback)
-                                            :scheduled)
-               :run-deferred-bootstrap! (fn []
-                                          (swap! mark-calls conj :run-deferred))})
-             (startup-runtime/schedule-deferred-bootstrap!
-              {:startup-runtime startup-runtime-atom
-               :schedule-idle-or-timeout! (fn [callback]
-                                            (swap! deferred-callbacks conj callback)
-                                            :scheduled)
-               :run-deferred-bootstrap! (fn []
-                                          (swap! mark-calls conj :run-deferred))})
-             (is (= 1 (count @deferred-callbacks)))
-             ((first @deferred-callbacks))
-             (is (some #{:run-deferred} @mark-calls))
-             (let [runtime-atom (atom {:startup {:deferred-scheduled? false}})
-                   fallback-calls (atom 0)]
-               (startup-runtime/schedule-deferred-bootstrap!
-                {:runtime runtime-atom
-                 :schedule-idle-or-timeout! (fn [_]
-                                              (swap! fallback-calls inc)
-                                              :scheduled)
-                 :run-deferred-bootstrap! (fn [] nil)})
-               (is (= true (get-in @runtime-atom [:startup :deferred-scheduled?])))
-               (is (= 1 @fallback-calls)))
-             (done))
+             (let [skipped-fetches (atom [])
+                   skipped-marks (atom [])]
+               (-> (startup-runtime/run-deferred-bootstrap!
+                    {:store (atom {:asset-selector {:cache-hydrated? true}})
+                     :fetch-asset-selector-markets! (fn [_store opts]
+                                                      (swap! skipped-fetches conj opts)
+                                                      (js/Promise.resolve :unexpected))
+                     :mark-performance! (fn [mark]
+                                          (swap! skipped-marks conj mark))})
+                   (.then
+                    (fn []
+                      (is (= [] @skipped-fetches))
+                      (is (= ["app:full-bootstrap:ready"] @skipped-marks))
+                      (startup-runtime/schedule-deferred-bootstrap!
+                       {:startup-runtime startup-runtime-atom
+                        :schedule-idle-or-timeout! (fn [callback]
+                                                     (swap! deferred-callbacks conj callback)
+                                                     :scheduled)
+                        :run-deferred-bootstrap! (fn []
+                                                   (swap! mark-calls conj :run-deferred))})
+                      (startup-runtime/schedule-deferred-bootstrap!
+                       {:startup-runtime startup-runtime-atom
+                        :schedule-idle-or-timeout! (fn [callback]
+                                                     (swap! deferred-callbacks conj callback)
+                                                     :scheduled)
+                        :run-deferred-bootstrap! (fn []
+                                                   (swap! mark-calls conj :run-deferred))})
+                      (is (= 1 (count @deferred-callbacks)))
+                      ((first @deferred-callbacks))
+                      (is (some #{:run-deferred} @mark-calls))
+                      (let [runtime-atom (atom {:startup {:deferred-scheduled? false}})
+                            fallback-calls (atom 0)]
+                        (startup-runtime/schedule-deferred-bootstrap!
+                         {:runtime runtime-atom
+                          :schedule-idle-or-timeout! (fn [_]
+                                                       (swap! fallback-calls inc)
+                                                       :scheduled)
+                          :run-deferred-bootstrap! (fn [] nil)})
+                        (is (= true (get-in @runtime-atom [:startup :deferred-scheduled?])))
+                        (is (= 1 @fallback-calls)))
+                      (done)))
+                   (.catch
+                    (fn [err]
+                      (is false (str "Unexpected deferred bootstrap error: " err))
+                      (done))))))
            0))))))

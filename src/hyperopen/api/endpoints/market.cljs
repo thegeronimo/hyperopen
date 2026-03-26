@@ -23,7 +23,7 @@
         dedupe-key (or (:dedupe-key opts)
                        (if (seq dex)
                          [:meta-and-asset-ctxs dex]
-                         :meta-and-asset-ctxs-default))
+                         :asset-contexts))
         opts* (request-policy/apply-info-request-policy
                :meta-and-asset-ctxs
                (merge {:priority :high
@@ -45,7 +45,8 @@
 
 (defn request-candle-snapshot!
   [post-info! now-ms-fn coin {:keys [interval bars priority]
-                              :or {interval :1d bars 330 priority :high}}]
+                              :or {interval :1d bars 330 priority :high}
+                              :as opts}]
   (if (nil? coin)
     (js/Promise.resolve nil)
     (let [now (now-ms-fn)
@@ -56,8 +57,17 @@
                 "req" {"coin" coin
                        "interval" interval-s
                        "startTime" start
-                       "endTime" now}}]
-      (post-info! body {:priority priority}))))
+                       "endTime" now}}
+          request-opts (request-policy/apply-info-request-policy
+                        :candle-snapshot
+                        (merge {:priority priority
+                                :dedupe-key [:candle-snapshot coin interval-s bars]
+                                :cache-key [:candle-snapshot coin interval-s bars]}
+                               (dissoc (or opts {})
+                                       :interval
+                                       :bars
+                                       :priority)))]
+      (post-info! body request-opts))))
 
 (defn request-spot-meta!
   [post-info! opts]

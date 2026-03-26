@@ -20,7 +20,9 @@
             [hyperopen.websocket.orderbook :as orderbook]
             [hyperopen.websocket.subscriptions-runtime :as subscriptions-runtime]
             [hyperopen.websocket.trades :as trades]
-            [hyperopen.websocket.webdata2 :as webdata2]))
+            [hyperopen.websocket.webdata2 :as webdata2]
+            [hyperopen.vaults.domain.identity :as vault-identity]
+            [hyperopen.vaults.infrastructure.routes :as vault-routes]))
 
 (defn- websocket-health-fingerprint [health]
   (health-projection/websocket-health-fingerprint health))
@@ -85,6 +87,36 @@
                                        :force? force?
                                        :projected-fingerprint projected-fingerprint))
 
+(defn- active?
+  [active?-fn]
+  (if (fn? active?-fn)
+    (not (false? (active?-fn)))
+    true))
+
+(defn- detail-route-active-for-vault?
+  [store requested-vault-address]
+  (let [{:keys [kind current-route-vault-address]}
+        (let [route (vault-routes/parse-vault-route
+                     (get-in @store [:router :path] ""))]
+          (assoc route :current-route-vault-address (:vault-address route)))
+        requested-address (vault-identity/normalize-vault-address requested-vault-address)
+        route-address (vault-identity/normalize-vault-address current-route-vault-address)]
+    (and (= :detail kind)
+         (= requested-address route-address))))
+
+(defn- combined-active?-fn
+  [store active?-fn detail-route-vault-address]
+  (let [detail-route-vault-address* (vault-identity/normalize-vault-address detail-route-vault-address)
+        route-active?-fn (when detail-route-vault-address*
+                           (fn []
+                             (detail-route-active-for-vault? store detail-route-vault-address*)))
+        active-fns (cond-> []
+                     (fn? active?-fn) (conj active?-fn)
+                     (fn? route-active?-fn) (conj route-active?-fn))]
+    (when (seq active-fns)
+      (fn []
+        (every? active? active-fns)))))
+
 (defn make-fetch-candle-snapshot
   [{:keys [log-fn
            request-candle-snapshot-fn
@@ -94,12 +126,14 @@
          request-candle-snapshot-fn api/request-candle-snapshot!
          apply-candle-snapshot-success api-projections/apply-candle-snapshot-success
          apply-candle-snapshot-error api-projections/apply-candle-snapshot-error}}]
-  (fn [_ store & {:keys [coin interval bars] :or {interval :1d bars 330}}]
+  (fn [_ store & {:keys [coin interval bars active?-fn detail-route-vault-address]
+                  :or {interval :1d bars 330}}]
     (app-effects/fetch-candle-snapshot!
      {:store store
       :coin coin
       :interval interval
       :bars bars
+      :active?-fn (combined-active?-fn store active?-fn detail-route-vault-address)
       :log-fn log-fn
       :request-candle-snapshot-fn request-candle-snapshot-fn
       :apply-candle-snapshot-success apply-candle-snapshot-success

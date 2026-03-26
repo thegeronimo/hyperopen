@@ -62,7 +62,6 @@
 (def next-vaults-user-page list-commands/next-vaults-user-page)
 (def prev-vaults-user-page list-commands/prev-vaults-user-page)
 (def set-vault-detail-tab detail-commands/set-vault-detail-tab)
-(def set-vault-detail-activity-tab detail-commands/set-vault-detail-activity-tab)
 (def sort-vault-detail-activity detail-commands/sort-vault-detail-activity)
 (def toggle-vault-detail-activity-filter-open detail-commands/toggle-vault-detail-activity-filter-open)
 (def close-vault-detail-activity-filter detail-commands/close-vault-detail-activity-filter)
@@ -119,6 +118,10 @@
 (defn set-vault-detail-chart-series
   [state series]
   (detail-commands/set-vault-detail-chart-series (detail-command-deps) state series))
+
+(defn set-vault-detail-activity-tab
+  [state tab]
+  (detail-commands/set-vault-detail-activity-tab (detail-command-deps) state tab))
 
 (defn select-vault-detail-returns-benchmark
   [state benchmark]

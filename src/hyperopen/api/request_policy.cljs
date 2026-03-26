@@ -3,9 +3,12 @@
 (def default-info-request-ttl-ms
   {:asset-contexts 4000
    :meta-and-asset-ctxs 4000
+   :candle-snapshot 4000
    :perp-dexs 60000
    :spot-meta 60000
    :public-webdata2 30000
+   :frontend-open-orders 2500
+   :user-fills 5000
    :extra-agents 5000
    :user-webdata2 5000
    :validator-summaries 10000

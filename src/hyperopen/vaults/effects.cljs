@@ -40,6 +40,37 @@
   [opts]
   (dissoc (or opts {}) :skip-route-gate?))
 
+(defn- detail-route-active-for-vault?
+  [store vault-address]
+  (let [{:keys [kind current-vault-address]}
+        (let [route (vault-routes/parse-vault-route
+                     (get-in @store [:router :path] ""))]
+          (assoc route :current-vault-address (:vault-address route)))
+        requested-address (vault-identity/normalize-vault-address vault-address)
+        route-address (vault-identity/normalize-vault-address current-vault-address)]
+    (and (= :detail kind)
+         (= requested-address route-address))))
+
+(defn- route-active?-fn
+  [store opts detail-route? vault-address]
+  (when-not (true? (:skip-route-gate? (or opts {})))
+    (if detail-route?
+      (fn []
+        (if vault-address
+          (detail-route-active-for-vault? store vault-address)
+          (vault-detail-route-active? store)))
+      (fn []
+        (vault-list-route-active? store)))))
+
+(defn- route-scoped-request-opts
+  ([store opts detail-route?]
+   (route-scoped-request-opts store opts detail-route? nil))
+  ([store opts detail-route? vault-address]
+   (let [request-opts* (request-opts opts)]
+     (if-let [active?-fn (route-active?-fn store opts detail-route? vault-address)]
+       (assoc request-opts* :active?-fn active?-fn)
+       request-opts*))))
+
 (defn- ->promise
   [result]
   (if (instance? js/Promise result)
@@ -133,7 +164,7 @@
            persist-vault-index-cache-record!
            opts]}]
   (if (allow-route? store opts false)
-    (let [request-opts* (request-opts opts)]
+    (let [request-opts* (route-scoped-request-opts store opts false)]
       (swap! store begin-vault-index-load)
       (perform-vault-index-request!
        {:store store
@@ -157,7 +188,7 @@
            apply-vault-index-error
            opts]}]
   (if (allow-route? store opts false)
-    (let [request-opts* (request-opts opts)
+    (let [request-opts* (route-scoped-request-opts store opts false)
           request! (fn []
                      (perform-vault-index-request!
                       {:store store
@@ -189,7 +220,7 @@
            apply-vault-summaries-error
            opts]}]
   (if (allow-route? store opts false)
-    (let [request-opts* (request-opts opts)]
+    (let [request-opts* (route-scoped-request-opts store opts false)]
       (swap! store begin-vault-summaries-load)
       (-> (request-vault-summaries! request-opts*)
           (.then (promise-effects/apply-success-and-return
@@ -209,7 +240,7 @@
            apply-user-vault-equities-error
            opts]}]
   (if (allow-route? store opts false)
-    (let [request-opts* (request-opts opts)]
+    (let [request-opts* (route-scoped-request-opts store opts false)]
       (swap! store begin-user-vault-equities-load)
       (-> (request-user-vault-equities! address request-opts*)
           (.then (promise-effects/apply-success-and-return
@@ -230,7 +261,7 @@
            apply-vault-details-error
            opts]}]
   (if (allow-route? store opts true)
-    (let [request-opts* (cond-> (request-opts opts)
+    (let [request-opts* (cond-> (route-scoped-request-opts store opts true vault-address)
                           user-address (assoc :user user-address))]
       (swap! store begin-vault-details-load vault-address)
       (-> (request-vault-details! vault-address request-opts*)
@@ -254,7 +285,7 @@
            apply-vault-benchmark-details-error
            opts]}]
   (if (allow-route? store opts false)
-    (let [request-opts* (request-opts opts)]
+    (let [request-opts* (route-scoped-request-opts store opts false)]
       (swap! store begin-vault-benchmark-details-load vault-address)
       (-> (request-vault-details! vault-address request-opts*)
           (.then (promise-effects/apply-success-and-return
@@ -276,7 +307,7 @@
            apply-vault-webdata2-error
            opts]}]
   (if (allow-route? store opts true)
-    (let [request-opts* (request-opts opts)]
+    (let [request-opts* (route-scoped-request-opts store opts true vault-address)]
       (swap! store begin-vault-webdata2-load vault-address)
       (-> (request-vault-webdata2! vault-address request-opts*)
           (.then (promise-effects/apply-success-and-return
@@ -298,7 +329,7 @@
            apply-vault-fills-error
            opts]}]
   (if (allow-route? store opts true)
-    (let [request-opts* (request-opts opts)]
+    (let [request-opts* (route-scoped-request-opts store opts true vault-address)]
       (swap! store begin-vault-fills-load vault-address)
       (-> (request-user-fills! vault-address request-opts*)
           (.then (promise-effects/apply-success-and-return
@@ -326,7 +357,7 @@
           start-time-ms (max 0 (- now-ms funding-history-lookback-ms))
           request-opts* (merge {:start-time-ms start-time-ms
                                 :end-time-ms now-ms}
-                               (request-opts opts))]
+                               (route-scoped-request-opts store opts true vault-address))]
       (swap! store begin-vault-funding-history-load vault-address)
       (-> (request-user-funding-history! vault-address request-opts*)
           (.then (promise-effects/apply-success-and-return
@@ -348,7 +379,7 @@
            apply-vault-order-history-error
            opts]}]
   (if (allow-route? store opts true)
-    (let [request-opts* (request-opts opts)]
+    (let [request-opts* (route-scoped-request-opts store opts true vault-address)]
       (swap! store begin-vault-order-history-load vault-address)
       (-> (request-historical-orders! vault-address request-opts*)
           (.then (promise-effects/apply-success-and-return
@@ -370,7 +401,7 @@
            apply-vault-ledger-updates-error
            opts]}]
   (if (allow-route? store opts true)
-    (let [request-opts* (request-opts opts)]
+    (let [request-opts* (route-scoped-request-opts store opts true vault-address)]
       (swap! store begin-vault-ledger-updates-load vault-address)
       (-> (request-user-non-funding-ledger-updates! vault-address nil nil request-opts*)
           (.then (promise-effects/apply-success-and-return

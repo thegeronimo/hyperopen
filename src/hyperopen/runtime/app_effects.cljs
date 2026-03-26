@@ -1,6 +1,12 @@
 (ns hyperopen.runtime.app-effects
   (:require [hyperopen.platform :as platform]))
 
+(defn- request-active?
+  [active?-fn]
+  (if (fn? active?-fn)
+    (not (false? (active?-fn)))
+    true))
+
 (defn save!
   [store path value]
   (swap! store assoc-in path value))
@@ -41,6 +47,7 @@
            coin
            interval
            bars
+           active?-fn
            log-fn
            request-candle-snapshot-fn
            apply-candle-snapshot-success
@@ -56,14 +63,20 @@
             (clj->js {:coin target-coin
                       :interval interval*
                       :bars bars*}))
-    (if-not target-coin
+    (if (or (not target-coin)
+            (not (request-active? active?-fn)))
       (js/Promise.resolve nil)
-      (-> (request-candle-snapshot-fn target-coin :interval interval* :bars bars*)
+      (-> (request-candle-snapshot-fn target-coin
+                                      :interval interval*
+                                      :bars bars*
+                                      :active?-fn active?-fn)
           (.then (fn [rows]
-                   (swap! store apply-candle-snapshot-success target-coin interval* rows)
+                   (when (request-active? active?-fn)
+                     (swap! store apply-candle-snapshot-success target-coin interval* rows))
                    rows))
           (.catch (fn [err]
-                    (swap! store apply-candle-snapshot-error target-coin interval* err)
+                    (when (request-active? active?-fn)
+                      (swap! store apply-candle-snapshot-error target-coin interval* err))
                     (js/Promise.reject err)))))))
 
 (defn init-websocket!

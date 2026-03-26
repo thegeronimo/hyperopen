@@ -1,6 +1,7 @@
 (ns hyperopen.vaults.application.detail-commands
   (:require [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.ui.chart.hover :as chart-hover]
+            [hyperopen.vaults.domain.identity :as identity]
             [hyperopen.vaults.detail.activity :as activity-model]
             [hyperopen.vaults.detail.types :as detail-types]
             [hyperopen.vaults.application.ui-state :as ui-state]))
@@ -83,17 +84,70 @@
              (vault-detail-performance-metrics-selected? state)))))
 
 (defn vault-detail-returns-benchmark-fetch-effects
-  [snapshot-range benchmark-coins]
-  (let [{:keys [interval bars]} (portfolio-actions/returns-benchmark-candle-request
-                                 (ui-state/normalize-vault-snapshot-range snapshot-range))]
-    (->> (portfolio-actions/normalize-portfolio-returns-benchmark-coins benchmark-coins)
-         (remove (fn [coin]
-                   (some? (detail-types/vault-benchmark-address coin))))
-         (mapv (fn [coin]
-                 [:effects/fetch-candle-snapshot
-                  :coin coin
-                  :interval interval
-                  :bars bars])))))
+  ([snapshot-range benchmark-coins]
+   (vault-detail-returns-benchmark-fetch-effects snapshot-range benchmark-coins nil))
+  ([snapshot-range benchmark-coins detail-route-vault-address]
+   (let [{:keys [interval bars]} (portfolio-actions/returns-benchmark-candle-request
+                                  (ui-state/normalize-vault-snapshot-range snapshot-range))
+         detail-route-vault-address* (identity/normalize-vault-address detail-route-vault-address)]
+     (->> (portfolio-actions/normalize-portfolio-returns-benchmark-coins benchmark-coins)
+          (remove (fn [coin]
+                    (some? (detail-types/vault-benchmark-address coin))))
+          (mapv (fn [coin]
+                  (cond-> [:effects/fetch-candle-snapshot
+                           :coin coin
+                           :interval interval
+                           :bars bars]
+                    detail-route-vault-address*
+                    (conj :detail-route-vault-address detail-route-vault-address*))))))))
+
+(defn- history-addresses
+  [state vault-address]
+  (let [vault-address* (identity/normalize-vault-address vault-address)]
+    (->> (concat [vault-address*]
+                 (identity/component-vault-addresses state vault-address*))
+         (keep identity/normalize-vault-address)
+         distinct
+         vec)))
+
+(defn vault-detail-activity-fetch-effects
+  ([state vault-address]
+   (vault-detail-activity-fetch-effects state
+                                        vault-address
+                                        (get-in state [:vaults-ui :detail-activity-tab])))
+  ([state vault-address activity-tab]
+   (let [vault-address* (identity/normalize-vault-address vault-address)
+         activity-tab* (ui-state/normalize-vault-detail-activity-tab activity-tab)
+         addresses (history-addresses state vault-address*)]
+     (case activity-tab*
+       :trade-history
+       (mapv (fn [address]
+               [:effects/api-fetch-vault-fills address])
+             addresses)
+
+       :funding-history
+       (mapv (fn [address]
+               [:effects/api-fetch-vault-funding-history address])
+             addresses)
+
+       :order-history
+       (mapv (fn [address]
+               [:effects/api-fetch-vault-order-history address])
+             addresses)
+
+       :deposits-withdrawals
+       (if vault-address*
+         [[:effects/api-fetch-vault-ledger-updates vault-address*]]
+         [])
+
+       []))))
+
+(defn- current-route-vault-address
+  [{:keys [parse-vault-route-fn]} state]
+  (some-> (when (fn? parse-vault-route-fn)
+            (parse-vault-route-fn (get-in state [:router :path])))
+          :vault-address
+          identity/normalize-vault-address))
 
 (defn- normalize-vault-detail-returns-benchmark-search
   [value]
@@ -107,10 +161,14 @@
     (ui-state/normalize-vault-detail-tab tab)]])
 
 (defn set-vault-detail-activity-tab
-  [_state tab]
-  [[:effects/save-many [[[:vaults-ui :detail-activity-tab]
-                         (ui-state/normalize-vault-detail-activity-tab tab)]
-                        [vault-detail-activity-filter-open-path false]]]])
+  [deps state tab]
+  (let [tab* (ui-state/normalize-vault-detail-activity-tab tab)
+        projection-effect [:effects/save-many [[[:vaults-ui :detail-activity-tab] tab*]
+                                               [vault-detail-activity-filter-open-path false]]]
+        fetch-effects (if-let [vault-address (current-route-vault-address deps state)]
+                        (vault-detail-activity-fetch-effects state vault-address tab*)
+                        [])]
+    (into [projection-effect] fetch-effects)))
 
 (defn sort-vault-detail-activity
   [state tab column]
@@ -146,17 +204,19 @@
                         [vault-detail-activity-filter-open-path false]]]])
 
 (defn set-vault-detail-chart-series
-  [_deps state series]
+  [deps state series]
   (let [series* (ui-state/normalize-vault-detail-chart-series series)
         snapshot-range (ui-state/normalize-vault-snapshot-range
                         (get-in state [:vaults-ui :snapshot-range]))
+        detail-route-vault-address (current-route-vault-address deps state)
         projection-effect [:effects/save-many
                            [[[:vaults-ui :detail-chart-series] series*]
                             [vault-detail-chart-hover-index-path nil]]]
         fetch-effects (if (= :returns series*)
                         (vault-detail-returns-benchmark-fetch-effects
                          snapshot-range
-                         (selected-vault-detail-returns-benchmark-coins state))
+                         (selected-vault-detail-returns-benchmark-coins state)
+                         detail-route-vault-address)
                         [])]
     (into [projection-effect] fetch-effects)))
 
@@ -184,6 +244,7 @@
   (if-let [coin (portfolio-actions/normalize-portfolio-returns-benchmark-coin benchmark)]
     (let [snapshot-range (ui-state/normalize-vault-snapshot-range
                           (get-in state [:vaults-ui :snapshot-range]))
+          detail-route-vault-address (current-route-vault-address deps state)
           selected-coins (selected-vault-detail-returns-benchmark-coins state)
           already-selected? (contains? (set selected-coins) coin)
           next-coins (if already-selected?
@@ -196,7 +257,10 @@
                               [[:vaults-ui :detail-returns-benchmark-suggestions-open?] true]]]
           candle-effects (if (and (not already-selected?)
                                   (vault-detail-benchmark-fetch-enabled? deps state))
-                           (vault-detail-returns-benchmark-fetch-effects snapshot-range [coin])
+                           (vault-detail-returns-benchmark-fetch-effects
+                            snapshot-range
+                            [coin]
+                            detail-route-vault-address)
                            [])
           benchmark-detail-effects (if already-selected?
                                      []

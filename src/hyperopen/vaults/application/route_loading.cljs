@@ -61,16 +61,6 @@
   [state]
   (portfolio-actions/ensure-portfolio-vault-benchmark-effects state))
 
-(defn- component-vault-history-effects
-  [state vault-address]
-  (let [component-addresses (identity/component-vault-addresses state vault-address)]
-    (->> component-addresses
-         (mapcat (fn [address]
-                   [[:effects/api-fetch-vault-fills address]
-                    [:effects/api-fetch-vault-funding-history address]
-                    [:effects/api-fetch-vault-order-history address]]))
-         vec)))
-
 (defn load-vaults
   [state]
   (load-vault-list-effects state))
@@ -82,16 +72,13 @@
           viewer-address (account-context/effective-account-address state)
           benchmark-fetch-effects (detail-commands/vault-detail-returns-benchmark-fetch-effects
                                    snapshot-range
-                                   (detail-commands/selected-vault-detail-returns-benchmark-coins state))]
+                                   (detail-commands/selected-vault-detail-returns-benchmark-coins state)
+                                   vault-address*)]
       (into [[:effects/save [:vaults-ui :detail-loading?] true]
              [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
              [:effects/api-fetch-vault-details vault-address* viewer-address]
-             [:effects/api-fetch-vault-webdata2 vault-address*]
-             [:effects/api-fetch-vault-fills vault-address*]
-             [:effects/api-fetch-vault-funding-history vault-address*]
-             [:effects/api-fetch-vault-order-history vault-address*]
-             [:effects/api-fetch-vault-ledger-updates vault-address*]]
-            (concat (component-vault-history-effects state vault-address*)
+             [:effects/api-fetch-vault-webdata2 vault-address*]]
+            (concat (detail-commands/vault-detail-activity-fetch-effects state vault-address*)
                     benchmark-fetch-effects)))
     []))
 

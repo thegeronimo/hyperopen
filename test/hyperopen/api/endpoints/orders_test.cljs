@@ -18,9 +18,15 @@
              "user" "0xabc"
              "dex" "vault"}]
            (mapv first @calls)))
-    (is (= [{:priority :high}
-            {:priority :high}
-            {:priority :low}]
+    (is (= [{:priority :high
+             :dedupe-key [:frontend-open-orders "0xabc" nil]
+             :cache-ttl-ms 2500}
+            {:priority :high
+             :dedupe-key [:frontend-open-orders "0xabc" nil]
+             :cache-ttl-ms 2500}
+            {:priority :low
+             :dedupe-key [:frontend-open-orders "0xabc" "vault"]
+             :cache-ttl-ms 2500}]
            (mapv second @calls)))))
 
 (deftest request-user-fills-enforces-aggregate-by-time-test
@@ -31,7 +37,9 @@
             "user" "0xabc"
             "aggregateByTime" true}
            (ffirst @calls)))
-    (is (= {:priority :high}
+    (is (= {:priority :high
+            :dedupe-key [:user-fills "0xabc"]
+            :cache-ttl-ms 5000}
            (second (first @calls))))))
 
 (deftest request-historical-orders-normalizes-wrapped-and-flat-payloads-test

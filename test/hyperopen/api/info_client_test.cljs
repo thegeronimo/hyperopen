@@ -88,3 +88,54 @@
           (.catch (fn [err]
                     (is false (str "Unexpected error: " err))
                     (done)))))))
+
+(deftest request-info-skips-inactive-requests-before-fetch-test
+  (async done
+    (let [fetch-calls (atom 0)
+          client (info-client/make-info-client
+                  {:fetch-fn (fn [_ _]
+                               (swap! fetch-calls inc)
+                               (js/Promise.resolve
+                                (fake-http-response 200 {:ok true})))
+                   :sleep-ms-fn (fn [_] (js/Promise.resolve nil))
+                   :log-fn (fn [& _] nil)})
+          request-info! (:request-info! client)]
+      (-> (request-info! {"type" "meta"}
+                         {:dedupe-key :meta
+                          :active?-fn (fn [] false)})
+          (.then (fn [_]
+                   (is false "Expected inactive request to reject")
+                   (done)))
+          (.catch (fn [err]
+                    (is (= 0 @fetch-calls))
+                    (is (true? (aget err "inactiveRequest")))
+                    (is (= "meta" (aget err "requestType")))
+                    (done)))))))
+
+(deftest request-info-stops-retrying-once-request-becomes-inactive-test
+  (async done
+    (let [fetch-calls (atom 0)
+          sleep-calls (atom [])
+          active? (atom true)
+          client (info-client/make-info-client
+                  {:fetch-fn (fn [_ _]
+                               (swap! fetch-calls inc)
+                               (js/Promise.resolve
+                                (fake-http-response 429 {:error "rate-limited"})))
+                   :sleep-ms-fn (fn [delay-ms]
+                                  (swap! sleep-calls conj delay-ms)
+                                  (reset! active? false)
+                                  (js/Promise.resolve nil))
+                   :log-fn (fn [& _] nil)})
+          request-info! (:request-info! client)]
+      (-> (request-info! {"type" "meta"}
+                         {:dedupe-key :meta
+                          :active?-fn (fn [] @active?)})
+          (.then (fn [_]
+                   (is false "Expected inactive retry sequence to reject")
+                   (done)))
+          (.catch (fn [err]
+                    (is (= 1 @fetch-calls))
+                    (is (= 1 (count @sleep-calls)))
+                    (is (true? (aget err "inactiveRequest")))
+                    (done)))))))

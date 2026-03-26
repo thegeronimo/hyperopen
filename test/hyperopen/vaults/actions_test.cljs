@@ -32,11 +32,7 @@
   (is (= [[:effects/save [:vaults-ui :detail-loading?] true]
           [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
           [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
-          [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]
-          [:effects/api-fetch-vault-fills "0x1234567890abcdef1234567890abcdef12345678"]
-          [:effects/api-fetch-vault-funding-history "0x1234567890abcdef1234567890abcdef12345678"]
-          [:effects/api-fetch-vault-order-history "0x1234567890abcdef1234567890abcdef12345678"]
-          [:effects/api-fetch-vault-ledger-updates "0x1234567890abcdef1234567890abcdef12345678"]]
+          [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/load-vault-detail
           {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}}
           "0x1234567890ABCDEF1234567890ABCDEF12345678")))
@@ -46,11 +42,7 @@
           [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
           [:effects/api-fetch-user-vault-equities "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
           [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
-          [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]
-          [:effects/api-fetch-vault-fills "0x1234567890abcdef1234567890abcdef12345678"]
-          [:effects/api-fetch-vault-funding-history "0x1234567890abcdef1234567890abcdef12345678"]
-          [:effects/api-fetch-vault-order-history "0x1234567890abcdef1234567890abcdef12345678"]
-          [:effects/api-fetch-vault-ledger-updates "0x1234567890abcdef1234567890abcdef12345678"]]
+          [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/load-vault-route
           {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}}
           "/vaults/0x1234567890abcdef1234567890abcdef12345678")))
@@ -68,11 +60,7 @@
           [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
           [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
           [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]
-          [:effects/api-fetch-vault-fills "0x1234567890abcdef1234567890abcdef12345678"]
-          [:effects/api-fetch-vault-funding-history "0x1234567890abcdef1234567890abcdef12345678"]
-          [:effects/api-fetch-vault-order-history "0x1234567890abcdef1234567890abcdef12345678"]
-          [:effects/api-fetch-vault-ledger-updates "0x1234567890abcdef1234567890abcdef12345678"]
-          [:effects/fetch-candle-snapshot :coin "BTC" :interval :1h :bars 800]]
+          [:effects/fetch-candle-snapshot :coin "BTC" :interval :1h :bars 800 :detail-route-vault-address "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/load-vault-detail
           {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}
            :vaults-ui {:snapshot-range :month
@@ -81,7 +69,7 @@
                        :detail-returns-benchmark-coin "BTC"}}
           "0x1234567890ABCDEF1234567890ABCDEF12345678"))))
 
-(deftest load-vault-detail-fetches-component-history-for-parent-vaults-test
+(deftest load-vault-detail-keeps-parent-history-lazy-by-default-test
   (let [state {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}
                :vaults {:merged-index-rows [{:vault-address "0x1234567890abcdef1234567890abcdef12345678"
                                              :relationship {:type :parent
@@ -92,17 +80,7 @@
     (is (= [[:effects/save [:vaults-ui :detail-loading?] true]
             [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
             [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
-            [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]
-            [:effects/api-fetch-vault-fills "0x1234567890abcdef1234567890abcdef12345678"]
-            [:effects/api-fetch-vault-funding-history "0x1234567890abcdef1234567890abcdef12345678"]
-            [:effects/api-fetch-vault-order-history "0x1234567890abcdef1234567890abcdef12345678"]
-            [:effects/api-fetch-vault-ledger-updates "0x1234567890abcdef1234567890abcdef12345678"]
-            [:effects/api-fetch-vault-fills "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
-            [:effects/api-fetch-vault-funding-history "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
-            [:effects/api-fetch-vault-order-history "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
-            [:effects/api-fetch-vault-fills "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
-            [:effects/api-fetch-vault-funding-history "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
-            [:effects/api-fetch-vault-order-history "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]]
+            [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]]
            (actions/load-vault-detail state "0x1234567890abcdef1234567890abcdef12345678")))))
 
 (deftest vault-ui-actions-normalize-input-and-toggle-states-test
@@ -137,8 +115,8 @@
                                [[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
                                [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]
           [:effects/local-storage-set "vaults-snapshot-range" "week"]
-          [:effects/fetch-candle-snapshot :coin "BTC" :interval :15m :bars 800]
-          [:effects/fetch-candle-snapshot :coin "ETH" :interval :15m :bars 800]]
+          [:effects/fetch-candle-snapshot :coin "BTC" :interval :15m :bars 800 :detail-route-vault-address "0x1234567890abcdef1234567890abcdef12345678"]
+          [:effects/fetch-candle-snapshot :coin "ETH" :interval :15m :bars 800 :detail-route-vault-address "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/set-vaults-snapshot-range {:vaults-ui {:detail-chart-series :returns
                                                          :detail-returns-benchmark-coins ["BTC"
                                                                                           "vault:0x1234567890abcdef1234567890abcdef12345678"
@@ -205,6 +183,17 @@
   (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-tab] :performance-metrics]
                                [[:vaults-ui :detail-activity-filter-open?] false]]]]
          (actions/set-vault-detail-activity-tab {} "unknown-tab")))
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-tab] :order-history]
+                               [[:vaults-ui :detail-activity-filter-open?] false]]]
+          [:effects/api-fetch-vault-order-history "0x1234567890abcdef1234567890abcdef12345678"]
+          [:effects/api-fetch-vault-order-history "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]]
+         (actions/set-vault-detail-activity-tab
+          {:router {:path "/vaults/0x1234567890abcdef1234567890abcdef12345678"}
+           :vaults-ui {:detail-activity-tab :performance-metrics}
+           :vaults {:merged-index-rows [{:vault-address "0x1234567890abcdef1234567890abcdef12345678"
+                                         :relationship {:type :parent
+                                                        :child-addresses ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]}}]}}
+          :order-history)))
   (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-sort-by-tab :positions]
                                 {:column :size
                                  :direction :desc}]
@@ -235,10 +224,11 @@
          (actions/set-vault-detail-chart-series {} "accountValue")))
   (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-series] :returns]
                                [[:vaults-ui :detail-chart-hover-index] nil]]]
-          [:effects/fetch-candle-snapshot :coin "BTC" :interval :1h :bars 800]]
+          [:effects/fetch-candle-snapshot :coin "BTC" :interval :1h :bars 800 :detail-route-vault-address "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/set-vault-detail-chart-series {:vaults-ui {:snapshot-range :month
                                                              :detail-returns-benchmark-coins ["BTC"
-                                                                                              "vault:0x1234567890abcdef1234567890abcdef12345678"]}}
+                                                                                              "vault:0x1234567890abcdef1234567890abcdef12345678"]}
+                                                 :router {:path "/vaults/0x1234567890abcdef1234567890abcdef12345678"}}
                                                 :returns)))
   (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-series] :returns]
                                [[:vaults-ui :detail-chart-hover-index] nil]]]]
@@ -259,7 +249,7 @@
                                [[:vaults-ui :detail-returns-benchmark-coin] "ETH"]
                                [[:vaults-ui :detail-returns-benchmark-search] ""]
                                [[:vaults-ui :detail-returns-benchmark-suggestions-open?] true]]]
-          [:effects/fetch-candle-snapshot :coin "ETH" :interval :1h :bars 800]]
+          [:effects/fetch-candle-snapshot :coin "ETH" :interval :1h :bars 800 :detail-route-vault-address "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/select-vault-detail-returns-benchmark {:vaults-ui {:snapshot-range :month
                                                                      :detail-chart-series :returns
                                                                      :detail-returns-benchmark-coins []}

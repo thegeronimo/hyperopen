@@ -20,7 +20,7 @@
     (is (= [{"type" "metaAndAssetCtxs"}
             {"type" "metaAndAssetCtxs" "dex" "vault"}]
            (mapv first @calls)))
-    (is (= [:meta-and-asset-ctxs-default
+    (is (= [:asset-contexts
             [:meta-and-asset-ctxs "vault"]]
            (mapv (comp :dedupe-key second) @calls)))
     (is (= [4000 4000]
@@ -75,7 +75,11 @@
                               "startTime" -590000
                               "endTime" 10000}}
                       body))
-               (is (= {:priority :low} opts)))
+               (is (= {:priority :low
+                       :dedupe-key [:candle-snapshot "BTC" "1m" 10]
+                       :cache-key [:candle-snapshot "BTC" "1m" 10]
+                       :cache-ttl-ms 4000}
+                      opts)))
              (-> (market/request-candle-snapshot! post-info! now-ms-fn nil {})
                  (.then (fn [result]
                           (is (nil? result))
@@ -99,7 +103,10 @@
                               "startTime" (- 1000 (* 330 86400000))
                               "endTime" 1000}}
                       body))
-               (is (= {:priority :high}
+               (is (= {:priority :high
+                       :dedupe-key [:candle-snapshot "ETH" "1d" 330]
+                       :cache-key [:candle-snapshot "ETH" "1d" 330]
+                       :cache-ttl-ms 4000}
                       opts))
                (done))))
           (.catch (async-support/unexpected-error done))))))

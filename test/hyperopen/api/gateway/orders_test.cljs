@@ -16,7 +16,9 @@
                    (is (= {"type" "frontendOpenOrders"
                            "user" "0xabc"}
                           (get-in @calls [0 :body])))
-                   (is (= {:priority :low}
+                   (is (= {:priority :low
+                           :dedupe-key [:frontend-open-orders "0xabc" nil]
+                           :cache-ttl-ms 2500}
                           (get-in @calls [0 :opts])))
                    (orders-gateway/request-frontend-open-orders!
                     deps
@@ -28,7 +30,9 @@
                            "user" "0xabc"
                            "dex" "dex-a"}
                           (get-in @calls [1 :body])))
-                   (is (= {:priority :high}
+                   (is (= {:priority :high
+                           :dedupe-key [:frontend-open-orders "0xabc" "dex-a"]
+                           :cache-ttl-ms 2500}
                           (get-in @calls [1 :opts])))
                    (orders-gateway/request-frontend-open-orders!
                     deps
@@ -40,7 +44,9 @@
                            "user" "0xabc"
                            "dex" "dex-b"}
                           (get-in @calls [2 :body])))
-                   (is (= {:priority :low}
+                   (is (= {:priority :low
+                           :dedupe-key [:frontend-open-orders "0xabc" "dex-b"]
+                           :cache-ttl-ms 2500}
                           (get-in @calls [2 :opts])))
                    (done)))
           (.catch (fn [err]

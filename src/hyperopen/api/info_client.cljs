@@ -45,6 +45,23 @@
         (token-text (:dedupe-key opts*))
         unknown-request-source)))
 
+(defn- inactive-request-error
+  [request-type request-source]
+  (doto (js/Error. (str "Skipped inactive /info request for " request-type))
+    (aset "inactiveRequest" true)
+    (aset "requestType" request-type)
+    (aset "requestSource" request-source)))
+
+(defn- request-active?
+  [opts]
+  (let [active?-fn (:active?-fn (or opts {}))]
+    (if (fn? active?-fn)
+      (try
+        (not (false? (active?-fn)))
+        (catch :default _
+          false))
+      true)))
+
 (defn- update-counter
   [m key]
   (assoc (or m {})
@@ -424,15 +441,20 @@
         request-source (request-source-token opts*)
         request-meta {:request-type request-type
                       :request-source request-source}]
-    (-> (enqueue-info-request!
-         priority
-         (fn []
-           (fetch-fn
-            info-url
-            (clj->js {:method "POST"
-                      :headers {"Content-Type" "application/json"}
-                      :body (js/JSON.stringify (clj->js body))})))
-         request-meta)
+    (if-not (request-active? opts*)
+      (js/Promise.reject (inactive-request-error request-type request-source))
+      (-> (enqueue-info-request!
+           priority
+           (fn []
+             (if (request-active? opts*)
+               (fetch-fn
+                info-url
+                (clj->js {:method "POST"
+                          :headers {"Content-Type" "application/json"}
+                          :body (js/JSON.stringify (clj->js body))}))
+               (js/Promise.reject
+                (inactive-request-error request-type request-source))))
+           request-meta)
         (.then
          (fn [resp]
            (let [status (.-status resp)]
@@ -442,17 +464,20 @@
 
                (and (retryable-status? status)
                     (< attempt max-retries))
-               (let [delay-ms (retry-delay-ms base-retry-ms max-retry-ms attempt)]
-                 (when (= status 429)
-                   (track-rate-limit! request-type request-source)
-                   (mark-rate-limit-cooldown! delay-ms))
-                 (log-fn "Rate-limited /info request, retrying in" delay-ms "ms. status:" status "attempt:" (inc attempt))
-                 (-> (sleep-ms-fn delay-ms)
-                     (.then (fn []
-                              (request-attempt! env
-                                                body
-                                                opts*
-                                                (inc attempt))))))
+               (if (request-active? opts*)
+                 (let [delay-ms (retry-delay-ms base-retry-ms max-retry-ms attempt)]
+                   (when (= status 429)
+                     (track-rate-limit! request-type request-source)
+                     (mark-rate-limit-cooldown! delay-ms))
+                   (log-fn "Rate-limited /info request, retrying in" delay-ms "ms. status:" status "attempt:" (inc attempt))
+                   (-> (sleep-ms-fn delay-ms)
+                       (.then (fn []
+                                (request-attempt! env
+                                                  body
+                                                  opts*
+                                                  (inc attempt))))))
+                 (js/Promise.reject
+                  (inactive-request-error request-type request-source)))
 
                :else
                (throw (make-http-error status))))))
@@ -461,7 +486,8 @@
            (let [status (aget err "status")]
              (if (and (< attempt max-retries)
                       (or (nil? status)
-                           (retryable-status? status)))
+                           (retryable-status? status))
+                      (request-active? opts*))
                (let [delay-ms (retry-delay-ms base-retry-ms max-retry-ms attempt)]
                  (when (= status 429)
                    (track-rate-limit! request-type request-source)
@@ -473,7 +499,7 @@
                                                 body
                                                 opts*
                                                 (inc attempt))))))
-               (js/Promise.reject err))))))))
+               (js/Promise.reject err)))))))))
 
 (defn- request-info-with-flow!
   [default-priority response-cache now-ms-fn single-flight-promises request-attempt-fn body opts]

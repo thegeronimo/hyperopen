@@ -38,6 +38,89 @@ test("asset selector opens and selects ETH @regression", async ({ page }) => {
   );
 });
 
+test("vault detail 429 retries stop after returning to trade @regression", async ({ page }) => {
+  const vaultAddress = "0x61b1cf5c2d7c4bf6d5db14f36651b2242e7cba0a";
+  let vaultDetailsRequests = 0;
+  let vaultWebDataRequests = 0;
+
+  await page.route("https://api.hyperliquid.xyz/info", async route => {
+    const payload = JSON.parse(route.request().postData() || "{}");
+    const requestType = payload?.type;
+    const requestVaultAddress = String(
+      payload?.vaultAddress || payload?.user || ""
+    ).toLowerCase();
+
+    if (
+      requestType === "vaultDetails" &&
+      requestVaultAddress === vaultAddress
+    ) {
+      vaultDetailsRequests += 1;
+      await route.fulfill({
+        status: 429,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "rate-limited" })
+      });
+      return;
+    }
+
+    if (
+      requestType === "webData2" &&
+      requestVaultAddress === vaultAddress
+    ) {
+      vaultWebDataRequests += 1;
+      await route.fulfill({
+        status: 429,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "rate-limited" })
+      });
+      return;
+    }
+
+    await route.continue();
+  });
+
+  await visitRoute(page, "/trade");
+
+  await dispatch(page, [":actions/navigate", "/vaults", { "replace?": true }]);
+  await waitForIdle(page);
+  await expectOracle(
+    page,
+    "parity-element",
+    { present: true },
+    { args: { parityId: "vaults-root" } }
+  );
+
+  await dispatch(page, [
+    ":actions/navigate",
+    `/vaults/${vaultAddress}`,
+    { "replace?": true }
+  ]);
+
+  await expect
+    .poll(() => vaultDetailsRequests, { timeout: 10_000 })
+    .toBeGreaterThanOrEqual(1);
+  await expect
+    .poll(() => vaultWebDataRequests, { timeout: 10_000 })
+    .toBeGreaterThanOrEqual(1);
+
+  await dispatch(page, [":actions/navigate", "/trade", { "replace?": true }]);
+  await waitForIdle(page);
+  await expectOracle(
+    page,
+    "parity-element",
+    { present: true },
+    { args: { parityId: "trade-root" } }
+  );
+
+  const detailsRequestsAfterLeave = vaultDetailsRequests;
+  const webDataRequestsAfterLeave = vaultWebDataRequests;
+
+  await page.waitForTimeout(1200);
+
+  await expect(vaultDetailsRequests).toBe(detailsRequestsAfterLeave);
+  await expect(vaultWebDataRequests).toBe(webDataRequestsAfterLeave);
+});
+
 test("asset selector favorite toggle keeps dropdown open @regression", async ({ page }) => {
   await visitRoute(page, "/trade");
 

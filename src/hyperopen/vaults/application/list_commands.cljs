@@ -1,5 +1,6 @@
 (ns hyperopen.vaults.application.list-commands
   (:require [hyperopen.vaults.application.detail-commands :as detail-commands]
+            [hyperopen.vaults.domain.identity :as identity]
             [hyperopen.vaults.application.ui-state :as ui-state]))
 
 (def ^:private vault-detail-chart-hover-index-path
@@ -53,6 +54,10 @@
   state
   snapshot-range]
   (let [snapshot-range* (ui-state/normalize-vault-snapshot-range snapshot-range)
+        detail-route-vault-address (some-> (when-let [parse-vault-route-fn (:parse-vault-route-fn deps)]
+                                             (parse-vault-route-fn (get-in state [:router :path])))
+                                           :vault-address
+                                           identity/normalize-vault-address)
         projection-effect (detail-timeframe-selector-projection-effect
                            nil
                            [[[:vaults-ui :snapshot-range] snapshot-range*]
@@ -63,7 +68,8 @@
         fetch-effects (if (detail-commands/vault-detail-benchmark-fetch-enabled? deps state)
                         (detail-commands/vault-detail-returns-benchmark-fetch-effects
                          snapshot-range*
-                         (detail-commands/selected-vault-detail-returns-benchmark-coins state))
+                         (detail-commands/selected-vault-detail-returns-benchmark-coins state)
+                         detail-route-vault-address)
                         [])]
     (into (cond-> [projection-effect]
             persist-effect (conj persist-effect))

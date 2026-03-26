@@ -24,7 +24,10 @@
                                   "startTime" 9880000
                                   "endTime" 10000000}}
                           (get-in @calls [0 :body])))
-                   (is (= {:priority :low}
+                   (is (= {:priority :low
+                           :dedupe-key [:candle-snapshot "BTC" "1m" 2]
+                           :cache-key [:candle-snapshot "BTC" "1m" 2]
+                           :cache-ttl-ms 4000}
                           (get-in @calls [0 :opts])))
                    (done)))
           (.catch (fn [err]

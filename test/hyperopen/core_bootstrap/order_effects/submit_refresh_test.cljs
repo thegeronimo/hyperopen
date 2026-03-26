@@ -124,7 +124,8 @@
          (try
            (is (= [[[:actions/refresh-order-history]]]
                   @dispatched))
-           (is (= [[address dex {:priority :low}]]
+           (is (= [[address dex {:force-refresh? true
+                                 :priority :low}]]
                   @refresh-calls))
            (is (= [] @clearinghouse-calls))
            (finally
@@ -178,7 +179,8 @@
          (try
            (is (= [[[:actions/refresh-order-history]]]
                   @dispatched))
-           (is (= [[address "dex-a" {:priority :low}]]
+           (is (= [[address "dex-a" {:force-refresh? true
+                                     :priority :low}]]
                   @refresh-calls))
            (is (= [[address "dex-a" {:priority :low}]]
                   @clearinghouse-calls))
@@ -234,8 +236,10 @@
          (try
            (is (= [[[:actions/refresh-order-history]]]
                   @dispatched))
-           (is (= [[address nil {:priority :high}]
-                   [address "dex-a" {:priority :low}]]
+           (is (= [[address nil {:force-refresh? true
+                                 :priority :high}]
+                   [address "dex-a" {:force-refresh? true
+                                     :priority :low}]]
                   @refresh-calls))
            (is (= [[address nil {:priority :high}]
                    [address "dex-a" {:priority :low}]]

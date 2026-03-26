@@ -9,6 +9,10 @@
 (def wallet-address
   "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd")
 
+(defn- route-scoped-request-opts
+  [opts]
+  (dissoc opts :active?-fn))
+
 (deftest api-fetch-vault-index-applies-begin-and-success-projections-test
   (async done
     (let [request-calls (atom [])
@@ -42,10 +46,17 @@
                            :etag "\"etag-1\""
                            :last-modified "Thu, 20 Mar 2026 12:00:00 GMT"}
                           response))
-                   (is (= [{:priority :high
-                            :fetch-opts {:headers {"If-None-Match" "\"etag-0\""
-                                                   "If-Modified-Since" "Thu, 20 Mar 2026 11:00:00 GMT"}}}]
-                          @request-calls))
+                   (let [opts (first @request-calls)]
+                     (is (= {:priority :high
+                             :fetch-opts {:headers {"If-None-Match" "\"etag-0\""
+                                                    "If-Modified-Since" "Thu, 20 Mar 2026 11:00:00 GMT"}}}
+                            (route-scoped-request-opts opts)))
+                     (is (fn? (:active?-fn opts)))
+                     (is (true? ((:active?-fn opts))))
+                     (swap! store assoc-in [:router :path] (str "/vaults/" vault-address))
+                     (is (true? ((:active?-fn opts))))
+                     (swap! store assoc-in [:router :path] "/trade")
+                     (is (false? ((:active?-fn opts)))))
                    (is (= true (:index-loading? @store)))
                    (is (= response (:index-response @store)))
                    (is (= [[[{:vault-address "0x1"}]
@@ -69,7 +80,8 @@
       (-> (effects/api-fetch-vault-index!
            {:store store
             :request-vault-index-response! (fn [opts]
-                                             (is (empty? opts))
+                                             (is (= {} (route-scoped-request-opts opts)))
+                                             (is (fn? (:active?-fn opts)))
                                              (js/Promise.resolve {:status :ok
                                                                   :rows rows}))
             :begin-vault-index-load (fn [state]
@@ -113,9 +125,15 @@
             :apply-vault-details-error (fn [state vault-address err]
                                          (assoc state :detail-error [vault-address err]))})
           (.then (fn [_payload]
-                   (is (= [["0x1234567890abcdef1234567890abcdef12345678"
-                            {:user "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}]]
-                          @request-calls))
+                   (let [[requested-vault-address opts] (first @request-calls)]
+                     (is (= "0x1234567890abcdef1234567890abcdef12345678"
+                            requested-vault-address))
+                     (is (= {:user "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}
+                            (route-scoped-request-opts opts)))
+                     (is (fn? (:active?-fn opts)))
+                     (is (true? ((:active?-fn opts))))
+                     (swap! store assoc-in [:router :path] (str "/vaults/" wallet-address))
+                     (is (false? ((:active?-fn opts)))))
                    (is (= "0x1234567890abcdef1234567890abcdef12345678"
                           (:begin-vault-address @store)))
                    (is (= ["0x1234567890abcdef1234567890abcdef12345678"
@@ -151,7 +169,8 @@
                      (is (= 1000 (:end-time-ms opts)))
                      (is (<= 0 (:start-time-ms opts)))
                      (is (= 1000 (- (:end-time-ms opts)
-                                    (:start-time-ms opts)))))
+                                    (:start-time-ms opts))))
+                     (is (fn? (:active?-fn opts))))
                    (is (= "0x1234567890abcdef1234567890abcdef12345678"
                           (:funding-begin @store)))
                    (is (= ["0x1234567890abcdef1234567890abcdef12345678"
@@ -180,8 +199,14 @@
             :apply-vault-ledger-updates-error (fn [state vault-address err]
                                                 (assoc state :ledger-error [vault-address err]))})
           (.then (fn [_rows]
-                   (is (= [["0x1234567890abcdef1234567890abcdef12345678" nil nil {}]]
-                          @request-calls))
+                   (let [[requested-vault-address start-time-ms end-time-ms opts]
+                         (first @request-calls)]
+                     (is (= "0x1234567890abcdef1234567890abcdef12345678"
+                            requested-vault-address))
+                     (is (nil? start-time-ms))
+                     (is (nil? end-time-ms))
+                     (is (= {} (route-scoped-request-opts opts)))
+                     (is (fn? (:active?-fn opts))))
                    (is (= "0x1234567890abcdef1234567890abcdef12345678"
                           (:ledger-begin @store)))
                    (is (= ["0x1234567890abcdef1234567890abcdef12345678"
@@ -287,9 +312,11 @@
                                        (assoc state :index-error err))})
           (.then (fn [response]
                    (is (= cache-record (:hydrated-cache @store)))
-                   (is (= [{:fetch-opts {:headers {"If-None-Match" "\"etag-cache\""
-                                                  "If-Modified-Since" "Thu, 20 Mar 2026 10:00:00 GMT"}}}]
-                          @request-calls))
+                   (let [opts (first @request-calls)]
+                     (is (= {:fetch-opts {:headers {"If-None-Match" "\"etag-cache\""
+                                                   "If-Modified-Since" "Thu, 20 Mar 2026 10:00:00 GMT"}}}
+                            (route-scoped-request-opts opts)))
+                     (is (fn? (:active?-fn opts))))
                    (is (= {:status :not-modified
                            :etag "\"etag-cache-2\""
                            :last-modified "Thu, 20 Mar 2026 12:00:00 GMT"}
@@ -501,8 +528,11 @@
             :opts {:limit 25}})
           (.then (fn [rows]
                    (is (= [{:coin "ETH"}] rows))
-                   (is (= [[vault-address {:limit 25}]]
-                          @request-calls))
+                   (let [[requested-vault-address opts] (first @request-calls)]
+                     (is (= vault-address requested-vault-address))
+                     (is (= {:limit 25}
+                            (route-scoped-request-opts opts)))
+                     (is (fn? (:active?-fn opts))))
                    (is (= vault-address (:fills-begin @store)))
                    (is (= [vault-address [{:coin "ETH"}]]
                           (:fills-success @store)))

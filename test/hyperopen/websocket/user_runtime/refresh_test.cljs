@@ -139,7 +139,10 @@
                              {"type" "frontendOpenOrders"
                               "user" address
                               "dex" "vault"}
-                             {:priority :low}]
+                             {:priority :low
+                              :dedupe-key [:frontend-open-orders address "vault"]
+                              :cache-ttl-ms 2500
+                              :force-refresh? true}]
                             (first @calls)))
                      (is (= [{:oid 1}]
                             (get-in @store [:orders :open-orders-snapshot-by-dex "vault"])))
@@ -148,7 +151,10 @@
                      (is (= ["frontendOpenOrders"
                              {"type" "frontendOpenOrders"
                               "user" address}
-                             {:priority :high}]
+                             {:priority :high
+                              :dedupe-key [:frontend-open-orders address nil]
+                              :cache-ttl-ms 2500
+                              :force-refresh? true}]
                             (second @calls)))
                      (is (= [{:oid 1}]
                             (get-in @store [:orders :open-orders-snapshot])))

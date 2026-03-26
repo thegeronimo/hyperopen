@@ -7,18 +7,14 @@
           [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
           [:effects/api-fetch-user-vault-equities "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
           [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
-          [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]
-          [:effects/api-fetch-vault-fills "0x1234567890abcdef1234567890abcdef12345678"]
-          [:effects/api-fetch-vault-funding-history "0x1234567890abcdef1234567890abcdef12345678"]
-          [:effects/api-fetch-vault-order-history "0x1234567890abcdef1234567890abcdef12345678"]
-          [:effects/api-fetch-vault-ledger-updates "0x1234567890abcdef1234567890abcdef12345678"]]
+          [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]]
          (route-loading/load-vault-route
           {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}}
           {:kind :detail
            :path "/vaults/0x1234567890abcdef1234567890abcdef12345678"
            :vault-address "0x1234567890abcdef1234567890abcdef12345678"}))))
 
-(deftest load-vault-detail-fetches-component-history-and-benchmark-effects-test
+(deftest load-vault-detail-keeps-history-lazy-but-still-fetches-benchmark-effects-test
   (let [state {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}
                :vaults {:merged-index-rows [{:vault-address "0x1234567890abcdef1234567890abcdef12345678"
                                              :relationship {:type :parent
@@ -29,14 +25,23 @@
             [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
             [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
             [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]
-            [:effects/api-fetch-vault-fills "0x1234567890abcdef1234567890abcdef12345678"]
-            [:effects/api-fetch-vault-funding-history "0x1234567890abcdef1234567890abcdef12345678"]
+            [:effects/fetch-candle-snapshot :coin "BTC" :interval :1h :bars 800 :detail-route-vault-address "0x1234567890abcdef1234567890abcdef12345678"]]
+           (route-loading/load-vault-detail
+            state
+            "0x1234567890abcdef1234567890abcdef12345678")))))
+
+(deftest load-vault-detail-fetches-selected-activity-history-on-demand-test
+  (let [state {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}
+               :vaults {:merged-index-rows [{:vault-address "0x1234567890abcdef1234567890abcdef12345678"
+                                             :relationship {:type :parent
+                                                            :child-addresses ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]}}]}
+               :vaults-ui {:detail-activity-tab :order-history}}]
+    (is (= [[:effects/save [:vaults-ui :detail-loading?] true]
+            [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
+            [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
+            [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]
             [:effects/api-fetch-vault-order-history "0x1234567890abcdef1234567890abcdef12345678"]
-            [:effects/api-fetch-vault-ledger-updates "0x1234567890abcdef1234567890abcdef12345678"]
-            [:effects/api-fetch-vault-fills "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
-            [:effects/api-fetch-vault-funding-history "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
-            [:effects/api-fetch-vault-order-history "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
-            [:effects/fetch-candle-snapshot :coin "BTC" :interval :1h :bars 800]]
+            [:effects/api-fetch-vault-order-history "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]]
            (route-loading/load-vault-detail
             state
             "0x1234567890abcdef1234567890abcdef12345678")))))
@@ -52,11 +57,7 @@
             [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
             [:effects/api-fetch-user-vault-equities viewer-address]
             [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" viewer-address]
-            [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]
-            [:effects/api-fetch-vault-fills "0x1234567890abcdef1234567890abcdef12345678"]
-            [:effects/api-fetch-vault-funding-history "0x1234567890abcdef1234567890abcdef12345678"]
-            [:effects/api-fetch-vault-order-history "0x1234567890abcdef1234567890abcdef12345678"]
-            [:effects/api-fetch-vault-ledger-updates "0x1234567890abcdef1234567890abcdef12345678"]]
+            [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]]
            (route-loading/load-vault-route
             state
             {:kind :detail
@@ -78,11 +79,7 @@
             [:effects/api-fetch-vault-summaries]
             [:effects/api-fetch-vault-benchmark-details benchmark-address]
             [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
-            [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]
-            [:effects/api-fetch-vault-fills "0x1234567890abcdef1234567890abcdef12345678"]
-            [:effects/api-fetch-vault-funding-history "0x1234567890abcdef1234567890abcdef12345678"]
-            [:effects/api-fetch-vault-order-history "0x1234567890abcdef1234567890abcdef12345678"]
-            [:effects/api-fetch-vault-ledger-updates "0x1234567890abcdef1234567890abcdef12345678"]]
+            [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]]
            (route-loading/load-vault-route
             state
             {:kind :detail
