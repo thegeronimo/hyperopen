@@ -10,6 +10,10 @@
   (is (= {:kind :page
           :path "/staking"}
          (actions/parse-staking-route "/staking/")))
+  (is (= ""
+         (actions/normalize-route-path nil)))
+  (is (= "/staking"
+         (actions/normalize-route-path " /staking///?tab=rewards#history ")))
   (is (= {:kind :page
           :path "/staking"}
          (actions/parse-staking-route "/staking?tab=validators")))
@@ -56,10 +60,27 @@
          (actions/normalize-staking-validator-sort-column :yourstake)))
   (is (= :apr
          (actions/normalize-staking-validator-sort-column " est apr ")))
+  (is (= :asc
+         (actions/normalize-staking-validator-sort-direction "ascending")))
+  (is (= :desc
+         (actions/normalize-staking-validator-sort-direction :unexpected)))
+  (is (= {:column :status
+          :direction :asc}
+         (actions/normalize-staking-validator-sort
+          {:column "status"
+           :direction "ascending"})))
   (is (= :stake
          (actions/normalize-staking-validator-sort-column nil)))
   (is (= :stake
          (actions/normalize-staking-validator-sort-column :not-a-column))))
+
+(deftest set-staking-active-tab-normalizes-aliases-and-defaults-test
+  (is (= [[:effects/save [:staking-ui :active-tab] :staking-reward-history]]
+         (actions/set-staking-active-tab {} "rewards")))
+  (is (= [[:effects/save [:staking-ui :active-tab] :staking-action-history]]
+         (actions/set-staking-active-tab {} :actions)))
+  (is (= [[:effects/save [:staking-ui :active-tab] :validator-performance]]
+         (actions/set-staking-active-tab {} :unsupported))))
 
 (deftest set-staking-validator-sort-toggles-direction-and-switches-columns-test
   (is (= [[:effects/save [:staking-ui :validator-sort]
@@ -100,7 +121,12 @@
            [[[:staking-ui :validator-timeframe] :day]
             [[:staking-ui :validator-timeframe-dropdown-open?] false]
             [[:staking-ui :validator-page] 0]]]]
-         (actions/set-staking-validator-timeframe {} "1d"))))
+         (actions/set-staking-validator-timeframe {} "1d")))
+  (is (= [[:effects/save-many
+           [[[:staking-ui :validator-timeframe] :week]
+            [[:staking-ui :validator-timeframe-dropdown-open?] false]
+            [[:staking-ui :validator-page] 0]]]]
+         (actions/set-staking-validator-timeframe {} :unsupported))))
 
 (deftest set-staking-validator-page-clamps-to-non-negative-integers-test
   (is (= [[:effects/save [:staking-ui :validator-page] 3]]
@@ -140,6 +166,8 @@
          (actions/set-staking-form-field {} :validator-search-query "foundation")))
   (is (= [[:effects/save [:staking-ui :validator-dropdown-open?] true]]
          (actions/set-staking-form-field {} :validator-dropdown-open? true)))
+  (is (= [[:effects/save [:staking-ui :validator-dropdown-open?] false]]
+         (actions/set-staking-form-field {} :validator-dropdown-open? "yes")))
   (is (= []
          (actions/set-staking-form-field {} :not-a-field "1"))))
 
@@ -154,6 +182,18 @@
           "0x1234567890ABCDEF1234567890ABCDEF12345678"))))
 
 (deftest staking-action-popover-actions-normalize-kind-anchor-and-direction-test
+  (is (= [[:effects/save-many
+           [[[:staking-ui :action-popover]
+             {:open? true
+              :kind :stake
+              :anchor nil}]
+            [[:staking-ui :transfer-direction] :spot->staking]
+            [[:staking-ui :validator-search-query] ""]
+            [[:staking-ui :validator-dropdown-open?] false]
+            [[:staking-ui :form-error] nil]]]]
+         (actions/open-staking-action-popover
+          {:staking-ui {:transfer-direction :sideways}}
+          :stake)))
   (is (= [[:effects/save-many
            [[[:staking-ui :action-popover]
              {:open? true
@@ -174,6 +214,22 @@
            :top "6"
            :viewportWidth 1024
            :height "not-a-number"})))
+  (is (= [[:effects/save-many
+           [[[:staking-ui :action-popover]
+             {:open? true
+              :kind :unstake
+              :anchor {:left 18.5
+                       :viewport-height 900}}]
+            [[:staking-ui :transfer-direction] :staking->spot]
+            [[:staking-ui :validator-search-query] ""]
+            [[:staking-ui :validator-dropdown-open?] false]
+            [[:staking-ui :form-error] nil]]]]
+         (actions/open-staking-action-popover
+          {:staking-ui {:transfer-direction :staking->spot}}
+          :unstake
+          #js {:left "18.5"
+               :viewportHeight "900"
+               :width "garbage"})))
   (is (= []
          (actions/open-staking-action-popover {} :unknown nil)))
   (is (= [[:effects/save [:staking-ui :transfer-direction] :spot->staking]]
