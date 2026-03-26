@@ -1,1 +1,1 @@
-{:surface "vault-transfer" :module "Hyperopen.Formal.VaultTransfer" :status "bootstrap"}
+{:surface "vault-transfer" :module "Hyperopen.Formal.VaultTransfer" :status "modeled"}

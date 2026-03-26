@@ -6,212 +6,222 @@ This document follows `/hyperopen/.agents/PLANS.md` and `/hyperopen/docs/PLANS.m
 
 ## Purpose / Big Picture
 
-Hyperopen already keeps its money-moving and exchange-action logic in pure ClojureScript seams, but those seams are currently defended only by example tests, mutation checks, and code review. After this change, contributors will be able to run a repo-local formal verification workflow for two safety-critical kernels in sequence: vault transfer preview first, then order request construction. The visible proof will be a checked-in proof model, committed conformance vectors, property tests, and repeatable local commands that verify the proofs and then show the production ClojureScript functions still match the verified model.
+Hyperopen already keeps money-moving and exchange-action logic in pure ClojureScript seams, but the repo still does not have machine-checked proofs for those seams. After this work is actually complete, contributors will be able to run a repo-local formal workflow that proves two business kernels in sequence: vault transfer preview first, then order request construction. The visible result will be an executable Lean reference model for each kernel, deterministic generated ClojureScript vector namespaces emitted from those models, and ordinary repo tests that prove the production ClojureScript implementation still conforms to the verified model.
 
-The first track protects vault transfer preview, which decides whether Hyperopen is allowed to build a `vaultTransfer` action at all and, if so, with what canonical address, direction, and USDC micros amount. The second track protects order request construction, which turns a normalized order form and market context into signed exchange actions, including leverage pre-actions, standard order shapes, TP/SL attachments, scale ladders, and TWAP requests. The user-visible product behavior should not change unless the proof work reveals a real bug. The intended outcome is stronger confidence that Hyperopen does not emit illegal money-moving or order-placement actions inside the modeled input domain.
+The first track protects `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs`, which decides whether Hyperopen may build a `vaultTransfer` action and with what canonical address, direction, and USDC micros amount. The second track protects `/hyperopen/src/hyperopen/api/gateway/orders/commands.cljs` plus its arithmetic and canonicalization helpers in `/hyperopen/src/hyperopen/domain/trading/core.cljs` and `/hyperopen/src/hyperopen/domain/trading/market.cljs`, which together decide what exchange actions Hyperopen can emit. Product behavior should not change unless the proof work exposes a real bug.
 
 ## Progress
 
-- [x] (2026-03-26 15:43 EDT) Created and claimed `bd` issue `hyperopen-8k7a` for this formal-verification planning work.
-- [x] (2026-03-26 15:43 EDT) Re-read `/hyperopen/.agents/PLANS.md`, `/hyperopen/docs/PLANS.md`, `/hyperopen/docs/WORK_TRACKING.md`, and the relevant boundary docs before drafting the plan.
-- [x] (2026-03-26 15:43 EDT) Audited the current proof targets in `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs`, `/hyperopen/src/hyperopen/api/gateway/orders/commands.cljs`, `/hyperopen/src/hyperopen/domain/trading/core.cljs`, `/hyperopen/src/hyperopen/domain/trading/market.cljs`, and the existing tests that already anchor these surfaces.
-- [x] (2026-03-26 15:43 EDT) Confirmed the current workspace has no formal-methods toolchain installed (`lean`, `lake`, `elan`, `dafny`, `tlc`, and `dotnet` were all absent), so this plan includes explicit bootstrap work.
-- [x] (2026-03-26 15:43 EDT) Authored this active ExecPlan for a sequential proof program: vault transfer preview first, order request construction second.
-- [x] (2026-03-26 16:24 EDT) Bootstrapped a repo-local proof toolchain under `/hyperopen/tools/formal/`, added discoverable `formal:verify` and `formal:sync` npm scripts, and kept proof execution out of `npm run check`.
-- [x] (2026-03-26 16:24 EDT) Implemented the vault transfer proof track with a dedicated contract namespace, committed formal vectors, route-normalization hardening in `vault-transfer-preview`, vector-backed conformance tests, and property tests for parser/eligibility/preview invariants.
-- [x] (2026-03-26 16:24 EDT) Implemented the order request proof track with an exact-shape contract namespace, committed standard and advanced vector corpora, and conformance coverage for standard orders, leverage pre-actions, scale requests, and TWAP requests across builder and state-level callers.
-- [ ] Run targeted mutation follow-ups for the proof kernels, reconcile any surviving mutants, and then move this plan to `/hyperopen/docs/exec-plans/completed/` once the remaining acceptance criteria are fully met.
+- [x] (2026-03-26 15:43 EDT) Created and claimed `bd` issue `hyperopen-8k7a` for this formal-verification work.
+- [x] (2026-03-26 15:43 EDT) Re-read `/hyperopen/.agents/PLANS.md`, `/hyperopen/docs/PLANS.md`, `/hyperopen/docs/WORK_TRACKING.md`, and the relevant boundary docs before drafting the original plan.
+- [x] (2026-03-26 15:43 EDT) Audited the target kernels in `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs`, `/hyperopen/src/hyperopen/api/gateway/orders/commands.cljs`, `/hyperopen/src/hyperopen/domain/trading/core.cljs`, and `/hyperopen/src/hyperopen/domain/trading/market.cljs`, plus their current test anchors.
+- [x] (2026-03-26 16:24 EDT) Bootstrapped the repo-local formal tooling surface under `/hyperopen/tools/formal/`, including Lean workspace wiring, `formal:verify`, `formal:sync`, and documentation in `/hyperopen/docs/tools.md`.
+- [x] (2026-03-26 16:24 EDT) Added ClojureScript-side contract namespaces, committed vector corpora, conformance coverage, and property tests for vault transfer and order request surfaces; fixed route-fallback address normalization inside `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs`.
+- [x] (2026-03-26 16:24 EDT) Passed the current bootstrap validation slice: `npm run formal:verify -- --surface vault-transfer`, `npm run formal:sync -- --surface vault-transfer`, `npm run formal:verify -- --surface order-request-standard`, `npm run formal:sync -- --surface order-request-standard`, `npm run formal:verify -- --surface order-request-advanced`, `npm run formal:sync -- --surface order-request-advanced`, `npm test`, `npm run test:websocket`, and `npm run check`.
+- [x] (2026-03-26 18:26 EDT) Refreshed this ExecPlan after a post-bootstrap audit confirmed the Lean surfaces are still manifest-only scaffolding and `formal:sync` still does not regenerate the checked-in ClojureScript vector namespaces.
+- [x] (2026-03-26 18:55 EDT) Replaced `/hyperopen/tools/formal/lean/Hyperopen/Formal/VaultTransfer.lean` with a real vault reference model for canonical address normalization, exact-decimal USDC micros parsing, deposit eligibility, preview precedence, generated vault vectors, and proof theorems for precedence and success-shape invariants.
+- [x] (2026-03-26 18:55 EDT) Extended `/hyperopen/tools/formal/core.clj` into a modeled-surface export pipeline for vault transfer, so `formal:sync` now refreshes `/hyperopen/test/hyperopen/formal/vault_transfer_vectors.cljs`, `formal:verify` now fails on stale vault generated source, and `/hyperopen/dev/formal_tooling_test.clj` covers the wrapper behavior. Added the explicit runtime effect-order assertion for `:actions/submit-vault-transfer`.
+- [x] (2026-03-26 18:55 EDT) Validated the current vault slice with `npm run test:formal-tooling`, `npm run formal:verify -- --surface vault-transfer`, `npm run formal:verify -- --surface order-request-standard`, `npm run formal:verify -- --surface order-request-advanced`, `npm test`, `npm run test:websocket`, `npm run check`, and `npm run lint:docs`.
+- [ ] Replace the bootstrap-only standard order Lean surface with a real submit-ready and raw-builder reference model for standard orders, TP/SL, canonical price formatting, asset identity, and leverage pre-actions, and make `formal:sync` regenerate `/hyperopen/test/hyperopen/formal/order_request_standard_vectors.cljs`.
+- [ ] Replace the bootstrap-only advanced order Lean surface with a real exact-arithmetic model for scale ladders and TWAP requests, and make `formal:sync` regenerate `/hyperopen/test/hyperopen/formal/order_request_advanced_vectors.cljs`.
+- [ ] Run mutation follow-ups for `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs`, `/hyperopen/src/hyperopen/api/gateway/orders/commands.cljs`, `/hyperopen/src/hyperopen/domain/trading/market.cljs`, and `/hyperopen/src/hyperopen/domain/trading/core.cljs`, then close `hyperopen-8k7a` and move this plan to `/hyperopen/docs/exec-plans/completed/` once acceptance is fully met.
 
 ## Surprises & Discoveries
 
-- Observation: the repository does not currently have any formal verification scaffold or proof-tool wrapper.
-  Evidence: `which lean lake elan dafny tlc dotnet` returned no installed proof tools on 2026-03-26, while `java`, `node`, and `bb` were present.
+- Observation: the repository initially had no formal verification scaffold or proof-tool wrapper.
+  Evidence: `which lean lake elan dafny tlc dotnet` returned no installed proof tools on 2026-03-26, while `java`, `node`, and `bb` were present before the tooling bootstrap landed.
 
-- Observation: `vault-transfer-preview` is already isolated as a compact pure kernel, but its current tests do not completely specify the decision table.
-  Evidence: `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs` is pure and bounded, and `/hyperopen/test/hyperopen/vaults/domain/transfer_policy_test.cljs` already covers truncation, overflow, route fallback, withdraw-all, and smallest-positive-unit behavior, but it does not yet pin down liquidator blocking, leader override, merged-row fallback, or route-normalization assumptions.
+- Observation: `vault-transfer-preview` is already a compact pure kernel, but its original tests did not fully pin down the decision table.
+  Evidence: `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs` is pure and bounded, and the expanded suites now cover liquidator blocking, leader override, merged-row fallback, route normalization, and preview precedence.
 
-- Observation: order request construction is not one proof problem; it is a cluster of related kernels with different risks.
-  Evidence: `/hyperopen/src/hyperopen/api/gateway/orders/commands.cljs` covers standard orders, TP/SL attachments, scale requests, TWAP requests, and leverage pre-actions, while `/hyperopen/src/hyperopen/domain/trading/market.cljs` and `/hyperopen/src/hyperopen/domain/trading/core.cljs` own the string-canonicalization and arithmetic pieces those builders depend on.
+- Observation: order request construction is not one proof problem; it is a cluster of kernels with different risk profiles.
+  Evidence: `/hyperopen/src/hyperopen/api/gateway/orders/commands.cljs` owns standard orders, TP/SL attachments, scale, TWAP, and leverage pre-actions, while `/hyperopen/src/hyperopen/domain/trading/market.cljs` and `/hyperopen/src/hyperopen/domain/trading/core.cljs` own canonicalization and arithmetic.
 
-- Observation: production validation and construction are intentionally not equivalent today.
-  Evidence: `/hyperopen/src/hyperopen/state/trading.cljs` includes the explicit `:request-unavailable` branch in `submit-policy`, so the proof work must distinguish “submit-ready normalized input” from “raw builder observational contract” instead of pretending the builder is total for all forms that reach the view layer.
+- Observation: production validation and construction are intentionally not equivalent.
+  Evidence: `/hyperopen/src/hyperopen/state/trading.cljs` includes the explicit `:request-unavailable` branch in `submit-policy`, so the proof work must distinguish “submit-ready normalized input” from “raw builder observational contract.”
 
-- Observation: proofing the current JavaScript number behavior directly would be brittle and low-value.
-  Evidence: `/hyperopen/src/hyperopen/domain/trading/core.cljs` and `/hyperopen/src/hyperopen/domain/trading/market.cljs` rely on `parseFloat`, `Math.floor`, `toFixed`, and ordinary JS stringification. The proof plan must therefore use fixed-point or exact-decimal reference models and then compare the ClojureScript implementation to the model with bounded conformance tests, not try to “prove JavaScript doubles.”
+- Observation: proving current JavaScript number behavior directly would be brittle and low-value.
+  Evidence: `/hyperopen/src/hyperopen/domain/trading/core.cljs` and `/hyperopen/src/hyperopen/domain/trading/market.cljs` rely on `parseFloat`, `Math.floor`, `toFixed`, and ordinary JavaScript stringification. The reference model must therefore use exact integers or exact decimal encodings and compare production behavior to that model with conformance tests.
 
-- Observation: route-derived vault addresses needed normalization inside the proof kernel, not just at the router edge.
-  Evidence: while wiring vector-backed preview cases, mixed-case and padded route addresses could bypass the prior `vault-transfer-preview` fallback path; the implementation now normalizes `route-vault-address-fn` output before selection in `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs`, and the committed vectors pin both normalized and invalid-route fallback behavior.
+- Observation: route-derived vault addresses needed normalization inside the proof kernel, not only at the router edge.
+  Evidence: mixed-case and padded route addresses could bypass the prior fallback path; `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs` now normalizes `route-vault-address-fn` output before selection, and the committed vectors pin both normalized and invalid-route cases.
 
-- Observation: the first tooling slice validates Lean workspace health and per-surface manifests, but it does not yet regenerate the checked-in ClojureScript vector namespaces.
-  Evidence: `tools/formal/core.clj` currently builds Lean and refreshes `tools/formal/generated/*.edn`, while the committed proof vectors live under `/hyperopen/test/hyperopen/formal/*.cljs` and were updated directly in this implementation slice.
+- Observation: the Lean surfaces currently prove only bootstrap facts, not business logic.
+  Evidence: `/hyperopen/tools/formal/lean/Hyperopen/Formal/VaultTransfer.lean`, `/hyperopen/tools/formal/lean/Hyperopen/Formal/OrderRequest/Standard.lean`, and `/hyperopen/tools/formal/lean/Hyperopen/Formal/OrderRequest/Advanced.lean` currently define `surface_id`, `manifest_spec`, `verify`, and `sync`, while `/hyperopen/tools/formal/core.clj` only checks or writes `{:status "bootstrap"}` manifests.
+
+- Observation: the checked-in vector namespaces are currently hand-maintained fixtures, not model-emitted artifacts.
+  Evidence: `/hyperopen/tools/formal/README.md` and `/hyperopen/tools/formal/core.clj` describe `formal:sync` as manifest refresh only, while the committed corpora live under `/hyperopen/test/hyperopen/formal/*.cljs` and are not regenerated by the wrapper.
+
+- Observation: order-request export cannot use ordinary unordered EDN maps.
+  Evidence: `/hyperopen/src/hyperopen/schema/order_request_contracts.cljs` and `/hyperopen/test/hyperopen/state/trading/order_request_test.cljs` assert exact field order for signing-sensitive request maps, so the export bridge must render deterministic `array-map`-shaped ClojureScript.
+
+- Observation: emitting generated ClojureScript source directly from Lean is the cheapest reliable way to preserve ordered request maps today.
+  Evidence: the vault surface now writes transient generated source under `/hyperopen/target/formal/vault-transfer-vectors.cljs`, and `/hyperopen/tools/formal/core.clj` can compare or copy that file directly without losing `array-map` order through an intermediate unordered map format.
+
+- Observation: localized decimal input remains an adapter contract, not a proof-model contract, even after vault export went live.
+  Evidence: the generated vault vectors now cover normalized decimal input only, while the localized comma-decimal case remains an ordinary unit test in `/hyperopen/test/hyperopen/vaults/domain/transfer_policy_test.cljs`.
 
 ## Decision Log
 
-- Decision: use Lean 4 under `/hyperopen/tools/formal/lean/` as the proof language for these first two tracks, and use repo-local wrapper commands to emit committed ClojureScript vector namespaces from the verified model.
-  Rationale: the repo has no existing proof toolchain, but Lean 4 can be bootstrapped with `elan` without adding a runtime dependency to the production app. It supports executable reference models plus proofs over integers and finite data, which is the right fit for `vault-transfer-preview` and order-request legality. Committed generated vectors let ordinary `npm test` continue to run even on machines that do not have Lean installed.
+- Decision: use Lean 4 under `/hyperopen/tools/formal/lean/` as the proof language for these first two tracks, with repo-local wrapper commands exposed through `npm`.
+  Rationale: Lean 4 can be installed locally with `elan`, supports executable reference models plus proofs over integers and finite data, and keeps the proof environment close to the repo instead of introducing a remote or container dependency.
   Date/Author: 2026-03-26 / Codex
 
-- Decision: keep proof execution out of the required `npm run check` gate in v1, but add explicit `formal:verify` and `formal:sync` commands and document them in repo tooling docs.
-  Rationale: the current workspace does not have Lean installed, and the existing required repo gates are already stable and mandatory. The first delivery should establish a reliable local proof workflow and committed conformance artifacts before the project considers making proof execution mandatory in CI.
+- Decision: keep proof execution out of `npm run check` in v1.
+  Rationale: the first delivery must keep normal development friction low. The stable requirement is that committed vectors let `npm test` prove ClojureScript conformance even when Lean is unavailable.
   Date/Author: 2026-03-26 / Codex
 
-- Decision: scope the first proof track to normalized vault-transfer policy only, not to locale normalization, full modal flow, or runtime effect ordering.
-  Rationale: `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs` is the pure decision owner. Locale normalization in `/hyperopen/src/hyperopen/utils/parse.cljs` and effect ordering in `/hyperopen/src/hyperopen/runtime/effect_order_contract.cljs` are real contracts, but they are adapter concerns and would dilute the first formalization effort.
+- Decision: treat the current contracts, vector corpora, and property tests as conformance scaffolding, not proof completion.
+  Rationale: they are valuable and should stay, but the current Lean surfaces do not yet encode business rules. This plan must not claim the kernels are formally verified until the reference models and exporter are real.
   Date/Author: 2026-03-26 / Codex
 
-- Decision: scope the second proof track to order request construction, not full `submit-policy`, read-only gating, spectate gating, or runtime submission sequencing.
-  Rationale: the user asked for order request construction as the second target. The builder kernel is where Hyperopen emits exchange actions. `submit-policy`, `order/actions.cljs`, and effect-order enforcement remain caller/runtime concerns that already have direct tests and should be referenced as context rather than absorbed into the proof core.
+- Decision: keep this work on the existing active ExecPlan instead of creating a second follow-on plan.
+  Rationale: the current repository state is one partially completed program, not two separate tickets. The right move is to refresh the same living plan so a future contributor can restart from one document.
   Date/Author: 2026-03-26 / Codex
 
-- Decision: split the order-request work into two proof domains inside one track: a submit-ready contract and a raw public-builder observational contract.
-  Rationale: normalized submit flows in `/hyperopen/src/hyperopen/state/trading.cljs` prepare inputs before calling the builder, but the builder is also used directly by other pure callers. A high-quality proof plan must state what is guaranteed for fully prepared inputs and what is merely fail-closed behavior for weaker or direct inputs.
+- Decision: sequence the remaining implementation as vault model first, then exporter/tooling hardening, then standard-order proofs, then advanced arithmetic proofs, then mutation close-out.
+  Rationale: vault transfer is smaller and money-moving, the exporter is required to keep later order proofs honest, and scale/TWAP arithmetic is the highest-complexity slice and should come last.
   Date/Author: 2026-03-26 / Codex
 
-- Decision: use fixed-point or exact-decimal proof models and treat string messages as adapter behavior.
-  Rationale: exact integer/fixed-point arithmetic is the right abstraction for USDC micros, price truncation, size flooring, scale weights, and TWAP counts. Error strings are UI artifacts; reason keywords and structured decisions are easier to verify and can then be mapped back to the current strings at the adapter edge.
+- Decision: keep locale normalization and full submit-policy orchestration out of the proof core for this first program.
+  Rationale: the proof kernels remain `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs` and the order-request builders plus arithmetic helpers. Locale parsing and submission orchestration remain caller contracts backed by ordinary tests.
   Date/Author: 2026-03-26 / Codex
 
-- Decision: normalize route-fallback vault addresses inside `vault-transfer-preview` before the kernel chooses between modal and route address sources.
-  Rationale: the route fallback is part of the proofed decision surface in practice, and leaving normalization to outer callers would allow mixed-case or padded route values to behave differently from modal-provided addresses. Pulling normalization into the kernel makes the contract explicit and easier to test.
+- Decision: require mutation evidence for the arithmetic and canonicalization helpers as well as the top-level builders.
+  Rationale: the safety claims for order construction rely on `/hyperopen/src/hyperopen/domain/trading/market.cljs` and `/hyperopen/src/hyperopen/domain/trading/core.cljs`, not only `/hyperopen/src/hyperopen/api/gateway/orders/commands.cljs`. Acceptance should match that claim.
+  Date/Author: 2026-03-26 / Codex
+
+- Decision: have modeled surfaces emit deterministic ClojureScript source into `/hyperopen/target/formal/**`, and let the Babashka wrapper compare or copy that source into the checked-in vector namespace.
+  Rationale: this keeps the first export pipeline simple, avoids losing key order for signing-sensitive request maps, and still gives `formal:verify` a clean transient-versus-committed freshness check.
+  Date/Author: 2026-03-26 / Codex
+
+- Decision: keep localized decimal parsing outside the generated vault vector corpus even after vault formalization.
+  Rationale: the vault proof model is scoped to normalized decimal input. Locale adaptation still matters, but it belongs in adapter tests rather than the first Lean kernel.
   Date/Author: 2026-03-26 / Codex
 
 ## Outcomes & Retrospective
 
-This plan is now partially executed. The repo has a checked-in Lean bootstrap under `/hyperopen/tools/formal/`, committed formal vector namespaces under `/hyperopen/test/hyperopen/formal/`, new contract namespaces for vault transfer and order-request legality, and conformance/property coverage tied into the ordinary ClojureScript test suite.
+The first implementation slice succeeded as tooling bootstrap and executable-spec scaffolding. The repository now has a Lean workspace, repo-local wrapper commands, contract namespaces, committed vector corpora, conformance tests, property tests, and one real production bug fix in `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs`. That reduced future startup cost for the proof work because the repo now has a stable surface to build on.
 
-If the implementation follows this plan successfully, the repository will gain a new analysis/tooling surface under `/hyperopen/tools/formal/`, new committed conformance artifacts, and tighter property coverage around two safety-critical business kernels. That will slightly increase local-tooling complexity in the short term because there will be a new optional proof toolchain to install, but it should reduce long-term product complexity by making “what is actually legal to emit” precise, reproducible, and machine-checked instead of relying only on example tests and reviewer memory.
+The bootstrap slice also created a new risk: the commands named `formal:verify` and `formal:sync` currently pass without proving the business kernels. That slightly increased conceptual complexity because the repo now has a formal-looking surface that still stops at manifests and hand-maintained fixtures. This refreshed plan corrects that by demoting the current state to scaffolding and making the real remaining work explicit.
 
-The main thing to watch during implementation is scope creep. If the work starts drifting into websocket proofs, view-model behavior, locale parsing across all inputs, or full submit-flow proof obligations, stop and file follow-up `bd` work instead of widening this first proof program.
+The second implementation slice resolved that risk for vault transfer. The vault surface is now a real Lean model with generated vectors, wrapper freshness checks, and fast Babashka tests around the export path. That increased tooling complexity slightly because the wrapper now manages a transient generated-source artifact under `/hyperopen/target/formal/**`, but it reduced product risk by making the vault kernel materially machine-checked instead of just labeled “formal.”
 
-Validation completed in this slice:
-
-- `npm run formal:verify -- --surface vault-transfer`
-- `npm run formal:sync -- --surface vault-transfer`
-- `npm run formal:verify -- --surface order-request-standard`
-- `npm run formal:sync -- --surface order-request-standard`
-- `npm run formal:verify -- --surface order-request-advanced`
-- `npm run formal:sync -- --surface order-request-advanced`
-- `npm test`
-- `npm run test:websocket`
-- `npm run check`
-
-All of the commands above passed on 2026-03-26. The main remaining gap relative to the original plan is automation depth: `formal:sync` currently refreshes deterministic surface manifests, but not the checked-in ClojureScript vector namespaces, and the targeted module mutation runs for the proof kernels still need to be executed and evaluated before this plan should be marked complete.
+If the remaining milestones succeed, overall complexity should still go down. Hyperopen will trade a modest amount of optional proof-tooling complexity for a much clearer and reviewable definition of what vault and order actions are legal to emit.
 
 ## Context and Orientation
 
-This plan uses four terms of art repeatedly.
+This plan uses four terms repeatedly.
 
-A “proof kernel” is the smallest pure function set that carries the safety rule we care about. In this repository, the first proof kernel is `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs`, and the second proof kernel is the combination of `/hyperopen/src/hyperopen/api/gateway/orders/commands.cljs`, `/hyperopen/src/hyperopen/domain/trading/core.cljs`, and `/hyperopen/src/hyperopen/domain/trading/market.cljs`.
+A “proof kernel” is the smallest pure function set that carries the safety rule we care about. In this repository, the first proof kernel is `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs`. The second proof kernel is the combination of `/hyperopen/src/hyperopen/api/gateway/orders/commands.cljs`, `/hyperopen/src/hyperopen/domain/trading/core.cljs`, and `/hyperopen/src/hyperopen/domain/trading/market.cljs`.
 
-A “reference model” is an executable copy of the business rule written in the proof language. It is not the production implementation and should stay small, typed, and explicit. The model must use exact integers or exact decimal encodings where the production code currently relies on JavaScript numbers.
+A “reference model” is an executable copy of the business rule written in the proof language. It is not the production implementation. It should stay small, typed, and explicit, and it must use exact integers or exact decimal encodings where the production code currently relies on JavaScript numbers.
 
-A “conformance vector” is a checked-in test case emitted from the reference model and consumed by the ClojureScript test suite. The vectors are the bridge between formal verification and normal repo validation. They let `npm test` prove that the current production implementation still matches the verified model without forcing every contributor machine to run Lean on every test command.
+A “conformance vector” is a checked-in test case emitted from the reference model and consumed by the ClojureScript test suite. The vectors bridge formal verification and normal repo validation. They let `npm test` prove that the current production implementation still matches the verified model without forcing every contributor machine to run Lean on every test command.
 
-A “submit-ready contract” is a normalized input contract that holds after the existing preparation code has done its work. For orders, this includes asset identity resolution, market-price preparation, and deterministic form normalization. A “raw builder observational contract” is weaker: it records how the public builder behaves when called directly, including nil/fail-closed outputs, but does not assume the caller came through `submit-policy`.
+A “submit-ready contract” is a normalized input contract that holds after the existing preparation code has done its work. For orders, that includes asset identity resolution, market-price preparation, and deterministic form normalization. A “raw builder observational contract” is weaker: it records how the public builder behaves when called directly, including nil or fail-closed outputs, but does not assume the caller came through `submit-policy`.
 
-The vault transfer track starts in `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs`. The parser `parse-usdc-micros`, the deposit predicate `vault-transfer-deposit-allowed?`, and the preview builder `vault-transfer-preview` are already pure. Route parsing, modal state management, and effect sequencing live elsewhere: `/hyperopen/src/hyperopen/vaults/application/transfer_commands.cljs`, `/hyperopen/src/hyperopen/vaults/detail/transfer.cljs`, `/hyperopen/src/hyperopen/vaults/infrastructure/routes.cljs`, and `/hyperopen/src/hyperopen/runtime/effect_order_contract.cljs`. Those outer seams need conformance tests, not proof-core logic.
+The current repo state matters. `/hyperopen/tools/formal/lean/Hyperopen/Formal/Common.lean` now owns command parsing, surface metadata, manifest helpers, and deterministic Clojure rendering helpers. `/hyperopen/tools/formal/lean/Hyperopen/Formal/VaultTransfer.lean` is now a real modeled surface that emits `/hyperopen/target/formal/vault-transfer-vectors.cljs`. `/hyperopen/tools/formal/lean/Hyperopen/Formal/OrderRequest/Common.lean`, `/hyperopen/tools/formal/lean/Hyperopen/Formal/OrderRequest/Standard.lean`, and `/hyperopen/tools/formal/lean/Hyperopen/Formal/OrderRequest/Advanced.lean` are still bootstrap scaffolding. `/hyperopen/tools/formal/core.clj` now verifies and syncs the vault generated namespace in addition to manifests, but the order surfaces still remain manifest-only.
 
-The order request track spans more files. `/hyperopen/src/hyperopen/state/trading.cljs` prepares forms and resolves market context. `/hyperopen/src/hyperopen/api/gateway/orders/commands.cljs` emits the actual request shapes, including TP/SL attachments, `updateLeverage` pre-actions, scale ladders, and TWAP requests. `/hyperopen/src/hyperopen/domain/trading/core.cljs` owns scale and TWAP arithmetic, and `/hyperopen/src/hyperopen/domain/trading/market.cljs` owns price and base-size canonicalization. Existing anchors already exist in `/hyperopen/test/hyperopen/api/gateway/orders/commands_test.cljs`, `/hyperopen/test/hyperopen/state/trading/order_request_test.cljs`, `/hyperopen/test/hyperopen/state/trading/identity_and_submit_policy_test.cljs`, `/hyperopen/test/hyperopen/state/trading/validation_and_scale_test.cljs`, and `/hyperopen/test/hyperopen/core_bootstrap/order_effects/submit_failures_test.cljs`.
+The ClojureScript side is stronger than the Lean side today. `/hyperopen/src/hyperopen/schema/vault_transfer_contracts.cljs` and `/hyperopen/src/hyperopen/schema/order_request_contracts.cljs` define exact-shape adapters for the proof surfaces. `/hyperopen/test/hyperopen/formal/vault_transfer_vectors.cljs`, `/hyperopen/test/hyperopen/formal/order_request_standard_vectors.cljs`, and `/hyperopen/test/hyperopen/formal/order_request_advanced_vectors.cljs` hold committed corpora. The test anchors already exist in `/hyperopen/test/hyperopen/vaults/domain/transfer_policy_test.cljs`, `/hyperopen/test/hyperopen/vaults/domain/transfer_policy_properties_test.cljs`, `/hyperopen/test/hyperopen/vaults/application/transfer_commands_test.cljs`, `/hyperopen/test/hyperopen/api/gateway/orders/commands_test.cljs`, `/hyperopen/test/hyperopen/state/trading/order_request_test.cljs`, `/hyperopen/test/hyperopen/state/trading/identity_and_submit_policy_test.cljs`, `/hyperopen/test/hyperopen/state/trading/validation_and_scale_test.cljs`, and `/hyperopen/test/hyperopen/core_bootstrap/order_effects/submit_failures_test.cljs`.
 
-The current toolchain matters. This repository already uses Node, Shadow CLJS, Babashka, property testing via `org.clojure/test.check`, and mutation tooling via `bb tools/mutate.clj`. It does not currently have a proof language installed. The implementation therefore needs to bootstrap Lean 4, define repo-local commands, and keep proof execution opt-in until the workflow is stable. The required repository gates remain `npm run check`, `npm test`, and `npm run test:websocket`.
+The exporter has one special requirement for order requests: deterministic map order. Hyperopen’s signing-sensitive order actions depend on exact field order, so the generated bridge must render `array-map`-shaped ClojureScript in the same order the production builders and tests expect.
+
+The required repository gates remain `npm run check`, `npm test`, and `npm run test:websocket`. Proof execution stays optional, but conformance tests on committed vectors must keep working without Lean installed.
 
 ## Plan of Work
 
-### Milestone 1: Bootstrap the proof workflow without destabilizing normal development
+### Milestone 1: Replace the vault bootstrap surface with a real proof model
 
-Create a new repo-local tool surface under `/hyperopen/tools/formal/`. This directory should contain a small Lean 4 project under `/hyperopen/tools/formal/lean/`, a Babashka or Node wrapper that exposes stable commands, and a short README that explains how the proof workflow fits into Hyperopen. The wrapper commands must do two distinct jobs: verify the Lean proofs and emit or refresh the committed conformance vector namespaces consumed by the ClojureScript tests.
+This milestone is complete. `/hyperopen/tools/formal/lean/Hyperopen/Formal/VaultTransfer.lean` is now the real Lean model for `parse-usdc-micros`, `vault-transfer-deposit-allowed?`, and `vault-transfer-preview`, and the shared helpers it needed now live under `/hyperopen/tools/formal/lean/Hyperopen/Formal/`.
 
-The implementation should add package scripts such as `npm run formal:verify` and `npm run formal:sync` so contributors can discover the feature from the same surface they already use for mutation testing and browser tooling. These commands should fail fast with a clear message when Lean is missing and should print the exact install step rather than failing with a raw shell error. Do not add either command to `npm run check` in this first version.
+The model must prove the decision precedence that production code actually uses: invalid address before deposit-disabled, deposit-disabled before invalid amount, and withdraw-all bypassing amount parsing only in withdraw mode. It must also prove the existing identity asymmetry: leader and name may fall back from merged rows, but `:allow-deposits?` comes only from details. Locale normalization remains outside this proof track; the Lean model should consume normalized decimal input and the ClojureScript tests should continue covering locale adaptation separately.
 
-Use `/hyperopen/target/formal/**` for transient output, logs, and intermediate vector exports. Commit only the generated ClojureScript vector namespaces or small checked-in data files that ordinary tests need. Keep everything else out of the tracked tree.
+The vault track is only complete when `formal:sync` emits `/hyperopen/test/hyperopen/formal/vault_transfer_vectors.cljs` from the model, `formal:verify` fails if that namespace is stale, and the existing vault tests become consumers of generated output rather than hand-edited fixtures. This milestone should also add an explicit assertion that the emitted `:actions/submit-vault-transfer` path still satisfies `/hyperopen/src/hyperopen/runtime/effect_order_contract.cljs`.
 
-### Milestone 2: Verify the vault transfer decision kernel
+### Milestone 2: Turn the wrapper into a real export and freshness pipeline
 
-Treat `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs` as the entire proof kernel for the first track. The verified model must cover three things.
+This milestone is complete for vault transfer and still open for the order surfaces. `/hyperopen/tools/formal/core.clj` no longer treats manifests as the only freshness target for modeled surfaces. It now knows the vault Lean module, transient export file under `/hyperopen/target/formal/**`, committed generated namespace path, and the copy-versus-compare behavior needed for sync and verify.
 
-First, the parser contract for `parse-usdc-micros`: for canonical decimal strings only, the result is either `nil` or an integer in the inclusive range `[0, 9007199254740991]`, and extra fractional digits are truncated rather than rounded. Locale normalization from `/hyperopen/src/hyperopen/utils/parse.cljs` is explicitly out of proof scope in this milestone. That normalization remains a caller contract backed by ordinary tests.
+`formal:sync` should run the Lean entrypoint, capture stable intermediate data under `/hyperopen/target/formal/**`, and then render the checked-in `test/hyperopen/formal/*.cljs` namespace for the selected surface. `formal:verify` should perform the same export into a temporary location, compare it against the committed namespace, and fail if either the namespace or the manifest metadata is stale. The exporter must preserve exact key order for order-request surfaces by emitting `array-map` forms, not plain unordered maps.
 
-Second, the deposit-eligibility contract for `vault-transfer-deposit-allowed?`: deposit is permitted exactly when the vault address is canonical, the vault is not a liquidator, and either the wallet address matches the leader address or `:allow-deposits?` is exactly true. The proof plan must document the existing asymmetry in `/hyperopen/src/hyperopen/vaults/domain/identity.cljs`: name and leader can fall back from details to merged row, but `:allow-deposits?` currently comes only from details.
+This milestone should also add focused wrapper tests, for example under a new fast Babashka namespace such as `/hyperopen/dev/formal_tooling_test.clj`. Those tests should cover missing-Lean install messaging, bad surface parsing, sync idempotence, stale-vector detection, and the guarantee that `verify` is read-only apart from transient files under `/hyperopen/target/formal/**`.
 
-Third, the full decision-table contract for `vault-transfer-preview`: invalid vault address wins before deposit-disabled, deposit-disabled wins before invalid amount, and withdraw-all only bypasses amount parsing in withdraw mode. A successful preview must be self-consistent: the top-level vault address, request `:vaultAddress`, and canonical selected address are identical; `:isDeposit` matches the normalized mode; and `:usd` is positive unless this is a withdraw-all preview.
+### Milestone 3: Replace the standard order bootstrap surface with a real model
 
-On the ClojureScript side, add an exact-shape contract namespace such as `/hyperopen/src/hyperopen/schema/vault_transfer_contracts.cljs` for normalized transfer proof inputs, preview decisions, and outbound request shape. This file should not be wired into runtime enforcement yet unless the implementation reveals a clear benefit; its main role in v1 is to keep adapters and property tests honest. Add a property suite such as `/hyperopen/test/hyperopen/vaults/domain/transfer_policy_properties_test.cljs` and extend the existing example suites to cover liquidator blocking, leader override, merged-row fallback, and explicit route-fallback assumptions.
+After the exporter is real, turn `/hyperopen/tools/formal/lean/Hyperopen/Formal/OrderRequest/Standard.lean` into an executable model of the safest high-value core: standard order types, TP and SL attachments, canonical price representability, asset identity resolution, and `updateLeverage` pre-actions. Keep the current split between submit-ready and raw-builder behavior because `/hyperopen/src/hyperopen/state/trading.cljs` normalizes inputs before some calls while other pure callers use the builders directly.
 
-The proof model should emit a committed vector namespace, for example `/hyperopen/test/hyperopen/formal/vault_transfer_vectors.cljs`. The production tests should compare `parse-usdc-micros` and `vault-transfer-preview` against that corpus and then separately exercise the wrapper flows in `/hyperopen/src/hyperopen/vaults/application/transfer_commands.cljs` and `/hyperopen/src/hyperopen/vaults/detail/transfer.cljs` to prove the UI-facing adapters still feed the kernel correctly.
+The model must prove exact type dispatch, no named-DEX fallback from `asset-id` to generic `idx`, TP and SL attached on the opposite side with `:r true`, and fail-closed behavior when an enabled TP or SL leg is invalid. It must also prove the canonical price rules that currently live in `/hyperopen/src/hyperopen/domain/trading/market.cljs`: positive output only, no rounding up, and truncation to the production precision rules. The leverage pre-action model must prove that cross margin is used only when the market allows it and that isolated mode is forced when cross is forbidden.
 
-### Milestone 3: Verify order request construction for standard orders and leverage pre-actions
+This milestone is only done when `formal:sync` emits `/hyperopen/test/hyperopen/formal/order_request_standard_vectors.cljs`, the existing order tests consume those generated vectors, and `formal:verify` fails on stale vectors or stale proof metadata for the standard-order surface.
 
-Start the order-request track by locking down the narrowest high-value core: standard order types, TP/SL attachment shape, asset identity resolution, canonical price representability, and `updateLeverage` pre-actions. This phase should not attempt scale or TWAP yet.
+### Milestone 4: Replace the advanced order bootstrap surface with exact arithmetic proofs
 
-Define a new exact-shape contract namespace such as `/hyperopen/src/hyperopen/schema/order_request_contracts.cljs` for normalized submit-ready proof input, legal wire-order shape, legal pre-action shape, and the fail-closed nil cases. This is not the same as the broad runtime effect contracts in `/hyperopen/src/hyperopen/schema/contracts/effect_args.cljs`; it should be specific to order-builder legality. The production builder remains `/hyperopen/src/hyperopen/api/gateway/orders/commands.cljs`.
+Once the standard-order surface is real, turn `/hyperopen/tools/formal/lean/Hyperopen/Formal/OrderRequest/Advanced.lean` into the exact-arithmetic model for scale ladders and TWAP requests. The production risk here lives in `/hyperopen/src/hyperopen/domain/trading/core.cljs` and the special-order builders in `/hyperopen/src/hyperopen/api/gateway/orders/commands.cljs`, so the Lean model must express those rules with exact arithmetic and then compare production serialization after final canonicalization.
 
-The Lean model for this phase must prove at least these invariants.
+For scale orders, prove count bounds, weight normalization, endpoint behavior, arithmetic progression from start to end, flooring to `szDecimals`, and the invariant that total leg size never exceeds the requested total after flooring. For TWAP, prove runtime bounds, total-minutes calculation, suborder-count calculation, and positive suborder-notional requirements for valid inputs. If any exact-model versus production mismatch appears, record the counterexample in this plan and either patch production code or narrow the proof domain explicitly. Do not silently weaken the model to “whatever JavaScript did.”
 
-Type dispatch is table-driven and exact for all supported standard order types. Named DEX markets must use canonical `asset-id` and must not silently fall back to generic `idx`. Standard order shapes must preserve the current key order required for signing-sensitive maps, must attach TP/SL on the opposite side with `:r true`, and must fail closed when an enabled TP/SL leg is invalid. Canonical price formatting must be treated as its own proof kernel: positive output only, decimal cap derived from `szDecimals`, non-integers truncated to five significant figures, and no rounding up into an illegal venue price. `updateLeverage` pre-actions must only exist for perp-like markets and must force isolated mode when cross margin is not allowed.
+This milestone is only done when `formal:sync` emits `/hyperopen/test/hyperopen/formal/order_request_advanced_vectors.cljs`, the advanced order tests consume those vectors, and the current regression anchors in `/hyperopen/test/hyperopen/state/trading/validation_and_scale_test.cljs` remain green.
 
-This phase should add a generated vector namespace such as `/hyperopen/test/hyperopen/formal/order_request_standard_vectors.cljs`, plus conformance tests in the existing order-request suites. Keep the raw-builder observational contract separate from the submit-ready contract in the test names and documentation. The submit-ready contract may use normalized contexts prepared by helpers that mimic `/hyperopen/src/hyperopen/state/trading.cljs`, but the raw-builder contract must still record fail-closed behavior for weaker direct inputs because other pure callers use the builders directly.
+### Milestone 5: Validate the proof pipeline and close the work honestly
 
-### Milestone 4: Extend order request verification to scale and TWAP
+After all three Lean surfaces are real and all three generated vector namespaces are emitted by the wrapper, run the remaining confidence passes. The targeted mutation follow-up must cover the vault kernel and all order kernels that the proof claims rely on: `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs`, `/hyperopen/src/hyperopen/api/gateway/orders/commands.cljs`, `/hyperopen/src/hyperopen/domain/trading/market.cljs`, and `/hyperopen/src/hyperopen/domain/trading/core.cljs`.
 
-After the standard-order phase is green, extend the proof model to the special-order arithmetic that makes order construction risky: scale ladders and TWAP sizing. The proof model for `/hyperopen/src/hyperopen/domain/trading/core.cljs` must use exact arithmetic and then compare the production string outputs after final canonicalization.
-
-For scale orders, prove that valid counts stay within the supported range, weights sum to one, the endpoint ratio matches skew, prices form the expected arithmetic progression from start to end, and every generated leg size is floored to `szDecimals` rather than rounded. The conformance tests should also assert that the builder never creates an empty or negative leg and that the total of all leg sizes does not exceed the requested total after flooring. The existing regression anchors in `/hyperopen/test/hyperopen/state/trading/validation_and_scale_test.cljs` should remain and gain proof-backed vector coverage.
-
-For TWAP, prove the runtime bounds, suborder-count formula, positive suborder notional requirement, and the final request-shape invariants in `/hyperopen/src/hyperopen/api/gateway/orders/commands.cljs`. The vector corpus for this phase can either extend the standard-order namespace or live in a second generated namespace such as `/hyperopen/test/hyperopen/formal/order_request_advanced_vectors.cljs`.
-
-This milestone should also capture any still-open mismatch between the exact-decimal proof model and the production JavaScript serialization. If conformance mismatches appear, record them in this plan, minimize the counterexample, and either patch the production code or narrow the proof domain explicitly. Do not silently weaken the model to “whatever JS did.”
-
-### Milestone 5: Validate the proof pipeline, not just the proofs
-
-Once both tracks are implemented, validate the whole workflow as a Hyperopen-owned tool. `npm run formal:verify` should prove the Lean model and confirm the committed vector namespaces are current. `npm run formal:sync` should regenerate the vector namespaces deterministically. `npm test` must consume the committed vectors and pass without Lean installed. `npm run check`, `npm test`, and `npm run test:websocket` must still pass after the new files land.
-
-Also use the repo-local mutation tool on the proof kernels after the conformance suites exist. `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs` is already a known mutation hotspot, and the order-request work should target `/hyperopen/src/hyperopen/api/gateway/orders/commands.cljs`, `/hyperopen/src/hyperopen/domain/trading/market.cljs`, and the touched arithmetic helper lines in `/hyperopen/src/hyperopen/domain/trading/core.cljs`. The purpose is not to chase a perfect score. It is to prove that the new proof-backed tests actually kill meaningful regressions on the same kernels the proof work claims to defend.
+Do not close `hyperopen-8k7a` until the proof pipeline itself is demonstrated, not just the ClojureScript tests. The close-out evidence must show generated vectors are deterministic, stale vectors are detected, repo gates still pass without Lean installed, and the targeted mutation runs kill meaningful regressions in the claimed proof kernels.
 
 ## Concrete Steps
 
 From `/Users/barry/.codex/worktrees/57c2/hyperopen`:
 
-1. Install Lean 4 locally if it is missing.
+1. Confirm the current baseline and keep it recorded in this plan.
 
-       curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
        export PATH="$HOME/.elan/bin:$PATH"
-       lean --version
-       lake --version
+       npm run formal:verify -- --surface vault-transfer
+       npm run formal:verify -- --surface order-request-standard
+       npm run formal:verify -- --surface order-request-advanced
 
-   Expect `lean --version` and `lake --version` to print concrete version strings. If they do not, stop here and fix the local toolchain before adding repo files.
+   Today these commands prove only the bootstrap workspace and manifest freshness. Keep that fact explicit in the plan until the Lean surfaces are replaced.
 
-2. Add the proof workspace and wrappers.
+2. Replace the vault Lean scaffold with a real model and emitted vectors.
 
-   Create and wire:
+   Edit:
 
-   - `/hyperopen/tools/formal/README.md`
-   - `/hyperopen/tools/formal/lean/lean-toolchain`
-   - `/hyperopen/tools/formal/lean/lakefile.toml`
    - `/hyperopen/tools/formal/lean/Hyperopen/Formal/Common.lean`
    - `/hyperopen/tools/formal/lean/Hyperopen/Formal/VaultTransfer.lean`
-   - `/hyperopen/tools/formal/lean/Hyperopen/Formal/OrderRequest/Common.lean`
-   - `/hyperopen/tools/formal/lean/Hyperopen/Formal/OrderRequest/Standard.lean`
-   - `/hyperopen/tools/formal/lean/Hyperopen/Formal/OrderRequest/Advanced.lean`
-   - `/hyperopen/tools/formal/lean/Main.lean`
-   - `/hyperopen/tools/formal.clj`
-   - package scripts in `/hyperopen/package.json` for `formal:verify` and `formal:sync`
-   - a short tooling entry in `/hyperopen/docs/tools.md`
-
-3. Add vault-transfer contracts, vectors, and tests.
-
-   Create or update:
-
+   - `/hyperopen/tools/formal/core.clj`
+   - `/hyperopen/tools/formal/README.md`
    - `/hyperopen/src/hyperopen/schema/vault_transfer_contracts.cljs`
    - `/hyperopen/test/hyperopen/formal/vault_transfer_vectors.cljs`
-   - `/hyperopen/test/hyperopen/vaults/domain/transfer_policy_properties_test.cljs`
    - `/hyperopen/test/hyperopen/vaults/domain/transfer_policy_test.cljs`
+   - `/hyperopen/test/hyperopen/vaults/domain/transfer_policy_properties_test.cljs`
    - `/hyperopen/test/hyperopen/vaults/application/transfer_commands_test.cljs`
-   - `/hyperopen/test/hyperopen/vaults/effects_test.cljs`
 
-4. Add order-request contracts, vectors, and tests in two passes.
+   Then run:
 
-   Standard and leverage pass:
+       npm run formal:sync -- --surface vault-transfer
+       npm run formal:verify -- --surface vault-transfer
 
+   Expect `sync` to rewrite the committed vector namespace deterministically and `verify` to fail if the namespace is stale.
+
+3. Add wrapper and exporter tests before expanding the order models.
+
+   Create a focused fast test namespace such as:
+
+   - `/hyperopen/dev/formal_tooling_test.clj`
+
+   Wire a stable command for it if needed, then run it alongside the vault surface:
+
+       bb -m dev.formal-tooling-test
+       npm run formal:verify -- --surface vault-transfer
+
+4. Replace the standard order Lean scaffold with the real submit-ready and raw-builder model.
+
+   Edit:
+
+   - `/hyperopen/tools/formal/lean/Hyperopen/Formal/OrderRequest/Common.lean`
+   - `/hyperopen/tools/formal/lean/Hyperopen/Formal/OrderRequest/Standard.lean`
+   - `/hyperopen/tools/formal/core.clj`
+   - `/hyperopen/tools/formal/README.md`
    - `/hyperopen/src/hyperopen/schema/order_request_contracts.cljs`
    - `/hyperopen/test/hyperopen/formal/order_request_standard_vectors.cljs`
    - `/hyperopen/test/hyperopen/api/gateway/orders/commands_test.cljs`
@@ -219,51 +229,60 @@ From `/Users/barry/.codex/worktrees/57c2/hyperopen`:
    - `/hyperopen/test/hyperopen/state/trading/identity_and_submit_policy_test.cljs`
    - `/hyperopen/test/hyperopen/core_bootstrap/order_effects/submit_failures_test.cljs`
 
-   Scale and TWAP pass:
+   Then run:
 
+       npm run formal:sync -- --surface order-request-standard
+       npm run formal:verify -- --surface order-request-standard
+
+5. Replace the advanced order Lean scaffold with the real scale and TWAP model.
+
+   Edit:
+
+   - `/hyperopen/tools/formal/lean/Hyperopen/Formal/OrderRequest/Advanced.lean`
+   - `/hyperopen/tools/formal/core.clj`
+   - `/hyperopen/tools/formal/README.md`
    - `/hyperopen/test/hyperopen/formal/order_request_advanced_vectors.cljs`
    - `/hyperopen/test/hyperopen/state/trading/validation_and_scale_test.cljs`
    - `/hyperopen/test/hyperopen/api/gateway/orders/commands_test.cljs`
 
-5. Run the formal proof commands and sync the committed vectors.
+   Then run:
 
-       export PATH="$HOME/.elan/bin:$PATH"
-       npm run formal:verify -- --surface vault-transfer
-       npm run formal:sync -- --surface vault-transfer
-       npm run formal:verify -- --surface order-request-standard
-       npm run formal:sync -- --surface order-request-standard
-       npm run formal:verify -- --surface order-request-advanced
        npm run formal:sync -- --surface order-request-advanced
+       npm run formal:verify -- --surface order-request-advanced
 
-   Expect each `formal:verify` run to report successful Lean verification and a clean freshness check for the corresponding committed vectors.
-
-6. Run the repository gates and targeted mutation follow-ups.
+6. Run the final validation and mutation passes.
 
        npm test
        npm run test:websocket
        npm run check
        bb tools/mutate.clj --module src/hyperopen/vaults/domain/transfer_policy.cljs --suite test --mutate-all
        bb tools/mutate.clj --module src/hyperopen/api/gateway/orders/commands.cljs --suite test --mutate-all
+       bb tools/mutate.clj --module src/hyperopen/domain/trading/market.cljs --suite test --mutate-all
+       bb tools/mutate.clj --module src/hyperopen/domain/trading/core.cljs --suite test --mutate-all
 
-   If the order-request mutation run is too slow, rerun it on the touched builder lines after the first full pass and record the narrowed command in this plan.
+   If the full mutation runs are too slow, rerun by line subsets, but record the narrowed command and the reason in this plan before closing the work.
 
 ## Validation and Acceptance
 
-Acceptance is met only when both the proof workflow and the normal repo workflow are green.
+Acceptance is met only when both the proof workflow and the normal repo workflow are green, and when the proof workflow is proving the business kernels rather than only proving wrapper metadata.
 
-For the vault-transfer track, `npm run formal:verify -- --surface vault-transfer` must pass, the committed vault vector namespace must refresh deterministically, and the ClojureScript suites must prove that `parse-usdc-micros` and `vault-transfer-preview` match the verified model for parser boundaries, deposit-eligibility truth-table cases, decision precedence, and success self-consistency. Existing wrapper behavior in transfer commands and vault detail must still work, and the runtime effect-order contract for `:actions/submit-vault-transfer` must remain satisfied.
+For the vault-transfer track, `/hyperopen/tools/formal/lean/Hyperopen/Formal/VaultTransfer.lean` must define executable domain functions equivalent in meaning to `parse-usdc-micros`, `vault-transfer-deposit-allowed?`, and `vault-transfer-preview`, plus theorems for their key invariants. `npm run formal:sync -- --surface vault-transfer` must regenerate `/hyperopen/test/hyperopen/formal/vault_transfer_vectors.cljs` deterministically, `npm run formal:verify -- --surface vault-transfer` must fail when that namespace is stale, and the existing vault tests must pass while consuming the generated vectors. The vault adapter tests must still show the `:actions/submit-vault-transfer` path respects `/hyperopen/src/hyperopen/runtime/effect_order_contract.cljs`.
 
-For the order-request track, the standard-order proof phase must pass before the advanced phase begins. The standard phase must prove type dispatch, asset identity, canonical price representability, standard wire shape, TP/SL attachment legality, leverage pre-actions, and signing-sensitive key order. The advanced phase must prove scale and TWAP arithmetic invariants and verify that the production builders still match the model. Any mismatch between the exact-decimal model and the production JavaScript behavior must produce a minimized counterexample and either a production fix or a documented proof-domain restriction.
+For the standard order track, `/hyperopen/tools/formal/lean/Hyperopen/Formal/OrderRequest/Standard.lean` must define executable domain functions equivalent in meaning to canonical price formatting, standard order request construction, and leverage pre-action construction. The model must prove exact type dispatch, no named-DEX fallback to generic `idx`, TP and SL opposite-side attachment with `:r true`, and isolated-mode forcing when cross margin is forbidden. `formal:sync` must regenerate `/hyperopen/test/hyperopen/formal/order_request_standard_vectors.cljs` deterministically, and `formal:verify` must fail when the generated namespace or proof metadata is stale.
 
-For the repository as a whole, `npm test`, `npm run test:websocket`, and `npm run check` must pass after the new proof tooling and test files land. Normal test execution must not require Lean to be installed. The committed vector namespaces are what tie the proof model back into ordinary ClojureScript validation.
+For the advanced order track, `/hyperopen/tools/formal/lean/Hyperopen/Formal/OrderRequest/Advanced.lean` must define executable exact-arithmetic functions equivalent in meaning to scale-ladder and TWAP request construction. The model must prove floor-to-`szDecimals` behavior, leg-total safety, runtime bounds, total-minutes and suborder-count formulas, and positive suborder-notional behavior for valid inputs. `formal:sync` must regenerate `/hyperopen/test/hyperopen/formal/order_request_advanced_vectors.cljs` deterministically, and `formal:verify` must fail when that namespace or its proof metadata is stale.
 
-Mutation evidence is also part of acceptance for these proof kernels. The transfer-policy mutation run must not regress versus the current known hotspot baseline, and the order-request mutation run must demonstrate that the new proof-backed tests kill meaningful mutants in the builder logic rather than only leaving the proof model green in isolation.
+For the wrapper itself, focused tool tests must cover missing-Lean install messaging, bad argument handling, sync idempotence, stale-vector detection, and the guarantee that `verify` is read-only apart from transient files under `/hyperopen/target/formal/**`.
+
+For the repository as a whole, `npm test`, `npm run test:websocket`, and `npm run check` must pass after the proof work lands. Normal test execution must not require Lean to be installed. The committed vector namespaces are what tie the proof model back into ordinary ClojureScript validation.
+
+Mutation evidence is also part of acceptance. The transfer-policy mutation run must not regress versus the current hotspot baseline, and the order-request mutation runs must demonstrate meaningful killed mutants in `/hyperopen/src/hyperopen/api/gateway/orders/commands.cljs`, `/hyperopen/src/hyperopen/domain/trading/market.cljs`, and `/hyperopen/src/hyperopen/domain/trading/core.cljs`, not only green proofs in isolation.
 
 ## Idempotence and Recovery
 
-The proof workflow must be safe to rerun. `npm run formal:sync` should overwrite generated vector namespaces deterministically, not append to them. `npm run formal:verify` should be read-only apart from transient files under `/hyperopen/target/formal/**`. If Lean is missing or misconfigured, the wrapper should print the exact install or PATH repair step and exit before touching tracked files.
+The proof workflow must be safe to rerun. `npm run formal:sync` should overwrite generated vector namespaces deterministically instead of appending or scrambling key order. `npm run formal:verify` should be read-only apart from transient files under `/hyperopen/target/formal/**`. If Lean is missing or misconfigured, the wrapper should print the exact install or PATH repair step and exit before touching tracked files.
 
-The production behavior should remain stable unless the proofs expose a bug. If a conformance vector disagrees with production code, first record the failing case in this plan and the corresponding tests. Only then decide whether to patch the product code, narrow the proof domain, or split a follow-up `bd` issue. Do not silently weaken the model or delete failing cases to make the pipeline green.
+The production behavior should remain stable unless the proofs expose a bug. If a generated vector disagrees with production code, first record the failing case in this plan and the corresponding tests. Only then decide whether to patch production code, narrow the proof domain, or split a follow-up `bd` issue. Do not silently weaken the model or delete failing cases to make the pipeline green.
 
 If a contributor needs to work without Lean, they should still be able to run `npm test`, `npm run test:websocket`, and `npm run check` on the committed vectors. The only unavailable commands in that situation should be `formal:verify` and `formal:sync`.
 
@@ -272,12 +291,12 @@ If a contributor needs to work without Lean, they should still be able to run `n
 Important current-state evidence that should remain true while this plan is active:
 
 - `/hyperopen/src/hyperopen/vaults/domain/transfer_policy.cljs` is already a pure kernel with public functions for parser, deposit eligibility, and preview construction.
-- `/hyperopen/test/hyperopen/vaults/domain/transfer_policy_test.cljs` already covers integer parsing, truncation, zero, max-safe bound, overflow, route fallback, withdraw-all, and smallest positive amount.
 - `/hyperopen/src/hyperopen/api/gateway/orders/commands.cljs` is the actual order-action builder and already owns standard-order shapes, TP/SL attachments, scale, TWAP, and leverage pre-actions.
-- `/hyperopen/test/hyperopen/state/trading/order_request_test.cljs` already protects canonical key order and HIP3 canonical asset-id behavior.
-- `/hyperopen/test/hyperopen/state/trading/validation_and_scale_test.cljs` already anchors many of the arithmetic properties the proof model should formalize instead of replacing.
+- `/hyperopen/test/hyperopen/state/trading/order_request_test.cljs` already protects canonical key order and named-DEX asset-id behavior.
+- `/hyperopen/test/hyperopen/state/trading/validation_and_scale_test.cljs` already anchors many of the arithmetic properties the Lean model should formalize instead of replacing.
+- `/hyperopen/tools/formal/lean/Hyperopen/Formal/VaultTransfer.lean`, `/hyperopen/tools/formal/lean/Hyperopen/Formal/OrderRequest/Standard.lean`, and `/hyperopen/tools/formal/lean/Hyperopen/Formal/OrderRequest/Advanced.lean` are still bootstrap-only as of this refresh. Do not mark this work complete until those surfaces encode domain logic.
 
-The generated proof vectors should be treated the same way Hyperopen treats signing known vectors: small, committed, reviewable, and deterministic. If the action wire shape changes for vault transfers or orders, update the vectors and document why the shape change is safe.
+The generated proof vectors should be treated the same way Hyperopen treats signing known vectors: small, committed, reviewable, deterministic, and emitted from the model rather than maintained by hand. If the wire shape changes for vault transfers or orders, update the generated vectors and document why the shape change is safe.
 
 ## Interfaces and Dependencies
 
@@ -285,10 +304,10 @@ The final implementation must expose these stable interfaces and paths:
 
 - `npm run formal:verify -- --surface <vault-transfer|order-request-standard|order-request-advanced>`
 - `npm run formal:sync -- --surface <vault-transfer|order-request-standard|order-request-advanced>`
-- `/hyperopen/tools/formal.clj` as the repo-local command wrapper that shells out to Lean and manages vector freshness.
-- `/hyperopen/tools/formal/lean/` as the only proof-language workspace for this first program.
-- `/hyperopen/test/hyperopen/formal/*.cljs` as the committed vector bridge consumed by ordinary tests.
-- `/hyperopen/src/hyperopen/schema/vault_transfer_contracts.cljs` and `/hyperopen/src/hyperopen/schema/order_request_contracts.cljs` as exact-shape adapter contracts for proof inputs and outputs.
+- `/hyperopen/tools/formal.clj` as the repo-local command wrapper that shells out to Lean, manages exports, and checks freshness
+- `/hyperopen/tools/formal/lean/` as the only proof-language workspace for this first program
+- `/hyperopen/test/hyperopen/formal/*.cljs` as the committed generated-vector bridge consumed by ordinary tests
+- `/hyperopen/src/hyperopen/schema/vault_transfer_contracts.cljs` and `/hyperopen/src/hyperopen/schema/order_request_contracts.cljs` as exact-shape adapter contracts for proof inputs and outputs
 
 The Lean model should define, at minimum, executable functions equivalent in meaning to:
 
@@ -301,8 +320,10 @@ The Lean model should define, at minimum, executable functions equivalent in mea
 - `Hyperopen.Formal.OrderRequest.buildScale`
 - `Hyperopen.Formal.OrderRequest.buildTwap`
 
-The wrapper layer should also define one stable export format for generated vectors. Prefer plain EDN-shaped data rendered as a small generated ClojureScript namespace so the normal test suite can require it directly without runtime file I/O.
+The wrapper layer should define one stable export format for generated vectors. Intermediate files under `/hyperopen/target/formal/**` may use plain EDN-shaped data, but the committed ClojureScript bridge for order requests must preserve deterministic `array-map` field order.
 
 This plan depends on the existing Hyperopen toolchain plus Lean 4 installed through `elan`. It deliberately does not depend on Dafny, TLA+, Docker, or a remote service for these first two proof tracks.
 
 Revision note (2026-03-26): Initial ExecPlan created for `hyperopen-8k7a` after auditing the vault transfer and order request kernels, the existing test anchors, repo planning rules, and the current absence of a formal-methods toolchain in the workspace.
+Plan update note (2026-03-26 18:26 EDT): Refreshed the active plan after the bootstrap implementation landed so the document now reflects the real remaining work. The repo has formal-tooling scaffolding, CLJS contracts, vectors, and conformance tests, but the Lean surfaces are still manifest-only and `formal:sync` still does not regenerate the committed vector namespaces.
+Plan update note (2026-03-26 18:55 EDT): Completed the vault-transfer milestone by replacing the Lean stub with a real model, wiring `formal:sync` and `formal:verify` to a generated vault vector namespace, adding fast Babashka wrapper tests, updating formal-tool docs, and adding an explicit runtime effect-order assertion for `:actions/submit-vault-transfer`. The remaining open work is the order-request standard and advanced proof surfaces plus the targeted mutation follow-ups.

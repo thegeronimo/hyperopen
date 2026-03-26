@@ -1,5 +1,6 @@
 (ns hyperopen.vaults.application.transfer-commands-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.runtime.effect-order-contract :as effect-order-contract]
             [hyperopen.schema.vault-transfer-contracts :as contracts]
             [hyperopen.vaults.application.transfer-commands :as transfer-commands]
             [hyperopen.vaults.application.transfer-state :as transfer-state]))
@@ -71,6 +72,33 @@
                       :isDeposit true
                       :usd 2500000}}
             {:test :submit-vault-transfer-wrapper})))))
+
+(deftest submit-vault-transfer-satisfies-runtime-effect-order-contract-test
+  (let [vault-address "0x1234567890abcdef1234567890abcdef12345678"
+        leader-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+        state {:wallet {:address leader-address}
+               :vaults {:details-by-address {vault-address {:name "Vault Detail"
+                                                            :leader leader-address
+                                                            :allow-deposits? true}}
+                        :merged-index-rows [{:vault-address vault-address
+                                             :name "Vault Detail"
+                                             :leader leader-address}]}
+               :vaults-ui {:vault-transfer-modal {:open? true
+                                                  :mode :deposit
+                                                  :vault-address nil
+                                                  :amount-input "2.5"
+                                                  :withdraw-all? false
+                                                  :submitting? false
+                                                  :error nil}}}
+        effects (transfer-commands/submit-vault-transfer
+                 {:route-vault-address-fn (fn [_] vault-address)}
+                 state)]
+    (is (= effects
+           (effect-order-contract/assert-action-effect-order!
+            :actions/submit-vault-transfer
+            effects
+            {:phase :action-emission
+             :action-id :actions/submit-vault-transfer})))))
 
 (deftest submit-vault-transfer-surfaces-preview-failure-message-test
   (let [vault-address "0x1234567890abcdef1234567890abcdef12345678"

@@ -5,10 +5,15 @@
 
 (def ^:private supported-surfaces
   {"vault-transfer" {:lean-module "Hyperopen.Formal.VaultTransfer"
-                     :manifest "generated/vault-transfer.edn"}
+                     :status "modeled"
+                     :manifest "generated/vault-transfer.edn"
+                     :target-source "target/formal/vault-transfer-vectors.cljs"
+                     :committed-source "test/hyperopen/formal/vault_transfer_vectors.cljs"}
    "order-request-standard" {:lean-module "Hyperopen.Formal.OrderRequest.Standard"
+                             :status "bootstrap"
                              :manifest "generated/order-request-standard.edn"}
    "order-request-advanced" {:lean-module "Hyperopen.Formal.OrderRequest.Advanced"
+                             :status "bootstrap"
                              :manifest "generated/order-request-advanced.edn"}})
 
 (def ^:private install-message
@@ -25,7 +30,8 @@
        "  bb tools/formal.clj sync --surface order-request-standard\n"
        "Notes:\n"
        "  - `verify` builds the Lean workspace and checks the selected surface manifest.\n"
-       "  - `sync` refreshes the deterministic generated manifest for the selected surface.\n"
+       "  - modeled surfaces also verify any checked-in generated source files.\n"
+       "  - `sync` refreshes the deterministic generated manifest and any modeled generated source.\n"
        "  - Lean is expected under `~/.elan/bin` or on PATH.\n"))
 
 (defn- fail!
@@ -50,6 +56,10 @@
 (defn- generated-root
   []
   (io/file (formal-root) "generated"))
+
+(defn- target-root
+  []
+  (io/file (repo-root) "target" "formal"))
 
 (defn- shell-argv
   [command args]
@@ -143,28 +153,28 @@
               (fail! (str "Unknown argument: " key "\n" (usage))))))))))
 
 (defn- manifest-content
-  [surface-id lean-module]
-  (str "{:surface \"" surface-id "\""
+  [{:keys [id lean-module status]}]
+  (str "{:surface \"" id "\""
        " :module \"" lean-module "\""
-       " :status \"bootstrap\"}\n"))
+       " :status \"" status "\"}\n"))
 
 (defn- manifest-path
   [surface-id]
   (io/file (generated-root) (str surface-id ".edn")))
 
 (defn- write-manifest!
-  [{:keys [id lean-module]}]
+  [{:keys [id] :as surface}]
   (let [file (manifest-path id)
-        content (manifest-content id lean-module)]
+        content (manifest-content surface)]
     (.mkdirs (.getParentFile file))
     (spit file content)
     {:path file
      :content content}))
 
 (defn- verify-manifest!
-  [{:keys [id lean-module]}]
+  [{:keys [id] :as surface}]
   (let [file (manifest-path id)
-        expected (manifest-content id lean-module)]
+        expected (manifest-content surface)]
     (if (.exists file)
       (let [actual (slurp file)]
         (when-not (= actual expected)
@@ -174,6 +184,48 @@
                   "Run `bb tools/formal.clj sync --surface " id "` first.")))
     {:path file
      :content expected}))
+
+(defn- target-source-path
+  [{:keys [target-source]}]
+  (when target-source
+    (io/file (repo-root) target-source)))
+
+(defn- committed-source-path
+  [{:keys [committed-source]}]
+  (when committed-source
+    (io/file (repo-root) committed-source)))
+
+(defn- sync-generated-source!
+  [{:keys [id] :as surface}]
+  (when-let [target-file (target-source-path surface)]
+    (let [committed-file (committed-source-path surface)]
+      (when-not (.exists target-file)
+        (fail! (str "Missing generated source output: " (.getPath target-file) "\n"
+                    "The Lean surface did not emit its expected source artifact.")))
+      (.mkdirs (.getParentFile committed-file))
+      (spit committed-file (slurp target-file))
+      {:target-path target-file
+       :committed-path committed-file
+       :surface id})))
+
+(defn- verify-generated-source!
+  [{:keys [id] :as surface}]
+  (when-let [target-file (target-source-path surface)]
+    (let [committed-file (committed-source-path surface)]
+      (when-not (.exists target-file)
+        (fail! (str "Missing generated source output: " (.getPath target-file) "\n"
+                    "The Lean surface did not emit its expected source artifact.")))
+      (when-not (.exists committed-file)
+        (fail! (str "Missing committed generated source: " (.getPath committed-file) "\n"
+                    "Run `bb tools/formal.clj sync --surface " id "` to refresh it.")))
+      (let [generated-text (slurp target-file)
+            committed-text (slurp committed-file)]
+        (when-not (= generated-text committed-text)
+          (fail! (str "Stale generated source: " (.getPath committed-file) "\n"
+                      "Run `bb tools/formal.clj sync --surface " id "` to refresh it."))))
+      {:surface id
+       :target-path target-file
+       :committed-path committed-file})))
 
 (defn- lake-command
   []
@@ -215,12 +267,25 @@
           (case command
             "verify"
             (do
-              (verify-manifest! surface*)
               (run-lean-entrypoint! command (:id surface))
-              (println (str "Verified " (:id surface) " and confirmed the checked-in manifest is current.")))
+              (verify-manifest! surface*)
+              (verify-generated-source! surface*)
+              (println
+               (if (committed-source-path surface*)
+                 (str "Verified " (:id surface)
+                      " and confirmed the checked-in artifacts are current.")
+                 (str "Verified " (:id surface)
+                      " and confirmed the checked-in manifest is current."))))
 
             "sync"
             (do
-              (write-manifest! surface*)
               (run-lean-entrypoint! command (:id surface))
-              (println (str "Synced " (:id surface) " into " (.getPath (manifest-path (:id surface))))))))))))
+              (write-manifest! surface*)
+              (sync-generated-source! surface*)
+              (println
+               (if-let [committed-file (committed-source-path surface*)]
+                 (str "Synced " (:id surface)
+                      " into " (.getPath (manifest-path (:id surface)))
+                      " and " (.getPath committed-file))
+                 (str "Synced " (:id surface)
+                      " into " (.getPath (manifest-path (:id surface)))))))))))))
