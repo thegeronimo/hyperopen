@@ -1,5 +1,6 @@
 (ns hyperopen.views.vaults.detail.activity-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [clojure.string :as str]
             [hyperopen.views.account-info.test-support.hiccup :as hiccup]
             [hyperopen.views.vaults.detail.activity :as activity]))
 
@@ -353,11 +354,38 @@
                                   nil
                                   nil
                                   cols)
+        positions-rows (positions-table [{:coin "BTC"
+                                          :leverage 3
+                                          :size 1.25
+                                          :side-key :long
+                                          :position-value 2500
+                                          :entry-price 50000
+                                          :mark-price 50125
+                                          :pnl 125
+                                          :roe 0.05
+                                          :liq-price nil
+                                          :margin nil
+                                          :funding -4.2}
+                                         {:coin nil
+                                          :leverage nil
+                                          :size 0.5
+                                          :side-key :flat
+                                          :position-value nil
+                                          :entry-price nil
+                                          :mark-price nil
+                                          :pnl nil
+                                          :roe nil
+                                          :liq-price nil
+                                          :margin nil
+                                          :funding nil}]
+                                        nil
+                                        cols)
         balances-empty (set (hiccup/collect-strings (balances-table [] nil cols)))
         positions-empty (set (hiccup/collect-strings (positions-table [] nil cols)))
         open-orders-empty (set (hiccup/collect-strings (open-orders-table [] nil cols)))
         twap-empty (set (hiccup/collect-strings (twap-table [] nil cols)))
         depositors-empty (set (hiccup/collect-strings (depositors-table [] nil cols)))
+        position-strings (hiccup/collect-strings positions-rows)
         fill-row-node (hiccup/find-first-node fills-rows
                                               #(and (= :td (first %))
                                                     (contains? (set (hiccup/collect-strings %)) "ETH")))
@@ -369,7 +397,18 @@
                                                         (contains? (set (hiccup/collect-strings %)) "Rejected")))
         ledger-type-node (hiccup/find-first-node ledger-rows
                                                  #(and (= :td (first %))
-                                                       (contains? (set (hiccup/collect-strings %)) "Deposit")))]
+                                                       (contains? (set (hiccup/collect-strings %)) "Deposit")))
+        position-coin-node (hiccup/find-first-node positions-rows
+                                                   #(and (= :td (first %))
+                                                         (contains? (set (hiccup/collect-strings %)) "BTC")))
+        position-funding-node (hiccup/find-first-node positions-rows
+                                                      #(and (= :td (first %))
+                                                            (some (fn [text]
+                                                                    (str/includes? text "4.20"))
+                                                                  (hiccup/collect-strings %))))
+        position-placeholder-node (hiccup/find-first-node positions-rows
+                                                          #(and (= :td (first %))
+                                                                (contains? (set (hiccup/collect-strings %)) "N/A")))]
     (is (contains? fills-error "Trade history failed."))
     (is (contains? fills-loading "Loading trade history..."))
     (is (contains? fills-empty "No recent fills."))
@@ -386,6 +425,11 @@
     (is (contains? (hiccup/node-class-set ledger-type-node) "text-[#1fa67d]"))
     (is (contains? balances-empty "No balances available."))
     (is (contains? positions-empty "No active positions."))
+    (is (some? position-coin-node))
+    (is (some #(= "3x" %) position-strings))
+    (is (some #(str/includes? % "USDC") position-strings))
+    (is (contains? (hiccup/node-class-set position-funding-node) "text-[#ed7088]"))
+    (is (some? position-placeholder-node))
     (is (contains? open-orders-empty "No open orders."))
     (is (contains? twap-empty "No TWAPs yet."))
     (is (contains? depositors-empty "No depositors available."))))

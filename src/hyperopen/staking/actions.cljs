@@ -72,6 +72,18 @@
 (def ^:private hype-wei-factor
   (js/BigInt "100000000"))
 
+(def ^:private validator-sort-column-aliases
+  {:name :name
+   :description :description
+   :stake :stake
+   :your-stake :your-stake
+   :yourstake :your-stake
+   :uptime :uptime
+   :est-apr :apr
+   :apr :apr
+   :status :status
+   :commission :commission})
+
 (defn- split-path-from-query-fragment
   [path]
   (let [path* (if (string? path) path (str (or path "")))]
@@ -92,6 +104,17 @@
       split-path-from-query-fragment
       str/trim
       trim-trailing-slashes))
+
+(defn- normalize-token
+  [value]
+  (cond
+    (keyword? value) value
+    (string? value) (-> value
+                        str/trim
+                        str/lower-case
+                        (str/replace #"[^a-z0-9]+" "-")
+                        keyword)
+    :else nil))
 
 (defn parse-staking-route
   [path]
@@ -156,26 +179,9 @@
 
 (defn normalize-staking-validator-sort-column
   [value]
-  (let [token (cond
-                (keyword? value) value
-                (string? value) (-> value
-                                    str/trim
-                                    str/lower-case
-                                    (str/replace #"[^a-z0-9]+" "-")
-                                    keyword)
-                :else nil)
-        normalized (case token
-                     :name :name
-                     :description :description
-                     :stake :stake
-                     :your-stake :your-stake
-                     :yourstake :your-stake
-                     :uptime :uptime
-                     :est-apr :apr
-                     :apr :apr
-                     :status :status
-                     :commission :commission
-                     token)]
+  (let [token (normalize-token value)
+        normalized (or (get validator-sort-column-aliases token)
+                       token)]
     (if (contains? valid-validator-sort-columns normalized)
       normalized
       (:column default-validator-sort))))

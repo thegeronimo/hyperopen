@@ -526,69 +526,84 @@
                           :amount (amount->text amount)
                           :fromSubAccount ""}}})))
 
-(defn withdraw-preview
-  [state modal]
-  (let [selected-asset (withdraw-asset state modal)
-        flow-kind (:flow-kind selected-asset)
-        asset-key (:key selected-asset)
-        asset-symbol (or (:symbol selected-asset) "Asset")
-        destination-chain (non-blank-text (:hyperunit-source-chain selected-asset))
-        amount (parse-input-amount (:amount-input modal))
-        destination (if (= flow-kind :hyperunit-address)
-                      (normalize-withdraw-destination (:destination-input modal))
-                      (normalize-evm-address (:destination-input modal)))
-        max-amount (withdraw-max-amount state selected-asset)
-        min-amount (assets-domain/withdraw-minimum-amount selected-asset)]
+(defn- withdraw-destination
+  [flow-kind destination-input]
+  (if (= flow-kind :hyperunit-address)
+    (normalize-withdraw-destination destination-input)
+    (normalize-evm-address destination-input)))
+
+(defn- withdraw-preview-error
+  [{:keys [selected-asset destination destination-chain max-amount amount min-amount]}]
+  (let [flow-kind (:flow-kind selected-asset)
+        asset-symbol (or (:symbol selected-asset) "Asset")]
     (cond
       (nil? selected-asset)
-      {:ok? false
-       :display-message "Select an asset to withdraw."}
+      "Select an asset to withdraw."
 
       (nil? destination)
-      {:ok? false
-       :display-message "Enter a valid destination address."}
+      "Enter a valid destination address."
 
       (and (= flow-kind :hyperunit-address)
            (not (seq destination-chain)))
-      {:ok? false
-       :display-message (str "Withdrawal source chain is unavailable for " asset-symbol ".")}
+      (str "Withdrawal source chain is unavailable for " asset-symbol ".")
 
       (<= max-amount 0)
-      {:ok? false
-       :display-message "No withdrawable balance available."}
+      "No withdrawable balance available."
 
       (not (finite-number? amount))
-      {:ok? false
-       :display-message "Enter a valid amount."}
+      "Enter a valid amount."
 
       (and (finite-number? min-amount)
            (> min-amount 0)
            (< amount min-amount))
-      {:ok? false
-       :display-message (str "Minimum withdrawal is "
-                             (amount->text min-amount)
-                             " "
-                             asset-symbol
-                             ".")}
+      (str "Minimum withdrawal is "
+           (amount->text min-amount)
+           " "
+           asset-symbol
+           ".")
 
       (> amount max-amount)
-      {:ok? false
-       :display-message "Amount exceeds withdrawable balance."}
+      "Amount exceeds withdrawable balance."
 
-      :else
-      (if (= flow-kind :hyperunit-address)
-        {:ok? true
-         :request {:action {:type "hyperunitSendAssetWithdraw"
-                            :asset (name asset-key)
-                            :token asset-symbol
-                            :amount (amount->text amount)
-                            :destination destination
-                            :destinationChain destination-chain
-                            :network (:network selected-asset)}}}
-        {:ok? true
-         :request {:action {:type "withdraw3"
-                            :amount (amount->text amount)
-                            :destination destination}}}))))
+      :else nil)))
+
+(defn- withdraw-request-action
+  [selected-asset amount destination destination-chain]
+  (if (= :hyperunit-address (:flow-kind selected-asset))
+    {:type "hyperunitSendAssetWithdraw"
+     :asset (name (:key selected-asset))
+     :token (or (:symbol selected-asset) "Asset")
+     :amount (amount->text amount)
+     :destination destination
+     :destinationChain destination-chain
+     :network (:network selected-asset)}
+    {:type "withdraw3"
+     :amount (amount->text amount)
+     :destination destination}))
+
+(defn withdraw-preview
+  [state modal]
+  (let [selected-asset (withdraw-asset state modal)
+        flow-kind (:flow-kind selected-asset)
+        destination-chain (non-blank-text (:hyperunit-source-chain selected-asset))
+        amount (parse-input-amount (:amount-input modal))
+        destination (withdraw-destination flow-kind (:destination-input modal))
+        max-amount (withdraw-max-amount state selected-asset)
+        min-amount (assets-domain/withdraw-minimum-amount selected-asset)
+        display-message (withdraw-preview-error {:selected-asset selected-asset
+                                                 :destination destination
+                                                 :destination-chain destination-chain
+                                                 :max-amount max-amount
+                                                 :amount amount
+                                                 :min-amount min-amount})]
+    (if (seq display-message)
+      {:ok? false
+       :display-message display-message}
+      {:ok? true
+       :request {:action (withdraw-request-action selected-asset
+                                                  amount
+                                                  destination
+                                                  destination-chain)}})))
 
 (defn deposit-preview
   [state modal]

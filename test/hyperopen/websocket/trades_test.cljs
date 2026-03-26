@@ -78,6 +78,53 @@
     (is (= 1700000119000 (:time-ms (first recent))))
     (is (= 1700000020000 (:time-ms (last recent))))))
 
+(deftest normalize-trade-for-view-preserves-raw-fields-and-alias-precedence-test
+  (let [normalized (@#'trades/normalize-trade-for-view
+                    {:coin "BTC"
+                     :symbol "ETH"
+                     :asset "SOL"
+                     :px "61500.1"
+                     :price "60000.0"
+                     :p "59000.0"
+                     :sz "0.03"
+                     :size "0.02"
+                     :s "0.01"
+                     :side "B"
+                     :dir "A"
+                     :time 1700000001
+                     :t 1700000002
+                     :ts 1700000003
+                     :timestamp 1700000004
+                     :tid 42
+                     :id 7})]
+    (is (= {:coin "BTC"
+            :price 61500.1
+            :price-raw "61500.1"
+            :size 0.03
+            :size-raw "0.03"
+            :side "B"
+            :time-ms 1700000001000
+            :tid 42}
+           normalized))))
+
+(deftest normalize-trade-for-view-falls-back-through-aliases-test
+  (let [normalized (@#'trades/normalize-trade-for-view
+                    {:asset "ETH"
+                     :price "3010.5"
+                     :size "0.2"
+                     :dir "A"
+                     :timestamp 1700000100000
+                     :id "trade-7"})]
+    (is (= {:coin "ETH"
+            :price 3010.5
+            :price-raw "3010.5"
+            :size 0.2
+            :size-raw "0.2"
+            :side "A"
+            :time-ms 1700000100000
+            :tid "trade-7"}
+           normalized))))
+
 (deftest schedule-candle-update-incrementally-merges-pending-trades-test
   (let [store (atom {:active-asset "BTC"
                      :chart-options {:selected-timeframe :1m}

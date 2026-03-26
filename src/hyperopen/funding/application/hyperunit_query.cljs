@@ -1,5 +1,92 @@
 (ns hyperopen.funding.application.hyperunit-query)
 
+(defn- response-items
+  [operations-response key]
+  (if (sequential? (key operations-response))
+    (key operations-response)
+    []))
+
+(defn- matching-hyperunit-operation?
+  [{:keys [canonical-token
+           same-chain-token?]}
+   source-token
+   asset-token
+   destination-chain-token
+   destination-address-token
+   op]
+  (and (= asset-token
+          (canonical-token (:asset op)))
+       (same-chain-token? source-token
+                          (:source-chain op))
+       (same-chain-token? destination-chain-token
+                          (:destination-chain op))
+       (or (not (seq destination-address-token))
+           (= destination-address-token
+              (canonical-token (:destination-address op))))
+       (seq (canonical-token (:protocol-address op)))))
+
+(defn- latest-operation-address
+  [{:keys [op-sort-ms-fn
+           non-blank-text]} matching-ops]
+  (some->> matching-ops
+           (sort-by op-sort-ms-fn)
+           last
+           :protocol-address
+           non-blank-text))
+
+(defn- find-address-entry
+  [{:keys [canonical-token]} addresses expected-address]
+  (let [expected-address-token (canonical-token expected-address)]
+    (when (seq expected-address-token)
+      (some (fn [entry]
+              (when (= expected-address-token
+                       (canonical-token (:address entry)))
+                entry))
+            addresses))))
+
+(defn- hyperliquid-address-entries
+  [{:keys [same-chain-token?
+           canonical-token]} addresses destination-chain-token]
+  (->> addresses
+       (filter (fn [entry]
+                 (and (same-chain-token? destination-chain-token
+                                         (:destination-chain entry))
+                      (seq (canonical-token (:address entry))))))
+       vec))
+
+(defn- direct-address-entry
+  [{:keys [same-chain-token?]} source-token addresses]
+  (some (fn [entry]
+          (when (same-chain-token? source-token
+                                   (or (:source-coin-type entry)
+                                       (:source-chain entry)))
+            entry))
+        addresses))
+
+(defn- source-format-address-entry
+  [{:keys [canonical-chain-token
+           same-chain-token?
+           protocol-address-matches-source-chain?
+           known-source-chain-tokens]}
+   source-token
+   addresses]
+  (some (fn [entry]
+          (let [entry-source (or (:source-coin-type entry)
+                                 (:source-chain entry))
+                entry-source-token (canonical-chain-token entry-source)
+                entry-source-conflicts? (and (seq entry-source-token)
+                                             (contains? known-source-chain-tokens
+                                                        entry-source-token)
+                                             (not (same-chain-token? source-token
+                                                                     entry-source-token)))
+                address* (:address entry)]
+            (when (and (not entry-source-conflicts?)
+                       (protocol-address-matches-source-chain?
+                        source-token
+                        address*))
+              entry)))
+        addresses))
+
 (defn select-existing-hyperunit-deposit-address
   [{:keys [canonical-chain-token
            canonical-token
@@ -16,69 +103,39 @@
         asset-token (canonical-token asset)
         destination-chain-token (canonical-chain-token "hyperliquid")
         destination-address-token (canonical-token destination-address)
-        operations (if (sequential? (:operations operations-response))
-                     (:operations operations-response)
-                     [])
-        addresses (if (sequential? (:addresses operations-response))
-                    (:addresses operations-response)
-                    [])
+        operations (response-items operations-response :operations)
+        addresses (response-items operations-response :addresses)
         matching-ops (->> operations
                           (filter (fn [op]
-                                    (and (= asset-token
-                                            (canonical-token (:asset op)))
-                                         (same-chain-token? source-token
-                                                            (:source-chain op))
-                                         (same-chain-token? destination-chain-token
-                                                            (:destination-chain op))
-                                         (or (not (seq destination-address-token))
-                                             (= destination-address-token
-                                                (canonical-token (:destination-address op))))
-                                         (seq (canonical-token (:protocol-address op))))))
+                                    (matching-hyperunit-operation?
+                                     {:canonical-token canonical-token
+                                      :same-chain-token? same-chain-token?}
+                                     source-token
+                                     asset-token
+                                     destination-chain-token
+                                     destination-address-token
+                                     op)))
                           vec)
-        op-address (some->> matching-ops
-                            (sort-by op-sort-ms-fn)
-                            last
-                            :protocol-address
-                            non-blank-text)
-        address-entry-by-op (when (seq op-address)
-                              (some (fn [entry]
-                                      (when (= (canonical-token op-address)
-                                               (canonical-token (:address entry)))
-                                        entry))
-                                    addresses))
-        hyperliquid-address-entries (->> addresses
-                                         (filter (fn [entry]
-                                                   (and (same-chain-token? destination-chain-token
-                                                                           (:destination-chain entry))
-                                                        (seq (canonical-token (:address entry))))))
-                                         vec)
-        direct-address-entry (some (fn [entry]
-                                     (when (and (same-chain-token? source-token
-                                                                   (or (:source-coin-type entry)
-                                                                       (:source-chain entry)))
-                                                (same-chain-token? destination-chain-token
-                                                                   (:destination-chain entry))
-                                                (seq (canonical-token (:address entry))))
-                                       entry))
-                                   hyperliquid-address-entries)
-        source-format-address-entry (some (fn [entry]
-                                            (let [entry-source (or (:source-coin-type entry)
-                                                                   (:source-chain entry))
-                                                  entry-source-token (canonical-chain-token entry-source)
-                                                  entry-source-conflicts? (and (seq entry-source-token)
-                                                                               (contains? known-source-chain-tokens
-                                                                                          entry-source-token)
-                                                                               (not (same-chain-token? source-token
-                                                                                                       entry-source-token)))
-                                                  address* (:address entry)]
-                                              (when (and (same-chain-token? destination-chain-token
-                                                                            (:destination-chain entry))
-                                                         (not entry-source-conflicts?)
-                                                         (protocol-address-matches-source-chain?
-                                                          source-token
-                                                          address*))
-                                                entry)))
-                                          hyperliquid-address-entries)
+        op-address (latest-operation-address {:op-sort-ms-fn op-sort-ms-fn
+                                              :non-blank-text non-blank-text}
+                                             matching-ops)
+        address-entry-by-op (find-address-entry {:canonical-token canonical-token}
+                                                addresses
+                                                op-address)
+        hyperliquid-addresses (hyperliquid-address-entries {:same-chain-token? same-chain-token?
+                                                            :canonical-token canonical-token}
+                                                           addresses
+                                                           destination-chain-token)
+        direct-address-entry (direct-address-entry {:same-chain-token? same-chain-token?}
+                                                   source-token
+                                                   hyperliquid-addresses)
+        source-format-address-entry (source-format-address-entry {:canonical-chain-token canonical-chain-token
+                                                                  :same-chain-token? same-chain-token?
+                                                                  :protocol-address-matches-source-chain?
+                                                                  protocol-address-matches-source-chain?
+                                                                  :known-source-chain-tokens known-source-chain-tokens}
+                                                                 source-token
+                                                                 hyperliquid-addresses)
         chosen-entry (or address-entry-by-op
                          direct-address-entry
                          source-format-address-entry)

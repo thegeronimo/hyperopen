@@ -136,6 +136,40 @@
     (is (= "tp" (:tpsl order)))
     (is (= "dex-a" (:dex order)))))
 
+(deftest normalize-open-order-preserves-root-and-row-flag-precedence-test
+  (let [order (projections/normalize-open-order {:order {:coin "SOL"
+                                                          :oid "4"
+                                                          :limitPx "42.5"
+                                                          :reduceOnly false
+                                                          :isPositionTpsl false
+                                                          :isTrigger false}
+                                                 :reduceOnly true
+                                                 :isPositionTpsl true
+                                                 :isTrigger true
+                                                 :time 1710000000
+                                                 :type "Limit"
+                                                 :side "A"})]
+    (is (= false (:reduce-only order)))
+    (is (true? (:is-position-tpsl order)))
+    (is (true? (:is-trigger order)))
+    (is (= "Limit" (:type order)))
+    (is (= "A" (:side order)))
+    (is (= 1710000000000 (:time-ms order)))))
+
+(deftest normalize-open-order-uses-row-level-fallbacks-when-root-fields-are-missing-test
+  (let [order (projections/normalize-open-order {:order {:coin "ETH"
+                                                          :oid "5"
+                                                          :px "2500.5"}
+                                                 :side "B"
+                                                 :time 1710000100
+                                                 :dex "dex-b"
+                                                 :tif "Gtc"})]
+    (is (= "B" (:side order)))
+    (is (= "2500.5" (:px order)))
+    (is (= "Gtc" (:type order)))
+    (is (= "dex-b" (:dex order)))
+    (is (= 1710000100000 (:time-ms order)))))
+
 (deftest open-orders-by-dex-tags-rows-with-dex-when-missing-test
   (let [rows (projections/open-orders-by-dex {:dex-a [{:coin "SOL" :oid 1}]
                                               :dex-b [{:order {:coin "BTC" :oid 2}}]})]

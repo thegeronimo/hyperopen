@@ -105,66 +105,104 @@
     (or (get canceled-status-to-tooltip text)
         (get rejected-status-to-tooltip text))))
 
+(defn- open-order-map
+  [value]
+  (if (map? value) value {}))
+
+(defn- open-order-root-map
+  [order]
+  (open-order-map (or (:order order) order)))
+
+(defn- open-order-row-map
+  [order]
+  (open-order-map order))
+
 (defn- order-trigger-map
   [order-map]
   (when (map? order-map)
     (or (get-in order-map [:t :trigger])
         (get-in order-map [:trigger]))))
 
+(defn- open-order-field
+  [root-map order-map & keys]
+  (some #(or (get root-map %) (get order-map %)) keys))
+
+(defn- open-order-trigger-field
+  [root-trigger order-trigger & keys]
+  (some #(or (get root-trigger %) (get order-trigger %)) keys))
+
+(defn- open-order-identity-fields
+  [root-map order-map]
+  {:coin (open-order-field root-map order-map :coin)
+   :oid (or (resolve-open-order-oid root-map)
+            (resolve-open-order-oid order-map))
+   :side (open-order-field root-map order-map :side)
+   :dex (open-order-field root-map order-map :dex)})
+
+(defn- open-order-size-fields
+  [root-map order-map]
+  {:sz (or (:sz root-map)
+           (:origSz root-map)
+           (:sz order-map)
+           (:origSz order-map))
+   :orig-sz (open-order-field root-map order-map :origSz)})
+
+(defn- open-order-trigger-fields
+  [root-map order-map root-trigger order-trigger]
+  (let [is-trigger-value (parse/boolean-value (open-order-field root-map order-map :isTrigger))]
+    {:trigger-px (or (open-order-field root-map order-map :triggerPx)
+                     (open-order-trigger-field root-trigger order-trigger :triggerPx))
+     :is-trigger? (if (some? is-trigger-value)
+                    (true? is-trigger-value)
+                    (or (map? root-trigger)
+                        (map? order-trigger)))
+     :trigger-condition (or (open-order-field root-map order-map :triggerCondition :triggerCond)
+                            (open-order-trigger-field root-trigger order-trigger :triggerCondition :triggerCond))
+     :tpsl (or (open-order-field root-map order-map :tpsl)
+               (open-order-trigger-field root-trigger order-trigger :tpsl))}))
+
+(defn- open-order-price
+  [root-map order-map {:keys [is-trigger? trigger-px]}]
+  (let [candidate (open-order-field root-map order-map :limitPx :px)]
+    (if (and is-trigger?
+             (zero? (or (parse/parse-optional-num candidate) 0)))
+      trigger-px
+      candidate)))
+
+(defn- open-order-time-ms
+  [root-map order-map]
+  (parse/parse-epoch-ms (open-order-field root-map order-map :timestamp :time)))
+
+(defn- open-order-type
+  [root-map order-map]
+  (open-order-field root-map order-map :orderType :type :tif))
+
+(defn- open-order-reduce-only
+  [root-map order-map]
+  (parse/boolean-value
+   (if (contains? root-map :reduceOnly)
+     (:reduceOnly root-map)
+     (:reduceOnly order-map))))
+
+(defn- open-order-is-position-tpsl
+  [root-map order-map]
+  (true? (parse/boolean-value (open-order-field root-map order-map :isPositionTpsl))))
+
 (defn normalize-open-order [order]
-  (let [root (or (:order order) order)
-        root-map (if (map? root) root {})
-        order-map (if (map? order) order {})
+  (let [root-map (open-order-root-map order)
+        order-map (open-order-row-map order)
         root-trigger (order-trigger-map root-map)
         order-trigger (order-trigger-map order-map)
-        coin (or (:coin root-map) (:coin order-map))
-        oid (or (resolve-open-order-oid root-map)
-                (resolve-open-order-oid order-map))
-        side (or (:side root-map) (:side order-map))
-        sz (or (:sz root-map) (:origSz root-map) (:sz order-map) (:origSz order-map))
-        orig-sz (or (:origSz root-map) (:origSz order-map))
-        limit-px (or (:limitPx root-map) (:limitPx order-map))
-        fallback-px (or (:px root-map) (:px order-map))
-        trigger-px (or (:triggerPx root-map)
-                       (:triggerPx order-map)
-                       (:triggerPx root-trigger)
-                       (:triggerPx order-trigger))
-        is-trigger-value (parse/boolean-value (or (:isTrigger root-map)
-                                                  (:isTrigger order-map)))
-        is-trigger? (if (some? is-trigger-value)
-                      (true? is-trigger-value)
-                      (or (map? root-trigger)
-                          (map? order-trigger)))
-        trigger-condition (or (:triggerCondition root-map) (:triggerCondition order-map)
-                              (:triggerCond root-map) (:triggerCond order-map)
-                              (:triggerCondition root-trigger) (:triggerCondition order-trigger)
-                              (:triggerCond root-trigger) (:triggerCond order-trigger))
-        tpsl (or (:tpsl root-map)
-                 (:tpsl order-map)
-                 (:tpsl root-trigger)
-                 (:tpsl order-trigger))
-        dex (or (:dex root-map) (:dex order-map))
-        candidate (or limit-px fallback-px)
-        px (if (and is-trigger?
-                    (zero? (or (parse/parse-optional-num candidate) 0)))
-             trigger-px
-             candidate)
-        time-ms (parse/parse-epoch-ms (or (:timestamp root-map)
-                                          (:timestamp order-map)
-                                          (:time root-map)
-                                          (:time order-map)))
-        order-type (or (:orderType root-map)
-                       (:orderType order-map)
-                       (:type root-map)
-                       (:type order-map)
-                       (:tif root-map)
-                       (:tif order-map))
-        reduce-only-value (if (contains? root-map :reduceOnly)
-                            (:reduceOnly root-map)
-                            (:reduceOnly order-map))
-        reduce-only (parse/boolean-value reduce-only-value)
-        is-position-tpsl (true? (parse/boolean-value (or (:isPositionTpsl root-map)
-                                                         (:isPositionTpsl order-map))))]
+        {:keys [coin oid side dex]} (open-order-identity-fields root-map order-map)
+        {:keys [sz orig-sz]} (open-order-size-fields root-map order-map)
+        {:keys [trigger-px is-trigger? trigger-condition tpsl]}
+        (open-order-trigger-fields root-map order-map root-trigger order-trigger)
+        px (open-order-price root-map order-map {:is-trigger? is-trigger?
+                                                 :trigger-px trigger-px})
+        time-ms (open-order-time-ms root-map order-map)
+        order-type (open-order-type root-map order-map)
+        reduce-only (open-order-reduce-only root-map order-map)
+        is-position-tpsl (open-order-is-position-tpsl root-map order-map)]
     (when (or coin oid)
       {:coin coin
        :oid oid

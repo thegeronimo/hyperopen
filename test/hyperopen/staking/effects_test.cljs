@@ -47,6 +47,15 @@
                     (is false (str "Unexpected error: " err))
                     (done)))))))
 
+(deftest submitting-key-normalizes-kind-aliases-and-defaults-test
+  (let [submitting-key @#'hyperopen.staking.effects/submitting-key]
+    (is (= :deposit? (submitting-key :deposit)))
+    (is (= :withdraw? (submitting-key :withdraw?)))
+    (is (= :delegate? (submitting-key :delegate)))
+    (is (= :undelegate? (submitting-key :undelegate?)))
+    (is (= :deposit? (submitting-key :unexpected-kind)))
+    (is (= :deposit? (submitting-key nil)))))
+
 (deftest api-submit-staking-deposit-success-clears-submitting-state-and-refreshes-test
   (async done
     (let [store (atom {:wallet {:address "0x1234567890abcdef1234567890abcdef12345678"}
@@ -111,3 +120,33 @@
            (get-in @store [:staking-ui :form-error])))
     (is (= [[:error "Connect your wallet before submitting stake."]]
            @toasts))))
+
+(deftest api-submit-staking-undelegate-predicate-kind-updates-undelegate-submit-state-test
+  (async done
+    (let [store (atom {:wallet {:address "0x1234567890abcdef1234567890abcdef12345678"}
+                       :staking-ui {:submitting {:undelegate? true}
+                                    :form-error nil}})
+          toasts (atom [])]
+      (-> (effects/api-submit-staking-undelegate!
+           {:store store
+            :request {:kind :undelegate?
+                      :action {:type "tokenDelegate"
+                               :validator "0x1234567890abcdef1234567890abcdef12345678"
+                               :wei 100000000
+                               :isUndelegate true}}
+            :submit-token-delegate! (fn [_store _address _action]
+                                      (js/Promise.resolve {:status "error"
+                                                           :message "validator busy"}))
+            :show-toast! (fn [_store kind message]
+                           (swap! toasts conj [kind message]))})
+          (.then (fn [resp]
+                   (is (= {:status "error" :message "validator busy"} resp))
+                   (is (= false (get-in @store [:staking-ui :submitting :undelegate?])))
+                   (is (= "Staking action failed: validator busy"
+                          (get-in @store [:staking-ui :form-error])))
+                   (is (= [[:error "Staking action failed: validator busy"]]
+                          @toasts))
+                   (done)))
+          (.catch (fn [err]
+                    (is false (str "Unexpected error: " err))
+                    (done)))))))

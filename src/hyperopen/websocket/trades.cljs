@@ -142,18 +142,46 @@
 (defn- trade-ring-from-ascending-trades [ascending-trades]
   (reduce trade-ring-append (empty-trade-ring) ascending-trades))
 
+(defn- trade-alias-value
+  [trade aliases]
+  (some #(get trade %) aliases))
+
+(defn- trade-coin
+  [trade]
+  (trade-alias-value trade [:coin :symbol :asset]))
+
+(defn- trade-price-raw
+  [trade]
+  (trade-alias-value trade [:px :price :p]))
+
+(defn- trade-size-raw
+  [trade]
+  (trade-alias-value trade [:sz :size :s]))
+
+(defn- trade-time-raw
+  [trade]
+  (trade-alias-value trade [:time :t :ts :timestamp]))
+
+(defn- trade-side
+  [trade]
+  (trade-alias-value trade [:side :dir]))
+
+(defn- trade-id
+  [trade]
+  (trade-alias-value trade [:tid :id]))
+
 (defn- normalize-trade-for-view [trade]
-  (let [price-raw (or (:px trade) (:price trade) (:p trade))
-        size-raw (or (:sz trade) (:size trade) (:s trade))
-        time-raw (or (:time trade) (:t trade) (:ts trade) (:timestamp trade))]
-    {:coin (or (:coin trade) (:symbol trade) (:asset trade))
+  (let [price-raw (trade-price-raw trade)
+        size-raw (trade-size-raw trade)
+        time-raw (trade-time-raw trade)]
+    {:coin (trade-coin trade)
      :price (policy/parse-number price-raw)
      :price-raw price-raw
      :size (or (policy/parse-number size-raw) 0)
      :size-raw size-raw
-     :side (or (:side trade) (:dir trade))
+     :side (trade-side trade)
      :time-ms (policy/time->ms time-raw)
-     :tid (or (:tid trade) (:id trade))}))
+     :tid (trade-id trade)}))
 
 (defn- normalize-trade-for-candle [trade]
   (let [normalized (policy/normalize-trade trade)
@@ -169,9 +197,7 @@
                  (policy/parse-number (:s trade))
                  0)
         coin (or (:coin normalized)
-                 (:coin trade)
-                 (:symbol trade)
-                 (:asset trade))]
+                 (trade-coin trade))]
     {:time-ms time-ms
      :price price
      :size (or size 0)

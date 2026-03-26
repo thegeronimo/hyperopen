@@ -51,6 +51,16 @@
   (is (= []
          (actions/load-staking-route {} "/portfolio"))))
 
+(deftest normalize-staking-validator-sort-column-supports-aliases-and-defaults-test
+  (is (= :your-stake
+         (actions/normalize-staking-validator-sort-column :yourstake)))
+  (is (= :apr
+         (actions/normalize-staking-validator-sort-column " est apr ")))
+  (is (= :stake
+         (actions/normalize-staking-validator-sort-column nil)))
+  (is (= :stake
+         (actions/normalize-staking-validator-sort-column :not-a-column))))
+
 (deftest set-staking-validator-sort-toggles-direction-and-switches-columns-test
   (is (= [[:effects/save [:staking-ui :validator-sort]
            {:column :stake
@@ -67,7 +77,15 @@
          (actions/set-staking-validator-sort
           {:staking-ui {:validator-sort {:column :stake
                                          :direction :desc}}}
-          :name))))
+          :name)))
+  (is (= [[:effects/save [:staking-ui :validator-sort]
+           {:column :apr
+            :direction :desc}]
+          [:effects/save [:staking-ui :validator-page] 0]]
+         (actions/set-staking-validator-sort
+          {:staking-ui {:validator-sort {:column :stake
+                                         :direction :asc}}}
+          "est apr"))))
 
 (deftest staking-validator-timeframe-menu-actions-test
   (is (= [[:effects/save [:staking-ui :validator-timeframe-dropdown-open?] true]]

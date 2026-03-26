@@ -1,5 +1,6 @@
 (ns hyperopen.views.account-info.tabs.funding-history
-  (:require [hyperopen.utils.formatting :as fmt]
+  (:require [hyperopen.domain.funding-history :as funding-history]
+            [hyperopen.utils.formatting :as fmt]
             [hyperopen.ui.table.sort-kernel :as sort-kernel]
             [hyperopen.views.account-info.history-pagination :as history-pagination]
             [hyperopen.views.account-info.shared :as shared]
@@ -266,15 +267,31 @@
 
 (defn- funding-row-sort-id [row]
   (or (:id row)
-      (str (or (:time-ms row) (:time row) 0)
-           "|"
-           (or (:coin row) "")
-           "|"
-           (or (:position-size-raw row) (:positionSize row) (:size-raw row) 0)
-           "|"
-           (or (:payment-usdc-raw row) (:payment row) 0)
-           "|"
-           (or (:funding-rate-raw row) (:fundingRate row) 0))))
+      (funding-history/funding-history-row-id
+       (or (:time-ms row) (:time row) 0)
+       (or (:coin row) "")
+       (or (:position-size-raw row) (:positionSize row) (:size-raw row) 0)
+       (or (:payment-usdc-raw row) (:payment row) 0)
+       (or (:funding-rate-raw row) (:fundingRate row) 0))))
+
+(defn- funding-row-time [row]
+  (or (:time-ms row) (:time row)))
+
+(defn- funding-row-coin [row]
+  (or (:coin row) ""))
+
+(defn- funding-row-signed-size [row]
+  (or (:position-size-raw row)
+      (:positionSize row)
+      (:size-raw row)))
+
+(defn- funding-row-payment [row]
+  (or (:payment-usdc-raw row)
+      (:payment row)))
+
+(defn- funding-row-rate [row]
+  (or (:funding-rate-raw row)
+      (:fundingRate row)))
 
 (defn sort-funding-history-by-column [rows column direction]
   (sort-kernel/sort-rows-by-column
@@ -283,22 +300,17 @@
     :direction direction
     :accessor-by-column
     {"Time" (fn [row]
-              (shared/parse-num (or (:time-ms row) (:time row))))
+              (shared/parse-num (funding-row-time row)))
      "Coin" (fn [row]
-              (or (:coin row) ""))
+              (funding-row-coin row))
      "Size" (fn [row]
-              (js/Math.abs
-               (shared/parse-num (or (:position-size-raw row)
-                                      (:positionSize row)
-                                      (:size-raw row)))))
+              (js/Math.abs (shared/parse-num (funding-row-signed-size row))))
      "Position Side" (fn [row]
                        (name (funding-side-value row)))
      "Payment" (fn [row]
-                 (shared/parse-num (or (:payment-usdc-raw row)
-                                        (:payment row))))
+                 (shared/parse-num (funding-row-payment row)))
      "Rate" (fn [row]
-              (shared/parse-num (or (:funding-rate-raw row)
-                                     (:fundingRate row))))}
+              (shared/parse-num (funding-row-rate row)))}
     :tie-breaker funding-row-sort-id}))
 
 (defonce ^:private sorted-funding-history-cache (atom nil))
@@ -354,7 +366,7 @@
        (for [funding-row rows]
          ^{:key (funding-row-sort-id funding-row)}
          [:div.grid.grid-cols-6.gap-2.py-px.px-3.hover:bg-base-300.text-sm
-          [:div (shared/format-funding-history-time (or (:time-ms funding-row) (:time funding-row)))]
+          [:div (shared/format-funding-history-time (funding-row-time funding-row))]
           [:div.text-left (funding-coin-node (:coin funding-row))]
           [:div.text-left.num (funding-size-text funding-row)]
           [:div.text-left

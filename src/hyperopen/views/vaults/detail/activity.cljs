@@ -488,6 +488,65 @@
 (def ^:private activity-cell-num-class
   ["px-4" "py-2.5" "num"])
 
+(defn- position-row-key
+  [{:keys [coin size entry-price]}]
+  (str "position-" coin "-" size "-" entry-price))
+
+(defn- position-coin-cell
+  [{:keys [coin leverage side-key]}]
+  [:td {:class (into activity-cell-class ["whitespace-nowrap"])
+        :style (side-coin-cell-style side-key)}
+   [:span {:class [(side-coin-tone-class side-key)]}
+    (or coin "—")]
+   (when (number? leverage)
+     [:span {:class ["ml-1" (side-tone-class side-key)]}
+      (str leverage "x")])])
+
+(defn- position-value-text
+  [position-value]
+  (if (number? position-value)
+    (str (vf/format-currency position-value) " USDC")
+    "—"))
+
+(defn- position-pnl-text
+  [pnl roe]
+  (if (number? pnl)
+    (str (vf/format-currency pnl {:missing "—"}) " (" (vf/format-percent roe) ")")
+    "—"))
+
+(defn- position-liq-price-text
+  [liq-price]
+  (if (number? liq-price)
+    (vf/format-price liq-price)
+    "N/A"))
+
+(defn- position-margin-text
+  [margin]
+  (if (number? margin)
+    (str (vf/format-currency margin) " (Cross)")
+    "—"))
+
+(defn- position-row
+  [{:keys [size side-key position-value entry-price mark-price pnl roe liq-price margin funding] :as row}]
+  [:tr {:class activity-row-class}
+   (position-coin-cell row)
+   [:td {:class (into activity-cell-num-class ["whitespace-nowrap" (side-tone-class side-key)])}
+    (vf/format-size size)]
+   [:td {:class (into activity-cell-num-class ["whitespace-nowrap" "text-[#f6fefd]"])}
+    (position-value-text position-value)]
+   [:td {:class (into activity-cell-num-class ["whitespace-nowrap" "text-[#f6fefd]"])}
+    (vf/format-price entry-price)]
+   [:td {:class (into activity-cell-num-class ["whitespace-nowrap" "text-[#f6fefd]"])}
+    (vf/format-price mark-price)]
+   [:td {:class (into activity-cell-num-class ["whitespace-nowrap" (position-pnl-class pnl)])}
+    (position-pnl-text pnl roe)]
+   [:td {:class (into activity-cell-num-class ["whitespace-nowrap" "text-[#f6fefd]"])}
+    (position-liq-price-text liq-price)]
+   [:td {:class (into activity-cell-num-class ["whitespace-nowrap" "text-[#f6fefd]"])}
+    (position-margin-text margin)]
+   [:td {:class (into activity-cell-num-class ["whitespace-nowrap" (position-pnl-class funding)])}
+    (vf/format-currency funding)]])
+
 (defn- balances-table [rows sort-state columns]
   [:div {:class ["overflow-auto" "max-h-[540px]"]}
    [:table {:class ["w-full" "min-w-[760px]" "border-collapse"]}
@@ -514,40 +573,9 @@
     (table-header :positions columns sort-state)
     [:tbody
      (if (seq rows)
-       (for [{:keys [coin leverage size side-key position-value entry-price mark-price pnl roe liq-price margin funding]} rows]
-         ^{:key (str "position-" coin "-" size "-" entry-price)}
-         [:tr {:class activity-row-class}
-          [:td {:class (into activity-cell-class ["whitespace-nowrap"])
-                :style (side-coin-cell-style side-key)}
-           [:span {:class [(side-coin-tone-class side-key)]}
-            (or coin "—")]
-           (when (number? leverage)
-             [:span {:class ["ml-1" (side-tone-class side-key)]}
-              (str leverage "x")])]
-          [:td {:class (into activity-cell-num-class ["whitespace-nowrap" (side-tone-class side-key)])}
-           (vf/format-size size)]
-          [:td {:class (into activity-cell-num-class ["whitespace-nowrap" "text-[#f6fefd]"])}
-           (if (number? position-value)
-             (str (vf/format-currency position-value) " USDC")
-             "—")]
-          [:td {:class (into activity-cell-num-class ["whitespace-nowrap" "text-[#f6fefd]"])}
-           (vf/format-price entry-price)]
-          [:td {:class (into activity-cell-num-class ["whitespace-nowrap" "text-[#f6fefd]"])}
-           (vf/format-price mark-price)]
-          [:td {:class (into activity-cell-num-class ["whitespace-nowrap" (position-pnl-class pnl)])}
-           (if (number? pnl)
-             (str (vf/format-currency pnl {:missing "—"}) " (" (vf/format-percent roe) ")")
-             "—")]
-          [:td {:class (into activity-cell-num-class ["whitespace-nowrap" "text-[#f6fefd]"])}
-           (if (number? liq-price)
-             (vf/format-price liq-price)
-             "N/A")]
-          [:td {:class (into activity-cell-num-class ["whitespace-nowrap" "text-[#f6fefd]"])}
-           (if (number? margin)
-             (str (vf/format-currency margin) " (Cross)")
-             "—")]
-          [:td {:class (into activity-cell-num-class ["whitespace-nowrap" (position-pnl-class funding)])}
-           (vf/format-currency funding)]])
+       (for [row rows]
+         ^{:key (position-row-key row)}
+         (position-row row))
        (empty-table-row (count columns) "No active positions."))]]])
 
 (defn- open-orders-table [rows sort-state columns]

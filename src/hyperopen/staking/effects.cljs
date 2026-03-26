@@ -165,18 +165,19 @@
   (or (some-> err .-message)
       (str err)))
 
+(def ^:private submitting-keys-by-kind
+  {:deposit :deposit?
+   :withdraw :withdraw?
+   :delegate :delegate?
+   :undelegate :undelegate?
+   :delegate? :delegate?
+   :undelegate? :undelegate?
+   :deposit? :deposit?
+   :withdraw? :withdraw?})
+
 (defn- submitting-key
   [kind]
-  (case kind
-    :deposit :deposit?
-    :withdraw :withdraw?
-    :delegate :delegate?
-    :undelegate :undelegate?
-    :delegate? :delegate?
-    :undelegate? :undelegate?
-    :deposit? :deposit?
-    :withdraw? :withdraw?
-    :deposit?))
+  (get submitting-keys-by-kind kind :deposit?))
 
 (defn- submit-label
   [kind]

@@ -74,6 +74,33 @@
     (is (= [1.2 0.5 -0.3] (mapv :payment-usdc-raw payment-desc)))
     (is (= ["a" "b"] (mapv :id missing-asc)))))
 
+(deftest funding-row-sort-id-and-sort-accessors-fall-back-to-legacy-row-shapes-test
+  (let [funding-row-sort-id @#'funding-history-tab/funding-row-sort-id
+        explicit-id-row {:id "existing-id"
+                         :time-ms 1700000001000
+                         :coin "BTC"}
+        legacy-row {:time 1700000000000
+                    :coin "SOL"
+                    :positionSize -2.5
+                    :payment 0.75
+                    :fundingRate 0.0001}
+        legacy-size-row {:time 1700000003000
+                         :coin "ETH"
+                         :size-raw 4.0
+                         :payment -0.2
+                         :fundingRate 0.0003}
+        sorted-by-size (funding-history-tab/sort-funding-history-by-column [legacy-size-row legacy-row]
+                                                                            "Size"
+                                                                            :asc)
+        sorted-by-rate (funding-history-tab/sort-funding-history-by-column [legacy-size-row legacy-row]
+                                                                            "Rate"
+                                                                            :desc)]
+    (is (= "existing-id" (funding-row-sort-id explicit-id-row)))
+    (is (= "1700000000000|SOL|-2.5|0.75|0.0001"
+           (funding-row-sort-id legacy-row)))
+    (is (= ["SOL" "ETH"] (mapv :coin sorted-by-size)))
+    (is (= ["ETH" "SOL"] (mapv :coin sorted-by-rate)))))
+
 (deftest funding-history-headers-use-secondary-text-and-sort-actions-test
   (let [fundings [{:id "1700000000000|HYPE|120.0|-0.42|0.0006"
                    :time-ms 1700000000000

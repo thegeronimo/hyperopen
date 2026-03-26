@@ -107,6 +107,7 @@
             [hyperopen.funding.application.modal-vm.models-test]
             [hyperopen.funding.application.modal-vm.presentation-test]
             [hyperopen.funding.application.submit-effects-test]
+            [hyperopen.funding.domain.policy-test]
             [hyperopen.funding.effects-test]
             [hyperopen.funding.history-cache-test]
             [hyperopen.funding.infrastructure.erc20-rpc-test]
@@ -514,6 +515,7 @@
              'hyperopen.funding.application.modal-vm.models-test
              'hyperopen.funding.application.modal-vm.presentation-test
              'hyperopen.funding.application.submit-effects-test
+             'hyperopen.funding.domain.policy-test
              'hyperopen.funding.effects-test
              'hyperopen.funding.history-cache-test
              'hyperopen.funding.infrastructure.erc20-rpc-test

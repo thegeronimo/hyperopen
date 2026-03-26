@@ -106,6 +106,68 @@
             "eth"
             "0xabc")))))
 
+(deftest select-existing-hyperunit-deposit-address-prefers-operation-address-even-without-address-entry-test
+  (is (= {:address "bc1qfromoperation"
+          :signatures {"hl-node" "sig-existing"}}
+         (query/select-existing-hyperunit-deposit-address
+          (selection-deps)
+          {:operations [{:asset "btc"
+                         :source-chain "bitcoin"
+                         :destination-chain "hyperliquid"
+                         :destination-address "0xwallet"
+                         :protocol-address "bc1qfromoperation"
+                         :submitted-at-ms 20}]
+           :addresses [{:source-coin-type "bitcoin"
+                        :destination-chain "hyperliquid"
+                        :address "bc1qexisting"
+                        :signatures {"hl-node" "sig-existing"}}]}
+          "bitcoin"
+          "btc"
+          "0xwallet"))))
+
+(deftest select-existing-hyperunit-deposit-address-filters-operations-by-destination-address-test
+  (is (= {:address "0xmatch"
+          :signatures {"hl-node" "sig-match"}}
+         (query/select-existing-hyperunit-deposit-address
+          (selection-deps)
+          {:operations [{:asset "eth"
+                         :source-chain "ethereum"
+                         :destination-chain "hyperliquid"
+                         :destination-address "0xother-wallet"
+                         :protocol-address "0xignored"
+                         :submitted-at-ms 50}
+                        {:asset "eth"
+                         :source-chain "ethereum"
+                         :destination-chain "hyperliquid"
+                         :destination-address "0xtarget-wallet"
+                         :protocol-address "0xmatch"
+                         :submitted-at-ms 10}]
+           :addresses [{:source-chain "ethereum"
+                        :destination-chain "hyperliquid"
+                        :address "0xmatch"
+                        :signatures {"hl-node" "sig-match"}}]}
+          "ethereum"
+          "eth"
+          "0xtarget-wallet"))))
+
+(deftest select-existing-hyperunit-deposit-address-prefers-direct-entry-over-source-shape-fallback-test
+  (is (= {:address "bc1qdirect"
+          :signatures {"hl-node" "sig-direct"}}
+         (query/select-existing-hyperunit-deposit-address
+          (selection-deps)
+          {:operations []
+           :addresses [{:source-coin-type "unknown-source"
+                        :destination-chain "hyperliquid"
+                        :address "bc1qfallback"
+                        :signatures {"hl-node" "sig-fallback"}}
+                       {:source-coin-type "bitcoin"
+                        :destination-chain "hyperliquid"
+                        :address "bc1qdirect"
+                        :signatures {"hl-node" "sig-direct"}}]}
+          "bitcoin"
+          "btc"
+          "0xwallet"))))
+
 (deftest request-existing-hyperunit-deposit-address-returns-matching-entry-test
   (async done
     (let [calls (atom [])]

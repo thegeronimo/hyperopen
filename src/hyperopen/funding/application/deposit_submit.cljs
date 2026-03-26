@@ -1,5 +1,27 @@
 (ns hyperopen.funding.application.deposit-submit)
 
+(defn- deposit-submit-error
+  [provider from-address amount-units]
+  (cond
+    (nil? provider)
+    "No wallet provider found. Connect your wallet first."
+
+    (nil? from-address)
+    "Connect your wallet before depositing."
+
+    (nil? amount-units)
+    "Enter a valid deposit amount."
+
+    (<= amount-units (js/BigInt "0"))
+    "Enter an amount greater than 0."
+
+    :else nil))
+
+(defn- error-response
+  [message]
+  (js/Promise.resolve {:status "err"
+                       :error message}))
+
 (defn submit-usdc-bridge2-deposit-tx!
   [{:keys [wallet-provider-fn
            normalize-address
@@ -19,24 +41,8 @@
         amount-units (parse-usdc-units (:amount action))
         usdc-address (:usdc-address chain-config)
         bridge-address (:bridge-address chain-config)]
-    (cond
-      (nil? provider)
-      (js/Promise.resolve {:status "err"
-                           :error "No wallet provider found. Connect your wallet first."})
-
-      (nil? from-address)
-      (js/Promise.resolve {:status "err"
-                           :error "Connect your wallet before depositing."})
-
-      (nil? amount-units)
-      (js/Promise.resolve {:status "err"
-                           :error "Enter a valid deposit amount."})
-
-      (<= amount-units (js/BigInt "0"))
-      (js/Promise.resolve {:status "err"
-                           :error "Enter an amount greater than 0."})
-
-      :else
+    (if-let [message (deposit-submit-error provider from-address amount-units)]
+      (error-response message)
       (-> (ensure-wallet-chain! provider chain-config)
           (.then (fn [_]
                    (provider-request! provider
@@ -126,6 +132,58 @@
                                owner-address
                                (- after-balance before-balance))))))))))
 
+(defn- fetch-lifi-swap-config!
+  [{:keys [fetch-lifi-quote!
+           lifi-quote->swap-config]}
+   from-address
+   amount-units
+   usdc-address]
+  (-> (fetch-lifi-quote! from-address amount-units usdc-address)
+      (.then (fn [quote]
+               (let [swap-config (lifi-quote->swap-config quote)]
+                 (if (nil? swap-config)
+                   (js/Promise.reject
+                    (js/Error. "LiFi quote response missing required transaction fields."))
+                   swap-config))))))
+
+(defn- approve-and-execute-lifi-swap!
+  [{:keys [read-erc20-allowance-units!
+           provider-request!
+           encode-erc20-approve-call-data
+           wait-for-transaction-receipt!
+           read-erc20-balance-units!
+           submit-usdc-bridge2-deposit!
+           usdc-units->amount-text
+           bridge-chain-id]}
+   store
+   owner-address
+   provider
+   from-address
+   usdc-address
+   swap-config]
+  (-> (approve-lifi-swap-token-if-needed!
+       {:read-erc20-allowance-units! read-erc20-allowance-units!
+        :provider-request! provider-request!
+        :encode-erc20-approve-call-data encode-erc20-approve-call-data
+        :wait-for-transaction-receipt! wait-for-transaction-receipt!}
+       provider
+       from-address
+       swap-config)
+      (.then (fn [_]
+               (execute-lifi-swap-and-bridge2-deposit!
+                {:read-erc20-balance-units! read-erc20-balance-units!
+                 :provider-request! provider-request!
+                 :wait-for-transaction-receipt! wait-for-transaction-receipt!
+                 :submit-usdc-bridge2-deposit! submit-usdc-bridge2-deposit!
+                 :usdc-units->amount-text usdc-units->amount-text
+                 :bridge-chain-id bridge-chain-id}
+                store
+                owner-address
+                provider
+                from-address
+                usdc-address
+                swap-config)))))
+
 (defn submit-usdt-lifi-bridge2-deposit-tx!
   [{:keys [wallet-provider-fn
            normalize-address
@@ -150,54 +208,31 @@
         from-address (normalize-address owner-address)
         amount-units (parse-usdc-units (:amount action))
         usdc-address (:usdc-address chain-config)]
-    (cond
-      (nil? provider)
-      (js/Promise.resolve {:status "err"
-                           :error "No wallet provider found. Connect your wallet first."})
-
-      (nil? from-address)
-      (js/Promise.resolve {:status "err"
-                           :error "Connect your wallet before depositing."})
-
-      (nil? amount-units)
-      (js/Promise.resolve {:status "err"
-                           :error "Enter a valid deposit amount."})
-
-      (<= amount-units (js/BigInt "0"))
-      (js/Promise.resolve {:status "err"
-                           :error "Enter an amount greater than 0."})
-
-      :else
+    (if-let [message (deposit-submit-error provider from-address amount-units)]
+      (error-response message)
       (-> (ensure-wallet-chain! provider chain-config)
           (.then (fn [_]
-                   (fetch-lifi-quote! from-address amount-units usdc-address)))
-          (.then (fn [quote]
-                   (let [swap-config (lifi-quote->swap-config quote)]
-                     (if (nil? swap-config)
-                       (js/Promise.reject
-                        (js/Error. "LiFi quote response missing required transaction fields."))
-                       (-> (approve-lifi-swap-token-if-needed!
-                            {:read-erc20-allowance-units! read-erc20-allowance-units!
-                             :provider-request! provider-request!
-                             :encode-erc20-approve-call-data encode-erc20-approve-call-data
-                             :wait-for-transaction-receipt! wait-for-transaction-receipt!}
-                            provider
-                            from-address
-                            swap-config)
-                           (.then (fn [_]
-                                    (execute-lifi-swap-and-bridge2-deposit!
-                                     {:read-erc20-balance-units! read-erc20-balance-units!
-                                      :provider-request! provider-request!
-                                      :wait-for-transaction-receipt! wait-for-transaction-receipt!
-                                      :submit-usdc-bridge2-deposit! submit-usdc-bridge2-deposit!
-                                      :usdc-units->amount-text usdc-units->amount-text
-                                      :bridge-chain-id bridge-chain-id}
-                                     store
-                                     owner-address
-                                     provider
-                                     from-address
-                                     usdc-address
-                                     swap-config))))))))
+                   (fetch-lifi-swap-config! {:fetch-lifi-quote! fetch-lifi-quote!
+                                             :lifi-quote->swap-config lifi-quote->swap-config}
+                                            from-address
+                                            amount-units
+                                            usdc-address)))
+          (.then (fn [swap-config]
+                   (approve-and-execute-lifi-swap!
+                    {:read-erc20-allowance-units! read-erc20-allowance-units!
+                     :provider-request! provider-request!
+                     :encode-erc20-approve-call-data encode-erc20-approve-call-data
+                     :wait-for-transaction-receipt! wait-for-transaction-receipt!
+                     :read-erc20-balance-units! read-erc20-balance-units!
+                     :submit-usdc-bridge2-deposit! submit-usdc-bridge2-deposit!
+                     :usdc-units->amount-text usdc-units->amount-text
+                     :bridge-chain-id bridge-chain-id}
+                    store
+                    owner-address
+                    provider
+                    from-address
+                    usdc-address
+                    swap-config)))
           (.catch (fn [err]
                     {:status "err"
                      :error (wallet-error-message err)}))))))
