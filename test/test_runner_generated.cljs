@@ -69,6 +69,7 @@
             [hyperopen.core-bootstrap.order-effects.position-tpsl-test]
             [hyperopen.core-bootstrap.order-effects.submit-failures-test]
             [hyperopen.core-bootstrap.order-effects.submit-refresh-test]
+            [hyperopen.core-bootstrap.order-effects.test-support-test]
             [hyperopen.core-bootstrap.order-entry-actions-test]
             [hyperopen.core-bootstrap.runtime-startup-test]
             [hyperopen.core-bootstrap.wallet-actions-effects-test]
@@ -482,6 +483,7 @@
              'hyperopen.core-bootstrap.order-effects.position-tpsl-test
              'hyperopen.core-bootstrap.order-effects.submit-failures-test
              'hyperopen.core-bootstrap.order-effects.submit-refresh-test
+             'hyperopen.core-bootstrap.order-effects.test-support-test
              'hyperopen.core-bootstrap.order-entry-actions-test
              'hyperopen.core-bootstrap.runtime-startup-test
              'hyperopen.core-bootstrap.wallet-actions-effects-test
