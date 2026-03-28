@@ -23,7 +23,7 @@ This is an internal correctness feature, not a UI feature. The visible result is
 - [x] (2026-03-27 11:48 EDT) Tightened the bounded safety model so `npm run tla:verify -- --spec websocket-runtime` now completes cleanly. The checked-in safety run currently explores 2,553 states / 1,090 distinct states to depth 5 with no invariant violations.
 - [x] (2026-03-27 11:48 EDT) Landed and verified the focused liveness path under `/hyperopen/spec/tla/websocket_runtime_liveness.cfg`; `npm run tla:verify -- --spec websocket-runtime-liveness` now passes and checks the eventual connect and market-flush properties over the reduced liveness state space.
 - [x] (2026-03-27 11:53 EDT) Added a reduced real browser startup fixture derived from a local headless `HYPEROPEN_DEBUG.flightRecording()` capture and wired it into websocket conformance coverage so at least one committed replay path is anchored to a real recorder payload, not only synthetic traces.
-- [ ] Capture final repo validation evidence, then move this plan to completed once the unrelated docs guardrail is resolved.
+- [x] (2026-03-28 07:23 EDT) Captured final repo validation evidence with a locally provisioned `tla2tools.jar` via `TLA2TOOLS_JAR`, reran `npm run tla:verify -- --spec websocket-runtime`, `npm run tla:verify -- --spec websocket-runtime-liveness`, `npm run test:websocket`, `npm test`, `npm run check`, and `npm run lint:docs`, and confirmed this plan is ready to move to `completed`.
 
 ## Surprises & Discoveries
 
@@ -42,8 +42,8 @@ This is an internal correctness feature, not a UI feature. The visible result is
 - Observation: `:evt/parse-error` can represent either stale socket parse fallout or non-socket normalization problems.
   Evidence: the reducer only rejects parse errors when a socket id is present and stale, while the completed safety split plan for `/hyperopen/src/hyperopen/websocket/application/runtime_reducer.cljs` documents that non-socket parse failures still need to surface as dead-letter diagnostics.
 
-- Observation: the repo currently has an unrelated active-plan guardrail failure that will block `npm run lint:docs` and `npm run check` until it is resolved.
-  Evidence: `npm run lint:docs` currently fails with `[active-exec-plan-no-unchecked-progress] docs/exec-plans/active/2026-03-26-vault-trade-rate-limit-regression.md - active ExecPlan has no remaining unchecked progress items; move it out of active`.
+- Observation: the repo had an unrelated active-plan guardrail failure during implementation, but it is now resolved.
+  Evidence: the first `npm run lint:docs` run failed with `[active-exec-plan-no-unchecked-progress] docs/exec-plans/active/2026-03-26-vault-trade-rate-limit-regression.md - active ExecPlan has no remaining unchecked progress items; move it out of active`, while the final 2026-03-28 rerun of `npm run lint:docs` passes cleanly.
 
 - Observation: TLC is sensitive to mixed-type sentinel encodings in a way the reducer is not.
   Evidence: the first implementation attempts that used string sentinels for optional numeric and record-shaped fields (`activeSocketId`, `lastSeq`, `marketPending`, `lastGap`) produced TLC parse/type/fingerprint failures, so the model had to switch to total encodings such as numeric sentinels and uniform record shapes before state exploration became meaningful.
@@ -87,9 +87,9 @@ This is an internal correctness feature, not a UI feature. The visible result is
 
 ## Outcomes & Retrospective
 
-Implementation has started and the repo now contains the dedicated TLA+ wrapper, the first bounded websocket safety model, and a trace-backed conformance namespace that exercises the modeled rules against the real reducer. The practical outcome is that websocket-specific formal work is no longer just planned: contributors can run the wrapper tests, inspect the bounded TLA+ spec, and run websocket conformance coverage through the normal CLJS suite.
+This work is complete. The repo now contains the dedicated TLA+ wrapper, the bounded websocket safety model, the focused liveness config, and a trace-backed conformance namespace that exercises the modeled rules against the real reducer. Contributors can run the cheap wrapper tests in normal repo validation, inspect the bounded TLA+ spec directly, and execute the explicit TLC passes when they need machine-checked websocket runtime evidence.
 
-The safety and liveness TLC commands now both complete cleanly, and the conformance layer now includes a reduced startup path derived from a real `HYPEROPEN_DEBUG.flightRecording()` capture. The remaining blocker is no longer the websocket model itself; it is the unrelated repo-wide docs guardrail that still prevents a clean `npm run check` until `/hyperopen/docs/exec-plans/active/2026-03-26-vault-trade-rate-limit-regression.md` moves out of `active`.
+Final close-out validation on 2026-03-28 passed end to end in a provisioned local environment: `npm run tla:verify -- --spec websocket-runtime`, `npm run tla:verify -- --spec websocket-runtime-liveness`, `npm run test:websocket`, `npm test`, `npm run check`, and `npm run lint:docs` all completed successfully. The safety TLC run finished with 2,553 generated states / 1,090 distinct states to depth 5, and the liveness TLC run finished with 4 generated states / 4 distinct states to depth 2; both logs remain under `/hyperopen/target/tla/**`. The conformance layer includes a reduced startup path derived from a real `HYPEROPEN_DEBUG.flightRecording()` capture, so the model is anchored to both bounded state exploration and reducer-level execution evidence.
 
 ## Context and Orientation
 
@@ -275,7 +275,7 @@ If a reducer mismatch appears, do not silently “fix” the model to match curr
 
 Expected tracked files for the implementation phase:
 
-- `/hyperopen/docs/exec-plans/active/2026-03-27-websocket-runtime-tla-model.md`
+- `/hyperopen/docs/exec-plans/completed/2026-03-27-websocket-runtime-tla-model.md`
 - `/hyperopen/spec/tla/websocket_runtime.tla`
 - `/hyperopen/spec/tla/websocket_runtime.cfg` and, if needed, a separate liveness config
 - `/hyperopen/tools/tla.clj`
@@ -330,3 +330,4 @@ Plan revision note: 2026-03-27 10:14 EDT - Initial plan created after auditing t
 Plan revision note: 2026-03-27 10:22 EDT - Updated the living sections after a narrow docs validation attempt confirmed the current docs guardrail failure is unrelated to this websocket plan and comes from another active ExecPlan with no unchecked progress items.
 Plan revision note: 2026-03-27 11:01 EDT - Updated after implementation began: the repo now has the dedicated TLA wrapper, docs pointers, bounded websocket safety model, regenerated conformance tests, passing `npm run test:tla-tooling`, passing `npm run test:websocket`, and passing `npm test`. TLC/model tuning remains open, and `npm run check` is still blocked by the unrelated active-plan docs guardrail noted above.
 Plan revision note: 2026-03-27 11:53 EDT - Updated after the next implementation slice: the bounded safety TLC run now passes, the focused liveness config now passes, docs now point to both verification commands, and the websocket conformance suite includes a reduced startup fixture derived from a real local `HYPEROPEN_DEBUG.flightRecording()` capture. The only remaining blocker to completion is the unrelated repo-wide docs guardrail.
+Plan revision note: 2026-03-28 07:23 EDT - Final validation rerun complete in a provisioned local environment: `npm run tla:verify -- --spec websocket-runtime`, `npm run tla:verify -- --spec websocket-runtime-liveness`, `npm run test:websocket`, `npm test`, `npm run check`, and `npm run lint:docs` all passed, so the final unchecked progress item is resolved and this plan can move to `completed`.
