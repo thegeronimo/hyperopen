@@ -44,5 +44,3 @@ Current surface state:
 - `spec/lean/` is the Lean 4 workspace for the proof entrypoints.
 - `tools/formal/generated/` holds the committed surface manifests used by `verify`.
 - `target/formal/` holds transient generated source during verify and sync runs.
-
-Historical note: completed ExecPlans written before the `spec/lean` migration may still reference `tools/formal/lean/**` paths.

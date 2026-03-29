@@ -97,8 +97,6 @@ Current surface state:
 
 The generated manifests live under `/hyperopen/tools/formal/generated/`, transient generated source lives under `/hyperopen/target/formal/`, and the Lean workspace lives under `/hyperopen/spec/lean/`.
 
-Historical note: completed ExecPlans written before the 2026-03-28 migration may still reference `/hyperopen/tools/formal/lean/**`. Those are archival paths; the live Lean workspace is `/hyperopen/spec/lean/**`.
-
 The websocket runtime TLA+ track is separate on purpose. Use `tools/tla.clj`, `npm run tla:verify -- --spec websocket-runtime`, and `npm run tla:verify -- --spec websocket-runtime-liveness` for TLC runs against `/hyperopen/spec/tla/websocket_runtime.tla`. The wrapper looks for `TLA2TOOLS_JAR` first and `/hyperopen/tools/tla/vendor/tla2tools.jar` second, and it writes TLC artifacts only under `/hyperopen/target/tla/**`.
 
 ## 2) Local Clojure navigation and analysis
