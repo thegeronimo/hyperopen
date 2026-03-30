@@ -30,7 +30,7 @@ The vault hard-reload preview work was meant to make `/vaults` feel faster on a 
 - [x] (2026-03-26 00:52Z) Re-scoped the tracked app entrypoint in `/hyperopen/resources/public/index.html` so the boot shell is no longer rendered by default and is injected only for the exact `/vaults` list route; `/trade`, `/portfolio`, and vault detail now boot from an empty app root until the CLJS app mounts.
 - [x] (2026-03-26 00:54Z) Added browser regression coverage in `/hyperopen/tools/playwright/test/routes.smoke.spec.mjs` to prove `/trade` does not render the static boot loading shell on cold startup.
 - [x] (2026-03-26 01:04Z) Re-ran the required validation set after the static-entry fix: `npm run test:playwright:smoke -- --grep "main route smoke|trade cold startup"`, `npm test`, `npm run test:websocket`, and `npm run check`; all passed.
-- [ ] Confirm the user-managed browser session has picked up the updated tracked `resources/public/index.html` entrypoint and no longer shows the static boot shell on `/trade`.
+- [x] (2026-03-30 10:47 EDT) Re-ran the targeted managed-local Playwright cold-start smoke with `npx playwright test tools/playwright/test/routes.smoke.spec.mjs --grep "trade cold startup does not render the static boot loading shell"` after `npm ci`; the browser check passed, confirmed `#boot-loading-shell` count `0` on `/trade`, and satisfied the last environment-level close-out item for `hyperopen-ta4x`.
 
 ## Surprises & Discoveries
 
@@ -67,6 +67,9 @@ The vault hard-reload preview work was meant to make `/vaults` feel faster on a 
 - Observation: the remaining visual flash was introduced by a different commit than the vault preview cache regression.
   Evidence: `git log -S 'boot-loading-shell' --oneline -- resources/public/index.html` points to `1f8315d9ee1ec9825756f68913c7c5d9d16e0ff1` (`Show route loading shell before app boot`) from March 24, 2026.
 
+- Observation: the last open close-out item was environmental confirmation, not another code or trace discrepancy.
+  Evidence: on 2026-03-30 the managed-local Playwright smoke `npx playwright test tools/playwright/test/routes.smoke.spec.mjs --grep "trade cold startup does not render the static boot loading shell"` passed after `npm ci`, which means the current local browser runtime cold-loads `/trade` without rendering `#boot-loading-shell`.
+
 ## Decision Log
 
 - Decision: treat commit `a7d85dd956081c34d27804fe93b57aee4221fd1f` as the primary regression commit and `91f7dec23614ed0d37d6a3f6d6a5923e7dd9724d` as the enabling change.
@@ -101,13 +104,17 @@ The vault hard-reload preview work was meant to make `/vaults` feel faster on a 
   Rationale: the user's original report was about vault-style loading leaking onto routes that never owned it. Once the CLJS bundle leak was fixed, the remaining `/trade` flash still came from a table-shaped skeleton that existed before `main.js` ran at all. Leaving that shell in the tracked HTML for `/trade`, `/portfolio`, or vault detail would preserve the user-visible regression even though the bundle graph was clean.
   Date/Author: 2026-03-26 / Codex
 
+- Decision: accept the targeted managed-local Playwright cold-start smoke as the final environmental close-out proof for this plan.
+  Rationale: the remaining unchecked item was specifically about confirming what the current browser runtime serves from the tracked `resources/public/index.html` entrypoint. The committed smoke test hits `/trade` at `waitUntil: "commit"` and asserts that `#boot-loading-shell` never appears before `trade-root`, which is the exact regression contract this plan still needed to close.
+  Date/Author: 2026-03-30 / Codex
+
 ## Outcomes & Retrospective
 
 The implemented fix reduced overall complexity. The root app shell no longer owns a vault-only loading branch, the shared vault-index effect no longer writes vault preview data on routes that only need support data, the preview-cache namespace now owns a small storage projection instead of importing the full vault list model, and the remaining startup-preview restore or persist hooks now live behind the deferred `vaults_route` module instead of inside `main`. That is a cleaner match for the original intent: `/vaults` gets an optimization, while `/trade`, `/portfolio`, and `/vaults/:address` stay on their normal loading paths and their startup bundle no longer pulls in vault preview code.
 
 The performance evidence is now closed on the patched worktree, and the visual contract is narrower again. Route smoke, the required repository gates, and the fresh trade capture at `/Users/barry/.codex/worktrees/d5eb/hyperopen/tmp/trade-startup-trace-2026-03-25-postfix.json` all passed, the vault namespace grep returns no matches for that trace, and a cold-start Playwright probe now shows `/trade` booting from an empty app root instead of the tracked HTML loading shell. The exact `/vaults` list route still retains the pre-mount shell as an intentional special case.
 
-The remaining gap is environmental, not code-level: the user's browser session still needs to load the updated tracked `resources/public/index.html` from the current app runtime before the manual `/trade` flash report can be considered closed.
+That environmental gap is now closed as well. After refreshing the local dependency state with `npm ci`, the committed managed-local Playwright smoke for `/trade` cold startup passed and confirmed that the current app runtime does not render `#boot-loading-shell` before `trade-root` mounts. With that browser-QA proof in place, this plan's code-level, startup-graph, and user-visible loading-shell acceptance criteria are all satisfied.
 
 ## Context and Orientation
 
@@ -264,6 +271,17 @@ returned:
     before fix: "Loading Route / Preparing this screen... / Booting UI / Loading workspace…"
     after fix: bootShellCount=0 at 0ms and 100ms, then tradeRootCount=1 by 250ms
 
+Important final close-out evidence captured on 2026-03-30:
+
+    npm ci
+    npx playwright test tools/playwright/test/routes.smoke.spec.mjs --grep "trade cold startup does not render the static boot loading shell"
+
+returned:
+
+    1 passed (12.7s)
+
+and the targeted smoke asserted that `#boot-loading-shell` had count `0` on `/trade` before the `trade-root` parity surface mounted.
+
 ## Interfaces and Dependencies
 
 No public API changes are planned. The important interfaces after this fix are:
@@ -281,3 +299,4 @@ Plan revision note: 2026-03-25 22:42Z - Created the active ExecPlan for `hyperop
 Plan revision note: 2026-03-25 23:36Z - Expanded the plan to include the full regression chain through the March 18 route-loading change, recorded the preview-persistence leak and startup dependency leak, and updated the implementation record to reflect the root-shell fix, route-gated persistence, lightweight preview-cache builder, new tests, and passing validations.
 Plan revision note: 2026-03-26 00:27Z - Updated the plan after the user's follow-up trace showed a remaining `preview_cache` import on a stale `localhost:8083` runtime, recorded the second-round fix that moved startup preview restore and persist behind `vaults_route`, and captured the clean post-fix trade trace from `http://127.0.0.1:4201/trade`.
 Plan revision note: 2026-03-26 01:04Z - Recorded the separate March 24 tracked-HTML boot-shell regression, narrowed that shell to the exact `/vaults` list route, and added the cold-start Playwright smoke that proves `/trade` no longer flashes the boot shell before `trade-root` mounts.
+Plan revision note: 2026-03-30 10:47 EDT - Closed the final environmental confirmation item after `npm ci` and the managed-local Playwright cold-start smoke both passed, then moved this plan to `/completed/`.
