@@ -26,8 +26,7 @@
              (vm-chart/chart-history-rows {} summary :unknown :all))))))
 
 (deftest build-chart-model-assembles-series-and-hover-from-canonical-modules-test
-  (let [state {:portfolio-ui {:chart-tab :returns
-                              :chart-hover-index 1}}
+  (let [state {:portfolio-ui {:chart-tab :returns}}
         benchmark-context {:strategy-cumulative-rows [[1 0.123]
                                                       [2 5.555]]
                            :benchmark-cumulative-rows-by-coin {}}
@@ -42,28 +41,6 @@
     (is (= :percent (:axis-kind chart)))
     (is (= [0.12 5.56]
            (mapv :value (:points chart))))
-    (is (= 1 (get-in chart [:hover :index])))
-    (is (= 5.56 (get-in chart [:hover :point :value])))
-    (is (= "Returns" (get-in chart [:hover-tooltip :metric-label])))
-    (is (= "+5.56%" (get-in chart [:hover-tooltip :metric-value])))
-    (is (seq (:path chart)))
+    (is (every? :has-data? (:series chart)))
+    (is (every? #(nil? (:path %)) (:series chart)))
     (is (= 4 (count (:y-ticks chart))))))
-
-(deftest build-chart-model-skips-svg-paths-when-explicitly-disabled-test
-  (let [state {:portfolio-ui {:chart-tab :returns
-                              :chart-hover-index 1}}
-        benchmark-context {:strategy-cumulative-rows [[1 0.123]
-                                                      [2 5.555]]
-                           :benchmark-cumulative-rows-by-coin {}}
-        chart (vm-chart/build-chart-model state
-                                          {}
-                                          :all
-                                          :day
-                                          {:selected-coins []
-                                           :label-by-coin {}}
-                                          benchmark-context
-                                          {:include-svg-paths? false})]
-    (is (nil? (:path chart)))
-    (is (every? nil? (map :path (:series chart))))
-    (is (= [0.12 5.56]
-           (mapv :value (:points chart))))))

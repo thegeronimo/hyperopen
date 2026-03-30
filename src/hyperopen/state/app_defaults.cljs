@@ -149,7 +149,6 @@
    :summary-time-range (default-portfolio-summary-time-range)
    :chart-tab :returns
    :account-info-tab :performance-metrics
-   :chart-hover-index nil
    :returns-benchmark-coins ["BTC"]
    :returns-benchmark-coin "BTC"
    :returns-benchmark-search ""
@@ -197,7 +196,6 @@
    :detail-returns-benchmark-coin "BTC"
    :detail-returns-benchmark-search ""
    :detail-returns-benchmark-suggestions-open? false
-   :detail-chart-hover-index nil
    :detail-performance-metrics-result nil
    :detail-performance-metrics-loading? false
    :vault-transfer-modal (vault-transfer-state/default-vault-transfer-modal-state)

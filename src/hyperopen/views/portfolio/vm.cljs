@@ -2,10 +2,8 @@
   (:require [hyperopen.domain.trading :as trading]
             [hyperopen.portfolio.application.metrics-bridge :as vm-metrics-bridge]
             [hyperopen.portfolio.actions :as portfolio-actions]
-            [hyperopen.views.chart.renderer :as chart-renderer]
             [hyperopen.views.portfolio.vm.benchmarks :as vm-benchmarks]
             [hyperopen.views.portfolio.vm.chart :as vm-chart]
-            [hyperopen.views.portfolio.vm.chart-math :as vm-chart-math]
             [hyperopen.views.portfolio.vm.equity :as vm-equity]
             [hyperopen.views.portfolio.vm.performance :as vm-performance]
             [hyperopen.views.portfolio.vm.summary :as vm-summary]
@@ -270,16 +268,11 @@
                                                  :model model})
         model))))
 
-(defn- chart-line-path [points]
-  (vm-chart-math/chart-line-path points))
-
 (defn- chart-model
   [state summary-entry summary-scope summary-time-range returns-benchmark-selector benchmark-context]
   (let [selected-tab (portfolio-actions/normalize-portfolio-chart-tab
                       (get-in state [:portfolio-ui :chart-tab]
                               portfolio-actions/default-chart-tab))
-        hover-index (get-in state [:portfolio-ui :chart-hover-index])
-        include-svg-paths? (not (chart-renderer/d3-performance-chart? :portfolio))
         summary-source-version (summary-entry-source-version summary-entry)
         selected-benchmark-coins (vec (or (:selected-coins returns-benchmark-selector)
                                           []))
@@ -289,33 +282,28 @@
         cache @chart-model-cache]
     (if (and (map? cache)
              (= selected-tab (:selected-tab cache))
-             (= hover-index (:hover-index cache))
              (= summary-scope (:summary-scope cache))
              (= summary-time-range (:summary-time-range cache))
              (= summary-source-version (:summary-source-version cache))
              (= selected-benchmark-coins (:selected-benchmark-coins cache))
              (= benchmark-labels (:benchmark-labels cache))
              (= strategy-source-version (:strategy-source-version cache))
-             (= benchmark-source-version-map (:benchmark-source-version-map cache))
-             (= include-svg-paths? (:include-svg-paths? cache)))
+             (= benchmark-source-version-map (:benchmark-source-version-map cache)))
       (:model cache)
       (let [model (vm-chart/build-chart-model state
                                               summary-entry
                                               summary-scope
                                               summary-time-range
                                               returns-benchmark-selector
-                                              benchmark-context
-                                              {:include-svg-paths? include-svg-paths?})]
+                                              benchmark-context)]
         (reset! chart-model-cache {:selected-tab selected-tab
-                                   :hover-index hover-index
                                    :summary-scope summary-scope
                                    :summary-time-range summary-time-range
                                    :summary-source-version summary-source-version
                                    :selected-benchmark-coins selected-benchmark-coins
                                    :benchmark-labels benchmark-labels
                                    :strategy-source-version strategy-source-version
-                                   :benchmark-source-version-map benchmark-source-version-map
-                                   :include-svg-paths? include-svg-paths?
+                                    :benchmark-source-version-map benchmark-source-version-map
                                    :model model})
         model))))
 

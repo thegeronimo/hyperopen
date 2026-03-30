@@ -11,9 +11,7 @@
                :auto-recover-severe-threshold-ms 30000
                :auto-recover-cooldown-ms 300000}
    :ui {:wallet-copy-feedback-ms 1500
-        :order-toast-ms 3500
-        :performance-chart-renderer {:portfolio :d3
-                                     :vaults :d3}}
+        :order-toast-ms 3500}
    :ws-migration {:order-fill-ws-first? true
                   :startup-bootstrap-ws-first? true
                   :candle-subscriptions? false

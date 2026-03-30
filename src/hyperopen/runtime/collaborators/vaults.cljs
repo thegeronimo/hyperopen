@@ -43,6 +43,4 @@
    :handle-vault-transfer-modal-keydown vault-actions/handle-vault-transfer-modal-keydown
    :set-vault-transfer-amount vault-actions/set-vault-transfer-amount
    :set-vault-transfer-withdraw-all vault-actions/set-vault-transfer-withdraw-all
-   :submit-vault-transfer vault-actions/submit-vault-transfer
-   :set-vault-detail-chart-hover vault-actions/set-vault-detail-chart-hover
-   :clear-vault-detail-chart-hover vault-actions/clear-vault-detail-chart-hover})
+   :submit-vault-transfer vault-actions/submit-vault-transfer})

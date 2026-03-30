@@ -1,7 +1,6 @@
 (ns hyperopen.portfolio.actions
   (:require [clojure.string :as str]
-            [hyperopen.platform :as platform]
-            [hyperopen.ui.chart.hover :as chart-hover]))
+            [hyperopen.platform :as platform]))
 
 (def ^:private portfolio-summary-time-range-storage-key
   "portfolio-summary-time-range")
@@ -96,9 +95,6 @@
    :tradehistory :trade-history
    :fundinghistory :funding-history
    :orderhistory :order-history})
-
-(def ^:private chart-hover-index-path
-  [:portfolio-ui :chart-hover-index])
 
 (defn- normalize-keyword-like
   [value]
@@ -301,8 +297,7 @@
 (defn select-portfolio-summary-scope
   [_state scope]
   [(selector-projection-effect nil [[[:portfolio-ui :summary-scope]
-                                     (normalize-summary-scope scope)]
-                                    [chart-hover-index-path nil]])])
+                                     (normalize-summary-scope scope)]])])
 
 (defn select-portfolio-summary-time-range
   [state time-range]
@@ -310,8 +305,7 @@
         benchmark-coins (selected-returns-benchmark-coins state)
         fetch-effects (returns-benchmark-fetch-effects time-range* benchmark-coins)]
     (into [(selector-projection-effect nil [[[:portfolio-ui :summary-time-range]
-                                             time-range*]
-                                            [chart-hover-index-path nil]])
+                                             time-range*]])
            [:effects/local-storage-set
             portfolio-summary-time-range-storage-key
             (name time-range*)]]
@@ -334,8 +328,7 @@
                         (returns-benchmark-fetch-effects summary-time-range benchmark-coins)
                         [])]
     (into [[:effects/save-many
-            [[[:portfolio-ui :chart-tab] chart-tab*]
-             [chart-hover-index-path nil]]]]
+            [[[:portfolio-ui :chart-tab] chart-tab*]]]]
           fetch-effects)))
 
 (defn set-portfolio-account-info-tab
@@ -343,24 +336,6 @@
   [[:effects/save
     [:portfolio-ui :account-info-tab]
     (normalize-portfolio-account-info-tab tab)]])
-
-(defn set-portfolio-chart-hover
-  [state client-x bounds point-count]
-  (let [current-index (chart-hover/normalize-hover-index (get-in state chart-hover-index-path)
-                                                         point-count)
-        pointer-index (chart-hover/hover-index-from-pointer client-x bounds point-count)
-        next-index (or pointer-index
-                       current-index
-                       (chart-hover/normalize-hover-index 0 point-count))]
-    (if (= current-index next-index)
-      []
-      [[:effects/save chart-hover-index-path next-index]])))
-
-(defn clear-portfolio-chart-hover
-  [state]
-  (if (nil? (get-in state chart-hover-index-path))
-    []
-    [[:effects/save chart-hover-index-path nil]]))
 
 (defn set-portfolio-returns-benchmark-search
   [_state search]

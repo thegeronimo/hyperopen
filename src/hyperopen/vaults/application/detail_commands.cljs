@@ -1,13 +1,9 @@
 (ns hyperopen.vaults.application.detail-commands
   (:require [hyperopen.portfolio.actions :as portfolio-actions]
-            [hyperopen.ui.chart.hover :as chart-hover]
             [hyperopen.vaults.domain.identity :as identity]
             [hyperopen.vaults.detail.activity :as activity-model]
             [hyperopen.vaults.detail.types :as detail-types]
             [hyperopen.vaults.application.ui-state :as ui-state]))
-
-(def ^:private vault-detail-chart-hover-index-path
-  [:vaults-ui :detail-chart-hover-index])
 
 (def ^:private vault-detail-activity-sort-by-tab-path
   [:vaults-ui :detail-activity-sort-by-tab])
@@ -210,8 +206,7 @@
                         (get-in state [:vaults-ui :snapshot-range]))
         detail-route-vault-address (current-route-vault-address deps state)
         projection-effect [:effects/save-many
-                           [[[:vaults-ui :detail-chart-series] series*]
-                            [vault-detail-chart-hover-index-path nil]]]
+                           [[[:vaults-ui :detail-chart-series] series*]]]
         fetch-effects (if (= :returns series*)
                         (vault-detail-returns-benchmark-fetch-effects
                          snapshot-range
@@ -304,21 +299,3 @@
      [[:vaults-ui :detail-returns-benchmark-coin] nil]
      [[:vaults-ui :detail-returns-benchmark-search] ""]
      [[:vaults-ui :detail-returns-benchmark-suggestions-open?] false]]]])
-
-(defn set-vault-detail-chart-hover
-  [state client-x bounds point-count]
-  (let [current-index (chart-hover/normalize-hover-index (get-in state vault-detail-chart-hover-index-path)
-                                                         point-count)
-        pointer-index (chart-hover/hover-index-from-pointer client-x bounds point-count)
-        next-index (or pointer-index
-                       current-index
-                       (chart-hover/normalize-hover-index 0 point-count))]
-    (if (= current-index next-index)
-      []
-      [[:effects/save vault-detail-chart-hover-index-path next-index]])))
-
-(defn clear-vault-detail-chart-hover
-  [state]
-  (if (nil? (get-in state vault-detail-chart-hover-index-path))
-    []
-    [[:effects/save vault-detail-chart-hover-index-path nil]]))

@@ -5,7 +5,6 @@
 (deftest load-vault-route-keeps-projection-first-ordering-for-detail-routes-test
   (is (= [[:effects/save [:vaults-ui :list-loading?] true]
           [:effects/save [:vaults-ui :detail-loading?] true]
-          [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
           [:effects/api-fetch-user-vault-equities "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
           [:effects/api-fetch-vault-index-with-cache]
           [:effects/api-fetch-vault-summaries]
@@ -25,7 +24,6 @@
                :vaults-ui {:snapshot-range :month
                            :detail-returns-benchmark-coins ["BTC"]}}]
     (is (= [[:effects/save [:vaults-ui :detail-loading?] true]
-            [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
             [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
             [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]
             [:effects/fetch-candle-snapshot :coin "BTC" :interval :1h :bars 800 :detail-route-vault-address "0x1234567890abcdef1234567890abcdef12345678"]]
@@ -40,7 +38,6 @@
                                                             :child-addresses ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]}}]}
                :vaults-ui {:detail-activity-tab :order-history}}]
     (is (= [[:effects/save [:vaults-ui :detail-loading?] true]
-            [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
             [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
             [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]
             [:effects/api-fetch-vault-order-history "0x1234567890abcdef1234567890abcdef12345678"]
@@ -58,7 +55,6 @@
                :vaults {:merged-index-rows []}}]
     (is (= [[:effects/save [:vaults-ui :list-loading?] true]
             [:effects/save [:vaults-ui :detail-loading?] true]
-            [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
             [:effects/api-fetch-user-vault-equities viewer-address]
             [:effects/api-fetch-vault-index-with-cache]
             [:effects/api-fetch-vault-summaries]
@@ -77,7 +73,6 @@
                                              :name "Vault Detail"
                                              :tvl 200}]}}]
     (is (= [[:effects/save [:vaults-ui :detail-loading?] true]
-            [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
             [:effects/api-fetch-user-vault-equities "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
             [:effects/api-fetch-vault-details vault-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
             [:effects/api-fetch-vault-webdata2 vault-address]]
@@ -94,7 +89,6 @@
                         :loading {:index? true
                                   :summaries? true}}}]
     (is (= [[:effects/save [:vaults-ui :detail-loading?] true]
-            [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
             [:effects/api-fetch-user-vault-equities "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
             [:effects/api-fetch-vault-details vault-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
             [:effects/api-fetch-vault-webdata2 vault-address]]
@@ -113,7 +107,6 @@
                :vaults {:merged-index-rows []}}]
     (is (= [[:effects/save [:vaults-ui :list-loading?] true]
             [:effects/save [:vaults-ui :detail-loading?] true]
-            [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
             [:effects/api-fetch-user-vault-equities "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
             [:effects/api-fetch-vault-index-with-cache]
             [:effects/api-fetch-vault-summaries]

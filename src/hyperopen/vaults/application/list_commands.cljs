@@ -3,9 +3,6 @@
             [hyperopen.vaults.domain.identity :as identity]
             [hyperopen.vaults.application.ui-state :as ui-state]))
 
-(def ^:private vault-detail-chart-hover-index-path
-  [:vaults-ui :detail-chart-hover-index])
-
 (def ^:private vault-detail-chart-timeframe-dropdown-open-path
   [:vaults-ui :detail-chart-timeframe-dropdown-open?])
 
@@ -61,8 +58,7 @@
         projection-effect (detail-timeframe-selector-projection-effect
                            nil
                            [[[:vaults-ui :snapshot-range] snapshot-range*]
-                            [[:vaults-ui :user-vaults-page] ui-state/default-vault-user-page]
-                            [vault-detail-chart-hover-index-path nil]])
+                            [[:vaults-ui :user-vaults-page] ui-state/default-vault-user-page]])
         persist-effect (when (fn? snapshot-range-save-effect-fn)
                          (snapshot-range-save-effect-fn snapshot-range*))
         fetch-effects (if (detail-commands/vault-detail-benchmark-fetch-enabled? deps state)

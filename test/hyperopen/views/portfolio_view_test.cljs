@@ -3,7 +3,6 @@
             [cljs.test :refer-macros [deftest is]]
             [hyperopen.views.account-info.test-support.fixtures :as fixtures]
             [hyperopen.views.account-info-view :as account-info-view]
-            [hyperopen.views.chart.renderer :as chart-renderer]
             [hyperopen.views.portfolio.vm :as portfolio-vm]
             [hyperopen.views.portfolio-view :as portfolio-view]
             [hyperopen.views.trading-chart.test-support.fake-dom :as fake-dom]))
@@ -1029,15 +1028,3 @@
       (is (contains? tooltip-strings "+14.00%"))
       (is (some? benchmark-row))
       (is (= "#f2cf66" (aget (.-style benchmark-value) "color"))))))
-
-(deftest portfolio-view-centers-fallback-hover-tooltip-vertically-test
-  (with-redefs [chart-renderer/d3-performance-chart? (fn [_surface] false)]
-    (let [view-node (portfolio-view/portfolio-view (assoc-in sample-state
-                                                             [:portfolio-ui :chart-hover-index]
-                                                             1))
-          tooltip-node (find-first-node view-node #(= "portfolio-chart-hover-tooltip"
-                                                      (get-in % [1 :data-role])))]
-      (is (some? tooltip-node))
-      (is (= "50%" (get-in tooltip-node [1 :style :top])))
-      (is (= "translate(calc(-100% - 8px), -50%)"
-             (get-in tooltip-node [1 :style :transform]))))))

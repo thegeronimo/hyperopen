@@ -39,7 +39,6 @@
     (is (= :month (get-in state [:portfolio-ui :summary-time-range])))
     (is (= :returns (get-in state [:portfolio-ui :chart-tab])))
     (is (= :performance-metrics (get-in state [:portfolio-ui :account-info-tab])))
-    (is (nil? (get-in state [:portfolio-ui :chart-hover-index])))
     (is (= ["BTC"] (get-in state [:portfolio-ui :returns-benchmark-coins])))
     (is (= "BTC" (get-in state [:portfolio-ui :returns-benchmark-coin])))
     (is (= "" (get-in state [:portfolio-ui :returns-benchmark-search])))

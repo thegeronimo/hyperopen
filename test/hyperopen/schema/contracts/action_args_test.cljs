@@ -74,30 +74,6 @@
         [[]]
         {:phase :test}))))
 
-(deftest assert-action-args-validates-portfolio-chart-hover-actions-test
-  (is (= [120 {:left 12 :width 360} 40]
-         (contracts/assert-action-args!
-          :actions/set-portfolio-chart-hover
-          [120 {:left 12 :width 360} 40]
-          {:phase :test})))
-  (is (= [nil {:left 12 :width 360} 40]
-         (contracts/assert-action-args!
-          :actions/set-portfolio-chart-hover
-          [nil {:left 12 :width 360} 40]
-          {:phase :test})))
-  (is (= []
-         (contracts/assert-action-args!
-          :actions/clear-portfolio-chart-hover
-          []
-          {:phase :test})))
-  (is (thrown-with-msg?
-       js/Error
-       #"action payload"
-       (contracts/assert-action-args!
-        :actions/set-portfolio-chart-hover
-        [120 {:left 12 :width "wide"} 40]
-        {:phase :test}))))
-
 (deftest assert-action-args-validates-portfolio-returns-benchmark-actions-test
   (is (= []
          (contracts/assert-action-args!

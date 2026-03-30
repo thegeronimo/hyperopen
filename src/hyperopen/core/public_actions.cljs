@@ -156,12 +156,6 @@
 (def set-portfolio-account-info-tab
   portfolio-actions/set-portfolio-account-info-tab)
 
-(def set-portfolio-chart-hover
-  portfolio-actions/set-portfolio-chart-hover)
-
-(def clear-portfolio-chart-hover
-  portfolio-actions/clear-portfolio-chart-hover)
-
 (def set-portfolio-returns-benchmark-search
   portfolio-actions/set-portfolio-returns-benchmark-search)
 

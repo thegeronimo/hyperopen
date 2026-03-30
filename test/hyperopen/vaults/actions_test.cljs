@@ -30,7 +30,6 @@
          (actions/load-vaults
           {:wallet {:address "0x1234567890abcdef1234567890abcdef12345678"}})))
   (is (= [[:effects/save [:vaults-ui :detail-loading?] true]
-          [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
           [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
           [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/load-vault-detail
@@ -39,7 +38,6 @@
   (is (= []
          (actions/load-vault-detail {} "not-a-vault")))
   (is (= [[:effects/save [:vaults-ui :detail-loading?] true]
-          [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
           [:effects/api-fetch-user-vault-equities "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
           [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
           [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]]
@@ -59,7 +57,6 @@
 
 (deftest load-vault-detail-fetches-returns-benchmark-candles-on-initial-load-test
   (is (= [[:effects/save [:vaults-ui :detail-loading?] true]
-          [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
           [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
           [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]
           [:effects/fetch-candle-snapshot :coin "BTC" :interval :1h :bars 800 :detail-route-vault-address "0x1234567890abcdef1234567890abcdef12345678"]]
@@ -80,7 +77,6 @@
                                                                              "0x1234567890abcdef1234567890abcdef12345678"
                                                                              "not-an-address"]}}]}}]
     (is (= [[:effects/save [:vaults-ui :detail-loading?] true]
-            [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
             [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
             [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]]
            (actions/load-vault-detail state "0x1234567890abcdef1234567890abcdef12345678")))))
@@ -99,21 +95,18 @@
          (actions/toggle-vaults-filter {:vaults-ui {:filter-leading? true}} :unknown)))
   (is (= [[:effects/save-many [[[:vaults-ui :snapshot-range] :all-time]
                                [[:vaults-ui :user-vaults-page] 1]
-                               [[:vaults-ui :detail-chart-hover-index] nil]
                                [[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
                                [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]
           [:effects/local-storage-set "vaults-snapshot-range" "all-time"]]
          (actions/set-vaults-snapshot-range {} "allTime")))
   (is (= [[:effects/save-many [[[:vaults-ui :snapshot-range] :three-month]
                                [[:vaults-ui :user-vaults-page] 1]
-                               [[:vaults-ui :detail-chart-hover-index] nil]
                                [[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
                                [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]
           [:effects/local-storage-set "vaults-snapshot-range" "three-month"]]
          (actions/set-vaults-snapshot-range {} "3m")))
   (is (= [[:effects/save-many [[[:vaults-ui :snapshot-range] :week]
                                [[:vaults-ui :user-vaults-page] 1]
-                               [[:vaults-ui :detail-chart-hover-index] nil]
                                [[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
                                [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]
           [:effects/local-storage-set "vaults-snapshot-range" "week"]
@@ -221,19 +214,16 @@
   (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-direction-filter] :all]
                                [[:vaults-ui :detail-activity-filter-open?] false]]]]
          (actions/set-vault-detail-activity-direction-filter {} "not-real")))
-  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-series] :account-value]
-                               [[:vaults-ui :detail-chart-hover-index] nil]]]]
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-series] :account-value]]]]
          (actions/set-vault-detail-chart-series {} "accountValue")))
-  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-series] :returns]
-                               [[:vaults-ui :detail-chart-hover-index] nil]]]
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-series] :returns]]]
           [:effects/fetch-candle-snapshot :coin "BTC" :interval :1h :bars 800 :detail-route-vault-address "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/set-vault-detail-chart-series {:vaults-ui {:snapshot-range :month
                                                              :detail-returns-benchmark-coins ["BTC"
                                                                                               "vault:0x1234567890abcdef1234567890abcdef12345678"]}
                                                  :router {:path "/vaults/0x1234567890abcdef1234567890abcdef12345678"}}
                                                 :returns)))
-  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-series] :returns]
-                               [[:vaults-ui :detail-chart-hover-index] nil]]]]
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-series] :returns]]]]
          (actions/set-vault-detail-chart-series {} "unknown-series")))
   (is (= [[:effects/save [:vaults-ui :detail-returns-benchmark-search] "42"]]
          (actions/set-vault-detail-returns-benchmark-search {} 42)))
@@ -467,52 +457,3 @@
                                                 :withdraw-all? false})]
     (is (true? (:ok? result)))
     (is (= 2500000 (get-in result [:request :action :usd])))))
-
-(deftest set-and-clear-vault-detail-chart-hover-test
-  (is (= [[:effects/save [:vaults-ui :detail-chart-hover-index] 2]]
-         (actions/set-vault-detail-chart-hover
-          {}
-          140
-          {:left 100
-           :width 80}
-          5)))
-  (is (= [[:effects/save [:vaults-ui :detail-chart-hover-index] 4]]
-         (actions/set-vault-detail-chart-hover
-          {}
-          1000
-          {:left 100
-           :width 80}
-          5)))
-  (is (= []
-         (actions/set-vault-detail-chart-hover
-          {:vaults-ui {:detail-chart-hover-index 4}}
-          1000
-          {:left 100
-           :width 80}
-          5)))
-  (is (= []
-         (actions/set-vault-detail-chart-hover
-          {:vaults-ui {:detail-chart-hover-index 2}}
-          nil
-          {:left 100
-           :width 80}
-          5)))
-  (is (= [[:effects/save [:vaults-ui :detail-chart-hover-index] 0]]
-         (actions/set-vault-detail-chart-hover
-          {:vaults-ui {:detail-chart-hover-index nil}}
-          nil
-          nil
-          5)))
-  (is (= []
-         (actions/set-vault-detail-chart-hover
-          {:vaults-ui {:detail-chart-hover-index 2}}
-          nil
-          {:left 100
-           :width 0}
-          5)))
-  (is (= [[:effects/save [:vaults-ui :detail-chart-hover-index] nil]]
-         (actions/clear-vault-detail-chart-hover
-          {:vaults-ui {:detail-chart-hover-index 1}})))
-  (is (= []
-         (actions/clear-vault-detail-chart-hover
-          {:vaults-ui {:detail-chart-hover-index nil}}))))

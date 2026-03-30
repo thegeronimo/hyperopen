@@ -1,8 +1,6 @@
 (ns hyperopen.views.portfolio.chart-view
   (:require [clojure.string :as string]
-            [hyperopen.views.chart.d3.model :as chart-d3-model]
             [hyperopen.views.chart.d3.runtime :as chart-d3-runtime]
-            [hyperopen.views.chart.renderer :as chart-renderer]
             [hyperopen.views.portfolio.format :as portfolio-format]
             [hyperopen.views.portfolio.summary-cards :as summary-cards]
             [hyperopen.views.portfolio.vm.chart-tooltip :as chart-tooltip]))
@@ -175,19 +173,6 @@
                       (assoc option :stroke (get color-by-coin value)))
                     (or options []))))))
 
-(defn- chart-series-path [{:keys [id path stroke]}]
-  (when (seq path)
-    [:path {:d path
-            :fill "none"
-            :stroke stroke
-            :stroke-width 1.4
-            :vector-effect "non-scaling-stroke"
-            :stroke-linecap "round"
-            :stroke-linejoin "round"
-            :data-role (if (= id :strategy)
-                         "portfolio-chart-path"
-                         (str "portfolio-chart-path-" (name id)))}]))
-
 (defn- chart-legend [series]
   (let [visible-series (->> series
                             (filter :has-data?)
@@ -241,23 +226,13 @@
                                                                      series)))))
 
 (defn chart-card [{:keys [chart selectors]}]
-  (let [{:keys [tabs selected-tab axis-kind y-ticks series points hover hover-tooltip]} chart
+  (let [{:keys [tabs selected-tab axis-kind y-ticks series]} chart
         returns-benchmark (:returns-benchmark selectors)
         returns-benchmark* (add-benchmark-chip-colors returns-benchmark series)
         y-axis-width (portfolio-format/y-axis-gutter-width axis-kind y-ticks)
         plot-left (+ y-axis-width 10)
-        d3-mode? (chart-renderer/d3-performance-chart? :portfolio)
         d3-spec (portfolio-d3-spec {:chart chart
-                                    :summary-time-range (get-in selectors [:summary-time-range :value])})
-        point-count (count points)
-        hovered-point (:point hover)
-        hover-active? (boolean (:active? hover))
-        hover-line-left-pct (when hover-active?
-                             (* 100 (:x-ratio hovered-point)))
-        hover-tooltip-top-pct (when hover-active?
-                               (chart-d3-model/tooltip-center-top-pct))
-        hover-tooltip-right? (when hover-active?
-                               (> hover-line-left-pct 74))]
+                                    :summary-time-range (get-in selectors [:summary-time-range :value])})]
     (summary-cards/section-card
      "portfolio-chart-card"
      [:div {:class ["flex" "items-center" "gap-2" "border-b" "border-base-300" "px-3" "py-2"]}
@@ -312,111 +287,12 @@
                          "border-t"
                          "border-base-300"]
                  :style {:top (str (* 100 y-ratio) "%")}}])]
-       (if d3-mode?
-         [:div {:class ["absolute" "right-2" "top-0" "bottom-0" "cursor-crosshair"]
-                :style {:left (str plot-left "px")}
-                :data-role "portfolio-chart-plot-area"}
-          [:div {:class ["h-full" "w-full"]
-                 :data-role "portfolio-chart-d3-host"
-                 :replicant/on-render (chart-d3-runtime/on-render d3-spec)}]]
-         [:div {:class ["absolute" "right-2" "top-0" "bottom-0" "cursor-crosshair"]
-                :style {:left (str plot-left "px")}
-                :data-role "portfolio-chart-plot-area"
-                :on {:mousemove [[:actions/set-portfolio-chart-hover [:event/clientX] [:event.currentTarget/bounds] point-count]]
-                     :mouseenter [[:actions/set-portfolio-chart-hover [:event/clientX] [:event.currentTarget/bounds] point-count]]
-                     :pointermove [[:actions/set-portfolio-chart-hover [:event/clientX] [:event.currentTarget/bounds] point-count]]
-                     :pointerenter [[:actions/set-portfolio-chart-hover [:event/clientX] [:event.currentTarget/bounds] point-count]]
-                     :mouseleave [[:actions/clear-portfolio-chart-hover]]
-                     :pointerleave [[:actions/clear-portfolio-chart-hover]]
-                     :mouseout [[:actions/clear-portfolio-chart-hover]]}}
-          [:svg {:viewBox "0 0 100 100"
-                 :preserveAspectRatio "none"
-                 :class ["h-full" "w-full"]}
-           [:line {:x1 0
-                   :y1 100
-                   :x2 100
-                   :y2 100
-                   :stroke "#28414a"
-                   :stroke-width 0.8
-                   :vector-effect "non-scaling-stroke"}]
-           (for [{series-id :id :as series-entry} (or series [])]
-             ^{:key (str "portfolio-chart-path-" (name series-id))}
-             (chart-series-path series-entry))]
-          (when hover-active?
-            [:div {:class ["absolute"
-                           "top-0"
-                           "bottom-0"
-                           "w-px"
-                           "-translate-x-1/2"
-                           "pointer-events-none"
-                           "bg-[#9fb3be]"
-                           "z-10"]
-                   :data-role "portfolio-chart-hover-line"
-                   :style {:left (str hover-line-left-pct "%")}}])
-          (when hover-active?
-            [:div {:class ["absolute"
-                           "pointer-events-none"
-                           "min-w-[188px]"
-                           "rounded-xl"
-                           "border"
-                           "px-3"
-                           "py-2"
-                           "spectate-lg"
-                           "z-20"]
-                   :data-role "portfolio-chart-hover-tooltip"
-                   :style {:left (str hover-line-left-pct "%")
-                           :top (str hover-tooltip-top-pct "%")
-                           :transform (if hover-tooltip-right?
-                                        "translate(calc(-100% - 8px), -50%)"
-                                        "translate(8px, -50%)")
-                           :white-space "nowrap"
-                           :border-color "rgba(98, 114, 130, 0.65)"
-                           :background "linear-gradient(138deg, rgba(24, 35, 47, 0.95) 0%, rgba(16, 25, 38, 0.95) 56%, rgba(43, 36, 25, 0.86) 100%)"}}
-             [:div {:class ["num"
-                            "text-[12px]"
-                            "font-medium"
-                            "leading-4"
-                            "text-[#8ea1b3]"]}
-              (:timestamp hover-tooltip)]
-             [:div {:class ["mt-2"
-                            "grid"
-                            "grid-cols-[1fr_auto]"
-                            "items-center"
-                            "gap-3"]}
-              [:span {:class ["text-[12px]"
-                              "font-medium"
-                              "leading-4"
-                              "text-[#909fac]"]}
-               (:metric-label hover-tooltip)]
-              [:span {:class (into ["num"
-                                    "text-[16px]"
-                                    "font-semibold"
-                                    "leading-[1]"
-                                    "tracking-tight"]
-                                   (:value-classes hover-tooltip))}
-               (:metric-value hover-tooltip)]]
-             (when (seq (:benchmark-values hover-tooltip))
-               [:div {:class ["mt-1.5" "space-y-1"]}
-                (for [{:keys [coin label value stroke]} (:benchmark-values hover-tooltip)]
-                  ^{:key (str "portfolio-chart-hover-tooltip-benchmark-row-" coin)}
-                  [:div {:class ["grid"
-                                 "grid-cols-[1fr_auto]"
-                                 "items-center"
-                                 "gap-3"]
-                         :data-role (str "portfolio-chart-hover-tooltip-benchmark-row-" coin)}
-                   [:span {:class ["text-[12px]"
-                                   "font-medium"
-                                   "leading-4"
-                                   "text-[#909fac]"]}
-                    label]
-                   [:span {:class ["num"
-                                   "text-sm"
-                                   "font-semibold"
-                                   "leading-[1.1]"
-                                   "tracking-tight"]
-                           :data-role (str "portfolio-chart-hover-tooltip-benchmark-value-" coin)
-                           :style {:color stroke}}
-                    value]])])])])]
+       [:div {:class ["absolute" "right-2" "top-0" "bottom-0" "cursor-crosshair"]
+              :style {:left (str plot-left "px")}
+              :data-role "portfolio-chart-plot-area"}
+        [:div {:class ["h-full" "w-full"]
+               :data-role "portfolio-chart-d3-host"
+               :replicant/on-render (chart-d3-runtime/on-render d3-spec)}]]]
       (chart-legend series)
       (when (= selected-tab :returns)
         (returns-benchmark-chip-rail returns-benchmark*))])))

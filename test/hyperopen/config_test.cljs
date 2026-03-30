@@ -14,8 +14,6 @@
     (is (= 300000 (get-in cfg [:cooldowns :auto-recover-cooldown-ms])))
     (is (= 1500 (get-in cfg [:ui :wallet-copy-feedback-ms])))
     (is (= 3500 (get-in cfg [:ui :order-toast-ms])))
-    (is (= :d3 (get-in cfg [:ui :performance-chart-renderer :portfolio])))
-    (is (= :d3 (get-in cfg [:ui :performance-chart-renderer :vaults])))
     (is (= 1200 (get-in cfg [:startup :deferred-bootstrap-delay-ms])))
     (is (= 120 (get-in cfg [:startup :per-dex-stagger-ms])))
     (is (= 5000 (get-in cfg [:startup :startup-summary-delay-ms])))

@@ -20,8 +20,6 @@
    :select-portfolio-summary-time-range portfolio-actions/select-portfolio-summary-time-range
    :select-portfolio-chart-tab portfolio-actions/select-portfolio-chart-tab
    :set-portfolio-account-info-tab portfolio-actions/set-portfolio-account-info-tab
-   :set-portfolio-chart-hover portfolio-actions/set-portfolio-chart-hover
-   :clear-portfolio-chart-hover portfolio-actions/clear-portfolio-chart-hover
    :set-portfolio-returns-benchmark-search portfolio-actions/set-portfolio-returns-benchmark-search
    :set-portfolio-returns-benchmark-suggestions-open
    portfolio-actions/set-portfolio-returns-benchmark-suggestions-open

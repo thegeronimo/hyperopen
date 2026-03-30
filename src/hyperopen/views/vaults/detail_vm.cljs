@@ -11,9 +11,7 @@
             [hyperopen.vaults.application.ui-state :as vault-ui-state]
             [hyperopen.vaults.domain.identity :as vault-identity]
             [hyperopen.vaults.infrastructure.routes :as vault-routes]
-            [hyperopen.views.chart.renderer :as chart-renderer]
-            [hyperopen.views.vaults.detail.chart :as chart-model]
-            [hyperopen.views.vaults.detail.chart-tooltip :as chart-tooltip]))
+            [hyperopen.views.vaults.detail.chart :as chart-model]))
 
 (def ^:private chart-timeframe-options
   [{:value :day
@@ -514,16 +512,8 @@
                      (seq benchmark-series)
                      (into benchmark-series))
         chart-model* (chart-model/build-chart-model {:selected-series selected-series
-                                                     :raw-series raw-series
-                                                     :hover-index (get-in state [:vaults-ui :detail-chart-hover-index])
-                                                     :include-svg-paths? (not (chart-renderer/d3-performance-chart? :vaults))})
+                                                     :raw-series raw-series})
         series (:series chart-model*)
-        strategy-series (:strategy-series chart-model*)
-        hover (:hover chart-model*)
-        hover-tooltip (chart-tooltip/build-chart-hover-tooltip snapshot-range
-                                                              selected-series
-                                                              hover
-                                                              series)
         benchmark-context (build-benchmark-context strategy-return-points
                                                    benchmark-points-by-coin
                                                    selected-benchmark-coins)
@@ -562,11 +552,8 @@
              :selected-timeframe snapshot-range
              :selected-series selected-series
              :returns-benchmark returns-benchmark-selector
-             :hover hover
-             :hover-tooltip hover-tooltip
              :y-ticks (:y-ticks chart-model*)
              :points (:points chart-model*)
-             :path (:path strategy-series)
              :series series}}))
 
 (defn- build-vault-detail-activity-section

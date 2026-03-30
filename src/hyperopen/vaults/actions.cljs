@@ -80,8 +80,6 @@
 (def handle-vault-transfer-modal-keydown transfer-commands/handle-vault-transfer-modal-keydown)
 (def set-vault-transfer-amount transfer-commands/set-vault-transfer-amount)
 (def set-vault-transfer-withdraw-all transfer-commands/set-vault-transfer-withdraw-all)
-(def set-vault-detail-chart-hover detail-commands/set-vault-detail-chart-hover)
-(def clear-vault-detail-chart-hover detail-commands/clear-vault-detail-chart-hover)
 
 (defn- current-route-vault-address
   [state]

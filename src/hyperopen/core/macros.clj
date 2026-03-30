@@ -121,8 +121,6 @@
     toggle-portfolio-performance-metrics-time-range-dropdown
     select-portfolio-summary-time-range
     select-portfolio-chart-tab
-    set-portfolio-chart-hover
-    clear-portfolio-chart-hover
     set-portfolio-returns-benchmark-search
     set-portfolio-returns-benchmark-suggestions-open
     select-portfolio-returns-benchmark

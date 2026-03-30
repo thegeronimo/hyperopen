@@ -98,7 +98,6 @@
                                    (detail-commands/selected-vault-detail-returns-benchmark-coins state)
                                    vault-address*)]
       (into [[:effects/save [:vaults-ui :detail-loading?] true]
-             [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
              [:effects/api-fetch-vault-details vault-address* viewer-address]
              [:effects/api-fetch-vault-webdata2 vault-address*]]
             (concat (detail-commands/vault-detail-activity-fetch-effects state vault-address*)

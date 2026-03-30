@@ -29,14 +29,6 @@
 
 (s/def ::set-hyperunit-lifecycle-args (s/tuple ::state/hyperunit-lifecycle-input))
 (s/def ::set-hyperunit-lifecycle-error-args (s/tuple (s/nilable string?)))
-(s/def ::portfolio-chart-hover-args
-  (s/tuple (s/nilable ::common/numberish)
-           (s/nilable ::common/position-tpsl-anchor)
-           ::common/intish))
-(s/def ::vault-chart-hover-args
-  (s/tuple (s/nilable ::common/numberish)
-           (s/nilable ::common/position-tpsl-anchor)
-           ::common/intish))
 (s/def ::position-tpsl-open-args
   (s/or :position-only (s/tuple map?)
         :position-and-anchor (s/tuple map? any?)))
@@ -153,8 +145,6 @@
    :actions/select-portfolio-summary-time-range ::common/keyword-or-string-args
    :actions/select-portfolio-chart-tab ::common/keyword-or-string-args
    :actions/set-portfolio-account-info-tab ::common/tab-args
-   :actions/set-portfolio-chart-hover ::portfolio-chart-hover-args
-   :actions/clear-portfolio-chart-hover ::common/no-args
    :actions/set-portfolio-returns-benchmark-search ::common/single-input-args
    :actions/set-portfolio-returns-benchmark-suggestions-open ::common/boolean-args
    :actions/select-portfolio-returns-benchmark ::common/optional-string-args
@@ -401,7 +391,5 @@
    :actions/set-vault-transfer-amount ::common/single-input-args
    :actions/set-vault-transfer-withdraw-all ::common/boolean-args
    :actions/submit-vault-transfer ::common/no-args
-   :actions/set-vault-detail-chart-hover ::vault-chart-hover-args
-   :actions/clear-vault-detail-chart-hover ::common/no-args
    :actions/navigate (s/or :path (s/tuple ::common/non-empty-string)
                            :path-and-opts (s/tuple ::common/non-empty-string map?))})

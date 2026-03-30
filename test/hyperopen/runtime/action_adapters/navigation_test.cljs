@@ -94,8 +94,7 @@
 (deftest navigate-entering-portfolio-loads-chart-benchmark-effects-test
   (with-redefs [portfolio-actions/select-portfolio-chart-tab (fn [_state tab]
                                                                 [[:effects/save-many
-                                                                  [[[:portfolio-ui :chart-tab] tab]
-                                                                   [[:portfolio-ui :chart-hover-index] nil]]]
+                                                                  [[[:portfolio-ui :chart-tab] tab]]]
                                                                  [:effects/fetch-candle-snapshot
                                                                   :coin "BTC"
                                                                   :interval :1h
@@ -105,8 +104,7 @@
                                                   [:effects/api-fetch-vault-index]])]
     (is (= [[:effects/save [:router :path] "/portfolio"]
             [:effects/save-many
-             [[[:portfolio-ui :chart-tab] :returns]
-              [[:portfolio-ui :chart-hover-index] nil]]]
+             [[[:portfolio-ui :chart-tab] :returns]]]
             [:effects/save [:vaults-ui :list-loading?] true]
             [:effects/push-state "/portfolio"]
             [:effects/load-route-module "/portfolio"]
@@ -123,9 +121,7 @@
   (let [chart-bootstrap-calls (atom 0)]
     (with-redefs [portfolio-actions/select-portfolio-chart-tab (fn [_state _tab]
                                                                   (swap! chart-bootstrap-calls inc)
-                                                                  [[:effects/save
-                                                                    [:portfolio-ui :chart-hover-index]
-                                                                    nil]])
+                                                                  [[:effects/save [:portfolio-ui :chart-tab] :returns]])
                   vault-actions/load-vault-route (fn [_state _path]
                                                    [[:effects/save [:vaults-ui :list-loading?] true]])]
       (is (= [[:effects/save [:router :path] "/portfolio"]
@@ -170,8 +166,7 @@
   (with-redefs [portfolio-actions/select-portfolio-chart-tab
                 (fn [_state tab]
                   [[:effects/save-many
-                    [[[:portfolio-ui :chart-tab] tab]
-                     [[:portfolio-ui :chart-hover-index] nil]]]
+                    [[[:portfolio-ui :chart-tab] tab]]]
                    [:effects/fetch-candle-snapshot
                     :coin "BTC"
                     :interval :1h
