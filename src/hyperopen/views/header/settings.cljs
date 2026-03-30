@@ -4,22 +4,23 @@
 
 (defn- trading-settings-icon-shell
   [kind active?]
-  [:div {:class ["mt-0.5"
-                 "flex"
-                 "h-5"
-                 "w-5"
+  [:div {:class ["flex"
+                 "h-4.5"
+                 "w-4.5"
                  "shrink-0"
                  "items-center"
-                 "justify-center"]}
+                 "justify-center"
+                 (if active?
+                   "text-[#92a1a6]"
+                   "text-[#738088]")]}
    (icons/trading-settings-row-icon kind active?)])
 
 (defn- trading-settings-toggle
   [{:keys [aria-label checked? on-change]}]
   [:label {:class ["relative"
-                   "mt-0.5"
                    "inline-flex"
-                   "h-[20px]"
-                   "w-[40px]"
+                   "h-[18px]"
+                   "w-[36px]"
                    "shrink-0"
                    "cursor-pointer"
                    "items-center"]}
@@ -41,58 +42,57 @@
                          "pointer-events-none"
                          "rounded-full"
                          "border"
-                         "shadow-[inset_0_1px_0_rgba(255,255,255,0.04),inset_0_-1px_1px_rgba(0,0,0,0.22)]"
+                         "shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]"
                          "transition-all"
                          "duration-200"
                          "peer-focus-visible:ring-2"
-                         "peer-focus-visible:ring-[#66e3c5]/45"
+                         "peer-focus-visible:ring-[#50d2c1]/45"
                          "peer-focus-visible:ring-offset-0"]
                         (if checked?
-                          ["border-[#67e5ba]"
-                           "bg-[#67e5ba]"]
-                          ["border-[#4a5258]"
-                           "bg-[#353c42]"]))}]
+                          ["border-[#2d7468]"
+                           "bg-[#123d37]"]
+                          ["border-[#434b51]"
+                           "bg-[#293036]"]))}]
    [:span {:aria-hidden true
            :class (into ["absolute"
-                         "left-[3px]"
-                         "top-[3px]"
+                         "left-[2px]"
+                         "top-[2px]"
                          "pointer-events-none"
-                         "h-[14px]"
-                         "w-[14px]"
+                         "h-[12px]"
+                         "w-[12px]"
                          "rounded-full"
-                         "shadow-[0_1px_4px_rgba(0,0,0,0.32)]"
+                         "shadow-[0_1px_3px_rgba(0,0,0,0.3)]"
                          "transition-transform"
                          "duration-200"]
                         (if checked?
-                          ["translate-x-[18px]" "bg-[#1f272c]"]
-                          ["translate-x-0" "bg-[#687078]"]))}]])
+                          ["translate-x-[18px]" "bg-[#7ce7d7]"]
+                          ["translate-x-0" "bg-[#79828b]"]))}]])
 
 (defn- confirmation-strip
   [{:keys [body confirm-label title]}]
   (when title
-    [:div {:class ["mt-3"
+    [:div {:class ["mt-2.5"
                    "flex"
                    "items-start"
                    "justify-between"
                    "gap-3"
-                   "rounded-[12px]"
+                   "rounded-[10px]"
                    "border"
-                   "border-[#394047]"
-                   "bg-[#22282d]"
-                   "shadow-[inset_0_1px_0_rgba(255,255,255,0.02),0_6px_14px_rgba(0,0,0,0.18)]"
-                   "px-3"
-                   "py-3"]
+                   "border-[#2f383d]"
+                   "bg-[#1d2429]"
+                   "px-3.5"
+                   "py-3.5"]
            :data-role "trading-settings-storage-mode-confirmation"}
      [:div {:class ["min-w-0" "space-y-1"]}
-      [:div {:class ["text-[0.84rem]" "font-semibold" "text-white"]}
+      [:div {:class ["text-[0.82rem]" "font-semibold" "tracking-[-0.01em]" "text-white"]}
        title]
-      [:p {:class ["text-[0.76rem]" "leading-5" "text-[#9ba1a6]"]}
+      [:p {:class ["text-[0.74rem]" "leading-[1.45]" "text-[#94a0a5]"]}
        body]]
      [:div {:class ["flex" "shrink-0" "gap-2"]}
       [:button {:type "button"
                 :class ["rounded-lg"
                         "border"
-                        "border-[#32373d]"
+                        "border-[#333c42]"
                         "bg-transparent"
                         "px-3"
                         "py-1.5"
@@ -100,44 +100,44 @@
                         "font-medium"
                         "text-[#d9dfe4]"
                         "transition-colors"
-                        "hover:bg-[#2c3338]"
+                        "hover:bg-[#262e33]"
                         "hover:text-white"]
                 :on {:click [[:actions/cancel-agent-storage-mode-change]]}}
        "Cancel"]
       [:button {:type "button"
                 :class ["rounded-lg"
                         "border"
-                        "border-[#44ccb5]/35"
-                        "bg-[#18342e]"
-                        "shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
+                        "border-[#2d7468]"
+                        "bg-[#123d37]"
                         "px-3"
                         "py-1.5"
                         "text-[0.8rem]"
                         "font-medium"
-                        "text-[#a9f5e4]"
+                        "text-[#d8f5f0]"
                         "transition-colors"
-                        "hover:bg-[#21473f]"]
+                        "hover:bg-[#195047]"]
                 :on {:click [[:actions/confirm-agent-storage-mode-change]]}}
        confirm-label]]]))
 
 (defn- trading-settings-row
   [{:keys [aria-label checked? confirmation data-role helper-copy icon-kind on-change title]}]
-  [:div {:class ["px-3" "py-2"]
+  [:div {:class ["py-3"]
          :data-role data-role}
-   [:div {:class ["flex"
-                  "items-start"
-                  "gap-3"
-                  "rounded-[10px]"
-                  "px-1"
-                  "py-1.5"
-                  "transition-colors"]}
+   [:div {:class ["flex" "items-start" "gap-3"]}
     (trading-settings-icon-shell icon-kind checked?)
-    [:div {:class ["min-w-0" "flex-1" "space-y-1" "pt-0.5"]}
-     [:div {:class ["text-[0.95rem]" "font-semibold" "leading-5" "text-white"]}
+    [:div {:class ["min-w-0" "flex-1" "space-y-1"]}
+     [:div {:class ["text-[0.93rem]"
+                    "font-semibold"
+                    "leading-5"
+                    "tracking-[-0.012em]"
+                    "text-white"]}
       title]
-     [:p {:class ["text-[0.76rem]" "leading-5" "text-[#9ba1a6]"]}
+     [:p {:class ["max-w-[15.75rem]"
+                  "text-[0.74rem]"
+                  "leading-[1.45]"
+                  "text-[#94a0a5]"]}
       helper-copy]]
-    [:div {:class ["flex" "shrink-0" "items-start" "pt-1"]}
+    [:div {:class ["flex" "shrink-0" "items-start" "pt-0.5"]}
      (trading-settings-toggle {:aria-label aria-label
                                :checked? checked?
                                :on-change on-change})]]
@@ -146,28 +146,29 @@
 (defn- trading-settings-section
   [{:keys [data-role rows title]}]
   (into
-   [:section {:class ["overflow-hidden"
-                      "rounded-[14px]"
+   [:section {:class ["rounded-[12px]"
                       "border"
-                      "border-[#353d43]"
-                      "bg-[#252c32]"
-                      "shadow-[inset_0_1px_0_rgba(255,255,255,0.045),inset_0_-1px_0_rgba(0,0,0,0.14),0_4px_10px_rgba(0,0,0,0.20)]"]
+                      "border-[#2d353b]"
+                      "bg-[#20272c]"]
               :data-role data-role}
     [:div {:class ["px-4"
+                   "pb-1"
                    "pt-3.5"
-                   "text-[0.68rem]"
+                   "text-[0.64rem]"
                    "font-semibold"
                    "uppercase"
-                   "tracking-[0.14em]"
-                   "text-[#8a939b]"]}
-     title]]
+                   "tracking-[0.18em]"
+                   "text-[#7f8a90]"]}
+     title]
+    [:div {:class ["px-4" "pb-1"]}]]
    (mapcat (fn [[index row]]
              (cond-> []
                (pos? index)
-               (conj [:div {:class ["mx-4" "h-px" "bg-[#31383e]"]}])
+               (conj [:div {:class ["mx-4" "h-px" "bg-[#31383d]"]}])
 
                :always
-               (conj (trading-settings-row row))))
+               (conj [:div {:class ["px-4"]}
+                      (trading-settings-row row)])))
            (map-indexed vector rows))))
 
 (defn- trading-settings-content
@@ -175,43 +176,55 @@
   [:div {:class (into ["flex" "max-h-full" "flex-col"]
                       (when (= surface-id :sheet)
                         ["pb-[max(0.5rem,env(safe-area-inset-bottom))]"]))}
-   [:div {:class ["flex"
-                  "items-center"
-                  "justify-between"
-                  "gap-4"
-                  "px-4"
-                  "pb-2"
-                  "pt-4"]}
-    [:h3 {:class ["text-[1rem]" "font-semibold" "tracking-[-0.01em]" "text-white"]
-          :data-role "trading-settings-title"}
-     title]
-    [:button {:type "button"
-              :class ["inline-flex"
-                      "h-8.5"
-                      "w-8.5"
-                      "items-center"
-                      "justify-center"
-                      "rounded-[10px]"
-                      "border"
-                      "border-[#3a4248]"
-                      "bg-[#2a3136]"
-                      "shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]"
-                      "text-[#aeb6bc]"
-                      "transition-colors"
-                      "hover:bg-[#333b42]"
-                      "hover:text-white"]
-              :aria-label "Close trading settings"
-              :data-role "trading-settings-close"
-              :on {:click close-actions}}
-     (icons/close-icon {:class ["h-4.5" "w-4.5"]})]]
-   [:div {:class ["overflow-y-auto" "px-3" "pb-3" "pt-1"]}
-    [:div {:class ["space-y-3"]}
+   [:div {:class ["relative" "px-4" "pb-2" "pt-3.5"]}
+    [:div {:class ["absolute"
+                   "inset-x-4"
+                   "top-0"
+                   "h-px"
+                   "bg-[linear-gradient(90deg,rgba(80,210,193,0),rgba(80,210,193,0.55),rgba(80,210,193,0))]"]}]
+    [:div {:class ["flex" "items-center" "justify-between" "gap-4"]}
+     [:h3 {:class ["text-[0.98rem]"
+                   "font-semibold"
+                   "tracking-[-0.015em]"
+                   "text-white"]
+           :data-role "trading-settings-title"}
+      title]
+     [:button {:type "button"
+               :class ["inline-flex"
+                       "h-8"
+                       "w-8"
+                       "items-center"
+                       "justify-center"
+                       "rounded-[10px]"
+                       "border"
+                       "border-[#333c42]"
+                       "bg-[#1f262b]"
+                       "text-[#99a4ab]"
+                       "transition-colors"
+                       "hover:border-[#3f494f]"
+                       "hover:bg-[#252d32]"
+                       "hover:text-white"]
+               :aria-label "Close trading settings"
+               :data-role "trading-settings-close"
+               :on {:click close-actions}}
+      (icons/close-icon {:class ["h-4.5" "w-4.5"]})]]
+    [:div {:class ["mt-3" "h-px" "bg-[#2c3439]"]}]]
+   [:div {:class ["overflow-y-auto" "px-3" "pb-3" "pt-2"]}
+    [:div {:class ["space-y-2.5"]}
      (for [{:keys [id] :as section} sections]
        ^{:key (str "settings-section:" (name id))}
        (trading-settings-section section))
-     [:div {:class ["px-4" "pb-2.5" "pt-4" "text-[0.75rem]" "leading-5" "text-[#9aa1a7]"]
-            :data-role "trading-settings-footer-note"}
-      footer-note]]]])
+     [:div {:class ["border-t"
+                    "border-[#2c3439]"
+                    "px-1"
+                    "pt-3"]}
+      [:div {:class ["px-3"
+                     "pb-1"
+                     "text-[0.72rem]"
+                     "leading-[1.45]"
+                     "text-[#879399]"]
+             :data-role "trading-settings-footer-note"}
+       footer-note]]]]])
 
 (defn render-trigger
   [{:keys [open? return-focus? trigger-action trigger-key]}]
@@ -257,15 +270,15 @@
                         "z-[285]"
                         "mt-2"
                         "hidden"
-                        "w-[336px]"
+                        "w-[328px]"
                         "max-h-[70vh]"
                         "max-w-[calc(100vw-1.5rem)]"
                         "overflow-hidden"
-                        "rounded-[16px]"
+                        "rounded-[15px]"
                         "border"
-                        "border-[#3b4349]"
-                        "bg-[#232a30]"
-                        "shadow-[inset_0_1px_0_rgba(255,255,255,0.05),inset_0_-1px_0_rgba(0,0,0,0.18),0_10px_18px_rgba(0,0,0,0.28),0_2px_4px_rgba(0,0,0,0.18)]"
+                        "border-[#384046]"
+                        "bg-[#1c2328]"
+                        "shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_34px_rgba(0,0,0,0.34),0_2px_6px_rgba(0,0,0,0.2)]"
                         "md:block"]
                 :role "dialog"
                 :aria-modal true
@@ -289,11 +302,11 @@
                         "z-[285]"
                         "max-h-[76vh]"
                         "overflow-hidden"
-                        "rounded-[18px]"
+                        "rounded-[16px]"
                         "border"
-                        "border-[#3b4349]"
-                        "bg-[#232a30]"
-                        "shadow-[inset_0_1px_0_rgba(255,255,255,0.05),inset_0_-1px_0_rgba(0,0,0,0.18),0_10px_18px_rgba(0,0,0,0.28),0_2px_4px_rgba(0,0,0,0.18)]"
+                        "border-[#384046]"
+                        "bg-[#1c2328]"
+                        "shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_34px_rgba(0,0,0,0.34),0_2px_6px_rgba(0,0,0,0.2)]"
                         "md:hidden"]
                 :role "dialog"
                 :aria-modal true
