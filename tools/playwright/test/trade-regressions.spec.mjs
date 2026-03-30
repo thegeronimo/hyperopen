@@ -239,6 +239,113 @@ test("vault detail hero TVL bootstraps from list metadata when vaultDetails omit
   await expect(tvlCard).not.toContainText("$0.00");
 });
 
+test("vault position coin jumps to the trade route market @regression", async ({ page }) => {
+  const vaultAddress = "0x61b1cf5c2d7c4bf6d5db14f36651b2242e7cba0a";
+  let vaultWebDataRequests = 0;
+
+  await page.route("https://api.hyperliquid.xyz/info", async route => {
+    const payload = JSON.parse(route.request().postData() || "{}");
+    const requestType = payload?.type;
+    const requestVaultAddress = String(
+      payload?.vaultAddress || payload?.user || ""
+    ).toLowerCase();
+
+    if (
+      requestType === "vaultDetails" &&
+      requestVaultAddress === vaultAddress
+    ) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          name: "OnlyShorts",
+          vaultAddress,
+          leader: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+          description: "Regression fixture",
+          apr: "0.12",
+          portfolio: [
+            [
+              "month",
+              {
+                accountValueHistory: [
+                  [1, 100],
+                  [2, 110]
+                ],
+                pnlHistory: [
+                  [1, 0],
+                  [2, 10]
+                ]
+              }
+            ]
+          ],
+          followers: [],
+          relationship: { type: "normal" },
+          allowDeposits: false,
+          alwaysCloseOnWithdraw: false
+        })
+      });
+      return;
+    }
+
+    if (
+      requestType === "webData2" &&
+      requestVaultAddress === vaultAddress
+    ) {
+      vaultWebDataRequests += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          clearinghouseState: {
+            assetPositions: [
+              {
+                coin: "BTC",
+                szi: "1.25",
+                positionValue: "2500",
+                entryPx: "50000",
+                markPx: "50125",
+                unrealizedPnl: "125",
+                returnOnEquity: "0.05",
+                liquidationPx: "42000",
+                marginUsed: "500",
+                leverage: { value: 3 },
+                cumFunding: { sinceOpen: "-4.2" }
+              }
+            ]
+          }
+        })
+      });
+      return;
+    }
+
+    await route.continue();
+  });
+
+  await visitRoute(page, `/vaults/${vaultAddress}`);
+  await expect
+    .poll(() => vaultWebDataRequests, { timeout: 10_000 })
+    .toBeGreaterThanOrEqual(1);
+
+  await dispatch(page, [":actions/set-vault-detail-activity-tab", ":positions"]);
+  await waitForIdle(page, { quietMs: 200, timeoutMs: 6_000, pollMs: 50 });
+
+  const coinButton = page.locator("[data-role='vault-detail-position-coin-select']").first();
+  await expect(coinButton).toBeVisible();
+  await coinButton.click();
+  await waitForIdle(page, { quietMs: 200, timeoutMs: 6_000, pollMs: 50 });
+
+  await expect.poll(async () => {
+    const snapshot = await debugCall(page, "qaSnapshot");
+    return {
+      route: snapshot.route,
+      activeAsset: snapshot.activeAsset
+    };
+  }).toMatchObject({
+    route: "/trade/BTC",
+    activeAsset: "BTC"
+  });
+});
+
 test("asset selector favorite toggle keeps dropdown open @regression", async ({ page }) => {
   await visitRoute(page, "/trade");
 

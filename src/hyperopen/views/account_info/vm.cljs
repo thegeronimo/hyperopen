@@ -4,6 +4,7 @@
             [hyperopen.asset-selector.markets :as markets]
             [hyperopen.order.cancel-visible-confirmation :as cancel-visible-confirmation]
             [hyperopen.platform :as platform]
+            [hyperopen.portfolio.routes :as portfolio-routes]
             [hyperopen.views.account-info.derived-cache :as derived-cache]
             [hyperopen.views.account-info.projections :as projections]
             [hyperopen.views.websocket-freshness :as ws-freshness]))
@@ -249,6 +250,7 @@
 
 (defn account-info-vm [state]
   (let [selected-tab (get-in state [:account-info :selected-tab] :balances)
+        route (get-in state [:router :path])
         webdata2 (or (:webdata2 state) {})
         orders (or (:orders state) {})
         loading? (get-in state [:account-info :loading] false)
@@ -322,7 +324,9 @@
         open-orders-sort (get-in state [:account-info :open-orders-sort] {:column "Time" :direction :desc})
         positions-state (cond-> (merge {:direction-filter :all
                                         :coin-search ""
-                                        :filter-open? false}
+                                        :filter-open? false
+                                        :navigate-to-trade-on-coin-click?
+                                        (portfolio-routes/portfolio-route? route)}
                                        (get-in state [:account-info :positions] {}))
                           true (assoc :read-only? read-only?)
                           (seq read-only-message) (assoc :read-only-message read-only-message))

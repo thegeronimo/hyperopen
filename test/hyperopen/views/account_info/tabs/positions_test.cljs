@@ -401,6 +401,22 @@
     (is (= [[:actions/select-asset "xyz:NVDA"]]
            (get-in coin-button [1 :on :click])))))
 
+(deftest positions-tab-content-coin-cell-can-opt-into-trade-navigation-test
+  (let [content (render-positions-tab-from-rows
+                 [(fixtures/sample-position-row "xyz:NVDA" 10 "0.500")]
+                 fixtures/default-sort-state
+                 nil
+                 nil
+                 nil
+                 {:navigate-to-trade-on-coin-click? true})
+        coin-button (hiccup/find-first-node content
+                                            #(= "positions-coin-select"
+                                                (get-in % [1 :data-role])))]
+    (is (some? coin-button))
+    (is (= [[:actions/select-asset "xyz:NVDA"]
+            [:actions/navigate "/trade/xyz:NVDA"]]
+           (get-in coin-button [1 :on :click])))))
+
 (deftest sort-positions-by-column-uses-mark-price-over-entry-price-test
   (let [positions [{:position {:coin "AAA"
                                :entryPx "100"

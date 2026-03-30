@@ -169,6 +169,13 @@
   (-> (trader-portfolio-state :positions)
       (assoc :webdata2 {:clearinghouseState {:assetPositions [fixtures/sample-position-data]}})))
 
+(defn- portfolio-positions-state []
+  (-> sample-state
+      (assoc :router {:path "/portfolio"})
+      (assoc-in [:portfolio-ui :account-info-tab] :positions)
+      (assoc-in [:account-info :selected-tab] :positions)
+      (assoc :webdata2 {:clearinghouseState {:assetPositions [fixtures/sample-position-data]}})))
+
 (defn- trader-open-orders-state []
   (-> (trader-portfolio-state :open-orders)
       (assoc-in [:orders :open-orders]
@@ -469,6 +476,15 @@
       (doseq [aria-label forbidden-aria-labels]
         (is (nil? (find-first-node account-table #(= aria-label (get-in % [1 :aria-label]))))
             (str label " omits aria-label " aria-label))))))
+
+(deftest portfolio-view-positions-coin-cell-navigates-to-trade-market-test
+  (let [view-node (portfolio-view/portfolio-view (portfolio-positions-state))
+        account-table (find-first-node view-node #(= "portfolio-account-table" (get-in % [1 :data-role])))
+        coin-button (find-first-node account-table #(= "positions-coin-select" (get-in % [1 :data-role])))]
+    (is (some? coin-button))
+    (is (= [[:actions/select-asset "HYPE"]
+            [:actions/navigate "/trade/HYPE"]]
+           (get-in coin-button [1 :on :click])))))
 
 (deftest portfolio-view-renders-background-status-banner-when-pending-work-exists-test
   (with-redefs [portfolio-vm/portfolio-vm (fn [_]

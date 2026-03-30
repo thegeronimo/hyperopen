@@ -86,6 +86,62 @@ test("trader portfolio route stays read-only while reusing stable controls @regr
   await expect(page.locator("[data-role='portfolio-action-deposit']")).toBeVisible();
 });
 
+test("portfolio positions coin jumps to the trade route market @regression", async ({ page }) => {
+  await visitRoute(page, "/portfolio");
+  await page.evaluate(() => {
+    const c = globalThis.cljs.core;
+    const kw = (name) => c.keyword(name);
+    const opts = c.PersistentArrayMap.fromArray([kw("keywordize-keys"), true], true);
+    const payload = {
+      clearinghouseState: {
+        assetPositions: [
+          {
+            position: {
+              coin: "HYPE",
+              szi: "1.25",
+              positionValue: "2500",
+              entryPx: "100",
+              markPx: "101",
+              unrealizedPnl: "12",
+              returnOnEquity: "0.10",
+              leverage: { value: 10 },
+              cumFunding: { allTime: "0" }
+            }
+          }
+        ]
+      }
+    };
+    const state = c.deref(globalThis.hyperopen.system.store);
+    const nextState = c.assoc_in(
+      state,
+      c.PersistentVector.fromArray([kw("webdata2")], true),
+      c.js__GT_clj(payload, opts)
+    );
+    c.reset_BANG_(globalThis.hyperopen.system.store, nextState);
+  });
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+
+  await selectAccountTab(page, "positions");
+  const coinButton = page
+    .locator("[data-role='portfolio-account-table'] [data-role='positions-coin-select']")
+    .first();
+
+  await expect(coinButton).toBeVisible();
+  await coinButton.click();
+  await waitForIdle(page, { quietMs: 200, timeoutMs: 6_000, pollMs: 50 });
+
+  await expect.poll(async () => {
+    const snapshot = await debugCall(page, "qaSnapshot");
+    return {
+      route: snapshot.route,
+      activeAsset: snapshot.activeAsset
+    };
+  }).toMatchObject({
+    route: "/trade/HYPE",
+    activeAsset: "HYPE"
+  });
+});
+
 test("spectate mode stays active when navigating from trade to portfolio via header nav @regression", async ({ page }) => {
   await visitRoute(page, "/trade");
   await dispatch(page, [":actions/start-spectate-mode", SPECTATE_ADDRESS]);

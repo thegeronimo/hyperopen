@@ -105,18 +105,21 @@
 (defn coin-select-control
   ([coin content]
    (coin-select-control coin content {}))
-  ([coin content {:keys [extra-classes style]
-                  :or {extra-classes []}}]
+  ([coin content {:keys [extra-classes style click-actions attrs]
+                  :or {extra-classes []
+                       attrs {}}}]
    (let [coin* (non-blank-text coin)
          classes (into coin-select-control-classes extra-classes)
-         attrs (cond-> {:class classes}
-                 style (assoc :style style))]
+         base-attrs (cond-> {:class classes}
+                      style (assoc :style style))]
      (if (seq coin*)
-       [:button (assoc attrs
-                       :type "button"
-                       :on {:click [[:actions/select-asset coin*]]})
+       [:button (merge base-attrs
+                       attrs
+                       {:type "button"
+                        :on {:click (or click-actions
+                                        [[:actions/select-asset coin*]])}})
         content]
-       [:span attrs
+       [:span (merge base-attrs attrs)
         content]))))
 
 (defn- lucide-node->hiccup [node]

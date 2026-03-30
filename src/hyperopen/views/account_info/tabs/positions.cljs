@@ -4,6 +4,7 @@
             [hyperopen.account.history.position-margin :as position-margin]
             [hyperopen.account.history.position-reduce :as position-reduce]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
+            [hyperopen.router :as router]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.account-info.mobile-cards :as mobile-cards]
             [hyperopen.views.account-info.position-margin-modal :as position-margin-modal]
@@ -377,8 +378,16 @@
    "gap-x-2.5"
    "gap-y-2"])
 
+(defn- position-coin-click-actions
+  [coin positions-state]
+  (when-let [coin* (shared/non-blank-text coin)]
+    (if (true? (:navigate-to-trade-on-coin-click? positions-state))
+      [[:actions/select-asset coin*]
+       [:actions/navigate (router/trade-route-path coin*)]]
+      [[:actions/select-asset coin*]])))
+
 (defn- position-row-from-vm
-  [row-vm tpsl-modal reduce-popover margin-modal read-only?]
+  [row-vm tpsl-modal reduce-popover margin-modal read-only? positions-state]
   (let [position-data (:row-data row-vm)
         pos (:position row-vm)
         side (:side row-vm)
@@ -398,6 +407,7 @@
         liq-explanation (:liq-explanation row-vm)
         tpsl-copy (:tpsl-copy row-vm)
         row-key (:row-key row-vm)
+        coin-click-actions (position-coin-click-actions (:coin pos) positions-state)
         active-modal?
         (and (not read-only?)
              (position-tpsl/open? tpsl-modal)
@@ -431,7 +441,9 @@
                 [:span {:class chip-classes} (str leverage "x")])
               (when dex-label
                 [:span {:class chip-classes} dex-label])]
-             {:extra-classes ["w-full" "justify-start" "overflow-hidden" "text-left"]})]
+             {:extra-classes ["w-full" "justify-start" "overflow-hidden" "text-left"]
+              :click-actions coin-click-actions
+              :attrs {:data-role "positions-coin-select"}})]
            [:div {:class ["min-w-0" "truncate" "text-left" "font-semibold" "num" size-tone-class]
                   :title (:size-display row-vm)}
             (:size-display row-vm)]
@@ -526,7 +538,8 @@
                          tpsl-modal
                          reduce-popover
                          margin-modal
-                         read-only?)))
+                         read-only?
+                         {})))
 
 (defn- mobile-position-card-from-vm
   [expanded-row-id row-vm tpsl-modal reduce-popover margin-modal read-only?]
@@ -769,7 +782,8 @@
                                           tpsl-modal
                                           reduce-popover
                                           margin-modal
-                                          read-only?))
+                                          read-only?
+                                          positions-state))
                   sorted-row-vms))
        (into [:div {:class ["lg:hidden"
                             "flex-1"

@@ -258,6 +258,30 @@
     (is (true? (get-in disabled-filter-toggle [1 :disabled])))
     (is (contains? fallback-text "This activity stream is not available yet for vaults."))))
 
+(deftest activity-panel-position-coin-cell-navigates-to-trade-market-test
+  (let [view (activity/activity-panel
+              (-> base-activity-panel-props
+                  (assoc :selected-activity-tab :positions
+                         :activity-positions [{:coin "xyz:GOLD"
+                                               :leverage 20
+                                               :size 1.25
+                                               :side-key :long
+                                               :position-value 2500
+                                               :entry-price 50000
+                                               :mark-price 50125
+                                               :pnl 125
+                                               :roe 0.05
+                                               :liq-price nil
+                                               :margin nil
+                                               :funding -4.2}])))
+        coin-button (hiccup/find-first-node view
+                                            #(= "vault-detail-position-coin-select"
+                                                (get-in % [1 :data-role])))]
+    (is (some? coin-button))
+    (is (= [[:actions/select-asset "xyz:GOLD"]
+            [:actions/navigate "/trade/xyz:GOLD"]]
+           (get-in coin-button [1 :on :click])))))
+
 (deftest activity-panel-renders-performance-metrics-loading-overlay-copy-test
   (let [view (activity/activity-panel
               (assoc base-activity-panel-props

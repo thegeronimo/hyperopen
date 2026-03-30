@@ -1,5 +1,6 @@
 (ns hyperopen.views.vaults.detail.activity
   (:require [clojure.string :as str]
+            [hyperopen.router :as router]
             [hyperopen.views.ui.performance-metrics-tooltip :as metrics-tooltip]
             [hyperopen.views.vaults.detail.chart-view :as chart]
             [hyperopen.views.vaults.detail.format :as vf]
@@ -492,15 +493,36 @@
   [{:keys [coin size entry-price]}]
   (str "position-" coin "-" size "-" entry-price))
 
+(defn- position-coin-click-actions
+  [coin]
+  (when-let [coin* (some-> coin str str/trim not-empty)]
+    [[:actions/select-asset coin*]
+     [:actions/navigate (router/trade-route-path coin*)]]))
+
 (defn- position-coin-cell
   [{:keys [coin leverage side-key]}]
   [:td {:class (into activity-cell-class ["whitespace-nowrap"])
         :style (side-coin-cell-style side-key)}
-   [:span {:class [(side-coin-tone-class side-key)]}
-    (or coin "—")]
-   (when (number? leverage)
-     [:span {:class ["ml-1" (side-tone-class side-key)]}
-      (str leverage "x")])])
+   (if-let [click-actions (position-coin-click-actions coin)]
+     [:button {:type "button"
+               :class ["inline-flex"
+                       "items-center"
+                       "gap-1"
+                       "bg-transparent"
+                       "p-0"
+                       "text-left"
+                       "focus:outline-none"
+                       "focus:ring-0"
+                       "focus:ring-offset-0"]
+               :data-role "vault-detail-position-coin-select"
+               :on {:click click-actions}}
+      [:span {:class [(side-coin-tone-class side-key)]}
+       coin]
+      (when (number? leverage)
+        [:span {:class [(side-tone-class side-key)]}
+         (str leverage "x")])]
+     [:span {:class [(side-coin-tone-class side-key)]}
+      (or coin "—")])])
 
 (defn- position-value-text
   [position-value]
