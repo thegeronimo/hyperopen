@@ -55,6 +55,20 @@
               :rows "not-a-seq"})))
   (is (nil? (list-cache/normalize-vault-index-cache-record nil))))
 
+(deftest normalize-vault-index-cache-metadata-trims-and-rejects-invalid-shapes-test
+  (is (= {:id "vault-index-cache:metadata"
+          :version 2
+          :saved-at-ms 1700000000000
+          :etag "\"etag-2\""
+          :last-modified "Thu, 20 Mar 2026 13:00:00 GMT"}
+         (list-cache/normalize-vault-index-cache-metadata
+          {:version "2"
+           :saved-at-ms "1700000000000"
+           :etag " \"etag-2\" "
+           :last-modified " Thu, 20 Mar 2026 13:00:00 GMT "})))
+  (is (nil? (list-cache/normalize-vault-index-cache-metadata {:etag "\"etag\""})))
+  (is (nil? (list-cache/normalize-vault-index-cache-metadata nil))))
+
 (deftest persist-and-load-vault-index-cache-roundtrip-test
   (async done
     (browser-mocks/with-test-indexed-db
@@ -100,7 +114,16 @@
                                                     :snapshot-preview-by-key {:day {:series [1 2.5]
                                                                                     :last-value 2.5}}}]}
                                            record))
-                                    (done)))
+                                    (-> (list-cache/load-vault-index-cache-metadata!)
+                                        (.then (fn [metadata-record]
+                                                 (is (= {:id "vault-index-cache:metadata"
+                                                         :version 1
+                                                         :saved-at-ms 1700000000000
+                                                         :etag "\"etag-1\""
+                                                         :last-modified "Thu, 20 Mar 2026 12:00:00 GMT"}
+                                                        metadata-record))
+                                                 (done)))
+                                        (.catch (async-support/unexpected-error done)))))
                            (.catch (async-support/unexpected-error done)))))
               (.catch (async-support/unexpected-error done))))))))
 
@@ -118,12 +141,16 @@
       (-> (list-cache/load-vault-index-cache-record!)
           (.then (fn [record]
                    (is (nil? record))
-                   (-> (list-cache/persist-vault-index-cache-record!
-                        [{:vault-address "0xabc"}]
-                        {:etag "\"etag-1\""})
-                       (.then (fn [persisted?]
-                                (is (false? persisted?))
-                                (restore!)
-                                (done)))
+                   (-> (list-cache/load-vault-index-cache-metadata!)
+                       (.then (fn [metadata-record]
+                                (is (nil? metadata-record))
+                                (-> (list-cache/persist-vault-index-cache-record!
+                                     [{:vault-address "0xabc"}]
+                                     {:etag "\"etag-1\""})
+                                    (.then (fn [persisted?]
+                                             (is (false? persisted?))
+                                             (restore!)
+                                             (done)))
+                                    (.catch fail!))))
                        (.catch fail!))))
           (.catch fail!)))))

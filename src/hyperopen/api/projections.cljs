@@ -557,7 +557,8 @@
   [state {:keys [hydrated?
                  saved-at-ms
                  etag
-                 last-modified]
+                 last-modified
+                 live-response-status]
           :as metadata}]
   (let [current (or (get-in state [:vaults :index-cache]) {})]
     (assoc-in state
@@ -573,7 +574,10 @@
                        (:etag current))
                :last-modified (if (contains? metadata :last-modified)
                                 (or last-modified (:last-modified current))
-                                (:last-modified current))})))
+                                (:last-modified current))
+               :live-response-status (if (contains? metadata :live-response-status)
+                                       live-response-status
+                                       (:live-response-status current))})))
 
 (defn- vault-list-loading?
   [state]
@@ -589,26 +593,30 @@
   [state]
   (let [state* (-> state
                    (assoc-in [:vaults :loading :index?] true)
-                   (assoc-in [:vaults :errors :index] nil))]
+                   (assoc-in [:vaults :errors :index] nil)
+                   (update-vault-index-cache {:live-response-status nil}))]
     (assoc-in state* [:vaults-ui :list-loading?] (vault-list-loading? state*))))
 
 (defn apply-vault-index-cache-hydration
   [state cache-record]
-  (let [rows* (if (sequential? (:rows cache-record))
-                (vec (:rows cache-record))
-                [])
-        summaries (get-in state [:vaults :recent-summaries] [])
-        saved-at-ms (:saved-at-ms cache-record)
-        state* (cond-> (-> state
-                           (assoc-in [:vaults :index-rows] rows*)
-                           (assoc-in [:vaults :merged-index-rows] (merge-vault-rows rows* summaries))
-                           (assoc-in [:vaults :errors :index] nil)
-                           (update-vault-index-cache {:hydrated? (seq rows*)
-                                                      :saved-at-ms saved-at-ms
-                                                      :etag (:etag cache-record)
-                                                      :last-modified (:last-modified cache-record)}))
-                 (number? saved-at-ms) (assoc-in [:vaults :loaded-at-ms :index] saved-at-ms))]
-    (assoc-in state* [:vaults-ui :list-loading?] (vault-list-loading? state*))))
+  (let [live-response-status (get-in state [:vaults :index-cache :live-response-status])]
+    (if (= :ok live-response-status)
+      state
+      (let [rows* (if (sequential? (:rows cache-record))
+                    (vec (:rows cache-record))
+                    [])
+            summaries (get-in state [:vaults :recent-summaries] [])
+            saved-at-ms (:saved-at-ms cache-record)
+            state* (cond-> (-> state
+                               (assoc-in [:vaults :index-rows] rows*)
+                               (assoc-in [:vaults :merged-index-rows] (merge-vault-rows rows* summaries))
+                               (update-vault-index-cache {:hydrated? (seq rows*)
+                                                          :saved-at-ms saved-at-ms
+                                                          :etag (:etag cache-record)
+                                                          :last-modified (:last-modified cache-record)}))
+                     (not= :error live-response-status) (assoc-in [:vaults :errors :index] nil)
+                     (number? saved-at-ms) (assoc-in [:vaults :loaded-at-ms :index] saved-at-ms))]
+        (assoc-in state* [:vaults-ui :list-loading?] (vault-list-loading? state*))))))
 
 (defn- normalize-vault-index-success-payload
   [payload]
@@ -630,7 +638,8 @@
                        (assoc-in [:vaults :loaded-at-ms :index] now-ms)
                        (update-vault-index-cache {:saved-at-ms now-ms
                                                   :etag etag
-                                                  :last-modified last-modified}))]
+                                                  :last-modified last-modified
+                                                  :live-response-status :not-modified}))]
         (assoc-in state* [:vaults-ui :list-loading?] (vault-list-loading? state*)))
 
       (let [rows* (if (sequential? rows) (vec rows) [])
@@ -644,7 +653,8 @@
                        (update-vault-index-cache {:hydrated? false
                                                   :saved-at-ms now-ms
                                                   :etag etag
-                                                  :last-modified last-modified}))]
+                                                  :last-modified last-modified
+                                                  :live-response-status :ok}))]
         (assoc-in state* [:vaults-ui :list-loading?] (vault-list-loading? state*))))))
 
 (defn apply-vault-index-error
@@ -652,7 +662,8 @@
   (let [{:keys [message]} (normalized-error err)]
     (let [state* (-> state
                      (assoc-in [:vaults :loading :index?] false)
-                     (assoc-in [:vaults :errors :index] message))]
+                     (assoc-in [:vaults :errors :index] message)
+                     (update-vault-index-cache {:live-response-status :error}))]
       (assoc-in state* [:vaults-ui :list-loading?] (vault-list-loading? state*)))))
 
 (defn begin-vault-summaries-load

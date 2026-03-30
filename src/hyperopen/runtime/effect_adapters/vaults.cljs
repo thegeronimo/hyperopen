@@ -42,6 +42,7 @@
   (vault-effects/api-fetch-vault-index-with-cache!
    {:store store
     :request-vault-index-response! api/request-vault-index-response!
+    :load-vault-index-cache-metadata! vault-list-cache/load-vault-index-cache-metadata!
     :load-vault-index-cache-record! vault-list-cache/load-vault-index-cache-record!
     :persist-vault-index-cache-record! vault-list-cache/persist-vault-index-cache-record!
     :persist-vault-startup-preview-record! persist-vault-startup-preview-record!

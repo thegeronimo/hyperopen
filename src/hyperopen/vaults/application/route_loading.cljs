@@ -51,13 +51,25 @@
     [[:effects/api-fetch-user-vault-equities viewer-address]]
     []))
 
+(defn- vault-index-loading?
+  [state]
+  (true? (get-in state [:vaults :loading :index?])))
+
+(defn- vault-summaries-loading?
+  [state]
+  (true? (get-in state [:vaults :loading :summaries?])))
+
 (defn- current-vault-metadata-effects
   [state vault-address]
   (let [vault-address* (identity/normalize-vault-address vault-address)]
     (if (and vault-address*
              (not (identity/merged-vault-row state vault-address*)))
-      [[:effects/api-fetch-vault-index-with-cache]
-       [:effects/api-fetch-vault-summaries]]
+      (cond-> []
+        (not (vault-index-loading? state))
+        (conj [:effects/api-fetch-vault-index-with-cache])
+
+        (not (vault-summaries-loading? state))
+        (conj [:effects/api-fetch-vault-summaries]))
       [])))
 
 (defn- detail-route-support-effects

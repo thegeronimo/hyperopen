@@ -87,6 +87,23 @@
              :path (str "/vaults/" vault-address)
              :vault-address vault-address})))))
 
+(deftest load-vault-route-reuses-inflight-list-bootstrap-on-early-detail-click-test
+  (let [vault-address "0x1234567890abcdef1234567890abcdef12345678"
+        state {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}
+               :vaults {:merged-index-rows []
+                        :loading {:index? true
+                                  :summaries? true}}}]
+    (is (= [[:effects/save [:vaults-ui :detail-loading?] true]
+            [:effects/save [:vaults-ui :detail-chart-hover-index] nil]
+            [:effects/api-fetch-user-vault-equities "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
+            [:effects/api-fetch-vault-details vault-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
+            [:effects/api-fetch-vault-webdata2 vault-address]]
+           (route-loading/load-vault-route
+            state
+            {:kind :detail
+             :path (str "/vaults/" vault-address)
+             :vault-address vault-address})))))
+
 (deftest load-vault-route-fetches-list-metadata-and-benchmark-details-when-vault-benchmarks-are-active-test
   (let [benchmark-address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         state {:wallet {:address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}

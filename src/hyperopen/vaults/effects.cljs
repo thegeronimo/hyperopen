@@ -1,6 +1,7 @@
 (ns hyperopen.vaults.effects
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
+            [hyperopen.platform :as platform]
             [hyperopen.api.promise-effects :as promise-effects]
             [hyperopen.api.trading :as trading-api]
             [hyperopen.vaults.application.transfer-state :as vault-transfer-state]
@@ -9,6 +10,15 @@
 
 (def ^:private funding-history-lookback-ms
   (* 90 24 60 60 1000))
+
+(def ^:private preview-route-cache-hydration-delay-ms
+  250)
+
+(defonce ^:private vault-index-with-cache-flight
+  (atom nil))
+
+(defonce ^:private vault-summaries-flight
+  (atom nil))
 
 (defn- vault-list-route-active?
   [store]
@@ -81,6 +91,20 @@
   [message error]
   (js/console.warn message error))
 
+(defn- with-single-flight!
+  [flight-atom promise-fn]
+  (if-let [existing @flight-atom]
+    existing
+    (let [promise (try
+                    (->promise (promise-fn))
+                    (catch :default error
+                      (js/Promise.reject error)))]
+      (reset! flight-atom promise)
+      (.finally promise
+                (fn []
+                  (when (identical? @flight-atom promise)
+                    (reset! flight-atom nil)))))))
+
 (defn- assoc-fetch-header
   [opts header-name value]
   (if (seq value)
@@ -88,11 +112,42 @@
     opts))
 
 (defn- with-vault-index-validators
-  [state opts]
-  (let [{:keys [etag last-modified]} (get-in state [:vaults :index-cache] {})]
+  [state-or-metadata opts]
+  (let [{:keys [etag last-modified]}
+        (if (contains? state-or-metadata :vaults)
+          (get-in state-or-metadata [:vaults :index-cache] {})
+          (or state-or-metadata {}))]
     (-> (or opts {})
         (assoc-fetch-header "If-None-Match" etag)
         (assoc-fetch-header "If-Modified-Since" last-modified))))
+
+(defn- live-vault-index-rows-present?
+  [store]
+  (seq (get-in @store [:vaults :index-rows])))
+
+(defn- begin-vault-index-load-if-needed!
+  [store begin-vault-index-load]
+  (when-not (true? (get-in @store [:vaults :loading :index?]))
+    (swap! store begin-vault-index-load)))
+
+(defn- begin-vault-summaries-load-if-needed!
+  [store begin-vault-summaries-load]
+  (when-not (true? (get-in @store [:vaults :loading :summaries?]))
+    (swap! store begin-vault-summaries-load)))
+
+(defn- startup-preview-present?
+  [store]
+  (let [preview (get-in @store [:vaults :startup-preview])]
+    (or (seq (:protocol-rows preview))
+        (seq (:user-rows preview)))))
+
+(defn- load-cache-with-warning!
+  [loader warn-message]
+  (-> (->promise (when (fn? loader)
+                   (loader)))
+      (.catch (fn [error]
+                (warn-cache-error! warn-message error)
+                nil))))
 
 (defn- persist-vault-index-cache-after-success!
   [{:keys [store
@@ -104,14 +159,16 @@
                  :ok (:rows response)
                  :not-modified (get-in @store [:vaults :index-rows])
                  [])]
-      (-> (->promise (persist-vault-index-cache-record! rows
-                                                        {:etag (:etag response)
-                                                         :last-modified (:last-modified response)}))
-          (.catch (fn [error]
-                    (warn-cache-error! "Failed to persist vault index cache:" error)
-                    false))
-          (.then (fn [_]
-                   response))))))
+      (if (seq rows)
+        (-> (->promise (persist-vault-index-cache-record! rows
+                                                          {:etag (:etag response)
+                                                           :last-modified (:last-modified response)}))
+            (.catch (fn [error]
+                      (warn-cache-error! "Failed to persist vault index cache:" error)
+                      false))
+            (.then (fn [_]
+                     response)))
+        (js/Promise.resolve response)))))
 
 (defn- persist-vault-startup-preview-from-store!
   [{:keys [store
@@ -136,11 +193,12 @@
            persist-vault-startup-preview-record!
            persist-vault-index-cache-record!]
     :as deps}
+   validator-source
    opts]
-  (-> (request-vault-index-response! (with-vault-index-validators @store opts))
-      (.then (promise-effects/apply-success-and-return
-              store
-              apply-vault-index-success))
+  (-> (request-vault-index-response! (with-vault-index-validators validator-source opts))
+      (.then (fn [response]
+               (swap! store apply-vault-index-success response)
+               response))
       (.then (fn [response]
                (persist-vault-startup-preview-from-store!
                 {:store store
@@ -153,6 +211,25 @@
       (.catch (promise-effects/apply-error-and-reject
                store
                apply-vault-index-error))))
+
+(defn- hydrate-vault-index-cache-record!
+  [{:keys [store
+           apply-vault-index-cache-hydration]}
+   live-status
+   cache-hydrated?
+   cache-record]
+  (when (and cache-record
+             (not @cache-hydrated?)
+             (not= :ok @live-status))
+    (swap! store apply-vault-index-cache-hydration cache-record)
+    (reset! cache-hydrated? true))
+  cache-record)
+
+(defn- delay-promise!
+  [ms]
+  (js/Promise.
+   (fn [resolve _reject]
+     (platform/set-timeout! resolve ms))))
 
 (defn api-fetch-vault-index!
   [{:keys [store
@@ -173,12 +250,14 @@
         :apply-vault-index-error apply-vault-index-error
         :persist-vault-startup-preview-record! persist-vault-startup-preview-record!
         :persist-vault-index-cache-record! persist-vault-index-cache-record!}
+       @store
        request-opts*))
     (js/Promise.resolve nil)))
 
 (defn api-fetch-vault-index-with-cache!
   [{:keys [store
            request-vault-index-response!
+           load-vault-index-cache-metadata!
            load-vault-index-cache-record!
            persist-vault-index-cache-record!
            persist-vault-startup-preview-record!
@@ -189,27 +268,99 @@
            opts]}]
   (if (allow-route? store opts false)
     (let [request-opts* (route-scoped-request-opts store opts false)
-          request! (fn []
-                     (perform-vault-index-request!
-                      {:store store
-                       :request-vault-index-response! request-vault-index-response!
-                       :apply-vault-index-success apply-vault-index-success
-                       :apply-vault-index-error apply-vault-index-error
-                       :persist-vault-startup-preview-record! persist-vault-startup-preview-record!
-                       :persist-vault-index-cache-record! persist-vault-index-cache-record!}
-                      request-opts*))]
-      (swap! store begin-vault-index-load)
-      (if (seq (get-in @store [:vaults :index-rows]))
-        (request!)
-        (-> (->promise (when (fn? load-vault-index-cache-record!)
-                         (load-vault-index-cache-record!)))
-            (.catch (fn [error]
-                      (warn-cache-error! "Failed to load vault index cache:" error)
-                      nil))
-            (.then (fn [cache-record]
-                     (when cache-record
-                       (swap! store apply-vault-index-cache-hydration cache-record))
-                     (request!))))))
+          deps {:store store
+                :apply-vault-index-cache-hydration apply-vault-index-cache-hydration
+                :persist-vault-startup-preview-record! persist-vault-startup-preview-record!
+                :persist-vault-index-cache-record! persist-vault-index-cache-record!}
+          attach-success! (fn [response]
+                            (-> (js/Promise.resolve response)
+                                (.then (fn [response*]
+                                         (swap! store apply-vault-index-success response*)
+                                         response*))
+                                (.then (fn [response*]
+                                         (persist-vault-startup-preview-from-store!
+                                          {:store store
+                                           :persist-vault-startup-preview-record! persist-vault-startup-preview-record!}
+                                          response*)
+                                         (persist-vault-index-cache-after-success!
+                                          {:store store
+                                           :persist-vault-index-cache-record! persist-vault-index-cache-record!}
+                                          response*)))))
+          request-response! (fn [validator-source]
+                              (request-vault-index-response!
+                               (with-vault-index-validators validator-source request-opts*)))
+          request! (fn [validator-source]
+                     (-> (request-response! validator-source)
+                         (.then attach-success!)))]
+      (begin-vault-index-load-if-needed! store begin-vault-index-load)
+      (with-single-flight!
+       vault-index-with-cache-flight
+       (fn []
+         (if (live-vault-index-rows-present? store)
+           (request! @store)
+           (let [preview-present? (startup-preview-present? store)
+                 live-status (atom :pending)
+                 cache-hydrated? (atom false)
+                 metadata-promise (load-cache-with-warning!
+                                   load-vault-index-cache-metadata!
+                                   "Failed to load vault index cache metadata:")
+                request-promise (-> metadata-promise
+                                    (.then (fn [cache-metadata]
+                                             (request-response!
+                                              (or cache-metadata
+                                                   (get-in @store [:vaults :index-cache] {})
+                                                   {})))))
+                 full-cache-promise (when-not preview-present?
+                                      (load-cache-with-warning!
+                                       load-vault-index-cache-record!
+                                       "Failed to load vault index cache:"))
+                 hydrate-then-attach! (fn [cache-promise response]
+                                        (-> (or cache-promise
+                                                (js/Promise.resolve nil))
+                                            (.then (fn [cache-record]
+                                                     (hydrate-vault-index-cache-record!
+                                                      deps
+                                                      live-status
+                                                      cache-hydrated?
+                                                      cache-record)))
+                                            (.then (fn [_]
+                                                     (attach-success! response)))))]
+             (when full-cache-promise
+               (-> full-cache-promise
+                   (.then (fn [cache-record]
+                            (hydrate-vault-index-cache-record!
+                             deps
+                             live-status
+                             cache-hydrated?
+                             cache-record)))))
+             (-> request-promise
+                 (.then (fn [response]
+                          (reset! live-status (:status response))
+                          (case (:status response)
+                           :not-modified
+                            (if preview-present?
+                              (-> (delay-promise! preview-route-cache-hydration-delay-ms)
+                                  (.then (fn [_]
+                                           (if (and (vault-startup-preview-route-active? store)
+                                                    (not (live-vault-index-rows-present? store)))
+                                             (load-cache-with-warning!
+                                              load-vault-index-cache-record!
+                                              "Failed to load vault index cache:")
+                                             nil)))
+                                  (.then (fn [cache-record]
+                                           (hydrate-vault-index-cache-record!
+                                            deps
+                                            live-status
+                                            cache-hydrated?
+                                            cache-record)))
+                                  (.then (fn [_]
+                                           (attach-success! response))))
+                              (hydrate-then-attach! full-cache-promise response))
+
+                            (attach-success! response))))
+                 (.catch (promise-effects/apply-error-and-reject
+                          store
+                          apply-vault-index-error))))))))
     (js/Promise.resolve nil)))
 
 (defn api-fetch-vault-summaries!
@@ -221,14 +372,17 @@
            opts]}]
   (if (allow-route? store opts false)
     (let [request-opts* (route-scoped-request-opts store opts false)]
-      (swap! store begin-vault-summaries-load)
-      (-> (request-vault-summaries! request-opts*)
-          (.then (promise-effects/apply-success-and-return
-                  store
-                  apply-vault-summaries-success))
-          (.catch (promise-effects/apply-error-and-reject
-                   store
-                   apply-vault-summaries-error))))
+      (begin-vault-summaries-load-if-needed! store begin-vault-summaries-load)
+      (with-single-flight!
+        vault-summaries-flight
+        (fn []
+          (-> (request-vault-summaries! request-opts*)
+              (.then (promise-effects/apply-success-and-return
+                      store
+                      apply-vault-summaries-success))
+              (.catch (promise-effects/apply-error-and-reject
+                       store
+                       apply-vault-summaries-error))))))
     (js/Promise.resolve nil)))
 
 (defn api-fetch-user-vault-equities!

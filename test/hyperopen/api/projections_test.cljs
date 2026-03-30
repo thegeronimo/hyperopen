@@ -239,7 +239,8 @@
                         :index-cache {:hydrated? false
                                       :saved-at-ms nil
                                       :etag nil
-                                      :last-modified nil}
+                                      :last-modified nil
+                                      :live-response-status nil}
                         :loading {:index? false
                                   :summaries? false}
                         :errors {:index "stale-index"
@@ -274,7 +275,8 @@
     (is (= {:hydrated? false
             :saved-at-ms (get-in index-success [:vaults :loaded-at-ms :index])
             :etag "\"etag-1\""
-            :last-modified "Thu, 20 Mar 2026 12:00:00 GMT"}
+            :last-modified "Thu, 20 Mar 2026 12:00:00 GMT"
+            :live-response-status :ok}
            (get-in index-success [:vaults :index-cache])))
     (is (number? (get-in index-success [:vaults :loaded-at-ms :index])))
     (is (= true (get-in summaries-loading [:vaults :loading :summaries?])))
@@ -324,7 +326,8 @@
     (is (= {:hydrated? true
             :saved-at-ms 1700000000000
             :etag "\"etag-cache\""
-            :last-modified "Thu, 20 Mar 2026 11:00:00 GMT"}
+            :last-modified "Thu, 20 Mar 2026 11:00:00 GMT"
+            :live-response-status nil}
            (get-in hydrated [:vaults :index-cache])))
     (is (= ["0xcache"] (mapv :vault-address (get-in not-modified [:vaults :index-rows]))))
     (is (= ["0xcache" "0xsummary"]
@@ -334,19 +337,61 @@
     (is (= "Thu, 20 Mar 2026 12:00:00 GMT"
            (get-in not-modified [:vaults :index-cache :last-modified])))
     (is (number? (get-in not-modified [:vaults :index-cache :saved-at-ms])))
+    (is (= :not-modified (get-in not-modified [:vaults :index-cache :live-response-status])))
     (is (= false (get-in not-modified [:vaults :loading :index?])))))
+
+(deftest vault-index-cache-hydration-does-not-overwrite-fresher-live-rows-test
+  (let [live-success (projections/apply-vault-index-success
+                      {:vaults {:index-rows []
+                                :recent-summaries []
+                                :merged-index-rows []
+                                :index-cache {:hydrated? false
+                                              :saved-at-ms nil
+                                              :etag nil
+                                              :last-modified nil
+                                              :live-response-status nil}
+                                :loading {:index? true
+                                          :summaries? false}
+                                :errors {:index nil
+                                         :summaries nil}
+                                :loaded-at-ms {:index nil
+                                               :summaries nil}}}
+                      {:status :ok
+                       :rows [{:vault-address "0xlive"
+                               :name "Live"}]
+                       :etag "\"etag-live\""
+                       :last-modified "Thu, 20 Mar 2026 12:00:00 GMT"})
+        late-cache (projections/apply-vault-index-cache-hydration
+                    live-success
+                    {:rows [{:vault-address "0xcache"
+                             :name "Cached"}]
+                     :saved-at-ms 1700000000000
+                     :etag "\"etag-cache\""
+                     :last-modified "Thu, 20 Mar 2026 11:00:00 GMT"})]
+    (is (= ["0xlive"] (mapv :vault-address (get-in late-cache [:vaults :index-rows]))))
+    (is (= ["0xlive"] (mapv :vault-address (get-in late-cache [:vaults :merged-index-rows]))))
+    (is (= "\"etag-live\"" (get-in late-cache [:vaults :index-cache :etag])))
+    (is (= "Thu, 20 Mar 2026 12:00:00 GMT"
+           (get-in late-cache [:vaults :index-cache :last-modified])))
+    (is (= :ok (get-in late-cache [:vaults :index-cache :live-response-status])))))
 
 (deftest vault-index-error-preserves-existing-baseline-rows-test
   (let [state {:vaults {:index-rows [{:vault-address "0xcache"}]
                         :merged-index-rows [{:vault-address "0xcache"}
                                             {:vault-address "0xsummary"}]
+                        :index-cache {:hydrated? true
+                                      :saved-at-ms 1700000000000
+                                      :etag "\"etag-cache\""
+                                      :last-modified "Thu, 20 Mar 2026 10:00:00 GMT"
+                                      :live-response-status nil}
                         :loading {:index? true}
                         :errors {:index nil}}}
         failed (projections/apply-vault-index-error state (js/Error. "index-fail"))]
     (is (= ["0xcache"] (mapv :vault-address (get-in failed [:vaults :index-rows]))))
     (is (= ["0xcache" "0xsummary"] (mapv :vault-address (get-in failed [:vaults :merged-index-rows]))))
     (is (= false (get-in failed [:vaults :loading :index?])))
-    (is (= "Error: index-fail" (get-in failed [:vaults :errors :index])))))
+    (is (= "Error: index-fail" (get-in failed [:vaults :errors :index])))
+    (is (= :error (get-in failed [:vaults :index-cache :live-response-status])))))
 
 (deftest vault-equities-and-detail-projections-track-per-address-state-test
   (let [state {:vaults {:user-equities []

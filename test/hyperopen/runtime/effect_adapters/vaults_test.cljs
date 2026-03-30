@@ -133,6 +133,8 @@
       (is (= store (get-in captured [:index-with-cache :store])))
       (is (identical? api/request-vault-index-response!
                       (get-in captured [:index-with-cache :request-vault-index-response!])))
+      (is (identical? vault-list-cache/load-vault-index-cache-metadata!
+                      (get-in captured [:index-with-cache :load-vault-index-cache-metadata!])))
       (is (identical? vault-list-cache/load-vault-index-cache-record!
                       (get-in captured [:index-with-cache :load-vault-index-cache-record!])))
       (is (identical? vault-list-cache/persist-vault-index-cache-record!

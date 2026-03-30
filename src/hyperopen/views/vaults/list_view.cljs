@@ -7,13 +7,20 @@
 
 (def ^:private desktop-breakpoint-px
   1024)
-(def ^:private focus-visible-ring-classes
+(def ^:private focus-ring-classes
   ["focus:outline-none"
    "focus:ring-2"
    "focus:ring-[#66e3c5]/45"
    "focus:ring-offset-1"
    "focus:ring-offset-base-100"
    "focus-visible:outline-none"
+   "focus-visible:ring-2"
+   "focus-visible:ring-[#66e3c5]/45"
+   "focus-visible:ring-offset-1"
+   "focus-visible:ring-offset-base-100"])
+
+(def ^:private focus-visible-only-ring-classes
+  ["focus-visible:outline-none"
    "focus-visible:ring-2"
    "focus-visible:ring-[#66e3c5]/45"
    "focus-visible:ring-offset-1"
@@ -58,7 +65,7 @@
                          (concat (if active?
                                    ["bg-[#123a36]" "text-[#97fce4]"]
                                    ["text-trading-text-secondary" "hover:bg-base-200" "hover:text-trading-text"])
-                                 focus-visible-ring-classes))
+                                 focus-ring-classes))
             :on {:click [action]}}
    [:span label]
    (when active?
@@ -89,7 +96,7 @@
                               "text-xs"
                               "text-trading-text"
                               "hover:bg-base-200"]
-                             focus-visible-ring-classes)
+                             focus-ring-classes)
                :data-role (str "vaults-" role-token "-menu-trigger")}
       [:span {:class ["hidden" "sm:inline" "text-trading-text-secondary"]} label]
       [:span {:class ["max-w-[180px]" "truncate"]} summary-text]
@@ -180,7 +187,7 @@
                             "font-normal"
                             "text-trading-text-secondary"
                             "hover:text-trading-text"]
-                           focus-visible-ring-classes)
+                           focus-ring-classes)
               :on {:click [[:actions/set-vaults-sort column]]}}
       [:span label]
       (when active?
@@ -264,7 +271,7 @@
          :class (into ["block"
                        "w-full"
                        "text-left"]
-                      focus-visible-ring-classes)
+                      focus-visible-only-ring-classes)
          :data-role "vault-row-link"}
      [:div {:class ["flex" "items-center" "gap-2"]}
       [:span {:class ["truncate" "font-semibold" "text-trading-text"]} name]
@@ -309,7 +316,7 @@
                      "text-left"
                      "transition-colors"
                      "hover:bg-base-200"]
-                    focus-visible-ring-classes)}
+                    focus-visible-only-ring-classes)}
    [:div {:class ["min-w-0" "space-y-0.5"]}
     [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
      [:div {:class ["min-w-0" "flex-1"]}
@@ -440,7 +447,7 @@
                                  "text-xs"
                                  "text-trading-text"
                                  "hover:bg-base-200"]
-                                focus-visible-ring-classes)
+                                focus-ring-classes)
                    :style (when page-size-dropdown-open?
                             {:z-index 1201})
                    :on {:click [[:actions/toggle-vaults-user-page-size-dropdown]]}}
@@ -485,7 +492,7 @@
                                        (concat (if active?
                                                  ["bg-[#123a36]" "text-[#97fce4]"]
                                                  ["text-trading-text-secondary" "hover:bg-base-200" "hover:text-trading-text"])
-                                               focus-visible-ring-classes))
+                                               focus-ring-classes))
                           :role "option"
                           :aria-selected (boolean active?)
                           :on {:click [[:actions/set-vaults-user-page-size size]]}}
@@ -503,7 +510,7 @@
                                 "text-trading-text"
                                 "disabled:cursor-not-allowed"
                                 "disabled:opacity-40"]
-                               focus-visible-ring-classes)
+                               focus-ring-classes)
                   :disabled (<= page 1)
                   :on {:click [[:actions/prev-vaults-user-page page-count]]}}
          "Prev"]
@@ -519,7 +526,7 @@
                                 "text-trading-text"
                                 "disabled:cursor-not-allowed"
                                 "disabled:opacity-40"]
-                               focus-visible-ring-classes)
+                               focus-ring-classes)
                   :disabled (>= page page-count)
                   :on {:click [[:actions/next-vaults-user-page page-count]]}}
          "Next"]]])))
@@ -652,7 +659,7 @@
                                 "transition-colors"
                                 "hover:bg-[#6ef0da]"
                                 "sm:w-auto"]
-                               focus-visible-ring-classes)
+                               focus-ring-classes)
                   :disabled wallet-connecting?
                   :on {:click [[:actions/connect-wallet]]}
                   :data-role "vaults-route-connect"}
@@ -684,7 +691,7 @@
                                "text-xs"
                                "text-trading-text"
                                "placeholder:text-trading-text-secondary"]
-                              focus-visible-ring-classes)
+                              focus-ring-classes)
                  :placeholder "Search by vault address, name or leader..."
                  :value query
                  :on {:input [[:actions/set-vaults-search-query [:event.target/value]]]}}]

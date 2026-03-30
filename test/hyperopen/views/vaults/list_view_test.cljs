@@ -157,7 +157,18 @@
     (is (contains? (class-token-set route-connect) "focus-visible:ring-2"))
     (is (contains? (class-token-set range-trigger) "focus-visible:ring-2"))
     (is (contains? (class-token-set row-link-node) "focus-visible:ring-2"))
+    (is (not (contains? (class-token-set row-link-node) "focus:ring-2")))
     (is (contains? (class-token-set search-input) "focus-visible:ring-2"))))
+
+(deftest vaults-view-mobile-navigation-links-use-focus-visible-only-rings-test
+  (with-viewport-width
+    430
+    (fn []
+      (let [view (vaults-view/vaults-view sample-state)
+            mobile-card (find-first-node view #(= "vault-mobile-card" (get-in % [1 :data-role])))]
+        (is (some? mobile-card))
+        (is (contains? (class-token-set mobile-card) "focus-visible:ring-2"))
+        (is (not (contains? (class-token-set mobile-card) "focus:ring-2")))))))
 
 (deftest vaults-view-renders-user-pagination-controls-test
   (let [view (vaults-view/vaults-view sample-state)

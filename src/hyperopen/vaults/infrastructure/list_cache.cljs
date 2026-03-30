@@ -8,6 +8,9 @@
 (def vault-index-cache-key
   "vault-index-cache")
 
+(def vault-index-cache-metadata-key
+  "vault-index-cache:metadata")
+
 (def vault-index-cache-version
   1)
 
@@ -182,6 +185,19 @@
     :else
     nil))
 
+(defn normalize-vault-index-cache-metadata
+  [raw]
+  (when (map? raw)
+    (let [saved-at-ms (parse-saved-at-ms (:saved-at-ms raw))]
+      (when (some? saved-at-ms)
+        {:id (or (non-blank-text (:id raw))
+                 vault-index-cache-metadata-key)
+         :version (or (parse-int-safe (:version raw))
+                      vault-index-cache-version)
+         :saved-at-ms saved-at-ms
+         :etag (non-blank-text (:etag raw))
+         :last-modified (non-blank-text (:last-modified raw))}))))
+
 (defn build-vault-index-cache-record
   [rows {:keys [etag last-modified]}]
   {:id vault-index-cache-key
@@ -191,14 +207,37 @@
    :last-modified (non-blank-text last-modified)
    :rows (normalize-vault-index-cache-rows rows)})
 
+(defn build-vault-index-cache-metadata
+  [{:keys [saved-at-ms etag last-modified]}]
+  {:id vault-index-cache-metadata-key
+   :version vault-index-cache-version
+   :saved-at-ms (or (parse-saved-at-ms saved-at-ms)
+                    (platform/now-ms))
+   :etag (non-blank-text etag)
+   :last-modified (non-blank-text last-modified)})
+
 (defn load-vault-index-cache-record!
   []
   (-> (indexed-db/get-json! indexed-db/vault-index-store
                             vault-index-cache-key)
       (.then normalize-vault-index-cache-record)))
 
+(defn load-vault-index-cache-metadata!
+  []
+  (-> (indexed-db/get-json! indexed-db/vault-index-store
+                            vault-index-cache-metadata-key)
+      (.then normalize-vault-index-cache-metadata)))
+
 (defn persist-vault-index-cache-record!
   [rows metadata]
-  (indexed-db/put-json! indexed-db/vault-index-store
-                        vault-index-cache-key
-                        (build-vault-index-cache-record rows metadata)))
+  (let [record (build-vault-index-cache-record rows metadata)
+        metadata-record (build-vault-index-cache-metadata record)]
+    (-> (indexed-db/put-json! indexed-db/vault-index-store
+                              vault-index-cache-key
+                              record)
+        (.then (fn [persisted?]
+                 (if-not persisted?
+                   false
+                   (indexed-db/put-json! indexed-db/vault-index-store
+                                         vault-index-cache-metadata-key
+                                         metadata-record)))))))
