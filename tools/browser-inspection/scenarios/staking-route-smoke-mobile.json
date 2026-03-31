@@ -1,0 +1,54 @@
+{
+  "id": "staking-route-smoke-mobile",
+  "title": "Staking route smoke mobile",
+  "route": "/staking",
+  "severity": "high",
+  "tags": [
+    "critical",
+    "staking",
+    "mobile"
+  ],
+  "viewports": [
+    "mobile"
+  ],
+  "url": "http://localhost:8080/staking",
+  "steps": [
+    {
+      "type": "debug_call",
+      "method": "qaReset"
+    },
+    {
+      "type": "navigate"
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 300,
+        "timeoutMs": 5000
+      }
+    },
+    {
+      "type": "oracle",
+      "name": "parity-element",
+      "args": {
+        "parityId": "staking-root"
+      },
+      "expect": {
+        "present": true
+      }
+    },
+    {
+      "type": "wait_for_eval",
+      "expression": "({ connectVisible: Boolean(document.querySelector('[data-role=\"staking-establish-connection\"]')), transferButtonCount: document.querySelectorAll('[data-role=\"staking-action-transfer-button\"]').length })",
+      "expect": {
+        "connectVisible": true,
+        "transferButtonCount": 0
+      },
+      "timeoutMs": 4000,
+      "pollMs": 100
+    },
+    {
+      "type": "capture"
+    }
+  ]
+}

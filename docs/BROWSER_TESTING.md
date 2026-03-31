@@ -46,11 +46,12 @@ After Browser MCP exploration stabilizes a flow, convert that stable local path 
 
 ## Initial Playwright Coverage
 
-The first committed Playwright suite covers these stable local flows:
+The committed Playwright suite covers these stable local flows:
 
-- route smoke for `/trade`, `/portfolio`, and `/vaults` at desktop and mobile widths
+- route smoke for `/trade`, `/staking`, `/portfolio`, `/portfolio/trader`, `/leaderboard`, and `/vaults` at desktop and mobile widths
 - asset selector opens and selects `ETH`
 - funding deposit flow reaches `Deposit USDC`
+- staking route disconnected gating and validator timeframe selection
 - wallet connect plus enable-trading flow with the built-in wallet and exchange simulators
 - order submit and cancel gating with the built-in simulators
 - mobile account-surface selection to the `Positions` tab

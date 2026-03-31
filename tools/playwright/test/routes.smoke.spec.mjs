@@ -3,6 +3,7 @@ import { dispatch, expectOracle, mobileViewport, visitRoute, waitForIdle } from 
 
 const routeCases = [
   { name: "trade", route: "/trade", parityId: "trade-root" },
+  { name: "staking", route: "/staking", parityId: "staking-root" },
   { name: "portfolio", route: "/portfolio", parityId: "portfolio-root" },
   {
     name: "trader-portfolio",

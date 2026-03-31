@@ -30,6 +30,7 @@ test("design review routing selects shared shell routes for style changes", asyn
   assert.deepEqual(selection.matchedRuleIds, ["styles"]);
   assert.deepEqual(selection.targets.map((target) => target.id), [
     "portfolio-route",
+    "staking-route",
     "trade-route",
     "vaults-route"
   ]);
@@ -59,4 +60,13 @@ test("leaderboard view design review selection includes the leaderboard route", 
     routing
   );
   assert.ok(selection.targets.some((target) => target.id === "leaderboard-route"));
+});
+
+test("staking view design review selection includes the staking route", async () => {
+  const routing = await loadDesignReviewRouting();
+  const selection = selectDesignReviewTargetsForChangedFiles(
+    ["src/hyperopen/views/staking_view.cljs"],
+    routing
+  );
+  assert.ok(selection.targets.some((target) => target.id === "staking-route"));
 });

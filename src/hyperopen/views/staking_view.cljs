@@ -209,31 +209,36 @@
                 validators]} view-state]
     [:div {:class ["flex"
                    "flex-1"
-                   "h-full"
                    "min-h-0"
                    "w-full"
-                   "overflow-y-auto"
-                   "scrollbar-hide"
+                   "overflow-hidden"
                    "flex-col"
-                   "gap-2"
                    "app-shell-gutter"
-                   "pt-3"
-                   "pb-16"]
+                   "pt-3"]
            :data-parity-id "staking-root"}
-     (staking-hero connected?)
-     (summary-and-balance-panels summary balances)
-     (tabbed-content view-state)
-     (error-banner error)
-     (when (and connected?
-                (:open? action-popover))
-       (staking-popovers/action-popover-layer {:action-popover action-popover
-                                               :form form
-                                               :submitting submitting
-                                               :balances balances
-                                               :selected-validator selected-validator
-                                               :validator-search-query validator-search-query
-                                               :validator-dropdown-open? validator-dropdown-open?
-                                               :validators validators}))]))
+     [:div {:class ["w-full"
+                    "h-full"
+                    "min-h-0"
+                    "scrollbar-hide"
+                    "overflow-y-auto"
+                    "flex"
+                    "flex-col"
+                    "gap-2"
+                    "pb-16"]}
+      (staking-hero connected?)
+      (summary-and-balance-panels summary balances)
+      (tabbed-content view-state)
+      (error-banner error)
+      (when (and connected?
+                 (:open? action-popover))
+        (staking-popovers/action-popover-layer {:action-popover action-popover
+                                                :form form
+                                                :submitting submitting
+                                                :balances balances
+                                                :selected-validator selected-validator
+                                                :validator-search-query validator-search-query
+                                                :validator-dropdown-open? validator-dropdown-open?
+                                                :validators validators}))]]))
 
 (defn ^:export route-view
   [state]

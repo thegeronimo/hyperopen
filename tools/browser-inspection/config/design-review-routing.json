@@ -1,6 +1,7 @@
 {
   "defaultTargets": [
     "trade-route",
+    "staking-route",
     "portfolio-route",
     "vaults-route"
   ],
@@ -27,6 +28,23 @@
         "/hyperopen/portfolio/hyperopen/workbench/scenes/markets/orderbook_scenes.cljs",
         "/hyperopen/portfolio/hyperopen/workbench/scenes/trade/order_form_scenes.cljs"
       ],
+      "nativeControlAllowlist": []
+    },
+    {
+      "id": "staking-route",
+      "route": "/staking",
+      "url": "http://localhost:8080/staking",
+      "selectors": [
+        "[data-parity-id='staking-root']",
+        "[data-role='staking-balance-panel']",
+        "[data-role='staking-validator-panel']"
+      ],
+      "referenceDocs": [
+        "/hyperopen/docs/FRONTEND.md",
+        "/hyperopen/docs/agent-guides/browser-qa.md",
+        "/hyperopen/docs/exec-plans/completed/2026-03-12-staking-page-parity-and-workflows.md"
+      ],
+      "workbenchScenes": [],
       "nativeControlAllowlist": []
     },
     {
@@ -149,13 +167,14 @@
     {
       "id": "styles",
       "glob": "src/styles/**",
-      "targets": ["trade-route", "portfolio-route", "vaults-route"]
+      "targets": ["trade-route", "staking-route", "portfolio-route", "vaults-route"]
     },
     {
       "id": "app-shell",
       "glob": "src/hyperopen/views/app_view.cljs",
       "targets": [
         "trade-route",
+        "staking-route",
         "portfolio-route",
         "trader-portfolio-route",
         "vaults-route",
@@ -167,11 +186,27 @@
       "glob": "src/hyperopen/views/header_view.cljs",
       "targets": [
         "trade-route",
+        "staking-route",
         "portfolio-route",
         "trader-portfolio-route",
         "vaults-route",
         "leaderboard-route"
       ]
+    },
+    {
+      "id": "staking-view",
+      "glob": "src/hyperopen/views/staking_view.cljs",
+      "targets": ["staking-route"]
+    },
+    {
+      "id": "staking-subviews",
+      "glob": "src/hyperopen/views/staking/**",
+      "targets": ["staking-route"]
+    },
+    {
+      "id": "staking-domain",
+      "glob": "src/hyperopen/staking/**",
+      "targets": ["staking-route"]
     },
     {
       "id": "trade-view",
