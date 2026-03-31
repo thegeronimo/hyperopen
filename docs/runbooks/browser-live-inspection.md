@@ -49,6 +49,8 @@ Run from `/hyperopen`:
   - `node tools/browser-inspection/src/cli.mjs session attach --attach-port 9222 --target-id <target-id>`
 - Stop a session:
   - `node tools/browser-inspection/src/cli.mjs session stop --session-id <id>`
+- Stop every tracked session:
+  - `npm run browser:cleanup`
 
 ## Codex MCP Registration
 
@@ -102,6 +104,13 @@ Scenario captures prefer `HYPEROPEN_DEBUG.qaSnapshot()` when the debug bridge ex
 
 If the nightly or PR bundle reports `manual-exception`, follow `/hyperopen/docs/qa/agent-first-ui-manual-exceptions.md` instead of inventing an ad hoc manual matrix.
 If a design-review pass cannot complete because tooling or references are missing, mark that pass `BLOCKED`; do not reclassify it as a manual exception.
+
+## Cleanup Contract
+
+- One-off `inspect`, `compare`, `scenario run`, and `design-review` commands already clean up their temporary launched sessions in `finally`.
+- Persistent `session start` and `session attach` workflows must be closed explicitly before you conclude the task.
+- Use `npm run browser:cleanup` as the default end-of-task cleanup step when you used Browser MCP or browser-inspection sessions.
+- `session stop` gracefully shuts down launched Chrome sessions and closes tool-created tabs on attached sessions without killing the user's own browser.
 
 ## Full Compare Workflow
 
@@ -216,6 +225,7 @@ This is opt-in and uses real Chrome.
 8. Reuse the returned `sessionId` for `navigate`, `eval`, `inspect`, or `compare`.
 9. Stop only the tool session when done:
    - `node tools/browser-inspection/src/cli.mjs session stop --session-id <id>`
+   - or `npm run browser:cleanup`
 
 Attached mode does not terminate your browser process.
 

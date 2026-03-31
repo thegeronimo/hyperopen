@@ -211,6 +211,7 @@ Playwright owns committed deterministic browser assertions and CI-safe regressio
 | `node tools/browser-inspection/src/cli.mjs session list` | `... session list` | You need active Codex/browser sessions |
 | `node tools/browser-inspection/src/cli.mjs session targets --attach-port <port>` | `... session targets --attach-port 9222` | You need to pick a target tab |
 | `node tools/browser-inspection/src/cli.mjs session stop --session-id <id>` | `... session stop --session-id abc` | You want to cleanly close a session |
+| `node tools/browser-inspection/src/cli.mjs session stop --all` | `npm run browser:cleanup` | You want to cleanly close every tracked browser-inspection session before ending QA |
 
 ### Active page operations
 
@@ -236,6 +237,7 @@ Playwright owns committed deterministic browser assertions and CI-safe regressio
 - Nightly QA wrapper command is `npm run qa:nightly-ui`; each run writes a timestamped bundle under `/hyperopen/tmp/browser-inspection/nightly-ui-qa-*/` including `preflight.json`, `attempt-summary.tsv`, and `failure-classification.json`.
 - Missing references or unavailable probes are `BLOCKED` design-review outcomes, not manual exceptions. Manual exceptions stay limited to real extension, hardware-wallet, browser-permission, and third-party provider UI.
 - Use explicit `--target-id` when attaching to avoid wrong tab capture.
+- Before concluding browser work, run `npm run browser:cleanup` or stop the specific session you created.
 - For tab-selection stability, follow `/hyperopen/docs/runbooks/browser-live-inspection.md` and use marker verification steps.
 - Browser attach only works when the user or tool launched a compatible Chromium browser with a reachable CDP endpoint. Without that, use the worktree-scoped Shadow nREPL for runtime-state inspection instead of assuming tab-level browser access exists.
 - For live local bug triage, prefer browser attach first when available. Reach for the worktree-scoped Shadow nREPL only after browser inspection stops being enough to explain the behavior.
@@ -250,6 +252,7 @@ Register once in Codex once and then call MCP tools directly:
 | --- | --- |
 | `browser_session_start` | Start a live Chrome inspection session |
 | `browser_session_stop` | End a session by `sessionId` |
+| `browser_sessions_stop_all` | End every tracked browser-inspection session |
 | `browser_sessions_list` | List active sessions |
 | `browser_targets_list` | List page targets by session or attach endpoint |
 | `browser_navigate` | Navigate a session target to a URL |

@@ -30,5 +30,6 @@ Use this skill when the task is better served by the existing browser-inspection
 
 - Start from the existing browser-inspection commands and MCP server already registered in `/hyperopen/.codex/config.toml`.
 - Capture artifacts under `/hyperopen/tmp/browser-inspection/**`.
+- Stop sessions before ending the task. Prefer `npm run browser:cleanup` unless you intentionally need to close only one session.
 - When a stable path is found, convert that path into Playwright coverage unless the task is explicitly exploratory.
 - Keep Browser MCP as the right tool for design review, parity compare, live attach, and one-off investigation.

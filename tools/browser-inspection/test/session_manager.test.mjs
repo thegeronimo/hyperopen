@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { navigateAttachedTarget } from "../src/session_manager.mjs";
+import { navigateAttachedTarget, stopSessionResources } from "../src/session_manager.mjs";
 
 test("navigateAttachedTarget bootstraps same-origin local routes through index.html", async () => {
   const calls = [];
@@ -303,4 +303,87 @@ test("navigateAttachedTarget falls back to later managed-local candidates when a
     ),
     true
   );
+});
+
+test("stopSessionResources gracefully closes launched Chrome and removes ephemeral profiles", async () => {
+  const calls = [];
+  const session = {
+    chrome: {
+      controlMode: "launched",
+      pid: 1234,
+      ephemeralProfile: true,
+      userDataDir: "/tmp/hyperopen-profile"
+    },
+    localApp: {
+      mode: "managed"
+    }
+  };
+
+  await stopSessionResources(session, {
+    closeLaunchedBrowser: async (entry) => {
+      calls.push(["closeLaunchedBrowser", entry.chrome.pid]);
+      return true;
+    },
+    stopLocalApp: async (localApp) => {
+      calls.push(["stopLocalApp", localApp.mode]);
+    },
+    removeDir: async (target, options) => {
+      calls.push(["removeDir", target, options.recursive, options.force]);
+    }
+  });
+
+  assert.deepEqual(calls, [
+    ["closeLaunchedBrowser", 1234],
+    ["stopLocalApp", "managed"],
+    ["removeDir", "/tmp/hyperopen-profile", true, true]
+  ]);
+});
+
+test("stopSessionResources closes only tool-created tabs for attached sessions", async () => {
+  const calls = [];
+  const createdTargetSession = {
+    chrome: {
+      controlMode: "attached",
+      ephemeralProfile: false
+    },
+    targetOwnership: "created",
+    targetId: "target-created",
+    localApp: null
+  };
+
+  const existingTargetSession = {
+    chrome: {
+      controlMode: "attached",
+      ephemeralProfile: false
+    },
+    targetOwnership: "existing",
+    targetId: "target-existing",
+    localApp: null
+  };
+
+  await stopSessionResources(createdTargetSession, {
+    closeAttachedTarget: async (entry) => {
+      calls.push(["closeAttachedTarget", entry.targetId]);
+      return true;
+    },
+    stopLocalApp: async () => {
+      calls.push(["stopLocalApp", "created"]);
+    }
+  });
+
+  await stopSessionResources(existingTargetSession, {
+    closeAttachedTarget: async (entry) => {
+      calls.push(["closeAttachedTarget", entry.targetId]);
+      return true;
+    },
+    stopLocalApp: async () => {
+      calls.push(["stopLocalApp", "existing"]);
+    }
+  });
+
+  assert.deepEqual(calls, [
+    ["closeAttachedTarget", "target-created"],
+    ["stopLocalApp", "created"],
+    ["stopLocalApp", "existing"]
+  ]);
 });

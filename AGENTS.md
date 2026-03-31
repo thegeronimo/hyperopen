@@ -32,6 +32,7 @@ Root operating contract for Codex in this repository. Keep the first screen prac
 - Use Browser MCP for exploratory debugging, reproducing flaky UI behavior, inspecting live browser state, parity compare, and selector or flow discovery before converting a stable path into Playwright coverage.
 - After Browser MCP exploration stabilizes a flow, convert that stable local path into Playwright unless the task is explicitly exploratory.
 - Follow `/hyperopen/docs/BROWSER_TESTING.md` for browser-tool routing and exact commands.
+- Before concluding browser QA, let Playwright exit cleanly and explicitly stop any Browser MCP or browser-inspection sessions you created. Use `npm run browser:cleanup` for repo-wide cleanup or `session stop` / `browser_session_stop` for a specific session.
 - Never run `git pull --rebase` or `git push` unless the user explicitly requests remote sync in the current session.
 
 ## Write Authority

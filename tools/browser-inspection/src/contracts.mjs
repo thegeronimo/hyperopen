@@ -79,6 +79,7 @@ export function assertSessionState(value) {
   assertBoolean(value.chrome.ephemeralProfile, "sessionState.chrome.ephemeralProfile");
   assertString(value.chrome.controlMode || "launched", "sessionState.chrome.controlMode");
   assertString(value.targetId, "sessionState.targetId");
+  assertString(value.targetOwnership || "created", "sessionState.targetOwnership");
   assertBoolean(value.readOnly, "sessionState.readOnly");
 }
 

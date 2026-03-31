@@ -40,9 +40,20 @@ After Browser MCP exploration stabilizes a flow, convert that stable local path 
 - Run Playwright headed with one worker: `npm run test:playwright:headed`
 - Run the full committed Playwright suite: `npm run test:playwright:ci`
 - Start the Browser MCP server: `npm run browser:mcp`
+- Stop all tracked browser-inspection sessions: `npm run browser:cleanup`
 - Run governed design review: `npm run qa:design-ui -- --targets trade-route --manage-local-app`
 - Run the checked-in Browser MCP scenario bundle: `npm run qa:pr-ui`
 - Attach Browser MCP to a live Chrome session: `node tools/browser-inspection/src/cli.mjs session attach --attach-port 9222 --target-id <target-id>`
+
+## Cleanup Contract
+
+Before concluding browser work, stop every browser-inspection session you created.
+
+- Playwright runs should exit on their own. Browser-inspection and Browser MCP sessions must be cleaned up explicitly.
+- Use `npm run browser:cleanup` as the repo-wide default cleanup step after Browser MCP or browser-inspection work.
+- Use `node tools/browser-inspection/src/cli.mjs session stop --session-id <id>` or MCP `browser_session_stop` when only one session should be closed.
+- Attached-session cleanup must close only the tool-created tab. It must not terminate the user's own browser window.
+- Do not leave browser-inspection sessions running between tasks unless the user explicitly asks for a long-lived session.
 
 ## Initial Playwright Coverage
 

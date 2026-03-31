@@ -65,6 +65,10 @@ export class BrowserInspectionService {
     return this.sessionManager.stopSession(sessionId);
   }
 
+  async stopAllSessions() {
+    return this.sessionManager.stopAllSessions();
+  }
+
   async listSessions() {
     return this.sessionManager.listSessions();
   }

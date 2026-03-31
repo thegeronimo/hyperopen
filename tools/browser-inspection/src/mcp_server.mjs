@@ -237,6 +237,23 @@ export async function buildServer() {
   );
 
   server.registerTool(
+    "browser_sessions_stop_all",
+    {
+      description:
+        "Stop every active browser-inspection session and cleanup launched browsers or tool-created tabs.",
+      inputSchema: {}
+    },
+    async () => {
+      try {
+        const result = await service.stopAllSessions();
+        return textResult(result);
+      } catch (error) {
+        return errorResult(error);
+      }
+    }
+  );
+
+  server.registerTool(
     "browser_sessions_list",
     {
       description: "List active browser inspection sessions.",

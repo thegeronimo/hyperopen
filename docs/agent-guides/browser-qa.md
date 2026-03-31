@@ -125,6 +125,7 @@ Every final browser-QA result must return:
 2. `PASS` / `FAIL` / `BLOCKED` for each pass
 3. Issues with evidence
 4. Residual blind spots
+5. Explicit browser-session cleanup confirmation when Browser MCP or browser-inspection sessions were used
 
 Every issue record must include:
 - severity
@@ -167,5 +168,6 @@ Missing references or incomplete tooling are not manual exceptions.
 - `npm run qa:pr-ui`
 - `npm run qa:nightly-ui -- --allow-non-main`
 - `npm run test:browser-qa-evals`
+- `npm run browser:cleanup`
 
 Artifact bundles are written under `/hyperopen/tmp/browser-inspection/design-review-*/`.

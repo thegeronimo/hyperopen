@@ -72,6 +72,7 @@ function usage() {
   session attach --attach-port <port> [--attach-host <host>] [--manage-local-app] [--target-id <cdp-target-id>]
   session targets (--session-id <id> | --attach-port <port>) [--attach-host <host>]
   session stop --session-id <id>
+  session stop --all
   session list
 `);
 }
@@ -118,6 +119,14 @@ async function run() {
   }
 
   if (command === "session" && subcommand === "stop") {
+    if (Boolean(args.all)) {
+      const result = await service.stopAllSessions();
+      asJson(result);
+      if (!result.ok) {
+        process.exitCode = 2;
+      }
+      return;
+    }
     if (!args["session-id"]) {
       throw new Error("session stop requires --session-id");
     }

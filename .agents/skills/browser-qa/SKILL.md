@@ -20,6 +20,7 @@ Use this skill when acting as the `browser_debugger` role for a multi-agent tick
 - Reproduce the ticket in the browser when browser QA is required by the spec.
 - Use the existing browser-inspection MCP server and artifacts.
 - Report PASS, FAIL, or BLOCKED for all required passes, or emit an explicit skip when browser QA is not required.
+- End browser work by stopping active sessions. Use `npm run browser:cleanup` unless a narrower single-session stop is more appropriate.
 
 ## Guardrails
 

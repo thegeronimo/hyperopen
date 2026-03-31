@@ -39,6 +39,22 @@ async function openClientForSession(session) {
   return client;
 }
 
+async function waitForProcessExit(pid, timeoutMs = 5000, pollMs = 100) {
+  if (!pid || typeof pid !== "number") {
+    return false;
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!processIsAlive(pid)) {
+      return true;
+    }
+    await sleep(pollMs);
+  }
+
+  return !processIsAlive(pid);
+}
+
 function normalizeAttachEndpoint(options = {}) {
   const hasAttachPort = options.attachPort !== undefined && options.attachPort !== null;
   if (!hasAttachPort) {
@@ -345,6 +361,93 @@ export async function navigateAttachedTarget(attached, session, url, options = {
   };
 }
 
+export async function closeLaunchedBrowserGracefully(session, options = {}) {
+  const openClient = options.openClientForSession || openClientForSession;
+  const waitForExit = options.waitForProcessExit || waitForProcessExit;
+  const terminateProcess = options.killProcess || killProcess;
+
+  try {
+    const client = await openClient(session);
+    try {
+      await client.send(
+        "Browser.close",
+        {},
+        undefined,
+        options.browserCloseCommandTimeoutMs || 1500
+      ).catch(() => null);
+    } finally {
+      await client.close().catch(() => null);
+    }
+  } catch (_error) {
+    // Fallback to process termination below when CDP shutdown is unavailable.
+  }
+
+  if (await waitForExit(session?.chrome?.pid, options.browserCloseTimeoutMs || 5000)) {
+    return true;
+  }
+
+  if (!session?.chrome?.pid) {
+    return false;
+  }
+
+  return terminateProcess(session.chrome.pid);
+}
+
+export async function closeAttachedSessionTarget(session, options = {}) {
+  if (
+    (session?.chrome?.controlMode || "launched") !== "attached" ||
+    session?.targetOwnership !== "created" ||
+    !session?.targetId
+  ) {
+    return false;
+  }
+
+  const openClient = options.openClientForSession || openClientForSession;
+  let client = null;
+  try {
+    client = await openClient(session);
+    const result = await client.send(
+      "Target.closeTarget",
+      { targetId: session.targetId },
+      undefined,
+      options.targetCloseTimeoutMs || 2000
+    );
+    return result?.success !== false;
+  } catch (_error) {
+    return false;
+  } finally {
+    if (client) {
+      await client.close().catch(() => null);
+    }
+  }
+}
+
+export async function stopSessionResources(session, options = {}) {
+  const stopLocalApp = options.stopLocalApp || maybeStopLocalApp;
+  const closeLaunchedBrowser = options.closeLaunchedBrowser || closeLaunchedBrowserGracefully;
+  const closeAttachedTarget = options.closeAttachedTarget || closeAttachedSessionTarget;
+  const removeDir = options.removeDir || ((target, removeOptions) => fs.rm(target, removeOptions));
+  const controlMode = session?.chrome?.controlMode || "launched";
+
+  if (controlMode === "launched" && session?.chrome?.pid) {
+    await closeLaunchedBrowser(session, options);
+  } else if (controlMode === "attached" && session?.targetOwnership === "created") {
+    await closeAttachedTarget(session, options);
+  }
+
+  await stopLocalApp(session?.localApp);
+
+  if (
+    controlMode === "launched" &&
+    session?.chrome?.ephemeralProfile &&
+    session?.chrome?.userDataDir
+  ) {
+    await removeDir(session.chrome.userDataDir, { recursive: true, force: true }).catch(() => null);
+  }
+
+  return true;
+}
+
 export class SessionManager {
   constructor(config) {
     this.config = config;
@@ -392,6 +495,30 @@ export class SessionManager {
   async listSessions() {
     const sessions = await this.cleanupDeadSessions();
     return sessions;
+  }
+
+  async stopAllSessions() {
+    const sessions = await this.cleanupDeadSessions();
+    const results = [];
+
+    for (const session of sessions) {
+      try {
+        await this.stopSession(session.id);
+        results.push({ sessionId: session.id, ok: true });
+      } catch (error) {
+        results.push({
+          sessionId: session.id,
+          ok: false,
+          error: error?.message || String(error)
+        });
+      }
+    }
+
+    return {
+      ok: results.every((entry) => entry.ok),
+      stopped: results.filter((entry) => entry.ok).map((entry) => entry.sessionId),
+      results
+    };
   }
 
   async listTargets(options = {}) {
@@ -527,6 +654,7 @@ export class SessionManager {
 
     const sessionId = options.id || `sess-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
     let targetId = null;
+    const targetOwnership = requestedTargetId ? "existing" : "created";
 
     const client = await openClientForSession({ chrome: chromeRuntime });
     try {
@@ -551,7 +679,8 @@ export class SessionManager {
       readOnly: options.readOnly ?? this.config.readOnly.enabled,
       chrome: chromeRuntime,
       localApp,
-      targetId
+      targetId,
+      targetOwnership
     };
 
     assertSessionState(session);
@@ -561,17 +690,7 @@ export class SessionManager {
 
   async stopSession(sessionId) {
     const session = await this.getSession(sessionId);
-    if ((session.chrome.controlMode || "launched") === "launched" && session.chrome.pid) {
-      await killProcess(session.chrome.pid);
-    }
-    await maybeStopLocalApp(session.localApp);
-    if (
-      (session.chrome.controlMode || "launched") === "launched" &&
-      session.chrome.ephemeralProfile &&
-      session.chrome.userDataDir
-    ) {
-      await fs.rm(session.chrome.userDataDir, { recursive: true, force: true }).catch(() => null);
-    }
+    await stopSessionResources(session);
     await this.store.removeSession(sessionId);
     return true;
   }
