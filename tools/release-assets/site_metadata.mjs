@@ -6,76 +6,132 @@ export const SITE_METADATA_FILE_PATH = "site-metadata.json";
 export const ROBOTS_FILE_PATH = "robots.txt";
 export const SITEMAP_FILE_PATH = "sitemap.xml";
 export const RELEASE_SEO_PLACEHOLDER = "<!-- HYPEROPEN_RELEASE_SEO_HEAD -->";
+export const RELEASE_APP_SHELL_PLACEHOLDER =
+  "<!-- HYPEROPEN_RELEASE_APP_LOADING_SHELL -->";
 export const REQUIRED_ROOT_PUBLIC_PATHS = ["/sw.js"];
+export const DEFAULT_TWITTER_CARD = "summary";
 
 export const PUBLIC_ROUTE_METADATA = [
   {
     id: "home",
     path: "/",
     match: "exact",
-    title: "Hyperopen | Open Source Trading Interface",
-    description: "Hyperopen is the open source trading interface for Hyperliquid."
+    title: "Hyperopen - Open-source Hyperliquid trading client",
+    description:
+      "Open-source Hyperliquid client for perpetual trading, portfolio analytics, vault tracking, staking, and API wallet access.",
+    heroTitle: "Hyperopen",
+    heroDescription:
+      "Loading the open-source Hyperliquid trading client for perpetuals, analytics, and account tools.",
+    twitterCard: DEFAULT_TWITTER_CARD,
   },
   {
     id: "trade",
     path: "/trade",
     match: "prefix",
-    title: "Trade | Hyperopen",
-    description: "Trade spot and perp markets with charting, orderbook depth, and order controls."
+    title: "Trade perpetuals on Hyperliquid with an open-source client",
+    description:
+      "Use Hyperopen to trade Hyperliquid perpetuals with charts, order entry, and account context in one open-source client.",
+    heroTitle: "Trade perpetuals on Hyperliquid",
+    heroDescription:
+      "Loading the open-source trading workspace with charts, order entry, and market context.",
+    twitterCard: DEFAULT_TWITTER_CARD,
   },
   {
     id: "portfolio",
     path: "/portfolio",
     match: "prefix",
-    title: "Portfolio | Hyperopen",
-    description: "Inspect portfolio performance, positions, and tearsheets in Hyperopen."
+    title: "Portfolio analytics and tearsheets",
+    description:
+      "Review portfolio analytics, position history, and trader tearsheets from Hyperopen's Hyperliquid client.",
+    heroTitle: "Portfolio analytics and tearsheets",
+    heroDescription:
+      "Loading trader analytics, position history, and performance tearsheets.",
+    twitterCard: DEFAULT_TWITTER_CARD,
   },
   {
     id: "leaderboard",
     path: "/leaderboard",
     match: "exact",
-    title: "Leaderboard | Hyperopen",
-    description: "Track trader rankings, returns, and leaderboard performance in Hyperopen."
+    title: "Hyperliquid trader leaderboard",
+    description:
+      "Track ranked Hyperliquid trader performance, returns, and leaderboard context in Hyperopen.",
+    heroTitle: "Hyperliquid trader leaderboard",
+    heroDescription:
+      "Loading ranked trader performance, returns, and leaderboard context.",
+    twitterCard: DEFAULT_TWITTER_CARD,
   },
   {
     id: "vaults",
     path: "/vaults",
     match: "prefix",
-    title: "Vaults | Hyperopen",
-    description: "Browse vault performance, depositor activity, and vault detail flows."
+    title: "Vault analytics and performance tracking",
+    description:
+      "Inspect vault analytics, performance, allocations, and depositor activity in Hyperopen.",
+    heroTitle: "Vault analytics and performance tracking",
+    heroDescription:
+      "Loading vault performance, allocations, and depositor activity.",
+    twitterCard: DEFAULT_TWITTER_CARD,
   },
   {
     id: "staking",
     path: "/staking",
     match: "prefix",
-    title: "Staking | Hyperopen",
-    description: "Review validator performance and manage staking activity in Hyperopen."
+    title: "HYPE staking dashboard and validator performance",
+    description:
+      "Review validator performance, staking balances, and reward context from Hyperopen's HYPE staking dashboard.",
+    heroTitle: "HYPE staking dashboard and validator performance",
+    heroDescription:
+      "Loading validator performance, staking balances, and reward context.",
+    twitterCard: DEFAULT_TWITTER_CARD,
   },
   {
     id: "funding-comparison",
     path: "/funding-comparison",
     match: "exact",
-    title: "Funding Comparison | Hyperopen",
-    description: "Compare funding rates across exchanges from Hyperopen's funding dashboard."
+    title: "Funding rate comparison across Hyperliquid, Binance, and Bybit",
+    description:
+      "Compare funding rates across Hyperliquid, Binance, and Bybit from Hyperopen's funding comparison dashboard.",
+    heroTitle: "Funding rate comparison",
+    heroDescription:
+      "Loading cross-exchange funding comparisons for Hyperliquid, Binance, and Bybit.",
+    twitterCard: DEFAULT_TWITTER_CARD,
   },
   {
     id: "api",
     path: "/api",
     match: "exact",
-    title: "API Wallets | Hyperopen",
-    description: "Create and manage API wallets for Hyperopen trading flows."
-  }
+    title: "API wallet authorization and management",
+    description:
+      "Authorize and manage API wallets for Hyperopen trading and account access.",
+    heroTitle: "API wallet authorization and management",
+    heroDescription:
+      "Loading API wallet authorization, account access, and management tools.",
+    twitterCard: DEFAULT_TWITTER_CARD,
+  },
 ];
 
+function escapeHtmlText(text) {
+  return String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function escapeHtmlAttribute(text) {
+  return escapeHtmlText(text)
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function escapeHtmlJson(text) {
-  return text
+  return String(text ?? "")
     .replace(/</g, "\\u003C")
     .replace(/>/g, "\\u003E")
     .replace(/&/g, "\\u0026");
 }
 
 function xmlEscape(text) {
-  return text
+  return String(text ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -106,6 +162,20 @@ function looksLikeHashPrefixedPagesPreviewHost(hostname) {
   return /^[a-f0-9]{7,}$/i.test(labels[0]);
 }
 
+function validateRouteMetadata(route) {
+  if (!route || typeof route !== "object") {
+    throw new Error("Expected route metadata to be an object.");
+  }
+
+  for (const field of ["id", "path", "title", "description", "heroTitle", "heroDescription"]) {
+    if (typeof route[field] !== "string" || route[field].trim().length === 0) {
+      throw new Error(`Expected route metadata to include a non-empty ${field}.`);
+    }
+  }
+
+  return route;
+}
+
 export function normalizePublicPath(publicPath) {
   const text = String(publicPath || "").trim();
   if (!text) {
@@ -128,7 +198,9 @@ export function publicPathToRelativePath(publicPath) {
   return normalized.replace(/^\/+/, "");
 }
 
-export function normalizeCanonicalOrigin(envValue = process.env[CANONICAL_ORIGIN_ENV_VAR]) {
+export function normalizeCanonicalOrigin(
+  envValue = process.env[CANONICAL_ORIGIN_ENV_VAR]
+) {
   const rawValue = typeof envValue === "string" ? envValue.trim() : "";
   if (!rawValue) {
     return DEFAULT_CANONICAL_ORIGIN;
@@ -142,9 +214,7 @@ export function normalizeCanonicalOrigin(envValue = process.env[CANONICAL_ORIGIN
   try {
     parsed = new URL(candidate);
   } catch (_error) {
-    throw new Error(
-      `Invalid ${CANONICAL_ORIGIN_ENV_VAR} value: ${rawValue}`
-    );
+    throw new Error(`Invalid ${CANONICAL_ORIGIN_ENV_VAR} value: ${rawValue}`);
   }
 
   if (!["http:", "https:"].includes(parsed.protocol)) {
@@ -187,10 +257,12 @@ export function extractHeadRootAssetPublicPaths(indexHtml) {
 }
 
 export function collectReleaseRootAssetPublicPaths(indexHtml) {
-  return [...new Set([
-    ...REQUIRED_ROOT_PUBLIC_PATHS.map(normalizePublicPath),
-    ...extractHeadRootAssetPublicPaths(indexHtml)
-  ])].sort();
+  return [
+    ...new Set([
+      ...REQUIRED_ROOT_PUBLIC_PATHS.map(normalizePublicPath),
+      ...extractHeadRootAssetPublicPaths(indexHtml),
+    ]),
+  ].sort();
 }
 
 export function buildSiteMetadata({ canonicalOrigin, indexHtml }) {
@@ -200,10 +272,14 @@ export function buildSiteMetadata({ canonicalOrigin, indexHtml }) {
     siteName: "Hyperopen",
     origin,
     routes: PUBLIC_ROUTE_METADATA.map((route) => ({
-      ...route,
-      path: normalizePublicPath(route.path)
+      ...validateRouteMetadata(route),
+      path: normalizePublicPath(route.path),
+      twitterCard:
+        typeof route.twitterCard === "string" && route.twitterCard.trim()
+          ? route.twitterCard
+          : DEFAULT_TWITTER_CARD,
     })),
-    rootAssetPaths: collectReleaseRootAssetPublicPaths(indexHtml)
+    rootAssetPaths: collectReleaseRootAssetPublicPaths(indexHtml),
   };
 }
 
@@ -211,28 +287,58 @@ export function buildRobotsTxt(siteMetadata) {
   return [
     "User-agent: *",
     "Allow: /",
-    `Sitemap: ${siteMetadata.origin}${normalizePublicPath(`/${SITEMAP_FILE_PATH}`)}`
+    `Sitemap: ${siteMetadata.origin}${normalizePublicPath(`/${SITEMAP_FILE_PATH}`)}`,
   ].join("\n");
 }
 
 export function buildSitemapXml(siteMetadata) {
   const urls = siteMetadata.routes
-    .map((route) => `  <url><loc>${xmlEscape(`${siteMetadata.origin}${route.path}`)}</loc></url>`)
+    .map(
+      (route) =>
+        `  <url><loc>${xmlEscape(`${siteMetadata.origin}${route.path}`)}</loc></url>`
+    )
     .join("\n");
 
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
     urls,
-    "</urlset>"
+    "</urlset>",
   ].join("\n");
 }
 
-export function buildReleaseSeoHeadMarkup(siteMetadata) {
-  const metadataJson = escapeHtmlJson(JSON.stringify(siteMetadata));
+export function buildRouteLoadingShellMarkup(routeMetadata) {
+  const route = validateRouteMetadata(routeMetadata);
 
   return [
-    `<link rel="canonical" href="${siteMetadata.origin}/" data-hyperopen-seo="canonical" />`,
+    `<div class="h-full bg-base-100 text-trading-text" data-hyperopen-route-shell="${escapeHtmlAttribute(route.id)}" aria-live="polite" aria-busy="true">`,
+    '  <main class="app-shell-gutter flex min-h-full items-center py-12 md:py-16">',
+    '    <section class="mx-auto w-full max-w-3xl space-y-4 rounded-2xl border border-base-300/80 bg-base-100/95 p-6 shadow-sm md:p-8">',
+    `      <h1 class="text-3xl font-semibold tracking-tight md:text-4xl">${escapeHtmlText(route.heroTitle)}</h1>`,
+    `      <p class="max-w-2xl text-base leading-7 text-trading-text-secondary md:text-lg">${escapeHtmlText(route.heroDescription)}</p>`,
+    "    </section>",
+    "  </main>",
+    "</div>",
+  ].join("\n");
+}
+
+export function buildReleaseSeoHeadMarkup(siteMetadata, routeMetadata) {
+  const route = validateRouteMetadata(routeMetadata);
+  const routeUrl = `${siteMetadata.origin}${normalizePublicPath(route.path)}`;
+  const metadataJson = escapeHtmlJson(JSON.stringify(siteMetadata));
+  const title = escapeHtmlAttribute(route.title);
+  const description = escapeHtmlAttribute(route.description);
+  const twitterCard = escapeHtmlAttribute(route.twitterCard || DEFAULT_TWITTER_CARD);
+  const canonicalUrl = escapeHtmlAttribute(routeUrl);
+
+  return [
+    `<link rel="canonical" href="${canonicalUrl}" data-hyperopen-seo="canonical" />`,
+    `<meta property="og:title" content="${title}" data-hyperopen-seo="og:title" />`,
+    `<meta property="og:description" content="${description}" data-hyperopen-seo="og:description" />`,
+    `<meta property="og:url" content="${canonicalUrl}" data-hyperopen-seo="og:url" />`,
+    `<meta name="twitter:card" content="${twitterCard}" data-hyperopen-seo="twitter:card" />`,
+    `<meta name="twitter:title" content="${title}" data-hyperopen-seo="twitter:title" />`,
+    `<meta name="twitter:description" content="${description}" data-hyperopen-seo="twitter:description" />`,
     `<script id="hyperopen-site-metadata" type="application/json">${metadataJson}</script>`,
     "<script>",
     "  (function () {",
@@ -272,6 +378,16 @@ export function buildReleaseSeoHeadMarkup(siteMetadata) {
     "      return currentPath === routePath;",
     "    }",
     "",
+    "    function findRoute(pathname) {",
+    "      const currentPath = normalizePath(pathname);",
+    "      return (",
+    "        routes.find((route) => routeMatches(route, currentPath)) ||",
+    "        routes.find((route) => normalizePath(route.path || \"/\") === \"/\") ||",
+    "        routes[0] ||",
+    "        null",
+    "      );",
+    "    }",
+    "",
     "    function ensureCanonicalLink() {",
     "      let link = document.querySelector(\"link[rel='canonical']\");",
     "      if (!link) {",
@@ -292,27 +408,82 @@ export function buildReleaseSeoHeadMarkup(siteMetadata) {
     "      return meta;",
     "    }",
     "",
-    "    const currentPath = normalizePath(window.location.pathname || \"/\");",
-    "    const selectedRoute =",
-    "      routes.find((route) => routeMatches(route, currentPath)) ||",
-    "      routes.find((route) => normalizePath(route.path || \"/\") === \"/\") ||",
-    "      routes[0];",
-    "",
-    "    if (!selectedRoute || typeof selectedRoute.path !== \"string\") {",
-    "      return;",
+    "    function ensureMeta(selector, attributes) {",
+    "      let meta = document.querySelector(selector);",
+    "      if (!meta) {",
+    "        meta = document.createElement(\"meta\");",
+    "        for (const [key, value] of Object.entries(attributes)) {",
+    "          meta.setAttribute(key, value);",
+    "        }",
+    "        document.head.appendChild(meta);",
+    "      }",
+    "      return meta;",
     "    }",
     "",
-    "    const canonicalLink = ensureCanonicalLink();",
-    "    canonicalLink.setAttribute(\"href\", `${origin}${selectedRoute.path}`);",
-    "",
-    "    if (typeof selectedRoute.title === \"string\" && selectedRoute.title.trim()) {",
-    "      document.title = selectedRoute.title;",
+    "    function setMeta(selector, attributes, content) {",
+    "      ensureMeta(selector, attributes).setAttribute(\"content\", content);",
     "    }",
     "",
-    "    if (typeof selectedRoute.description === \"string\" && selectedRoute.description.trim()) {",
-    "      ensureDescriptionMeta().setAttribute(\"content\", selectedRoute.description);",
+    "    function applyRoute(route) {",
+    "      if (!route || typeof route.path !== \"string\") {",
+    "        return;",
+    "      }",
+    "",
+    "      const canonicalUrl = `${origin}${normalizePath(route.path)}`;",
+    "      ensureCanonicalLink().setAttribute(\"href\", canonicalUrl);",
+    "",
+    "      if (typeof route.title === \"string\" && route.title.trim()) {",
+    "        document.title = route.title;",
+    "      }",
+    "",
+    "      if (typeof route.description === \"string\" && route.description.trim()) {",
+    "        ensureDescriptionMeta().setAttribute(\"content\", route.description);",
+    "      }",
+    "",
+    "      const title = typeof route.title === \"string\" ? route.title : \"\";",
+    "      const description = typeof route.description === \"string\" ? route.description : \"\";",
+    "      const twitterCard =",
+    "        typeof route.twitterCard === \"string\" && route.twitterCard.trim()",
+    "          ? route.twitterCard",
+    "          : \"summary\";",
+    "",
+    "      setMeta(\"meta[property='og:title']\", { property: \"og:title\" }, title);",
+    "      setMeta(",
+    "        \"meta[property='og:description']\",",
+    "        { property: \"og:description\" },",
+    "        description",
+    "      );",
+    "      setMeta(\"meta[property='og:url']\", { property: \"og:url\" }, canonicalUrl);",
+    "      setMeta(\"meta[name='twitter:card']\", { name: \"twitter:card\" }, twitterCard);",
+    "      setMeta(\"meta[name='twitter:title']\", { name: \"twitter:title\" }, title);",
+    "      setMeta(",
+    "        \"meta[name='twitter:description']\",",
+    "        { name: \"twitter:description\" },",
+    "        description",
+    "      );",
     "    }",
+    "",
+    "    function syncMetadata() {",
+    "      applyRoute(findRoute(window.location.pathname || \"/\"));",
+    "    }",
+    "",
+    "    const historyApi = window.history;",
+    "    for (const methodName of [\"pushState\", \"replaceState\"]) {",
+    "      const original = historyApi && historyApi[methodName];",
+    "      if (typeof original !== \"function\") {",
+    "        continue;",
+    "      }",
+    "",
+    "      historyApi[methodName] = function (...args) {",
+    "        const result = original.apply(this, args);",
+    "        syncMetadata();",
+    "        return result;",
+    "      };",
+    "    }",
+    "",
+    "    window.addEventListener(\"popstate\", syncMetadata);",
+    "    syncMetadata();",
     "  })();",
-    "</script>"
+    "</script>",
   ].join("\n");
 }

@@ -4,15 +4,18 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  RELEASE_APP_SHELL_PLACEHOLDER,
   ROBOTS_FILE_PATH,
   SITE_METADATA_FILE_PATH,
   SITEMAP_FILE_PATH,
   RELEASE_SEO_PLACEHOLDER,
+  buildRouteLoadingShellMarkup,
   buildReleaseSeoHeadMarkup,
   buildRobotsTxt,
   buildSiteMetadata,
   buildSitemapXml,
   normalizeCanonicalOrigin,
+  normalizePublicPath,
   publicPathToRelativePath
 } from "./site_metadata.mjs";
 
@@ -44,10 +47,16 @@ export function fingerprintFileName(fileName, fingerprint) {
 export function rewriteAppIndexHtml(indexHtml, {
   cssHref,
   mainScriptHref,
-  releaseSeoHeadMarkup
+  title,
+  description,
+  releaseSeoHeadMarkup,
+  releaseAppShellMarkup
 }) {
   const stylesheetPattern =
     /<link\b[^>]*href=["']\/css\/main\.css["'][^>]*>/;
+  const descriptionPattern =
+    /<meta\b(?=[^>]*\bname=["']description["'])[^>]*>/i;
+  const titlePattern = /<title>[\s\S]*?<\/title>/i;
   const bootstrapScriptPattern =
     /<script>\s*\(function \(\) \{(?:(?!<\/script>)[\s\S])*?const manifestUrl = ["']\/js\/manifest\.json["'];(?:(?!<\/script>)[\s\S])*?const defaultMainScriptUrl = ["']\/js\/main\.js["'];(?:(?!<\/script>)[\s\S])*?fetch\(manifestUrl, \{ cache: "no-cache" \}\)(?:(?!<\/script>)[\s\S])*?<\/script>/;
 
@@ -59,22 +68,61 @@ export function rewriteAppIndexHtml(indexHtml, {
     throw new Error("Expected app index.html to contain the dynamic main script bootstrap.");
   }
 
+  if (!descriptionPattern.test(indexHtml)) {
+    throw new Error("Expected app index.html to contain a description meta tag.");
+  }
+
+  if (!titlePattern.test(indexHtml)) {
+    throw new Error("Expected app index.html to contain a <title> element.");
+  }
+
   if (!indexHtml.includes(RELEASE_SEO_PLACEHOLDER)) {
     throw new Error(
       `Expected app index.html to contain the release SEO placeholder: ${RELEASE_SEO_PLACEHOLDER}`
     );
   }
 
+  if (!indexHtml.includes(RELEASE_APP_SHELL_PLACEHOLDER)) {
+    throw new Error(
+      `Expected app index.html to contain the release app shell placeholder: ${RELEASE_APP_SHELL_PLACEHOLDER}`
+    );
+  }
+
   return indexHtml
+    .replace(
+      descriptionPattern,
+      `<meta name="description" content="${String(description)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")}" />`
+    )
+    .replace(
+      titlePattern,
+      `<title>${String(title)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")}</title>`
+    )
     .replace(
       stylesheetPattern,
       `<link rel="stylesheet" href="${cssHref}" />`
     )
     .replace(RELEASE_SEO_PLACEHOLDER, releaseSeoHeadMarkup)
+    .replace(RELEASE_APP_SHELL_PLACEHOLDER, releaseAppShellMarkup)
     .replace(
       bootstrapScriptPattern,
       `<script defer src="${mainScriptHref}"></script>`
     );
+}
+
+export function routePathToOutputHtmlPath(routePath) {
+  const normalizedPath = normalizePublicPath(routePath);
+  if (normalizedPath === "/") {
+    return APP_INDEX_PATH;
+  }
+
+  return path.join(publicPathToRelativePath(normalizedPath), APP_INDEX_PATH);
 }
 
 async function prepareOutputRoot(outputRoot) {
@@ -178,13 +226,24 @@ export async function generateReleaseArtifacts({
     canonicalOrigin: normalizeCanonicalOrigin(canonicalOrigin),
     indexHtml: sourceIndexHtml,
   });
-  const releaseSeoHeadMarkup = buildReleaseSeoHeadMarkup(siteMetadata);
-  const rewrittenIndexHtml = rewriteAppIndexHtml(sourceIndexHtml, {
-    cssHref: `/css/${cssFileName}`,
-    mainScriptHref: `/js/${mainModule["output-name"]}`,
-    releaseSeoHeadMarkup,
-  });
-  await fs.writeFile(path.join(outputRoot, APP_INDEX_PATH), rewrittenIndexHtml);
+
+  const generatedRouteHtmlFiles = [];
+  for (const route of siteMetadata.routes) {
+    const rewrittenRouteHtml = rewriteAppIndexHtml(sourceIndexHtml, {
+      cssHref: `/css/${cssFileName}`,
+      mainScriptHref: `/js/${mainModule["output-name"]}`,
+      title: route.title,
+      description: route.description,
+      releaseSeoHeadMarkup: buildReleaseSeoHeadMarkup(siteMetadata, route),
+      releaseAppShellMarkup: buildRouteLoadingShellMarkup(route),
+    });
+    const routeOutputRelativePath = routePathToOutputHtmlPath(route.path);
+    const routeOutputPath = path.join(outputRoot, routeOutputRelativePath);
+    await fs.mkdir(path.dirname(routeOutputPath), { recursive: true });
+    await fs.writeFile(routeOutputPath, rewrittenRouteHtml);
+    generatedRouteHtmlFiles.push(routeOutputRelativePath);
+  }
+
   await fs.writeFile(
     path.join(outputRoot, SITE_METADATA_FILE_PATH),
     `${JSON.stringify(siteMetadata, null, 2)}\n`
@@ -224,6 +283,7 @@ export async function generateReleaseArtifacts({
     cssHref: `/css/${cssFileName}`,
     mainScriptHref: `/js/${mainModule["output-name"]}`,
     outputIndexPath,
+    generatedRouteHtmlFiles: generatedRouteHtmlFiles.sort(),
     copiedRootAssetPaths: copiedRootAssetPaths.sort(),
     releaseJavaScriptFiles,
     siteMetadata,
