@@ -282,7 +282,7 @@
            {:type "order"
             :orders []
             :grouping "na"}
-           :max-nonce-retries 0)
+           {:max-nonce-retries 0})
           (.then (fn [resp]
                    (is (= "err" (:status resp)))
                    (is (re-find #"nonce too low" (str (:error resp))))
@@ -329,10 +329,10 @@
            {:type "order"
             :orders []
             :grouping "na"}
-           :vault-address "0xABCDEF1234"
-           :expires-after 1700000019000
-           :is-mainnet false
-           :max-nonce-retries 0)
+           {:vault-address "0xABCDEF1234"
+            :expires-after 1700000019000
+            :is-mainnet false
+            :max-nonce-retries 0})
           (.then (fn [resp]
                    (is (= "ok" (:status resp)))
                    (is (= 1 (count @sign-calls)))
@@ -347,6 +347,49 @@
                      (is (false? (:is-mainnet sign-opts-map)))
                      (is (= "0xabcdef1234" (:vaultAddress payload)))
                      (is (= 1700000019000 (:expiresAfter payload))))
+                   (done)))
+          (.catch (async-support/unexpected-error done))
+          (.finally
+           (fn []
+             (set! agent-session/load-agent-session-by-mode original-load)
+             (set! agent-session/persist-agent-session-by-mode! original-persist)
+             (set! signing/sign-l1-action-with-private-key! original-sign)
+             (restore-fetch!)))))))
+
+(deftest sign-and-post-agent-action-private-helper-consumes-retry-budget-on-each-nonce-error-test
+  (async done
+    (let [store (support/ready-agent-store 1700000022500)
+          sign-calls (atom [])
+          fetch-count (atom 0)
+          original-load agent-session/load-agent-session-by-mode
+          original-persist agent-session/persist-agent-session-by-mode!
+          original-sign signing/sign-l1-action-with-private-key!
+          restore-fetch! (support/install-fetch-stub!
+                          (fn [_url _opts]
+                            (swap! fetch-count inc)
+                            (js/Promise.resolve
+                             (support/json-response {:status "err"
+                                                     :error "nonce too low"}))))]
+      (set! agent-session/load-agent-session-by-mode
+            (fn [_wallet-address _storage-mode]
+              {:agent-address "0x8fd379246834eac74b8419ffda202cf8051f7a03"
+               :private-key "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+               :nonce-cursor 1700000022500}))
+      (set! agent-session/persist-agent-session-by-mode!
+            (fn [_wallet-address _storage-mode _session] true))
+      (set! signing/sign-l1-action-with-private-key! (api-stubs/signing-stub sign-calls))
+      (-> (@#'hyperopen.api.trading/sign-and-post-agent-action!
+           store
+           support/owner-address
+           {:type "order"
+            :orders []
+            :grouping "na"}
+           {:max-nonce-retries 1})
+          (.then (fn [resp]
+                   (is (= "err" (:status resp)))
+                   (is (re-find #"nonce too low" (str (:error resp))))
+                   (is (= 2 @fetch-count))
+                   (is (= 2 (count @sign-calls)))
                    (done)))
           (.catch (async-support/unexpected-error done))
           (.finally

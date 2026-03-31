@@ -116,8 +116,8 @@
                        action
                        1700000017000
                        signature
-                       :vault-address "0xABCDEF"
-                       :expires-after 1700000017999)]
+                       {:vault-address "0xABCDEF"
+                        :expires-after 1700000017999})]
           (.finally
            (.catch
             (.then request
@@ -143,6 +143,7 @@
 (deftest post-signed-action-private-helper-preserves-safe-integer-nonce-test
   (async done
     (let [fetch-call (atom nil)
+          assert-calls (atom 0)
           restore-fetch! (support/install-fetch-stub!
                           (fn [url opts]
                             (reset! fetch-call [url opts])
@@ -154,7 +155,10 @@
           signature {:r "0x1"
                      :s "0x2"
                      :v 27}]
-      (with-redefs [contracts/validation-enabled? (constantly false)]
+      (with-redefs [contracts/validation-enabled? (constantly false)
+                    contracts/assert-signed-exchange-payload!
+                    (fn [_payload _context]
+                      (swap! assert-calls inc))]
         (let [request (@#'hyperopen.api.trading/post-signed-action!
                        action
                        safe-nonce
@@ -167,6 +171,7 @@
                            payload (support/fetch-body->map fetch-opts)]
                        (is (= trading/exchange-url url))
                        (is (= safe-nonce (:nonce payload)))
+                       (is (= 0 @assert-calls))
                        (done))))
             (fn [err]
               (is false (str "Unexpected error: " err))

@@ -356,21 +356,25 @@
     (swap! store assoc-in [:wallet :user-signed-nonce-cursor] nonce)
     nonce))
 
+(defn- maybe-assert-signed-exchange-payload! [payload action]
+  (when (contracts/validation-enabled?)
+    (contracts/assert-signed-exchange-payload!
+     payload {:boundary :api-trading/post-signed-action
+              :action-type (:type action)})))
 (defn- post-signed-action!
-  [action nonce signature & {:keys [vault-address expires-after]}]
-  (let [payload (cond-> {:action action
-                         :nonce nonce
-                         :signature signature}
-                  vault-address (assoc :vaultAddress vault-address)
-                  expires-after (assoc :expiresAfter expires-after))]
-    (when (contracts/validation-enabled?)
-      (contracts/assert-signed-exchange-payload!
-       payload
-       {:boundary :api-trading/post-signed-action
-        :action-type (:type action)}))
-    (or (simulated-fetch-response [[:signedActions (:type action)]
-                                   [:signedActions :default]])
-        (json-post! exchange-url payload))))
+  ([action nonce signature]
+   (post-signed-action! action nonce signature {}))
+  ([action nonce signature options]
+   (let [{:keys [vault-address expires-after]} options
+         payload (cond-> {:action action
+                          :nonce nonce
+                          :signature signature}
+                   vault-address (assoc :vaultAddress vault-address)
+                   expires-after (assoc :expiresAfter expires-after))]
+     (maybe-assert-signed-exchange-payload! payload action)
+     (or (simulated-fetch-response [[:signedActions (:type action)]
+                                    [:signedActions :default]])
+         (json-post! exchange-url payload)))))
 
 (defn- post-info!
   [body]
@@ -451,15 +455,11 @@
                   :error message))))
 
 (defn- normalize-agent-action-options
-  [{:keys [vault-address expires-after is-mainnet max-nonce-retries]
-    :or {vault-address nil
-         expires-after nil
-         is-mainnet true
-         max-nonce-retries 1}}]
+  [{:keys [vault-address expires-after is-mainnet max-nonce-retries]}]
   {:vault-address (some-> vault-address str str/lower-case)
    :expires-after expires-after
-   :is-mainnet is-mainnet
-   :max-nonce-retries max-nonce-retries})
+   :is-mainnet (if (nil? is-mainnet) true is-mainnet)
+   :max-nonce-retries (if (nil? max-nonce-retries) 1 max-nonce-retries)})
 
 (defn- agent-session-available?
   [session]
@@ -523,39 +523,39 @@
   [action nonce sig {:keys [vault-address expires-after]}]
   (let [{:keys [r s v]} (js->clj sig :keywordize-keys true)]
     (-> (post-signed-action! action nonce {:r r :s s :v v}
-                             :vault-address vault-address
-                             :expires-after expires-after)
+                             {:vault-address vault-address
+                              :expires-after expires-after})
         (.then parse-json!))))
+(defn- missing-agent-session-rejection [session]
+  (when-not (agent-session-available? session)
+    (js/Promise.reject (js/Error. "Agent session unavailable. Enable trading first."))))
 
+(defn- next-retry-callback [attempt! nonce retries-left]
+  #(attempt! nonce (dec retries-left)))
 (defn- sign-and-post-agent-action!
-  [store owner-address action & {:keys [vault-address expires-after is-mainnet max-nonce-retries]
-                                 :or {vault-address nil
-                                      expires-after nil
-                                      is-mainnet true
-                                      max-nonce-retries 1}}]
-  (let [session (resolve-agent-session store owner-address)
-        options (normalize-agent-action-options {:vault-address vault-address
-                                                 :expires-after expires-after
-                                                 :is-mainnet is-mainnet
-                                                 :max-nonce-retries max-nonce-retries})]
-    (if-not (agent-session-available? session)
-      (js/Promise.reject (js/Error. "Agent session unavailable. Enable trading first."))
-      (letfn [(attempt! [cursor retries-left]
-                (let [nonce (next-nonce cursor)]
-                  (-> (sign-agent-action! session action nonce options)
-                      (.then #(post-signed-agent-action! action nonce % options))
-                      (.then (fn [resp]
-                               (handle-agent-action-response!
-                                store
-                                owner-address
-                                session
-                                nonce
-                                resp
-                                retries-left
-                                #(attempt! nonce (dec retries-left))))))))]
-        (attempt! (or (:nonce-cursor session)
-                      (get-in @store [:wallet :agent :nonce-cursor]))
-                  (:max-nonce-retries options))))))
+  ([store owner-address action]
+   (sign-and-post-agent-action! store owner-address action {}))
+  ([store owner-address action raw-options]
+   (let [session (resolve-agent-session store owner-address)
+         options (normalize-agent-action-options raw-options)]
+     (if-let [rejection (missing-agent-session-rejection session)]
+       rejection
+       (letfn [(attempt! [cursor retries-left]
+                 (let [nonce (next-nonce cursor)]
+                   (-> (sign-agent-action! session action nonce options)
+                       (.then #(post-signed-agent-action! action nonce % options))
+                       (.then (fn [resp]
+                                (handle-agent-action-response!
+                                 store
+                                 owner-address
+                                 session
+                                 nonce
+                                 resp
+                                 retries-left
+                                 (next-retry-callback attempt! nonce retries-left)))))))]
+         (attempt! (or (:nonce-cursor session)
+                       (get-in @store [:wallet :agent :nonce-cursor]))
+                   (:max-nonce-retries options)))))))
 
 (defn submit-order!
   [store address action]
