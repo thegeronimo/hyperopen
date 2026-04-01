@@ -85,6 +85,7 @@
            install-position-tpsl-clickaway!
            register-icon-service-worker!
            initialize-remote-data-streams!
+           load-post-render-route-effects!
            kick-render!
            schedule-post-render-startup!]}]
   (set-on-connected-handler! handle-wallet-connected)
@@ -108,7 +109,10 @@
           ;; Register icon cache service worker for cross-reload symbol icon caching.
           (register-icon-service-worker!)
           ;; Initialize remote data streams.
-          (initialize-remote-data-streams!))]
+          (initialize-remote-data-streams!)
+          ;; Defer route-specific heavyweight work until after the initial shell paint.
+          (when (fn? load-post-render-route-effects!)
+            (load-post-render-route-effects! store)))]
     ;; Ensure first render is enqueued before expensive subscriptions/fetch startup work.
     (if (fn? schedule-post-render-startup!)
       (schedule-post-render-startup! post-render-startup!)

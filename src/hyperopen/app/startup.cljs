@@ -139,12 +139,25 @@
         (init-fn store)))))
 
 (defn- route-change-effects
+  ([state path]
+   (route-change-effects state path {}))
+  ([state path {:keys [defer-trade-chart?]
+                :or {defer-trade-chart? false}}]
+   (let [normalized-path (router/normalize-path path)]
+     (cond-> []
+       (some? (route-modules/route-module-id normalized-path))
+       (conj [:effects/load-route-module normalized-path])
+
+       (and (not defer-trade-chart?)
+            (router/trade-route? normalized-path)
+            (not (trade-modules/trade-chart-ready? state))
+            (not (trade-modules/trade-chart-loading? state)))
+       (conj [:effects/load-trade-chart-module])))))
+
+(defn- post-render-route-effects
   [state path]
   (let [normalized-path (router/normalize-path path)]
     (cond-> []
-      (some? (route-modules/route-module-id normalized-path))
-      (conj [:effects/load-route-module normalized-path])
-
       (and (router/trade-route? normalized-path)
            (not (trade-modules/trade-chart-ready? state))
            (not (trade-modules/trade-chart-loading? state)))
@@ -181,14 +194,19 @@
        :set-on-connected-handler! wallet/set-on-connected-handler!
        :handle-wallet-connected runtime-action-adapters/handle-wallet-connected
        :init-wallet! wallet/init-wallet!
-       :init-router! (fn [startup-store]
-                       (router/init!
-                        startup-store
-                        {:on-route-change
-                         (fn [path]
-                           (let [effects (route-change-effects @startup-store path)]
-                             (when (seq effects)
-                               (nxr/dispatch startup-store nil effects))))}))
+       :init-router! (let [defer-initial-trade-chart?* (atom true)]
+                       (fn [startup-store]
+                         (router/init!
+                          startup-store
+                          {:on-route-change
+                           (fn [path]
+                             (let [effects (route-change-effects
+                                            @startup-store
+                                            path
+                                            {:defer-trade-chart? @defer-initial-trade-chart?*})]
+                               (reset! defer-initial-trade-chart?* false)
+                               (when (seq effects)
+                                 (nxr/dispatch startup-store nil effects))))})))
        :install-asset-selector-shortcuts! (fn []
                                             (startup-runtime-lib/install-asset-selector-shortcuts!
                                              {:store (:store base-deps)
@@ -201,6 +219,11 @@
                                         (register-icon-service-worker! system))
        :initialize-remote-data-streams! (fn []
                                           (initialize-remote-data-streams! system))
+       :load-post-render-route-effects! (fn [startup-store]
+                                          (let [path (get-in @startup-store [:router :path])
+                                                effects (post-render-route-effects @startup-store path)]
+                                            (when (seq effects)
+                                              (nxr/dispatch startup-store nil effects))))
        :schedule-post-render-startup! schedule-post-render-startup!
        :kick-render! (fn [runtime-store]
                        (swap! runtime-store identity))}))))

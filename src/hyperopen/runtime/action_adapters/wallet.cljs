@@ -7,6 +7,7 @@
             [hyperopen.wallet.actions :as wallet-actions]
             [hyperopen.wallet.agent-runtime :as agent-runtime]
             [hyperopen.wallet.agent-session :as agent-session]
+            [hyperopen.wallet.agent-session-crypto :as agent-session-crypto]
             [hyperopen.wallet.connection-runtime :as wallet-connection-runtime]))
 
 (def connect-wallet-action wallet-actions/connect-wallet-action)
@@ -44,7 +45,7 @@
               :is-mainnet is-mainnet
               :agent-name agent-name
               :signature-chain-id signature-chain-id}
-    :create-agent-credentials! agent-session/create-agent-credentials!
+    :create-agent-credentials! agent-session-crypto/create-agent-credentials!
     :now-ms-fn platform/now-ms
     :normalize-storage-mode agent-session/normalize-storage-mode
     :default-signature-chain-id-for-environment

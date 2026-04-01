@@ -4,8 +4,8 @@
             [hyperopen.platform :as platform]
             [hyperopen.schema.contracts :as contracts]
             [hyperopen.wallet.agent-session :as agent-session]
+            [hyperopen.wallet.agent-session-crypto :as agent-session-crypto]
             [hyperopen.utils.hl-signing :as signing]))
-
 (def exchange-url "https://api.hyperliquid.xyz/exchange")
 (def info-url "https://api.hyperliquid.xyz/info")
 
@@ -294,7 +294,7 @@
   [private-key]
   (try
     (some-> private-key
-            agent-session/private-key->agent-address
+            agent-session-crypto/private-key->agent-address
             normalize-address)
     (catch :default _
       nil)))

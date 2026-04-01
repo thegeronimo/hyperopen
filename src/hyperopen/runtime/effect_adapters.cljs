@@ -21,6 +21,7 @@
             [hyperopen.platform :as platform]
             [hyperopen.wallet.agent-runtime :as agent-runtime]
             [hyperopen.wallet.agent-session :as agent-session]
+            [hyperopen.wallet.agent-session-crypto :as agent-session-crypto]
             [hyperopen.websocket.client :as ws-client]))
 
 (def append-diagnostics-event! ws-adapters/append-diagnostics-event!)
@@ -337,7 +338,7 @@
   [_ store]
   (api-wallets-effects/generate-api-wallet!
    {:store store
-    :create-agent-credentials! agent-session/create-agent-credentials!
+    :create-agent-credentials! agent-session-crypto/create-agent-credentials!
     :runtime-error-message agent-runtime/runtime-error-message}))
 
 (defn api-authorize-api-wallet-effect

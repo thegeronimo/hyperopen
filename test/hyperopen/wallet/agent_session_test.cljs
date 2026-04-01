@@ -1,6 +1,7 @@
 (ns hyperopen.wallet.agent-session-test
   (:require [cljs.test :refer-macros [deftest is testing use-fixtures]]
-            [hyperopen.wallet.agent-session :as agent-session]))
+            [hyperopen.wallet.agent-session :as agent-session]
+            [hyperopen.wallet.agent-session-crypto :as agent-session-crypto]))
 
 (def ^:private baseline-load-agent-session-by-mode
   agent-session/load-agent-session-by-mode)
@@ -100,7 +101,7 @@
     (is (= "0x66eee" (:signatureChainId action)))))
 
 (deftest create-agent-credentials-generates-hex-keypair-test
-  (let [{:keys [private-key agent-address]} (agent-session/create-agent-credentials!)]
+  (let [{:keys [private-key agent-address]} (agent-session-crypto/create-agent-credentials!)]
     (is (re-matches #"0x[0-9a-f]{64}" private-key))
     (is (re-matches #"0x[0-9a-f]{40}" agent-address))))
 

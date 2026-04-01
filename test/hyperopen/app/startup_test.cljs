@@ -200,7 +200,7 @@
     (is (= [[store [[:effects/load-route-module "/portfolio"]]]]
            @dispatch-calls))))
 
-(deftest init-wraps-router-with-trade-chart-module-loading-dispatch-test
+(deftest init-defers-initial-trade-chart-module-loading-until-post-render-startup-test
   (let [store (atom {:router {:path "/portfolio"}})
         runtime (atom {})
         captured-init-deps (atom nil)
@@ -235,6 +235,10 @@
       (app-startup/init! {:runtime runtime
                           :store store})
       ((:init-router! @captured-init-deps) store)
-      ((:on-route-change @captured-router-opts) "/trade"))
+      (swap! store assoc-in [:router :path] "/trade")
+      ((:on-route-change @captured-router-opts) "/trade")
+      (is (= []
+             @dispatch-calls))
+      ((:load-post-render-route-effects! @captured-init-deps) store))
     (is (= [[store [[:effects/load-trade-chart-module]]]]
            @dispatch-calls))))

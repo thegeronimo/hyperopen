@@ -1,7 +1,8 @@
 (ns hyperopen.websocket.agent-session-coverage-test
   (:require [cljs.test :refer-macros [deftest is]]
             ["@noble/secp256k1" :as secp]
-            [hyperopen.wallet.agent-session :as agent-session]))
+            [hyperopen.wallet.agent-session :as agent-session]
+            [hyperopen.wallet.agent-session-crypto :as agent-session-crypto]))
 
 (def ^:private wallet-address
   "0x1234567890abcdef1234567890abcdef12345678")
@@ -133,13 +134,13 @@
 (deftest ws-agent-session-private-helpers-and-approve-action-coverage-test
   (let [bytes (uint8-array [0 1 15 16 255])]
     (is (= "00010f10ff"
-           (@#'hyperopen.wallet.agent-session/bytes->hex bytes)))
+           (@#'hyperopen.wallet.agent-session-crypto/bytes->hex bytes)))
     (is (= [0 1 15 16 255]
-           (vec (@#'hyperopen.wallet.agent-session/hex->bytes "0x00010f10ff"))))
+           (vec (@#'hyperopen.wallet.agent-session-crypto/hex->bytes "0x00010f10ff"))))
     (is (= [0 1 15 16 255]
-           (vec (@#'hyperopen.wallet.agent-session/hex->bytes "00010f10ff")))))
+           (vec (@#'hyperopen.wallet.agent-session-crypto/hex->bytes "00010f10ff")))))
   (is (= "0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a"
-         (agent-session/private-key->agent-address
+         (agent-session-crypto/private-key->agent-address
           "0x1111111111111111111111111111111111111111111111111111111111111111")))
   (is (= {:agent-address "0x9999999999999999999999999999999999999999"
           :private-key "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -182,14 +183,14 @@
               (uint8-array (repeat 32 17))))
       (set! (.-randomPrivateKey utils) nil)
       (is (= (vec (repeat 32 17))
-             (vec (@#'hyperopen.wallet.agent-session/random-private-key-bytes))))
+             (vec (@#'hyperopen.wallet.agent-session-crypto/random-private-key-bytes))))
 
       (set! (.-randomSecretKey utils) nil)
       (set! (.-randomPrivateKey utils)
             (fn []
               (uint8-array (repeat 32 34))))
       (is (= (vec (repeat 32 34))
-             (vec (@#'hyperopen.wallet.agent-session/random-private-key-bytes))))
+             (vec (@#'hyperopen.wallet.agent-session-crypto/random-private-key-bytes))))
 
       (let [calls (atom 0)]
         (set! (.-randomPrivateKey utils) nil)
@@ -202,7 +203,7 @@
                   (aset candidate idx (inc idx)))
                 candidate))
         (is (= (vec (range 1 33))
-               (vec (@#'hyperopen.wallet.agent-session/random-private-key-bytes))))
+               (vec (@#'hyperopen.wallet.agent-session-crypto/random-private-key-bytes))))
         (is (= 2 @calls)))
 
       (set! (.-isValidSecretKey utils) nil)
@@ -214,7 +215,7 @@
                 (aset candidate idx 255))
               candidate))
       (is (= (vec (repeat 32 255))
-             (vec (@#'hyperopen.wallet.agent-session/random-private-key-bytes))))
+             (vec (@#'hyperopen.wallet.agent-session-crypto/random-private-key-bytes))))
 
       (set! (.-randomSecretKey utils) nil)
       (set! (.-randomPrivateKey utils) nil)
@@ -224,7 +225,7 @@
       (is (thrown-with-msg?
            js/Error
            #"Secure random unavailable"
-           (@#'hyperopen.wallet.agent-session/random-private-key-bytes)))
+           (@#'hyperopen.wallet.agent-session-crypto/random-private-key-bytes)))
       (finally
         (set! (.-randomSecretKey utils) original-random-secret-key)
         (set! (.-randomPrivateKey utils) original-random-private-key)
@@ -233,15 +234,15 @@
         (set! (.-getRandomValues crypto) original-get-random-values)))))
 
 (deftest ws-agent-session-create-agent-credentials-coverage-test
-  (with-redefs [hyperopen.wallet.agent-session/random-private-key-bytes
+  (with-redefs [hyperopen.wallet.agent-session-crypto/random-private-key-bytes
                 (fn []
                   (uint8-array (concat [0 1 15 16]
                                        (repeat 28 255))))
-                hyperopen.wallet.agent-session/private-key->agent-address
+                hyperopen.wallet.agent-session-crypto/private-key->agent-address
                 (fn [private-key]
                   (is (= "0x00010f10ffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
                          private-key))
                   "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd")]
     (is (= {:private-key "0x00010f10ffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
             :agent-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"}
-           (agent-session/create-agent-credentials!)))))
+           (agent-session-crypto/create-agent-credentials!)))))

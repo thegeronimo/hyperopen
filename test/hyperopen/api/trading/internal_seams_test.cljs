@@ -5,10 +5,11 @@
             [hyperopen.platform :as platform]
             [hyperopen.schema.contracts :as contracts]
             [hyperopen.wallet.agent-session :as agent-session]
+            [hyperopen.wallet.agent-session-crypto :as agent-session-crypto]
             [hyperopen.utils.hl-signing :as signing]))
 
 (deftest safe-private-key->agent-address-catches-errors-test
-  (with-redefs [hyperopen.wallet.agent-session/private-key->agent-address
+  (with-redefs [hyperopen.wallet.agent-session-crypto/private-key->agent-address
                 (fn [_]
                   (throw (js/Error. "boom")))]
     (is (nil? (@#'hyperopen.api.trading/safe-private-key->agent-address

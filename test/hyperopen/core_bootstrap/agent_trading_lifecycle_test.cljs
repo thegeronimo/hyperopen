@@ -3,7 +3,8 @@
             [cljs.test :refer-macros [async deftest is]]
             [hyperopen.api.trading :as trading-api]
             [hyperopen.core.compat :as core]
-            [hyperopen.wallet.agent-session :as agent-session]))
+            [hyperopen.wallet.agent-session :as agent-session]
+            [hyperopen.wallet.agent-session-crypto :as agent-session-crypto]))
 
 (deftest enable-agent-trading-action-emits-approving-projection-before-effect-test
   (let [state {:wallet {:connected? true
@@ -77,8 +78,8 @@
                   (fn
                     ([] :local)
                     ([_missing-default] :local))]
-      (core/restore-agent-storage-mode! store)
-      (is (= :local
+          (core/restore-agent-storage-mode! store)
+          (is (= :local
              (get-in @store [:wallet :agent :storage-mode]))))))
 
 (deftest enable-agent-trading-effect-sets-ready-state-on-success-test
@@ -87,11 +88,11 @@
                                 :agent {:status :approving
                                         :storage-mode :session}}})
           persisted (atom nil)
-          original-create agent-session/create-agent-credentials!
+          original-create agent-session-crypto/create-agent-credentials!
           original-build-action agent-session/build-approve-agent-action
           original-approve trading-api/approve-agent!
           original-persist agent-session/persist-agent-session-by-mode!]
-      (set! agent-session/create-agent-credentials!
+      (set! agent-session-crypto/create-agent-credentials!
             (fn []
               {:private-key "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                :agent-address "0x9999999999999999999999999999999999999999"}))
@@ -113,7 +114,7 @@
             (fn [wallet-address storage-mode session]
               (reset! persisted [wallet-address storage-mode session])))
       (letfn [(restore! []
-                (set! agent-session/create-agent-credentials! original-create)
+                (set! agent-session-crypto/create-agent-credentials! original-create)
                 (set! agent-session/build-approve-agent-action original-build-action)
                 (set! trading-api/approve-agent! original-approve)
                 (set! agent-session/persist-agent-session-by-mode! original-persist))]
@@ -137,11 +138,11 @@
                                 :agent {:status :approving
                                         :storage-mode :session}}})
           persisted (atom nil)
-          original-create agent-session/create-agent-credentials!
+          original-create agent-session-crypto/create-agent-credentials!
           original-build-action agent-session/build-approve-agent-action
           original-approve trading-api/approve-agent!
           original-persist agent-session/persist-agent-session-by-mode!]
-      (set! agent-session/create-agent-credentials!
+      (set! agent-session-crypto/create-agent-credentials!
             (fn []
               {:private-key "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
                :agent-address "0x8888888888888888888888888888888888888888"}))
@@ -162,7 +163,7 @@
             (fn [wallet-address storage-mode session]
               (reset! persisted [wallet-address storage-mode session])))
       (letfn [(restore! []
-                (set! agent-session/create-agent-credentials! original-create)
+                (set! agent-session-crypto/create-agent-credentials! original-create)
                 (set! agent-session/build-approve-agent-action original-build-action)
                 (set! trading-api/approve-agent! original-approve)
                 (set! agent-session/persist-agent-session-by-mode! original-persist))]
@@ -181,8 +182,8 @@
   (let [store (atom {:wallet {:address "0xabc"
                               :agent {:status :approving
                                       :storage-mode :session}}})
-        original-create agent-session/create-agent-credentials!]
-    (set! agent-session/create-agent-credentials!
+        original-create agent-session-crypto/create-agent-credentials!]
+    (set! agent-session-crypto/create-agent-credentials!
           (fn []
             (throw (js/Error. "secure random unavailable"))))
     (try
@@ -191,4 +192,4 @@
       (is (str/includes? (str (get-in @store [:wallet :agent :error]))
                          "secure random unavailable"))
       (finally
-        (set! agent-session/create-agent-credentials! original-create)))))
+        (set! agent-session-crypto/create-agent-credentials! original-create)))))
