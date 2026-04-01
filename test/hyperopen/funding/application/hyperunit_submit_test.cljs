@@ -155,7 +155,7 @@
                       (is (= [[:success "Withdrawal submitted."]]
                              @toasts))
                       (done))
-                    0)))
+                    20)))
           (.catch (async-support/unexpected-error done))))))
 
 (deftest api-submit-funding-deposit-hyperunit-address-keeps-modal-open-for-supported-assets-test

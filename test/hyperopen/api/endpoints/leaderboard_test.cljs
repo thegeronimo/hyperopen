@@ -27,17 +27,16 @@
           fetch-fn (fn [url init]
                      (swap! calls conj [url init])
                      (js/Promise.resolve
-                      (ok-response
-                       {:leaderboardRows [{:ethAddress "0xABC"
-                                          :accountValue "12.5"
-                                          :displayName "Desk"
-                                          :prize "3"
-                                          :windowPerformances [["month" {:pnl "2"
-                                                                         :roi "0.1"
-                                                                         :vlm "9"}]
-                                                               ["allTime" {:pnl "-5"
-                                                                           :roi "0.2"
-                                                                           :volume "4"}]]}]})))]
+                      {:leaderboardRows [{:ethAddress "0xABC"
+                                         :accountValue "12.5"
+                                         :displayName "Desk"
+                                         :prize "3"
+                                         :windowPerformances [["month" {:pnl "2"
+                                                                        :roi "0.1"
+                                                                        :vlm "9"}]
+                                                              ["allTime" {:pnl "-5"
+                                                                          :roi "0.2"
+                                                                          :volume "4"}]]}]}))]
       (-> (leaderboard/request-leaderboard! fetch-fn "https://leaderboard.test" {:fetch-opts {:cache "no-store"}})
           (.then (fn [rows]
                    (let [[called-url init] (first @calls)]
@@ -69,3 +68,38 @@
           (.catch (fn [err]
                     (is (= 503 (aget err "status")))
                     (done)))))))
+
+(deftest normalize-leaderboard-row-defaults-missing-metrics-and-window-performance-test
+  (is (= {:eth-address "0xabc"
+          :account-value 0
+          :display-name nil
+          :prize 0
+          :window-performances {:day {:pnl 0 :roi 0 :volume 0}
+                                :week {:pnl 0 :roi 0 :volume 0}
+                                :month {:pnl 0 :roi 0 :volume 0}
+                                :all-time {:pnl 0 :roi 0 :volume 0}}}
+         (leaderboard/normalize-leaderboard-row
+          {:ethAddress "0xABC"
+           :displayName " "
+           :windowPerformances nil})))
+  (is (nil? (leaderboard/normalize-leaderboard-row []))))
+
+(deftest normalize-leaderboard-rows-rejects-non-sequential-payloads-test
+  (is (= []
+         (leaderboard/normalize-leaderboard-rows nil)))
+  (is (= []
+         (leaderboard/normalize-leaderboard-rows {:leaderboardRows 1})))
+  (is (= [{:eth-address "0xabc"
+           :account-value 12
+           :display-name "Desk"
+           :prize 3
+           :window-performances {:day {:pnl 0 :roi 0 :volume 0}
+                                 :week {:pnl 0 :roi 0 :volume 0}
+                                 :month {:pnl 0 :roi 0 :volume 0}
+                                 :all-time {:pnl 0 :roi 0 :volume 0}}}]
+         (leaderboard/normalize-leaderboard-rows
+          {:leaderboardRows [{:ethAddress "0xABC"
+                             :accountValue "12"
+                             :displayName "Desk"
+                             :prize "3"
+                             :windowPerformances []}]}))))

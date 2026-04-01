@@ -63,6 +63,24 @@
     (when (.exists file)
       (.delete file))))
 
+(defn- backup-file->module
+  [root backup-file]
+  (let [relative (shared-fs/relativize root (.getPath ^java.io.File backup-file))
+        prefix (str backup-root "/")]
+    (when (and (str/starts-with? relative prefix)
+               (str/ends-with? relative ".bak"))
+      (normalize-relative-path
+       (subs relative (count prefix) (- (count relative) 4))))))
+
+(defn- restore-backup-file!
+  [root backup-file]
+  (when-let [module (backup-file->module root backup-file)]
+    (let [module-path (str (io/file root module))]
+      (ensure-parent! module-path)
+      (spit module-path (slurp backup-file))
+      (delete-file! (.getPath ^java.io.File backup-file))
+      module)))
+
 (defn manifest-path
   [root module]
   (let [path (str (io/file root manifest-root (str (normalize-relative-path module) ".edn")))]
@@ -100,8 +118,15 @@
   (let [backup (backup-path root module)
         backup-file (io/file backup)]
     (when (.exists backup-file)
-      (let [module-path (str (io/file root module))]
-        (ensure-parent! module-path)
-        (spit module-path (slurp backup-file))
-        (delete-file! backup)
-        true))))
+      (restore-backup-file! root backup-file))))
+
+(defn restore-stale-backups!
+  [root]
+  (let [dir (io/file root backup-root)]
+    (when (.exists dir)
+      (->> (file-seq dir)
+           (filter #(.isFile ^java.io.File %))
+           (filter #(str/ends-with? (.getName ^java.io.File %) ".bak"))
+           (sort-by #(.getPath ^java.io.File %))
+           (keep #(restore-backup-file! root %))
+           vec))))

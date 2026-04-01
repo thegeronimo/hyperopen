@@ -1,6 +1,7 @@
 (ns hyperopen.views.trading-chart.core-test
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is]]
+            [nexus.registry :as nxr]
             [replicant.core :as replicant-core]
             [hyperopen.system :as app-system]
             [hyperopen.state.trading :as trading-state]

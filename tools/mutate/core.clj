@@ -16,11 +16,23 @@
     :test "npx shadow-cljs compile test && node out/test.js"
     :ws-test "npx shadow-cljs compile ws-test && node out/ws-test.js"))
 
+(defn clean-suite-command
+  [suite]
+  (case suite
+    :test "rm -rf .shadow-cljs/builds/test out/test.js && npx shadow-cljs --force-spawn compile test && node out/test.js"
+    :ws-test "rm -rf .shadow-cljs/builds/ws-test out/ws-test.js && npx shadow-cljs --force-spawn compile ws-test && node out/ws-test.js"))
+
 (defn suite-compile-command
   [suite]
   (case suite
     :test "npx shadow-cljs compile test"
     :ws-test "npx shadow-cljs compile ws-test"))
+
+(defn clean-suite-compile-command
+  [suite]
+  (case suite
+    :test "rm -rf .shadow-cljs/builds/test out/test.js && npx shadow-cljs --force-spawn compile test"
+    :ws-test "rm -rf .shadow-cljs/builds/ws-test out/ws-test.js && npx shadow-cljs --force-spawn compile ws-test"))
 
 (defn prepare-test-runner!
   []
@@ -86,7 +98,7 @@
 
 (defn- baseline-suite!
   [suite timeout-factor]
-  (let [result (runner/run-command (suite-command suite) {})]
+  (let [result (runner/run-command (clean-suite-command suite) {})]
     (when-not (runner/success? result)
       (throw
        (ex-info
@@ -139,7 +151,7 @@
   (when (some #{:test} suites)
     (prepare-test-runner!))
   (doseq [suite suites]
-    (let [result (runner/run-command (suite-compile-command suite) {})]
+    (let [result (runner/run-command (clean-suite-compile-command suite) {})]
       (when-not (runner/success? result)
         (throw
          (ex-info
@@ -243,9 +255,10 @@
 (defn execute-command
   [opts]
   (let [root (fs/repo-root)
-        module (fs/require-module-path root (:module opts))
-        _ (when (fs/restore-stale-backup! root module)
+        restored-backups (fs/restore-stale-backups! root)
+        _ (doseq [module restored-backups]
             (println (str "Restored stale backup for " module ".")))
+        module (fs/require-module-path root (:module opts))
         module-path (str (java.io.File. root module))
         manifest-path (fs/manifest-path root module)
         original-content (slurp module-path)

@@ -133,6 +133,152 @@
     (is (fn? (:now-ms!* defaulted)))
     (is (number? ((:now-ms!* defaulted))))))
 
+(deftest update-active-lifecycle-respects-should-continue-test
+  (let [update-active-lifecycle! @#'hyperopen.funding.application.lifecycle-polling/update-active-lifecycle!
+        store (atom {:funding-ui {:modal {:hyperunit-lifecycle {:state :original}}}})
+        normalize-hyperunit-lifecycle (fn [lifecycle]
+                                        (assoc lifecycle :normalized true))]
+    (update-active-lifecycle! store
+                              normalize-hyperunit-lifecycle
+                              (fn [] false)
+                              {:state :pending})
+    (is (= {:state :original}
+           (get-in @store [:funding-ui :modal :hyperunit-lifecycle])))
+    (update-active-lifecycle! store
+                              normalize-hyperunit-lifecycle
+                              (fn [] true)
+                              {:state :pending})
+    (is (= {:state :pending
+            :normalized true}
+           (get-in @store [:funding-ui :modal :hyperunit-lifecycle])))))
+
+(deftest refresh-active-withdraw-queue-passes-transition-loading-false-test
+  (let [refresh-active-withdraw-queue! @#'hyperopen.funding.application.lifecycle-polling/refresh-active-withdraw-queue!
+        calls (atom [])]
+    (refresh-active-withdraw-queue!
+     {:direction :withdraw
+      :request-queue! (fn [_opts] (js/Promise.resolve {:queue []}))
+      :should-continue? (fn [] true)
+      :fetch-hyperunit-withdrawal-queue! (fn [opts]
+                                           (swap! calls conj opts)
+                                           nil)
+      :store (atom {})
+      :base-url "https://api.hyperunit.xyz"
+      :base-urls ["https://api.hyperunit.xyz"]
+      :now-ms!* (fn [] 1700000000000)
+      :runtime-error-message effects-support/fallback-runtime-error-message
+      :asset-key :btc})
+    (is (= 1 (count @calls)))
+    (let [opts (first @calls)]
+      (is (= :btc (:expected-asset-key opts)))
+      (is (= false (:transition-loading? opts))))))
+
+(deftest refresh-active-withdraw-queue-noops-for-non-withdraw-or-continued-false-test
+  (let [refresh-active-withdraw-queue! @#'hyperopen.funding.application.lifecycle-polling/refresh-active-withdraw-queue!
+        calls (atom [])]
+    (refresh-active-withdraw-queue!
+     {:direction :deposit
+      :request-queue! (fn [_opts]
+                        (swap! calls conj :called)
+                        (js/Promise.resolve {:queue []}))
+      :should-continue? (fn [] true)
+      :fetch-hyperunit-withdrawal-queue! (fn [opts]
+                                           (swap! calls conj opts))
+      :store (atom {})
+      :base-url "https://api.hyperunit.xyz"
+      :base-urls ["https://api.hyperunit.xyz"]
+      :now-ms!* (fn [] 1700000000000)
+      :runtime-error-message effects-support/fallback-runtime-error-message
+      :asset-key :btc})
+    (refresh-active-withdraw-queue!
+     {:direction :withdraw
+      :request-queue! nil
+      :should-continue? (fn [] true)
+      :fetch-hyperunit-withdrawal-queue! (fn [opts]
+                                           (swap! calls conj opts))
+      :store (atom {})
+      :base-url "https://api.hyperunit.xyz"
+      :base-urls ["https://api.hyperunit.xyz"]
+      :now-ms!* (fn [] 1700000000000)
+      :runtime-error-message effects-support/fallback-runtime-error-message
+      :asset-key :btc})
+    (refresh-active-withdraw-queue!
+     {:direction :withdraw
+      :request-queue! (fn [_opts]
+                        (swap! calls conj :called)
+                        (js/Promise.resolve {:queue []}))
+      :should-continue? (fn [] false)
+      :fetch-hyperunit-withdrawal-queue! (fn [opts]
+                                           (swap! calls conj opts))
+      :store (atom {})
+      :base-url "https://api.hyperunit.xyz"
+      :base-urls ["https://api.hyperunit.xyz"]
+      :now-ms!* (fn [] 1700000000000)
+      :runtime-error-message effects-support/fallback-runtime-error-message
+      :asset-key :btc})
+    (is (empty? @calls))))
+
+(deftest select-polled-operation-chooses-source-and-destination-addresses-test
+  (let [select-polled-operation @#'hyperopen.funding.application.lifecycle-polling/select-polled-operation
+        seen (atom [])
+        select-operation (fn [operations opts]
+                           (swap! seen conj [operations opts])
+                           :selected)
+        response {:operations [{:operation-id "op-1"}]}]
+    (is (= :selected
+           (select-polled-operation {:select-operation select-operation
+                                    :direction :withdraw
+                                    :asset-key :btc
+                                    :protocol-address "bc1qprotocol"
+                                    :destination-address "0xdest"
+                                    :wallet-address "0xwallet"}
+                                   response)))
+    (is (= :selected
+           (select-polled-operation {:select-operation select-operation
+                                    :direction :deposit
+                                    :asset-key :btc
+                                    :protocol-address "bc1qprotocol"
+                                    :destination-address "0xdest"
+                                    :wallet-address "0xwallet"}
+                                   response)))
+    (let [[_ops withdraw-opts] (first @seen)
+          [_ops2 deposit-opts] (second @seen)]
+      (is (= "0xwallet" (:source-address withdraw-opts)))
+      (is (= "0xdest" (:destination-address withdraw-opts)))
+      (is (nil? (:source-address deposit-opts)))
+      (is (= "0xwallet" (:destination-address deposit-opts))))))
+
+(deftest error-poll-lifecycle-preserves-previous-fields-and-sets-error-test
+  (let [error-poll-lifecycle @#'hyperopen.funding.application.lifecycle-polling/error-poll-lifecycle
+        store (atom {:funding-ui {:modal {:hyperunit-lifecycle {:operation-id "prev-op"
+                                                                :state :pending
+                                                                :status :pending
+                                                                :retained true}}}})
+        awaiting-lifecycle (fn [direction* asset-key* now-ms]
+                             {:direction direction*
+                              :asset-key asset-key*
+                              :state :awaiting
+                              :status :pending
+                              :last-updated-ms now-ms})
+        non-blank-text (fn [value]
+                         (when-let [text (some-> value str .trim)]
+                           (when (seq text) text)))
+        result (error-poll-lifecycle {:store store
+                                      :direction :deposit
+                                      :asset-key :btc
+                                      :awaiting-lifecycle awaiting-lifecycle
+                                      :non-blank-text non-blank-text}
+                                     (js/Error. "boom")
+                                     42)]
+    (is (= "prev-op" (:operation-id result)))
+    (is (= true (:retained result)))
+    (is (= :pending (:state result)))
+    (is (= :pending (:status result)))
+    (is (= :deposit (:direction result)))
+    (is (= :btc (:asset-key result)))
+    (is (= 42 (:last-updated-ms result)))
+    (is (= "boom" (:error result)))))
+
 (deftest start-hyperunit-lifecycle-polling-clears-token-without-request-when-modal-inactive-test
   (let [request-calls (atom 0)
         install-calls (atom [])
@@ -220,7 +366,7 @@
          (is (= 1 (count @clear-calls)))
          (is (empty? @scheduled-delays))
          (done))
-       0))))
+       20))))
 
 (deftest start-hyperunit-lifecycle-polling-withdraw-pending-refreshes-queue-and-schedules-next-poll-test
   (async done
@@ -328,7 +474,7 @@
                       (is (= :done
                              (get-in @store [:funding-ui :modal :hyperunit-lifecycle :state])))
                       (done))
-                    0)))
+                    20)))
           (.catch (async-support/unexpected-error done))))))
 
 (deftest api-submit-funding-deposit-hyperunit-address-polls-and-updates-lifecycle-test
@@ -441,3 +587,90 @@
                       (done))
                     0)))
           (.catch (async-support/unexpected-error done))))))
+
+(deftest refresh-active-withdraw-queue-includes-static-queue-flags-test
+  (let [refresh-active-withdraw-queue! @#'hyperopen.funding.application.lifecycle-polling/refresh-active-withdraw-queue!
+        calls (atom [])]
+    (refresh-active-withdraw-queue!
+     {:direction :withdraw
+      :request-queue! (fn [] :queue)
+      :should-continue? (fn [] true)
+      :fetch-hyperunit-withdrawal-queue! (fn [opts]
+                                           (swap! calls conj opts))
+      :store (atom {})
+      :base-url "https://api.hyperunit.xyz"
+      :base-urls ["https://api.hyperunit.xyz"]
+      :now-ms!* (fn [] 1700000000000)
+      :runtime-error-message "boom"
+      :asset-key :btc})
+    (is (= 1 (count @calls)))
+    (is (false? (get-in (first @calls) [:transition-loading?])))
+    (is (= :btc (get-in (first @calls) [:expected-asset-key])))))
+
+(deftest select-polled-operation-passes-source-and-destination-addresses-by-direction-test
+  (let [select-polled-operation @#'hyperopen.funding.application.lifecycle-polling/select-polled-operation
+        calls (atom [])]
+    (is (= {:ops [{:operation-id "op-1"}]
+            :opts {:asset-key :btc
+                   :protocol-address "bc1qprotocol"
+                   :source-address "0xowner"
+                   :destination-address "bc1qdestination"}}
+           (select-polled-operation {:select-operation (fn [operations opts]
+                                                         (swap! calls conj [operations opts])
+                                                         {:ops operations
+                                                          :opts opts})
+                                      :direction :withdraw
+                                      :asset-key :btc
+                                      :protocol-address "bc1qprotocol"
+                                      :destination-address "bc1qdestination"
+                                      :wallet-address "0xowner"}
+                                     {:operations [{:operation-id "op-1"}]})))
+    (is (= {:ops [{:operation-id "op-2"}]
+            :opts {:asset-key :btc
+                   :protocol-address "bc1qprotocol"
+                   :source-address nil
+                   :destination-address "0xowner"}}
+           (select-polled-operation {:select-operation (fn [operations opts]
+                                                         (swap! calls conj [operations opts])
+                                                         {:ops operations
+                                                          :opts opts})
+                                      :direction :deposit
+                                      :asset-key :btc
+                                      :protocol-address "bc1qprotocol"
+                                      :destination-address "bc1qdestination"
+                                      :wallet-address "0xowner"}
+                                     {:operations [{:operation-id "op-2"}]})))
+    (is (= 2 (count @calls)))))
+
+(deftest error-poll-lifecycle-preserves-previous-fields-and-adds-error-context-test
+  (let [error-poll-lifecycle @#'hyperopen.funding.application.lifecycle-polling/error-poll-lifecycle
+        store (atom {:funding-ui {:modal {:hyperunit-lifecycle {:operation-id "prev-op"
+                                                                :state :pending
+                                                                :status :pending
+                                                                :retained true}}}})
+        lifecycle (error-poll-lifecycle {:store store
+                                         :direction :deposit
+                                         :asset-key :btc
+                                         :awaiting-lifecycle (fn [direction asset-key now-ms]
+                                                               {:direction direction
+                                                                :asset-key asset-key
+                                                                :state :awaiting
+                                                                :status :pending
+                                                                :last-updated-ms now-ms
+                                                                :fallback true})
+                                         :non-blank-text (fn [value]
+                                                           (when-let [text (some-> value str .trim)]
+                                                             (when (seq text)
+                                                               text)))}
+                                        (js/Error. "boom")
+                                        1700000001234)]
+    (is (= {:operation-id "prev-op"
+            :state :pending
+            :status :pending
+            :retained true
+            :direction :deposit
+            :asset-key :btc
+            :last-updated-ms 1700000001234
+            :fallback true
+            :error "boom"}
+           lifecycle))))

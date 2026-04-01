@@ -124,9 +124,10 @@
                      "")
                  str
                  str/lower-case)]
-    (and (or (= "err" (:status resp))
-             (seq text))
-         (str/includes? text "nonce"))))
+    ;; This predicate is intentionally data-only: we only care whether the
+    ;; returned error text indicates a nonce mismatch, regardless of whether
+    ;; upstream set :status.
+    (str/includes? text "nonce")))
 
 (defn- response-error-text
   [resp]

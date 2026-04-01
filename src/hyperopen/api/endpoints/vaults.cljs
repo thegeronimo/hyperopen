@@ -335,7 +335,7 @@
                        {:order (conj order vault-address)
                         :row-by-address (assoc row-by-address vault-address row)}
 
-                       (>= row-time existing-time)
+                       (> row-time existing-time)
                        {:order order
                         :row-by-address (assoc row-by-address vault-address row)}
 

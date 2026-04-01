@@ -8,6 +8,32 @@
             [hyperopen.wallet.agent-session-crypto :as agent-session-crypto]
             [hyperopen.utils.hl-signing :as signing]))
 
+(declare rejected-thenable)
+
+(defn- resolved-thenable
+  [value]
+  #js {:then (fn [on-resolve]
+               (try
+                 (resolved-thenable (if on-resolve
+                                      (on-resolve value)
+                                      value))
+                 (catch :default err
+                   (rejected-thenable err))))
+       :catch (fn [_]
+                (resolved-thenable value))})
+
+(defn- rejected-thenable
+  [err]
+  #js {:then (fn [_]
+               (rejected-thenable err))
+       :catch (fn [on-reject]
+                (try
+                  (resolved-thenable (if on-reject
+                                       (on-reject err)
+                                       err))
+                  (catch :default catch-err
+                    (rejected-thenable catch-err))))})
+
 (deftest safe-private-key->agent-address-catches-errors-test
   (with-redefs [hyperopen.wallet.agent-session-crypto/private-key->agent-address
                 (fn [_]
@@ -40,31 +66,25 @@
 (deftest parse-json-private-helper-parses-text-json-and-validates-contract-test
   (async done
     (let [assert-call (atom nil)
-          original-validation-enabled contracts/validation-enabled?
-          original-assert-exchange-response contracts/assert-exchange-response!
           response #js {:status 202
                         :text (fn []
-                                (js/Promise.resolve
+                                (resolved-thenable
                                  "{\"status\":\"ok\",\"response\":{\"data\":1}}"))}]
-      (set! contracts/validation-enabled? (constantly true))
-      (set! contracts/assert-exchange-response!
-            (fn [payload context]
-              (reset! assert-call [payload context])))
-      (-> (@#'hyperopen.api.trading/parse-json! response)
-          (.then (fn [parsed]
-                   (is (= {:status "ok"
-                           :response {:data 1}}
-                          parsed))
-                   (is (= [parsed {:boundary :api-trading/parse-json}]
-                          @assert-call))
-                   (done)))
-          (.catch (fn [err]
-                    (is false (str "Unexpected error: " err))
-                    (done)))
-          (.finally
-           (fn []
-             (set! contracts/validation-enabled? original-validation-enabled)
-             (set! contracts/assert-exchange-response! original-assert-exchange-response)))))))
+      (with-redefs [contracts/validation-enabled? (constantly true)
+                    contracts/assert-exchange-response!
+                    (fn [payload context]
+                      (reset! assert-call [payload context]))]
+        (-> (@#'hyperopen.api.trading/parse-json! response)
+            (.then (fn [parsed]
+                     (is (= {:status "ok"
+                             :response {:data 1}}
+                            parsed))
+                     (is (= [parsed {:boundary :api-trading/parse-json}]
+                            @assert-call))
+                     (done)))
+            (.catch (fn [err]
+                      (is false (str "Unexpected error: " err))
+                      (done))))))))
 
 (deftest nonce-error-response-detects-nonce-specific-errors-test
   (is (true? (@#'hyperopen.api.trading/nonce-error-response?
@@ -73,6 +93,15 @@
   (is (true? (@#'hyperopen.api.trading/nonce-error-response?
               {:status "ok"
                :message "nonce mismatch"})))
+  (is (false? (@#'hyperopen.api.trading/nonce-error-response?
+               {:status "err"
+                :error "   "})))
+  (is (false? (@#'hyperopen.api.trading/nonce-error-response?
+               {:status "err"
+                :error ""})))
+  (is (false? (@#'hyperopen.api.trading/nonce-error-response?
+               {:status "err"
+                :message "   "})))
   (is (false? (@#'hyperopen.api.trading/nonce-error-response?
                {:status "err"
                 :error "rate limit exceeded"})))

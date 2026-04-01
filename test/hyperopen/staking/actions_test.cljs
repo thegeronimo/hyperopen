@@ -34,7 +34,7 @@
            (actions/load-staking-route
             {:wallet {:address wallet-address}}
             "/staking")))
-    (let [effects (actions/load-staking-route {} "/staking")]
+    (let [route-effects (actions/load-staking-route {} "/staking")]
       (is (= [[:effects/save [:staking-ui :form-error] nil]
               [:effects/save-many
                [[[:staking :delegator-summary] nil]
@@ -46,8 +46,8 @@
                 [[:staking :errors :rewards] nil]
                 [[:staking :errors :history] nil]]]
               [:effects/api-fetch-staking-validator-summaries]]
-             effects))
-      (is (effect-extractors/projection-before-heavy? effects heavy-effect-ids))))
+             route-effects))
+      (is (effect-extractors/projection-before-heavy? route-effects heavy-effect-ids))))
   (is (= []
          (actions/load-staking-route {} "/portfolio"))))
 

@@ -243,66 +243,72 @@
         dispatches* (atom [])
         now* (atom 0)
         timeouts* (atom [])
+        original-store app-system/store
+        original-dispatch nxr/dispatch
         {node :node listeners* :listeners*} (support/fake-scroll-node)]
-    (with-redefs [r/render
-                  (fn [& _] nil)
-                  runtime/schedule-asset-list-render-limit-sync!
-                  (fn [& _] nil)
-                  runtime/asset-list-now-ms
-                  (fn [] @now*)
-                  runtime/asset-list-set-timeout!
-                  (fn [f delay-ms]
-                    (let [timeout-handle {:delay-ms delay-ms
-                                          :index (count @timeouts*)}]
-                      (swap! timeouts* conj {:fn f
-                                             :delay-ms delay-ms
-                                             :handle timeout-handle})
-                      timeout-handle))
-                  runtime/asset-list-clear-timeout!
-                  (fn [_timeout-handle] nil)
-                  app-system/store ::store
-                  nxr/dispatch (fn [store event actions]
-                                 (swap! dispatches* conj {:store store
-                                                          :event event
-                                                          :actions actions}))]
-      (let [on-render (get-in (runtime/asset-list assets nil nil #{} #{} #{} 120 0 false)
-                              [1 :replicant/on-render])]
-        (on-render {:replicant/life-cycle :replicant.life-cycle/mount
-                    :replicant/node node
-                    :replicant/remember (fn [memory]
-                                          (reset! remembered* memory))})
-        (set! (.-scrollTop node) 48)
-        ((get @listeners* "scroll") #js {:timeStamp 1})
-        (set! (.-scrollTop node) 96)
-        ((get @listeners* "scroll") #js {:timeStamp 2})
-        (is (= 1 (count @timeouts*)))
-        (is (true? (runtime/asset-list-scroll-active?)))
-        (is (true? (runtime/asset-list-freeze-active?)))
-        (reset! now* 120)
-        ((:fn (first @timeouts*)))
-        (is (false? (runtime/asset-list-scroll-active?)))
-        (is (true? (runtime/asset-list-freeze-active?)))
-        (is (= [{:store ::store
-                 :event nil
-                 :actions [[:actions/set-asset-selector-live-market-subscriptions-paused true]]}
-                {:store ::store
-                 :event nil
-                 :actions [[:actions/set-asset-selector-scroll-top 96]]}]
-               @dispatches*))
-        (is (= 2 (count @timeouts*)))
-        ((:fn (second @timeouts*)))
-        (is (false? (runtime/asset-list-scroll-active?)))
-        (is (false? (runtime/asset-list-freeze-active?)))
-        (is (= [{:store ::store
-                 :event nil
-                 :actions [[:actions/set-asset-selector-live-market-subscriptions-paused true]]}
-                {:store ::store
-                 :event nil
-                 :actions [[:actions/set-asset-selector-scroll-top 96]]}
-                {:store ::store
-                 :event nil
-                 :actions [[:actions/set-asset-selector-live-market-subscriptions-paused false]]}]
-               @dispatches*))))))
+    (set! app-system/store ::store)
+    (set! nxr/dispatch (fn [store event actions]
+                         (swap! dispatches* conj {:store store
+                                                  :event event
+                                                  :actions actions})))
+    (try
+      (with-redefs [r/render
+                    (fn [& _] nil)
+                    runtime/schedule-asset-list-render-limit-sync!
+                    (fn [& _] nil)
+                    runtime/asset-list-now-ms
+                    (fn [] @now*)
+                    runtime/asset-list-set-timeout!
+                    (fn [f delay-ms]
+                      (let [timeout-handle {:delay-ms delay-ms
+                                            :index (count @timeouts*)}]
+                        (swap! timeouts* conj {:fn f
+                                               :delay-ms delay-ms
+                                               :handle timeout-handle})
+                        timeout-handle))
+                    runtime/asset-list-clear-timeout!
+                    (fn [_timeout-handle] nil)]
+        (let [on-render (get-in (runtime/asset-list assets nil nil #{} #{} #{} 120 0 false)
+                                [1 :replicant/on-render])]
+          (on-render {:replicant/life-cycle :replicant.life-cycle/mount
+                      :replicant/node node
+                      :replicant/remember (fn [memory]
+                                            (reset! remembered* memory))})
+          (set! (.-scrollTop node) 48)
+          ((get @listeners* "scroll") #js {:timeStamp 1})
+          (set! (.-scrollTop node) 96)
+          ((get @listeners* "scroll") #js {:timeStamp 2})
+          (is (= 1 (count @timeouts*)))
+          (is (true? (runtime/asset-list-scroll-active?)))
+          (is (true? (runtime/asset-list-freeze-active?)))
+          (reset! now* 120)
+          ((:fn (first @timeouts*)))
+          (is (false? (runtime/asset-list-scroll-active?)))
+          (is (true? (runtime/asset-list-freeze-active?)))
+          (is (= [{:store ::store
+                   :event nil
+                   :actions [[:actions/set-asset-selector-live-market-subscriptions-paused true]]}
+                  {:store ::store
+                   :event nil
+                   :actions [[:actions/set-asset-selector-scroll-top 96]]}]
+                 @dispatches*))
+          (is (= 2 (count @timeouts*)))
+          ((:fn (second @timeouts*)))
+          (is (false? (runtime/asset-list-scroll-active?)))
+          (is (false? (runtime/asset-list-freeze-active?)))
+          (is (= [{:store ::store
+                   :event nil
+                   :actions [[:actions/set-asset-selector-live-market-subscriptions-paused true]]}
+                  {:store ::store
+                   :event nil
+                   :actions [[:actions/set-asset-selector-scroll-top 96]]}
+                  {:store ::store
+                   :event nil
+                   :actions [[:actions/set-asset-selector-live-market-subscriptions-paused false]]}]
+                 @dispatches*))))
+      (finally
+        (set! nxr/dispatch original-dispatch)
+        (set! app-system/store original-store)))))
 
 (deftest asset-list-runtime-cancels-pending-live-market-resume-when-wheel-input-continues-at-boundary-test
   (let [assets (vec (for [n (range 60)]
