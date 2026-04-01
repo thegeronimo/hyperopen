@@ -204,3 +204,20 @@
           controls (:controls view-model)]
       (is (true? (:show-post-only? controls)))
       (is (true? (:show-limit-like-controls? controls))))))
+
+(deftest order-form-vm-skips-scale-preview-boundary-calculation-when-hidden-test
+  (let [calls (atom 0)
+        original trading/scale-preview-boundaries]
+    (with-redefs [trading/scale-preview-boundaries (fn [& args]
+                                                     (swap! calls inc)
+                                                     (apply original args))]
+      (vm/order-form-vm (base-state {:type :limit :size "1" :price "100"} {}))
+      (is (zero? @calls))
+      (vm/order-form-vm (base-state {:entry-mode :pro
+                                     :type :scale
+                                     :size "9.45"
+                                     :scale {:start "80"
+                                             :end "70"
+                                             :count 20
+                                             :skew "2"}} {}))
+      (is (= 1 @calls)))))

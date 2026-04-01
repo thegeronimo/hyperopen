@@ -54,13 +54,6 @@
         side-handlers (:side handlers)
         price-handlers (:price handlers)
         size-handlers (:size handlers)
-        section-handlers (assoc (:order-type-sections handlers)
-                                :twap-preview (feedback/twap-preview state form base-symbol))
-        toggle-handlers (:toggles handlers)
-        tif-handlers (:tif handlers)
-        tp-sl-handlers (:tp-sl handlers)
-        submit-handlers (:submit handlers)
-        fee-copy (footer/fee-row-copy (:fees display))
         {:keys [show-limit-like-controls?
                 show-tpsl-toggle?
                 show-tpsl-panel?
@@ -69,8 +62,19 @@
                 show-liquidation-row?
                 show-slippage-row?]}
         controls
+        twap-preview (when (some #{:twap} (order-form-vm/order-type-sections type))
+                       (feedback/twap-preview state form base-symbol))
+        section-handlers (cond-> (:order-type-sections handlers)
+                           twap-preview
+                           (assoc :twap-preview twap-preview))
+        toggle-handlers (:toggles handlers)
+        tif-handlers (:tif handlers)
+        tp-sl-handlers (:tp-sl handlers)
+        submit-handlers (:submit handlers)
+        fee-copy (footer/fee-row-copy (:fees display))
         spectate-mode-read-only? (= :spectate-mode-read-only (:reason submit))
-        tpsl-panel (feedback/tpsl-panel-model state form side ui-leverage controls)]
+        tpsl-panel (when show-tpsl-panel?
+                     (feedback/tpsl-panel-model state form side ui-leverage controls))]
     [:div {:class ["bg-base-100"
                    "border"
                    "border-base-300"

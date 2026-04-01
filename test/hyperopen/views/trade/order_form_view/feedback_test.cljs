@@ -4,6 +4,7 @@
                                                                    collect-strings
                                                                    find-first-node]]
             [hyperopen.views.trade.order-form-feedback :as feedback]
+            [hyperopen.views.trade.order-form-view :as view]
             [hyperopen.views.trade.order-form-vm :as order-form-vm]))
 
 (deftest unsupported-market-banner-renders-copy-test
@@ -51,3 +52,40 @@
     (is (= :usd (:unit panel)))
     (is (contains? panel :tp-offset))
     (is (contains? panel :sl-offset))))
+
+(deftest order-form-skips-hidden-tpsl-panel-model-test
+  (let [calls (atom 0)
+        original feedback/tpsl-panel-model]
+    (with-redefs [feedback/tpsl-panel-model (fn [& args]
+                                              (swap! calls inc)
+                                              (apply original args))]
+      (view/order-form-view (base-state {:type :limit :size "1" :price "100"}))
+      (is (zero? @calls))
+      (view/order-form-view (base-state {:type :limit :size "1" :price "100"}
+                                        {:tpsl-panel-open? true}))
+      (is (= 1 @calls)))))
+
+(deftest order-form-skips-twap-preview-unless-twap-mode-is-active-test
+  (let [calls (atom 0)
+        original feedback/twap-preview]
+    (with-redefs [feedback/twap-preview (fn [& args]
+                                          (swap! calls inc)
+                                          (apply original args))]
+      (view/order-form-view (base-state {:type :limit}))
+      (is (zero? @calls))
+      (view/order-form-view (base-state {:type :twap
+                                         :size "6"
+                                         :twap {:minutes "90"}}))
+      (is (= 1 @calls)))))
+
+(deftest order-form-builds-twap-preview-for-registry-driven-twap-sections-test
+  (let [calls (atom 0)
+        original feedback/twap-preview]
+    (with-redefs [order-form-vm/order-type-sections (fn [_order-type] [:twap])
+                  feedback/twap-preview (fn [& args]
+                                          (swap! calls inc)
+                                          (apply original args))]
+      (view/order-form-view (base-state {:type :stop-limit
+                                         :size "6"
+                                         :twap {:minutes "90"}}))
+      (is (= 1 @calls)))))

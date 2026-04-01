@@ -56,13 +56,19 @@
                                      base-symbol
                                      quote-symbol)}))
 
+(def ^:private default-scale-preview-lines
+  {:start "N/A"
+   :end "N/A"})
+
 (defn build-order-form-context
   [state {:keys [draft ui-state runtime-state market-info]}]
   (let [order-type (:type draft)
         capabilities (select-keys (order-types/order-type-entry order-type)
                                   order-type-capability-keys)
         pricing-policy (trading/order-price-policy state draft ui-state)
-        scale-preview-lines (projected-scale-preview-lines state draft market-info)
+        scale-preview-lines (if (:show-scale-preview? capabilities)
+                              (projected-scale-preview-lines state draft market-info)
+                              default-scale-preview-lines)
         summary (trading/order-summary state draft)
         submitting? (:submitting? runtime-state)
         submit-policy (trading/submit-policy state draft {:mode :view

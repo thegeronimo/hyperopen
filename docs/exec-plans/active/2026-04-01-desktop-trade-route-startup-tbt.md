@@ -22,6 +22,9 @@ After this work, the default desktop trade load should remain visually fast whil
 - [x] (2026-04-01 16:44Z) Deferred the initial `/trade` chart module load until post-render startup while preserving later route-driven chart loading behavior.
 - [x] (2026-04-01 16:48Z) Extracted agent key generation and agent-address derivation into `/hyperopen/src/hyperopen/wallet/agent_session_crypto.cljs` so default startup no longer pulls `@noble/secp256k1` and keccak through the wallet-session namespace.
 - [x] (2026-04-01 17:18Z) Updated deterministic tests for the crypto split and deferred startup contract, then re-ran `npm run check`, `npm test`, and `npm run test:websocket` successfully.
+- [x] (2026-04-01 17:18Z) Deferred the desktop account and account-equity lower panels until the first post-render startup pass while preserving the existing trade-shell geometry with explicit placeholders.
+- [x] (2026-04-01 17:24Z) Deferred hidden order-form feedback and scale-preview calculations so the cold desktop route no longer builds TP/SL, TWAP, or scale-preview work when those sections are not visible.
+- [x] (2026-04-01 17:24Z) Re-ran targeted `/trade` Playwright smoke, `npm run check`, `npm test`, `npm run test:websocket`, and two follow-up local startup profiles after the second and third startup-reduction waves.
 - [ ] Finish Milestone 0 baseline capture by storing the built asset-size snapshot, governed browser QA evidence, and consolidated notes under one dedicated `tmp/` artifact root.
 - [ ] Continue Milestone 1 by deferring or splitting additional noncritical desktop trade surfaces beyond the chart and wallet crypto path.
 - [ ] Reduce chart startup and overlay main-thread work so the trade route stops producing the current long-task and forced-reflow pattern.
@@ -54,6 +57,12 @@ After this work, the default desktop trade load should remain visually fast whil
 - Observation: moving crypto helpers out of `agent_session.cljs` exposed several tests that were directly redefining the old vars, but the fallout stayed contained to test surfaces.
   Evidence: `shadow-cljs compile test` initially surfaced stale references in `test/hyperopen/api/trading/internal_seams_test.cljs`, `test/hyperopen/core_bootstrap/agent_trading_lifecycle_test.cljs`, `test/hyperopen/wallet/agent_session_test.cljs`, and `test/hyperopen/websocket/agent_session_coverage_test.cljs`, and those warnings cleared once the tests pointed at `hyperopen.wallet.agent-session-crypto`.
 
+- Observation: the desktop trade route was still computing lower account-panel state before those panels were meaningfully needed on first paint.
+  Evidence: `/hyperopen/src/hyperopen/views/trade_view.cljs` was eagerly building `account-info-view-state`, `account-equity-view-state`, equity metrics, and mobile orderbook derivatives during the shared panel-context pass even though the desktop report’s remaining cost is concentrated after first paint and the lower panels can be represented by stable placeholders initially.
+
+- Observation: the order form was still paying for hidden feedback work even when TP/SL, TWAP, or scale-preview sections were not visible on the default cold route.
+  Evidence: `/hyperopen/src/hyperopen/views/trade/order_form_view.cljs` eagerly built `tpsl-panel-model` and `twap-preview` before checking whether those sections would render, and `/hyperopen/src/hyperopen/trading/order_form_application.cljs` eagerly built scale-preview lines even for order types whose registry capabilities never show them.
+
 ## Decision Log
 
 - Decision: use `/trade` as the local benchmark route even though the public audit URL is `/`.
@@ -80,11 +89,19 @@ After this work, the default desktop trade load should remain visually fast whil
   Rationale: the cold-load route was the audited bottleneck, so the least risky first cut is to move the first chart load behind the existing post-render startup hook while preserving existing runtime navigation behavior after boot.
   Date/Author: 2026-04-01 / Codex
 
+- Decision: gate desktop lower trade surfaces behind an explicit startup-ready flag stored under `[:trade-ui :desktop-secondary-panels-ready?]` and flip that flag during the post-render startup phase.
+  Rationale: this keeps the trade shell’s visual structure stable on desktop while preventing the initial shared render pass from paying for account-table and equity-panel state that can safely appear one startup tick later.
+  Date/Author: 2026-04-01 / Codex
+
+- Decision: gate TWAP preview work by the registry-driven `:twap` section contract instead of hard-coding the concrete `:twap` order type.
+  Rationale: the order-form renderer is intentionally registry-driven, so the lazy path must follow the rendered section contract to avoid silently breaking future order types that reuse the TWAP extension surface.
+  Date/Author: 2026-04-01 / Codex
+
 ## Outcomes & Retrospective
 
-The first implementation wave has landed and the plan is now partially executed rather than purely speculative. The current result is a narrower startup path on the default desktop trade route: the initial router bootstrap no longer loads the trade chart module before first paint, and wallet-session startup no longer imports agent keygen or address-derivation crypto by default. The repository gates are green after that change set, and the first local profile from `tmp/browser-inspection/trade-startup-profile-2026-04-01T16-27-37-777Z-3cb6df7b/` shows a remaining `211ms` blocking proxy with one `261ms` long task instead of the earlier deployed lab report’s `490ms` TBT.
+Three implementation waves have landed and the plan is now partially executed rather than purely speculative. The current result is a narrower startup path on the default desktop trade route: the initial router bootstrap no longer loads the trade chart module before first paint, wallet-session startup no longer imports agent keygen or address-derivation crypto by default, the lower desktop account surfaces now stay behind stable placeholders until the post-render startup phase marks them ready, and the order form no longer computes hidden TP/SL, TWAP, or scale-preview work on the cold desktop path. The repository gates remain green after those changes, and the follow-up local profiles from `tmp/browser-inspection/trade-startup-profile-2026-04-01T17-07-40-008Z-6b066cce/` and `tmp/browser-inspection/trade-startup-profile-2026-04-01T17-10-54-545Z-a94e581a/` still show one remaining long task, with a blocking proxy in the `194ms` to `218ms` range and max single long task in the `244ms` to `268ms` range.
 
-This plan remains active because the highest-leverage follow-up work is still outstanding. The baseline artifacts are not yet consolidated into one dedicated milestone folder, no governed browser QA artifact has been captured yet, the broader trade-surface deferral work from Milestone 1 is still open, and the chart-runtime long-task work from Milestone 2 has not started. The execution order is holding up: the first wave reduced cold-load startup cost without destabilizing the route, and the next likely leverage is now additional trade-surface deferral plus chart-runtime batching rather than more router bootstrap work.
+This plan remains active because the highest-leverage follow-up work is still outstanding. The baseline artifacts are not yet consolidated into one dedicated milestone folder, no governed browser QA artifact has been captured yet, the chart-runtime long-task work from Milestone 2 has not started, and the local startup profiler is still showing one residual long task even after the route-startup reductions. The execution order is holding up: the first three waves reduced cold-load startup cost without destabilizing the route, and the next likely leverage is now chart-runtime batching plus any remaining desktop trade-shell render work rather than more router bootstrap work.
 
 ## Context and Orientation
 
