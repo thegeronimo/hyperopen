@@ -1,6 +1,7 @@
 (ns hyperopen.trade-modules
   (:require [clojure.string :as str]
             [goog.object :as gobj]
+            [hyperopen.trading-indicators-modules :as trading-indicators-modules]
             [shadow.loader :as loader]))
 
 (def ^:private trade-chart-module-name
@@ -15,7 +16,8 @@
   []
   {:chart {:loaded? false
            :loading? false
-           :error nil}})
+           :error nil}
+   :indicators (trading-indicators-modules/default-state)})
 
 (defn resolved-trade-chart-view
   []

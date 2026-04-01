@@ -5,6 +5,7 @@
             [hyperopen.system :as app-system]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.state.trading :as trading-state]
+            [hyperopen.trading-indicators-modules :as trading-indicators-modules]
             [hyperopen.trading-settings :as trading-settings]
             [hyperopen.views.account-info.projections :as account-projections]
             [hyperopen.views.trading-chart.runtime-state :as chart-runtime]
@@ -130,6 +131,7 @@
   (memoize-last
    (fn [price-decimals
         volume-visible?
+        indicator-runtime-ready?
         on-hide-volume-indicator
         active-asset
         candle-data
@@ -142,6 +144,7 @@
       :legend-deps {:format-price fmt/format-trade-price-plain
                     :format-delta fmt/format-trade-price-delta}
       :volume-visible? volume-visible?
+      :indicator-runtime-ready? indicator-runtime-ready?
       :show-fill-markers? show-fill-markers?
       :on-hide-volume-indicator on-hide-volume-indicator
       :persistence-deps {:asset active-asset
@@ -653,8 +656,11 @@
    (chart-canvas candle-data chart-type active-indicators legend-meta selected-timeframe chart-runtime-options [] nil))
   ([candle-data chart-type active-indicators legend-meta selected-timeframe chart-runtime-options open-order-overlays on-cancel-order]
    (let [{:keys [indicators-data indicator-markers]
-         indicator-series-data :indicator-series}
-         (derived-cache/memoized-indicator-outputs candle-data selected-timeframe active-indicators)
+          indicator-series-data :indicator-series}
+         (derived-cache/memoized-indicator-outputs candle-data
+                                                  selected-timeframe
+                                                  active-indicators
+                                                  (boolean (:indicator-runtime-ready? chart-runtime-options)))
          position-overlay (:position-overlay chart-runtime-options)
          fill-markers (:fill-markers chart-runtime-options)
          on-liquidation-drag-preview (:on-liquidation-drag-preview chart-runtime-options)
@@ -765,9 +771,11 @@
                            (fmt/price-decimals-from-raw (:markRaw active-market))
                            (fmt/price-decimals-from-raw (:prevDayRaw active-market)))
         volume-visible? (boolean (get-in state [:chart-options :volume-visible?] true))
+        indicator-runtime-ready? (trading-indicators-modules/trading-indicators-ready? state)
         chart-runtime-options (memoized-chart-runtime-options
                                price-decimals
                                volume-visible?
+                               indicator-runtime-ready?
                                on-hide-volume-indicator
                                active-asset
                                candle-data

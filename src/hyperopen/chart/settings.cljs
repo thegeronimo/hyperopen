@@ -93,7 +93,8 @@
   (let [current-indicators (get-in state [:chart-options :active-indicators] {})
         new-indicators (assoc current-indicators indicator-type params)]
     [[:effects/save [:chart-options :active-indicators] new-indicators]
-     [:effects/local-storage-set-json "chart-active-indicators" (serialize-indicators new-indicators)]]))
+     [:effects/local-storage-set-json "chart-active-indicators" (serialize-indicators new-indicators)]
+     [:effects/load-trading-indicators-module]]))
 
 (defn remove-indicator
   [state indicator-type]
@@ -113,7 +114,8 @@
                  parsed-period)
         updated-indicators (assoc-in current-indicators [indicator-type :period] period)]
     [[:effects/save [:chart-options :active-indicators] updated-indicators]
-     [:effects/local-storage-set-json "chart-active-indicators" (serialize-indicators updated-indicators)]]))
+     [:effects/local-storage-set-json "chart-active-indicators" (serialize-indicators updated-indicators)]
+     [:effects/load-trading-indicators-module]]))
 
 (defn show-volume-indicator
   [_state]

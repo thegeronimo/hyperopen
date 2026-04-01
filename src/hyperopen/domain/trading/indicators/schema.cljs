@@ -18,6 +18,10 @@
   (into {}
         (map (juxt :id identity) all-indicator-definitions)))
 
+(defn indicator-definitions
+  []
+  all-indicator-definitions)
+
 (defn indicator-definition
   [indicator-type]
   (get indicator-definitions-by-id indicator-type))

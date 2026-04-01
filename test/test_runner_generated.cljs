@@ -204,6 +204,8 @@
             [hyperopen.test-runner-support-test]
             [hyperopen.trade-modules-test]
             [hyperopen.trading-crypto.module-exports-test]
+            [hyperopen.trading-indicators-modules-test]
+            [hyperopen.trading-indicators.module-exports-test]
             [hyperopen.trading.order-form-tpsl-policy-test]
             [hyperopen.trading.order-form-transitions-test]
             [hyperopen.ui.fonts-test]
@@ -327,6 +329,7 @@
             [hyperopen.views.trade.order-form-vm-test]
             [hyperopen.views.trading-chart.chart-type-dropdown-test]
             [hyperopen.views.trading-chart.core-test]
+            [hyperopen.views.trading-chart.derived-cache-test]
             [hyperopen.views.trading-chart.runtime-state-test]
             [hyperopen.views.trading-chart.timeframe-dropdown-test]
             [hyperopen.views.trading-chart.utils.chart-interop-test]
@@ -635,6 +638,8 @@
              'hyperopen.test-runner-support-test
              'hyperopen.trade-modules-test
              'hyperopen.trading-crypto.module-exports-test
+             'hyperopen.trading-indicators-modules-test
+             'hyperopen.trading-indicators.module-exports-test
              'hyperopen.trading.order-form-tpsl-policy-test
              'hyperopen.trading.order-form-transitions-test
              'hyperopen.ui.fonts-test
@@ -758,6 +763,7 @@
              'hyperopen.views.trade.order-form-vm-test
              'hyperopen.views.trading-chart.chart-type-dropdown-test
              'hyperopen.views.trading-chart.core-test
+             'hyperopen.views.trading-chart.derived-cache-test
              'hyperopen.views.trading-chart.runtime-state-test
              'hyperopen.views.trading-chart.timeframe-dropdown-test
              'hyperopen.views.trading-chart.utils.chart-interop-test

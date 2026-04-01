@@ -16,6 +16,7 @@
             [hyperopen.route-modules :as route-modules]
             [hyperopen.trade-modules :as trade-modules]
             [hyperopen.trading-crypto-modules :as trading-crypto-modules]
+            [hyperopen.trading-indicators-modules :as trading-indicators-modules]
             [hyperopen.runtime.api-effects :as api-effects]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.api.trading :as trading-api]
@@ -78,6 +79,10 @@
 (defn load-trade-chart-module-effect
   [_ store]
   (trade-modules/load-trade-chart-module! store))
+
+(defn load-trading-indicators-module-effect
+  [_ store]
+  (trading-indicators-modules/load-trading-indicators-module! store))
 
 (def make-fetch-candle-snapshot ws-adapters/make-fetch-candle-snapshot)
 

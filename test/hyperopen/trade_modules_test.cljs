@@ -11,7 +11,11 @@
     (is (true? (trade-modules/trade-chart-loading? loading-state)))
     (is (true? (get-in loaded-state [:trade-modules :chart :loaded?])))
     (is (false? (trade-modules/trade-chart-loading? loaded-state)))
-    (is (= "boom" (trade-modules/trade-chart-error failed-state)))))
+    (is (= "boom" (trade-modules/trade-chart-error failed-state)))
+    (is (= {:loaded? false
+            :loading? false
+            :error nil}
+           (get-in state [:trade-modules :indicators])))))
 
 (deftest trade-chart-ready-requires-a-resolved-exported-view-test
   (with-redefs [trade-modules/resolved-trade-chart-view (fn [] nil)

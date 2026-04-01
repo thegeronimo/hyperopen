@@ -17,6 +17,7 @@
             [hyperopen.startup.restore :as startup-restore]
             [hyperopen.startup.runtime :as startup-runtime-lib]
             [hyperopen.trade-modules :as trade-modules]
+            [hyperopen.trading-indicators-modules :as trading-indicators-modules]
             [hyperopen.ui.preferences :as ui-preferences]
             [hyperopen.vaults.infrastructure.persistence :as vault-persistence]
             [hyperopen.wallet.core :as wallet]))
@@ -141,8 +142,10 @@
 (defn- route-change-effects
   ([state path]
    (route-change-effects state path {}))
-  ([state path {:keys [defer-trade-chart?]
-                :or {defer-trade-chart? false}}]
+  ([state path {:keys [defer-trade-chart?
+                       defer-trading-indicators?]
+                :or {defer-trade-chart? false
+                     defer-trading-indicators? false}}]
    (let [normalized-path (router/normalize-path path)]
      (cond-> []
        (some? (route-modules/route-module-id normalized-path))
@@ -152,7 +155,14 @@
             (router/trade-route? normalized-path)
             (not (trade-modules/trade-chart-ready? state))
             (not (trade-modules/trade-chart-loading? state)))
-       (conj [:effects/load-trade-chart-module])))))
+       (conj [:effects/load-trade-chart-module])
+
+       (and (not defer-trading-indicators?)
+            (router/trade-route? normalized-path)
+            (seq (get-in state [:chart-options :active-indicators]))
+            (not (trading-indicators-modules/trading-indicators-ready? state))
+            (not (trading-indicators-modules/trading-indicators-loading? state)))
+       (conj [:effects/load-trading-indicators-module])))))
 
 (defn- post-render-route-effects
   [state path]
@@ -161,7 +171,13 @@
       (and (router/trade-route? normalized-path)
            (not (trade-modules/trade-chart-ready? state))
            (not (trade-modules/trade-chart-loading? state)))
-      (conj [:effects/load-trade-chart-module]))))
+      (conj [:effects/load-trade-chart-module])
+
+      (and (router/trade-route? normalized-path)
+           (seq (get-in state [:chart-options :active-indicators]))
+           (not (trading-indicators-modules/trading-indicators-ready? state))
+           (not (trading-indicators-modules/trading-indicators-loading? state)))
+      (conj [:effects/load-trading-indicators-module]))))
 
 (defn- mark-post-render-trade-secondary-panels-ready!
   [store]
@@ -198,7 +214,7 @@
        :set-on-connected-handler! wallet/set-on-connected-handler!
        :handle-wallet-connected runtime-action-adapters/handle-wallet-connected
        :init-wallet! wallet/init-wallet!
-       :init-router! (let [defer-initial-trade-chart?* (atom true)]
+       :init-router! (let [defer-initial-trade-module-loads?* (atom true)]
                        (fn [startup-store]
                          (router/init!
                           startup-store
@@ -207,8 +223,9 @@
                              (let [effects (route-change-effects
                                             @startup-store
                                             path
-                                            {:defer-trade-chart? @defer-initial-trade-chart?*})]
-                               (reset! defer-initial-trade-chart?* false)
+                                            {:defer-trade-chart? @defer-initial-trade-module-loads?*
+                                             :defer-trading-indicators? @defer-initial-trade-module-loads?*})]
+                               (reset! defer-initial-trade-module-loads?* false)
                                (when (seq effects)
                                  (nxr/dispatch startup-store nil effects))))})))
        :install-asset-selector-shortcuts! (fn []

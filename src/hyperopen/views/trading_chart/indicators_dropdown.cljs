@@ -1,6 +1,6 @@
 (ns hyperopen.views.trading-chart.indicators-dropdown
   (:require [clojure.string :as str]
-            [hyperopen.views.trading-chart.utils.indicators :as indicators]))
+            [hyperopen.views.trading-chart.utils.indicator-catalog :as indicator-catalog]))
 
 (defn- includes-query?
   [value query]
@@ -9,18 +9,18 @@
 (defn indicators-dropdown
   "Dropdown component for selecting and managing indicators."
   [{:keys [indicators-dropdown-visible volume-visible? active-indicators search-term]}]
-  (let [available-indicators (indicators/get-available-indicators)
-        indicator-by-id (into {} (map (juxt :id identity)) available-indicators)
-        query (str/lower-case (str/trim (or search-term "")))
-        filtered-indicators (if (str/blank? query)
-                              available-indicators
-                              (filter (fn [indicator]
-                                        (or (includes-query? (:name indicator) query)
-                                            (includes-query? (:short-name indicator) query)
-                                            (includes-query? (:description indicator) query)))
-                                      available-indicators))]
-    [:div.relative
-     (when indicators-dropdown-visible
+  [:div.relative
+   (when indicators-dropdown-visible
+     (let [available-indicators (indicator-catalog/get-available-indicators)
+           indicator-by-id (into {} (map (juxt :id identity)) available-indicators)
+           query (str/lower-case (str/trim (or search-term "")))
+           filtered-indicators (if (str/blank? query)
+                                 available-indicators
+                                 (filter (fn [indicator]
+                                           (or (includes-query? (:name indicator) query)
+                                               (includes-query? (:short-name indicator) query)
+                                               (includes-query? (:description indicator) query)))
+                                         available-indicators))]
        [:div
         {:class ["absolute" "left-0" "top-full" "mt-1" "w-[22rem]"
                  "bg-base-100" "opacity-100" "border" "border-base-300"
@@ -144,9 +144,9 @@
                       :on {:change [[:actions/update-indicator-period indicator-id [:event.target/value]]]}
                       :aria-label (str "Set " (:short-name indicator-info) " period")}])]
                  [:button
-                  {:type "button"
-                   :class ["rounded" "px-2" "py-1" "text-xs" "text-red-300" "hover:text-red-200"
+                 {:type "button"
+                  :class ["rounded" "px-2" "py-1" "text-xs" "text-red-300" "hover:text-red-200"
                            "hover:bg-red-500/10" "focus:outline-none" "focus-visible:ring-1"
                            "focus-visible:ring-red-300/60"]
                    :on {:click [[:actions/remove-indicator indicator-id]]}}
-                  "Remove"]]))]])])]))
+                  "Remove"]]))]])]))])

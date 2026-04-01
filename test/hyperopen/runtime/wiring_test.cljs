@@ -23,6 +23,8 @@
                     (get-in deps [:storage :persist-leaderboard-preferences])))
     (is (identical? effect-adapters/sync-asset-selector-active-ctx-subscriptions
                     (get-in deps [:asset-selector :sync-asset-selector-active-ctx-subscriptions])))
+    (is (identical? effect-adapters/load-trading-indicators-module-effect
+                    (get-in deps [:navigation :load-trading-indicators-module])))
     (is (identical? effect-adapters/fetch-candle-snapshot
                     (get-in deps [:websocket :fetch-candle-snapshot])))
     (is (identical? effect-adapters/ws-reset-subscriptions

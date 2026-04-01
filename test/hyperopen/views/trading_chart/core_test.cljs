@@ -509,7 +509,7 @@
                      :timeframe-label "1D"
                      :venue "Hyperopen"
                      :candle-data candle-data}
-        chart-runtime-options {}
+        chart-runtime-options {:indicator-runtime-ready? true}
         calls* (atom 0)]
     (derived-cache/reset-derived-cache!)
     (binding [derived-cache/*calculate-indicator* (fn [indicator-type _ config]

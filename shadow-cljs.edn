@@ -20,6 +20,8 @@
                                    :depends-on #{:main}}
                   :trade_chart {:entries [hyperopen.views.trading-chart.module]
                                 :depends-on #{:main}}
+                  :trading_indicators {:entries [hyperopen.views.trading-chart.indicators-module]
+                                       :depends-on #{:trade_chart}}
                   :portfolio_route {:entries [hyperopen.views.portfolio-view]
                                     :depends-on #{:main}}
                   :leaderboard_route {:entries [hyperopen.views.leaderboard-view]
@@ -101,6 +103,8 @@
                                        :depends-on #{:main}}
                       :trade_chart {:entries [hyperopen.views.trading-chart.module]
                                     :depends-on #{:main}}
+                      :trading_indicators {:entries [hyperopen.views.trading-chart.indicators-module]
+                                           :depends-on #{:trade_chart}}
                       :portfolio_route {:entries [hyperopen.views.portfolio-view]
                                         :depends-on #{:main}}
                       :leaderboard_route {:entries [hyperopen.views.leaderboard-view]

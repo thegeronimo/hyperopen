@@ -9,6 +9,7 @@
             [hyperopen.router :as router]
             [hyperopen.staking.actions :as staking-actions]
             [hyperopen.trade-modules :as trade-modules]
+            [hyperopen.trading-indicators-modules :as trading-indicators-modules]
             [hyperopen.vaults.actions :as vault-actions]))
 
 (def ^:private projection-effect-ids
@@ -50,6 +51,14 @@
              (not (trade-modules/trade-chart-loading? state)))
     [:effects/load-trade-chart-module]))
 
+(defn- trading-indicators-module-effect
+  [state normalized-path]
+  (when (and (router/trade-route? normalized-path)
+             (seq (get-in state [:chart-options :active-indicators]))
+             (not (trading-indicators-modules/trading-indicators-ready? state))
+             (not (trading-indicators-modules/trading-indicators-loading? state)))
+    [:effects/load-trading-indicators-module]))
+
 (defn- route-loader-effects
   [state normalized-path]
   (into []
@@ -70,10 +79,12 @@
   [state normalized-path]
   (let [module-effect (when-let [_module-id (route-modules/route-module-id normalized-path)]
                         [:effects/load-route-module normalized-path])
-        trade-chart-effect (trade-chart-module-effect state normalized-path)]
+        trade-chart-effect (trade-chart-module-effect state normalized-path)
+        trading-indicators-effect (trading-indicators-module-effect state normalized-path)]
     (cond-> []
       module-effect (conj module-effect)
-      trade-chart-effect (conj trade-chart-effect))))
+      trade-chart-effect (conj trade-chart-effect)
+      trading-indicators-effect (conj trading-indicators-effect))))
 
 (defn- browser-navigation-effect
   [browser-path replace?]

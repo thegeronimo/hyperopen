@@ -61,6 +61,7 @@
    :effects/replace-state ::common/path-args
    :effects/load-route-module ::common/path-args
    :effects/load-trade-chart-module ::common/no-args
+   :effects/load-trading-indicators-module ::common/no-args
    :effects/init-websocket ::common/no-args
    :effects/subscribe-active-asset ::common/coin-args
    :effects/subscribe-orderbook ::common/coin-args

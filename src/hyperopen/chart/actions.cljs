@@ -45,8 +45,10 @@
   [state]
   (let [current-visible (boolean (get-in state [:chart-options :indicators-dropdown-visible]))
         open-dropdown (when-not current-visible :indicators)]
-    [(chart-dropdown-projection-effect open-dropdown
-                                       [[[:chart-options :indicators-search-term] ""]])]))
+    (cond-> [(chart-dropdown-projection-effect open-dropdown
+                                               [[[:chart-options :indicators-search-term] ""]])]
+      open-dropdown
+      (conj [:effects/load-trading-indicators-module]))))
 
 (defn update-indicators-search
   [_state value]

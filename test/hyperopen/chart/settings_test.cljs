@@ -46,6 +46,14 @@
           [:effects/local-storage-set "chart-volume-visible" "false"]]
          (chart-settings/hide-volume-indicator {}))))
 
+(deftest add-indicator-persists-and-loads-indicator-runtime-test
+  (is (= [[:effects/save [:chart-options :active-indicators] {:sma {:period 20}}]
+          [:effects/local-storage-set-json "chart-active-indicators" {"sma" {:period 20}}]
+          [:effects/load-trading-indicators-module]]
+         (chart-settings/add-indicator {:chart-options {:active-indicators {}}}
+                                       :sma
+                                       {:period 20}))))
+
 (deftest update-indicator-period-parses-localized-integer-inputs-test
   (let [state {:ui {:locale "fr-FR"}
                :chart-options {:active-indicators {:ema {:period 20}}}}
@@ -54,4 +62,5 @@
         invalid-effects (chart-settings/update-indicator-period state :ema "abc")]
     (is (= 21 (get-in (nth (first decimal-effects) 2) [:ema :period])))
     (is (= 1234 (get-in (nth (first grouped-effects) 2) [:ema :period])))
-    (is (= 20 (get-in (nth (first invalid-effects) 2) [:ema :period])))))
+    (is (= 20 (get-in (nth (first invalid-effects) 2) [:ema :period])))
+    (is (= :effects/load-trading-indicators-module (first (last decimal-effects))))))

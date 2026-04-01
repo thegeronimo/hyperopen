@@ -12,6 +12,7 @@
    [:effects/replace-state :replace-state]
    [:effects/load-route-module :load-route-module]
    [:effects/load-trade-chart-module :load-trade-chart-module]
+   [:effects/load-trading-indicators-module :load-trading-indicators-module]
    [:effects/fetch-asset-selector-markets :fetch-asset-selector-markets]
    [:effects/sync-active-asset-funding-predictability :sync-active-asset-funding-predictability]
    [:effects/api-fetch-historical-orders :api-fetch-historical-orders]

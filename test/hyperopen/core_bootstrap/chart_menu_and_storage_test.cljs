@@ -37,7 +37,8 @@
     (is (= [[:effects/save-many [[[:chart-options :indicators-search-term] ""]
                                  [[:chart-options :timeframes-dropdown-visible] false]
                                  [[:chart-options :chart-type-dropdown-visible] false]
-                                 [[:chart-options :indicators-dropdown-visible] true]]]]
+                                 [[:chart-options :indicators-dropdown-visible] true]]]
+            [:effects/load-trading-indicators-module]]
            effects))))
 
 (deftest update-indicators-search-saves-string-value-test

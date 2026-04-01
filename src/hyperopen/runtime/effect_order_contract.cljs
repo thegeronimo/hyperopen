@@ -320,6 +320,7 @@
     :allow-duplicate-heavy-effects? false
    :heavy-effect-ids #{:effects/load-route-module
                        :effects/load-trade-chart-module
+                       :effects/load-trading-indicators-module
                         :effects/api-fetch-leaderboard
                         :effects/api-fetch-vault-index
                         :effects/api-fetch-vault-index-with-cache
@@ -347,6 +348,7 @@
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/load-route-module
                         :effects/load-trade-chart-module
+                        :effects/load-trading-indicators-module
                         :effects/api-fetch-leaderboard
                         :effects/api-fetch-vault-index
                         :effects/api-fetch-vault-index-with-cache
