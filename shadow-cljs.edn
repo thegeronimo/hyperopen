@@ -16,6 +16,8 @@
         :build-options {:manifest-name "manifest.json"}
         :module-loader true
         :modules {:main {:init-fn hyperopen.core/start!}
+                  :trading_crypto {:entries [hyperopen.trading-crypto.module]
+                                   :depends-on #{:main}}
                   :trade_chart {:entries [hyperopen.views.trading-chart.module]
                                 :depends-on #{:main}}
                   :portfolio_route {:entries [hyperopen.views.portfolio-view]
@@ -95,6 +97,8 @@
             :build-options {:manifest-name "manifest.json"}
             :module-loader true
             :modules {:main {:init-fn hyperopen.core/start!}
+                      :trading_crypto {:entries [hyperopen.trading-crypto.module]
+                                       :depends-on #{:main}}
                       :trade_chart {:entries [hyperopen.views.trading-chart.module]
                                     :depends-on #{:main}}
                       :portfolio_route {:entries [hyperopen.views.portfolio-view]

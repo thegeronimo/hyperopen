@@ -2,6 +2,7 @@
   (:require [cljs.test :refer-macros [async deftest is]]
             [hyperopen.api.trading :as trading]
             [hyperopen.api.trading.test-support :as support]
+            [hyperopen.trading-crypto-modules :as trading-crypto-modules]
             [hyperopen.utils.hl-signing :as signing]))
 
 (deftest approve-agent-signs-and-posts-exchange-payload-test
@@ -45,3 +46,17 @@
            (fn []
              (set! signing/sign-approve-agent-action! original-sign)
              (restore-fetch!)))))))
+
+(deftest approve-agent-rejects-when-trading-crypto-module-load-fails-test
+  (async done
+    (with-redefs [trading-crypto-modules/load-trading-crypto-module!
+                  (fn []
+                    (js/Promise.reject (js/Error. "chunk failed")))]
+      (-> (trading/approve-agent! (atom {}) support/owner-address {:type "approveAgent"
+                                                                   :nonce 1})
+          (.then (fn [_]
+                   (is false "Expected chunk load failure to reject")
+                   (done)))
+          (.catch (fn [err]
+                    (is (re-find #"chunk failed" (str err)))
+                    (done)))))))

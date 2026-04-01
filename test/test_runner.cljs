@@ -1,5 +1,6 @@
 (ns test-runner
   (:require [hyperopen.test-runner-support :as runner-support]
+            [hyperopen.trading-crypto.module]
             [test-runner-generated :as generated-runner]))
 
 (defn run-all-tests

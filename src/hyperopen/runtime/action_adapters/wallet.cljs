@@ -4,10 +4,10 @@
             [hyperopen.api.trading :as trading-api]
             [hyperopen.platform :as platform]
             [hyperopen.staking.actions :as staking-actions]
+            [hyperopen.trading-crypto-modules :as trading-crypto-modules]
             [hyperopen.wallet.actions :as wallet-actions]
             [hyperopen.wallet.agent-runtime :as agent-runtime]
             [hyperopen.wallet.agent-session :as agent-session]
-            [hyperopen.wallet.agent-session-crypto :as agent-session-crypto]
             [hyperopen.wallet.connection-runtime :as wallet-connection-runtime]))
 
 (def connect-wallet-action wallet-actions/connect-wallet-action)
@@ -39,23 +39,36 @@
                  is-mainnet true
                  agent-name nil
                  signature-chain-id nil}}]
-  (agent-runtime/enable-agent-trading!
-   {:store store
-    :options {:storage-mode storage-mode
-              :is-mainnet is-mainnet
-              :agent-name agent-name
-              :signature-chain-id signature-chain-id}
-    :create-agent-credentials! agent-session-crypto/create-agent-credentials!
-    :now-ms-fn platform/now-ms
-    :normalize-storage-mode agent-session/normalize-storage-mode
-    :default-signature-chain-id-for-environment
-    agent-session/default-signature-chain-id-for-environment
-    :build-approve-agent-action agent-session/build-approve-agent-action
-    :format-agent-name-with-valid-until agent-session/format-agent-name-with-valid-until
-    :approve-agent! trading-api/approve-agent!
-    :persist-agent-session-by-mode! agent-session/persist-agent-session-by-mode!
-    :runtime-error-message agent-runtime/runtime-error-message
-    :exchange-response-error agent-runtime/exchange-response-error}))
+  (letfn [(set-agent-load-error! [err]
+            (swap! store update-in [:wallet :agent] merge
+                   {:status :error
+                    :error (agent-runtime/runtime-error-message err)
+                    :agent-address nil
+                    :last-approved-at nil
+                    :nonce-cursor nil}))
+          (enable-with-crypto! [crypto]
+            (agent-runtime/enable-agent-trading!
+             {:store store
+              :options {:storage-mode storage-mode
+                        :is-mainnet is-mainnet
+                        :agent-name agent-name
+                        :signature-chain-id signature-chain-id}
+              :create-agent-credentials! (:create-agent-credentials! crypto)
+              :now-ms-fn platform/now-ms
+              :normalize-storage-mode agent-session/normalize-storage-mode
+              :default-signature-chain-id-for-environment
+              agent-session/default-signature-chain-id-for-environment
+              :build-approve-agent-action agent-session/build-approve-agent-action
+              :format-agent-name-with-valid-until agent-session/format-agent-name-with-valid-until
+              :approve-agent! trading-api/approve-agent!
+              :persist-agent-session-by-mode! agent-session/persist-agent-session-by-mode!
+              :runtime-error-message agent-runtime/runtime-error-message
+              :exchange-response-error agent-runtime/exchange-response-error}))]
+    (if-let [crypto (trading-crypto-modules/resolved-trading-crypto)]
+      (enable-with-crypto! crypto)
+      (-> (trading-crypto-modules/load-trading-crypto-module!)
+          (.then enable-with-crypto!)
+          (.catch set-agent-load-error!)))))
 
 (defn enable-agent-trading-action
   [state]

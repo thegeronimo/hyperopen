@@ -3,9 +3,8 @@
             [hyperopen.asset-selector.markets :as markets]
             [hyperopen.platform :as platform]
             [hyperopen.schema.contracts :as contracts]
-            [hyperopen.wallet.agent-session :as agent-session]
-            [hyperopen.wallet.agent-session-crypto :as agent-session-crypto]
-            [hyperopen.utils.hl-signing :as signing]))
+            [hyperopen.trading-crypto-modules :as trading-crypto-modules]
+            [hyperopen.wallet.agent-session :as agent-session]))
 (def exchange-url "https://api.hyperliquid.xyz/exchange")
 (def info-url "https://api.hyperliquid.xyz/info")
 
@@ -291,13 +290,16 @@
                 :t twap-id}})))
 
 (defn- safe-private-key->agent-address
-  [private-key]
-  (try
-    (some-> private-key
-            agent-session-crypto/private-key->agent-address
-            normalize-address)
-    (catch :default _
-      nil)))
+  ([private-key]
+   (when-let [crypto (trading-crypto-modules/resolved-trading-crypto)]
+     (safe-private-key->agent-address crypto private-key)))
+  ([crypto private-key]
+    (try
+      (some-> private-key
+              ((:private-key->agent-address crypto))
+              normalize-address)
+      (catch :default _
+        nil))))
 
 (defn- next-nonce [cursor]
   (let [now (platform/now-ms)
@@ -414,9 +416,9 @@
                     (js/Promise.resolve false)))))))
 
 (defn- reconcile-session-agent-address!
-  [store owner-address storage-mode session]
+  [store owner-address storage-mode session crypto]
   (let [stored-address* (normalize-address (:agent-address session))
-        derived-address* (safe-private-key->agent-address (:private-key session))
+        derived-address* (safe-private-key->agent-address crypto (:private-key session))
         needs-update? (and (seq derived-address*)
                            (not= stored-address* derived-address*))
         session* (cond-> (assoc session :storage-mode storage-mode)
@@ -428,12 +430,16 @@
     session*))
 
 (defn- resolve-agent-session
-  [store owner-address]
-  (let [agent-state (get-in @store [:wallet :agent] {})
-        storage-mode (agent-session/normalize-storage-mode (:storage-mode agent-state))
-        session (agent-session/load-agent-session-by-mode owner-address storage-mode)]
-    (when (map? session)
-      (reconcile-session-agent-address! store owner-address storage-mode session))))
+  ([store owner-address]
+   (resolve-agent-session store owner-address nil))
+  ([store owner-address crypto]
+   (let [agent-state (get-in @store [:wallet :agent] {})
+         storage-mode (agent-session/normalize-storage-mode (:storage-mode agent-state))
+         session (agent-session/load-agent-session-by-mode owner-address storage-mode)]
+     (when (map? session)
+       (if crypto
+         (reconcile-session-agent-address! store owner-address storage-mode session crypto)
+         (assoc session :storage-mode storage-mode))))))
 
 (defn- persist-agent-nonce-cursor!
   [store owner-address session nonce]
@@ -510,14 +516,14 @@
     (persist-agent-action-response! store owner-address session nonce resp)))
 
 (defn- sign-agent-action!
-  [session action nonce {:keys [vault-address expires-after is-mainnet]}]
-  (signing/sign-l1-action-with-private-key!
+  [crypto session action nonce {:keys [vault-address expires-after is-mainnet]}]
+  ((:sign-l1-action-with-private-key! crypto)
    (:private-key session)
    action
    nonce
-   :vault-address vault-address
-   :expires-after expires-after
-   :is-mainnet is-mainnet))
+   {:vault-address vault-address
+    :expires-after expires-after
+    :is-mainnet is-mainnet}))
 
 (defn- post-signed-agent-action!
   [action nonce sig {:keys [vault-address expires-after]}]
@@ -536,42 +542,40 @@
   ([store owner-address action]
    (sign-and-post-agent-action! store owner-address action {}))
   ([store owner-address action raw-options]
-   (let [session (resolve-agent-session store owner-address)
-         options (normalize-agent-action-options raw-options)]
-     (if-let [rejection (missing-agent-session-rejection session)]
-       rejection
-       (letfn [(attempt! [cursor retries-left]
-                 (let [nonce (next-nonce cursor)]
-                   (-> (sign-agent-action! session action nonce options)
-                       (.then #(post-signed-agent-action! action nonce % options))
-                       (.then (fn [resp]
-                                (handle-agent-action-response!
-                                 store
-                                 owner-address
-                                 session
-                                 nonce
-                                 resp
-                                 retries-left
-                                 (next-retry-callback attempt! nonce retries-left)))))))]
-         (attempt! (or (:nonce-cursor session)
-                       (get-in @store [:wallet :agent :nonce-cursor]))
-                   (:max-nonce-retries options)))))))
+   (let [options (normalize-agent-action-options raw-options)]
+     (-> (trading-crypto-modules/load-trading-crypto-module!)
+         (.then
+          (fn [crypto]
+            (let [session (resolve-agent-session store owner-address crypto)]
+              (if-let [rejection (missing-agent-session-rejection session)]
+                rejection
+                (letfn [(attempt! [cursor retries-left]
+                          (let [nonce (next-nonce cursor)]
+                            (-> (sign-agent-action! crypto session action nonce options)
+                                (.then (fn [sig]
+                                         (post-signed-agent-action! action nonce sig options)))
+                                (.then (fn [resp]
+                                         (handle-agent-action-response!
+                                          store
+                                          owner-address
+                                          session
+                                          nonce
+                                          resp
+                                          retries-left
+                                          (next-retry-callback attempt! nonce retries-left)))))))]
+                  (attempt! (or (:nonce-cursor session)
+                                (get-in @store [:wallet :agent :nonce-cursor]))
+                            (:max-nonce-retries options)))))))))))
 
-(defn submit-order!
-  [store address action]
-  (sign-and-post-agent-action! store address action))
-
-(defn cancel-order!
-  [store address action]
-  (sign-and-post-agent-action! store address action))
-
-(defn submit-vault-transfer!
-  [store address action]
-  (sign-and-post-agent-action! store address action))
+(defn submit-order! [store address action] (sign-and-post-agent-action! store address action))
+(defn cancel-order! [store address action] (sign-and-post-agent-action! store address action))
+(defn submit-vault-transfer! [store address action] (sign-and-post-agent-action! store address action))
 
 (defn approve-agent!
   [store address action]
-  (-> (signing/sign-approve-agent-action! address action)
+  (-> (trading-crypto-modules/load-trading-crypto-module!)
+      (.then (fn [crypto]
+               ((:sign-approve-agent-action! crypto) address action)))
       (.then (fn [sig]
                (let [{:keys [r s v]} (js->clj sig :keywordize-keys true)
                      payload {:action action
@@ -583,14 +587,19 @@
                      (json-post! exchange-url payload)))))))
 
 (defn- sign-and-post-user-action!
-  [store address action nonce-field sign-action!]
+  [store address action nonce-field sign-action-key]
   (let [{:keys [signature-chain-id hyperliquid-chain]} (resolve-user-signing-context store)
         nonce (next-user-signed-nonce! store)
         action* (-> action
                     (assoc :signatureChainId signature-chain-id
                            :hyperliquidChain hyperliquid-chain)
                     (assoc nonce-field nonce))]
-    (-> (sign-action! address action*)
+    (-> (trading-crypto-modules/load-trading-crypto-module!)
+        (.then (fn [crypto]
+                 (when-not (contains? crypto sign-action-key)
+                   (throw (js/Error.
+                           (str "Missing trading crypto signer: " sign-action-key))))
+                 ((get crypto sign-action-key) address action*)))
         (.then (fn [sig]
                  (let [{:keys [r s v]} (js->clj sig :keywordize-keys true)
                        signature {:r r
@@ -599,50 +608,20 @@
                    (-> (post-signed-action! action* nonce signature)
                        (.then parse-json!))))))))
 
-(defn submit-usd-class-transfer!
-  [store address action]
-  (sign-and-post-user-action! store
-                              address
-                              action
-                              :nonce
-                              signing/sign-usd-class-transfer-action!))
+(defn submit-usd-class-transfer! [store address action]
+  (sign-and-post-user-action! store address action :nonce :sign-usd-class-transfer-action!))
 
-(defn submit-send-asset!
-  [store address action]
-  (sign-and-post-user-action! store
-                              address
-                              action
-                              :nonce
-                              signing/sign-send-asset-action!))
+(defn submit-send-asset! [store address action]
+  (sign-and-post-user-action! store address action :nonce :sign-send-asset-action!))
 
-(defn submit-c-deposit!
-  [store address action]
-  (sign-and-post-user-action! store
-                              address
-                              action
-                              :nonce
-                              signing/sign-c-deposit-action!))
+(defn submit-c-deposit! [store address action]
+  (sign-and-post-user-action! store address action :nonce :sign-c-deposit-action!))
 
-(defn submit-c-withdraw!
-  [store address action]
-  (sign-and-post-user-action! store
-                              address
-                              action
-                              :nonce
-                              signing/sign-c-withdraw-action!))
+(defn submit-c-withdraw! [store address action]
+  (sign-and-post-user-action! store address action :nonce :sign-c-withdraw-action!))
 
-(defn submit-token-delegate!
-  [store address action]
-  (sign-and-post-user-action! store
-                              address
-                              action
-                              :nonce
-                              signing/sign-token-delegate-action!))
+(defn submit-token-delegate! [store address action]
+  (sign-and-post-user-action! store address action :nonce :sign-token-delegate-action!))
 
-(defn submit-withdraw3!
-  [store address action]
-  (sign-and-post-user-action! store
-                              address
-                              action
-                              :time
-                              signing/sign-withdraw3-action!))
+(defn submit-withdraw3! [store address action]
+  (sign-and-post-user-action! store address action :time :sign-withdraw3-action!))

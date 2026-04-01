@@ -4,6 +4,7 @@
             [hyperopen.test-support.api-stubs :as api-stubs]
             [hyperopen.test-support.async :as async-support]
             [hyperopen.api.trading.test-support :as support]
+            [hyperopen.trading-crypto-modules :as trading-crypto-modules]
             [hyperopen.wallet.agent-session :as agent-session]
             [hyperopen.utils.hl-signing :as signing]))
 
@@ -165,7 +166,6 @@
           persisted (atom [])
           original-load agent-session/load-agent-session-by-mode
           original-persist agent-session/persist-agent-session-by-mode!
-          original-sign signing/sign-l1-action-with-private-key!
           restore-fetch! (support/install-fetch-stub!
                           (fn [_url _opts]
                             (js/Promise.resolve
@@ -179,27 +179,31 @@
             (fn [wallet-address storage-mode session]
               (swap! persisted conj [wallet-address storage-mode session])
               true))
-      (set! signing/sign-l1-action-with-private-key! (api-stubs/signing-stub))
-      (-> (trading/submit-order! store
-                                 support/owner-address
-                                 {:type "order"
-                                  :orders []
-                                  :grouping "na"})
-          (.then (fn [resp]
-                   (is (= "ok" (:status resp)))
-                   (is (= 2 (count @persisted)))
-                   (is (= "0x8fd379246834eac74b8419ffda202cf8051f7a03"
-                          (get-in (nth @persisted 0) [2 :agent-address])))
-                   (is (= "0x8fd379246834eac74b8419ffda202cf8051f7a03"
-                          (get-in @store [:wallet :agent :agent-address])))
-                   (done)))
-          (.catch (async-support/unexpected-error done))
-          (.finally
-           (fn []
-             (set! agent-session/load-agent-session-by-mode original-load)
-             (set! agent-session/persist-agent-session-by-mode! original-persist)
-             (set! signing/sign-l1-action-with-private-key! original-sign)
-             (restore-fetch!)))))))
+      (with-redefs [trading-crypto-modules/load-trading-crypto-module!
+                    (fn []
+                      (js/Promise.resolve
+                       {:private-key->agent-address (fn [_]
+                                                     "0x8fd379246834eac74b8419ffda202cf8051f7a03")
+                        :sign-l1-action-with-private-key! (api-stubs/signing-stub)}))]
+        (-> (trading/submit-order! store
+                                   support/owner-address
+                                   {:type "order"
+                                    :orders []
+                                    :grouping "na"})
+            (.then (fn [resp]
+                     (is (= "ok" (:status resp)))
+                     (is (= 2 (count @persisted)))
+                     (is (= "0x8fd379246834eac74b8419ffda202cf8051f7a03"
+                            (get-in (nth @persisted 0) [2 :agent-address])))
+                     (is (= "0x8fd379246834eac74b8419ffda202cf8051f7a03"
+                            (get-in @store [:wallet :agent :agent-address])))
+                     (done)))
+            (.catch (async-support/unexpected-error done))
+            (.finally
+             (fn []
+               (set! agent-session/load-agent-session-by-mode original-load)
+               (set! agent-session/persist-agent-session-by-mode! original-persist)
+               (restore-fetch!))))))))
 
 (deftest submit-order-preserves-agent-session-when-vault-is-not-registered-test
   (async done

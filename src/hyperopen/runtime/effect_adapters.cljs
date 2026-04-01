@@ -15,13 +15,13 @@
             [hyperopen.runtime.effect-adapters.websocket :as ws-adapters]
             [hyperopen.route-modules :as route-modules]
             [hyperopen.trade-modules :as trade-modules]
+            [hyperopen.trading-crypto-modules :as trading-crypto-modules]
             [hyperopen.runtime.api-effects :as api-effects]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.api.trading :as trading-api]
             [hyperopen.platform :as platform]
             [hyperopen.wallet.agent-runtime :as agent-runtime]
             [hyperopen.wallet.agent-session :as agent-session]
-            [hyperopen.wallet.agent-session-crypto :as agent-session-crypto]
             [hyperopen.websocket.client :as ws-client]))
 
 (def append-diagnostics-event! ws-adapters/append-diagnostics-event!)
@@ -336,10 +336,21 @@
 
 (defn generate-api-wallet-effect
   [_ store]
-  (api-wallets-effects/generate-api-wallet!
-   {:store store
-    :create-agent-credentials! agent-session-crypto/create-agent-credentials!
-    :runtime-error-message agent-runtime/runtime-error-message}))
+  (letfn [(generate-with-crypto! [crypto]
+            (api-wallets-effects/generate-api-wallet!
+             {:store store
+              :create-agent-credentials! (:create-agent-credentials! crypto)
+              :runtime-error-message agent-runtime/runtime-error-message}))]
+    (if-let [crypto (trading-crypto-modules/resolved-trading-crypto)]
+      (generate-with-crypto! crypto)
+      (-> (trading-crypto-modules/load-trading-crypto-module!)
+          (.then generate-with-crypto!)
+          (.catch (fn [err]
+                    (api-wallets-effects/generate-api-wallet!
+                     {:store store
+                      :create-agent-credentials! (fn []
+                                                   (throw err))
+                      :runtime-error-message agent-runtime/runtime-error-message})))))))
 
 (defn api-authorize-api-wallet-effect
   [_ store]
