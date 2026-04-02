@@ -765,7 +765,10 @@
         divider (find-node-by-data-role utility-links "footer-links-divider")]
     (is (some? utility-links))
     (is (nil? text-links))
-    (is (nil? divider))))
+    (is (nil? divider))
+    (is (zero? (count-nodes #(and (vector? %)
+                                  (= "footer-text-link" (get-in % [1 :data-role])))
+                            view)))))
 
 (deftest footer-social-icons-render-inline-current-color-svgs-in-utility-cluster-test
   (let [view (footer-view/footer-view (base-state))
