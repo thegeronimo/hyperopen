@@ -44,6 +44,8 @@
    [:actions/mark-missing-asset-icon :mark-missing-asset-icon]
    [:actions/set-funding-tooltip-visible :set-funding-tooltip-visible]
    [:actions/set-funding-tooltip-pinned :set-funding-tooltip-pinned]
+   [:actions/enter-funding-hypothetical-position :enter-funding-hypothetical-position]
+   [:actions/reset-funding-hypothetical-position :reset-funding-hypothetical-position]
    [:actions/set-funding-hypothetical-size :set-funding-hypothetical-size]
    [:actions/set-funding-hypothetical-value :set-funding-hypothetical-value]
    [:actions/toggle-timeframes-dropdown :toggle-timeframes-dropdown]

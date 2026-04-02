@@ -227,6 +227,31 @@
                      (done)))
             (.catch (async-support/unexpected-error done)))))))
 
+(deftest sync-active-asset-funding-predictability-allows-namespaced-active-market-tooltip-test
+  (async done
+    (let [market-coin "xyz:BRENTOIL"
+          store (atom {:active-asset "BRENTOIL"
+                       :active-market {:coin "xyz:BRENTOIL"
+                                       :dex "xyz"
+                                       :market-type :perp}
+                       :active-assets {:funding-predictability {:by-coin {}
+                                                                :loading-by-coin {}
+                                                                :error-by-coin {}
+                                                                :loaded-at-ms-by-coin {}}}
+                       :funding-ui {:tooltip {:visible-id (funding-policy/funding-tooltip-pin-id "xyz:BRENTOIL")}}})
+          request-calls (atom [])]
+      (with-redefs [funding-cache/sync-market-funding-history-cache!
+                    (fn [coin]
+                      (swap! request-calls conj coin)
+                      (js/Promise.resolve {:rows []}))]
+        (-> (funding-adapters/sync-active-asset-funding-predictability nil store market-coin)
+            (.then (fn [_]
+                     (is (= [market-coin] @request-calls))
+                     (is (= false
+                            (get-in @store [:active-assets :funding-predictability :loading-by-coin market-coin])))
+                     (done)))
+            (.catch (async-support/unexpected-error done)))))))
+
 (deftest sync-active-asset-funding-predictability-string-error-falls-back-to-str-test
   (async done
     (let [store (atom {:active-asset "BTC"

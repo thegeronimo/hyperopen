@@ -749,6 +749,96 @@ test("funding modal deposit flow selects USDC @regression", async ({ page }) => 
   });
 });
 
+test("funding tooltip transitions from live position to hypothetical estimate @regression", async ({ page }) => {
+  const livePosition = {
+    coin: "BTC",
+    szi: "9.2807",
+    positionValue: "1000",
+    entryPx: "107.7426",
+    markPx: "107.7426",
+    unrealizedPnl: "0",
+    returnOnEquity: "0",
+    liquidationPx: "80",
+    marginUsed: "250",
+    leverage: { value: 4 },
+    cumFunding: { sinceOpen: "0" }
+  };
+  const livePositionValue = Number(livePosition.positionValue).toFixed(2);
+
+  await visitRoute(page, "/trade/BTC");
+  await debugCall(page, "seedFundingTooltipFixture", {
+    coin: "BTC",
+    mark: 107.7426,
+    oracle: 107.61,
+    fundingRate: 0.00015
+  });
+  await page.evaluate((position) => {
+    const c = globalThis.cljs?.core;
+    const store = globalThis.hyperopen?.system?.store;
+
+    if (!c || !store) {
+      throw new Error("Hyperopen store or cljs core unavailable");
+    }
+
+    const keyword = c.keyword;
+    const opts = c.PersistentArrayMap.fromArray([keyword("keywordize-keys"), true], true);
+    const nextWebdata2 = c.js__GT_clj(
+      {
+        clearinghouseState: {
+          assetPositions: [position]
+        }
+      },
+      opts
+    );
+    const nextState = c.assoc_in(
+      c.deref(store),
+      c.PersistentVector.fromArray([keyword("webdata2")], true),
+      nextWebdata2
+    );
+
+    c.reset_BANG_(store, nextState);
+  }, livePosition);
+  await dispatch(page, [":actions/reset-funding-hypothetical-position", "BTC"]);
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 6_000, pollMs: 50 });
+
+  const tooltipTrigger = page.locator('[data-role="active-asset-funding-trigger"]');
+  await expect(tooltipTrigger).toHaveCount(1);
+  await tooltipTrigger.click({ force: true });
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+  const tooltip = page.locator('[data-role="active-asset-funding-tooltip"]');
+  const positionSection = tooltip.locator('[data-role="active-asset-funding-position-section"]');
+  await expect(positionSection).toHaveAttribute("data-position-mode", "live");
+  await expect(tooltip.getByRole("heading", { name: "Your Position" })).toBeVisible();
+  await expect(tooltip.getByRole("button", { name: "Edit estimate" })).toBeVisible();
+
+  await tooltip.getByRole("button", { name: "Edit estimate" }).click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(positionSection).toHaveAttribute("data-position-mode", "hypothetical");
+  await expect(tooltip.getByRole("heading", { name: "Hypothetical Position" })).toBeVisible();
+  await expect(tooltip.getByRole("button", { name: "Use live" })).toBeVisible();
+
+  const sizeInput = tooltip.getByLabel("Hypothetical position size");
+  const valueInput = tooltip.getByLabel("Hypothetical position value");
+  await expect(sizeInput).toHaveValue("9.2807");
+  await expect(valueInput).toHaveValue(livePositionValue);
+
+  const next24hPayment = tooltip
+    .locator('div.contents')
+    .filter({ hasText: "Next 24h" })
+    .locator("span")
+    .nth(2);
+  const next24hBefore = (await next24hPayment.textContent())?.trim() ?? "";
+
+  await sizeInput.fill("10.0000");
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+  await expect.poll(
+    async () => (await next24hPayment.textContent())?.trim() ?? "",
+    { timeout: 5_000 }
+  ).not.toBe(next24hBefore);
+});
+
 test("wallet connect and enable trading stays deterministic @regression", async ({ page }) => {
   await visitRoute(page, "/trade");
 

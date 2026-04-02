@@ -54,6 +54,7 @@
             [hyperopen.app.startup-test]
             [hyperopen.asset-selector.actions-test]
             [hyperopen.asset-selector.active-market-cache-test]
+            [hyperopen.asset-selector.funding-drafts-test]
             [hyperopen.asset-selector.icon-status-runtime-test]
             [hyperopen.asset-selector.market-live-projection-test]
             [hyperopen.asset-selector.markets-cache-test]
@@ -192,6 +193,7 @@
             [hyperopen.state.app-defaults-test]
             [hyperopen.state.trading-test]
             [hyperopen.state.trading.identity-and-submit-policy-test]
+            [hyperopen.state.trading.market-position-lookup-test]
             [hyperopen.state.trading.market-summary-test]
             [hyperopen.state.trading.order-form-key-policy-test]
             [hyperopen.state.trading.order-form-ownership-formal-conformance-test]
@@ -492,6 +494,7 @@
              'hyperopen.app.startup-test
              'hyperopen.asset-selector.actions-test
              'hyperopen.asset-selector.active-market-cache-test
+             'hyperopen.asset-selector.funding-drafts-test
              'hyperopen.asset-selector.icon-status-runtime-test
              'hyperopen.asset-selector.market-live-projection-test
              'hyperopen.asset-selector.markets-cache-test
@@ -630,6 +633,7 @@
              'hyperopen.state.app-defaults-test
              'hyperopen.state.trading-test
              'hyperopen.state.trading.identity-and-submit-policy-test
+             'hyperopen.state.trading.market-position-lookup-test
              'hyperopen.state.trading.market-summary-test
              'hyperopen.state.trading.order-form-key-policy-test
              'hyperopen.state.trading.order-form-ownership-formal-conformance-test

@@ -95,6 +95,8 @@
     mark-missing-asset-icon
     set-funding-tooltip-visible
     set-funding-tooltip-pinned
+    enter-funding-hypothetical-position
+    reset-funding-hypothetical-position
     set-funding-hypothetical-size
     set-funding-hypothetical-value
     restore-open-orders-sort-settings!

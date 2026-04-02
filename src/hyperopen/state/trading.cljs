@@ -1,8 +1,10 @@
 (ns hyperopen.state.trading
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
+            [hyperopen.asset-selector.markets :as markets]
             [hyperopen.api.gateway.orders.commands :as order-commands]
             [hyperopen.domain.trading :as trading-domain]
+            [hyperopen.domain.trading.market :as trading-market]
             [hyperopen.state.trading.order-form-key-policy :as order-form-key-policy]
             [hyperopen.state.trading.fee-context :as trading-fee-context]
             [hyperopen.trading.order-form-state :as order-form-state]
@@ -71,7 +73,8 @@
          build-order-request
          market-identity
          market-max-leverage
-         cross-margin-allowed?)
+         cross-margin-allowed?
+         active-clearinghouse-state-for-market)
 
 (defn order-form-ui-overrides-from-form
   "Extract UI-owned order-form fields from a normalized working form."
@@ -196,10 +199,7 @@
   (trading-submit-policy/effective-margin-mode (:active-market state) mode))
 
 (defn- active-clearinghouse-state [state]
-  (let [dex (get-in state [:active-market :dex])]
-    (if (and (string? dex) (seq dex))
-      (get-in state [:perp-dex-clearinghouse dex])
-      (get-in state [:webdata2 :clearinghouseState]))))
+  (active-clearinghouse-state-for-market state (:active-market state)))
 
 (defn- parse-int-value
   [value]
@@ -215,6 +215,28 @@
   [market]
   (let [dex (some-> (:dex market) str str/trim)]
     (seq dex)))
+
+(defn- normalize-dex-key
+  [value]
+  (some-> value str str/trim str/lower-case not-empty))
+
+(defn- unwrap-clearinghouse-state
+  [clearinghouse-state]
+  (let [state* (or clearinghouse-state {})]
+    (if (map? (:clearinghouseState state*))
+      (:clearinghouseState state*)
+      state*)))
+
+(defn- named-dex-clearinghouse-state
+  [state dex]
+  (let [dex* (normalize-dex-key dex)
+        by-dex (or (:perp-dex-clearinghouse state) {})]
+    (or (get by-dex dex)
+        (when (seq dex*)
+          (some (fn [[candidate-dex clearinghouse-state]]
+                  (when (= dex* (normalize-dex-key candidate-dex))
+                    clearinghouse-state))
+                by-dex)))))
 
 (defn- market-asset-id
   [market]
@@ -272,8 +294,42 @@
 (defn available-to-trade [state]
   (trading-domain/available-to-trade (trading-context state)))
 
+(defn- resolved-active-market
+  [state]
+  (let [active-asset (:active-asset state)
+        projected-market (:active-market state)
+        market-by-key (get-in state [:asset-selector :market-by-key])]
+    (cond
+      (and (map? projected-market)
+           (markets/market-matches-coin? projected-market active-asset))
+      projected-market
+
+      (and (map? market-by-key)
+           (seq active-asset))
+      (or (markets/resolve-or-infer-market-by-coin market-by-key active-asset)
+          projected-market)
+
+      :else
+      projected-market)))
+
+(defn- active-clearinghouse-state-for-market
+  [state market]
+  (let [dex (some-> (:dex market) str str/trim)]
+    (unwrap-clearinghouse-state
+     (if (seq dex)
+       (named-dex-clearinghouse-state state dex)
+       (get-in state [:webdata2 :clearinghouseState])))))
+
+(defn position-for-market
+  [state active-asset market]
+  (let [market* (or market (resolved-active-market state))
+        context {:active-asset active-asset
+                 :market market*
+                 :clearinghouse (or (active-clearinghouse-state-for-market state market*) {})}]
+    (trading-market/position-for-market context)))
+
 (defn position-for-active-asset [state]
-  (trading-domain/position-for-active-asset (trading-context state)))
+  (position-for-market state (:active-asset state) (resolved-active-market state)))
 
 (defn current-position-summary [state]
   (trading-domain/current-position-summary (trading-context state)))

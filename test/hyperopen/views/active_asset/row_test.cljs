@@ -254,8 +254,8 @@
                             :asset-selector {:missing-icons #{}}
                             :trade-ui {:mobile-asset-details-open? true}}
                            (support/with-visible-funding-tooltip "xyz:GOLD"))]
-        (with-redefs [trading/position-for-active-asset
-                      (fn [_] nil)
+        (with-redefs [trading/position-for-market
+                      (fn [_ _ _] nil)
                       fmt/format-funding-countdown
                       (fn [] "00:10:00")]
           (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)

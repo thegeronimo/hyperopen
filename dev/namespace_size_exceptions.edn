@@ -51,7 +51,6 @@
  {:path "test/hyperopen/api/fetch_compat_test.cljs" :owner "platform" :reason "Architecture remediation wave baseline oversized namespace pending split or tightened facade." :max-lines 622 :retire-by "2026-06-30"}
  {:path "test/hyperopen/api_test.cljs" :owner "platform" :reason "Architecture remediation wave baseline oversized namespace pending split or tightened facade." :max-lines 753 :retire-by "2026-06-30"}
  {:path "test/hyperopen/api_wallets/effects_test.cljs" :owner "platform" :reason "Architecture remediation wave baseline oversized namespace pending split or tightened facade." :max-lines 589 :retire-by "2026-06-30"}
- {:path "test/hyperopen/asset_selector/actions_test.cljs" :owner "platform" :reason "Architecture remediation wave baseline oversized namespace pending split or tightened facade." :max-lines 546 :retire-by "2026-06-30"}
  {:path "test/hyperopen/core_bootstrap/account_history_actions_test.cljs" :owner "platform" :reason "Architecture remediation wave baseline oversized namespace pending split or tightened facade." :max-lines 519 :retire-by "2026-06-30"}
  {:path "test/hyperopen/core_bootstrap/order_entry_actions_test.cljs" :owner "platform" :reason "Architecture remediation wave baseline oversized namespace pending split or tightened facade." :max-lines 812 :retire-by "2026-06-30"}
  {:path "test/hyperopen/funding/actions_test.cljs" :owner "platform" :reason "Architecture remediation wave baseline oversized namespace pending split or tightened facade." :max-lines 1210 :retire-by "2026-06-30"}

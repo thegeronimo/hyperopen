@@ -171,7 +171,7 @@
                       sync-candle-subscription-fn
                       clear-candle-subscription-fn]
                :or {log-fn telemetry/log!
-                    resolve-market-by-coin-fn markets/resolve-market-by-coin
+                    resolve-market-by-coin-fn markets/resolve-or-infer-market-by-coin
                     subscribe-active-asset-ctx-fn active-ctx/subscribe-active-asset-ctx!
                     sync-candle-subscription-fn candles/sync-candle-subscription!
                     clear-candle-subscription-fn candles/clear-owner-subscription!}}]

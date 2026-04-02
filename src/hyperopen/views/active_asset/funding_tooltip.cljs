@@ -90,7 +90,8 @@
            hypothetical-value-input
            hypothetical-coin
            hypothetical-mark
-           position-base-symbol]}]
+           position-base-symbol
+           hypothetical-helper-text]}]
   [:div
    [:div {:class ["grid"
                   "grid-cols-[minmax(3.75rem,auto)_minmax(0,1fr)]"
@@ -190,7 +191,8 @@
                 "text-[0.72rem]"
                 "leading-[1.05rem]"
                 "text-gray-400"]}
-    "Edit size or value to estimate payments. Use negative size or value for short."]])
+    (or hypothetical-helper-text
+        "Edit size or value to estimate payments. Use negative size or value for short.")]])
 
 (defn- live-position-summary
   [{:keys [position-size-label position-value]}]
@@ -210,16 +212,48 @@
       "—")]])
 
 (defn- position-section
-  [{:keys [position-mode] :as model}]
-  [:div {:class ["mb-3"]}
-   [:h4 {:class ["mb-1.5"
-                 "text-[0.9rem]"
-                 "font-semibold"
-                 "leading-5"
-                 "text-gray-100"]}
-    (if (= position-mode :hypothetical)
-      "Hypothetical Position"
-      "Position")]
+  [{:keys [position-mode
+           position-title
+           position-action-label
+           position-action-coin
+           position-action-mark
+           position-action-entry
+           position-pin-id] :as model}]
+  [:div {:class ["mb-3"]
+         :data-role "active-asset-funding-position-section"
+         :data-position-mode (name position-mode)}
+   [:div {:class ["mb-1.5" "flex" "items-center" "justify-between" "gap-3"]}
+    [:h4 {:class ["text-[0.9rem]"
+                  "font-semibold"
+                  "leading-5"
+                  "text-gray-100"]}
+     position-title]
+    (when (seq position-action-label)
+      [:button {:type "button"
+                :class ["text-[0.72rem]"
+                        "font-medium"
+                        "leading-4"
+                        "text-emerald-300"
+                        "transition-colors"
+                        "hover:text-emerald-200"
+                        "focus:outline-none"
+                        "focus:ring-0"
+                        "focus:ring-offset-0"]
+                :data-role "active-asset-funding-position-action"
+                :on {:click (if (= position-mode :hypothetical)
+                              [[:actions/reset-funding-hypothetical-position
+                                position-action-coin]]
+                              [[:actions/enter-funding-hypothetical-position
+                                position-action-coin
+                                position-action-mark
+                                position-action-entry]
+                               [:actions/set-funding-tooltip-pinned
+                                position-pin-id
+                                true]
+                               [:actions/set-funding-tooltip-visible
+                                position-pin-id
+                                true]])}}
+       position-action-label])]
    (if (= position-mode :hypothetical)
      (hypothetical-position-inputs model)
      (live-position-summary model))])

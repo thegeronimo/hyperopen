@@ -1,8 +1,8 @@
 (ns hyperopen.asset-selector.actions
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
-            [hyperopen.active-asset.funding-policy :as funding-policy]
             [hyperopen.account.history.shared :as history-shared]
+            [hyperopen.asset-selector.funding-drafts :as funding-drafts]
             [hyperopen.asset-selector.list-metrics :as list-metrics]
             [hyperopen.asset-selector.markets :as markets]
             [hyperopen.router :as router]
@@ -23,9 +23,6 @@
 
 (def ^:private asset-selector-active-tab-storage-key
   "asset-selector-active-tab")
-
-(def ^:private funding-hypothetical-default-value
-  1000)
 
 (def asset-selector-default-render-limit
   list-metrics/default-render-limit)
@@ -78,39 +75,6 @@
                (not (js/isNaN num)))
       (js/Math.floor num))))
 
-(defn- parse-finite-number
-  [value]
-  (let [num (cond
-              (number? value) value
-              (string? value) (let [text (str/trim value)]
-                                (if (seq text)
-                                  (js/Number text)
-                                  js/NaN))
-              :else js/NaN)]
-    (when (and (number? num)
-               (js/isFinite num))
-      num)))
-
-(defn- normalize-decimal-input
-  [value]
-  (-> (str (or value ""))
-      (str/replace #"\$" "")
-      str/trim))
-
-(defn- parse-decimal-input
-  ([value]
-   (parse-decimal-input value nil))
-  ([value locale]
-   (parse-utils/parse-localized-currency-decimal
-    (normalize-decimal-input value)
-    locale)))
-
-(defn- normalize-coin-key
-  [coin]
-  (let [text (some-> coin str str/trim)]
-    (when (seq text)
-      (str/upper-case text))))
-
 (defn- trade-route-sync-effects
   [state canonical-coin]
   (let [current-route (some-> (get-in state [:router :path]) str str/trim)
@@ -130,31 +94,6 @@
         [[:effects/save [:router :path] target-route]
          [:effects/push-state browser-route]])
       [])))
-
-(defn- format-fixed
-  [value digits]
-  (if (and (number? value)
-           (js/isFinite value))
-    (.toFixed value digits)
-    ""))
-
-(defn- default-hypothetical-size-input
-  [mark]
-  (let [mark* (parse-finite-number mark)]
-    (when (and (number? mark*)
-               (pos? mark*))
-      (format-fixed (/ funding-hypothetical-default-value mark*) 4))))
-
-(defn- default-hypothetical-entry
-  [mark]
-  {:size-input (or (default-hypothetical-size-input mark) "")
-   :value-input (format-fixed funding-hypothetical-default-value 2)})
-
-(defn- hypothetical-entry
-  [state coin mark]
-  (let [stored (get-in state [:funding-ui :hypothetical-position-by-coin coin])]
-    (merge (default-hypothetical-entry mark)
-           (if (map? stored) stored {}))))
 
 (defn- parse-time-ms
   [value]
@@ -306,17 +245,17 @@
                      :else nil)
         market (cond
                  (map? market-or-coin)
-                 (or (markets/resolve-market-by-coin market-by-key input-coin)
+                 (or (markets/resolve-or-infer-market-by-coin market-by-key input-coin)
                      market-or-coin)
 
                  (string? market-or-coin)
-                 (markets/resolve-market-by-coin market-by-key market-or-coin)
+                 (markets/resolve-or-infer-market-by-coin market-by-key market-or-coin)
 
                  :else nil)
         coin (or (:coin market) input-coin)
         resolved-market (or market
                             (when (string? coin)
-                              (markets/resolve-market-by-coin market-by-key coin)))
+                              (markets/resolve-or-infer-market-by-coin market-by-key coin)))
         canonical-coin (or (:coin resolved-market) coin)
         current-asset (get-in state [:active-asset])
         switched-asset? (and (seq canonical-coin)
@@ -567,76 +506,9 @@
                                             :icon-status :missing}]]
         []))))
 
-(defn set-funding-tooltip-visible
-  [state tooltip-id visible?]
-  (let [tooltip-id* (some-> tooltip-id str str/trim)
-        current-visible-id (get-in state [:funding-ui :tooltip :visible-id])
-        active-asset (some-> (:active-asset state) str str/trim)
-        active-tooltip-id (some-> active-asset funding-policy/funding-tooltip-pin-id)
-        next-visible-id (cond
-                          (and (true? visible?) (seq tooltip-id*)) tooltip-id*
-                          (= current-visible-id tooltip-id*) nil
-                          :else current-visible-id)]
-    (if (= current-visible-id next-visible-id)
-      []
-      (cond-> [[:effects/save [:funding-ui :tooltip :visible-id] next-visible-id]]
-        (and (true? visible?)
-             (seq active-asset)
-             (= active-tooltip-id next-visible-id))
-        (conj [:effects/sync-active-asset-funding-predictability active-asset])))))
-
-(defn set-funding-tooltip-pinned
-  [state tooltip-id pinned?]
-  (let [tooltip-id* (some-> tooltip-id str str/trim)
-        current-pinned-id (get-in state [:funding-ui :tooltip :pinned-id])
-        next-pinned-id (cond
-                         (and (true? pinned?) (seq tooltip-id*)) tooltip-id*
-                         (= current-pinned-id tooltip-id*) nil
-                         :else current-pinned-id)]
-    (if (= current-pinned-id next-pinned-id)
-      []
-      [[:effects/save [:funding-ui :tooltip :pinned-id] next-pinned-id]])))
-
-(defn set-funding-hypothetical-size
-  [state coin mark size-input]
-  (if-let [coin* (normalize-coin-key coin)]
-    (let [locale (get-in state [:ui :locale])
-          size-input* (normalize-decimal-input size-input)
-          mark* (parse-finite-number mark)
-          size* (parse-decimal-input size-input* locale)
-          next-value (when (and (number? mark*)
-                                (pos? mark*)
-                                (number? size*))
-                       (* (js/Math.abs size*) mark*))
-          by-coin (or (get-in state [:funding-ui :hypothetical-position-by-coin]) {})
-          next-entry (cond-> (hypothetical-entry state coin* mark)
-                       true (assoc :size-input size-input*)
-                       (number? next-value) (assoc :value-input (format-fixed next-value 2)))
-          next-by-coin (assoc by-coin coin* next-entry)]
-      [[:effects/save [:funding-ui :hypothetical-position-by-coin] next-by-coin]])
-    []))
-
-(defn set-funding-hypothetical-value
-  [state coin mark value-input]
-  (if-let [coin* (normalize-coin-key coin)]
-    (let [locale (get-in state [:ui :locale])
-          value-input* (normalize-decimal-input value-input)
-          mark* (parse-finite-number mark)
-          value* (parse-decimal-input value-input* locale)
-          sign (if (or (str/starts-with? value-input* "-")
-                       (str/starts-with? value-input* "−"))
-                 -1
-                 1)
-          value-magnitude* (when (number? value*)
-                             (js/Math.abs value*))
-          next-size (when (and (number? mark*)
-                               (pos? mark*)
-                               (number? value-magnitude*))
-                      (* sign (/ value-magnitude* mark*)))
-          by-coin (or (get-in state [:funding-ui :hypothetical-position-by-coin]) {})
-          next-entry (cond-> (hypothetical-entry state coin* mark)
-                       true (assoc :value-input value-input*)
-                       (number? next-size) (assoc :size-input (format-fixed next-size 4)))
-          next-by-coin (assoc by-coin coin* next-entry)]
-      [[:effects/save [:funding-ui :hypothetical-position-by-coin] next-by-coin]])
-    []))
+(def set-funding-tooltip-visible funding-drafts/set-funding-tooltip-visible)
+(def set-funding-tooltip-pinned funding-drafts/set-funding-tooltip-pinned)
+(def enter-funding-hypothetical-position funding-drafts/enter-funding-hypothetical-position)
+(def reset-funding-hypothetical-position funding-drafts/reset-funding-hypothetical-position)
+(def set-funding-hypothetical-size funding-drafts/set-funding-hypothetical-size)
+(def set-funding-hypothetical-value funding-drafts/set-funding-hypothetical-value)

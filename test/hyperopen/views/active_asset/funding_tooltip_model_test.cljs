@@ -133,8 +133,8 @@
                                  :fundingRate 0.0056})
         market (gold-market {})
         full-state (visible-gold-state {})]
-    (with-redefs [trading-state/position-for-active-asset
-                  (fn [_]
+    (with-redefs [trading-state/position-for-market
+                  (fn [_ _ _]
                     {:coin "xyz:GOLD"
                      :szi "0.0185"
                      :positionValue "99.39"})
@@ -142,6 +142,7 @@
                   (fn [] "00:22:01")]
       (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
             strings (set (support/collect-strings view-node))
+            action-button (support/find-node-by-role view-node "active-asset-funding-position-action")
             rate-node (support/find-first-node view-node
                                                #(and (= :span (first %))
                                                      (contains? (set (support/collect-strings %)) "+0.1344%")))
@@ -150,7 +151,8 @@
                                                         (contains? (set (support/collect-strings %)) "-$0.13")))
             rate-classes (set (support/class-values (get-in rate-node [1 :class])))
             payment-classes (set (support/class-values (get-in payment-node [1 :class])))]
-        (is (contains? strings "Position"))
+        (is (contains? strings "Your Position"))
+        (is (contains? strings "Edit estimate"))
         (is (contains? strings "Projections"))
         (is (contains? strings "Predictability (30d)"))
         (is (contains? strings "Size"))
@@ -159,6 +161,18 @@
         (is (contains? strings "Payment"))
         (is (contains? strings "Long 0.0185 GOLD"))
         (is (contains? strings "$99.39"))
+        (is (= [[:actions/enter-funding-hypothetical-position
+                 "xyz:GOLD"
+                 5372.43
+                 {:size-input "0.0185"
+                  :value-input "99.39"}]
+                [:actions/set-funding-tooltip-pinned
+                 (funding-policy/funding-tooltip-pin-id "xyz:GOLD")
+                 true]
+                [:actions/set-funding-tooltip-visible
+                 (funding-policy/funding-tooltip-pin-id "xyz:GOLD")
+                 true]]
+               (get-in action-button [1 :on :click])))
         (is (not (contains? strings "Current in 22:01")))
         (is (contains? strings "Next 24h"))
         (is (contains? strings "APY"))
@@ -180,8 +194,8 @@
   (let [ctx-data (gold-ctx-data {})
         market (gold-market {})
         full-state (visible-gold-state {})]
-    (with-redefs [trading-state/position-for-active-asset
-                  (fn [_]
+    (with-redefs [trading-state/position-for-market
+                  (fn [_ _ _]
                     {:coin "xyz:GOLD"
                      :szi "-2"
                      :positionValue "1500"})
@@ -198,14 +212,14 @@
   (let [ctx-data (gold-ctx-data {:fundingRate 0.0056})
         market (gold-market {})
         full-state (visible-gold-state {})]
-    (with-redefs [trading-state/position-for-active-asset
-                  (fn [_] nil)
+    (with-redefs [trading-state/position-for-market
+                  (fn [_ _ _] nil)
                   fmt/format-funding-countdown
                   (fn [] "00:10:00")]
       (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
             strings (set (support/collect-strings view-node))]
         (is (contains? strings "Hypothetical Position"))
-        (is (contains? strings "Edit size or value to estimate payments. Use negative size or value for short."))
+        (is (contains? strings "Enter size or value to estimate payments. Use negative size or value for short."))
         (is (contains? strings "-$1.34"))
         (is (contains? strings "-$490.56"))
         (is (not (contains? strings "No open position")))))))
@@ -217,8 +231,8 @@
                     {:funding-ui {:hypothetical-position-by-coin {"XYZ:GOLD"
                                                                   {:size-input "oops"
                                                                    :value-input "-1000.00"}}}})]
-    (with-redefs [trading-state/position-for-active-asset
-                  (fn [_] nil)
+    (with-redefs [trading-state/position-for-market
+                  (fn [_ _ _] nil)
                   fmt/format-funding-countdown
                   (fn [] "00:10:00")]
       (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
@@ -236,8 +250,8 @@
                      :funding-ui {:hypothetical-position-by-coin {"XYZ:GOLD"
                                                                   {:size-input "oops"
                                                                    :value-input "-1000,00"}}}})]
-    (with-redefs [trading-state/position-for-active-asset
-                  (fn [_] nil)
+    (with-redefs [trading-state/position-for-market
+                  (fn [_ _ _] nil)
                   fmt/format-funding-countdown
                   (fn [] "00:10:00")]
       (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
@@ -265,8 +279,8 @@
                                                                                                  {:lag-days 3 :value 0.44}]}}
                                                           :loading-by-coin {}
                                                           :error-by-coin {}}}})]
-    (with-redefs [trading-state/position-for-active-asset
-                  (fn [_]
+    (with-redefs [trading-state/position-for-market
+                  (fn [_ _ _]
                     {:coin "xyz:GOLD"
                      :szi "1"
                      :positionValue "5000"})
@@ -308,8 +322,8 @@
                                                                                                  {:lag-days 3 :value -0.12}]}}
                                                           :loading-by-coin {"XYZ:GOLD" true}
                                                           :error-by-coin {}}}})]
-    (with-redefs [trading-state/position-for-active-asset
-                  (fn [_]
+    (with-redefs [trading-state/position-for-market
+                  (fn [_ _ _]
                     {:coin "xyz:GOLD"
                      :szi "1"
                      :positionValue "5000"})
@@ -331,8 +345,8 @@
   (let [ctx-data (gold-ctx-data {})
         market (gold-market {})
         full-state (visible-gold-state {})]
-    (with-redefs [trading-state/position-for-active-asset
-                  (fn [_] nil)
+    (with-redefs [trading-state/position-for-market
+                  (fn [_ _ _] nil)
                   fmt/format-funding-countdown
                   (fn [] "00:10:00")]
       (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)]
@@ -341,3 +355,25 @@
         (is (support/contains-class? view-node "isolate"))
         (is (support/contains-class? view-node "bg-[#0b1820]"))
         (is (not (support/contains-class? view-node "backdrop-blur-sm")))))))
+
+(deftest active-asset-row-funding-tooltip-renders-use-live-action-for-seeded-estimate-test
+  (let [ctx-data (gold-ctx-data {:fundingRate 0.0056})
+        market (gold-market {})
+        full-state (visible-gold-state
+                    {:funding-ui {:hypothetical-position-by-coin {"XYZ:GOLD"
+                                                                  {:size-input "0.0200"
+                                                                   :value-input "100.00"}}}})]
+    (with-redefs [trading-state/position-for-market
+                  (fn [_ _ _]
+                    {:coin "xyz:GOLD"
+                     :szi "0.0185"
+                     :positionValue "99.39"})
+                  fmt/format-funding-countdown
+                  (fn [] "00:10:00")]
+      (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
+            strings (set (support/collect-strings view-node))
+            action-button (support/find-node-by-role view-node "active-asset-funding-position-action")]
+        (is (contains? strings "Hypothetical Position"))
+        (is (contains? strings "Use live"))
+        (is (= [[:actions/reset-funding-hypothetical-position "xyz:GOLD"]]
+               (get-in action-button [1 :on :click])))))))

@@ -1,11 +1,80 @@
 (ns hyperopen.asset-selector.markets
   (:require [clojure.string :as str]
+            [hyperopen.domain.market.instrument :as instrument]
             [hyperopen.utils.formatting :as fmt]))
 
 (defn market-key
   "Return the unique key for a market map."
   [{:keys [market-type coin]}]
   (str (name market-type) ":" coin))
+
+(defn- normalized-token
+  [value]
+  (some-> value str str/trim str/upper-case))
+
+(defn- base-token
+  [value]
+  (some-> value
+          instrument/base-symbol-from-value
+          normalized-token))
+
+(defn- namespace-token
+  [value]
+  (let [text (some-> value str str/trim)]
+    (when (and (seq text)
+               (str/includes? text ":"))
+      (some-> (first (str/split text #":" 2))
+              normalized-token))))
+
+(defn- base-match-compatible?
+  [coin market]
+  (let [coin-namespace (namespace-token coin)
+        market-namespace (or (namespace-token (:coin market))
+                             (normalized-token (:dex market)))]
+    (or (nil? coin-namespace)
+        (= coin-namespace market-namespace))))
+
+(defn market-matches-coin?
+  "Return true when a market and coin refer to the same instrument even if one side
+   is namespaced (for example `xyz:GOLD`) and the other is the display/base symbol (`GOLD`)."
+  [market coin]
+  (let [market* (or market {})
+        coin-token (normalized-token coin)
+        market-coin-token (normalized-token (:coin market*))
+        market-symbol-token (normalized-token (:symbol market*))
+        coin-base-token (base-token coin)
+        market-base-token (or (normalized-token (:base market*))
+                              (base-token (:coin market*))
+                              (base-token (:symbol market*)))]
+    (boolean
+     (or (and coin-token
+              (= coin-token market-coin-token))
+         (and coin-token
+              (= coin-token market-symbol-token))
+         (and coin-base-token
+              market-base-token
+              (= coin-base-token market-base-token)
+              (base-match-compatible? coin market*))))))
+
+(defn coin-aliases
+  "Return deterministic raw coin aliases for the same instrument across active-asset and market state."
+  [active-asset market]
+  (->> [active-asset
+        (:coin market)
+        (:base market)
+        (some-> active-asset instrument/base-symbol-from-value)
+        (some-> (:coin market) instrument/base-symbol-from-value)
+        (some-> (:symbol market) instrument/base-symbol-from-value)]
+       (keep (fn [value]
+               (some-> value str str/trim not-empty)))
+       distinct
+       vec))
+
+(defn related-coin-candidates
+  "Return a deterministic set of coin identifiers that may refer to the same active
+   instrument in UI state, including base-symbol and namespaced market forms."
+  [active-asset market]
+  (coin-aliases active-asset market))
 
 (defn- numeric-coin-string? [coin]
   (and (string? coin)
@@ -55,6 +124,14 @@
                        (spot-market-key coin*))]
         (vec (distinct [primary fallback]))))))
 
+(defn- namespaced-perp-coin?
+  [coin]
+  (and (string? coin)
+       (seq coin)
+       (str/includes? coin ":")
+       (not (str/includes? coin "/"))
+       (not (str/starts-with? coin "@"))))
+
 (defn resolve-market-by-coin
   "Resolve a market from market-by-key using deterministic fallback keys."
   [market-by-key coin]
@@ -86,6 +163,17 @@
                        (sort-by :rank)
                        first
                        :market)))))))
+
+(declare inferred-perp-market)
+
+(defn resolve-or-infer-market-by-coin
+  "Resolve a market from market-by-key. When lookup misses for a namespaced perp coin,
+   infer the minimal market metadata needed for active-market consumers."
+  [market-by-key coin]
+  (let [coin* (when (scalar-coin-id? coin) (str coin))]
+    (or (resolve-market-by-coin market-by-key coin*)
+        (when (namespaced-perp-coin? coin*)
+          (inferred-perp-market coin*)))))
 
 (defn- parse-perp-name [name]
   (if (and name (str/includes? name ":"))
@@ -225,6 +313,28 @@
 
     :else
     (assoc market :category :tradfi :hip3? true :hip3-eligible? (hip3-eligible-market? market))))
+
+(defn- inferred-perp-market
+  [coin]
+  (let [coin* (some-> coin str str/trim)
+        {:keys [dex]} (parse-perp-name coin*)
+        identity (instrument/market-identity coin*
+                                             {:coin coin*
+                                              :market-type :perp
+                                              :dex dex})
+        base-symbol (some-> (:base-symbol identity) str str/trim not-empty)
+        quote-symbol (some-> (:quote-symbol identity) str str/trim not-empty)]
+    (when (and (namespaced-perp-coin? coin*)
+               (seq dex)
+               (seq base-symbol))
+      (classify-market
+       {:key (perp-market-key coin*)
+        :coin coin*
+        :symbol (str base-symbol "-" (or quote-symbol "USDC"))
+        :base base-symbol
+        :quote (or quote-symbol "USDC")
+        :market-type :perp
+        :dex dex}))))
 
 (defn build-perp-markets
   "Build normalized perp market entries from metaAndAssetCtxs data.

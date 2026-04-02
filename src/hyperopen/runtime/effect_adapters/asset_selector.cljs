@@ -36,7 +36,7 @@
 (defn restore-asset-selector-markets-cache!
   [{:keys [store load-cache-fn resolve-market-by-coin-fn]
     :or {load-cache-fn load-asset-selector-markets-cache
-         resolve-market-by-coin-fn markets/resolve-market-by-coin}}]
+         resolve-market-by-coin-fn markets/resolve-or-infer-market-by-coin}}]
   (markets-cache/restore-asset-selector-markets-cache!
    store
    {:load-cache-fn load-cache-fn

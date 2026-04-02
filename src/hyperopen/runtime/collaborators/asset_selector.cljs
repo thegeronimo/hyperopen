@@ -22,5 +22,7 @@
    :mark-missing-asset-icon asset-actions/mark-missing-asset-icon
    :set-funding-tooltip-visible asset-actions/set-funding-tooltip-visible
    :set-funding-tooltip-pinned asset-actions/set-funding-tooltip-pinned
+   :enter-funding-hypothetical-position asset-actions/enter-funding-hypothetical-position
+   :reset-funding-hypothetical-position asset-actions/reset-funding-hypothetical-position
    :set-funding-hypothetical-size asset-actions/set-funding-hypothetical-size
    :set-funding-hypothetical-value asset-actions/set-funding-hypothetical-value})

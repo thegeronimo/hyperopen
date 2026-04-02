@@ -75,6 +75,12 @@
 (def set-funding-tooltip-pinned
   asset-actions/set-funding-tooltip-pinned)
 
+(def enter-funding-hypothetical-position
+  asset-actions/enter-funding-hypothetical-position)
+
+(def reset-funding-hypothetical-position
+  asset-actions/reset-funding-hypothetical-position)
+
 (def set-funding-hypothetical-size
   asset-actions/set-funding-hypothetical-size)
 

@@ -1,6 +1,7 @@
 (ns hyperopen.runtime.effect-adapters.funding
   (:require [nexus.registry :as nxr]
             [hyperopen.active-asset.funding-policy :as funding-policy]
+            [hyperopen.asset-selector.markets :as markets]
             [hyperopen.api.default :as api]
             [hyperopen.api.projections :as api-projections]
             [hyperopen.funding.history-cache :as funding-cache]
@@ -50,14 +51,34 @@
                (assoc-in (funding-predictability-path :loaded-at-ms-by-coin coin)
                          loaded-at-ms)))))
 
+(defn- active-related-market
+  [state]
+  (let [active-asset (:active-asset state)
+        active-market (:active-market state)
+        market-by-key (get-in state [:asset-selector :market-by-key] {})]
+    (cond
+      (markets/market-matches-coin? active-market active-asset)
+      active-market
+
+      active-asset
+      (markets/resolve-or-infer-market-by-coin market-by-key active-asset)
+
+      :else
+      nil)))
+
 (defn- active-asset-funding-tooltip-open?
   [state coin]
-  (let [active-asset (funding-cache/normalize-coin (:active-asset state))
+  (let [active-market (active-related-market state)
+        related-coins (->> (markets/coin-aliases (:active-asset state)
+                                                 active-market)
+                           (keep funding-cache/normalize-coin)
+                           vec)
         tooltip-ui (get-in state [:funding-ui :tooltip] {})
-        active-tooltip-id (some-> active-asset funding-policy/funding-tooltip-pin-id)]
-    (and (= active-asset coin)
-         (or (= active-tooltip-id (:visible-id tooltip-ui))
-             (= active-tooltip-id (:pinned-id tooltip-ui))))))
+        active-tooltip-ids (set (map funding-policy/funding-tooltip-pin-id
+                                     related-coins))]
+    (and (some #{coin} related-coins)
+         (or (contains? active-tooltip-ids (:visible-id tooltip-ui))
+             (contains? active-tooltip-ids (:pinned-id tooltip-ui))))))
 
 (defn sync-active-asset-funding-predictability
   [_ store coin]

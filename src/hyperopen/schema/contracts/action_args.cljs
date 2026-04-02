@@ -9,6 +9,10 @@
 (s/def ::add-indicator-args (s/tuple keyword? map?))
 (s/def ::update-indicator-period-args (s/tuple keyword? any?))
 (s/def ::cancel-order-args (s/tuple map?))
+(s/def ::funding-hypothetical-seed-args
+  (s/tuple ::common/non-empty-string
+           (s/nilable ::common/numberish)
+           map?))
 (s/def ::cancel-visible-open-orders-args (s/tuple ::common/non-empty-map-vector))
 (s/def ::confirm-cancel-visible-open-orders-args
   (s/or :orders-only (s/tuple ::common/non-empty-map-vector)
@@ -130,6 +134,8 @@
    :actions/mark-missing-asset-icon ::common/market-key-args
    :actions/set-funding-tooltip-visible ::common/tooltip-toggle-args
    :actions/set-funding-tooltip-pinned ::common/tooltip-toggle-args
+   :actions/enter-funding-hypothetical-position ::funding-hypothetical-seed-args
+   :actions/reset-funding-hypothetical-position ::common/coin-args
    :actions/set-funding-hypothetical-size ::common/coin-number-input-args
    :actions/set-funding-hypothetical-value ::common/coin-number-input-args
    :actions/toggle-timeframes-dropdown ::common/no-args

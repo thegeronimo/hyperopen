@@ -23,6 +23,8 @@
    :strict? false
    :active-tab :all})
 
+(declare resolve-active-market)
+
 (def ^:private open-panel-dropdown-state-keys
   [:visible-dropdown
    :search-term
@@ -64,6 +66,13 @@
       (contains? by-coin coin)
       (assoc coin (get by-coin coin)))))
 
+(defn- related-coin-candidate-entries
+  [by-coin coins]
+  (reduce (fn [entries coin]
+            (merge entries (related-coin-entries by-coin coin)))
+          {}
+          coins))
+
 (defn- read-by-coin
   [by-coin coin]
   (let [normalized-coin (normalize-coin-key coin)]
@@ -73,6 +82,8 @@
 
 (defn available-assets [state]
   (get-in state [:asset-selector :markets] []))
+
+(declare resolve-active-market)
 
 (defn dropdown-state [state]
   (merge default-dropdown-state
@@ -86,7 +97,7 @@
   [state active-asset]
   (let [projected-market (:active-market state)]
     (and (map? projected-market)
-         (= (:coin projected-market) active-asset))))
+         (markets/market-matches-coin? projected-market active-asset))))
 
 (defn- selector-market-lookup-needed?
   [state active-asset]
@@ -113,14 +124,19 @@
   {:tooltip (select-state-keys (get-in state [:funding-ui :tooltip]) [:visible-id :pinned-id])})
 
 (defn- funding-tooltip-open?
-  [tooltip-ui coin]
-  (let [tooltip-id (funding-policy/funding-tooltip-pin-id coin)]
-    (or (= tooltip-id (:visible-id tooltip-ui))
-        (= tooltip-id (:pinned-id tooltip-ui)))))
+  [tooltip-ui coins]
+  (boolean
+   (some (fn [coin]
+           (let [tooltip-id (funding-policy/funding-tooltip-pin-id coin)]
+             (or (= tooltip-id (:visible-id tooltip-ui))
+                 (= tooltip-id (:pinned-id tooltip-ui)))))
+         coins)))
 
 (defn- active-assets-state
-  [state active-asset tooltip-open?]
-  (let [context (get-in state [:active-assets :contexts active-asset])
+  [state active-asset active-market tooltip-open?]
+  (let [related-coins (markets/coin-aliases active-asset active-market)
+        context (or (get-in state [:active-assets :contexts active-asset])
+                    (some #(get-in state [:active-assets :contexts %]) related-coins))
         predictability-state (get-in state [:active-assets :funding-predictability] {})]
     (cond-> {}
       context
@@ -128,55 +144,61 @@
 
       tooltip-open?
       (assoc :funding-predictability
-             {:by-coin (related-coin-entries (get predictability-state :by-coin {}) active-asset)
-              :loading-by-coin (related-coin-entries (get predictability-state :loading-by-coin {}) active-asset)
-              :error-by-coin (related-coin-entries (get predictability-state :error-by-coin {}) active-asset)}))))
+             {:by-coin (related-coin-candidate-entries (get predictability-state :by-coin {}) related-coins)
+              :loading-by-coin (related-coin-candidate-entries (get predictability-state :loading-by-coin {}) related-coins)
+              :error-by-coin (related-coin-candidate-entries (get predictability-state :error-by-coin {}) related-coins)}))))
 
 (defn- open-tooltip-funding-ui-state
-  [state active-asset]
-  (assoc (funding-tooltip-ui-state state)
-         :hypothetical-position-by-coin
-         (related-coin-entries
-          (get-in state [:funding-ui :hypothetical-position-by-coin] {})
-          active-asset)))
+  [state active-asset active-market]
+  (let [related-coins (markets/coin-aliases active-asset active-market)]
+    (assoc (funding-tooltip-ui-state state)
+           :hypothetical-position-by-coin
+           (related-coin-candidate-entries
+            (get-in state [:funding-ui :hypothetical-position-by-coin] {})
+            related-coins))))
 
 (defn panel-dependency-state
   [state]
   (let [active-asset (:active-asset state)
+        active-market (resolve-active-market state active-asset)
         tooltip-ui (get-in state [:funding-ui :tooltip] {})
-        tooltip-open? (and active-asset
-                           (funding-tooltip-open? tooltip-ui active-asset))]
+        related-coins (markets/coin-aliases active-asset active-market)
+        tooltip-open? (and (seq related-coins)
+                           (funding-tooltip-open? tooltip-ui related-coins))]
     (cond-> {:active-asset active-asset
-             :active-market (:active-market state)
-             :active-assets (active-assets-state state active-asset tooltip-open?)
+             :active-market active-market
+             :active-assets (active-assets-state state active-asset active-market tooltip-open?)
              :asset-selector (asset-selector-state state active-asset)
              :funding-ui (if tooltip-open?
-                           (open-tooltip-funding-ui-state state active-asset)
+                           (open-tooltip-funding-ui-state state active-asset active-market)
                            (funding-tooltip-ui-state state))
              :trade-ui {:mobile-asset-details-open? (true? (get-in state [:trade-ui :mobile-asset-details-open?]))}}
       tooltip-open?
       (assoc :account (:account state)
              :perp-dex-clearinghouse (:perp-dex-clearinghouse state)
+             :webdata2 (:webdata2 state)
              :spot (:spot state)
              :ui {:locale (get-in state [:ui :locale])}))))
 
 (defn active-asset-funding-tooltip-open?
   [state]
   (let [active-asset (:active-asset state)
+        active-market (resolve-active-market state active-asset)
+        related-coins (markets/coin-aliases active-asset active-market)
         tooltip-ui (get-in state [:funding-ui :tooltip] {})]
-    (and active-asset
-         (funding-tooltip-open? tooltip-ui active-asset))))
+    (and (seq related-coins)
+         (funding-tooltip-open? tooltip-ui related-coins))))
 
 (defn resolve-active-market [full-state active-asset]
   (let [projected-market (:active-market full-state)
         market-by-key (get-in full-state [:asset-selector :market-by-key] {})]
     (cond
       (and (map? projected-market)
-           (= (:coin projected-market) active-asset))
+           (markets/market-matches-coin? projected-market active-asset))
       projected-market
 
       (string? active-asset)
-      (markets/resolve-market-by-coin market-by-key active-asset)
+      (markets/resolve-or-infer-market-by-coin market-by-key active-asset)
 
       :else
       nil)))
@@ -210,7 +232,9 @@
         funding-tooltip-pinned? (= funding-tooltip-id
                                    (:pinned-id funding-tooltip-ui))
         funding-tooltip-model (when funding-tooltip-open?
-                                (let [active-position (trading-state/position-for-active-asset full-state)
+                                (let [active-position (trading-state/position-for-market full-state
+                                                                                        coin
+                                                                                        market)
                                       funding-predictability-state {:summary (read-by-coin
                                                                               (get-in full-state [:active-assets :funding-predictability :by-coin] {})
                                                                               coin)

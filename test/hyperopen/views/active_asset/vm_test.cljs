@@ -43,6 +43,9 @@
                :trade-ui {:mobile-asset-details-open? false}
                :account {:positions [{:coin "BTC"}]}
                :spot {:meta :spot}
+               :webdata2 {:clearinghouseState {:assetPositions [{:position {:coin "BTC"
+                                                                            :szi "1"
+                                                                            :positionValue "64000"}}]}}
                :perp-dex-clearinghouse {:default {:assetPositions []}}
                :ui {:locale "en-US"}}
         deps (active-asset-vm/panel-dependency-state state)]
@@ -61,6 +64,7 @@
                       :pinned-id nil}}
            (:funding-ui deps)))
     (is (nil? (:account deps)))
+    (is (nil? (:webdata2 deps)))
     (is (nil? (:spot deps)))
     (is (nil? (:perp-dex-clearinghouse deps)))
     (is (nil? (:ui deps)))))
@@ -115,3 +119,225 @@
            (get-in panel-vm [:asset-selector-props :selected-market-key])))
     (is (= "HYPE/USDC"
            (get-in panel-vm [:row-vm :icon-market :symbol])))))
+
+(deftest active-asset-row-vm-finds-live-position-from-resolved-market-test
+  (let [market {:key "perp:xyz:GOLD"
+                :coin "xyz:GOLD"
+                :symbol "GOLD-USDC"
+                :base "GOLD"
+                :dex "xyz"
+                :market-type :perp
+                :mark 5000.0}
+        state {:active-asset "xyz:GOLD"
+               :active-market nil
+               :active-assets {:contexts {"xyz:GOLD" {:coin "xyz:GOLD"
+                                                      :mark 5000.0
+                                                      :fundingRate 0.0056}}
+                               :funding-predictability {:by-coin {}
+                                                        :loading-by-coin {}
+                                                        :error-by-coin {}}}
+               :asset-selector {:visible-dropdown nil
+                                :missing-icons #{}
+                                :loaded-icons #{}
+                                :market-by-key {"perp:xyz:GOLD" market}}
+               :funding-ui {:tooltip {:visible-id "funding-rate-tooltip-pin-xyz-gold"
+                                      :pinned-id nil}
+                            :hypothetical-position-by-coin {}}
+               :trade-ui {:mobile-asset-details-open? false}
+               :perp-dex-clearinghouse {"xyz" {:assetPositions [{:position {:coin "GOLD"
+                                                                              :szi "2"
+                                                                              :positionValue "10000"}}]}}
+               :ui {:locale "en-US"}}
+        panel-vm (active-asset-vm/active-asset-panel-vm state)]
+    (is (= "Your Position"
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-title])))
+    (is (= "Long 2 GOLD"
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-size-label])))
+    (is (= 10000
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-value])))))
+
+(deftest active-asset-row-vm-inferrs-namespaced-market-during-bootstrap-and-shows-live-position-test
+  (let [state {:active-asset "xyz:BRENTOIL"
+               :active-market nil
+               :active-assets {:contexts {"xyz:BRENTOIL" {:coin "xyz:BRENTOIL"
+                                                          :mark 108.17
+                                                          :fundingRate -0.005618}}
+                               :funding-predictability {:by-coin {}
+                                                        :loading-by-coin {}
+                                                        :error-by-coin {}}}
+               :asset-selector {:visible-dropdown nil
+                                :phase :bootstrap
+                                :selected-market-key nil
+                                :missing-icons #{}
+                                :loaded-icons #{}
+                                :market-by-key {}}
+               :funding-ui {:tooltip {:visible-id "funding-rate-tooltip-pin-xyz-brentoil"
+                                      :pinned-id "funding-rate-tooltip-pin-xyz-brentoil"}
+                            :hypothetical-position-by-coin {}}
+               :trade-ui {:mobile-asset-details-open? false}
+               :perp-dex-clearinghouse {"xyz" {:assetPositions [{:position {:coin "xyz:BRENTOIL"
+                                                                             :szi "1.31"
+                                                                             :positionValue "141.087"}}]}}
+               :ui {:locale "en-US"}}
+        deps (active-asset-vm/panel-dependency-state state)
+        panel-vm (active-asset-vm/active-asset-panel-vm deps)]
+    (is (= "perp:xyz:BRENTOIL"
+           (get-in deps [:active-market :key])))
+    (is (= "xyz"
+           (get-in deps [:active-market :dex])))
+    (is (= "BRENTOIL-USDC"
+           (get-in deps [:active-market :symbol])))
+    (is (= "Your Position"
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-title])))
+    (is (= "Long 1.31 BRENTOIL"
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-size-label])))
+    (is (= 141.087
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-value])))))
+
+(deftest active-asset-row-vm-ignores-stale-different-dex-market-when-active-asset-is-namespaced-test
+  (let [state {:active-asset "xyz:GOLD"
+               :active-market {:key "perp:hyna:GOLD"
+                               :coin "hyna:GOLD"
+                               :symbol "GOLD-USDC"
+                               :base "GOLD"
+                               :dex "hyna"
+                               :market-type :perp
+                               :mark 5000.0}
+               :active-assets {:contexts {"xyz:GOLD" {:coin "xyz:GOLD"
+                                                      :mark 5000.0
+                                                      :fundingRate 0.0056}}
+                               :funding-predictability {:by-coin {}
+                                                        :loading-by-coin {}
+                                                        :error-by-coin {}}}
+               :asset-selector {:visible-dropdown nil
+                                :missing-icons #{}
+                                :loaded-icons #{}
+                                :market-by-key {}}
+               :funding-ui {:tooltip {:visible-id "funding-rate-tooltip-pin-xyz-gold"
+                                      :pinned-id nil}
+                            :hypothetical-position-by-coin {}}
+               :trade-ui {:mobile-asset-details-open? false}
+               :perp-dex-clearinghouse {"xyz" {:assetPositions [{:position {:coin "xyz:GOLD"
+                                                                             :szi "2"
+                                                                             :positionValue "10000"}}]}
+                                        "hyna" {:assetPositions [{:position {:coin "hyna:GOLD"
+                                                                              :szi "9"
+                                                                              :positionValue "45000"}}]}}
+               :ui {:locale "en-US"}}
+        deps (active-asset-vm/panel-dependency-state state)
+        panel-vm (active-asset-vm/active-asset-panel-vm deps)]
+    (is (= "xyz"
+           (get-in deps [:active-market :dex])))
+    (is (= "Your Position"
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-title])))
+    (is (= "Long 2 GOLD"
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-size-label])))
+    (is (= 10000
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-value])))))
+
+(deftest active-asset-row-vm-keeps-webdata2-position-state-when-tooltip-open-test
+  (let [market {:key "perp:BTC"
+                :coin "BTC"
+                :symbol "BTC-USDC"
+                :base "BTC"
+                :market-type :perp
+                :mark 107.7426}
+        state {:active-asset "BTC"
+               :active-market market
+               :active-assets {:contexts {"BTC" {:coin "BTC"
+                                                 :mark 107.7426
+                                                 :fundingRate 0.00015}}
+                               :funding-predictability {:by-coin {}
+                                                        :loading-by-coin {}
+                                                        :error-by-coin {}}}
+               :asset-selector {:visible-dropdown nil
+                                :missing-icons #{}
+                                :loaded-icons #{}
+                                :market-by-key {"perp:BTC" market}}
+               :funding-ui {:tooltip {:visible-id "funding-rate-tooltip-pin-btc"
+                                      :pinned-id nil}
+                            :hypothetical-position-by-coin {}}
+               :trade-ui {:mobile-asset-details-open? false}
+               :webdata2 {:clearinghouseState {:assetPositions [{:position {:coin "BTC"
+                                                                            :szi "9.2807"
+                                                                            :positionValue "1000"}}]}}
+               :ui {:locale "en-US"}}
+        deps (active-asset-vm/panel-dependency-state state)
+        panel-vm (active-asset-vm/active-asset-panel-vm deps)]
+    (is (= (:webdata2 state) (:webdata2 deps)))
+    (is (= "Your Position"
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-title])))
+    (is (= "Long 9.2807 BTC"
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-size-label])))
+    (is (= 1000
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-value])))))
+
+(deftest active-asset-row-vm-keeps-namespaced-projected-market-when-active-asset-is-base-symbol-test
+  (let [market {:key "perp:xyz:BRENTOIL"
+                :coin "xyz:BRENTOIL"
+                :symbol "BRENTOIL-USDC"
+                :base "BRENTOIL"
+                :dex "xyz"
+                :market-type :perp
+                :mark 108.17}
+        state {:active-asset "BRENTOIL"
+               :active-market market
+               :active-assets {:contexts {"BRENTOIL" {:coin "BRENTOIL"
+                                                      :mark 108.17
+                                                      :fundingRate -0.000234}}}
+               :asset-selector {:visible-dropdown nil
+                                :missing-icons #{}
+                                :loaded-icons #{}}
+               :funding-ui {:tooltip {:visible-id "funding-rate-tooltip-pin-xyz-brentoil"
+                                      :pinned-id nil}
+                            :hypothetical-position-by-coin {}}
+               :trade-ui {:mobile-asset-details-open? false}
+               :perp-dex-clearinghouse {"xyz" {:assetPositions [{:position {:coin "BRENTOIL"
+                                                                             :szi "1.31"
+                                                                             :positionValue "141.66"}}]}}
+               :ui {:locale "en-US"}}
+        deps (active-asset-vm/panel-dependency-state state)
+        panel-vm (active-asset-vm/active-asset-panel-vm deps)]
+    (is (= market (:active-market deps)))
+    (is (nil? (get-in deps [:asset-selector :market-by-key])))
+    (is (= (:perp-dex-clearinghouse state)
+           (:perp-dex-clearinghouse deps)))
+    (is (= "Your Position"
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-title])))
+    (is (= "Long 1.31 BRENTOIL"
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-size-label])))
+    (is (= 141.66
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-value])))))
+
+(deftest active-asset-row-vm-finds-live-position-through-wrapped-named-dex-clearinghouse-state-test
+  (let [market {:key "perp:xyz:BRENTOIL"
+                :coin "xyz:BRENTOIL"
+                :symbol "BRENTOIL-USDC"
+                :base "BRENTOIL"
+                :dex "xyz"
+                :market-type :perp
+                :mark 108.17}
+        state {:active-asset "BRENTOIL"
+               :active-market market
+               :active-assets {:contexts {"BRENTOIL" {:coin "BRENTOIL"
+                                                      :mark 108.17
+                                                      :fundingRate -0.000234}}}
+               :asset-selector {:visible-dropdown nil
+                                :missing-icons #{}
+                                :loaded-icons #{}}
+               :funding-ui {:tooltip {:visible-id "funding-rate-tooltip-pin-xyz-brentoil"
+                                      :pinned-id nil}
+                            :hypothetical-position-by-coin {}}
+               :trade-ui {:mobile-asset-details-open? false}
+               :perp-dex-clearinghouse {"XYZ" {:clearinghouseState {:assetPositions [{:position {:coin "BRENTOIL"
+                                                                                                   :szi "1.31"
+                                                                                                   :positionValue "141.66"}}]}}}
+               :ui {:locale "en-US"}}
+        deps (active-asset-vm/panel-dependency-state state)
+        panel-vm (active-asset-vm/active-asset-panel-vm deps)]
+    (is (= "Your Position"
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-title])))
+    (is (= "Long 1.31 BRENTOIL"
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-size-label])))
+    (is (= 141.66
+           (get-in panel-vm [:row-vm :funding-tooltip-model :position-value])))))

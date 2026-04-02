@@ -1,6 +1,5 @@
 (ns hyperopen.asset-selector.actions-test
   (:require [cljs.test :refer-macros [deftest is testing]]
-            [hyperopen.active-asset.funding-policy :as funding-policy]
             [hyperopen.asset-selector.actions :as actions]))
 
 (defn- save-many-path-values
@@ -147,24 +146,6 @@
                     effects))
       (is (not-any? #(= [:effects/push-state "/trade/ETH"] %)
                     effects)))))
-
-(deftest set-funding-tooltip-visible-syncs-active-asset-predictability-on-open-test
-  (let [btc-pin-id (funding-policy/funding-tooltip-pin-id "BTC")
-        eth-pin-id (funding-policy/funding-tooltip-pin-id "ETH")]
-    (is (= [[:effects/save [:funding-ui :tooltip :visible-id] btc-pin-id]
-            [:effects/sync-active-asset-funding-predictability "BTC"]]
-           (actions/set-funding-tooltip-visible {:active-asset "BTC"}
-                                                btc-pin-id
-                                                true)))
-    (is (= [[:effects/save [:funding-ui :tooltip :visible-id] eth-pin-id]]
-           (actions/set-funding-tooltip-visible {:active-asset "BTC"}
-                                                eth-pin-id
-                                                true)))
-    (is (= [[:effects/save [:funding-ui :tooltip :visible-id] nil]]
-           (actions/set-funding-tooltip-visible {:active-asset "BTC"
-                                                 :funding-ui {:tooltip {:visible-id btc-pin-id}}}
-                                                btc-pin-id
-                                                false)))))
 
 (deftest update-search-sort-strict-favorites-and-tab-actions-test
   (is (= [[:effects/save-many [[[:asset-selector :search-term] ""]
@@ -480,67 +461,3 @@
            "perp:BTC")))
   (is (= []
          (actions/mark-missing-asset-icon {} nil))))
-
-(deftest funding-hypothetical-actions-sync-size-and-value-test
-  (is (= [[:effects/save [:funding-ui :hypothetical-position-by-coin]
-           {"BTC" {:size-input "0.02"
-                   :value-input "1000.00"}}]]
-         (actions/set-funding-hypothetical-size {} "btc" 50000 "0.02")))
-
-  (is (= [[:effects/save [:funding-ui :hypothetical-position-by-coin]
-           {"BTC" {:size-input "0,02"
-                   :value-input "1000.00"}}]]
-         (actions/set-funding-hypothetical-size
-          {:ui {:locale "fr-FR"}}
-          "btc"
-          50000
-          "0,02")))
-
-  (is (= [[:effects/save [:funding-ui :hypothetical-position-by-coin]
-           {"BTC" {:size-input "oops"
-                   :value-input "1000.00"}}]]
-         (actions/set-funding-hypothetical-size {} "btc" 50000 "oops")))
-
-  (is (= [[:effects/save [:funding-ui :hypothetical-position-by-coin]
-           {"BTC" {:size-input "0.0300"
-                   :value-input "1500"}}]]
-         (actions/set-funding-hypothetical-value
-          {:funding-ui {:hypothetical-position-by-coin {"BTC" {:size-input "-0.0200"
-                                                                :value-input "1000.00"}}}}
-          "btc"
-          50000
-          "1500")))
-
-  (is (= [[:effects/save [:funding-ui :hypothetical-position-by-coin]
-           {"BTC" {:size-input "0.0250"
-                   :value-input "1250"}}]]
-         (actions/set-funding-hypothetical-value {} "BTC" 50000 "1250")))
-
-  (is (= [[:effects/save [:funding-ui :hypothetical-position-by-coin]
-           {"BTC" {:size-input "-0.0250"
-                   :value-input "-1250"}}]]
-         (actions/set-funding-hypothetical-value {} "BTC" 50000 "-1250")))
-
-  (is (= [[:effects/save [:funding-ui :hypothetical-position-by-coin]
-           {"BTC" {:size-input "-0.0250"
-                   :value-input "-1250,0"}}]]
-         (actions/set-funding-hypothetical-value
-          {:ui {:locale "fr-FR"}}
-          "BTC"
-          50000
-          "-1250,0")))
-
-  (is (= [[:effects/save [:funding-ui :hypothetical-position-by-coin]
-           {"BTC" {:size-input "0.0200"
-                   :value-input "1000"}}]]
-         (actions/set-funding-hypothetical-value
-          {:funding-ui {:hypothetical-position-by-coin {"BTC" {:size-input "-0.0200"
-                                                                :value-input "-1000.00"}}}}
-          "BTC"
-          50000
-          "1000")))
-
-  (is (= [[:effects/save [:funding-ui :hypothetical-position-by-coin]
-           {"BTC" {:size-input "0.0200"
-                   :value-input ""}}]]
-         (actions/set-funding-hypothetical-value {} "BTC" 50000 ""))))

@@ -380,7 +380,7 @@
    (restore-asset-selector-markets-cache!
     store
     {:load-cache-fn load-asset-selector-markets-cache
-     :resolve-market-by-coin-fn markets/resolve-market-by-coin}))
+     :resolve-market-by-coin-fn markets/resolve-or-infer-market-by-coin}))
   ([store {:keys [load-cache-fn resolve-market-by-coin-fn]}]
    (-> (->promise (load-cache-fn))
        (.then (fn [cached-markets]

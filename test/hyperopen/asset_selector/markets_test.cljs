@@ -127,3 +127,45 @@
       (is (nil? (markets/resolve-market-by-coin market-by-key {:coin "BTC"})))
       (is (nil? (markets/resolve-market-by-coin market-by-key ["BTC"])))
       (is (nil? (markets/resolve-market-by-coin market-by-key #js {:coin "BTC"}))))))
+
+(deftest resolve-or-infer-market-by-coin-test
+  (testing "resolve-or-infer-market-by-coin keeps lookup behavior for known markets"
+    (let [market-by-key {"perp:BTC" {:key "perp:BTC"
+                                     :coin "BTC"
+                                     :market-type :perp}}]
+      (is (= {:key "perp:BTC"
+              :coin "BTC"
+              :market-type :perp}
+             (markets/resolve-or-infer-market-by-coin market-by-key "BTC")))))
+
+  (testing "resolve-or-infer-market-by-coin infers a minimal namespaced perp market for active-market consumers"
+    (is (= {:key "perp:hyna:MEOW"
+            :coin "hyna:MEOW"
+            :symbol "MEOW-USDC"
+            :base "MEOW"
+            :quote "USDC"
+            :market-type :perp
+            :dex "hyna"
+            :category :crypto
+            :hip3? true
+            :hip3-eligible? false}
+           (markets/resolve-or-infer-market-by-coin {} "hyna:MEOW")))))
+
+(deftest market-matches-coin-test
+  (testing "base-symbol matching still allows an unnamespaced active asset to match a namespaced market"
+    (is (true? (markets/market-matches-coin? {:coin "xyz:BRENTOIL"
+                                              :dex "xyz"
+                                              :base "BRENTOIL"}
+                                             "BRENTOIL"))))
+
+  (testing "a namespaced active asset does not accept a stale market from another dex on base-symbol equality alone"
+    (is (false? (markets/market-matches-coin? {:coin "hyna:GOLD"
+                                               :dex "hyna"
+                                               :base "GOLD"}
+                                              "xyz:GOLD"))))
+
+  (testing "a namespaced active asset still matches the same dex market"
+    (is (true? (markets/market-matches-coin? {:coin "xyz:GOLD"
+                                              :dex "xyz"
+                                              :base "GOLD"}
+                                             "xyz:GOLD")))))

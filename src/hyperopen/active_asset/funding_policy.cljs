@@ -60,6 +60,15 @@
     :short "Short"
     "Flat"))
 
+(defn- signed-position-value
+  [direction position-value]
+  (when (number? position-value)
+    (* (js/Math.abs position-value)
+       (case direction
+         :short -1
+         :long 1
+         0))))
+
 (defn- unsigned-size-text [raw-size parsed-size]
   (let [size-text (non-blank-text raw-size)]
     (cond
@@ -76,6 +85,19 @@
 
       :else
       "0")))
+
+(defn- live-size-input-text
+  [raw-size parsed-size]
+  (or (non-blank-text raw-size)
+      (when (number? parsed-size)
+        (fmt/safe-to-fixed parsed-size 4))
+      ""))
+
+(defn- live-value-input-text
+  [direction position-value]
+  (or (some-> (signed-position-value direction position-value)
+              (fmt/safe-to-fixed 2))
+      ""))
 
 (defn normalized-position-value [position mark]
   (let [value (parse-optional-number (:positionValue position))
@@ -226,22 +248,41 @@
         position-value (normalized-position-value position mark)
         has-live-position? (and (number? size)
                                 (not= direction :flat))
-        hypothetical-model (when-not has-live-position?
+        hypothetical-active? (or (not has-live-position?)
+                                 (map? hypothetical-input))
+        hypothetical-model (when hypothetical-active?
                              (hypothetical-position-model coin mark hypothetical-input locale))
-        effective-direction (if has-live-position?
-                              direction
-                              (:direction hypothetical-model))
-        effective-position-value (if has-live-position?
-                                   position-value
-                                   (:position-value hypothetical-model))
+        effective-direction (if hypothetical-active?
+                              (:direction hypothetical-model)
+                              direction)
+        effective-position-value (if hypothetical-active?
+                                   (:position-value hypothetical-model)
+                                   position-value)
         base-symbol (display-base-symbol market coin)
+        live-seed-entry (when has-live-position?
+                          {:size-input (live-size-input-text size-raw size)
+                           :value-input (live-value-input-text direction position-value)})
         next-24h-rate (when (number? funding-rate)
                         (* funding-rate 24))
         annual-rate (fmt/annualized-funding-rate funding-rate)
         predictability-summary (:summary predictability-state)
         predictability-loading? (true? (:loading? predictability-state))
         predictability-error (non-blank-text (:error predictability-state))]
-    {:position-mode (if has-live-position? :live :hypothetical)
+    {:position-mode (if hypothetical-active? :hypothetical :live)
+     :position-title (if hypothetical-active?
+                       "Hypothetical Position"
+                       "Your Position")
+     :position-action-label (cond
+                              (and hypothetical-active? has-live-position?) "Use live"
+                              has-live-position? "Edit estimate"
+                              :else nil)
+     :position-action-coin coin
+     :position-action-mark mark
+     :position-action-entry live-seed-entry
+     :position-pin-id (funding-tooltip-pin-id coin)
+     :hypothetical-helper-text (if has-live-position?
+                                 "Edit size or value to estimate payments. Use negative size or value for short."
+                                 "Enter size or value to estimate payments. Use negative size or value for short.")
      :position-size-label (if has-live-position?
                             (str (direction-label direction)
                                  " "
@@ -249,7 +290,9 @@
                                  " "
                                  base-symbol)
                             "No open position")
-     :position-value effective-position-value
+     :position-value (if hypothetical-active?
+                       effective-position-value
+                       position-value)
      :position-base-symbol base-symbol
      :hypothetical-size-input (:size-input hypothetical-model)
      :hypothetical-value-input (:value-input hypothetical-model)

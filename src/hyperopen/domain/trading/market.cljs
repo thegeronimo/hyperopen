@@ -1,6 +1,7 @@
 (ns hyperopen.domain.trading.market
   (:require [clojure.string :as str]
             [hyperopen.domain.market.instrument :as instrument]
+            [hyperopen.domain.trading.position-lookup :as position-lookup]
             [hyperopen.domain.trading.core :as core]
             [hyperopen.domain.trading.fees :as fees]))
 
@@ -54,18 +55,16 @@
              (number? withdrawable) withdrawable
              :else fallback-available))))
 
+(defn position-for-market
+  [context]
+  (position-lookup/position-for-market context))
+
 (defn position-for-active-asset [context]
-  (let [active-asset (:active-asset context)
-        positions (get-in context [:clearinghouse :assetPositions])]
-    (some (fn [entry]
-            (let [position (or (:position entry) entry)]
-              (when (= active-asset (:coin position))
-                position)))
-          positions)))
+  (position-for-market context))
 
 (defn current-position-summary [context]
   (let [active-asset (:active-asset context)
-        position (position-for-active-asset context)
+        position (position-for-market context)
         size (or (core/parse-num (:szi position)) 0)
         liquidation (core/parse-num (:liquidationPx position))]
     {:coin active-asset
