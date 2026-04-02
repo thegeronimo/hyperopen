@@ -15,7 +15,10 @@
    :scroll-left "Left Arrow"
    :scroll-right "Right Arrow"})
 
-(declare reset-view!)
+(declare reset-view!
+         ensure-overlay-root!
+         attach-document-listeners!
+         teardown-document-listeners!)
 
 (defn- overlay-state
   [chart-obj]
@@ -417,10 +420,36 @@
     (when root
       (set-root-visibility! root (or hovered? focus-within?)))))
 
+(defn- ensure-interactive-overlay-ready!
+  [chart-obj container document]
+  (when (and chart-obj container document)
+    (let [state (overlay-state chart-obj)
+          {:keys [root panel]} (ensure-overlay-root! chart-obj container document)
+          current-document-listeners (:document-listeners state)
+          document-listeners-reused? (and current-document-listeners
+                                         (identical? document (:document current-document-listeners)))
+          next-document-listeners (if document-listeners-reused?
+                                    current-document-listeners
+                                    (do
+                                      (teardown-document-listeners! current-document-listeners)
+                                      (attach-document-listeners! chart-obj document)))]
+      (update-overlay-state! chart-obj
+                             assoc
+                             :root root
+                             :panel panel
+                             :document-listeners next-document-listeners)
+      {:root root
+       :panel panel
+       :document-listeners next-document-listeners})))
+
 (defn- sync-overlay-interactive-flag!
   [chart-obj state-key active?]
   (let [next-active? (boolean active?)
-        current-active? (boolean (get (overlay-state chart-obj) state-key))]
+        state (overlay-state chart-obj)
+        current-active? (boolean (get state state-key))]
+    (when (and next-active?
+               (nil? (:root state)))
+      (ensure-interactive-overlay-ready! chart-obj (:container state) (:document state)))
     (when (not= current-active? next-active?)
       (update-overlay-state! chart-obj assoc state-key next-active?)
       (sync-root-visibility! chart-obj)
@@ -599,33 +628,29 @@
      (let [chart (.-chart ^js chart-obj)
            document* (resolve-document document)]
        (if (and chart document*)
-         (let [{:keys [root panel]} (ensure-overlay-root! chart-obj container document*)
-               state (overlay-state chart-obj)
+         (let [state (overlay-state chart-obj)
                current-listeners (:container-listeners state)
-               current-document-listeners (:document-listeners state)
                listeners-reused? (and current-listeners
                                       (identical? container (:container current-listeners)))
-               document-listeners-reused? (and current-document-listeners
-                                              (identical? document* (:document current-document-listeners)))
                next-listeners (if listeners-reused?
                                 current-listeners
                                 (do
                                   (teardown-container-listeners! current-listeners)
                                   (attach-container-listeners! chart-obj container)))
-               next-document-listeners (if document-listeners-reused?
-                                         current-document-listeners
-                                         (do
-                                           (teardown-document-listeners! current-document-listeners)
-                                           (attach-document-listeners! chart-obj document*)))
+               overlay-ready (when (:root state)
+                               (ensure-interactive-overlay-ready! chart-obj container document*))
+               next-state (overlay-state chart-obj)
                candle-count (if (sequential? candles)
                               (count candles)
                               0)]
            (set-overlay-state!
             chart-obj
-            (assoc state
-                   :root root
-                   :panel panel
+            (assoc next-state
+                   :root (:root overlay-ready)
+                   :panel (:panel overlay-ready)
                    :chart chart
+                   :container container
+                   :document document*
                    :candles (if (sequential? candles) candles [])
                    :candle-count candle-count
                    :on-interaction on-interaction
@@ -642,7 +667,8 @@
                    :animation-duration-ms (or animation-duration-ms
                                               (:animation-duration-ms state)
                                               navigation-animation-duration-ms)
-                   :document-listeners next-document-listeners
+                   :document-listeners (:document-listeners overlay-ready)
                    :container-listeners next-listeners))
-           (sync-root-visibility! chart-obj))
+           (when (:root overlay-ready)
+             (sync-root-visibility! chart-obj)))
          (clear-chart-navigation-overlay! chart-obj))))))

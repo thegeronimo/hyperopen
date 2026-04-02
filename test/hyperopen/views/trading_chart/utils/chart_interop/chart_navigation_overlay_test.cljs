@@ -89,6 +89,17 @@
                   (swap! reset-count* inc)
                   (reset! visible-range* {:from 50 :to 150}))})
     (let [state (@#'hyperopen.views.trading-chart.utils.chart-interop.chart-navigation-overlay/overlay-state
+                 chart-obj)]
+      (is (nil? (:root state)))
+      (is (nil? (:panel state)))
+      (is (nil? (aget (.-listeners ^js document) "keydown"))))
+
+    (fake-dom/dispatch-dom-event-with-payload! container "pointerenter" #js {:clientY 60})
+    (is (nil? (:root (@#'hyperopen.views.trading-chart.utils.chart-interop.chart-navigation-overlay/overlay-state
+                     chart-obj))))
+
+    (fake-dom/dispatch-dom-event-with-payload! container "pointermove" #js {:clientY 140})
+    (let [state (@#'hyperopen.views.trading-chart.utils.chart-interop.chart-navigation-overlay/overlay-state
                  chart-obj)
           root (:root state)
           panel (:panel state)
@@ -112,8 +123,8 @@
       (is (= "50%" (.-left (.-style root))))
       (is (= "42px" (.-bottom (.-style root))))
       (is (= "translateX(-50%)" (.-transform (.-style root))))
-      (is (= "0" (.-opacity (.-style root))))
-      (is (= "none" (.-pointerEvents (.-style root))))
+      (is (= "1" (.-opacity (.-style root))))
+      (is (= "auto" (.-pointerEvents (.-style root))))
       (is (= "transparent" (.-background (.-style panel))))
       (is (= "none" (.-border (.-style panel))))
       (is (= "4px" (.-gap (.-style panel))))
@@ -122,14 +133,7 @@
       (is (= "Zoom out (Ctrl/Cmd + Down)" (aget ^js zoom-out-button "title")))
       (is (= "Scroll to the right (Right Arrow)" (aget ^js scroll-right-button "title")))
       (is (= "Reset chart view" (aget ^js reset-button "title")))
-
-      (fake-dom/dispatch-dom-event-with-payload! container "pointerenter" #js {:clientY 60})
-      (is (= "0" (.-opacity (.-style root))))
-      (is (= "none" (.-pointerEvents (.-style root))))
-
-      (fake-dom/dispatch-dom-event-with-payload! container "pointermove" #js {:clientY 140})
-      (is (= "1" (.-opacity (.-style root))))
-      (is (= "auto" (.-pointerEvents (.-style root))))
+      (is (fn? (aget (.-listeners ^js document) "keydown")))
 
       (fake-dom/dispatch-dom-event-with-payload! container "pointermove" #js {:clientY 70})
       (is (= "0" (.-opacity (.-style root))))
@@ -193,27 +197,25 @@
      container
      []
      {:document document})
+    (is (nil? (:root (@#'hyperopen.views.trading-chart.utils.chart-interop.chart-navigation-overlay/overlay-state
+                     chart-obj))))
+    (fake-dom/dispatch-dom-event-with-payload! container "pointerenter" #js {:clientY 140})
     (let [state (@#'hyperopen.views.trading-chart.utils.chart-interop.chart-navigation-overlay/overlay-state
                  chart-obj)
           root (:root state)
           style (.-style root)
           opacity-writes* (track-style-writes! style "opacity")
           pointer-events-writes* (track-style-writes! style "pointerEvents")]
-      (fake-dom/dispatch-dom-event-with-payload! container "pointerenter" #js {:clientY 60})
-      (fake-dom/dispatch-dom-event-with-payload! container "pointermove" #js {:clientY 80})
+      (fake-dom/dispatch-dom-event-with-payload! container "pointermove" #js {:clientY 160})
+      (fake-dom/dispatch-dom-event-with-payload! container "pointermove" #js {:clientY 150})
       (is (= [] @opacity-writes*))
       (is (= [] @pointer-events-writes*))
 
-      (fake-dom/dispatch-dom-event-with-payload! container "pointermove" #js {:clientY 140})
-      (fake-dom/dispatch-dom-event-with-payload! container "pointermove" #js {:clientY 160})
-      (fake-dom/dispatch-dom-event-with-payload! container "pointermove" #js {:clientY 150})
-      (is (= ["1"] @opacity-writes*))
-      (is (= ["auto"] @pointer-events-writes*))
-
       (fake-dom/dispatch-dom-event-with-payload! container "pointermove" #js {:clientY 70})
+      (fake-dom/dispatch-dom-event-with-payload! container "pointermove" #js {:clientY 140})
       (fake-dom/dispatch-dom-event-with-payload! container "pointerleave" #js {})
-      (is (= ["1" "0"] @opacity-writes*))
-      (is (= ["auto" "none"] @pointer-events-writes*)))
+      (is (= ["0" "1" "0"] @opacity-writes*))
+      (is (= ["none" "auto" "none"] @pointer-events-writes*)))
 
     (chart-navigation-overlay/clear-chart-navigation-overlay! chart-obj)))
 
@@ -250,6 +252,7 @@
       :now-ms-fn (:now-ms! animation-clock)
       :request-animation-frame-fn (:request-frame! animation-clock)
       :cancel-animation-frame-fn (:cancel-frame! animation-clock)})
+    (fake-dom/dispatch-dom-event-with-payload! container "pointerenter" #js {:clientY 140})
     (let [state (@#'hyperopen.views.trading-chart.utils.chart-interop.chart-navigation-overlay/overlay-state
                  chart-obj)
           root (:root state)
@@ -312,8 +315,8 @@
       :on-interaction (fn []
                         (swap! interaction-count* inc))
       :now-ms-fn (:now-ms! animation-clock)
-      :request-animation-frame-fn (:request-frame! animation-clock)
-      :cancel-animation-frame-fn (:cancel-frame! animation-clock)})
+     :request-animation-frame-fn (:request-frame! animation-clock)
+     :cancel-animation-frame-fn (:cancel-frame! animation-clock)})
 
     (let [{:keys [event prevented? stopped?]} (keydown-event "ArrowDown")]
       (set! (.-metaKey event) true)
@@ -321,9 +324,11 @@
       (is (= {:from 100 :to 200} @visible-range*))
       (is (false? @prevented?))
       (is (false? @stopped?))
-      (is (empty? @(:queued-frames* animation-clock))))
+      (is (empty? @(:queued-frames* animation-clock)))
+      (is (nil? (aget (.-listeners ^js document) "keydown"))))
 
     (fake-dom/dispatch-dom-event-with-payload! container "pointerenter" #js {:clientY 140})
+    (is (fn? (aget (.-listeners ^js document) "keydown")))
 
     (let [{:keys [event prevented? stopped?]} (keydown-event "ArrowDown")]
       (set! (.-metaKey event) true)
@@ -411,6 +416,9 @@
     (is (fn? (aget (.-listeners ^js container-b) "pointerenter")))
     (is (fn? (aget (.-listeners ^js container-b) "pointermove")))
     (is (fn? (aget (.-listeners ^js container-b) "pointerleave")))
+    (is (nil? (aget (.-listeners ^js document) "keydown")))
+
+    (fake-dom/dispatch-dom-event-with-payload! container-b "pointerenter" #js {:clientY 140})
 
     (let [state (@#'hyperopen.views.trading-chart.utils.chart-interop.chart-navigation-overlay/overlay-state
                  chart-obj)
