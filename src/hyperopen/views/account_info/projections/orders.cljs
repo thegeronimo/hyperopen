@@ -131,12 +131,11 @@
   [root-trigger order-trigger & keys]
   (some #(or (get root-trigger %) (get order-trigger %)) keys))
 
-(defn- open-order-identity-fields
-  [root-map order-map]
+(defn- open-order-identity-fields [root-map order-map]
   {:coin (open-order-field root-map order-map :coin)
-   :oid (or (resolve-open-order-oid root-map)
-            (resolve-open-order-oid order-map))
+   :oid (or (resolve-open-order-oid root-map) (resolve-open-order-oid order-map))
    :side (open-order-field root-map order-map :side)
+   :asset-id (open-order-field root-map order-map :asset-id :assetId :asset-idx :assetIdx :asset :a)
    :dex (open-order-field root-map order-map :dex)})
 
 (defn- open-order-size-fields
@@ -193,7 +192,7 @@
         order-map (open-order-row-map order)
         root-trigger (order-trigger-map root-map)
         order-trigger (order-trigger-map order-map)
-        {:keys [coin oid side dex]} (open-order-identity-fields root-map order-map)
+        {:keys [coin oid side asset-id dex]} (open-order-identity-fields root-map order-map)
         {:keys [sz orig-sz]} (open-order-size-fields root-map order-map)
         {:keys [trigger-px is-trigger? trigger-condition tpsl]}
         (open-order-trigger-fields root-map order-map root-trigger order-trigger)
@@ -218,6 +217,7 @@
        :trigger-condition trigger-condition
        :trigger-px trigger-px
        :tpsl tpsl
+       :asset-id asset-id
        :dex dex
        :is-position-tpsl is-position-tpsl})))
 

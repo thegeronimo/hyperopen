@@ -136,6 +136,17 @@
     (is (= "tp" (:tpsl order)))
     (is (= "dex-a" (:dex order)))))
 
+(deftest normalize-open-order-preserves-cancel-asset-id-for-named-dex-rows-test
+  (let [order (projections/normalize-open-order {:order {:coin "xyz:SILVER"
+                                                          :oid "88"
+                                                          :dex "xyz"
+                                                          :assetId "120088"
+                                                          :limitPx "64.2"}})]
+    (is (= "xyz:SILVER" (:coin order)))
+    (is (= "88" (:oid order)))
+    (is (= "120088" (:asset-id order)))
+    (is (= "xyz" (:dex order)))))
+
 (deftest normalize-open-order-preserves-root-and-row-flag-precedence-test
   (let [order (projections/normalize-open-order {:order {:coin "SOL"
                                                           :oid "4"

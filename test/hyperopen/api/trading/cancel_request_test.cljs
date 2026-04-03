@@ -1,6 +1,7 @@
 (ns hyperopen.api.trading.cancel-request-test
   (:require [cljs.test :refer-macros [deftest is]]
-            [hyperopen.api.trading :as trading]))
+            [hyperopen.api.trading :as trading]
+            [hyperopen.views.account-info.projections :as projections]))
 
 (deftest resolve-cancel-order-oid-normalizes-supported-wire-keys-test
   (is (= 42
@@ -109,3 +110,16 @@
                                                            :oid "101"}
                                                           {:coin "ETH"}])))
     (is (nil? (trading/build-cancel-orders-request state [])))))
+
+(deftest build-cancel-orders-request-uses-preserved-asset-id-from-normalized-named-dex-row-test
+  (let [state {:asset-contexts {"xyz:SILVER" {:idx 4}}
+               :asset-selector {:market-by-key {}}}
+        visible-order (projections/normalize-open-order {:order {:coin "xyz:SILVER"
+                                                                  :oid "404"
+                                                                  :dex "xyz"
+                                                                  :assetId "120404"
+                                                                  :limitPx "64.2"}})
+        request (trading/build-cancel-orders-request state [visible-order])]
+    (is (= {:action {:type "cancel"
+                     :cancels [{:a 120404 :o 404}]}}
+           request))))
