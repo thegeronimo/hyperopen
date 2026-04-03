@@ -127,9 +127,9 @@
                   resolved))]
           (try
             (let [load-promise
-                  (-> (if (loader/loaded? trading-indicators-module-name)
-                        (js/Promise.resolve nil)
-                        (loader/load trading-indicators-module-name))
+                  (-> (js/Promise.resolve
+                       (when-not (loader/loaded? trading-indicators-module-name)
+                         (loader/load trading-indicators-module-name)))
                       (.then (fn [_]
                                (resolve-loaded-trading-indicators!)))
                       (.catch (fn [err]

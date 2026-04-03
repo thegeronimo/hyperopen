@@ -20,6 +20,11 @@
 (defonce ^:private resolved-trading-crypto* (atom nil))
 (defonce ^:private inflight-trading-crypto-load* (atom nil))
 
+(defn reset-trading-crypto-module-state!
+  []
+  (reset! resolved-trading-crypto* nil)
+  (reset! inflight-trading-crypto-load* nil))
+
 (defn- resolve-exported-function
   [path-segments]
   (let [root (or (some-> js/goog .-global)
@@ -51,7 +56,7 @@
 
       (some? cached)
       (do
-        (reset! resolved-trading-crypto* nil)
+        (reset-trading-crypto-module-state!)
         nil)
 
       :else
@@ -76,9 +81,9 @@
                 resolved))]
         (try
           (let [load-promise
-                (-> (if (loader/loaded? trading-crypto-module-name)
-                      (js/Promise.resolve nil)
-                      (loader/load trading-crypto-module-name))
+                (-> (js/Promise.resolve
+                     (when-not (loader/loaded? trading-crypto-module-name)
+                       (loader/load trading-crypto-module-name)))
                     (.then (fn [_]
                              (resolve-loaded-trading-crypto!)))
                     (.finally (fn []

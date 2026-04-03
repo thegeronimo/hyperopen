@@ -8,6 +8,96 @@ import {
   waitForIdle
 } from "../support/hyperopen.mjs";
 
+function buildCachedAssetSelectorMarkets(count = 240) {
+  const baseMarkets = [
+    {
+      key: "perp:BTC",
+      coin: "BTC",
+      symbol: "BTC",
+      base: "BTC",
+      "market-type": "perp",
+      category: "crypto",
+      volume24h: 2_900_000_000,
+      openInterest: 1_900_000_000,
+      mark: 66_880,
+      markRaw: 66_880,
+      change24h: -1_528,
+      change24hPct: -2.23,
+      fundingRate: -0.00001,
+      "cache-order": 0
+    },
+    {
+      key: "perp:ETH",
+      coin: "ETH",
+      symbol: "ETH",
+      base: "ETH",
+      "market-type": "perp",
+      category: "crypto",
+      volume24h: 1_800_000_000,
+      openInterest: 1_200_000_000,
+      mark: 3_410,
+      markRaw: 3_410,
+      change24h: 84,
+      change24hPct: 2.52,
+      fundingRate: 0.00012,
+      "cache-order": 1
+    },
+    {
+      key: "perp:SOL",
+      coin: "SOL",
+      symbol: "SOL",
+      base: "SOL",
+      "market-type": "perp",
+      category: "crypto",
+      volume24h: 950_000_000,
+      openInterest: 620_000_000,
+      mark: 168,
+      markRaw: 168,
+      change24h: 5.4,
+      change24hPct: 3.31,
+      fundingRate: 0.00009,
+      "cache-order": 2
+    }
+  ];
+
+  const generatedMarkets = Array.from({ length: Math.max(0, count - baseMarkets.length) }, (_, index) => {
+    const ordinal = index + 1;
+    return {
+      key: `perp:TST${ordinal}`,
+      coin: `TST${ordinal}`,
+      symbol: `TST${ordinal}`,
+      base: `TST${ordinal}`,
+      "market-type": "perp",
+      category: "crypto",
+      volume24h: 500_000_000 - ordinal,
+      openInterest: 250_000_000 - ordinal,
+      mark: 100 + ordinal,
+      markRaw: 100 + ordinal,
+      change24h: ordinal / 10,
+      change24hPct: ordinal / 100,
+      fundingRate: 0.00005,
+      "cache-order": baseMarkets.length + index
+    };
+  });
+
+  return [...baseMarkets, ...generatedMarkets];
+}
+
+async function seedAssetSelectorMarketsCache(page, count = 240) {
+  const rows = buildCachedAssetSelectorMarkets(count);
+  await page.addInitScript((cacheRows) => {
+    window.localStorage.setItem(
+      "asset-selector-markets-cache",
+      JSON.stringify({
+        id: "asset-selector-markets-cache",
+        version: 1,
+        "saved-at-ms": Date.now(),
+        rows: cacheRows
+      })
+    );
+  }, rows);
+}
+
 test("asset selector opens and selects ETH @regression", async ({ page }) => {
   await visitRoute(page, "/trade");
 
@@ -39,6 +129,7 @@ test("asset selector opens and selects ETH @regression", async ({ page }) => {
 });
 
 test("asset selector focuses search input and keyboard-navigates rows @regression", async ({ page }) => {
+  await seedAssetSelectorMarketsCache(page);
   await visitRoute(page, "/trade");
 
   await dispatch(page, [":actions/toggle-asset-dropdown", ":asset-selector"]);
@@ -49,18 +140,21 @@ test("asset selector focuses search input and keyboard-navigates rows @regressio
   });
 
   const searchInput = page.locator('[aria-label="Search assets"]');
+  const assetRows = page.locator('[data-role="asset-selector-row"]');
   const highlightedRow = () =>
     page.locator('[data-role="asset-selector-row"][data-row-state="highlighted"]').first();
   const highlightedSymbol = async () =>
     (await highlightedRow().locator(".truncate").first().textContent())?.trim();
-  const highlightedMarketKey = async () =>
-    (await debugCall(page, "snapshot"))["app-state"]?.["asset-selector"]?.["highlighted-market-key"] ?? null;
+  const firstRowSymbol = async () =>
+    (await assetRows.first().locator(".truncate").first().textContent())?.trim();
 
   await expect(searchInput).toBeFocused();
+  await expect.poll(async () => await assetRows.count(), { timeout: 10_000 }).toBeGreaterThan(1);
+  const initialRowSymbol = await firstRowSymbol();
 
   await page.keyboard.press("ArrowDown");
-  await expect.poll(highlightedMarketKey, { timeout: 5_000 }).not.toBeNull();
   await expect(highlightedRow()).toBeVisible();
+  await expect.poll(highlightedSymbol, { timeout: 5_000 }).not.toBe(initialRowSymbol);
   const firstHighlightedSymbol = await highlightedSymbol();
 
   await page.keyboard.press("ArrowDown");
@@ -615,6 +709,7 @@ test("vault position coin jumps to the trade route market @regression", async ({
 });
 
 test("asset selector favorite toggle keeps dropdown open @regression", async ({ page }) => {
+  await seedAssetSelectorMarketsCache(page);
   await visitRoute(page, "/trade");
 
   await dispatch(page, [":actions/toggle-asset-dropdown", ":asset-selector"]);
@@ -639,6 +734,7 @@ test("asset selector favorite toggle keeps dropdown open @regression", async ({ 
 });
 
 test("asset selector rapid scroll keeps rows visible @regression", async ({ page }) => {
+  await seedAssetSelectorMarketsCache(page, 320);
   const nestedRenderWarnings = [];
   const pageErrors = [];
   page.on("console", (message) => {

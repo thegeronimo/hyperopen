@@ -2,7 +2,13 @@
   (:require [cljs.test :refer-macros [async deftest is]]
             [goog.object :as gobj]
             [shadow.loader :as loader]
+            [hyperopen.views.trading-chart.indicators-module]
             [hyperopen.trading-indicators-modules :as trading-indicators-modules]))
+
+(defn- loader-thenable
+  [value]
+  #js {:then (fn [resolve _reject]
+               (resolve value))})
 
 (deftest trading-indicators-state-helpers-track-loading-loaded-and-failure-test
   (trading-indicators-modules/reset-trading-indicators-module-state!)
@@ -56,3 +62,22 @@
                             (is (= "Loaded trading indicators module without exported helpers."
                                    (trading-indicators-modules/trading-indicators-error @store)))
                             (done)))))))))))
+
+(deftest load-trading-indicators-module-handles-loader-thenables-without-finally-test
+  (async done
+    (let [store (atom {:trade-modules {:indicators (trading-indicators-modules/default-state)}})]
+      (trading-indicators-modules/reset-trading-indicators-module-state!)
+      (with-redefs [loader/loaded? (constantly false)
+                    loader/load (fn [_]
+                                  (loader-thenable nil))]
+        (-> (trading-indicators-modules/load-trading-indicators-module! store)
+            (.then (fn [resolved]
+                     (trading-indicators-modules/reset-trading-indicators-module-state!)
+                     (is (map? resolved))
+                     (is (fn? (:calculate-indicator resolved)))
+                     (is (true? (get-in @store [:trade-modules :indicators :loaded?])))
+                     (done)))
+            (.catch (fn [err]
+                      (trading-indicators-modules/reset-trading-indicators-module-state!)
+                      (is false (str "Expected thenable loader result to resolve, got: " err))
+                      (done))))))))

@@ -209,6 +209,7 @@
             [hyperopen.telemetry.console-warning-test]
             [hyperopen.test-runner-support-test]
             [hyperopen.trade-modules-test]
+            [hyperopen.trading-crypto-modules-test]
             [hyperopen.trading-crypto.module-exports-test]
             [hyperopen.trading-indicators-modules-test]
             [hyperopen.trading-indicators.module-exports-test]
@@ -649,6 +650,7 @@
              'hyperopen.telemetry.console-warning-test
              'hyperopen.test-runner-support-test
              'hyperopen.trade-modules-test
+             'hyperopen.trading-crypto-modules-test
              'hyperopen.trading-crypto.module-exports-test
              'hyperopen.trading-indicators-modules-test
              'hyperopen.trading-indicators.module-exports-test
