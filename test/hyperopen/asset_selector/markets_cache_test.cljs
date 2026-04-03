@@ -89,6 +89,39 @@
                 markets/resolve-market-by-coin)]
     (is (= state result))))
 
+(deftest restore-asset-selector-markets-cache-state-upgrades-existing-active-market-from-cache-test
+  (let [cached-market {:key "perp:xyz:SILVER"
+                       :coin "xyz:SILVER"
+                       :symbol "SILVER-USDC"
+                       :base "SILVER"
+                       :dex "xyz"
+                       :maxLeverage 25
+                       :market-type :perp
+                       :asset-id 110001}
+        state {:active-asset "xyz:SILVER"
+               :active-market {:coin "xyz:SILVER"
+                               :symbol "SILVER-USDC"
+                               :dex "xyz"
+                               :market-type :perp}
+               :asset-selector {:markets []
+                                :market-by-key {}
+                                :market-index-by-key {}
+                                :phase :bootstrap}}
+        result (markets-cache/restore-asset-selector-markets-cache-state
+                state
+                [cached-market]
+                markets/resolve-market-by-coin)]
+    (is (= cached-market
+           (get-in result [:asset-selector :market-by-key "perp:xyz:SILVER"])))
+    (is (= "perp:xyz:SILVER"
+           (get-in result [:active-market :key])))
+    (is (= 25
+           (get-in result [:active-market :maxLeverage])))
+    (is (= 110001
+           (get-in result [:active-market :asset-id])))
+    (is (= true
+           (get-in result [:asset-selector :cache-hydrated?])))))
+
 (deftest persist-and-load-asset-selector-markets-cache-roundtrip-test
   (async done
     (browser-mocks/with-test-indexed-db

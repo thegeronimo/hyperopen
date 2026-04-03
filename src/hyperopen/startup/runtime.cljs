@@ -431,9 +431,27 @@
        (fn []
          (mark-performance! "app:critical-data:ready")))))
 
+(defn- parse-optional-number
+  [value]
+  (cond
+    (number? value) value
+    (string? (some-> value str str/trim))
+    (let [parsed (js/parseFloat value)]
+      (when-not (js/isNaN parsed)
+        parsed))
+    :else nil))
+
+(defn- incomplete-active-perp-market?
+  [store]
+  (let [state @store
+        active-market (:active-market state)]
+    (and (= :perp (:market-type active-market))
+         (nil? (parse-optional-number (:maxLeverage active-market))))))
+
 (defn- skip-deferred-bootstrap?
   [store]
-  (true? (get-in @store [:asset-selector :cache-hydrated?])))
+  (and (true? (get-in @store [:asset-selector :cache-hydrated?]))
+       (not (incomplete-active-perp-market? store))))
 
 (defn run-deferred-bootstrap!
   [{:keys [store fetch-asset-selector-markets! mark-performance!]}]

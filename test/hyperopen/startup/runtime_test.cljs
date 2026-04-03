@@ -1142,6 +1142,21 @@
                     (fn []
                       (is (= [] @skipped-fetches))
                       (is (= ["app:full-bootstrap:ready"] @skipped-marks))
+                      (let [forced-fetches (atom [])
+                            forced-marks (atom [])]
+                        (-> (startup-runtime/run-deferred-bootstrap!
+                             {:store (atom {:asset-selector {:cache-hydrated? true}
+                                            :active-market {:coin "xyz:SILVER"
+                                                            :market-type :perp}})
+                              :fetch-asset-selector-markets! (fn [_store opts]
+                                                               (swap! forced-fetches conj opts)
+                                                               (js/Promise.resolve :full))
+                              :mark-performance! (fn [mark]
+                                                   (swap! forced-marks conj mark))})
+                            (.then
+                             (fn []
+                               (is (= [{:phase :full}] @forced-fetches))
+                               (is (= ["app:full-bootstrap:ready"] @forced-marks))))))
                       (startup-runtime/schedule-deferred-bootstrap!
                        {:startup-runtime startup-runtime-atom
                         :schedule-idle-or-timeout! (fn [callback]

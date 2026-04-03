@@ -363,8 +363,7 @@
     (let [market-by-key (market-by-key-from-markets cached-markets)
           market-index-by-key (market-index-by-key-from-markets cached-markets)
           active-asset (:active-asset state)
-          resolved-active-market (when (and (string? active-asset)
-                                            (nil? (:active-market state)))
+          resolved-active-market (when (string? active-asset)
                                    (resolve-market-by-coin-fn market-by-key active-asset))]
       (cond-> (-> state
                   (assoc-in [:asset-selector :markets] cached-markets)
