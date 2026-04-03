@@ -2,7 +2,7 @@
 
 This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
-This document follows `/hyperopen/.agents/PLANS.md`, `/hyperopen/docs/PLANS.md`, and `/hyperopen/docs/WORK_TRACKING.md`. The live `bd` issue for this work is `hyperopen-k47v` ("Reduce desktop trade-route startup TBT"), and `bd` remains the lifecycle source of truth until this plan is moved out of `active`.
+This document follows `/hyperopen/.agents/PLANS.md`, `/hyperopen/docs/PLANS.md`, and `/hyperopen/docs/WORK_TRACKING.md`. The `bd` issue for this work is `hyperopen-k47v` ("Reduce desktop trade-route startup TBT"), and `bd` remained the lifecycle source of truth while this plan was active.
 
 This plan is a second-wave follow-up to `/hyperopen/docs/exec-plans/completed/2026-03-16-release-build-performance-leverage-plan.md`. That earlier work already removed large font waste, split non-trade routes, moved the trade chart into its own browser module, and trimmed several startup and render-churn paths. This plan starts from the current deployed baseline and targets the remaining desktop trade-route bottlenecks that still keep PageSpeed at `79`.
 
@@ -44,7 +44,7 @@ After this work, the default desktop trade load should remain visually fast whil
 - [x] Continue Milestone 1 by deferring or splitting additional noncritical desktop trade surfaces beyond the chart and wallet crypto path.
 - [x] Reduce chart startup and overlay main-thread work so the trade route stops producing the current long-task and forced-reflow pattern.
 - [x] Eliminate the remaining low-risk layout-shift and animation noise on the trade shell without regressing design-system behavior.
-- [ ] Capture a fresh deployed PageSpeed desktop report and broader post-change signoff evidence before closing `hyperopen-k47v`.
+- [x] (2026-04-03 13:00Z) Closed the plan without a strong deployed PageSpeed delta after deployment was live but the follow-up PageSpeed result remained inconclusive; local release-backed startup evidence had already improved materially, the shipped work was complete, and the user explicitly chose to stop further optimization.
 
 ## Surprises & Discoveries
 
@@ -167,11 +167,15 @@ After this work, the default desktop trade load should remain visually fast whil
   Rationale: the meter represents websocket state, not deliberate UI choreography, so instant tone changes are acceptable and lower risk than preserving a tiny color animation that still trips the audit.
   Date/Author: 2026-04-02 / Codex
 
+- Decision: close the initiative without holding out for a clearly stronger deployed PageSpeed rerun.
+  Rationale: the implementation waves are already shipped, fresh release-backed local profiles improved dramatically versus the baseline, governed browser QA and repo gates remained green, and the follow-up deployed PageSpeed signal was not strong enough to justify continued optimization work.
+  Date/Author: 2026-04-03 / Codex
+
 ## Outcomes & Retrospective
 
 Seven implementation waves have landed and the plan has now materially reduced the local release-backed startup workload on the default desktop trade route while also closing the low-risk polish items. The current result is a narrower startup path on the default desktop trade route: the initial router bootstrap no longer loads the trade chart module before first paint, wallet-session startup no longer imports agent keygen or address-derivation crypto by default, exchange-signing helpers now live in a separate `trading_crypto` browser module that is not fetched on the cold route, indicator runtime and `indicatorts` now live in a dedicated `trading_indicators` chunk that also stays off the cold route, the lower desktop account surfaces stay behind stable placeholders until the post-render startup phase marks them ready, the order form no longer computes hidden TP/SL, TWAP, or scale-preview work on the cold desktop path, the chart overlay subscriptions now coalesce duplicate repaint events instead of re-running the same overlay work multiple times per startup burst, the chart navigation overlay no longer builds its DOM subtree or document keyboard listener on cold mount, the trade-chart loading shell now mirrors the live toolbar structure more closely, and the footer connection meter no longer animates color transitions that PageSpeed flags as non-composited. The repository gates remain green after those changes, the governed trade-route browser QA matrix still passes on the current worktree, and the best fresh release-backed local profiles remain `tmp/browser-inspection/trade-startup-profile-2026-04-01T22-08-11-569Z-c86ac31f/` and `tmp/browser-inspection/trade-startup-profile-2026-04-01T22-08-33-496Z-8de4bdac/`, which recorded `blockingTimeProxyMs` / `maxSingleBlockingTaskMs` of `48/98` and `43/93` respectively, with `tradeRootVisibleMs` around `265ms`.
 
-This plan remains active because the remaining work has shifted almost entirely to deployment proof. Milestone 0 now has a dedicated artifact root at `tmp/trade-startup-tbt-2026-04-01/README.md`, the local Milestone 2 threshold is comfortably met on fresh release assets, Milestone 3 is now complete, the governed `/trade` browser QA matrix is green on a fresh post-polish run, and the broader committed smoke suite still passes. The remaining required work is now singular: capture a fresh deployed PageSpeed desktop report and record the final live metrics before closing `hyperopen-k47v`.
+This plan is complete. Milestone 0 has a dedicated artifact root at `tmp/trade-startup-tbt-2026-04-01/README.md`, the local Milestone 2 threshold was comfortably met on fresh release assets, Milestone 3 is complete, the governed `/trade` browser QA matrix stayed green on the post-polish runs, and the broader committed smoke suite passed. Deployment is live, but the follow-up PageSpeed signal was not strong enough to justify more work. The initiative therefore closes on 2026-04-03 based on the shipped implementation, the materially improved release-backed local startup evidence, and explicit user signoff to stop further optimization.
 
 ## Context and Orientation
 
