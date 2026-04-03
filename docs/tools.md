@@ -73,6 +73,8 @@ Use this file as the single starting point for what actions this repo provides t
 | `npm run test:browser-inspection` | Browser-inspection unit tests | Before changing inspection tooling |
 | `npm run test:browser-inspection:smoke` | Optional real-Chrome smoke | Manual confidence check before parity workflows |
 
+Development note: Local watch commands that invoke `css:watch` recompile Tailwind to `/hyperopen/resources/public/css/main.css`, but CSS-only edits are not live-swapped into the current browser tab; refresh the page to see them. Shadow's `:after-load` reload path applies to ClojureScript changes, not standalone CSS changes.
+
 ## 10) Formal tooling
 
 Use `tools/formal.clj` for the repo-local Lean workflow. The wrapper stays out of the proof-execution path in normal repo commands, but the wrapper's own Babashka tests run in `npm run check`.

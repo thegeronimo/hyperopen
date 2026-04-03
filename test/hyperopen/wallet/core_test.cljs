@@ -341,15 +341,17 @@
 (deftest attach-listeners-installs-once-and-forwards-provider-events-test
   (let [store (atom {:wallet {:connected? false
                               :address nil}})
+        provider #js {}
         listeners (atom {})
         set-connected-calls (atom [])
         set-disconnected-calls (atom 0)
         set-chain-calls (atom [])]
-    (reset! wallet/listeners-installed? false)
+    (aset provider "on"
+          (fn [event-name callback]
+            (swap! listeners assoc event-name callback)))
+    (wallet/reset-provider-listener-state!)
     (with-redefs [wallet/has-provider? (fn [] true)
-                  wallet/provider (fn []
-                                    #js {:on (fn [event-name callback]
-                                               (swap! listeners assoc event-name callback))})
+                  wallet/provider (fn [] provider)
                   wallet/set-connected! (fn [_ addr & _]
                                           (swap! set-connected-calls conj addr))
                   wallet/set-disconnected! (fn [_]
@@ -366,7 +368,100 @@
       (is (= ["0xabc"] @set-connected-calls))
       (is (= 1 @set-disconnected-calls))
       (is (= ["0xa4b1"] @set-chain-calls)))
-    (reset! wallet/listeners-installed? false)))
+    (wallet/reset-provider-listener-state!)))
+
+(deftest attach-listeners-reuses-same-provider-callbacks-when-removal-is-unavailable-test
+  (let [store-a (atom {:wallet {:connected? false}})
+        store-b (atom {:wallet {:connected? false}})
+        provider #js {}
+        listeners (atom {})
+        set-connected-calls (atom [])]
+    (aset provider "on"
+          (fn [event-name callback]
+            (swap! listeners assoc event-name callback)))
+    (wallet/reset-provider-listener-state!)
+    (with-redefs [wallet/has-provider? (fn [] true)
+                  wallet/provider (fn [] provider)
+                  wallet/set-connected! (fn [store addr & _]
+                                          (swap! set-connected-calls conj [store addr]))]
+      (wallet/attach-listeners! store-a)
+      (let [accounts-handler (get @listeners "accountsChanged")
+            chain-handler (get @listeners "chainChanged")]
+        (wallet/attach-listeners! store-b)
+        (is (identical? accounts-handler (get @listeners "accountsChanged")))
+        (is (identical? chain-handler (get @listeners "chainChanged")))
+        (accounts-handler #js ["0xabc"])
+        (is (= [[store-b "0xabc"]]
+               @set-connected-calls))))
+    (wallet/reset-provider-listener-state!)))
+
+(deftest attach-listeners-detaches-old-provider-callbacks-when-removal-is-supported-test
+  (let [store-a (atom {:wallet {:connected? false}})
+        store-b (atom {:wallet {:connected? false}})
+        active-listeners (atom {})
+        remove-calls (atom [])
+        set-connected-calls (atom [])
+        provider #js {}]
+    (aset provider "on"
+          (fn [event-name callback]
+            (swap! active-listeners assoc event-name callback)))
+    (aset provider "removeListener"
+          (fn [event-name callback]
+            (swap! remove-calls conj [event-name callback])
+            (when (identical? callback (get @active-listeners event-name))
+              (swap! active-listeners dissoc event-name))))
+    (wallet/reset-provider-listener-state!)
+    (with-redefs [wallet/has-provider? (fn [] true)
+                  wallet/provider (fn [] provider)
+                  wallet/set-connected! (fn [store addr & _]
+                                          (swap! set-connected-calls conj [store addr]))]
+      (wallet/attach-listeners! store-a)
+      (let [first-accounts-handler (get @active-listeners "accountsChanged")
+            first-chain-handler (get @active-listeners "chainChanged")]
+        (wallet/attach-listeners! store-b)
+        (is (= [["accountsChanged" first-accounts-handler]
+                ["chainChanged" first-chain-handler]]
+               @remove-calls))
+        ((get @active-listeners "accountsChanged") #js ["0xdef"])
+        (is (= [[store-b "0xdef"]]
+               @set-connected-calls))))
+    (wallet/reset-provider-listener-state!)))
+
+(deftest attach-listeners-ignores-stale-provider-events-after-provider-swap-without-removal-test
+  (let [store-a (atom {:wallet {:connected? false}})
+        store-b (atom {:wallet {:connected? false}})
+        provider-a #js {}
+        provider-b #js {}
+        active-provider (atom provider-a)
+        provider-a-listeners (atom {})
+        provider-b-listeners (atom {})
+        set-connected-calls (atom [])
+        set-chain-calls (atom [])]
+    (aset provider-a "on"
+          (fn [event-name callback]
+            (swap! provider-a-listeners assoc event-name callback)))
+    (aset provider-b "on"
+          (fn [event-name callback]
+            (swap! provider-b-listeners assoc event-name callback)))
+    (wallet/reset-provider-listener-state!)
+    (with-redefs [wallet/has-provider? (fn [] true)
+                  wallet/provider (fn [] @active-provider)
+                  wallet/set-connected! (fn [store addr & _]
+                                          (swap! set-connected-calls conj [store addr]))
+                  wallet/set-chain! (fn [store chain-id]
+                                      (swap! set-chain-calls conj [store chain-id]))]
+      (wallet/attach-listeners! store-a)
+      (reset! active-provider provider-b)
+      (wallet/attach-listeners! store-b)
+      ((get @provider-a-listeners "accountsChanged") #js ["0xold"])
+      ((get @provider-a-listeners "chainChanged") "0x1")
+      (is (empty? @set-connected-calls))
+      (is (empty? @set-chain-calls))
+      ((get @provider-b-listeners "accountsChanged") #js ["0xnew"])
+      ((get @provider-b-listeners "chainChanged") "0xa4b1")
+      (is (= [[store-b "0xnew"]] @set-connected-calls))
+      (is (= [[store-b "0xa4b1"]] @set-chain-calls)))
+    (wallet/reset-provider-listener-state!)))
 
 (deftest init-wallet-invokes-listener-attach-and-connection-check-test
   (let [store (atom {:wallet {:connected? false}})

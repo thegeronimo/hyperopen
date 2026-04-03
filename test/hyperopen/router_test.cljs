@@ -3,6 +3,20 @@
             [hyperopen.portfolio.routes :as portfolio-routes]
             [hyperopen.router :as router]))
 
+(defn- with-global-property
+  [property-name value f]
+  (let [original-descriptor (js/Object.getOwnPropertyDescriptor js/globalThis property-name)]
+    (js/Object.defineProperty js/globalThis property-name
+                              #js {:value value
+                                   :configurable true
+                                   :writable true})
+    (try
+      (f)
+      (finally
+        (if original-descriptor
+          (js/Object.defineProperty js/globalThis property-name original-descriptor)
+          (js/Reflect.deleteProperty js/globalThis property-name))))))
+
 (deftest normalize-path-supports-deep-link-variants-test
   (is (= "/trade" (router/normalize-path nil)))
   (is (= "/trade" (router/normalize-path "")))
@@ -65,6 +79,48 @@
     (router/set-route! store "portfolio" #(swap! callbacks conj %))
     (is (= "/portfolio" (get-in @store [:router :path])))
     (is (= ["/portfolio"] @callbacks))))
+
+(deftest init-rebinds-popstate-listener-and-uses-latest-callback-test
+  (let [store (atom {:router {:path "/trade"}})
+        add-calls (atom [])
+        remove-calls (atom [])
+        listeners (atom {})
+        callbacks-a (atom [])
+        callbacks-b (atom [])
+        location-object #js {:pathname "/trade"
+                             :hash ""}]
+    (with-global-property
+      "window"
+      #js {:addEventListener (fn [event-name handler]
+                               (swap! add-calls conj [event-name handler])
+                               (swap! listeners assoc event-name handler))
+           :removeEventListener (fn [event-name handler]
+                                  (swap! remove-calls conj [event-name handler]))}
+      (fn []
+        (with-global-property
+          "location"
+          location-object
+          (fn []
+            (router/init! store {:skip-route-set? true
+                                 :on-route-change #(swap! callbacks-a conj %)})
+            (is (= "/trade" (get-in @store [:router :path])))
+            (let [first-handler (get @listeners "popstate")]
+              (router/init! store {:skip-route-set? true
+                                   :on-route-change #(swap! callbacks-b conj %)})
+              (let [second-handler (get @listeners "popstate")]
+                (is (fn? first-handler))
+                (is (fn? second-handler))
+                (is (not (identical? first-handler second-handler)))
+                (is (= [["popstate" first-handler]]
+                       @remove-calls))
+                (aset location-object "pathname" "/portfolio")
+                (second-handler nil)
+                (is (= "/portfolio" (get-in @store [:router :path])))
+                (is (empty? @callbacks-a))
+                (is (= ["/portfolio"] @callbacks-b))
+                (is (= [["popstate" first-handler]
+                        ["popstate" second-handler]]
+                       @add-calls))))))))))
 
 (deftest portfolio-route-helpers-handle-trader-inspection-subroutes-test
   (let [trader "0x3333333333333333333333333333333333333333"]

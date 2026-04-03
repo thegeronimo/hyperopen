@@ -4,9 +4,17 @@
 
 ;; ---------- Provider helpers -------------------------------------------------
 
-(declare listeners-installed?)
+(declare listeners-installed?
+         provider-listener-state
+         provider-listener-store)
 
 (defonce ^:private provider-override
+  (atom nil))
+
+(defonce ^:private provider-listener-state
+  (atom nil))
+
+(defonce ^:private provider-listener-store
   (atom nil))
 
 (defn set-provider-override!
@@ -19,9 +27,36 @@
   (reset! provider-override nil)
   true)
 
+(defn- provider-remove-listener!
+  [provider event-name handler]
+  (let [remove-listener (when (some? provider)
+                          (aget provider "removeListener"))
+        off-fn (when (some? provider)
+                 (aget provider "off"))]
+    (cond
+      (fn? remove-listener)
+      (js-invoke provider "removeListener" event-name handler)
+
+      (fn? off-fn)
+      (js-invoke provider "off" event-name handler)
+
+      :else
+      nil)))
+
+(defn- detach-provider-listeners!
+  []
+  (when-let [{:keys [provider accounts-changed chain-changed]} @provider-listener-state]
+    (when accounts-changed
+      (provider-remove-listener! provider "accountsChanged" accounts-changed))
+    (when chain-changed
+      (provider-remove-listener! provider "chainChanged" chain-changed)))
+  (reset! provider-listener-state nil)
+  (reset! provider-listener-store nil)
+  (reset! listeners-installed? false))
+
 (defn reset-provider-listener-state!
   []
-  (reset! listeners-installed? false)
+  (detach-provider-listeners!)
   true)
 
 (defn ^js provider []
@@ -157,15 +192,49 @@
 (defonce listeners-installed? (atom false))
 
 (defn attach-listeners! [store]
-  (when (and (has-provider?) (not @listeners-installed?))
-    (reset! listeners-installed? true)
-    (.on (provider) "accountsChanged"
-         (fn [accounts]
-           (apply-accounts-connection! store accounts)))
-    (.on (provider) "chainChanged"
-         (fn [chain-id]
-           ;; chainId comes as hex string per EIP-1193, e.g. "0x1"
-           (set-chain! store chain-id)))))
+  (reset! provider-listener-store store)
+  (let [provider* (provider)
+        current-listeners @provider-listener-state]
+    (cond
+      (nil? provider*)
+      (detach-provider-listeners!)
+
+      (not (fn? (some-> provider* .-on)))
+      (detach-provider-listeners!)
+
+      (and current-listeners
+           (identical? provider* (:provider current-listeners))
+           (not (or (fn? (some-> provider* .-removeListener))
+                    (fn? (some-> provider* .-off)))))
+      ;; Some providers expose `on` without any listener-removal API. Keep the
+      ;; existing callbacks attached and only refresh the current store ref.
+      (reset! listeners-installed? true)
+
+      :else
+      (do
+        (detach-provider-listeners!)
+        (reset! provider-listener-store store)
+        (let [listener-id (js-obj)
+              accounts-changed
+              (fn [accounts]
+                (when-let [active-store (when (identical? listener-id
+                                                          (:listener-id @provider-listener-state))
+                                          @provider-listener-store)]
+                  (apply-accounts-connection! active-store accounts)))
+              chain-changed
+              (fn [chain-id]
+                ;; chainId comes as hex string per EIP-1193, e.g. "0x1"
+                (when-let [active-store (when (identical? listener-id
+                                                          (:listener-id @provider-listener-state))
+                                          @provider-listener-store)]
+                  (set-chain! active-store chain-id)))]
+          (reset! provider-listener-state {:provider provider*
+                                           :listener-id listener-id
+                                           :accounts-changed accounts-changed
+                                           :chain-changed chain-changed})
+          (.on provider* "accountsChanged" accounts-changed)
+          (.on provider* "chainChanged" chain-changed)
+          (reset! listeners-installed? true))))))
 
 (defn init-wallet! [store]
   (attach-listeners! store)

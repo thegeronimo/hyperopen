@@ -50,6 +50,9 @@
          :pending-subscription nil
          :ws-connected? false}))
 
+(def ^:private address-watcher-key
+  :hyperopen.wallet.address-watcher/address-watcher)
+
 (defn- default-watch-value
   [state]
   (account-context/effective-account-address state))
@@ -86,7 +89,7 @@
   (swap! address-watcher-state 
          update :handlers 
          (fn [handlers]
-           (remove #(= (get-handler-name %) handler-name) handlers)))
+           (filterv #(not= (get-handler-name %) handler-name) handlers)))
   (telemetry/log! (str "Removed address change handler: " handler-name)))
 
 (defn- notify-handlers!
@@ -172,7 +175,7 @@
   [store]
   (when-not (get @address-watcher-state :watching?)
     (telemetry/log! "Starting wallet address watcher...")
-    (add-watch store ::address-watcher address-change-listener)
+    (add-watch store address-watcher-key address-change-listener)
     (swap! address-watcher-state assoc :watching? true)
     
     ;; Initialize current effective account address
@@ -185,7 +188,7 @@
   [store]
   (when (get @address-watcher-state :watching?)
     (telemetry/log! "Stopping wallet address watcher...")
-    (remove-watch store ::address-watcher)
+    (remove-watch store address-watcher-key)
     (swap! address-watcher-state assoc :watching? false)))
 
 (defn sync-current-address!

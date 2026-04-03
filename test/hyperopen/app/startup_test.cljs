@@ -9,7 +9,8 @@
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.startup.collaborators :as startup-collaborators]
             [hyperopen.startup.init :as startup-init]
-            [hyperopen.startup.runtime :as startup-runtime]))
+            [hyperopen.startup.runtime :as startup-runtime]
+            [hyperopen.wallet.core :as wallet]))
 
 (deftest init-builds-startup-sequence-from-permanent-boundaries-test
   (let [store (atom {:active-asset "BTC"})
@@ -100,7 +101,8 @@
 (deftest reload-runtime-bindings-reinstalls-reload-safe-handlers-test
   (let [store (atom {})
         runtime (atom {})
-        calls (atom [])]
+        calls (atom [])
+        router-opts (atom nil)]
     (with-redefs [startup-collaborators/startup-base-deps
                   (fn [deps]
                     (merge
@@ -120,6 +122,13 @@
                       :init-webdata2! (fn [runtime-store]
                                         (swap! calls conj [:webdata2 (identical? store runtime-store)]))}
                      deps))
+                  app-startup/init-router!
+                  (fn [runtime-store opts]
+                    (swap! calls conj [:router (identical? store runtime-store)])
+                    (reset! router-opts opts))
+                  wallet/attach-listeners!
+                  (fn [runtime-store]
+                    (swap! calls conj [:wallet-listeners (identical? store runtime-store)]))
                   startup-runtime/install-asset-selector-shortcuts!
                   (fn [{runtime-store :store
                         dispatch! :dispatch!}]
@@ -127,18 +136,84 @@
                   startup-runtime/install-position-tpsl-clickaway!
                   (fn [{runtime-store :store
                         dispatch! :dispatch!}]
-                    (swap! calls conj [:clickaway (identical? store runtime-store) (fn? dispatch!)]))]
+                    (swap! calls conj [:clickaway (identical? store runtime-store) (fn? dispatch!)]))
+                  app-startup/reload-address-handlers!
+                  (fn [system]
+                    (swap! calls conj [:address-handlers
+                                       (= runtime (:runtime system))
+                                       (= store (:store system))]))]
       (app-startup/reload-runtime-bindings! {:runtime runtime
                                              :store store})
-      (is (= [[:shortcuts true true]
+      (is (= [[:router true]
+              [:wallet-listeners true]
+              [:shortcuts true true]
               [:clickaway true true]
               [:active-ctx true]
               [:candles true]
               [:orderbook true]
               [:trades true]
               [:user-ws true]
-              [:webdata2 true]]
-             @calls)))))
+              [:webdata2 true]
+              [:address-handlers true true]]
+             @calls))
+      (is (true? (:skip-route-set? @router-opts)))
+      (is (false? (:defer-initial-trade-module-loads? @router-opts))))))
+
+(deftest reload-address-handlers-skips-current-address-bootstrap-until-a-new-event-arrives-test
+  (let [store (atom {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}})
+        runtime (atom {})
+        stop-calls (atom [])
+        remove-calls (atom [])
+        init-calls (atom [])
+        added-handlers (atom [])
+        sync-calls (atom 0)
+        bootstrap-calls (atom [])]
+    (with-redefs [startup-collaborators/startup-base-deps
+                  (fn [deps]
+                    (merge
+                     {:store (:store deps)
+                      :runtime (:runtime deps)
+                      :init-with-webdata2! (fn [store-arg subscribe-fn unsubscribe-fn]
+                                             (swap! init-calls conj [store-arg subscribe-fn unsubscribe-fn]))
+                      :add-handler! (fn [handler]
+                                      (swap! added-handlers conj handler))
+                      :remove-handler! (fn [handler-name]
+                                         (swap! remove-calls conj handler-name))
+                      :stop-watching! (fn [store-arg]
+                                        (swap! stop-calls conj store-arg))
+                      :sync-current-address! (fn [_store-arg]
+                                               (swap! sync-calls inc))
+                      :create-user-handler (fn [_subscribe-fn _unsubscribe-fn]
+                                             {:kind :user-handler})
+                      :subscribe-user! (fn [& _] nil)
+                      :unsubscribe-user! (fn [& _] nil)
+                      :subscribe-webdata2! (fn [& _] nil)
+                      :unsubscribe-webdata2! (fn [& _] nil)
+                      :address-handler-reify (fn [on-change handler-name]
+                                               {:kind :address-handler
+                                                :name handler-name
+                                                :on-change on-change})}
+                     deps))
+                  app-startup/bootstrap-account-data!
+                  (fn [system address]
+                    (swap! bootstrap-calls conj [system address]))]
+      (app-startup/reload-address-handlers! {:runtime runtime
+                                             :store store})
+      (is (= [store] @stop-calls))
+      (is (= ["webdata2-subscription-handler"
+              "user-ws-subscription-handler"
+              "startup-account-bootstrap-handler"]
+             @remove-calls))
+      (is (= 1 (count @init-calls)))
+      (is (= 2 (count @added-handlers)))
+      (is (zero? @sync-calls))
+      (is (empty? @bootstrap-calls))
+      (let [address-handler (last @added-handlers)]
+        ((:on-change address-handler) "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+        (is (= [[{:runtime runtime
+                  :store store}
+                 "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]]
+               @bootstrap-calls))))))
 
 (deftest bootstrap-account-data-forwards-stage-b-through-runtime-boundary-test
   (let [store (atom {})

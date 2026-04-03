@@ -218,6 +218,21 @@
   (watcher/remove-handler! "missing-handler")
   (is (empty? (:handlers (watcher-state)))))
 
+(deftest remove-handler-preserves-vector-order-when-readding-test
+  (let [make-handler (fn [handler-name]
+                       (reify watcher/IAddressChangeHandler
+                         (on-address-changed [_ _ _] nil)
+                         (get-handler-name [_]
+                           handler-name)))]
+    (watcher/add-handler! (make-handler "first-handler"))
+    (watcher/add-handler! (make-handler "second-handler"))
+    (watcher/remove-handler! "first-handler")
+    (watcher/add-handler! (make-handler "replacement-handler"))
+    (is (vector? (:handlers (watcher-state))))
+    (is (= ["second-handler" "replacement-handler"]
+           (mapv watcher/get-handler-name
+                 (:handlers (watcher-state)))))))
+
 (deftest custom-watched-value-handler-reacts-when-policy-flips-with-same-address-test
   (let [calls (atom [])
         handler (reify

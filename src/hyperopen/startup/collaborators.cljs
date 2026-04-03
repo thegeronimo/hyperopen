@@ -401,6 +401,8 @@
       :dispatch! nxr/dispatch
       :init-with-webdata2! address-watcher/init-with-webdata2!
       :add-handler! address-watcher/add-handler!
+      :remove-handler! address-watcher/remove-handler!
+      :stop-watching! address-watcher/stop-watching!
       :sync-current-address! address-watcher/sync-current-address!
       :create-user-handler user-ws/create-user-handler
       :subscribe-user! user-ws/subscribe-user!

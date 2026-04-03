@@ -19,6 +19,9 @@
 (def ^:private trade-spectate-query-param
   "spectate")
 
+(defonce ^:private popstate-cleanup
+  (atom nil))
+
 (defn- non-blank-text
   [value]
   (let [text (some-> value str str/trim)]
@@ -189,11 +192,29 @@
      (some-> location .-pathname)
      (some-> location .-hash))))
 
+(defn- install-popstate-listener!
+  [store on-route-change]
+  (let [window-object (when (exists? js/window) js/window)
+        add-event-listener (some-> window-object (.-addEventListener))
+        remove-event-listener (some-> window-object (.-removeEventListener))]
+    (when (and (fn? add-event-listener)
+               (fn? remove-event-listener))
+      (when-let [cleanup @popstate-cleanup]
+        (cleanup)
+        (reset! popstate-cleanup nil))
+      (let [handler (fn [_]
+                      (set-route! store (current-path) on-route-change))]
+        (.addEventListener window-object "popstate" handler)
+        (reset! popstate-cleanup
+                (fn []
+                  (.removeEventListener window-object "popstate" handler)))))))
+
 (defn init!
   ([store]
    (init! store {}))
-  ([store {:keys [on-route-change]}]
-   (set-route! store (current-path) on-route-change)
-   (.addEventListener js/window "popstate"
-                      (fn [_]
-                        (set-route! store (current-path) on-route-change)))))
+  ([store {:keys [on-route-change
+                  skip-route-set?]
+           :or {skip-route-set? false}}]
+   (when-not skip-route-set?
+     (set-route! store (current-path) on-route-change))
+   (install-popstate-listener! store on-route-change)))

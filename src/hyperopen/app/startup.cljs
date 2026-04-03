@@ -22,6 +22,8 @@
             [hyperopen.vaults.infrastructure.persistence :as vault-persistence]
             [hyperopen.wallet.core :as wallet]))
 
+(declare init-router!)
+
 (defn mark-performance!
   [mark-name]
   (startup-runtime-lib/mark-performance! mark-name))
@@ -85,6 +87,14 @@
           (fn [address]
             (bootstrap-account-data! system address)))))
 
+(defn reload-address-handlers!
+  [system]
+  (startup-runtime-lib/reload-address-handlers!
+   (assoc (startup-base-deps system)
+          :bootstrap-account-data!
+          (fn [address]
+            (bootstrap-account-data! system address)))))
+
 (defn start-critical-bootstrap!
   [system]
   (startup-runtime-lib/start-critical-bootstrap!
@@ -123,6 +133,11 @@
         store (:store base-deps)
         dispatch! (:dispatch! base-deps)]
     ;; Rebind listener-held handlers without replaying startup fetch/bootstrap work.
+    (when (some? store)
+      (init-router! store
+                    {:skip-route-set? true
+                     :defer-initial-trade-module-loads? false})
+      (wallet/attach-listeners! store))
     (when (and (some? store) (fn? dispatch!))
       (startup-runtime-lib/install-asset-selector-shortcuts!
        {:store store
@@ -137,7 +152,9 @@
                      (:init-user-ws! base-deps)
                      (:init-webdata2! base-deps)]]
       (when (fn? init-fn)
-        (init-fn store)))))
+        (init-fn store)))
+    (when (some? store)
+      (reload-address-handlers! system))))
 
 (defn- route-change-effects
   ([state path]
@@ -183,6 +200,32 @@
   [store]
   (swap! store assoc-in [:trade-ui :desktop-secondary-panels-ready?] true))
 
+(defn- make-route-change-handler
+  [startup-store {:keys [defer-initial-trade-module-loads?]
+                  :or {defer-initial-trade-module-loads? false}}]
+  (let [defer-initial-trade-module-loads?* (atom defer-initial-trade-module-loads?)]
+    (fn [path]
+      (let [effects (route-change-effects
+                     @startup-store
+                     path
+                     {:defer-trade-chart? @defer-initial-trade-module-loads?*
+                      :defer-trading-indicators? @defer-initial-trade-module-loads?*})]
+        (reset! defer-initial-trade-module-loads?* false)
+        (when (seq effects)
+          (nxr/dispatch startup-store nil effects))))))
+
+(defn- init-router!
+  [startup-store {:keys [defer-initial-trade-module-loads?
+                         skip-route-set?]
+                  :or {defer-initial-trade-module-loads? false
+                       skip-route-set? false}}]
+  (router/init!
+   startup-store
+   {:skip-route-set? skip-route-set?
+    :on-route-change (make-route-change-handler
+                      startup-store
+                      {:defer-initial-trade-module-loads? defer-initial-trade-module-loads?})}))
+
 (defn init!
   [system]
   (let [base-deps (startup-base-deps system)]
@@ -214,20 +257,10 @@
        :set-on-connected-handler! wallet/set-on-connected-handler!
        :handle-wallet-connected runtime-action-adapters/handle-wallet-connected
        :init-wallet! wallet/init-wallet!
-       :init-router! (let [defer-initial-trade-module-loads?* (atom true)]
-                       (fn [startup-store]
-                         (router/init!
-                          startup-store
-                          {:on-route-change
-                           (fn [path]
-                             (let [effects (route-change-effects
-                                            @startup-store
-                                            path
-                                            {:defer-trade-chart? @defer-initial-trade-module-loads?*
-                                             :defer-trading-indicators? @defer-initial-trade-module-loads?*})]
-                               (reset! defer-initial-trade-module-loads?* false)
-                               (when (seq effects)
-                                 (nxr/dispatch startup-store nil effects))))})))
+       :init-router! (fn [startup-store]
+                       (init-router!
+                        startup-store
+                        {:defer-initial-trade-module-loads? true}))
        :install-asset-selector-shortcuts! (fn []
                                             (startup-runtime-lib/install-asset-selector-shortcuts!
                                              {:store (:store base-deps)

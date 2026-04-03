@@ -16,6 +16,12 @@
 (def default-address-handler-name
   "startup-account-bootstrap-handler")
 
+(def ^:private default-user-handler-name
+  "user-ws-subscription-handler")
+
+(def ^:private default-webdata2-handler-name
+  "webdata2-subscription-handler")
+
 (defn mark-performance!
   [mark-name]
   (when (and (exists? js/performance)
@@ -335,17 +341,28 @@
            init-with-webdata2!
            dispatch!
            add-handler!
+           remove-handler!
            sync-current-address!
+           stop-watching!
            create-user-handler
            subscribe-user!
            unsubscribe-user!
            subscribe-webdata2!
            unsubscribe-webdata2!
            address-handler-reify
+           sync-current-address-on-install?
            address-handler-name]
     :or {address-handler-reify reify-address-handler
+         sync-current-address-on-install? true
          address-handler-name default-address-handler-name}
     :as deps}]
+  (when (fn? stop-watching!)
+    (stop-watching! store))
+  (when (fn? remove-handler!)
+    (doseq [handler-name [default-webdata2-handler-name
+                          default-user-handler-name
+                          address-handler-name]]
+      (remove-handler! handler-name)))
   ;; Note: WebData2 subscriptions are managed by address-watcher.
   (init-with-webdata2! store subscribe-webdata2! unsubscribe-webdata2!)
   (add-handler! (create-user-handler subscribe-user! unsubscribe-user!))
@@ -392,7 +409,13 @@
                                    (get-in @store [:portfolio-ui :chart-tab])]])))))
     address-handler-name))
   ;; Ensure already-connected wallets are handled after handlers are in place.
-  (sync-current-address! store))
+  (when sync-current-address-on-install?
+    (sync-current-address! store)))
+
+(defn reload-address-handlers!
+  [deps]
+  (install-address-handlers!
+   (assoc deps :sync-current-address-on-install? false)))
 
 (defn start-critical-bootstrap!
   [{:keys [store

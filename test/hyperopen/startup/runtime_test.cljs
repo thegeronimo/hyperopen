@@ -1013,6 +1013,45 @@
               [store [[:actions/select-portfolio-chart-tab :returns]]]]
              @dispatch-calls)))))
 
+(deftest reload-address-handlers-replaces-startup-owned-handlers-without-syncing-current-address-test
+  (let [store (atom {:wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}})
+        stop-calls (atom [])
+        remove-calls (atom [])
+        init-calls (atom [])
+        added-handlers (atom [])
+        sync-calls (atom 0)]
+    (startup-runtime/reload-address-handlers!
+     {:store store
+      :bootstrap-account-data! (fn [& _] nil)
+      :init-with-webdata2! (fn [store-arg subscribe-fn unsubscribe-fn]
+                             (swap! init-calls conj [store-arg subscribe-fn unsubscribe-fn]))
+      :add-handler! (fn [handler]
+                      (swap! added-handlers conj handler))
+      :remove-handler! (fn [handler-name]
+                         (swap! remove-calls conj handler-name))
+      :stop-watching! (fn [store-arg]
+                        (swap! stop-calls conj store-arg))
+      :sync-current-address! (fn [_store-arg]
+                               (swap! sync-calls inc))
+      :create-user-handler (fn [_subscribe-fn _unsubscribe-fn]
+                             {:kind :user-handler})
+      :subscribe-user! (fn [& _] nil)
+      :unsubscribe-user! (fn [& _] nil)
+      :subscribe-webdata2! (fn [& _] nil)
+      :unsubscribe-webdata2! (fn [& _] nil)
+      :address-handler-reify (fn [_on-change handler-name]
+                               {:kind :address-handler
+                                :name handler-name})
+      :address-handler-name "startup-account-bootstrap-handler"})
+    (is (= [store] @stop-calls))
+    (is (= ["webdata2-subscription-handler"
+            "user-ws-subscription-handler"
+            "startup-account-bootstrap-handler"]
+           @remove-calls))
+    (is (= 1 (count @init-calls)))
+    (is (= 2 (count @added-handlers)))
+    (is (zero? @sync-calls))))
+
 (deftest critical-deferred-and-stream-initialization-cover-remaining-runtime-branches-test
   (async done
     (let [mark-calls (atom [])
