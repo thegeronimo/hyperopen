@@ -4,6 +4,7 @@ import {
   dispatch,
   expectOracle,
   oracle,
+  sourceRectForLocator,
   visitRoute,
   waitForIdle
 } from "../support/hyperopen.mjs";
@@ -845,16 +846,17 @@ test("funding modal deposit flow selects USDC @regression", async ({ page }) => 
   });
 });
 
-test("funding modal accessibility keeps focus in dialog and exposes labels @regression", async ({ page }) => {
+test("funding modal accessibility keeps focus in dialog, restores opener focus, and exposes labels @regression", async ({ page }) => {
   await visitRoute(page, "/trade");
 
   const openButton = page.locator('[data-role="funding-action-deposit"]');
   await expect(openButton).toBeVisible();
-  await page.evaluate(() => {
-    const button = document.querySelector('[data-role="funding-action-deposit"]');
-    button?.focus();
-    button?.click();
-  });
+  await openButton.focus();
+  await dispatch(page, [
+    ":actions/open-funding-deposit-modal",
+    await sourceRectForLocator(page, openButton),
+    await openButton.getAttribute("data-role")
+  ]);
   await waitForIdle(page, { quietMs: 150, timeoutMs: 3_000, pollMs: 50 });
 
   const dialog = page.locator('[data-role="funding-modal"]');
@@ -877,6 +879,12 @@ test("funding modal accessibility keeps focus in dialog and exposes labels @regr
 
   await expect(page.getByLabel("Amount")).toBeVisible();
   await expect(dialog).toHaveAttribute("aria-labelledby", "funding-modal-title");
+
+  await closeButton.click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 3_000, pollMs: 50 });
+
+  await expect(dialog).toBeHidden();
+  await expect(openButton).toBeFocused();
 });
 
 test("funding tooltip transitions from live position to hypothetical estimate @regression", async ({ page }) => {

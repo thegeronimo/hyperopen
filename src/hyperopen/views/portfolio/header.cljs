@@ -1,6 +1,7 @@
 (ns hyperopen.views.portfolio.header
   (:require [hyperopen.account.context :as account-context]
             [hyperopen.portfolio.routes :as portfolio-routes]
+            [hyperopen.views.ui.focus-return :as focus-return]
             [hyperopen.wallet.core :as wallet]))
 
 (def ^:private action-items
@@ -26,36 +27,46 @@
     :action [:actions/navigate "/portfolio"]}
    {:label "Send"
     :data-role "portfolio-action-send"
-    :action [:actions/open-funding-transfer-modal :event.currentTarget/bounds]}
+    :action [:actions/open-funding-transfer-modal
+             :event.currentTarget/bounds
+             :event.currentTarget/data-role]}
    {:label "Withdraw"
     :data-role "portfolio-action-withdraw"
-    :action [:actions/open-funding-withdraw-modal :event.currentTarget/bounds]}
+    :action [:actions/open-funding-withdraw-modal
+             :event.currentTarget/bounds
+             :event.currentTarget/data-role]}
    {:label "Deposit"
     :primary? true
     :data-role "portfolio-action-deposit"
-    :action [:actions/open-funding-deposit-modal :event.currentTarget/bounds]}])
+    :action [:actions/open-funding-deposit-modal
+             :event.currentTarget/bounds
+             :event.currentTarget/data-role]}])
 
-(defn action-button [{:keys [label mobile-label action primary? data-role]}]
-  [:button {:type "button"
-            :class (into ["btn"
-                          "h-8"
-                          "min-h-8"
-                          "rounded-lg"
-                          "border"
-                          "border-base-300"
-                          "bg-base-100"
-                          "px-2.5"
-                          "text-xs"
-                          "text-trading-text-secondary"
-                          "hover:text-trading-text"
-                          "hover:bg-base-200"
-                          "sm:btn-sm"
-                          "sm:px-3"
-                          "sm:text-xs"]
-                         (when primary?
-                           ["bg-[#1f5b55]" "text-trading-text" "hover:bg-[#267067]"]))
-            :data-role data-role
-            :on {:click [action]}}
+(defn action-button [{:keys [label mobile-label action primary? data-role focus-request]}]
+  [:button (merge
+            {:type "button"
+             :class (into ["btn"
+                           "h-8"
+                           "min-h-8"
+                           "rounded-lg"
+                           "border"
+                           "border-base-300"
+                           "bg-base-100"
+                           "px-2.5"
+                           "text-xs"
+                           "text-trading-text-secondary"
+                           "hover:text-trading-text"
+                           "hover:bg-base-200"
+                           "sm:btn-sm"
+                           "sm:px-3"
+                           "sm:text-xs"]
+                          (when primary?
+                            ["bg-[#1f5b55]" "text-trading-text" "hover:bg-[#267067]"]))
+             :data-role data-role
+             :on {:click [action]}}
+            (focus-return/data-role-return-focus-props data-role
+                                                       (:data-role focus-request)
+                                                       (:token focus-request)))
    [:span {:class ["sm:hidden"]} (or mobile-label label)]
    [:span {:class ["hidden" "sm:inline"]} label]])
 
@@ -175,15 +186,17 @@
              :data-role "portfolio-inspection-explorer-link"}
          "Hyperliquid Explorer"])]]))
 
-(defn header-actions []
-  [:div {:class ["flex" "flex-wrap" "items-start" "justify-between" "gap-3" "sm:items-center"]}
-   [:h1 {:class ["text-4xl" "font-medium" "tracking-tight" "text-trading-text" "sm:text-5xl"]}
-    "Portfolio"]
-   [:div {:class ["flex" "flex-wrap" "items-center" "gap-1.5" "sm:gap-2"]
-          :data-role "portfolio-actions-row"}
-    (for [{:keys [label] :as item} action-items]
-      ^{:key label}
-      (action-button item))]])
+(defn header-actions [state]
+  (let [focus-request {:data-role (get-in state [:funding-ui :modal :focus-return-data-role])
+                       :token (get-in state [:funding-ui :modal :focus-return-token] 0)}]
+    [:div {:class ["flex" "flex-wrap" "items-start" "justify-between" "gap-3" "sm:items-center"]}
+     [:h1 {:class ["text-4xl" "font-medium" "tracking-tight" "text-trading-text" "sm:text-5xl"]}
+      "Portfolio"]
+     [:div {:class ["flex" "flex-wrap" "items-center" "gap-1.5" "sm:gap-2"]
+            :data-role "portfolio-actions-row"}
+      (for [{:keys [label] :as item} action-items]
+        ^{:key label}
+        (action-button (assoc item :focus-request focus-request)))]]))
 
 (defn background-status-banner [{:keys [visible? title detail items]}]
   (when visible?

@@ -1,6 +1,7 @@
 (ns hyperopen.funding.application.modal-commands
   (:require [clojure.string :as str]
-            [hyperopen.account.context :as account-context]))
+            [hyperopen.account.context :as account-context]
+            [hyperopen.funding.application.modal-state :as modal-state]))
 
 (defn- mutation-guard-effects
   [state funding-modal-path]
@@ -32,7 +33,8 @@
            wallet-address
            funding-modal-path]}
    state
-   anchor]
+   anchor
+   opener-data-role]
   (let [base (modal-state state)
         anchor* (normalize-anchor anchor)]
     [[:effects/save funding-modal-path
@@ -49,19 +51,23 @@
                  :amount-input ""
                  :destination-input (or (wallet-address state)
                                         (:destination-input base "")
-                                        "")))]
+                                        ""))
+          (modal-state/with-open-focus-metadata base opener-data-role))]
      [:effects/api-fetch-hyperunit-fee-estimate]]))
 
 (defn open-funding-send-modal
-  [{:keys [normalize-anchor
+  [{:keys [modal-state
+           normalize-anchor
            default-funding-modal-state
            funding-modal-path
            non-blank-text
            parse-num]}
-   _state
+   state
    send-context
-   anchor]
-  (let [anchor* (normalize-anchor anchor)
+   anchor
+   opener-data-role]
+  (let [base (modal-state state)
+        anchor* (normalize-anchor anchor)
         send-modal-state (normalize-send-context {:non-blank-text non-blank-text
                                                   :parse-num parse-num}
                                                  send-context)]
@@ -71,16 +77,20 @@
                  :mode :send
                  :anchor anchor*
                  :destination-input "")
-          (merge send-modal-state))]]))
+          (merge send-modal-state)
+          (modal-state/with-open-focus-metadata base opener-data-role))]]))
 
 (defn open-funding-transfer-modal
-  [{:keys [normalize-anchor
+  [{:keys [modal-state
+           normalize-anchor
            default-funding-modal-state
            wallet-address
            funding-modal-path]}
    state
-   anchor]
-  (let [anchor* (normalize-anchor anchor)]
+   anchor
+   opener-data-role]
+  (let [base (modal-state state)
+        anchor* (normalize-anchor anchor)]
     [[:effects/save funding-modal-path
       (-> (default-funding-modal-state)
           (assoc :open? true
@@ -89,7 +99,8 @@
                  :withdraw-step :asset-select
                  :withdraw-search-input ""
                  :to-perp? true
-                 :destination-input (or (wallet-address state) "")))]]))
+                 :destination-input (or (wallet-address state) ""))
+          (modal-state/with-open-focus-metadata base opener-data-role))]]))
 
 (defn open-funding-withdraw-modal
   [{:keys [modal-state
@@ -101,7 +112,8 @@
            wallet-address
            funding-modal-path]}
    state
-   anchor]
+   anchor
+   opener-data-role]
   (let [base (modal-state state)
         anchor* (normalize-anchor anchor)
         selected-asset-key (or (normalize-withdraw-asset-key
@@ -115,7 +127,8 @@
                  :withdraw-step (normalize-withdraw-step :asset-select)
                  :withdraw-search-input ""
                  :withdraw-selected-asset-key selected-asset-key
-                 :destination-input (or (wallet-address state) "")))]
+                 :destination-input (or (wallet-address state) ""))
+          (modal-state/with-open-focus-metadata base opener-data-role))]
      [:effects/api-fetch-hyperunit-withdrawal-queue]
      [:effects/api-fetch-hyperunit-fee-estimate]]))
 
@@ -139,9 +152,13 @@
 
 (defn close-funding-modal
   [{:keys [default-funding-modal-state
+           modal-state
            funding-modal-path]}
-   _state]
-  [[:effects/save funding-modal-path (default-funding-modal-state)]])
+   state]
+  [[:effects/save funding-modal-path
+    (modal-state/closed-funding-modal-state default-funding-modal-state
+                                            (modal-state state))]
+   [:effects/restore-dialog-focus]])
 
 (defn handle-funding-modal-keydown
   [{:keys [close-funding-modal-fn]}

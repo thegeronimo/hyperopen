@@ -1,6 +1,7 @@
 (ns hyperopen.funding.test-support.effects
   (:require [clojure.string :as str]
             [hyperopen.funding.actions :as funding-actions]
+            [hyperopen.funding.application.modal-state :as modal-state]
             [hyperopen.funding.application.hyperunit-query :as hyperunit-query]
             [hyperopen.funding.application.lifecycle-guards :as lifecycle-guards]
             [hyperopen.funding.application.lifecycle-polling :as lifecycle-polling]
@@ -32,7 +33,9 @@
   {:open? false
    :mode nil
    :submitting? false
-   :error nil})
+   :error nil
+   :focus-return-data-role nil
+   :focus-return-token 0})
 
 (defn base-store
   [mode]
@@ -74,7 +77,9 @@
 
 (defn close-funding-modal!
   [store default-funding-modal-state]
-  (swap! store assoc-in [:funding-ui :modal] (default-funding-modal-state)))
+  (swap! store update-in [:funding-ui :modal]
+         (fn [modal]
+           (modal-state/closed-funding-modal-state default-funding-modal-state modal))))
 
 (defn refresh-after-funding-submit!
   [store dispatch! address]

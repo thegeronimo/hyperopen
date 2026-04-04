@@ -1,10 +1,12 @@
 (ns hyperopen.views.funding-modal-accessibility-test
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.funding.actions :as funding-actions]
+            [hyperopen.platform :as platform]
             [hyperopen.views.funding-modal :as view]
             [hyperopen.views.funding-modal.deposit :as deposit]
             [hyperopen.views.funding-modal.send :as send]
             [hyperopen.views.funding-modal.transfer :as transfer]
+            [hyperopen.views.ui.dialog-focus :as dialog-focus]
             [hyperopen.views.funding-modal.withdraw :as withdraw]))
 
 (defn- base-state
@@ -45,6 +47,51 @@
   (find-first-node node #(and (= :label (first %))
                               (= input-id (get-in % [1 :for])))))
 
+(defn- make-focus-node
+  ([document]
+   (make-focus-node document {}))
+  ([document attrs]
+   (let [focus-calls (atom 0)
+         node #js {:isConnected true}]
+     (aset node
+           "getAttribute"
+           (fn [attr-name]
+             (get attrs (keyword attr-name))))
+     (aset node
+           "focus"
+           (fn []
+             (swap! focus-calls inc)
+             (set! (.-activeElement document) node)))
+     {:node node
+      :focus-calls focus-calls})))
+
+(defn- make-dialog-node
+  [document children]
+  (let [node #js {:isConnected true}]
+    (aset node
+          "querySelectorAll"
+          (fn [_selector]
+            (into-array children)))
+    (aset node
+          "contains"
+          (fn [candidate]
+            (boolean
+             (or (= candidate node)
+                 (some #(= candidate %) children)))))
+    (aset node
+          "addEventListener"
+          (fn [_event-name _handler]
+            nil))
+    (aset node
+          "removeEventListener"
+          (fn [_event-name _handler]
+            nil))
+    (aset node
+          "focus"
+          (fn []
+            (set! (.-activeElement document) node)))
+    {:node node}))
+
 (deftest funding-modal-shell-uses-labelledby-and-focus-hook-test
   (let [state (assoc-in (base-state)
                         [:funding-ui :modal]
@@ -70,6 +117,59 @@
     (is (some? title-node))
     (is (some? close-button))
     (is (= "Close funding dialog" (get-in close-button [1 :aria-label])))))
+
+(deftest funding-modal-transfer-shell-restores-focus-via-cross-surface-fallback-selector-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :transfer
+                         :to-perp? true
+                         :amount-input ""})
+        view-node (view/funding-modal-view state)
+        modal-node (funding-modal-node view-node)
+        on-render (get-in modal-node [1 :replicant/on-render])
+        original-document (.-document js/globalThis)
+        original-get-computed-style (.-getComputedStyle js/globalThis)
+        document #js {}
+        body-node (:node (make-focus-node document))
+        header-opener (make-focus-node document {:data-role "portfolio-action-send"})
+        replacement-opener (make-focus-node document {:data-role "portfolio-funding-action-transfer"})
+        first-focusable (make-focus-node document)
+        {:keys [node]} (make-dialog-node document [(:node first-focusable)])
+        queried-selectors* (atom [])
+        combined-selector "[data-role=\"funding-action-transfer\"], [data-role=\"portfolio-action-send\"], [data-role=\"portfolio-funding-action-transfer\"]"]
+    (set! (.-body document) body-node)
+    (set! (.-activeElement document) (:node header-opener))
+    (aset document
+          "querySelector"
+          (fn [selector]
+            (swap! queried-selectors* conj selector)
+            (case selector
+              "[data-role=\"portfolio-action-send\"]" nil
+              "[data-role=\"funding-action-transfer\"], [data-role=\"portfolio-action-send\"], [data-role=\"portfolio-funding-action-transfer\"]"
+              (:node replacement-opener)
+              nil)))
+    (set! (.-document js/globalThis) document)
+    (set! (.-getComputedStyle js/globalThis)
+          (fn [_node]
+            #js {:display "block"
+                 :visibility "visible"}))
+    (try
+      (with-redefs [platform/queue-microtask! (fn [f] (f))
+                    platform/set-timeout! (fn [_f _ms] :timeout-id)]
+        (on-render {:replicant/life-cycle :replicant.life-cycle/mount
+                    :replicant/node node
+                    :replicant/remember (fn [_memory] nil)})
+        (set! (.-isConnected (:node header-opener)) false)
+        (dialog-focus/restore-remembered-focus!)
+        (is (= 1 @(-> replacement-opener :focus-calls)))
+        (is (= (:node replacement-opener) (.-activeElement document)))
+        (is (= ["[data-role=\"portfolio-action-send\"]"
+                combined-selector]
+               @queried-selectors*)))
+      (finally
+        (set! (.-document js/globalThis) original-document)
+        (set! (.-getComputedStyle js/globalThis) original-get-computed-style)))))
 
 (deftest funding-modal-form-fields-associate-labels-with-input-ids-test
   (let [deposit-select (deposit/deposit-select-content {:search {:value ""

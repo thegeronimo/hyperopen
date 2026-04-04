@@ -1,7 +1,8 @@
 (ns hyperopen.schema.runtime-registration.funding)
 
 (def effect-binding-rows
-  [[:effects/api-fetch-user-funding-history :api-fetch-user-funding-history]
+  [[:effects/restore-dialog-focus :restore-dialog-focus]
+   [:effects/api-fetch-user-funding-history :api-fetch-user-funding-history]
    [:effects/export-funding-history-csv :export-funding-history-csv]
    [:effects/api-fetch-hyperunit-fee-estimate :api-fetch-hyperunit-fee-estimate]
    [:effects/api-fetch-hyperunit-withdrawal-queue :api-fetch-hyperunit-withdrawal-queue]

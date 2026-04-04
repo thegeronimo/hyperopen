@@ -7,7 +7,7 @@
   "0x3333333333333333333333333333333333333333")
 
 (deftest header-actions-renders-all-portfolio-action-buttons-test
-  (let [view (header/header-actions)
+  (let [view (header/header-actions {})
         actions-row (hiccup/find-by-data-role view "portfolio-actions-row")
         action-buttons (hiccup/find-all-nodes actions-row #(= :button (first %)))
         link-staking (hiccup/find-by-data-role view "portfolio-action-link-staking")
@@ -18,12 +18,28 @@
     (is (= 8 (count action-buttons)))
     (is (= [[:actions/navigate "/staking"]]
            (get-in link-staking [1 :on :click])))
-    (is (= [[:actions/open-funding-transfer-modal :event.currentTarget/bounds]]
+    (is (= [[:actions/open-funding-transfer-modal
+             :event.currentTarget/bounds
+             :event.currentTarget/data-role]]
            (get-in send [1 :on :click])))
-    (is (= [[:actions/open-funding-withdraw-modal :event.currentTarget/bounds]]
+    (is (= [[:actions/open-funding-withdraw-modal
+             :event.currentTarget/bounds
+             :event.currentTarget/data-role]]
            (get-in withdraw [1 :on :click])))
-    (is (= [[:actions/open-funding-deposit-modal :event.currentTarget/bounds]]
+    (is (= [[:actions/open-funding-deposit-modal
+             :event.currentTarget/bounds
+             :event.currentTarget/data-role]]
            (get-in deposit [1 :on :click])))))
+
+(deftest header-actions-add-focus-return-hook-for-matching-funding-button-test
+  (let [view (header/header-actions {:funding-ui {:modal {:focus-return-data-role "portfolio-action-deposit"
+                                                          :focus-return-token 5}}})
+        deposit (hiccup/find-by-data-role view "portfolio-action-deposit")
+        send (hiccup/find-by-data-role view "portfolio-action-send")]
+    (is (fn? (get-in deposit [1 :replicant/on-render])))
+    (is (= "focus-return:portfolio-action-deposit:5:true"
+           (get-in deposit [1 :replicant/key])))
+    (is (nil? (get-in send [1 :replicant/on-render])))))
 
 (deftest portfolio-inspection-header-renders-read-only-trader-contract-test
   (let [view (header/portfolio-inspection-header

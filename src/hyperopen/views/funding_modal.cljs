@@ -11,22 +11,54 @@
 (def ^:private funding-modal-title-id
   "funding-modal-title")
 
+(def ^:private portfolio-header-deposit-action-data-role
+  "portfolio-action-deposit")
+
+(def ^:private portfolio-header-transfer-action-data-role
+  "portfolio-action-send")
+
+(def ^:private portfolio-header-withdraw-action-data-role
+  "portfolio-action-withdraw")
+
+(def ^:private portfolio-card-deposit-action-data-role
+  "portfolio-funding-action-deposit")
+
+(def ^:private portfolio-card-transfer-action-data-role
+  "portfolio-funding-action-transfer")
+
+(def ^:private portfolio-card-withdraw-action-data-role
+  "portfolio-funding-action-withdraw")
+
+(defn- data-role-selector
+  [data-role]
+  (str "[data-role=\"" data-role "\"]"))
+
+(defn- combined-restore-selector
+  [data-roles]
+  (->> data-roles
+       (map data-role-selector)
+       (interpose ", ")
+       (apply str)))
+
 (def ^:private funding-modal-focus-on-render-default
   (dialog-focus/dialog-focus-on-render))
 
 (def ^:private funding-modal-focus-on-render-by-mode
   {:deposit (dialog-focus/dialog-focus-on-render
-             {:restore-selector (str "[data-role=\""
-                                     funding-modal-positioning/deposit-action-data-role
-                                     "\"]")})
+             {:restore-selector (combined-restore-selector
+                                 [funding-modal-positioning/deposit-action-data-role
+                                  portfolio-header-deposit-action-data-role
+                                  portfolio-card-deposit-action-data-role])})
    :transfer (dialog-focus/dialog-focus-on-render
-              {:restore-selector (str "[data-role=\""
-                                      funding-modal-positioning/transfer-action-data-role
-                                      "\"]")})
+              {:restore-selector (combined-restore-selector
+                                  [funding-modal-positioning/transfer-action-data-role
+                                   portfolio-header-transfer-action-data-role
+                                   portfolio-card-transfer-action-data-role])})
    :withdraw (dialog-focus/dialog-focus-on-render
-              {:restore-selector (str "[data-role=\""
-                                      funding-modal-positioning/withdraw-action-data-role
-                                      "\"]")})})
+              {:restore-selector (combined-restore-selector
+                                  [funding-modal-positioning/withdraw-action-data-role
+                                   portfolio-header-withdraw-action-data-role
+                                   portfolio-card-withdraw-action-data-role])})})
 
 (defn- funding-modal-focus-on-render
   [mode]
@@ -99,6 +131,89 @@
     :unsupported/workflow (legacy-content legacy)
     (unknown-content content)))
 
+(defn- render-mobile-shell
+  [sheet-style focus-on-render panel-children]
+  [:div {:class ["fixed" "inset-0" "z-[80]"]
+         :data-role "funding-mobile-sheet-layer"}
+   [:button {:type "button"
+             :class ["absolute" "inset-0" "bg-black/55" "backdrop-blur-[1px]"]
+             :style {:transition "opacity 0.14s ease-out"
+                     :opacity 1}
+             :replicant/mounting {:style {:opacity 0}}
+             :replicant/unmounting {:style {:opacity 0}}
+             :aria-label "Close funding dialog"
+             :data-role "funding-mobile-sheet-backdrop"
+             :on {:click [[:actions/close-funding-modal]]}}]
+   (into [:div {:class ["absolute"
+                        "inset-x-0"
+                        "bottom-0"
+                        "w-full"
+                        "overflow-y-auto"
+                        "rounded-t-[22px]"
+                        "border"
+                        "border-[#17313d]"
+                        "bg-[#06131a]"
+                        "px-4"
+                        "pt-4"
+                        "text-sm"
+                        "shadow-[0_-24px_60px_rgba(0,0,0,0.45)]"
+                        "space-y-3"]
+                :style sheet-style
+                :replicant/mounting {:style {:transform "translateY(18px)"
+                                             :opacity 0}}
+                :replicant/unmounting {:style {:transform "translateY(18px)"
+                                               :opacity 0}}
+                :role "dialog"
+                :aria-modal true
+                :aria-labelledby funding-modal-title-id
+                :tab-index 0
+                :data-role "funding-modal"
+                :data-parity-id "funding-modal-mobile"
+                :data-funding-mobile-sheet-surface "true"
+                :replicant/on-render focus-on-render
+                :on {:keydown [[:actions/handle-funding-modal-keydown
+                                [:event/key]]]}}]
+         (keep identity panel-children))])
+
+(defn- render-desktop-shell
+  [anchored-popover? popover-style focus-on-render panel-children]
+  (let [layer-classes (into ["fixed" "inset-0" "z-[80]"]
+                            (if anchored-popover?
+                              ["pointer-events-none"]
+                              ["flex" "items-center" "justify-center" "p-4"]))
+        backdrop-classes (into ["absolute" "inset-0"]
+                               (if anchored-popover?
+                                 ["pointer-events-auto" "bg-transparent"]
+                                 ["bg-black/65"]))
+        panel-classes (into ["relative"
+                             "z-[81]"
+                             "space-y-3"
+                             "border"
+                             "border-[#1f3b3c]"
+                             "bg-[#081b24]"
+                             "shadow-2xl"
+                             "pointer-events-auto"]
+                            (if anchored-popover?
+                              ["rounded-2xl" "p-4"]
+                              ["rounded-2xl" "p-4" "w-full" "max-w-md"]))]
+    [:div {:class layer-classes}
+     [:button {:type "button"
+               :class backdrop-classes
+               :aria-label "Close funding dialog"
+               :on {:click [[:actions/close-funding-modal]]}}]
+     (into [:div {:class panel-classes
+                  :style (or popover-style)
+                  :role "dialog"
+                  :aria-modal true
+                  :aria-labelledby funding-modal-title-id
+                  :tab-index 0
+                  :data-role "funding-modal"
+                  :data-parity-id "funding-modal-desktop"
+                  :replicant/on-render focus-on-render
+                  :on {:keydown [[:actions/handle-funding-modal-keydown
+                                  [:event/key]]]}}]
+           (keep identity panel-children))]))
+
 (defn render-funding-modal
   [{:keys [modal feedback] :as view-model}]
   (let [open? (:open? modal)]
@@ -154,83 +269,14 @@
                               "py-2"
                               "text-sm"
                               "text-[#f2b8c5]"]
-                      :data-role "funding-status"}
+                        :data-role "funding-status"}
                 (:message feedback)])]]
         (if mobile-sheet?
-          [:div {:class ["fixed" "inset-0" "z-[80]"]
-                 :data-role "funding-mobile-sheet-layer"}
-           [:button {:type "button"
-                     :class ["absolute" "inset-0" "bg-black/55" "backdrop-blur-[1px]"]
-                     :style {:transition "opacity 0.14s ease-out"
-                             :opacity 1}
-                     :replicant/mounting {:style {:opacity 0}}
-                     :replicant/unmounting {:style {:opacity 0}}
-                     :aria-label "Close funding dialog"
-                     :data-role "funding-mobile-sheet-backdrop"
-                     :on {:click [[:actions/close-funding-modal]]}}]
-           (into [:div {:class ["absolute"
-                                "inset-x-0"
-                                "bottom-0"
-                                "w-full"
-                                "overflow-y-auto"
-                                "rounded-t-[22px]"
-                                "border"
-                                "border-[#17313d]"
-                                "bg-[#06131a]"
-                                "px-4"
-                                "pt-4"
-                                "text-sm"
-                                "shadow-[0_-24px_60px_rgba(0,0,0,0.45)]"
-                                "space-y-3"]
-                        :style sheet-style
-                        :replicant/mounting {:style {:transform "translateY(18px)"
-                                                     :opacity 0}}
-                        :replicant/unmounting {:style {:transform "translateY(18px)"
-                                                       :opacity 0}}
-                        :role "dialog"
-                        :aria-modal true
-                        :aria-labelledby funding-modal-title-id
-                        :tab-index 0
-                        :data-role "funding-modal"
-                        :data-parity-id "funding-modal-mobile"
-                        :data-funding-mobile-sheet-surface "true"
-                        :replicant/on-render focus-on-render
-                        :on {:keydown [[:actions/handle-funding-modal-keydown
-                                        [:event/key]]]}}]
-                 (keep identity panel-children))]
-          [:div {:class (into ["fixed" "inset-0" "z-[80]"]
-                              (if anchored-popover?
-                                ["pointer-events-none"]
-                                ["flex" "items-center" "justify-center" "p-4"]))}
-           [:button {:type "button"
-                     :class (into ["absolute" "inset-0"]
-                                  (if anchored-popover?
-                                    ["pointer-events-auto" "bg-transparent"]
-                                    ["bg-black/65"]))
-                     :aria-label "Close funding dialog"
-                     :on {:click [[:actions/close-funding-modal]]}}]
-           (into [:div {:class (into ["relative"
-                                      "z-[81]"
-                                      "space-y-3"
-                                      "border"
-                                      "border-[#1f3b3c]"
-                                      "bg-[#081b24]"
-                                      "shadow-2xl"
-                                      "pointer-events-auto"]
-                                     (cond-> ["rounded-2xl" "p-4"]
-                                       (not anchored-popover?)
-                                       (conj "w-full" "max-w-md")))
-                          :style (or popover-style)
-                          :role "dialog"
-                          :aria-modal true
-                          :aria-labelledby funding-modal-title-id
-                          :tab-index 0
-                          :data-role "funding-modal"
-                          :data-parity-id "funding-modal-desktop"
-                          :replicant/on-render focus-on-render
-                          :on {:keydown [[:actions/handle-funding-modal-keydown
-                                          [:event/key]]]}}]
-                 (keep identity panel-children))])))))
+          (render-mobile-shell sheet-style focus-on-render panel-children)
+          (render-desktop-shell anchored-popover?
+                                popover-style
+                                focus-on-render
+                                panel-children))))))
 
 (defn funding-modal-view
   [state]

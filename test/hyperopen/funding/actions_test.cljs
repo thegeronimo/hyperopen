@@ -18,6 +18,9 @@
    :mode mode
    :legacy-kind legacy-kind
    :anchor nil
+   :opener-data-role nil
+   :focus-return-data-role nil
+   :focus-return-token 0
    :send-token nil
    :send-symbol nil
    :send-prefix-label nil
@@ -116,9 +119,37 @@
                              :bottom 800
                              :width 398
                              :height 40
-                             :viewport-width 430
-                             :viewport-height 932})]]
+                    :viewport-width 430
+                    :viewport-height 932})]]
            (funding-actions/open-funding-send-modal state nil anchor)))))
+
+(deftest close-funding-modal-resets-state-and-restores-focus-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        (assoc (expected-open-modal :deposit)
+                               :opener-data-role "funding-action-deposit"
+                               :focus-return-token 2
+                               :deposit-selected-asset-key :usdc
+                               :amount-input "25"))]
+    (is (= [[:effects/save [:funding-ui :modal]
+             (assoc (funding-actions/default-funding-modal-state)
+                    :focus-return-data-role "funding-action-deposit"
+                    :focus-return-token 3)]
+            [:effects/restore-dialog-focus]]
+           (funding-actions/close-funding-modal state)))))
+
+(deftest open-funding-modal-actions-store-opener-data-role-test
+  (let [state (base-state)]
+    (is (= [[:effects/save [:funding-ui :modal]
+             (assoc (expected-open-modal :deposit)
+                    :opener-data-role "funding-action-deposit")]
+            [:effects/api-fetch-hyperunit-fee-estimate]]
+           (funding-actions/open-funding-deposit-modal state nil "funding-action-deposit")))
+    (is (= [[:effects/save [:funding-ui :modal]
+             (assoc (expected-open-modal :send)
+                    :destination-input ""
+                    :opener-data-role "portfolio-action-send")]]
+           (funding-actions/open-funding-send-modal state nil nil "portfolio-action-send")))))
 
 (deftest set-funding-modal-compat-preserves-legacy-fallback-test
   (let [state (base-state)]

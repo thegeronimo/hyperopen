@@ -177,29 +177,37 @@
 
 (defn open-funding-send-modal
   ([state]
-   (open-funding-send-modal state nil nil))
+   (open-funding-send-modal state nil nil nil))
   ([state send-context]
-   (open-funding-send-modal state send-context nil))
+   (open-funding-send-modal state send-context nil nil))
   ([state send-context anchor]
-   (modal-commands/open-funding-send-modal (command-deps) state send-context anchor)))
+   (open-funding-send-modal state send-context anchor nil))
+  ([state send-context anchor opener-data-role]
+   (modal-commands/open-funding-send-modal (command-deps) state send-context anchor opener-data-role)))
 
 (defn open-funding-deposit-modal
   ([state]
-   (open-funding-deposit-modal state nil))
+   (open-funding-deposit-modal state nil nil))
   ([state anchor]
-   (modal-commands/open-funding-deposit-modal (command-deps) state anchor)))
+   (open-funding-deposit-modal state anchor nil))
+  ([state anchor opener-data-role]
+   (modal-commands/open-funding-deposit-modal (command-deps) state anchor opener-data-role)))
 
 (defn open-funding-transfer-modal
   ([state]
-   (open-funding-transfer-modal state nil))
+   (open-funding-transfer-modal state nil nil))
   ([state anchor]
-   (modal-commands/open-funding-transfer-modal (command-deps) state anchor)))
+   (open-funding-transfer-modal state anchor nil))
+  ([state anchor opener-data-role]
+   (modal-commands/open-funding-transfer-modal (command-deps) state anchor opener-data-role)))
 
 (defn open-funding-withdraw-modal
   ([state]
-   (open-funding-withdraw-modal state nil))
+   (open-funding-withdraw-modal state nil nil))
   ([state anchor]
-   (modal-commands/open-funding-withdraw-modal (command-deps) state anchor)))
+   (open-funding-withdraw-modal state anchor nil))
+  ([state anchor opener-data-role]
+   (modal-commands/open-funding-withdraw-modal (command-deps) state anchor opener-data-role)))
 
 (defn- open-legacy-funding-modal
   [state legacy-kind]

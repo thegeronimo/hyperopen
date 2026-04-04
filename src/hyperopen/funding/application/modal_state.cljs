@@ -1,5 +1,6 @@
 (ns hyperopen.funding.application.modal-state
-  (:require [hyperopen.funding.domain.assets :as assets-domain]
+  (:require [clojure.string :as str]
+            [hyperopen.funding.domain.assets :as assets-domain]
             [hyperopen.funding.domain.policy :as policy-domain]
             [hyperopen.funding.domain.lifecycle :as lifecycle-domain]))
 
@@ -9,6 +10,9 @@
    :mode nil
    :legacy-kind nil
    :anchor nil
+   :opener-data-role nil
+   :focus-return-data-role nil
+   :focus-return-token 0
    :send-token nil
    :send-symbol nil
    :send-prefix-label nil
@@ -33,6 +37,35 @@
    :hyperunit-withdrawal-queue (lifecycle-domain/default-hyperunit-withdrawal-queue-state)
    :submitting? false
    :error nil})
+
+(defn normalize-data-role
+  [value]
+  (some-> value str str/trim not-empty))
+
+(defn focus-return-token
+  [modal]
+  (let [token (:focus-return-token modal)]
+    (if (and (number? token)
+             (not (neg? token)))
+      token
+      0)))
+
+(defn with-open-focus-metadata
+  [modal current-modal opener-data-role]
+  (assoc modal
+         :opener-data-role (normalize-data-role opener-data-role)
+         :focus-return-data-role nil
+         :focus-return-token (focus-return-token current-modal)))
+
+(defn closed-funding-modal-state
+  [default-funding-modal-state current-modal]
+  (let [opener-data-role (normalize-data-role (:opener-data-role current-modal))
+        current-token (focus-return-token current-modal)]
+    (assoc (default-funding-modal-state)
+           :focus-return-data-role opener-data-role
+           :focus-return-token (if opener-data-role
+                                 (inc current-token)
+                                 current-token))))
 
 (defn normalize-modal-state
   [{:keys [stored-modal normalize-anchor-fn]}]

@@ -105,7 +105,7 @@
                                 :event.target/scrollTop
                                 :event/timeStamp
                                 :event/clientX]]
-    (is (= 9 (count placeholders)))
+    (is (= 10 (count placeholders)))
     (is (= "BTC" ((get placeholders :event.target/value) ctx)))
     (is (= true ((get placeholders :event.target/checked) ctx)))
     (is (= "Enter" ((get placeholders :event/key) ctx)))
@@ -151,3 +151,19 @@
       (finally
         (gobj/set js/globalThis "innerWidth" original-inner-width)
         (gobj/set js/globalThis "innerHeight" original-inner-height)))))
+
+(deftest register-placeholders-registers-current-target-data-role-test
+  (let [placeholders (register-placeholders-under-test!)
+        data-role-placeholder (get placeholders :event.currentTarget/data-role)]
+    (is (nil? (data-role-placeholder {})))
+    (is (= "funding-action-deposit"
+           (data-role-placeholder
+            {:replicant/dom-event
+             #js {:currentTarget
+                  #js {:getAttribute (fn [attr-name]
+                                       (when (= attr-name "data-role")
+                                         "funding-action-deposit"))}}})))
+    (is (nil? (data-role-placeholder
+               {:replicant/dom-event
+                #js {:currentTarget
+                     #js {:getAttribute (fn [_attr-name] nil)}}})))))

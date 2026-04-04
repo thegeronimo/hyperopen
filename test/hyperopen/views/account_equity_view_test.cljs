@@ -221,12 +221,30 @@
                                                           (:data-role (node-attrs %))))
         withdraw-button (find-first-node actions-node #(= "funding-action-withdraw"
                                                           (:data-role (node-attrs %))))]
-    (is (= [[:actions/open-funding-deposit-modal :event.currentTarget/bounds]]
+    (is (= [[:actions/open-funding-deposit-modal
+             :event.currentTarget/bounds
+             :event.currentTarget/data-role]]
            (get-in deposit-button [1 :on :click])))
-    (is (= [[:actions/open-funding-transfer-modal :event.currentTarget/bounds]]
+    (is (= [[:actions/open-funding-transfer-modal
+             :event.currentTarget/bounds
+             :event.currentTarget/data-role]]
            (get-in transfer-button [1 :on :click])))
-    (is (= [[:actions/open-funding-withdraw-modal :event.currentTarget/bounds]]
+    (is (= [[:actions/open-funding-withdraw-modal
+             :event.currentTarget/bounds
+             :event.currentTarget/data-role]]
            (get-in withdraw-button [1 :on :click])))))
+
+(deftest funding-actions-view-adds-focus-return-hook-for-matching-button-test
+  (let [actions-node (view/funding-actions-view {:funding-ui {:modal {:focus-return-data-role "funding-action-deposit"
+                                                                      :focus-return-token 4}}})
+        deposit-button (find-first-node actions-node #(= "funding-action-deposit"
+                                                         (:data-role (node-attrs %))))
+        withdraw-button (find-first-node actions-node #(= "funding-action-withdraw"
+                                                          (:data-role (node-attrs %))))]
+    (is (fn? (get-in deposit-button [1 :replicant/on-render])))
+    (is (= "focus-return:funding-action-deposit:4:true"
+           (get-in deposit-button [1 :replicant/key])))
+    (is (nil? (get-in withdraw-button [1 :replicant/on-render])))))
 
 (deftest unified-account-summary-renders-funding-section-above-summary-test
   (let [view-node (view/account-equity-view {:account {:mode :unified}

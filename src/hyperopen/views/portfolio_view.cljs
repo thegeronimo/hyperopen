@@ -17,7 +17,7 @@
         trader-portfolio-route? (account-context/trader-portfolio-route-active? state)]
     {:header (if trader-portfolio-route?
                (portfolio-header/portfolio-inspection-header state)
-               (portfolio-header/header-actions))
+               (portfolio-header/header-actions state))
      :background-status (portfolio-header/background-status-banner (:background-status view-model))
      :summary-grid
      [:div {:class ["grid"

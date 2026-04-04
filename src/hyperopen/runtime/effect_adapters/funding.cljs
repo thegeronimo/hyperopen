@@ -9,7 +9,8 @@
             [hyperopen.funding.effects :as funding-workflow-effects]
             [hyperopen.funding-comparison.effects :as funding-effects]
             [hyperopen.platform :as platform]
-            [hyperopen.runtime.effect-adapters.common :as common]))
+            [hyperopen.runtime.effect-adapters.common :as common]
+            [hyperopen.ui.dialog-focus-runtime :as dialog-focus-runtime]))
 
 (defn- funding-predictability-path
   [bucket coin]
@@ -127,6 +128,10 @@
     :request-hyperunit-withdrawal-queue! api/request-hyperunit-withdrawal-queue!
     :now-ms-fn platform/now-ms
     :runtime-error-message common/runtime-error-message}))
+
+(defn restore-dialog-focus-effect
+  [_ _]
+  (dialog-focus-runtime/restore-remembered-focus!))
 
 (defn api-submit-funding-transfer-effect
   ([_ store request]

@@ -50,6 +50,36 @@
     {:node node
      :listeners listeners}))
 
+(defn- make-surface-node
+  [dialog-node extra-children]
+  (let [children (vec (cons dialog-node extra-children))
+        node #js {:isConnected true}]
+    (aset node
+          "contains"
+          (fn [candidate]
+            (boolean
+             (or (= candidate node)
+                 (some #(= candidate %) children)))))
+    node))
+
+(defn- make-timeout-queue
+  []
+  (let [scheduled* (atom [])]
+    {:schedule! (fn [f _ms]
+                  (swap! scheduled* conj f)
+                  :timeout-id)
+     :run-next! (fn []
+                  (when-let [next-timeout (first @scheduled*)]
+                    (swap! scheduled* #(vec (rest %)))
+                    (next-timeout)
+                    true))
+     :run-all! (fn []
+                 (loop []
+                   (when-let [next-timeout (first @scheduled*)]
+                     (swap! scheduled* #(vec (rest %)))
+                     (next-timeout)
+                     (recur))))}))
+
 (deftest dialog-focus-on-render-traps-tab-and-restores-previous-focus-test
   (let [original-document (.-document js/globalThis)
         original-get-computed-style (.-getComputedStyle js/globalThis)
@@ -71,7 +101,10 @@
             #js {:display "block"
                  :visibility "visible"}))
     (try
-      (with-redefs [platform/queue-microtask! (fn [f] (f))]
+      (with-redefs [platform/queue-microtask! (fn [f] (f))
+                    platform/set-timeout! (fn [f _ms]
+                                            (f)
+                                            :timeout-id)]
         (on-render {:replicant/life-cycle :replicant.life-cycle/mount
                     :replicant/node node
                     :replicant/remember (fn [memory]
@@ -129,7 +162,10 @@
             #js {:display "block"
                  :visibility "visible"}))
     (try
-      (with-redefs [platform/queue-microtask! (fn [f] (f))]
+      (with-redefs [platform/queue-microtask! (fn [f] (f))
+                    platform/set-timeout! (fn [f _ms]
+                                            (f)
+                                            :timeout-id)]
         (on-render {:replicant/life-cycle :replicant.life-cycle/mount
                     :replicant/node node
                     :replicant/remember (fn [memory]
@@ -173,7 +209,10 @@
             #js {:display "block"
                  :visibility "visible"}))
     (try
-      (with-redefs [platform/queue-microtask! (fn [f] (f))]
+      (with-redefs [platform/queue-microtask! (fn [f] (f))
+                    platform/set-timeout! (fn [f _ms]
+                                            (f)
+                                            :timeout-id)]
         (on-render {:replicant/life-cycle :replicant.life-cycle/mount
                     :replicant/node node
                     :replicant/remember (fn [memory]
@@ -184,6 +223,173 @@
                     :replicant/memory @remembered*})
         (is (= 1 @(-> replacement-opener :focus-calls)))
         (is (= (:node replacement-opener) (.-activeElement document))))
+      (finally
+        (set! (.-document js/globalThis) original-document)
+        (set! (.-getComputedStyle js/globalThis) original-get-computed-style)))))
+
+(deftest dialog-focus-on-render-retries-after-late-body-focus-reset-test
+  (let [original-document (.-document js/globalThis)
+        original-get-computed-style (.-getComputedStyle js/globalThis)
+        document #js {}
+        body-node (:node (make-focus-node document))
+        opener (make-focus-node document {:data-role "funding-action-deposit"})
+        first-focusable (make-focus-node document)
+        {:keys [node]} (make-dialog-node document [(:node first-focusable)])
+        timeout-queue (make-timeout-queue)
+        remembered* (atom nil)
+        on-render (dialog-focus/dialog-focus-on-render)]
+    (set! (.-body document) body-node)
+    (set! (.-activeElement document) (:node opener))
+    (set! (.-document js/globalThis) document)
+    (set! (.-getComputedStyle js/globalThis)
+          (fn [_node]
+            #js {:display "block"
+                 :visibility "visible"}))
+    (try
+      (with-redefs [platform/queue-microtask! (fn [f] (f))
+                    platform/set-timeout! (:schedule! timeout-queue)]
+        (on-render {:replicant/life-cycle :replicant.life-cycle/mount
+                    :replicant/node node
+                    :replicant/remember (fn [memory]
+                                          (reset! remembered* memory))})
+        (dialog-focus/restore-remembered-focus!)
+        (is (= (:node opener) (.-activeElement document)))
+
+        ;; Simulate the live browser path where focus briefly restores, then
+        ;; later falls back to BODY after teardown continues.
+        (set! (.-activeElement document) body-node)
+        ((:run-all! timeout-queue))
+
+        (is (>= @(-> opener :focus-calls) 2))
+        (is (= (:node opener) (.-activeElement document))))
+      (finally
+        (set! (.-document js/globalThis) original-document)
+        (set! (.-getComputedStyle js/globalThis) original-get-computed-style)))))
+
+(deftest dialog-focus-on-render-restores-focus-via-fallback-portfolio-selector-test
+  (let [original-document (.-document js/globalThis)
+        original-get-computed-style (.-getComputedStyle js/globalThis)
+        document #js {}
+        body-node (:node (make-focus-node document))
+        opener (make-focus-node document {:data-role "portfolio-funding-action-deposit"})
+        replacement-opener (make-focus-node document {:data-role "portfolio-action-deposit"})
+        first-focusable (make-focus-node document)
+        {:keys [node]} (make-dialog-node document [(:node first-focusable)])
+        remembered* (atom nil)
+        on-render (dialog-focus/dialog-focus-on-render
+                   {:restore-selector "[data-role=\"portfolio-action-deposit\"]"})]
+    (set! (.-body document) body-node)
+    (set! (.-activeElement document) (:node opener))
+    (aset document
+          "querySelector"
+          (fn [selector]
+            (cond
+              (= selector "[data-role=\"portfolio-funding-action-deposit\"]")
+              nil
+
+              (= selector "[data-role=\"portfolio-action-deposit\"]")
+              (:node replacement-opener)
+
+              :else nil)))
+    (set! (.-document js/globalThis) document)
+    (set! (.-getComputedStyle js/globalThis)
+          (fn [_node]
+            #js {:display "block"
+                 :visibility "visible"}))
+    (try
+      (with-redefs [platform/queue-microtask! (fn [f] (f))
+                    platform/set-timeout! (fn [f _ms]
+                                            (f)
+                                            :timeout-id)]
+        (on-render {:replicant/life-cycle :replicant.life-cycle/mount
+                    :replicant/node node
+                    :replicant/remember (fn [memory]
+                                          (reset! remembered* memory))})
+        (set! (.-isConnected (:node opener)) false)
+        (dialog-focus/restore-remembered-focus!)
+        (is (= 1 @(-> replacement-opener :focus-calls)))
+        (is (= (:node replacement-opener) (.-activeElement document))))
+      (finally
+        (set! (.-document js/globalThis) original-document)
+        (set! (.-getComputedStyle js/globalThis) original-get-computed-style)))))
+
+(deftest dialog-focus-on-render-explicit-close-restores-focus-when-backdrop-holds-active-focus-test
+  (let [original-document (.-document js/globalThis)
+        original-get-computed-style (.-getComputedStyle js/globalThis)
+        document #js {}
+        body-node (:node (make-focus-node document))
+        opener (make-focus-node document {:data-role "funding-action-deposit"})
+        backdrop (make-focus-node document {:data-role "funding-modal-backdrop"})
+        first-focusable (make-focus-node document)
+        {:keys [node]} (make-dialog-node document [(:node first-focusable)])
+        surface-node (make-surface-node node [(:node backdrop)])
+        remembered* (atom nil)
+        on-render (dialog-focus/dialog-focus-on-render)]
+    (aset node "parentElement" surface-node)
+    (set! (.-body document) body-node)
+    (set! (.-activeElement document) (:node opener))
+    (set! (.-document js/globalThis) document)
+    (set! (.-getComputedStyle js/globalThis)
+          (fn [_node]
+            #js {:display "block"
+                 :visibility "visible"}))
+    (try
+      (with-redefs [platform/queue-microtask! (fn [f] (f))
+                    platform/set-timeout! (fn [_f _ms] :timeout-id)]
+        (on-render {:replicant/life-cycle :replicant.life-cycle/mount
+                    :replicant/node node
+                    :replicant/remember (fn [memory]
+                                          (reset! remembered* memory))})
+        (set! (.-activeElement document) (:node backdrop))
+        (dialog-focus/restore-remembered-focus!)
+        (is (= 1 @(-> opener :focus-calls)))
+        (is (= (:node opener) (.-activeElement document))))
+      (finally
+        (set! (.-document js/globalThis) original-document)
+        (set! (.-getComputedStyle js/globalThis) original-get-computed-style)))))
+
+(deftest dialog-focus-on-render-explicit-close-retries-recover-from-body-without-stealing-later-focus-test
+  (let [original-document (.-document js/globalThis)
+        original-get-computed-style (.-getComputedStyle js/globalThis)
+        document #js {}
+        body-node (:node (make-focus-node document))
+        opener (make-focus-node document {:data-role "funding-action-deposit"})
+        outside-target (make-focus-node document {:data-role "portfolio-action-link-staking"})
+        first-focusable (make-focus-node document)
+        {:keys [node]} (make-dialog-node document [(:node first-focusable)])
+        timeout-queue (make-timeout-queue)
+        remembered* (atom nil)
+        on-render (dialog-focus/dialog-focus-on-render)]
+    (set! (.-body document) body-node)
+    (set! (.-activeElement document) (:node opener))
+    (set! (.-document js/globalThis) document)
+    (set! (.-getComputedStyle js/globalThis)
+          (fn [_node]
+            #js {:display "block"
+                 :visibility "visible"}))
+    (try
+      (with-redefs [platform/queue-microtask! (fn [f] (f))
+                    platform/set-timeout! (:schedule! timeout-queue)]
+        (on-render {:replicant/life-cycle :replicant.life-cycle/mount
+                    :replicant/node node
+                    :replicant/remember (fn [memory]
+                                          (reset! remembered* memory))})
+        (dialog-focus/restore-remembered-focus!)
+        (is (= (:node opener) (.-activeElement document)))
+
+        ;; Simulate the real close interleaving: focus falls back to BODY,
+        ;; one retry restores it, then the user moves somewhere else before
+        ;; the retry window drains.
+        (set! (.-activeElement document) body-node)
+        ((:run-next! timeout-queue))
+        (is (= 2 @(-> opener :focus-calls)))
+        (is (= (:node opener) (.-activeElement document)))
+
+        (set! (.-activeElement document) (:node outside-target))
+        ((:run-all! timeout-queue))
+
+        (is (= 2 @(-> opener :focus-calls)))
+        (is (= (:node outside-target) (.-activeElement document))))
       (finally
         (set! (.-document js/globalThis) original-document)
         (set! (.-getComputedStyle js/globalThis) original-get-computed-style)))))

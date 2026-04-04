@@ -6,7 +6,8 @@
             [hyperopen.funding.application.lifecycle-polling :as lifecycle-polling]
             [hyperopen.funding.domain.lifecycle :as funding-lifecycle]
             [hyperopen.funding.domain.lifecycle-operations :as lifecycle-ops]
-            [hyperopen.funding.effects :as effects]))
+            [hyperopen.funding.effects :as effects]
+            [hyperopen.ui.dialog-focus-runtime :as dialog-focus-runtime]))
 
 (deftest funding-effect-state-and-token-helpers-cover_modal_reset_refresh_and_poll_state_test
   (let [update-funding-submit-error @#'hyperopen.funding.effects/update-funding-submit-error
@@ -21,16 +22,21 @@
         modal-active-for-withdraw-queue? @#'hyperopen.funding.effects/modal-active-for-withdraw-queue?
         initial-state {:funding-ui {:modal {:submitting? true
                                             :error nil
-                                            :open? true}}}
+                                            :open? true
+                                            :opener-data-role "funding-action-deposit"
+                                            :focus-return-token 4}}}
         poll-key [:effects-test (str (js/Date.now))]
         poll-token #js {:id "token"}
         toast-calls (atom [])
         dispatch-calls (atom [])
+        restore-focus-calls (atom 0)
         modal-store (atom initial-state)
         wrapper-calls (atom {})]
     (is (= {:funding-ui {:modal {:submitting? false
                                  :error "failed"
-                                 :open? true}}}
+                                 :open? true
+                                 :opener-data-role "funding-action-deposit"
+                                 :focus-return-token 4}}}
            (update-funding-submit-error initial-state "failed")))
     (set-funding-submit-error! modal-store
                                (fn [_store kind message]
@@ -39,13 +45,19 @@
     (is (= false (get-in @modal-store [:funding-ui :modal :submitting?])))
     (is (= "toast failure" (get-in @modal-store [:funding-ui :modal :error])))
     (is (= [[:error "toast failure"]] @toast-calls))
-    (close-funding-modal! modal-store
-                          (fn []
-                            {:open? false
-                             :mode nil}))
+    (with-redefs [dialog-focus-runtime/restore-remembered-focus! (fn
+                                                                   ([] (swap! restore-focus-calls inc))
+                                                                   ([_dialog-node] (swap! restore-focus-calls inc)))]
+      (close-funding-modal! modal-store
+                            (fn []
+                              {:open? false
+                               :mode nil})))
     (is (= {:open? false
-            :mode nil}
+            :mode nil
+            :focus-return-data-role "funding-action-deposit"
+            :focus-return-token 5}
            (get-in @modal-store [:funding-ui :modal])))
+    (is (= 1 @restore-focus-calls))
     (refresh-after-funding-submit! modal-store
                                    (fn [_store _ctx event]
                                      (swap! dispatch-calls conj event))

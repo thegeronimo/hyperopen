@@ -27,6 +27,9 @@
               :mode :legacy
               :legacy-kind :history
               :anchor nil
+              :opener-data-role nil
+              :focus-return-data-role nil
+              :focus-return-token 0
               :deposit-step :asset-select
               :deposit-search-input ""
               :withdraw-step :asset-select

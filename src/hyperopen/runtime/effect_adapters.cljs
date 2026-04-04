@@ -218,6 +218,9 @@
 (def sync-active-asset-funding-predictability
   funding-adapters/sync-active-asset-funding-predictability)
 
+(def restore-dialog-focus-effect
+  funding-adapters/restore-dialog-focus-effect)
+
 (defn fetch-asset-selector-markets-effect
   [_ store & [opts]]
   (api-effects/fetch-asset-selector-markets!

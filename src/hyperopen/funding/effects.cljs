@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperopen.api.trading :as trading-api]
             [hyperopen.funding.actions :as funding-actions]
+            [hyperopen.funding.application.modal-state :as modal-state]
             [hyperopen.funding.application.deposit-submit :as deposit-submit]
             [hyperopen.funding.application.lifecycle-guards :as lifecycle-guards]
             [hyperopen.funding.application.hyperunit-submit :as hyperunit-submit]
@@ -15,6 +16,7 @@
             [hyperopen.funding.infrastructure.hyperunit-client :as hyperunit-client]
             [hyperopen.funding.infrastructure.route-clients :as route-clients]
             [hyperopen.funding.infrastructure.wallet-rpc :as wallet-rpc]
+            [hyperopen.ui.dialog-focus-runtime :as dialog-focus-runtime]
             [hyperopen.wallet.core :as wallet]))
 
 (def ^:private arbitrum-mainnet-chain-id
@@ -97,7 +99,10 @@
 
 (defn- close-funding-modal!
   [store default-funding-modal-state]
-  (swap! store assoc-in [:funding-ui :modal] (default-funding-modal-state)))
+  (swap! store update-in [:funding-ui :modal]
+         (fn [modal]
+           (modal-state/closed-funding-modal-state default-funding-modal-state modal)))
+  (dialog-focus-runtime/restore-remembered-focus!))
 
 (defn- refresh-after-funding-submit!
   [store dispatch! address]

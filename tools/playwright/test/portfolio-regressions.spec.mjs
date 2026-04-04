@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { debugCall, dispatch, visitRoute, waitForIdle } from "../support/hyperopen.mjs";
+import { debugCall, dispatch, sourceRectForLocator, visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 
 const TRADER_ADDRESS = "0x3333333333333333333333333333333333333333";
 const SPECTATE_ADDRESS = "0x162cc7c861ebd0c06b3d72319201150482518185";
@@ -46,6 +46,32 @@ test("portfolio route exposes deterministic interaction states @regression", asy
 
   await expect(page.locator("[data-role='account-info-tab-performance-metrics']"))
     .not.toHaveAttribute("aria-pressed", "true");
+});
+
+test("portfolio funding modal restores opener focus on close @regression", async ({ page }) => {
+  await visitRoute(page, "/portfolio");
+
+  const openButton = page.locator("[data-role='portfolio-action-deposit']");
+  await expect(openButton).toBeVisible();
+  await openButton.focus();
+  await dispatch(page, [
+    ":actions/open-funding-deposit-modal",
+    await sourceRectForLocator(page, openButton),
+    await openButton.getAttribute("data-role")
+  ]);
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 3_000, pollMs: 50 });
+
+  const dialog = page.locator("[data-role='funding-modal']");
+  const closeButton = page.locator("[data-role='funding-modal-close']");
+
+  await expect(dialog).toBeVisible();
+  await expect(closeButton).toBeFocused();
+
+  await closeButton.click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 3_000, pollMs: 50 });
+
+  await expect(dialog).toBeHidden();
+  await expect(openButton).toBeFocused();
 });
 
 test("trader portfolio route stays read-only while reusing stable controls @regression", async ({ page }) => {

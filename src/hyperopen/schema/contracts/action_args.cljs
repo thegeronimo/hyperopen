@@ -48,10 +48,12 @@
 (s/def ::funding-send-open-args
   (s/or :none ::common/no-args
         :context-only (s/tuple map?)
-        :context-and-anchor (s/tuple map? any?)))
+        :context-and-anchor (s/tuple map? any?)
+        :context-anchor-and-data-role (s/tuple map? any? (s/nilable string?))))
 (s/def ::funding-modal-open-args
   (s/or :none ::common/no-args
-        :anchor-only (s/tuple any?)))
+        :anchor-only (s/tuple any?)
+        :anchor-and-data-role (s/tuple any? (s/nilable string?))))
 (s/def ::spectate-mode-open-args
   (s/or :none ::common/no-args
         :anchor-only (s/tuple any?)))

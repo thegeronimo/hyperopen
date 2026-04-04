@@ -52,6 +52,7 @@
 (def effect-args-spec-by-id
   {:effects/save ::common/save-args
    :effects/save-many ::common/save-many-args
+   :effects/restore-dialog-focus ::common/no-args
    :effects/local-storage-set ::common/storage-args
    :effects/local-storage-set-json ::common/storage-args
    :effects/persist-leaderboard-preferences ::common/no-args

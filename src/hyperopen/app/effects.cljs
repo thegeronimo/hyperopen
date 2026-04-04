@@ -50,6 +50,7 @@
             :api-submit-position-tpsl (effect-adapters/make-api-submit-position-tpsl runtime)
             :api-submit-position-margin (effect-adapters/make-api-submit-position-margin runtime)}
    :api {:fetch-asset-selector-markets effect-adapters/fetch-asset-selector-markets-effect
+         :restore-dialog-focus effect-adapters/restore-dialog-focus-effect
          :sync-active-asset-funding-predictability effect-adapters/sync-active-asset-funding-predictability
          :api-fetch-leaderboard effect-adapters/api-fetch-leaderboard-effect
          :api-fetch-predicted-fundings effect-adapters/api-fetch-predicted-fundings-effect

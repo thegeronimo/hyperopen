@@ -87,4 +87,8 @@
              :width (.-width rect)
              :height (.-height rect)
              :viewport-width (some-> js/globalThis .-innerWidth)
-             :viewport-height (some-> js/globalThis .-innerHeight)}))))))
+             :viewport-height (some-> js/globalThis .-innerHeight)})))))
+
+  (nxr/register-placeholder! :event.currentTarget/data-role
+    (fn [{:replicant/keys [dom-event]}]
+      (some-> dom-event .-currentTarget (.getAttribute "data-role")))))
