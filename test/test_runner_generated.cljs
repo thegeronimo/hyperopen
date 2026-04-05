@@ -7,6 +7,8 @@
             [hyperopen.account.history.effects-test]
             [hyperopen.account.history.position-margin-test]
             [hyperopen.account.history.position-tpsl-test]
+            [hyperopen.account.lifecycle-invariants-test]
+            [hyperopen.account.lifecycle-transitions-test]
             [hyperopen.account.spectate-mode-actions-test]
             [hyperopen.account.spectate-mode-links-test]
             [hyperopen.account.surface-policy-test]
@@ -145,6 +147,7 @@
             [hyperopen.registry.runtime-test]
             [hyperopen.route-modules-test]
             [hyperopen.router-test]
+            [hyperopen.runtime.account-lifecycle-validation-test]
             [hyperopen.runtime.action-adapters-test]
             [hyperopen.runtime.action-adapters.navigation-test]
             [hyperopen.runtime.action-adapters.wallet-test]
@@ -185,6 +188,7 @@
             [hyperopen.schema.vault-transfer-contracts-test]
             [hyperopen.staking.actions-test]
             [hyperopen.staking.effects-test]
+            [hyperopen.startup.account-lifecycle-test]
             [hyperopen.startup.collaborators-test]
             [hyperopen.startup.init-test]
             [hyperopen.startup.restore-test]
@@ -378,6 +382,7 @@
             [hyperopen.views.vaults.vm-test]
             [hyperopen.views.workbench-render-seams-test]
             [hyperopen.wallet.actions-test]
+            [hyperopen.wallet.address-watcher-lifecycle-test]
             [hyperopen.wallet.address-watcher-test]
             [hyperopen.wallet.agent-runtime-test]
             [hyperopen.wallet.agent-session-test]
@@ -450,6 +455,8 @@
              'hyperopen.account.history.effects-test
              'hyperopen.account.history.position-margin-test
              'hyperopen.account.history.position-tpsl-test
+             'hyperopen.account.lifecycle-invariants-test
+             'hyperopen.account.lifecycle-transitions-test
              'hyperopen.account.spectate-mode-actions-test
              'hyperopen.account.spectate-mode-links-test
              'hyperopen.account.surface-policy-test
@@ -588,6 +595,7 @@
              'hyperopen.registry.runtime-test
              'hyperopen.route-modules-test
              'hyperopen.router-test
+             'hyperopen.runtime.account-lifecycle-validation-test
              'hyperopen.runtime.action-adapters-test
              'hyperopen.runtime.action-adapters.navigation-test
              'hyperopen.runtime.action-adapters.wallet-test
@@ -628,6 +636,7 @@
              'hyperopen.schema.vault-transfer-contracts-test
              'hyperopen.staking.actions-test
              'hyperopen.staking.effects-test
+             'hyperopen.startup.account-lifecycle-test
              'hyperopen.startup.collaborators-test
              'hyperopen.startup.init-test
              'hyperopen.startup.restore-test
@@ -821,6 +830,7 @@
              'hyperopen.views.vaults.vm-test
              'hyperopen.views.workbench-render-seams-test
              'hyperopen.wallet.actions-test
+             'hyperopen.wallet.address-watcher-lifecycle-test
              'hyperopen.wallet.address-watcher-test
              'hyperopen.wallet.agent-runtime-test
              'hyperopen.wallet.agent-session-test

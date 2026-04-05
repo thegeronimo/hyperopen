@@ -80,6 +80,7 @@
    :effects/set-agent-storage-mode ::common/set-agent-storage-mode-args
    :effects/copy-wallet-address ::common/optional-address-args
    :effects/copy-spectate-link ::common/path-and-address-args
+   :effects/clear-disconnected-account-lifecycle ::common/address-args
    :effects/reconnect-websocket ::common/no-args
    :effects/refresh-websocket-health ::common/no-args
    :effects/confirm-ws-diagnostics-reveal ::common/no-args

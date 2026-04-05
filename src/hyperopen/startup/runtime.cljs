@@ -226,6 +226,24 @@
       (assoc :account {:mode :classic
                        :abstraction-raw nil})))
 
+(defn clear-disconnected-account-state!
+  [{:keys [store
+           address
+           unsubscribe-user!
+           unsubscribe-webdata2!]
+    :as deps}]
+  (when address
+    (when (fn? unsubscribe-user!)
+      (unsubscribe-user! address))
+    (when (fn? unsubscribe-webdata2!)
+      (unsubscribe-webdata2! address)))
+  (swap-startup-state! deps assoc :bootstrapped-address nil)
+  (swap! store
+         (fn [state]
+           (-> state
+               reset-account-surface-state
+               invalidate-order-history-request))))
+
 (defn install-asset-selector-shortcuts!
   [{:keys [store dispatch!]}]
   (let [window-object (when (exists? js/window) js/window)
@@ -412,13 +430,7 @@
     (fn [new-address]
       (if new-address
         (bootstrap-account-data! new-address)
-        (do
-          (swap-startup-state! deps assoc :bootstrapped-address nil)
-          (swap! store
-                 (fn [state]
-                   (-> state
-                       reset-account-surface-state
-                       invalidate-order-history-request)))))
+        (clear-disconnected-account-state! deps))
       (when (fn? dispatch!)
         (let [route (or (get-in @store [:router :path])
                         "/trade")]

@@ -13,6 +13,7 @@
             [hyperopen.runtime.effect-adapters.vaults :as vault-adapters]
             [hyperopen.runtime.effect-adapters.wallet :as wallet-adapters]
             [hyperopen.runtime.effect-adapters.websocket :as ws-adapters]
+            [hyperopen.startup.runtime :as startup-runtime]
             [hyperopen.route-modules :as route-modules]
             [hyperopen.trade-modules :as trade-modules]
             [hyperopen.trading-crypto-modules :as trading-crypto-modules]
@@ -23,6 +24,7 @@
             [hyperopen.platform :as platform]
             [hyperopen.wallet.agent-runtime :as agent-runtime]
             [hyperopen.wallet.agent-session :as agent-session]
+            [hyperopen.websocket.user :as user-ws]
             [hyperopen.websocket.client :as ws-client]))
 
 (def append-diagnostics-event! ws-adapters/append-diagnostics-event!)
@@ -139,6 +141,17 @@
 
 (defn unsubscribe-webdata2 [_ store address]
   (ws-adapters/unsubscribe-webdata2 address))
+
+(defn clear-disconnected-account-lifecycle
+  ([_ store address]
+   (clear-disconnected-account-lifecycle runtime-state/runtime nil store address))
+  ([runtime _ store address]
+   (startup-runtime/clear-disconnected-account-state!
+    {:runtime runtime
+     :store store
+     :address address
+     :unsubscribe-user! user-ws/unsubscribe-user!
+     :unsubscribe-webdata2! ws-adapters/unsubscribe-webdata2})))
 
 (def sync-asset-selector-active-ctx-subscriptions
   asset-adapters/sync-asset-selector-active-ctx-subscriptions)

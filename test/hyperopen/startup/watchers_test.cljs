@@ -74,6 +74,35 @@
                @diagnostics-events))
         (is (= {} (:websocket @store)))))))
 
+(deftest install-websocket-watchers-syncs-an-already-connected-runtime-view-on-install-test
+  (let [store (atom (base-store))
+        runtime-view (atom {:connection {:status :connected
+                                         :attempt 0
+                                         :next-retry-at-ms nil
+                                         :last-close nil
+                                         :queue-size 0}
+                            :stream {:health-fingerprint nil}})
+        connected-calls (atom 0)
+        disconnected-calls (atom 0)
+        sync-calls (atom [])
+        diagnostics-events (atom [])]
+    (with-redefs [platform/queue-microtask! (fn [f] (f))
+                  platform/now-ms (constantly 2000)]
+      (watchers/install-websocket-watchers!
+       {:store store
+        :runtime-view runtime-view
+        :append-diagnostics-event! (fn [_store event at-ms]
+                                     (swap! diagnostics-events conj {:event event
+                                                                     :at-ms at-ms}))
+        :sync-websocket-health! (fn [_ & {:as opts}]
+                                  (swap! sync-calls conj opts))
+        :on-websocket-connected! #(swap! connected-calls inc)
+        :on-websocket-disconnected! #(swap! disconnected-calls inc)})
+      (is (= 1 @connected-calls))
+      (is (= 0 @disconnected-calls))
+      (is (empty? @sync-calls))
+      (is (empty? @diagnostics-events)))))
+
 (deftest connection-watch-ignores-legacy-projection-field-churn-and-tracks-reconnect-transition-test
   (let [store (atom (base-store))
         runtime-view (atom {:connection {:status :connected

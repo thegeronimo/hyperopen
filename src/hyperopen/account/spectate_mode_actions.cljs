@@ -172,16 +172,22 @@
 
 (defn stop-spectate-mode
   [state]
-  [[:effects/save-many [[[:account-context :spectate-mode :active?] false]
-                        [[:account-context :spectate-mode :address] nil]
-                        [[:account-context :spectate-mode :started-at-ms] nil]
-                        [[:account-context :spectate-ui :modal-open?] false]
-                        [[:account-context :spectate-ui :anchor] nil]
-                        [[:account-context :spectate-ui :label] ""]
-                        [[:account-context :spectate-ui :editing-watchlist-address] nil]
-                        [[:account-context :spectate-ui :search-error] nil]]]
-   [:effects/replace-state
-    (spectate-browser-path state nil)]])
+  (let [spectate-address* (account-context/spectate-address state)
+        disconnected-after-stop? (and (some? spectate-address*)
+                                      (nil? (account-context/owner-address state))
+                                      (nil? (account-context/trader-portfolio-address state)))]
+    (cond-> [[:effects/save-many [[[:account-context :spectate-mode :active?] false]
+                                  [[:account-context :spectate-mode :address] nil]
+                                  [[:account-context :spectate-mode :started-at-ms] nil]
+                                  [[:account-context :spectate-ui :modal-open?] false]
+                                  [[:account-context :spectate-ui :anchor] nil]
+                                  [[:account-context :spectate-ui :label] ""]
+                                  [[:account-context :spectate-ui :editing-watchlist-address] nil]
+                                  [[:account-context :spectate-ui :search-error] nil]]]
+             [:effects/replace-state
+              (spectate-browser-path state nil)]]
+      disconnected-after-stop?
+      (conj [:effects/clear-disconnected-account-lifecycle spectate-address*]))))
 
 (defn add-spectate-mode-watchlist-address
   [state & [address]]

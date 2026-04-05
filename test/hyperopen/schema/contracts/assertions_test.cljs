@@ -1,5 +1,6 @@
 (ns hyperopen.schema.contracts.assertions-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.account.test-support.lifecycle :as lifecycle-fixtures]
             [hyperopen.schema.contracts :as contracts]
             [hyperopen.system :as system]))
 
@@ -53,5 +54,19 @@
 
 (deftest assert-app-state-accepts-default-store-state-test
   (let [state (system/default-store-state)]
+    (is (= state
+           (contracts/assert-app-state! state {:phase :test})))))
+
+(deftest assert-app-state-rejects-stale-account-surfaces-without-an-effective-account-test
+  (let [state (lifecycle-fixtures/seed-stale-account-surfaces
+               (lifecycle-fixtures/state-for-kind :disconnected))]
+    (is (thrown-with-msg?
+         js/Error
+         #"account lifecycle invariant failed"
+         (contracts/assert-app-state! state {:phase :test})))))
+
+(deftest assert-app-state-allows-account-surfaces-while-an-effective-account-is-present-test
+  (let [state (lifecycle-fixtures/seed-stale-account-surfaces
+               (lifecycle-fixtures/state-for-kind :owner))]
     (is (= state
            (contracts/assert-app-state! state {:phase :test})))))

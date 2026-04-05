@@ -148,6 +148,30 @@ async function seedDisconnectedSpectateAccountState(page) {
   });
 }
 
+async function readSpectateLifecycleProbe(page) {
+  return page.evaluate(() => {
+    const c = globalThis.cljs?.core;
+    const store = globalThis.hyperopen?.system?.store;
+
+    if (!c || !store) {
+      throw new Error("Hyperopen store or cljs core unavailable");
+    }
+
+    const keyword = c.keyword;
+    const kwPath = (...segments) =>
+      c.PersistentVector.fromArray(segments.map((segment) => keyword(segment)), true);
+    const state = c.deref(store);
+    const getIn = (...segments) => c.get_in(state, kwPath(...segments));
+
+    return {
+      spectateActive: getIn("account-context", "spectate-mode", "active?") ?? null,
+      spectateAddress: getIn("account-context", "spectate-mode", "address") ?? null,
+      webdata2Present: Boolean(getIn("webdata2")),
+      spotClearinghousePresent: Boolean(getIn("spot", "clearinghouse-state"))
+    };
+  });
+}
+
 function buildCachedAssetSelectorMarkets(count = 240) {
   const baseMarkets = [
     {
@@ -277,16 +301,7 @@ test("disconnected stop spectate clears stale account surfaces @regression", asy
 
   await expect(page.locator("[data-role='spectate-mode-active-banner']")).toBeVisible();
   await expect.poll(() => new URL(page.url()).searchParams.get("spectate")).toBe(SPECTATE_ADDRESS);
-  await expect.poll(async () => {
-    const snapshot = await debugCall(page, "snapshot");
-    const appState = snapshot["app-state"] || {};
-    return {
-      spectateActive: appState["account-context"]?.["spectate-mode"]?.["active?"] ?? null,
-      spectateAddress: appState["account-context"]?.["spectate-mode"]?.["address"] ?? null,
-      webdata2Present: Boolean(appState["webdata2"]),
-      spotClearinghousePresent: Boolean(appState["spot"]?.["clearinghouse-state"])
-    };
-  }).toMatchObject({
+  await expect.poll(() => readSpectateLifecycleProbe(page)).toMatchObject({
     spectateActive: true,
     spectateAddress: SPECTATE_ADDRESS,
     webdata2Present: true,

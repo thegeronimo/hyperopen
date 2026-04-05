@@ -1,7 +1,8 @@
 (ns hyperopen.schema.runtime-registration.spectate-mode)
 
 (def effect-binding-rows
-  [[:effects/copy-spectate-link :copy-spectate-link]])
+  [[:effects/copy-spectate-link :copy-spectate-link]
+   [:effects/clear-disconnected-account-lifecycle :clear-disconnected-account-lifecycle]])
 
 (def action-binding-rows
   [[:actions/open-spectate-mode-mobile-header-menu :open-spectate-mode-mobile-header-menu]

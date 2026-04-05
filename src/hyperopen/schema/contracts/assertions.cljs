@@ -1,5 +1,6 @@
 (ns hyperopen.schema.contracts.assertions
   (:require [cljs.spec.alpha :as s]
+            [hyperopen.account.lifecycle-invariants :as lifecycle-invariants]
             [hyperopen.schema.contracts.action-args :as action-args]
             [hyperopen.schema.contracts.common :as common]
             [hyperopen.schema.contracts.effect-args :as effect-args]
@@ -67,7 +68,9 @@
 
 (defn assert-app-state!
   [state-value context]
-  (assert-spec! "app state" ::state/app-state state-value context))
+  (assert-spec! "app state" ::state/app-state state-value context)
+  (lifecycle-invariants/assert-account-lifecycle-invariants! state-value context)
+  state-value)
 
 (defn assert-provider-message!
   [provider-message context]

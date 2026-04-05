@@ -37,6 +37,7 @@
             :set-agent-storage-mode effect-adapters/set-agent-storage-mode
             :copy-wallet-address (effect-adapters/make-copy-wallet-address runtime)
             :copy-spectate-link (effect-adapters/make-copy-spectate-link runtime)}
+   :spectate-mode {:clear-disconnected-account-lifecycle effect-adapters/clear-disconnected-account-lifecycle}
    :diagnostics {:confirm-ws-diagnostics-reveal effect-adapters/confirm-ws-diagnostics-reveal
                  :copy-websocket-diagnostics effect-adapters/copy-websocket-diagnostics
                  :ws-reset-subscriptions effect-adapters/ws-reset-subscriptions}

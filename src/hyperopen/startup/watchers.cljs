@@ -74,6 +74,8 @@
            sync-websocket-health!
            on-websocket-connected!
            on-websocket-disconnected!]}]
+  (when (= :connected (get-in @runtime-view [:connection :status]))
+    (on-websocket-connected!))
   ;; Watch websocket runtime view projection changes and keep store/health sync updated.
   (remove-watch runtime-view websocket-runtime-view-watch-key)
   (add-watch runtime-view websocket-runtime-view-watch-key

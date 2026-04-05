@@ -165,6 +165,25 @@
   (is (= []
          (spectate-mode-actions/start-spectate-mode-watchlist-address {} " "))))
 
+(deftest stop-spectate-mode-emits-disconnected-lifecycle-clear-when-no-account-remains-test
+  (let [state {:router {:path "/trade"}
+               :wallet {:connected? false
+                        :address nil}
+               :account-context {:spectate-mode {:active? true
+                                                 :address spectated-address
+                                                 :started-at-ms 1}}}]
+    (is (= [[:effects/save-many [[[:account-context :spectate-mode :active?] false]
+                                 [[:account-context :spectate-mode :address] nil]
+                                 [[:account-context :spectate-mode :started-at-ms] nil]
+                                 [[:account-context :spectate-ui :modal-open?] false]
+                                 [[:account-context :spectate-ui :anchor] nil]
+                                 [[:account-context :spectate-ui :label] ""]
+                                 [[:account-context :spectate-ui :editing-watchlist-address] nil]
+                                 [[:account-context :spectate-ui :search-error] nil]]]
+             [:effects/replace-state "/trade"]
+             [:effects/clear-disconnected-account-lifecycle spectated-address]]
+           (spectate-mode-actions/stop-spectate-mode state)))))
+
 (deftest spectate-mode-trade-route-links-preserve-market-and-tab-query-test
   (with-redefs [platform/now-ms (fn [] 1710000000000)]
     (let [state {:active-asset "ETH"
