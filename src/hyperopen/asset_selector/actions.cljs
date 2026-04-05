@@ -264,11 +264,17 @@
                                     (map? (:order-form state)))
                            (-> (:order-form state)
                                (assoc :price "")
+                               (assoc :size "")
+                               (assoc :size-percent 0)
                                (trading/persist-order-form)))
         reset-order-form-ui (when switched-asset?
                               (assoc (merge (trading/default-order-form-ui)
                                             (or (:order-form-ui state) {}))
-                                     :price-input-focused? false))
+                                     :price-input-focused? false
+                                     :size-display ""
+                                     :size-input-source :manual))
+        reset-order-form-runtime (when switched-asset?
+                                   (trading/default-order-form-runtime))
         immediate-ui-path-values (cond-> [[[:asset-selector :visible-dropdown] nil]
                                           [[:asset-selector :search-term] ""]
                                           [[:asset-selector :scroll-top] 0]
@@ -281,7 +287,9 @@
                                    reset-order-form
                                    (conj [[:order-form] reset-order-form])
                                    reset-order-form-ui
-                                   (conj [[:order-form-ui] reset-order-form-ui]))
+                                   (conj [[:order-form-ui] reset-order-form-ui])
+                                   reset-order-form-runtime
+                                   (conj [[:order-form-runtime] reset-order-form-runtime]))
         immediate-ui-effects [[:effects/save-many immediate-ui-path-values]
                               sync-asset-selector-active-ctx-subscriptions-effect]
         unsubscribe-effects (if current-asset

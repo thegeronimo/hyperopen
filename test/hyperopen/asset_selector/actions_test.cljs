@@ -1,6 +1,7 @@
 (ns hyperopen.asset-selector.actions-test
   (:require [cljs.test :refer-macros [deftest is testing]]
-            [hyperopen.asset-selector.actions :as actions]))
+            [hyperopen.asset-selector.actions :as actions]
+            [hyperopen.state.trading :as trading]))
 
 (defn- save-many-path-values
   [effects]
@@ -146,6 +147,38 @@
                     effects))
       (is (not-any? #(= [:effects/push-state "/trade/ETH"] %)
                     effects)))))
+
+(deftest select-asset-clears-stale-size-state-when-switching-assets-test
+  (let [effects (actions/select-asset
+                 {:active-asset "BTC"
+                  :asset-selector {:market-by-key {}}
+                  :order-form {:type :limit
+                               :side :buy
+                               :price "101"
+                               :size "0.0001"
+                               :size-percent 25}
+                  :order-form-ui {:size-input-mode :quote
+                                  :size-input-source :manual
+                                  :size-display "25"
+                                  :price-input-focused? true}
+                  :order-form-runtime {:submitting? false
+                                       :error "Order 1: Order has invalid size."}}
+                 {:key "perp:xyz:SILVER"
+                  :coin "xyz:SILVER"})]
+    (is (= {:type :limit
+            :side :buy
+            :price ""
+            :size ""
+            :size-percent 0}
+           (path-value effects [:order-form])))
+    (is (= (merge (trading/default-order-form-ui)
+                  {:size-input-mode :quote
+                   :size-input-source :manual
+                   :size-display ""
+                   :price-input-focused? false})
+           (path-value effects [:order-form-ui])))
+    (is (= (trading/default-order-form-runtime)
+           (path-value effects [:order-form-runtime])))))
 
 (deftest update-search-sort-strict-favorites-and-tab-actions-test
   (is (= [[:effects/save-many [[[:asset-selector :search-term] ""]
