@@ -456,11 +456,13 @@
   (let [view (header-view/header-view {:wallet {}
                                        :router {:path "/portfolio"}})
         portfolio-link (find-node (fn [candidate]
-                                    (and (= :a (first candidate))
+                                    (and (= :button (first candidate))
+                                         (= "link" (get-in candidate [1 :role]))
                                          (some #{"Portfolio"} (collect-strings candidate))))
                                   view)
         trade-link (find-node (fn [candidate]
-                                (and (= :a (first candidate))
+                                (and (= :button (first candidate))
+                                     (= "link" (get-in candidate [1 :role]))
                                      (some #{"Trade"} (collect-strings candidate))))
                               view)
         portfolio-classes (set (class-values (get-in portfolio-link [1 :class])))
@@ -468,15 +470,31 @@
     (is (contains? portfolio-classes "header-nav-link-active"))
     (is (not (contains? trade-classes "header-nav-link-active")))))
 
+(deftest header-desktop-nav-links-render-link-role-with-hrefs-and-navigate-actions-test
+  (let [view (header-view/header-view {:wallet {}
+                                       :router {:path "/trade"}})
+        vaults-link (find-node (fn [candidate]
+                                 (and (= :button (first candidate))
+                                      (= "link" (get-in candidate [1 :role]))
+                                      (some #{"Vaults"} (collect-strings candidate))))
+                               view)]
+    (is (= :button (first vaults-link)))
+    (is (= "link" (get-in vaults-link [1 :role])))
+    (is (= "/vaults" (get-in vaults-link [1 :href])))
+    (is (= [[:actions/navigate "/vaults"]]
+           (get-in vaults-link [1 :on :click])))))
+
 (deftest header-highlights-vaults-link-when-vault-route-is-active-test
   (let [view (header-view/header-view {:wallet {}
                                        :router {:path "/vaults/0x1234567890abcdef1234567890abcdef12345678"}})
         vaults-link (find-node (fn [candidate]
-                                 (and (= :a (first candidate))
+                                 (and (= :button (first candidate))
+                                      (= "link" (get-in candidate [1 :role]))
                                       (some #{"Vaults"} (collect-strings candidate))))
                                view)
         portfolio-link (find-node (fn [candidate]
-                                    (and (= :a (first candidate))
+                                    (and (= :button (first candidate))
+                                         (= "link" (get-in candidate [1 :role]))
                                          (some #{"Portfolio"} (collect-strings candidate))))
                                   view)
         vaults-classes (set (class-values (get-in vaults-link [1 :class])))
@@ -488,11 +506,13 @@
   (let [view (header-view/header-view {:wallet {}
                                        :router {:path "/fundingComparison"}})
         funding-link (find-node (fn [candidate]
-                                  (and (= :a (first candidate))
+                                  (and (= :button (first candidate))
+                                       (= "link" (get-in candidate [1 :role]))
                                        (some #{"Funding"} (collect-strings candidate))))
                                 view)
         trade-link (find-node (fn [candidate]
-                                (and (= :a (first candidate))
+                                (and (= :button (first candidate))
+                                     (= "link" (get-in candidate [1 :role]))
                                      (some #{"Trade"} (collect-strings candidate))))
                               view)
         funding-classes (set (class-values (get-in funding-link [1 :class])))
@@ -523,6 +543,7 @@
     (is (contains? panel-classes "ui-dropdown-panel"))
     (is (= "true" (get-in panel [1 :data-ui-native-details-panel])))
     (is (contains? api-classes "bg-[#123a36]"))
+    (is (= "/api" (get-in api-link [1 :href])))
     (is (= [[:actions/navigate "/api"]]
            (get-in api-link [1 :on :click])))))
 
@@ -544,15 +565,21 @@
   (let [view (header-view/header-view {:wallet {}})
         trade-link (hiccup/find-first-node view
                                            (fn [candidate]
-                                             (and (= :a (first candidate))
+                                             (and (= :button (first candidate))
+                                                  (= "link" (get-in candidate [1 :role]))
                                                   (some #{"Trade"} (hiccup/collect-strings candidate)))))
         vaults-link (hiccup/find-first-node view
                                             (fn [candidate]
-                                              (and (= :a (first candidate))
+                                              (and (= :button (first candidate))
+                                                   (= "link" (get-in candidate [1 :role]))
                                                    (some #{"Vaults"} (hiccup/collect-strings candidate)))))
         trade-classes (set (class-values (get-in trade-link [1 :class])))
         vaults-classes (set (class-values (get-in vaults-link [1 :class])))]
     (is (contains? trade-classes "header-nav-link"))
     (is (contains? trade-classes "header-nav-link-active"))
     (is (contains? vaults-classes "header-nav-link"))
-    (is (not (contains? vaults-classes "header-nav-link-active")))))
+    (is (not (contains? vaults-classes "header-nav-link-active")))
+    (is (= [[:actions/navigate "/trade"]]
+           (get-in trade-link [1 :on :click])))
+    (is (= [[:actions/navigate "/vaults"]]
+           (get-in vaults-link [1 :on :click])))))

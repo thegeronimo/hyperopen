@@ -248,7 +248,7 @@
     (is (some? list-root))
     (is (some? detail-root))))
 
-(deftest app-view-keeps-generic-route-loader-for-unresolved-vault-route-test
+(deftest app-view-renders-preview-backed-vault-route-shell-for-unresolved-vault-list-route-test
   (let [view-node (with-redefs [route-modules/route-ready? (constantly false)
                                 route-modules/render-route-view (constantly nil)
                                 route-modules/route-error (constantly nil)]
@@ -281,14 +281,39 @@
                                                                                      :tvl 42000
                                                                                      :your-deposit 900
                                                                                      :age-days 21}]}})))
-        route-shell (hiccup/find-by-parity-id view-node "app-route-module-shell")
+        route-shell (hiccup/find-by-data-role view-node "vaults-route-loading-shell")
+        refreshing-banner (hiccup/find-by-data-role view-node "vaults-refreshing-banner")
+        loading-row (hiccup/find-by-data-role view-node "vault-loading-row")
         rendered-strings (set (hiccup/collect-strings route-shell))]
     (is (some? route-shell))
-    (is (contains? rendered-strings "Loading Route"))
-    (is (not (contains? rendered-strings "Refreshing vaults…")))
-    (is (not (contains? rendered-strings "Alpha Vault")))
-    (is (not (contains? rendered-strings "Beta Vault")))
-    (is (not (contains? rendered-strings "Gamma Vault")))
+    (is (= "startup-preview" (get-in route-shell [1 :data-preview-state])))
+    (is (some? refreshing-banner))
+    (is (nil? loading-row))
+    (is (contains? rendered-strings "Refreshing vaults…"))
+    (is (contains? rendered-strings "Alpha Vault"))
+    (is (contains? rendered-strings "Beta Vault"))
+    (is (contains? rendered-strings "Gamma Vault"))
+    (is (not (contains? rendered-strings "Loading Route")))
+    (is (not (contains? rendered-strings "Route Load Failed")))))
+
+(deftest app-view-renders-cold-vault-route-shell-for-unresolved-vault-list-route-test
+  (let [view-node (with-redefs [route-modules/route-ready? (constantly false)
+                                route-modules/render-route-view (constantly nil)
+                                route-modules/route-error (constantly nil)]
+                   (app-view/app-view (assoc (base-state)
+                                             :router {:path "/vaults"}
+                                             :wallet {})))
+        route-shell (hiccup/find-by-data-role view-node "vaults-route-loading-shell")
+        refreshing-banner (hiccup/find-by-data-role view-node "vaults-refreshing-banner")
+        loading-row (hiccup/find-by-data-role view-node "vault-loading-row")
+        rendered-strings (set (hiccup/collect-strings route-shell))]
+    (is (some? route-shell))
+    (is (nil? (get-in route-shell [1 :data-preview-state])))
+    (is (nil? refreshing-banner))
+    (is (some? loading-row))
+    (is (contains? rendered-strings "Vaults"))
+    (is (contains? rendered-strings "Loading vaults…"))
+    (is (not (contains? rendered-strings "Loading Route")))
     (is (not (contains? rendered-strings "Route Load Failed")))))
 
 (deftest app-view-keeps-generic-route-loader-for-route-errors-and-other-routes-test

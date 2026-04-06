@@ -39,6 +39,100 @@ test("trade desktop header omits dead Earn and Referrals links @smoke", async ({
   await expect(headerNav.getByRole("link", { name: "Referrals", exact: true })).toHaveCount(0);
 });
 
+test("trade desktop Vaults click stays in-app and shows the vault-shaped loader only @smoke", async ({ page }) => {
+  const vaultsUrl = "https://stats-data.hyperliquid.xyz/Mainnet/vaults";
+  const infoUrl = "https://api.hyperliquid.xyz/info";
+  let releaseRouteModule;
+  let routeModuleRequests = 0;
+  let vaultIndexRequests = 0;
+  const routeModuleGate = new Promise(resolve => {
+    releaseRouteModule = resolve;
+  });
+
+  await page.route(/\/js\/vaults_route\.js(?:\?.*)?$/, async route => {
+    routeModuleRequests += 1;
+    await routeModuleGate;
+    await route.continue();
+  });
+
+  await page.route(vaultsUrl, async route => {
+    vaultIndexRequests += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          apr: "0.12",
+          summary: {
+            name: "Smoke Vault",
+            vaultAddress: "0x61b1cf5c2d7c4bf6d5db14f36651b2242e7cba0a",
+            leader: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+            tvl: "321.5",
+            isClosed: false,
+            relationship: { type: "normal" },
+            createTimeMillis: "1700"
+          }
+        }
+      ])
+    });
+  });
+
+  await page.route(infoUrl, async route => {
+    const payload = JSON.parse(route.request().postData() || "{}");
+    if (payload?.type === "vaultSummaries") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([])
+      });
+      return;
+    }
+
+    await route.continue();
+  });
+
+  await visitRoute(page, "/trade");
+  await page.evaluate(() => {
+    sessionStorage.removeItem("__vaultBeforeUnloadCount");
+    globalThis.__vaultNavMarker = "trade-still-alive";
+    globalThis.addEventListener("beforeunload", () => {
+      const current = Number(sessionStorage.getItem("__vaultBeforeUnloadCount") || "0");
+      sessionStorage.setItem("__vaultBeforeUnloadCount", String(current + 1));
+    });
+  });
+
+  const headerNav = page.locator("[data-parity-id='header-nav']");
+  const vaultsLink = headerNav.getByRole("link", { name: "Vaults", exact: true });
+
+  await expect(vaultsLink).toHaveAttribute("href", "/vaults");
+  await vaultsLink.click();
+  await expect
+    .poll(() => routeModuleRequests, { timeout: 10_000 })
+    .toBe(1);
+  await expect(page.locator("[data-role='vaults-route-loading-shell']")).toBeVisible();
+  await expect(page.locator("[data-role='vault-loading-row']").first()).toBeVisible();
+  await expect(page.getByText("Loading Route", { exact: true })).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => sessionStorage.getItem("__vaultBeforeUnloadCount") || "0"))
+    .toBe("0");
+  await expect(page.evaluate(() => globalThis.__vaultNavMarker)).resolves.toBe("trade-still-alive");
+
+  releaseRouteModule();
+
+  await expectOracle(
+    page,
+    "parity-element",
+    { present: true },
+    { args: { parityId: "vaults-root" } }
+  );
+  await expect
+    .poll(() => vaultIndexRequests, { timeout: 10_000 })
+    .toBe(1);
+  await expect(routeModuleRequests).toBe(1);
+  await expect(page.evaluate(() => sessionStorage.getItem("__vaultBeforeUnloadCount") || "0")).resolves.toBe("0");
+  await expect(page.evaluate(() => globalThis.__vaultNavMarker)).resolves.toBe("trade-still-alive");
+});
+
 test("trade cold startup does not render the static boot loading shell @smoke", async ({ page }) => {
   await page.goto("/trade", { waitUntil: "commit" });
   await page.waitForTimeout(100);

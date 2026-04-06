@@ -5,6 +5,7 @@
             [hyperopen.router :as router]
             [hyperopen.staking.actions :as staking-actions]
             [hyperopen.trade.layout-actions :as trade-layout-actions]
+            [hyperopen.vaults.infrastructure.routes :as vault-routes]
             [hyperopen.views.agent-trading-recovery-modal :as agent-trading-recovery-modal]
             [hyperopen.views.funding-modal :as funding-modal]
             [hyperopen.views.footer-view :as footer-view]
@@ -13,6 +14,7 @@
             [hyperopen.views.notifications-view :as notifications-view]
             [hyperopen.views.order-submit-confirmation-modal :as order-submit-confirmation-modal]
             [hyperopen.views.trade-view :as trade-view]
+            [hyperopen.views.vaults.route-shell :as vaults-route-shell]
             [hyperopen.wallet.core :as wallet]))
 
 (defn- spectate-mode-banner
@@ -135,6 +137,13 @@
         trade-route? (router/trade-route? route)
         deferred-route? (some? (route-modules/route-module-id route))
         route-error (route-modules/route-error state route)
+        route-ready? (if deferred-route?
+                       (route-modules/route-ready? state route)
+                       true)
+        unresolved-vault-list-route? (and deferred-route?
+                                           (not route-error)
+                                           (not route-ready?)
+                                           (= :list (:kind (vault-routes/parse-vault-route route))))
         mobile-surface (trade-layout-actions/normalize-trade-mobile-surface
                         (get-in state [:trade-ui :mobile-surface]))
         mobile-account-surface? (and trade-route? (= mobile-surface :account))
@@ -158,11 +167,12 @@
              :data-parity-id "app-main"}
       (cond
         trade-route? (trade-view/trade-view state)
+        unresolved-vault-list-route? (vaults-route-shell/vaults-route-loading-shell state)
         (and deferred-route?
              route-error)
         (deferred-route-loading-shell state route)
         (and deferred-route?
-             (route-modules/route-ready? state route))
+             route-ready?)
         (or (route-modules/render-route-view state route)
             (deferred-route-loading-shell state route))
         deferred-route? (deferred-route-loading-shell state route)

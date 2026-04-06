@@ -20,11 +20,17 @@
 
 (defn- nav-link
   [{:keys [action active? href label route]}]
-  [:a {:class (if active?
-                header-nav-link-active-classes
-                header-nav-link-inactive-classes)
-       :href (or href route)
-       :on {:click action}}
+  [:button {:type "button"
+            :role "link"
+            :class (into (if active?
+                           header-nav-link-active-classes
+                           header-nav-link-inactive-classes)
+                         ["border-0"
+                          "bg-transparent"
+                          "p-0"
+                          "appearance-none"])
+            :href (or href route)
+            :on {:click action}}
    label])
 
 (defn- more-trigger-classes
@@ -47,27 +53,32 @@
 
 (defn- more-menu-link
   [{:keys [action active? href label more-data-role route]}]
-  [:a {:class (into ["flex"
-                     "w-full"
-                     "items-center"
-                     "justify-between"
-                     "gap-3"
-                     "rounded-lg"
-                     "px-3"
-                     "py-2"
-                     "text-left"
-                     "text-sm"
-                     "no-underline"
-                     "transition-colors"
-                     "focus:outline-none"
-                     "focus:ring-0"
-                     "focus:ring-offset-0"]
-                    (if active?
-                      ["bg-[#123a36]" "text-[#97fce4]"]
-                      ["text-white" "hover:bg-base-200"]))
-       :href (or href route)
-       :data-role more-data-role
-       :on {:click action}}
+  [:button {:type "button"
+            :role "link"
+            :class (into ["flex"
+                          "w-full"
+                          "items-center"
+                          "justify-between"
+                          "gap-3"
+                          "rounded-lg"
+                          "border-0"
+                          "bg-transparent"
+                          "px-3"
+                          "py-2"
+                          "text-left"
+                          "text-sm"
+                          "no-underline"
+                          "transition-colors"
+                          "focus:outline-none"
+                          "focus:ring-0"
+                          "focus:ring-offset-0"
+                          "appearance-none"]
+                         (if active?
+                           ["bg-[#123a36]" "text-[#97fce4]"]
+                           ["text-white" "hover:bg-base-200"]))
+            :href (or href route)
+            :data-role more-data-role
+            :on {:click action}}
    [:span label]
    (when active?
      [:span {:class ["text-xs"
