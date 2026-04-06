@@ -511,6 +511,62 @@
     (is (= [:effects/api-fetch-hyperunit-withdrawal-queue]
            (nth effects 2)))))
 
+(deftest set-funding-modal-field-returning-to-deposit-asset-select-clears-generated-state-test
+  (let [state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :deposit
+                         :deposit-step :amount-entry
+                         :amount-input "12"
+                         :deposit-generated-address "bc1old"
+                         :deposit-generated-signatures [{:r "0x1"}]
+                         :deposit-generated-asset-key :btc
+                         :withdraw-generated-address "0xwithdraw"
+                         :hyperunit-lifecycle {:direction :deposit
+                                               :asset-key :btc
+                                               :operation-id "op_123"
+                                               :state :source-confirmed
+                                               :status :pending}})
+        [_ _ next-modal] (first (funding-actions/set-funding-modal-field
+                                 state
+                                 [:deposit-step]
+                                 :asset-select))]
+    (is (= :asset-select (:deposit-step next-modal)))
+    (is (= "" (:amount-input next-modal)))
+    (is (nil? (:deposit-generated-address next-modal)))
+    (is (nil? (:deposit-generated-signatures next-modal)))
+    (is (nil? (:deposit-generated-asset-key next-modal)))
+    (is (nil? (:withdraw-generated-address next-modal)))
+    (is (= (funding-actions/default-hyperunit-lifecycle-state)
+           (:hyperunit-lifecycle next-modal)))))
+
+(deftest set-funding-modal-field-returning-to-withdraw-asset-select-clears-amount-and-error-only-test
+  (let [existing-lifecycle {:direction :withdraw
+                            :asset-key :usdc
+                            :operation-id "op_456"
+                            :state :pending
+                            :status :pending}
+        state (assoc-in (base-state)
+                        [:funding-ui :modal]
+                        {:open? true
+                         :mode :withdraw
+                         :withdraw-step :amount-entry
+                         :amount-input "10"
+                         :error "temporary"
+                         :hyperunit-lifecycle existing-lifecycle})
+        [_ _ next-modal] (first (funding-actions/set-funding-modal-field
+                                 state
+                                 [:withdraw-step]
+                                 :asset-select))]
+    (is (= :asset-select (:withdraw-step next-modal)))
+    (is (= "" (:amount-input next-modal)))
+    (is (nil? (:error next-modal)))
+    (is (= (merge (funding-actions/default-hyperunit-lifecycle-state)
+                  existing-lifecycle)
+           (:hyperunit-lifecycle next-modal)))
+    (is (not= (funding-actions/default-hyperunit-lifecycle-state)
+              (:hyperunit-lifecycle next-modal)))))
+
 (deftest set-hyperunit-lifecycle-normalizes-snapshot-test
   (let [state (assoc-in (base-state)
                         [:funding-ui :modal]

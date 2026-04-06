@@ -61,6 +61,46 @@
   (is (= :stake
          (actions/normalize-staking-validator-sort-column :not-a-column))))
 
+(deftest direct-balance-row-available-prefers-supported-direct-fields-test
+  (let [direct-balance-row-available @#'hyperopen.staking.actions/direct-balance-row-available]
+    (is (= 10.5
+           (direct-balance-row-available {:available "10.5"
+                                          :availableBalance "8"
+                                          :free "7"})))
+    (is (= 8
+           (direct-balance-row-available {:availableBalance "8"})))
+    (is (= 7
+           (direct-balance-row-available {:free "7"})))
+    (is (nil? (direct-balance-row-available {:available "NaN"
+                                             :availableBalance ""
+                                             :free nil})))))
+
+(deftest derived-balance-row-available-uses-total-minus-hold-when-needed-test
+  (let [derived-balance-row-available @#'hyperopen.staking.actions/derived-balance-row-available]
+    (is (= 8
+           (derived-balance-row-available {:total "10"
+                                           :hold "2"})))
+    (is (= 12
+           (derived-balance-row-available {:totalBalance "12"})))
+    (is (= -1
+           (derived-balance-row-available {:total "5"
+                                           :hold "6"})))
+    (is (nil? (derived-balance-row-available {:hold "2"})))))
+
+(deftest balance-row-available-wraps-direct-and-derived-values-test
+  (let [balance-row-available @#'hyperopen.staking.actions/balance-row-available]
+    (is (= 10.5
+           (balance-row-available {:available "10.5"
+                                   :free "7"})))
+    (is (= 3
+           (balance-row-available {:total "5"
+                                   :hold "2"})))
+    (is (= 0
+           (balance-row-available {:total "5"
+                                   :hold "6"})))
+    (is (nil? (balance-row-available {:available "NaN"})))
+    (is (nil? (balance-row-available nil)))))
+
 (deftest set-staking-validator-sort-toggles-direction-and-switches-columns-test
   (is (= [[:effects/save [:staking-ui :validator-sort]
            {:column :stake
@@ -218,6 +258,44 @@
            :spot {:clearinghouse-state {:balances [{:coin "HYPE"
                                                     :available 2}]}}
            :staking-ui {:deposit-amount "1.25"}}))))
+
+(deftest submit-staking-withdraw-validates-blockers-wallet-amount-and-balance-test
+  (is (= [[:effects/save [:staking-ui :form-error]
+           "Spectate Mode is read-only. Stop Spectate Mode to place trades or move funds."]
+          [:effects/save [:staking-ui :submitting :withdraw?] false]]
+         (actions/submit-staking-withdraw
+          {:account-context {:spectate-mode {:active? true
+                                             :address wallet-address}}
+           :wallet {:address wallet-address}
+           :staking-ui {:withdraw-amount "1"}})))
+  (is (= [[:effects/save [:staking-ui :form-error]
+           "Connect your wallet before withdrawing from staking balance."]
+          [:effects/save [:staking-ui :submitting :withdraw?] false]]
+         (actions/submit-staking-withdraw
+          {:staking-ui {:withdraw-amount "1"}})))
+  (is (= [[:effects/save [:staking-ui :form-error]
+           "Enter a valid amount up to 8 decimals."]
+          [:effects/save [:staking-ui :submitting :withdraw?] false]]
+         (actions/submit-staking-withdraw
+          {:wallet {:address wallet-address}
+           :staking-ui {:withdraw-amount "not-a-number"}})))
+  (is (= [[:effects/save [:staking-ui :form-error]
+           "Amount exceeds available staking balance."]
+          [:effects/save [:staking-ui :submitting :withdraw?] false]]
+         (actions/submit-staking-withdraw
+          {:wallet {:address wallet-address}
+           :staking {:delegator-summary {:undelegated 1}}
+           :staking-ui {:withdraw-amount "1.25"}})))
+  (is (= [[:effects/save [:staking-ui :form-error] nil]
+          [:effects/save [:staking-ui :submitting :withdraw?] true]
+          [:effects/api-submit-staking-withdraw
+           {:kind :withdraw
+            :action {:type "cWithdraw"
+                     :wei 125000000}}]]
+         (actions/submit-staking-withdraw
+          {:wallet {:address wallet-address}
+           :staking {:delegator-summary {:undelegated 2}}
+           :staking-ui {:withdraw-amount "1.25"}}))))
 
 (deftest submit-staking-delegate-requires-validator-selection-test
   (is (= [[:effects/save [:staking-ui :form-error]

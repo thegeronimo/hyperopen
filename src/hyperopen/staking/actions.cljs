@@ -278,25 +278,34 @@
   [value]
   (some-> value str str/trim str/upper-case))
 
+(defn- direct-balance-row-available
+  [row]
+  (some optional-number
+        [(:available row)
+         (:availableBalance row)
+         (:free row)]))
+
+(defn- derived-balance-row-available
+  [row]
+  (let [total (or (optional-number (:total row))
+                  (optional-number (:totalBalance row)))
+        hold (optional-number (:hold row))]
+    (when (finite-number? total)
+      (if (finite-number? hold)
+        (- total hold)
+        total))))
+
+(defn- normalize-available-balance
+  [value]
+  (when (finite-number? value)
+    (max 0 value)))
+
 (defn- balance-row-available
   [row]
   (when (map? row)
-    (let [available-direct (or (optional-number (:available row))
-                               (optional-number (:availableBalance row))
-                               (optional-number (:free row)))
-          total (or (optional-number (:total row))
-                    (optional-number (:totalBalance row)))
-          hold (optional-number (:hold row))
-          derived (cond
-                    (finite-number? total)
-                    (if (finite-number? hold)
-                      (- total hold)
-                      total)
-
-                    :else nil)
-          available (or available-direct derived)]
-      (when (finite-number? available)
-        (max 0 available)))))
+    (-> (or (direct-balance-row-available row)
+            (derived-balance-row-available row))
+        normalize-available-balance)))
 
 (defn- spot-hype-available
   [state]

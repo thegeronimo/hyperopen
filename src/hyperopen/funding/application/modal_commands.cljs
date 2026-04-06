@@ -168,6 +168,105 @@
     (close-funding-modal-fn state)
     []))
 
+(defn- normalize-funding-modal-field-path
+  [path]
+  (if (vector? path) path [path]))
+
+(defn- normalize-funding-modal-field-value
+  [{:keys [normalize-amount-input
+           normalize-deposit-step
+           normalize-withdraw-step
+           normalize-deposit-asset-key
+           normalize-withdraw-asset-key
+           withdraw-default-asset-key]}
+   path
+   value]
+  (case path
+    [:amount-input] (normalize-amount-input value)
+    [:destination-input] (str (or value ""))
+    [:deposit-search-input] (str (or value ""))
+    [:withdraw-search-input] (str (or value ""))
+    [:deposit-step] (normalize-deposit-step value)
+    [:withdraw-step] (normalize-withdraw-step value)
+    [:deposit-selected-asset-key] (normalize-deposit-asset-key value)
+    [:withdraw-selected-asset-key] (or (normalize-withdraw-asset-key value)
+                                       withdraw-default-asset-key)
+    value))
+
+(defn- clear-hyperunit-lifecycle-field?
+  [path value]
+  (or (= path [:amount-input])
+      (= path [:destination-input])
+      (= path [:deposit-selected-asset-key])
+      (= path [:withdraw-selected-asset-key])
+      (and (= path [:deposit-step])
+           (= value :asset-select))))
+
+(defn- reset-hyperunit-lifecycle
+  [modal
+   {:keys [default-hyperunit-lifecycle-state]}]
+  (-> modal
+      (assoc :hyperunit-lifecycle (default-hyperunit-lifecycle-state))
+      (assoc :withdraw-generated-address nil)))
+
+(defn- apply-funding-modal-field-side-effects
+  [modal
+   {:keys [default-hyperunit-withdrawal-queue-state
+           wallet-address]}
+   state
+   path
+   value]
+  (case path
+    [:withdraw-selected-asset-key]
+    (-> modal
+        (assoc :hyperunit-withdrawal-queue
+               (default-hyperunit-withdrawal-queue-state))
+        (assoc :withdraw-step :amount-entry
+               :amount-input ""
+               :destination-input (or (wallet-address state) "")))
+
+    [:deposit-selected-asset-key]
+    (assoc modal
+           :deposit-step :amount-entry
+           :amount-input ""
+           :deposit-generated-address nil
+           :deposit-generated-signatures nil
+           :deposit-generated-asset-key nil)
+
+    [:deposit-step]
+    (if (= value :asset-select)
+      (assoc modal
+             :amount-input ""
+             :deposit-generated-address nil
+             :deposit-generated-signatures nil
+             :deposit-generated-asset-key nil)
+      modal)
+
+    [:withdraw-step]
+    (if (= value :asset-select)
+      (assoc modal
+             :amount-input ""
+             :error nil)
+      modal)
+
+    modal))
+
+(defn- funding-modal-refresh-effects
+  [normalize-mode next-modal path]
+  (let [next-mode (normalize-mode (:mode next-modal))
+        refresh-estimate? (and (contains? #{:deposit :withdraw} next-mode)
+                               (contains? #{[:deposit-selected-asset-key]
+                                            [:withdraw-selected-asset-key]}
+                                          path))
+        refresh-withdraw-queue? (and (= next-mode :withdraw)
+                                     (= path [:withdraw-selected-asset-key]))]
+    (cond-> []
+      refresh-estimate?
+      (conj [:effects/api-fetch-hyperunit-fee-estimate])
+
+      refresh-withdraw-queue?
+      (conj [:effects/api-fetch-hyperunit-withdrawal-queue]))))
+
 (defn set-funding-modal-field
   [{:keys [modal-state
            normalize-amount-input
@@ -185,72 +284,31 @@
    path
    value]
   (let [modal (modal-state state)
-        path* (if (vector? path) path [path])
-        value* (case path*
-                 [:amount-input] (normalize-amount-input value)
-                 [:destination-input] (str (or value ""))
-                 [:deposit-search-input] (str (or value ""))
-                 [:withdraw-search-input] (str (or value ""))
-                 [:deposit-step] (normalize-deposit-step value)
-                 [:withdraw-step] (normalize-withdraw-step value)
-                 [:deposit-selected-asset-key] (normalize-deposit-asset-key value)
-                 [:withdraw-selected-asset-key] (or (normalize-withdraw-asset-key value)
-                                                    withdraw-default-asset-key)
-                 value)
-        clear-hyperunit-lifecycle? (or (= path* [:amount-input])
-                                       (= path* [:destination-input])
-                                       (= path* [:deposit-selected-asset-key])
-                                       (= path* [:withdraw-selected-asset-key])
-                                       (and (= path* [:deposit-step])
-                                            (= value* :asset-select)))
+        path* (normalize-funding-modal-field-path path)
+        value* (normalize-funding-modal-field-value
+                {:normalize-amount-input normalize-amount-input
+                 :normalize-deposit-step normalize-deposit-step
+                 :normalize-withdraw-step normalize-withdraw-step
+                 :normalize-deposit-asset-key normalize-deposit-asset-key
+                 :normalize-withdraw-asset-key normalize-withdraw-asset-key
+                 :withdraw-default-asset-key withdraw-default-asset-key}
+                path*
+                value)
         next-modal (cond-> (-> modal
                                (assoc-in path* value*)
-                               (assoc :error nil))
-                     clear-hyperunit-lifecycle?
-                     (assoc :hyperunit-lifecycle (default-hyperunit-lifecycle-state))
-
-                     clear-hyperunit-lifecycle?
-                     (assoc :withdraw-generated-address nil)
-
-                     (= path* [:withdraw-selected-asset-key])
-                     (assoc :hyperunit-withdrawal-queue
-                            (default-hyperunit-withdrawal-queue-state))
-
-                     (= path* [:withdraw-selected-asset-key])
-                     (assoc :withdraw-step :amount-entry
-                            :amount-input ""
-                            :destination-input (or (wallet-address state) ""))
-
-                     (= path* [:deposit-selected-asset-key])
-                     (assoc :deposit-step :amount-entry
-                            :amount-input ""
-                            :deposit-generated-address nil
-                            :deposit-generated-signatures nil
-                            :deposit-generated-asset-key nil)
-
-                     (and (= path* [:deposit-step])
-                          (= value* :asset-select))
-                     (assoc :amount-input ""
-                            :deposit-generated-address nil
-                            :deposit-generated-signatures nil
-                            :deposit-generated-asset-key nil)
-
-                     (and (= path* [:withdraw-step])
-                          (= value* :asset-select))
-                     (assoc :amount-input ""
-                            :error nil))
-        next-mode (normalize-mode (:mode next-modal))
-        refresh-estimate? (and (contains? #{:deposit :withdraw} next-mode)
-                               (or (= path* [:deposit-selected-asset-key])
-                                   (= path* [:withdraw-selected-asset-key])))
-        refresh-withdraw-queue? (and (= next-mode :withdraw)
-                                     (= path* [:withdraw-selected-asset-key]))]
-    (cond-> [[:effects/save funding-modal-path next-modal]]
-      refresh-estimate?
-      (conj [:effects/api-fetch-hyperunit-fee-estimate])
-
-      refresh-withdraw-queue?
-      (conj [:effects/api-fetch-hyperunit-withdrawal-queue]))))
+                               (assoc :error nil)
+                               (apply-funding-modal-field-side-effects
+                                {:default-hyperunit-withdrawal-queue-state default-hyperunit-withdrawal-queue-state
+                                 :wallet-address wallet-address}
+                                state
+                                path*
+                                value*))
+                     (clear-hyperunit-lifecycle-field? path* value*)
+                     (reset-hyperunit-lifecycle
+                      {:default-hyperunit-lifecycle-state default-hyperunit-lifecycle-state}))
+        refresh-effects (funding-modal-refresh-effects normalize-mode next-modal path*)]
+    (into [[:effects/save funding-modal-path next-modal]]
+          refresh-effects)))
 
 (defn search-funding-deposit-assets
   [deps state value]

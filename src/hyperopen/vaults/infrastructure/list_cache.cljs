@@ -156,47 +156,54 @@
     (when (number? candidate)
       (max 0 candidate))))
 
-(defn normalize-vault-index-cache-record
-  [raw]
-  (cond
-    (map? raw)
-    (let [raw-rows (:rows raw)
-          rows (normalize-vault-index-cache-rows raw-rows)
-          saved-at-ms (parse-saved-at-ms (:saved-at-ms raw))]
-      (when (and (some? saved-at-ms)
-                 (sequential? raw-rows))
+(defn- normalize-vault-index-cache-shared-fields
+  [raw default-id]
+  (when (map? raw)
+    (let [saved-at-ms (parse-saved-at-ms (:saved-at-ms raw))]
+      (when (some? saved-at-ms)
         {:id (or (non-blank-text (:id raw))
-                 vault-index-cache-key)
+                 default-id)
          :version (or (parse-int-safe (:version raw))
                       vault-index-cache-version)
          :saved-at-ms saved-at-ms
          :etag (non-blank-text (:etag raw))
-         :last-modified (non-blank-text (:last-modified raw))
-         :rows (vec rows)}))
+         :last-modified (non-blank-text (:last-modified raw))}))))
+
+(defn- normalize-vault-index-cache-record-map
+  [raw]
+  (let [raw-rows (:rows raw)
+        shared-fields (normalize-vault-index-cache-shared-fields raw
+                                                                 vault-index-cache-key)]
+    (when (and shared-fields
+               (sequential? raw-rows))
+      (assoc shared-fields
+             :rows (normalize-vault-index-cache-rows raw-rows)))))
+
+(defn- legacy-vault-index-cache-record
+  [rows]
+  {:id vault-index-cache-key
+   :version 0
+   :saved-at-ms 0
+   :etag nil
+   :last-modified nil
+   :rows (normalize-vault-index-cache-rows rows)})
+
+(defn normalize-vault-index-cache-record
+  [raw]
+  (cond
+    (map? raw)
+    (normalize-vault-index-cache-record-map raw)
 
     (sequential? raw)
-    {:id vault-index-cache-key
-     :version 0
-     :saved-at-ms 0
-     :etag nil
-     :last-modified nil
-     :rows (normalize-vault-index-cache-rows raw)}
+    (legacy-vault-index-cache-record raw)
 
     :else
     nil))
 
 (defn normalize-vault-index-cache-metadata
   [raw]
-  (when (map? raw)
-    (let [saved-at-ms (parse-saved-at-ms (:saved-at-ms raw))]
-      (when (some? saved-at-ms)
-        {:id (or (non-blank-text (:id raw))
-                 vault-index-cache-metadata-key)
-         :version (or (parse-int-safe (:version raw))
-                      vault-index-cache-version)
-         :saved-at-ms saved-at-ms
-         :etag (non-blank-text (:etag raw))
-         :last-modified (non-blank-text (:last-modified raw))}))))
+  (normalize-vault-index-cache-shared-fields raw
+                                             vault-index-cache-metadata-key))
 
 (defn build-vault-index-cache-record
   [rows {:keys [etag last-modified]}]

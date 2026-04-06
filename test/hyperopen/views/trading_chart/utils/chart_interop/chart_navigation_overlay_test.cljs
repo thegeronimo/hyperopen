@@ -51,6 +51,31 @@
                  (reset! current-value* value))})
     writes*))
 
+(deftest container-hover-active-uses-rect-height-and-client-y-test
+  (let [container (fake-dom/make-fake-element "div")
+        container-hover-active? @#'hyperopen.views.trading-chart.utils.chart-interop.chart-navigation-overlay/container-hover-active?]
+    (set! (.-getBoundingClientRect container)
+          (fn []
+            #js {:top 20
+                 :height 200}))
+    (is (false? (container-hover-active? container
+                                         #js {:clientY 120})))
+    (is (true? (container-hover-active? container
+                                        #js {:clientY 140})))))
+
+(deftest container-hover-active-falls-back-to-client-height-and-offset-y-test
+  (let [container (fake-dom/make-fake-element "div")
+        container-hover-active? @#'hyperopen.views.trading-chart.utils.chart-interop.chart-navigation-overlay/container-hover-active?]
+    (set! (.-clientHeight container) 120)
+    (set! (.-getBoundingClientRect container)
+          (fn []
+            #js {:top js/NaN
+                 :height js/NaN}))
+    (is (false? (container-hover-active? container
+                                         #js {:offsetY 60})))
+    (is (true? (container-hover-active? container
+                                        #js {:offsetY 80})))))
+
 (deftest chart-navigation-overlay-sync-renders-hover-focus-and-controls-test
   (let [document (fake-dom/make-fake-document)
         container (fake-dom/make-fake-element "div")

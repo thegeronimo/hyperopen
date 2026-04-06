@@ -55,6 +55,27 @@
               :rows "not-a-seq"})))
   (is (nil? (list-cache/normalize-vault-index-cache-record nil))))
 
+(deftest normalize-vault-index-cache-record-supports-legacy-row-sequences-test
+  (is (= {:id "vault-index-cache"
+          :version 0
+          :saved-at-ms 0
+          :etag nil
+          :last-modified nil
+          :rows [{:name "Legacy Vault"
+                  :vault-address "0xabc"
+                  :leader nil
+                  :tvl 0
+                  :tvl-raw nil
+                  :is-closed? false
+                  :relationship {:type :normal}
+                  :create-time-ms nil
+                  :apr 0
+                  :apr-raw nil
+                  :snapshot-preview-by-key {}}]}
+         (list-cache/normalize-vault-index-cache-record
+          [{:name "Legacy Vault"
+            :vault-address "0xAbC"}]))))
+
 (deftest normalize-vault-index-cache-metadata-trims-and-rejects-invalid-shapes-test
   (is (= {:id "vault-index-cache:metadata"
           :version 2

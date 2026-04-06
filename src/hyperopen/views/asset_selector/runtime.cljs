@@ -300,137 +300,173 @@
   (or (.querySelector node "[data-role='asset-selector-list-body-host']")
       (.-firstElementChild node)))
 
+(def ^:private asset-list-runtime-memory-keys
+  [:on-wheel
+   :on-scroll
+   :props*
+   :pending-props*
+   :scroll-top*
+   :host-node*
+   :last-window-state*
+   :last-scroll-activity-ms*
+   :scrolling?*
+   :scroll-settle-timeout*
+   :render-limit-sync-timeout*
+   :live-subscription-resume-timeout*])
+
+(defn- build-asset-list-runtime-state
+  [props node]
+  {:props* (atom props)
+   :pending-props* (atom nil)
+   :scroll-top* (atom (query/normalize-scroll-top (:scroll-top props)))
+   :host-node* (atom (asset-list-host-node node))
+   :last-window-state* (atom nil)
+   :last-scroll-activity-ms* (atom nil)
+   :scrolling?* (atom false)
+   :scroll-settle-timeout* (atom nil)
+   :render-limit-sync-timeout* (atom nil)
+   :live-subscription-resume-timeout* (atom nil)})
+
+(defn- hydrate-asset-list-runtime-state
+  [props node memory]
+  (let [defaults (build-asset-list-runtime-state props node)]
+    (reduce-kv (fn [acc key default-value]
+                 (assoc acc key (or (get memory key)
+                                    default-value)))
+               {}
+               defaults)))
+
+(defn- asset-list-runtime-memory
+  [memory]
+  (select-keys memory asset-list-runtime-memory-keys))
+
+(defn- remember-asset-list-runtime!
+  [remember memory]
+  (remember (asset-list-runtime-memory memory)))
+
+(defn- begin-asset-list-active-scroll!
+  [{:keys [scrolling?* live-subscription-resume-timeout*]}]
+  (when-not @scrolling?*
+    (reset! scrolling?* true)
+    (set-asset-list-scroll-active! true)
+    (set-asset-list-freeze-active! true)
+    (cancel-asset-list-live-subscription-resume! live-subscription-resume-timeout*)
+    (set-asset-list-live-market-subscriptions-paused! true)))
+
+(defn- asset-list-wheel-handler
+  [runtime-state]
+  (fn [event]
+    (when-not (zero? (or (.-deltaY event) 0))
+      (begin-asset-list-active-scroll! runtime-state)
+      (ensure-asset-list-scroll-settle! runtime-state))))
+
+(defn- sync-asset-list-live-node!
+  [node {:keys [host-node* scroll-top*]}]
+  (let [next-scroll-top (.-scrollTop node)
+        host-node (or @host-node* (asset-list-host-node node))]
+    (reset! scroll-top* next-scroll-top)
+    (reset! host-node* host-node)
+    {:host-node host-node
+     :next-scroll-top next-scroll-top}))
+
+(defn- sync-active-scroll-window!
+  [{:keys [props* last-window-state*]} host-node next-scroll-top]
+  (let [current-window-state @last-window-state*
+        overscan-rows (asset-list-dynamic-overscan-rows current-window-state next-scroll-top)
+        next-window-state (asset-list-window-state @props* next-scroll-top overscan-rows)]
+    (when-not (asset-list-window-covered? current-window-state next-window-state)
+      (render-asset-list-body! host-node @props* next-scroll-top overscan-rows)
+      (reset! last-window-state* next-window-state))))
+
+(defn- asset-list-scroll-handler
+  [node runtime-state]
+  (fn [_event]
+    (let [was-scrolling? @(:scrolling?* runtime-state)
+          {:keys [host-node next-scroll-top]} (sync-asset-list-live-node! node runtime-state)]
+      (when-not was-scrolling?
+        (begin-asset-list-active-scroll! runtime-state))
+      (sync-active-scroll-window! runtime-state host-node next-scroll-top)
+      (ensure-asset-list-scroll-settle! runtime-state))))
+
+(defn- mount-asset-list-runtime!
+  [props node remember]
+  (let [runtime-state (build-asset-list-runtime-state props node)
+        on-wheel (asset-list-wheel-handler runtime-state)
+        on-scroll (asset-list-scroll-handler node runtime-state)
+        memory (assoc runtime-state
+                      :on-wheel on-wheel
+                      :on-scroll on-scroll)
+        {:keys [host-node* props* scroll-top* last-window-state* render-limit-sync-timeout*
+                on-wheel on-scroll]} memory]
+    (set-asset-list-scroll-active! false)
+    (set-asset-list-freeze-active! false)
+    (set! (.-scrollTop node) @scroll-top*)
+    (.addEventListener node "wheel" on-wheel)
+    (.addEventListener node "scroll" on-scroll)
+    (render-asset-list-body! @host-node* @props* @scroll-top*)
+    (reset! last-window-state* (asset-list-window-state @props* @scroll-top*))
+    (schedule-asset-list-render-limit-sync! @props* render-limit-sync-timeout*)
+    (remember-asset-list-runtime! remember memory)))
+
+(defn- update-asset-list-runtime!
+  [props node memory remember]
+  (let [runtime-state (hydrate-asset-list-runtime-state props node memory)
+        host-node* (:host-node* runtime-state)
+        props* (:props* runtime-state)
+        pending-props* (:pending-props* runtime-state)
+        last-window-state* (:last-window-state* runtime-state)
+        scroll-top* (:scroll-top* runtime-state)
+        scrolling?* (:scrolling?* runtime-state)
+        render-limit-sync-timeout* (:render-limit-sync-timeout* runtime-state)
+        live-scroll-top (or (.-scrollTop node) @scroll-top*)
+        host-node (or @host-node* (asset-list-host-node node))
+        next-memory (assoc runtime-state
+                           :on-wheel (:on-wheel memory)
+                           :on-scroll (:on-scroll memory))]
+    (reset! scroll-top* live-scroll-top)
+    (reset! host-node* host-node)
+    (if @scrolling?*
+      (reset! pending-props* props)
+      (do
+        (sync-asset-list-props! host-node
+                                props*
+                                pending-props*
+                                last-window-state*
+                                props
+                                @scroll-top*)
+        (schedule-asset-list-render-limit-sync! @props* render-limit-sync-timeout*)))
+    (remember-asset-list-runtime! remember next-memory)))
+
+(defn- unmount-asset-list-runtime!
+  [node memory]
+  (set-asset-list-scroll-active! false)
+  (set-asset-list-freeze-active! false)
+  (set-asset-list-live-market-subscriptions-paused! false)
+  (when-let [on-wheel (:on-wheel memory)]
+    (.removeEventListener node "wheel" on-wheel))
+  (when-let [on-scroll (:on-scroll memory)]
+    (.removeEventListener node "scroll" on-scroll))
+  (when-let [timeout* (:scroll-settle-timeout* memory)]
+    (clear-asset-list-timeout-atom! timeout*))
+  (when-let [timeout* (:render-limit-sync-timeout* memory)]
+    (clear-asset-list-timeout-atom! timeout*))
+  (when-let [timeout* (:live-subscription-resume-timeout* memory)]
+    (clear-asset-list-timeout-atom! timeout*))
+  (when-let [host-node (some-> (:host-node* memory) deref)]
+    (r/unmount host-node)))
+
 (defn asset-list-on-render
   [props]
   (fn [{:keys [:replicant/life-cycle :replicant/node :replicant/memory :replicant/remember]}]
     (case life-cycle
       :replicant.life-cycle/mount
-      (let [props* (atom props)
-            pending-props* (atom nil)
-            scroll-top* (atom (query/normalize-scroll-top (:scroll-top props)))
-            host-node* (atom (asset-list-host-node node))
-            last-window-state* (atom nil)
-            last-scroll-activity-ms* (atom nil)
-            scrolling?* (atom false)
-            scroll-settle-timeout* (atom nil)
-            render-limit-sync-timeout* (atom nil)
-            live-subscription-resume-timeout* (atom nil)
-            runtime-state {:host-node* host-node*
-                           :props* props*
-                           :pending-props* pending-props*
-                           :last-window-state* last-window-state*
-                           :last-scroll-activity-ms* last-scroll-activity-ms*
-                           :scroll-top* scroll-top*
-                           :scroll-settle-timeout* scroll-settle-timeout*
-                           :scrolling?* scrolling?*
-                           :render-limit-sync-timeout* render-limit-sync-timeout*
-                           :live-subscription-resume-timeout* live-subscription-resume-timeout*}
-            begin-active-scroll!
-            (fn []
-              (when-not @scrolling?*
-                (reset! scrolling?* true)
-                (set-asset-list-scroll-active! true)
-                (set-asset-list-freeze-active! true)
-                (cancel-asset-list-live-subscription-resume! live-subscription-resume-timeout*)
-                (set-asset-list-live-market-subscriptions-paused! true)))
-            on-wheel (fn [event]
-                       (when-not (zero? (or (.-deltaY event) 0))
-                         (begin-active-scroll!)
-                         (ensure-asset-list-scroll-settle! runtime-state)))
-            on-scroll (fn [_event]
-                        (let [was-scrolling? @scrolling?*
-                              next-scroll-top (.-scrollTop node)
-                              current-window-state @last-window-state*
-                              overscan-rows (asset-list-dynamic-overscan-rows current-window-state next-scroll-top)
-                              next-window-state (asset-list-window-state @props* next-scroll-top overscan-rows)
-                              host-node (or @host-node* (asset-list-host-node node))]
-                          (reset! scroll-top* next-scroll-top)
-                          (reset! host-node* host-node)
-                          (when-not was-scrolling?
-                            (begin-active-scroll!))
-                          (when-not (asset-list-window-covered? current-window-state next-window-state)
-                            (render-asset-list-body! host-node @props* next-scroll-top overscan-rows)
-                            (reset! last-window-state* next-window-state))
-                          (ensure-asset-list-scroll-settle! runtime-state)))]
-        (set-asset-list-scroll-active! false)
-        (set-asset-list-freeze-active! false)
-        (set! (.-scrollTop node) @scroll-top*)
-        (.addEventListener node "wheel" on-wheel)
-        (.addEventListener node "scroll" on-scroll)
-        (render-asset-list-body! @host-node* @props* @scroll-top*)
-        (reset! last-window-state* (asset-list-window-state @props* @scroll-top*))
-        (schedule-asset-list-render-limit-sync! @props* render-limit-sync-timeout*)
-        (remember {:on-wheel on-wheel
-                   :on-scroll on-scroll
-                   :props* props*
-                   :pending-props* pending-props*
-                   :scroll-top* scroll-top*
-                   :host-node* host-node*
-                   :last-window-state* last-window-state*
-                   :last-scroll-activity-ms* last-scroll-activity-ms*
-                   :scrolling?* scrolling?*
-                   :scroll-settle-timeout* scroll-settle-timeout*
-                   :render-limit-sync-timeout* render-limit-sync-timeout*
-                   :live-subscription-resume-timeout* live-subscription-resume-timeout*}))
+      (mount-asset-list-runtime! props node remember)
 
       :replicant.life-cycle/update
-      (let [props* (or (:props* memory) (atom props))
-            pending-props* (or (:pending-props* memory) (atom nil))
-            scroll-top* (or (:scroll-top* memory)
-                            (atom (query/normalize-scroll-top (:scroll-top props))))
-            host-node* (or (:host-node* memory) (atom (asset-list-host-node node)))
-            last-window-state* (or (:last-window-state* memory) (atom nil))
-            last-scroll-activity-ms* (or (:last-scroll-activity-ms* memory) (atom nil))
-            scrolling?* (or (:scrolling?* memory) (atom false))
-            scroll-settle-timeout* (or (:scroll-settle-timeout* memory) (atom nil))
-            render-limit-sync-timeout* (or (:render-limit-sync-timeout* memory) (atom nil))
-            live-subscription-resume-timeout* (or (:live-subscription-resume-timeout* memory) (atom nil))
-            on-wheel (:on-wheel memory)
-            on-scroll (:on-scroll memory)
-            live-scroll-top (or (.-scrollTop node) @scroll-top*)
-            host-node (or @host-node* (asset-list-host-node node))]
-        (reset! scroll-top* live-scroll-top)
-        (reset! host-node* host-node)
-        (if @scrolling?*
-          (reset! pending-props* props)
-          (do
-            (sync-asset-list-props! host-node
-                                    props*
-                                    pending-props*
-                                    last-window-state*
-                                    props
-                                    @scroll-top*)
-            (schedule-asset-list-render-limit-sync! @props* render-limit-sync-timeout*)))
-        (remember {:on-wheel on-wheel
-                   :on-scroll on-scroll
-                   :props* props*
-                   :pending-props* pending-props*
-                   :scroll-top* scroll-top*
-                   :host-node* host-node*
-                   :last-window-state* last-window-state*
-                   :last-scroll-activity-ms* last-scroll-activity-ms*
-                   :scrolling?* scrolling?*
-                   :scroll-settle-timeout* scroll-settle-timeout*
-                   :render-limit-sync-timeout* render-limit-sync-timeout*
-                   :live-subscription-resume-timeout* live-subscription-resume-timeout*}))
+      (update-asset-list-runtime! props node memory remember)
 
       :replicant.life-cycle/unmount
-      (do
-        (set-asset-list-scroll-active! false)
-        (set-asset-list-freeze-active! false)
-        (set-asset-list-live-market-subscriptions-paused! false)
-        (when-let [on-wheel (:on-wheel memory)]
-          (.removeEventListener node "wheel" on-wheel))
-        (when-let [on-scroll (:on-scroll memory)]
-          (.removeEventListener node "scroll" on-scroll))
-        (when-let [timeout* (:scroll-settle-timeout* memory)]
-          (clear-asset-list-timeout-atom! timeout*))
-        (when-let [timeout* (:render-limit-sync-timeout* memory)]
-          (clear-asset-list-timeout-atom! timeout*))
-        (when-let [timeout* (:live-subscription-resume-timeout* memory)]
-          (clear-asset-list-timeout-atom! timeout*))
-        (when-let [host-node (some-> (:host-node* memory) deref)]
-          (r/unmount host-node)))
+      (unmount-asset-list-runtime! node memory)
 
       nil)))
 

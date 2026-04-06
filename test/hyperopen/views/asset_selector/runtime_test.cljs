@@ -232,6 +232,69 @@
         (is (not (contains? @listeners* "scrollend")))
         (is (nil? (:on-scroll-end @remembered*)))))))
 
+(deftest asset-list-runtime-remembers-the-expected-memory-keys-test
+  (let [assets (vec (for [n (range 20)]
+                      {:key (str "perp:T" n)
+                       :symbol (str "T" n "-USDC")
+                       :coin (str "T" n)
+                       :base (str "T" n)
+                       :market-type :perp}))
+        remembered* (atom nil)
+        {node :node} (support/fake-scroll-node)
+        expected-keys #{:on-wheel
+                        :on-scroll
+                        :props*
+                        :pending-props*
+                        :scroll-top*
+                        :host-node*
+                        :last-window-state*
+                        :last-scroll-activity-ms*
+                        :scrolling?*
+                        :scroll-settle-timeout*
+                        :render-limit-sync-timeout*
+                        :live-subscription-resume-timeout*}]
+    (with-redefs [r/render (fn [& _] nil)
+                  runtime/schedule-asset-list-render-limit-sync! (fn [& _] nil)]
+      (let [on-render (get-in (runtime/asset-list assets nil nil #{} #{} #{} 120 0 false)
+                              [1 :replicant/on-render])]
+        (on-render {:replicant/life-cycle :replicant.life-cycle/mount
+                    :replicant/node node
+                    :replicant/remember (fn [memory]
+                                          (reset! remembered* memory))})
+        (is (= expected-keys
+               (set (keys @remembered*))))))))
+
+(deftest asset-list-runtime-preserves-listener-identities-across-update-test
+  (let [assets (vec (for [n (range 20)]
+                      {:key (str "perp:T" n)
+                       :symbol (str "T" n "-USDC")
+                       :coin (str "T" n)
+                       :base (str "T" n)
+                       :market-type :perp}))
+        updated-assets (vec (reverse assets))
+        remembered* (atom nil)
+        {node :node} (support/fake-scroll-node)]
+    (with-redefs [r/render (fn [& _] nil)
+                  runtime/schedule-asset-list-render-limit-sync! (fn [& _] nil)]
+      (let [mount-on-render (get-in (runtime/asset-list assets nil nil #{} #{} #{} 120 0 false)
+                                    [1 :replicant/on-render])
+            update-on-render (get-in (runtime/asset-list updated-assets nil nil #{} #{} #{} 120 0 false)
+                                     [1 :replicant/on-render])]
+        (mount-on-render {:replicant/life-cycle :replicant.life-cycle/mount
+                          :replicant/node node
+                          :replicant/remember (fn [memory]
+                                                (reset! remembered* memory))})
+        (let [mount-memory @remembered*]
+          (update-on-render {:replicant/life-cycle :replicant.life-cycle/update
+                             :replicant/node node
+                             :replicant/memory mount-memory
+                             :replicant/remember (fn [memory]
+                                                   (reset! remembered* memory))})
+          (is (identical? (:on-wheel mount-memory)
+                          (:on-wheel @remembered*)))
+          (is (identical? (:on-scroll mount-memory)
+                          (:on-scroll @remembered*))))))))
+
 (deftest asset-list-runtime-delays-live-market-subscription-resume-until-post-settle-timeout-test
   (let [assets (vec (for [n (range 60)]
                       {:key (str "perp:T" n)
@@ -246,7 +309,7 @@
         original-store app-system/store
         original-dispatch nxr/dispatch
         {node :node listeners* :listeners*} (support/fake-scroll-node)]
-    (set! app-system/store ::store)
+    (set! app-system/store :asset-selector-runtime/store)
     (set! nxr/dispatch (fn [store event actions]
                          (swap! dispatches* conj {:store store
                                                   :event event
@@ -285,10 +348,10 @@
           ((:fn (first @timeouts*)))
           (is (false? (runtime/asset-list-scroll-active?)))
           (is (true? (runtime/asset-list-freeze-active?)))
-          (is (= [{:store ::store
+          (is (= [{:store :asset-selector-runtime/store
                    :event nil
                    :actions [[:actions/set-asset-selector-live-market-subscriptions-paused true]]}
-                  {:store ::store
+                  {:store :asset-selector-runtime/store
                    :event nil
                    :actions [[:actions/set-asset-selector-scroll-top 96]]}]
                  @dispatches*))
@@ -296,13 +359,13 @@
           ((:fn (second @timeouts*)))
           (is (false? (runtime/asset-list-scroll-active?)))
           (is (false? (runtime/asset-list-freeze-active?)))
-          (is (= [{:store ::store
+          (is (= [{:store :asset-selector-runtime/store
                    :event nil
                    :actions [[:actions/set-asset-selector-live-market-subscriptions-paused true]]}
-                  {:store ::store
+                  {:store :asset-selector-runtime/store
                    :event nil
                    :actions [[:actions/set-asset-selector-scroll-top 96]]}
-                  {:store ::store
+                  {:store :asset-selector-runtime/store
                    :event nil
                    :actions [[:actions/set-asset-selector-live-market-subscriptions-paused false]]}]
                  @dispatches*))))
@@ -358,3 +421,45 @@
           (is (= resume-timeout-handle
                  (last @cleared-timeouts*)))
           (is (= 2 (count @cleared-timeouts*))))))))
+
+(deftest asset-list-runtime-unmount-removes-listeners-clears-timeouts-and-unmounts-host-test
+  (let [assets (vec (for [n (range 60)]
+                      {:key (str "perp:T" n)
+                       :symbol (str "T" n "-USDC")
+                       :coin (str "T" n)
+                       :base (str "T" n)
+                       :market-type :perp}))
+        remembered* (atom nil)
+        cleared-timeouts* (atom [])
+        unmounted-host* (atom nil)
+        {node :node host-node :host-node listeners* :listeners*} (support/fake-scroll-node)]
+    (with-redefs [r/render
+                  (fn [& _] nil)
+                  r/unmount
+                  (fn [runtime-host]
+                    (reset! unmounted-host* runtime-host))
+                  runtime/schedule-asset-list-render-limit-sync!
+                  (fn [& _] nil)
+                  runtime/asset-list-clear-timeout!
+                  (fn [timeout-handle]
+                    (swap! cleared-timeouts* conj timeout-handle))]
+      (let [on-render (get-in (runtime/asset-list assets nil nil #{} #{} #{} 120 0 false)
+                              [1 :replicant/on-render])]
+        (on-render {:replicant/life-cycle :replicant.life-cycle/mount
+                    :replicant/node node
+                    :replicant/remember (fn [memory]
+                                          (reset! remembered* memory))})
+        (runtime/set-asset-list-scroll-active! true)
+        (runtime/set-asset-list-freeze-active! true)
+        (reset! (:scroll-settle-timeout* @remembered*) :scroll-timeout)
+        (reset! (:render-limit-sync-timeout* @remembered*) :render-timeout)
+        (reset! (:live-subscription-resume-timeout* @remembered*) :resume-timeout)
+        (on-render {:replicant/life-cycle :replicant.life-cycle/unmount
+                    :replicant/node node
+                    :replicant/memory @remembered*})
+        (is (= {} @listeners*))
+        (is (= [:scroll-timeout :render-timeout :resume-timeout]
+               @cleared-timeouts*))
+        (is (= host-node @unmounted-host*))
+        (is (false? (runtime/asset-list-scroll-active?)))
+        (is (false? (runtime/asset-list-freeze-active?)))))))

@@ -163,28 +163,40 @@
   (let [{:keys [hovered? focus-within?]} (overlay-state chart-obj)]
     (or hovered? focus-within?)))
 
+(defn- container-hover-rect
+  [container]
+  (when (fn? (.-getBoundingClientRect container))
+    (.getBoundingClientRect container)))
+
+(defn- container-hover-height
+  [container rect]
+  (cond
+    (finite-number? (some-> rect .-height))
+    (.-height rect)
+
+    (finite-number? (.-clientHeight container))
+    (.-clientHeight container)
+
+    :else nil))
+
+(defn- event-pointer-y
+  [event rect]
+  (cond
+    (and rect
+         (finite-number? (some-> rect .-top))
+         (finite-number? (.-clientY event)))
+    (- (.-clientY event) (.-top rect))
+
+    (finite-number? (.-offsetY event))
+    (.-offsetY event)
+
+    :else nil))
+
 (defn- container-hover-active?
   [container event]
-  (let [rect (when (fn? (.-getBoundingClientRect container))
-               (.getBoundingClientRect container))
-        height (cond
-                 (finite-number? (some-> rect .-height))
-                 (.-height rect)
-
-                 (finite-number? (.-clientHeight container))
-                 (.-clientHeight container)
-
-                 :else nil)
-        pointer-y (cond
-                    (and rect
-                         (finite-number? (some-> rect .-top))
-                         (finite-number? (.-clientY event)))
-                    (- (.-clientY event) (.-top rect))
-
-                    (finite-number? (.-offsetY event))
-                    (.-offsetY event)
-
-                    :else nil)]
+  (let [rect (container-hover-rect container)
+        height (container-hover-height container rect)
+        pointer-y (event-pointer-y event rect)]
     (and (finite-number? height)
          (pos? height)
          (finite-number? pointer-y)
