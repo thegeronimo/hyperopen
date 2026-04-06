@@ -39,15 +39,6 @@
        (filter #(= fx-type (:fx/type %)))
        (mapv :timer-key)))
 
-(defn- stream-health-fingerprint [runtime-result]
-  (get-in runtime-result [:state :health-projection-fingerprint]))
-
-(defn- projection-fingerprint [effects fx-type]
-  (->> effects
-       (filter #(= fx-type (:fx/type %)))
-       last
-       :projection-fingerprint))
-
 (deftest reducer-determinism-test
   (let [state (reducer/initial-runtime-state test-config)
         msg (model/make-runtime-msg :cmd/init-connection 1000 {:ws-url "wss://example.test/ws"})
@@ -55,20 +46,6 @@
         b (step state msg)]
     (testing "Same state+msg yields same state/effects"
       (is (= a b)))))
-
-(deftest projection-effects-emit-fingerprints-for-effect-boundary-dedupe-test
-  (let [state (reducer/initial-runtime-state test-config)
-        ignored-open-a (step state (model/make-runtime-msg :evt/socket-open 100 {:socket-id 999 :at-ms 100}))
-        ignored-open-b (step state (model/make-runtime-msg :evt/socket-open 200 {:socket-id 999 :at-ms 200}))
-        init-connect (step state (model/make-runtime-msg :cmd/init-connection 300 {:ws-url "wss://example.test/ws"}))
-        runtime-view-fingerprint-a (projection-fingerprint (:effects ignored-open-a) :fx/project-runtime-view)
-        runtime-view-fingerprint-b (projection-fingerprint (:effects ignored-open-b) :fx/project-runtime-view)
-        runtime-view-fingerprint-init (projection-fingerprint (:effects init-connect) :fx/project-runtime-view)]
-    (testing "Projection effects always include deterministic fingerprint payloads"
-      (is (some? runtime-view-fingerprint-a))
-      (is (= runtime-view-fingerprint-a runtime-view-fingerprint-b)))
-    (testing "Fingerprint changes when projected runtime state changes"
-      (is (not= runtime-view-fingerprint-a runtime-view-fingerprint-init)))))
 
 (deftest send-message-queues-and-requests-connect-test
   (let [state (assoc (reducer/initial-runtime-state test-config)
@@ -257,60 +234,6 @@
       (is (= :connected (:status ticked-state-2)))
       (is (true? (get-in ticked-state-2 [:transport :expected-traffic?])))
       (is (= :delayed freshness)))))
-
-(deftest health-hysteresis-refresh-is-throttled-between-projection-intervals-test
-  (let [config (assoc test-config
-                 :freshness-hysteresis-consecutive 1
-                 :health-projection-interval-ms 1000)
-        base (-> (reducer/initial-runtime-state config)
-                 (assoc :status :connected
-                        :active-socket-id 1
-                        :online? true)
-                 (assoc-in [:transport :connected-at-ms] 10))
-        sub {:type "l2Book" :coin "BTC"}
-        subscribed-result (step base
-                                (model/make-runtime-msg :cmd/send-message
-                                                        100
-                                                        {:data {:method "subscribe"
-                                                                :subscription sub}}))
-        baseline-fingerprint (stream-health-fingerprint subscribed-result)
-        fast-update-1 (step (:state subscribed-result)
-                            (model/make-runtime-msg :evt/decoded-envelope
-                                                    700
-                                                    {:recv-at-ms 700
-                                                     :envelope {:topic "l2Book"
-                                                                :tier :market
-                                                                :ts 700
-                                                                :payload {:channel "l2Book"
-                                                                          :data {:coin "BTC"}
-                                                                          :seq 2}}}))
-        fast-update-2 (step (:state fast-update-1)
-                            (model/make-runtime-msg :evt/decoded-envelope
-                                                    900
-                                                    {:recv-at-ms 900
-                                                     :envelope {:topic "l2Book"
-                                                                :tier :market
-                                                                :ts 900
-                                                                :payload {:channel "l2Book"
-                                                                          :data {:coin "BTC"}
-                                                                          :seq 3}}}))
-        refreshed-result (step (:state fast-update-2)
-                               (model/make-runtime-msg :evt/timer-health-tick 12000 {:now-ms 12000}))
-        fast-fingerprint-1 (stream-health-fingerprint fast-update-1)
-        fast-fingerprint-2 (stream-health-fingerprint fast-update-2)
-        refreshed-fingerprint (stream-health-fingerprint refreshed-result)]
-    (testing "Health refresh metadata is held stable across sub-interval envelope bursts"
-      (is (= 100 (get-in subscribed-result [:state :health-projection-last-refresh-at-ms])))
-      (is (= 100 (get-in fast-update-2 [:state :health-projection-last-refresh-at-ms])))
-      (is (= 12000 (get-in refreshed-result [:state :health-projection-last-refresh-at-ms]))))
-    (testing "Projected health fingerprint stays stable until the interval refresh runs"
-      (is (= baseline-fingerprint fast-fingerprint-1))
-      (is (= baseline-fingerprint fast-fingerprint-2))
-      (is (not= baseline-fingerprint refreshed-fingerprint)))
-    (testing "Transport hysteresis pending status advances only when refresh runs"
-      (is (= :live (get-in subscribed-result [:state :transport :freshness-pending-status])))
-      (is (= :live (get-in fast-update-2 [:state :transport :freshness-pending-status])))
-      (is (= :delayed (get-in refreshed-result [:state :transport :freshness-pending-status]))))))
 
 (deftest close-reason-and-code-preserved-in-health-snapshot-test
   (let [state (assoc (reducer/initial-runtime-state test-config)

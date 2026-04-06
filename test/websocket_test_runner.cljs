@@ -8,6 +8,8 @@
             [hyperopen.wallet.address-watcher-test]
             [hyperopen.websocket.acl.hyperliquid-test]
             [hyperopen.websocket.application.runtime-test]
+            [hyperopen.websocket.application.runtime.health-projection-test]
+            [hyperopen.websocket.application.runtime.projections-test]
             [hyperopen.websocket.application.runtime-reducer-test]
             [hyperopen.websocket.client-test]
             [hyperopen.websocket.diagnostics-actions-test]
@@ -34,6 +36,8 @@
   []
   (run-tests 'hyperopen.websocket.acl.hyperliquid-test
              'hyperopen.websocket.application.runtime-test
+             'hyperopen.websocket.application.runtime.health-projection-test
+             'hyperopen.websocket.application.runtime.projections-test
              'hyperopen.websocket.application.runtime-reducer-test
              'hyperopen.websocket.diagnostics-actions-test
              'hyperopen.websocket.diagnostics-effects-test

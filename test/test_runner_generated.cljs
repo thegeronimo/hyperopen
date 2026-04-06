@@ -400,6 +400,8 @@
             [hyperopen.websocket.application.runtime-reducer-test]
             [hyperopen.websocket.application.runtime-test]
             [hyperopen.websocket.application.runtime-tla-conformance-test]
+            [hyperopen.websocket.application.runtime.health-projection-test]
+            [hyperopen.websocket.application.runtime.projections-test]
             [hyperopen.websocket.asset-selector-coverage-test]
             [hyperopen.websocket.candles-test]
             [hyperopen.websocket.client-test]
@@ -849,6 +851,8 @@
              'hyperopen.websocket.application.runtime-reducer-test
              'hyperopen.websocket.application.runtime-test
              'hyperopen.websocket.application.runtime-tla-conformance-test
+             'hyperopen.websocket.application.runtime.health-projection-test
+             'hyperopen.websocket.application.runtime.projections-test
              'hyperopen.websocket.asset-selector-coverage-test
              'hyperopen.websocket.candles-test
              'hyperopen.websocket.client-test
