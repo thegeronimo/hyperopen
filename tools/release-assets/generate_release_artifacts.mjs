@@ -5,11 +5,13 @@ import { fileURLToPath } from "node:url";
 
 import {
   RELEASE_APP_SHELL_PLACEHOLDER,
+  RELEASE_ROUTE_METADATA_SCRIPT_PATH,
   ROBOTS_FILE_PATH,
   SITE_METADATA_FILE_PATH,
   SITEMAP_FILE_PATH,
   RELEASE_SEO_PLACEHOLDER,
   buildRouteLoadingShellMarkup,
+  buildReleaseMetadataSyncScript,
   buildReleaseSeoHeadMarkup,
   buildRobotsTxt,
   buildSiteMetadata,
@@ -18,6 +20,10 @@ import {
   normalizePublicPath,
   publicPathToRelativePath
 } from "./site_metadata.mjs";
+import {
+  SECURITY_HEADERS_FILE_PATH,
+  buildReleaseHeadersFile,
+} from "./security_headers.mjs";
 
 export const DEFAULT_SOURCE_ROOT = path.resolve("resources/public");
 export const DEFAULT_OUTPUT_ROOT = path.resolve("out/release-public");
@@ -46,6 +52,7 @@ export function fingerprintFileName(fileName, fingerprint) {
 
 export function rewriteAppIndexHtml(indexHtml, {
   cssHref,
+  releaseMetadataScriptHref,
   mainScriptHref,
   title,
   description,
@@ -112,7 +119,10 @@ export function rewriteAppIndexHtml(indexHtml, {
     .replace(RELEASE_APP_SHELL_PLACEHOLDER, releaseAppShellMarkup)
     .replace(
       bootstrapScriptPattern,
-      `<script defer src="${mainScriptHref}"></script>`
+      [
+        `<script defer src="${releaseMetadataScriptHref}"></script>`,
+        `<script defer src="${mainScriptHref}"></script>`,
+      ].join("\n")
     );
 }
 
@@ -195,6 +205,14 @@ export function collectReleaseJavaScriptFiles({ manifest, moduleLoader }) {
   return [...jsFiles].sort();
 }
 
+function isFingerprintedReleaseJavaScriptFile(fileName) {
+  if (typeof fileName !== "string" || !fileName.endsWith(".js")) {
+    return false;
+  }
+
+  return path.posix.basename(fileName).split(".").length >= 3;
+}
+
 export async function generateReleaseArtifacts({
   sourceRoot = DEFAULT_SOURCE_ROOT,
   outputRoot = DEFAULT_OUTPUT_ROOT,
@@ -226,11 +244,18 @@ export async function generateReleaseArtifacts({
     canonicalOrigin: normalizeCanonicalOrigin(canonicalOrigin),
     indexHtml: sourceIndexHtml,
   });
+  const releaseMetadataScriptSource = buildReleaseMetadataSyncScript(siteMetadata);
+  const releaseMetadataScriptOutputPath = path.join(outputRoot, RELEASE_ROUTE_METADATA_SCRIPT_PATH);
+  const releaseMetadataScriptHref = `/${RELEASE_ROUTE_METADATA_SCRIPT_PATH}`;
+
+  await fs.mkdir(path.dirname(releaseMetadataScriptOutputPath), { recursive: true });
+  await fs.writeFile(releaseMetadataScriptOutputPath, releaseMetadataScriptSource);
 
   const generatedRouteHtmlFiles = [];
   for (const route of siteMetadata.routes) {
     const rewrittenRouteHtml = rewriteAppIndexHtml(sourceIndexHtml, {
       cssHref: `/css/${cssFileName}`,
+      releaseMetadataScriptHref,
       mainScriptHref: `/js/${mainModule["output-name"]}`,
       title: route.title,
       description: route.description,
@@ -275,16 +300,31 @@ export async function generateReleaseArtifacts({
     }
   }
 
+  const immutableAssetPaths = [
+    `/css/${cssFileName}`,
+    ...releaseJavaScriptFiles
+      .filter((fileName) => isFingerprintedReleaseJavaScriptFile(fileName))
+      .map((fileName) => `/${path.posix.join(JS_DIR, fileName)}`),
+  ].sort();
+
+  await fs.writeFile(
+    path.join(outputRoot, SECURITY_HEADERS_FILE_PATH),
+    buildReleaseHeadersFile({ immutableAssetPaths })
+  );
+
   const outputIndexPath = path.join(outputRoot, APP_INDEX_PATH);
 
   return {
     outputRoot,
     cssFileName,
     cssHref: `/css/${cssFileName}`,
+    immutableAssetPaths,
     mainScriptHref: `/js/${mainModule["output-name"]}`,
     outputIndexPath,
     generatedRouteHtmlFiles: generatedRouteHtmlFiles.sort(),
     copiedRootAssetPaths: copiedRootAssetPaths.sort(),
+    releaseMetadataScriptHref,
+    securityHeadersPath: path.join(outputRoot, SECURITY_HEADERS_FILE_PATH),
     releaseJavaScriptFiles,
     siteMetadata,
   };

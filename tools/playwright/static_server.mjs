@@ -7,6 +7,7 @@ const rootDir = path.resolve(
   process.env.PLAYWRIGHT_STATIC_ROOT || "resources/public"
 );
 const port = Number(process.env.PLAYWRIGHT_WEB_PORT || 4173);
+const headersFilePath = path.join(rootDir, "_headers");
 
 const contentTypes = new Map([
   [".css", "text/css; charset=utf-8"],
@@ -50,6 +51,103 @@ function resolveRequestPathname(requestUrl) {
   return normalizedPath.startsWith("/") ? normalizedPath : `/${normalizedPath}`;
 }
 
+function parseHeadersRules(fileContent) {
+  const rules = [];
+  let activeRule = null;
+
+  for (const rawLine of String(fileContent || "").split(/\r?\n/)) {
+    const trimmedLine = rawLine.trim();
+    if (!trimmedLine || trimmedLine.startsWith("#")) {
+      continue;
+    }
+
+    const indented = /^\s/.test(rawLine);
+    if (!indented) {
+      activeRule = { pattern: trimmedLine, entries: [] };
+      rules.push(activeRule);
+      continue;
+    }
+
+    if (!activeRule) {
+      throw new Error(`Invalid _headers entry without a rule pattern: ${rawLine}`);
+    }
+
+    if (trimmedLine.startsWith("! ")) {
+      activeRule.entries.push({
+        detach: true,
+        name: trimmedLine.slice(2).trim(),
+      });
+      continue;
+    }
+
+    const separatorIndex = trimmedLine.indexOf(":");
+    if (separatorIndex <= 0) {
+      throw new Error(`Invalid _headers header line: ${rawLine}`);
+    }
+
+    activeRule.entries.push({
+      name: trimmedLine.slice(0, separatorIndex).trim(),
+      value: trimmedLine.slice(separatorIndex + 1).trim(),
+    });
+  }
+
+  return rules;
+}
+
+function loadHeadersRules() {
+  try {
+    return parseHeadersRules(fs.readFileSync(headersFilePath, "utf8"));
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
+function pathMatchesPattern(pattern, requestPathname) {
+  if (pattern === requestPathname) {
+    return true;
+  }
+
+  if (!pattern.includes("*")) {
+    return false;
+  }
+
+  const escapedPattern = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+  const regexPattern = `^${escapedPattern.replace(/\*/g, ".*")}$`;
+  return new RegExp(regexPattern).test(requestPathname);
+}
+
+function buildMatchedHeaders(rules, requestPathname) {
+  const headers = new Map();
+
+  for (const rule of rules) {
+    if (!pathMatchesPattern(rule.pattern, requestPathname)) {
+      continue;
+    }
+
+    for (const entry of rule.entries) {
+      const headerName = entry.name.toLowerCase();
+      if (entry.detach) {
+        headers.delete(headerName);
+        continue;
+      }
+
+      const existing = headers.get(headerName);
+      headers.set(headerName, {
+        name: entry.name,
+        value: existing ? `${existing.value}, ${entry.value}` : entry.value,
+      });
+    }
+  }
+
+  return Object.fromEntries(
+    [...headers.values()].map(({ name, value }) => [name, value])
+  );
+}
+
 function shouldTryDirectoryIndex(requestPathname) {
   return requestPathname.endsWith("/") || path.extname(requestPathname) === "";
 }
@@ -79,17 +177,17 @@ function resolveFilePath(requestUrl) {
   const exactCandidatePath = resolvePathWithinRoot(relativePath);
 
   if (!exactCandidatePath) {
-    return { statusCode: 403 };
+    return { requestPathname, statusCode: 403 };
   }
 
   if (tryFile(exactCandidatePath)) {
-    return { filePath: exactCandidatePath, statusCode: 200 };
+    return { filePath: exactCandidatePath, requestPathname, statusCode: 200 };
   }
 
   if (shouldTryDirectoryIndex(requestPathname)) {
     const directoryIndexPath = resolvePathWithinRoot(path.join(relativePath, "index.html"));
     if (directoryIndexPath && tryFile(directoryIndexPath)) {
-      return { filePath: directoryIndexPath, statusCode: 200 };
+      return { filePath: directoryIndexPath, requestPathname, statusCode: 200 };
     }
   }
 
@@ -97,14 +195,15 @@ function resolveFilePath(requestUrl) {
   if (!root404Path || !tryFile(root404Path)) {
     const spaFallbackPath = resolvePathWithinRoot("index.html");
     if (spaFallbackPath && tryFile(spaFallbackPath)) {
-      return { filePath: spaFallbackPath, statusCode: 200 };
+      return { filePath: spaFallbackPath, requestPathname, statusCode: 200 };
     }
 
-    return { statusCode: 404 };
+    return { requestPathname, statusCode: 404 };
   }
 
   return {
     filePath: findNearest404Path(requestPathname) || root404Path,
+    requestPathname,
     statusCode: 404
   };
 }
@@ -114,13 +213,16 @@ function sendNotFound(response) {
   response.end("File not found.");
 }
 
-function sendFile(response, filePath, statusCode = 200) {
+function sendFile(response, filePath, statusCode = 200, extraHeaders = {}) {
   const extension = path.extname(filePath);
   response.writeHead(statusCode, {
-    "Content-Type": contentTypes.get(extension) || "application/octet-stream"
+    "Content-Type": contentTypes.get(extension) || "application/octet-stream",
+    ...extraHeaders,
   });
   fs.createReadStream(filePath).pipe(response);
 }
+
+const headersRules = loadHeadersRules();
 
 const server = http.createServer((request, response) => {
   let resolvedFile;
@@ -148,13 +250,13 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  const { filePath, statusCode } = resolvedFile;
+  const { filePath, requestPathname, statusCode } = resolvedFile;
   if (!tryFile(filePath)) {
     sendNotFound(response);
     return;
   }
 
-  sendFile(response, filePath, statusCode);
+  sendFile(response, filePath, statusCode, buildMatchedHeaders(headersRules, requestPathname));
 });
 
 function shutdown() {

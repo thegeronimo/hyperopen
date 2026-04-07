@@ -30,7 +30,7 @@ export default defineConfig({
   },
   webServer: {
     command:
-      "npm run css:build && npx shadow-cljs compile app && npx shadow-cljs compile portfolio-worker && npx shadow-cljs compile vault-detail-worker && node tools/release-assets/generate_release_artifacts.mjs && PLAYWRIGHT_STATIC_ROOT=out/release-public node tools/playwright/static_server.mjs",
+      "npm run build && PLAYWRIGHT_STATIC_ROOT=out/release-public node tools/playwright/static_server.mjs",
     url: "http://127.0.0.1:4173/",
     reuseExistingServer: false,
     timeout: 120_000

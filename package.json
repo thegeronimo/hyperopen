@@ -62,6 +62,7 @@
     "browser:profile:mceo": "node tools/browser-inspection/src/mceo_hover_profile.mjs",
     "browser:profile:trade-startup": "npm run build && node tools/browser-inspection/src/trade_startup_profile.mjs",
     "browser:profile:trade-startup:cached": "node tools/browser-inspection/src/trade_startup_profile.mjs",
+    "verify:deployment-headers": "node tools/release-assets/verify_deployment_headers.mjs",
     "browser:iphone14promax": "BROWSER_INSPECTION_CONFIG=tools/browser-inspection/config/iphone-14-pro-max.json node tools/browser-inspection/src/cli.mjs",
     "browser:inspect:iphone14promax": "BROWSER_INSPECTION_CONFIG=tools/browser-inspection/config/iphone-14-pro-max.json node tools/browser-inspection/src/cli.mjs inspect --viewports mobile",
     "browser:compare:iphone14promax": "BROWSER_INSPECTION_CONFIG=tools/browser-inspection/config/iphone-14-pro-max.json node tools/browser-inspection/src/cli.mjs compare --viewports mobile",

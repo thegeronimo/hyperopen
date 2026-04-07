@@ -7,11 +7,17 @@ import test from "node:test";
 import {
   DEFAULT_CANONICAL_ORIGIN,
   RELEASE_APP_SHELL_PLACEHOLDER,
+  RELEASE_ROUTE_METADATA_SCRIPT_PATH,
   RELEASE_SEO_PLACEHOLDER,
   buildSiteMetadata,
   extractHeadRootAssetPublicPaths,
   normalizeCanonicalOrigin,
 } from "./site_metadata.mjs";
+import {
+  CONTROL_CACHE_CONTROL,
+  IMMUTABLE_CACHE_CONTROL,
+  buildContentSecurityPolicy,
+} from "./security_headers.mjs";
 import {
   collectReleaseJavaScriptFiles,
   fingerprintFileName,
@@ -36,6 +42,7 @@ const SAMPLE_RELEASE_APP_SHELL_MARKUP = [
   "  <p>Loading the open-source trading workspace.</p>",
   "</div>",
 ].join("\n");
+const SAMPLE_RELEASE_METADATA_SCRIPT_HREF = "/js/release-route-metadata.js";
 const STATIC_ROUTE_PATHS = [
   "/",
   "/trade",
@@ -105,6 +112,10 @@ function extractMetaContent(documentHtml, { name, property }) {
   );
   const match = documentHtml.match(pattern);
   return match ? match[3] : null;
+}
+
+function escapeRegex(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function writeFixtureFile(root, relativePath, content, missingRelativePaths) {
@@ -204,6 +215,7 @@ async function writeReleaseFixture(sourceRoot, { missingRelativePaths = [] } = {
 test("rewriteAppIndexHtml replaces the default stylesheet href and injects route SEO markup", () => {
   const rewritten = rewriteAppIndexHtml(buildSampleIndexHtml(), {
     cssHref: "/css/main.ABC123.css",
+    releaseMetadataScriptHref: SAMPLE_RELEASE_METADATA_SCRIPT_HREF,
     mainScriptHref: "/js/main.HASH.js",
     title: SAMPLE_ROUTE_TITLE,
     description: SAMPLE_ROUTE_DESCRIPTION,
@@ -222,8 +234,14 @@ test("rewriteAppIndexHtml replaces the default stylesheet href and injects route
   );
   assert.match(rewritten, /href="\/css\/main\.ABC123\.css"/);
   assert.doesNotMatch(rewritten, /href="\/css\/main\.css"/);
+  assert.match(
+    rewritten,
+    /<script defer src="\/js\/release-route-metadata\.js"><\/script>/
+  );
   assert.match(rewritten, /<script defer src="\/js\/main\.HASH\.js"><\/script>/);
   assert.doesNotMatch(rewritten, /manifestUrl/);
+  assert.doesNotMatch(rewritten, /hyperopen-site-metadata/);
+  assert.doesNotMatch(rewritten, /<script(?![^>]*\bsrc=)[^>]*>/i);
   assert.doesNotMatch(rewritten, new RegExp(RELEASE_SEO_PLACEHOLDER));
   assert.doesNotMatch(rewritten, new RegExp(RELEASE_APP_SHELL_PLACEHOLDER));
   assert.match(rewritten, /data-hyperopen-route-shell="trade"/);
@@ -324,7 +342,12 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
     path.join(outputRoot, "css", result.cssFileName),
     "utf8"
   );
+  const generatedHeaders = await fs.readFile(path.join(outputRoot, "_headers"), "utf8");
   const copiedMain = await fs.readFile(path.join(outputRoot, "js", "main.HASH.js"), "utf8");
+  const routeMetadataScript = await fs.readFile(
+    path.join(outputRoot, RELEASE_ROUTE_METADATA_SCRIPT_PATH),
+    "utf8"
+  );
   const copiedFont = await fs.readFile(
     path.join(outputRoot, "fonts", "InterVariable.woff2"),
     "utf8"
@@ -341,9 +364,16 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
   }
 
   assert.match(generatedTrade, new RegExp(`href="${result.cssHref.replace(".", "\\.")}"`));
+  assert.match(
+    generatedTrade,
+    new RegExp(
+      `<script defer src="${escapeRegex(result.releaseMetadataScriptHref)}"><\\/script>`
+    )
+  );
   assert.match(generatedTrade, /<script defer src="\/js\/main\.HASH\.js"><\/script>/);
-  assert.match(generatedTrade, /id="hyperopen-site-metadata"/);
   assert.doesNotMatch(generatedTrade, /manifestUrl/);
+  assert.doesNotMatch(generatedTrade, /hyperopen-site-metadata/);
+  assert.doesNotMatch(generatedTrade, /<script(?![^>]*\bsrc=)[^>]*>/i);
 
   assert.equal(
     extractTitle(generatedTrade),
@@ -416,6 +446,8 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
   assert.equal(generatedCss, "body { color: white; }\n");
   assert.equal(copiedMain, "console.log('main');\n");
   assert.equal(copiedFont, "font");
+  assert.match(routeMetadataScript, /const metadata = \{/);
+  assert.match(routeMetadataScript, /window\.addEventListener\("popstate", syncMetadata\)/);
 
   assert.equal(
     robotsTxt,
@@ -435,6 +467,13 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
 
   assert.equal(siteMetadata.origin, SAMPLE_CANONICAL_ORIGIN);
   assert.equal(siteMetadata.routes.find((route) => route.id === "api")?.path, "/api");
+  assert.deepEqual(result.immutableAssetPaths, [
+    `/css/${result.cssFileName}`,
+    "/js/main.HASH.js",
+    "/js/trade_chart.CHUNK.js",
+  ]);
+  assert.equal(result.releaseMetadataScriptHref, `/${RELEASE_ROUTE_METADATA_SCRIPT_PATH}`);
+  assert.equal(result.securityHeadersPath, path.join(outputRoot, "_headers"));
   assert.deepEqual(result.copiedRootAssetPaths, [
     "apple-touch-icon.png",
     "favicon-16x16.png",
@@ -457,6 +496,41 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
   for (const relativePath of result.copiedRootAssetPaths) {
     await fs.access(path.join(outputRoot, relativePath));
   }
+
+  assert.match(generatedHeaders, /^\/\*\n/m);
+  assert.match(
+    generatedHeaders,
+    new RegExp(
+      `Content-Security-Policy: ${escapeRegex(buildContentSecurityPolicy())}`
+    )
+  );
+  assert.match(
+    generatedHeaders,
+    new RegExp(`Cache-Control: ${escapeRegex(CONTROL_CACHE_CONTROL)}`)
+  );
+  assert.match(
+    generatedHeaders,
+    new RegExp(
+      `^${escapeRegex(`/css/${result.cssFileName}`)}\\n  ! Cache-Control\\n  Cache-Control: ${escapeRegex(IMMUTABLE_CACHE_CONTROL)}`,
+      "m"
+    )
+  );
+  assert.match(
+    generatedHeaders,
+    new RegExp(
+      `^${escapeRegex("/js/main.HASH.js")}\\n  ! Cache-Control\\n  Cache-Control: ${escapeRegex(IMMUTABLE_CACHE_CONTROL)}`,
+      "m"
+    )
+  );
+  assert.match(
+    generatedHeaders,
+    new RegExp(
+      `^${escapeRegex("/js/trade_chart.CHUNK.js")}\\n  ! Cache-Control\\n  Cache-Control: ${escapeRegex(IMMUTABLE_CACHE_CONTROL)}`,
+      "m"
+    )
+  );
+  assert.doesNotMatch(generatedHeaders, /\/js\/module-loader\.json\n  ! Cache-Control/);
+  assert.doesNotMatch(generatedHeaders, /\/js\/release-route-metadata\.js\n  ! Cache-Control/);
 
   await assert.rejects(fs.access(path.join(outputRoot, "css", "main.css")));
   await assert.rejects(fs.access(path.join(outputRoot, "js", "manifest.json")));
@@ -505,6 +579,7 @@ test("rewriteAppIndexHtml works against the real tracked app entry", async () =>
 
   const rewritten = rewriteAppIndexHtml(realIndexHtml, {
     cssHref: "/css/main.TEST.css",
+    releaseMetadataScriptHref: SAMPLE_RELEASE_METADATA_SCRIPT_HREF,
     mainScriptHref: "/js/main.TEST.js",
     title: SAMPLE_ROUTE_TITLE,
     description: SAMPLE_ROUTE_DESCRIPTION,
@@ -518,10 +593,15 @@ test("rewriteAppIndexHtml works against the real tracked app entry", async () =>
     SAMPLE_ROUTE_DESCRIPTION
   );
   assert.match(rewritten, /href="\/css\/main\.TEST\.css"/);
+  assert.match(
+    rewritten,
+    /<script defer src="\/js\/release-route-metadata\.js"><\/script>/
+  );
   assert.match(rewritten, /<script defer src="\/js\/main\.TEST\.js"><\/script>/);
   assert.match(rewritten, /rel="canonical"/);
   assert.match(rewritten, /data-hyperopen-route-shell="trade"/);
   assert.doesNotMatch(rewritten, /manifestUrl/);
+  assert.doesNotMatch(rewritten, /<script(?![^>]*\bsrc=)[^>]*>/i);
   assert.doesNotMatch(rewritten, new RegExp(RELEASE_SEO_PLACEHOLDER));
   assert.doesNotMatch(rewritten, new RegExp(RELEASE_APP_SHELL_PLACEHOLDER));
 });

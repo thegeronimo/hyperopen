@@ -94,7 +94,15 @@ PLAYWRIGHT_STATIC_ROOT=out/release-public node tools/playwright/static_server.mj
 npm run test:playwright:smoke
 ```
 
-This uses the repo's Pages-style static server instead of SPA-forcing `serve -s`, so `/robots.txt`, `/sitemap.xml`, and route directories like `/trade` are exercised the same way the release artifact is meant to be served.
+This uses the repo's Pages-style static server instead of SPA-forcing `serve -s`, so `/robots.txt`, `/sitemap.xml`, route directories like `/trade`, and the generated Cloudflare Pages `_headers` policy are exercised the same way the release artifact is meant to be served.
+
+`npm run build` now also writes `out/release-public/_headers` with the repo-owned security and cache policy for the static deployment. Before launch, verify the deployed environment still serves that contract:
+
+```bash
+HYPEROPEN_VERIFY_ORIGIN="https://staging.hyperopen.example" npm run verify:deployment-headers
+```
+
+This command fails closed if the deployed origin is missing the expected CSP, anti-framing, or cache headers. If Hyperopen later adopts Pages Functions or an advanced-mode `_worker.js`, keep the same contract but move the header attachment into that Worker response path because Cloudflare does not apply `_headers` to Pages Function responses.
 
 </details>
 
