@@ -41,7 +41,10 @@
 
 - Key namespaces:
   `hyperopen.funding.actions-test`,
-  `hyperopen.funding.effects-test`,
+  `hyperopen.funding.effects.facade-test`,
+  `hyperopen.funding.effects.common-test`,
+  `hyperopen.funding.effects.hyperunit-runtime-test`,
+  `hyperopen.funding.effects.transport-runtime-test`,
   `hyperopen.funding.application.modal-state-test`,
   `hyperopen.funding.application.modal-vm-test`,
   `hyperopen.funding.application.lifecycle-polling-test`,

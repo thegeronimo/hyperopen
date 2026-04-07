@@ -118,8 +118,10 @@
             [hyperopen.funding.domain.policy-preview-test]
             [hyperopen.funding.domain.policy-test]
             [hyperopen.funding.effects-api-wrappers-test]
-            [hyperopen.funding.effects-test]
-            [hyperopen.funding.effects-wrappers-test]
+            [hyperopen.funding.effects.common-test]
+            [hyperopen.funding.effects.facade-test]
+            [hyperopen.funding.effects.hyperunit-runtime-test]
+            [hyperopen.funding.effects.transport-runtime-test]
             [hyperopen.funding.history-cache-test]
             [hyperopen.funding.infrastructure.erc20-rpc-test]
             [hyperopen.funding.infrastructure.hyperunit-address-client-test]
@@ -569,8 +571,10 @@
              'hyperopen.funding.domain.policy-preview-test
              'hyperopen.funding.domain.policy-test
              'hyperopen.funding.effects-api-wrappers-test
-             'hyperopen.funding.effects-test
-             'hyperopen.funding.effects-wrappers-test
+             'hyperopen.funding.effects.common-test
+             'hyperopen.funding.effects.facade-test
+             'hyperopen.funding.effects.hyperunit-runtime-test
+             'hyperopen.funding.effects.transport-runtime-test
              'hyperopen.funding.history-cache-test
              'hyperopen.funding.infrastructure.erc20-rpc-test
              'hyperopen.funding.infrastructure.hyperunit-address-client-test
