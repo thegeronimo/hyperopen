@@ -4,8 +4,7 @@ const ci = process.env.CI === "1" || process.env.CI === "true";
 
 export default defineConfig({
   testDir: "./tools/playwright/test",
-  testMatch: /.*\.spec\.mjs/,
-  testIgnore: /.*seo\.smoke\.spec\.mjs/,
+  testMatch: /.*seo\.smoke\.spec\.mjs/,
   timeout: 45_000,
   fullyParallel: false,
   forbidOnly: ci,
@@ -22,7 +21,7 @@ export default defineConfig({
         ["html", { open: "never", outputFolder: "tmp/playwright/report" }]
       ],
   use: {
-    baseURL: "http://127.0.0.1:8080",
+    baseURL: "http://127.0.0.1:4173",
     headless: true,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
@@ -31,8 +30,8 @@ export default defineConfig({
   },
   webServer: {
     command:
-      "npm run dev:browser-inspection",
-    url: "http://127.0.0.1:8080/",
+      "npm run build && PLAYWRIGHT_STATIC_ROOT=out/release-public node tools/playwright/static_server.mjs",
+    url: "http://127.0.0.1:4173/",
     reuseExistingServer: false,
     timeout: 120_000
   }

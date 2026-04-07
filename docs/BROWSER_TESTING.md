@@ -59,6 +59,7 @@ Before concluding browser work, stop every browser-inspection session you create
 
 The committed Playwright suite covers these stable local flows:
 
+- the deterministic interaction/regression suite on the app dev build, plus the release-artifact SEO smoke on a separate static release build
 - route smoke for `/trade`, `/staking`, `/portfolio`, `/portfolio/trader`, `/leaderboard`, and `/vaults` at desktop and mobile widths
 - asset selector opens and selects `ETH`
 - funding deposit flow reaches `Deposit USDC`

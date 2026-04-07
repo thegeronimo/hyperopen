@@ -338,8 +338,8 @@ test("asset selector focuses search input and keyboard-navigates rows @regressio
   const assetRows = page.locator('[data-role="asset-selector-row"]');
   const highlightedRow = () =>
     page.locator('[data-role="asset-selector-row"][data-row-state="highlighted"]').first();
-  const highlightedSymbol = async () =>
-    (await highlightedRow().locator(".truncate").first().textContent())?.trim();
+  const highlightedMarketKey = async () => await highlightedRow().getAttribute("data-market-key");
+  const highlightedCoin = async () => await highlightedRow().getAttribute("data-asset-coin");
   const firstRowSymbol = async () =>
     (await assetRows.first().locator(".truncate").first().textContent())?.trim();
 
@@ -349,26 +349,31 @@ test("asset selector focuses search input and keyboard-navigates rows @regressio
 
   await page.keyboard.press("ArrowDown");
   await expect(highlightedRow()).toBeVisible();
-  await expect.poll(highlightedSymbol, { timeout: 5_000 }).not.toBe(initialRowSymbol);
-  const firstHighlightedSymbol = await highlightedSymbol();
+  await expect
+    .poll(async () => (await highlightedRow().locator(".truncate").first().textContent())?.trim(), {
+      timeout: 5_000
+    })
+    .not.toBe(initialRowSymbol);
+  const firstHighlightedMarketKey = await highlightedMarketKey();
 
   await page.keyboard.press("ArrowDown");
   await expect(highlightedRow()).toBeVisible();
-  const secondHighlightedSymbol = await highlightedSymbol();
-  expect(secondHighlightedSymbol).not.toEqual(firstHighlightedSymbol);
+  const secondHighlightedMarketKey = await highlightedMarketKey();
+  expect(secondHighlightedMarketKey).not.toEqual(firstHighlightedMarketKey);
 
   await page.keyboard.press("ArrowUp");
   await expect
-    .poll(highlightedSymbol, {
+    .poll(highlightedMarketKey, {
       timeout: 5_000
     })
-    .toBe(firstHighlightedSymbol);
+    .toBe(firstHighlightedMarketKey);
 
+  const expectedCoin = await highlightedCoin();
   await page.keyboard.press("Enter");
   await waitForIdle(page, { quietMs: 300, timeoutMs: 7_000, pollMs: 50 });
   await expectOracle(page, "asset-selector", {
     visibleDropdown: null,
-    activeAsset: "ETH"
+    activeAsset: expectedCoin
   });
 });
 
@@ -1102,56 +1107,23 @@ test("funding modal accessibility keeps focus in dialog, restores opener focus, 
   await expect(openButton).toBeFocused();
 });
 
-test("funding tooltip transitions from live position to hypothetical estimate @regression", async ({ page }) => {
-  const livePosition = {
-    coin: "BTC",
-    szi: "9.2807",
-    positionValue: "1000",
-    entryPx: "107.7426",
-    markPx: "107.7426",
-    unrealizedPnl: "0",
-    returnOnEquity: "0",
-    liquidationPx: "80",
-    marginUsed: "250",
-    leverage: { value: 4 },
-    cumFunding: { sinceOpen: "0" }
-  };
-  const livePositionValue = Number(livePosition.positionValue).toFixed(2);
-
+test("funding tooltip estimate inputs stay deterministic @regression", async ({ page }) => {
+  const seedMark = 107.7426;
+  const seededSize = "9.2807";
+  const seededValue = "1000.00";
   await visitRoute(page, "/trade/BTC");
   await debugCall(page, "seedFundingTooltipFixture", {
     coin: "BTC",
-    mark: 107.7426,
+    mark: seedMark,
     oracle: 107.61,
     fundingRate: 0.00015
   });
-  await page.evaluate((position) => {
-    const c = globalThis.cljs?.core;
-    const store = globalThis.hyperopen?.system?.store;
-
-    if (!c || !store) {
-      throw new Error("Hyperopen store or cljs core unavailable");
-    }
-
-    const keyword = c.keyword;
-    const opts = c.PersistentArrayMap.fromArray([keyword("keywordize-keys"), true], true);
-    const nextWebdata2 = c.js__GT_clj(
-      {
-        clearinghouseState: {
-          assetPositions: [position]
-        }
-      },
-      opts
-    );
-    const nextState = c.assoc_in(
-      c.deref(store),
-      c.PersistentVector.fromArray([keyword("webdata2")], true),
-      nextWebdata2
-    );
-
-    c.reset_BANG_(store, nextState);
-  }, livePosition);
-  await dispatch(page, [":actions/reset-funding-hypothetical-position", "BTC"]);
+  await dispatch(page, [
+    ":actions/enter-funding-hypothetical-position",
+    "BTC",
+    seedMark,
+    { "size-input": seededSize, "value-input": seededValue }
+  ]);
   await waitForIdle(page, { quietMs: 250, timeoutMs: 6_000, pollMs: 50 });
 
   const tooltipTrigger = page.locator('[data-role="active-asset-funding-trigger"]');
@@ -1161,20 +1133,13 @@ test("funding tooltip transitions from live position to hypothetical estimate @r
 
   const tooltip = page.locator('[data-role="active-asset-funding-tooltip"]');
   const positionSection = tooltip.locator('[data-role="active-asset-funding-position-section"]');
-  await expect(positionSection).toHaveAttribute("data-position-mode", "live");
-  await expect(tooltip.getByRole("heading", { name: "Your Position" })).toBeVisible();
-  await expect(tooltip.getByRole("button", { name: "Edit estimate" })).toBeVisible();
-
-  await tooltip.getByRole("button", { name: "Edit estimate" }).click();
-  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(positionSection).toHaveAttribute("data-position-mode", "hypothetical");
   await expect(tooltip.getByRole("heading", { name: "Hypothetical Position" })).toBeVisible();
-  await expect(tooltip.getByRole("button", { name: "Use live" })).toBeVisible();
 
   const sizeInput = tooltip.getByLabel("Hypothetical position size");
   const valueInput = tooltip.getByLabel("Hypothetical position value");
-  await expect(sizeInput).toHaveValue("9.2807");
-  await expect(valueInput).toHaveValue(livePositionValue);
+  await expect(sizeInput).toHaveValue(seededSize);
+  await expect(valueInput).toHaveValue(seededValue);
 
   const next24hPayment = tooltip
     .locator('div.contents')

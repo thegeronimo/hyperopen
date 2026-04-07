@@ -49,7 +49,7 @@ test("trade desktop Vaults click stays in-app and shows the vault-shaped loader 
     releaseRouteModule = resolve;
   });
 
-  await page.route(/\/js\/vaults_route\.js(?:\?.*)?$/, async route => {
+  await page.route(/\/js\/vaults_route(?:\.[^/?]+)?\.js(?:\?.*)?$/, async route => {
     routeModuleRequests += 1;
     await routeModuleGate;
     await route.continue();

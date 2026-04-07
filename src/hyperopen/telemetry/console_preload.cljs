@@ -7,32 +7,27 @@
             [hyperopen.registry.runtime :as runtime-registry]
             [hyperopen.system :as app-system]
             [hyperopen.telemetry :as telemetry]
+            [hyperopen.telemetry.console-preload.globals :as debug-globals]
             [hyperopen.telemetry.console-preload.simulators :as simulators]
             [hyperopen.views.account-info.vm :as account-info-vm]
             [hyperopen.views.trade.order-form-vm :as order-form-vm]
             [hyperopen.websocket.market-projection-runtime :as market-projection-runtime]
             [hyperopen.websocket.client-compat :as ws-client-compat]
             [hyperopen.websocket.client :as ws-client]))
-
 (def ^:private debug-api-key
   "HYPEROPEN_DEBUG")
-
 (def ^:private debug-dispatch-prefix
   "HYPEROPEN_DEBUG.dispatch")
-
 (declare js-plain-object?)
-
 (defn- action-id->debug-string
   [action-id]
   (str action-id))
-
 (defn- registered-action-id-strings
   []
   (->> (runtime-registry/registered-action-ids)
        (map action-id->debug-string)
        sort
        vec))
-
 (defn- normalize-action-vector-input
   [action-vector]
   (cond
@@ -540,4 +535,5 @@
     (aset global "hyperopenQaSnapshot" (aget api "qaSnapshot"))
     (aset global "hyperopenSnapshotJson" (aget api "snapshotJson"))
     (aset global "hyperopenQaSnapshotJson" (aget api "qaSnapshotJson"))
-    (aset global "hyperopenDownloadSnapshot" (aget api "downloadSnapshot"))))
+    (aset global "hyperopenDownloadSnapshot" (aget api "downloadSnapshot"))
+    (debug-globals/install! global)))
