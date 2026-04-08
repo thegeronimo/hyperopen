@@ -130,6 +130,7 @@
 (s/def ::address-and-optional-address-args
   (s/tuple ::non-empty-string (s/nilable ::non-empty-string)))
 (s/def ::set-agent-storage-mode-args (s/tuple keyword?))
+(s/def ::set-agent-local-protection-mode-args (s/tuple keyword?))
 
 (s/def ::group #{:market_data :orders_oms :all})
 (s/def ::source keyword?)
@@ -180,6 +181,10 @@
                                          (string? %)
                                          (boolean? %)))
 (s/def ::storage-mode-request-args (s/tuple ::storage-mode-request-input))
+(s/def ::local-protection-mode-request-input #(or (keyword? %)
+                                                  (string? %)
+                                                  (boolean? %)))
+(s/def ::local-protection-mode-request-args (s/tuple ::local-protection-mode-request-input))
 (s/def ::sort-column-args (s/tuple ::non-empty-string))
 (s/def ::vault-detail-activity-sort-args (s/tuple ::keyword-or-string ::keyword-or-string))
 (s/def ::key-args (s/tuple ::non-empty-string))

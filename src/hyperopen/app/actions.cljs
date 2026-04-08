@@ -11,7 +11,10 @@
           :reconnect-websocket-action action-adapters/reconnect-websocket-action
           :navigate action-adapters/navigate}
    :wallet {:enable-agent-trading-action action-adapters/enable-agent-trading-action
-            :set-agent-storage-mode-action action-adapters/set-agent-storage-mode-action}
+            :unlock-agent-trading-action action-adapters/unlock-agent-trading-action
+            :set-agent-storage-mode-action action-adapters/set-agent-storage-mode-action
+            :set-agent-local-protection-mode-action
+            action-adapters/set-agent-local-protection-mode-action}
    :diagnostics {:toggle-ws-diagnostics action-adapters/toggle-ws-diagnostics
                  :close-ws-diagnostics action-adapters/close-ws-diagnostics
                  :toggle-ws-diagnostics-sensitive action-adapters/toggle-ws-diagnostics-sensitive

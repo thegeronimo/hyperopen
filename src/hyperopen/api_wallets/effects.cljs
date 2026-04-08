@@ -7,6 +7,7 @@
             [hyperopen.api-wallets.application.form-policy :as form-policy]
             [hyperopen.api-wallets.application.ui-state :as ui-state]
             [hyperopen.api-wallets.domain.policy :as policy]
+            [hyperopen.wallet.agent-lockbox :as agent-lockbox]
             [hyperopen.wallet.agent-session :as agent-session]))
 
 (defn- parse-ms
@@ -90,9 +91,15 @@
   (when (seq owner-address)
     (clear-agent-session-by-mode! owner-address :local)
     (clear-agent-session-by-mode! owner-address :session)
-    (let [storage-mode (get-in @store [:wallet :agent :storage-mode])]
+    (agent-session/clear-passkey-session-metadata! owner-address)
+    (agent-lockbox/delete-locked-session! owner-address)
+    (agent-lockbox/clear-unlocked-session! owner-address)
+    (let [storage-mode (get-in @store [:wallet :agent :storage-mode])
+          local-protection-mode (get-in @store [:wallet :agent :local-protection-mode])]
       (swap! store assoc-in [:wallet :agent]
-             (assoc (default-agent-state :storage-mode storage-mode)
+             (assoc (default-agent-state :storage-mode storage-mode
+                                         :local-protection-mode local-protection-mode
+                                         :passkey-supported? (true? (get-in @store [:wallet :agent :passkey-supported?])))
                     :error nil)))))
 
 (defn load-api-wallets!

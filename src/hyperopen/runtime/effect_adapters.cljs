@@ -181,6 +181,10 @@
 
 (def set-agent-storage-mode wallet-adapters/set-agent-storage-mode)
 
+(def set-agent-local-protection-mode wallet-adapters/set-agent-local-protection-mode)
+
+(def unlock-agent-trading wallet-adapters/unlock-agent-trading)
+
 (def copy-wallet-address wallet-adapters/copy-wallet-address)
 
 (def make-copy-wallet-address wallet-adapters/make-copy-wallet-address)

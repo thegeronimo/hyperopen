@@ -6,13 +6,24 @@
             [hyperopen.account.spectate-mode-links :as spectate-mode-links]
             [hyperopen.router :as router]
             [hyperopen.platform :as platform]
+            [hyperopen.platform.webauthn :as webauthn]
             [hyperopen.trading-settings :as trading-settings]
             [hyperopen.wallet.agent-session :as agent-session]))
 
 (defn restore-agent-storage-mode!
   [store]
-  (let [storage-mode (agent-session/load-storage-mode-preference :session)]
-    (swap! store assoc-in [:wallet :agent :storage-mode] storage-mode)))
+  (let [storage-mode (agent-session/load-storage-mode-preference :session)
+        local-protection-mode (agent-session/load-local-protection-mode-preference :plain)]
+    (swap! store
+           (fn [state]
+             (-> state
+                 (assoc-in [:wallet :agent :storage-mode] storage-mode)
+                 (assoc-in [:wallet :agent :local-protection-mode] local-protection-mode))))))
+
+(defn restore-agent-passkey-capability!
+  [store]
+  (swap! store assoc-in [:wallet :agent :passkey-supported?]
+         (webauthn/passkey-lock-supported?)))
 
 (defn restore-ui-locale-preference!
   [store]

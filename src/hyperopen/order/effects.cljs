@@ -406,6 +406,13 @@
    (cond-> (open-enable-trading-recovery state)
      (seq error-text) (assoc-in [:wallet :agent :error] error-text))))
 
+(defn- trading-readiness-message
+  [agent-status base-message unlock-message waiting-message]
+  (case agent-status
+    :locked unlock-message
+    :unlocking waiting-message
+    base-message))
+
 (defn- run-pre-submit-actions!
   [store address request exchange-response-error runtime-error-message]
   (let [pre-actions (->> (:pre-actions request)
@@ -442,7 +449,16 @@
         (swap! store assoc-in [:order-form-runtime :error] "Connect your wallet before submitting.")
         (show-toast! store :error "Connect your wallet before submitting."))
       (if (not= :ready agent-status)
-        (swap! store open-enable-trading-recovery "Enable trading before submitting orders.")
+        (let [message (trading-readiness-message
+                       agent-status
+                       "Enable trading before submitting orders."
+                       "Unlock trading before submitting orders."
+                       "Awaiting passkey before submitting orders.")]
+          (if (#{:locked :unlocking} agent-status)
+            (do
+              (swap! store assoc-in [:order-form-runtime :error] message)
+              (show-toast! store :error message))
+            (swap! store open-enable-trading-recovery message)))
         (do
           (swap! store assoc-in [:order-form-runtime :submitting?] true)
           (letfn [(handle-submit-runtime-error! [err]
@@ -506,7 +522,10 @@
       "Connect your wallet before submitting."
 
       (not= :ready agent-status)
-      "Enable trading before submitting orders."
+      (trading-readiness-message agent-status
+                                 "Enable trading before submitting orders."
+                                 "Unlock trading before submitting orders."
+                                 "Awaiting passkey before submitting orders.")
 
       :else
       nil)))
@@ -578,7 +597,10 @@
       "Connect your wallet before updating margin."
 
       (not= :ready agent-status)
-      "Enable trading before updating margin."
+      (trading-readiness-message agent-status
+                                 "Enable trading before updating margin."
+                                 "Unlock trading before updating margin."
+                                 "Awaiting passkey before updating margin.")
 
       :else
       nil)))
@@ -652,8 +674,13 @@
 
       (not= :ready agent-status)
       (do
-        (swap! store assoc-in [:orders :cancel-error] "Enable trading before cancelling orders.")
-        (show-toast! store :error "Enable trading before cancelling orders."))
+        (let [message (trading-readiness-message
+                       agent-status
+                       "Enable trading before cancelling orders."
+                       "Unlock trading before cancelling orders."
+                       "Awaiting passkey before cancelling orders.")]
+          (swap! store assoc-in [:orders :cancel-error] message)
+          (show-toast! store :error message)))
 
       :else
       (do

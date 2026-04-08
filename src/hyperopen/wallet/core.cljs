@@ -1,5 +1,6 @@
 (ns hyperopen.wallet.core
   (:require [clojure.string :as str]
+            [hyperopen.wallet.agent-lockbox :as agent-lockbox]
             [hyperopen.wallet.agent-session :as agent-session]))
 
 ;; ---------- Provider helpers -------------------------------------------------
@@ -96,17 +97,43 @@
   [wallet-state]
   (agent-session/normalize-storage-mode (get-in wallet-state [:agent :storage-mode])))
 
+(defn- current-agent-local-protection-mode
+  [wallet-state]
+  (agent-session/normalize-local-protection-mode
+   (get-in wallet-state [:agent :local-protection-mode])))
+
+(defn- clear-persisted-agent-session!
+  [wallet-address storage-mode local-protection-mode]
+  (agent-session/clear-persisted-agent-session! wallet-address
+                                                storage-mode
+                                                local-protection-mode)
+  (when (= :passkey (agent-session/normalize-local-protection-mode local-protection-mode))
+    (agent-lockbox/delete-locked-session! wallet-address)))
+
+(defn- load-persisted-agent-session
+  [wallet-address storage-mode local-protection-mode]
+  (or (when-let [cached-session (agent-lockbox/load-unlocked-session wallet-address)]
+        (assoc cached-session
+               :persisted-kind :raw
+               :storage-mode storage-mode
+               :local-protection-mode local-protection-mode))
+      (agent-session/load-persisted-agent-session-snapshot wallet-address
+                                                           storage-mode
+                                                           local-protection-mode)))
+
 (defn- persisted-session->agent-state
-  [persisted storage-mode]
+  [persisted storage-mode local-protection-mode]
   (if (and (map? persisted)
            (seq (:agent-address persisted)))
-    {:status :ready
+    {:status (if (= :locked (:persisted-kind persisted)) :locked :ready)
      :agent-address (:agent-address persisted)
      :storage-mode storage-mode
+     :local-protection-mode local-protection-mode
      :last-approved-at (:last-approved-at persisted)
      :error nil
      :nonce-cursor (:nonce-cursor persisted)}
-    (agent-session/default-agent-state :storage-mode storage-mode)))
+    (agent-session/default-agent-state :storage-mode storage-mode
+                                       :local-protection-mode local-protection-mode)))
 
 ;; ---------- Core EIP-1102 actions -------------------------------------------
 
@@ -114,15 +141,22 @@
   (swap! store update-in [:wallet]
          (fn [wallet-state]
            (let [wallet-address (:address wallet-state)
-                 storage-mode (current-agent-storage-mode wallet-state)]
+                 storage-mode (current-agent-storage-mode wallet-state)
+                 local-protection-mode (current-agent-local-protection-mode wallet-state)
+                 passkey-supported? (true? (get-in wallet-state [:agent :passkey-supported?]))]
              (when (seq wallet-address)
-               (agent-session/clear-agent-session-by-mode! wallet-address storage-mode))
+               (clear-persisted-agent-session! wallet-address
+                                              storage-mode
+                                              local-protection-mode)
+               (agent-lockbox/clear-unlocked-session! wallet-address))
              {:connected? false
               :address nil
               :chain-id (:chain-id wallet-state) ; keep last chain id
               :connecting? false
               :error nil
-              :agent (agent-session/default-agent-state :storage-mode storage-mode)}))))
+              :agent (agent-session/default-agent-state :storage-mode storage-mode
+                                                        :local-protection-mode local-protection-mode
+                                                        :passkey-supported? passkey-supported?)}))))
 
 (defn set-connected!
   [store addr & {:keys [notify-connected?]
@@ -131,19 +165,29 @@
          (fn [wallet-state]
            (let [previous-address (:address wallet-state)
                  storage-mode (current-agent-storage-mode wallet-state)
+                 local-protection-mode (current-agent-local-protection-mode wallet-state)
+                 passkey-supported? (true? (get-in wallet-state [:agent :passkey-supported?]))
                  previous-address* (some-> previous-address str str/lower-case)
                  next-address* (some-> addr str str/lower-case)]
              (when (and (seq previous-address*)
                         (seq next-address*)
                         (not= previous-address* next-address*))
-               (agent-session/clear-agent-session-by-mode! previous-address storage-mode))
-             (let [persisted (agent-session/load-agent-session-by-mode addr storage-mode)]
+               (clear-persisted-agent-session! previous-address
+                                              storage-mode
+                                              local-protection-mode)
+               (agent-lockbox/clear-unlocked-session! previous-address))
+             (let [persisted (load-persisted-agent-session addr
+                                                           storage-mode
+                                                           local-protection-mode)]
                (-> wallet-state
                    (merge {:connected? true
                            :address addr
                            :connecting? false
                            :error nil})
-                   (assoc :agent (persisted-session->agent-state persisted storage-mode)))))))
+                   (assoc :agent (persisted-session->agent-state persisted
+                                                                 storage-mode
+                                                                 local-protection-mode))
+                   (assoc-in [:agent :passkey-supported?] passkey-supported?))))))
   (when notify-connected?
     (notify-connected! store addr)))
 

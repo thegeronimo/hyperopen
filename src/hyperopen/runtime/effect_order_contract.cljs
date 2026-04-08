@@ -146,6 +146,12 @@
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/enable-agent-trading}}
 
+   :actions/unlock-agent-trading
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/unlock-agent-trading}}
+
    :actions/submit-order
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true

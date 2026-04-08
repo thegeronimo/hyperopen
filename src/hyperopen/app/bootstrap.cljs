@@ -12,6 +12,7 @@
             [hyperopen.telemetry :as telemetry]
             [hyperopen.startup.watchers :as startup-watchers]
             [hyperopen.views.app-view :as app-view]
+            [hyperopen.wallet.agent-safety :as agent-safety]
             [hyperopen.wallet.address-watcher :as address-watcher]
             [hyperopen.wallet.core :as wallet]
             [hyperopen.websocket.client :as ws-client]))
@@ -41,6 +42,14 @@
      :store-cache-watchers-deps
      {:persist-active-market-display! runtime-effect-adapters/persist-active-market-display!
       :persist-asset-selector-markets-cache! runtime-effect-adapters/persist-asset-selector-markets-cache!}
+     :install-agent-safety-watch! agent-safety/install-agent-safety-watch!
+     :agent-safety-watch-deps
+     {:store store
+      :runtime runtime
+      :ahead-ms runtime-state/agent-schedule-cancel-ahead-ms
+      :refresh-ms runtime-state/agent-schedule-cancel-refresh-ms
+      :now-ms-fn platform/now-ms
+      :set-timeout-fn platform/set-timeout!}
      :install-websocket-watchers! startup-watchers/install-websocket-watchers!
      :websocket-watchers-deps
      {:store store

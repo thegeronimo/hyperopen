@@ -924,9 +924,9 @@
       :show-toast! (fn [_store kind message]
                      (swap! toast-calls conj [kind message]))})
     (is (= false (get-in @store [:vaults-ui :vault-transfer-modal :submitting?])))
-    (is (= "Enable trading before submitting a withdraw."
+    (is (= "Unlock trading before submitting a withdraw."
            (get-in @store [:vaults-ui :vault-transfer-modal :error])))
-    (is (= [[:error "Enable trading before submitting a withdraw."]]
+    (is (= [[:error "Unlock trading before submitting a withdraw."]]
            @toast-calls))))
 
 (deftest api-submit-vault-transfer-surfaces-exchange-response-errors-test

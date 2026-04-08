@@ -38,6 +38,18 @@
 (def agent-storage-mode-reset-message
   (get-in config [:messages :agent-storage-mode-reset]))
 
+(def agent-protection-mode-reset-message
+  (get-in config [:messages :agent-protection-mode-reset]))
+
+(def agent-expires-after-ms
+  (get-in config [:trading :agent-expires-after-ms]))
+
+(def agent-schedule-cancel-ahead-ms
+  (get-in config [:trading :agent-schedule-cancel-ahead-ms]))
+
+(def agent-schedule-cancel-refresh-ms
+  (get-in config [:trading :agent-schedule-cancel-refresh-ms]))
+
 (def deferred-bootstrap-delay-ms
   (get-in config [:startup :deferred-bootstrap-delay-ms]))
 
@@ -57,6 +69,7 @@
   []
   {:timeouts {:wallet-copy nil
               :order-toast {}
+              :agent-schedule-cancel-refresh nil
               :user-account-surface-refresh nil}
    :asset-icons {:pending {}
                  :flush-handle nil}
@@ -66,7 +79,7 @@
 
 (defn make-runtime-state
   []
-  (atom (default-runtime-state)))
+   (atom (default-runtime-state)))
 
 (defonce runtime
   (make-runtime-state))

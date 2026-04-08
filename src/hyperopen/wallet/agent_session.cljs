@@ -4,14 +4,26 @@
 (def ^:private session-storage-prefix
   "hyperopen:agent-session:v1:")
 
+(def ^:private passkey-session-metadata-prefix
+  "hyperopen:agent-passkey-session:v1:")
+
 (def ^:private storage-mode-preference-key
   "hyperopen:agent-storage-mode:v1")
+
+(def ^:private local-protection-mode-preference-key
+  "hyperopen:agent-local-protection-mode:v1")
+
+(def ^:private device-label-preference-key
+  "hyperopen:agent-device-label:v1")
 
 (def ^:private default-signature-chain-id
   "0xa4b1")
 
 (def ^:private default-testnet-signature-chain-id
   "0x66eee")
+
+(def ^:private device-label-prefix
+  "Hyperopen Device")
 
 (def zero-address
   "0x0000000000000000000000000000000000000000")
@@ -39,6 +51,14 @@
                :else :local)]
     (if (= :session mode) :session :local)))
 
+(defn normalize-local-protection-mode
+  [local-protection-mode]
+  (let [mode (cond
+               (keyword? local-protection-mode) local-protection-mode
+               (string? local-protection-mode) (keyword (str/lower-case (str/trim local-protection-mode)))
+               :else :plain)]
+    (if (= :passkey mode) :passkey :plain)))
+
 (defn load-storage-mode-preference
   ([] (load-storage-mode-preference :local))
   ([missing-default]
@@ -61,6 +81,32 @@
       false
       (try
         (.setItem storage storage-mode-preference-key mode)
+        true
+        (catch :default _
+          false)))))
+
+(defn load-local-protection-mode-preference
+  ([] (load-local-protection-mode-preference :plain))
+  ([missing-default]
+   (let [storage (some-> js/globalThis .-localStorage)
+         fallback (normalize-local-protection-mode missing-default)]
+     (if-not storage
+       fallback
+       (try
+         (if-some [raw (.getItem storage local-protection-mode-preference-key)]
+           (normalize-local-protection-mode raw)
+           fallback)
+         (catch :default _
+           fallback))))))
+
+(defn persist-local-protection-mode-preference!
+  [local-protection-mode]
+  (let [storage (some-> js/globalThis .-localStorage)
+        mode (name (normalize-local-protection-mode local-protection-mode))]
+    (if-not storage
+      false
+      (try
+        (.setItem storage local-protection-mode-preference-key mode)
         true
         (catch :default _
           false)))))
@@ -128,15 +174,67 @@
   (when-let [address (normalize-wallet-address wallet-address)]
     (str session-storage-prefix address)))
 
+(defn passkey-session-metadata-key
+  [wallet-address]
+  (when-let [address (normalize-wallet-address wallet-address)]
+    (str passkey-session-metadata-prefix address)))
+
+(defn- random-hex-suffix
+  []
+  (let [crypto (.-crypto js/globalThis)]
+    (if-not (and crypto (.-getRandomValues crypto))
+      "local"
+      (let [bytes (js/Uint8Array. 3)]
+        (.getRandomValues crypto bytes)
+        (apply str
+               (map (fn [byte]
+                      (.padStart (.toString byte 16) 2 "0"))
+                    (array-seq bytes)))))))
+
+(defn load-device-label
+  []
+  (let [storage (some-> js/globalThis .-localStorage)]
+    (when storage
+      (try
+        (some-> (.getItem storage device-label-preference-key)
+                str
+                str/trim
+                not-empty)
+        (catch :default _
+          nil)))))
+
+(defn persist-device-label!
+  [device-label]
+  (let [storage (some-> js/globalThis .-localStorage)
+        label (some-> device-label str str/trim not-empty)]
+    (if-not (and storage label)
+      false
+      (try
+        (.setItem storage device-label-preference-key label)
+        true
+        (catch :default _
+          false)))))
+
+(defn ensure-device-label!
+  []
+  (or (load-device-label)
+      (let [label (str device-label-prefix " " (random-hex-suffix))]
+        (persist-device-label! label)
+        label)))
+
 (defn default-agent-state
-  [& {:keys [storage-mode]
-      :or {storage-mode :local}}]
+  [& {:keys [storage-mode local-protection-mode passkey-supported?]
+      :or {storage-mode :local
+           local-protection-mode :plain
+           passkey-supported? false}}]
   {:status :not-ready
    :agent-address nil
    :storage-mode (normalize-storage-mode storage-mode)
+   :local-protection-mode (normalize-local-protection-mode local-protection-mode)
    :last-approved-at nil
    :error nil
-   :nonce-cursor nil})
+   :nonce-cursor nil
+   :passkey-supported? (boolean passkey-supported?)})
 
 (defn build-approve-agent-action
   [agent-address nonce & {:keys [agent-name is-mainnet signature-chain-id]
@@ -176,6 +274,37 @@
        :last-approved-at (when (number? last-approved-at) (js/Math.floor last-approved-at))
        :nonce-cursor (when (number? nonce-cursor) (js/Math.floor nonce-cursor))})))
 
+(defn- sanitize-passkey-session-metadata
+  [metadata]
+  (let [agent-address (:agent-address metadata)
+        credential-id (:credential-id metadata)
+        prf-salt (some-> (:prf-salt metadata) str str/trim not-empty)
+        device-label (some-> (:device-label metadata) str str/trim not-empty)
+        transports (some->> (:transports metadata)
+                            (keep #(some-> % str str/trim not-empty))
+                            vec
+                            not-empty)
+        last-approved-at (:last-approved-at metadata)
+        nonce-cursor (:nonce-cursor metadata)
+        saved-at-ms (:saved-at-ms metadata)
+        version (:version metadata)]
+    (when (and (string? agent-address)
+               (seq agent-address)
+               (string? credential-id)
+               (seq credential-id)
+               (seq prf-salt))
+      {:version (or (when (number? version)
+                      (js/Math.floor version))
+                    1)
+       :agent-address agent-address
+       :credential-id credential-id
+       :prf-salt prf-salt
+       :device-label device-label
+       :transports transports
+       :last-approved-at (when (number? last-approved-at) (js/Math.floor last-approved-at))
+       :nonce-cursor (when (number? nonce-cursor) (js/Math.floor nonce-cursor))
+       :saved-at-ms (when (number? saved-at-ms) (js/Math.floor saved-at-ms))})))
+
 (defn persist-agent-session!
   [storage wallet-address session]
   (let [key (session-storage-key wallet-address)
@@ -194,7 +323,8 @@
       (try
         (let [raw (.getItem storage key)]
           (when (seq raw)
-            (sanitize-agent-session (js->clj (js/JSON.parse raw) :keywordize-keys true))))
+            (sanitize-agent-session
+             (js->clj (js/JSON.parse raw) :keywordize-keys true))))
         (catch :default _
           nil)))))
 
@@ -219,3 +349,92 @@
 (defn clear-agent-session-by-mode!
   [wallet-address storage-mode]
   (clear-agent-session! (storage-by-mode storage-mode) wallet-address))
+
+(defn persist-passkey-session-metadata!
+  [wallet-address metadata]
+  (let [storage (some-> js/globalThis .-localStorage)
+        key (passkey-session-metadata-key wallet-address)
+        normalized (sanitize-passkey-session-metadata metadata)]
+    (when (and storage (seq key) normalized)
+      (try
+        (.setItem storage key (js/JSON.stringify (clj->js normalized)))
+        true
+        (catch :default _
+          false)))))
+
+(defn load-passkey-session-metadata
+  [wallet-address]
+  (let [storage (some-> js/globalThis .-localStorage)
+        key (passkey-session-metadata-key wallet-address)]
+    (when (and storage (seq key))
+      (try
+        (let [raw (.getItem storage key)]
+          (when (seq raw)
+            (sanitize-passkey-session-metadata
+             (js->clj (js/JSON.parse raw) :keywordize-keys true))))
+        (catch :default _
+          nil)))))
+
+(defn clear-passkey-session-metadata!
+  [wallet-address]
+  (let [storage (some-> js/globalThis .-localStorage)
+        key (passkey-session-metadata-key wallet-address)]
+    (when (and storage (seq key))
+      (try
+        (.removeItem storage key)
+        true
+        (catch :default _
+          false)))))
+
+(defn load-persisted-agent-session-snapshot
+  [wallet-address storage-mode local-protection-mode]
+  (let [storage-mode* (normalize-storage-mode storage-mode)
+        local-protection-mode* (normalize-local-protection-mode local-protection-mode)]
+    (cond
+      (= :session storage-mode*)
+      (some-> (load-agent-session-by-mode wallet-address :session)
+              (assoc :persisted-kind :raw
+                     :storage-mode :session
+                     :local-protection-mode :plain))
+
+      (= :passkey local-protection-mode*)
+      (some-> (load-passkey-session-metadata wallet-address)
+              (assoc :persisted-kind :locked
+                     :storage-mode :local
+                     :local-protection-mode :passkey))
+
+      :else
+      (some-> (load-agent-session-by-mode wallet-address :local)
+              (assoc :persisted-kind :raw
+                     :storage-mode :local
+                     :local-protection-mode :plain)))))
+
+(defn clear-persisted-agent-session!
+  [wallet-address storage-mode local-protection-mode]
+  (let [storage-mode* (normalize-storage-mode storage-mode)
+        local-protection-mode* (normalize-local-protection-mode local-protection-mode)]
+    (cond
+      (= :session storage-mode*)
+      (clear-agent-session-by-mode! wallet-address :session)
+
+      (= :passkey local-protection-mode*)
+      (do
+        (clear-agent-session-by-mode! wallet-address :local)
+        (clear-passkey-session-metadata! wallet-address))
+
+      :else
+      (clear-agent-session-by-mode! wallet-address :local))))
+
+(defn clear-local-agent-persistence!
+  [wallet-address]
+  (when (seq (normalize-wallet-address wallet-address))
+    (clear-agent-session-by-mode! wallet-address :local)
+    (clear-passkey-session-metadata! wallet-address)
+    true))
+
+(defn clear-all-agent-persistence!
+  [wallet-address]
+  (when (seq (normalize-wallet-address wallet-address))
+    (clear-agent-session-by-mode! wallet-address :session)
+    (clear-local-agent-persistence! wallet-address)
+    true))

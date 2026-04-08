@@ -634,7 +634,10 @@
       (not= :ready agent-status)
       (set-vault-transfer-error! store
                                  show-toast!
-                                 (str "Enable trading before submitting a " (str/lower-case mode-label) "."))
+                                 (case agent-status
+                                   :locked (str "Unlock trading before submitting a " (str/lower-case mode-label) ".")
+                                   :unlocking (str "Awaiting passkey before submitting a " (str/lower-case mode-label) ".")
+                                   (str "Enable trading before submitting a " (str/lower-case mode-label) ".")))
 
       :else
       (-> (submit-vault-transfer! store address action)

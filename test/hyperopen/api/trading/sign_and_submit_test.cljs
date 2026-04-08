@@ -49,7 +49,7 @@
                      (is (true? (:is-mainnet sign-opts-map)))
                      (is (nil? (:vault-address sign-opts-map)))
                      (is (false? (contains? payload :vaultAddress)))
-                     (is (false? (contains? payload :expiresAfter)))
+                     (is (number? (:expiresAfter payload)))
                      (is (= {:r "0x01" :s "0x02" :v 27}
                             (:signature payload))))
                    (is (number? (get-in @store [:wallet :agent :nonce-cursor])))

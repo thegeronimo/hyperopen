@@ -18,7 +18,9 @@
            (first path-values)))
     (is (= [[:wallet :agent :error] nil]
            (second path-values)))
-    (is (= [:effects/enable-agent-trading {:storage-mode :session}] io-effect))))
+    (is (= [:effects/enable-agent-trading {:storage-mode :session
+                                           :local-protection-mode :plain}]
+           io-effect))))
 
 (deftest enable-agent-trading-action-errors-when-wallet-is-not-connected-test
   (let [state {:wallet {:connected? false

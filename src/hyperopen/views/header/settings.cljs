@@ -16,23 +16,24 @@
      (icons/trading-settings-row-icon kind active?)]))
 
 (defn- trading-settings-toggle
-  [{:keys [aria-label checked? on-change]}]
+  [{:keys [aria-label checked? disabled? on-change]}]
   [:label {:class ["relative"
                    "inline-flex"
                    "h-[18px]"
                    "w-[36px]"
                    "shrink-0"
-                   "cursor-pointer"
+                   (if disabled? "cursor-not-allowed" "cursor-pointer")
                    "items-center"]}
    [:input {:type "checkbox"
             :checked (boolean checked?)
+            :disabled disabled?
             :class ["peer"
                     "absolute"
                     "inset-0"
                     "z-[1]"
                     "h-full"
                     "w-full"
-                    "cursor-pointer"
+                    (if disabled? "cursor-not-allowed" "cursor-pointer")
                     "opacity-0"]
             :aria-label aria-label
             :on {:change on-change}}]
@@ -45,6 +46,7 @@
                          "shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]"
                          "transition-all"
                          "duration-200"
+                         "peer-disabled:opacity-55"
                          "peer-focus-visible:ring-2"
                          "peer-focus-visible:ring-[#50d2c1]/45"
                          "peer-focus-visible:ring-offset-0"]
@@ -63,13 +65,14 @@
                          "rounded-full"
                          "shadow-[0_1px_3px_rgba(0,0,0,0.3)]"
                          "transition-transform"
-                         "duration-200"]
+                         "duration-200"
+                         "peer-disabled:opacity-60"]
                         (if checked?
                           ["translate-x-[18px]" "bg-[#7ce7d7]"]
                           ["translate-x-0" "bg-[#79828b]"]))}]])
 
 (defn- confirmation-strip
-  [{:keys [body confirm-label title]}]
+  [{:keys [body cancel-action confirm-action confirm-label title]}]
   (when title
     [:div {:class ["mt-2.5"
                    "flex"
@@ -112,7 +115,7 @@
                         "transition-colors"
                         "hover:bg-[#262e33]"
                         "hover:text-white"]
-                :on {:click [[:actions/cancel-agent-storage-mode-change]]}}
+                :on {:click cancel-action}}
        "Cancel"]
       [:button {:type "button"
                 :class ["rounded-lg"
@@ -128,15 +131,17 @@
                         "text-[#d8f5f0]"
                         "transition-colors"
                         "hover:bg-[#195047]"]
-                :on {:click [[:actions/confirm-agent-storage-mode-change]]}}
+                :on {:click confirm-action}}
        confirm-label]]]))
 
 (defn- trading-settings-row
-  [{:keys [aria-label checked? confirmation data-role helper-copy icon-kind on-change title]}]
+  [{:keys [aria-label checked? confirmation data-role disabled? helper-copy icon-kind on-change title]}]
   (let [has-icon? (some? icon-kind)]
     [:div {:class ["py-3"]
            :data-role data-role}
-     [:div {:class ["flex" "items-start" (if has-icon? "gap-3" "gap-0")]}
+     [:div {:class (into ["flex" "items-start" (if has-icon? "gap-3" "gap-0")]
+                         (when disabled?
+                           ["opacity-60"]))}
       (trading-settings-icon-shell (str data-role "-icon") icon-kind checked?)
       [:div {:class ["min-w-0" "flex-1" "space-y-1"]}
        [:div {:class ["text-[0.88rem]"
@@ -153,6 +158,7 @@
       [:div {:class ["flex" "shrink-0" "items-start" "pt-0.5"]}
        (trading-settings-toggle {:aria-label aria-label
                                  :checked? checked?
+                                 :disabled? disabled?
                                  :on-change on-change})]]
      (confirmation-strip confirmation)]))
 

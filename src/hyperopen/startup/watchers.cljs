@@ -10,6 +10,10 @@
 (def ^:private websocket-runtime-view-watch-key
   ::ws-runtime-view)
 
+(defn install-agent-safety-watch!
+  [deps]
+  ((:install-agent-safety-watch-fn deps) deps))
+
 (defn- selector-cache-refresh?
   [old-state new-state]
   (let [old-loaded-at-ms (get-in old-state [:asset-selector :loaded-at-ms])

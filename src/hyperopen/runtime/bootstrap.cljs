@@ -78,11 +78,15 @@
   [{:keys [store
            install-store-cache-watchers!
            store-cache-watchers-deps
+           install-agent-safety-watch!
+           agent-safety-watch-deps
            install-websocket-watchers!
            websocket-watchers-deps]}]
   (install-store-cache-watchers!
    store
    store-cache-watchers-deps)
+  (when (fn? install-agent-safety-watch!)
+    (install-agent-safety-watch! agent-safety-watch-deps))
   (install-websocket-watchers!
    websocket-watchers-deps))
 

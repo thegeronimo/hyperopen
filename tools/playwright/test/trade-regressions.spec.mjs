@@ -1442,3 +1442,83 @@ test("trading settings confirmation toggles respond to visible switch clicks @re
       "confirm-close-position?": false
     });
 });
+
+test("trading settings session toggles gate passkey lock behind remembered sessions @regression", async ({
+  page
+}) => {
+  await visitRoute(page, "/trade");
+
+  await page.evaluate(() => {
+    const c = globalThis.cljs?.core;
+    const store = globalThis.hyperopen?.system?.store;
+
+    if (!c || !store) {
+      throw new Error("Hyperopen store or cljs core unavailable");
+    }
+
+    const keyword = c.keyword;
+    const kwPath = (...segments) =>
+      c.PersistentVector.fromArray(segments.map((segment) => keyword(segment)), true);
+    const nextState = c.assoc_in(
+      c.deref(store),
+      kwPath("wallet", "agent", "passkey-supported?"),
+      true
+    );
+
+    c.reset_BANG_(store, nextState);
+  });
+
+  await page.locator('[data-role="header-settings-button"]').click();
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+
+  const settingsSurface = page.locator(
+    '[data-role="trading-settings-panel"]:visible, [data-role="trading-settings-sheet"]:visible'
+  );
+  const rememberRow = settingsSurface.locator('[data-role="trading-settings-storage-mode-row"]').first();
+  const rememberToggleLabel = rememberRow.locator("label").first();
+  const rememberToggleInput = rememberRow.locator('input[type="checkbox"]').first();
+  const passkeyRow = settingsSurface
+    .locator('[data-role="trading-settings-local-protection-mode-row"]')
+    .first();
+  const passkeyToggleLabel = passkeyRow.locator("label").first();
+  const passkeyToggleInput = passkeyRow.locator('input[type="checkbox"]').first();
+
+  await expect(rememberToggleInput).not.toBeChecked();
+  await expect(passkeyToggleInput).toBeDisabled();
+
+  await rememberToggleLabel.click();
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+  await expect(
+    rememberRow.locator('[data-role="trading-settings-storage-mode-confirmation"]').first()
+  ).toBeVisible();
+  await rememberRow.getByRole("button", { name: "Change" }).first().click();
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+
+  await page.locator('[data-role="header-settings-button"]').click();
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+  await expect(rememberToggleInput).toBeChecked();
+  await expect(passkeyToggleInput).toBeEnabled();
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("hyperopen:agent-storage-mode:v1")), {
+      timeout: 4_000
+    })
+    .toBe("local");
+
+  await passkeyToggleLabel.click();
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+  await expect(
+    passkeyRow.locator('[data-role="trading-settings-storage-mode-confirmation"]').first()
+  ).toBeVisible();
+  await passkeyRow.getByRole("button", { name: "Change" }).first().click();
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+
+  await page.locator('[data-role="header-settings-button"]').click();
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+  await expect(passkeyToggleInput).toBeChecked();
+  await expect
+    .poll(
+      () => page.evaluate(() => localStorage.getItem("hyperopen:agent-local-protection-mode:v1")),
+      { timeout: 4_000 }
+    )
+    .toBe("passkey");
+});

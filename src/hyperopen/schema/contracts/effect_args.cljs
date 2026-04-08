@@ -78,6 +78,8 @@
    :effects/disconnect-wallet ::common/no-args
    :effects/enable-agent-trading ::enable-agent-trading-args
    :effects/set-agent-storage-mode ::common/set-agent-storage-mode-args
+   :effects/set-agent-local-protection-mode ::common/set-agent-local-protection-mode-args
+   :effects/unlock-agent-trading ::common/no-args
    :effects/copy-wallet-address ::common/optional-address-args
    :effects/copy-spectate-link ::common/path-and-address-args
    :effects/clear-disconnected-account-lifecycle ::common/address-args

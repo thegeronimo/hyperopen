@@ -6,6 +6,7 @@
             [hyperopen.staking.actions :as staking-actions]
             [hyperopen.trading-crypto-modules :as trading-crypto-modules]
             [hyperopen.wallet.actions :as wallet-actions]
+            [hyperopen.wallet.agent-lockbox :as agent-lockbox]
             [hyperopen.wallet.agent-runtime :as agent-runtime]
             [hyperopen.wallet.agent-session :as agent-session]
             [hyperopen.wallet.connection-runtime :as wallet-connection-runtime]))
@@ -34,8 +35,9 @@
     result))
 
 (defn enable-agent-trading
-  [_ store {:keys [storage-mode is-mainnet agent-name signature-chain-id]
+  [_ store {:keys [storage-mode local-protection-mode is-mainnet agent-name signature-chain-id]
             :or {storage-mode :local
+                 local-protection-mode :plain
                  is-mainnet true
                  agent-name nil
                  signature-chain-id nil}}]
@@ -50,12 +52,20 @@
             (agent-runtime/enable-agent-trading!
              {:store store
               :options {:storage-mode storage-mode
+                        :local-protection-mode local-protection-mode
                         :is-mainnet is-mainnet
                         :agent-name agent-name
                         :signature-chain-id signature-chain-id}
               :create-agent-credentials! (:create-agent-credentials! crypto)
               :now-ms-fn platform/now-ms
               :normalize-storage-mode agent-session/normalize-storage-mode
+              :normalize-local-protection-mode agent-session/normalize-local-protection-mode
+              :ensure-device-label! agent-session/ensure-device-label!
+              :passkey-lock-supported? agent-lockbox/passkey-lock-supported?
+              :create-locked-session! agent-lockbox/create-locked-session!
+              :cache-unlocked-session! agent-lockbox/cache-unlocked-session!
+              :persist-passkey-session-metadata! agent-session/persist-passkey-session-metadata!
+              :delete-locked-session! agent-lockbox/delete-locked-session!
               :default-signature-chain-id-for-environment
               agent-session/default-signature-chain-id-for-environment
               :build-approve-agent-action agent-session/build-approve-agent-action
@@ -74,7 +84,8 @@
   [state]
   (wallet-actions/enable-agent-trading-action
    state
-   agent-session/normalize-storage-mode))
+   agent-session/normalize-storage-mode
+   agent-session/normalize-local-protection-mode))
 
 (defn set-agent-storage-mode-action
   [state storage-mode]
@@ -82,5 +93,26 @@
    state
    storage-mode
    agent-session/normalize-storage-mode))
+
+(defn unlock-agent-trading
+  [_ store]
+  (agent-runtime/unlock-agent-trading!
+   {:store store
+    :normalize-storage-mode agent-session/normalize-storage-mode
+    :normalize-local-protection-mode agent-session/normalize-local-protection-mode
+    :load-passkey-session-metadata agent-session/load-passkey-session-metadata
+    :unlock-locked-session! agent-lockbox/unlock-locked-session!
+    :runtime-error-message agent-runtime/runtime-error-message}))
+
+(defn unlock-agent-trading-action
+  [state]
+  (wallet-actions/unlock-agent-trading-action state))
+
+(defn set-agent-local-protection-mode-action
+  [state local-protection-mode]
+  (wallet-actions/set-agent-local-protection-mode-action
+   state
+   local-protection-mode
+   agent-session/normalize-local-protection-mode))
 
 (def copy-wallet-address-action wallet-actions/copy-wallet-address-action)

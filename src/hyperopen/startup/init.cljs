@@ -22,6 +22,7 @@
            restore-portfolio-summary-time-range!
            restore-vaults-snapshot-range!
            restore-agent-storage-mode!
+           restore-agent-passkey-capability!
            restore-trading-settings!
            restore-spectate-mode-preferences!
            restore-spectate-mode-url!
@@ -49,6 +50,9 @@
   (restore-vaults-snapshot-range! store)
   ;; Restore agent storage preference from localStorage.
   (restore-agent-storage-mode! store)
+  ;; Restore current browser support for passkey-locked trading.
+  (when (fn? restore-agent-passkey-capability!)
+    (restore-agent-passkey-capability! store))
   ;; Restore bounded trading settings from localStorage.
   (when (fn? restore-trading-settings!)
     (restore-trading-settings! store))

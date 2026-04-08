@@ -5,6 +5,8 @@
    [:effects/disconnect-wallet :disconnect-wallet]
    [:effects/enable-agent-trading :enable-agent-trading]
    [:effects/set-agent-storage-mode :set-agent-storage-mode]
+   [:effects/set-agent-local-protection-mode :set-agent-local-protection-mode]
+   [:effects/unlock-agent-trading :unlock-agent-trading]
    [:effects/copy-wallet-address :copy-wallet-address]])
 
 (def action-binding-rows
@@ -24,7 +26,12 @@
    [:actions/request-agent-storage-mode-change :request-agent-storage-mode-change]
    [:actions/cancel-agent-storage-mode-change :cancel-agent-storage-mode-change]
    [:actions/confirm-agent-storage-mode-change :confirm-agent-storage-mode-change]
+   [:actions/request-agent-local-protection-mode-change :request-agent-local-protection-mode-change]
+   [:actions/cancel-agent-local-protection-mode-change :cancel-agent-local-protection-mode-change]
+   [:actions/confirm-agent-local-protection-mode-change :confirm-agent-local-protection-mode-change]
    [:actions/enable-agent-trading :enable-agent-trading-action]
+   [:actions/unlock-agent-trading :unlock-agent-trading-action]
    [:actions/close-agent-recovery-modal :close-agent-recovery-modal-action]
    [:actions/set-agent-storage-mode :set-agent-storage-mode-action]
+   [:actions/set-agent-local-protection-mode :set-agent-local-protection-mode-action]
    [:actions/copy-wallet-address :copy-wallet-address-action]])

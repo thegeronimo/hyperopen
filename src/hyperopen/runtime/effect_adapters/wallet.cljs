@@ -3,6 +3,7 @@
             [hyperopen.platform :as platform]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.telemetry :as telemetry]
+            [hyperopen.wallet.agent-lockbox :as agent-lockbox]
             [hyperopen.wallet.agent-runtime :as agent-runtime]
             [hyperopen.wallet.agent-session :as agent-session]
             [hyperopen.wallet.connection-runtime :as wallet-connection-runtime]
@@ -22,10 +23,44 @@
    {:store store
     :storage-mode storage-mode
     :normalize-storage-mode agent-session/normalize-storage-mode
-    :clear-agent-session-by-mode! agent-session/clear-agent-session-by-mode!
+    :normalize-local-protection-mode agent-session/normalize-local-protection-mode
+    :clear-persisted-agent-session!
+    (fn [wallet-address mode local-protection-mode]
+      (agent-session/clear-persisted-agent-session! wallet-address mode local-protection-mode)
+      (when (= :passkey (agent-session/normalize-local-protection-mode local-protection-mode))
+        (agent-lockbox/delete-locked-session! wallet-address)))
+    :clear-unlocked-session! agent-lockbox/clear-unlocked-session!
     :persist-storage-mode-preference! agent-session/persist-storage-mode-preference!
     :default-agent-state agent-session/default-agent-state
     :agent-storage-mode-reset-message runtime-state/agent-storage-mode-reset-message}))
+
+(defn set-agent-local-protection-mode
+  [_ store local-protection-mode]
+  (agent-runtime/set-agent-local-protection-mode!
+   {:store store
+    :local-protection-mode local-protection-mode
+    :normalize-local-protection-mode agent-session/normalize-local-protection-mode
+    :normalize-storage-mode agent-session/normalize-storage-mode
+    :clear-persisted-agent-session!
+    (fn [wallet-address mode local-protection-mode*]
+      (agent-session/clear-persisted-agent-session! wallet-address mode local-protection-mode*)
+      (when (= :passkey (agent-session/normalize-local-protection-mode local-protection-mode*))
+        (agent-lockbox/delete-locked-session! wallet-address)))
+    :clear-unlocked-session! agent-lockbox/clear-unlocked-session!
+    :persist-local-protection-mode-preference!
+    agent-session/persist-local-protection-mode-preference!
+    :default-agent-state agent-session/default-agent-state
+    :agent-protection-mode-reset-message runtime-state/agent-protection-mode-reset-message}))
+
+(defn unlock-agent-trading
+  [_ store]
+  (agent-runtime/unlock-agent-trading!
+   {:store store
+    :normalize-storage-mode agent-session/normalize-storage-mode
+    :normalize-local-protection-mode agent-session/normalize-local-protection-mode
+    :load-passkey-session-metadata agent-session/load-passkey-session-metadata
+    :unlock-locked-session! agent-lockbox/unlock-locked-session!
+    :runtime-error-message agent-runtime/runtime-error-message}))
 
 (defn- set-wallet-copy-feedback!
   [store kind message]

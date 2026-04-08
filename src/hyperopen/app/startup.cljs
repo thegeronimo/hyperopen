@@ -243,6 +243,7 @@
        :restore-portfolio-summary-time-range! portfolio-actions/restore-portfolio-summary-time-range!
        :restore-vaults-snapshot-range! vault-persistence/restore-vaults-snapshot-range!
        :restore-agent-storage-mode! startup-restore/restore-agent-storage-mode!
+       :restore-agent-passkey-capability! startup-restore/restore-agent-passkey-capability!
        :restore-trading-settings! startup-restore/restore-trading-settings!
        :restore-spectate-mode-preferences! startup-restore/restore-spectate-mode-preferences!
        :restore-spectate-mode-url! startup-restore/restore-spectate-mode-url!

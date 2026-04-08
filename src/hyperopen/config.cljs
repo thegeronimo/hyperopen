@@ -12,6 +12,9 @@
                :auto-recover-cooldown-ms 300000}
    :ui {:wallet-copy-feedback-ms 1500
         :order-toast-ms 3500}
+   :trading {:agent-expires-after-ms 15000
+             :agent-schedule-cancel-ahead-ms 60000
+             :agent-schedule-cancel-refresh-ms 30000}
    :ws-migration {:order-fill-ws-first? true
                   :startup-bootstrap-ws-first? true
                   :candle-subscriptions? false
@@ -22,4 +25,5 @@
              :per-dex-stagger-ms 120
              :startup-summary-delay-ms 5000}
    :diagnostics {:timeline-limit 50}
-   :messages {:agent-storage-mode-reset "Trading persistence updated. Enable Trading again."}})
+   :messages {:agent-storage-mode-reset "Trading persistence updated. Enable Trading again."
+              :agent-protection-mode-reset "Trading session protection updated. Enable Trading again."}})

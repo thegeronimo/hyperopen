@@ -97,7 +97,14 @@
 
 (def enable-agent-trading-action wallet-adapters/enable-agent-trading-action)
 
+(def unlock-agent-trading wallet-adapters/unlock-agent-trading)
+
+(def unlock-agent-trading-action wallet-adapters/unlock-agent-trading-action)
+
 (def set-agent-storage-mode-action wallet-adapters/set-agent-storage-mode-action)
+
+(def set-agent-local-protection-mode-action
+  wallet-adapters/set-agent-local-protection-mode-action)
 
 (def copy-wallet-address-action wallet-adapters/copy-wallet-address-action)
 

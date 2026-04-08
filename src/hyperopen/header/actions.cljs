@@ -37,6 +37,12 @@
     (boolean? storage-mode) (if storage-mode :local :session)
     :else (agent-session/normalize-storage-mode storage-mode)))
 
+(defn- normalize-local-protection-mode-request
+  [local-protection-mode]
+  (cond
+    (boolean? local-protection-mode) (if local-protection-mode :passkey :plain)
+    :else (agent-session/normalize-local-protection-mode local-protection-mode)))
+
 (defn request-agent-storage-mode-change
   [state storage-mode]
   (let [next-mode (normalize-storage-mode-request storage-mode)
@@ -65,6 +71,38 @@
        [:effects/save [:header-ui :settings-open?] false]
        [:effects/save [:header-ui :settings-return-focus?] true]
        [:effects/set-agent-storage-mode next-mode]])))
+
+(defn request-agent-local-protection-mode-change
+  [state local-protection-mode]
+  (let [next-mode (normalize-local-protection-mode-request local-protection-mode)
+        current-mode (agent-session/normalize-local-protection-mode
+                      (get-in state [:wallet :agent :local-protection-mode]))
+        storage-mode (agent-session/normalize-storage-mode
+                      (get-in state [:wallet :agent :storage-mode]))]
+    (if (or (= :session storage-mode)
+            (= next-mode current-mode))
+      []
+      [[:effects/save [:header-ui :settings-confirmation]
+        {:kind :agent-local-protection-mode
+         :next-mode next-mode}]])))
+
+(defn cancel-agent-local-protection-mode-change
+  [_state]
+  [[:effects/save [:header-ui :settings-confirmation] nil]])
+
+(defn confirm-agent-local-protection-mode-change
+  [state]
+  (let [next-mode (some-> (get-in state [:header-ui :settings-confirmation :next-mode])
+                          agent-session/normalize-local-protection-mode)
+        current-mode (agent-session/normalize-local-protection-mode
+                      (get-in state [:wallet :agent :local-protection-mode]))]
+    (if (or (nil? next-mode)
+            (= next-mode current-mode))
+      [[:effects/save [:header-ui :settings-confirmation] nil]]
+      [[:effects/save [:header-ui :settings-confirmation] nil]
+       [:effects/save [:header-ui :settings-open?] false]
+       [:effects/save [:header-ui :settings-return-focus?] true]
+       [:effects/set-agent-local-protection-mode next-mode]])))
 
 (defn- persist-trading-settings
   [state updates]

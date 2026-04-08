@@ -2,8 +2,10 @@
   (:require [clojure.string :as str]
             [hyperopen.asset-selector.markets :as markets]
             [hyperopen.platform :as platform]
+            [hyperopen.runtime.state :as runtime-state]
             [hyperopen.schema.contracts :as contracts]
             [hyperopen.trading-crypto-modules :as trading-crypto-modules]
+            [hyperopen.wallet.agent-lockbox :as agent-lockbox]
             [hyperopen.wallet.agent-session :as agent-session]))
 (def exchange-url "https://api.hyperliquid.xyz/exchange")
 (def info-url "https://api.hyperliquid.xyz/info")
@@ -417,18 +419,29 @@
                     (js/Promise.resolve false)))))))
 
 (defn- reconcile-session-agent-address!
-  [store owner-address storage-mode session crypto]
+  [store owner-address storage-mode local-protection-mode session crypto]
   (let [stored-address* (normalize-address (:agent-address session))
         derived-address* (safe-private-key->agent-address crypto (:private-key session))
         needs-update? (and (seq derived-address*)
                            (not= stored-address* derived-address*))
-        session* (cond-> (assoc session :storage-mode storage-mode)
+        local-protection-mode* (agent-session/normalize-local-protection-mode
+                                local-protection-mode)
+        session* (cond-> (assoc session
+                                :storage-mode storage-mode
+                                :local-protection-mode local-protection-mode*)
                    (seq derived-address*) (assoc :agent-address derived-address*))]
     (when (and needs-update?
                (seq owner-address))
-      (agent-session/persist-agent-session-by-mode! owner-address storage-mode session*)
+      (when-not (and (= :local storage-mode)
+                     (= :passkey local-protection-mode*))
+        (agent-session/persist-agent-session-by-mode! owner-address storage-mode session*))
       (swap! store update-in [:wallet :agent] merge {:agent-address derived-address*}))
     session*))
+
+(defn- current-local-protection-mode
+  [agent-state]
+  (agent-session/normalize-local-protection-mode
+   (:local-protection-mode agent-state)))
 
 (defn- resolve-agent-session
   ([store owner-address]
@@ -436,37 +449,85 @@
   ([store owner-address crypto]
    (let [agent-state (get-in @store [:wallet :agent] {})
          storage-mode (agent-session/normalize-storage-mode (:storage-mode agent-state))
-         session (agent-session/load-agent-session-by-mode owner-address storage-mode)]
-     (when (map? session)
-       (if crypto
-         (reconcile-session-agent-address! store owner-address storage-mode session crypto)
-         (assoc session :storage-mode storage-mode))))))
+         local-protection-mode (current-local-protection-mode agent-state)]
+     (cond
+       (and (= :local storage-mode)
+            (= :passkey local-protection-mode))
+       (when-let [metadata (agent-session/load-passkey-session-metadata owner-address)]
+         (when-let [session (agent-lockbox/load-unlocked-session owner-address)]
+           (merge metadata
+                  session
+                  {:storage-mode storage-mode
+                   :local-protection-mode local-protection-mode})))
+
+       :else
+       (let [session (agent-session/load-agent-session-by-mode owner-address storage-mode)]
+         (when (map? session)
+           (let [session* (if crypto
+                            (reconcile-session-agent-address! store
+                                                              owner-address
+                                                              storage-mode
+                                                              local-protection-mode
+                                                              session
+                                                              crypto)
+                            session)]
+             (agent-lockbox/cache-unlocked-session! owner-address session*)
+             (assoc session*
+                    :storage-mode storage-mode
+                     :local-protection-mode local-protection-mode))))))))
 
 (defn- persist-agent-nonce-cursor!
   [store owner-address session nonce]
   (let [storage-mode (:storage-mode session)
+        local-protection-mode (agent-session/normalize-local-protection-mode
+                               (:local-protection-mode session))
         updated-session (assoc session :nonce-cursor nonce)]
-    (agent-session/persist-agent-session-by-mode! owner-address storage-mode updated-session)
+    (if (and (= :local storage-mode)
+             (= :passkey local-protection-mode))
+      (when-let [metadata (agent-session/load-passkey-session-metadata owner-address)]
+        (agent-session/persist-passkey-session-metadata!
+         owner-address
+         (assoc metadata
+                :agent-address (:agent-address session)
+                :last-approved-at (:last-approved-at session)
+                :nonce-cursor nonce
+                :saved-at-ms (platform/now-ms))))
+      (agent-session/persist-agent-session-by-mode! owner-address storage-mode updated-session))
+    (agent-lockbox/cache-unlocked-session! owner-address updated-session)
     (swap! store update-in [:wallet :agent] merge {:status :ready
                                                    :agent-address (:agent-address session)
                                                    :storage-mode storage-mode
+                                                   :local-protection-mode local-protection-mode
                                                    :nonce-cursor nonce})))
 
 (defn- invalidate-agent-session!
   [store owner-address session message]
-  (let [storage-mode (:storage-mode session)]
-    (agent-session/clear-agent-session-by-mode! owner-address storage-mode)
+  (let [storage-mode (:storage-mode session)
+        local-protection-mode (agent-session/normalize-local-protection-mode
+                               (:local-protection-mode session))
+        passkey-supported? (true? (get-in @store [:wallet :agent :passkey-supported?]))]
+    (agent-session/clear-persisted-agent-session! owner-address storage-mode local-protection-mode)
+    (when (and (= :local storage-mode)
+               (= :passkey local-protection-mode))
+      (agent-lockbox/delete-locked-session! owner-address))
+    (agent-lockbox/clear-unlocked-session! owner-address)
     (swap! store assoc-in [:wallet :agent]
-           (assoc (agent-session/default-agent-state :storage-mode storage-mode)
+           (assoc (agent-session/default-agent-state :storage-mode storage-mode
+                                                     :local-protection-mode local-protection-mode
+                                                     :passkey-supported? passkey-supported?)
                   :status :error
                   :error message))))
 
 (defn- normalize-agent-action-options
-  [{:keys [vault-address expires-after is-mainnet max-nonce-retries]}]
+  [options]
+  (let [{:keys [vault-address expires-after is-mainnet max-nonce-retries]} (or options {})]
   {:vault-address (some-> vault-address str str/lower-case)
-   :expires-after expires-after
+   :expires-after (if (contains? (or options {}) :expires-after)
+                    expires-after
+                    (+ (platform/now-ms)
+                       runtime-state/agent-expires-after-ms))
    :is-mainnet (if (nil? is-mainnet) true is-mainnet)
-   :max-nonce-retries (if (nil? max-nonce-retries) 1 max-nonce-retries)})
+   :max-nonce-retries (if (nil? max-nonce-retries) 1 max-nonce-retries)}))
 
 (defn- agent-session-available?
   [session]
@@ -533,9 +594,18 @@
                              {:vault-address vault-address
                               :expires-after expires-after})
         (.then parse-json!))))
-(defn- missing-agent-session-rejection [session]
+
+(defn- missing-agent-session-rejection
+  [store session]
   (when-not (agent-session-available? session)
-    (js/Promise.reject (js/Error. "Agent session unavailable. Enable trading first."))))
+    (let [agent-state (get-in @store [:wallet :agent] {})
+          storage-mode (agent-session/normalize-storage-mode (:storage-mode agent-state))
+          local-protection-mode (current-local-protection-mode agent-state)
+          message (if (and (= :local storage-mode)
+                           (= :passkey local-protection-mode))
+                    "Trading is locked. Unlock Trading first."
+                    "Agent session unavailable. Enable trading first.")]
+      (js/Promise.reject (js/Error. message)))))
 
 (defn- next-retry-callback [attempt! nonce retries-left]
   #(attempt! nonce (dec retries-left)))
@@ -548,7 +618,7 @@
          (.then
           (fn [crypto]
             (let [session (resolve-agent-session store owner-address crypto)]
-              (if-let [rejection (missing-agent-session-rejection session)]
+              (if-let [rejection (missing-agent-session-rejection store session)]
                 rejection
                 (letfn [(attempt! [cursor retries-left]
                           (let [nonce (next-nonce cursor)]
@@ -571,6 +641,12 @@
 (defn submit-order! [store address action] (sign-and-post-agent-action! store address action))
 (defn cancel-order! [store address action] (sign-and-post-agent-action! store address action))
 (defn submit-vault-transfer! [store address action] (sign-and-post-agent-action! store address action))
+(defn schedule-cancel!
+  [store address cancel-at-ms]
+  (sign-and-post-agent-action! store
+                               address
+                               {:type "scheduleCancel"
+                                :time cancel-at-ms}))
 
 (defn approve-agent!
   [store address action]

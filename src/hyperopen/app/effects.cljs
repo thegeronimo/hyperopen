@@ -35,6 +35,8 @@
             :disconnect-wallet (effect-adapters/make-disconnect-wallet runtime)
             :enable-agent-trading action-adapters/enable-agent-trading
             :set-agent-storage-mode effect-adapters/set-agent-storage-mode
+            :set-agent-local-protection-mode effect-adapters/set-agent-local-protection-mode
+            :unlock-agent-trading effect-adapters/unlock-agent-trading
             :copy-wallet-address (effect-adapters/make-copy-wallet-address runtime)
             :copy-spectate-link (effect-adapters/make-copy-spectate-link runtime)}
    :spectate-mode {:clear-disconnected-account-lifecycle effect-adapters/clear-disconnected-account-lifecycle}

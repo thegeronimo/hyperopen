@@ -81,6 +81,9 @@
    :actions/request-agent-storage-mode-change ::common/storage-mode-request-args
    :actions/cancel-agent-storage-mode-change ::common/no-args
    :actions/confirm-agent-storage-mode-change ::common/no-args
+   :actions/request-agent-local-protection-mode-change ::common/local-protection-mode-request-args
+   :actions/cancel-agent-local-protection-mode-change ::common/no-args
+   :actions/confirm-agent-local-protection-mode-change ::common/no-args
    :actions/set-fill-alerts-enabled ::common/boolean-args
    :actions/set-animate-orderbook-enabled ::common/boolean-args
    :actions/set-fill-markers-enabled ::common/boolean-args
@@ -102,8 +105,10 @@
    :actions/copy-spectate-mode-watchlist-link ::common/address-args
    :actions/start-spectate-mode-watchlist-address ::common/address-args
    :actions/enable-agent-trading ::common/no-args
+   :actions/unlock-agent-trading ::common/no-args
    :actions/close-agent-recovery-modal ::common/no-args
    :actions/set-agent-storage-mode ::common/set-agent-storage-mode-args
+   :actions/set-agent-local-protection-mode ::common/set-agent-local-protection-mode-args
    :actions/copy-wallet-address ::common/no-args
    :actions/reconnect-websocket ::common/no-args
    :actions/toggle-ws-diagnostics ::common/no-args

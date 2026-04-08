@@ -11,6 +11,12 @@
    :request-agent-storage-mode-change header-actions/request-agent-storage-mode-change
    :cancel-agent-storage-mode-change header-actions/cancel-agent-storage-mode-change
    :confirm-agent-storage-mode-change header-actions/confirm-agent-storage-mode-change
+   :request-agent-local-protection-mode-change
+   header-actions/request-agent-local-protection-mode-change
+   :cancel-agent-local-protection-mode-change
+   header-actions/cancel-agent-local-protection-mode-change
+   :confirm-agent-local-protection-mode-change
+   header-actions/confirm-agent-local-protection-mode-change
    :set-fill-alerts-enabled header-actions/set-fill-alerts-enabled
    :set-animate-orderbook-enabled header-actions/set-animate-orderbook-enabled
    :set-fill-markers-enabled header-actions/set-fill-markers-enabled

@@ -93,7 +93,7 @@
             request-builder]}
     normalized-form
     options]
-   (let [{:keys [mode submitting? agent-ready?]
+   (let [{:keys [mode submitting? agent-ready? agent-unavailable-message]
           :or {mode :view}} options
          submit-prep (prepare-order-form-for-submit trading-context normalized-form)
          prepared-form (:form submit-prep)
@@ -129,7 +129,8 @@
                          :market-price-missing "Market price unavailable. Load order book first."
                          :validation-errors (trading-domain/validation-error-message (first errors))
                          :request-unavailable "Select an asset and ensure market data is loaded."
-                         :agent-not-ready "Enable trading before submitting orders."
+                         :agent-not-ready (or agent-unavailable-message
+                                              "Enable trading before submitting orders.")
                          nil)]
      {:form prepared-form
       :request request

@@ -225,6 +225,13 @@
                         [[:wallet :agent :error] error-message]
                         [[:wallet :agent :recovery-modal-open?] true]]]])
 
+(defn- agent-status-message
+  [agent-status submit-message]
+  (case agent-status
+    :locked "Unlock trading before submitting orders."
+    :unlocking "Awaiting passkey before submitting orders."
+    submit-message))
+
 (def ^:private confirm-open-order-message
   "Submit this order?\n\nDisable open-order confirmation in Trading settings if you prefer one-click submits.")
 
@@ -260,9 +267,14 @@
 (defn submit-order [state]
   (let [spectate-mode-message (account-context/mutations-blocked-message state)
         raw-form (trading/order-form-draft state)
-        agent-ready? (= :ready (get-in state [:wallet :agent :status]))
+        agent-status (get-in state [:wallet :agent :status])
+        agent-ready? (= :ready agent-status)
         submit-policy (trading/submit-policy state raw-form {:mode :submit
-                                                             :agent-ready? agent-ready?})
+                                                             :agent-ready? agent-ready?
+                                                             :agent-unavailable-message
+                                                             (agent-status-message
+                                                              agent-status
+                                                              "Enable trading before submitting orders.")})
         form (:form submit-policy)
         request (:request submit-policy)
         reason (:reason submit-policy)
@@ -272,7 +284,11 @@
       [[:effects/save [:order-form-runtime :error] spectate-mode-message]]
 
       (= :agent-not-ready reason)
-      (open-enable-trading-recovery-effects error-message)
+      (if (= :ready agent-status)
+        []
+        (if (#{:locked :unlocking} agent-status)
+          [[:effects/save [:order-form-runtime :error] error-message]]
+          (open-enable-trading-recovery-effects error-message)))
 
       reason
       [[:effects/save [:order-form-runtime :error] error-message]]
@@ -325,13 +341,18 @@
 (defn- emit-cancel-effects
   [state request missing-request-message]
   (let [spectate-mode-message (account-context/mutations-blocked-message state)
-        agent-ready? (= :ready (get-in state [:wallet :agent :status]))]
+        agent-status (get-in state [:wallet :agent :status])
+        agent-ready? (= :ready agent-status)]
     (cond
       (seq spectate-mode-message)
       [[:effects/save [:orders :cancel-error] spectate-mode-message]]
 
       (not agent-ready?)
-      [[:effects/save [:orders :cancel-error] "Enable trading before cancelling orders."]]
+      [[:effects/save [:orders :cancel-error]
+        (case agent-status
+          :locked "Unlock trading before cancelling orders."
+          :unlocking "Awaiting passkey before cancelling orders."
+          "Enable trading before cancelling orders.")]]
 
       (map? request)
       (into (cancel-order-projection-effects state request)

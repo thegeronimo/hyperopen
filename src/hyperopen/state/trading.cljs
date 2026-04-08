@@ -558,7 +558,7 @@
   ([state form]
    (submit-policy state form {}))
   ([state form options]
-   (let [{:keys [mode submitting? agent-ready?]
+   (let [{:keys [mode submitting? agent-ready? agent-unavailable-message]
           :or {mode :view}} options
          runtime (order-form-runtime-state state)
          submitting? (if (contains? options :submitting?)
@@ -575,7 +575,8 @@
       normalized-form
       {:mode mode
        :submitting? submitting?
-       :agent-ready? agent-ready?}))))
+       :agent-ready? agent-ready?
+       :agent-unavailable-message agent-unavailable-message}))))
 
 (defn build-order-request [state form]
   (order-commands/build-order-request (trading-context state) form))

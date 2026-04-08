@@ -30,6 +30,9 @@
   (let [approving-vm (vm/header-vm {:wallet {:connected? true
                                              :address connected-address
                                              :agent {:status :approving}}})
+        locked-vm (vm/header-vm {:wallet {:connected? true
+                                          :address connected-address
+                                          :agent {:status :locked}}})
         ready-vm (vm/header-vm {:wallet {:connected? true
                                          :address connected-address
                                          :agent {:status :ready}}})]
@@ -38,6 +41,11 @@
     (is (= "Awaiting signature..."
            (get-in approving-vm [:wallet :enable-trading :label])))
     (is (true? (get-in approving-vm [:wallet :enable-trading :disabled?])))
+    (is (= "Unlock Trading"
+           (get-in locked-vm [:wallet :enable-trading :label])))
+    (is (= [[:actions/unlock-agent-trading]]
+           (get-in locked-vm [:wallet :enable-trading :action])))
+    (is (false? (get-in locked-vm [:wallet :enable-trading :disabled?])))
     (is (nil? (get-in ready-vm [:wallet :enable-trading])))))
 
 (deftest header-vm-projects-data-driven-settings-sections-test
@@ -70,6 +78,21 @@
     (is (= [[:actions/set-confirm-close-position-enabled true]]
            (:on-change close-position-row)))
     (is (= "Fill markers" (:title fill-markers-row)))))
+
+(deftest header-vm-projects-passkey-session-toggle-when-remembered-session-is-enabled-test
+  (let [result (vm/header-vm {:wallet {:agent {:storage-mode :local
+                                               :local-protection-mode :passkey
+                                               :passkey-supported? true}}
+                              :header-ui {:settings-open? true}})
+        sections (get-in result [:settings :sections])
+        passkey-row (row-by-id sections :session :local-protection-mode)]
+    (is (= "Lock trading with passkey" (:title passkey-row)))
+    (is (true? (:checked? passkey-row)))
+    (is (false? (:disabled? passkey-row)))
+    (is (= [[:actions/request-agent-local-protection-mode-change :plain]]
+           (:on-change passkey-row)))
+    (is (= "Require one passkey unlock after restart. Turning this off stores the trading key unencrypted in local storage."
+           (:helper-copy passkey-row)))))
 
 (deftest header-vm-projects-spectate-copy-from-state-test
   (let [inactive-vm (vm/header-vm {})
