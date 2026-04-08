@@ -78,13 +78,15 @@
         current-mode (agent-session/normalize-local-protection-mode
                       (get-in state [:wallet :agent :local-protection-mode]))
         storage-mode (agent-session/normalize-storage-mode
-                      (get-in state [:wallet :agent :storage-mode]))]
+                      (get-in state [:wallet :agent :storage-mode]))
+        agent-status (get-in state [:wallet :agent :status])]
     (if (or (= :session storage-mode)
-            (= next-mode current-mode))
+            (= next-mode current-mode)
+            (and (= :passkey current-mode)
+                 (= :plain next-mode)
+                 (#{:locked :unlocking} agent-status)))
       []
-      [[:effects/save [:header-ui :settings-confirmation]
-        {:kind :agent-local-protection-mode
-         :next-mode next-mode}]])))
+      [[:effects/set-agent-local-protection-mode next-mode]])))
 
 (defn cancel-agent-local-protection-mode-change
   [_state]

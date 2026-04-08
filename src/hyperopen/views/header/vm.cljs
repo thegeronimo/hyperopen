@@ -132,6 +132,32 @@
   [state]
   (true? (get-in state [:wallet :agent :passkey-supported?])))
 
+(defn- passkey-toggle-helper-copy
+  [remember-session? passkey-capable? passkey-enabled? agent-status]
+  (cond
+    (not remember-session?)
+    "Available when Remember session is on."
+
+    (not passkey-capable?)
+    "This browser does not support passkey-locked trading."
+
+    (and passkey-enabled? (= :locked agent-status))
+    "Unlock trading before turning off passkey protection."
+
+    (and passkey-enabled? (= :unlocking agent-status))
+    "Finish unlocking before turning off passkey protection."
+
+    :else
+    nil))
+
+(defn- passkey-toggle-disabled?
+  [remember-session? passkey-capable? passkey-enabled? agent-status]
+  (boolean
+   (or (not remember-session?)
+       (not passkey-capable?)
+       (and passkey-enabled?
+            (#{:locked :unlocking} agent-status)))))
+
 (defn- settings-confirmation-copy
   [confirmation]
   (case (:kind confirmation)
@@ -183,7 +209,16 @@
                       (get-in state [:header-ui :settings-confirmation]))
         remember-session? (remember-trading-session? state)
         passkey-capable? (passkey-toggle-available? state)
-        passkey-enabled? (passkey-lock-enabled? state)]
+        passkey-enabled? (passkey-lock-enabled? state)
+        agent-status (get-in state [:wallet :agent :status])
+        passkey-helper-copy (passkey-toggle-helper-copy remember-session?
+                                                        passkey-capable?
+                                                        passkey-enabled?
+                                                        agent-status)
+        passkey-disabled? (passkey-toggle-disabled? remember-session?
+                                                    passkey-capable?
+                                                    passkey-enabled?
+                                                    agent-status)]
     {:open? (true? (get-in state [:header-ui :settings-open?]))
      :return-focus? (true? (get-in state [:header-ui :settings-return-focus?]))
      :trigger-key (str "header-settings-button:"
@@ -210,25 +245,18 @@
                                                 confirmation))
                   (settings-row :local-protection-mode
                                 "Lock trading with passkey"
-                                (cond
-                                  (not remember-session?)
-                                  "Available when Remember session is on."
-
-                                  (not passkey-capable?)
-                                  "This browser does not support passkey-locked trading."
-
-                                  :else nil)
+                                passkey-helper-copy
                                 passkey-enabled?
                                 nil
                                 [[:actions/request-agent-local-protection-mode-change
                                   (if passkey-enabled? :plain :passkey)]]
                                 :tooltip (when (and remember-session?
-                                                    passkey-capable?)
+                                                    passkey-capable?
+                                                    (nil? passkey-helper-copy))
                                            (if passkey-enabled?
                                              "Trading stays remembered on this device, but you will need one passkey unlock after a browser restart before orders can be signed again."
                                              "Protect the remembered trading session with a passkey so the key is not resumed automatically after a browser restart."))
-                                :disabled? (or (not remember-session?)
-                                               (not passkey-capable?)))])
+                                :disabled? passkey-disabled?)])
                 (settings-section
                  :confirmations
                  "Confirmations"

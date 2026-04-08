@@ -46,11 +46,23 @@
       (agent-session/clear-persisted-agent-session! wallet-address mode local-protection-mode*)
       (when (= :passkey (agent-session/normalize-local-protection-mode local-protection-mode*))
         (agent-lockbox/delete-locked-session! wallet-address)))
+    :clear-agent-session-by-mode! agent-session/clear-agent-session-by-mode!
+    :load-agent-session-by-mode agent-session/load-agent-session-by-mode
+    :load-unlocked-session agent-lockbox/load-unlocked-session
     :clear-unlocked-session! agent-lockbox/clear-unlocked-session!
+    :cache-unlocked-session! agent-lockbox/cache-unlocked-session!
+    :create-locked-session! agent-lockbox/create-locked-session!
+    :delete-locked-session! agent-lockbox/delete-locked-session!
+    :persist-agent-session-by-mode! agent-session/persist-agent-session-by-mode!
+    :persist-passkey-session-metadata! agent-session/persist-passkey-session-metadata!
+    :clear-passkey-session-metadata! agent-session/clear-passkey-session-metadata!
     :persist-local-protection-mode-preference!
     agent-session/persist-local-protection-mode-preference!
     :default-agent-state agent-session/default-agent-state
-    :agent-protection-mode-reset-message runtime-state/agent-protection-mode-reset-message}))
+    :agent-protection-mode-reset-message runtime-state/agent-protection-mode-reset-message
+    :persist-session-error "Unable to persist agent credentials."
+    :missing-session-error "Trading session data is unavailable. Enable Trading again."
+    :unlock-required-error "Unlock trading before turning off passkey protection."}))
 
 (defn unlock-agent-trading
   [_ store]

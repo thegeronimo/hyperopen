@@ -23,7 +23,13 @@
   "0x66eee")
 
 (def ^:private device-label-prefix
+  "Hyperopen")
+
+(def ^:private legacy-device-label-prefix
   "Hyperopen Device")
+
+(def ^:private max-device-label-length
+  16)
 
 (def zero-address
   "0x0000000000000000000000000000000000000000")
@@ -36,6 +42,13 @@
 
 (def ^:private wallet-address-regex
   #"^0x[0-9a-f]{40}$")
+
+(def ^:private legacy-device-label-regex
+  (js/RegExp.
+   (str "^"
+        legacy-device-label-prefix
+        "\\s+([0-9A-Za-z]{1,6})$")
+   "i"))
 
 (defn default-signature-chain-id-for-environment
   [is-mainnet]
@@ -191,22 +204,60 @@
                       (.padStart (.toString byte 16) 2 "0"))
                     (array-seq bytes)))))))
 
+(defn- compact-device-label
+  [device-label]
+  (some-> device-label
+          str
+          str/trim
+          (str/replace #"\s+" " ")
+          not-empty))
+
+(defn- generated-device-label
+  [suffix]
+  (some->> (compact-device-label suffix)
+           (str device-label-prefix " ")))
+
+(defn normalize-device-label
+  [device-label]
+  (when-let [label (compact-device-label device-label)]
+    (let [legacy-match (.match label legacy-device-label-regex)
+          migrated-label (some-> legacy-match
+                                 (aget 1)
+                                 compact-device-label
+                                 str/lower-case
+                                 generated-device-label)]
+      (cond
+        (<= (count label) max-device-label-length)
+        label
+
+        (and migrated-label
+             (<= (count migrated-label) max-device-label-length))
+        migrated-label
+
+        :else
+        (some-> label
+                (subs 0 (min (count label) max-device-label-length))
+                compact-device-label)))))
+
 (defn load-device-label
   []
   (let [storage (some-> js/globalThis .-localStorage)]
     (when storage
       (try
-        (some-> (.getItem storage device-label-preference-key)
-                str
-                str/trim
-                not-empty)
+        (let [raw (.getItem storage device-label-preference-key)
+              normalized (normalize-device-label raw)]
+          (when (and (seq raw)
+                     (seq normalized)
+                     (not= raw normalized))
+            (.setItem storage device-label-preference-key normalized))
+          normalized)
         (catch :default _
           nil)))))
 
 (defn persist-device-label!
   [device-label]
   (let [storage (some-> js/globalThis .-localStorage)
-        label (some-> device-label str str/trim not-empty)]
+        label (normalize-device-label device-label)]
     (if-not (and storage label)
       false
       (try
@@ -218,7 +269,7 @@
 (defn ensure-device-label!
   []
   (or (load-device-label)
-      (let [label (str device-label-prefix " " (random-hex-suffix))]
+      (let [label (generated-device-label (random-hex-suffix))]
         (persist-device-label! label)
         label)))
 
@@ -279,7 +330,7 @@
   (let [agent-address (:agent-address metadata)
         credential-id (:credential-id metadata)
         prf-salt (some-> (:prf-salt metadata) str str/trim not-empty)
-        device-label (some-> (:device-label metadata) str str/trim not-empty)
+        device-label (normalize-device-label (:device-label metadata))
         transports (some->> (:transports metadata)
                             (keep #(some-> % str str/trim not-empty))
                             vec

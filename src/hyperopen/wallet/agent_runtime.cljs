@@ -84,6 +84,64 @@
   (and (= :local storage-mode)
        (= :passkey local-protection-mode)))
 
+(defn- migration-session
+  [agent-state storage-mode local-protection-mode session]
+  (let [agent-address (or (:agent-address session)
+                          (:agent-address agent-state))
+        private-key (:private-key session)]
+    (when (and (map? session)
+               (string? agent-address)
+               (seq agent-address)
+               (string? private-key)
+               (seq private-key))
+      {:agent-address agent-address
+       :private-key private-key
+       :last-approved-at (or (:last-approved-at session)
+                             (:last-approved-at agent-state))
+       :nonce-cursor (or (:nonce-cursor session)
+                         (:nonce-cursor agent-state))
+       :storage-mode storage-mode
+       :local-protection-mode local-protection-mode})))
+
+(defn- apply-migrated-agent-session!
+  [store session]
+  (swap! store update-in [:wallet :agent] merge
+         {:status :ready
+          :agent-address (:agent-address session)
+          :storage-mode (:storage-mode session)
+          :local-protection-mode (:local-protection-mode session)
+          :last-approved-at (:last-approved-at session)
+          :nonce-cursor (:nonce-cursor session)
+          :error nil
+          :recovery-modal-open? false}))
+
+(defn- set-agent-local-protection-error!
+  [store error]
+  (swap! store update-in [:wallet :agent] merge
+         {:error error
+          :recovery-modal-open? false}))
+
+(defn- migration-session-for-mode
+  [{:keys [agent-state
+           wallet-address
+           storage-mode
+           local-protection-mode
+           load-unlocked-session
+           load-agent-session-by-mode]}]
+  (or (some->> (when (fn? load-unlocked-session)
+                 (load-unlocked-session wallet-address))
+               (migration-session agent-state storage-mode local-protection-mode))
+      (some->> (when (and (fn? load-agent-session-by-mode)
+                          (not= :passkey local-protection-mode))
+                 (load-agent-session-by-mode wallet-address storage-mode))
+               (migration-session agent-state storage-mode local-protection-mode))))
+
+(defn- ignore-delete-failure!
+  [delete-promise]
+  (if (some? delete-promise)
+    (.catch delete-promise (fn [_] (js/Promise.resolve nil)))
+    (js/Promise.resolve nil)))
+
 (defn set-agent-storage-mode!
   [{:keys [store
            storage-mode
@@ -129,36 +187,157 @@
            normalize-storage-mode
            clear-persisted-agent-session!
            clear-agent-session-by-mode!
+           load-agent-session-by-mode
+           load-unlocked-session
            clear-unlocked-session!
+           cache-unlocked-session!
+           create-locked-session!
+           delete-locked-session!
+           persist-agent-session-by-mode!
+           persist-passkey-session-metadata!
+           clear-passkey-session-metadata!
            persist-local-protection-mode-preference!
            default-agent-state
-           agent-protection-mode-reset-message]
+           agent-protection-mode-reset-message
+           persist-session-error
+           missing-session-error
+           unlock-required-error]
     :or {normalize-storage-mode identity
          normalize-local-protection-mode fallback-local-protection-mode
          clear-unlocked-session! noop
-         persist-local-protection-mode-preference! noop}}]
+         cache-unlocked-session! noop
+         create-locked-session! noop-promise
+         delete-locked-session! noop-promise
+         persist-passkey-session-metadata! (constantly false)
+         clear-passkey-session-metadata! noop
+         persist-local-protection-mode-preference! noop
+         persist-session-error "Unable to persist agent credentials."
+         missing-session-error "Trading session data is unavailable. Enable Trading again."
+         unlock-required-error "Unlock trading before turning off passkey protection."}}]
   (let [clear-persisted-agent-session!* (or clear-persisted-agent-session!
                                             (fn [wallet-address mode _local-protection-mode]
                                               (when clear-agent-session-by-mode!
                                                 (clear-agent-session-by-mode! wallet-address mode))))
         next-mode (normalize-local-protection-mode local-protection-mode)
+        agent-state (get-in @store [:wallet :agent] {})
         current-mode (normalize-local-protection-mode
-                      (get-in @store [:wallet :agent :local-protection-mode]))
+                      (:local-protection-mode agent-state))
         storage-mode (normalize-storage-mode
-                      (get-in @store [:wallet :agent :storage-mode]))
+                      (:storage-mode agent-state))
         wallet-address (get-in @store [:wallet :address])
         switching? (not= current-mode next-mode)]
     (when switching?
-      (when (seq wallet-address)
-        (clear-persisted-agent-session!* wallet-address storage-mode current-mode)
-        (clear-persisted-agent-session!* wallet-address storage-mode next-mode)
-        (clear-unlocked-session! wallet-address))
-      (persist-local-protection-mode-preference! next-mode)
-      (reset-agent-state! store
-                          default-agent-state
-                          storage-mode
-                          next-mode
-                          agent-protection-mode-reset-message))))
+      (let [status (:status agent-state)
+            live-session (when (seq wallet-address)
+                           (migration-session-for-mode
+                            {:agent-state agent-state
+                             :wallet-address wallet-address
+                             :storage-mode storage-mode
+                             :local-protection-mode current-mode
+                             :load-unlocked-session load-unlocked-session
+                             :load-agent-session-by-mode load-agent-session-by-mode}))]
+        (cond
+          (and (= :passkey current-mode)
+               (= :plain next-mode)
+               (nil? live-session))
+          (set-agent-local-protection-error! store
+                                             (if (#{:locked :unlocking} status)
+                                               unlock-required-error
+                                               missing-session-error))
+
+          (and (= :ready status)
+               (= :plain current-mode)
+               (= :passkey next-mode))
+          (if-not live-session
+            (set-agent-local-protection-error! store missing-session-error)
+            (-> (create-locked-session! {:wallet-address wallet-address
+                                         :session live-session})
+                (.then
+                 (fn [{:keys [metadata session]}]
+                   (let [locked-session (or (migration-session agent-state
+                                                               storage-mode
+                                                               next-mode
+                                                               session)
+                                            (assoc live-session
+                                                   :storage-mode storage-mode
+                                                   :local-protection-mode next-mode))]
+                     (cond
+                       (not (persist-passkey-session-metadata! wallet-address metadata))
+                       (-> (ignore-delete-failure! (delete-locked-session! wallet-address))
+                           (.then (fn [_]
+                                    (js/Promise.reject
+                                     (known-error persist-session-error)))))
+
+                       (not (persist-local-protection-mode-preference! next-mode))
+                       (do
+                         (clear-passkey-session-metadata! wallet-address)
+                         (-> (ignore-delete-failure! (delete-locked-session! wallet-address))
+                             (.then (fn [_]
+                                      (js/Promise.reject
+                                       (known-error persist-session-error))))))
+
+                       (and (fn? clear-agent-session-by-mode!)
+                            (false? (clear-agent-session-by-mode! wallet-address storage-mode)))
+                       (do
+                         (persist-local-protection-mode-preference! current-mode)
+                         (clear-passkey-session-metadata! wallet-address)
+                         (-> (ignore-delete-failure! (delete-locked-session! wallet-address))
+                             (.then (fn [_]
+                                      (js/Promise.reject
+                                       (known-error persist-session-error))))))
+
+                       :else
+                       (do
+                         (cache-unlocked-session! wallet-address locked-session)
+                         (apply-migrated-agent-session! store locked-session)
+                         locked-session)))))
+                (.catch
+                 (fn [err]
+                   (set-agent-local-protection-error! store
+                                                      (if (known-error? err)
+                                                        (or (some-> err .-message str)
+                                                            missing-session-error)
+                                                        (runtime-error-message err)))))))
+
+          (and (= :ready status)
+               (= :passkey current-mode)
+               (= :plain next-mode))
+          (if-not live-session
+            (set-agent-local-protection-error! store missing-session-error)
+            (if-not (persist-agent-session-by-mode!
+                     wallet-address
+                     storage-mode
+                     live-session)
+              (set-agent-local-protection-error! store persist-session-error)
+              (if-not (persist-local-protection-mode-preference! next-mode)
+                (do
+                  (when (fn? clear-agent-session-by-mode!)
+                    (clear-agent-session-by-mode! wallet-address storage-mode))
+                  (set-agent-local-protection-error! store persist-session-error))
+                (do
+                  (clear-passkey-session-metadata! wallet-address)
+                  (-> (ignore-delete-failure! (delete-locked-session! wallet-address))
+                      (.then
+                       (fn [_]
+                         (let [plain-session (assoc live-session
+                                                    :storage-mode storage-mode
+                                                    :local-protection-mode next-mode)]
+                           (cache-unlocked-session! wallet-address plain-session)
+                           (apply-migrated-agent-session! store plain-session)))))))))
+
+          :else
+          (do
+            (persist-local-protection-mode-preference! next-mode)
+            (if (and (= :passkey current-mode)
+                     (= :plain next-mode))
+              (reset-agent-state! store
+                                  default-agent-state
+                                  storage-mode
+                                  current-mode
+                                  unlock-required-error)
+              (swap! store update-in [:wallet :agent] merge
+                     {:storage-mode storage-mode
+                      :local-protection-mode next-mode}))))))))
 
 (defn approve-agent-request!
   [{:keys [store

@@ -81,6 +81,7 @@
 
 (deftest header-vm-projects-passkey-session-toggle-when-remembered-session-is-enabled-test
   (let [result (vm/header-vm {:wallet {:agent {:storage-mode :local
+                                               :status :ready
                                                :local-protection-mode :passkey
                                                :passkey-supported? true}}
                               :header-ui {:settings-open? true}})
@@ -95,6 +96,20 @@
     (is (nil? (:helper-copy passkey-row)))
     (is (= "Trading stays remembered on this device, but you will need one passkey unlock after a browser restart before orders can be signed again."
            (:tooltip passkey-row)))))
+
+(deftest header-vm-disables-passkey-downgrade-while-trading-is-locked-test
+  (let [result (vm/header-vm {:wallet {:agent {:status :locked
+                                               :storage-mode :local
+                                               :local-protection-mode :passkey
+                                               :passkey-supported? true}}
+                              :header-ui {:settings-open? true}})
+        sections (get-in result [:settings :sections])
+        passkey-row (row-by-id sections :session :local-protection-mode)]
+    (is (true? (:checked? passkey-row)))
+    (is (true? (:disabled? passkey-row)))
+    (is (= "Unlock trading before turning off passkey protection."
+           (:helper-copy passkey-row)))
+    (is (nil? (:tooltip passkey-row)))))
 
 (deftest header-vm-projects-spectate-copy-from-state-test
   (let [inactive-vm (vm/header-vm {})

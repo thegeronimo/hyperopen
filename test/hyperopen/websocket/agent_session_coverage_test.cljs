@@ -63,6 +63,10 @@
   (is (= {:name "Desk Agent valid_until nope"
           :valid-until-ms nil}
          (agent-session/parse-agent-name-valid-until "Desk Agent valid_until nope")))
+  (is (= "Hyperopen abc123"
+         (agent-session/normalize-device-label " Hyperopen Device abc123 ")))
+  (is (= "1234567890abcdef"
+         (agent-session/normalize-device-label "1234567890abcdefXYZ")))
   (is (nil? (agent-session/format-agent-name-with-valid-until nil 1700000000000 30)))
   (is (= "Desk Agent"
          (agent-session/format-agent-name-with-valid-until " Desk Agent " nil 30)))
@@ -87,6 +91,11 @@
       (is (= :session (agent-session/load-storage-mode-preference)))
       (.setItem local "hyperopen:agent-storage-mode:v1" "unknown")
       (is (= :local (agent-session/load-storage-mode-preference)))
+      (.setItem local "hyperopen:agent-device-label:v1" "Hyperopen Device 72905e")
+      (is (= "Hyperopen 72905e"
+             (agent-session/load-device-label)))
+      (is (= "Hyperopen 72905e"
+             (.getItem local "hyperopen:agent-device-label:v1")))
 
       (is (true? (agent-session/persist-agent-session-by-mode!
                   wallet-address

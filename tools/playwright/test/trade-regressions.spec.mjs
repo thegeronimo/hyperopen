@@ -262,6 +262,158 @@ async function seedAssetSelectorMarketsCache(page, count = 240) {
   }, rows);
 }
 
+async function seedRememberedTradingSession(page, options = {}) {
+  const {
+    walletAddress = "0x1111111111111111111111111111111111111111",
+    agentAddress = "0x9999999999999999999999999999999999999999",
+    privateKey = "0xpriv",
+    status = "ready",
+    localProtectionMode = "plain",
+    passkeySupported = true
+  } = options;
+
+  await page.evaluate(
+    ({
+      walletAddress: nextWalletAddress,
+      agentAddress: nextAgentAddress,
+      privateKey: nextPrivateKey,
+      status: nextStatus,
+      localProtectionMode: nextLocalProtectionMode,
+      passkeySupported: nextPasskeySupported
+    }) => {
+      const c = globalThis.cljs?.core;
+      const store = globalThis.hyperopen?.system?.store;
+
+      if (!c || !store) {
+        throw new Error("Hyperopen store or cljs core unavailable");
+      }
+
+      const keyword = c.keyword;
+      const kwPath = (...segments) =>
+        c.PersistentVector.fromArray(segments.map((segment) => keyword(segment)), true);
+      const lowerWallet = String(nextWalletAddress).toLowerCase();
+      const lastApprovedAt = 1700000000000;
+      const sessionKey = `hyperopen:agent-session:v1:${lowerWallet}`;
+      const passkeyKey = `hyperopen:agent-passkey-session:v1:${lowerWallet}`;
+
+      localStorage.setItem("hyperopen:agent-storage-mode:v1", "local");
+      localStorage.setItem(
+        "hyperopen:agent-local-protection-mode:v1",
+        String(nextLocalProtectionMode)
+      );
+
+      localStorage.removeItem(sessionKey);
+      localStorage.removeItem(passkeyKey);
+
+      if (nextLocalProtectionMode === "plain") {
+        localStorage.setItem(
+          sessionKey,
+          JSON.stringify({
+            "agent-address": nextAgentAddress,
+            "private-key": nextPrivateKey,
+            "last-approved-at": lastApprovedAt,
+            "nonce-cursor": lastApprovedAt
+          })
+        );
+      } else {
+        localStorage.setItem(
+          passkeyKey,
+          JSON.stringify({
+            "agent-address": nextAgentAddress,
+            "credential-id": "cred",
+            "prf-salt": "salt",
+            "last-approved-at": lastApprovedAt,
+            "nonce-cursor": lastApprovedAt
+          })
+        );
+      }
+
+      let nextState = c.deref(store);
+      nextState = c.assoc_in(nextState, kwPath("wallet", "connected?"), true);
+      nextState = c.assoc_in(nextState, kwPath("wallet", "address"), nextWalletAddress);
+      nextState = c.assoc_in(nextState, kwPath("wallet", "chain-id"), "0xa4b1");
+      nextState = c.assoc_in(nextState, kwPath("wallet", "agent", "status"), keyword(nextStatus));
+      nextState = c.assoc_in(nextState, kwPath("wallet", "agent", "storage-mode"), keyword("local"));
+      nextState = c.assoc_in(
+        nextState,
+        kwPath("wallet", "agent", "local-protection-mode"),
+        keyword(nextLocalProtectionMode)
+      );
+      nextState = c.assoc_in(
+        nextState,
+        kwPath("wallet", "agent", "passkey-supported?"),
+        Boolean(nextPasskeySupported)
+      );
+      nextState = c.assoc_in(
+        nextState,
+        kwPath("wallet", "agent", "agent-address"),
+        nextAgentAddress
+      );
+      nextState = c.assoc_in(
+        nextState,
+        kwPath("wallet", "agent", "last-approved-at"),
+        lastApprovedAt
+      );
+      nextState = c.assoc_in(nextState, kwPath("wallet", "agent", "nonce-cursor"), lastApprovedAt);
+      nextState = c.assoc_in(nextState, kwPath("wallet", "agent", "error"), null);
+      nextState = c.assoc_in(
+        nextState,
+        kwPath("wallet", "agent", "recovery-modal-open?"),
+        false
+      );
+
+      c.reset_BANG_(store, nextState);
+    },
+    { walletAddress, agentAddress, privateKey, status, localProtectionMode, passkeySupported }
+  );
+}
+
+async function installPasskeyLockboxMock(page) {
+  await page.evaluate(() => {
+    const c = globalThis.cljs?.core;
+    const lockbox = globalThis.hyperopen?.wallet?.agent_lockbox;
+
+    if (!c || !lockbox) {
+      throw new Error("Hyperopen passkey lockbox namespace unavailable");
+    }
+
+    const keyword = c.keyword;
+    const opts = c.PersistentArrayMap.fromArray([keyword("keywordize-keys"), true], true);
+    const getValue = (value, key) => c.get(value, keyword(key));
+
+    lockbox.create_locked_session_BANG_ = (args) => {
+      const session = getValue(args, "session");
+      const agentAddress = getValue(session, "agent-address");
+      const privateKey = getValue(session, "private-key");
+      const lastApprovedAt = getValue(session, "last-approved-at");
+      const nonceCursor = getValue(session, "nonce-cursor");
+
+      return Promise.resolve(
+        c.js__GT_clj(
+          {
+            metadata: {
+              "agent-address": agentAddress,
+              "credential-id": "cred",
+              "prf-salt": "salt",
+              "last-approved-at": lastApprovedAt,
+              "nonce-cursor": nonceCursor
+            },
+            session: {
+              "agent-address": agentAddress,
+              "private-key": privateKey,
+              "last-approved-at": lastApprovedAt,
+              "nonce-cursor": nonceCursor
+            }
+          },
+          opts
+        )
+      );
+    };
+
+    lockbox.delete_locked_session_BANG_ = () => Promise.resolve(true);
+  });
+}
+
 test("asset selector opens and selects ETH @regression", async ({ page }) => {
   await visitRoute(page, "/trade");
 
@@ -1488,15 +1640,110 @@ test("trading settings session toggles gate passkey lock behind remembered sessi
 
   await passkeyToggleLabel.click();
   await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
-  await expect(
-    passkeyRow.locator('[data-role="trading-settings-storage-mode-confirmation"]').first()
-  ).toBeVisible();
-  await passkeyRow.getByRole("button", { name: "Change" }).first().click();
-  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+  await expect(passkeyToggleInput).toBeChecked();
+  await expect
+    .poll(
+      () => page.evaluate(() => localStorage.getItem("hyperopen:agent-local-protection-mode:v1")),
+      { timeout: 4_000 }
+    )
+    .toBe("passkey");
+});
+
+test("ready remembered session keeps submit usable after enabling passkey lock @regression", async ({
+  page
+}) => {
+  await visitRoute(page, "/trade");
+  await installPasskeyLockboxMock(page);
+  await seedRememberedTradingSession(page, {
+    status: "ready",
+    localProtectionMode: "plain",
+    passkeySupported: true
+  });
 
   await page.locator('[data-role="header-settings-button"]').click();
   await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+
+  const settingsSurface = page.locator(
+    '[data-role="trading-settings-panel"]:visible, [data-role="trading-settings-sheet"]:visible'
+  );
+  const passkeyRow = settingsSurface
+    .locator('[data-role="trading-settings-local-protection-mode-row"]')
+    .first();
+  const passkeyToggleLabel = passkeyRow.locator("label").first();
+  const passkeyToggleInput = passkeyRow.locator('input[type="checkbox"]').first();
+
+  await expect(passkeyToggleInput).toBeEnabled();
+  await passkeyToggleLabel.click();
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+
   await expect(passkeyToggleInput).toBeChecked();
+  await expectOracle(page, "wallet-status", {
+    connected: true,
+    agentStatus: "ready",
+    agentError: null
+  });
+  await expectOracle(page, "agent-trading-recovery", {
+    open: false
+  });
+  await expect
+    .poll(
+      () => page.evaluate(() => localStorage.getItem("hyperopen:agent-local-protection-mode:v1")),
+      { timeout: 4_000 }
+    )
+    .toBe("passkey");
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          localStorage.getItem(
+            "hyperopen:agent-session:v1:0x1111111111111111111111111111111111111111"
+          )
+        ),
+      { timeout: 4_000 }
+    )
+    .toBe(null);
+
+  await dispatch(page, [":actions/select-order-entry-mode", ":limit"]);
+  await waitForIdle(page, { quietMs: 100, timeoutMs: 2_000, pollMs: 50 });
+  await dispatch(page, [":actions/set-order-size-input-mode", ":base"]);
+  await waitForIdle(page, { quietMs: 100, timeoutMs: 2_000, pollMs: 50 });
+  await dispatch(page, [":actions/update-order-form", [":price"], "100"]);
+  await waitForIdle(page, { quietMs: 100, timeoutMs: 2_000, pollMs: 50 });
+  await dispatch(page, [":actions/set-order-size-display", "1"]);
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+
+  await dispatch(page, [":actions/submit-order"]);
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+
+  await expect(page.locator('[data-role="order-submit-confirmation-dialog"]')).toBeVisible();
+  await expectOracle(page, "agent-trading-recovery", {
+    open: false
+  });
+});
+
+test("locked remembered passkey session disables downgrade until unlock @regression", async ({
+  page
+}) => {
+  await visitRoute(page, "/trade");
+  await seedRememberedTradingSession(page, {
+    status: "locked",
+    localProtectionMode: "passkey",
+    passkeySupported: true
+  });
+
+  await page.locator('[data-role="header-settings-button"]').click();
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+
+  const settingsSurface = page.locator(
+    '[data-role="trading-settings-panel"]:visible, [data-role="trading-settings-sheet"]:visible'
+  );
+  const passkeyRow = settingsSurface
+    .locator('[data-role="trading-settings-local-protection-mode-row"]')
+    .first();
+  const passkeyToggleInput = passkeyRow.locator('input[type="checkbox"]').first();
+
+  await expect(passkeyToggleInput).toBeDisabled();
+  await expect(passkeyRow).toContainText("Unlock trading before turning off passkey protection.");
   await expect
     .poll(
       () => page.evaluate(() => localStorage.getItem("hyperopen:agent-local-protection-mode:v1")),

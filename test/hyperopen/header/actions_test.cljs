@@ -9,6 +9,8 @@
    'handle-header-settings-keydown (resolve 'hyperopen.header.actions/handle-header-settings-keydown)
   'request-agent-storage-mode-change (resolve 'hyperopen.header.actions/request-agent-storage-mode-change)
    'confirm-agent-storage-mode-change (resolve 'hyperopen.header.actions/confirm-agent-storage-mode-change)
+   'request-agent-local-protection-mode-change
+   (resolve 'hyperopen.header.actions/request-agent-local-protection-mode-change)
    'set-fill-alerts-enabled (resolve 'hyperopen.header.actions/set-fill-alerts-enabled)
    'set-animate-orderbook-enabled (resolve 'hyperopen.header.actions/set-animate-orderbook-enabled)
    'set-fill-markers-enabled (resolve 'hyperopen.header.actions/set-fill-markers-enabled)
@@ -111,6 +113,33 @@
              (confirm-action (assoc-in state [:header-ui :settings-confirmation]
                                        {:kind :agent-storage-mode
                                         :next-mode :local})))))))
+
+(deftest header-settings-passkey-toggle-changes-immediately-test
+  (let [request-action (resolve-action 'request-agent-local-protection-mode-change)
+        state {:header-ui {:settings-open? true
+                           :settings-confirmation nil}
+               :wallet {:agent {:storage-mode :local
+                                :local-protection-mode :plain}}}]
+    (is (some? request-action))
+    (is (= [[:effects/set-agent-local-protection-mode :passkey]]
+           (when request-action
+             (request-action state :passkey))))
+    (is (= []
+           (when request-action
+             (request-action (assoc-in state [:wallet :agent :storage-mode] :session)
+                             :passkey))))))
+
+(deftest header-settings-passkey-toggle-blocks-locked-downgrade-test
+  (let [request-action (resolve-action 'request-agent-local-protection-mode-change)
+        state {:header-ui {:settings-open? true
+                           :settings-confirmation nil}
+               :wallet {:agent {:status :locked
+                                :storage-mode :local
+                                :local-protection-mode :passkey}}}]
+    (is (some? request-action))
+    (is (= []
+           (when request-action
+             (request-action state :plain))))))
 
 (deftest header-settings-toggle-actions-persist-bound-local-preferences-test
   (let [fill-alerts-action (resolve-action 'set-fill-alerts-enabled)

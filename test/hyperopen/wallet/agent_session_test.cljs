@@ -81,6 +81,33 @@
       (.setItem storage "hyperopen:agent-storage-mode:v1" "unknown")
       (is (= :local (agent-session/load-storage-mode-preference))))))
 
+(deftest device-label-normalization-and-migration-test
+  (with-test-local-storage
+    (fn [storage]
+      (is (= "Hyperopen 72905e"
+             (agent-session/normalize-device-label "  Hyperopen Device 72905e  ")))
+      (is (= "1234567890abcdef"
+             (agent-session/normalize-device-label "1234567890abcdefXYZ")))
+      (.setItem storage "hyperopen:agent-device-label:v1" " Hyperopen Device 72905e ")
+      (is (= "Hyperopen 72905e"
+             (agent-session/load-device-label)))
+      (is (= "Hyperopen 72905e"
+             (.getItem storage "hyperopen:agent-device-label:v1")))
+      (is (true? (agent-session/persist-device-label! "Hyperopen Device 72905e")))
+      (is (= "Hyperopen 72905e"
+             (.getItem storage "hyperopen:agent-device-label:v1")))
+      (is (false? (agent-session/persist-device-label! "    "))))))
+
+(deftest ensure-device-label-generates-and-persists-valid-default-test
+  (with-test-local-storage
+    (fn [storage]
+      (let [label (agent-session/ensure-device-label!)]
+        (is (string? label))
+        (is (= label (.getItem storage "hyperopen:agent-device-label:v1")))
+        (is (= label (agent-session/ensure-device-label!)))
+        (is (<= (count label) 16))
+        (is (re-matches #"Hyperopen [0-9a-z]{5,6}" label))))))
+
 (deftest build-approve-agent-action-adds-protocol-fields-test
   (let [action (agent-session/build-approve-agent-action
                 "0x1234567890abcdef1234567890abcdef12345678"
