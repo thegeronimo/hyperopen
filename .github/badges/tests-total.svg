@@ -1,11 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="28" role="img" aria-label="TESTS: 3,529">
-  <title>TESTS: 3,529</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="28" role="img" aria-label="TESTS: 3,531">
+  <title>TESTS: 3,531</title>
   <g shape-rendering="crispEdges">
     <rect width="62" height="28" fill="#555"/>
     <rect x="62" width="66" height="28" fill="#007ec6"/>
   </g>
   <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="100">
     <text transform="scale(.1)" x="310" y="175">TESTS</text>
-    <text transform="scale(.1)" x="950" y="175" font-weight="bold">3,529</text>
+    <text transform="scale(.1)" x="950" y="175" font-weight="bold">3,531</text>
   </g>
 </svg>
