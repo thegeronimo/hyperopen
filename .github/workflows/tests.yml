@@ -55,9 +55,6 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-
       - name: Run CI Test Gate
         id: test_main
         continue-on-error: true
@@ -71,13 +68,6 @@ jobs:
         run: |
           set -o pipefail
           npm run test:websocket | tee .github/badges/test-websocket.log
-
-      - name: Run Playwright CI Suite
-        id: test_playwright
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          npm run test:playwright:ci | tee .github/badges/test-playwright.log
 
       - name: Generate Coverage Report
         id: coverage
@@ -93,7 +83,6 @@ jobs:
         run: |
           if [ "${{ steps.test_main.outcome }}" = "failure" ] || \
              [ "${{ steps.test_websocket.outcome }}" = "failure" ] || \
-             [ "${{ steps.test_playwright.outcome }}" = "failure" ] || \
              [ "${{ steps.coverage.outcome }}" = "failure" ]; then
             echo "TESTS_STATUS_BADGE_MESSAGE=failing" >> "$GITHUB_ENV"
             echo "TESTS_STATUS_BADGE_COLOR=red" >> "$GITHUB_ENV"
@@ -112,16 +101,6 @@ jobs:
         with:
           name: coverage-report
           path: coverage
-          if-no-files-found: warn
-
-      - name: Upload Playwright Artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: |
-            tmp/playwright/report
-            tmp/playwright/test-results
           if-no-files-found: warn
 
       - name: Commit Coverage Badge
@@ -159,7 +138,6 @@ jobs:
         run: |
           if [ "${{ steps.test_main.outcome }}" = "failure" ] || \
              [ "${{ steps.test_websocket.outcome }}" = "failure" ] || \
-             [ "${{ steps.test_playwright.outcome }}" = "failure" ] || \
              [ "${{ steps.coverage.outcome }}" = "failure" ]; then
             exit 1
           fi

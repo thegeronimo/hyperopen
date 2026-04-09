@@ -10,14 +10,14 @@ source_of_truth: true
 
 ## Purpose
 
-Hyperopen uses two browser-testing tools on purpose. Playwright owns committed deterministic browser tests that should be reviewed, repeated, asserted, and run in CI. Browser MCP, via the browser-inspection subsystem, remains the right tool for exploratory investigation, live browser attach, parity compare, and governed design review.
+Hyperopen uses two browser-testing tools on purpose. Playwright owns committed deterministic browser tests that should be reviewed, repeated, asserted, and run locally or in the dedicated manual GitHub Actions workflow. Browser MCP, via the browser-inspection subsystem, remains the right tool for exploratory investigation, live browser attach, parity compare, and governed design review.
 
 ## Use Playwright For
 
 - any browser verification that should be committed to the repo
 - deterministic smoke tests and regression coverage
 - reusable fixtures, helpers, and assertions
-- CI-safe browser execution
+- CI-safe browser execution in the dedicated manual Playwright workflow
 - multi-viewport browser validation when the flow is stable enough for repeatable assertions
 
 ## Use Browser MCP For
@@ -40,6 +40,7 @@ After Browser MCP exploration stabilizes a flow, convert that stable local path 
 - Run the release-artifact SEO smoke suite against `out/release-public`: `npm run test:playwright:seo`
 - Run Playwright headed with one worker: `npm run test:playwright:headed`
 - Run the full committed Playwright suite, including the release-only SEO smoke: `npm run test:playwright:ci`
+- Run the dedicated GitHub Actions Playwright workflow manually from the `Playwright` workflow in Actions
 - Start the Browser MCP server: `npm run browser:mcp`
 - Stop all tracked browser-inspection sessions: `npm run browser:cleanup`
 - Run governed design review: `npm run qa:design-ui -- --targets trade-route --manage-local-app`
