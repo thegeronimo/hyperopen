@@ -1607,6 +1607,44 @@ test("trading settings confirmation toggles respond to visible switch clicks @re
     });
 });
 
+test("trading settings renders compact tooltip rows without clipping @regression", async ({
+  page
+}) => {
+  await visitRoute(page, "/trade");
+
+  await page.locator('[data-role="header-settings-button"]').click();
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+
+  const settingsSurface = page.locator(
+    '[data-role="trading-settings-panel"]:visible, [data-role="trading-settings-sheet"]:visible'
+  );
+  const desktopPanel = page.locator('[data-role="trading-settings-panel"]:visible');
+  const rememberRow = settingsSurface.locator('[data-role="trading-settings-storage-mode-row"]').first();
+  const openOrdersRow = settingsSurface
+    .locator('[data-role="trading-settings-confirm-open-orders-row"]')
+    .first();
+  const fillMarkersRow = settingsSurface.locator('[data-role="trading-settings-fill-markers-row"]').first();
+
+  if ((await desktopPanel.count()) > 0) {
+    const bounds = await desktopPanel.boundingBox();
+    expect(bounds?.width ?? 0).toBeGreaterThanOrEqual(360);
+  }
+
+  await expect(
+    settingsSurface.locator('[data-role="trading-settings-storage-mode-row-tooltip-trigger"]').first()
+  ).toBeVisible();
+  await expect(
+    settingsSurface.locator('[data-role="trading-settings-confirm-open-orders-row-tooltip-trigger"]').first()
+  ).toBeVisible();
+  await expect(
+    settingsSurface.locator('[data-role="trading-settings-fill-markers-row-tooltip-trigger"]').first()
+  ).toBeVisible();
+  await expect(settingsSurface.locator('[data-role="trading-settings-footer-note"]').first()).toBeVisible();
+  await expect(rememberRow.locator("p")).toHaveCount(0);
+  await expect(openOrdersRow.locator("p")).toHaveCount(0);
+  await expect(fillMarkersRow.locator("p")).toHaveCount(0);
+});
+
 test("trading settings session toggles gate passkey lock behind remembered sessions @regression", async ({
   page
 }) => {

@@ -235,11 +235,12 @@
                  "Session"
                  [(settings-row :storage-mode
                                 "Remember session"
-                                "Keep trading enabled across browser restarts on this device."
+                                nil
                                 remember-session?
                                 :session
                                 [[:actions/request-agent-storage-mode-change
                                   (not remember-session?)]]
+                                :tooltip "Keep trading enabled across browser restarts on this device."
                                 :confirmation (when (= :agent-storage-mode
                                                        (get-in state [:header-ui :settings-confirmation :kind]))
                                                 confirmation))
@@ -262,45 +263,50 @@
                  "Confirmations"
                  [(settings-row :confirm-open-orders
                                 "Confirm open orders"
-                                "Ask before sending a new order from the trade form."
+                                nil
                                 (trading-settings/confirm-open-orders? state)
                                 nil
                                 [[:actions/set-confirm-open-orders-enabled
-                                  (not (trading-settings/confirm-open-orders? state))]])
+                                  (not (trading-settings/confirm-open-orders? state))]]
+                                :tooltip "Ask before sending a new order from the trade form.")
                   (settings-row :confirm-close-position
                                 "Confirm close position"
-                                "Ask before submitting from the close-position popover."
+                                nil
                                 (trading-settings/confirm-close-position? state)
                                 nil
                                 [[:actions/set-confirm-close-position-enabled
-                                  (not (trading-settings/confirm-close-position? state))]])])
+                                  (not (trading-settings/confirm-close-position? state))]]
+                                :tooltip "Ask before submitting from the close-position popover.")])
                 (settings-section
                  :alerts
                  "Alerts"
                  [(settings-row :fill-alerts
                                 "Fill alerts"
-                                "Show fill alerts while Hyperopen is open."
+                                nil
                                 (trading-settings/fill-alerts-enabled? state)
                                 :alerts
                                 [[:actions/set-fill-alerts-enabled
-                                  (not (trading-settings/fill-alerts-enabled? state))]])])
+                                  (not (trading-settings/fill-alerts-enabled? state))]]
+                                :tooltip "Show fill alerts while Hyperopen is open.")])
                 (settings-section
                  :display
                  "Display"
                  [(settings-row :animate-orderbook
                                 "Animate order book"
-                                "Smooth bid and ask depth changes as the book updates."
+                                nil
                                 (trading-settings/animate-orderbook? state)
                                 :animate-orderbook
                                 [[:actions/set-animate-orderbook-enabled
-                                  (not (trading-settings/animate-orderbook? state))]])
+                                  (not (trading-settings/animate-orderbook? state))]]
+                                :tooltip "Smooth bid and ask depth changes as the book updates.")
                   (settings-row :fill-markers
                                 "Fill markers"
-                                "Show buy and sell markers for the active asset on the chart."
+                                nil
                                 (trading-settings/show-fill-markers? state)
                                 :fill-markers
                                 [[:actions/set-fill-markers-enabled
-                                  (not (trading-settings/show-fill-markers? state))]])])]}))
+                                  (not (trading-settings/show-fill-markers? state))]]
+                                :tooltip "Show buy and sell markers for the active asset on the chart.")])]}))
 
 (defn header-vm
   [state]

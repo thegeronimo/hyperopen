@@ -81,15 +81,22 @@
                    "align-middle"]}
      [:button {:type "button"
                :class ["inline-flex"
-                       "h-4"
-                       "w-4"
+                       "h-4.5"
+                       "w-4.5"
                        "items-center"
                        "justify-center"
                        "rounded-full"
-                       "text-[#7f9198]"
-                       "transition-colors"
-                       "hover:text-[#c8d5d6]"
+                       "border"
+                       "border-transparent"
+                       "text-[#73868e]"
+                       "transition-all"
+                       "duration-150"
+                       "hover:border-[#355058]"
+                       "hover:bg-[#182429]"
+                       "hover:text-[#d2e0e1]"
                        "focus-visible:outline-none"
+                       "focus-visible:border-[#4ebdae]/55"
+                       "focus-visible:bg-[#18292c]"
                        "focus-visible:text-[#dff2ef]"]
                :aria-label title
                :data-role (str data-role "-tooltip-trigger")}
@@ -203,15 +210,20 @@
 
 (defn- trading-settings-row
   [{:keys [aria-label checked? confirmation data-role disabled? helper-copy icon-kind on-change title tooltip]}]
-  (let [has-icon? (some? icon-kind)]
-    [:div {:class ["py-3"]
+  (let [has-helper-copy? (seq helper-copy)
+        has-icon? (some? icon-kind)]
+    [:div {:class ["py-3.5"]
            :data-role data-role}
-     [:div {:class (into ["flex" "items-start" (if has-icon? "gap-3" "gap-0")]
+     [:div {:class (into ["flex"
+                          (if has-helper-copy? "items-start" "items-center")
+                          (if has-icon? "gap-3.5" "gap-0")]
                          (when disabled?
                            ["opacity-60"]))}
       (trading-settings-icon-shell (str data-role "-icon") icon-kind checked?)
-      [:div {:class ["min-w-0" "flex-1" "space-y-1"]}
-       [:div {:class ["flex" "items-center" "gap-1.5"]}
+      [:div {:class (into ["min-w-0" "flex-1"]
+                          (when has-helper-copy?
+                            ["space-y-1.5"]))}
+       [:div {:class ["flex" "items-center" "gap-1.5" "pr-2"]}
         [:div {:class ["text-[0.88rem]"
                        "font-semibold"
                        "leading-5"
@@ -221,13 +233,16 @@
         (row-tooltip {:title (str title " details")
                       :body tooltip
                       :data-role data-role})]
-       (when (seq helper-copy)
+       (when has-helper-copy?
          [:p {:class ["max-w-[16rem]"
                       "text-[0.72rem]"
                       "leading-[1.5]"
                       "text-[#8f9aa2]"]}
           helper-copy])]
-      [:div {:class ["flex" "shrink-0" "items-start" "pt-0.5"]}
+      [:div {:class (into ["flex" "shrink-0"]
+                          (if has-helper-copy?
+                            ["items-start" "pt-0.5"]
+                            ["items-center"]))}
        (trading-settings-toggle {:aria-label aria-label
                                  :checked? checked?
                                  :disabled? disabled?
@@ -299,7 +314,7 @@
                :on {:click close-actions}}
       (icons/close-icon {:class ["h-4.5" "w-4.5"]})]]
     [:div {:class ["mt-3" "h-px" "bg-[#2c3439]"]}]]
-   [:div {:class ["overflow-y-auto" "px-4" "pb-3" "pt-2"]}
+   [:div {:class ["overflow-y-auto" "overscroll-contain" "px-4" "pb-4" "pt-2.5"]}
     [:div {:class ["space-y-0"]}
      (for [{:keys [id] :as section} sections]
        ^{:key (str "settings-section:" (name id))}
@@ -358,11 +373,11 @@
                         "z-[285]"
                         "mt-2"
                         "hidden"
-                        "w-[328px]"
-                        "max-h-[70vh]"
-                        "max-w-[calc(100vw-1.5rem)]"
+                        "w-[368px]"
+                        "max-h-[min(calc(100vh-5.5rem),46rem)]"
+                        "max-w-[calc(100vw-1rem)]"
                         "overflow-visible"
-                        "rounded-[15px]"
+                        "rounded-[16px]"
                         "border"
                         "border-[#384046]"
                         "bg-[#132026]"
@@ -388,7 +403,7 @@
                         "inset-x-3"
                         "bottom-3"
                         "z-[285]"
-                        "max-h-[76vh]"
+                        "max-h-[min(calc(100svh-1.5rem),44rem)]"
                         "overflow-visible"
                         "rounded-[16px]"
                         "border"
