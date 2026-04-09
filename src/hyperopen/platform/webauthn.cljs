@@ -7,6 +7,14 @@
 (def ^:private default-timeout-ms
   60000)
 
+(def ^:private default-pub-key-cred-params
+  ;; Match Chromium's default ES256 + RS256 set so Windows platform
+  ;; authenticators remain eligible and Chrome stops warning.
+  [{:type "public-key"
+    :alg -7}
+   {:type "public-key"
+    :alg -257}])
+
 (defn- secure-context?
   []
   (true? (some-> js/globalThis .-isSecureContext)))
@@ -138,8 +146,7 @@
                    :user {:id user-id
                           :name (or user-name "hyperopen")
                           :displayName (or display-name "Hyperopen Trading Unlock")}
-                   :pubKeyCredParams [{:type "public-key"
-                                       :alg -7}]
+                   :pubKeyCredParams default-pub-key-cred-params
                    :authenticatorSelection {:residentKey "preferred"
                                             :userVerification "required"}
                    :attestation "none"

@@ -142,6 +142,7 @@
             [hyperopen.orderbook.settings-test]
             [hyperopen.platform-test]
             [hyperopen.platform.indexed-db-test]
+            [hyperopen.platform.webauthn-test]
             [hyperopen.portfolio.actions-test]
             [hyperopen.portfolio.application.metrics-bridge-test]
             [hyperopen.portfolio.metrics.builder-test]
@@ -596,6 +597,7 @@
              'hyperopen.orderbook.settings-test
              'hyperopen.platform-test
              'hyperopen.platform.indexed-db-test
+             'hyperopen.platform.webauthn-test
              'hyperopen.portfolio.actions-test
              'hyperopen.portfolio.application.metrics-bridge-test
              'hyperopen.portfolio.metrics.builder-test
