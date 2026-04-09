@@ -525,6 +525,29 @@
            (get save-many-path-values [:wallet :agent :error])))
     (is (true? (get save-many-path-values [:wallet :agent :recovery-modal-open?])))))
 
+(deftest submit-order-locked-agent-dispatches-unlock-trading-test
+  (let [state {:active-asset "BTC"
+               :active-market {:coin "BTC" :market-type :perp}
+               :asset-contexts {:BTC {:idx 0}}
+               :wallet {:connected? true
+                        :address "0xabc"
+                        :agent {:status :locked
+                                :storage-mode :local
+                                :local-protection-mode :passkey}}
+               :orderbooks {"BTC" {:bids [{:px "99"}]
+                                   :asks [{:px "101"}]}}
+               :order-form (assoc (trading/default-order-form)
+                                  :type :limit
+                                  :side :buy
+                                  :size "1"
+                                  :price "100")}
+        effects (core/submit-order state)]
+    (is (= [[:effects/save-many [[[:order-form-runtime :error] nil]
+                                 [[:wallet :agent :status] :unlocking]
+                                 [[:wallet :agent :error] nil]]]
+            [:effects/unlock-agent-trading]]
+           effects))))
+
 (deftest submit-order-blocks-mutations-while-spectate-mode-active-test
   (let [state {:active-asset "BTC"
                :active-market {:coin "BTC" :market-type :perp}

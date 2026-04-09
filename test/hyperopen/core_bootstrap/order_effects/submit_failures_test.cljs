@@ -404,6 +404,29 @@
     (is (true? (get-in @store [:wallet :agent :recovery-modal-open?])))
     (is (nil? (get-in @store [:ui :toast])))))
 
+(deftest api-submit-order-effect-dispatches-unlock-when-agent-is-locked-locally-test
+  (let [store (atom {:wallet {:address "0xabc"
+                              :agent {:status :locked}}
+                     :order-form-runtime {:submitting? false
+                                          :error "old-error"}
+                     :ui {:toast nil}})
+        dispatched (atom [])]
+    (order-effects/api-submit-order {:dispatch! (fn [_store _evt actions]
+                                                  (swap! dispatched conj actions))
+                                     :exchange-response-error support/test-exchange-response-error
+                                     :runtime-error-message support/test-runtime-error-message
+                                     :show-toast! support/test-show-toast!}
+                                    nil
+                                    store
+                                    {:action {:type "order"
+                                              :orders []
+                                              :grouping "na"}})
+    (is (false? (get-in @store [:order-form-runtime :submitting?])))
+    (is (nil? (get-in @store [:order-form-runtime :error])))
+    (is (= [[[:actions/unlock-agent-trading]]]
+           @dispatched))
+    (is (nil? (get-in @store [:ui :toast])))))
+
 (deftest api-submit-order-effect-handles-runtime-rejections-test
   (async done
     (let [store (atom (support/base-submit-order-store))

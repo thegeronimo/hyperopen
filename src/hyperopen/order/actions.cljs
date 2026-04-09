@@ -232,6 +232,13 @@
     :unlocking "Awaiting passkey before submitting orders."
     submit-message))
 
+(defn- locked-submit-effects
+  []
+  [[:effects/save-many [[[:order-form-runtime :error] nil]
+                        [[:wallet :agent :status] :unlocking]
+                        [[:wallet :agent :error] nil]]]
+   [:effects/unlock-agent-trading]])
+
 (def ^:private confirm-open-order-message
   "Submit this order?\n\nDisable open-order confirmation in Trading settings if you prefer one-click submits.")
 
@@ -286,8 +293,9 @@
       (= :agent-not-ready reason)
       (if (= :ready agent-status)
         []
-        (if (#{:locked :unlocking} agent-status)
-          [[:effects/save [:order-form-runtime :error] error-message]]
+        (case agent-status
+          :locked (locked-submit-effects)
+          :unlocking [[:effects/save [:order-form-runtime :error] error-message]]
           (open-enable-trading-recovery-effects error-message)))
 
       reason

@@ -414,6 +414,18 @@ async function installPasskeyLockboxMock(page) {
   });
 }
 
+async function installPasskeyUnlockMock(page) {
+  await page.evaluate(() => {
+    const lockbox = globalThis.hyperopen?.wallet?.agent_lockbox;
+
+    if (!lockbox) {
+      throw new Error("Hyperopen passkey lockbox namespace unavailable");
+    }
+
+    lockbox.unlock_locked_session_BANG_ = () => Promise.resolve(true);
+  });
+}
+
 test("asset selector opens and selects ETH @regression", async ({ page }) => {
   await visitRoute(page, "/trade");
 
@@ -1750,4 +1762,40 @@ test("locked remembered passkey session disables downgrade until unlock @regress
       { timeout: 4_000 }
     )
     .toBe("passkey");
+});
+
+test("locked remembered passkey session submit triggers unlock flow instead of recovery @regression", async ({
+  page
+}) => {
+  await visitRoute(page, "/trade");
+  await installPasskeyUnlockMock(page);
+  await seedRememberedTradingSession(page, {
+    status: "locked",
+    localProtectionMode: "passkey",
+    passkeySupported: true
+  });
+
+  await dispatch(page, [":actions/select-order-entry-mode", ":limit"]);
+  await waitForIdle(page, { quietMs: 100, timeoutMs: 2_000, pollMs: 50 });
+  await dispatch(page, [":actions/set-order-size-input-mode", ":base"]);
+  await waitForIdle(page, { quietMs: 100, timeoutMs: 2_000, pollMs: 50 });
+  await dispatch(page, [":actions/update-order-form", [":price"], "100"]);
+  await waitForIdle(page, { quietMs: 100, timeoutMs: 2_000, pollMs: 50 });
+  await dispatch(page, [":actions/set-order-size-display", "1"]);
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+  await page.locator('[data-parity-id="trade-submit-order-button"]').click();
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 4_000, pollMs: 50 });
+
+  await expectOracle(page, "wallet-status", {
+    connected: true,
+    agentStatus: "ready",
+    agentError: null
+  });
+  await expectOracle(page, "agent-trading-recovery", {
+    open: false
+  });
+  await expectOracle(page, "order-form", {
+    runtimeError: null
+  });
+  await expect(page.locator('[data-role="order-submit-confirmation-dialog"]')).toHaveCount(0);
 });

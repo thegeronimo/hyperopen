@@ -406,6 +406,13 @@
    (cond-> (open-enable-trading-recovery state)
      (seq error-text) (assoc-in [:wallet :agent :error] error-text))))
 
+(defn- dispatch-unlock-agent-trading!
+  [dispatch! store]
+  (when (fn? dispatch!)
+    (swap! store update-order-submit-runtime nil)
+    (dispatch! store nil [[:actions/unlock-agent-trading]])
+    true))
+
 (defn- trading-readiness-message
   [agent-status base-message unlock-message waiting-message]
   (case agent-status
@@ -454,10 +461,17 @@
                        "Enable trading before submitting orders."
                        "Unlock trading before submitting orders."
                        "Awaiting passkey before submitting orders.")]
-          (if (#{:locked :unlocking} agent-status)
+          (case agent-status
+            :locked
+            (when-not (dispatch-unlock-agent-trading! dispatch! store)
+              (swap! store assoc-in [:order-form-runtime :error] message)
+              (show-toast! store :error message))
+
+            :unlocking
             (do
               (swap! store assoc-in [:order-form-runtime :error] message)
               (show-toast! store :error message))
+
             (swap! store open-enable-trading-recovery message)))
         (do
           (swap! store assoc-in [:order-form-runtime :submitting?] true)
