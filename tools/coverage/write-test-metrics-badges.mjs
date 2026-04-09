@@ -13,6 +13,8 @@ const TESTS_STATUS_BADGE_JSON_PATH =
   process.env.TESTS_STATUS_BADGE_JSON_PATH ?? ".github/badges/tests-status.json";
 const TESTS_STATUS_BADGE_SVG_PATH =
   process.env.TESTS_STATUS_BADGE_SVG_PATH ?? ".github/badges/tests-status.svg";
+const TESTS_STATUS_BADGE_MESSAGE = process.env.TESTS_STATUS_BADGE_MESSAGE;
+const TESTS_STATUS_BADGE_COLOR = process.env.TESTS_STATUS_BADGE_COLOR;
 const ASSERTIONS_BADGE_JSON_PATH =
   process.env.ASSERTIONS_BADGE_JSON_PATH ?? ".github/badges/assertions-total.json";
 const ASSERTIONS_BADGE_SVG_PATH =
@@ -177,18 +179,40 @@ async function buildBadgePayloads() {
   }
 }
 
+function applyStatusOverride(payload) {
+  if (
+    typeof TESTS_STATUS_BADGE_MESSAGE !== "string" ||
+    TESTS_STATUS_BADGE_MESSAGE.length === 0
+  ) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    message: TESTS_STATUS_BADGE_MESSAGE,
+    color:
+      typeof TESTS_STATUS_BADGE_COLOR === "string" &&
+      TESTS_STATUS_BADGE_COLOR.length > 0
+        ? TESTS_STATUS_BADGE_COLOR
+        : payload.color,
+  };
+}
+
 async function main() {
   const {
     testsStatusBadgePayload,
     testsBadgePayload,
     assertionsBadgePayload,
   } = await buildBadgePayloads();
+  const nextTestsStatusBadgePayload = applyStatusOverride(
+    testsStatusBadgePayload,
+  );
 
   await Promise.all([
     writeBadge(
       TESTS_STATUS_BADGE_JSON_PATH,
       TESTS_STATUS_BADGE_SVG_PATH,
-      testsStatusBadgePayload,
+      nextTestsStatusBadgePayload,
     ),
     writeBadge(TESTS_BADGE_JSON_PATH, TESTS_BADGE_SVG_PATH, testsBadgePayload),
     writeBadge(
@@ -199,7 +223,7 @@ async function main() {
   ]);
 
   console.log(
-    `Wrote test metric badges (status=${testsStatusBadgePayload.message}, tests=${testsBadgePayload.message}, assertions=${assertionsBadgePayload.message}).`,
+    `Wrote test metric badges (status=${nextTestsStatusBadgePayload.message}, tests=${testsBadgePayload.message}, assertions=${assertionsBadgePayload.message}).`,
   );
 }
 
