@@ -8,8 +8,8 @@
   {:fill-alerts-enabled? true
    :animate-orderbook? true
    :show-fill-markers? false
-   :confirm-open-orders? true
-   :confirm-close-position? true})
+   :confirm-open-orders? false
+   :confirm-close-position? false})
 
 (defn normalize-state
   [value]
@@ -17,8 +17,8 @@
     {:fill-alerts-enabled? (not (false? (:fill-alerts-enabled? settings)))
      :animate-orderbook? (not (false? (:animate-orderbook? settings)))
      :show-fill-markers? (true? (:show-fill-markers? settings))
-     :confirm-open-orders? (not (false? (:confirm-open-orders? settings)))
-     :confirm-close-position? (not (false? (:confirm-close-position? settings)))}))
+     :confirm-open-orders? (true? (:confirm-open-orders? settings))
+     :confirm-close-position? (true? (:confirm-close-position? settings))}))
 
 (defn restore-state
   []
