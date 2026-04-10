@@ -17,6 +17,7 @@ export const DOCUMENT_REFERRER_POLICY = "strict-origin-when-cross-origin";
 
 const DOCUMENT_CONNECT_SRC = [
   "'self'",
+  "https://cloudflareinsights.com",
   "https://api.hyperliquid.xyz",
   "wss://api.hyperliquid.xyz",
   "https://stats-data.hyperliquid.xyz",
@@ -74,9 +75,9 @@ export function buildContentSecurityPolicy() {
   appendDirective(directives, "base-uri", ["'self'"]);
   appendDirective(directives, "form-action", ["'self'"]);
   appendDirective(directives, "object-src", ["'none'"]);
-  appendDirective(directives, "script-src", ["'self'"]);
+  appendDirective(directives, "script-src", ["'self'", "https://static.cloudflareinsights.com"]);
   appendDirective(directives, "style-src", ["'self'", "'unsafe-inline'"]);
-  appendDirective(directives, "style-src-elem", ["'self'"]);
+  appendDirective(directives, "style-src-elem", ["'self'", "'unsafe-inline'"]);
   appendDirective(directives, "style-src-attr", ["'unsafe-inline'"]);
   appendDirective(directives, "font-src", ["'self'", "data:"]);
   appendDirective(directives, "img-src", DOCUMENT_IMG_SRC);
