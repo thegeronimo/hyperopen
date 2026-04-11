@@ -55,6 +55,10 @@
     [:sl :trigger]
     [:sl :limit]})
 
+(def ^:private tpsl-offset-input-path->leg
+  {[:tp :offset-input] :tp
+   [:sl :offset-input] :sl})
+
 (defn- normalize-localized-numeric-input
   [state value]
   (if (string? value)
@@ -571,92 +575,106 @@
           :order-form-ui next-ui
           :order-form-runtime (cleared-runtime-state state)})))))
 
+(defn- normalized-order-form-update-value
+  [state path value]
+  (let [canonical-value (if (contains? localized-numeric-order-form-paths path)
+                          (normalize-localized-numeric-input state value)
+                          value)]
+    (cond
+      (= path [:type]) (:value (trading/order-type-value value))
+      (= path [:side]) (:value (trading/side-value value))
+      (= path [:tif]) (:value (trading/tif-value value))
+      (= path [:tpsl :unit]) (tpsl-policy/normalize-unit value)
+      :else canonical-value)))
+(defn- resolve-order-form-update
+  [state form path value]
+  (let [offset-leg (get tpsl-offset-input-path->leg path)
+        resolved-path (if offset-leg
+                        [offset-leg :trigger]
+                        path)
+        resolved-value (if offset-leg
+                         (resolve-tpsl-trigger-from-offset-input state form offset-leg value)
+                         value)]
+    {:offset-leg offset-leg
+     :path resolved-path
+     :raw-input (str (or value ""))
+     :value (normalized-order-form-update-value state resolved-path resolved-value)}))
+(defn- apply-order-form-update-value
+  [form {:keys [offset-leg path raw-input value]}]
+  (cond-> (assoc-in form path value)
+    offset-leg (assoc-in [offset-leg :offset-input] raw-input)
+    (and (= path [:tp :trigger])
+         (not= offset-leg :tp)) (assoc-in [:tp :offset-input] "")
+    (and (= path [:sl :trigger])
+         (not= offset-leg :sl)) (assoc-in [:sl :offset-input] "")
+    (= path [:tpsl :unit]) (assoc-in [:tp :offset-input] "")
+    (= path [:tpsl :unit]) (assoc-in [:sl :offset-input] "")))
+(defn- apply-order-form-path-effects
+  [state form {:keys [path value]}]
+  (cond
+    (= path [:type])
+    (let [typed (-> form
+                    (update :type trading/normalize-order-type)
+                    (assoc :entry-mode (trading/entry-mode-for-type (:type form))))
+          normalized (trading/normalize-order-form state typed)]
+      (reconcile-size-after-context-change state normalized))
+
+    (= path [:size])
+    (-> (trading/sync-size-percent-from-size state form)
+        (assoc :size-input-source :manual))
+
+    (or (= path [:price]) (= path [:side]))
+    (reconcile-size-after-context-change state form)
+
+    (= path [:reduce-only])
+    (cond-> form
+      value disable-tpsl-legs)
+
+    (= path [:tp :trigger])
+    (apply-tpsl-trigger form :tp value)
+
+    (= path [:sl :trigger])
+    (apply-tpsl-trigger form :sl value)
+
+    :else
+    form))
+
+(defn- update-order-form-ui-state
+  [state form {:keys [path value]}]
+  (let [ui-state (trading/order-form-ui-state state)]
+    (cond
+      (= path [:tif])
+      (trading/effective-order-form-ui
+       form
+       (assoc ui-state :tif-dropdown-open? false))
+
+      (= path [:tpsl :unit])
+      (trading/effective-order-form-ui
+       form
+       (assoc ui-state :tpsl-unit-dropdown-open? false))
+
+      (and (= path [:reduce-only])
+           (true? value))
+      (trading/effective-order-form-ui
+       form
+       (assoc ui-state
+              :tpsl-panel-open? false
+              :tpsl-unit-dropdown-open? false))
+
+      :else
+      nil)))
+
 (defn update-order-form [state path value]
   (if (ui-only-form-path? path)
     (enforce-field-ownership
      state
      {:order-form-runtime (cleared-runtime-state state)})
     (let [form (trading/order-form-draft state)
-          tp-offset-input? (= path [:tp :offset-input])
-          sl-offset-input? (= path [:sl :offset-input])
-          raw-input (str (or value ""))
-          resolved-path (case path
-                          [:tp :offset-input] [:tp :trigger]
-                          [:sl :offset-input] [:sl :trigger]
-                          path)
-          resolved-value (case path
-                           [:tp :offset-input] (resolve-tpsl-trigger-from-offset-input state form :tp value)
-                           [:sl :offset-input] (resolve-tpsl-trigger-from-offset-input state form :sl value)
-                           value)
-          canonical-value (if (contains? localized-numeric-order-form-paths resolved-path)
-                            (normalize-localized-numeric-input state resolved-value)
-                            resolved-value)
-          normalized-value (cond
-                             (= resolved-path [:type]) (:value (trading/order-type-value resolved-value))
-                             (= resolved-path [:side]) (:value (trading/side-value resolved-value))
-                             (= resolved-path [:tif]) (:value (trading/tif-value resolved-value))
-                             (= resolved-path [:tpsl :unit]) (tpsl-policy/normalize-unit resolved-value)
-                             :else canonical-value)
-          updated (cond-> (assoc-in form resolved-path normalized-value)
-                    tp-offset-input? (assoc-in [:tp :offset-input] raw-input)
-                    sl-offset-input? (assoc-in [:sl :offset-input] raw-input)
-                    (and (= resolved-path [:tp :trigger])
-                         (not tp-offset-input?)) (assoc-in [:tp :offset-input] "")
-                    (and (= resolved-path [:sl :trigger])
-                         (not sl-offset-input?)) (assoc-in [:sl :offset-input] "")
-                    (= resolved-path [:tpsl :unit]) (assoc-in [:tp :offset-input] "")
-                    (= resolved-path [:tpsl :unit]) (assoc-in [:sl :offset-input] ""))
-          next-form (cond
-                      (= resolved-path [:type])
-                      (let [typed (-> updated
-                                      (update :type trading/normalize-order-type)
-                                      (assoc :entry-mode (trading/entry-mode-for-type (:type updated))))
-                            normalized (trading/normalize-order-form state typed)]
-                        (reconcile-size-after-context-change state normalized))
-
-                      (= resolved-path [:size])
-                      (-> (trading/sync-size-percent-from-size state updated)
-                          (assoc :size-input-source :manual))
-
-                      (or (= resolved-path [:price]) (= resolved-path [:side]))
-                      (reconcile-size-after-context-change state updated)
-
-                      (= resolved-path [:reduce-only])
-                      (cond-> updated
-                        normalized-value disable-tpsl-legs)
-
-                      (= resolved-path [:tp :trigger])
-                      (apply-tpsl-trigger updated :tp normalized-value)
-
-                      (= resolved-path [:sl :trigger])
-                      (apply-tpsl-trigger updated :sl normalized-value)
-
-                      :else
-                      updated)
+          update-spec (resolve-order-form-update state form path value)
+          updated (apply-order-form-update-value form update-spec)
+          next-form (apply-order-form-path-effects state updated update-spec)
           backfilled-form (backfill-tpsl-triggers-from-offset-inputs state next-form)
-          next-ui (cond
-                    (= resolved-path [:tif])
-                    (trading/effective-order-form-ui
-                     backfilled-form
-                     (assoc (trading/order-form-ui-state state)
-                            :tif-dropdown-open? false))
-
-                    (= resolved-path [:tpsl :unit])
-                    (trading/effective-order-form-ui
-                     backfilled-form
-                     (assoc (trading/order-form-ui-state state)
-                            :tpsl-unit-dropdown-open? false))
-
-                    (and (= resolved-path [:reduce-only])
-                         (true? normalized-value))
-                    (trading/effective-order-form-ui
-                     backfilled-form
-                     (assoc (trading/order-form-ui-state state)
-                            :tpsl-panel-open? false
-                            :tpsl-unit-dropdown-open? false))
-
-                    :else
-                    nil)]
+          next-ui (update-order-form-ui-state state backfilled-form update-spec)]
       (enforce-field-ownership
        state
        (cond-> {:order-form backfilled-form

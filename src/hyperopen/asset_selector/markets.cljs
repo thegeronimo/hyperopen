@@ -399,81 +399,97 @@
                           margin-mode (assoc :margin-mode margin-mode))))))))
          vec)))
 
+(defn- build-spot-token-info-by-key
+  [tokens-list]
+  (reduce (fn [acc {:keys [index tokenId] :as token}]
+            (cond-> acc
+              (some? index) (assoc index token)
+              (some? index) (assoc (str index) token)
+              (some? tokenId) (assoc tokenId token)))
+          {}
+          tokens-list))
+
+(defn- token-list-entry
+  [tokens-list idx]
+  (cond
+    (and (number? idx)
+         (<= 0 idx)
+         (< idx (count tokens-list)))
+    (nth tokens-list idx)
+
+    (and (string? idx)
+         (re-matches #"\d+" idx))
+    (let [n (js/parseInt idx 10)]
+      (when (and (<= 0 n)
+                 (< n (count tokens-list)))
+        (nth tokens-list n)))
+
+    :else nil))
+
+(defn- token-field-value
+  [token-info-by-key tokens-list idx field]
+  (or (some-> (get token-info-by-key idx) field)
+      (some-> (token-list-entry tokens-list idx) field)))
+
+(defn- spot-market-stats
+  [ctx]
+  (let [mark-raw (:markPx ctx)
+        prev-raw (:prevDayPx ctx)
+        mark (safe-num mark-raw)
+        prev (safe-num prev-raw)]
+    {:mark mark
+     :mark-raw mark-raw
+     :prev-raw prev-raw
+     :change (- mark prev)
+     :change-pct (pct-change mark prev)
+     :volume (safe-num (:dayNtlVlm ctx))}))
+
+(defn- build-spot-market-entry
+  [ctxs tokens-list token-info-by-key entry]
+  (let [coin (:name entry)
+        idx (:index entry)
+        tokens (:tokens entry)
+        ctx (nth ctxs idx nil)]
+    (when (and coin ctx)
+      (let [[base-idx quote-idx] (if (sequential? tokens)
+                                   [(first tokens) (second tokens)]
+                                   [nil nil])
+            parsed (parse-spot-name coin)
+            base (or (token-field-value token-info-by-key tokens-list base-idx :name)
+                     (:base parsed))
+            quote (or (token-field-value token-info-by-key tokens-list quote-idx :name)
+                      (:quote parsed))
+            symbol (if (and base quote) (str base "/" quote) coin)
+            {:keys [mark mark-raw prev-raw change change-pct volume]}
+            (spot-market-stats ctx)]
+        (classify-market
+         {:key (str "spot:" coin)
+          :coin coin
+          :symbol symbol
+          :base base
+          :quote quote
+          :market-type :spot
+          :dex nil
+          :stable-pair? (stable-pair? base quote)
+          :idx idx
+          :asset-id idx
+          :mark mark
+          :markRaw mark-raw
+          :volume24h volume
+          :change24h change
+          :change24hPct change-pct
+          :prevDayRaw prev-raw
+          :szDecimals (token-field-value token-info-by-key tokens-list base-idx :szDecimals)
+          :openInterest nil
+          :fundingRate nil
+          :maxLeverage nil})))))
+
 (defn build-spot-markets
   "Build normalized spot market entries from spotMeta and spotAssetCtxs." 
   [spot-meta spot-asset-ctxs]
-  (let [universe (:universe spot-meta)
-        tokens-list (vec (:tokens spot-meta))
-        token-info-by-index (reduce (fn [acc {:keys [index tokenId] :as token}]
-                                 (cond-> acc
-                                   (some? index) (assoc index token)
-                                   (some? index) (assoc (str index) token)
-                                   (some? tokenId) (assoc tokenId token)))
-                               {}
-                               tokens-list)
-        token-by-index (into {}
-                             (map (fn [[k {:keys [name]}]] [k name]))
-                             token-info-by-index)
-        token-name (fn [idx]
-                     (or (get token-by-index idx)
-                         (when (and (number? idx)
-                                    (<= 0 idx)
-                                    (< idx (count tokens-list)))
-                           (:name (nth tokens-list idx)))
-                         (when (and (string? idx) (re-matches #"\d+" idx))
-                           (let [n (js/parseInt idx)]
-                             (when (and (<= 0 n) (< n (count tokens-list)))
-                               (:name (nth tokens-list n)))))))
-        token-sz-decimals (fn [idx]
-                            (or (some-> (get token-info-by-index idx) :szDecimals)
-                                (when (and (number? idx)
-                                           (<= 0 idx)
-                                           (< idx (count tokens-list)))
-                                  (:szDecimals (nth tokens-list idx)))
-                                (when (and (string? idx) (re-matches #"\d+" idx))
-                                  (let [n (js/parseInt idx)]
-                                    (when (and (<= 0 n) (< n (count tokens-list)))
-                                      (:szDecimals (nth tokens-list n)))))))
+  (let [tokens-list (vec (:tokens spot-meta))
+        token-info-by-key (build-spot-token-info-by-key tokens-list)
         ctxs (vec (or spot-asset-ctxs []))]
-    (->> (or universe [])
-         (keep (fn [entry]
-                 (let [coin (:name entry)
-                       idx (:index entry)
-                       tokens (:tokens entry)
-                       base-idx (when (sequential? tokens) (first tokens))
-                       quote-idx (when (sequential? tokens) (second tokens))
-                       ctx (nth ctxs idx nil)]
-                   (when (and coin ctx)
-                     (let [parsed (parse-spot-name coin)
-                           base (or (token-name base-idx) (:base parsed))
-                           quote (or (token-name quote-idx) (:quote parsed))
-                           symbol (if (and base quote) (str base "/" quote) coin)
-                           mark-raw (:markPx ctx)
-                           prev-raw (:prevDayPx ctx)
-                           mark (safe-num mark-raw)
-                           prev (safe-num prev-raw)
-                           change (- mark prev)
-                           change-pct (pct-change mark prev)
-                           volume (safe-num (:dayNtlVlm ctx))
-                           market {:key (str "spot:" coin)
-                                   :coin coin
-                                   :symbol symbol
-                                   :base base
-                                   :quote quote
-                                   :market-type :spot
-                                   :dex nil
-                                   :stable-pair? (stable-pair? base quote)
-                                   :idx idx
-                                   :asset-id idx
-                                   :mark mark
-                                   :markRaw mark-raw
-                                   :volume24h volume
-                                   :change24h change
-                                   :change24hPct change-pct
-                                   :prevDayRaw prev-raw
-                                   :szDecimals (token-sz-decimals base-idx)
-                                   :openInterest nil
-                                   :fundingRate nil
-                                   :maxLeverage nil}]
-                       (classify-market market))))))
+    (->> (or (:universe spot-meta) [])
+         (keep #(build-spot-market-entry ctxs tokens-list token-info-by-key %))
          vec)))

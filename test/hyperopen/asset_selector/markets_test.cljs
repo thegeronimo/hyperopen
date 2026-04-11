@@ -78,6 +78,18 @@
       (is (= "USDT/USDC" (:symbol stable-market)))
       (is (true? (:stable-pair? stable-market))))))
 
+(deftest build-spot-markets-token-id-lookup-test
+  (let [spot-meta {:tokens [{:index 0 :tokenId 100 :name "USDC" :szDecimals 6}
+                            {:index 1 :tokenId 101 :name "ABC" :szDecimals 2}]
+                   :universe [{:name "@500" :index 0 :tokens [101 100]}]}
+        spot-ctxs [{:markPx "1.5" :prevDayPx "1.0" :dayNtlVlm "10"}]
+        market (first (markets/build-spot-markets spot-meta spot-ctxs))]
+    (is (= "@500" (:coin market)))
+    (is (= "ABC/USDC" (:symbol market)))
+    (is (= "ABC" (:base market)))
+    (is (= "USDC" (:quote market)))
+    (is (= 2 (:szDecimals market)))))
+
 (deftest classify-market-test
   (testing "classify-market assigns crypto/tradfi/hip3"
     (let [default (markets/classify-market {:market-type :perp :dex nil :openInterest 5000000})

@@ -11,6 +11,11 @@
 (def validator-page-size
   25)
 
+(def ^:private staking-tabs
+  [{:value :validator-performance :label "Validator Performance"}
+   {:value :staking-reward-history :label "Staking Reward History"}
+   {:value :staking-action-history :label "Staking Action History"}])
+
 (defn- finite-number?
   [value]
   (and (number? value)
@@ -187,38 +192,49 @@
                     :else nil)))))
         (get-in state [:spot :clearinghouse-state :balances])))
 
-(defn staking-vm
+(defn- requested-validator-page
   [state]
-  (let [active-tab (staking-actions/normalize-staking-tab
-                    (get-in state [:staking-ui :active-tab]))
-        timeframe (staking-actions/normalize-staking-validator-timeframe
-                   (get-in state [:staking-ui :validator-timeframe]))
-        timeframe-dropdown-open? (true? (get-in state [:staking-ui :validator-timeframe-dropdown-open?]))
-        validator-sort (staking-actions/normalize-staking-validator-sort
-                        (get-in state [:staking-ui :validator-sort]))
-        popover-state (or (get-in state [:staking-ui :action-popover]) {})
+  (or (some-> (get-in state [:staking-ui :validator-page])
+              optional-number
+              js/Math.floor
+              int)
+      0))
+
+(defn- selected-validator
+  [state]
+  (or (normalize-validator-address (get-in state [:staking-ui :selected-validator]))
+      (normalize-validator-address (get-in state [:staking :delegations 0 :validator]))
+      ""))
+
+(defn- normalized-staking-ui-state
+  [state]
+  (let [popover-state (or (get-in state [:staking-ui :action-popover]) {})
         popover-kind (staking-actions/normalize-staking-action-popover-kind
-                      (:kind popover-state))
-        popover-open? (and (true? (:open? popover-state))
-                           (some? popover-kind))
-        transfer-direction (staking-actions/normalize-staking-transfer-direction
-                            (get-in state [:staking-ui :transfer-direction]))
-        validator-summaries (or (get-in state [:staking :validator-summaries]) [])
-        delegator-summary (or (get-in state [:staking :delegator-summary]) {})
-        delegations (or (get-in state [:staking :delegations]) [])
-        rewards (or (get-in state [:staking :rewards]) [])
-        history (or (get-in state [:staking :history]) [])
-        validators-all (validators-vm validator-summaries delegations timeframe validator-sort)
-        validators-total-count (count validators-all)
-        validator-show-all? (true? (get-in state [:staking-ui :validator-show-all?]))
+                      (:kind popover-state))]
+    {:active-tab (staking-actions/normalize-staking-tab
+                  (get-in state [:staking-ui :active-tab]))
+     :timeframe (staking-actions/normalize-staking-validator-timeframe
+                 (get-in state [:staking-ui :validator-timeframe]))
+     :timeframe-dropdown-open? (true? (get-in state [:staking-ui :validator-timeframe-dropdown-open?]))
+     :validator-sort (staking-actions/normalize-staking-validator-sort
+                      (get-in state [:staking-ui :validator-sort]))
+     :validator-show-all? (true? (get-in state [:staking-ui :validator-show-all?]))
+     :requested-validator-page (requested-validator-page state)
+     :popover-state popover-state
+     :popover-kind popover-kind
+     :popover-open? (and (true? (:open? popover-state))
+                         (some? popover-kind))
+     :transfer-direction (staking-actions/normalize-staking-transfer-direction
+                          (get-in state [:staking-ui :transfer-direction]))
+     :selected-validator (selected-validator state)
+     :validator-search-query (str (or (get-in state [:staking-ui :validator-search-query]) ""))}))
+
+(defn- validator-pagination
+  [validators-all validator-show-all? requested-validator-page]
+  (let [validators-total-count (count validators-all)
         effective-validator-page-size (if validator-show-all?
                                       (max 1 validators-total-count)
                                       validator-page-size)
-        requested-validator-page (or (some-> (get-in state [:staking-ui :validator-page])
-                                             optional-number
-                                             js/Math.floor
-                                             int)
-                                    0)
         validator-page-count (max 1
                                   (int (js/Math.ceil (/ validators-total-count
                                                        effective-validator-page-size))))
@@ -227,33 +243,87 @@
                            (min (dec validator-page-count)))
         validator-page-start-index (* validator-page effective-validator-page-size)
         validator-page-end-index (min validators-total-count
-                                     (+ validator-page-start-index effective-validator-page-size))
-        validators (if (pos? validators-total-count)
-                     (subvec validators-all validator-page-start-index validator-page-end-index)
-                     [])
-        total-staked (or (optional-number (:total-staked delegator-summary))
-                         (reduce (fn [sum row]
-                                   (+ sum (or (optional-number (:stake row)) 0)))
-                                 0
-                                 validator-summaries))
-        your-stake (or (optional-number (:delegated delegator-summary)) 0)
-        staking-balance (or (optional-number (:undelegated delegator-summary)) 0)
-        pending-withdrawals (or (optional-number (:total-pending-withdrawal delegator-summary)) 0)
+                                     (+ validator-page-start-index effective-validator-page-size))]
+    {:validator-page validator-page
+     :validator-page-count validator-page-count
+     :validators-total-count validators-total-count
+     :validator-page-range-start (if (pos? validators-total-count)
+                                   (inc validator-page-start-index)
+                                   0)
+     :validator-page-range-end validator-page-end-index
+     :validators (if (pos? validators-total-count)
+                   (subvec validators-all validator-page-start-index validator-page-end-index)
+                   [])}))
+
+(defn- delegator-summary-values
+  [delegator-summary validator-summaries]
+  {:total-staked (or (optional-number (:total-staked delegator-summary))
+                     (reduce (fn [sum row]
+                               (+ sum (or (optional-number (:stake row)) 0)))
+                             0
+                             validator-summaries))
+   :your-stake (or (optional-number (:delegated delegator-summary)) 0)
+   :staking-balance (or (optional-number (:undelegated delegator-summary)) 0)
+   :pending-withdrawals (or (optional-number (:total-pending-withdrawal delegator-summary)) 0)})
+
+(defn- staking-loading?
+  [state]
+  (boolean (some true? (vals (or (get-in state [:staking :loading]) {})))))
+
+(defn- staking-route-error
+  [state]
+  (let [errors (or (get-in state [:staking :errors]) {})]
+    (or (:validator-summaries errors)
+        (:delegator-summary errors)
+        (:delegations errors)
+        (:rewards errors)
+        (:history errors))))
+
+(defn- action-popover-vm
+  [{:keys [popover-state popover-kind popover-open? transfer-direction]}]
+  {:open? popover-open?
+   :kind popover-kind
+   :anchor (when popover-open?
+             (:anchor popover-state))
+   :transfer-direction transfer-direction})
+
+(defn staking-vm
+  [state]
+  (let [{:keys [active-tab
+                timeframe
+                timeframe-dropdown-open?
+                validator-sort
+                validator-show-all?
+                requested-validator-page
+                selected-validator
+                validator-search-query]
+         :as ui-state}
+        (normalized-staking-ui-state state)
+        validator-summaries (or (get-in state [:staking :validator-summaries]) [])
+        delegator-summary (or (get-in state [:staking :delegator-summary]) {})
+        delegations (or (get-in state [:staking :delegations]) [])
+        rewards (or (get-in state [:staking :rewards]) [])
+        history (or (get-in state [:staking :history]) [])
+        validators-all (validators-vm validator-summaries delegations timeframe validator-sort)
+        {:keys [validator-page
+                validator-page-count
+                validators-total-count
+                validator-page-range-start
+                validator-page-range-end
+                validators]}
+        (validator-pagination validators-all validator-show-all? requested-validator-page)
+        {:keys [total-staked
+                your-stake
+                staking-balance
+                pending-withdrawals]}
+        (delegator-summary-values delegator-summary validator-summaries)
         effective-address (account-context/effective-account-address state)
-        loading-map (or (get-in state [:staking :loading]) {})
-        loading? (boolean (some true? (vals loading-map)))
-        errors (or (get-in state [:staking :errors]) {})
-        route-error (or (:validator-summaries errors)
-                        (:delegator-summary errors)
-                        (:delegations errors)
-                        (:rewards errors)
-                        (:history errors))]
+        loading? (staking-loading? state)
+        route-error (staking-route-error state)]
     {:connected? (true? (get-in state [:wallet :connected?]))
      :effective-address effective-address
      :active-tab active-tab
-     :tabs [{:value :validator-performance :label "Validator Performance"}
-            {:value :staking-reward-history :label "Staking Reward History"}
-            {:value :staking-action-history :label "Staking Action History"}]
+     :tabs staking-tabs
      :validator-timeframe timeframe
      :validator-timeframe-dropdown-open? timeframe-dropdown-open?
      :validator-page validator-page
@@ -261,10 +331,8 @@
      :validator-page-size validator-page-size
      :validator-page-count validator-page-count
      :validators-total-count validators-total-count
-     :validator-page-range-start (if (pos? validators-total-count)
-                                   (inc validator-page-start-index)
-                                   0)
-     :validator-page-range-end validator-page-end-index
+     :validator-page-range-start validator-page-range-start
+     :validator-page-range-end validator-page-range-end
      :validator-sort validator-sort
      :timeframe-options timeframe-options
      :loading? loading?
@@ -279,15 +347,9 @@
      :validators validators
      :rewards (reward-rows rewards)
      :history (history-rows history)
-     :action-popover {:open? popover-open?
-                      :kind popover-kind
-                      :anchor (when popover-open?
-                                (:anchor popover-state))
-                      :transfer-direction transfer-direction}
-     :selected-validator (or (normalize-validator-address (get-in state [:staking-ui :selected-validator]))
-                             (normalize-validator-address (get-in state [:staking :delegations 0 :validator]))
-                             "")
-     :validator-search-query (str (or (get-in state [:staking-ui :validator-search-query]) ""))
+     :action-popover (action-popover-vm ui-state)
+     :selected-validator selected-validator
+     :validator-search-query validator-search-query
      :validator-dropdown-open? (true? (get-in state [:staking-ui :validator-dropdown-open?]))
      :form {:deposit-amount (str (or (get-in state [:staking-ui :deposit-amount]) ""))
             :withdraw-amount (str (or (get-in state [:staking-ui :withdraw-amount]) ""))

@@ -561,23 +561,22 @@
 (def non-blank-text shared/non-blank-text)
 (def parse-coin-namespace shared/parse-coin-namespace)
 (def resolve-coin-display shared/resolve-coin-display)
-
 (defn format-pnl-percentage [value]
-  (if (and value (not= value "N/A"))
-    (let [num-val (js/parseFloat value)
-          formatted (if (js/isNaN num-val) "0.00" (.toFixed num-val 2))
-          color-class (cond
-                        (pos? num-val) "text-success"
-                        (neg? num-val) "text-error"
-                        :else "text-base-content")]
-      [:span {:class color-class}
-       (if (pos? num-val) "+" "") formatted "%"])
-    [:span.text-base-content "0.00%"]))
-
+  (let [num-val (if (and value (not= value "N/A"))
+                  (let [parsed (js/parseFloat value)
+                        rounded (if (js/isNaN parsed)
+                                  0
+                                  (/ (js/Math.round (* parsed 100)) 100))]
+                    (if (zero? rounded) 0 rounded))
+                  0)
+        color-class (cond
+                      (pos? num-val) "text-success"
+                      (neg? num-val) "text-error"
+                      :else "text-base-content")]
+    [:span {:class color-class}
+     (str (if (pos? num-val) "+" "") (.toFixed num-val 2) "%")]))
 (defn format-timestamp [ms]
-  (when ms
-    (let [d (js/Date. ms)]
-      (.toLocaleString d))))
+  (when ms (.toLocaleString (js/Date. ms))))
 
 (def build-balance-rows balances-tab/build-balance-rows)
 (def build-balance-rows-for-account balances-tab/build-balance-rows-for-account)

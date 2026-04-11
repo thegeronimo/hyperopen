@@ -138,6 +138,26 @@
     (is (contains? strings "Active (1)"))
     (is (not (contains? strings "TWAP coming soon")))))
 
+(deftest format-pnl-percentage-renders-signed-and-neutral-states-test
+  (let [positive (view/format-pnl-percentage "1.234")
+        negative (view/format-pnl-percentage "-0.5")
+        rounded-zero (view/format-pnl-percentage "-0.004")
+        invalid (view/format-pnl-percentage "oops")
+        na-value (view/format-pnl-percentage "N/A")
+        nil-value (view/format-pnl-percentage nil)]
+    (is (= "text-success" (get-in positive [1 :class])))
+    (is (= "+1.23%" (nth positive 2)))
+    (is (= "text-error" (get-in negative [1 :class])))
+    (is (= "-0.50%" (nth negative 2)))
+    (is (= "text-base-content" (get-in rounded-zero [1 :class])))
+    (is (= "0.00%" (nth rounded-zero 2)))
+    (is (= "text-base-content" (get-in invalid [1 :class])))
+    (is (= "0.00%" (nth invalid 2)))
+    (is (= "text-base-content" (get-in na-value [1 :class])))
+    (is (= "0.00%" (nth na-value 2)))
+    (is (= "text-base-content" (get-in nil-value [1 :class])))
+    (is (= "0.00%" (nth nil-value 2)))))
+
 (deftest account-info-panel-applies-selected-extra-tab-panel-sizing-overrides-test
   (let [panel (view/account-info-panel
                {:account-info {:selected-tab :performance-metrics}}

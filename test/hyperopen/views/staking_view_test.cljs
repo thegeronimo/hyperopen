@@ -1,5 +1,6 @@
 (ns hyperopen.views.staking-view-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.views.staking.vm :as staking-vm]
             [hyperopen.views.staking-view :as staking-view]))
 
 (defn- find-node
@@ -201,6 +202,31 @@
            (get-in view-all-toggle [1 :on :click])))
     (is (contains? strings "1-30 of 30"))
     (is (contains? strings "Validator 26"))))
+
+(deftest staking-vm-clamps-page-and-falls-back-selected-validator-and-transfer-balance-test
+  (let [validator-rows (mapv validator-row (range 30))
+        delegated-validator (validator-address 29)
+        view-model (staking-vm/staking-vm
+                    (base-connected-state
+                     {:staking-ui {:validator-page 999}
+                      :staking {:validator-summaries validator-rows
+                                :delegations [{:validator delegated-validator
+                                               :amount 1.25}]
+                                :delegator-summary {:delegated 1.25
+                                                    :undelegated 3
+                                                    :total-pending-withdrawal 0}}
+                      :spot {:clearinghouse-state {:balances [{:coin "hype"
+                                                              :total "5"
+                                                              :hold "3"}]}}}))]
+    (is (= 1 (:validator-page view-model)))
+    (is (= 2 (:validator-page-count view-model)))
+    (is (= 26 (:validator-page-range-start view-model)))
+    (is (= 30 (:validator-page-range-end view-model)))
+    (is (= delegated-validator (:selected-validator view-model)))
+    (is (= 2 (get-in view-model [:balances :available-transfer])))
+    (is (= 5 (count (:validators view-model))))
+    (is (= delegated-validator
+           (get-in view-model [:validators 4 :validator])))))
 
 (deftest staking-view-renders-open-transfer-popover-actions-test
   (let [view (staking-view/staking-view

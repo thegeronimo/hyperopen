@@ -223,6 +223,7 @@
             [hyperopen.trading-indicators.module-exports-test]
             [hyperopen.trading.order-form-tpsl-policy-test]
             [hyperopen.trading.order-form-transitions-test]
+            [hyperopen.trading.order-form-transitions-update-test]
             [hyperopen.ui.fonts-test]
             [hyperopen.ui.preferences-test]
             [hyperopen.ui.table.sort-kernel-test]
@@ -254,6 +255,7 @@
             [hyperopen.vaults.infrastructure.preview-cache-test]
             [hyperopen.vaults.infrastructure.routes-test]
             [hyperopen.views.account-equity-view-test]
+            [hyperopen.views.account-equity-view-token-price-test]
             [hyperopen.views.account-info-view-test]
             [hyperopen.views.account-info.cache-keys-test]
             [hyperopen.views.account-info.navigation-test]
@@ -680,6 +682,7 @@
              'hyperopen.trading-indicators.module-exports-test
              'hyperopen.trading.order-form-tpsl-policy-test
              'hyperopen.trading.order-form-transitions-test
+             'hyperopen.trading.order-form-transitions-update-test
              'hyperopen.ui.fonts-test
              'hyperopen.ui.preferences-test
              'hyperopen.ui.table.sort-kernel-test
@@ -711,6 +714,7 @@
              'hyperopen.vaults.infrastructure.preview-cache-test
              'hyperopen.vaults.infrastructure.routes-test
              'hyperopen.views.account-equity-view-test
+             'hyperopen.views.account-equity-view-token-price-test
              'hyperopen.views.account-info-view-test
              'hyperopen.views.account-info.cache-keys-test
              'hyperopen.views.account-info.navigation-test

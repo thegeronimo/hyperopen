@@ -240,6 +240,18 @@
       (and (number? mark-raw) (pos? mark-raw)) mark-raw
       :else nil)))
 
+(defn- market-token-usd-price
+  [token market]
+  (let [mark-price (market-mark-price market)
+        base (normalized-token-name (:base market))
+        quote (normalized-token-name (:quote market))]
+    (cond
+      (and (number? mark-price) (pos? mark-price) (= token base) (= "USDC" quote))
+      mark-price
+      (and (number? mark-price) (pos? mark-price) (= token quote) (= "USDC" base))
+      (/ 1 mark-price)
+      :else nil)))
+
 (defn- perp-market-for-coin
   [market-by-key coin]
   (when-let [coin* (when (scalar-coin-id? coin)
@@ -286,28 +298,10 @@
         row (get balance-row-by-token token*)
         row-price (some-> row balance-row-usd-price)
         market (or (get market-by-key (str "spot:" token*))
-                   (asset-selector-markets/resolve-market-by-coin market-by-key token*))
-        mark-price (market-mark-price market)
-        base (normalized-token-name (:base market))
-        quote (normalized-token-name (:quote market))]
+                   (asset-selector-markets/resolve-market-by-coin market-by-key token*))]
     (or row-price
-        (cond
-          (and (number? mark-price)
-               (pos? mark-price)
-               (= token* base)
-               (= "USDC" quote))
-          mark-price
-
-          (and (number? mark-price)
-               (pos? mark-price)
-               (= token* quote)
-               (= "USDC" base))
-          (/ 1 mark-price)
-
-          (stable-dollar-token? token*)
-          1
-
-          :else nil))))
+        (market-token-usd-price token* market)
+        (when (stable-dollar-token? token*) 1))))
 
 (defn- clearinghouse-state-quote-token
   [market-by-key dex clearinghouse-state]
