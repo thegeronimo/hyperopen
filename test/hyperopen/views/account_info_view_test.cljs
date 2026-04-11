@@ -158,6 +158,14 @@
     (is (= "text-base-content" (get-in nil-value [1 :class])))
     (is (= "0.00%" (nth nil-value 2)))))
 
+(deftest format-pnl-percentage-handles-borderline-rounding-boundaries-test
+  (let [positive-boundary (view/format-pnl-percentage "1.005")
+        negative-boundary (view/format-pnl-percentage "-0.005")]
+    (is (= "text-success" (get-in positive-boundary [1 :class])))
+    (is (= "+1.00%" (nth positive-boundary 2)))
+    (is (= "text-base-content" (get-in negative-boundary [1 :class])))
+    (is (= "0.00%" (nth negative-boundary 2)))))
+
 (deftest account-info-panel-applies-selected-extra-tab-panel-sizing-overrides-test
   (let [panel (view/account-info-panel
                {:account-info {:selected-tab :performance-metrics}}
