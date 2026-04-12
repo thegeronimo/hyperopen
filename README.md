@@ -17,6 +17,9 @@
   <a href="https://github.com/thegeronimo/hyperopen/actions/workflows/tests.yml">
     <img src=".github/badges/assertions-total.svg" alt="Assertions Total" />
   </a>
+  <a href="https://t.me/hyperopen">
+    <img src="https://img.shields.io/badge/Telegram-%40HyperOpen-26A5E4?style=for-the-badge&logo=telegram&logoColor=white" alt="Join HyperOpen on Telegram" />
+  </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=for-the-badge" alt="License: AGPL v3" />
   </a>
