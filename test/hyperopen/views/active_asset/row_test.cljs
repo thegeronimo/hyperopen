@@ -258,11 +258,24 @@
                       (fn [_ _ _] nil)
                       fmt/format-funding-countdown
                       (fn [] "00:10:00")]
-          (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
+          (let [pin-id (support/funding-tooltip-pin-id "xyz:GOLD")
+                view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
                 details-panel (support/find-node-by-role view-node "trade-mobile-asset-details-panel")
-                strings (set (support/collect-strings details-panel))]
-            (is (contains? strings "Hypothetical Position"))
-            (is (contains? strings "Projections"))))))))
+                layer-node (support/find-node-by-role view-node "active-asset-funding-mobile-sheet-layer")
+                backdrop-node (support/find-node-by-role view-node "active-asset-funding-mobile-sheet-backdrop")
+                sheet-node (support/find-node-by-role view-node "active-asset-funding-mobile-sheet")
+                sheet-strings (set (support/collect-strings sheet-node))]
+            (is (some? details-panel))
+            (is (some? layer-node))
+            (is (some? backdrop-node))
+            (is (some? sheet-node))
+            (is (= [[:actions/set-funding-tooltip-pinned pin-id false]
+                    [:actions/set-funding-tooltip-visible pin-id false]]
+                   (get-in backdrop-node [1 :on :click])))
+            (is (= "dialog" (get-in sheet-node [1 :role])))
+            (is (= true (get-in sheet-node [1 :aria-modal])))
+            (is (contains? sheet-strings "Hypothetical Position"))
+            (is (contains? sheet-strings "Projections"))))))))
 
 (deftest active-asset-row-renders-24h-change-without-funding-rate-test
   (let [ctx-data {:coin "SOL"

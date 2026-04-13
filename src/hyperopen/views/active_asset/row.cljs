@@ -92,23 +92,39 @@
            funding-tooltip-model
            funding-tooltip-id
            funding-tooltip-pinned?]}
-   {:keys [trigger-classes underlined?]}]
+   {:keys [trigger-classes underlined? mobile-sheet?]}]
   (if (number? funding-rate)
-    (funding-tooltip/funding-tooltip-popover
-     {:trigger [:span {:class (into ["cursor-help"
-                                     "num"
-                                     (funding-tooltip/signed-tone-class funding-rate)]
-                                    (cond-> trigger-classes
-                                      underlined? (into ["underline"
-                                                         "decoration-dashed"
-                                                         "underline-offset-2"])))}
-                (funding-tooltip/signed-percentage-text funding-rate 4)]
-      :body (when funding-tooltip-open?
-              (funding-tooltip/funding-tooltip-panel funding-tooltip-model))
-      :position "bottom"
-      :open? funding-tooltip-open?
-      :pin-id funding-tooltip-id
-      :pinned? funding-tooltip-pinned?})
+    (let [trigger [:span {:class (into ["cursor-help"
+                                        "num"
+                                        (funding-tooltip/signed-tone-class funding-rate)]
+                                       (cond-> trigger-classes
+                                         underlined? (into ["underline"
+                                                            "decoration-dashed"
+                                                            "underline-offset-2"])))}
+                   (funding-tooltip/signed-percentage-text funding-rate 4)]
+          body (when funding-tooltip-open?
+                 (funding-tooltip/funding-tooltip-panel
+                  funding-tooltip-model
+                  (when mobile-sheet?
+                    {:mobile-sheet? true
+                     :attrs {:role "dialog"
+                             :aria-modal true
+                             :aria-label "Funding details"
+                             :data-role "active-asset-funding-mobile-sheet"}})))]
+      (if mobile-sheet?
+        (funding-tooltip/funding-tooltip-mobile-sheet
+         {:trigger trigger
+          :body body
+          :open? funding-tooltip-open?
+          :pin-id funding-tooltip-id
+          :pinned? funding-tooltip-pinned?})
+        (funding-tooltip/funding-tooltip-popover
+         {:trigger trigger
+          :body body
+          :position "bottom"
+          :open? funding-tooltip-open?
+          :pin-id funding-tooltip-id
+          :pinned? funding-tooltip-pinned?})))
     [:span {:class ["num" "text-trading-text-secondary"]} "Loading..."]))
 
 (defn- mobile-detail-item
@@ -179,7 +195,8 @@
      (if is-spot
        [:span {:class ["num" "text-trading-text-secondary"]} "--"]
        (funding-rate-node row-vm {:trigger-classes []
-                                  :underlined? true}))
+                                  :underlined? true
+                                  :mobile-sheet? true}))
      [:span {:class ["text-trading-text-secondary"]} "/"]
      [:span {:class ["num" "text-trading-text-secondary"]}
       (if is-spot "--" countdown-text)]])])

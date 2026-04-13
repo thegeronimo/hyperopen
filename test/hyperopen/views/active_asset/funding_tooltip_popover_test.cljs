@@ -85,6 +85,55 @@
                        :position "top"
                        :open? true
                        :pin-id pin-id
-                       :pinned? true})]
+                         :pinned? true})]
     (is (not (contains? (set (support/collect-strings closed-tooltip)) "Body")))
     (is (contains? (set (support/collect-strings open-tooltip)) "Body"))))
+
+(deftest tooltip-popover-does-not-render-mobile-sheet-roles-test
+  (let [pin-id (support/funding-tooltip-pin-id "BTC")
+        open-tooltip (funding-tooltip/funding-tooltip-popover
+                      {:trigger [:span "Funding"]
+                       :body [:div "Body"]
+                       :position "bottom"
+                       :open? true
+                       :pin-id pin-id
+                       :pinned? true})]
+    (is (nil? (support/find-node-by-role open-tooltip "active-asset-funding-mobile-sheet-layer")))
+    (is (nil? (support/find-node-by-role open-tooltip "active-asset-funding-mobile-sheet-backdrop")))
+    (is (nil? (support/find-node-by-role open-tooltip "active-asset-funding-mobile-sheet")))))
+
+(deftest tooltip-mobile-sheet-renders-stable-browser-targeting-roles-test
+  (let [pin-id (support/funding-tooltip-pin-id "BTC")
+        closed-sheet (funding-tooltip/funding-tooltip-mobile-sheet
+                      {:trigger [:span "Funding"]
+                       :body [:div {:data-role "active-asset-funding-mobile-sheet"
+                                    :role "dialog"
+                                    :aria-modal true}
+                              "Body"]
+                       :open? false
+                       :pin-id pin-id
+                       :pinned? false})
+        open-sheet (funding-tooltip/funding-tooltip-mobile-sheet
+                    {:trigger [:span "Funding"]
+                     :body [:div {:data-role "active-asset-funding-mobile-sheet"
+                                  :role "dialog"
+                                  :aria-modal true}
+                            "Body"]
+                     :open? true
+                     :pin-id pin-id
+                     :pinned? true})
+        trigger-node (support/find-node-by-role open-sheet "active-asset-funding-trigger")
+        layer-node (support/find-node-by-role open-sheet "active-asset-funding-mobile-sheet-layer")
+        backdrop-node (support/find-node-by-role open-sheet "active-asset-funding-mobile-sheet-backdrop")
+        sheet-node (support/find-node-by-role open-sheet "active-asset-funding-mobile-sheet")]
+    (is (= :button (first trigger-node)))
+    (is (nil? (support/find-node-by-role closed-sheet "active-asset-funding-mobile-sheet-layer")))
+    (is (some? layer-node))
+    (is (some? backdrop-node))
+    (is (some? sheet-node))
+    (is (= [[:actions/set-funding-tooltip-pinned pin-id false]
+            [:actions/set-funding-tooltip-visible pin-id false]]
+           (get-in backdrop-node [1 :on :click])))
+    (is (= "dialog" (get-in sheet-node [1 :role])))
+    (is (= true (get-in sheet-node [1 :aria-modal])))
+    (is (contains? (set (support/collect-strings open-sheet)) "Body"))))

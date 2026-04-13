@@ -1,7 +1,8 @@
 (ns hyperopen.views.active-asset.funding-tooltip
   (:require [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.autocorrelation-plot :as autocorrelation-plot]
-            [hyperopen.views.funding-rate-plot :as funding-rate-plot]))
+            [hyperopen.views.funding-rate-plot :as funding-rate-plot]
+            [hyperopen.views.active-asset.funding-tooltip-mobile :as funding-tooltip-mobile]))
 
 (defn signed-percentage-text [value decimals]
   (if (number? value)
@@ -84,6 +85,18 @@
     ["text-left"
      "font-medium"
      "whitespace-nowrap"]))
+
+(defn- tooltip-dismiss-actions
+  [pin-id]
+  [[:actions/set-funding-tooltip-pinned pin-id false]
+   [:actions/set-funding-tooltip-visible pin-id false]])
+
+(defn- tooltip-trigger-click-actions
+  [pin-id pinned?]
+  (if pinned?
+    (tooltip-dismiss-actions pin-id)
+    [[:actions/set-funding-tooltip-pinned pin-id true]
+     [:actions/set-funding-tooltip-visible pin-id true]]))
 
 (defn- hypothetical-position-inputs
   [{:keys [hypothetical-size-input
@@ -360,24 +373,49 @@
                   "text-gray-400"]}
       predictability-lag-note])])
 
+(defn- funding-tooltip-panel-classes
+  [mobile-sheet?]
+  (if mobile-sheet?
+    ["relative"
+     "z-[181]"
+     "isolate"
+     "w-full"
+     "max-h-[calc(100vh-1.25rem)]"
+     "overflow-y-auto"
+     "rounded-t-[22px]"
+     "border"
+     "border-[#17313d]"
+     "bg-[#06131a]"
+     "px-4"
+     "pt-4"
+     "pb-[max(env(safe-area-inset-bottom),1rem)]"
+     "text-sm"
+     "text-left"
+     "text-gray-100"
+     "shadow-[0_-24px_60px_rgba(0,0,0,0.45)]"]
+    ["w-[18rem]"
+     "relative"
+     "z-[140]"
+     "isolate"
+     "overflow-hidden"
+     "rounded-lg"
+     "border"
+     "border-[#17313d]"
+     "bg-[#06131a]"
+     "px-3.5"
+     "py-3"
+     "text-xs"
+     "text-left"
+     "text-gray-100"
+     "spectate-xl"
+     "shadow-[0_20px_45px_rgba(0,0,0,0.45)]"]))
+
 (defn funding-tooltip-panel
-  [model]
-  [:div {:class ["w-[18rem]"
-                 "relative"
-                 "z-[140]"
-                 "isolate"
-                 "overflow-hidden"
-                 "rounded-lg"
-                 "border"
-                 "border-[#17313d]"
-                 "bg-[#06131a]"
-                 "px-3.5"
-                 "py-3"
-                 "text-xs"
-                 "text-left"
-                 "text-gray-100"
-                 "spectate-xl"
-                 "shadow-[0_20px_45px_rgba(0,0,0,0.45)]"]}
+  ([model]
+   (funding-tooltip-panel model {}))
+  ([model {:keys [mobile-sheet? attrs]}]
+   [:div (merge {:class (funding-tooltip-panel-classes mobile-sheet?)}
+                (or attrs {}))
    (position-section model)
    [:div {:class ["mb-2.5"
                   "h-px"
@@ -388,7 +426,7 @@
                   "h-px"
                   "w-full"
                   "bg-slate-600/70"]}]
-   (predictability-section model)])
+   (predictability-section model)]))
 
 (defn funding-tooltip-popover
   [{:keys [trigger body position open? pin-id pinned?]}]
@@ -398,12 +436,8 @@
                             "left" ["right-full" "top-1/2" "transform" "-translate-y-1/2" "mr-2"]
                             "right" ["left-full" "top-1/2" "transform" "-translate-y-1/2" "ml-2"])
         open?* (boolean open?)
-        dismiss-actions [[:actions/set-funding-tooltip-pinned pin-id false]
-                         [:actions/set-funding-tooltip-visible pin-id false]]
-        trigger-click-actions (if pinned?
-                                dismiss-actions
-                                [[:actions/set-funding-tooltip-pinned pin-id true]
-                                 [:actions/set-funding-tooltip-visible pin-id true]])]
+        dismiss-actions (tooltip-dismiss-actions pin-id)
+        trigger-click-actions (tooltip-trigger-click-actions pin-id pinned?)]
     [:div {:class ["relative" "inline-flex"]
            :on {:mouseenter [[:actions/set-funding-tooltip-visible pin-id true]]
                 :mouseleave [[:actions/set-funding-tooltip-visible pin-id false]]}}
@@ -445,3 +479,7 @@
               :style {:min-width "max-content"
                       :max-width "22rem"}}
         body])]))
+
+(defn funding-tooltip-mobile-sheet
+  [opts]
+  (funding-tooltip-mobile/funding-tooltip-mobile-sheet opts))

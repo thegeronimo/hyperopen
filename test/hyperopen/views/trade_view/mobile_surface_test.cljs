@@ -27,6 +27,23 @@
     (is (not (contains? open-chart-classes "overflow-hidden")))
     (is (contains? open-market-strip-classes "z-[160]"))))
 
+(deftest trade-view-mobile-funding-sheet-lifts-market-strip-above-chart-test
+  (support/with-viewport-width
+    430
+    (fn []
+      (let [open-view (trade-view/trade-view
+                       (-> (support/active-asset-state)
+                           (support/with-visible-funding-tooltip "BTC")
+                           (assoc-in [:trade-ui :mobile-asset-details-open?] true)))
+            mobile-market-strip (support/find-by-parity-id open-view "trade-mobile-active-asset-strip")
+            chart-panel (support/find-by-parity-id open-view "trade-chart-panel")
+            mobile-market-strip-classes (support/node-class-set mobile-market-strip)
+            chart-panel-classes (support/node-class-set chart-panel)]
+        (is (contains? mobile-market-strip-classes "overflow-visible"))
+        (is (contains? mobile-market-strip-classes "z-[200]"))
+        (is (contains? chart-panel-classes "overflow-visible"))
+        (is (contains? chart-panel-classes "z-[160]"))))))
+
 (deftest trade-view-restores-market-tables-and-keeps-account-surface-summary-only-test
   (support/with-viewport-width
     430

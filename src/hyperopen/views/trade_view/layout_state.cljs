@@ -33,7 +33,7 @@
   (into ["lg:hidden" "border-b" "border-base-300" "bg-base-200"]
         (concat
          (when funding-tooltip-open?
-           ["relative" "z-[160]" "overflow-visible"])
+           ["relative" "z-[200]" "overflow-visible"])
          (when mobile-account-surface?
            ["hidden"]))))
 

@@ -3,6 +3,7 @@ import {
   debugCall,
   dispatch,
   expectOracle,
+  mobileViewport,
   oracle,
   sourceRectForLocator,
   visitRoute,
@@ -280,6 +281,68 @@ async function seedAssetSelectorMarketsCache(page, count = 240) {
       })
     );
   }, rows);
+}
+
+async function seedFundingTooltipLivePositionState(
+  page,
+  {
+    position,
+    mark = 107.7426,
+    oracle = 107.61,
+    fundingRate = 0.00015
+  }
+) {
+  await debugCall(page, "seedFundingTooltipFixture", {
+    coin: position.coin,
+    mark,
+    oracle,
+    fundingRate
+  });
+  await dispatch(page, [":actions/reset-funding-hypothetical-position", position.coin]);
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 6_000, pollMs: 50 });
+
+  await page.evaluate(({ nextPosition, nextMark, nextFundingRate }) => {
+    const c = globalThis.cljs?.core;
+    const store = globalThis.hyperopen?.system?.store;
+
+    if (!c || !store) {
+      throw new Error("Hyperopen store or cljs core unavailable");
+    }
+
+    const keyword = c.keyword;
+    const kwPath = (...segments) =>
+      c.PersistentVector.fromArray(segments.map((segment) => keyword(segment)), true);
+    const opts = c.PersistentArrayMap.fromArray([keyword("keywordize-keys"), true], true);
+    const nextWebdata2 = c.js__GT_clj(
+      {
+        clearinghouseState: {
+          assetPositions: [nextPosition]
+        }
+      },
+      opts
+    );
+    let nextState = c.deref(store);
+    const nextMarket = c.PersistentArrayMap.fromArray(
+      [
+        keyword("key"), `perp:${nextPosition.coin}`,
+        keyword("coin"), nextPosition.coin,
+        keyword("symbol"), nextPosition.coin,
+        keyword("market-type"), keyword("perp"),
+        keyword("mark"), nextMark,
+        keyword("markRaw"), nextMark,
+        keyword("fundingRate"), nextFundingRate,
+        keyword("szDecimals"), 4,
+        keyword("maxLeverage"), 20
+      ],
+      true
+    );
+
+    nextState = c.assoc_in(nextState, kwPath("active-asset"), nextPosition.coin);
+    nextState = c.assoc_in(nextState, kwPath("active-market"), nextMarket);
+    nextState = c.assoc_in(nextState, kwPath("webdata2"), nextWebdata2);
+
+    c.reset_BANG_(store, nextState);
+  }, { nextPosition: position, nextMark: mark, nextFundingRate: fundingRate });
 }
 
 async function seedRememberedTradingSession(page, options = {}) {
@@ -1366,57 +1429,7 @@ test("funding tooltip transitions from live position to hypothetical estimate @r
   await dispatch(page, [":actions/start-spectate-mode", SPECTATE_ADDRESS]);
   await waitForIdle(page, { quietMs: 800, timeoutMs: 12_000, pollMs: 50 });
   await freezeAccountSurfaceSync(page, SPECTATE_ADDRESS);
-  await debugCall(page, "seedFundingTooltipFixture", {
-    coin: "BTC",
-    mark: 107.7426,
-    oracle: 107.61,
-    fundingRate: 0.00015
-  });
-  await dispatch(page, [":actions/reset-funding-hypothetical-position", "BTC"]);
-  await waitForIdle(page, { quietMs: 250, timeoutMs: 6_000, pollMs: 50 });
-
-  await page.evaluate(({ position }) => {
-    const c = globalThis.cljs?.core;
-    const store = globalThis.hyperopen?.system?.store;
-
-    if (!c || !store) {
-      throw new Error("Hyperopen store or cljs core unavailable");
-    }
-
-    const keyword = c.keyword;
-    const kwPath = (...segments) =>
-      c.PersistentVector.fromArray(segments.map((segment) => keyword(segment)), true);
-    const opts = c.PersistentArrayMap.fromArray([keyword("keywordize-keys"), true], true);
-    const nextWebdata2 = c.js__GT_clj(
-      {
-        clearinghouseState: {
-          assetPositions: [position]
-        }
-      },
-      opts
-    );
-    let nextState = c.deref(store);
-    const btcPerpMarket = c.PersistentArrayMap.fromArray(
-      [
-        keyword("key"), "perp:BTC",
-        keyword("coin"), "BTC",
-        keyword("symbol"), "BTC",
-        keyword("market-type"), keyword("perp"),
-        keyword("mark"), 107.7426,
-        keyword("markRaw"), 107.7426,
-        keyword("fundingRate"), 0.00015,
-        keyword("szDecimals"), 4,
-        keyword("maxLeverage"), 20
-      ],
-      true
-    );
-
-    nextState = c.assoc_in(nextState, kwPath("active-asset"), "BTC");
-    nextState = c.assoc_in(nextState, kwPath("active-market"), btcPerpMarket);
-    nextState = c.assoc_in(nextState, kwPath("webdata2"), nextWebdata2);
-
-    c.reset_BANG_(store, nextState);
-  }, { position: livePosition });
+  await seedFundingTooltipLivePositionState(page, { position: livePosition });
 
   const tooltipTrigger = page.locator('[data-role="active-asset-funding-trigger"]');
   await expect(tooltipTrigger).toHaveCount(1);
@@ -1454,6 +1467,58 @@ test("funding tooltip transitions from live position to hypothetical estimate @r
     async () => (await next24hPayment.textContent())?.trim() ?? "",
     { timeout: 5_000 }
   ).not.toBe(next24hBefore);
+});
+
+test.describe("funding tooltip mobile presentation @mobile", () => {
+  test.use(mobileViewport);
+
+  test("funding tooltip opens as a mobile sheet @regression", async ({ page }) => {
+    const livePosition = {
+      coin: "BTC",
+      szi: "9.2807",
+      positionValue: "1000",
+      entryPx: "107.7426",
+      markPx: "107.7426",
+      unrealizedPnl: "0",
+      returnOnEquity: "0",
+      liquidationPx: "80",
+      marginUsed: "250",
+      leverage: { value: 4 },
+      cumFunding: { sinceOpen: "0" }
+    };
+
+    await seedAssetSelectorMarketsCache(page);
+    await visitRoute(page, "/trade/BTC");
+    await dispatch(page, [":actions/start-spectate-mode", SPECTATE_ADDRESS]);
+    await waitForIdle(page, { quietMs: 800, timeoutMs: 12_000, pollMs: 50 });
+    await freezeAccountSurfaceSync(page, SPECTATE_ADDRESS);
+    await seedFundingTooltipLivePositionState(page, { position: livePosition });
+
+    const detailsToggle = page.locator('[data-role="trade-mobile-asset-details-toggle"]');
+    await expect(detailsToggle).toBeVisible();
+    await detailsToggle.click();
+    await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+    const tooltipTrigger = page.locator('[data-role="active-asset-funding-trigger"]');
+    await expect(tooltipTrigger).toHaveCount(1);
+    await tooltipTrigger.click({ force: true });
+    await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+    const sheetLayer = page.locator('[data-role="active-asset-funding-mobile-sheet-layer"]');
+    const sheet = page.locator('[data-role="active-asset-funding-mobile-sheet"]');
+    const backdrop = page.locator('[data-role="active-asset-funding-mobile-sheet-backdrop"]');
+    const positionSection = sheet.locator('[data-role="active-asset-funding-position-section"]');
+
+    await expect(sheetLayer).toBeVisible();
+    await expect(sheet).toBeVisible();
+    await expect(positionSection).toHaveAttribute("data-position-mode", "live");
+    await expect(sheet.getByRole("heading", { name: "Your Position" })).toBeVisible();
+    await expect(sheet.getByText("Past Rate Correlation")).toBeVisible();
+
+    await backdrop.click({ position: { x: 16, y: 16 } });
+    await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+    await expect(sheetLayer).toBeHidden();
+  });
 });
 
 test("wallet connect and enable trading stays deterministic @regression", async ({ page }) => {
