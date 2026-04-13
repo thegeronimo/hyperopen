@@ -163,9 +163,9 @@
                    "font-semibold"
                    "text-gray-300"
                    "text-center"]}
-      "Rate History"]
+     "Rate History"]
      [:svg {:viewBox (str "0 0 " plot-width " " plot-height)
-            :class ["h-[7rem]" "w-full"]
+            :class ["block" "h-auto" "w-full"]
             :role "img"
             :aria-label "Funding rate bar chart for daily mean rates over the last 30 days"}
       [:line {:x1 left

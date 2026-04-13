@@ -118,9 +118,9 @@
                    "font-semibold"
                    "text-gray-300"
                    "text-center"]}
-      "Past Rate Correlation"]
+     "Past Rate Correlation"]
      [:svg {:viewBox (str "0 0 " plot-width " " plot-height)
-            :class ["h-[7rem]" "w-full"]
+            :class ["block" "h-auto" "w-full"]
             :role "img"
             :aria-label "Autocorrelation bar chart for lag days 1 through 29 over the last 30 days"}
       [:line {:x1 left

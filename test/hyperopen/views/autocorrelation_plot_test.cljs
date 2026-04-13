@@ -41,6 +41,25 @@
   [node]
   (collect-rect-attrs-by-key node :data-lag))
 
+(defn- first-svg-attrs
+  [node]
+  (letfn [(walk [n]
+            (cond
+              (vector? n)
+              (let [tag (first n)
+                    attrs (when (map? (second n)) (second n))
+                    children (if attrs (drop 2 n) (drop 1 n))]
+                (cond
+                  (= :svg tag) attrs
+                  :else (some walk children)))
+
+              (seq? n)
+              (some walk n)
+
+              :else
+              nil))]
+    (walk node)))
+
 (deftest autocorrelation-plot-renders-title-axis-and-bars-test
   (let [series [{:lag-days 1 :value 0.62}
                 {:lag-days 2 :value -0.18}
@@ -49,12 +68,15 @@
                 {:lag-days 5 :value 0.35}]
         node (autocorrelation-plot/autocorrelation-plot series)
         strings (set (collect-strings node))
-        bars (collect-bar-attrs node)]
+        bars (collect-bar-attrs node)
+        svg-attrs (first-svg-attrs node)]
     (is (contains? strings "Past Rate Correlation"))
     (is (contains? strings "Lookback (days)"))
     (is (contains? strings "+1"))
     (is (contains? strings "0"))
     (is (contains? strings "-1"))
+    (is (= ["block" "h-auto" "w-full"]
+           (:class svg-attrs)))
     (is (= 5 (count bars)))
     (is (= [1 2 3 4 5]
            (mapv :data-lag bars)))))
@@ -80,10 +102,13 @@
                 {:day-index 5 :daily-rate 0.0003}]
         node (funding-rate-plot/funding-rate-plot series)
         strings (set (collect-strings node))
-        bars (collect-rect-attrs-by-key node :data-day)]
+        bars (collect-rect-attrs-by-key node :data-day)
+        svg-attrs (first-svg-attrs node)]
     (is (contains? strings "Rate History"))
     (is (contains? strings "Day (newest to oldest)"))
     (is (contains? strings "0%"))
+    (is (= ["block" "h-auto" "w-full"]
+           (:class svg-attrs)))
     (is (= 5 (count bars)))
     (is (= [5 4 3 2 1]
            (mapv :data-day bars)))))
