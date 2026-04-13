@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
   dispatch,
   dispatchMany,
@@ -67,5 +67,60 @@ test.describe("mobile browser regressions @mobile", () => {
       },
       { args: { surface: "margin" } }
     );
+  });
+
+  test("mobile positions list clears the fixed bottom nav @regression", async ({ page }) => {
+    await visitRoute(page, spectateRoute);
+
+    await dispatchMany(page, [
+      [":actions/select-trade-mobile-surface", ":chart"],
+      [":actions/select-account-info-tab", ":positions"]
+    ]);
+    await waitForIdle(page, { quietMs: 200, timeoutMs: 8_000, pollMs: 50 });
+
+    const viewport = page.locator("[data-role='positions-mobile-cards-viewport']");
+    const lastCard = page.locator(
+      "[data-role='positions-mobile-cards-viewport'] [data-role^='mobile-position-card-']"
+    ).last();
+    const bottomNav = page.locator("[data-role='mobile-bottom-nav']");
+
+    await expect(lastCard).toBeVisible({ timeout: 15_000 });
+    const cardCount = await page.evaluate(() =>
+      document.querySelectorAll(
+        "[data-role='positions-mobile-cards-viewport'] [data-role^='mobile-position-card-']"
+      ).length
+    );
+
+    expect(cardCount).toBeGreaterThan(0);
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const viewportNode = document.querySelector(
+              "[data-role='positions-mobile-cards-viewport']"
+            );
+            const cards = Array.from(
+              document.querySelectorAll(
+                "[data-role='positions-mobile-cards-viewport'] [data-role^='mobile-position-card-']"
+              )
+            );
+            const lastCardNode = cards.at(-1);
+            const bottomNavNode = document.querySelector("[data-role='mobile-bottom-nav']");
+
+            if (!viewportNode || !lastCardNode || !bottomNavNode) {
+              throw new Error("required mobile positions nodes missing");
+            }
+
+            viewportNode.scrollTop = viewportNode.scrollHeight;
+            return (
+              lastCardNode.getBoundingClientRect().bottom -
+              bottomNavNode.getBoundingClientRect().top
+            );
+          }),
+        { timeout: 5_000 }
+      )
+      .toBeLessThanOrEqual(0);
+    await expect(viewport).toBeVisible();
+    await expect(bottomNav).toBeVisible();
   });
 });

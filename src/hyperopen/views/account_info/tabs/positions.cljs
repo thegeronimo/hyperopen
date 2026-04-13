@@ -297,7 +297,6 @@
 (defn- current-viewport-height []
   (current-viewport-number (some-> js/globalThis .-innerHeight)
                            mobile-position-overlay-fallback-height-px))
-
 (defn- active-card-layout?
   []
   (let [width (some-> js/globalThis .-innerWidth)]
@@ -792,7 +791,8 @@
                             "scrollbar-hide"
                             "space-y-2.5"
                             "px-2.5"
-                            "py-2"]
+                            "pt-2"
+                            "pb-[calc(6rem+env(safe-area-inset-bottom))]"]
                    :data-role "positions-mobile-cards-viewport"}]
              (map (fn [row-vm]
                     ^{:key (str "mobile-" (or (:row-key row-vm)
