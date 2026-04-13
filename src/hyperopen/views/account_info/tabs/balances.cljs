@@ -69,52 +69,15 @@
                                      :bottom ["bottom-full" "border-b-gray-800"]
                                      ["top-full" "border-t-gray-800"])]
         [:div {:class ["group" "relative" "inline-flex" "min-h-6" "items-center" "justify-start"]}
-       [:span {:class ["cursor-help"
-                       "rounded"
-                       "underline"
-                       "decoration-dashed"
-                       "underline-offset-2"
-                       "focus-visible:outline-none"
-                       "focus-visible:ring-2"
-                       "focus-visible:ring-trading-green/70"
-                       "focus-visible:ring-offset-1"
-                       "focus-visible:ring-offset-base-100"]
-               :tab-index 0}
-        value-text]
-       [:div {:class (into ["pointer-events-none"
-                            "absolute"
-                            "left-1/2"
-                            "-translate-x-1/2"
-                            "z-[120]"
-                            "opacity-0"
-                            "transition-opacity"
-                            "duration-200"
-                            "group-hover:opacity-100"
-                            "group-focus-within:opacity-100"]
-                           panel-position-classes)}
-        [:div {:class ["relative"
-                       "w-[520px]"
-                       "max-w-[calc(100vw-2rem)]"
-                       "min-w-[320px]"
-                       "rounded-md"
-                       "bg-gray-800"
-                       "px-3"
-                       "py-1.5"
-                       "text-xs"
-                       "leading-tight"
-                       "text-left"
-                       "text-gray-100"
-                       "spectate-lg"
-                       "whitespace-normal"]}
-         (unified-available-balance-tooltip-text display-unit-label available-balance amount-decimals)
-         [:div {:class (into ["absolute"
-                              "left-1/2"
-                              "-translate-x-1/2"
-                              "h-0"
-                              "w-0"
-                              "border-4"
-                              "border-transparent"]
-                             caret-position-classes)}]]]])
+         [:span {:class ["cursor-help" "rounded" "underline" "decoration-dashed" "underline-offset-2" "focus-visible:outline-none" "focus-visible:ring-2" "focus-visible:ring-trading-green/70" "focus-visible:ring-offset-1" "focus-visible:ring-offset-base-100"]
+                 :tab-index 0}
+          value-text]
+         [:div {:class (into ["pointer-events-none" "absolute" "left-1/2" "-translate-x-1/2" "z-[120]" "opacity-0" "transition-opacity" "duration-200" "group-hover:opacity-100" "group-focus-within:opacity-100"]
+                             panel-position-classes)}
+          [:div {:class ["relative" "w-[520px]" "max-w-[calc(100vw-2rem)]" "min-w-[320px]" "rounded-md" "bg-gray-800" "px-3" "py-1.5" "text-xs" "leading-tight" "text-left" "text-gray-100" "spectate-lg" "whitespace-normal"]}
+           (unified-available-balance-tooltip-text display-unit-label available-balance amount-decimals)
+           [:div {:class (into ["absolute" "left-1/2" "-translate-x-1/2" "h-0" "w-0" "border-4" "border-transparent"]
+                              caret-position-classes)}]]]])
       value-text)))
 
 (def ^:private external-link-button-classes
@@ -634,7 +597,8 @@
                              "scrollbar-hide"
                              "space-y-2.5"
                              "px-2.5"
-                             "py-2"]
+                             "pt-2"
+                             "pb-[calc(6rem+env(safe-area-inset-bottom))]"]
                     :data-role "balances-mobile-cards-viewport"}]
               (map-indexed (fn [idx row]
                              (let [tooltip-position (if (zero? idx) :bottom :top)]
