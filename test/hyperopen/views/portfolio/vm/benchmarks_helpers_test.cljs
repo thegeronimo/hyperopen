@@ -1,7 +1,8 @@
 (ns hyperopen.views.portfolio.vm.benchmarks-helpers-test
   (:require [cljs.test :refer-macros [deftest is use-fixtures]]
             [hyperopen.portfolio.metrics :as portfolio-metrics]
-            [hyperopen.views.portfolio.vm.benchmarks :as vm-benchmarks]))
+            [hyperopen.views.portfolio.vm.benchmarks :as vm-benchmarks]
+            [hyperopen.views.portfolio.vm.history :as vm-history]))
 
 (defn- approx=
   [a b]
@@ -314,4 +315,28 @@
         (is (every? true?
                     (map approx=
                          [0 10 21]
+                         (mapv second (get (:benchmark-cumulative-rows-by-coin context) "BTC")))))))))
+
+(deftest benchmark-computation-context-keeps-bounded-market-anchor-at-range-cutoff-test
+  (let [t2 (.getTime (js/Date. "2026-04-14T00:00:00.000Z"))
+        t0 (vm-history/summary-window-cutoff-ms :one-year t2)
+        t1 (.getTime (js/Date. "2025-10-14T00:00:00.000Z"))
+        state {:candles {"BTC" {:12h [{:t t0 :c 100}
+                                      {:t t1 :c 86}
+                                      {:t t2 :c 88}]}}}
+        selector {:selected-coins ["BTC"]
+                  :label-by-coin {"BTC" "BTC-USDC (PERP)"}}]
+    (with-redefs [portfolio-metrics/returns-history-rows (fn [_state _summary _scope]
+                                                           [[t1 0]
+                                                            [t2 10]])]
+      (let [context (vm-benchmarks/benchmark-computation-context state
+                                                                 {:dummy true}
+                                                                 :all
+                                                                 :one-year
+                                                                 selector)]
+        (is (= [t1 t2]
+               (mapv first (get (:benchmark-cumulative-rows-by-coin context) "BTC"))))
+        (is (every? true?
+                    (map approx=
+                         [-14 -12]
                          (mapv second (get (:benchmark-cumulative-rows-by-coin context) "BTC")))))))))

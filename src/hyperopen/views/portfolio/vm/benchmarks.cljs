@@ -460,60 +460,6 @@
   (or (get-in state [:vaults :benchmark-details-by-address vault-address])
       (get-in state [:vaults :details-by-address vault-address])))
 
-(defn- normalized-return-rows
-  [rows]
-  (->> (or rows [])
-       (keep (fn [row]
-               (let [time-ms (vm-history/history-point-time-ms row)
-                     value (vm-history/history-point-value row)]
-                 (when (and (number? time-ms)
-                            (vm-utils/finite-number? value))
-                   [time-ms value]))))
-       (sort-by first)
-       vec))
-
-(defn- aligned-summary-return-rows
-  [benchmark-rows strategy-points]
-  (let [benchmark-rows* (normalized-return-rows benchmark-rows)
-        benchmark-count (count benchmark-rows*)
-        strategy-time-points (mapv :time-ms strategy-points)
-        strategy-count (count strategy-time-points)]
-    (loop [time-idx 0
-           benchmark-idx 0
-           latest-value nil
-           output []]
-      (if (>= time-idx strategy-count)
-        output
-        (let [time-ms (nth strategy-time-points time-idx)
-              [benchmark-idx* latest-value*]
-              (loop [idx benchmark-idx
-                     latest latest-value]
-                (if (>= idx benchmark-count)
-                  [idx latest]
-                  (let [[benchmark-time-ms benchmark-value] (nth benchmark-rows* idx)]
-                    (if (<= benchmark-time-ms time-ms)
-                      (recur (inc idx) benchmark-value)
-                      [idx latest]))))
-              output* (if (vm-utils/finite-number? latest-value*)
-                        (conj output [time-ms latest-value*])
-                        output)]
-          (recur (inc time-idx)
-                 benchmark-idx*
-                 latest-value*
-                 output*))))))
-
-(defn- cumulative-return-time-points
-  [rows]
-  (->> (or rows [])
-       (keep (fn [row]
-               (let [time-ms (vm-history/history-point-time-ms row)
-                     value (vm-history/history-point-value row)]
-                 (when (and (number? time-ms)
-                            (vm-utils/finite-number? value))
-                   {:time-ms time-ms
-                    :value value}))))
-       vec))
-
 (defn sampled-series-source-version-counter
   [rows]
   (let [rows* (or rows [])
@@ -541,14 +487,8 @@
                  (get benchmark-cumulative-rows-by-coin coin))]))
         selected-benchmark-coins))
 
-(defn- cumulative-row-pairs
-  [rows]
-  (mapv (fn [{:keys [time-ms value]}]
-          [time-ms value])
-        rows))
-
 (defn benchmark-cumulative-return-rows-by-coin
-  [state summary-time-range benchmark-coins strategy-time-points]
+  [state summary-time-range benchmark-coins strategy-time-points anchor-time-ms]
   (if (and (seq benchmark-coins)
            (seq strategy-time-points))
     (let [{:keys [interval]} (portfolio-actions/returns-benchmark-candle-request summary-time-range)
@@ -561,31 +501,43 @@
                                                                                normalized-range)]
                       (assoc rows-by-coin
                              coin
-                             (aligned-summary-return-rows
+                             (vm-history/aligned-summary-return-rows
                               (portfolio-metrics/returns-history-rows state summary :all)
                               strategy-time-points)))
                     (let [candles (vm-history/benchmark-candle-points (get-in state [:candles coin interval]))]
                       (assoc rows-by-coin
                              coin
-                             (cumulative-row-pairs
-                              (vm-history/aligned-benchmark-return-rows candles strategy-time-points)))))
+                             (vm-history/cumulative-return-row-pairs
+                              (vm-history/aligned-benchmark-return-rows candles
+                                                                       strategy-time-points
+                                                                       anchor-time-ms)))))
                   rows-by-coin))
               {}
               benchmark-coins))
     {}))
 
 (defn benchmark-computation-context
-  [state summary-entry summary-scope summary-time-range returns-benchmark-selector]
-  (let [strategy-cumulative-rows (portfolio-metrics/returns-history-rows state
+  [state summary-context-or-entry summary-scope summary-time-range returns-benchmark-selector]
+  (let [summary-context (if (contains? summary-context-or-entry :entry)
+                          summary-context-or-entry
+                          {:entry summary-context-or-entry
+                           :effective-key summary-time-range})
+        summary-entry (:entry summary-context)
+        summary-time-range* (vm-history/benchmark-time-range summary-time-range
+                                                             (:effective-key summary-context))
+        strategy-cumulative-rows (portfolio-metrics/returns-history-rows state
                                                                           summary-entry
                                                                           summary-scope)
-        strategy-time-points (cumulative-return-time-points strategy-cumulative-rows)
+        strategy-time-points (vm-history/cumulative-return-time-points strategy-cumulative-rows)
         selected-benchmark-coins (vec (or (:selected-coins returns-benchmark-selector)
                                           []))
+        anchor-time-ms (vm-history/market-benchmark-anchor-time-ms summary-time-range*
+                                                                   strategy-time-points)
         benchmark-cumulative-rows-by-coin (benchmark-cumulative-return-rows-by-coin state
-                                                                                     summary-time-range
+                                                                                     summary-time-range*
                                                                                      selected-benchmark-coins
-                                                                                     strategy-time-points)
+                                                                                     strategy-time-points
+                                                                                     anchor-time-ms)
         strategy-source-version (sampled-series-source-version-counter strategy-cumulative-rows)
         benchmark-source-version-map (benchmark-source-version-by-coin benchmark-cumulative-rows-by-coin
                                                                        selected-benchmark-coins)]

@@ -144,13 +144,51 @@
             {:accountValueHistory account-window
              :pnlHistory pnl-window*}))))))
 
+(declare selected-summary-context)
+
 (defn selected-summary-entry
   [summary-by-key scope time-range]
-  (let [summary-by-key* (normalize-summary-by-key summary-by-key)]
-    (or (get summary-by-key* (selected-summary-key scope time-range))
-        (derived-summary-entry summary-by-key* scope time-range)
-        (some #(get summary-by-key* %) (summary-key-candidates scope time-range))
-        (some-> summary-by-key* vals first))))
+  (:entry (selected-summary-context summary-by-key scope time-range)))
+
+(defn selected-summary-context
+  [summary-by-key scope time-range]
+  (let [summary-by-key* (normalize-summary-by-key summary-by-key)
+        requested-key (selected-summary-key scope time-range)
+        source-key (scope-all-time-key scope)]
+    (cond
+      (contains? summary-by-key* requested-key)
+      {:entry (get summary-by-key* requested-key)
+       :requested-key requested-key
+       :effective-key requested-key
+       :source-key requested-key
+       :source :direct}
+
+      :else
+      (if-let [derived-entry (derived-summary-entry summary-by-key* scope time-range)]
+        {:entry derived-entry
+         :requested-key requested-key
+         :effective-key requested-key
+         :source-key source-key
+         :source :derived}
+        (if-let [fallback-key (some #(when (contains? summary-by-key* %)
+                                       %)
+                                    (summary-key-candidates scope time-range))]
+          {:entry (get summary-by-key* fallback-key)
+           :requested-key requested-key
+           :effective-key fallback-key
+           :source-key fallback-key
+           :source :fallback}
+          (if-let [[first-key first-entry] (first summary-by-key*)]
+            {:entry first-entry
+             :requested-key requested-key
+             :effective-key first-key
+             :source-key first-key
+             :source :first}
+            {:entry nil
+             :requested-key requested-key
+             :effective-key nil
+             :source-key nil
+             :source nil}))))))
 
 (defn pnl-delta
   [summary]

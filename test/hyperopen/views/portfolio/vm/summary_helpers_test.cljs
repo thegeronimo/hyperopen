@@ -55,6 +55,49 @@
                                               :perps
                                               :month)))))
 
+(deftest selected-summary-context-reports-requested-effective-and-source-keys-truthfully-test
+  (let [week-entry {:vlm 7
+                    :pnlHistory [[1 1] [2 2]]
+                    :accountValueHistory [[1 10] [2 11]]}
+        mystery-entry {:vlm 9
+                       :pnlHistory [[1 0] [2 3]]
+                       :accountValueHistory [[1 10] [2 13]]}
+        t0 (.getTime (js/Date. "2024-01-01T00:00:00.000Z"))
+        t1 (.getTime (js/Date. "2024-03-01T00:00:00.000Z"))
+        t2 (.getTime (js/Date. "2024-04-01T00:00:00.000Z"))
+        t3 (.getTime (js/Date. "2024-05-15T00:00:00.000Z"))
+        t4 (.getTime (js/Date. "2024-06-30T00:00:00.000Z"))
+        derived-context (vm-summary/selected-summary-context
+                         {:all-time {:pnlHistory [[t0 10] [t1 20] [t2 30] [t3 45] [t4 60]]
+                                     :accountValueHistory [[t0 100] [t1 110] [t2 120] [t3 130] [t4 150]]}}
+                         :all
+                         :three-month)
+        fallback-context (vm-summary/selected-summary-context {:week week-entry}
+                                                              :all
+                                                              :month)
+        first-context (vm-summary/selected-summary-context {:mystery-range mystery-entry}
+                                                           :all
+                                                           :month)]
+    (is (= {:requested-key :three-month
+            :effective-key :three-month
+            :source-key :all-time
+            :source :derived}
+           (select-keys derived-context [:requested-key :effective-key :source-key :source])))
+    (is (= {:requested-key :month
+            :effective-key :week
+            :source-key :week
+            :source :fallback}
+           (select-keys fallback-context [:requested-key :effective-key :source-key :source])))
+    (is (= week-entry
+           (:entry fallback-context)))
+    (is (= {:requested-key :month
+            :effective-key :mystery-range
+            :source-key :mystery-range
+            :source :first}
+           (select-keys first-context [:requested-key :effective-key :source-key :source])))
+    (is (= mystery-entry
+           (:entry first-context)))))
+
 (deftest derived-summary-and-metric-helpers-cover-all-time-fallbacks-test
   (let [t0 (.getTime (js/Date. "2024-01-01T00:00:00.000Z"))
         t1 (.getTime (js/Date. "2024-03-01T00:00:00.000Z"))

@@ -55,4 +55,26 @@
              (mapv :value (get-in view-model [:chart :points]))))
       (is (= 5 (get-in view-model [:summary :pnl]))))))
 
+(deftest portfolio-vm-exposes-summary-source-metadata-when-requested-range-falls-back-test
+  (with-redefs [account-equity-view/account-equity-metrics (fn [_]
+                                                              {:spot-equity 0
+                                                               :perps-value 0
+                                                               :cross-account-value 0
+                                                               :unrealized-pnl 0})]
+    (let [state {:account {:mode :classic}
+                 :portfolio-ui {:summary-scope :all
+                                :summary-time-range :month
+                                :chart-tab :pnl}
+                 :portfolio {:summary-by-key {:week {:pnlHistory [[1 2] [2 7]]
+                                                     :accountValueHistory [[1 100] [2 104]]
+                                                     :vlm 11}}}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 0}}
+                           :totalVaultEquity 0}
+                 :borrow-lend {:total-supplied-usd 0}}
+          view-model (vm/portfolio-vm state)]
+      (is (= :month (get-in view-model [:summary :selected-key])))
+      (is (= :month (get-in view-model [:summary :requested-key])))
+      (is (= :week (get-in view-model [:summary :effective-key])))
+      (is (= :week (get-in view-model [:summary :source-key])))
+      (is (= :fallback (get-in view-model [:summary :source]))))))
 

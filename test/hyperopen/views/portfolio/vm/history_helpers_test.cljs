@@ -86,6 +86,21 @@
                                               [3 0 0 0 "12"]
                                               [4 0 0 0 "bad"]]))))
 
+(deftest benchmark-candle-points-unwrap-wrapped-containers-and-dedupe-last-write-wins-test
+  (is (= [{:time-ms 1 :value 12}
+          {:time-ms 2 :value 20}]
+         (vm-history/benchmark-candle-points {:rows [{:t 1 :c "10"}
+                                                     {:t 1 :c "12"}
+                                                     {:t 2 :c "20"}]})))
+  (is (= [{:time-ms 3 :value 32}
+          {:time-ms 4 :value 40}]
+         (vm-history/benchmark-candle-points {:data [[4 0 0 0 "40"]
+                                                     [3 0 0 0 "30"]
+                                                     [3 0 0 0 "32"]]})))
+  (is (= [{:time-ms 5 :value 55}]
+         (vm-history/benchmark-candle-points {:candles [{:t 5 :close "50"}
+                                                        {:t 5 :close "55"}]}))))
+
 (deftest aligned-benchmark-return-rows-cover-anchor-and-fallback-branches-test
   (is (= []
          (vm-history/aligned-benchmark-return-rows [] [{:time-ms 1}])))
@@ -116,3 +131,17 @@
                                                     {:time-ms 2}])))
   (is (= [{:time-ms 1 :value 0} {:time-ms 2 :value 12}]
          (vm-history/cumulative-return-time-points [[1 0] [2 12]]))))
+
+(deftest aligned-benchmark-return-rows-honors-explicit-anchor-time-before-late-strategy-start-test
+  (let [t2 (.getTime (js/Date. "2026-04-14T00:00:00.000Z"))
+        t0 (vm-history/summary-window-cutoff-ms :one-year t2)
+        t1 (.getTime (js/Date. "2025-10-14T00:00:00.000Z"))
+        aligned (vm-history/aligned-benchmark-return-rows [{:time-ms t0 :value 100}
+                                                           {:time-ms t1 :value 86}
+                                                           {:time-ms t2 :value 88}]
+                                                          [{:time-ms t1}
+                                                           {:time-ms t2}]
+                                                          t0)]
+    (is (= [t1 t2] (mapv :time-ms aligned)))
+    (is (approx= -14 (get-in aligned [0 :value])))
+    (is (approx= -12 (get-in aligned [1 :value])))))

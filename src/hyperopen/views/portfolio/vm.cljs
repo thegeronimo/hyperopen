@@ -178,8 +178,19 @@
 (defn- selected-summary-key [scope time-range]
   (vm-summary/selected-summary-key scope time-range))
 
+(defn- selected-summary-context [summary-by-key scope time-range]
+  (vm-summary/selected-summary-context summary-by-key scope time-range))
+
 (defn- selected-summary-entry [summary-by-key scope time-range]
   (vm-summary/selected-summary-entry summary-by-key scope time-range))
+
+(defn- summary-context-source-version
+  [summary-context]
+  (hash [(summary-entry-source-version (:entry summary-context))
+         (:requested-key summary-context)
+         (:effective-key summary-context)
+         (:source-key summary-context)
+         (:source summary-context)]))
 
 (defn- metrics-request-signature
   [summary-time-range selected-benchmark-coins strategy-source-version benchmark-source-version-map]
@@ -189,8 +200,8 @@
                                                benchmark-source-version-map))
 
 (defn- benchmark-computation-context
-  [state summary-entry summary-scope summary-time-range returns-benchmark-selector]
-  (let [summary-source-version (summary-entry-source-version summary-entry)
+  [state summary-context summary-scope summary-time-range returns-benchmark-selector]
+  (let [summary-source-version (summary-context-source-version summary-context)
         selected-benchmark-coins (vec (or (:selected-coins returns-benchmark-selector)
                                           []))
         candles (get state :candles)
@@ -209,7 +220,7 @@
              (identical? details-by-address (:details-by-address cache)))
       (:context cache)
       (let [context (vm-benchmarks/benchmark-computation-context state
-                                                                 summary-entry
+                                                                 summary-context
                                                                  summary-scope
                                                                  summary-time-range
                                                                  returns-benchmark-selector)]
@@ -316,8 +327,9 @@
         summary-time-range (portfolio-actions/normalize-summary-time-range
                             (get-in state [:portfolio-ui :summary-time-range]
                                     portfolio-actions/default-summary-time-range))
-        summary-entry (selected-summary-entry summary-by-key summary-scope summary-time-range)
-        selected-key (selected-summary-key summary-scope summary-time-range)
+        summary-context (selected-summary-context summary-by-key summary-scope summary-time-range)
+        summary-entry (:entry summary-context)
+        selected-key (:requested-key summary-context)
         top-up-enabled? (vm-equity/top-up-abstraction-enabled? state)
         pnl (or (vm-summary/pnl-delta summary-entry)
                 (optional-number (:unrealized-pnl metrics))
@@ -350,7 +362,7 @@
                  fees-default)
         returns-benchmark-selector (returns-benchmark-selector-model state)
         benchmark-context (benchmark-computation-context state
-                                                         summary-entry
+                                                         summary-context
                                                          summary-scope
                                                          summary-time-range
                                                          returns-benchmark-selector)
@@ -387,6 +399,10 @@
                                                   :options summary-time-range-options}
                  :returns-benchmark returns-benchmark-selector}
      :summary {:selected-key selected-key
+               :requested-key (:requested-key summary-context)
+               :effective-key (:effective-key summary-context)
+               :source-key (:source-key summary-context)
+               :source (:source summary-context)
                :pnl pnl
                :volume volume
                :max-drawdown-pct max-drawdown-pct
