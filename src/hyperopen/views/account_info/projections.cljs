@@ -1,8 +1,10 @@
 (ns hyperopen.views.account-info.projections
   (:require [hyperopen.views.account-info.projections.balances :as balances]
             [hyperopen.views.account-info.projections.coins :as coins]
+            [hyperopen.views.account-info.projections.order-history :as order-history]
             [hyperopen.views.account-info.projections.orders :as orders]
             [hyperopen.views.account-info.projections.parse :as parse]
+            [hyperopen.views.account-info.projections.positions :as positions]
             [hyperopen.views.account-info.projections.twaps :as twaps]
             [hyperopen.views.account-info.projections.trades :as trades]))
 
@@ -23,8 +25,8 @@
 
 ;; Open orders and order history
 (def resolve-open-order-oid orders/resolve-open-order-oid)
-(def order-history-status-key orders/order-history-status-key)
-(def order-history-status-label orders/order-history-status-label)
+(def order-history-status-key order-history/order-history-status-key)
+(def order-history-status-label order-history/order-history-status-label)
 (def normalize-open-order orders/normalize-open-order)
 (def open-orders-seq orders/open-orders-seq)
 (def open-orders-by-dex orders/open-orders-by-dex)
@@ -34,15 +36,15 @@
 (def normalized-open-orders orders/normalized-open-orders)
 (def open-order-for-active-asset? orders/open-order-for-active-asset?)
 (def normalized-open-orders-for-active-asset orders/normalized-open-orders-for-active-asset)
-(def normalize-order-history-row orders/normalize-order-history-row)
-(def normalized-order-history orders/normalized-order-history)
+(def normalize-order-history-row order-history/normalize-order-history-row)
+(def normalized-order-history order-history/normalized-order-history)
 
 ;; Balances and positions
 (def normalize-balance-contract-id balances/normalize-balance-contract-id)
 (def portfolio-usdc-value balances/portfolio-usdc-value)
 (def build-balance-rows balances/build-balance-rows)
-(def position-unique-key balances/position-unique-key)
-(def collect-positions balances/collect-positions)
+(def position-unique-key positions/position-unique-key)
+(def collect-positions positions/collect-positions)
 
 ;; Trade history
 (def trade-history-coin trades/trade-history-coin)

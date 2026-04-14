@@ -66,18 +66,18 @@
 
 (deftest balances-tab-uses-12px-typography-for-toggle-and-rows-test
   (let [account-info-actions-path (join-path (project-root) "src" "hyperopen" "views" "account_info" "tab_actions.cljs")
-        balances-tab-path (join-path (project-root) "src" "hyperopen" "views" "account_info" "tabs" "balances.cljs")
+        balances-desktop-path (join-path (project-root) "src" "hyperopen" "views" "account_info" "tabs" "balances" "desktop.cljs")
         account-info-actions-source (read-text account-info-actions-path)
-        balances-tab-source (read-text balances-tab-path)]
+        balances-desktop-source (read-text balances-desktop-path)]
     (testing "hide small balances label uses text-sm"
       (is (re-find #"\[:label\.text-sm\.text-trading-text(?:\.[A-Za-z0-9_-]+)*\s+\{:for \"hide-small-balances\"\}\s+\"Hide Small Balances\"\]"
                    account-info-actions-source)))
     (testing "balance desktop grid declares the dedicated parity template"
       (is (re-find #"\(def \^:private balances-desktop-grid-template-class\s+\"grid-cols-\["
-                   balances-tab-source)))
+                   balances-desktop-source)))
     (testing "balance row wrapper includes text-sm for 12px baseline"
       (is (re-find #"\[:div\s+\{:class\s+\[\"grid\"\s+(?:\(desktop-grid-template-class read-only\?\)|balances-desktop-grid-template-class)[\s\S]*?\"text-sm\""
-                   balances-tab-source)))))
+                   balances-desktop-source)))))
 
 (deftest header-nav-link-css-uses-14px-and-600-weight-test
   (let [styles-path (join-path (project-root) "src" "styles" "main.css")

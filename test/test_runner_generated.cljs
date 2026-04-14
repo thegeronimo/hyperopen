@@ -264,9 +264,14 @@
             [hyperopen.views.account-info.position-tpsl-modal-test]
             [hyperopen.views.account-info.projections-test]
             [hyperopen.views.account-info.table-contract-test]
-            [hyperopen.views.account-info.tabs.balances-test]
+            [hyperopen.views.account-info.tabs.balances.content-test]
+            [hyperopen.views.account-info.tabs.balances.desktop-test]
+            [hyperopen.views.account-info.tabs.balances.mobile-test]
+            [hyperopen.views.account-info.tabs.balances.projection-test]
             [hyperopen.views.account-info.tabs.funding-history-test]
             [hyperopen.views.account-info.tabs.open-orders-test]
+            [hyperopen.views.account-info.tabs.open-orders.projection-test]
+            [hyperopen.views.account-info.tabs.open-orders.sorting-test]
             [hyperopen.views.account-info.tabs.order-history-test]
             [hyperopen.views.account-info.tabs.positions.content-test]
             [hyperopen.views.account-info.tabs.positions.desktop-actions-test]
@@ -727,9 +732,14 @@
              'hyperopen.views.account-info.position-tpsl-modal-test
              'hyperopen.views.account-info.projections-test
              'hyperopen.views.account-info.table-contract-test
-             'hyperopen.views.account-info.tabs.balances-test
+             'hyperopen.views.account-info.tabs.balances.content-test
+             'hyperopen.views.account-info.tabs.balances.desktop-test
+             'hyperopen.views.account-info.tabs.balances.mobile-test
+             'hyperopen.views.account-info.tabs.balances.projection-test
              'hyperopen.views.account-info.tabs.funding-history-test
              'hyperopen.views.account-info.tabs.open-orders-test
+             'hyperopen.views.account-info.tabs.open-orders.projection-test
+             'hyperopen.views.account-info.tabs.open-orders.sorting-test
              'hyperopen.views.account-info.tabs.order-history-test
              'hyperopen.views.account-info.tabs.positions.content-test
              'hyperopen.views.account-info.tabs.positions.desktop-actions-test

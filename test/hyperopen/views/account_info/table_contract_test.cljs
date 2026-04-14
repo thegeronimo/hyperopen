@@ -2,6 +2,7 @@
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.views.account-info.test-support.fixtures :as fixtures]
             [hyperopen.views.account-info.test-support.hiccup :as hiccup]
+            [hyperopen.views.account-info.tabs.open-orders :as open-orders-tab]
             [hyperopen.views.account-info-view :as view]))
 
 (defn- sample-open-orders
@@ -37,7 +38,7 @@
    (view/positions-tab-content {:webdata2 {:clearinghouseState {:assetPositions [fixtures/sample-position-data]}}
                                 :sort-state fixtures/default-sort-state
                                 :perp-dex-states {}})
-   (view/open-orders-tab-content (sample-open-orders) {:column "Time" :direction :desc})
+   (open-orders-tab/open-orders-tab-content (sample-open-orders) {:column "Time" :direction :desc})
    (view/trade-history-tab-content (sample-fills))
    (view/funding-history-tab-content (sample-fundings))
    (view/order-history-tab-content (sample-order-history))])
@@ -48,7 +49,7 @@
    [:positions (view/positions-tab-content {:webdata2 {:clearinghouseState {:assetPositions [fixtures/sample-position-data]}}
                                             :sort-state fixtures/default-sort-state
                                             :perp-dex-states {}})]
-   [:open-orders (view/open-orders-tab-content (sample-open-orders) {:column "Time" :direction :desc})]
+   [:open-orders (open-orders-tab/open-orders-tab-content (sample-open-orders) {:column "Time" :direction :desc})]
    [:trade-history (view/trade-history-tab-content (sample-fills))]
    [:funding-history (view/funding-history-tab-content (sample-fundings))]
    [:order-history (view/order-history-tab-content (sample-order-history))]])
