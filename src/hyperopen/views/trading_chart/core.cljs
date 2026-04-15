@@ -755,6 +755,7 @@
                                 :on-liquidation-drag-confirm on-liquidation-drag-confirm}
          volume-indicator-deps {:on-remove on-hide-volume-indicator}
          context-menu-deps {:format-price fmt/format-trade-price-plain
+                            :price-decimals (:price-decimals series-options)
                             :context-key (str (or (:symbol legend-meta) "")
                                               "::"
                                               (name selected-timeframe))}

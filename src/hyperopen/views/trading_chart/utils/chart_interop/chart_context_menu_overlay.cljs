@@ -1,5 +1,6 @@
 (ns hyperopen.views.trading-chart.utils.chart-interop.chart-context-menu-overlay
-  (:require [hyperopen.utils.formatting :as fmt]))
+  (:require [hyperopen.domain.trading :as trading-domain]
+            [hyperopen.utils.formatting :as fmt]))
 
 (defonce ^:private chart-context-menu-overlay-sidecar (js/WeakMap.))
 
@@ -225,18 +226,30 @@
   (when-let [y (some-> anchor :y parse-number)]
     (y->price chart-obj y)))
 
+(defn- normalize-price-decimals
+  [value]
+  (when-let [parsed (parse-number value)]
+    (-> parsed
+        js/Math.floor
+        int
+        (max 0))))
+
 (defn- format-price-label
-  [format-price price]
-  (or (when (fn? format-price)
-        (format-price price))
-      (fmt/format-trade-price-plain price)))
+  [format-price price price-decimals]
+  (let [normalized-decimals (normalize-price-decimals price-decimals)]
+    (or (when (and (finite-number? price)
+                   (some? normalized-decimals))
+          (trading-domain/number->clean-string price normalized-decimals))
+        (when (fn? format-price)
+          (format-price price))
+        (fmt/format-trade-price-plain price))))
 
 (defn- resolve-copy-price-data
-  [chart-obj candles anchor format-price]
+  [chart-obj candles anchor format-price price-decimals]
   (let [price (or (price-from-anchor chart-obj anchor)
                   (last-visible-price candles))
         label (when (finite-number? price)
-                (format-price-label format-price price))]
+                (format-price-label format-price price price-decimals))]
     {:price price
      :label label
      :copy-enabled? (boolean (seq label))}))
@@ -396,8 +409,12 @@
 
 (defn- open-menu!
   [chart-obj anchor]
-  (let [{:keys [container format-price candles root panel context-key]} (overlay-state chart-obj)
-        {:keys [copy-enabled? label]} (resolve-copy-price-data chart-obj candles anchor format-price)
+  (let [{:keys [container format-price candles root panel context-key price-decimals]} (overlay-state chart-obj)
+        {:keys [copy-enabled? label]} (resolve-copy-price-data chart-obj
+                                                               candles
+                                                               anchor
+                                                               format-price
+                                                               price-decimals)
         position (menu-position container anchor)]
     (update-overlay-state! chart-obj assoc
                            :menu-open? true
@@ -740,6 +757,7 @@
   [chart-obj container candles {:keys [document
                                        clipboard
                                        format-price
+                                       price-decimals
                                        on-reset
                                        context-key
                                        set-timeout-fn
@@ -772,6 +790,7 @@
             :candles (if (sequential? candles) candles [])
             :clipboard clipboard
             :format-price format-price
+            :price-decimals price-decimals
             :on-reset on-reset
             :context-key context-key
             :set-timeout-fn (or set-timeout-fn
@@ -799,6 +818,7 @@
   ([chart-obj container candles {:keys [document
                                         clipboard
                                         format-price
+                                        price-decimals
                                         on-reset
                                         context-key
                                         set-timeout-fn
@@ -817,6 +837,7 @@
           {:document document*
            :clipboard clipboard
            :format-price format-price
+           :price-decimals price-decimals
            :on-reset on-reset
            :context-key context-key
            :set-timeout-fn set-timeout-fn

@@ -204,6 +204,38 @@
       (is (identical? container (.-activeElement document))))
     (chart-context-menu-overlay/clear-chart-context-menu-overlay! chart-obj)))
 
+(deftest chart-context-menu-copy-uses-price-decimals-for-full-precision-label-and-payload-test
+  (let [document (fake-dom/make-fake-document)
+        container (.createElement document "div")
+        chart-obj (make-chart-obj {:coordinate->price (fn [_y]
+                                                        0.086823)})
+        clipboard-payloads* (atom [])]
+    (sync-overlay! chart-obj
+                   container
+                   [{:close 0.086823}]
+                   {:price-decimals 6
+                    :format-price (fn [_price]
+                                    "0.09")
+                    :clipboard #js {:writeText (fn [payload]
+                                                (swap! clipboard-payloads* conj payload)
+                                                (resolved-promise))}})
+    (fake-dom/dispatch-dom-event-with-payload!
+     container
+     "contextmenu"
+     #js {:target container
+          :button 2
+          :clientX 40
+          :clientY 20
+          :preventDefault (fn [] nil)
+          :stopPropagation (fn [] nil)})
+    (let [state (@#'hyperopen.views.trading-chart.utils.chart-interop.chart-context-menu-overlay/overlay-state
+                 chart-obj)
+          copy-button (:copy-button state)]
+      (is (= "Copy price 0.086823" (.-textContent (aget copy-button "labelNode"))))
+      (fake-dom/click-dom-node! copy-button)
+      (is (= ["0.086823"] @clipboard-payloads*)))
+    (chart-context-menu-overlay/clear-chart-context-menu-overlay! chart-obj)))
+
 (deftest chart-context-menu-disables-copy-row-when-no-price-is-available-test
   (let [document (fake-dom/make-fake-document)
         container (.createElement document "div")

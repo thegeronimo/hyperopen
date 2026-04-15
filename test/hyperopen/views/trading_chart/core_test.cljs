@@ -779,6 +779,12 @@
                         (fn [_ _ _ _]
                           (swap! decoration-calls* conj :volume))
                         4)
+        context-menu-opts* (atom nil)
+        record-context-menu! (expose-arity!
+                              (fn [_ _ _ opts]
+                                (reset! context-menu-opts* opts)
+                                (swap! decoration-calls* conj :context-menu))
+                              4)
         record-navigation! (expose-arity!
                             (fn [_ _ _ _]
                               (swap! decoration-calls* conj :navigation))
@@ -792,6 +798,7 @@
                     chart-interop/sync-position-overlays! record-position!
                     chart-interop/sync-open-order-overlays! record-open-orders!
                     chart-interop/sync-volume-indicator-overlay! record-volume!
+                    chart-interop/sync-chart-context-menu-overlay! record-context-menu!
                     chart-interop/sync-chart-navigation-overlay! record-navigation!
                     chart-interop/apply-default-visible-range! noop-2
                     chart-interop/apply-persisted-visible-range! stub-apply-persisted-visible-range!
@@ -801,14 +808,20 @@
                     (reset! scheduled-frame* callback)
                     :frame-1)
                   chart-core/*cancel-chart-decoration-frame!* (fn [_] nil)]
-          (render-chart-canvas! (chart-core/chart-canvas candle-data :candlestick {} legend-meta :1d {})
+          (render-chart-canvas! (chart-core/chart-canvas candle-data
+                                                         :candlestick
+                                                         {}
+                                                         legend-meta
+                                                         :1d
+                                                         {:series-options {:price-decimals 6}})
                                 :replicant.life-cycle/mount
                                 node)
           (is (empty? @decoration-calls*))
           (is (= :frame-1 (:decoration-frame-id (chart-runtime/get-state node))))
           (is (false? (:chart-accessibility-applied? (chart-runtime/get-state node))))
           (@scheduled-frame* 16)
-          (is (= [:markers :position :open-orders :volume :navigation] @decoration-calls*))
+          (is (= [:markers :position :open-orders :volume :context-menu :navigation] @decoration-calls*))
+          (is (= 6 (:price-decimals @context-menu-opts*)))
           (is (nil? (:decoration-frame-id (chart-runtime/get-state node))))
           (is (true? (:chart-accessibility-applied? (chart-runtime/get-state node)))))))
     (chart-runtime/clear-state! node)))
