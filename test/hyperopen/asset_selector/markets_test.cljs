@@ -44,6 +44,25 @@
       (is (false? (:delisted? (second hyna-markets))))
       (is (true? (:hip3-eligible? (second hyna-markets)))))))
 
+(deftest build-perp-markets-fallbacks-test
+  (testing "build-perp-markets skips missing ctxs and falls back to meta-derived defaults"
+    (let [meta {:universe [{:name "xyz:OIL" :maxLeverage 20 :szDecimals 3}
+                           {:name "BTC" :maxLeverage 40 :szDecimals 5}]
+                :collateralToken 99
+                :perpDexIndex "2"}
+          asset-ctxs [{:markPx "50" :prevDayPx "0" :dayNtlVlm "1500" :openInterest "10" :funding "0.001"}]
+          [market] (markets/build-perp-markets meta asset-ctxs {})]
+      (is (= 1 (count (markets/build-perp-markets meta asset-ctxs {}))))
+      (is (= "perp:xyz:OIL" (:key market)))
+      (is (= "OIL-USDC" (:symbol market)))
+      (is (= "xyz" (:dex market)))
+      (is (= 2 (:perp-dex-index market)))
+      (is (= 120000 (:asset-id market)))
+      (is (= 50 (:change24h market)))
+      (is (nil? (:change24hPct market)))
+      (is (nil? (:margin-mode market)))
+      (is (nil? (:only-isolated? market))))))
+
 (deftest build-spot-markets-test
   (testing "build-spot-markets maps base/quote and symbol"
     (let [spot-meta {:tokens [{:index 0 :name "USDC" :szDecimals 8}

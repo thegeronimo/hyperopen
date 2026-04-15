@@ -336,67 +336,71 @@
         :market-type :perp
         :dex dex}))))
 
+(defn- perp-market-stats
+  [ctx]
+  (let [mark-raw (:markPx ctx)
+        prev-raw (:prevDayPx ctx)
+        mark (safe-num mark-raw)
+        prev (safe-num prev-raw)
+        open-interest (safe-num (:openInterest ctx))]
+    {:mark mark
+     :markRaw mark-raw
+     :volume24h (safe-num (:dayNtlVlm ctx))
+     :change24h (- mark prev)
+     :change24hPct (pct-change mark prev)
+     :prevDayRaw prev-raw
+     :openInterest (fmt/calculate-open-interest-usd open-interest mark)
+     :fundingRate (safe-num (:funding ctx))}))
+
+(defn- perp-market-flags
+  [info]
+  (let [only-isolated? (parse-optional-boolean
+                        (or (:only-isolated? info)
+                            (:onlyIsolated info)))
+        margin-mode (normalize-margin-mode
+                     (or (:margin-mode info)
+                         (:marginMode info)))]
+    (merge {:growth-mode? (growth-mode-enabled? (:growthMode info))
+            :delisted? (boolean (:isDelisted info))}
+           (when (some? only-isolated?)
+             {:only-isolated? only-isolated?})
+           (when margin-mode
+             {:margin-mode margin-mode}))))
+
+(defn- build-perp-market-entry
+  [quote default-dex perp-dex-index idx info ctx]
+  (when ctx
+    (let [{:keys [name maxLeverage szDecimals]} info
+          {:keys [base coin dex]} (parse-perp-name name)
+          dex-name (or default-dex dex)]
+      (classify-market
+       (merge {:key (perp-market-key coin)
+               :coin coin
+               :symbol (str base "-" quote)
+               :base base
+               :quote quote
+               :market-type :perp
+               :dex dex-name
+               :idx idx
+               :perp-dex-index perp-dex-index
+               :asset-id (perp-asset-id perp-dex-index idx)
+               :szDecimals szDecimals
+               :maxLeverage maxLeverage}
+              (perp-market-stats ctx)
+              (perp-market-flags info))))))
+
 (defn build-perp-markets
   "Build normalized perp market entries from metaAndAssetCtxs data.
    Accepts the meta map, asset ctxs vector, a token index->symbol map,
    and optional dex name (string)."
   [meta asset-ctxs collateral-token->symbol & {:keys [dex perp-dex-index]}]
-  (let [universe (:universe meta)
-        collateral-token (:collateralToken meta)
-        quote (or (get collateral-token->symbol collateral-token) "USDC")
+  (let [quote (or (get collateral-token->symbol (:collateralToken meta)) "USDC")
         ctxs (vec (or asset-ctxs []))
         resolved-perp-dex-index (canonical-perp-dex-index meta dex perp-dex-index)]
-    (->> (map-indexed vector (or universe []))
-         (keep (fn [[idx info]]
-                 (let [ctx (nth ctxs idx nil)]
-                   (when ctx
-                     (let [{:keys [name maxLeverage szDecimals]} info
-                           only-isolated? (parse-optional-boolean
-                                           (or (:only-isolated? info)
-                                               (:onlyIsolated info)))
-                           margin-mode (normalize-margin-mode
-                                        (or (:margin-mode info)
-                                            (:marginMode info)))
-                           parsed (parse-perp-name name)
-                           base (:base parsed)
-                           coin (:coin parsed)
-                           dex-name (or dex (:dex parsed))
-                           mark-raw (:markPx ctx)
-                           prev-raw (:prevDayPx ctx)
-                           mark (safe-num mark-raw)
-                           prev (safe-num prev-raw)
-                           change (- mark prev)
-                           change-pct (pct-change mark prev)
-                           volume (safe-num (:dayNtlVlm ctx))
-                           open-interest (safe-num (:openInterest ctx))
-                           open-interest-usd (fmt/calculate-open-interest-usd open-interest mark)
-                           funding (safe-num (:funding ctx))
-                           market {:key (str "perp:" coin)
-                                   :coin coin
-                                   :symbol (str base "-" quote)
-                                   :base base
-                                   :quote quote
-                                   :market-type :perp
-                                   :dex dex-name
-                                   :growth-mode? (growth-mode-enabled? (:growthMode info))
-                                   :delisted? (boolean (:isDelisted info))
-                                   :idx idx
-                                   :perp-dex-index resolved-perp-dex-index
-                                   :asset-id (perp-asset-id resolved-perp-dex-index idx)
-                                   :mark mark
-                                   :markRaw mark-raw
-                                   :volume24h volume
-                                   :change24h change
-                                   :change24hPct change-pct
-                                   :prevDayRaw prev-raw
-                                   :szDecimals szDecimals
-                                   :openInterest open-interest-usd
-                                   :fundingRate funding
-                                   :maxLeverage maxLeverage}]
-                       (classify-market
-                        (cond-> market
-                          (some? only-isolated?) (assoc :only-isolated? only-isolated?)
-                          margin-mode (assoc :margin-mode margin-mode))))))))
+    (->> (or (:universe meta) [])
+         (keep-indexed (fn [idx info]
+                         (build-perp-market-entry quote dex resolved-perp-dex-index
+                                                  idx info (nth ctxs idx nil))))
          vec)))
 
 (defn- build-spot-token-info-by-key
