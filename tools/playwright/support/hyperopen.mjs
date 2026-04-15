@@ -123,3 +123,21 @@ export async function sourceRectForLocator(page, locator) {
     "viewport-height": viewport.height
   };
 }
+
+export async function hoverLocatorAtRatio(
+  page,
+  locator,
+  { xRatio = 0.5, yRatio = 0.5 } = {}
+) {
+  const box = await locator.boundingBox();
+
+  if (!box) {
+    throw new Error("Locator has no bounding box for hover");
+  }
+
+  const clampRatio = (value) => Math.max(0, Math.min(1, Number(value) || 0));
+  const nextX = box.x + box.width * clampRatio(xRatio);
+  const nextY = box.y + box.height * clampRatio(yRatio);
+
+  await page.mouse.move(nextX, nextY);
+}
