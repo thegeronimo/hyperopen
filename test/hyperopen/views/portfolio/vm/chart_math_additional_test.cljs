@@ -66,3 +66,30 @@
   (is (= 0 (vm-chart-math/normalize-hover-index 0.6 4)))
   (is (= 2 (vm-chart-math/normalize-hover-index 2 4)))
   (is (= 3 (vm-chart-math/normalize-hover-index 99 4))))
+
+(deftest normalize-chart-points-uses-shared-time-domain-when-series-have-real-timestamps-test
+  (let [time-domain {:min 1000
+                     :max 5000}
+        strategy-points (vm-chart-math/normalize-chart-points [{:time-ms 4000
+                                                                :has-time-ms? true
+                                                                :value 10}
+                                                               {:time-ms 5000
+                                                                :has-time-ms? true
+                                                                :value 20}]
+                                                              {:min 10 :max 20}
+                                                              time-domain)
+        benchmark-points (vm-chart-math/normalize-chart-points [{:time-ms 1000
+                                                                 :has-time-ms? true
+                                                                 :value 0}
+                                                                {:time-ms 3000
+                                                                 :has-time-ms? true
+                                                                 :value 5}
+                                                                {:time-ms 5000
+                                                                 :has-time-ms? true
+                                                                 :value 10}]
+                                                               {:min 0 :max 10}
+                                                               time-domain)]
+    (is (= [0.75 1]
+           (mapv :x-ratio strategy-points)))
+    (is (= [0 0.5 1]
+           (mapv :x-ratio benchmark-points)))))

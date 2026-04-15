@@ -87,3 +87,23 @@
     (is (= [] (:benchmark-values tooltip)))
     (is (= "date:77" (:timestamp pnl-tooltip)))
     (is (= ["text-[#ff7b72]"] (:value-classes pnl-tooltip)))))
+
+(deftest benchmark-rows-use-latest-prior-point-by-hover-time-instead-of-shared-index-test
+  (let [rows (tooltip-core/benchmark-rows {:metric-kind :returns
+                                           :hover-time-ms 25
+                                           :hovered-index 1
+                                           :series [{:id :strategy
+                                                     :points [{:time-ms 10 :value 1}
+                                                              {:time-ms 25 :value 2}]}
+                                                    {:id :btc
+                                                     :coin "BTC"
+                                                     :label "Bitcoin"
+                                                     :stroke "#f2cf66"
+                                                     :points [{:time-ms 10 :value -6}
+                                                              {:time-ms 40 :value -12}]}]}
+                                          {:format-benchmark-value str})]
+    (is (= [{:coin "BTC"
+             :label "Bitcoin"
+             :value "-6"
+             :stroke "#f2cf66"}]
+           rows))))

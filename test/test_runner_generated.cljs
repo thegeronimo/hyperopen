@@ -327,6 +327,7 @@
             [hyperopen.views.portfolio.performance-metrics-view-test]
             [hyperopen.views.portfolio.summary-cards-test]
             [hyperopen.views.portfolio.vm-test]
+            [hyperopen.views.portfolio.vm.benchmark-chart-path-test]
             [hyperopen.views.portfolio.vm.benchmarks-helpers-test]
             [hyperopen.views.portfolio.vm.benchmarks-test]
             [hyperopen.views.portfolio.vm.chart-helpers-test]
@@ -803,6 +804,7 @@
              'hyperopen.views.portfolio.performance-metrics-view-test
              'hyperopen.views.portfolio.summary-cards-test
              'hyperopen.views.portfolio.vm-test
+             'hyperopen.views.portfolio.vm.benchmark-chart-path-test
              'hyperopen.views.portfolio.vm.benchmarks-helpers-test
              'hyperopen.views.portfolio.vm.benchmarks-test
              'hyperopen.views.portfolio.vm.chart-helpers-test

@@ -16,19 +16,25 @@
         count*))))
 
 (defn hover-index
-  [client-x left width point-count]
-  (let [point-count* (positive-point-count point-count)]
-    (when point-count*
-      (if (= point-count* 1)
+  [client-x left width points]
+  (let [points* (vec (or points []))
+        point-count (count points*)]
+    (when (pos? point-count)
+      (if (= point-count 1)
         0
         (when (and (number? client-x)
                    (number? left)
                    (number? width)
                    (pos? width))
-          (let [x-ratio (clamp (/ (- client-x left) width) 0 1)
-                max-index (dec point-count*)
-                nearest-index (js/Math.round (* x-ratio max-index))]
-            (clamp nearest-index 0 max-index)))))))
+          (let [target-x-ratio (clamp (/ (- client-x left) width) 0 1)]
+            (some->> points*
+                     (keep-indexed (fn [idx {:keys [x-ratio]}]
+                                     (when (and (number? x-ratio)
+                                                (js/isFinite x-ratio))
+                                       [idx (js/Math.abs (- x-ratio target-x-ratio))])))
+                     seq
+                     (apply min-key second)
+                     first)))))))
 
 (def tooltip-center-ratio
   0.5)

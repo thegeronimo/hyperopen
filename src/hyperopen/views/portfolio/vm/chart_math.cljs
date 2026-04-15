@@ -3,6 +3,11 @@
             [hyperopen.views.account-info.projections :as projections]
             [hyperopen.views.portfolio.vm.constants :as constants]))
 
+(defn finite-number?
+  [value]
+  (and (number? value)
+       (js/isFinite value)))
+
 (defn non-zero-span
   [domain-min domain-max]
   (let [span (- domain-max domain-min)]
@@ -45,20 +50,45 @@
                :y-ratio (/ (- max value) span)}))
           (range constants/chart-y-tick-count))))
 
+(defn shared-time-domain
+  [points]
+  (let [times (->> points
+                   (keep (fn [{:keys [time-ms has-time-ms?]}]
+                           (when (and has-time-ms?
+                                      (finite-number? time-ms))
+                             time-ms)))
+                   vec)]
+    (when (seq times)
+      {:min (apply min times)
+       :max (apply max times)})))
+
+(defn- normalize-x-ratio
+  [idx point-count {:keys [time-ms has-time-ms?]} {:keys [min max] :as time-domain}]
+  (if (and time-domain
+           has-time-ms?
+           (finite-number? time-ms)
+           (finite-number? min)
+           (finite-number? max))
+    (/ (- time-ms min)
+       (non-zero-span min max))
+    (if (> point-count 1)
+      (/ idx (dec point-count))
+      0)))
+
 (defn normalize-chart-points
-  [points {:keys [min max]}]
-  (let [point-count (count points)
-        span (non-zero-span min max)]
-    (mapv (fn [idx {:keys [value] :as point}]
-            (let [x-ratio (if (> point-count 1)
-                            (/ idx (dec point-count))
-                            0)
-                  y-ratio (/ (- max value) span)]
-              (assoc point
-                     :x-ratio x-ratio
-                     :y-ratio y-ratio)))
-          (range point-count)
-          points)))
+  ([points y-domain]
+   (normalize-chart-points points y-domain nil))
+  ([points {:keys [min max]} time-domain]
+   (let [point-count (count points)
+         span (non-zero-span min max)]
+     (mapv (fn [idx {:keys [value] :as point}]
+             (let [x-ratio (normalize-x-ratio idx point-count point time-domain)
+                   y-ratio (/ (- max value) span)]
+               (assoc point
+                      :x-ratio x-ratio
+                      :y-ratio y-ratio)))
+           (range point-count)
+           points))))
 
 (defn format-svg-number
   [value]

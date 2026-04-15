@@ -12,14 +12,14 @@
                                                             [2 -0.0001]])]
       (is (= [[1 1.234] [2 -0.0001]]
              (vm-chart/chart-history-rows {} summary :returns :all)))
-      (is (= [{:index 0 :time-ms 1 :value 1.23}
-              {:index 1 :time-ms 2 :value 0}]
+      (is (= [{:index 0 :time-ms 1 :has-time-ms? true :value 1.23}
+              {:index 1 :time-ms 2 :has-time-ms? true :value 0}]
              (vm-chart/chart-data-points {} summary :returns :all)))
-      (is (= [{:index 0 :time-ms 1 :value 11}
-              {:index 1 :time-ms 1 :value 0}]
+      (is (= [{:index 0 :time-ms 1 :has-time-ms? true :value 11}
+              {:index 1 :time-ms 1 :has-time-ms? false :value 0}]
              (vm-chart/chart-data-points {} summary :account-value :all)))
-      (is (= [{:index 0 :time-ms 1 :value 5}
-              {:index 1 :time-ms 2 :value 7}]
+      (is (= [{:index 0 :time-ms 1 :has-time-ms? true :value 5}
+              {:index 1 :time-ms 2 :has-time-ms? true :value 7}]
              (vm-chart/chart-data-points {} summary :pnl :all)))
       (is (= [{:time-ms 1 :value 10.8}
               {:value 0}]

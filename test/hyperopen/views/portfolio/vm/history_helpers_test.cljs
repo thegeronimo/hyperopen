@@ -145,3 +145,23 @@
     (is (= [t1 t2] (mapv :time-ms aligned)))
     (is (approx= -14 (get-in aligned [0 :value])))
     (is (approx= -12 (get-in aligned [1 :value])))))
+
+(deftest benchmark-market-return-rows-preserve-dense-candle-path-with-explicit-window-test
+  (let [t0 (.getTime (js/Date. "2025-04-14T00:00:00.000Z"))
+        t1 (.getTime (js/Date. "2025-07-14T00:00:00.000Z"))
+        t2 (.getTime (js/Date. "2025-10-14T00:00:00.000Z"))
+        t3 (.getTime (js/Date. "2026-01-14T00:00:00.000Z"))
+        t4 (.getTime (js/Date. "2026-04-14T00:00:00.000Z"))
+        rows (vm-history/benchmark-market-return-rows [{:time-ms t0 :value 100}
+                                                       {:time-ms t1 :value 94}
+                                                       {:time-ms t2 :value 90}
+                                                       {:time-ms t3 :value 86}
+                                                       {:time-ms t4 :value 88}]
+                                                      {:anchor-time-ms t0
+                                                       :end-time-ms t4})]
+    (is (= [t0 t1 t2 t3 t4]
+           (mapv :time-ms rows)))
+    (is (every? true?
+                (map approx=
+                     [0 -6 -10 -14 -12]
+                     (mapv :value rows))))))

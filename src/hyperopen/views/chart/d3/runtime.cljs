@@ -470,7 +470,7 @@
                      (model/hover-index pointer-x
                                         0
                                         width
-                                        (count points)))
+                                        points))
         hovered-point (when (number? next-index)
                         (nth points next-index nil))
         tooltip-model (when (number? next-index)

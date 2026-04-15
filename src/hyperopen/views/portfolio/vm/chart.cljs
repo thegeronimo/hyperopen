@@ -51,11 +51,13 @@
   [rows chart-tab]
   (->> rows
        (map-indexed (fn [idx row]
-                      (let [value (vm-history/history-point-value row)
+                      (let [time-ms (vm-history/history-point-time-ms row)
+                            value (vm-history/history-point-value row)
                             value* (normalize-chart-point-value chart-tab value)]
                         (when (number? value*)
                           {:index idx
-                           :time-ms (or (vm-history/history-point-time-ms row) idx)
+                           :time-ms (or time-ms idx)
+                           :has-time-ms? (utils/finite-number? time-ms)
                            :value value*}))))
        (keep identity)
        vec))
@@ -109,6 +111,7 @@
                              :raw-points strategy-points}]
                      (seq benchmark-series)
                      (into benchmark-series))
+        time-domain (vm-chart-math/shared-time-domain (mapcat :raw-points raw-series))
         domain-values (->> raw-series
                            (mapcat (fn [{:keys [raw-points]}]
                                      (map :value raw-points)))
@@ -117,7 +120,9 @@
                  (vm-chart-math/chart-domain domain-values))
         series (mapv (fn [{:keys [raw-points] :as entry}]
                        (let [points (if domain
-                                      (vm-chart-math/normalize-chart-points raw-points domain)
+                                      (vm-chart-math/normalize-chart-points raw-points
+                                                                            domain
+                                                                            time-domain)
                                       [])]
                          (assoc entry
                                 :points points

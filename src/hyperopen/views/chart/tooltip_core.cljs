@@ -71,13 +71,30 @@
   (or (non-blank-text stroke)
       fallback-stroke))
 
+(defn- latest-prior-benchmark-point
+  [hover-time-ms series]
+  (let [points (vec (or (:points series) []))
+        point-count (count points)]
+    (loop [idx 0
+           latest nil]
+      (if (>= idx point-count)
+        latest
+        (let [{point-time-ms :time-ms :as point} (nth points idx)]
+          (if (and (finite-number? point-time-ms)
+                   (<= point-time-ms hover-time-ms))
+            (recur (inc idx) point)
+            latest))))))
+
 (defn- benchmark-point-value
-  [hovered-index series]
-  (get-in series [:points hovered-index :value]))
+  [hover-time-ms hovered-index series]
+  (or (some-> (when (finite-number? hover-time-ms)
+                (latest-prior-benchmark-point hover-time-ms series))
+              :value)
+      (get-in series [:points hovered-index :value])))
 
 (defn- benchmark-row
-  [hovered-index format-benchmark-value fallback-stroke {:keys [stroke] :as series}]
-  (let [value (benchmark-point-value hovered-index series)]
+  [hover-time-ms hovered-index format-benchmark-value fallback-stroke {:keys [stroke] :as series}]
+  (let [value (benchmark-point-value hover-time-ms hovered-index series)]
     (when (finite-number? value)
       (let [series-name (benchmark-series-name series)]
         {:coin series-name
@@ -86,15 +103,17 @@
          :stroke (benchmark-series-stroke fallback-stroke stroke)}))))
 
 (defn benchmark-rows
-  [{:keys [metric-kind hovered-index series]} {:keys [benchmark-enabled?
-                                                      format-benchmark-value
-                                                      fallback-stroke]
-                                               :or {benchmark-enabled? returns-metric?
-                                                    fallback-stroke default-benchmark-stroke}}]
+  [{:keys [metric-kind hover-time-ms hovered-index series]} {:keys [benchmark-enabled?
+                                                                    format-benchmark-value
+                                                                    fallback-stroke]
+                                                             :or {benchmark-enabled? returns-metric?
+                                                                  fallback-stroke default-benchmark-stroke}}]
   (if (and (benchmark-enabled? metric-kind)
-           (number? hovered-index))
+           (or (number? hovered-index)
+               (finite-number? hover-time-ms)))
     (into [] (comp (filter benchmark-series?)
-                   (keep #(benchmark-row hovered-index
+                   (keep #(benchmark-row hover-time-ms
+                                         hovered-index
                                          format-benchmark-value
                                          fallback-stroke
                                          %)))
@@ -123,6 +142,7 @@
        :metric-value (format-metric-value metric-kind value)
        :value-classes (metric-value-classes-fn metric-kind value)
        :benchmark-values (benchmark-rows {:metric-kind metric-kind
+                                          :hover-time-ms time-ms
                                           :hovered-index hovered-index
                                           :series series}
                                          {:benchmark-enabled? benchmark-enabled?

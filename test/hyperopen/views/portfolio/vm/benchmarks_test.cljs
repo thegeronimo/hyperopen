@@ -181,45 +181,6 @@
               (is (= "BTC" (:top-coin selector-a)))
               (is (= "ETH" (:top-coin selector-invalidated))))))))))
 
-(deftest portfolio-vm-returns-benchmark-series-aligns-to-portfolio-return-timestamps-test
-  (with-redefs [account-equity-view/account-equity-metrics (fn [_]
-                                                              {:spot-equity 10
-                                                               :perps-value 10
-                                                               :cross-account-value 10
-                                                               :unrealized-pnl 0})]
-    (let [state {:account {:mode :classic}
-                 :portfolio-ui {:summary-scope :all
-                                :summary-time-range :month
-                                :chart-tab :returns
-                                :returns-benchmark-coin "SPY"}
-                 :asset-selector {:markets [{:coin "SPY"
-                                             :symbol "SPY"
-                                             :market-type :spot
-                                             :cache-order 1}]}
-                 :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [2 0] [3 0] [4 0]]
-                                                      :accountValueHistory [[1 100] [2 110] [3 120] [4 130]]
-                                                      :vlm 10}}}
-                 :candles {"SPY" {:1h [{:t 1 :c 50}
-                                       {:t 3 :c 55}
-                                       {:t 4 :c 60}]}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                           :totalVaultEquity 0}
-                 :borrow-lend {:total-supplied-usd 0}}
-          view-model (vm/portfolio-vm state)
-          series (get-in view-model [:chart :series])
-          strategy-series (first series)
-          benchmark-series (second series)]
-      (is (= [:strategy :benchmark-0]
-             (mapv :id series)))
-      (is (= [1 2 3 4]
-             (mapv :time-ms (:points strategy-series))))
-      (is (= [1 2 3 4]
-             (mapv :time-ms (:points benchmark-series))))
-      (is (= [0 0 10 20]
-             (mapv :value (:points benchmark-series))))
-      (is (= "SPY (SPOT)"
-             (:label benchmark-series))))))
-
 (deftest portfolio-vm-builds-vault-benchmark-series-and-performance-columns-test
   (with-redefs [account-equity-view/account-equity-metrics (fn [_]
                                                               {:spot-equity 10

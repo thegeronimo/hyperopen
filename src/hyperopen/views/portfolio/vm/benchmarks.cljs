@@ -488,11 +488,11 @@
         selected-benchmark-coins))
 
 (defn benchmark-cumulative-return-rows-by-coin
-  [state summary-time-range benchmark-coins strategy-time-points anchor-time-ms]
-  (if (and (seq benchmark-coins)
-           (seq strategy-time-points))
+  [state summary-time-range benchmark-coins strategy-cumulative-rows anchor-time-ms end-time-ms]
+  (if (seq benchmark-coins)
     (let [{:keys [interval]} (portfolio-actions/returns-benchmark-candle-request summary-time-range)
-          normalized-range (portfolio-actions/normalize-summary-time-range summary-time-range)]
+          normalized-range (portfolio-actions/normalize-summary-time-range summary-time-range)
+          strategy-time-points (vm-history/cumulative-return-time-points strategy-cumulative-rows)]
       (reduce (fn [rows-by-coin coin]
                 (if (seq coin)
                   (if-let [vault-address (vault-benchmark-address coin)]
@@ -508,9 +508,9 @@
                       (assoc rows-by-coin
                              coin
                              (vm-history/cumulative-return-row-pairs
-                              (vm-history/aligned-benchmark-return-rows candles
-                                                                       strategy-time-points
-                                                                       anchor-time-ms)))))
+                              (vm-history/benchmark-market-return-rows candles
+                                                                      {:anchor-time-ms anchor-time-ms
+                                                                       :end-time-ms end-time-ms})))))
                   rows-by-coin))
               {}
               benchmark-coins))
@@ -529,6 +529,7 @@
                                                                           summary-entry
                                                                           summary-scope)
         strategy-time-points (vm-history/cumulative-return-time-points strategy-cumulative-rows)
+        end-time-ms (some-> strategy-cumulative-rows last first)
         selected-benchmark-coins (vec (or (:selected-coins returns-benchmark-selector)
                                           []))
         anchor-time-ms (vm-history/market-benchmark-anchor-time-ms summary-time-range*
@@ -536,8 +537,9 @@
         benchmark-cumulative-rows-by-coin (benchmark-cumulative-return-rows-by-coin state
                                                                                      summary-time-range*
                                                                                      selected-benchmark-coins
-                                                                                     strategy-time-points
-                                                                                     anchor-time-ms)
+                                                                                     strategy-cumulative-rows
+                                                                                     anchor-time-ms
+                                                                                     end-time-ms)
         strategy-source-version (sampled-series-source-version-counter strategy-cumulative-rows)
         benchmark-source-version-map (benchmark-source-version-by-coin benchmark-cumulative-rows-by-coin
                                                                        selected-benchmark-coins)]

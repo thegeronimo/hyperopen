@@ -27,12 +27,17 @@
                                       {:time-ms 2 :value 10 :x-ratio 0.25 :y-ratio 0.75}
                                       {:time-ms 3 :value 15 :x-ratio 1 :y-ratio 0}]))))
 
-(deftest hover-index-clamps-to-the-nearest-valid-point-test
-  (is (= 0 (model/hover-index 90 100 320 5)))
-  (is (= 2 (model/hover-index 260 100 320 5)))
-  (is (= 4 (model/hover-index 999 100 320 5)))
-  (is (= 0 (model/hover-index 120 100 320 1)))
-  (is (nil? (model/hover-index 120 100 0 5))))
+(deftest hover-index-clamps-to-the-nearest-rendered-point-by-x-ratio-test
+  (let [points [{:x-ratio 0}
+                {:x-ratio 0.49}
+                {:x-ratio 0.5}
+                {:x-ratio 1}]]
+    (is (= 0 (model/hover-index 90 100 320 points)))
+    (is (= 0 (model/hover-index 180 100 400 points)))
+    (is (= 2 (model/hover-index 305 100 400 points)))
+    (is (= 3 (model/hover-index 999 100 400 points)))
+    (is (= 0 (model/hover-index 120 100 320 [{:x-ratio 0}])))
+    (is (nil? (model/hover-index 120 100 0 points)))))
 
 (deftest tooltip-layout-switches-sides-and-centers-vertical-position-test
   (is (= {:left-px 80

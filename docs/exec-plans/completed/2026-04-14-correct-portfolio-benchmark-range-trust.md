@@ -22,7 +22,7 @@ The visible proof is on the trader portfolio route at `/portfolio/trader/0x5b5d5
 - [x] (2026-04-14 19:17 EDT) Fixed bounded-range market benchmark anchoring in `/hyperopen/src/hyperopen/views/portfolio/vm/history.cljs` and `/hyperopen/src/hyperopen/views/portfolio/vm/benchmarks.cljs` so market benchmarks anchor to the effective window cutoff when a valid prior candle exists, while keeping the first-strategy-point path only as fallback behavior.
 - [x] (2026-04-14 19:18 EDT) Hardened `benchmark-candle-points` for wrapped candle containers and duplicate timestamp last-write-wins dedupe, then moved shared window/alignment helpers into `/hyperopen/src/hyperopen/views/portfolio/vm/history.cljs` to stay under the namespace-size guard without adding a size exception.
 - [x] (2026-04-14 19:25 EDT) Ran `npx playwright test tools/playwright/test/routes.smoke.spec.mjs --grep trader-portfolio`, `npm run lint:input-parsing`, `npm test`, `npm run test:websocket`, `npm run lint:namespace-sizes`, and `npm run check` successfully.
-- [ ] Confirm the live BTC benchmark visually on `/portfolio/trader/0x5b5d51203a0f9079f8aeb098a6523a13f298c060` after the next manual QA pass. The deterministic benchmark-math tests and repo gates are green, but the exact live-data tooltip value was not promoted to a browser assertion in this patch.
+- [x] (2026-04-14 19:41 EDT) Confirmed the live BTC benchmark visually on `/portfolio/trader/0x5b5d51203a0f9079f8aeb098a6523a13f298c060`. With `Returns`, `1Y`, and BTC selected, the tooltip at the right edge showed BTC at `-12.32%` on `Apr 14, 2026`, matching the intended bounded-range anchor semantics. Screenshot artifact: `/hyperopen/tmp/browser-inspection/manual-btc-benchmark-check/trader-btc-1y-hover.png`.
 
 ## Surprises & Discoveries
 
@@ -75,7 +75,7 @@ The visible proof is on the trader portfolio route at `/portfolio/trader/0x5b5d5
 
 Implementation is complete and validated locally. The portfolio VM now exposes truthful `requested-key`, `effective-key`, `source-key`, and `source` metadata; bounded-range market benchmarks anchor to the effective window cutoff instead of the first surviving strategy timestamp when a valid prior candle exists; wrapped candle containers and duplicate timestamps normalize deterministically; and the rebasing-account returns estimator path was left untouched.
 
-Overall complexity went down slightly. The benchmark economics are now explicit instead of hidden inside strategy-timestamp alignment, and the summary-selection path now returns structured source metadata instead of a bare summary map. The only remaining work item on this active plan is route-specific live-data visual confirmation on the previously failing trader page; deterministic math coverage, route smoke, and the required repository gates are already green.
+Overall complexity went down slightly. The benchmark economics are now explicit instead of hidden inside strategy-timestamp alignment, and the summary-selection path now returns structured source metadata instead of a bare summary map. Route-specific live QA on the previously failing trader page also passed, confirming that the right-edge BTC tooltip now lands near `-12%` instead of the earlier late-anchored `+2%` symptom.
 
 ## Context and Orientation
 
@@ -213,3 +213,5 @@ to also support an optional anchor time argument, while keeping existing call si
 Plan revision note (2026-04-14 19:11 EDT): Initial active ExecPlan created after the benchmark-path audit, the summary-fallback audit, and the user-provided failing scenario. The scope is intentionally limited to benchmark anchoring, summary-source truthfulness, benchmark candle normalization, and regression coverage so the earlier rebasing-account returns fix remains untouched.
 
 Plan revision note (2026-04-14 19:26 EDT): Updated after implementation and validation. The code fix, deterministic regression coverage, trader-route smoke, and required gates are complete. The plan stays active only because the exact live-data visual confirmation on the failing trader page is still an explicit unchecked QA item.
+
+Plan revision note (2026-04-14 19:54 EDT): Recorded the final live QA result (`-12.32%` BTC on `Apr 14, 2026` at the right-edge hover for the failing trader route) so the plan can move to `completed/` and hand off the newly discovered dense benchmark-path bug as a separate follow-up issue.

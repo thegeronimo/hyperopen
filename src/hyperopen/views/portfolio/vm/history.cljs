@@ -161,6 +161,61 @@
        dedupe-time-ms-last-write-wins
        vec))
 
+(defn- latest-benchmark-point-at-or-before
+  [benchmark-points target-time-ms]
+  (let [benchmark-count (count benchmark-points)]
+    (loop [idx 0
+           latest nil]
+      (if (>= idx benchmark-count)
+        latest
+        (let [{point-time-ms :time-ms :as point} (nth benchmark-points idx)]
+          (if (and (parsing/finite-number? point-time-ms)
+                   (<= point-time-ms target-time-ms))
+            (recur (inc idx) point)
+            latest))))))
+
+(defn- benchmark-anchor
+  [benchmark-points anchor-time-ms]
+  (let [first-point (first benchmark-points)]
+    (when (seq benchmark-points)
+      (if (parsing/finite-number? anchor-time-ms)
+        (if-let [{anchor-close :value} (latest-benchmark-point-at-or-before benchmark-points
+                                                                            anchor-time-ms)]
+          {:time-ms anchor-time-ms
+           :close anchor-close}
+          (when first-point
+            {:time-ms (:time-ms first-point)
+             :close (:value first-point)}))
+        (when first-point
+          {:time-ms (:time-ms first-point)
+           :close (:value first-point)})))))
+
+(defn benchmark-market-return-rows
+  [benchmark-points {:keys [anchor-time-ms end-time-ms]}]
+  (if-let [{anchor-row-time-ms :time-ms
+            anchor-close :close} (benchmark-anchor benchmark-points anchor-time-ms)]
+    (let [end-time-ms* (if (parsing/finite-number? end-time-ms)
+                         end-time-ms
+                         js/Infinity)]
+      (if (> anchor-row-time-ms end-time-ms*)
+        []
+        (reduce (fn [rows {:keys [time-ms value]}]
+                  (if (and (parsing/finite-number? time-ms)
+                           (> time-ms anchor-row-time-ms)
+                           (<= time-ms end-time-ms*)
+                           (parsing/finite-number? value)
+                           (pos? anchor-close))
+                    (let [cumulative-return (* 100 (- (/ value anchor-close) 1))]
+                      (if (parsing/finite-number? cumulative-return)
+                        (conj rows {:time-ms time-ms
+                                    :value cumulative-return})
+                        rows))
+                    rows))
+                [{:time-ms anchor-row-time-ms
+                  :value 0}]
+                benchmark-points)))
+    []))
+
 (defn- advance-benchmark-candles
   [benchmark-points start-idx latest-close target-time-ms]
   (let [benchmark-count (count benchmark-points)]
