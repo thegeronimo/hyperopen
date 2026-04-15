@@ -395,6 +395,7 @@
             [hyperopen.views.ui.funding-modal-positioning-test]
             [hyperopen.views.vaults.detail-view-hover-freeze-test]
             [hyperopen.views.vaults.detail-view-test]
+            [hyperopen.views.vaults.detail-vm-returns-chart-test]
             [hyperopen.views.vaults.detail-vm-test]
             [hyperopen.views.vaults.detail.activity-test]
             [hyperopen.views.vaults.detail.chart-test]
@@ -872,6 +873,7 @@
              'hyperopen.views.ui.funding-modal-positioning-test
              'hyperopen.views.vaults.detail-view-hover-freeze-test
              'hyperopen.views.vaults.detail-view-test
+             'hyperopen.views.vaults.detail-vm-returns-chart-test
              'hyperopen.views.vaults.detail-vm-test
              'hyperopen.views.vaults.detail.activity-test
              'hyperopen.views.vaults.detail.chart-test

@@ -311,8 +311,11 @@
         series-by-key))))
 
 (defn- cached-benchmark-points-by-coin
-  [state snapshot-range selected-benchmark-coins strategy-return-points]
+  [state snapshot-range selected-benchmark-coins strategy-return-points strategy-window]
   (let [strategy-source-version (sampled-series-source-version strategy-return-points)
+        strategy-window-version (hash (select-keys (or strategy-window {})
+                                                   [:cutoff-ms :window-start-ms :window-end-ms
+                                                    :complete-window? :returns-source :point-count]))
         candles (get state :candles)
         merged-index-rows (get-in state [:vaults :merged-index-rows])
         benchmark-details-by-address (get-in state [:vaults :benchmark-details-by-address])
@@ -322,6 +325,7 @@
              (= snapshot-range (:snapshot-range cache))
              (= selected-benchmark-coins (:selected-benchmark-coins cache))
              (= strategy-source-version (:strategy-source-version cache))
+             (= strategy-window-version (:strategy-window-version cache))
              (identical? candles (:candles cache))
              (identical? merged-index-rows (:merged-index-rows cache))
              (identical? benchmark-details-by-address (:benchmark-details-by-address cache))
@@ -331,10 +335,12 @@
                                       state
                                       snapshot-range
                                       selected-benchmark-coins
-                                      strategy-return-points)]
+                                      strategy-return-points
+                                      strategy-window)]
         (reset! benchmark-points-cache {:snapshot-range snapshot-range
                                         :selected-benchmark-coins selected-benchmark-coins
                                         :strategy-source-version strategy-source-version
+                                        :strategy-window-version strategy-window-version
                                         :candles candles
                                         :merged-index-rows merged-index-rows
                                         :benchmark-details-by-address benchmark-details-by-address
@@ -484,20 +490,27 @@
 
 (defn- build-vault-detail-chart-section
   [state snapshot-range activity-tab chart-series details-base viewer-details metrics-context]
-  (let [summary (cached-portfolio-summary details-base viewer-details snapshot-range)
+  (let [details (merge (or details-base {})
+                       (or viewer-details {}))
+        summary (cached-portfolio-summary details-base viewer-details snapshot-range)
+        returns-history-context (performance-model/returns-history-context state details snapshot-range)
         returns-benchmark-selector (benchmarks-model/returns-benchmark-selector-model state)
         series-by-key (cached-chart-series-data state summary)
         selected-series (resolve-chart-series series-by-key chart-series)
-        strategy-raw-points (vec (or (get series-by-key selected-series) []))
-        strategy-return-points (vec (or (get series-by-key :returns) []))
+        strategy-return-points (vec (or (get (performance-model/chart-series-data
+                                              state summary (:summary returns-history-context))
+                                             :returns)
+                                        []))
+        strategy-raw-points (if (= selected-series :returns)
+                              strategy-return-points
+                              (vec (or (get series-by-key selected-series) [])))
         selected-benchmark-coins (vec (or (:selected-coins returns-benchmark-selector) []))
         benchmark-label-by-coin (or (:label-by-coin returns-benchmark-selector) {})
-        benchmark-points-by-coin (cached-benchmark-points-by-coin state
-                                                                  snapshot-range
+        benchmark-points-by-coin (cached-benchmark-points-by-coin state snapshot-range
                                                                   selected-benchmark-coins
-                                                                  strategy-return-points)
-        benchmark-history-loading? (benchmark-history-pending? selected-series
-                                                               activity-tab
+                                                                  strategy-return-points
+                                                                  returns-history-context)
+        benchmark-history-loading? (benchmark-history-pending? selected-series activity-tab
                                                                strategy-return-points
                                                                selected-benchmark-coins
                                                                benchmark-points-by-coin)
@@ -552,6 +565,7 @@
              :selected-timeframe snapshot-range
              :selected-series selected-series
              :returns-benchmark returns-benchmark-selector
+             :strategy-window returns-history-context
              :y-ticks (:y-ticks chart-model*)
              :points (:points chart-model*)
              :series series}}))

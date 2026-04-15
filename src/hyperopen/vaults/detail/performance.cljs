@@ -1,6 +1,7 @@
 (ns hyperopen.vaults.detail.performance
   (:require [clojure.string :as str]
             [hyperopen.portfolio.metrics :as portfolio-metrics]
+            [hyperopen.views.portfolio.vm.summary :as vm-summary]
             [hyperopen.vaults.detail.metrics-bridge :as metrics-bridge]))
 
 (def ^:private performance-periods-per-year
@@ -169,6 +170,56 @@
     (or direct-summary
         (derived-portfolio-summary all-time-summary snapshot-range))))
 
+(defn selected-summary-context
+  [details snapshot-range]
+  (vm-summary/selected-summary-context (or (:portfolio details) {})
+                                       :all
+                                       snapshot-range))
+
+(defn- coverage-metadata
+  [rows]
+  (let [rows* (vec (or rows []))
+        first-time-ms (some-> rows* first portfolio-metrics/history-point-time-ms)
+        last-time-ms (some-> rows* last portfolio-metrics/history-point-time-ms)]
+    {:count (count rows*)
+     :first-time-ms first-time-ms
+     :last-time-ms last-time-ms}))
+
+(defn returns-history-context
+  [state details snapshot-range]
+  (let [portfolio (or (:portfolio details) {})
+        selected-context (selected-summary-context details snapshot-range)
+        returns-context (vm-summary/returns-history-context portfolio
+                                                            :all
+                                                            snapshot-range
+                                                            selected-context)
+        summary (:summary returns-context)
+        account-rows (or (:accountValueHistory summary) [])
+        pnl-rows (or (:pnlHistory summary) [])
+        returns-rows (if summary
+                       (portfolio-metrics/returns-history-rows state summary :all)
+                       [])]
+    {:entry (:entry selected-context)
+     :summary summary
+     :requested-key (:requested-key selected-context)
+     :effective-key (:effective-key selected-context)
+     :source-key (:source-key selected-context)
+     :source (:source selected-context)
+     :requested-range (:requested-range returns-context)
+     :effective-range (:effective-range returns-context)
+     :returns-source (:source returns-context)
+     :cutoff-ms (:cutoff-ms returns-context)
+     :window-start-ms (:window-start-ms returns-context)
+     :window-end-ms (:window-end-ms returns-context)
+     :first-time-ms (:first-time-ms returns-context)
+     :last-time-ms (:last-time-ms returns-context)
+     :point-count (:point-count returns-context)
+     :complete-window? (:complete-window? returns-context)
+     :has-data? (:has-data? returns-context)
+     :account-coverage (coverage-metadata account-rows)
+     :pnl-coverage (coverage-metadata pnl-rows)
+     :returns-coverage (coverage-metadata returns-rows)}))
+
 (defn summary-cumulative-return-percent
   [state summary]
   (some->> (portfolio-metrics/returns-history-rows state summary :all)
@@ -220,10 +271,12 @@
                       :returns))
 
 (defn chart-series-data
-  [state summary]
-  {:account-value (history-points (:accountValueHistory summary))
-   :pnl (history-points (:pnlHistory summary))
-   :returns (returns-history-points state summary)})
+  ([state summary]
+   (chart-series-data state summary nil))
+  ([state summary returns-summary]
+   {:account-value (history-points (:accountValueHistory summary))
+    :pnl (history-points (:pnlHistory summary))
+    :returns (returns-history-points state (or returns-summary summary))}))
 
 (defn cumulative-rows
   [points]

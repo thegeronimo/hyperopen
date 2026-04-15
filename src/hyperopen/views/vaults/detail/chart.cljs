@@ -1,4 +1,5 @@
-(ns hyperopen.views.vaults.detail.chart)
+(ns hyperopen.views.vaults.detail.chart
+  (:require [hyperopen.views.portfolio.vm.chart-math :as vm-chart-math]))
 
 (def ^:private chart-y-tick-count
   4)
@@ -45,34 +46,13 @@
       (nth benchmark-series-strokes (mod idx palette-size))
       default-strategy-series-stroke)))
 
-(defn- non-zero-span
-  [domain-min domain-max]
-  (let [span (- domain-max domain-min)]
-    (if (zero? span) 1 span)))
-
-(defn- normalize-degenerate-domain
-  [min-value max-value]
-  (if (= min-value max-value)
-    (let [pad (max 1 (* 0.05 (js/Math.abs min-value)))]
-      [(- min-value pad) (+ min-value pad)])
-    [min-value max-value]))
-
-(defn- chart-domain
-  [values]
-  (let [[min-value max-value] (normalize-degenerate-domain (apply min values)
-                                                           (apply max values))
-        step (/ (non-zero-span min-value max-value) (dec chart-y-tick-count))]
-    {:min min-value
-     :max max-value
-     :step step}))
-
 (defn chart-y-ticks
   [{:keys [min max step]}]
   (let [step* (if (and (number? step)
                        (pos? step))
                 step
-                (/ (non-zero-span min max) (dec chart-y-tick-count)))
-        span (non-zero-span min max)]
+                (/ (vm-chart-math/non-zero-span min max) (dec chart-y-tick-count)))
+        span (vm-chart-math/non-zero-span min max)]
     (mapv (fn [idx]
             (let [value (if (= idx (dec chart-y-tick-count))
                           min
@@ -81,38 +61,39 @@
                :y-ratio (/ (- max value) span)}))
           (range chart-y-tick-count))))
 
-(defn- normalize-chart-points
-  [points {:keys [min max]}]
-  (let [point-count (count points)
-        span (non-zero-span min max)]
-    (mapv (fn [idx {:keys [value] :as point}]
-            (let [x-ratio (if (> point-count 1)
-                            (/ idx (dec point-count))
-                            0)
-                  y-ratio (/ (- max value) span)]
-              (assoc point
-                     :x-ratio x-ratio
-                     :y-ratio y-ratio)))
-          (range point-count)
-          points)))
-
 (defn- value->y-ratio
   [{:keys [min max]} value]
-  (let [span (non-zero-span min max)]
+  (let [span (vm-chart-math/non-zero-span min max)]
     (/ (- max value) span)))
+
+(defn- annotate-time-presence
+  [raw-series]
+  (mapv (fn [{:keys [raw-points] :as series}]
+          (assoc series
+                 :raw-points (mapv (fn [{:keys [time-ms has-time-ms?] :as point}]
+                                     (assoc point
+                                            :has-time-ms? (if (some? has-time-ms?)
+                                                            has-time-ms?
+                                                            (vm-chart-math/finite-number? time-ms))))
+                                   (vec (or raw-points [])))))
+        (vec (or raw-series []))))
 
 (defn build-chart-model
   [{:keys [selected-series raw-series]}]
-  (let [chart-domain-values (->> raw-series
+  (let [raw-series* (annotate-time-presence raw-series)
+        chart-domain-values (->> raw-series*
                                  (mapcat (fn [{:keys [raw-points]}]
                                            (map :value raw-points)))
                                  (filter number?)
                                  vec)
         domain (when (seq chart-domain-values)
-                 (chart-domain chart-domain-values))
+                 (vm-chart-math/chart-domain chart-domain-values))
+        time-domain (vm-chart-math/shared-time-domain (mapcat :raw-points raw-series*))
         series (mapv (fn [{:keys [id raw-points] :as entry}]
                        (let [points (if domain
-                                      (normalize-chart-points raw-points domain)
+                                      (vm-chart-math/normalize-chart-points raw-points
+                                                                            domain
+                                                                            time-domain)
                                       [])
                              is-strategy? (= id :strategy)
                              area-baseline-y-ratio (case selected-series
@@ -137,7 +118,7 @@
                            (assoc :area-positive-fill pnl-area-positive-fill
                                   :area-negative-fill pnl-area-negative-fill
                                   :zero-y-ratio area-baseline-y-ratio))))
-                     (vec (or raw-series [])))
+                     raw-series*)
         strategy-series (or (some (fn [series-entry]
                                     (when (= :strategy (:id series-entry))
                                       series-entry))

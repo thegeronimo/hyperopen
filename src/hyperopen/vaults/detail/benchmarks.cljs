@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.portfolio.metrics :as portfolio-metrics]
+            [hyperopen.views.portfolio.vm.history :as vm-history]
             [hyperopen.vaults.detail.performance :as performance-model]
             [hyperopen.vaults.detail.types :as detail-types]))
 
@@ -423,142 +424,49 @@
        (keep identity)
        vec))
 
-(defn- candle-point-close
-  [row]
-  (cond
-    (map? row)
-    (or (optional-number (:c row))
-        (optional-number (:close row)))
-
-    (and (sequential? row)
-         (>= (count row) 5))
-    (optional-number (nth row 4))
-
-    :else
-    nil))
-
-(defn- benchmark-candle-points
-  [rows]
-  (if (sequential? rows)
-    (->> rows
-         (keep (fn [row]
-                 (let [time-ms (portfolio-metrics/history-point-time-ms row)
-                       close (candle-point-close row)]
-                   (when (and (number? time-ms)
-                              (number? close)
-                              (pos? close))
-                     {:time-ms time-ms
-                      :close close}))))
-         (sort-by :time-ms)
-         vec)
-    []))
-
-(defn- aligned-benchmark-return-rows
-  [benchmark-points strategy-points]
-  (let [benchmark-count (count benchmark-points)
-        strategy-time-points (mapv :time-ms strategy-points)
-        strategy-count (count strategy-time-points)]
-    (loop [time-idx 0
-           candle-idx 0
-           latest-close nil
-           anchor-close nil
-           output []]
-      (if (>= time-idx strategy-count)
-        output
-        (let [time-ms (nth strategy-time-points time-idx)
-              [candle-idx* latest-close*]
-              (loop [idx candle-idx
-                     latest latest-close]
-                (if (>= idx benchmark-count)
-                  [idx latest]
-                  (let [{candle-time-ms :time-ms
-                         close :close} (nth benchmark-points idx)]
-                    (if (<= candle-time-ms time-ms)
-                      (recur (inc idx) close)
-                      [idx latest]))))
-              anchor-close* (or anchor-close latest-close*)
-              output* (if (and (number? latest-close*)
-                               (number? anchor-close*)
-                               (pos? anchor-close*))
-                        (let [cumulative-return (* 100 (- (/ latest-close* anchor-close*) 1))]
-                          (if (number? cumulative-return)
-                            (conj output [time-ms cumulative-return])
-                            output))
-                        output)]
-          (recur (inc time-idx)
-                 candle-idx*
-                 latest-close*
-                 anchor-close*
-                 output*))))))
-
 (defn- benchmark-details-by-address
   [state vault-address]
   (or (get-in state [:vaults :benchmark-details-by-address vault-address])
       (get-in state [:vaults :details-by-address vault-address])))
 
-(defn- normalized-return-rows
-  [rows]
-  (->> (or rows [])
-       (keep (fn [row]
-               (let [time-ms (portfolio-metrics/history-point-time-ms row)
-                     value (portfolio-metrics/history-point-value row)]
-                 (when (and (number? time-ms)
-                            (number? value))
-                   [time-ms value]))))
-       (sort-by first)
-       vec))
-
-(defn- aligned-summary-return-rows
-  [benchmark-rows strategy-return-points]
-  (let [benchmark-rows* (normalized-return-rows benchmark-rows)
-        benchmark-count (count benchmark-rows*)
-        strategy-time-points (mapv :time-ms strategy-return-points)
-        strategy-count (count strategy-time-points)]
-    (loop [time-idx 0
-           benchmark-idx 0
-           latest-value nil
-           output []]
-      (if (>= time-idx strategy-count)
-        output
-        (let [time-ms (nth strategy-time-points time-idx)
-              [benchmark-idx* latest-value*]
-              (loop [idx benchmark-idx
-                     latest latest-value]
-                (if (>= idx benchmark-count)
-                  [idx latest]
-                  (let [[benchmark-time-ms benchmark-value] (nth benchmark-rows* idx)]
-                    (if (<= benchmark-time-ms time-ms)
-                      (recur (inc idx) benchmark-value)
-                      [idx latest]))))
-              output* (if (number? latest-value*)
-                        (conj output [time-ms latest-value*])
-                        output)]
-          (recur (inc time-idx)
-                 benchmark-idx*
-                 latest-value*
-                 output*))))))
-
 (defn benchmark-cumulative-return-points-by-coin
-  [state snapshot-range benchmark-coins strategy-return-points]
-  (if (and (seq benchmark-coins)
-           (seq strategy-return-points))
-    (let [{:keys [interval]} (portfolio-actions/returns-benchmark-candle-request snapshot-range)
-          normalized-range (portfolio-actions/normalize-summary-time-range snapshot-range)]
-      (reduce (fn [rows-by-coin coin]
-                (if (seq coin)
-                  (let [aligned-rows (if-let [vault-address (detail-types/vault-benchmark-address coin)]
-                                       (let [details (benchmark-details-by-address state vault-address)
-                                             summary (performance-model/portfolio-summary-by-range details
-                                                                                                   normalized-range)]
-                                         (aligned-summary-return-rows
-                                          (portfolio-metrics/returns-history-rows state summary :all)
-                                          strategy-return-points))
-                                       (let [candles (benchmark-candle-points (get-in state [:candles coin interval]))]
-                                         (aligned-benchmark-return-rows candles strategy-return-points)))]
-                    (assoc rows-by-coin
-                           coin
-                           (rows->chart-points aligned-rows :returns)))
-                  rows-by-coin))
-              {}
-              benchmark-coins))
-    {}))
+  ([state snapshot-range benchmark-coins strategy-return-points]
+   (benchmark-cumulative-return-points-by-coin state
+                                               snapshot-range
+                                               benchmark-coins
+                                               strategy-return-points
+                                               nil))
+  ([state snapshot-range benchmark-coins strategy-return-points strategy-window]
+   (if (and (seq benchmark-coins)
+            (seq strategy-return-points))
+     (let [{:keys [interval]} (portfolio-actions/returns-benchmark-candle-request snapshot-range)
+           normalized-range (portfolio-actions/normalize-summary-time-range snapshot-range)
+           anchor-time-ms (or (:cutoff-ms strategy-window)
+                              (vm-history/market-benchmark-anchor-time-ms normalized-range
+                                                                         strategy-return-points))
+           end-time-ms (or (:window-end-ms strategy-window)
+                           (some-> strategy-return-points last :time-ms))]
+       (reduce (fn [rows-by-coin coin]
+                 (if (seq coin)
+                   (let [rows (if-let [vault-address (detail-types/vault-benchmark-address coin)]
+                                (let [details (benchmark-details-by-address state vault-address)
+                                      summary (performance-model/portfolio-summary-by-range details
+                                                                                            normalized-range)]
+                                  (rows->chart-points
+                                   (vm-history/aligned-summary-return-rows
+                                    (portfolio-metrics/returns-history-rows state summary :all)
+                                    strategy-return-points)
+                                   :returns))
+                                (let [candles (vm-history/benchmark-candle-points
+                                               (get-in state [:candles coin interval]))]
+                                  (rows->chart-points
+                                   (vm-history/cumulative-return-row-pairs
+                                    (vm-history/benchmark-market-return-rows candles
+                                                                            {:anchor-time-ms anchor-time-ms
+                                                                             :end-time-ms end-time-ms}))
+                                   :returns)))]
+                     (assoc rows-by-coin coin rows))
+                   rows-by-coin))
+               {}
+               benchmark-coins))
+     {})))

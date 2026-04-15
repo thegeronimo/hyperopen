@@ -53,3 +53,24 @@
                                                                                    :value 2}
                                                                            :index 0}
                                                                           []))))))
+
+(deftest build-chart-hover-tooltip-uses-latest-prior-benchmark-point-by-time-test
+  (let [tooltip (chart-tooltip/build-chart-hover-tooltip :month
+                                                         :returns
+                                                         {:point {:time-ms 25
+                                                                  :value 1.25}
+                                                          :index 1}
+                                                         [{:id :strategy
+                                                           :points [{:time-ms 10 :value 0.5}
+                                                                    {:time-ms 25 :value 1.25}]}
+                                                          {:id :btc
+                                                           :coin "BTC"
+                                                           :label "Bitcoin"
+                                                           :stroke "#f2cf66"
+                                                           :points [{:time-ms 10 :value -6}
+                                                                    {:time-ms 40 :value -12}]}])]
+    (is (= [{:coin "BTC"
+             :label "Bitcoin"
+             :value "-6.00%"
+             :stroke "#f2cf66"}]
+           (:benchmark-values tooltip)))))

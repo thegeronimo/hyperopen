@@ -108,6 +108,35 @@
           second-model (benchmarks/returns-benchmark-selector-model (assoc state :toast {:id 1}))
           reopened-model (benchmarks/returns-benchmark-selector-model
                           (assoc-in state [:vaults-ui :detail-returns-benchmark-suggestions-open?] true))]
-      (is (identical? first-model second-model))
-      (is (not (identical? first-model reopened-model)))
-      (is (= [] (mapv :value (:candidates first-model)))))))
+    (is (identical? first-model second-model))
+    (is (not (identical? first-model reopened-model)))
+    (is (= [] (mapv :value (:candidates first-model)))))))
+
+(deftest benchmark-cumulative-return-points-by-coin-preserves-dense-market-path-over-effective-window-test
+  (let [t0 (.getTime (js/Date. "2025-04-14T00:00:00Z"))
+        t1 (.getTime (js/Date. "2025-07-14T00:00:00Z"))
+        t2 (.getTime (js/Date. "2025-10-14T00:00:00Z"))
+        t3 (.getTime (js/Date. "2026-01-14T00:00:00Z"))
+        t4 (.getTime (js/Date. "2026-04-14T00:00:00Z"))
+        state {:candles {"BTC" {:12h [{:t t0 :c 100}
+                                      {:t t1 :c 94}
+                                      {:t t2 :c 90}
+                                      {:t t3 :c 86}
+                                      {:t t4 :c 88}]}}
+               :vaults {:merged-index-rows []}}
+        strategy-return-points [{:time-ms t3 :value -14}
+                                {:time-ms t4 :value -12}]
+        strategy-window {:cutoff-ms t0
+                         :window-end-ms t4}
+        rows-by-coin (benchmarks/benchmark-cumulative-return-points-by-coin
+                      state
+                      :one-year
+                      ["BTC"]
+                      strategy-return-points
+                      strategy-window)]
+    (is (= [t0 t1 t2 t3 t4]
+           (mapv :time-ms (get rows-by-coin "BTC"))))
+    (is (= [0 -6 -10 -14 -12]
+           (mapv :value (get rows-by-coin "BTC"))))
+    (is (> (count (get rows-by-coin "BTC"))
+           (count strategy-return-points)))))

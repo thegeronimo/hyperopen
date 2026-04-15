@@ -27,6 +27,70 @@
     (is (= [0 10]
            (mapv second (:pnlHistory summary))))))
 
+(deftest returns-history-context-prefers-richer-all-time-window-and-synthesizes-cutoff-anchor-test
+  (let [t0 (.getTime (js/Date. "2025-04-14T00:00:00Z"))
+        t1 (.getTime (js/Date. "2025-07-14T00:00:00Z"))
+        t2 (.getTime (js/Date. "2025-10-14T00:00:00Z"))
+        t3 (.getTime (js/Date. "2026-01-14T00:00:00Z"))
+        t4 (.getTime (js/Date. "2026-04-14T00:00:00Z"))
+        details {:portfolio {:all-time {:accountValueHistory [[t0 100]
+                                                              [t1 110]
+                                                              [t2 120]
+                                                              [t3 130]
+                                                              [t4 140]]
+                                        :pnlHistory [[t0 0]
+                                                     [t1 10]
+                                                     [t2 20]
+                                                     [t3 30]
+                                                     [t4 40]]}
+                             :one-year {:accountValueHistory [[t3 130]
+                                                              [t4 140]]
+                                        :pnlHistory [[t3 30]
+                                                     [t4 40]]}}}
+        context (performance/returns-history-context {} details :one-year)]
+    (is (= :direct (:source context)))
+    (is (= :one-year (:requested-key context)))
+    (is (= :one-year (:effective-key context)))
+    (is (= :one-year (:source-key context)))
+    (is (= :windowed-all-time (:returns-source context)))
+    (is (= t0 (:cutoff-ms context)))
+    (is (true? (:complete-window? context)))
+    (is (= [t0 t1 t2 t3 t4]
+           (mapv first (get-in context [:summary :accountValueHistory]))))
+    (is (= [0 10 20 30 40]
+           (mapv second (get-in context [:summary :pnlHistory]))))
+    (is (= {:count 5
+            :first-time-ms t0
+            :last-time-ms t4}
+           (:account-coverage context)))
+    (is (= {:count 5
+            :first-time-ms t0
+            :last-time-ms t4}
+           (:pnl-coverage context)))
+    (is (= 5 (get-in context [:returns-coverage :count])))))
+
+(deftest returns-history-context-marks-window-incomplete-when-no-prior-anchor-exists-test
+  (let [t3 (.getTime (js/Date. "2026-01-14T00:00:00Z"))
+        t4 (.getTime (js/Date. "2026-04-14T00:00:00Z"))
+        details {:portfolio {:one-year {:accountValueHistory [[t3 130]
+                                                              [t4 140]]
+                                        :pnlHistory [[t3 30]
+                                                     [t4 40]]}}}
+        context (performance/returns-history-context {} details :one-year)]
+    (is (= :direct (:source context)))
+    (is (= :windowed-selected (:returns-source context)))
+    (is (false? (:complete-window? context)))
+    (is (= t3 (:first-time-ms context)))
+    (is (= t4 (:last-time-ms context)))
+    (is (= {:count 2
+            :first-time-ms t3
+            :last-time-ms t4}
+           (:account-coverage context)))
+    (is (= {:count 2
+            :first-time-ms t3
+            :last-time-ms t4}
+           (:pnl-coverage context)))))
+
 (deftest chart-series-data-normalizes-mixed-history-row-shapes-test
   (with-redefs [portfolio-metrics/returns-history-rows (fn [_state _summary _scope]
                                                          [{:time-ms 10 :value -0.0001}

@@ -173,6 +173,7 @@
     (is (= 1 (get-in vm [:activity-summary :open-order-count])))
     (is (= 2 (get-in vm [:activity-summary :position-count])))))
 
+
 (deftest vault-detail-vm-builds-open-vault-transfer-modal-model-test
   (let [vault-address "0x1234567890abcdef1234567890abcdef12345678"
         leader-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
