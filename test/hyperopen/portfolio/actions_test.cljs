@@ -99,11 +99,11 @@
          (actions/select-portfolio-summary-time-range
           {:portfolio-ui {:returns-benchmark-coin "BTC"}}
           :week)))
-  (is (= [[:effects/save-many [[[:portfolio-ui :summary-time-range] :month]
+  (is (= [[:effects/save-many [[[:portfolio-ui :summary-time-range] :one-year]
                                [[:portfolio-ui :summary-scope-dropdown-open?] false]
                                [[:portfolio-ui :summary-time-range-dropdown-open?] false]
                                [[:portfolio-ui :performance-metrics-time-range-dropdown-open?] false]]]
-          [:effects/local-storage-set "portfolio-summary-time-range" "month"]]
+          [:effects/local-storage-set "portfolio-summary-time-range" "one-year"]]
          (actions/select-portfolio-summary-time-range {} :unknown))))
 
 (deftest restore-portfolio-summary-time-range-loads-normalized-local-storage-preference-test
@@ -114,7 +114,7 @@
   (let [store (atom {:portfolio-ui {:summary-time-range :three-month}})]
     (with-redefs [platform/local-storage-get (fn [_] "not-a-range")]
       (actions/restore-portfolio-summary-time-range! store))
-    (is (= :month (get-in @store [:portfolio-ui :summary-time-range])))))
+    (is (= :one-year (get-in @store [:portfolio-ui :summary-time-range])))))
 
 (deftest select-portfolio-chart-tab-normalizes-and-saves-selected-tab-test
   (is (= [[:effects/save-many
@@ -344,7 +344,7 @@
   (is (= :two-year (actions/normalize-summary-time-range "two_year"))))
 
 (deftest normalize-summary-time-range-falls-back-for-invalid-values-test
-  (is (= :month (actions/normalize-summary-time-range nil)))
-  (is (= :month (actions/normalize-summary-time-range "not-a-range")))
-  (is (= {:interval :1h :bars 800}
+  (is (= :one-year (actions/normalize-summary-time-range nil)))
+  (is (= :one-year (actions/normalize-summary-time-range "not-a-range")))
+  (is (= {:interval :12h :bars 900}
          (actions/returns-benchmark-candle-request "not-a-range"))))

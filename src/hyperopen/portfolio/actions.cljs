@@ -9,7 +9,7 @@
   :all)
 
 (def default-summary-time-range
-  :month)
+  :one-year)
 
 (def default-chart-tab
   :returns)
@@ -120,12 +120,14 @@
       default-summary-scope)))
 
 (defn normalize-summary-time-range
-  [value]
-  (let [token (normalize-keyword-like value)
-        normalized (get summary-time-range-aliases token token)]
-    (if (contains? summary-time-range-options normalized)
-      normalized
-      default-summary-time-range)))
+  ([value]
+   (normalize-summary-time-range value default-summary-time-range))
+  ([value fallback]
+   (let [token (normalize-keyword-like value)
+         normalized (get summary-time-range-aliases token token)]
+     (if (contains? summary-time-range-options normalized)
+       normalized
+       fallback))))
 
 (defn normalize-portfolio-chart-tab
   [value]

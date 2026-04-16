@@ -71,7 +71,8 @@
 
 (defn normalize-vault-snapshot-range
   [value]
-  (let [normalized (portfolio-actions/normalize-summary-time-range value)]
+  (let [normalized (portfolio-actions/normalize-summary-time-range value
+                                                                   default-vault-snapshot-range)]
     (if (contains? vault-snapshot-ranges normalized)
       normalized
       default-vault-snapshot-range)))

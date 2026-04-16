@@ -36,7 +36,7 @@
     (is (= :bootstrap (get-in state [:asset-selector :phase])))
     (is (= :orderbook (get-in state [:orderbook-ui :active-tab])))
     (is (= :all (get-in state [:portfolio-ui :summary-scope])))
-    (is (= :month (get-in state [:portfolio-ui :summary-time-range])))
+    (is (= :one-year (get-in state [:portfolio-ui :summary-time-range])))
     (is (= :returns (get-in state [:portfolio-ui :chart-tab])))
     (is (= :performance-metrics (get-in state [:portfolio-ui :account-info-tab])))
     (is (= ["BTC"] (get-in state [:portfolio-ui :returns-benchmark-coins])))

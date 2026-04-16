@@ -140,10 +140,10 @@
       (testing "selector defaults"
         (is (= :all (get-in view-model [:selectors :summary-scope :value])))
         (is (= "Perps + Spot + Vaults" (get-in view-model [:selectors :summary-scope :label])))
-        (is (= :month (get-in view-model [:selectors :summary-time-range :value])))
-        (is (= "30D" (get-in view-model [:selectors :summary-time-range :label])))
-        (is (= :month (get-in view-model [:selectors :performance-metrics-time-range :value])))
-        (is (= "30D" (get-in view-model [:selectors :performance-metrics-time-range :label])))
+        (is (= :one-year (get-in view-model [:selectors :summary-time-range :value])))
+        (is (= "1Y" (get-in view-model [:selectors :summary-time-range :label])))
+        (is (= :one-year (get-in view-model [:selectors :performance-metrics-time-range :value])))
+        (is (= "1Y" (get-in view-model [:selectors :performance-metrics-time-range :label])))
         (is (false? (get-in view-model [:selectors :performance-metrics-time-range :open?])))
         (is (= ["24H" "7D" "30D" "3M" "6M" "1Y" "2Y" "All-time"]
                (mapv :label (get-in view-model [:selectors :summary-time-range :options])))))
