@@ -16,6 +16,9 @@
   #{:effects/save
     :effects/save-many})
 
+(def ^:private shareable-route-query-effect-id
+  :effects/replace-shareable-route-query)
+
 (defn- projection-effect?
   [effect]
   (contains? projection-effect-ids (first effect)))
@@ -35,9 +38,11 @@
 (defn- portfolio-route-effects
   [state normalized-path]
   (if (entering-portfolio-route? state normalized-path)
-    (portfolio-actions/select-portfolio-chart-tab
-     state
-     (get-in state [:portfolio-ui :chart-tab]))
+    (->> (portfolio-actions/select-portfolio-chart-tab
+          state
+          (get-in state [:portfolio-ui :chart-tab]))
+         (remove #(= shareable-route-query-effect-id (first %)))
+         vec)
     []))
 
 (defn- navigation-browser-path

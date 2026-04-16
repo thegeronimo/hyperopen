@@ -2,6 +2,7 @@
   (:require [cljs.test :refer-macros [deftest is]]
             [nexus.registry :as nxr]
             [hyperopen.app.startup :as app-startup]
+            [hyperopen.route-query-state :as route-query-state]
             [hyperopen.route-modules :as route-modules]
             [hyperopen.router :as router]
             [hyperopen.trade-modules :as trade-modules]
@@ -46,6 +47,8 @@
              (map :delay-ms @summary-calls)))
       (is (= :yielded
              ((:yield-to-main! @captured-init-deps))))
+      (is (identical? route-query-state/restore-current-route-query-state!
+                      (:restore-route-query-state! @captured-init-deps)))
       (is (= 1 @yield-calls)))))
 
 (deftest init-passes-trading-settings-restore-hook-into-startup-init-test
@@ -252,6 +255,7 @@
         runtime (atom {})
         captured-init-deps (atom nil)
         captured-router-opts (atom nil)
+        route-restore-calls (atom [])
         dispatch-calls (atom [])]
     (with-redefs [startup-collaborators/startup-base-deps
                   (fn [deps]
@@ -274,6 +278,9 @@
                      nil)
                     ([_store opts]
                      (reset! captured-router-opts opts)))
+                  route-query-state/restore-current-route-query-state!
+                  (fn [store-arg]
+                    (swap! route-restore-calls conj store-arg))
                   nxr/dispatch
                   (fn [store-arg _ctx effects]
                     (swap! dispatch-calls conj [store-arg effects]))]
@@ -281,6 +288,8 @@
                           :store store})
       ((:init-router! @captured-init-deps) store)
       ((:on-route-change @captured-router-opts) "/portfolio"))
+    (is (= [store]
+           @route-restore-calls))
     (is (= [[store [[:effects/load-route-module "/portfolio"]]]]
            @dispatch-calls))))
 

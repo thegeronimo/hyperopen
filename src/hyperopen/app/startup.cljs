@@ -7,6 +7,7 @@
             [nexus.registry :as nxr]
             [hyperopen.orderbook.settings :as orderbook-settings]
             [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.route-query-state :as route-query-state]
             [hyperopen.route-modules :as route-modules]
             [hyperopen.router :as router]
             [hyperopen.runtime.action-adapters :as runtime-action-adapters]
@@ -209,6 +210,7 @@
                   :or {defer-initial-trade-module-loads? false}}]
   (let [defer-initial-trade-module-loads?* (atom defer-initial-trade-module-loads?)]
     (fn [path]
+      (route-query-state/restore-current-route-query-state! startup-store)
       (let [effects (route-change-effects
                      @startup-store
                      path
@@ -252,6 +254,7 @@
        :restore-spectate-mode-preferences! startup-restore/restore-spectate-mode-preferences!
        :restore-spectate-mode-url! startup-restore/restore-spectate-mode-url!
        :restore-trade-route-tab! startup-restore/restore-trade-route-tab!
+       :restore-route-query-state! route-query-state/restore-current-route-query-state!
        :restore-active-asset! runtime-effect-adapters/restore-active-asset!
        :restore-asset-selector-markets-cache! runtime-effect-adapters/restore-asset-selector-markets-cache!
        :restore-leaderboard-preferences! runtime-effect-adapters/restore-leaderboard-preferences!

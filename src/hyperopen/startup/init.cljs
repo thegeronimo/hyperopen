@@ -25,6 +25,7 @@
            restore-spectate-mode-preferences!
            restore-spectate-mode-url!
            restore-trade-route-tab!
+           restore-route-query-state!
            restore-active-asset!
            restore-asset-selector-markets-cache!]}]
   ;; Restore root typography preference (system default, optional Inter override).
@@ -51,6 +52,9 @@
   (restore-spectate-mode-url! store)
   ;; Restore trade account-info tab directly from the current URL query when present.
   (restore-trade-route-tab! store)
+  ;; Restore portfolio/vault shareable view params after localStorage-backed preferences.
+  (when (fn? restore-route-query-state!)
+    (restore-route-query-state! store))
   ;; Restore selected asset from localStorage (default to BTC).
   (restore-active-asset! store)
   ;; Restore cached selector market symbols for immediate dropdown population.
@@ -60,6 +64,7 @@
   [{:keys [store
            restore-asset-selector-sort-settings!
            restore-portfolio-summary-time-range!
+           restore-route-query-state!
            restore-leaderboard-preferences!
            restore-open-orders-sort-settings!
            restore-funding-history-pagination-settings!
@@ -69,6 +74,9 @@
   (restore-asset-selector-sort-settings! store)
   ;; Restore portfolio summary range selector from localStorage.
   (restore-portfolio-summary-time-range! store)
+  ;; Re-apply route query state so shareable links override deferred localStorage restore.
+  (when (fn? restore-route-query-state!)
+    (restore-route-query-state! store))
   ;; Restore leaderboard timeframe, sort, and page-size preferences from IndexedDB.
   (when (fn? restore-leaderboard-preferences!)
     (restore-leaderboard-preferences! store))
@@ -88,6 +96,7 @@
            init-wallet!
            init-router!
            restore-vaults-snapshot-range!
+           restore-route-query-state!
            install-asset-selector-shortcuts!
            install-position-tpsl-clickaway!
            register-icon-service-worker!
@@ -106,6 +115,9 @@
   ;; Re-apply vault snapshot range after router init for deep-link refreshes.
   (when (fn? restore-vaults-snapshot-range!)
     (restore-vaults-snapshot-range! store))
+  ;; Re-apply route query state so shareable links override the post-router vault restore.
+  (when (fn? restore-route-query-state!)
+    (restore-route-query-state! store))
   ;; Trigger initial render by updating the store.
   (kick-render! store)
   (let [post-render-startup!

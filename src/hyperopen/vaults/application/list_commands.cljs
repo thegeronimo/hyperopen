@@ -15,6 +15,9 @@
    :others [:vaults-ui :filter-others?]
    :closed [:vaults-ui :filter-closed?]})
 
+(def ^:private replace-shareable-route-query-effect
+  [:effects/replace-shareable-route-query])
+
 (defn- detail-timeframe-selector-visibility-path-values
   [open-dropdown]
   [[vault-detail-chart-timeframe-dropdown-open-path
@@ -32,7 +35,8 @@
 (defn- save-vault-ui-with-user-page-reset
   [path value]
   [[:effects/save-many [[path value]
-                        [[:vaults-ui :user-vaults-page] ui-state/default-vault-user-page]]]])
+                        [[:vaults-ui :user-vaults-page] ui-state/default-vault-user-page]]]
+   replace-shareable-route-query-effect])
 
 (defn set-vaults-search-query
   [_state query]
@@ -69,7 +73,8 @@
                         [])]
     (into (cond-> [projection-effect]
             persist-effect (conj persist-effect))
-          fetch-effects)))
+          (concat [replace-shareable-route-query-effect]
+                  fetch-effects))))
 
 (defn toggle-vault-detail-chart-timeframe-dropdown
   [state]
@@ -112,7 +117,8 @@
                         [[:vaults-ui :user-vaults-page]
                          ui-state/default-vault-user-page]
                         [[:vaults-ui :user-vaults-page-size-dropdown-open?]
-                         false]]]])
+                         false]]]
+   replace-shareable-route-query-effect])
 
 (defn toggle-vaults-user-page-size-dropdown
   [state]
@@ -126,7 +132,8 @@
 (defn set-vaults-user-page
   [_state page max-page]
   [[:effects/save [:vaults-ui :user-vaults-page]
-    (ui-state/normalize-vault-user-page page max-page)]])
+    (ui-state/normalize-vault-user-page page max-page)]
+   replace-shareable-route-query-effect])
 
 (defn next-vaults-user-page
   [state max-page]

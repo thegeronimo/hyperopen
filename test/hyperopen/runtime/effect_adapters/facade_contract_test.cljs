@@ -8,6 +8,7 @@
   (is (fn? effect-adapters/local-storage-set))
   (is (fn? effect-adapters/local-storage-set-json))
   (is (fn? effect-adapters/persist-leaderboard-preferences-effect))
+  (is (fn? effect-adapters/replace-shareable-route-query))
   (is (fn? effect-adapters/schedule-animation-frame!))
   (is (fn? effect-adapters/queue-asset-icon-status))
   (is (fn? effect-adapters/make-queue-asset-icon-status))

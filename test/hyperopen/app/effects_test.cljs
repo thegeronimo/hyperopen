@@ -50,6 +50,8 @@
                         (get-in deps [:asset-selector :queue-asset-icon-status])))
         (is (identical? effect-adapters/sync-asset-selector-active-ctx-subscriptions
                         (get-in deps [:asset-selector :sync-asset-selector-active-ctx-subscriptions])))
+        (is (identical? effect-adapters/replace-shareable-route-query
+                        (get-in deps [:navigation :replace-shareable-route-query])))
         (is (identical? refresh-handler
                         (get-in deps [:websocket :refresh-websocket-health])))
         (is (identical? disconnect-handler

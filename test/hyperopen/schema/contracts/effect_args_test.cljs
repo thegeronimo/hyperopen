@@ -16,6 +16,13 @@
           [:interval :1m]
           {:phase :test}))))
 
+(deftest assert-effect-args-accepts-shareable-route-query-replacement-without-args-test
+  (is (= []
+         (contracts/assert-effect-args!
+          :effects/replace-shareable-route-query
+          []
+          {:phase :test}))))
+
 (deftest assert-effect-args-accepts-fetch-candle-snapshot-interval-and-bars-test
   (is (= [:interval :1m :bars 330]
          (contracts/assert-effect-args!

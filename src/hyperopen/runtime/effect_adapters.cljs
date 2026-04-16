@@ -9,6 +9,7 @@
             [hyperopen.runtime.effect-adapters.funding :as funding-adapters]
             [hyperopen.runtime.effect-adapters.leaderboard :as leaderboard-adapters]
             [hyperopen.runtime.effect-adapters.order :as order-adapters]
+            [hyperopen.runtime.effect-adapters.route-query :as route-query-adapters]
             [hyperopen.runtime.effect-adapters.staking :as staking-adapters]
             [hyperopen.runtime.effect-adapters.vaults :as vault-adapters]
             [hyperopen.runtime.effect-adapters.wallet :as wallet-adapters]
@@ -73,6 +74,8 @@
 (def push-state common/push-state)
 
 (def replace-state common/replace-state)
+
+(def replace-shareable-route-query route-query-adapters/replace-shareable-route-query)
 
 (defn load-route-module-effect
   [_ store path]

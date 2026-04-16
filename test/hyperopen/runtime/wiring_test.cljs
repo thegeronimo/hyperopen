@@ -25,6 +25,8 @@
                     (get-in deps [:asset-selector :sync-asset-selector-active-ctx-subscriptions])))
     (is (identical? effect-adapters/load-trading-indicators-module-effect
                     (get-in deps [:navigation :load-trading-indicators-module])))
+    (is (identical? effect-adapters/replace-shareable-route-query
+                    (get-in deps [:navigation :replace-shareable-route-query])))
     (is (identical? effect-adapters/fetch-candle-snapshot
                     (get-in deps [:websocket :fetch-candle-snapshot])))
     (is (identical? effect-adapters/ws-reset-subscriptions

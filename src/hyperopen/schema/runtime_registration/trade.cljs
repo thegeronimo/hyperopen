@@ -10,6 +10,7 @@
    [:effects/sync-asset-selector-active-ctx-subscriptions :sync-asset-selector-active-ctx-subscriptions]
    [:effects/push-state :push-state]
    [:effects/replace-state :replace-state]
+   [:effects/replace-shareable-route-query :replace-shareable-route-query]
    [:effects/load-route-module :load-route-module]
    [:effects/load-trade-chart-module :load-trade-chart-module]
    [:effects/load-trading-indicators-module :load-trading-indicators-module]

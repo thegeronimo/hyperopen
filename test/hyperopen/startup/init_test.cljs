@@ -36,6 +36,7 @@
       :restore-spectate-mode-preferences! (record-store-call :restore-spectate-mode-preferences)
       :restore-spectate-mode-url! (record-store-call :restore-spectate-mode-url)
       :restore-trade-route-tab! (record-store-call :restore-trade-route-tab)
+      :restore-route-query-state! (record-store-call :restore-route-query-state)
       :restore-active-asset! (record-store-call :restore-active-asset)
       :restore-asset-selector-markets-cache! (record-store-call :restore-selector-markets-cache)
       :restore-asset-selector-sort-settings! (record-store-call :restore-asset-selector-sort)
@@ -81,12 +82,14 @@
             [:restore-spectate-mode-preferences true]
             [:restore-spectate-mode-url true]
             [:restore-trade-route-tab true]
+            [:restore-route-query-state true]
             [:restore-active-asset true]
             [:restore-selector-markets-cache true]
             [:set-on-connected-handler true]
             [:init-wallet true]
             [:init-router true]
             [:restore-vaults-snapshot-range true]
+            [:restore-route-query-state true]
             [:kick-render true]
             :scheduled]
            @calls))
@@ -114,6 +117,32 @@
            (get @runtime :startup)))
     (is (= ["app:init:start"] @marks))
     (is (= 1 @summaries))))
+
+(deftest restore-deferred-ui-state-reapplies-route-query-after-portfolio-local-storage-test
+  (let [calls (atom [])
+        store (atom {})
+        record-store-call (fn [label]
+                            (fn [store-arg]
+                              (swap! calls conj [label (= store store-arg)])))]
+    (startup-init/restore-deferred-ui-state!
+     {:store store
+      :restore-asset-selector-sort-settings! (record-store-call :restore-asset-selector-sort)
+      :restore-portfolio-summary-time-range! (record-store-call :restore-portfolio-summary-time-range)
+      :restore-route-query-state! (record-store-call :restore-route-query-state)
+      :restore-leaderboard-preferences! (record-store-call :restore-leaderboard-preferences)
+      :restore-open-orders-sort-settings! (record-store-call :restore-open-orders-sort)
+      :restore-funding-history-pagination-settings! (record-store-call :restore-funding-history-pagination)
+      :restore-trade-history-pagination-settings! (record-store-call :restore-trade-history-pagination)
+      :restore-order-history-pagination-settings! (record-store-call :restore-order-history-pagination)})
+    (is (= [[:restore-asset-selector-sort true]
+            [:restore-portfolio-summary-time-range true]
+            [:restore-route-query-state true]
+            [:restore-leaderboard-preferences true]
+            [:restore-open-orders-sort true]
+            [:restore-funding-history-pagination true]
+            [:restore-trade-history-pagination true]
+            [:restore-order-history-pagination true]]
+           @calls))))
 
 (deftest initialize-systems-runs-all-phases-without-scheduler-test
   (async done

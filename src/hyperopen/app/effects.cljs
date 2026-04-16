@@ -15,6 +15,7 @@
                     :sync-asset-selector-active-ctx-subscriptions effect-adapters/sync-asset-selector-active-ctx-subscriptions}
    :navigation {:push-state effect-adapters/push-state
                 :replace-state effect-adapters/replace-state
+                :replace-shareable-route-query effect-adapters/replace-shareable-route-query
                 :load-route-module effect-adapters/load-route-module-effect
                 :load-trade-chart-module effect-adapters/load-trade-chart-module-effect
                 :load-trading-indicators-module effect-adapters/load-trading-indicators-module-effect}

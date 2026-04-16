@@ -152,8 +152,10 @@
             [hyperopen.portfolio.metrics.history-test]
             [hyperopen.portfolio.metrics.parsing-test]
             [hyperopen.portfolio.metrics.quantstats-parity-test]
+            [hyperopen.portfolio.query-state-test]
             [hyperopen.registry.runtime-test]
             [hyperopen.route-modules-test]
+            [hyperopen.route-query-state-test]
             [hyperopen.router-test]
             [hyperopen.runtime.account-lifecycle-validation-test]
             [hyperopen.runtime.action-adapters-test]
@@ -241,6 +243,7 @@
             [hyperopen.vaults.adapters.webdata-test]
             [hyperopen.vaults.application.list-commands-test]
             [hyperopen.vaults.application.list-vm-test]
+            [hyperopen.vaults.application.query-state-test]
             [hyperopen.vaults.application.route-loading-test]
             [hyperopen.vaults.application.transfer-commands-test]
             [hyperopen.vaults.application.transfer-state-test]
@@ -632,8 +635,10 @@
              'hyperopen.portfolio.metrics.history-test
              'hyperopen.portfolio.metrics.parsing-test
              'hyperopen.portfolio.metrics.quantstats-parity-test
+             'hyperopen.portfolio.query-state-test
              'hyperopen.registry.runtime-test
              'hyperopen.route-modules-test
+             'hyperopen.route-query-state-test
              'hyperopen.router-test
              'hyperopen.runtime.account-lifecycle-validation-test
              'hyperopen.runtime.action-adapters-test
@@ -721,6 +726,7 @@
              'hyperopen.vaults.adapters.webdata-test
              'hyperopen.vaults.application.list-commands-test
              'hyperopen.vaults.application.list-vm-test
+             'hyperopen.vaults.application.query-state-test
              'hyperopen.vaults.application.route-loading-test
              'hyperopen.vaults.application.transfer-commands-test
              'hyperopen.vaults.application.transfer-state-test

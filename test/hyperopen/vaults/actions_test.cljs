@@ -4,6 +4,9 @@
             [hyperopen.platform :as platform]
             [hyperopen.vaults.actions :as actions]))
 
+(def ^:private replace-shareable-route-query-effect
+  [:effects/replace-shareable-route-query])
+
 (deftest parse-vault-route-covers-list-detail-and-invalid-address-branches-test
   (is (= {:kind :list
           :path "/vaults"}
@@ -83,13 +86,16 @@
 
 (deftest vault-ui-actions-normalize-input-and-toggle-states-test
   (is (= [[:effects/save-many [[[:vaults-ui :search-query] "vault"]
-                               [[:vaults-ui :user-vaults-page] 1]]]]
+                               [[:vaults-ui :user-vaults-page] 1]]]
+          replace-shareable-route-query-effect]
          (actions/set-vaults-search-query {} "vault")))
   (is (= [[:effects/save-many [[[:vaults-ui :search-query] "42"]
-                               [[:vaults-ui :user-vaults-page] 1]]]]
+                               [[:vaults-ui :user-vaults-page] 1]]]
+          replace-shareable-route-query-effect]
          (actions/set-vaults-search-query {} 42)))
   (is (= [[:effects/save-many [[[:vaults-ui :filter-leading?] false]
-                               [[:vaults-ui :user-vaults-page] 1]]]]
+                               [[:vaults-ui :user-vaults-page] 1]]]
+          replace-shareable-route-query-effect]
          (actions/toggle-vaults-filter {:vaults-ui {:filter-leading? true}} :leading)))
   (is (= []
          (actions/toggle-vaults-filter {:vaults-ui {:filter-leading? true}} :unknown)))
@@ -97,19 +103,22 @@
                                [[:vaults-ui :user-vaults-page] 1]
                                [[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
                                [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]
-          [:effects/local-storage-set "vaults-snapshot-range" "all-time"]]
+          [:effects/local-storage-set "vaults-snapshot-range" "all-time"]
+          replace-shareable-route-query-effect]
          (actions/set-vaults-snapshot-range {} "allTime")))
   (is (= [[:effects/save-many [[[:vaults-ui :snapshot-range] :three-month]
                                [[:vaults-ui :user-vaults-page] 1]
                                [[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
                                [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]
-          [:effects/local-storage-set "vaults-snapshot-range" "three-month"]]
+          [:effects/local-storage-set "vaults-snapshot-range" "three-month"]
+          replace-shareable-route-query-effect]
          (actions/set-vaults-snapshot-range {} "3m")))
   (is (= [[:effects/save-many [[[:vaults-ui :snapshot-range] :week]
                                [[:vaults-ui :user-vaults-page] 1]
                                [[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
                                [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]
           [:effects/local-storage-set "vaults-snapshot-range" "week"]
+          replace-shareable-route-query-effect
           [:effects/fetch-candle-snapshot :coin "BTC" :interval :15m :bars 800 :detail-route-vault-address "0x1234567890abcdef1234567890abcdef12345678"]
           [:effects/fetch-candle-snapshot :coin "ETH" :interval :15m :bars 800 :detail-route-vault-address "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/set-vaults-snapshot-range {:vaults-ui {:detail-chart-series :returns
@@ -136,50 +145,63 @@
          (actions/close-vault-detail-performance-metrics-timeframe-dropdown {})))
   (is (= [[:effects/save-many [[[:vaults-ui :sort] {:column :tvl
                                                     :direction :asc}]
-                               [[:vaults-ui :user-vaults-page] 1]]]]
+                               [[:vaults-ui :user-vaults-page] 1]]]
+          replace-shareable-route-query-effect]
          (actions/set-vaults-sort {:vaults-ui {:sort {:column :tvl
                                                       :direction :desc}}}
                                   :tvl)))
   (is (= [[:effects/save-many [[[:vaults-ui :sort] {:column :apr
                                                     :direction :desc}]
-                               [[:vaults-ui :user-vaults-page] 1]]]]
+                               [[:vaults-ui :user-vaults-page] 1]]]
+          replace-shareable-route-query-effect]
          (actions/set-vaults-sort {:vaults-ui {:sort {:column :tvl
                                                       :direction :desc}}}
                                   "apr")))
   (is (= [[:effects/save-many [[[:vaults-ui :user-vaults-page-size] 25]
                                [[:vaults-ui :user-vaults-page] 1]
-                               [[:vaults-ui :user-vaults-page-size-dropdown-open?] false]]]]
+                               [[:vaults-ui :user-vaults-page-size-dropdown-open?] false]]]
+          replace-shareable-route-query-effect]
          (actions/set-vaults-user-page-size {} "25")))
   (is (= [[:effects/save-many [[[:vaults-ui :user-vaults-page-size] 10]
                                [[:vaults-ui :user-vaults-page] 1]
-                               [[:vaults-ui :user-vaults-page-size-dropdown-open?] false]]]]
+                               [[:vaults-ui :user-vaults-page-size-dropdown-open?] false]]]
+          replace-shareable-route-query-effect]
          (actions/set-vaults-user-page-size {} "999")))
   (is (= [[:effects/save [:vaults-ui :user-vaults-page-size-dropdown-open?] true]]
          (actions/toggle-vaults-user-page-size-dropdown
           {:vaults-ui {:user-vaults-page-size-dropdown-open? false}})))
   (is (= [[:effects/save [:vaults-ui :user-vaults-page-size-dropdown-open?] false]]
          (actions/close-vaults-user-page-size-dropdown {})))
-  (is (= [[:effects/save [:vaults-ui :user-vaults-page] 2]]
+  (is (= [[:effects/save [:vaults-ui :user-vaults-page] 2]
+          replace-shareable-route-query-effect]
          (actions/set-vaults-user-page {} "3" 2)))
-  (is (= [[:effects/save [:vaults-ui :user-vaults-page] 4]]
+  (is (= [[:effects/save [:vaults-ui :user-vaults-page] 4]
+          replace-shareable-route-query-effect]
          (actions/next-vaults-user-page {:vaults-ui {:user-vaults-page 3}} 5)))
-  (is (= [[:effects/save [:vaults-ui :user-vaults-page] 1]]
+  (is (= [[:effects/save [:vaults-ui :user-vaults-page] 1]
+          replace-shareable-route-query-effect]
          (actions/prev-vaults-user-page {:vaults-ui {:user-vaults-page 2}} 5)))
-  (is (= [[:effects/save [:vaults-ui :detail-tab] :vault-performance]]
+  (is (= [[:effects/save [:vaults-ui :detail-tab] :vault-performance]
+          replace-shareable-route-query-effect]
          (actions/set-vault-detail-tab {} "vaultPerformance")))
-  (is (= [[:effects/save [:vaults-ui :detail-tab] :about]]
+  (is (= [[:effects/save [:vaults-ui :detail-tab] :about]
+          replace-shareable-route-query-effect]
          (actions/set-vault-detail-tab {} "performanceMetrics")))
   (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-tab] :performance-metrics]
-                               [[:vaults-ui :detail-activity-filter-open?] false]]]]
+                               [[:vaults-ui :detail-activity-filter-open?] false]]]
+          replace-shareable-route-query-effect]
          (actions/set-vault-detail-activity-tab {} "performanceMetrics")))
   (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-tab] :open-orders]
-                               [[:vaults-ui :detail-activity-filter-open?] false]]]]
+                               [[:vaults-ui :detail-activity-filter-open?] false]]]
+          replace-shareable-route-query-effect]
          (actions/set-vault-detail-activity-tab {} "openOrders")))
   (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-tab] :performance-metrics]
-                               [[:vaults-ui :detail-activity-filter-open?] false]]]]
+                               [[:vaults-ui :detail-activity-filter-open?] false]]]
+          replace-shareable-route-query-effect]
          (actions/set-vault-detail-activity-tab {} "unknown-tab")))
   (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-tab] :order-history]
                                [[:vaults-ui :detail-activity-filter-open?] false]]]
+          replace-shareable-route-query-effect
           [:effects/api-fetch-vault-order-history "0x1234567890abcdef1234567890abcdef12345678"]
           [:effects/api-fetch-vault-order-history "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]]
          (actions/set-vault-detail-activity-tab
@@ -209,21 +231,26 @@
   (is (= [[:effects/save [:vaults-ui :detail-activity-filter-open?] false]]
          (actions/close-vault-detail-activity-filter {})))
   (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-direction-filter] :short]
-                               [[:vaults-ui :detail-activity-filter-open?] false]]]]
+                               [[:vaults-ui :detail-activity-filter-open?] false]]]
+          replace-shareable-route-query-effect]
          (actions/set-vault-detail-activity-direction-filter {} "short")))
   (is (= [[:effects/save-many [[[:vaults-ui :detail-activity-direction-filter] :all]
-                               [[:vaults-ui :detail-activity-filter-open?] false]]]]
+                               [[:vaults-ui :detail-activity-filter-open?] false]]]
+          replace-shareable-route-query-effect]
          (actions/set-vault-detail-activity-direction-filter {} "not-real")))
-  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-series] :account-value]]]]
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-series] :account-value]]]
+          replace-shareable-route-query-effect]
          (actions/set-vault-detail-chart-series {} "accountValue")))
   (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-series] :returns]]]
+          replace-shareable-route-query-effect
           [:effects/fetch-candle-snapshot :coin "BTC" :interval :1h :bars 800 :detail-route-vault-address "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/set-vault-detail-chart-series {:vaults-ui {:snapshot-range :month
                                                              :detail-returns-benchmark-coins ["BTC"
                                                                                               "vault:0x1234567890abcdef1234567890abcdef12345678"]}
                                                  :router {:path "/vaults/0x1234567890abcdef1234567890abcdef12345678"}}
                                                 :returns)))
-  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-series] :returns]]]]
+  (is (= [[:effects/save-many [[[:vaults-ui :detail-chart-series] :returns]]]
+          replace-shareable-route-query-effect]
          (actions/set-vault-detail-chart-series {} "unknown-series")))
   (is (= [[:effects/save [:vaults-ui :detail-returns-benchmark-search] "42"]]
          (actions/set-vault-detail-returns-benchmark-search {} 42)))
@@ -241,6 +268,7 @@
                                [[:vaults-ui :detail-returns-benchmark-coin] "ETH"]
                                [[:vaults-ui :detail-returns-benchmark-search] ""]
                                [[:vaults-ui :detail-returns-benchmark-suggestions-open?] false]]]
+          replace-shareable-route-query-effect
           [:effects/fetch-candle-snapshot :coin "ETH" :interval :1h :bars 800 :detail-route-vault-address "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/select-vault-detail-returns-benchmark {:vaults-ui {:snapshot-range :month
                                                                      :detail-chart-series :returns
@@ -251,6 +279,7 @@
                                [[:vaults-ui :detail-returns-benchmark-coin] "vault:0x1234567890abcdef1234567890abcdef12345678"]
                                [[:vaults-ui :detail-returns-benchmark-search] ""]
                                [[:vaults-ui :detail-returns-benchmark-suggestions-open?] false]]]
+          replace-shareable-route-query-effect
           [:effects/api-fetch-vault-benchmark-details "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/select-vault-detail-returns-benchmark {:vaults-ui {:snapshot-range :month
                                                                      :detail-chart-series :returns
@@ -258,7 +287,8 @@
                                                          :router {:path "/vaults/0x1234567890abcdef1234567890abcdef12345678"}}
                                                         "vault:0x1234567890abcdef1234567890abcdef12345678")))
   (is (= [[:effects/save-many [[[:vaults-ui :detail-returns-benchmark-coins] ["BTC"]]
-                               [[:vaults-ui :detail-returns-benchmark-coin] "BTC"]]]]
+                               [[:vaults-ui :detail-returns-benchmark-coin] "BTC"]]]
+          replace-shareable-route-query-effect]
          (actions/remove-vault-detail-returns-benchmark {:vaults-ui {:detail-returns-benchmark-coins ["BTC" "ETH"]}}
                                                         "ETH")))
   (is (= [[:effects/save [:vaults-ui :detail-returns-benchmark-suggestions-open?] false]]
@@ -266,7 +296,8 @@
   (is (= [[:effects/save-many [[[:vaults-ui :detail-returns-benchmark-coins] []]
                                [[:vaults-ui :detail-returns-benchmark-coin] nil]
                                [[:vaults-ui :detail-returns-benchmark-search] ""]
-                               [[:vaults-ui :detail-returns-benchmark-suggestions-open?] false]]]]
+                               [[:vaults-ui :detail-returns-benchmark-suggestions-open?] false]]]
+          replace-shareable-route-query-effect]
          (actions/clear-vault-detail-returns-benchmark {}))))
 
 (deftest restore-vaults-snapshot-range-loads-normalized-local-storage-preference-test

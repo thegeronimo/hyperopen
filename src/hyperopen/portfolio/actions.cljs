@@ -5,6 +5,9 @@
 (def ^:private portfolio-summary-time-range-storage-key
   "portfolio-summary-time-range")
 
+(def ^:private replace-shareable-route-query-effect
+  [:effects/replace-shareable-route-query])
+
 (def default-summary-scope
   :all)
 
@@ -299,7 +302,8 @@
 (defn select-portfolio-summary-scope
   [_state scope]
   [(selector-projection-effect nil [[[:portfolio-ui :summary-scope]
-                                     (normalize-summary-scope scope)]])])
+                                     (normalize-summary-scope scope)]])
+   replace-shareable-route-query-effect])
 
 (defn select-portfolio-summary-time-range
   [state time-range]
@@ -310,7 +314,8 @@
                                              time-range*]])
            [:effects/local-storage-set
             portfolio-summary-time-range-storage-key
-            (name time-range*)]]
+            (name time-range*)]
+           replace-shareable-route-query-effect]
           fetch-effects)))
 
 (defn restore-portfolio-summary-time-range!
@@ -330,14 +335,16 @@
                         (returns-benchmark-fetch-effects summary-time-range benchmark-coins)
                         [])]
     (into [[:effects/save-many
-            [[[:portfolio-ui :chart-tab] chart-tab*]]]]
+            [[[:portfolio-ui :chart-tab] chart-tab*]]]
+           replace-shareable-route-query-effect]
           fetch-effects)))
 
 (defn set-portfolio-account-info-tab
   [_state tab]
   [[:effects/save
     [:portfolio-ui :account-info-tab]
-    (normalize-portfolio-account-info-tab tab)]])
+    (normalize-portfolio-account-info-tab tab)]
+   replace-shareable-route-query-effect])
 
 (defn set-portfolio-returns-benchmark-search
   [_state search]
@@ -383,7 +390,8 @@
                                        (vault-benchmark-details-fetch-effects state [vault-address])
                                        []))]
       (into [projection-effect]
-            (concat candle-effects
+            (concat [replace-shareable-route-query-effect]
+                    candle-effects
                     benchmark-detail-effects)))
     (clear-portfolio-returns-benchmark state)))
 
@@ -395,7 +403,8 @@
                           vec)]
       [[:effects/save-many
         [[[:portfolio-ui :returns-benchmark-coins] next-coins]
-         [[:portfolio-ui :returns-benchmark-coin] (first next-coins)]]]])
+         [[:portfolio-ui :returns-benchmark-coin] (first next-coins)]]]
+       replace-shareable-route-query-effect])
     []))
 
 (defn handle-portfolio-returns-benchmark-search-keydown
@@ -418,7 +427,8 @@
     [[[:portfolio-ui :returns-benchmark-coins] []]
      [[:portfolio-ui :returns-benchmark-coin] nil]
      [[:portfolio-ui :returns-benchmark-search] ""]
-     [[:portfolio-ui :returns-benchmark-suggestions-open?] false]]]])
+     [[:portfolio-ui :returns-benchmark-suggestions-open?] false]]]
+   replace-shareable-route-query-effect])
 
 (defn set-portfolio-metrics-result
   [_state payload]

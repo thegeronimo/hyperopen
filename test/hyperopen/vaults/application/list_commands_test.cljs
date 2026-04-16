@@ -3,12 +3,16 @@
             [hyperopen.vaults.application.list-commands :as list-commands]
             [hyperopen.vaults.infrastructure.routes :as routes]))
 
+(def ^:private replace-shareable-route-query-effect
+  [:effects/replace-shareable-route-query])
+
 (deftest set-vaults-snapshot-range-persists-preference-and-fetches-benchmarks-on-detail-route-test
   (is (= [[:effects/save-many [[[:vaults-ui :snapshot-range] :week]
                                [[:vaults-ui :user-vaults-page] 1]
                                [[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
                                [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]
           [:effects/local-storage-set "vaults-snapshot-range" "week"]
+          replace-shareable-route-query-effect
           [:effects/fetch-candle-snapshot :coin "BTC" :interval :15m :bars 800 :detail-route-vault-address "0x1234567890abcdef1234567890abcdef12345678"]
           [:effects/fetch-candle-snapshot :coin "ETH" :interval :15m :bars 800 :detail-route-vault-address "0x1234567890abcdef1234567890abcdef12345678"]]
          (list-commands/set-vaults-snapshot-range

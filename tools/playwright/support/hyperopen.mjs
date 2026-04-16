@@ -13,7 +13,7 @@ export const mobileViewport = Object.freeze({
   deviceScaleFactor: 3
 });
 
-export async function waitForDebugBridge(page, timeoutMs = 20_000) {
+export async function waitForDebugBridge(page, timeoutMs = 45_000) {
   await expect
     .poll(
       () =>

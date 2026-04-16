@@ -10,7 +10,8 @@
 (def ^:private persistence-effect-ids
   #{:effects/local-storage-set
     :effects/local-storage-set-json
-    :effects/persist-leaderboard-preferences})
+    :effects/persist-leaderboard-preferences
+    :effects/replace-shareable-route-query})
 
 (def ^:private effect-order-policy-by-action-id
   {:actions/select-asset

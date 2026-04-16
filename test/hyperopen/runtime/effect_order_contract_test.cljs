@@ -30,6 +30,21 @@
            (:duplicate-heavy-effect-ids summary)))
     (is (true? (:phase-order-valid summary)))))
 
+(deftest assert-action-effect-order-classifies-shareable-query-replacement-as-persistence-test
+  (let [effects [[:effects/save [:portfolio-ui :chart-tab] :returns]
+                 [:effects/replace-shareable-route-query]
+                 [:effects/fetch-candle-snapshot :interval :1h]]
+        summary (contract/effect-order-summary
+                 :actions/select-portfolio-chart-tab
+                 effects)]
+    (is (= [:projection :persistence :heavy-io]
+           (:phases summary)))
+    (is (= effects
+           (contract/assert-action-effect-order!
+            :actions/select-portfolio-chart-tab
+            effects
+            {:phase :test})))))
+
 (deftest effect-order-summary-can-report-projection-before-heavy-true-while-phase-order-invalid-test
   (let [effects [[:effects/save [:portfolio-ui :returns-benchmark-coin] "SPY"]
                  [:effects/fetch-candle-snapshot :coin "SPY" :interval :1h :bars 800]

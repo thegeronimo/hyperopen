@@ -60,6 +60,7 @@
    :effects/sync-asset-selector-active-ctx-subscriptions ::common/no-args
    :effects/push-state ::common/path-args
    :effects/replace-state ::common/path-args
+   :effects/replace-shareable-route-query ::common/no-args
    :effects/load-route-module ::common/path-args
    :effects/load-trade-chart-module ::common/no-args
    :effects/load-trading-indicators-module ::common/no-args

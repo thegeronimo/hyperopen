@@ -14,6 +14,9 @@
 (def ^:private vault-detail-activity-filter-open-path
   [:vaults-ui :detail-activity-filter-open?])
 
+(def ^:private replace-shareable-route-query-effect
+  [:effects/replace-shareable-route-query])
+
 (defn selected-vault-detail-returns-benchmark-coins
   [state]
   (let [coins (portfolio-actions/normalize-portfolio-returns-benchmark-coins
@@ -154,7 +157,8 @@
 (defn set-vault-detail-tab
   [_state tab]
   [[:effects/save [:vaults-ui :detail-tab]
-    (ui-state/normalize-vault-detail-tab tab)]])
+    (ui-state/normalize-vault-detail-tab tab)]
+   replace-shareable-route-query-effect])
 
 (defn set-vault-detail-activity-tab
   [deps state tab]
@@ -164,7 +168,9 @@
         fetch-effects (if-let [vault-address (current-route-vault-address deps state)]
                         (vault-detail-activity-fetch-effects state vault-address tab*)
                         [])]
-    (into [projection-effect] fetch-effects)))
+    (into [projection-effect
+           replace-shareable-route-query-effect]
+          fetch-effects)))
 
 (defn sort-vault-detail-activity
   [state tab column]
@@ -197,7 +203,8 @@
   [_state direction-filter]
   [[:effects/save-many [[vault-detail-activity-direction-filter-path
                          (ui-state/normalize-vault-detail-activity-direction-filter direction-filter)]
-                        [vault-detail-activity-filter-open-path false]]]])
+                        [vault-detail-activity-filter-open-path false]]]
+   replace-shareable-route-query-effect])
 
 (defn set-vault-detail-chart-series
   [deps state series]
@@ -213,7 +220,9 @@
                          (selected-vault-detail-returns-benchmark-coins state)
                          detail-route-vault-address)
                         [])]
-    (into [projection-effect] fetch-effects)))
+    (into [projection-effect
+           replace-shareable-route-query-effect]
+          fetch-effects)))
 
 (defn set-vault-detail-returns-benchmark-search
   [_state search]
@@ -263,7 +272,8 @@
                                        (vault-benchmark-details-fetch-effects state [vault-address])
                                        []))]
       (into [projection-effect]
-            (concat candle-effects
+            (concat [replace-shareable-route-query-effect]
+                    candle-effects
                     benchmark-detail-effects)))
     (clear-vault-detail-returns-benchmark state)))
 
@@ -275,7 +285,8 @@
                           vec)]
       [[:effects/save-many
         [[[:vaults-ui :detail-returns-benchmark-coins] next-coins]
-         [[:vaults-ui :detail-returns-benchmark-coin] (first next-coins)]]]])
+         [[:vaults-ui :detail-returns-benchmark-coin] (first next-coins)]]]
+       replace-shareable-route-query-effect])
     []))
 
 (defn handle-vault-detail-returns-benchmark-search-keydown
@@ -298,4 +309,5 @@
     [[[:vaults-ui :detail-returns-benchmark-coins] []]
      [[:vaults-ui :detail-returns-benchmark-coin] nil]
      [[:vaults-ui :detail-returns-benchmark-search] ""]
-     [[:vaults-ui :detail-returns-benchmark-suggestions-open?] false]]]])
+     [[:vaults-ui :detail-returns-benchmark-suggestions-open?] false]]]
+   replace-shareable-route-query-effect])
