@@ -105,6 +105,7 @@
    :effects/api-cancel-order ::api-cancel-order-args
    :effects/api-submit-position-tpsl ::api-submit-position-tpsl-args
    :effects/api-submit-position-margin ::api-submit-position-margin-args
+   :effects/clear-order-feedback-toast-timeout ::common/optional-string-args
    :effects/api-load-user-data ::common/address-args
    :effects/api-fetch-vault-index ::common/no-args
    :effects/api-fetch-vault-index-with-cache ::common/no-args

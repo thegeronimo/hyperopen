@@ -52,7 +52,8 @@
             :confirm-api-submit-order effect-adapters/confirm-api-submit-order
             :api-cancel-order (effect-adapters/make-api-cancel-order runtime)
             :api-submit-position-tpsl (effect-adapters/make-api-submit-position-tpsl runtime)
-            :api-submit-position-margin (effect-adapters/make-api-submit-position-margin runtime)}
+            :api-submit-position-margin (effect-adapters/make-api-submit-position-margin runtime)
+            :clear-order-feedback-toast-timeout (effect-adapters/make-clear-order-feedback-toast-timeout runtime)}
    :api {:fetch-asset-selector-markets effect-adapters/fetch-asset-selector-markets-effect
          :restore-dialog-focus effect-adapters/restore-dialog-focus-effect
          :sync-active-asset-funding-predictability effect-adapters/sync-active-asset-funding-predictability

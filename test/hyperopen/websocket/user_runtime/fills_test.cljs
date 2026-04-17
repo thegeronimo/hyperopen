@@ -335,6 +335,51 @@
              (mapv #(select-keys % [:variant :headline])
                    (get-in @store [:ui :toasts])))))))
 
+(deftest show-user-fill-toast-keeps-expanded-blotter-open-while-merging-fills-test
+  (let [runtime (atom (assoc-in (runtime-state/default-runtime-state)
+                                [:timeouts :order-toast "active-blotter"]
+                                :active-timeout))
+        store (atom {:ui {:toast nil
+                          :toasts [{:id "active-blotter"
+                                    :kind :success
+                                    :toast-surface :trade-confirmation
+                                    :variant :consolidated
+                                    :expanded? true
+                                    :headline "4 fills · Bought 1 HYPE"
+                                    :message "4 fills · Bought 1 HYPE"
+                                    :fills [{:id "1" :side :buy :symbol "HYPE" :price 44 :qty 0.25 :orderType "limit" :ts 1800000000000}
+                                            {:id "2" :side :buy :symbol "HYPE" :price 44.1 :qty 0.25 :orderType "limit" :ts 1800000001000}
+                                            {:id "3" :side :buy :symbol "HYPE" :price 44.2 :qty 0.25 :orderType "limit" :ts 1800000002000}
+                                            {:id "4" :side :buy :symbol "HYPE" :price 44.3 :qty 0.25 :orderType "limit" :ts 1800000003000}]}]}})
+        captured-timeouts (atom [])
+        cleared (atom [])]
+    (with-redefs [runtime-state/runtime runtime
+                  platform/set-timeout! (fn [callback ms]
+                                          (let [timeout-id (keyword (str "timeout-" (inc (count @captured-timeouts))))]
+                                            (swap! captured-timeouts conj [callback ms timeout-id])
+                                            timeout-id))
+                  platform/clear-timeout! (fn [timeout-id]
+                                            (swap! cleared conj timeout-id))]
+      (fill-runtime/show-user-fill-toast!
+       store
+       [{:tid 5
+         :coin "HYPE"
+         :side "B"
+         :sz "0.25"
+         :px "44.40"
+         :time 1800000004000}])
+      (let [toast (first (get-in @store [:ui :toasts]))]
+        (is (= 1 (count (get-in @store [:ui :toasts]))))
+        (is (= "active-blotter" (:id toast)))
+        (is (true? (:expanded? toast)))
+        (is (= false (:auto-timeout? toast)))
+        (is (= :consolidated (:variant toast)))
+        (is (= 5 (count (:fills toast)))))
+      (is (= [:active-timeout] @cleared))
+      (is (empty? @captured-timeouts))
+      (is (= {}
+             (get-in @runtime [:timeouts :order-toast]))))))
+
 (deftest show-user-fill-toast-respects-fill-alert-preference-test
   (let [runtime (atom (runtime-state/default-runtime-state))
         enabled-store (atom {:trading-settings {:fill-alerts-enabled? true}

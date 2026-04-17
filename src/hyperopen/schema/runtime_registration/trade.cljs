@@ -22,7 +22,8 @@
    [:effects/confirm-api-submit-order :confirm-api-submit-order]
    [:effects/api-cancel-order :api-cancel-order]
    [:effects/api-submit-position-tpsl :api-submit-position-tpsl]
-   [:effects/api-submit-position-margin :api-submit-position-margin]])
+   [:effects/api-submit-position-margin :api-submit-position-margin]
+   [:effects/clear-order-feedback-toast-timeout :clear-order-feedback-toast-timeout]])
 
 (def ^:private pre-order-form-action-binding-rows
   [[:actions/toggle-asset-dropdown :toggle-asset-dropdown]

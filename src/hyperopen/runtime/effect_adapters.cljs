@@ -167,6 +167,8 @@
 
 (def ^:private show-order-feedback-toast! order-adapters/show-order-feedback-toast!)
 
+(def make-clear-order-feedback-toast-timeout order-adapters/make-clear-order-feedback-toast-timeout)
+
 (defn disconnect-wallet
   ([_ store]
    (disconnect-wallet runtime-state/runtime nil store))

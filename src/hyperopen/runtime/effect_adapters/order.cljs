@@ -24,6 +24,11 @@
     platform/clear-timeout!
     toast-id)))
 
+(defn make-clear-order-feedback-toast-timeout
+  [runtime]
+  (fn [_ _ & [toast-id]]
+    (clear-order-feedback-toast-timeout! runtime toast-id)))
+
 (defn- schedule-order-feedback-toast-clear!
   [runtime store toast-id]
   (order-feedback-runtime/schedule-order-feedback-toast-clear!

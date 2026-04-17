@@ -224,13 +224,20 @@
   (let [current-toasts (current-order-feedback-toasts state)
         next-toasts (mapv (fn [toast]
                             (if (= toast-id (:id toast))
-                              (assoc toast :expanded? expanded?)
+                              (if expanded?
+                                (assoc toast
+                                       :expanded? true
+                                       :auto-timeout? false)
+                                (-> toast
+                                    (assoc :expanded? false)
+                                    (dissoc :auto-timeout?)))
                               toast))
                           current-toasts)
         latest-toast (some-> (peek next-toasts)
                              (dissoc :id))]
-    [[:effects/save-many [[[:ui :toasts] next-toasts]
-                          [[:ui :toast] latest-toast]]]]))
+    (cond-> [[:effects/save-many [[[:ui :toasts] next-toasts]
+                                   [[:ui :toast] latest-toast]]]]
+      expanded? (conj [:effects/clear-order-feedback-toast-timeout toast-id]))))
 
 (defn expand-order-feedback-toast
   [state toast-id]

@@ -195,5 +195,6 @@
 (defn show-order-feedback-toast!
   [store kind message schedule-order-feedback-toast-clear!]
   (when-let [toast (set-order-feedback-toast! store kind message)]
-    (schedule-order-feedback-toast-clear! store (:id toast))
+    (when-not (false? (:auto-timeout? toast))
+      (schedule-order-feedback-toast-clear! store (:id toast)))
     toast))

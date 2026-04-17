@@ -169,3 +169,18 @@
     (is (nil? (get-in @store [:ui :toast])))
     (is (empty? (get-in @store [:ui :toasts])))
     (is (= 2 (count @schedule-calls)))))
+
+(deftest show-order-feedback-toast-skips-clear-schedule-for-persistent-toast-test
+  (let [store (make-store)
+        schedule-calls (atom [])]
+    (is (some?
+         (feedback-runtime/show-order-feedback-toast!
+          store
+          :success
+          {:message "Activity"
+           :auto-timeout? false}
+          (fn [& args]
+            (swap! schedule-calls conj args)))))
+    (is (empty? @schedule-calls))
+    (is (= false
+           (get-in @store [:ui :toast :auto-timeout?])))))

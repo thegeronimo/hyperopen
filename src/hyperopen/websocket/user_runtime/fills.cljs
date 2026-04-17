@@ -401,10 +401,14 @@
                         (filter #(merge-candidate? incoming-fills %))
                         vec)
         candidate-ids (vec (keep :id candidates))
+        expanded-candidate (first (filter :expanded? candidates))
         merged-fills (into (vec (mapcat :fills candidates)) incoming-fills)]
     (remove-trade-toast-candidates! store candidate-ids)
     (if (seq candidates)
-      (trade-toast-payload merged-fills)
+      (cond-> (trade-toast-payload merged-fills)
+        expanded-candidate (assoc :id (:id expanded-candidate)
+                                  :expanded? true
+                                  :auto-timeout? false))
       payload)))
 
 (defn show-user-fill-toast!
