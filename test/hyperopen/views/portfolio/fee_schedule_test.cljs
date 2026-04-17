@@ -127,7 +127,8 @@
     (is (contains? dialog-classes "absolute"))
     (is (= {:left "200px"
             :top "200px"
-            :width "480px"}
+            :width "480px"
+            :background-color "#0f1a1f"}
            (get-in dialog [1 :style])))
     (is (fn? (get-in dialog [1 :replicant/on-render])))
     (is (= [[:actions/close-portfolio-fee-schedule]]
@@ -175,6 +176,10 @@
     (is (not-any? #(or (str/includes? % "#f4c430")
                        (str/includes? % "#ffe08a")
                        (str/includes? % "text-yellow"))
+                  (collect-classes view)))
+    (is (not-any? #(or (str/includes? % "bg-base-100/")
+                       (str/includes? % "bg-base-200/")
+                       (str/includes? % "bg-base-300/"))
                   (collect-classes view)))))
 
 (deftest fee-schedule-dropdown-options-use-compact-hoverable-rows-test

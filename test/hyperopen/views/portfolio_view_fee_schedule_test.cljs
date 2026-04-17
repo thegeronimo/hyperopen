@@ -64,6 +64,7 @@
       (is (some? dialog))
       (is (= {:left "200px"
               :top "200px"
-              :width "480px"}
+              :width "480px"
+              :background-color "#0f1a1f"}
              (get-in dialog [1 :style])))
       (is (contains? (set (hiccup/collect-strings dialog)) "Fee Schedule")))))

@@ -435,6 +435,7 @@ test("portfolio fee schedule opens, switches market type, and restores focus @re
       const rect = dialogNode.getBoundingClientRect();
       const triggerRect = triggerNode.getBoundingClientRect();
       const backdropStyle = window.getComputedStyle(backdropNode);
+      const dialogStyle = window.getComputedStyle(dialogNode);
       const classes = Array.from(overlayNode.querySelectorAll("*"))
         .map((node) => node.getAttribute("class") || "")
         .join(" ");
@@ -444,10 +445,19 @@ test("portfolio fee schedule opens, switches market type, and restores focus @re
         Math.abs(rect.right - triggerRect.left) <= 16;
       const verticallyNearTrigger =
         rect.top <= triggerRect.bottom + 24 && rect.bottom >= triggerRect.top - 24;
+      const opaqueSurface = (backgroundColor) => {
+        const rgbaMatch = backgroundColor.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([0-9.]+)\)$/);
+        return backgroundColor.startsWith("rgb(") || (rgbaMatch && Number(rgbaMatch[1]) >= 0.99);
+      };
 
       return {
         fitsVertically: rect.top >= 0 && rect.bottom <= window.innerHeight,
         anchoredNearTrigger: horizontallyNearTrigger && verticallyNearTrigger,
+        opaquePopoverSurface: opaqueSurface(dialogStyle.backgroundColor),
+        noTranslucentInternalSurfaces:
+          !classes.includes("bg-base-100/") &&
+          !classes.includes("bg-base-200/") &&
+          !classes.includes("bg-base-300/"),
         transparentBackdrop:
           backdropStyle.backgroundColor === "rgba(0, 0, 0, 0)" ||
           backdropStyle.backgroundColor === "transparent",
@@ -459,6 +469,8 @@ test("portfolio fee schedule opens, switches market type, and restores focus @re
   ).toMatchObject({
     fitsVertically: true,
     anchoredNearTrigger: true,
+    opaquePopoverSurface: true,
+    noTranslucentInternalSurfaces: true,
     transparentBackdrop: true,
     noVerticalScroll: true,
     noPageHorizontalOverflow: true,

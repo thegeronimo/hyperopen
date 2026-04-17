@@ -140,7 +140,7 @@
                         "rounded-md"
                         "border"
                         "border-base-300"
-                        "bg-base-200/60"
+                        "bg-[#111f25]"
                         "px-3"
                         "text-xs"
                         "text-trading-text"
@@ -168,7 +168,7 @@
                            "rounded-md"
                            "border"
                            "border-base-300"
-                           "bg-base-100"
+                           "bg-[#0f1a1f]"
                            "shadow-2xl"]
                           (if dropdown-open?
                             ["opacity-100" "scale-y-100" "translate-y-0"]
@@ -261,7 +261,7 @@
                     "text-left"
                     "text-xs"]
             :data-role "portfolio-fee-schedule-table"}
-    [:thead {:class ["bg-base-200/70" "text-trading-text-secondary"]}
+    [:thead {:class ["bg-[#111f25]" "text-trading-text-secondary"]}
      [:tr
       [:th {:class ["border" "border-base-300" "px-2" "py-1" "font-medium"]} "Tier"]
       [:th {:class ["border" "border-base-300" "px-2" "py-1" "font-medium"]} "14 Day Volume"]
@@ -316,9 +316,9 @@
                     "rounded-lg"
                     "border"
                     "border-base-300"
-                    "bg-base-100"
+                    "bg-[#0f1a1f]"
                     "shadow-[0_28px_90px_rgba(0,0,0,0.62)]"]
-            :style popover-style
+            :style (assoc popover-style :background-color "#0f1a1f")
             :role "dialog"
             :aria-modal false
             :aria-labelledby title-id
