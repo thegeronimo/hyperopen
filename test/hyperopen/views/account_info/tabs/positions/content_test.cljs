@@ -168,14 +168,20 @@
     (is (= ["CCC" "AAA" "BBB"] (mapv #(get-in % [:position :coin]) asc-result)))
     (is (= ["BBB" "AAA" "CCC"] (mapv #(get-in % [:position :coin]) desc-result)))))
 
-(deftest sort-positions-by-column-funding-uses-display-sign-convention-test
-  (let [positions [{:position {:coin "PAID" :cumFunding {:allTime "0.25"}}}
-                   {:position {:coin "RECEIVED" :cumFunding {:allTime "-0.10"}}}
-                   {:position {:coin "ZERO" :cumFunding {:allTime "0"}}}]
+(deftest sort-positions-by-column-funding-uses-since-open-display-sign-convention-test
+  (let [positions [{:position {:coin "XRP"
+                               :cumFunding {:allTime "-40929.847103"
+                                            :sinceOpen "0.718656"}}}
+                   {:position {:coin "SOL"
+                               :cumFunding {:allTime "-160892.374868"
+                                            :sinceOpen "-44.233025"}}}
+                   {:position {:coin "ZERO"
+                               :cumFunding {:allTime "0"
+                                            :sinceOpen "0"}}}]
         asc-result (positions-tab/sort-positions-by-column positions "Funding" :asc)
         desc-result (positions-tab/sort-positions-by-column positions "Funding" :desc)]
-    (is (= ["PAID" "ZERO" "RECEIVED"] (mapv #(get-in % [:position :coin]) asc-result)))
-    (is (= ["RECEIVED" "ZERO" "PAID"] (mapv #(get-in % [:position :coin]) desc-result)))))
+    (is (= ["XRP" "ZERO" "SOL"] (mapv #(get-in % [:position :coin]) asc-result)))
+    (is (= ["SOL" "ZERO" "XRP"] (mapv #(get-in % [:position :coin]) desc-result)))))
 
 (deftest sort-positions-by-column-size-uses-absolute-size-values-test
   (let [positions [{:position {:coin "TEN" :szi "-10"}}

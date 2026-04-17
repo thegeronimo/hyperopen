@@ -136,17 +136,37 @@
 (defn funding-display-value
   [funding-num]
   (when (number? funding-num)
-    (- funding-num)))
+    (let [display-value (- funding-num)]
+      (if (zero? display-value)
+        0
+        display-value))))
+
+(defn format-funding-currency
+  [display-funding]
+  (when (number? display-funding)
+    (let [display-funding* (if (zero? display-funding)
+                             0
+                             display-funding)
+          sign (when (neg? display-funding*) "-")]
+      (str sign "$" (shared/format-currency (js/Math.abs display-funding*))))))
 
 (defn- format-funding-tooltip
   [all-time-funding since-change-funding]
-  (let [all-time-text (if (number? all-time-funding)
-                        (str "$" (shared/format-currency all-time-funding))
-                        "--")
-        since-change-text (if (number? since-change-funding)
-                            (str "$" (shared/format-currency since-change-funding))
-                            "--")]
+  (let [all-time-text (or (format-funding-currency all-time-funding)
+                          "--")
+        since-change-text (or (format-funding-currency since-change-funding)
+                              "--")]
     (str "All-time: " all-time-text " Since change: " since-change-text)))
+
+(defn- position-all-time-funding-num
+  [position]
+  (or (shared/parse-optional-num (get-in position [:cumFunding :allTime]))
+      (shared/parse-optional-num (get-in position [:cumFunding :all-time]))))
+
+(defn- position-since-open-funding-num
+  [position]
+  (or (shared/parse-optional-num (get-in position [:cumFunding :sinceOpen]))
+      (shared/parse-optional-num (get-in position [:cumFunding :since-open]))))
 
 (defn- valid-trigger-price
   [value]
@@ -217,12 +237,14 @@
         mark-price (calculate-mark-price row-data)
         margin-mode (position-margin-mode row-data)
         margin-mode-label (margin-mode-display-label margin-mode)
-        funding-num (shared/parse-optional-num (get-in position [:cumFunding :allTime]))
+        all-time-funding-num (position-all-time-funding-num position)
+        since-open-funding-num (position-since-open-funding-num position)
         since-change-funding-num (or (shared/parse-optional-num (get-in position [:cumFunding :sinceChange]))
                                      (shared/parse-optional-num (get-in position [:cumFunding :since-change]))
-                                     (shared/parse-optional-num (get-in position [:cumFunding :sinceOpen]))
-                                     (shared/parse-optional-num (get-in position [:cumFunding :since-open])))
-        display-funding (funding-display-value funding-num)
+                                     since-open-funding-num)
+        display-all-time-funding (funding-display-value all-time-funding-num)
+        display-funding (funding-display-value (or since-open-funding-num
+                                                   all-time-funding-num))
         display-since-change-funding (funding-display-value since-change-funding-num)
         coin-label (display-coin position)
         dex-label (dex-chip-label row-data)
@@ -263,8 +285,10 @@
      :margin-mode-label margin-mode-label
      :margin-editable? (not= :cross margin-mode)
      :funding-display display-funding
-     :funding-tooltip (when (number? display-funding)
-                        (format-funding-tooltip display-funding display-since-change-funding))
+     :funding-display-text (format-funding-currency display-funding)
+     :funding-tooltip (when (or (number? display-all-time-funding)
+                                (number? display-since-change-funding))
+                        (format-funding-tooltip display-all-time-funding display-since-change-funding))
      :funding-tone-class (funding-tone-class display-funding)
      :tpsl-copy (tpsl-copy row-data)
      :normalized-coin-search-candidates coin-search-candidates}))

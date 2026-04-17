@@ -195,12 +195,26 @@
         with-since-change-strings (set (hiccup/collect-strings with-since-change-cell))
         with-since-open-strings (set (hiccup/collect-strings with-since-open-cell))
         without-since-change-strings (set (hiccup/collect-strings without-since-change-cell))]
-    (is (contains? with-since-change-strings "All-time: $-0.50 Since change: $-0.25"))
-    (is (contains? with-since-open-strings "All-time: $-0.50 Since change: $-0.10"))
-    (is (contains? without-since-change-strings "All-time: $-0.50 Since change: --"))
+    (is (contains? with-since-change-strings "All-time: -$0.50 Since change: -$0.25"))
+    (is (contains? with-since-open-strings "All-time: -$0.50 Since change: -$0.10"))
+    (is (contains? without-since-change-strings "All-time: -$0.50 Since change: --"))
     (is (not-any? #(str/includes? % "NaN") (hiccup/collect-strings with-since-change-cell)))
     (is (not-any? #(str/includes? % "NaN") (hiccup/collect-strings with-since-open-cell)))
     (is (not-any? #(str/includes? % "NaN") (hiccup/collect-strings without-since-change-cell)))))
+
+(deftest position-row-funding-display-prefers-since-open-over-all-time-test
+  (let [row-data (assoc-in (fixtures/sample-position-row "XRP" 20 "16517.0")
+                           [:position :cumFunding]
+                           {:allTime "-40929.847103"
+                            :sinceOpen "0.718656"
+                            :sinceChange "0.0"})
+        funding-cell (nth (vec (hiccup/node-children (positions-tab/position-row row-data))) 8)
+        funding-strings (set (hiccup/collect-strings funding-cell))
+        visible-funding-node (hiccup/find-first-node funding-cell
+                                                     #(and (= :span (first %))
+                                                           (contains? (hiccup/node-class-set %) "text-error")))]
+    (is (= #{"-$0.72"} (hiccup/direct-texts visible-funding-node)))
+    (is (contains? funding-strings "All-time: $40,929.85 Since change: $0.00"))))
 
 (deftest position-row-funding-display-shows-received-as-positive-test
   (let [row-data (assoc-in (fixtures/sample-position-row "xyz:NVDA" 10 "0.500")
@@ -211,7 +225,7 @@
         funding-strings (set (hiccup/collect-strings funding-cell))
         funding-value-node (hiccup/find-first-node funding-cell
                                                    #(and (= :span (first %))
-                                                         (contains? (hiccup/node-class-set %) "text-success")))]
+                                                           (contains? (hiccup/node-class-set %) "text-success")))]
     (is (contains? funding-strings "$0.50"))
     (is (contains? funding-strings "All-time: $0.50 Since change: $0.25"))
     (is (some? funding-value-node))))

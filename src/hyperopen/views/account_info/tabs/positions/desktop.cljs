@@ -37,6 +37,7 @@
         margin-editable? (:margin-editable? row-vm)
         margin-mode-label (:margin-mode-label row-vm)
         display-funding (:funding-display row-vm)
+        display-funding-text (:funding-display-text row-vm)
         funding-tooltip (:funding-tooltip row-vm)
         liq-explanation (:liq-explanation row-vm)
         tpsl-copy (:tpsl-copy row-vm)
@@ -114,7 +115,7 @@
             (positions-shared/explainable-value-node
              [:span {:class [(:funding-tone-class row-vm) "num"]}
               (if (number? display-funding)
-                (str "$" (shared/format-currency display-funding))
+                display-funding-text
                 "--")]
              funding-tooltip
              {:underlined? false})]]

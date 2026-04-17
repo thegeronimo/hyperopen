@@ -18,14 +18,14 @@
     "--"))
 
 (defn- funding-value-node
-  [display-funding]
+  [display-funding display-funding-text]
   [:span {:class [(cond
                     (and (number? display-funding) (neg? display-funding)) "text-error"
                     (and (number? display-funding) (pos? display-funding)) "text-success"
                     :else "text-trading-text")
                   "num"]}
    (if (number? display-funding)
-     (str "$" (shared/format-currency display-funding))
+     display-funding-text
      "--")])
 
 (defn- mobile-position-coin-node
@@ -129,7 +129,8 @@
         pnl-color-class (:pnl-color-class row-vm)
         margin-editable? (:margin-editable? row-vm)
         margin-mode-label (:margin-mode-label row-vm)
-        display-funding (:funding-display row-vm)]
+        display-funding (:funding-display row-vm)
+        display-funding-text (:funding-display-text row-vm)]
     (mobile-cards/expandable-card
      {:data-role (str "mobile-position-card-" row-id)
       :expanded? expanded?
@@ -193,7 +194,7 @@
                                        :data-position-tpsl-trigger)))
                                    {:value-classes ["font-medium"]})
          (mobile-cards/detail-item "Funding"
-                                   (funding-value-node display-funding)
+                                   (funding-value-node display-funding display-funding-text)
                                    {:value-classes ["font-medium" "whitespace-nowrap"]})])
        (when-not read-only?
          [:div {:class ["border-t" "border-[#17313d]" "pt-2.5"]}
