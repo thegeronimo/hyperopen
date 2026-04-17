@@ -419,9 +419,13 @@ test("portfolio fee schedule opens, switches market type, and restores focus @re
     page.evaluate(() => {
       const dialogNode = document.querySelector("[data-role='portfolio-fee-schedule-dialog']");
       const overlayNode = document.querySelector("[data-role='portfolio-fee-schedule-overlay']");
-      if (!dialogNode || !overlayNode) {
+      const backdropNode = document.querySelector("[data-role='portfolio-fee-schedule-backdrop']");
+      const triggerNode = document.querySelector("[data-role='portfolio-fee-schedule-trigger']");
+      if (!dialogNode || !overlayNode || !backdropNode || !triggerNode) {
         return {
           fitsVertically: false,
+          anchoredNearTrigger: false,
+          transparentBackdrop: false,
           noVerticalScroll: false,
           noPageHorizontalOverflow: false,
           usesReferenceYellow: true
@@ -429,12 +433,24 @@ test("portfolio fee schedule opens, switches market type, and restores focus @re
       }
 
       const rect = dialogNode.getBoundingClientRect();
+      const triggerRect = triggerNode.getBoundingClientRect();
+      const backdropStyle = window.getComputedStyle(backdropNode);
       const classes = Array.from(overlayNode.querySelectorAll("*"))
         .map((node) => node.getAttribute("class") || "")
         .join(" ");
+      const horizontallyNearTrigger =
+        (rect.left <= triggerRect.right && rect.right >= triggerRect.left) ||
+        Math.abs(rect.left - triggerRect.right) <= 16 ||
+        Math.abs(rect.right - triggerRect.left) <= 16;
+      const verticallyNearTrigger =
+        rect.top <= triggerRect.bottom + 24 && rect.bottom >= triggerRect.top - 24;
 
       return {
         fitsVertically: rect.top >= 0 && rect.bottom <= window.innerHeight,
+        anchoredNearTrigger: horizontallyNearTrigger && verticallyNearTrigger,
+        transparentBackdrop:
+          backdropStyle.backgroundColor === "rgba(0, 0, 0, 0)" ||
+          backdropStyle.backgroundColor === "transparent",
         noVerticalScroll: dialogNode.scrollHeight <= dialogNode.clientHeight + 1,
         noPageHorizontalOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
         usesReferenceYellow: classes.includes("#f4c430") || classes.includes("#ffe08a") || classes.includes("text-yellow")
@@ -442,6 +458,8 @@ test("portfolio fee schedule opens, switches market type, and restores focus @re
     })
   ).toMatchObject({
     fitsVertically: true,
+    anchoredNearTrigger: true,
+    transparentBackdrop: true,
     noVerticalScroll: true,
     noPageHorizontalOverflow: true,
     usesReferenceYellow: false

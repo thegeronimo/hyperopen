@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.fee-schedule
-  (:require [hyperopen.views.ui.dialog-focus :as dialog-focus]))
+  (:require [hyperopen.views.ui.anchored-popover :as anchored-popover]
+            [hyperopen.views.ui.dialog-focus :as dialog-focus]))
 
 (def ^:private title-id
   "portfolio-fee-schedule-title")
@@ -7,8 +8,59 @@
 (def ^:private restore-selector
   "[data-role=\"portfolio-fee-schedule-trigger\"]")
 
+(def ^:private preferred-popover-width-px
+  480)
+
+(def ^:private estimated-popover-height-px
+  600)
+
 (def ^:private dialog-focus-on-render
   (dialog-focus/dialog-focus-on-render {:restore-selector restore-selector}))
+
+(defn- viewport-number
+  [property]
+  (let [value (some-> js/globalThis (aget property))]
+    (when (number? value)
+      value)))
+
+(defn- element-anchor-bounds
+  [selector]
+  (when (seq selector)
+    (let [document* (some-> js/globalThis .-document)
+          target (some-> document* (.querySelector selector))]
+      (when (and target (fn? (.-getBoundingClientRect target)))
+        (let [rect (.getBoundingClientRect target)]
+          {:left (.-left rect)
+           :right (.-right rect)
+           :top (.-top rect)
+           :bottom (.-bottom rect)
+           :width (.-width rect)
+           :height (.-height rect)
+           :viewport-width (viewport-number "innerWidth")
+           :viewport-height (viewport-number "innerHeight")})))))
+
+(defn- with-current-viewport
+  [anchor]
+  (let [anchor* (if (map? anchor) anchor {})]
+    (cond-> anchor*
+      (not (number? (:viewport-width anchor*)))
+      (assoc :viewport-width (viewport-number "innerWidth"))
+
+      (not (number? (:viewport-height anchor*)))
+      (assoc :viewport-height (viewport-number "innerHeight")))))
+
+(defn- complete-layout-anchor?
+  [anchor]
+  (and (anchored-popover/complete-anchor? anchor)
+       (number? (:viewport-width anchor))
+       (number? (:viewport-height anchor))))
+
+(defn- resolved-anchor
+  [anchor]
+  (let [stored-anchor (with-current-viewport anchor)
+        fallback-anchor (when-not (complete-layout-anchor? stored-anchor)
+                          (element-anchor-bounds restore-selector))]
+    (or fallback-anchor stored-anchor)))
 
 (defn- close-icon []
   [:svg {:viewBox "0 0 20 20"
@@ -224,8 +276,9 @@
         [:td {:class ["num" "border" "border-base-300" "px-2" "py-1"]} taker]
         [:td {:class ["num" "border" "border-base-300" "px-2" "py-1"]} maker]])]]])
 
-(defn fee-schedule-modal
+(defn fee-schedule-popover
   [{:keys [open?
+           anchor
            title
            referral
            staking
@@ -235,24 +288,26 @@
            documentation-url]
     :as model}]
   (when open?
-    [:div {:class ["fixed"
-                   "inset-0"
-                   "z-[310]"
-                   "flex"
-                   "items-center"
-                   "justify-center"
-                   "p-2"
-                   "sm:p-3"]
-           :data-role "portfolio-fee-schedule-overlay"}
+    (let [anchor* (resolved-anchor anchor)
+          popover-style (anchored-popover/anchored-popover-layout-style
+                         {:anchor anchor*
+                          :preferred-width-px preferred-popover-width-px
+                          :estimated-height-px estimated-popover-height-px})]
+      [:div {:class ["fixed"
+                     "inset-0"
+                     "z-[310]"
+                     "pointer-events-none"]
+             :data-role "portfolio-fee-schedule-overlay"}
      [:button {:type "button"
                :class ["absolute"
                        "inset-0"
-                       "bg-black/60"
-                       "backdrop-blur-[2px]"]
+                       "pointer-events-auto"
+                       "bg-transparent"]
                :aria-label "Close fee schedule"
                :data-role "portfolio-fee-schedule-backdrop"
                :on {:click [[:actions/close-portfolio-fee-schedule]]}}]
-     [:div {:class ["relative"
+     [:div {:class ["absolute"
+                    "pointer-events-auto"
                     "z-[311]"
                     "max-h-[calc(100dvh-1rem)]"
                     "w-full"
@@ -263,8 +318,9 @@
                     "border-base-300"
                     "bg-base-100"
                     "shadow-[0_28px_90px_rgba(0,0,0,0.62)]"]
+            :style popover-style
             :role "dialog"
-            :aria-modal true
+            :aria-modal false
             :aria-labelledby title-id
             :tab-index 0
             :data-role "portfolio-fee-schedule-dialog"
@@ -318,4 +374,4 @@
               :target "_blank"
               :rel "noreferrer"
               :data-role "portfolio-fee-schedule-docs-link"}
-          "Hyperliquid documentation"]]]]]]))
+          "Hyperliquid documentation"]]]]]])))

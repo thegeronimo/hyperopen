@@ -54,6 +54,9 @@
   (s/or :none ::common/no-args
         :anchor-only (s/tuple any?)
         :anchor-and-data-role (s/tuple any? (s/nilable string?))))
+(s/def ::fee-schedule-open-args
+  (s/or :none ::common/no-args
+        :anchor-only (s/tuple any?)))
 (s/def ::spectate-mode-open-args
   (s/or :none ::common/no-args
         :anchor-only (s/tuple any?)))
@@ -158,7 +161,7 @@
    :actions/select-portfolio-summary-scope ::common/keyword-or-string-args
    :actions/toggle-portfolio-summary-time-range-dropdown ::common/no-args
    :actions/toggle-portfolio-performance-metrics-time-range-dropdown ::common/no-args
-   :actions/open-portfolio-fee-schedule ::common/no-args
+   :actions/open-portfolio-fee-schedule ::fee-schedule-open-args
    :actions/close-portfolio-fee-schedule ::common/no-args
    :actions/toggle-portfolio-fee-schedule-referral-dropdown ::common/no-args
    :actions/toggle-portfolio-fee-schedule-staking-dropdown ::common/no-args

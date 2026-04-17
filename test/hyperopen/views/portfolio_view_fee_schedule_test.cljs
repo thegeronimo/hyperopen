@@ -42,7 +42,7 @@
           :clearinghouse-state nil}
    :perp-dex-clearinghouse {}})
 
-(deftest portfolio-view-renders-fee-schedule-modal-outside-hover-cached-sections-test
+(deftest portfolio-view-renders-fee-schedule-popover-outside-hover-cached-sections-test
   (let [closed-node (portfolio-view/portfolio-view base-state)
         closed-trigger (hiccup/find-by-data-role closed-node "portfolio-fee-schedule-trigger")]
     (is (some? closed-trigger))
@@ -50,11 +50,20 @@
     (is (nil? (hiccup/find-by-data-role closed-node "portfolio-fee-schedule-dialog")))
     (chart-hover-state/set-surface-hover-active! :portfolio true)
     (let [open-node (portfolio-view/portfolio-view
-                     (assoc-in base-state
-                               [:portfolio-ui :fee-schedule-open?]
-                               true))
+                     (-> base-state
+                         (assoc-in [:portfolio-ui :fee-schedule-open?] true)
+                         (assoc-in [:portfolio-ui :fee-schedule-anchor]
+                                   {:left 24
+                                    :right 190
+                                    :top 220
+                                    :viewport-width 900
+                                    :viewport-height 900})))
           open-trigger (hiccup/find-by-data-role open-node "portfolio-fee-schedule-trigger")
           dialog (hiccup/find-by-data-role open-node "portfolio-fee-schedule-dialog")]
       (is (= "true" (get-in open-trigger [1 :aria-expanded])))
       (is (some? dialog))
+      (is (= {:left "200px"
+              :top "200px"
+              :width "480px"}
+             (get-in dialog [1 :style])))
       (is (contains? (set (hiccup/collect-strings dialog)) "Fee Schedule")))))

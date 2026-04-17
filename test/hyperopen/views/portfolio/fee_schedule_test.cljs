@@ -7,6 +7,11 @@
 (def ^:private sample-model
   {:open? true
    :title "Fee Schedule"
+   :anchor {:left 24
+            :right 190
+            :top 220
+            :viewport-width 900
+            :viewport-height 900}
    :selected-market-type :perps
    :selected-market-label "Perps"
    :market-dropdown-open? true
@@ -87,11 +92,14 @@
   [node text]
   (hiccup/find-first-node node #(contains? (set (hiccup/direct-texts %)) text)))
 
-(deftest fee-schedule-modal-renders-dialog-contract-and-actions-test
-  (let [view (fee-schedule-view/fee-schedule-modal sample-model)
+(deftest fee-schedule-popover-renders-anchored-dialog-contract-and-actions-test
+  (let [view (fee-schedule-view/fee-schedule-popover sample-model)
         overlay (hiccup/find-by-data-role view "portfolio-fee-schedule-overlay")
         backdrop (hiccup/find-by-data-role view "portfolio-fee-schedule-backdrop")
         dialog (hiccup/find-by-data-role view "portfolio-fee-schedule-dialog")
+        overlay-classes (hiccup/root-class-set overlay)
+        backdrop-classes (hiccup/root-class-set backdrop)
+        dialog-classes (hiccup/root-class-set dialog)
         close-button (hiccup/find-by-data-role view "portfolio-fee-schedule-close")
         referral-trigger (hiccup/find-by-data-role view "portfolio-fee-schedule-referral-trigger")
         referral-option (hiccup/find-by-data-role view "portfolio-fee-schedule-referral-option-referral-4")
@@ -106,10 +114,21 @@
         docs-link (hiccup/find-by-data-role view "portfolio-fee-schedule-docs-link")
         all-text (set (hiccup/collect-strings view))]
     (is (some? overlay))
+    (is (contains? overlay-classes "pointer-events-none"))
+    (is (not (contains? overlay-classes "items-center")))
+    (is (not (contains? overlay-classes "justify-center")))
+    (is (contains? backdrop-classes "bg-transparent"))
+    (is (not (contains? backdrop-classes "bg-black/60")))
+    (is (not (contains? backdrop-classes "backdrop-blur-[2px]")))
     (is (= "dialog" (get-in dialog [1 :role])))
-    (is (true? (get-in dialog [1 :aria-modal])))
+    (is (false? (get-in dialog [1 :aria-modal])))
     (is (= "portfolio-fee-schedule-title"
            (get-in dialog [1 :aria-labelledby])))
+    (is (contains? dialog-classes "absolute"))
+    (is (= {:left "200px"
+            :top "200px"
+            :width "480px"}
+           (get-in dialog [1 :style])))
     (is (fn? (get-in dialog [1 :replicant/on-render])))
     (is (= [[:actions/close-portfolio-fee-schedule]]
            (get-in backdrop [1 :on :click])))
@@ -159,7 +178,7 @@
                   (collect-classes view)))))
 
 (deftest fee-schedule-dropdown-options-use-compact-hoverable-rows-test
-  (let [view (fee-schedule-view/fee-schedule-modal sample-model)
+  (let [view (fee-schedule-view/fee-schedule-popover sample-model)
         staking-option (hiccup/find-by-data-role
                         view
                         "portfolio-fee-schedule-staking-option-diamond")
@@ -187,5 +206,5 @@
     (is (not (contains? option-classes "block")))
     (is (not (contains? all-option-classes "mt-0.5")))))
 
-(deftest fee-schedule-modal-is-absent-when-closed-test
-  (is (nil? (fee-schedule-view/fee-schedule-modal (assoc sample-model :open? false)))))
+(deftest fee-schedule-popover-is-absent-when-closed-test
+  (is (nil? (fee-schedule-view/fee-schedule-popover (assoc sample-model :open? false)))))

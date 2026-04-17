@@ -484,6 +484,7 @@
                   :staking-tier selected-staking
                   :maker-rebate-tier selected-maker-rebate}]
     {:open? (boolean (get-in state [:portfolio-ui :fee-schedule-open?]))
+     :anchor (get-in state [:portfolio-ui :fee-schedule-anchor])
      :title "Fee Schedule"
      :selected-market-type market-type
      :selected-market-label (market-type-label market-type)

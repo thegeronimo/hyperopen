@@ -66,7 +66,8 @@
     (is (= "button" (get-in fee-schedule-trigger [1 :type])))
     (is (= "dialog" (get-in fee-schedule-trigger [1 :aria-haspopup])))
     (is (= "true" (get-in fee-schedule-trigger [1 :aria-expanded])))
-    (is (= [[:actions/open-portfolio-fee-schedule]]
+    (is (= [[:actions/open-portfolio-fee-schedule
+             :event.currentTarget/bounds]]
            (get-in fee-schedule-trigger [1 :on :click])))
     (is (contains? all-text "14 Day Volume"))
     (is (some #(re-find #"^\$0(?:\.0)?$" %) all-text))

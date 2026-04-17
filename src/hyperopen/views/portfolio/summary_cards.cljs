@@ -157,5 +157,6 @@
                :aria-haspopup "dialog"
                :aria-expanded fee-schedule-open?
                :data-role "portfolio-fee-schedule-trigger"
-               :on {:click [[:actions/open-portfolio-fee-schedule]]}}
+               :on {:click [[:actions/open-portfolio-fee-schedule
+                             :event.currentTarget/bounds]]}}
       "View Fee Schedule"]])]))

@@ -8,24 +8,25 @@ Tracked issue: `hyperopen-qk3q` ("Add fee schedule scenario dropdowns").
 
 ## Purpose / Big Picture
 
-After this change, the portfolio fee schedule modal is not just a static table plus market selector. A user can open `/portfolio`, click `View Fee Schedule`, and change the referral discount, staking discount, maker rebate, and market-type scenario controls to see the resulting taker and maker rates in the tier table. Each selector defaults to the current wallet-derived status when the modal opens, but it can be changed locally as a what-if preview without mutating account state or making network requests.
+After this change, the portfolio fee schedule popover is not just a static table plus market selector. A user can open `/portfolio`, click `View Fee Schedule`, and change the referral discount, staking discount, maker rebate, and market-type scenario controls to see the resulting taker and maker rates in the tier table. Each selector defaults to the current wallet-derived status when the popover opens, but it can be changed locally as a what-if preview without mutating account state or making network requests.
 
-This matters because the current modal shows referral, staking, and maker rebate as read-only rows, while the attached reference behavior exposes them as dropdowns. The finished modal must remain compact enough to fit in one view and must use Hyperopen theme tokens rather than third-party reference accents.
+This matters because the current popover shows referral, staking, and maker rebate as read-only rows, while the attached reference behavior exposes them as dropdowns. The finished popover must remain compact enough to fit in one view and must use Hyperopen theme tokens rather than third-party reference accents.
 
 ## Progress
 
 - [x] (2026-04-17 13:47Z) Created and claimed `hyperopen-qk3q`.
-- [x] (2026-04-17 13:48Z) Inspected the existing fee schedule model, actions, modal view, route integration, and regression tests.
+- [x] (2026-04-17 13:48Z) Inspected the existing fee schedule model, actions, popover view, route integration, and regression tests.
 - [x] (2026-04-17 13:49Z) Checked official Hyperliquid fee documentation for referral discount, staking tiers, maker rebate tiers, and fee formula semantics.
-- [x] (2026-04-17 14:00Z) Wrote RED tests for scenario normalization, dropdown actions, modal controls, and browser behavior; focused CLJS run failed for the expected missing APIs and read-only UI.
+- [x] (2026-04-17 14:00Z) Wrote RED tests for scenario normalization, dropdown actions, popover controls, and browser behavior; focused CLJS run failed for the expected missing APIs and read-only UI.
 - [x] (2026-04-17 14:08Z) Implemented pure fee scenario model, route-local portfolio actions, defaults, runtime registrations, and public action exports.
 - [x] (2026-04-17 14:11Z) Replaced read-only status rows with compact dropdown controls and updated deterministic Playwright coverage for referral, staking, maker rebate, and market scenario changes.
 - [x] (2026-04-17 14:12Z) Focused CLJS tests passed and focused Playwright fee schedule regression passed against the local app server.
 - [x] (2026-04-17 14:23Z) Ran focused tests, Playwright coverage, governed browser QA, browser cleanup, full `npm test`, `npm run test:websocket`, and rerun `npm run check`.
+- [x] (2026-04-17 15:16Z) Preserved the scenario dropdown behavior while converting the fee schedule surface to an anchored popover near the opener, and reran focused browser coverage plus required repo gates.
 
 ## Surprises & Discoveries
 
-- Observation: the current modal model only lets `:fee-schedule-market-type` change.
+- Observation: the current popover model only lets `:fee-schedule-market-type` change.
   Evidence: `/Users/barry/.codex/worktrees/09e3/hyperopen/src/hyperopen/portfolio/fee_schedule.cljs` computes `:referral`, `:staking`, and `:maker-rebate` as status maps but only exposes `:market-dropdown-open?` and market options as selector state.
 
 - Observation: the official Hyperliquid docs list the same staking tiers shown in the reference screenshot: Wood, Bronze, Silver, Gold, Platinum, and Diamond.
@@ -49,10 +50,10 @@ This matters because the current modal shows referral, staking, and maker rebate
 ## Decision Log
 
 - Decision: implement dropdowns as local scenario controls, not wallet/account mutation controls.
-  Rationale: the modal explains fees and previews schedule outcomes; referral setup, staking link setup, and maker rebate eligibility workflows belong elsewhere.
+  Rationale: the popover explains fees and previews schedule outcomes; referral setup, staking link setup, and maker rebate eligibility workflows belong elsewhere.
   Date/Author: 2026-04-17 / Codex
 
-- Decision: reset scenario overrides on modal open so the selectors default to current wallet status.
+- Decision: reset scenario overrides on popover open so the selectors default to current wallet status.
   Rationale: this matches the inspected reference behavior and prevents stale what-if selections from masquerading as account status on the next open.
   Date/Author: 2026-04-17 / Codex
 
@@ -66,7 +67,7 @@ This matters because the current modal shows referral, staking, and maker rebate
 
 ## Outcomes & Retrospective
 
-Implementation is complete. The modal now exposes dropdowns for referral discount, staking discount, and maker rebate, while retaining the existing market-type dropdown in the Volume Tier section. Opening the modal resets the local what-if selections to wallet-current defaults; selecting an option updates the tier table immediately and closes every fee-schedule dropdown except the one being opened. The table applies documented referral, staking, maker-rebate, stable-pair, and aligned-quote adjustments without adding network requests or mutating account state.
+Implementation is complete. The popover now exposes dropdowns for referral discount, staking discount, and maker rebate, while retaining the existing market-type dropdown in the Volume Tier section. Opening the popover resets the local what-if selections to wallet-current defaults; selecting an option updates the tier table immediately and closes every fee-schedule dropdown except the one being opened. The table applies documented referral, staking, maker-rebate, stable-pair, and aligned-quote adjustments without adding network requests or mutating account state.
 
 Validation passed:
 
@@ -83,11 +84,13 @@ The governed browser review run `design-review-2026-04-17T14-01-07-707Z-1dfda1fd
 
 The full test suites also passed: `npm test` ran 3216 tests with 17204 assertions and zero failures or errors; `npm run test:websocket` ran 432 tests with 2479 assertions and zero failures or errors. The final `npm run check` completed successfully after documenting the namespace-size exceptions introduced by this feature.
 
+Follow-up validation for the anchored-popover conversion also passed: focused CLJS tests ran 23 tests with 165 assertions; the focused Playwright fee schedule regression passed with a fresh managed server; the governed `portfolio-route` design review passed at 375, 768, 1280, and 1440; `npm run check`, `npm test`, and `npm run test:websocket` all exited `0`.
+
 ## Product Specification
 
-The modal keeps its existing centered dialog, close controls, documentation link, and market-type selector. The read-only `Referral Discount`, `Staking Discount`, and `Maker Rebate` rows become custom dropdown controls with stable `data-role` hooks. The existing `Volume Tier` section keeps the market-type dropdown and the full seven-row table.
+The popover keeps its existing centered dialog, close controls, documentation link, and market-type selector. The read-only `Referral Discount`, `Staking Discount`, and `Maker Rebate` rows become custom dropdown controls with stable `data-role` hooks. The existing `Volume Tier` section keeps the market-type dropdown and the full seven-row table.
 
-Each scenario selector has a left label, a right selected value, and a compact popover menu. The currently wallet-derived option should be marked in the menu with short text such as `Current wallet status` while still allowing the user to choose another option. Selecting any option closes that selector, closes other fee-schedule selectors, keeps the modal open, and updates the table immediately.
+Each scenario selector has a left label, a right selected value, and a compact popover menu. The currently wallet-derived option should be marked in the menu with short text such as `Current wallet status` while still allowing the user to choose another option. Selecting any option closes that selector, closes other fee-schedule selectors, keeps the popover open, and updates the table immediately.
 
 Referral options are `No referral discount` and `4%`. Staking options are `No stake`, `Wood`, `Bronze`, `Silver`, `Gold`, `Platinum`, and `Diamond`, with descriptions matching the documented HYPE thresholds and discounts. Maker rebate options are `No rebate`, `Tier 1`, `Tier 2`, and `Tier 3`, with descriptions matching the documented maker-volume cutoffs and negative maker fees. Market options remain `Perps`, `Spot`, `Spot + Stable Pair`, `Spot + Aligned Quote`, and `Spot + Aligned Quote + Stable Pair`.
 
