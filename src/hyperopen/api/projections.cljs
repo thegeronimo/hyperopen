@@ -3,6 +3,7 @@
             [hyperopen.account.context :as account-context]
             [hyperopen.api.errors :as api-errors]
             [hyperopen.api.market-metadata.perp-dexs :as perp-dexs]
+            [hyperopen.api.projections.user-fees :as user-fees]
             [hyperopen.wallet.agent-session :as agent-session]))
 
 (defn- normalized-error
@@ -111,40 +112,9 @@
         (assoc-in [:portfolio :loading?] false)
         (assoc-in [:portfolio :error] message))))
 
-(defn begin-user-fees-load
-  ([state]
-   (begin-user-fees-load state nil))
-  ([state address]
-   (-> state
-       (assoc-in [:portfolio :user-fees-loading?] true)
-       (assoc-in [:portfolio :user-fees-loading-for-address]
-                 (account-context/normalize-address address))
-       (assoc-in [:portfolio :user-fees-error] nil))))
-
-(defn apply-user-fees-success
-  ([state payload]
-   (apply-user-fees-success state nil payload))
-  ([state address payload]
-   (-> state
-       (assoc-in [:portfolio :user-fees] payload)
-       (assoc-in [:portfolio :user-fees-loading?] false)
-       (assoc-in [:portfolio :user-fees-loading-for-address] nil)
-       (assoc-in [:portfolio :user-fees-error] nil)
-       (assoc-in [:portfolio :user-fees-loaded-at-ms] (.now js/Date))
-       (assoc-in [:portfolio :user-fees-loaded-for-address]
-                 (account-context/normalize-address address)))))
-
-(defn apply-user-fees-error
-  ([state err]
-   (apply-user-fees-error state nil err))
-  ([state address err]
-   (let [{:keys [message]} (normalized-error err)]
-     (-> state
-         (assoc-in [:portfolio :user-fees-loading?] false)
-         (assoc-in [:portfolio :user-fees-loading-for-address] nil)
-         (assoc-in [:portfolio :user-fees-error] message)
-         (assoc-in [:portfolio :user-fees-error-for-address]
-                   (account-context/normalize-address address))))))
+(def begin-user-fees-load user-fees/begin-load)
+(def apply-user-fees-success user-fees/apply-success)
+(def apply-user-fees-error user-fees/apply-error)
 
 (defn begin-asset-selector-load
   [state phase]

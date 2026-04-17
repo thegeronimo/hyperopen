@@ -228,22 +228,13 @@
       (assoc-in [:perp-dex-clearinghouse] {})
       (assoc-in [:perp-dex-clearinghouse-error] nil)
       (assoc-in [:perp-dex-clearinghouse-error-category] nil)
-      (assoc-in [:portfolio :summary-by-key] {})
-      (assoc-in [:portfolio :user-fees] nil)
-      (assoc-in [:portfolio :ledger-updates] [])
-      (assoc-in [:portfolio :loading?] false)
-      (assoc-in [:portfolio :user-fees-loading?] false)
-      (assoc-in [:portfolio :user-fees-loading-for-address] nil)
-      (assoc-in [:portfolio :error] nil)
-      (assoc-in [:portfolio :user-fees-error] nil)
-      (assoc-in [:portfolio :user-fees-error-for-address] nil)
-      (assoc-in [:portfolio :ledger-error] nil)
-      (assoc-in [:portfolio :loaded-at-ms] nil)
-      (assoc-in [:portfolio :user-fees-loaded-at-ms] nil)
-      (assoc-in [:portfolio :user-fees-loaded-for-address] nil)
-      (assoc-in [:portfolio :ledger-loaded-at-ms] nil)
-      (assoc :account {:mode :classic
-                       :abstraction-raw nil})))
+      (update :portfolio assoc
+              :summary-by-key {} :user-fees nil :ledger-updates []
+              :loading? false :user-fees-loading? false :user-fees-loading-for-address nil
+              :error nil :user-fees-error nil :user-fees-error-for-address nil :ledger-error nil
+              :loaded-at-ms nil :user-fees-loaded-at-ms nil :user-fees-loaded-for-address nil
+              :ledger-loaded-at-ms nil)
+      (assoc :account {:mode :classic :abstraction-raw nil})))
 
 (defn clear-disconnected-account-state!
   [{:keys [store
