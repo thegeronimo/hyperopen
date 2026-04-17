@@ -94,8 +94,14 @@
             (positions-shared/explainable-value-node
              (positions-shared/format-liquidation-price (:liq-price row-vm))
              liq-explanation)]
-           [:div {:class ["text-left" "relative" "font-semibold" "num"]}
-            [:div {:class ["inline-flex" "items-center" "gap-0.5" "whitespace-nowrap"]}
+           [:div {:class ["text-left" "relative" "min-w-0" "font-semibold" "num"]}
+            [:div {:class ["inline-flex"
+                           "max-w-full"
+                           "min-w-0"
+                           "items-center"
+                           "gap-0.5"
+                           "overflow-hidden"
+                           "whitespace-nowrap"]}
              [:span {:class ["inline-flex" "items-baseline" "gap-1" "whitespace-nowrap" "select-text"]}
               [:span {:class ["num"]}
                (str "$" (shared/format-currency margin))]

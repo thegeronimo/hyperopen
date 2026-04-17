@@ -10,10 +10,10 @@
 (def ^:private mobile-position-overlay-fallback-height-px 932)
 
 (def ^:private positions-read-only-grid-template-class
-  "grid-cols-[minmax(180px,2.15fr)_minmax(142px,1.34fr)_minmax(94px,0.9fr)_minmax(94px,0.9fr)_minmax(94px,0.9fr)_minmax(114px,1.06fr)_minmax(88px,0.82fr)_minmax(124px,1.08fr)_minmax(80px,0.78fr)_minmax(146px,1.06fr)]")
+  "grid-cols-[minmax(166px,1.95fr)_minmax(136px,1.28fr)_minmax(94px,0.9fr)_minmax(94px,0.9fr)_minmax(94px,0.9fr)_minmax(114px,1.06fr)_minmax(88px,0.82fr)_minmax(150px,1.16fr)_minmax(86px,0.82fr)_minmax(136px,1fr)]")
 
 (def ^:private positions-read-only-grid-min-width-class
-  "min-w-[1240px]")
+  "min-w-[1245px]")
 
 (defn positions-grid-template-class
   [read-only?]

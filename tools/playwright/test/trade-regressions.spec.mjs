@@ -149,6 +149,51 @@ async function seedDisconnectedSpectateAccountState(page) {
   });
 }
 
+async function seedDesktopPositionsTableState(page, assetPositions) {
+  await page.evaluate((nextAssetPositions) => {
+    const c = globalThis.cljs?.core;
+    const store = globalThis.hyperopen?.system?.store;
+
+    if (!c || !store) {
+      throw new Error("Hyperopen store or cljs core unavailable");
+    }
+
+    const keyword = c.keyword;
+    const kwPath = (...segments) =>
+      c.PersistentVector.fromArray(segments.map((segment) => keyword(segment)), true);
+    const opts = c.PersistentArrayMap.fromArray([keyword("keywordize-keys"), true], true);
+    const nextWebdata2 = c.js__GT_clj(
+      {
+        clearinghouseState: {
+          marginSummary: {
+            accountValue: "1000000",
+            totalNtlPos: "250000",
+            totalRawUsd: "1000000",
+            totalMarginUsed: "20000"
+          },
+          crossMarginSummary: {
+            accountValue: "1000000",
+            totalNtlPos: "250000",
+            totalRawUsd: "1000000",
+            totalMarginUsed: "20000"
+          },
+          crossMaintenanceMarginUsed: "20000",
+          withdrawable: "800000",
+          assetPositions: nextAssetPositions
+        }
+      },
+      opts
+    );
+
+    let nextState = c.deref(store);
+    nextState = c.assoc_in(nextState, kwPath("webdata2"), nextWebdata2);
+    nextState = c.assoc_in(nextState, kwPath("perp-dex-clearinghouse"), c.PersistentArrayMap.EMPTY);
+    nextState = c.assoc_in(nextState, kwPath("account-info", "selected-tab"), keyword("positions"));
+
+    c.reset_BANG_(store, nextState);
+  }, assetPositions);
+}
+
 async function readSpectateLifecycleProbe(page) {
   return page.evaluate(() => {
     const c = globalThis.cljs?.core;
@@ -609,6 +654,77 @@ test("disconnected stop spectate clears stale account surfaces @regression", asy
 
   await selectAccountTab(page, "open-orders");
   await expect(page.getByText("No open orders")).toBeVisible();
+});
+
+test("positions margin column leaves funding value readable at compact desktop width @regression", async ({ page }) => {
+  await page.setViewportSize({ width: 1365, height: 768 });
+  await visitRoute(page, "/trade");
+  await dispatch(page, [":actions/start-spectate-mode", SPECTATE_ADDRESS]);
+  await waitForIdle(page, { quietMs: 800, timeoutMs: 12_000, pollMs: 50 });
+  await freezeAccountSurfaceSync(page, SPECTATE_ADDRESS);
+  await seedDesktopPositionsTableState(page, [
+    {
+      position: {
+        coin: "MON",
+        szi: "-142084.0",
+        positionValue: "483.46",
+        entryPx: "0.03452",
+        markPx: "0.034262",
+        unrealizedPnl: "-13.14",
+        returnOnEquity: "-0.001",
+        liquidationPx: "0.0415",
+        marginUsed: "16204.70",
+        leverage: { value: 3, type: "isolated" },
+        cumFunding: { sinceOpen: "-0.94", sinceChange: "-0.94", allTime: "-0.94" }
+      }
+    },
+    {
+      position: {
+        coin: "MET",
+        szi: "-52324.0",
+        positionValue: "7933.36",
+        entryPx: "0.149893",
+        markPx: "0.15162",
+        unrealizedPnl: "-90.32",
+        returnOnEquity: "-0.035",
+        liquidationPx: "0.1713",
+        marginUsed: "2524.25",
+        leverage: { value: 3, type: "isolated" },
+        cumFunding: { sinceOpen: "-0.98", sinceChange: "-0.98", allTime: "-0.98" }
+      }
+    }
+  ]);
+  await waitForIdle(page, { quietMs: 200, timeoutMs: 4_000, pollMs: 50 });
+
+  const monRow = page
+    .locator("[data-role='account-tab-rows-viewport'] > div")
+    .filter({ hasText: "MON" })
+    .first();
+  await expect(monRow).toBeVisible();
+  await expect(monRow.locator(":scope > div").nth(7)).toContainText("$16,204.70");
+  await expect(monRow.locator(":scope > div").nth(8)).toContainText("$0.94");
+
+  const spacing = await monRow.evaluate((row) => {
+    const marginCell = row.children[7];
+    const fundingCell = row.children[8];
+    const marginContent = marginCell?.querySelector(":scope > div") ?? marginCell;
+    const fundingValue = fundingCell?.querySelector("span.num") ?? fundingCell;
+
+    if (!marginCell || !fundingCell || !marginContent || !fundingValue) {
+      throw new Error("positions margin/funding cells missing");
+    }
+
+    const marginRect = marginContent.getBoundingClientRect();
+    const fundingRect = fundingValue.getBoundingClientRect();
+
+    return {
+      marginRight: marginRect.right,
+      fundingLeft: fundingRect.left,
+      gapPx: fundingRect.left - marginRect.right
+    };
+  });
+
+  expect(spacing.gapPx).toBeGreaterThanOrEqual(4);
 });
 
 test("asset selector focuses search input and keyboard-navigates rows @regression", async ({ page }) => {

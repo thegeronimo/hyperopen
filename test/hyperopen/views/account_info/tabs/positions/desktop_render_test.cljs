@@ -301,17 +301,19 @@
     (is (nil? action-button))))
 
 (deftest position-table-layout-reclaims-right-edge-space-and-truncates-long-coin-labels-test
-  (let [grid-template-class "grid-cols-[minmax(180px,2.15fr)_minmax(142px,1.34fr)_minmax(94px,0.9fr)_minmax(94px,0.9fr)_minmax(94px,0.9fr)_minmax(114px,1.06fr)_minmax(88px,0.82fr)_minmax(124px,1.08fr)_minmax(80px,0.78fr)_minmax(94px,0.8fr)_minmax(146px,1.06fr)]"
+  (let [grid-template-class "grid-cols-[minmax(166px,1.95fr)_minmax(136px,1.28fr)_minmax(94px,0.9fr)_minmax(94px,0.9fr)_minmax(94px,0.9fr)_minmax(114px,1.06fr)_minmax(88px,0.82fr)_minmax(160px,1.22fr)_minmax(86px,0.82fr)_minmax(92px,0.8fr)_minmax(136px,1fr)]"
         header-node (positions-tab/position-table-header fixtures/default-sort-state)
         row-node (positions-tab/position-row (fixtures/sample-position-row "xyz:BRENTOIL" 20 "0.41"))
         coin-cell (first (vec (hiccup/node-children row-node)))
         size-cell (second (vec (hiccup/node-children row-node)))
+        margin-cell (nth (vec (hiccup/node-children row-node)) 7)
+        margin-inline-node (first (vec (hiccup/node-children margin-cell)))
         coin-button (hiccup/find-first-node coin-cell #(= :button (first %)))
         coin-label-node (hiccup/find-first-node coin-cell #(= "BRENTOIL" (get-in % [1 :title])))]
     (is (contains? (hiccup/node-class-set header-node) grid-template-class))
-    (is (contains? (hiccup/node-class-set header-node) "min-w-[1335px]"))
+    (is (contains? (hiccup/node-class-set header-node) "min-w-[1355px]"))
     (is (contains? (hiccup/node-class-set row-node) grid-template-class))
-    (is (contains? (hiccup/node-class-set row-node) "min-w-[1335px]"))
+    (is (contains? (hiccup/node-class-set row-node) "min-w-[1355px]"))
     (is (contains? (hiccup/node-class-set coin-cell) "min-w-0"))
     (is (contains? (hiccup/node-class-set coin-button) "overflow-hidden"))
     (is (contains? (hiccup/node-class-set coin-label-node) "min-w-0"))
@@ -319,4 +321,7 @@
     (is (= "BRENTOIL" (get-in coin-label-node [1 :title])))
     (is (contains? (hiccup/node-class-set size-cell) "min-w-0"))
     (is (contains? (hiccup/node-class-set size-cell) "truncate"))
-    (is (= "0.41 BRENTOIL" (get-in size-cell [1 :title])))))
+    (is (= "0.41 BRENTOIL" (get-in size-cell [1 :title])))
+    (is (contains? (hiccup/node-class-set margin-cell) "min-w-0"))
+    (is (contains? (hiccup/node-class-set margin-inline-node) "max-w-full"))
+    (is (contains? (hiccup/node-class-set margin-inline-node) "overflow-hidden"))))
