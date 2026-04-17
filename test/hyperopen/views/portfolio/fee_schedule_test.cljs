@@ -26,9 +26,7 @@
                     {:value :perps
                      :label "Core Perps"}
                     {:value :hip3-perps
-                     :label "HIP-3 Perps"
-                     :disabled? true
-                     :helper "Select an HIP-3 market to preview deployer fees"}
+                     :label "HIP-3 Perps"}
                     {:value :hip3-perps-growth-mode
                      :label "HIP-3 Perps + Growth mode"
                      :current? true
@@ -129,9 +127,9 @@
         stable-option (hiccup/find-by-data-role
                        view
                        "portfolio-fee-schedule-market-option-spot-aligned-stable-pair")
-        hip3-disabled-option (hiccup/find-by-data-role
-                              view
-                              "portfolio-fee-schedule-market-option-hip3-perps")
+        hip3-option (hiccup/find-by-data-role
+                     view
+                     "portfolio-fee-schedule-market-option-hip3-perps")
         hip3-growth-option (hiccup/find-by-data-role
                             view
                             "portfolio-fee-schedule-market-option-hip3-perps-growth-mode")
@@ -180,10 +178,12 @@
     (is (= [[:actions/select-portfolio-fee-schedule-market-type
               :spot-aligned-stable-pair]]
            (get-in stable-option [1 :on :click])))
-    (is (= "true" (get-in hip3-disabled-option [1 :aria-disabled])))
-    (is (nil? (get-in hip3-disabled-option [1 :on :click])))
-    (is (contains? (set (hiccup/collect-strings hip3-disabled-option))
-                   "Select an HIP-3 market to preview deployer fees"))
+    (is (not= "true" (get-in hip3-option [1 :aria-disabled])))
+    (is (= [[:actions/select-portfolio-fee-schedule-market-type
+              :hip3-perps]]
+           (get-in hip3-option [1 :on :click])))
+    (is (not (contains? (set (hiccup/collect-strings hip3-option))
+                        "Select an HIP-3 market to preview deployer fees")))
     (is (= [[:actions/select-portfolio-fee-schedule-market-type
               :hip3-perps-growth-mode]]
            (get-in hip3-growth-option [1 :on :click])))

@@ -4,6 +4,9 @@
 
 (def default-market-type :perps)
 
+(def ^:private default-hip3-deployer-fee-scale
+  1)
+
 (def market-type-options
   [{:value :spot
     :label "Spot"}
@@ -287,16 +290,18 @@
   [state]
   (let [market (or (:active-market state) {})
         dex (some-> (:dex market) str str/trim)
-        deployer-fee-scale (optional-number
-                            (get-in state
-                                    [:perp-dex-fee-config-by-name dex :deployer-fee-scale]))
+        active-deployer-fee-scale (optional-number
+                                   (get-in state
+                                           [:perp-dex-fee-config-by-name dex :deployer-fee-scale]))
         active-scenario (active-market-scenario market)
-        hip3-active? (hip3-market-type? active-scenario)]
+        hip3-active? (hip3-market-type? active-scenario)
+        use-active-hip3-scale? (and hip3-active?
+                                    (finite-number? active-deployer-fee-scale))]
     {:active-market-type active-scenario
      :active-market-symbol (active-market-symbol state market)
-     :deployer-fee-scale deployer-fee-scale
-     :hip3-context-available? (and hip3-active?
-                                   (finite-number? deployer-fee-scale))}))
+     :deployer-fee-scale (if use-active-hip3-scale?
+                           active-deployer-fee-scale
+                           default-hip3-deployer-fee-scale)}))
 
 (defn- market-type-growth-mode?
   [market-type]
@@ -319,13 +324,8 @@
              (normalize-market-type market-type)))
 
 (defn- available-market-type
-  [market-type active-context]
-  (let [market-type* (normalize-market-type market-type)]
-    (if (and (hip3-market-type? market-type*)
-             (not (or (:hip3-context-available? active-context)
-                      (finite-number? (:deployer-fee-scale active-context)))))
-      :perps
-      market-type*)))
+  [market-type _active-context]
+  (normalize-market-type market-type))
 
 (defn- trim-rate-decimals
   [text]
@@ -403,7 +403,8 @@
      {:market-type (if spot? :spot :perp)
       :stable-pair? (market-type-stable-pair? market-type*)
       :deployer-fee-scale (when (hip3-market-type? market-type*)
-                            (:deployer-fee-scale active-context))
+                            (or (:deployer-fee-scale active-context)
+                                default-hip3-deployer-fee-scale))
       :growth-mode? (market-type-growth-mode? market-type*)
       :extra-adjustment? (market-type-aligned-quote? market-type*)})))
 
@@ -447,14 +448,9 @@
 (defn- decorate-market-options
   [active-context selected-value]
   (let [active-market-type (:active-market-type active-context)
-        active-market-symbol (:active-market-symbol active-context)
-        hip3-available? (:hip3-context-available? active-context)]
+        active-market-symbol (:active-market-symbol active-context)]
     (mapv (fn [{:keys [value] :as option}]
             (cond-> (assoc option :selected? (= value selected-value))
-              (and (hip3-market-type? value) (not hip3-available?))
-              (assoc :disabled? true
-                     :helper "Select an HIP-3 market to preview deployer fees")
-
               (and (= value active-market-type)
                    (seq active-market-symbol))
               (assoc :current? true
@@ -516,7 +512,7 @@
       :none)))
 
 (def rate-note
-  "* Rates reflect selected referral, staking, maker rebate, market type, and available HIP-3 deployer context")
+  "* Rates reflect selected scenarios, market type, and HIP-3 deployer context")
 
 (def documentation-url
   "https://hyperliquid.gitbook.io/hyperliquid-docs/trading/fees")

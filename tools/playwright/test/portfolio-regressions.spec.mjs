@@ -412,6 +412,7 @@ test("portfolio fee schedule opens, switches market type, and restores focus @re
     "portfolio-fee-schedule-market-option-hip3-perps-aligned-quote",
     "portfolio-fee-schedule-market-option-hip3-perps-growth-mode-aligned-quote"
   ];
+  const corePerpsOption = page.locator("[data-role='portfolio-fee-schedule-market-option-perps']");
   const hip3PerpsOption = page.locator("[data-role='portfolio-fee-schedule-market-option-hip3-perps']");
   const hip3GrowthOption = page.locator(
     "[data-role='portfolio-fee-schedule-market-option-hip3-perps-growth-mode']"
@@ -499,10 +500,19 @@ test("portfolio fee schedule opens, switches market type, and restores focus @re
     await expect(page.locator(`[data-role='${role}']`)).toBeVisible();
   }
   await expect(marketTrigger).toContainText("Core Perps");
-  await expect(hip3PerpsOption).toHaveAttribute("aria-disabled", "true");
-  await expect(hip3PerpsOption).toContainText("Select an HIP-3 market to preview deployer fees");
+  await expect(hip3PerpsOption).not.toHaveAttribute("aria-disabled", "true");
+  await hip3PerpsOption.click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 3_000, pollMs: 50 });
+  await expect(marketTrigger).toContainText("HIP-3 Perps");
+  await expect(tierZero).toContainText("0.090%");
+  await expect(tierZero).toContainText("0.030%");
   await marketTrigger.click();
-  await expect(marketTrigger).toHaveAttribute("aria-expanded", "false");
+  await expect(corePerpsOption).toBeVisible();
+  await corePerpsOption.click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 3_000, pollMs: 50 });
+  await expect(marketTrigger).toContainText("Core Perps");
+  await expect(tierZero).toContainText("0.045%");
+  await expect(tierZero).toContainText("0.015%");
 
   await referralTrigger.click();
   await expect(referralDiscountOption).toBeVisible();

@@ -18,7 +18,7 @@ This matters because the current implementation intentionally stopped at core pe
 - [x] (2026-04-17 15:36Z) Confirmed that `hyperopen.domain.trading.fees` already contains the core protocol formula for stable pairs, HIP-3 deployer fee scale, growth mode, and aligned quote adjustments.
 - [x] (2026-04-17 15:38Z) Cross-checked the fee logic against the official Hyperliquid fee documentation and aligned quote documentation.
 - [x] (2026-04-17 15:39Z) Created tracked issue `hyperopen-g4c3` for the implementation work.
-- [x] (2026-04-17 15:47Z) Added failing focused CLJS and Playwright expectations for the nine market-type options, disabled HIP-3 rows, active HIP-3 context, and shared protocol fee helper.
+- [x] (2026-04-17 15:47Z) Added failing focused CLJS and Playwright expectations for the nine market-type options, the initial disabled-HIP3 assumption, active HIP-3 context, and shared protocol fee helper. This disabled-HIP3 assumption was superseded later by `/Users/barry/.codex/worktrees/09e3/hyperopen/docs/exec-plans/completed/2026-04-17-portfolio-fee-schedule-hip3-default-preview.md`.
 - [x] (2026-04-17 15:52Z) Implemented pure fee schedule market-option modeling for the expanded dropdown.
 - [x] (2026-04-17 15:53Z) Exposed `hyperopen.domain.trading.fees/adjust-percentage-rates` and refactored `quote-fees` to reuse the shared protocol adjustment formula.
 - [x] (2026-04-17 15:57Z) Updated action, view, component, model, and Playwright coverage for selectable HIP-3 variants and disabled unavailable options.
@@ -61,7 +61,8 @@ This matters because the current implementation intentionally stopped at core pe
   Date/Author: 2026-04-17 / Codex
 
 - Decision: make HIP-3 rows depend on active-market fee context and avoid inventing a generic HIP-3 fee scale.
-  Rationale: Hyperliquid's current fee formula requires `deployerFeeScale`, and that value is market-specific. If the portfolio route has no active HIP-3 deployer fee scale, showing a generic HIP-3 table would be misleading. In that case the dropdown should still list the HIP-3 options, but mark them unavailable with helper copy such as `Select an HIP-3 market to preview deployer fees`.
+  Rationale: Hyperliquid's current fee formula requires `deployerFeeScale`, and that value is market-specific. If the portfolio route has no active HIP-3 deployer fee scale, this plan originally marked the HIP-3 options unavailable.
+  Superseded: Direct reference inspection later showed the product behavior uses default `deployerFeeScale 1.0` for no-active-context HIP-3 previews. The correction is tracked in `/Users/barry/.codex/worktrees/09e3/hyperopen/docs/exec-plans/completed/2026-04-17-portfolio-fee-schedule-hip3-default-preview.md`.
   Date/Author: 2026-04-17 / Codex
 
 - Decision: extract or expose the protocol row-adjustment algorithm from `hyperopen.domain.trading.fees` instead of duplicating HIP-3 math in the portfolio namespace.
@@ -70,7 +71,7 @@ This matters because the current implementation intentionally stopped at core pe
 
 ## Outcomes & Retrospective
 
-Implementation is complete. The portfolio fee schedule now exposes all nine market-type scenarios, keeps unavailable HIP-3 variants visible but disabled when no active deployer context exists, and derives HIP-3 table rows from the active market's deployer fee scale through the same protocol fee adjustment helper used by order fee quotes. The popover view remains a renderer of prepared model data: it handles one-line option rows, disabled option accessibility, current active-market status text, and a taller market dropdown that can show the full option set.
+Implementation is complete for the original volume-tier expansion. The portfolio fee schedule exposes all nine market-type scenarios and derives HIP-3 table rows from the active market's deployer fee scale through the same protocol fee adjustment helper used by order fee quotes. A follow-up plan corrects the original no-active-context behavior so HIP-3 variants remain selectable with default `deployerFeeScale 1.0` instead of being disabled.
 
 Validation passed:
 
@@ -86,7 +87,7 @@ Validation passed:
     npm test
     npm run test:websocket
 
-The combined design-review run completed `review-375` and `review-1280` with every required pass green, then hit a browser-inspection CDP disconnect for `review-768` and `review-1440`. Fresh one-viewport reruns covered those missing widths with `reviewOutcome: "PASS"`. Across the completed width coverage, visual-evidence-captured, native-control, styling-consistency, interaction, layout-regression, and jank-perf are all PASS. The residual blind spots are the standard sampled-state notes that hover, active, disabled, and loading states require targeted route actions when absent by default; this feature's targeted Playwright regression covers the fee schedule open/close, disabled HIP-3, hover-row compactness, and HIP-3 selection states.
+The combined design-review run completed `review-375` and `review-1280` with every required pass green, then hit a browser-inspection CDP disconnect for `review-768` and `review-1440`. Fresh one-viewport reruns covered those missing widths with `reviewOutcome: "PASS"`. Across the completed width coverage, visual-evidence-captured, native-control, styling-consistency, interaction, layout-regression, and jank-perf are all PASS. The residual blind spots are the standard sampled-state notes that hover, active, disabled, and loading states require targeted route actions when absent by default; this feature's targeted Playwright regression covers the fee schedule open/close, hover-row compactness, and HIP-3 selection states.
 
 The main follow-up is a cleanup split for `/Users/barry/.codex/worktrees/09e3/hyperopen/src/hyperopen/portfolio/fee_schedule.cljs`: move market-option context derivation into a narrower pure helper namespace before the namespace-size exception retires.
 
@@ -129,13 +130,13 @@ For HIP-3 options, the table uses the perps base table, selected referral, selec
 
 The active market's actual `:growth-mode?` and aligned quote status are used only to mark which option is the active-market row. They must not prevent users from previewing the other HIP-3 scenarios when a deployer fee scale is available.
 
-When no active HIP-3 deployer fee scale is available, all four HIP-3 options remain visible but are disabled. A disabled option must use `aria-disabled "true"`, must not dispatch selection when clicked, and must show muted helper copy in the option row: `Select an HIP-3 market to preview deployer fees`. The currently selected market type must fall back to `:perps` if persisted state contains an unavailable HIP-3 value.
+When no active HIP-3 deployer fee scale is available, later reference inspection showed all four HIP-3 options should remain visible and selectable, using default `deployerFeeScale 1.0` for preview rows. The originally documented disabled behavior is superseded by `/Users/barry/.codex/worktrees/09e3/hyperopen/docs/exec-plans/completed/2026-04-17-portfolio-fee-schedule-hip3-default-preview.md`.
 
 The selected control value should fit on one line. Long labels can truncate inside the control, but the menu option rows should keep the main label and status readable at the current popover width. The dropdown must preserve the existing hover highlight and opaque surface requirements from the current fee schedule popover.
 
 The rate note below the table must change from `HIP-3 deployer adjustments not included` to copy that reflects the new behavior. Use:
 
-`* Rates reflect selected referral, staking, maker rebate, market type, and available HIP-3 deployer context`
+`* Rates reflect selected scenarios, market type, and HIP-3 deployer context`
 
 If the selected HIP-3 option is unavailable and the model falls back to `Core Perps`, the table should show `Core Perps` and the disabled option helper should explain why HIP-3 was not applied.
 
@@ -240,9 +241,9 @@ If selected type is HIP-3 and `:deployer-fee-scale` is absent, the function shou
 
 Fifth, update `/Users/barry/.codex/worktrees/09e3/hyperopen/src/hyperopen/views/portfolio/fee_schedule.cljs` so selector rows support disabled options and one-line helper/status text. Disabled rows must be focus-safe and click-safe: no selection action should dispatch for disabled options. Hover highlighting remains only for enabled options. The selected control should display the selected label and preserve existing chevron behavior.
 
-Sixth, update actions and tests. `select-portfolio-fee-schedule-market-type` in `/Users/barry/.codex/worktrees/09e3/hyperopen/src/hyperopen/portfolio/actions.cljs` can keep the same signature, but tests should prove it accepts new labels such as `"HIP-3 Perps + Growth mode"` and persists the normalized keyword. If unavailable HIP-3 fallback is handled only in the model, the action does not need to inspect state.
+Sixth, update actions and tests. `select-portfolio-fee-schedule-market-type` in `/Users/barry/.codex/worktrees/09e3/hyperopen/src/hyperopen/portfolio/actions.cljs` can keep the same signature, but tests should prove it accepts new labels such as `"HIP-3 Perps + Growth mode"` and persists the normalized keyword. A later follow-up removed the unavailable-HIP3 fallback from the model and uses default `deployerFeeScale 1.0` for no-active-context previews.
 
-Seventh, update deterministic browser coverage in `/Users/barry/.codex/worktrees/09e3/hyperopen/tools/playwright/test/portfolio-regressions.spec.mjs`. The existing fee schedule regression should open the market dropdown and assert all nine option labels are present. Add a state setup step through the debug bridge that injects an active HIP-3 market and deployer fee scale, select `HIP-3 Perps + Growth mode`, and assert the tier 0 row contains the expected growth-mode HIP-3 values for the injected scale. Also assert the selected option row includes `Active market: WTIOIL` and that disabled HIP-3 options are not present in the injected-available scenario.
+Seventh, update deterministic browser coverage in `/Users/barry/.codex/worktrees/09e3/hyperopen/tools/playwright/test/portfolio-regressions.spec.mjs`. The existing fee schedule regression should open the market dropdown and assert all nine option labels are present. Add a state setup step through the debug bridge that injects an active HIP-3 market and deployer fee scale, select `HIP-3 Perps + Growth mode`, and assert the tier 0 row contains the expected growth-mode HIP-3 values for the injected scale. Also assert the selected option row includes `Active market: WTIOIL`.
 
 Eighth, update documentation notes in `/Users/barry/.codex/worktrees/09e3/hyperopen/docs/exec-plans/completed/2026-04-17-portfolio-fee-schedule-popover.md` or add a short revision note if implementation changes earlier non-goals. The old plan explicitly listed HIP-3 variants as a non-goal; after this plan is implemented, that historical gap should point to this new plan and outcome.
 

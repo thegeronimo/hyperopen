@@ -170,11 +170,16 @@
                      :portfolio {:user-fees {:activeReferralDiscount 0.04
                                              :activeStakingDiscount {:discount 0.05}
                                              :userAddRate -0.00001}}})
-        hip3-unavailable (fee-schedule/fee-schedule-model
-                          {:portfolio-ui {:fee-schedule-open? true
-                                          :fee-schedule-market-type
-                                          :hip3-perps-growth-mode}
-                           :portfolio {:user-fees nil}})
+        hip3-default (fee-schedule/fee-schedule-model
+                      {:portfolio-ui {:fee-schedule-open? true
+                                      :fee-schedule-market-type
+                                      :hip3-perps}
+                       :portfolio {:user-fees nil}})
+        hip3-default-growth (fee-schedule/fee-schedule-model
+                             {:portfolio-ui {:fee-schedule-open? true
+                                             :fee-schedule-market-type
+                                             :hip3-perps-growth-mode}
+                              :portfolio {:user-fees nil}})
         hip3-active (fee-schedule/fee-schedule-model
                      {:active-asset "testdex:WTIOIL"
                       :active-market {:coin "testdex:WTIOIL"
@@ -206,7 +211,7 @@
       (is (= :none (get-in disconnected [:staking :selected-value])))
       (is (= "No rebate" (get-in disconnected [:maker-rebate :value])))
       (is (= :none (get-in disconnected [:maker-rebate :selected-value])))
-      (is (= "* Rates reflect selected referral, staking, maker rebate, market type, and available HIP-3 deployer context"
+      (is (= "* Rates reflect selected scenarios, market type, and HIP-3 deployer context"
              (:rate-note disconnected))))
     (testing "connected wallet discounts"
       (is (= "4%" (get-in connected [:referral :value])))
@@ -230,17 +235,21 @@
       (is (= :tier-3 (get-in overridden [:maker-rebate :selected-value])))
       (is (= "0.027%" (get-in overridden [:rows 0 :taker])))
       (is (= "-0.003%" (get-in overridden [:rows 0 :maker]))))
-    (testing "unavailable HIP-3 selection falls back to core perps and disables HIP-3 options"
-      (is (= :perps (:selected-market-type hip3-unavailable)))
-      (is (= "Core Perps" (:selected-market-label hip3-unavailable)))
-      (is (= "0.045%" (get-in hip3-unavailable [:rows 0 :taker])))
-      (is (= true (->> (:market-options hip3-unavailable)
-                       (some #(when (= :hip3-perps-growth-mode (:value %))
-                                (:disabled? %))))))
-      (is (= "Select an HIP-3 market to preview deployer fees"
-             (->> (:market-options hip3-unavailable)
-                  (some #(when (= :hip3-perps-growth-mode (:value %))
-                           (:helper %)))))))
+    (testing "HIP-3 selection without active market context uses default deployer scale"
+      (is (= :hip3-perps (:selected-market-type hip3-default)))
+      (is (= "HIP-3 Perps" (:selected-market-label hip3-default)))
+      (is (= "0.090%" (get-in hip3-default [:rows 0 :taker])))
+      (is (= "0.030%" (get-in hip3-default [:rows 0 :maker])))
+      (is (= :hip3-perps-growth-mode (:selected-market-type hip3-default-growth)))
+      (is (= "HIP-3 Perps + Growth mode" (:selected-market-label hip3-default-growth)))
+      (is (= "0.009%" (get-in hip3-default-growth [:rows 0 :taker])))
+      (is (= "0.003%" (get-in hip3-default-growth [:rows 0 :maker])))
+      (is (not (->> (:market-options hip3-default-growth)
+                    (some #(when (= :hip3-perps-growth-mode (:value %))
+                             (:disabled? %))))))
+      (is (nil? (->> (:market-options hip3-default-growth)
+                     (some #(when (= :hip3-perps-growth-mode (:value %))
+                              (:helper %)))))))
     (testing "active HIP-3 market enables HIP-3 previews and marks active option"
       (is (= :hip3-perps-growth-mode (:selected-market-type hip3-active)))
       (is (= "HIP-3 Perps + Growth mode" (:selected-market-label hip3-active)))
