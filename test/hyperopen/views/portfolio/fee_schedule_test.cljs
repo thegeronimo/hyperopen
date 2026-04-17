@@ -133,10 +133,13 @@
         hip3-growth-option (hiccup/find-by-data-role
                             view
                             "portfolio-fee-schedule-market-option-hip3-perps-growth-mode")
+        market-menu (hiccup/find-by-data-role view "portfolio-fee-schedule-market-menu")
         docs-link (hiccup/find-by-data-role view "portfolio-fee-schedule-docs-link")
         all-text (set (hiccup/collect-strings view))]
     (is (some? overlay))
-    (is (contains? overlay-classes "pointer-events-none"))
+    (is (contains? overlay-classes "z-[650]"))
+    (is (contains? overlay-classes "pointer-events-auto"))
+    (is (not (contains? overlay-classes "pointer-events-none")))
     (is (not (contains? overlay-classes "items-center")))
     (is (not (contains? overlay-classes "justify-center")))
     (is (contains? backdrop-classes "bg-transparent"))
@@ -147,6 +150,8 @@
     (is (= "portfolio-fee-schedule-title"
            (get-in dialog [1 :aria-labelledby])))
     (is (contains? dialog-classes "absolute"))
+    (is (contains? dialog-classes "z-[651]"))
+    (is (contains? (hiccup/root-class-set market-menu) "z-[655]"))
     (is (= {:left "200px"
             :top "200px"
             :width "480px"

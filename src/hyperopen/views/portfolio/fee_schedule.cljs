@@ -160,7 +160,7 @@
       [:div {:class (into ["absolute"
                            "right-0"
                            "top-full"
-                           "z-[315]"
+                           "z-[655]"
                            "mt-1"
                            "w-full"
                            "min-w-full"
@@ -304,8 +304,8 @@
                           :estimated-height-px estimated-popover-height-px})]
       [:div {:class ["fixed"
                      "inset-0"
-                     "z-[310]"
-                     "pointer-events-none"]
+                     "z-[650]"
+                     "pointer-events-auto"]
              :data-role "portfolio-fee-schedule-overlay"}
      [:button {:type "button"
                :class ["absolute"
@@ -317,7 +317,7 @@
                :on {:click [[:actions/close-portfolio-fee-schedule]]}}]
      [:div {:class ["absolute"
                     "pointer-events-auto"
-                    "z-[311]"
+                    "z-[651]"
                     "max-h-[calc(100dvh-1rem)]"
                     "w-full"
                     "max-w-[30rem]"

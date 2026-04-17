@@ -452,6 +452,7 @@ test("portfolio fee schedule opens, switches market type, and restores focus @re
       const triggerRect = triggerNode.getBoundingClientRect();
       const backdropStyle = window.getComputedStyle(backdropNode);
       const dialogStyle = window.getComputedStyle(dialogNode);
+      const overlayStyle = window.getComputedStyle(overlayNode);
       const classes = Array.from(overlayNode.querySelectorAll("*"))
         .map((node) => node.getAttribute("class") || "")
         .join(" ");
@@ -465,11 +466,39 @@ test("portfolio fee schedule opens, switches market type, and restores focus @re
         const rgbaMatch = backgroundColor.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([0-9.]+)\)$/);
         return backgroundColor.startsWith("rgb(") || (rgbaMatch && Number(rgbaMatch[1]) >= 0.99);
       };
+      const topElementBelongsToFeeSchedule = (x, y) => {
+        const topNode = document.elementFromPoint(x, y);
+        return Boolean(
+          topNode?.closest(
+            "[data-role='portfolio-fee-schedule-dialog'], [data-role='portfolio-fee-schedule-backdrop']"
+          )
+        );
+      };
+      const dialogHitTestPoints = [
+        [rect.left + rect.width / 2, rect.top + rect.height / 2],
+        [rect.left + 24, rect.top + Math.min(210, rect.height - 24)],
+        [rect.right - 24, rect.top + Math.min(210, rect.height - 24)]
+      ];
+      const triggerTopNode = document.elementFromPoint(
+        triggerRect.left + triggerRect.width / 2,
+        triggerRect.top + triggerRect.height / 2
+      );
 
       return {
         fitsVertically: rect.top >= 0 && rect.bottom <= window.innerHeight,
         anchoredNearTrigger: horizontallyNearTrigger && verticallyNearTrigger,
         opaquePopoverSurface: opaqueSurface(dialogStyle.backgroundColor),
+        feeScheduleOwnsDialogHitArea: dialogHitTestPoints.every(([x, y]) =>
+          topElementBelongsToFeeSchedule(x, y)
+        ),
+        triggerBlockedByOverlay: Boolean(
+          triggerTopNode?.closest(
+            "[data-role='portfolio-fee-schedule-dialog'], [data-role='portfolio-fee-schedule-backdrop']"
+          )
+        ),
+        overlayInterceptsPointerEvents: overlayStyle.pointerEvents === "auto",
+        overlayAboveAccountLayers: Number.parseInt(overlayStyle.zIndex, 10) >= 650,
+        dialogAboveAccountLayers: Number.parseInt(dialogStyle.zIndex, 10) >= 651,
         noTranslucentInternalSurfaces:
           !classes.includes("bg-base-100/") &&
           !classes.includes("bg-base-200/") &&
@@ -486,6 +515,11 @@ test("portfolio fee schedule opens, switches market type, and restores focus @re
     fitsVertically: true,
     anchoredNearTrigger: true,
     opaquePopoverSurface: true,
+    feeScheduleOwnsDialogHitArea: true,
+    triggerBlockedByOverlay: true,
+    overlayInterceptsPointerEvents: true,
+    overlayAboveAccountLayers: true,
+    dialogAboveAccountLayers: true,
     noTranslucentInternalSurfaces: true,
     transparentBackdrop: true,
     noVerticalScroll: true,
