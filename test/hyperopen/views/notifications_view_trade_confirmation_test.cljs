@@ -60,6 +60,10 @@
     (is (contains? (hiccup/node-class-set detailed-node) "detailed"))
     (is (contains? (hiccup/node-class-set stack-node) "o-stack"))
     (is (contains? (hiccup/node-class-set consolidated-node) "o-consol"))
+    (is (contains? (hiccup/node-class-set pill-node) "pointer-events-auto"))
+    (is (contains? (hiccup/node-class-set detailed-node) "pointer-events-auto"))
+    (is (contains? (hiccup/node-class-set stack-node) "pointer-events-auto"))
+    (is (contains? (hiccup/node-class-set consolidated-node) "pointer-events-auto"))
     (is (contains? (set (hiccup/collect-strings detailed-node)) "Avg Price"))
     (is (contains? (set (hiccup/collect-strings view-node)) "+1 more fills · collapse into blotter"))
     (is (= #{:button} (set (map first close-buttons))))
@@ -85,6 +89,7 @@
         rendered-text (str/join " " (hiccup/collect-strings blotter-node))]
     (is (some? blotter-node))
     (is (contains? (hiccup/node-class-set blotter-node) "o-blotter"))
+    (is (contains? (hiccup/node-class-set blotter-node) "pointer-events-auto"))
     (is (contains? rendered-strings "Activity · 4 fills"))
     (is (re-find #"Bought\s+0\.55\s+HYPE" rendered-text))
     (is (re-find #"Sold\s+3\s+SOL" rendered-text))

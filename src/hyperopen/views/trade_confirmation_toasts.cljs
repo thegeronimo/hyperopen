@@ -146,7 +146,7 @@
    (PillToast trade {}))
   ([trade {:keys [on-dismiss]}]
    (when (trade-props? trade)
-     [:div {:class (cond-> ["o-toast"]
+     [:div {:class (cond-> ["o-toast" "pointer-events-auto"]
                      (side-class (:side trade)) (conj (side-class (:side trade))))
             :data-role "PillToast"}
       [:div {:class ["check"]}
@@ -164,7 +164,7 @@
   ([trade {:keys [on-dismiss]}]
    (when (trade-props? trade)
      (let [notional (* (:qty trade) (:price trade))]
-       [:div {:class (cond-> ["o-toast" "detailed"]
+       [:div {:class (cond-> ["o-toast" "detailed" "pointer-events-auto"]
                        (side-class (:side trade)) (conj (side-class (:side trade))))
               :data-role "DetailedToast"}
         [:div {:class ["d-head"]}
@@ -194,7 +194,7 @@
    (when (fills-props? fills)
      (let [visible (subvec fills 0 (min 3 (count fills)))
            more (- (count fills) (count visible))]
-       (into [:div {:class ["o-stack"]
+       (into [:div {:class ["o-stack" "pointer-events-auto"]
                     :data-role "ToastStack"}]
              (concat
               (when (pos? more)
@@ -243,7 +243,7 @@
            body-text (if same-symbol?
                        (str verb " " (qty-text total-qty) " " symbols)
                        (str verb " " symbols))]
-       [:div {:class ["o-consol"]
+       [:div {:class ["o-consol" "pointer-events-auto"]
               :data-role "ConsolidatedToast"}
         [:div {:class ["stk"]
                :aria-hidden true}
@@ -321,7 +321,7 @@
                                        (if (= :buy (:side fill)) 1 -1))))
                            0
                            fills)]
-       [:div {:class ["o-blotter"]
+       [:div {:class ["o-blotter" "pointer-events-auto"]
               :data-role "BlotterCard"}
         [:div {:class ["o-blotter-head"]}
          [:div {:class ["o-blotter-title"]}
