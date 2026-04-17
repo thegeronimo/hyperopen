@@ -1,6 +1,7 @@
 (ns hyperopen.app.bootstrap
   (:require [nexus.registry :as nxr]
             [replicant.dom :as r]
+            [hyperopen.app.document-title :as document-title]
             [hyperopen.app.startup :as app-startup]
             [hyperopen.runtime.action-adapters :as runtime-action-adapters]
             [hyperopen.runtime.bootstrap :as runtime-bootstrap]
@@ -20,6 +21,7 @@
 (defn render-app!
   [state]
   (when (exists? js/document)
+    (document-title/sync! js/document state)
     (r/render (.getElementById js/document "app")
               (app-view/app-view state))))
 

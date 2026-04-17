@@ -605,6 +605,66 @@ async function installPasskeyUnlockMock(page) {
   });
 }
 
+async function seedBrowserTitleActiveAsset(page, mark) {
+  await page.evaluate((nextMark) => {
+    const c = globalThis.cljs?.core;
+    const store = globalThis.hyperopen?.system?.store;
+
+    if (!c || !store) {
+      throw new Error("Hyperopen store or cljs core unavailable");
+    }
+
+    const keyword = c.keyword;
+    const kwPath = (...segments) =>
+      c.PersistentVector.fromArray(segments.map((segment) => keyword(segment)), true);
+    const path = (...segments) => c.PersistentVector.fromArray(segments, true);
+    const opts = c.PersistentArrayMap.fromArray([keyword("keywordize-keys"), true], true);
+    const activeAsset = "xyz:SILVER";
+    const market = c.PersistentArrayMap.fromArray(
+      [
+        keyword("key"), "perp:xyz:SILVER",
+        keyword("coin"), activeAsset,
+        keyword("symbol"), "SILVER",
+        keyword("base"), "SILVER",
+        keyword("dex"), "xyz",
+        keyword("market-type"), keyword("perp")
+      ],
+      true
+    );
+    const context = c.js__GT_clj(
+      {
+        coin: activeAsset,
+        mark: nextMark,
+        markRaw: String(nextMark)
+      },
+      opts
+    );
+    let nextState = c.deref(store);
+
+    nextState = c.assoc_in(nextState, kwPath("active-asset"), activeAsset);
+    nextState = c.assoc_in(nextState, kwPath("selected-asset"), activeAsset);
+    nextState = c.assoc_in(nextState, kwPath("active-market"), market);
+    nextState = c.assoc_in(
+      nextState,
+      path(keyword("active-assets"), keyword("contexts"), activeAsset),
+      context
+    );
+    c.reset_BANG_(store, nextState);
+  }, mark);
+}
+
+test("browser title follows active asset mark updates @regression", async ({ page }) => {
+  await visitRoute(page, "/trade");
+
+  await seedBrowserTitleActiveAsset(page, 82.65);
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(page).toHaveTitle("82.65 | SILVER (xyz) | HyperOpen");
+
+  await seedBrowserTitleActiveAsset(page, 82.66);
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(page).toHaveTitle("82.66 | SILVER (xyz) | HyperOpen");
+});
+
 test("asset selector opens and selects ETH @regression", async ({ page }) => {
   await visitRoute(page, "/trade");
 

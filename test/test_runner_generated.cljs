@@ -53,6 +53,7 @@
             [hyperopen.api.trading.internal-seams-test]
             [hyperopen.api.trading.session-invalidation-test]
             [hyperopen.api.trading.sign-and-submit-test]
+            [hyperopen.app.bootstrap-test]
             [hyperopen.app.effects-test]
             [hyperopen.app.startup-test]
             [hyperopen.asset-selector.actions-property-test]
@@ -540,6 +541,7 @@
              'hyperopen.api.trading.internal-seams-test
              'hyperopen.api.trading.session-invalidation-test
              'hyperopen.api.trading.sign-and-submit-test
+             'hyperopen.app.bootstrap-test
              'hyperopen.app.effects-test
              'hyperopen.app.startup-test
              'hyperopen.asset-selector.actions-property-test
