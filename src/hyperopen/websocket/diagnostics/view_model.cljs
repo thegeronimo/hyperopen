@@ -8,6 +8,10 @@
 (def footer-links
   [])
 
+(def ^:private developer-event-preview-limit 3)
+
+(def ^:private developer-stream-preview-limit 5)
+
 (defn format-age-ms
   [age-ms]
   (cond
@@ -258,6 +262,16 @@
                              :age-text (format-age-ms age-ms)}))
                         streams)})))))
 
+(defn- popover-stream-preview
+  [stream-groups]
+  (let [streams (mapcat :streams stream-groups)
+        total-count (reduce + 0 (map :count stream-groups))]
+    (when (seq streams)
+      {:key "streams"
+       :title "Streams"
+       :count total-count
+       :streams (vec (take developer-stream-preview-limit streams))})))
+
 (defn- diagnostics-model
   [state health meter {:keys [app-version
                               build-id
@@ -270,6 +284,7 @@
         reconnect-availability (policy/reconnect-availability state health effective-now-ms)
         state* (popover-state health meter)
         stream-groups (popover-stream-groups health display-now-ms)
+        stream-preview (popover-stream-preview stream-groups)
         copy (get state-copy state*)]
     {:state state*
      :tone (case state*
@@ -288,9 +303,11 @@
                      :message (:message copy-status)
                      :fallback-json (:fallback-json copy-status)})
      :counter-rows (summary-counter-rows state)
-     :timeline (timeline-rows timeline diagnostics-timeline-limit display-now-ms reveal-sensitive?)
+     :timeline (->> (timeline-rows timeline diagnostics-timeline-limit display-now-ms reveal-sensitive?)
+                    (take-last developer-event-preview-limit)
+                    vec)
      :groups (group-models health state* stream-groups)
-     :stream-groups stream-groups}))
+     :stream-groups (if stream-preview [stream-preview] [])}))
 
 (defn- mobile-nav-model
   [state]
@@ -359,7 +376,13 @@
                                            :display-now-ms display-now-ms
                                            :effective-now-ms effective-now-ms}))]
      (cond-> {:diagnostics-open? diagnostics-open?
-              :connection-meter (assoc meter :diagnostics-open? diagnostics-open?)
+              :connection-meter
+              (assoc meter
+                     :diagnostics-open? diagnostics-open?
+                     :show-surface-freshness-cues?
+                     (boolean (get-in state
+                                      [:websocket-ui :show-surface-freshness-cues?]
+                                      false)))
               :mobile-nav (mobile-nav-model state)
               :footer-links footer-links}
        banner

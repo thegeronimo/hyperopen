@@ -116,6 +116,12 @@
                    (= data-role (get-in % [1 :data-role])))
              node))
 
+(defn- count-nodes-by-data-role
+  [node data-role]
+  (count-nodes #(and (vector? %)
+                     (= data-role (get-in % [1 :data-role])))
+               node))
+
 (defn- button-tag? [node]
   (and (keyword? node)
        (str/starts-with? (name node) "button")))
@@ -188,7 +194,16 @@
         pill (find-pill view)]
     (is (some? pill))
     (is (str/includes? (node-text pill) "Online"))
-    (is (str/includes? (node-text pill) "500ms"))))
+    (is (not (str/includes? (node-text pill) "500ms")))))
+
+(deftest status-meter-shows-latency-only-when-freshness-labels-enabled-test
+  (let [off-view (footer-view/footer-view (base-state))
+        on-view (footer-view/footer-view
+                 (assoc-in (base-state)
+                           [:websocket-ui :show-surface-freshness-cues?]
+                           true))]
+    (is (not (str/includes? (node-text (find-pill off-view)) "500ms")))
+    (is (str/includes? (node-text (find-pill on-view)) "500ms"))))
 
 (deftest status-meter-button-has-no-border-or-shaded-background-test
   (let [view (footer-view/footer-view (base-state))
@@ -243,7 +258,7 @@
       (let [view (footer-view/footer-view (base-state))
             pill (find-pill view)]
         (is (str/includes? (node-text pill) "Online"))
-        (is (str/includes? (node-text pill) "450ms"))
+        (is (not (str/includes? (node-text pill) "450ms")))
         (is (= 3 (meter-active-bar-count view)))))))
 
 (deftest diagnostics-popover-keeps-network-penalty-out-of-visible-ui-test
@@ -375,6 +390,7 @@
 (deftest diagnostics-popover-renders-only-when-open-test
   (let [closed-view (footer-view/footer-view (base-state))
         open-view (footer-view/footer-view (assoc-in (base-state) [:websocket-ui :diagnostics-open?] true))
+        connection-slot (find-node-by-data-role open-view "footer-connection-slot")
         popover (find-node-by-data-role open-view "connection-diagnostics-popover")
         backdrop (find-node-by-data-role open-view "connection-diagnostics-backdrop")]
     (is (nil? (find-node #(and (vector? %)
@@ -382,6 +398,9 @@
                                   (get-in % [1 :data-role])))
                          closed-view)))
     (is (some? popover))
+    (is (some? connection-slot))
+    (is (some? (find-node-by-data-role connection-slot "footer-connection-meter-button")))
+    (is (some? (find-node-by-data-role connection-slot "connection-diagnostics-layer")))
     (is (= :div (first popover)))
     (is (= "dialog" (get-in popover [1 :role])))
     (is (= "Connection status" (get-in popover [1 :aria-label])))
@@ -420,6 +439,38 @@
     (is (str/includes? text-a "5s"))
     (is (str/includes? text-b "6s"))
     (is (not (str/includes? text-a "Threshold")))))
+
+(deftest diagnostics-developer-details-remains-compact-preview-test
+  (let [many-events (mapv (fn [idx]
+                            {:event (if (even? idx) :connected :gap-detected)
+                             :at-ms (* 100 idx)
+                             :details {:idx idx}})
+                          (range 10))
+        many-streams (into {}
+                           (map (fn [idx]
+                                  [["trades" (str "COIN" idx) nil nil nil]
+                                   {:group :market_data
+                                    :topic "trades"
+                                    :subscribed? true
+                                    :status :live
+                                    :last-payload-at-ms idx
+                                    :stale-threshold-ms 10000
+                                    :descriptor {:type "trades"
+                                                 :coin (str "COIN" idx)}
+                                    :message-count idx}]))
+                           (range 12))
+        view (footer-view/footer-view
+              (-> (base-state)
+                  (assoc-in [:websocket-ui :diagnostics-open?] true)
+                  (assoc-in [:websocket :health :groups :market_data :worst-status] :delayed)
+                  (assoc-in [:websocket-ui :diagnostics-timeline] many-events)
+                  (assoc-in [:websocket :health :streams] many-streams)))
+        text (node-text view)]
+    (is (= 3 (count-nodes-by-data-role view "connection-diagnostics-dev-event")))
+    (is (= 5 (count-nodes-by-data-role view "connection-diagnostics-dev-stream")))
+    (is (str/includes? text "Recent events"))
+    (is (str/includes? text "Streams (12)"))
+    (is (not (str/includes? text "COIN9")))))
 
 (deftest diagnostics-actions-dispatch-correct-events-test
   (let [view (footer-view/footer-view (-> (base-state)

@@ -36,7 +36,9 @@
      (signal-meter-bars (:bar-count meter) (:active-bars meter) tone-class)
      [:span {:class ["hx-trigger-label" "relative" "top-px" "leading-none"]}
       (:label meter)]
-     (when (and healthy? (:latency-label meter))
+     (when (and healthy?
+                (:show-surface-freshness-cues? meter)
+                (:latency-label meter))
        [:span {:class ["hx-trigger-latency" "o-mono"]}
         (str "· " (:latency-label meter))])
      (when reconnecting?

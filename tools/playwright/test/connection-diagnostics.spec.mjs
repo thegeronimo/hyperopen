@@ -130,7 +130,7 @@ test("footer connection diagnostics opens as trader-first popover @smoke", async
   await expect(trigger.locator("[data-role='footer-connection-meter-bar']")).toHaveCount(4);
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
   await expect(trigger).toContainText("Online");
-  await expect(trigger).toContainText(/\d+ms/);
+  await expect(trigger).not.toContainText(/\d+ms/);
 
   await seedConnectionDiagnosticsState(page, "online", { open: true });
   const popover = page.locator("[data-role='connection-diagnostics-popover']");
@@ -139,6 +139,13 @@ test("footer connection diagnostics opens as trader-first popover @smoke", async
   await expect(popover).toHaveAttribute("role", "dialog");
   await expect(popover).toHaveAttribute("aria-label", "Connection status");
   await expect.poll(async () => Math.round((await popover.boundingBox())?.width || 0)).toBe(380);
+  await expect
+    .poll(async () => {
+      const triggerBox = await trigger.boundingBox();
+      const popoverBox = await popover.boundingBox();
+      return Math.round(Math.abs((popoverBox?.x || 0) - (triggerBox?.x || 0)));
+    })
+    .toBeLessThanOrEqual(12);
   await expect(popover.getByText("Everything is live", { exact: true })).toBeVisible();
   await expect(popover.getByText("All data is streaming normally.", { exact: true })).toBeVisible();
   await expect(popover.getByText("Orders", { exact: true })).toBeVisible();

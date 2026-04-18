@@ -79,10 +79,11 @@
                             (diagnostics-drawer/banner-classes (:tone banner)))}
          (:message banner)])
       [:div {:class ["relative" "flex" "justify-between" "items-center" "overflow-visible"]}
-       [:div {:class ["flex" "items-center"]}
-        (connection-meter/render (:connection-meter vm))]
+       [:div {:class ["relative" "flex" "items-center" "overflow-visible"]
+              :data-role "footer-connection-slot"}
+        (connection-meter/render (:connection-meter vm))
+        (when-let [diagnostics (:diagnostics vm)]
+          (diagnostics-drawer/render diagnostics))]
        (footer-links/render {:links (:footer-links vm)
                              :build (app-build now-ms)
-                             :now-ms now-ms})]
-      (when-let [diagnostics (:diagnostics vm)]
-        (diagnostics-drawer/render diagnostics))]]))
+                             :now-ms now-ms})]]]))

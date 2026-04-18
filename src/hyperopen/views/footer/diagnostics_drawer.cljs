@@ -120,7 +120,8 @@
 (defn- timeline-row
   [{:keys [key event-label age-label details-text]}]
   ^{:key key}
-  [:div {:class ["hx-tl-row" (timeline-event-class event-label)]}
+  [:div {:class ["hx-tl-row" (timeline-event-class event-label)]
+         :data-role "connection-diagnostics-dev-event"}
    [:span {:class ["hx-tl-dot"]}]
    [:span {:class ["hx-tl-event"]}
     event-label
@@ -136,7 +137,8 @@
 (defn- stream-row
   [{:keys [key display-topic stream-key-text age-text] :as stream}]
   ^{:key key}
-  [:div {:class ["hx-stream" (str "tone-" (name (:state stream)))]}
+  [:div {:class ["hx-stream" (str "tone-" (name (:state stream)))]
+         :data-role "connection-diagnostics-dev-stream"}
    [:div {:class ["hx-stream-l"]}
     [:span {:class ["hx-stream-name" "o-mono"]} display-topic]
     [:span {:class ["hx-stream-key" "o-mono"]} stream-key-text]]
@@ -148,9 +150,7 @@
   [{:keys [key title count streams]}]
   ^{:key key}
   [:div {:class ["hx-dev-stream-group"]}
-   [:div {:class ["hx-dev-section"]}
-    title
-    [:span {:class ["hx-dev-count"]} (str " (" count ")")]]
+   [:div {:class ["hx-dev-section"]} (str title " (" count ")")]
    [:div {:class ["hx-streams"]}
     (for [stream streams]
       (stream-row stream))]])

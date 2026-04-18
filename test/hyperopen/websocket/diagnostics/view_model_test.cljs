@@ -103,10 +103,8 @@
              :diagnostics-timeline-limit 10})
         diagnostics (:diagnostics vm)
         market-group (second (:groups diagnostics))
-        market-stream (->> (:stream-groups diagnostics)
-                           (filter #(= :market_data (:group %)))
-                           first
-                           :streams
+        stream-preview (first (:stream-groups diagnostics))
+        market-stream (->> (:streams stream-preview)
                            (filter #(= "Order book" (:display-topic %)))
                            first)]
     (is (= :delayed (:state diagnostics)))
@@ -114,6 +112,7 @@
     (is (= "Market data" (:label market-group)))
     (is (= "Delayed" (:status-label market-group)))
     (is (= "Order book is 3s behind" (:detail market-group)))
+    (is (= "Streams" (:title stream-preview)))
     (is (= "Order book" (:display-topic market-stream)))
     (is (= "BTC" (:stream-key-text market-stream)))
     (is (true? (:developer-open? diagnostics)))
