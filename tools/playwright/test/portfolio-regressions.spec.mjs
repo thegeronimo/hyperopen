@@ -176,6 +176,62 @@ async function seedPortfolioVolumeHistory(page) {
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 }
 
+async function seedExpandedTradeBlotterToast(page) {
+  await page.evaluate(() => {
+    const c = globalThis.cljs?.core;
+    const store = globalThis.hyperopen?.system?.store;
+
+    if (!c || !store) {
+      throw new Error("Hyperopen store or cljs core unavailable");
+    }
+
+    const keyword = c.keyword;
+    const kwPath = (...segments) =>
+      c.PersistentVector.fromArray(segments.map((segment) => keyword(segment)), true);
+    const fill = (id, qty, price, ts) =>
+      c.PersistentArrayMap.fromArray(
+        [
+          keyword("id"), id,
+          keyword("side"), keyword("buy"),
+          keyword("symbol"), "HYPE",
+          keyword("qty"), qty,
+          keyword("price"), price,
+          keyword("orderType"), "limit",
+          keyword("ts"), ts
+        ],
+        true
+      );
+    const fills = c.PersistentVector.fromArray(
+      [
+        fill("fill-1", 0.25, 44.2, 1800000000000),
+        fill("fill-2", 0.3, 44.3, 1800000003300),
+        fill("fill-3", 0.4, 44.4, 1800000006600),
+        fill("fill-4", 0.5, 44.5, 1800000009900)
+      ],
+      true
+    );
+    const toast = c.PersistentArrayMap.fromArray(
+      [
+        keyword("id"), "blotter",
+        keyword("kind"), keyword("success"),
+        keyword("toast-surface"), keyword("trade-confirmation"),
+        keyword("variant"), keyword("consolidated"),
+        keyword("expanded?"), true,
+        keyword("fills"), fills
+      ],
+      true
+    );
+    const nextState = c.assoc_in(
+      c.deref(store),
+      kwPath("ui", "toasts"),
+      c.PersistentVector.fromArray([toast], true)
+    );
+
+    c.reset_BANG_(store, nextState);
+  });
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+}
+
 async function stubPortfolioUserFees(page, observedRequests = []) {
   await page.route("**/info", async (route) => {
     const request = route.request();
@@ -796,4 +852,29 @@ test("spectate mode stays active when navigating from trade to portfolio via hea
 
   await expect(spectateBanner).toBeVisible();
   await expect(page.locator("[data-role='portfolio-actions-row']")).toBeVisible();
+});
+
+test("expanded trade blotter full history opens spectated portfolio order history @regression", async ({ page }) => {
+  await visitRoute(page, "/trade");
+  await dispatch(page, [":actions/start-spectate-mode", SPECTATE_ADDRESS]);
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await seedExpandedTradeBlotterToast(page);
+
+  const historyLink = page.locator("[data-role='trade-toast-view-full-history']");
+
+  await expect(historyLink).toBeVisible();
+  await expect(historyLink).toHaveAttribute(
+    "href",
+    `/portfolio?spectate=${SPECTATE_ADDRESS}&tab=order-history`
+  );
+
+  await historyLink.click();
+  await waitForIdle(page, { quietMs: 200, timeoutMs: 8_000, pollMs: 50 });
+
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/portfolio");
+  await expect.poll(() => new URL(page.url()).searchParams.get("spectate")).toBe(SPECTATE_ADDRESS);
+  await expect.poll(() => new URL(page.url()).searchParams.get("tab")).toBe("order-history");
+  await expect(page.locator("[data-role='spectate-mode-active-banner']")).toBeVisible();
+  await expect(page.locator("[data-role='account-info-tab-order-history']"))
+    .toHaveAttribute("aria-pressed", "true");
 });

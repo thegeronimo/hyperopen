@@ -1,6 +1,13 @@
 (ns hyperopen.views.notifications-view
   (:require [clojure.string :as str]
+            [hyperopen.account.context :as account-context]
             [hyperopen.views.trade-confirmation-toasts :as trade-toasts]))
+
+(def ^:private blotter-history-portfolio-path
+  "/portfolio")
+
+(def ^:private blotter-history-portfolio-tab
+  "order-history")
 
 (defn- toast-kind-name
   [kind]
@@ -133,17 +140,41 @@
                   :data-role "global-toast-dismiss"}
          (dismiss-icon)]]])))
 
+(defn- query-string
+  [pairs]
+  (let [params (js/URLSearchParams.)]
+    (doseq [[key value] pairs
+            :let [value* (some-> value str str/trim)]
+            :when (seq value*)]
+      (.append params key value*))
+    (.toString params)))
+
+(defn- blotter-history-href
+  [state]
+  (let [spectate-address (when (account-context/spectate-mode-active? state)
+                           (account-context/spectate-address state))
+        query (query-string (cond-> []
+                              spectate-address
+                              (conj ["spectate" spectate-address])
+
+                              true
+                              (conj ["tab" blotter-history-portfolio-tab])))]
+    (if (seq query)
+      (str blotter-history-portfolio-path "?" query)
+      blotter-history-portfolio-path)))
+
 (defn- trade-toast-options
-  [toast]
+  [state toast]
   (let [toast-id (:id toast)]
     {:on-dismiss [[:actions/dismiss-order-feedback-toast toast-id]]
      :on-expand [[:actions/expand-order-feedback-toast toast-id]]
-     :on-collapse [[:actions/collapse-order-feedback-toast toast-id]]}))
+     :on-collapse [[:actions/collapse-order-feedback-toast toast-id]]
+     :history-href (blotter-history-href state)}))
 
 (defn- trade-confirmation-toast-card
-  [toast]
+  [state toast]
   (let [fills (vec (or (:fills toast) []))
-        options (trade-toast-options toast)
+        options (trade-toast-options state toast)
         single-fill (first fills)]
     (when (seq fills)
       (if (:expanded? toast)
@@ -156,15 +187,15 @@
           (generic-toast-card toast))))))
 
 (defn- toast-card
-  [toast]
+  [state toast]
   (if (= :trade-confirmation (:toast-surface toast))
-    (trade-confirmation-toast-card toast)
+    (trade-confirmation-toast-card state toast)
     (generic-toast-card toast)))
 
 (defn notifications-view
   [state]
   (let [toasts (->> (toast-entries state)
-                    (keep toast-card)
+                    (keep #(toast-card state %))
                     vec)]
     (when (seq toasts)
       (into [:div {:class ["pointer-events-none"

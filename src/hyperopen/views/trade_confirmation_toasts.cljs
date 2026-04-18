@@ -312,7 +312,7 @@
 (defn BlotterCard
   ([fills]
    (BlotterCard fills {}))
-  ([fills {:keys [on-collapse]}]
+  ([fills {:keys [on-collapse history-href]}]
    (when (fills-props? fills)
      (let [groups (group-fills fills)
            total-notional (reduce + 0 (map #(* (:qty %) (:price %)) fills))
@@ -363,5 +363,7 @@
                  (blotter-fill-rows group))])
         [:div {:class ["o-blotter-foot"]}
          [:span "TWAP · avg 1.2 fills/sec"]
-         [:a {:href "/portfolio"
-              :class ["link"]} "view full history →"]]]))))
+         [:a {:href (or history-href "/portfolio?tab=order-history")
+              :class ["link"]
+              :data-role "trade-toast-view-full-history"}
+          "view full history →"]]]))))

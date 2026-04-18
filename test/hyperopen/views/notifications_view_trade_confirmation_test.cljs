@@ -85,6 +85,7 @@
                                    :fills fills}]}})
         blotter-node (hiccup/find-by-data-role view-node "BlotterCard")
         collapse-button (hiccup/find-by-data-role view-node "trade-toast-collapse")
+        history-link (hiccup/find-by-data-role view-node "trade-toast-view-full-history")
         rendered-strings (set (hiccup/collect-strings blotter-node))
         rendered-text (str/join " " (hiccup/collect-strings blotter-node))]
     (is (some? blotter-node))
@@ -97,4 +98,25 @@
     (is (re-find #"Sold\s+3\s+SOL" rendered-text))
     (is (= :button (first collapse-button)))
     (is (= [[:actions/collapse-order-feedback-toast "blotter"]]
-           (get-in collapse-button [1 :on :click])))))
+           (get-in collapse-button [1 :on :click])))
+    (is (= :a (first history-link)))
+    (is (= "/portfolio?tab=order-history"
+           (get-in history-link [1 :href])))))
+
+(deftest expanded-trade-confirmation-blotter-history-link-preserves-spectate-address-test
+  (let [spectate-address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+        view-node (notifications-view/notifications-view
+                   {:account-context {:spectate-mode {:active? true
+                                                       :address spectate-address}}
+                    :ui {:toasts [{:id "blotter"
+                                   :kind :success
+                                   :toast-surface :trade-confirmation
+                                   :variant :consolidated
+                                   :expanded? true
+                                   :fills [(fill-prop "fill-1" :buy "HYPE" 0.25 44.20 1800000000000)
+                                           (fill-prop "fill-2" :buy "HYPE" 0.30 44.30 1800000003300)
+                                           (fill-prop "fill-3" :buy "HYPE" 0.40 44.40 1800000006600)
+                                           (fill-prop "fill-4" :buy "HYPE" 0.50 44.50 1800000009900)]}]}})
+        history-link (hiccup/find-by-data-role view-node "trade-toast-view-full-history")]
+    (is (= "/portfolio?spectate=0xabcdefabcdefabcdefabcdefabcdefabcdefabcd&tab=order-history"
+           (get-in history-link [1 :href])))))
