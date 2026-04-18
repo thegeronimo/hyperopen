@@ -36,7 +36,6 @@
 (s/def :hyperopen.views.header.settings/trigger-action some?)
 (s/def :hyperopen.views.header.settings/trigger-key string?)
 (s/def :hyperopen.views.header.settings/close-actions some?)
-(s/def :hyperopen.views.header.settings/keydown-action some?)
 (s/def :hyperopen.views.header.settings/footer-note string?)
 (s/def :hyperopen.views.header.settings/settings
   (s/keys :req-un [:hyperopen.views.header.settings/open?
@@ -45,7 +44,6 @@
                    :hyperopen.views.header.settings/trigger-key
                    :hyperopen.views.header.settings/title
                    :hyperopen.views.header.settings/close-actions
-                   :hyperopen.views.header.settings/keydown-action
                    :hyperopen.views.header.settings/footer-note
                    :hyperopen.views.header.settings/sections]))
 
@@ -115,7 +113,7 @@
    (icons/gear-line-icon {:class ["h-3.5" "w-3.5"]})])
 
 (defn- popover
-  [{:keys [close-actions footer-note keydown-action sections title]}]
+  [{:keys [close-actions footer-note sections title]}]
   [:section {:class ["ts-pop"
                      "fixed"
                      "right-4"
@@ -134,7 +132,6 @@
                                           :opacity 0}}
              :replicant/unmounting {:style {:transform "translateY(8px) scale(0.98)"
                                             :opacity 0}}
-             :on {:keydown keydown-action}
              :replicant/on-render dom/focus-visible-node!}
    [:div {:class ["ts-pop-head"]}
     [:div {:class ["ts-pop-head-l"]}
@@ -143,8 +140,7 @@
      [:div
       [:div {:class ["ts-pop-title"]
              :data-role "trading-settings-title"}
-       title]
-      [:div {:class ["ts-pop-sub" "o-mono"]} ", to open · esc to close"]]]
+       title]]]
     [:button {:type "button"
               :class ["ts-close"]
               :aria-label "Close trading settings"

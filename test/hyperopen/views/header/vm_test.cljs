@@ -70,6 +70,7 @@
     (is (= "trading-settings-storage-mode-row" (:data-role session-row)))
     (is (= "These settings live on this device only."
            (get-in result [:settings :footer-note])))
+    (is (not (contains? (:settings result) :keydown-action)))
     (is (= "Remember session on this device?"
            (get-in session-row [:confirmation :title])))
     (is (= "Changes trading persistence on this device and will require Enable Trading again."

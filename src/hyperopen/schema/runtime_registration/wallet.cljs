@@ -16,7 +16,6 @@
    [:actions/close-mobile-header-menu :close-mobile-header-menu]
    [:actions/open-header-settings :open-header-settings]
    [:actions/close-header-settings :close-header-settings]
-   [:actions/handle-header-settings-keydown :handle-header-settings-keydown]
    [:actions/set-fill-alerts-enabled :set-fill-alerts-enabled]
    [:actions/set-sound-on-fill-enabled :set-sound-on-fill-enabled]
    [:actions/set-animate-orderbook-enabled :set-animate-orderbook-enabled]

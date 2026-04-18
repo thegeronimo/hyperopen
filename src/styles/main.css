@@ -2296,13 +2296,6 @@
     letter-spacing: 0;
   }
 
-  .ts-pop-sub {
-    margin-top: 2px;
-    color: var(--o-dim);
-    font-size: 10.5px;
-    letter-spacing: 0.04em;
-  }
-
   .ts-close {
     display: grid;
     place-items: center;

@@ -15,9 +15,6 @@
 (def ^:private trading-settings-close-actions
   [[:actions/close-header-settings]])
 
-(def ^:private trading-settings-keydown-action
-  [[:actions/handle-header-settings-keydown [:event/key]]])
-
 (defn- nav-href
   [state route]
   (spectate-mode-links/internal-route-href state route))
@@ -242,7 +239,6 @@
                        [[:actions/open-header-settings]])
      :title "Trading Settings"
      :close-actions trading-settings-close-actions
-     :keydown-action trading-settings-keydown-action
      :footer-note trading-settings-footer-copy
      :sections [(settings-section
                  :session

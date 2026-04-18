@@ -274,7 +274,6 @@
                             key-token (some-> key str str/lower-case)
                             open-shortcut? (and (or meta-key? ctrl-key?)
                                                 (= key-token "k"))
-                            settings-shortcut? (= key ",")
                             stop-shortcut? (and (or meta-key? ctrl-key?)
                                                 shift-key?
                                                 (= key-token "x"))
@@ -286,23 +285,15 @@
                             selector-visible? (= :asset-selector
                                                  (get-in @store [:asset-selector :visible-dropdown]))]
                         (when (or open-shortcut?
-                                  (and settings-shortcut?
-                                       (not editable-target?))
                                   stop-spectate-shortcut?
                                   (and selector-visible?
                                        (= key "Escape")))
                           (when (or open-shortcut?
-                                    (and settings-shortcut?
-                                         (not editable-target?))
                                     stop-spectate-shortcut?)
                             (.preventDefault event))
                           (cond
                             stop-spectate-shortcut?
                             (dispatch! store nil [[:actions/stop-spectate-mode]])
-
-                            (and settings-shortcut?
-                                 (not editable-target?))
-                            (dispatch! store nil [[:actions/open-header-settings]])
 
                             :else
                             (dispatch! store nil [[:actions/handle-asset-selector-shortcut

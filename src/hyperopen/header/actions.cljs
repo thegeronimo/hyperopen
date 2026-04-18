@@ -23,14 +23,6 @@
    [:effects/save [:header-ui :settings-open?] false]
    [:effects/save [:header-ui :settings-return-focus?] true]])
 
-(defn handle-header-settings-keydown
-  [state key]
-  (if (= "Escape" key)
-    (if (get-in state [:header-ui :settings-confirmation])
-      [[:effects/save [:header-ui :settings-confirmation] nil]]
-      (close-header-settings state))
-    []))
-
 (defn- normalize-storage-mode-request
   [storage-mode]
   (cond

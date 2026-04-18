@@ -2046,7 +2046,8 @@ test("trading settings renders compact popover rows without clipping @regression
 
   await expect(settingsSurface).toHaveAttribute("role", "dialog");
   await expect(settingsSurface).toHaveAttribute("aria-label", "Trading settings");
-  await expect(settingsSurface).toContainText(", to open · esc to close");
+  await expect(settingsSurface).not.toContainText(", to open");
+  await expect(settingsSurface).not.toContainText("esc to close");
   await expect(settingsSurface).toContainText("These settings live on this device only.");
   await expect(settingsSurface.locator('[data-role="trading-settings-confirm-market-orders-row"]')).toBeVisible();
   await expect(settingsSurface.locator('[data-role="trading-settings-sound-on-fill-row"]')).toBeVisible();

@@ -6,8 +6,7 @@
 (def ^:private action-vars
   {'open-header-settings (resolve 'hyperopen.header.actions/open-header-settings)
    'close-header-settings (resolve 'hyperopen.header.actions/close-header-settings)
-   'handle-header-settings-keydown (resolve 'hyperopen.header.actions/handle-header-settings-keydown)
-  'request-agent-storage-mode-change (resolve 'hyperopen.header.actions/request-agent-storage-mode-change)
+   'request-agent-storage-mode-change (resolve 'hyperopen.header.actions/request-agent-storage-mode-change)
    'confirm-agent-storage-mode-change (resolve 'hyperopen.header.actions/confirm-agent-storage-mode-change)
    'request-agent-local-protection-mode-change
    (resolve 'hyperopen.header.actions/request-agent-local-protection-mode-change)
@@ -73,26 +72,6 @@
             [:effects/save [:header-ui :settings-return-focus?] true]]
            (when close-action
              (close-action {}))))))
-
-(deftest header-settings-escape-key-closes-only-on-escape-test
-  (let [keydown-action (resolve-action 'handle-header-settings-keydown)]
-    (is (some? keydown-action))
-    (is (= [[:effects/save [:header-ui :settings-confirmation] nil]]
-           (when keydown-action
-             (keydown-action {:header-ui {:settings-open? true
-                                          :settings-confirmation {:kind :agent-storage-mode
-                                                                  :next-mode :local}}}
-                             "Escape"))))
-    (is (= [[:effects/save [:header-ui :settings-confirmation] nil]
-            [:effects/save [:header-ui :settings-open?] false]
-            [:effects/save [:header-ui :settings-return-focus?] true]]
-           (when keydown-action
-             (keydown-action {:header-ui {:settings-open? true}}
-                             "Escape"))))
-    (is (= []
-           (when keydown-action
-             (keydown-action {:header-ui {:settings-open? true}}
-                             "Enter"))))))
 
 (deftest header-settings-storage-mode-change-uses-confirmation-step-test
   (let [request-action (resolve-action 'request-agent-storage-mode-change)

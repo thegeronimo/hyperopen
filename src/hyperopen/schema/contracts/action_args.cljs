@@ -83,7 +83,6 @@
    :actions/close-mobile-header-menu ::common/no-args
    :actions/open-header-settings ::common/no-args
    :actions/close-header-settings ::common/no-args
-   :actions/handle-header-settings-keydown ::common/key-args
    :actions/request-agent-storage-mode-change ::common/storage-mode-request-args
    :actions/cancel-agent-storage-mode-change ::common/no-args
    :actions/confirm-agent-storage-mode-change ::common/no-args

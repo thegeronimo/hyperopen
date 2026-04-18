@@ -279,9 +279,8 @@
                                 :target #js {:tagName "DIV"}
                                 :preventDefault (fn []
                                                   (swap! prevent-default-calls inc))})
-          (is (= 3 @prevent-default-calls))
-          (is (= [[:actions/open-header-settings]]
-                 (-> @dispatch-calls (nth 2) :effects)))
+          (is (= 2 @prevent-default-calls))
+          (is (= 2 (count @dispatch-calls)))
           (keydown-handler #js {:key ","
                                 :metaKey false
                                 :ctrlKey false
@@ -289,15 +288,15 @@
                                 :target #js {:tagName "TEXTAREA"}
                                 :preventDefault (fn []
                                                   (swap! prevent-default-calls inc))})
-          (is (= 3 @prevent-default-calls))
-          (is (= 3 (count @dispatch-calls)))
+          (is (= 2 @prevent-default-calls))
+          (is (= 2 (count @dispatch-calls)))
           (swap! store assoc-in [:asset-selector :visible-dropdown] :asset-selector)
           (keydown-handler #js {:key "Escape"
                                 :metaKey false
                                 :ctrlKey false
                                 :preventDefault (fn [] nil)})
           (is (= [[:actions/handle-asset-selector-shortcut "Escape" false false nil]]
-                 (-> @dispatch-calls (nth 3) :effects)))
+                 (-> @dispatch-calls (nth 2) :effects)))
           (startup-runtime/install-asset-selector-shortcuts!
            {:store store
             :dispatch! dispatch!})

@@ -7,7 +7,6 @@
    :close-mobile-header-menu header-actions/close-mobile-header-menu
    :open-header-settings header-actions/open-header-settings
    :close-header-settings header-actions/close-header-settings
-   :handle-header-settings-keydown header-actions/handle-header-settings-keydown
    :request-agent-storage-mode-change header-actions/request-agent-storage-mode-change
    :cancel-agent-storage-mode-change header-actions/cancel-agent-storage-mode-change
    :confirm-agent-storage-mode-change header-actions/confirm-agent-storage-mode-change
