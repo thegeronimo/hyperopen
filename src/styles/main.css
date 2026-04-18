@@ -2232,7 +2232,10 @@
   }
 
   .ts-pop {
+    display: flex;
+    flex-direction: column;
     max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 72px);
     overflow: hidden;
     color: var(--o-text);
     text-align: left;
@@ -2258,6 +2261,7 @@
 
   .ts-pop-head {
     display: flex;
+    flex-shrink: 0;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
@@ -2321,7 +2325,8 @@
   }
 
   .ts-pop-body {
-    max-height: min(520px, calc(100vh - 150px));
+    flex: 1 1 auto;
+    min-height: 0;
     padding: 14px;
     overflow-y: auto;
   }
@@ -2470,6 +2475,7 @@
 
   .ts-pop-foot {
     display: flex;
+    flex-shrink: 0;
     align-items: center;
     gap: 8px;
     padding: 10px 16px 12px;

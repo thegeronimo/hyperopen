@@ -65,7 +65,7 @@
         market-orders-row (row-by-id sections :confirmations :confirm-market-orders)
         sound-row (row-by-id sections :alerts :sound-on-fill)
         fill-markers-row (row-by-id sections :display :fill-markers)]
-    (is (= [:confirmations :alerts :display :session]
+    (is (= [:session :confirmations :alerts :display]
            (mapv :id sections)))
     (is (= "trading-settings-storage-mode-row" (:data-role session-row)))
     (is (= "These settings live on this device only."

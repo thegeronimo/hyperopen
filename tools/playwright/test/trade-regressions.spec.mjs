@@ -2038,6 +2038,10 @@ test("trading settings renders compact popover rows without clipping @regression
     expect(Math.round(bounds?.width ?? 0)).toBe(400);
     expect(Math.round((bounds?.x ?? 0) + (bounds?.width ?? 0))).toBeGreaterThanOrEqual(1260);
     expect(Math.round(bounds?.y ?? 0)).toBe(56);
+    const bodyHasInternalScroll = await desktopPanel.locator(".ts-pop-body").evaluate((node) => {
+      return node.scrollHeight > node.clientHeight + 1;
+    });
+    expect(bodyHasInternalScroll).toBe(false);
   }
 
   await expect(settingsSurface).toHaveAttribute("role", "dialog");

@@ -143,10 +143,10 @@
     (is (some? session-section))
     (is (some? alerts-section))
     (is (some? display-section))
-    (is (= ["trading-settings-confirmations-section"
+    (is (= ["trading-settings-session-section"
+            "trading-settings-confirmations-section"
             "trading-settings-alerts-section"
-            "trading-settings-display-section"
-            "trading-settings-session-section"]
+            "trading-settings-display-section"]
            (ordered-settings-sections view)))
     (is (= "dialog" (get-in panel [1 :role])))
     (is (= "Trading settings" (get-in panel [1 :aria-label])))

@@ -245,6 +245,33 @@
      :keydown-action trading-settings-keydown-action
      :footer-note trading-settings-footer-copy
      :sections [(settings-section
+                 :session
+                 "Session"
+                 "Sign-in behavior"
+                 [(settings-row :storage-mode
+                                "Remember session"
+                                "Stay signed in across browser restarts."
+                                remember-session?
+                                :session
+                                [[:actions/request-agent-storage-mode-change
+                                  (not remember-session?)]]
+                                :tooltip "Keep trading enabled across browser restarts on this device."
+                                :confirmation (when (= :agent-storage-mode
+                                                       (get-in state [:header-ui :settings-confirmation :kind]))
+                                                confirmation))
+                  (settings-row :local-protection-mode
+                                "Lock trading with passkey"
+                                "Require passkey for sensitive actions."
+                                passkey-enabled?
+                                :key
+                                [[:actions/request-agent-local-protection-mode-change
+                                  (if passkey-enabled? :plain :passkey)]]
+                                :tooltip (passkey-toggle-tooltip-copy remember-session?
+                                                                      passkey-capable?
+                                                                      passkey-enabled?
+                                                                      agent-status)
+                                :disabled? passkey-disabled?)])
+                (settings-section
                  :confirmations
                  "Confirmations"
                  "Ask before you trade"
@@ -309,34 +336,7 @@
                                 :marker
                                 [[:actions/set-fill-markers-enabled
                                   (not (trading-settings/show-fill-markers? state))]]
-                                :tooltip "Show buy and sell markers for the active asset on the chart.")])
-                (settings-section
-                 :session
-                 "Session"
-                 "Sign-in behavior"
-                 [(settings-row :storage-mode
-                                "Remember session"
-                                "Stay signed in across browser restarts."
-                                remember-session?
-                                :session
-                                [[:actions/request-agent-storage-mode-change
-                                  (not remember-session?)]]
-                                :tooltip "Keep trading enabled across browser restarts on this device."
-                                :confirmation (when (= :agent-storage-mode
-                                                       (get-in state [:header-ui :settings-confirmation :kind]))
-                                                confirmation))
-                  (settings-row :local-protection-mode
-                                "Lock trading with passkey"
-                                "Require passkey for sensitive actions."
-                                passkey-enabled?
-                                :key
-                                [[:actions/request-agent-local-protection-mode-change
-                                  (if passkey-enabled? :plain :passkey)]]
-                                :tooltip (passkey-toggle-tooltip-copy remember-session?
-                                                                      passkey-capable?
-                                                                      passkey-enabled?
-                                                                      agent-status)
-                                :disabled? passkey-disabled?)])]}))
+                                :tooltip "Show buy and sell markers for the active asset on the chart.")])]}))
 
 (defn header-vm
   [state]
