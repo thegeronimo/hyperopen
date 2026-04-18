@@ -145,21 +145,42 @@ test("trade cold startup does not render the static boot loading shell @smoke", 
   );
 });
 
-test("trade footer shows the short build id when the dev build-id asset is present @smoke", async ({ page }) => {
+test("trade footer shows the condensed build badge when the dev build asset is present @smoke", async ({ page }) => {
+  await page.addInitScript(() => {
+    globalThis.__copiedBuildInfo = [];
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText(text) {
+          globalThis.__copiedBuildInfo.push(text);
+          return Promise.resolve();
+        },
+      },
+    });
+  });
   await visitRoute(page, "/trade");
 
   const buildId = page.locator("[data-role='footer-build-id']");
   const tooltip = page.locator("[data-role='footer-build-id-tooltip']");
-  const tooltipValue = page.locator("[data-role='footer-build-id-tooltip-value']");
+  const envPill = page.locator("[data-role='footer-build-env']");
+  const sha = page.locator("[data-role='footer-build-sha']");
+  const deployed = page.locator("[data-role='footer-build-deployed']");
+  const copy = page.locator("[data-role='footer-build-copy']");
+  const commitLink = page.locator("[data-role='footer-build-commit-link']");
 
   await expect(buildId).toBeVisible();
   await expect(buildId).toHaveText(/^[0-9a-f]{7}$/);
   await expect(buildId).not.toHaveAttribute("title", /.+/);
   await buildId.hover();
   await expect(tooltip).toBeVisible();
-  await expect(tooltip).toContainText("Build");
-  await expect(tooltip).toContainText(/[0-9a-f]{40}/);
-  await expect(tooltipValue).toHaveCSS("white-space", "nowrap");
+  await expect(tooltip).toHaveCSS("width", "280px");
+  await expect(envPill).toHaveText(/^(prod|staging|dev)$/);
+  await expect(sha).toHaveAttribute("title", /^[0-9a-f]{40}$/);
+  await expect(sha).toHaveCSS("white-space", "nowrap");
+  await expect(deployed).toContainText("DEPLOYED");
+  await expect(deployed).toContainText(/ago|unknown/);
+  await expect(copy).toHaveAttribute("aria-label", "Copy build info");
+  await expect(commitLink).toHaveCount(0);
 
   const tooltipBox = await tooltip.boundingBox();
   const viewport = page.viewportSize();
@@ -167,6 +188,14 @@ test("trade footer shows the short build id when the dev build-id asset is prese
   expect(viewport).not.toBeNull();
   expect(tooltipBox.x).toBeGreaterThanOrEqual(0);
   expect(tooltipBox.x + tooltipBox.width).toBeLessThanOrEqual(viewport.width);
+
+  await copy.click();
+  await expect(copy).toHaveAttribute("data-copied", "true");
+  await expect
+    .poll(() => page.evaluate(() => globalThis.__copiedBuildInfo?.[0] || ""))
+    .toContain("Build:");
+  await page.keyboard.press("Escape");
+  await expect(tooltip).not.toBeVisible();
 });
 
 test("trade route exposes score-bearing accessibility hooks @smoke", async ({ page }) => {

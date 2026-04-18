@@ -1,5 +1,5 @@
 (ns hyperopen.views.footer.links
-  (:require [clojure.string :as str]))
+  (:require [hyperopen.views.footer.build-badge :as build-badge]))
 
 (def footer-link-classes
   ["text-sm" "text-trading-text" "hover:text-primary" "transition-colors"])
@@ -12,31 +12,6 @@
 
 (def ^:private social-link-group-classes
   ["flex" "items-center" "gap-2"])
-
-(def ^:private footer-build-id-shell-classes
-  ["inline-flex"
-   "items-center"
-   "gap-1.5"
-   "text-xs"
-   "text-trading-text-secondary"
-   "font-mono"])
-
-(def ^:private footer-build-id-icon-classes
-  ["h-3.5"
-   "w-3.5"
-   "shrink-0"
-   "opacity-70"])
-
-(def ^:private footer-build-id-trigger-classes
-  ["inline-flex"
-   "items-center"
-   "gap-1.5"
-   "rounded"
-   "focus-visible:outline-none"
-   "focus-visible:ring-2"
-   "focus-visible:ring-trading-green/70"
-   "focus-visible:ring-offset-1"
-   "focus-visible:ring-offset-base-100"])
 
 (def ^:private social-link-shell-classes
   ["inline-flex"
@@ -103,91 +78,8 @@
         :aria-label "GitHub"}
     (social-icon "footer-social-github" "GitHub" github-icon)]])
 
-(defn- short-build-id
-  [build-id]
-  (let [text (some-> build-id str str/trim)]
-    (when (seq text)
-      (subs text 0 (min 7 (count text))))))
-
-(defn- render-build-id
-  [build-id]
-  (when-let [short-id (short-build-id build-id)]
-    [:span {:class ["group/tooltip" "relative" "inline-flex" "items-center"]
-            :data-role "footer-build-id-shell"}
-     [:span {:class (into footer-build-id-shell-classes footer-build-id-trigger-classes)
-             :data-role "footer-build-id"
-             :tab-index 0}
-      [:svg {:class footer-build-id-icon-classes
-             :viewBox "0 0 16 16"
-             :fill "none"
-             :stroke "currentColor"
-             :stroke-width "1.5"
-             :stroke-linecap "round"
-             :stroke-linejoin "round"
-             :aria-hidden true}
-       [:path {:d "M6.2 5.2 4.7 3.7a2 2 0 0 0-2.8 2.8l1.5 1.5a2 2 0 0 0 2.8 0l.8-.8"}]
-       [:path {:d "M9.8 10.8 11.3 12.3a2 2 0 1 0 2.8-2.8l-1.5-1.5a2 2 0 0 0-2.8 0l-.8.8"}]
-       [:path {:d "M6.3 9.7 9.7 6.3"}]]
-      short-id]
-     [:div {:class ["pointer-events-none"
-                    "absolute"
-                    "bottom-[calc(100%+9px)]"
-                    "right-0"
-                    "z-20"
-                    "w-max"
-                    "max-w-[calc(100vw-2rem)]"
-                    "rounded-[10px]"
-                    "border"
-                    "border-[#2f3a40]"
-                    "bg-[#162127]"
-                    "px-3"
-                    "py-2.5"
-                    "text-[0.69rem]"
-                    "leading-[1.45]"
-                    "text-left"
-                    "text-[#d7e1e3]"
-                    "opacity-0"
-                    "shadow-[0_18px_50px_rgba(0,0,0,0.38)]"
-                    "transition-all"
-                    "duration-150"
-                    "translate-y-1"
-                    "group-hover/tooltip:translate-y-0"
-                    "group-hover/tooltip:opacity-100"
-                    "group-focus-within/tooltip:translate-y-0"
-                    "group-focus-within/tooltip:opacity-100"]
-            :role "tooltip"
-            :data-role "footer-build-id-tooltip"}
-      [:div {:class ["flex" "items-center" "gap-2" "whitespace-nowrap"]
-             :data-role "footer-build-id-tooltip-content"}
-       [:div {:class ["text-[0.62rem]"
-                      "font-semibold"
-                      "uppercase"
-                      "tracking-[0.12em]"
-                      "text-[#8ea2a8]"]}
-        "Build"]
-       [:div {:class ["font-mono" "text-[0.72rem]" "whitespace-nowrap" "text-[#d7e1e3]"]
-              :data-role "footer-build-id-tooltip-value"}
-        build-id]]]
-     [:div {:class ["pointer-events-none"
-                    "absolute"
-                    "bottom-[calc(100%+4px)]"
-                    "right-[1.35rem]"
-                    "h-2.5"
-                    "w-2.5"
-                    "rotate-45"
-                    "border-b"
-                    "border-r"
-                    "border-[#2f3a40]"
-                    "bg-[#162127]"
-                    "opacity-0"
-                    "transition-opacity"
-                    "duration-150"
-                    "group-hover/tooltip:opacity-100"
-                    "group-focus-within/tooltip:opacity-100"]
-            :data-role "footer-build-id-tooltip-caret"}]]))
-
 (defn render
-  [{:keys [links build-id]}]
+  [{:keys [links build now-ms]}]
   [:div {:class footer-utility-link-classes
          :data-role "footer-utility-links"}
    (when (seq links)
@@ -202,5 +94,6 @@
       [:span {:class ["h-3" "w-px" "bg-base-content/15"]
               :data-role "footer-links-divider"
               :aria-hidden true}]])
-   (render-build-id build-id)
+   (build-badge/render {:build build
+                        :now-ms now-ms})
    (render-social-icons)])

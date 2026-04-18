@@ -24,6 +24,7 @@ import {
   generateReleaseArtifacts,
   hashContent,
   normalizeModuleUriToRelativeJsPath,
+  resolveReleaseBuildInfo,
   resolveReleaseBuildId,
   rewriteMainModuleLoaderRuntime,
   rewriteAppIndexHtml,
@@ -353,6 +354,33 @@ test("buildSiteMetadata preserves a non-empty release build id", () => {
   assert.equal(metadata.buildId, "abc123def456");
 });
 
+test("buildSiteMetadata preserves normalized release build info", () => {
+  const metadata = buildSiteMetadata({
+    canonicalOrigin: SAMPLE_CANONICAL_ORIGIN,
+    indexHtml: buildSampleIndexHtml(),
+    buildInfo: {
+      sha: "f18fbc2a3b00e4e324b39796ffdc1a9cd9cff7e619c",
+      short: "f18fbc2",
+      branch: "main",
+      message: "perf(portfolio): memoize returns chart series",
+      deployedAt: "2026-04-17T14:28:00.000Z",
+      env: "prod",
+      region: "global",
+    },
+  });
+
+  assert.deepEqual(metadata.build, {
+    sha: "f18fbc2a3b00e4e324b39796ffdc1a9cd9cff7e619c",
+    short: "f18fbc2",
+    branch: "main",
+    message: "perf(portfolio): memoize returns chart series",
+    deployedAt: "2026-04-17T14:28:00.000Z",
+    env: "prod",
+    region: "global",
+  });
+  assert.equal(metadata.buildId, "f18fbc2a3b00e4e324b39796ffdc1a9cd9cff7e619c");
+});
+
 test("resolveReleaseBuildId prefers the environment override", () => {
   const previousBuildId = process.env.HYPEROPEN_BUILD_ID;
   process.env.HYPEROPEN_BUILD_ID = "env-build-id";
@@ -364,6 +392,64 @@ test("resolveReleaseBuildId prefers the environment override", () => {
       delete process.env.HYPEROPEN_BUILD_ID;
     } else {
       process.env.HYPEROPEN_BUILD_ID = previousBuildId;
+    }
+  }
+});
+
+test("resolveReleaseBuildInfo prefers explicit and Cloudflare Pages metadata", () => {
+  const previousEnv = {
+    HYPEROPEN_BUILD_ID: process.env.HYPEROPEN_BUILD_ID,
+    HYPEROPEN_BUILD_MESSAGE: process.env.HYPEROPEN_BUILD_MESSAGE,
+    HYPEROPEN_DEPLOYED_AT: process.env.HYPEROPEN_DEPLOYED_AT,
+    HYPEROPEN_BUILD_ENV: process.env.HYPEROPEN_BUILD_ENV,
+    HYPEROPEN_BUILD_REGION: process.env.HYPEROPEN_BUILD_REGION,
+    CF_PAGES_COMMIT_SHA: process.env.CF_PAGES_COMMIT_SHA,
+    CF_PAGES_BRANCH: process.env.CF_PAGES_BRANCH,
+  };
+  process.env.CF_PAGES_COMMIT_SHA = "9b2ef51a8cc0d4e19bf832a04eebfc71c2a09a81d6";
+  process.env.CF_PAGES_BRANCH = "feature/twap-preview";
+  process.env.HYPEROPEN_BUILD_MESSAGE = "feat(trade): add TWAP slicing preview";
+  process.env.HYPEROPEN_DEPLOYED_AT = "2026-04-17T15:02:00.000Z";
+  process.env.HYPEROPEN_BUILD_ENV = "staging";
+  process.env.HYPEROPEN_BUILD_REGION = "global";
+  delete process.env.HYPEROPEN_BUILD_ID;
+
+  try {
+    assert.deepEqual(resolveReleaseBuildInfo(), {
+      sha: "9b2ef51a8cc0d4e19bf832a04eebfc71c2a09a81d6",
+      short: "9b2ef51",
+      branch: "feature/twap-preview",
+      message: "feat(trade): add TWAP slicing preview",
+      deployedAt: "2026-04-17T15:02:00.000Z",
+      env: "staging",
+      region: "global",
+    });
+  } finally {
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+});
+
+test("resolveReleaseBuildInfo does not include commit-link metadata", () => {
+  const previousEnv = {
+    HYPEROPEN_BUILD_ID: process.env.HYPEROPEN_BUILD_ID,
+  };
+  process.env.HYPEROPEN_BUILD_ID = "10666e2abcdef10666e2abcdef10666e2abcdef0";
+
+  try {
+    assert.equal(Object.hasOwn(resolveReleaseBuildInfo(), "commitHref"), false);
+  } finally {
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
     }
   }
 });
@@ -512,6 +598,7 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
   assert.equal(copiedFont, "font");
   assert.match(routeMetadataScript, /const metadata = \{/);
   assert.match(routeMetadataScript, /globalThis\.HYPEROPEN_BUILD_ID = buildId;/);
+  assert.match(routeMetadataScript, /globalThis\.HYPEROPEN_BUILD = build;/);
   assert.match(routeMetadataScript, /window\.addEventListener\("popstate", syncMetadata\)/);
 
   assert.equal(
@@ -531,6 +618,10 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
   }
 
   assert.equal(siteMetadata.origin, SAMPLE_CANONICAL_ORIGIN);
+  assert.equal(siteMetadata.build.sha.length, 40);
+  assert.equal(siteMetadata.build.short.length, 7);
+  assert.match(siteMetadata.build.deployedAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(Object.hasOwn(siteMetadata.build, "commitHref"), false);
   assert.equal(siteMetadata.routes.find((route) => route.id === "api")?.path, "/api");
   assert.deepEqual(result.immutableAssetPaths, [
     `/css/${result.cssFileName}`,

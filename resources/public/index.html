@@ -94,6 +94,7 @@
     </template>
     <script>
       (function () {
+        const buildInfoUrl = "/build-info.json";
         const buildIdUrl = "/build-id.txt";
         const manifestUrl = "/js/manifest.json";
         const defaultMainScriptUrl = "/js/main.js";
@@ -177,9 +178,29 @@
             .catch(() => {});
         }
 
+        function syncBuildInfo() {
+          return fetch(buildInfoUrl, { cache: "no-cache" })
+            .then((response) => (response.ok ? response.json() : null))
+            .then((build) => {
+              if (!build || typeof build !== "object") {
+                return syncBuildId();
+              }
+
+              const sha = typeof build.sha === "string" ? build.sha.trim() : "";
+              if (!sha) {
+                return syncBuildId();
+              }
+
+              globalThis.HYPEROPEN_BUILD = build;
+              globalThis.HYPEROPEN_BUILD_ID = sha;
+              return null;
+            })
+            .catch(() => syncBuildId());
+        }
+
         mountBootShell();
 
-        syncBuildId().finally(() => {
+        syncBuildInfo().finally(() => {
           fetch(manifestUrl, { cache: "no-cache" })
             .then((response) => (response.ok ? response.json() : null))
             .then((manifest) => {

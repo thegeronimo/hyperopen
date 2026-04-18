@@ -3,6 +3,7 @@
             [hyperopen.workbench.support.fixtures :as fixtures]
             [hyperopen.workbench.support.layout :as layout]
             [hyperopen.workbench.support.state :as ws]
+            [hyperopen.views.footer.build-badge :as build-badge]
             [hyperopen.views.footer-view :as footer-view]
             [hyperopen.views.header-view :as header-view]
             [hyperopen.views.notifications-view :as notifications-view]
@@ -183,6 +184,65 @@
                      "p-6"]}
        content]]])))
 
+(defn- iso-ago
+  [now-ms offset-ms]
+  (.toISOString (js/Date. (- now-ms offset-ms))))
+
+(defn- build-fixtures
+  [now-ms]
+  [{:title "Fresh prod build"
+    :note "Deployed within 6h; shows the live pulse."
+    :build {:sha "f18fbc2a3b00e4e324b39796ffdc1a9cd9cff7e619c"
+            :short "f18fbc2"
+            :branch "main"
+            :message "perf(portfolio): memoize returns chart series"
+            :deployed-at (iso-ago now-ms (+ (* 1 60 60 1000) (* 48 60 1000)))
+            :env "prod"
+            :region "global"}}
+   {:title "Staging build"
+    :note "Amber environment pill signals non-prod."
+    :build {:sha "9b2ef51a8cc0d4e19bf832a04eebfc71c2a09a81d6"
+            :short "9b2ef51"
+            :branch "feat/twap-preview"
+            :message "feat(trade): add TWAP slicing preview"
+            :deployed-at (iso-ago now-ms (* 3 60 1000))
+            :env "staging"
+            :region "global"}}
+   {:title "Aged build"
+    :note "Live pulse is replaced with the stale marker."
+    :build {:sha "a77c109dd23bf5e4419ac0f71e00a9bbc2d1e442a3"
+            :short "a77c109"
+            :branch "main"
+            :message "fix(orderbook): prevent stale rows on ws reconnect"
+            :deployed-at (iso-ago now-ms (* 25 60 60 1000))
+            :env "prod"
+            :region "global"}}])
+
+(defn- build-card
+  [now-ms {:keys [title note build]}]
+  [:div {:class ["flex"
+                 "min-h-[200px]"
+                 "flex-col"
+                 "gap-4"
+                 "rounded-[8px]"
+                 "border"
+                 "border-base-300/70"
+                 "bg-base-200/80"
+                 "p-5"]}
+   [:div {:class ["text-sm" "font-semibold" "text-trading-text"]} title]
+   [:div {:class ["flex"
+                  "min-h-[84px]"
+                  "items-center"
+                  "rounded-[8px]"
+                  "border"
+                  "border-dashed"
+                  "border-base-300/80"
+                  "bg-black/20"
+                  "px-3"]}
+    (build-badge/render {:build build
+                         :now-ms now-ms})]
+   [:p {:class ["m-0" "text-xs" "leading-5" "text-trading-text-secondary"]} note]])
+
 (portfolio/defscene trade-header
   :params trade-header-store
   [store]
@@ -234,6 +294,21 @@
     (shell-reducers)
     [:div {:class ["min-h-[540px]" "pb-24"]}
      (footer-view/footer-view @store)])))
+
+(portfolio/defscene condensed-build-badge-states
+  []
+  (let [now-ms (.now js/Date)]
+    (layout/page-shell
+     [:div {:class ["space-y-5" "p-6"]}
+      [:div {:class ["space-y-1"]}
+       [:h2 {:class ["m-0" "text-base" "font-semibold" "text-trading-text"]}
+        "Condensed build badge"]
+       [:p {:class ["m-0" "text-sm" "text-trading-text-secondary"]}
+        "Fresh prod, staging, and aged states from the footer handoff."]]
+      [:div {:class ["grid" "grid-cols-1" "gap-4" "lg:grid-cols-3"]}
+       (for [fixture (build-fixtures now-ms)]
+         ^{:key (:title fixture)}
+         (build-card now-ms fixture))]])))
 
 (portfolio/defscene notifications-stacked
   :params notifications-store

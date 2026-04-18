@@ -1,6 +1,7 @@
 (ns hyperopen.views.footer-view
   (:require [hyperopen.config :as app-config]
             [hyperopen.platform :as platform]
+            [hyperopen.views.footer.build-badge :as build-badge]
             [hyperopen.views.footer.connection-meter :as connection-meter]
             [hyperopen.views.footer.diagnostics-drawer :as diagnostics-drawer]
             [hyperopen.views.footer.links :as footer-links]
@@ -18,6 +19,12 @@
   (some-> js/globalThis
           (aget "HYPEROPEN_BUILD_ID")
           str))
+
+(defn- app-build
+  [now-ms]
+  (build-badge/normalize-build
+   (some-> js/globalThis (aget "HYPEROPEN_BUILD"))
+   (app-build-id)))
 
 (defn- browser-network-connection
   []
@@ -37,11 +44,12 @@
 
 (defn footer-view
   [state]
-  (let [vm (diagnostics-vm/footer-view-model
+  (let [now-ms (platform/now-ms)
+        vm (diagnostics-vm/footer-view-model
             state
             {:app-version default-app-version
              :build-id (app-build-id)
-             :wall-now-ms (platform/now-ms)
+             :wall-now-ms now-ms
              :diagnostics-timeline-limit diagnostics-timeline-limit
              :network-hint (browser-network-hint)})
         diagnostics-open? (:diagnostics-open? vm)
@@ -74,6 +82,7 @@
        [:div {:class ["flex" "items-center"]}
         (connection-meter/render (:connection-meter vm))]
        (footer-links/render {:links (:footer-links vm)
-                             :build-id (app-build-id)})]
+                             :build (app-build now-ms)
+                             :now-ms now-ms})]
       (when-let [diagnostics (:diagnostics vm)]
         (diagnostics-drawer/render diagnostics))]]))

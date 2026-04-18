@@ -242,6 +242,95 @@ export function rewriteMainModuleLoaderRuntime(mainModuleSource) {
   return rewrittenSource;
 }
 
+function nonEmptyEnv(name) {
+  const value = process.env[name];
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
+function readGit(args) {
+  try {
+    return execFileSync("git", args, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch (_error) {
+    return null;
+  }
+}
+
+function normalizeDeployedAt(value) {
+  const rawValue = typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+  const date = rawValue ? new Date(rawValue) : new Date();
+  return Number.isFinite(date.getTime()) ? date.toISOString() : new Date().toISOString();
+}
+
+function normalizeBuildEnv(value, branch) {
+  const explicit = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (["prod", "staging", "dev"].includes(explicit)) {
+    return explicit;
+  }
+
+  if (nonEmptyEnv("CF_PAGES")) {
+    return branch === "main" || branch === "master" ? "prod" : "staging";
+  }
+
+  return "dev";
+}
+
+export function resolveReleaseBuildInfo() {
+  const sha = firstNonEmpty(
+    nonEmptyEnv("HYPEROPEN_BUILD_ID"),
+    nonEmptyEnv("HYPEROPEN_GIT_SHA"),
+    nonEmptyEnv("VITE_GIT_SHA"),
+    nonEmptyEnv("GIT_COMMIT_SHA"),
+    nonEmptyEnv("GITHUB_SHA"),
+    nonEmptyEnv("CF_PAGES_COMMIT_SHA"),
+    readGit(["rev-parse", "HEAD"])
+  );
+
+  if (!sha) {
+    return null;
+  }
+
+  const branch = firstNonEmpty(
+    nonEmptyEnv("HYPEROPEN_BUILD_BRANCH"),
+    nonEmptyEnv("GIT_BRANCH"),
+    nonEmptyEnv("GITHUB_REF_NAME"),
+    nonEmptyEnv("CF_PAGES_BRANCH"),
+    readGit(["rev-parse", "--abbrev-ref", "HEAD"]),
+    "unknown"
+  );
+  const message = firstNonEmpty(
+    nonEmptyEnv("HYPEROPEN_BUILD_MESSAGE"),
+    nonEmptyEnv("GIT_COMMIT_MESSAGE"),
+    readGit(["log", "-1", "--pretty=%s"]),
+    "Build metadata unavailable"
+  );
+  const env = normalizeBuildEnv(nonEmptyEnv("HYPEROPEN_BUILD_ENV"), branch);
+
+  return {
+    sha,
+    short: sha.slice(0, 7),
+    branch,
+    message,
+    deployedAt: normalizeDeployedAt(
+      firstNonEmpty(nonEmptyEnv("HYPEROPEN_DEPLOYED_AT"), nonEmptyEnv("HYPEROPEN_BUILD_DEPLOYED_AT"))
+    ),
+    env,
+    region: firstNonEmpty(nonEmptyEnv("HYPEROPEN_BUILD_REGION"), "global"),
+  };
+}
+
 export function resolveReleaseBuildId() {
   const envBuildId =
     typeof process.env.HYPEROPEN_BUILD_ID === "string"
@@ -251,14 +340,7 @@ export function resolveReleaseBuildId() {
     return envBuildId;
   }
 
-  try {
-    return execFileSync("git", ["rev-parse", "HEAD"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-  } catch (_error) {
-    return null;
-  }
+  return firstNonEmpty(nonEmptyEnv("CF_PAGES_COMMIT_SHA"), readGit(["rev-parse", "HEAD"]));
 }
 
 export async function generateReleaseArtifacts({
@@ -292,6 +374,7 @@ export async function generateReleaseArtifacts({
     canonicalOrigin: normalizeCanonicalOrigin(canonicalOrigin),
     indexHtml: sourceIndexHtml,
     buildId: resolveReleaseBuildId(),
+    buildInfo: resolveReleaseBuildInfo(),
   });
   const releaseMetadataScriptSource = buildReleaseMetadataSyncScript(siteMetadata);
   const releaseMetadataScriptOutputPath = path.join(outputRoot, RELEASE_ROUTE_METADATA_SCRIPT_PATH);

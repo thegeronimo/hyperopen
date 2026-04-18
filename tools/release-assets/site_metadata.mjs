@@ -269,15 +269,53 @@ export function collectReleaseRootAssetPublicPaths(indexHtml) {
   ].sort();
 }
 
-export function buildSiteMetadata({ canonicalOrigin, indexHtml, buildId = null }) {
+const BUILD_ENVS = new Set(["prod", "staging", "dev"]);
+
+function nonEmptyString(value) {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function normalizeBuildEnv(value) {
+  const env = nonEmptyString(value)?.toLowerCase();
+  return BUILD_ENVS.has(env) ? env : "dev";
+}
+
+export function normalizeBuildInfo(buildInfo) {
+  if (!buildInfo || typeof buildInfo !== "object") {
+    return null;
+  }
+
+  const sha = nonEmptyString(buildInfo.sha);
+  if (!sha) {
+    return null;
+  }
+
+  const short = nonEmptyString(buildInfo.short) || sha.slice(0, 7);
+  const deployedAt = nonEmptyString(buildInfo.deployedAt) || new Date().toISOString();
+
+  return {
+    sha,
+    short: short.slice(0, 12),
+    branch: nonEmptyString(buildInfo.branch) || "unknown",
+    message: nonEmptyString(buildInfo.message) || "Build metadata unavailable",
+    deployedAt,
+    env: normalizeBuildEnv(buildInfo.env),
+    region: nonEmptyString(buildInfo.region) || "global",
+  };
+}
+
+export function buildSiteMetadata({ canonicalOrigin, indexHtml, buildId = null, buildInfo = null }) {
   const origin = normalizeCanonicalOrigin(canonicalOrigin);
   const normalizedBuildId =
     typeof buildId === "string" && buildId.trim().length > 0 ? buildId.trim() : null;
+  const normalizedBuild = normalizeBuildInfo(buildInfo);
+  const resolvedBuildId = normalizedBuild?.sha || normalizedBuildId;
 
   return {
     siteName: "Hyperopen",
     origin,
-    buildId: normalizedBuildId,
+    buildId: resolvedBuildId,
+    build: normalizedBuild,
     routes: PUBLIC_ROUTE_METADATA.map((route) => ({
       ...validateRouteMetadata(route),
       path: normalizePublicPath(route.path),
@@ -337,7 +375,11 @@ export function buildReleaseMetadataSyncScript(siteMetadata) {
     "",
     "(function () {",
     `  const metadata = ${metadataJson};`,
-    "  const buildId = typeof metadata.buildId === \"string\" ? metadata.buildId.trim() : \"\";",
+    "  const build = metadata.build && typeof metadata.build === \"object\" ? metadata.build : null;",
+    "  if (build) {",
+    "    globalThis.HYPEROPEN_BUILD = build;",
+    "  }",
+    "  const buildId = typeof metadata.buildId === \"string\" ? metadata.buildId.trim() : (build && typeof build.sha === \"string\" ? build.sha.trim() : \"\");",
     "  if (buildId) {",
     "    globalThis.HYPEROPEN_BUILD_ID = buildId;",
     "  }",

@@ -30,6 +30,22 @@
                    (= data-role (get-in % [1 :data-role])))
              node))
 
+(defn- with-global-property
+  [property value f]
+  (let [descriptor (js/Object.getOwnPropertyDescriptor js/globalThis property)
+        had-property? (some? descriptor)]
+    (js/Object.defineProperty js/globalThis
+                              property
+                              #js {:value value
+                                   :configurable true
+                                   :writable true})
+    (try
+      (f)
+      (finally
+        (if had-property?
+          (js/Object.defineProperty js/globalThis property descriptor)
+          (js/Reflect.deleteProperty js/globalThis property))))))
+
 (defn- base-state []
   {:websocket {:health {:generated-at-ms 10000
                         :transport {:state :connected
@@ -44,19 +60,11 @@
 
 (defn- with-global-build-id
   [build-id f]
-  (let [build-id-descriptor (js/Object.getOwnPropertyDescriptor js/globalThis "HYPEROPEN_BUILD_ID")
-        had-build-id? (some? build-id-descriptor)]
-    (js/Object.defineProperty js/globalThis
-                              "HYPEROPEN_BUILD_ID"
-                              #js {:value build-id
-                                   :configurable true
-                                   :writable true})
-    (try
-      (f)
-      (finally
-        (if had-build-id?
-          (js/Object.defineProperty js/globalThis "HYPEROPEN_BUILD_ID" build-id-descriptor)
-          (js/Reflect.deleteProperty js/globalThis "HYPEROPEN_BUILD_ID"))))))
+  (with-global-property "HYPEROPEN_BUILD_ID" build-id f))
+
+(defn- with-global-build
+  [build f]
+  (with-global-property "HYPEROPEN_BUILD" build f))
 
 (deftest footer-renders-short-build-id-when-global-build-id-is-present-test
   (with-global-build-id
@@ -66,12 +74,51 @@
             utility-links (find-node-by-data-role view "footer-utility-links")
             build-id-node (find-node-by-data-role utility-links "footer-build-id")
             tooltip-node (find-node-by-data-role utility-links "footer-build-id-tooltip")
-            caret-node (find-node-by-data-role utility-links "footer-build-id-tooltip-caret")]
+            sha-node (find-node-by-data-role tooltip-node "footer-build-sha")
+            copy-node (find-node-by-data-role tooltip-node "footer-build-copy")
+            commit-link-node (find-node-by-data-role tooltip-node "footer-build-commit-link")]
         (is (some? utility-links))
         (is (some? build-id-node))
         (is (some? tooltip-node))
-        (is (some? caret-node))
         (is (= "999fe1a" (node-text build-id-node)))
         (is (nil? (get-in build-id-node [1 :title])))
-        (is (= #{"Build" "999fe1a1234567890"}
-               (set (collect-strings tooltip-node))))))))
+        (is (= "tooltip" (get-in tooltip-node [1 :role])))
+        (is (= "999fe1a1234567890" (get-in sha-node [1 :title])))
+        (is (= "Copy build info" (get-in copy-node [1 :aria-label])))
+        (is (nil? commit-link-node))
+        (is (str/includes? (node-text tooltip-node) "dev"))
+        (is (str/includes? (node-text tooltip-node) "DEPLOYED"))))))
+
+(deftest footer-renders-condensed-build-popover-from-build-metadata-test
+  (with-global-build
+    #js {:sha "f18fbc2a3b00e4e324b39796ffdc1a9cd9cff7e619c"
+         :short "f18fbc2"
+         :branch "main"
+         :message "perf(portfolio): memoize returns chart series"
+         :deployedAt "2026-04-17T14:28:00.000Z"
+         :env "prod"
+         :region "global"}
+    (fn []
+      (let [view (footer-view/footer-view (base-state))
+            utility-links (find-node-by-data-role view "footer-utility-links")
+            build-id-node (find-node-by-data-role utility-links "footer-build-id")
+            tooltip-node (find-node-by-data-role utility-links "footer-build-id-tooltip")
+            env-node (find-node-by-data-role tooltip-node "footer-build-env")
+            sha-node (find-node-by-data-role tooltip-node "footer-build-sha")
+            deployed-node (find-node-by-data-role tooltip-node "footer-build-deployed")
+            copy-node (find-node-by-data-role tooltip-node "footer-build-copy")
+            commit-link-node (find-node-by-data-role tooltip-node "footer-build-commit-link")]
+        (is (= "f18fbc2" (node-text build-id-node)))
+        (is (= "footer-build-popover-f18fbc2" (get-in tooltip-node [1 :id])))
+        (is (= "footer-build-popover-f18fbc2" (get-in build-id-node [1 :aria-describedby])))
+        (is (= "prod" (str/lower-case (node-text env-node))))
+        (is (= "f18fbc2a3b00e4e324b39796ffdc1a9cd9cff7e619c" (get-in sha-node [1 :title])))
+        (is (str/includes? (node-text deployed-node) "DEPLOYED"))
+        (is (= "Copy build info" (get-in copy-node [1 :aria-label])))
+        (is (str/includes? (get-in copy-node [1 :data-copy-payload])
+                           "Build: f18fbc2a3b00e4e324b39796ffdc1a9cd9cff7e619c"))
+        (is (str/includes? (get-in copy-node [1 :data-copy-payload])
+                           "Env: prod (global)"))
+        (is (str/includes? (get-in copy-node [1 :data-copy-payload])
+                           "Message: perf(portfolio): memoize returns chart series"))
+        (is (nil? commit-link-node))))))

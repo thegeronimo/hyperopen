@@ -32,6 +32,7 @@ yarn-error.log*
 # Tailwind generated CSS
 /resources/public/css/main.css
 /resources/public/build-id.txt
+/resources/public/build-info.json
 
 # Local tooling and temp output
 /.calva/
