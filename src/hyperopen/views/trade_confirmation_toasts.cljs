@@ -75,6 +75,17 @@
     (str "$" (fmt/safe-to-fixed (/ notional 1000) 1) "k")
     (notional-text notional)))
 
+(defn- signed-compact-notional-text
+  [notional]
+  (let [amount (or (finite-number notional) 0)
+        amount* (if (zero? amount) 0 amount)
+        sign (if (neg? amount*) "-" "+")
+        magnitude (js/Math.abs amount*)]
+    (str sign
+         (if (>= magnitude 1000)
+           (str "$" (fmt/safe-to-fixed (/ magnitude 1000) 1) "k")
+           (notional-text magnitude)))))
+
 (defn- slippage-text
   [trade]
   (or (some-> (:slippagePct trade)
@@ -365,11 +376,12 @@
    (when (fills-props? fills)
      (let [groups (group-fills fills)
            total-notional (reduce + 0 (map #(* (:qty %) (:price %)) fills))
-           net-qty (reduce (fn [sum fill]
-                             (+ sum (* (:qty fill)
-                                       (if (= :buy (:side fill)) 1 -1))))
-                           0
-                           fills)]
+           net-flow-usd (reduce (fn [sum fill]
+                                  (+ sum (* (:qty fill)
+                                            (:price fill)
+                                            (if (= :buy (:side fill)) 1 -1))))
+                                0
+                                fills)]
        [:div {:class ["o-blotter" "pointer-events-auto"]
               :data-trade-blotter-surface "true"
               :data-role "BlotterCard"}
@@ -390,9 +402,9 @@
          [:div
           [:div {:class ["k"]} "Net Flow"]
           [:div {:class (cond-> ["v"]
-                          (not (neg? net-qty)) (conj "pos")
-                          (neg? net-qty) (conj "neg"))}
-           (when (not (neg? net-qty)) "+") (qty-text net-qty)]]
+                          (not (neg? net-flow-usd)) (conj "pos")
+                          (neg? net-flow-usd) (conj "neg"))}
+           (signed-compact-notional-text net-flow-usd)]]
          [:div
           [:div {:class ["k"]} "Notional"]
           [:div {:class ["v"]} (compact-notional-text total-notional)]]]
