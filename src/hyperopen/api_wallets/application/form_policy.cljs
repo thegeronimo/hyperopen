@@ -31,9 +31,12 @@
 (defn generated-private-key
   [generated-state form-address]
   (let [generated-address (:address generated-state)
-        generated-private-key (:private-key generated-state)]
-    (when (= (agent-session/normalize-wallet-address generated-address)
-             (agent-session/normalize-wallet-address form-address))
+        generated-private-key (:private-key generated-state)
+        normalized-generated-address (agent-session/normalize-wallet-address generated-address)
+        normalized-form-address (agent-session/normalize-wallet-address form-address)]
+    (when (and normalized-generated-address
+               normalized-form-address
+               (= normalized-generated-address normalized-form-address))
       generated-private-key)))
 
 (defn valid-until-preview-ms
