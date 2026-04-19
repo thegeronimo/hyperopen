@@ -7,6 +7,7 @@
             [hyperopen.state.trading :as trading-state]
             [hyperopen.views.trading-chart.derived-cache :as derived-cache]
             [hyperopen.views.trading-chart.core :as chart-core]
+            [hyperopen.views.trading-chart.toolbar :as toolbar]
             [hyperopen.views.trading-chart.runtime-state :as chart-runtime]
             [hyperopen.views.trading-chart.utils.chart-interop :as chart-interop]
             [hyperopen.views.trading-chart.utils.position-overlay-model :as position-overlay-model]
@@ -253,18 +254,37 @@
      nil)
    2))
 
-(deftest chart-top-menu-uses-base-background-class-test
-  (let [menu (chart-core/chart-top-menu {:chart-options {:timeframes-dropdown-visible false
-                                                          :selected-timeframe :1d
-                                                          :chart-type-dropdown-visible false
-                                                          :selected-chart-type :candlestick
-                                                          :indicators-dropdown-visible false
-                                                          :active-indicators {}}})
-        classes (set (collect-all-classes menu))
-        bg-colors (set (collect-background-colors menu))]
-    (is (contains? classes "bg-base-100"))
-    (is (contains? classes "min-w-0"))
-    (is (not (contains? bg-colors "rgb(30, 41, 55)")))))
+(deftest core-facade-preserves-public-entrypoints-test
+  (let [state {:active-asset "BTC"
+               :active-market {:price-decimals 2}
+               :candles {"BTC" {:1d []}}
+               :chart-options {:timeframes-dropdown-visible false
+                               :selected-timeframe :1d
+                               :chart-type-dropdown-visible false
+                               :selected-chart-type :candlestick
+                               :indicators-dropdown-visible false
+                               :active-indicators {}}}
+        menu (chart-core/chart-top-menu state)
+        canvas (chart-core/chart-canvas []
+                                        :candlestick
+                                        {}
+                                        {:symbol "BTC"
+                                         :timeframe-label "1D"
+                                         :venue "Hyperopen"
+                                         :candle-data []}
+                                        :1d
+                                        {})
+        view (chart-core/trading-chart-view state)]
+    (is (= toolbar/main-timeframes chart-core/main-timeframes))
+    (is (= "chart-toolbar" (get-in menu [1 :data-parity-id])))
+    (is (= "chart-canvas" (get-in canvas [1 :data-parity-id])))
+    (is (= "trading-chart-canvas" (get-in canvas [1 :data-role])))
+    (is (= "region" (get-in canvas [1 :role])))
+    (is (= 0 (get-in canvas [1 :tabindex])))
+    (is (ifn? (chart-canvas-render-hook canvas)))
+    (is (some? (find-first-node view #(= "chart-panel" (get-in % [1 :data-parity-id])))))
+    (is (some? (find-first-node view #(= "chart-toolbar" (get-in % [1 :data-parity-id])))))
+    (is (some? (find-first-node view #(= "chart-canvas" (get-in % [1 :data-parity-id])))))))
 
 (deftest chart-canvas-uses-base-background-class-and-no-inline-legacy-color-test
   (let [canvas (chart-core/chart-canvas []
@@ -304,155 +324,6 @@
     (is (contains? shell-classes "overflow-hidden"))
     (is (contains? shell-classes "min-w-0"))
     (is (contains? shell-classes "min-h-0"))))
-
-(deftest chart-top-menu-dropdowns-use-high-z-opaque-tokenized-classes-test
-  (let [menu (chart-core/chart-top-menu {:chart-options {:timeframes-dropdown-visible true
-                                                          :selected-timeframe :1d
-                                                          :chart-type-dropdown-visible true
-                                                          :selected-chart-type :candlestick
-                                                          :indicators-dropdown-visible true
-                                                          :active-indicators {}}})
-        classes (set (collect-all-classes menu))
-        class-strings* (collect-class-strings menu)]
-    (is (contains? classes "z-[120]"))
-    (is (contains? classes "isolate"))
-    (is (contains? classes "bg-base-100"))
-    (is (contains? classes "opacity-100"))
-    (is (not-any? spaced-class-string? class-strings*))))
-
-(deftest chart-top-menu-selected-timeframe-uses-green-text-without-blue-background-test
-  (let [menu (chart-core/chart-top-menu {:chart-options {:timeframes-dropdown-visible false
-                                                          :selected-timeframe :1d
-                                                          :chart-type-dropdown-visible false
-                                                          :selected-chart-type :candlestick
-                                                          :indicators-dropdown-visible false
-                                                          :active-indicators {}}})
-        classes (set (collect-all-classes menu))]
-    (is (contains? classes "text-trading-green"))
-    (is (not (contains? classes "bg-blue-600")))))
-
-(deftest chart-top-menu-indicators-dropdown-renders-search-input-test
-  (let [menu (chart-core/chart-top-menu {:chart-options {:timeframes-dropdown-visible false
-                                                          :selected-timeframe :1d
-                                                          :chart-type-dropdown-visible false
-                                                          :selected-chart-type :candlestick
-                                                          :indicators-dropdown-visible true
-                                                          :indicators-search-term "sm"
-                                                          :active-indicators {}}})
-        search-node (find-first-node menu #(= "chart-indicators-search" (get-in % [1 :id])))]
-    (is (some? search-node))
-    (is (= [[:actions/update-indicators-search [:event.target/value]]]
-           (get-in search-node [1 :on :input])))))
-
-(deftest chart-top-menu-indicator-rows-use-full-row-click-add-action-test
-  (let [menu (chart-core/chart-top-menu {:chart-options {:timeframes-dropdown-visible false
-                                                          :selected-timeframe :1d
-                                                          :chart-type-dropdown-visible false
-                                                          :selected-chart-type :candlestick
-                                                          :indicators-dropdown-visible true
-                                                          :indicators-search-term ""
-                                                          :active-indicators {}}})
-        add-node (find-first-node menu #(= [[:actions/add-indicator :sma {:period 20}]]
-                                            (get-in % [1 :on :click])))]
-    (is (some? add-node))
-    (is (= :button (first add-node)))))
-
-(deftest chart-top-menu-active-indicator-rows-toggle-to-remove-action-test
-  (let [menu (chart-core/chart-top-menu {:chart-options {:timeframes-dropdown-visible false
-                                                          :selected-timeframe :1d
-                                                          :chart-type-dropdown-visible false
-                                                          :selected-chart-type :candlestick
-                                                          :indicators-dropdown-visible true
-                                                          :indicators-search-term ""
-                                                          :active-indicators {:sma {:period 20}}}})
-        remove-node (find-first-node menu #(= [[:actions/remove-indicator :sma]]
-                                               (get-in % [1 :on :click])))]
-    (is (some? remove-node))
-    (is (= true (get-in remove-node [1 :aria-pressed])))))
-
-(deftest chart-top-menu-chart-volume-row-renders-hide-action-when-volume-visible-test
-  (let [menu (chart-core/chart-top-menu {:chart-options {:timeframes-dropdown-visible false
-                                                          :selected-timeframe :1d
-                                                          :chart-type-dropdown-visible false
-                                                          :selected-chart-type :candlestick
-                                                          :indicators-dropdown-visible true
-                                                          :volume-visible? true
-                                                          :active-indicators {}}})
-        hide-node (find-first-node menu #(= [[:actions/hide-volume-indicator]]
-                                             (get-in % [1 :on :click])))]
-    (is (some? hide-node))
-    (is (= true (get-in hide-node [1 :aria-pressed])))))
-
-(deftest chart-top-menu-chart-volume-row-renders-show-action-when-volume-hidden-test
-  (let [menu (chart-core/chart-top-menu {:chart-options {:timeframes-dropdown-visible false
-                                                          :selected-timeframe :1d
-                                                          :chart-type-dropdown-visible false
-                                                          :selected-chart-type :candlestick
-                                                          :indicators-dropdown-visible true
-                                                          :volume-visible? false
-                                                          :active-indicators {}}})
-        show-node (find-first-node menu #(= [[:actions/show-volume-indicator]]
-                                             (get-in % [1 :on :click])))]
-    (is (some? show-node))
-    (is (= false (get-in show-node [1 :aria-pressed])))))
-
-(deftest chart-top-menu-renders-trades-freshness-cue-from-health-snapshot-test
-  (let [menu (chart-core/chart-top-menu {:active-asset "BTC"
-                                         :websocket-ui {:show-surface-freshness-cues? true}
-                                         :websocket {:health {:generated-at-ms 5000
-                                                              :streams {["trades" "BTC" nil nil nil]
-                                                                        {:topic "trades"
-                                                                         :status :live
-                                                                         :subscribed? true
-                                                                         :last-payload-at-ms 4700
-                                                                         :stale-threshold-ms 10000}}}}
-                                         :chart-options {:timeframes-dropdown-visible false
-                                                         :selected-timeframe :1d
-                                                         :chart-type-dropdown-visible false
-                                                         :selected-chart-type :candlestick
-                                                         :indicators-dropdown-visible false
-                                                         :active-indicators {}}})
-        cue-node (find-first-node menu #(= "chart-freshness-cue" (get-in % [1 :data-role])))]
-    (is (some? cue-node))
-    (is (str/includes? (str/join " " (collect-strings cue-node)) "Last tick 300ms ago"))))
-
-(deftest chart-top-menu-renders-idle-freshness-message-when-awaiting-first-update-test
-  (let [menu (chart-core/chart-top-menu {:active-asset "BTC"
-                                         :websocket-ui {:show-surface-freshness-cues? true}
-                                         :websocket {:health {:generated-at-ms 5000
-                                                              :streams {["trades" "BTC" nil nil nil]
-                                                                        {:topic "trades"
-                                                                         :status :idle
-                                                                         :subscribed? true
-                                                                         :last-payload-at-ms nil
-                                                                         :stale-threshold-ms 10000}}}}
-                                         :chart-options {:timeframes-dropdown-visible false
-                                                         :selected-timeframe :1d
-                                                         :chart-type-dropdown-visible false
-                                                         :selected-chart-type :candlestick
-                                                         :indicators-dropdown-visible false
-                                                         :active-indicators {}}})
-        cue-node (find-first-node menu #(= "chart-freshness-cue" (get-in % [1 :data-role])))]
-    (is (some? cue-node))
-    (is (str/includes? (str/join " " (collect-strings cue-node)) "Waiting for first update..."))))
-
-(deftest chart-top-menu-hides-freshness-cue-by-default-test
-  (let [menu (chart-core/chart-top-menu {:active-asset "BTC"
-                                         :websocket {:health {:generated-at-ms 5000
-                                                              :streams {["trades" "BTC" nil nil nil]
-                                                                        {:topic "trades"
-                                                                         :status :live
-                                                                         :subscribed? true
-                                                                         :last-payload-at-ms 4700
-                                                                         :stale-threshold-ms 10000}}}}
-                                         :chart-options {:timeframes-dropdown-visible false
-                                                         :selected-timeframe :1d
-                                                         :chart-type-dropdown-visible false
-                                                         :selected-chart-type :candlestick
-                                                         :indicators-dropdown-visible false
-                                                         :active-indicators {}}})
-        cue-node (find-first-node menu #(= "chart-freshness-cue" (get-in % [1 :data-role])))]
-    (is (nil? cue-node))))
 
 (deftest chart-candle-pipeline-smoke-test
   (let [raw-data [{:t 1700000000000 :o "100.0" :h "105.0" :l "98.0" :c "103.0" :v "1000"}
@@ -887,7 +758,7 @@
                     (second @marker-args*)))
     (chart-runtime/clear-state! node)))
 
-(deftest chart-canvas-unmount-cancels-pending-decoration-frame-test
+(deftest core-chart-canvas-passes-bound-schedulers-to-runtime-test
   (let [node #js {}
         candle-data [{:time 1700000000 :open 100 :high 101 :low 99 :close 100 :volume 10}]
         legend-meta {:symbol "BTC"
@@ -902,6 +773,7 @@
         legend-control (doto #js {}
                          (aset "update" (fn [_] nil))
                          (aset "destroy" (fn [] nil)))
+        scheduled-callback* (atom nil)
         canceled-frame-ids* (atom [])
         decoration-calls* (atom [])
         record-markers! (expose-arity!
@@ -938,13 +810,16 @@
                     chart-interop/apply-persisted-visible-range! stub-apply-persisted-visible-range!
                     chart-interop/subscribe-visible-range-persistence! stub-subscribe-visible-range-persistence!]
         (binding [chart-core/*schedule-chart-decoration-frame!*
-                  (fn [_callback]
+                  (fn [callback]
+                    (reset! scheduled-callback* callback)
                     :frame-2)
                   chart-core/*cancel-chart-decoration-frame!*
                   (fn [frame-id]
                     (swap! canceled-frame-ids* conj frame-id))]
           (let [canvas (chart-core/chart-canvas candle-data :candlestick {} legend-meta :1d {})]
             (render-chart-canvas! canvas :replicant.life-cycle/mount node)
+            (is (ifn? @scheduled-callback*))
+            (is (= :frame-2 (:decoration-frame-id (chart-runtime/get-state node))))
             (render-chart-canvas! canvas :replicant.life-cycle/unmount node))
           (is (= [:frame-2] @canceled-frame-ids*))
           (is (empty? @decoration-calls*))

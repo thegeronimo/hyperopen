@@ -1,51 +1,18 @@
 (ns hyperopen.views.trading-chart.core
-  (:require [clojure.string :as str]
-            [nexus.registry :as nxr]
-            [replicant.core :as replicant-core]
-            [hyperopen.system :as app-system]
-            [hyperopen.utils.formatting :as fmt]
-            [hyperopen.state.trading :as trading-state]
-            [hyperopen.trading-indicators-modules :as trading-indicators-modules]
-            [hyperopen.trading-settings :as trading-settings]
-            [hyperopen.views.account-info.projections :as account-projections]
-            [hyperopen.views.trading-chart.runtime-state :as chart-runtime]
-            [hyperopen.views.trading-chart.utils.chart-interop :as ci]
+  (:require [hyperopen.utils.formatting :as fmt]
+            [hyperopen.views.trading-chart.actions :as actions]
             [hyperopen.views.trading-chart.derived-cache :as derived-cache]
-            [hyperopen.views.trading-chart.utils.position-overlay-model :as position-overlay-model]
-            [hyperopen.views.trading-chart.timeframe-dropdown :refer [timeframe-dropdown]]
-            [hyperopen.views.trading-chart.chart-type-dropdown :refer [chart-type-dropdown]]
-            [hyperopen.views.trading-chart.indicators-dropdown :refer [indicators-dropdown]]
-            [hyperopen.views.websocket-freshness :as ws-freshness]))
+            [hyperopen.views.trading-chart.runtime :as runtime]
+            [hyperopen.views.trading-chart.toolbar :as toolbar]
+            [hyperopen.views.trading-chart.vm :as vm]))
 
-;; Main timeframes for quick access buttons
-(def main-timeframes [:5m :1h :1d])
+(def main-timeframes toolbar/main-timeframes)
 
 (def ^:dynamic *schedule-chart-decoration-frame!*
-  (fn [callback]
-    (if-let [request-animation-frame (some-> js/globalThis
-                                             (aget "requestAnimationFrame"))]
-      (request-animation-frame callback)
-      (do
-        (callback 0)
-        nil))))
+  runtime/default-schedule-decoration-frame!)
 
 (def ^:dynamic *cancel-chart-decoration-frame!*
-  (fn [frame-id]
-    (when-let [cancel-animation-frame (some-> js/globalThis
-                                              (aget "cancelAnimationFrame"))]
-      (cancel-animation-frame frame-id))))
-
-(defn- preferred-orders-value
-  [state k]
-  (if (contains? (or (:orders state) {}) k)
-    (get-in state [:orders k])
-    (get-in state [:webdata2 k])))
-
-(declare dispatch-chart-cancel-order!
-         dispatch-hide-volume-indicator!
-         dispatch-chart-liquidation-drag-margin-preview!
-         dispatch-chart-liquidation-drag-margin-confirm!
-         apply-chart-accessibility!)
+  runtime/default-cancel-decoration-frame!)
 
 (defn- memoize-last
   [f]
@@ -59,89 +26,6 @@
             (reset! cache {:args args
                            :result result})
             result))))))
-
-(def ^:private memoized-chart-open-orders
-  (memoize-last
-   (fn [open-orders-source
-        open-orders-snapshot-source
-        open-orders-snapshot-by-dex-source
-        active-asset
-        pending-cancel-oids]
-     (account-projections/normalized-open-orders-for-active-asset
-      open-orders-source
-      open-orders-snapshot-source
-      open-orders-snapshot-by-dex-source
-      active-asset
-      pending-cancel-oids))))
-
-(def ^:private memoized-chart-fills
-  (memoize-last
-   (fn [fills-source]
-     (cond
-       (vector? fills-source) fills-source
-       (sequential? fills-source) (vec fills-source)
-       :else []))))
-
-(def ^:private memoized-position-overlay-base
-  (memoize-last
-   (fn [active-asset active-position active-fills market-by-key selected-timeframe candle-data show-fill-markers?]
-     (position-overlay-model/build-position-overlay
-      {:active-asset active-asset
-       :position active-position
-       :fills active-fills
-       :market-by-key market-by-key
-       :selected-timeframe selected-timeframe
-       :candle-data candle-data
-       :show-fill-markers? show-fill-markers?}))))
-
-(def ^:private memoized-fill-markers
-  (memoize-last
-   (fn [active-asset active-fills market-by-key selected-timeframe show-fill-markers?]
-     (position-overlay-model/build-fill-markers
-      {:active-asset active-asset
-       :fills active-fills
-       :market-by-key market-by-key
-       :selected-timeframe selected-timeframe
-       :show-fill-markers? show-fill-markers?}))))
-
-(def ^:private memoized-position-overlay
-  (memoize-last
-   (fn [position-overlay-base preview]
-     (cond-> position-overlay-base
-       (and (map? position-overlay-base)
-            (map? preview))
-       (assoc :current-liquidation-price (:current-liquidation-price preview)
-              :liquidation-price (:target-liquidation-price preview))))))
-
-(def ^:private memoized-liquidation-drag-preview-callback
-  (memoize-last
-   (fn [dispatch-fn active-position-data]
-     (fn [suggestion]
-       (dispatch-chart-liquidation-drag-margin-preview!
-        dispatch-fn
-        active-position-data
-        suggestion)))))
-
-(def ^:private memoized-liquidation-drag-confirm-callback
-  (memoize-last
-   (fn [dispatch-fn active-position-data]
-     (fn [suggestion]
-       (dispatch-chart-liquidation-drag-margin-confirm!
-        dispatch-fn
-        active-position-data
-        suggestion)))))
-
-(def ^:private memoized-cancel-order-callback
-  (memoize-last
-   (fn [dispatch-fn]
-     (fn [order]
-       (dispatch-chart-cancel-order! dispatch-fn order)))))
-
-(def ^:private memoized-hide-volume-indicator-callback
-  (memoize-last
-   (fn [dispatch-fn]
-     (fn []
-       (dispatch-hide-volume-indicator! dispatch-fn)))))
 
 (def ^:private memoized-main-series-markers
   (memoize-last
@@ -157,573 +41,14 @@
        (cond-> (into base-markers fill-markers*)
          (map? entry-marker) (conj entry-marker))))))
 
-(def ^:private memoized-chart-runtime-options
-  (memoize-last
-   (fn [price-decimals
-        volume-visible?
-        indicator-runtime-ready?
-        on-hide-volume-indicator
-        active-asset
-        candle-data
-        on-liquidation-drag-preview
-        on-liquidation-drag-confirm
-        position-overlay
-        fill-markers
-        show-fill-markers?]
-     {:series-options {:price-decimals price-decimals}
-      :legend-deps {:format-price fmt/format-trade-price-plain
-                    :format-delta fmt/format-trade-price-delta}
-      :volume-visible? volume-visible?
-      :indicator-runtime-ready? indicator-runtime-ready?
-      :show-fill-markers? show-fill-markers?
-      :on-hide-volume-indicator on-hide-volume-indicator
-      :persistence-deps {:asset active-asset
-                         :candles candle-data}
-      :on-liquidation-drag-preview on-liquidation-drag-preview
-      :on-liquidation-drag-confirm on-liquidation-drag-confirm
-      :position-overlay position-overlay
-      :fill-markers fill-markers})))
-
-(def ^:private memoized-legend-meta
-  (memoize-last
-   (fn [symbol timeframe-label candle-data]
-     {:symbol symbol
-      :timeframe-label timeframe-label
-      :venue "Hyperopen"
-      :market-open? true
-      :candle-data candle-data})))
-
-(defn- mark-visible-range-interaction!
-  [node]
-  (chart-runtime/update-state! node
-                               update
-                               :visible-range-interaction-epoch
-                               (fnil inc 0)))
-
-(defn- reset-visible-range!
-  [node chart candles]
-  (ci/apply-default-visible-range! chart candles)
-  (mark-visible-range-interaction! node))
-
-(defn- sync-navigation-overlay!
-  [node chart-obj candles]
-  (ci/sync-chart-navigation-overlay!
-   chart-obj
-   node
-   candles
-   {:on-interaction #(mark-visible-range-interaction! node)
-    :on-reset (fn [chart* candles*]
-                (reset-visible-range! node chart* candles*))}))
-
-(defn- start-visible-range-persistence!
-  [node chart selected-timeframe persistence-deps]
-  (ci/subscribe-visible-range-persistence!
-   chart
-   selected-timeframe
-   (assoc persistence-deps
-          :on-visible-range-change! #(mark-visible-range-interaction! node))))
-
-(defn- start-visible-range-restore!
-  [node chart candles selected-timeframe persistence-deps]
-  (let [runtime-state (chart-runtime/get-state node)
-        restore-token (inc (or (:visible-range-restore-token runtime-state) 0))
-        interaction-epoch (or (:visible-range-interaction-epoch runtime-state) 0)]
-    (ci/apply-default-visible-range! chart candles)
-    (chart-runtime/assoc-state! node
-                                :visible-range-restore-tried? true
-                                :visible-range-restore-token restore-token)
-    (-> (ci/apply-persisted-visible-range!
-         chart
-         selected-timeframe
-         (assoc persistence-deps
-                :candles candles
-                :fallback-to-default? false
-                :allow-apply-fn
-                (fn []
-                  (let [runtime-state* (chart-runtime/get-state node)]
-                    (and (= restore-token
-                            (:visible-range-restore-token runtime-state*))
-                         (= interaction-epoch
-                            (or (:visible-range-interaction-epoch runtime-state*) 0)))))))
-        (.catch (fn [error]
-                  (js/console.warn "Failed to restore persisted visible range:" error))))))
-
-(defn- ensure-visible-range-lifecycle!
-  [node chart candles selected-timeframe persistence-deps]
-  (let [{:keys [visible-range-restore-tried?
-                visible-range-persistence-subscribed?]}
-        (chart-runtime/get-state node)
-        data-ready? (boolean (seq candles))]
-    (when (and data-ready? (not visible-range-restore-tried?))
-      (start-visible-range-restore! node chart candles selected-timeframe persistence-deps))
-    (when (and data-ready? (not visible-range-persistence-subscribed?))
-      (chart-runtime/assoc-state! node
-                                  :visible-range-cleanup
-                                  (start-visible-range-persistence!
-                                   node
-                                   chart
-                                   selected-timeframe
-                                   persistence-deps)
-                                  :visible-range-persistence-subscribed? true))))
-
-(defn- chart-obj-with-series
-  [node candle-data chart-type indicators-data series-options volume-visible?]
-  (if (seq indicators-data)
-    (ci/create-chart-with-indicators! node chart-type candle-data indicators-data
-                                      {:series-options series-options
-                                       :volume-visible? volume-visible?})
-    (ci/create-chart-with-volume-and-series! node chart-type candle-data
-                                             {:series-options series-options
-                                              :volume-visible? volume-visible?})))
-
-(defn- apply-chart-decorations!
-  [node chart-obj candle-data chart-type main-series-markers position-overlay position-overlay-deps
-   open-order-overlays overlay-deps volume-indicator-deps context-menu-deps]
-  (ci/set-main-series-markers! chart-obj main-series-markers)
-  (ci/sync-position-overlays! chart-obj node position-overlay position-overlay-deps)
-  (ci/sync-open-order-overlays! chart-obj node open-order-overlays overlay-deps)
-  (ci/sync-volume-indicator-overlay! chart-obj node candle-data volume-indicator-deps)
-  (ci/sync-chart-context-menu-overlay! chart-obj
-                                       node
-                                       candle-data
-                                       (assoc context-menu-deps
-                                              :on-reset #(reset-visible-range!
-                                                           node
-                                                           (.-chart ^js chart-obj)
-                                                           candle-data)))
-  (sync-navigation-overlay! node chart-obj candle-data))
-
-(defn- initialize-chart-runtime-state!
-  [node chart-obj legend-control chart-type]
-  (chart-runtime/set-state! node {:chart-obj chart-obj
-                                  :legend-control legend-control
-                                  :chart-type chart-type
-                                  :chart-accessibility-applied? false
-                                  :decoration-frame-id nil
-                                  :pending-decoration-context nil
-                                  :visible-range-restore-tried? false
-                                  :visible-range-restore-token 0
-                                  :visible-range-interaction-epoch 0
-                                  :visible-range-persistence-subscribed? false
-                                  :visible-range-cleanup nil}))
-
-(defn- run-chart-decoration-pass!
-  [node {:keys [candle-data chart-type main-series-markers position-overlay position-overlay-deps
-                open-order-overlays overlay-deps volume-indicator-deps context-menu-deps]}]
-  (let [{:keys [chart-obj chart-accessibility-applied?]} (chart-runtime/get-state node)]
-    (when chart-obj
-      (apply-chart-decorations! node
-                                chart-obj
-                                candle-data
-                                chart-type
-                                main-series-markers
-                                position-overlay
-                                position-overlay-deps
-                                open-order-overlays
-                                overlay-deps
-                                volume-indicator-deps
-                                context-menu-deps)
-      (when-not chart-accessibility-applied?
-        (apply-chart-accessibility! node)
-        (chart-runtime/assoc-state! node :chart-accessibility-applied? true)))))
-
-(defn- flush-pending-chart-decoration-pass!
-  [node]
-  (let [{:keys [pending-decoration-context]} (chart-runtime/get-state node)]
-    (chart-runtime/update-state! node dissoc :decoration-frame-id :pending-decoration-context)
-    (when pending-decoration-context
-      (run-chart-decoration-pass! node pending-decoration-context))))
-
-(defn- clear-pending-chart-decoration-pass!
-  [node]
-  (let [{:keys [decoration-frame-id]} (chart-runtime/get-state node)]
-    (when decoration-frame-id
-      (*cancel-chart-decoration-frame!* decoration-frame-id))
-    (chart-runtime/update-state! node dissoc :decoration-frame-id :pending-decoration-context)))
-
-(defn- schedule-chart-decoration-pass!
-  [node context]
-  (when node
-    (chart-runtime/assoc-state! node :pending-decoration-context context)
-    (when-not (:decoration-frame-id (chart-runtime/get-state node))
-      (chart-runtime/assoc-state!
-       node
-       :decoration-frame-id
-       (*schedule-chart-decoration-frame!*
-        (fn [_]
-          (flush-pending-chart-decoration-pass! node)))))))
-
-(defn- apply-chart-accessibility!
-  [node]
-  (when (and node
-             (fn? (.-querySelectorAll node)))
-    (doseq [element (array-seq (js/Array.from (.querySelectorAll node ".tv-lightweight-charts table, .tv-lightweight-charts tr, .tv-lightweight-charts td")))]
-      (.setAttribute element "aria-hidden" "true")
-      (when (= "TABLE" (.-tagName element))
-        (.setAttribute element "role" "presentation")))))
-
-(defn- mount-chart!
-  [node {:keys [candle-data chart-type indicators-data legend-meta legend-deps series-options
-                volume-visible? main-series-markers position-overlay position-overlay-deps
-                open-order-overlays overlay-deps volume-indicator-deps selected-timeframe
-                persistence-deps context-menu-deps]}]
-  (let [chart-obj (chart-obj-with-series node candle-data chart-type indicators-data series-options volume-visible?)
-        chart (.-chart chart-obj)
-        legend-control (ci/create-legend! node chart legend-meta legend-deps)]
-    (initialize-chart-runtime-state! node chart-obj legend-control chart-type)
-    (ci/sync-baseline-base-value-subscription! chart-obj chart-type)
-    (schedule-chart-decoration-pass! node
-                                     {:candle-data candle-data
-                                      :chart-type chart-type
-                                      :main-series-markers main-series-markers
-                                      :position-overlay position-overlay
-                                      :position-overlay-deps position-overlay-deps
-                                      :open-order-overlays open-order-overlays
-                                      :overlay-deps overlay-deps
-                                      :volume-indicator-deps volume-indicator-deps
-                                      :context-menu-deps context-menu-deps})
-    (ensure-visible-range-lifecycle! node chart candle-data selected-timeframe persistence-deps)))
-
-(defn- swap-main-series!
-  [chart-obj chart candle-data chart-type series-options]
-  (let [time-scale (.timeScale ^js chart)
-        visible-range (.getVisibleLogicalRange ^js time-scale)
-        new-series (ci/add-series! chart chart-type)
-        main-series (.-mainSeries ^js chart-obj)]
-    (when main-series
-      (try
-        (.removeSeries ^js chart main-series)
-        (catch :default _ nil)))
-    (set! (.-mainSeries ^js chart-obj) new-series)
-    (ci/set-series-data! new-series candle-data chart-type series-options)
-    (when visible-range
-      (try
-        (.setVisibleLogicalRange ^js time-scale visible-range)
-        (catch :default _ nil)))))
-
-(defn- update-main-series-data!
-  [chart-obj previous-chart-type chart-type candle-data series-options]
-  (let [main-series (when chart-obj (.-mainSeries ^js chart-obj))
-        chart (when chart-obj (.-chart ^js chart-obj))]
-    (when (and chart previous-chart-type (not= previous-chart-type chart-type))
-      (swap-main-series! chart-obj chart candle-data chart-type series-options))
-    (when (and main-series (or (nil? previous-chart-type) (= previous-chart-type chart-type)))
-      (ci/set-series-data! main-series candle-data chart-type series-options))
-    (when chart-obj
-      (ci/sync-baseline-base-value-subscription! chart-obj chart-type))))
-
-(defn- sync-indicator-series!
-  [chart-obj indicator-series-data]
-  (let [indicator-series (when chart-obj (.-indicatorSeries ^js chart-obj))]
-    (when (and indicator-series (seq indicator-series-data))
-      (doseq [[idx series-entry] (map-indexed vector indicator-series-data)]
-        (when-let [^js indicator-series-entry (aget ^js indicator-series idx)]
-          (when-let [series (.-series indicator-series-entry)]
-            (ci/set-indicator-data! series (:data series-entry))))))))
-
-(defn- update-chart!
-  [node {:keys [candle-data chart-type indicator-series-data main-series-markers position-overlay
-                position-overlay-deps open-order-overlays overlay-deps volume-indicator-deps
-                legend-meta selected-timeframe persistence-deps series-options context-menu-deps]}]
-  (let [runtime-state (chart-runtime/get-state node)
-        chart-obj (:chart-obj runtime-state)
-        legend-control (:legend-control runtime-state)
-        previous-chart-type (:chart-type runtime-state)
-        chart (when chart-obj (.-chart ^js chart-obj))
-        volume-series (when chart-obj (.-volumeSeries ^js chart-obj))]
-    (update-main-series-data! chart-obj previous-chart-type chart-type candle-data series-options)
-    (when volume-series
-      (ci/set-volume-data! volume-series candle-data))
-    (when chart
-      (ensure-visible-range-lifecycle! node chart candle-data selected-timeframe persistence-deps))
-    (when chart-obj
-      (schedule-chart-decoration-pass! node
-                                       {:candle-data candle-data
-                                        :chart-type chart-type
-                                        :main-series-markers main-series-markers
-                                        :position-overlay position-overlay
-                                        :position-overlay-deps position-overlay-deps
-                                        :open-order-overlays open-order-overlays
-                                        :overlay-deps overlay-deps
-                                        :volume-indicator-deps volume-indicator-deps
-                                        :context-menu-deps context-menu-deps}))
-    (sync-indicator-series! chart-obj indicator-series-data)
-    (when legend-control
-      (.update ^js legend-control legend-meta))
-    (when (and chart-obj (not= previous-chart-type chart-type))
-      (chart-runtime/assoc-state! node :chart-type chart-type))))
-
-(defn- unmount-chart!
-  [node]
-  (let [{:keys [chart-obj legend-control visible-range-cleanup]} (chart-runtime/get-state node)
-        chart (when chart-obj (.-chart ^js chart-obj))]
-    (clear-pending-chart-decoration-pass! node)
-    (when legend-control
-      (.destroy ^js legend-control))
-    (ci/clear-open-order-overlays! chart-obj)
-    (ci/clear-position-overlays! chart-obj)
-    (ci/clear-volume-indicator-overlay! chart-obj)
-    (ci/clear-chart-context-menu-overlay! chart-obj)
-    (ci/clear-chart-navigation-overlay! chart-obj)
-    (ci/clear-baseline-base-value-subscription! chart-obj)
-    (when visible-range-cleanup
-      (try
-        (visible-range-cleanup)
-        (catch :default _
-          nil)))
-    (when chart
-      (try
-        (.remove ^js chart)
-        (catch :default _ nil)))
-    (chart-runtime/clear-state! node)))
-
-(defn- chart-canvas-on-render
-  [context]
-  (fn [{:keys [:replicant/life-cycle :replicant/node]}]
-    (case life-cycle
-      :replicant.life-cycle/mount
-      (try
-        (mount-chart! node context)
-        (catch :default e
-          (js/console.error "Error in chart:" e)))
-
-      :replicant.life-cycle/update
-      (try
-        (update-chart! node context)
-        (catch :default e
-          (js/console.error "Error updating chart:" e)))
-
-      :replicant.life-cycle/unmount
-      (unmount-chart! node)
-
-      nil)))
-
-(defn- chart-open-orders
-  [state]
-  (let [active-asset (:active-asset state)
-        open-orders-source (preferred-orders-value state :open-orders)
-        open-orders-snapshot-source (preferred-orders-value state :open-orders-snapshot)
-        open-orders-snapshot-by-dex-source (preferred-orders-value state :open-orders-snapshot-by-dex)
-        pending-cancel-oids (get-in state [:orders :pending-cancel-oids])]
-    (memoized-chart-open-orders
-     open-orders-source
-     open-orders-snapshot-source
-     open-orders-snapshot-by-dex-source
-     active-asset
-     pending-cancel-oids)))
-
-(defn- chart-fills
-  [state]
-  (let [fills-source (preferred-orders-value state :fills)]
-    (memoized-chart-fills fills-source)))
-
-(defn- runtime-dispatch-fn
-  []
-  (when app-system/store
-    (fn [event actions]
-      (nxr/dispatch app-system/store event actions))))
-
-(defn- current-dispatch-fn
-  []
-  (let [dispatch-fn replicant-core/*dispatch*]
-    (or (when (ifn? dispatch-fn)
-          dispatch-fn)
-        (runtime-dispatch-fn))))
-
-(defn- dispatch-chart-actions!
-  [dispatch-fn trigger actions]
-  (when (and (ifn? dispatch-fn)
-             (seq actions))
-    (dispatch-fn {:replicant/trigger trigger}
-                 actions)))
-
-(defn- dispatch-chart-cancel-order!
-  ([order]
-   (dispatch-chart-cancel-order! (current-dispatch-fn) order))
-  ([dispatch-fn order]
-   (when (map? order)
-     (dispatch-chart-actions! dispatch-fn
-                              :chart-order-overlay-cancel
-                              [[:actions/cancel-order order]]))))
-
-(defn- dispatch-hide-volume-indicator!
-  ([]
-   (dispatch-hide-volume-indicator! (current-dispatch-fn)))
-  ([dispatch-fn]
-   (dispatch-chart-actions! dispatch-fn
-                            :chart-volume-indicator-remove
-                            [[:actions/hide-volume-indicator]])))
-
-(defn- parse-positive-number
-  [value]
-  (let [parsed (js/parseFloat (str (or value "")))]
-    (when (and (number? parsed)
-               (js/isFinite parsed)
-               (pos? parsed))
-      parsed)))
-
-(defn- pending-liquidation-preview
-  [state active-position-data]
-  (let [margin-modal (get-in state [:positions-ui :margin-modal])
-        position-key (when (map? active-position-data)
-                       (account-projections/position-unique-key active-position-data))
-        current-liquidation-price (parse-positive-number
-                                   (:prefill-liquidation-current-price margin-modal))
-        target-liquidation-price (parse-positive-number
-                                  (:prefill-liquidation-target-price margin-modal))]
-    (when (and (map? margin-modal)
-               (true? (:open? margin-modal))
-               (= :chart-liquidation-drag (:prefill-source margin-modal))
-               (string? position-key)
-               (= position-key (:position-key margin-modal))
-               (number? current-liquidation-price)
-               (number? target-liquidation-price))
-      {:current-liquidation-price current-liquidation-price
-       :target-liquidation-price target-liquidation-price})))
-
-(defn- chart-liquidation-drag-prefill-actions
-  [position-data suggestion]
-  (when (and (map? position-data)
-             (map? suggestion))
-    [[:actions/select-account-info-tab :positions]
-     [:actions/open-position-margin-modal
-      (merge position-data
-             {:prefill-source :chart-liquidation-drag
-              :prefill-margin-mode (:mode suggestion)
-              :prefill-margin-amount (:amount suggestion)
-              :prefill-liquidation-target-price (:target-liquidation-price suggestion)
-              :prefill-liquidation-current-price (:current-liquidation-price suggestion)})
-      (:anchor suggestion)]]))
-
-(defn- dispatch-chart-liquidation-drag-margin-prefill!
-  ([trigger position-data suggestion]
-   (dispatch-chart-liquidation-drag-margin-prefill!
-    (current-dispatch-fn)
-    trigger
-    position-data
-    suggestion))
-  ([dispatch-fn trigger position-data suggestion]
-   (let [actions (chart-liquidation-drag-prefill-actions position-data suggestion)]
-     (dispatch-chart-actions! dispatch-fn trigger actions))))
-
-(defn- dispatch-chart-liquidation-drag-margin-preview!
-  ([position-data suggestion]
-   (dispatch-chart-liquidation-drag-margin-preview!
-    (current-dispatch-fn)
-    position-data
-    suggestion))
-  ([dispatch-fn position-data suggestion]
-   (dispatch-chart-liquidation-drag-margin-prefill!
-    dispatch-fn
-    :chart-liquidation-drag-margin-preview
-    position-data
-    suggestion)))
-
-(defn- dispatch-chart-liquidation-drag-margin-confirm!
-  ([position-data suggestion]
-   (dispatch-chart-liquidation-drag-margin-confirm!
-    (current-dispatch-fn)
-    position-data
-    suggestion))
-  ([dispatch-fn position-data suggestion]
-   (dispatch-chart-liquidation-drag-margin-prefill!
-    dispatch-fn
-    :chart-liquidation-drag-margin-confirm
-    position-data
-    suggestion)))
-
 (defn- format-chart-overlay-size
   [value]
   (fmt/format-fixed-number value 2))
 
-;; Top menu component with timeframe selection and bars indicator
-(defn chart-top-menu [state]
-  (let [timeframes-dropdown-visible (get-in state [:chart-options :timeframes-dropdown-visible])
-        selected-timeframe (get-in state [:chart-options :selected-timeframe] :1d)
-        chart-type-dropdown-visible (get-in state [:chart-options :chart-type-dropdown-visible])
-        selected-chart-type (get-in state [:chart-options :selected-chart-type] :candlestick)
-        indicators-dropdown-visible (get-in state [:chart-options :indicators-dropdown-visible])
-        volume-visible? (boolean (get-in state [:chart-options :volume-visible?] true))
-        active-indicators (get-in state [:chart-options :active-indicators] {})
-        indicators-search-term (get-in state [:chart-options :indicators-search-term] "")
-        show-surface-freshness-cues?
-        (boolean (get-in state [:websocket-ui :show-surface-freshness-cues?] false))
-        websocket-health (get-in state [:websocket :health])
-        freshness-cue (when show-surface-freshness-cues?
-                        (ws-freshness/surface-cue websocket-health
-                                                  {:topic "trades"
-                                                   :selector {:coin (:active-asset state)}
-                                                   :live-prefix "Last tick"}))]
-    [:div.flex.items-center.border-b.border-gray-700.px-4.pt-2.pb-1.w-full.min-w-0.space-x-4.bg-base-100
-     {:data-parity-id "chart-toolbar"}
-     ;; Left side - Favorite timeframes + dropdown
-     [:div.flex.items-center.space-x-1
-      ;; Main timeframe buttons
-      (for [key main-timeframes]
-        [:button.relative.px-3.py-1.text-sm.font-medium.rounded.transition-colors
-         {:key key
-          :class (if (= selected-timeframe key)
-                   ["text-trading-green"]
-                   ["text-gray-300" "hover:text-white" "hover:bg-gray-700"])
-          :on {:click [[:actions/select-chart-timeframe key]]}}
-         (name key)])
-      ;; Additional timeframe button visible only when selected timeframe is not one of the main 3
-      (when-not (contains? (set main-timeframes) selected-timeframe)
-        [:button.relative.px-3.py-1.text-sm.font-medium.rounded.transition-colors
-         {:class ["text-trading-green"]
-          :on {:click [[:actions/toggle-timeframes-dropdown]]}}
-         (name selected-timeframe)])
+(defn chart-top-menu
+  [state]
+  (toolbar/chart-top-menu state))
 
-      ;; Dropdown for additional timeframes
-      (timeframe-dropdown {:selected-timeframe selected-timeframe
-                          :timeframes-dropdown-visible timeframes-dropdown-visible})]
-     
-     ;; Vertical divider
-     [:div.w-px.h-6.bg-gray-700]
-   
-     ;; Chart type and indicators section
-     [:div.flex.items-center.gap-1
-     ;; Chart type dropdown
-      (chart-type-dropdown {:selected-chart-type selected-chart-type
-                           :chart-type-dropdown-visible chart-type-dropdown-visible})
-      ;; Vertical divider between chart type and indicators
-      [:div.w-px.h-6.bg-gray-700]
-      ;; Indicators dropdown
-      [:div.relative
-       (let [active-count (count active-indicators)
-             has-active-indicators? (pos? active-count)]
-         [:button
-          {:class (cond-> ["flex" "items-center" "gap-1.5" "h-8" "px-3" "text-base" "font-medium"
-                           "rounded-none" "transition-colors"
-                           "text-gray-300" "bg-gray-900/40"
-                           "hover:text-white" "hover:bg-gray-800/70"
-                           "focus:outline-none" "focus-visible:ring-2" "focus-visible:ring-slate-500/70"
-                           "focus-visible:ring-offset-1" "focus-visible:ring-offset-base-100"]
-                    indicators-dropdown-visible (into ["text-white" "bg-gray-800"])
-                    has-active-indicators? (conj "text-gray-100"))
-           :on {:click [[:actions/toggle-indicators-dropdown]]}
-           :aria-label (if has-active-indicators?
-                         (str "Indicators (" active-count " active)")
-                         "Indicators")}
-          [:span "Indicators"]
-          (when has-active-indicators?
-            [:span {:class ["text-xs" "text-gray-400"]} (str "(" active-count ")")])])
-       (indicators-dropdown {:indicators-dropdown-visible indicators-dropdown-visible
-                            :volume-visible? volume-visible?
-                            :active-indicators active-indicators
-                            :search-term indicators-search-term})]]
-
-     (when freshness-cue
-       ^{:replicant/key "chart-freshness-cue"}
-       [:div {:class ["ml-auto" "flex" "items-center"]
-              :data-role "chart-freshness-cue"}
-        [:span {:class (case (:tone freshness-cue)
-                         :success ["text-xs" "font-medium" "text-success" "tracking-wide"]
-                         :warning ["text-xs" "font-medium" "text-warning" "tracking-wide"]
-                         ["text-xs" "font-medium" "text-base-content/70" "tracking-wide"])}
-         (:text freshness-cue)]])]))
-
-;; Generic chart component that supports all chart types with volume
 (defn chart-canvas
   ([candle-data chart-type active-indicators legend-meta selected-timeframe chart-runtime-options]
    (chart-canvas candle-data chart-type active-indicators legend-meta selected-timeframe chart-runtime-options [] nil))
@@ -731,9 +56,9 @@
    (let [{:keys [indicators-data indicator-markers]
           indicator-series-data :indicator-series}
          (derived-cache/memoized-indicator-outputs candle-data
-                                                  selected-timeframe
-                                                  active-indicators
-                                                  (boolean (:indicator-runtime-ready? chart-runtime-options)))
+                                                   selected-timeframe
+                                                   active-indicators
+                                                   (boolean (:indicator-runtime-ready? chart-runtime-options)))
          position-overlay (:position-overlay chart-runtime-options)
          fill-markers (:fill-markers chart-runtime-options)
          on-liquidation-drag-preview (:on-liquidation-drag-preview chart-runtime-options)
@@ -772,23 +97,26 @@
                                      " price chart, "
                                      (or (:timeframe-label legend-meta) "selected")
                                      " timeframe")
-         on-render (chart-canvas-on-render {:candle-data candle-data
-                                            :chart-type chart-type
-                                            :indicators-data indicators-data
-                                            :indicator-series-data indicator-series-data
-                                            :legend-meta legend-meta
-                                            :legend-deps legend-deps
-                                            :series-options series-options
-                                            :selected-timeframe selected-timeframe
-                                            :persistence-deps persistence-deps
-                                            :volume-visible? volume-visible?
-                                            :main-series-markers main-series-markers
-                                            :position-overlay position-overlay
-                                            :position-overlay-deps position-overlay-deps
-                                            :open-order-overlays open-order-overlays
-                                            :overlay-deps overlay-deps
-                                            :volume-indicator-deps volume-indicator-deps
-                                            :context-menu-deps context-menu-deps})]
+         on-render (runtime/chart-canvas-on-render
+                    {:candle-data candle-data
+                     :chart-type chart-type
+                     :indicators-data indicators-data
+                     :indicator-series-data indicator-series-data
+                     :legend-meta legend-meta
+                     :legend-deps legend-deps
+                     :series-options series-options
+                     :selected-timeframe selected-timeframe
+                     :persistence-deps persistence-deps
+                     :volume-visible? volume-visible?
+                     :main-series-markers main-series-markers
+                     :position-overlay position-overlay
+                     :position-overlay-deps position-overlay-deps
+                     :open-order-overlays open-order-overlays
+                     :overlay-deps overlay-deps
+                     :volume-indicator-deps volume-indicator-deps
+                     :context-menu-deps context-menu-deps
+                     :schedule-decoration-frame! *schedule-chart-decoration-frame!*
+                     :cancel-decoration-frame! *cancel-chart-decoration-frame!*})]
      [:div {:class ["w-full" "min-w-0" "relative" "flex-1" "min-h-[360px]" "overflow-hidden" "bg-base-100" "trading-chart-host"]
             :data-parity-id "chart-canvas"
             :data-role "trading-chart-canvas"
@@ -798,87 +126,27 @@
             :replicant/key (str "chart-" (hash active-indicators) "-" legend-key "-" volume-visible?)
             :replicant/on-render on-render}])))
 
-(defn trading-chart-view [state]
-  (let [active-asset (:active-asset state)
-        dispatch-fn (current-dispatch-fn)
-        active-open-orders (chart-open-orders state)
-        active-fills (chart-fills state)
-        candles-map (:candles state)
-        active-market (or (:active-market state) {})
-        market-by-key (get-in state [:asset-selector :market-by-key] {})
-        active-position (trading-state/position-for-active-asset state)
-        active-position-data (when (map? active-position)
-                               {:position active-position
-                                :dex (:dex active-market)})
-        ;; Use selected timeframe from state
-        selected-timeframe (get-in state [:chart-options :selected-timeframe] :1d)
-        selected-chart-type (get-in state [:chart-options :selected-chart-type] :candlestick)
-        api-response (get-in candles-map [active-asset selected-timeframe] {})
-        ;; Check for error state
-        has-error? (contains? api-response :error)
-        ;; Handle both possible data structures: direct array or wrapped in :data
-        raw-candles (if (vector? api-response)
-                      api-response  ; Direct array
-                      (get api-response :data []))  ; Wrapped in :data
-        candle-data (derived-cache/memoized-candle-data raw-candles selected-timeframe)
-        show-fill-markers? (trading-settings/show-fill-markers? state)
-        preview (pending-liquidation-preview state active-position-data)
-        position-overlay-base (memoized-position-overlay-base
-                               active-asset
-                               active-position
-                               active-fills
-                               market-by-key
-                               selected-timeframe
-                               candle-data
-                               show-fill-markers?)
-        position-overlay (memoized-position-overlay position-overlay-base preview)
-        fill-markers (or (:fill-markers position-overlay)
-                         (memoized-fill-markers active-asset
-                                                active-fills
-                                                market-by-key
-                                                selected-timeframe
-                                                show-fill-markers?))
-        on-liquidation-drag-preview (memoized-liquidation-drag-preview-callback
-                                     dispatch-fn
-                                     active-position-data)
-        on-liquidation-drag-confirm (memoized-liquidation-drag-confirm-callback
-                                     dispatch-fn
-                                     active-position-data)
-        on-cancel-order (memoized-cancel-order-callback dispatch-fn)
-        on-hide-volume-indicator (memoized-hide-volume-indicator-callback dispatch-fn)
-        symbol (or active-asset "—")
-        timeframe-label (str/upper-case (name selected-timeframe))
-        price-decimals (or (:price-decimals active-market)
-                           (:priceDecimals active-market)
-                           (:pxDecimals active-market)
-                           (fmt/price-decimals-from-raw (:markRaw active-market))
-                           (fmt/price-decimals-from-raw (:prevDayRaw active-market)))
-        volume-visible? (boolean (get-in state [:chart-options :volume-visible?] true))
-        indicator-runtime-ready? (trading-indicators-modules/trading-indicators-ready? state)
-        chart-runtime-options (memoized-chart-runtime-options
-                               price-decimals
-                               volume-visible?
-                               indicator-runtime-ready?
-                               on-hide-volume-indicator
-                               active-asset
-                               candle-data
-                               on-liquidation-drag-preview
-                               on-liquidation-drag-confirm
-                               position-overlay
-                               fill-markers
-                               show-fill-markers?)
-        legend-meta (memoized-legend-meta symbol timeframe-label candle-data)]
+(defn trading-chart-view
+  [state]
+  (let [dispatch-fn (actions/current-dispatch-fn)
+        {:keys [has-error?
+                candle-data
+                selected-chart-type
+                selected-timeframe
+                active-indicators
+                legend-meta
+                chart-runtime-options
+                active-open-orders
+                on-cancel-order]} (vm/chart-view-model state dispatch-fn)]
     [:div {:class ["w-full" "h-full" "min-h-0" "min-w-0" "overflow-hidden"]
            :data-parity-id "chart-panel"}
-     ;; Chart container with consistent width for both menu and chart
      [:div {:class ["w-full" "h-full" "flex" "flex-col" "min-h-0" "min-w-0" "overflow-hidden"]}
-      ;; Add the top menu above the chart
       (chart-top-menu state)
       (if has-error?
         [:div {:class ["text-red-500" "p-4" "flex-1"]} "Error fetching chart data."]
         (chart-canvas candle-data
                       selected-chart-type
-                      (get-in state [:chart-options :active-indicators] {})
+                      active-indicators
                       legend-meta
                       selected-timeframe
                       chart-runtime-options

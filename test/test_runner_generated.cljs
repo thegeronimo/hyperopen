@@ -390,11 +390,15 @@
             [hyperopen.views.trade.order-form-view.styling-contract-test]
             [hyperopen.views.trade.order-form-vm-submit-test]
             [hyperopen.views.trade.order-form-vm-test]
+            [hyperopen.views.trading-chart.actions-test]
             [hyperopen.views.trading-chart.chart-type-dropdown-test]
             [hyperopen.views.trading-chart.core-test]
             [hyperopen.views.trading-chart.derived-cache-test]
+            [hyperopen.views.trading-chart.runtime-edge-test]
             [hyperopen.views.trading-chart.runtime-state-test]
+            [hyperopen.views.trading-chart.runtime-test]
             [hyperopen.views.trading-chart.timeframe-dropdown-test]
+            [hyperopen.views.trading-chart.toolbar-test]
             [hyperopen.views.trading-chart.utils.chart-interop-test]
             [hyperopen.views.trading-chart.utils.chart-interop.baseline-test]
             [hyperopen.views.trading-chart.utils.chart-interop.candle-sync-policy-test]
@@ -417,6 +421,7 @@
             [hyperopen.views.trading-chart.utils.data-processing-test]
             [hyperopen.views.trading-chart.utils.indicators-test]
             [hyperopen.views.trading-chart.utils.position-overlay-model-test]
+            [hyperopen.views.trading-chart.vm-test]
             [hyperopen.views.typography-scale-test]
             [hyperopen.views.ui.anchored-popover-test]
             [hyperopen.views.ui.dialog-focus-test]
@@ -900,11 +905,15 @@
              'hyperopen.views.trade.order-form-view.styling-contract-test
              'hyperopen.views.trade.order-form-vm-submit-test
              'hyperopen.views.trade.order-form-vm-test
+             'hyperopen.views.trading-chart.actions-test
              'hyperopen.views.trading-chart.chart-type-dropdown-test
              'hyperopen.views.trading-chart.core-test
              'hyperopen.views.trading-chart.derived-cache-test
+             'hyperopen.views.trading-chart.runtime-edge-test
              'hyperopen.views.trading-chart.runtime-state-test
+             'hyperopen.views.trading-chart.runtime-test
              'hyperopen.views.trading-chart.timeframe-dropdown-test
+             'hyperopen.views.trading-chart.toolbar-test
              'hyperopen.views.trading-chart.utils.chart-interop-test
              'hyperopen.views.trading-chart.utils.chart-interop.baseline-test
              'hyperopen.views.trading-chart.utils.chart-interop.candle-sync-policy-test
@@ -927,6 +936,7 @@
              'hyperopen.views.trading-chart.utils.data-processing-test
              'hyperopen.views.trading-chart.utils.indicators-test
              'hyperopen.views.trading-chart.utils.position-overlay-model-test
+             'hyperopen.views.trading-chart.vm-test
              'hyperopen.views.typography-scale-test
              'hyperopen.views.ui.anchored-popover-test
              'hyperopen.views.ui.dialog-focus-test
