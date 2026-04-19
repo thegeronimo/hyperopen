@@ -399,6 +399,13 @@ test("resolveReleaseBuildId prefers the environment override", () => {
 test("resolveReleaseBuildInfo prefers explicit and Cloudflare Pages metadata", () => {
   const previousEnv = {
     HYPEROPEN_BUILD_ID: process.env.HYPEROPEN_BUILD_ID,
+    HYPEROPEN_GIT_SHA: process.env.HYPEROPEN_GIT_SHA,
+    VITE_GIT_SHA: process.env.VITE_GIT_SHA,
+    GIT_COMMIT_SHA: process.env.GIT_COMMIT_SHA,
+    GITHUB_SHA: process.env.GITHUB_SHA,
+    HYPEROPEN_BUILD_BRANCH: process.env.HYPEROPEN_BUILD_BRANCH,
+    GIT_BRANCH: process.env.GIT_BRANCH,
+    GITHUB_REF_NAME: process.env.GITHUB_REF_NAME,
     HYPEROPEN_BUILD_MESSAGE: process.env.HYPEROPEN_BUILD_MESSAGE,
     HYPEROPEN_DEPLOYED_AT: process.env.HYPEROPEN_DEPLOYED_AT,
     HYPEROPEN_BUILD_ENV: process.env.HYPEROPEN_BUILD_ENV,
@@ -413,6 +420,13 @@ test("resolveReleaseBuildInfo prefers explicit and Cloudflare Pages metadata", (
   process.env.HYPEROPEN_BUILD_ENV = "staging";
   process.env.HYPEROPEN_BUILD_REGION = "global";
   delete process.env.HYPEROPEN_BUILD_ID;
+  delete process.env.HYPEROPEN_GIT_SHA;
+  delete process.env.VITE_GIT_SHA;
+  delete process.env.GIT_COMMIT_SHA;
+  delete process.env.GITHUB_SHA;
+  delete process.env.HYPEROPEN_BUILD_BRANCH;
+  delete process.env.GIT_BRANCH;
+  delete process.env.GITHUB_REF_NAME;
 
   try {
     assert.deepEqual(resolveReleaseBuildInfo(), {
