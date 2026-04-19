@@ -121,6 +121,29 @@
     (is (re-find #"Net Flow\s+\+\$372\.17\s+Notional\s+\$874\.67" rendered-text))
     (is (not (re-find #"Net Flow\s+\+\s+1,000,090" rendered-text)))))
 
+(deftest expanded-trade-confirmation-blotter-explains-summary-money-terms-test
+  (let [fills [(fill-prop "fill-1" :buy "UPUMP" 1000000 0.0005 1800000000000)
+               (fill-prop "fill-2" :sell "SOL" 10 25.125 1800000003300)
+               (fill-prop "fill-3" :buy "MOON" 100 1.2342 1800000006600)]
+        view-node (notifications-view/notifications-view
+                   {:ui {:toasts [{:id "blotter"
+                                   :kind :success
+                                   :toast-surface :trade-confirmation
+                                   :variant :stack
+                                   :expanded? true
+                                   :fills fills}]}})
+        blotter-node (hiccup/find-by-data-role view-node "BlotterCard")
+        net-flow-node (hiccup/find-first-node
+                       blotter-node
+                       #(= "Signed USD value of buys minus sells."
+                           (:title (hiccup/node-attrs %))))
+        notional-node (hiccup/find-first-node
+                       blotter-node
+                       #(= "Gross USD value of all fills."
+                           (:title (hiccup/node-attrs %))))]
+    (is (some? net-flow-node))
+    (is (some? notional-node))))
+
 (deftest expanded-trade-confirmation-blotter-footer-describes-grouped-fill-rate-test
   (let [fills [(fill-prop "fill-1" :buy "HYPE" 0.25 44.20 1800000000000)
                (fill-prop "fill-2" :buy "HYPE" 0.30 44.30 1800000003300)

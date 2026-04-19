@@ -403,11 +403,14 @@
           [:div {:class ["k"]} "Net Flow"]
           [:div {:class (cond-> ["v"]
                           (not (neg? net-flow-usd)) (conj "pos")
-                          (neg? net-flow-usd) (conj "neg"))}
+                          (neg? net-flow-usd) (conj "neg"))
+                 :title "Signed USD value of buys minus sells."}
            (signed-compact-notional-text net-flow-usd)]]
          [:div
           [:div {:class ["k"]} "Notional"]
-          [:div {:class ["v"]} (compact-notional-text total-notional)]]]
+          [:div {:class ["v"]
+                 :title "Gross USD value of all fills."}
+           (compact-notional-text total-notional)]]]
         (for [group groups
               :let [{:keys [total-qty avg]} (group-summary group)]]
           ^{:key (str "blotter-group-" (:symbol group) "-" (name (:side group)))}
