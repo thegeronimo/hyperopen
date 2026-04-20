@@ -34,7 +34,7 @@
     (is (approx= 0 (second (first rows)) 1e-12))
     (is (approx= 18.181818181818183 (second (second rows)) 1e-12))))
 
-(deftest returns-history-rows-guards-invalid-dietz-denominator-test
+(deftest returns-history-rows-neutralizes-high-flow-invalid-dietz-denominator-test
   (let [summary {:accountValueHistory [[1 10]
                                        [2 1]
                                        [3 2]]
@@ -44,7 +44,7 @@
         rows (metrics/returns-history-rows {} summary :all)]
     (is (= [1 2 3]
            (mapv first rows)))
-    (is (= [0 200 500]
+    (is (= [0 0 100]
            (mapv second rows)))))
 
 (deftest returns-history-rows-summary-helper-is-compatible-test
@@ -140,6 +140,24 @@
     (is (approx= 0 (nth values 1) 1e-12))
     (is (approx= 0 (nth values 2) 1e-12))
     (is (approx= 10 (nth values 3) 1e-12))))
+
+(deftest returns-history-rows-neutralizes-high-magnitude-ambiguous-flows-before-fallback-test
+  (let [summary {:accountValueHistory [[1 1000]
+                                       [2 100]
+                                       [3 100]
+                                       [4 150]]
+                 :pnlHistory [[1 0]
+                              [2 6000]
+                              [3 5230]
+                              [4 5280]]}
+        rows (metrics/returns-history-rows {} summary :all)
+        values (mapv second rows)]
+    (is (= [1 2 3 4]
+           (mapv first rows)))
+    (is (approx= 0 (nth values 0) 1e-12))
+    (is (approx= 0 (nth values 1) 1e-12))
+    (is (approx= 0 (nth values 2) 1e-12))
+    (is (approx= 50 (nth values 3) 1e-12))))
 
 (deftest daily-compounded-returns-builds-canonical-daily-series-test
   (let [rows [[1000 0]

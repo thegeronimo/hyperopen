@@ -230,8 +230,7 @@ def indeterminateCashFlow
     (previous current : ObservedPoint)
     (impliedCashFlowValue : Int) :
     Bool :=
-  impliedCashFlowValue > 0 &&
-    current.accountValue > previous.accountValue &&
+  current.accountValue > 0 &&
     flowRatioAtLeastHalf previous.accountValue impliedCashFlowValue
 
 def clampPeriodReturn (value : Ratio) : Ratio :=

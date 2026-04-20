@@ -64,9 +64,7 @@
   (let [previous-account-value (:account-value previous)
         flow-ratio (cash-flow-ratio previous-account-value implied-cash-flow*)]
     (or (not (finite-number? flow-ratio))
-        (and (pos? implied-cash-flow*)
-             (> (:account-value current)
-                (:account-value previous))
+        (and (pos? (:account-value current))
              (>= flow-ratio 0.5)))))
 
 (defn- bounded-period-return
