@@ -37,6 +37,27 @@
           "HIP-3 Perps + Growth mode + Aligned Quote"]
          (mapv :label fee-schedule/market-type-options))))
 
+(deftest normalize-fee-schedule-option-selectors-accept-labels-descriptions-and-defaults-test
+  (is (= :referral-4
+         (fee-schedule/normalize-referral-discount "Referral discount")))
+  (is (= :referral-4
+         (fee-schedule/normalize-referral-discount "4%")))
+  (is (= :none
+         (fee-schedule/normalize-referral-discount "unknown")))
+  (is (= :platinum
+         (fee-schedule/normalize-staking-tier ">100k HYPE staked = 30% discount")))
+  (is (= :gold
+         (fee-schedule/normalize-staking-tier "Gold")))
+  (is (= :none
+         (fee-schedule/normalize-staking-tier "unknown")))
+  (is (= :tier-3
+         (fee-schedule/normalize-maker-rebate-tier
+          ">3.0% 14d weighted maker volume = -0.003% maker fee")))
+  (is (= :tier-1
+         (fee-schedule/normalize-maker-rebate-tier "Tier 1")))
+  (is (= :none
+         (fee-schedule/normalize-maker-rebate-tier "unknown"))))
+
 (deftest fee-schedule-rows-render-protocol-rate-variants-test
   (testing "perps base schedule"
     (let [rows (fee-schedule/fee-schedule-rows :perps)]
@@ -300,3 +321,200 @@
       (is (not (->> (:market-options hip3-active)
                     (some #(when (= :hip3-perps-growth-mode (:value %))
                              (:disabled? %)))))))))
+
+(deftest fee-schedule-model-marks-active-spot-stable-aligned-market-test
+  (let [model (fee-schedule/fee-schedule-model
+               {:active-market {:coin "spotdex:PURR/USDH"
+                                :quote " usdh "
+                                :market-type " spot "
+                                :stable-pair? true}
+                :portfolio-ui {:fee-schedule-open? true
+                               :fee-schedule-market-type :spot-aligned-stable-pair}
+                :portfolio {:user-fees nil}})]
+    (is (= :spot-aligned-stable-pair (:selected-market-type model)))
+    (is (= "Spot + Aligned Quote + Stable Pair"
+           (:selected-market-label model)))
+    (is (= {:tier "0"
+            :volume "<= $5M"
+            :taker "0.0112%"
+            :maker "0.008%"}
+           (first (:rows model))))
+    (is (= "Active market: PURR"
+           (->> (:market-options model)
+                (some #(when (= :spot-aligned-stable-pair (:value %))
+                         (:current-label %))))))))
+
+(deftest fee-schedule-model-derives-hip3-growth-aligned-active-market-context-test
+  (let [model (fee-schedule/fee-schedule-model
+               {:active-asset "testdex:WTIOIL"
+                :active-market {:coin "testdex:WTIOIL/USDH"
+                                :quote "USDH"
+                                :market-type "perp"
+                                :dex "testdex"
+                                :growthMode " enabled "
+                                :special-quote-fee-adjustment? true}
+                :perp-dex-fee-config-by-name {"testdex" {:deployer-fee-scale "0.5"}}
+                :portfolio-ui {:fee-schedule-open? true
+                               :fee-schedule-market-type
+                               :hip3-perps-growth-mode-aligned-quote}
+                :portfolio {:user-fees nil}})]
+    (is (= :hip3-perps-growth-mode-aligned-quote (:selected-market-type model)))
+    (is (= "HIP-3 Perps + Growth mode + Aligned Quote"
+           (:selected-market-label model)))
+    (is (= "0.0059%" (get-in model [:rows 0 :taker])))
+    (is (= "0.0023%" (get-in model [:rows 0 :maker])))
+    (is (= "Active market: WTIOIL"
+           (->> (:market-options model)
+                (some #(when (= :hip3-perps-growth-mode-aligned-quote (:value %))
+                         (:current-label %))))))))
+
+(deftest fee-schedule-active-market-classification-boundaries-test
+  (let [model (fee-schedule/fee-schedule-model
+               {:active-market {:market-type :spot
+                                :coin "PURR"
+                                :quote "USDC"}
+                :portfolio-ui {:fee-schedule-market-type :spot}})]
+    (is (= "Active market: PURR"
+           (->> (:market-options model)
+                (some #(when (= :spot (:value %))
+                         (:current-label %))))))
+    (is (true? (->> (:market-options model)
+                    (some #(when (= :spot (:value %))
+                             (:selected? %))))))
+    (is (false? (:selected? (first (filter #(= :perps (:value %))
+                                           (:market-options model)))))))
+  (let [model (fee-schedule/fee-schedule-model
+               {:active-market {:market-type " spot "
+                                :coin "spotdex:PURR/USDC"
+                                :quote " usdh "}
+                :portfolio-ui {:fee-schedule-market-type :spot-aligned-quote}})]
+    (is (= "Active market: PURR"
+           (->> (:market-options model)
+                (some #(when (= :spot-aligned-quote (:value %))
+                         (:current-label %)))))))
+  (let [model (fee-schedule/fee-schedule-model
+               {:active-market {:market-type :spot
+                                :coin "PURR"
+                                :quote "USDH"
+                                :stable-pair? true
+                                :special-quote-fee-adjustment? false}
+                :portfolio-ui {:fee-schedule-market-type :spot-stable-pair}})]
+    (is (= "Active market: PURR"
+           (->> (:market-options model)
+                (some #(when (= :spot-stable-pair (:value %))
+                         (:current-label %))))))
+    (is (nil? (->> (:market-options model)
+                   (some #(when (= :spot-aligned-stable-pair (:value %))
+                            (:current-label %)))))))
+  (doseq [growth [true :enabled " enabled "]]
+    (let [model (fee-schedule/fee-schedule-model
+                 {:active-market {:market-type :perp
+                                  :dex "dex"
+                                  :coin "dex:BTC/USDC"
+                                  :growthMode growth}
+                  :portfolio-ui {:fee-schedule-market-type :hip3-perps-growth-mode}})]
+      (is (= "Active market: BTC"
+             (->> (:market-options model)
+                  (some #(when (= :hip3-perps-growth-mode (:value %))
+                           (:current-label %))))))))
+  (let [model (fee-schedule/fee-schedule-model
+               {:active-market {:market-type :perp
+                                :coin "BTC"}
+                :portfolio-ui {:fee-schedule-market-type :perps}})]
+    (is (= "Active market: BTC"
+           (->> (:market-options model)
+                (some #(when (= :perps (:value %))
+                         (:current-label %)))))))
+  (let [model (fee-schedule/fee-schedule-model
+               {:active-market {:market-type :perp
+                                :dex "dex"
+                                :coin "dex:BTC/USDC"
+                                :growth-mode? false
+                                :growthMode "enabled"}
+                :portfolio-ui {:fee-schedule-market-type :hip3-perps}})]
+    (is (= "Active market: BTC"
+           (->> (:market-options model)
+                (some #(when (= :hip3-perps (:value %))
+                         (:current-label %))))))))
+
+(deftest fee-schedule-model-derives-current-wallet-discounts-from-rates-test
+  (let [model (fee-schedule/fee-schedule-model
+               {:wallet {:address "0x1234567890abcdef1234567890abcdef12345678"}
+                :portfolio-ui {:fee-schedule-open? true}
+                :portfolio {:user-fees {:activeReferralDiscount "0.04"
+                                        :activeStakingDiscount {:discount "0.2"}
+                                        :userAddRate "-0.00003"}}})]
+    (is (= :referral-4 (get-in model [:referral :selected-value])))
+    (is (= "Active referral discount" (get-in model [:referral :helper])))
+    (is (= :gold (get-in model [:staking :selected-value])))
+    (is (= "Gold" (get-in model [:staking :value])))
+    (is (= "Active staking discount" (get-in model [:staking :helper])))
+    (is (= :tier-3 (get-in model [:maker-rebate :selected-value])))
+    (is (= "Current maker rate is a rebate"
+           (get-in model [:maker-rebate :helper])))))
+
+(deftest fee-schedule-wallet-and-current-fee-boundaries-test
+  (let [disconnected (fee-schedule/fee-schedule-model
+                      {:wallet {:address "   "}
+                       :portfolio {:user-fees {:activeReferralDiscount 0.04
+                                               :activeStakingDiscount {:discount 0.4
+                                                                       :tier "Diamond"}
+                                               :userAddRate -0.00003}}})
+        inherited (fee-schedule/fee-schedule-model
+                   {:wallet {:address "0xabc"}
+                    :portfolio-ui {:fee-schedule-referral-discount nil
+                                   :fee-schedule-staking-tier nil
+                                   :fee-schedule-maker-rebate-tier nil}
+                    :portfolio {:user-fees {:activeReferralDiscount "0.04"
+                                            :activeStakingDiscount {:discount "0.2"}
+                                            :userAddRate "-0.00003"}}})
+        no-current-discounts (fee-schedule/fee-schedule-model
+                              {:wallet {:address "0xabc"}
+                               :portfolio {:user-fees {}}})]
+    (is (= :none (get-in disconnected [:referral :selected-value])))
+    (is (= :none (get-in disconnected [:staking :selected-value])))
+    (is (= :none (get-in disconnected [:maker-rebate :selected-value])))
+    (is (= :referral-4 (get-in inherited [:referral :selected-value])))
+    (is (= :gold (get-in inherited [:staking :selected-value])))
+    (is (= :tier-3 (get-in inherited [:maker-rebate :selected-value])))
+    (is (= :none (get-in no-current-discounts [:referral :selected-value])))
+    (is (= "No active referral discount"
+           (get-in no-current-discounts [:referral :helper]))))
+  (is (= :gold
+         (get-in (fee-schedule/fee-schedule-model
+                  {:wallet {:address "0xabc"}
+                   :portfolio {:user-fees {:activeStakingDiscount {:discount 0
+                                                                   :tier "Gold"}}}})
+                 [:staking :selected-value])))
+  (is (= :diamond
+         (get-in (fee-schedule/fee-schedule-model
+                  {:wallet {:address "0xabc"}
+                   :portfolio {:user-fees {:activeStakingDiscount {:discount 0.4
+                                                                   :tier "unknown"}}}})
+                 [:staking :selected-value]))))
+
+(deftest fee-schedule-model-labels-local-what-if-selections-as-scenario-preview-test
+  (let [model (fee-schedule/fee-schedule-model
+               {:wallet {:address "0x1234567890abcdef1234567890abcdef12345678"}
+                :portfolio-ui {:fee-schedule-open? true
+                               :fee-schedule-staking-tier :diamond
+                               :fee-schedule-maker-rebate-tier :tier-3}
+                :portfolio {:user-fees {:activeStakingDiscount {:discount 0.05
+                                                                :tier "Wood"}
+                                        :userAddRate -0.00001}}})]
+    (is (= "Scenario preview" (get-in model [:staking :helper])))
+    (is (= "Scenario preview" (get-in model [:maker-rebate :helper])))
+    (is (= true
+           (->> (get-in model [:staking :options])
+                (some #(when (= :wood (:value %))
+                         (:current? %))))))
+    (is (= true
+           (->> (get-in model [:staking :options])
+                (some #(when (= :diamond (:value %))
+                         (:selected? %))))))
+    (is (false? (:selected? (first (filter #(= :wood (:value %))
+                                           (get-in model [:staking :options]))))))
+    (is (= true
+           (->> (get-in model [:maker-rebate :options])
+                (some #(when (= :tier-1 (:value %))
+                         (:current? %))))))))

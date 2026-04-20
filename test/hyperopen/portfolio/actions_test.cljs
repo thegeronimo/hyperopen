@@ -262,6 +262,34 @@
                                  [[:portfolio-ui :performance-metrics-time-range-dropdown-open?] false]]]]
            (actions/open-portfolio-fee-schedule {} anchor)))))
 
+(deftest portfolio-anchor-normalization-boundaries-test
+  (is (= {:left 10
+          :top 20}
+         (get-in (first (actions/open-portfolio-volume-history
+                         {}
+                         #js {:left "10"
+                              :top "20"}))
+                 [1 1 1])))
+  (is (= {:left 16
+          :viewport-width 960}
+         (get-in (first (actions/open-portfolio-fee-schedule
+                         {}
+                         #js {:left "16"
+                              :viewportWidth "960"}))
+                 [1 1 1])))
+  (is (nil? (get-in (first (actions/open-portfolio-volume-history
+                            {}
+                            {:left js/NaN
+                             :top "abc"
+                             :height ""}))
+                    [1 1 1])))
+  (is (nil? (get-in (first (actions/open-portfolio-fee-schedule
+                            {}
+                            {:left js/NaN
+                             :top "abc"
+                             :height ""}))
+                    [1 1 1]))))
+
 (deftest select-portfolio-summary-scope-normalizes-and-closes-dropdowns-test
   (is (= [[:effects/save-many [[[:portfolio-ui :summary-scope] :perps]
                                [[:portfolio-ui :summary-scope-dropdown-open?] false]
@@ -441,6 +469,61 @@
            false]]
          (actions/set-portfolio-returns-benchmark-suggestions-open {} nil))))
 
+(deftest normalize-portfolio-returns-benchmark-coins-accepts-public-selection-shapes-test
+  (is (= "ETH"
+         (actions/normalize-portfolio-returns-benchmark-coin {:coin " ETH "})))
+  (is (= "BTC"
+         (actions/normalize-portfolio-returns-benchmark-coin :BTC)))
+  (is (= ["BTC" "ETH" "SOL"]
+         (actions/normalize-portfolio-returns-benchmark-coins
+          [" BTC " {:coin "ETH"} :SOL "BTC" nil {:symbol "DOGE"} " "])))
+  (is (= ["BTC"]
+         (actions/normalize-portfolio-returns-benchmark-coins {:coin "BTC"}))))
+
+(deftest selected-portfolio-vault-benchmark-addresses-normalizes-selected-vaults-test
+  (is (= "0xabc"
+         (actions/vault-benchmark-address " Vault:0xABC ")))
+  (is (nil? (actions/vault-benchmark-address "BTC")))
+  (is (= ["0xabc" "0xdef"]
+         (actions/selected-portfolio-vault-benchmark-addresses
+          {:portfolio-ui {:returns-benchmark-coins ["Vault:0xABC"
+                                                    "BTC"
+                                                    {:coin "vault:0xDEF"}
+                                                    "vault:0xabc"]}})))
+  (is (= ["0xabc"]
+         (actions/selected-portfolio-vault-benchmark-addresses
+          {:portfolio-ui {:returns-benchmark-coin "vault:0xABC"}}))))
+
+(deftest ensure-portfolio-vault-benchmark-effects-fetches-only-missing-data-test
+  (is (= []
+         (actions/ensure-portfolio-vault-benchmark-effects
+          {:portfolio-ui {:returns-benchmark-suggestions-open? false
+                          :returns-benchmark-coins []}})))
+  (is (= [[:effects/api-fetch-vault-index]
+          [:effects/api-fetch-vault-summaries]
+          [:effects/api-fetch-vault-benchmark-details "0xaaa"]]
+         (actions/ensure-portfolio-vault-benchmark-effects
+          {:portfolio-ui {:returns-benchmark-suggestions-open? true
+                          :returns-benchmark-coins ["vault:0xAAA"
+                                                    "vault:0xBBB"
+                                                    "BTC"
+                                                    "vault:0xCCC"]}
+           :vaults {:benchmark-details-by-address {"0xbbb" {:name "cached"}}
+                    :loading {:benchmark-details-by-address {"0xccc" true}}}})))
+  (is (= [[:effects/api-fetch-vault-benchmark-details "0xaaa"]]
+         (actions/ensure-portfolio-vault-benchmark-effects
+          {:portfolio-ui {:returns-benchmark-coins ["vault:0xAAA"]}
+           :vaults {:merged-index-rows [{:address "0xaaa"}]}})))
+  (is (= []
+         (actions/ensure-portfolio-vault-benchmark-effects
+          {:portfolio-ui {:returns-benchmark-coins ["vault:0xabc"]}
+           :vaults {:merged-index-rows [{:address "0xabc"}]
+                    :loading {:benchmark-details-by-address {"0xabc" true}}}})))
+  (is (= [[:effects/save [:portfolio-ui :returns-benchmark-suggestions-open?] true]]
+         (actions/set-portfolio-returns-benchmark-suggestions-open
+          {:vaults {:merged-index-rows [{:address "0xaaa"}]}}
+          true))))
+
 (deftest select-and-clear-portfolio-returns-benchmark-test
   (is (= [[:effects/save-many
            [[[:portfolio-ui :returns-benchmark-coins] ["SPY" "QQQ"]]
@@ -473,6 +556,27 @@
           {:portfolio-ui {:summary-time-range :all-time
                           :returns-benchmark-coin "SPY"}}
           "SPY")))
+  (is (= [[:effects/save-many
+           [[[:portfolio-ui :returns-benchmark-coins] ["vault:0xAAA"]]
+            [[:portfolio-ui :returns-benchmark-coin] "vault:0xAAA"]
+            [[:portfolio-ui :returns-benchmark-search] ""]
+            [[:portfolio-ui :returns-benchmark-suggestions-open?] false]]]
+          replace-shareable-route-query-effect]
+         (actions/select-portfolio-returns-benchmark
+          {:portfolio-ui {:summary-time-range :week
+                          :returns-benchmark-coins []}
+           :vaults {:details-by-address {"0xaaa" {:address "0xaaa"}}}}
+          "vault:0xAAA")))
+  (is (= [[:effects/save-many
+           [[[:portfolio-ui :returns-benchmark-coins] ["vault:0xabc"]]
+            [[:portfolio-ui :returns-benchmark-coin] "vault:0xabc"]
+            [[:portfolio-ui :returns-benchmark-search] ""]
+            [[:portfolio-ui :returns-benchmark-suggestions-open?] false]]]
+          replace-shareable-route-query-effect]
+         (actions/select-portfolio-returns-benchmark
+          {:portfolio-ui {:summary-time-range :week
+                          :returns-benchmark-coins ["vault:0xabc"]}}
+          "vault:0xabc")))
   (is (= [[:effects/save-many
            [[[:portfolio-ui :returns-benchmark-coins] ["vault:0x1234567890abcdef1234567890abcdef12345678"]]
             [[:portfolio-ui :returns-benchmark-coin] "vault:0x1234567890abcdef1234567890abcdef12345678"]
@@ -590,3 +694,12 @@
   (is (= :one-year (actions/normalize-summary-time-range "not-a-range")))
   (is (= {:interval :12h :bars 900}
          (actions/returns-benchmark-candle-request "not-a-range"))))
+
+(deftest set-portfolio-metrics-result-saves-worker-payload-test
+  (is (= [[:effects/save [:portfolio-ui :metrics-result]
+           {:status :ok
+            :series [1 2 3]}]]
+         (actions/set-portfolio-metrics-result
+          {}
+          {:status :ok
+           :series [1 2 3]}))))
