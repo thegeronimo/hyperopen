@@ -368,13 +368,27 @@
   (when-let [n (optional-number value)]
     (if (neg? n) :short :long)))
 
+(defn- trade-history-direction-key
+  [row]
+  (or (:direction-key row)
+      (let [normalized (some-> (:side row)
+                               non-blank-text
+                               str/lower-case)]
+        (cond
+          (not normalized) nil
+          (str/includes? normalized "long") :long
+          (str/includes? normalized "short") :short
+          :else nil))
+      (normalize-side-key (:side row))
+      (:side-key row)))
+
 (defn- row-direction-key
   [tab row]
   (case tab
     :positions (direction-key-from-size (:size row))
     :open-orders (normalize-side-key (:side row))
     :twap (direction-key-from-size (:size row))
-    :trade-history (normalize-side-key (:side row))
+    :trade-history (trade-history-direction-key row)
     :funding-history (direction-key-from-size (:position-size row))
     :order-history (normalize-side-key (:side row))
     nil))

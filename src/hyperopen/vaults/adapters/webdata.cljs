@@ -1,5 +1,6 @@
 (ns hyperopen.vaults.adapters.webdata
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [hyperopen.vaults.adapters.fills :as fills-adapter]))
 
 (defn- optional-number
   [value]
@@ -262,45 +263,6 @@
       total-label total-label
       :else "—")))
 
-(defn- fill-time-ms
-  [row]
-  (or (optional-number (:time row))
-      (optional-number (:timestamp row))
-      (optional-number (:timeMs row))))
-
-(defn- fill-coin
-  [row]
-  (non-blank-text (or (:coin row)
-                      (:symbol row)
-                      (:asset row))))
-
-(defn- fill-side
-  [row]
-  (normalize-side (or (:side row)
-                      (:dir row))))
-
-(defn- fill-side-key
-  [row]
-  (normalize-side-key (or (:side row)
-                          (:dir row))))
-
-(defn- fill-size
-  [row]
-  (optional-number (or (:sz row)
-                       (:size row)
-                       (:closedSize row))))
-
-(defn- fill-price
-  [row]
-  (optional-number (or (:px row)
-                       (:price row))))
-
-(defn- fill-closed-pnl
-  [row]
-  (optional-number (or (:closedPnl row)
-                       (:closed-pnl row)
-                       (:pnl row))))
-
 (defn- normalize-twap-row
   [row now-ms]
   (when (map? row)
@@ -355,32 +317,10 @@
                   >)
          vec)))
 
-(defn- fill-row
-  [row]
-  (when (map? row)
-    (let [size (fill-size row)
-          price (fill-price row)]
-      {:time-ms (fill-time-ms row)
-       :coin (fill-coin row)
-       :side (fill-side row)
-       :side-key (fill-side-key row)
-       :size size
-       :price price
-       :trade-value (when (and (number? size)
-                               (number? price))
-                      (* (js/Math.abs size) price))
-       :fee (optional-number (:fee row))
-       :closed-pnl (fill-closed-pnl row)})))
-
 (defn fills
   [rows]
   (let [rows* (rows-from-source rows [:fills :userFills])]
-    (->> (if (sequential? rows*) rows* [])
-         (keep fill-row)
-         (sort-by (fn [{:keys [time-ms]}]
-                    (or time-ms 0))
-                  >)
-         vec)))
+    (fills-adapter/fills rows*)))
 
 (defn- normalize-funding-row
   [row]

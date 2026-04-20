@@ -43,6 +43,38 @@
     (is (= 100 (:trade-value second-row)))
     (is (= -1 (:closed-pnl second-row)))))
 
+(deftest fills-preserves-hyperliquid-open-close-direction-labels-test
+  (let [rows (webdata/fills {:fills [{:time 40
+                                      :coin "HYPE"
+                                      :side "A"
+                                      :dir "Close Long"
+                                      :sz "2"
+                                      :px "41.496"}
+                                     {:time 30
+                                      :coin "HYPE"
+                                      :side "B"
+                                      :dir "Open Long"
+                                      :sz "1"
+                                      :px "41.297"}
+                                     {:time 20
+                                      :coin "BTC"
+                                      :side "A"
+                                      :dir "Open Short"
+                                      :sz "3"
+                                      :px "100"}
+                                     {:time 10
+                                      :coin "BTC"
+                                      :side "B"
+                                      :dir "Close Short"
+                                      :sz "4"
+                                      :px "99"}]})]
+    (is (= ["Close Long" "Open Long" "Open Short" "Close Short"]
+           (mapv :side rows)))
+    (is (= [:short :long :short :long]
+           (mapv :side-key rows)))
+    (is (= [:long :long :short :short]
+           (mapv :direction-key rows)))))
+
 (deftest positions-normalizes-clearinghouse-shapes-test
   (let [rows (webdata/positions {:clearinghouseState {:assetPositions [{:position {:coin "BTC"
                                                                                      :szi "0.5"

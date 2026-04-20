@@ -25,3 +25,17 @@
         projected (activity/project-rows rows :positions :long sort-state)]
     (is (= ["BTC" "SOL"]
            (mapv :coin projected)))))
+
+(deftest project-rows-filters-trade-history-open-close-labels-by-position-direction-test
+  (let [rows [{:coin "OPEN-LONG" :side "Open Long" :side-key :long :direction-key :long :time-ms 1}
+              {:coin "CLOSE-SHORT" :side "Close Short" :side-key :long :direction-key :short :time-ms 2}
+              {:coin "OPEN-SHORT" :side "Open Short" :side-key :short :direction-key :short :time-ms 3}
+              {:coin "CLOSE-LONG" :side "Close Long" :side-key :short :direction-key :long :time-ms 4}]
+        sort-state {:column :time
+                    :direction :asc}
+        long-projected (activity/project-rows rows :trade-history :long sort-state)
+        short-projected (activity/project-rows rows :trade-history :short sort-state)]
+    (is (= ["OPEN-LONG" "CLOSE-LONG"]
+           (mapv :coin long-projected)))
+    (is (= ["CLOSE-SHORT" "OPEN-SHORT"]
+           (mapv :coin short-projected)))))
