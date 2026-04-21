@@ -61,6 +61,7 @@
             [hyperopen.api.trading-test]
             [hyperopen.api.trading.approve-agent-test]
             [hyperopen.api.trading.cancel-request-test]
+            [hyperopen.api.trading.debug-exchange-simulator-test]
             [hyperopen.api.trading.internal-seams-test]
             [hyperopen.api.trading.session-invalidation-test]
             [hyperopen.api.trading.sign-and-submit-test]
@@ -584,6 +585,7 @@
              'hyperopen.api.trading-test
              'hyperopen.api.trading.approve-agent-test
              'hyperopen.api.trading.cancel-request-test
+             'hyperopen.api.trading.debug-exchange-simulator-test
              'hyperopen.api.trading.internal-seams-test
              'hyperopen.api.trading.session-invalidation-test
              'hyperopen.api.trading.sign-and-submit-test

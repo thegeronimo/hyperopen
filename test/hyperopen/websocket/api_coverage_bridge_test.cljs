@@ -21,7 +21,8 @@
             [hyperopen.api.projections.vaults-test]
             [hyperopen.api.promise-effects-test]
             [hyperopen.api.runtime-test]
-            [hyperopen.api.service-test]))
+            [hyperopen.api.service-test]
+            [hyperopen.api.trading.debug-exchange-simulator-test]))
 
 (deftest api-coverage-bridge-loads-targeted-api-suites-test
   (is true))
