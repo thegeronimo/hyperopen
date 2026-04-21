@@ -1,5 +1,6 @@
 (ns hyperopen.api.projections.orders
-  (:require [hyperopen.api.errors :as api-errors]))
+  (:require [hyperopen.api.errors :as api-errors]
+            [hyperopen.order.cancel-guard :as cancel-guard]))
 
 (defn- normalized-error
   [err]
@@ -7,10 +8,13 @@
 
 (defn apply-open-orders-success
   [state dex rows]
-  (let [state* (assoc-in state [:orders :open-orders-hydrated?] true)]
+  (let [rows* (cancel-guard/prune-open-order-payload
+               rows
+               (cancel-guard/state-guard-entries state))
+        state* (assoc-in state [:orders :open-orders-hydrated?] true)]
     (if (and dex (not= dex ""))
-      (assoc-in state* [:orders :open-orders-snapshot-by-dex dex] rows)
-      (assoc-in state* [:orders :open-orders-snapshot] rows))))
+      (assoc-in state* [:orders :open-orders-snapshot-by-dex dex] rows*)
+      (assoc-in state* [:orders :open-orders-snapshot] rows*))))
 
 (defn apply-open-orders-error
   [state err]

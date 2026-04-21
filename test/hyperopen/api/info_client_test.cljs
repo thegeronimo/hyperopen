@@ -47,6 +47,50 @@
                     (is false (str "Unexpected error: " err))
                     (done)))))))
 
+(deftest request-info-force-refresh-bypasses-single-flight-without-changing-normal-dedupe-test
+  (async done
+    (let [fetch-calls (atom [])
+          resolvers (atom [])
+          client (info-client/make-info-client
+                  {:fetch-fn (fn [url opts]
+                               (let [call-number (inc (count @fetch-calls))]
+                                 (swap! fetch-calls conj [url (js->clj opts :keywordize-keys true)])
+                                 (js/Promise.
+                                  (fn [resolve _reject]
+                                    (swap! resolvers conj
+                                           (fn []
+                                             (resolve (fake-http-response 200 {:call call-number}))))))))
+                   :sleep-ms-fn (fn [_] (js/Promise.resolve nil))
+                   :log-fn (fn [& _] nil)})
+          request-info! (:request-info! client)
+          opts {:dedupe-key :open-orders}
+          p1 (request-info! {"type" "frontendOpenOrders"} opts)
+          p2 (request-info! {"type" "frontendOpenOrders"} opts)
+          forced (request-info! {"type" "frontendOpenOrders"}
+                                (assoc opts :force-refresh? true))]
+      (is (identical? p1 p2))
+      (is (not (identical? p1 forced)))
+      (js/setTimeout
+       (fn []
+         (try
+           (is (= 2 (count @fetch-calls)))
+           (doseq [resolve! @resolvers]
+             (resolve!))
+           (-> (js/Promise.all #js [p1 p2 forced])
+               (.then (fn [results]
+                        (is (= [{:call 1}
+                                {:call 1}
+                                {:call 2}]
+                               (js->clj results)))
+                        (done)))
+               (.catch (fn [err]
+                         (is false (str "Unexpected error: " err))
+                         (done))))
+           (catch :default err
+             (is false (str "Unexpected assertion error: " err))
+             (done))))
+       0))))
+
 (deftest request-info-clears-single-flight-after-settlement-test
   (async done
     (let [fetch-calls (atom 0)

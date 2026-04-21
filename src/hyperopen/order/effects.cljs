@@ -9,15 +9,13 @@
             [hyperopen.telemetry :as telemetry]
             [hyperopen.account.history.position-margin :as position-margin]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
+            [hyperopen.order.cancel-guard :as cancel-guard]
             [hyperopen.order.toast-payloads :as toast-payloads]
             [hyperopen.api.trading :as trading-api]))
 
 (defn- cancel-request-oids
   [request]
-  (->> (get-in request [:action :cancels] [])
-       (keep (fn [cancel]
-               (trading-api/resolve-cancel-order-oid cancel)))
-       set))
+  (cancel-guard/cancel-request-oids request))
 
 (defn- add-pending-cancel-oids
   [state cancel-oids]
@@ -43,69 +41,50 @@
                      next-set))))
     state))
 
-(defn- remove-canceled-open-orders-seq
-  [orders cancel-oids]
-  (->> (or orders [])
-       (remove (fn [order]
-                 (when-let [oid (trading-api/resolve-cancel-order-oid order)]
-                   (contains? cancel-oids oid))))
-       vec))
-
-(defn- remove-canceled-open-orders
-  [orders cancel-oids]
-  (cond
-    (not (seq cancel-oids))
-    orders
-
-    (sequential? orders)
-    (remove-canceled-open-orders-seq orders cancel-oids)
-
-    (map? orders)
-    (cond
-      (sequential? (:orders orders))
-      (update orders :orders remove-canceled-open-orders-seq cancel-oids)
-
-      (sequential? (:openOrders orders))
-      (update orders :openOrders remove-canceled-open-orders-seq cancel-oids)
-
-      (sequential? (:data orders))
-      (update orders :data remove-canceled-open-orders-seq cancel-oids)
-
-      :else
-      orders)
-
-    :else
-    orders))
-
 (defn prune-canceled-open-orders
   [state request]
-  (let [cancel-oids (cancel-request-oids request)]
-    (if (seq cancel-oids)
-      (-> state
-          (update-in [:orders :open-orders] remove-canceled-open-orders cancel-oids)
-          (update-in [:orders :open-orders-snapshot] remove-canceled-open-orders cancel-oids)
-          (update-in [:orders :open-orders-snapshot-by-dex]
-                     (fn [orders-by-dex]
-                       (reduce-kv (fn [acc dex dex-orders]
-                                    (assoc acc dex (remove-canceled-open-orders dex-orders cancel-oids)))
-                                  (if (map? orders-by-dex)
-                                    (empty orders-by-dex)
-                                    {})
-                                  (or orders-by-dex {})))))
-      state)))
+  (let [cancel-entries (cancel-guard/cancel-request-guard-entries request)]
+    (cancel-guard/prune-open-order-sources state cancel-entries)))
+
+(defn- same-address?
+  [a b]
+  (let [a* (account-context/normalize-address a)
+        b* (account-context/normalize-address b)]
+    (if (and a* b*)
+      (= a* b*)
+      (= a b))))
+
+(defn- active-wallet-address?
+  [state address]
+  (same-address? address (get-in state [:wallet :address])))
+
+(defn- apply-open-orders-success-for-active-address
+  [store address dex]
+  (fn [payload]
+    (swap! store
+           (fn [state]
+             (if (active-wallet-address? state address)
+               (api-projections/apply-open-orders-success state dex payload)
+               state)))
+    payload))
+
+(defn- apply-open-orders-error-for-active-address
+  [store address]
+  (fn [err]
+    (swap! store
+           (fn [state]
+             (if (active-wallet-address? state address)
+               (api-projections/apply-open-orders-error state err)
+               state)))
+    (promise-effects/reject-error err)))
 
 (defn- refresh-open-orders-snapshot!
   [store address dex opts]
   (-> (api/request-frontend-open-orders! address
                                          (cond-> (merge {:force-refresh? true} (or opts {}))
                                            (and dex (not= dex "")) (assoc :dex dex)))
-      (.then (promise-effects/apply-success-and-return
-              store
-              api-projections/apply-open-orders-success
-              dex))
-      (.catch (promise-effects/apply-error-and-reject
-               store
-               api-projections/apply-open-orders-error))))
+      (.then (apply-open-orders-success-for-active-address store address dex))
+      (.catch (apply-open-orders-error-for-active-address store address))))
 
 (defn- refresh-default-clearinghouse-snapshot!
   [store address opts]
@@ -726,6 +705,9 @@
                                               (remove-pending-cancel-oids cancel-oids))
                                     (= "ok" (:status resp))
                                     (assoc-in [:orders :cancel-response] resp)
+
+                                    (seq success-cancels)
+                                    (cancel-guard/record-canceled-oids success-cancels)
 
                                     (map? success-request)
                                     (prune-fn success-request))))

@@ -2,6 +2,7 @@
   (:require [hyperopen.domain.funding-history :as funding-history]
             [hyperopen.platform :as platform]
             [hyperopen.api.projections :as api-projections]
+            [hyperopen.order.cancel-guard :as cancel-guard]
             [hyperopen.trading-settings :as trading-settings]
             [hyperopen.websocket.user-runtime.common :as common]
             [hyperopen.websocket.user-runtime.fills :as fill-runtime]
@@ -75,7 +76,10 @@
       (swap! store
              (fn [state]
                (-> state
-                   (assoc-in [:orders :open-orders] (:data msg))
+                   (assoc-in [:orders :open-orders]
+                             (cancel-guard/prune-open-order-payload
+                              (:data msg)
+                              (cancel-guard/state-guard-entries state)))
                    (assoc-in [:orders :open-orders-hydrated?] true)))))))
 
 (defn twap-states-handler

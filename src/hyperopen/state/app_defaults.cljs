@@ -64,6 +64,8 @@
    :open-orders-hydrated? false
    :open-orders-snapshot []
    :open-orders-snapshot-by-dex {}
+   :recently-canceled-oids #{}
+   :recently-canceled-order-keys #{}
    :fills []
    :fundings-raw []
    :fundings []

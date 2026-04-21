@@ -150,6 +150,7 @@
             [hyperopen.leaderboard.normalization-test]
             [hyperopen.leaderboard.preferences-test]
             [hyperopen.order.actions-test]
+            [hyperopen.order.cancel-guard-test]
             [hyperopen.order.feedback-runtime-test]
             [hyperopen.orderbook.actions-test]
             [hyperopen.orderbook.price-aggregation-test]
@@ -670,6 +671,7 @@
              'hyperopen.leaderboard.normalization-test
              'hyperopen.leaderboard.preferences-test
              'hyperopen.order.actions-test
+             'hyperopen.order.cancel-guard-test
              'hyperopen.order.feedback-runtime-test
              'hyperopen.orderbook.actions-test
              'hyperopen.orderbook.price-aggregation-test

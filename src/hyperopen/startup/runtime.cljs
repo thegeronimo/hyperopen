@@ -217,6 +217,8 @@
       (assoc-in [:orders :twap-history] [])
       (assoc-in [:orders :twap-slice-fills] [])
       (assoc-in [:orders :pending-cancel-oids] nil)
+      (assoc-in [:orders :recently-canceled-oids] #{})
+      (assoc-in [:orders :recently-canceled-order-keys] #{})
       (update-in [:account-info :funding-history]
                  (fn [funding-history]
                    (-> (or funding-history {})

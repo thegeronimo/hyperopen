@@ -508,9 +508,10 @@
                 cache-ttl-ms
                 force-refresh?
                 flight-key]} (request-flow-opts default-priority opts)]
-    (if (and (not force-refresh?)
-             cache-key
-             cache-ttl-ms)
+    (cond
+      (and (not force-refresh?)
+           cache-key
+           cache-ttl-ms)
       (if-let [cached (read-cached-response! response-cache now-ms-fn cache-key)]
         (js/Promise.resolve cached)
         (with-single-flight!
@@ -525,6 +526,10 @@
                                                  cache-ttl-ms
                                                  value)
                          value))))))
+      force-refresh?
+      (request-attempt-fn body request-opts 0)
+
+      :else
       (with-single-flight!
         single-flight-promises
         flight-key

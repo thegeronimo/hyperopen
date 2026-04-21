@@ -36,6 +36,25 @@
     (is (= false
            (get-in @store [:orders :open-orders-hydrated?])))))
 
+(deftest open-orders-handler-filters-recently-canceled-oids-and-keeps-active-rows-test
+  (let [store (atom {:wallet {:address address}
+                     :orders {:open-orders []
+                              :open-orders-hydrated? false
+                              :recently-canceled-oids #{22}}})
+        handle-open-orders! (handlers/open-orders-handler store)]
+    (handle-open-orders! {:channel "openOrders"
+                          :data {:user address
+                                 :openOrders [{:coin "BTC"
+                                               :oid 22}
+                                              {:coin "ETH"
+                                               :oid 23}]}})
+    (is (= {:user address
+            :openOrders [{:coin "ETH"
+                          :oid 23}]}
+           (get-in @store [:orders :open-orders])))
+    (is (= true
+           (get-in @store [:orders :open-orders-hydrated?])))))
+
 (deftest twap-handlers-store-active-history-and-slice-fill-payloads-test
   (let [store (atom {:wallet {:address address}
                      :orders {:twap-states []

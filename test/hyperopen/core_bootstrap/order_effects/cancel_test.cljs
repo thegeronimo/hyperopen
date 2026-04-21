@@ -8,6 +8,32 @@
             [hyperopen.core.compat :as core]
             [hyperopen.core-bootstrap.order-effects.test-support :as support]))
 
+(defn- open-order-rows
+  [orders]
+  (cond
+    (sequential? orders) orders
+    (and (map? orders) (sequential? (:orders orders))) (:orders orders)
+    (and (map? orders) (sequential? (:openOrders orders))) (:openOrders orders)
+    (and (map? orders) (sequential? (:data orders))) (:data orders)
+    :else []))
+
+(defn- open-order-oids
+  [orders]
+  (->> (open-order-rows orders)
+       (keep trading-api/resolve-cancel-order-oid)
+       vec))
+
+(defn- deferred-promise
+  []
+  (let [resolve! (atom nil)
+        reject! (atom nil)
+        promise (js/Promise. (fn [resolve reject]
+                               (reset! resolve! resolve)
+                               (reset! reject! reject)))]
+    {:promise promise
+     :resolve! @resolve!
+     :reject! @reject!}))
+
 (deftest api-cancel-order-effect-shows-success-toast-and-refreshes-open-orders-test
   (async done
     (let [store (atom (support/base-cancel-order-store))
@@ -71,6 +97,185 @@
                   (get-in @store [:ui :toast :headline])))
            (is (= "Open orders updated"
                   (get-in @store [:ui :toast :subline])))
+           (is (= [[[:actions/refresh-order-history]]]
+                  @dispatched))
+           (is (= 2 (count @refresh-calls)))
+           (is (= 2 (count @clearinghouse-calls)))
+           (finally
+             (support/clear-order-feedback-toast-timeout!)
+             (set! trading-api/cancel-order! original-cancel-order)
+             (set! nxr/dispatch original-dispatch)
+             (set! api/request-frontend-open-orders! original-request-open-orders)
+             (set! api/request-clearinghouse-state! original-request-clearinghouse-state)
+             (set! api/ensure-perp-dexs-data! original-ensure-perp-dexs-data)
+             (done))))
+       0))))
+
+(deftest api-cancel-order-effect-skips-stale-post-cancel-open-orders-refresh-after-wallet-change-test
+  (async done
+    (let [address-a "0xabc"
+          address-b "0xdef"
+          base-open-orders (deferred-promise)
+          dex-open-orders (deferred-promise)
+          store (atom (support/base-cancel-order-store
+                       {:wallet {:address address-a
+                                 :agent {:status :ready}}
+                        :orders {:open-orders []
+                                 :open-orders-snapshot []
+                                 :open-orders-snapshot-by-dex {}}}))
+          dispatched (atom [])
+          refresh-calls (atom [])
+          clearinghouse-calls (atom [])
+          original-cancel-order trading-api/cancel-order!
+          original-dispatch nxr/dispatch
+          original-request-open-orders api/request-frontend-open-orders!
+          original-request-clearinghouse-state api/request-clearinghouse-state!
+          original-ensure-perp-dexs-data api/ensure-perp-dexs-data!]
+      (support/clear-order-feedback-toast-timeout!)
+      (set! trading-api/cancel-order!
+            (fn [_store _address _action]
+              (js/Promise.resolve {:status "ok"
+                                   :response {:type "cancel"
+                                              :data {:statuses ["success"]}}})))
+      (set! nxr/dispatch
+            (fn [_store _evt actions]
+              (swap! dispatched conj actions)))
+      (set! api/request-frontend-open-orders!
+            (fn request-frontend-open-orders-mock
+              ([address]
+               (request-frontend-open-orders-mock address {}))
+              ([address opts]
+               (request-frontend-open-orders-mock address (:dex opts) (dissoc opts :dex)))
+              ([address dex opts]
+               (swap! refresh-calls conj [address dex opts])
+               (:promise (if (= "dex-a" dex)
+                           dex-open-orders
+                           base-open-orders)))))
+      (set! api/request-clearinghouse-state!
+            (fn request-clearinghouse-state-mock
+              ([address dex]
+               (request-clearinghouse-state-mock address dex {}))
+              ([address dex opts]
+               (swap! clearinghouse-calls conj [address dex opts])
+               (js/Promise.resolve {:assetPositions []}))))
+      (set! api/ensure-perp-dexs-data!
+            (fn ensure-perp-dexs-data-mock
+              ([_store]
+               (ensure-perp-dexs-data-mock nil {}))
+              ([_store _opts]
+               (js/Promise.resolve ["dex-a"]))))
+      (core/api-cancel-order nil store {:action {:type "cancel"
+                                                 :cancels [{:a 0 :o 22}]}})
+      (js/setTimeout
+       (fn []
+         (try
+           (is (= [[address-a nil {:force-refresh? true
+                                   :priority :high}]
+                   [address-a "dex-a" {:force-refresh? true
+                                       :priority :low}]]
+                  @refresh-calls))
+           (swap! store assoc-in [:wallet :address] address-b)
+           ((:resolve! base-open-orders) [{:coin "OLD-ACCOUNT" :oid 99}])
+           ((:resolve! dex-open-orders) [{:coin "OLD-DEX" :oid 100}])
+           (js/setTimeout
+            (fn []
+              (try
+                (is (= []
+                       (get-in @store [:orders :open-orders-snapshot]))
+                    "old-address base open-orders refresh must not write after wallet changes")
+                (is (= {}
+                       (get-in @store [:orders :open-orders-snapshot-by-dex]))
+                    "old-address dex open-orders refresh must not write after wallet changes")
+                (is (= address-b
+                       (get-in @store [:wallet :address])))
+                (finally
+                  (support/clear-order-feedback-toast-timeout!)
+                  (set! trading-api/cancel-order! original-cancel-order)
+                  (set! nxr/dispatch original-dispatch)
+                  (set! api/request-frontend-open-orders! original-request-open-orders)
+                  (set! api/request-clearinghouse-state! original-request-clearinghouse-state)
+                  (set! api/ensure-perp-dexs-data! original-ensure-perp-dexs-data)
+                  (done))))
+            0)
+         (catch :default err
+           (support/clear-order-feedback-toast-timeout!)
+           (set! trading-api/cancel-order! original-cancel-order)
+           (set! nxr/dispatch original-dispatch)
+           (set! api/request-frontend-open-orders! original-request-open-orders)
+           (set! api/request-clearinghouse-state! original-request-clearinghouse-state)
+           (set! api/ensure-perp-dexs-data! original-ensure-perp-dexs-data)
+           (is false (str "Unexpected stale refresh test error: " err))
+           (done))))
+       0))))
+
+(deftest api-cancel-order-effect-records-runtime-guard-and-prunes-all-open-order-sources-test
+  (async done
+    (let [store (atom (support/base-cancel-order-store
+                       {:orders {:open-orders [{:order {:coin "BTC" :oid 22}}
+                                               {:order {:coin "ETH" :oid 23}}]
+                                 :open-orders-snapshot {:orders [{:order {:coin "BTC" :oid 22}}
+                                                                  {:order {:coin "ETH" :oid 24}}]}
+                                 :open-orders-snapshot-by-dex {"dex-a" [{:order {:coin "BTC" :oid 22}}
+                                                                         {:order {:coin "SOL" :oid 25}}]
+                                                               "dex-b" {:openOrders [{:order {:coin "BTC" :oid 22}}
+                                                                                     {:order {:coin "AVAX" :oid 26}}]}}}}))
+          dispatched (atom [])
+          refresh-calls (atom [])
+          clearinghouse-calls (atom [])
+          original-cancel-order trading-api/cancel-order!
+          original-dispatch nxr/dispatch
+          original-request-open-orders api/request-frontend-open-orders!
+          original-request-clearinghouse-state api/request-clearinghouse-state!
+          original-ensure-perp-dexs-data api/ensure-perp-dexs-data!]
+      (support/clear-order-feedback-toast-timeout!)
+      (set! trading-api/cancel-order!
+            (fn [_store _address _action]
+              (js/Promise.resolve {:status "ok"
+                                   :response {:type "cancel"
+                                              :data {:statuses ["success"]}}})))
+      (set! nxr/dispatch
+            (fn [_store _evt actions]
+              (swap! dispatched conj actions)))
+      (set! api/request-frontend-open-orders!
+            (fn request-frontend-open-orders-mock
+              ([address]
+               (request-frontend-open-orders-mock address {}))
+              ([address opts]
+               (request-frontend-open-orders-mock address (:dex opts) (dissoc opts :dex)))
+              ([address dex opts]
+               (swap! refresh-calls conj [address dex opts])
+               (js/Promise. (fn [_resolve _reject] nil)))))
+      (set! api/request-clearinghouse-state!
+            (fn request-clearinghouse-state-mock
+              ([address dex]
+               (request-clearinghouse-state-mock address dex {}))
+              ([address dex opts]
+               (swap! clearinghouse-calls conj [address dex opts])
+               (js/Promise. (fn [_resolve _reject] nil)))))
+      (set! api/ensure-perp-dexs-data!
+            (fn ensure-perp-dexs-data-mock
+              ([_store]
+               (ensure-perp-dexs-data-mock nil {}))
+              ([_store _opts]
+               (js/Promise.resolve ["dex-a"]))))
+      (core/api-cancel-order nil store {:action {:type "cancel"
+                                                 :cancels [{:a 0 :o 22}]}})
+      (is (= #{22}
+             (get-in @store [:orders :pending-cancel-oids])))
+      (js/setTimeout
+       (fn []
+         (try
+           (is (= #{22}
+                  (get-in @store [:orders :recently-canceled-oids])))
+           (is (nil? (get-in @store [:orders :pending-cancel-oids])))
+           (is (= [23]
+                  (open-order-oids (get-in @store [:orders :open-orders]))))
+           (is (= [24]
+                  (open-order-oids (get-in @store [:orders :open-orders-snapshot]))))
+           (is (= [25]
+                  (open-order-oids (get-in @store [:orders :open-orders-snapshot-by-dex "dex-a"]))))
+           (is (= [26]
+                  (open-order-oids (get-in @store [:orders :open-orders-snapshot-by-dex "dex-b"]))))
            (is (= [[[:actions/refresh-order-history]]]
                   @dispatched))
            (is (= 2 (count @refresh-calls)))

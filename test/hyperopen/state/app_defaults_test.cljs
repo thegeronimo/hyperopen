@@ -177,6 +177,8 @@
     (is (= {} (get-in state [:active-assets :funding-predictability :loaded-at-ms-by-coin])))
     (is (= [] (get-in state [:orders :open-orders])))
     (is (= false (get-in state [:orders :open-orders-hydrated?])))
+    (is (= #{} (get-in state [:orders :recently-canceled-oids])))
+    (is (= #{} (get-in state [:orders :recently-canceled-order-keys])))
     (is (= #{} (get-in state [:asset-selector :favorites])))
     (is (= {} (get-in state [:asset-selector :market-index-by-key])))
     (is (= #{} (get-in state [:asset-selector :loaded-icons])))

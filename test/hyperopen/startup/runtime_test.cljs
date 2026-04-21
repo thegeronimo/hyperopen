@@ -982,6 +982,8 @@
                      :orders {:open-orders [{:coin "BTC" :oid 12}]
                               :open-orders-snapshot [{:coin "BTC" :oid 13}]
                               :open-orders-snapshot-by-dex {"dex-a" [{}]}
+                              :recently-canceled-oids #{12}
+                              :recently-canceled-order-keys #{{:oid 12 :asset-id 0}}
                               :fills [{:tid 22}]
                               :fundings-raw [1]
                               :fundings [2]
@@ -1048,6 +1050,8 @@
       (is (= false (get-in @store [:orders :open-orders-hydrated?])))
       (is (= [] (get-in @store [:orders :open-orders-snapshot])))
       (is (= {} (get-in @store [:orders :open-orders-snapshot-by-dex])))
+      (is (= #{} (get-in @store [:orders :recently-canceled-oids])))
+      (is (= #{} (get-in @store [:orders :recently-canceled-order-keys])))
       (is (= [] (get-in @store [:orders :fills])))
       (is (= [] (get-in @store [:orders :fundings-raw])))
       (is (= [] (get-in @store [:orders :fundings])))
