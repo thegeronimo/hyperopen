@@ -108,6 +108,75 @@
             :path-values [[[:order-form-runtime :error] nil]]}]
           {:phase :test}))))
 
+(deftest assert-effect-args-validates-unlock-agent-trading-continuations-test
+  (is (= []
+         (contracts/assert-effect-args!
+          :effects/unlock-agent-trading
+          []
+          {:phase :test})))
+  (is (= [{:after-success-actions [[:actions/start-spectate-mode "0x123"]
+                                   [:actions/stop-spectate-mode]]}]
+         (contracts/assert-effect-args!
+          :effects/unlock-agent-trading
+          [{:after-success-actions [[:actions/start-spectate-mode "0x123"]
+                                    [:actions/stop-spectate-mode]]}]
+          {:phase :test})))
+  (is (= [{:after-success-actions []}]
+         (contracts/assert-effect-args!
+          :effects/unlock-agent-trading
+          [{:after-success-actions []}]
+          {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"effect request"
+       (contracts/assert-effect-args!
+        :effects/unlock-agent-trading
+        [{}]
+        {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"effect request"
+       (contracts/assert-effect-args!
+        :effects/unlock-agent-trading
+        [{:after-success-actions []
+          :unexpected true}]
+        {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"effect request"
+       (contracts/assert-effect-args!
+        :effects/unlock-agent-trading
+        [{:after-success-actions :actions/stop-spectate-mode}]
+        {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"effect request"
+       (contracts/assert-effect-args!
+        :effects/unlock-agent-trading
+        [{:after-success-actions '()}]
+        {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"effect request"
+       (contracts/assert-effect-args!
+        :effects/unlock-agent-trading
+        [{:after-success-actions [[:effects/unlock-agent-trading]]}]
+        {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"effect request"
+       (contracts/assert-effect-args!
+        :effects/unlock-agent-trading
+        [{:after-success-actions [["actions/stop-spectate-mode"]]}]
+        {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"effect request"
+       (contracts/assert-effect-args!
+        :effects/unlock-agent-trading
+        [{:after-success-actions []} {:after-success-actions []}]
+        {:phase :test}))))
+
 (deftest assert-effect-args-rejects-export-funding-history-csv-when-not-vector-of-maps-test
   (is (thrown-with-msg?
        js/Error

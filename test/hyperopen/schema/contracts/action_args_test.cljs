@@ -142,6 +142,75 @@
           []
           {:phase :test}))))
 
+(deftest assert-action-args-validates-unlock-agent-trading-continuations-test
+  (is (= []
+         (contracts/assert-action-args!
+          :actions/unlock-agent-trading
+          []
+          {:phase :test})))
+  (is (= [{:after-success-actions [[:actions/start-spectate-mode "0x123"]
+                                   [:actions/stop-spectate-mode]]}]
+         (contracts/assert-action-args!
+          :actions/unlock-agent-trading
+          [{:after-success-actions [[:actions/start-spectate-mode "0x123"]
+                                    [:actions/stop-spectate-mode]]}]
+          {:phase :test})))
+  (is (= [{:after-success-actions []}]
+         (contracts/assert-action-args!
+          :actions/unlock-agent-trading
+          [{:after-success-actions []}]
+          {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"action payload"
+       (contracts/assert-action-args!
+        :actions/unlock-agent-trading
+        [{}]
+        {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"action payload"
+       (contracts/assert-action-args!
+        :actions/unlock-agent-trading
+        [{:after-success-actions []
+          :unexpected true}]
+        {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"action payload"
+       (contracts/assert-action-args!
+        :actions/unlock-agent-trading
+        [{:after-success-actions :actions/stop-spectate-mode}]
+        {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"action payload"
+       (contracts/assert-action-args!
+        :actions/unlock-agent-trading
+        [{:after-success-actions '()}]
+        {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"action payload"
+       (contracts/assert-action-args!
+        :actions/unlock-agent-trading
+        [{:after-success-actions [[:effects/unlock-agent-trading]]}]
+        {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"action payload"
+       (contracts/assert-action-args!
+        :actions/unlock-agent-trading
+        [{:after-success-actions [["actions/stop-spectate-mode"]]}]
+        {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"action payload"
+       (contracts/assert-action-args!
+        :actions/unlock-agent-trading
+        [{:after-success-actions []} {:after-success-actions []}]
+        {:phase :test}))))
+
 (deftest assert-action-args-allows-spectate-mode-actions-with-or-without-address-test
   (is (= []
          (contracts/assert-action-args!

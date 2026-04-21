@@ -8,26 +8,6 @@
 (s/def ::api-submit-request (s/keys :req-un [::common/action]))
 (s/def ::api-submit-order-args (s/tuple ::api-submit-request))
 
-(defn- action-request?
-  [value]
-  (and (vector? value)
-       (keyword? (first value))
-       (= "actions" (namespace (first value)))))
-
-(defn- after-success-actions?
-  [value]
-  (and (vector? value)
-       (every? action-request? value)))
-
-(defn- unlock-agent-trading-args?
-  [args]
-  (or (empty? args)
-      (and (= 1 (count args))
-           (let [{:keys [after-success-actions] :as payload} (first args)]
-             (and (map? payload)
-                  (every? #{:after-success-actions} (keys payload))
-                  (after-success-actions? after-success-actions))))))
-
 (defn- confirm-api-submit-order-args?
   [args]
   (and (= 1 (count args))
@@ -39,7 +19,6 @@
               (s/valid? ::common/path-values path-values)))))
 
 (s/def ::confirm-api-submit-order-args confirm-api-submit-order-args?)
-(s/def ::unlock-agent-trading-args unlock-agent-trading-args?)
 (s/def ::api-cancel-order-args (s/tuple ::api-submit-request))
 (s/def ::api-submit-position-tpsl-args (s/tuple ::api-submit-request))
 (s/def ::api-submit-position-margin-args (s/tuple ::api-submit-request))
@@ -102,7 +81,7 @@
    :effects/enable-agent-trading ::enable-agent-trading-args
    :effects/set-agent-storage-mode ::common/set-agent-storage-mode-args
    :effects/set-agent-local-protection-mode ::common/set-agent-local-protection-mode-args
-   :effects/unlock-agent-trading ::unlock-agent-trading-args
+   :effects/unlock-agent-trading ::common/unlock-agent-trading-args
    :effects/copy-wallet-address ::common/optional-address-args
    :effects/copy-spectate-link ::common/path-and-address-args
    :effects/clear-disconnected-account-lifecycle ::common/address-args

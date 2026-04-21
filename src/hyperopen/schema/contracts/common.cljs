@@ -90,6 +90,29 @@
               (or (not (contains? opts :active?-fn))
                   (fn? (:active?-fn opts)))))))
 
+(defn- action-request?
+  [value]
+  (and (vector? value)
+       (keyword? (first value))
+       (= "actions" (namespace (first value)))))
+
+(defn- after-success-actions?
+  [value]
+  (and (vector? value)
+       (every? action-request? value)))
+
+(defn- unlock-agent-trading-options?
+  [payload]
+  (and (map? payload)
+       (= #{:after-success-actions} (set (keys payload)))
+       (after-success-actions? (:after-success-actions payload))))
+
+(defn unlock-agent-trading-args?
+  [args]
+  (or (empty? args)
+      (and (= 1 (count args))
+           (unlock-agent-trading-options? (first args)))))
+
 (s/def ::any-args vector?)
 (s/def ::non-empty-string non-empty-string?)
 (s/def ::state-path keyword-path?)
@@ -140,6 +163,7 @@
   (s/keys :opt-un [::group ::source]))
 (s/def ::ws-reset-subscriptions-args (s/tuple ::ws-reset-request))
 (s/def ::no-args empty?)
+(s/def ::unlock-agent-trading-args unlock-agent-trading-args?)
 
 (s/def ::keyword-or-string (s/or :keyword keyword?
                                  :string ::non-empty-string))

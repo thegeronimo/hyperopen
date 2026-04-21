@@ -180,6 +180,75 @@
             str/trim
             str/upper-case)))
 
+(defn- fill-size
+  [row]
+  (some-> (or (:sz row)
+              (:size row)
+              (:filledSz row)
+              (:filled row))
+          parse-finite-number
+          js/Math.abs))
+
+(defn- fill-price
+  [row]
+  (some-> (or (:px row)
+              (:price row)
+              (:fillPx row)
+              (:avgPx row))
+          parse-finite-number))
+
+(defn- fill-timestamp
+  [row]
+  (parse-fill-time-ms (or (:time row)
+                          (:timestamp row)
+                          (:ts row)
+                          (:t row))))
+
+(defn- explicit-fill-id
+  [row]
+  (or (:tid row)
+      (:fill-id row)
+      (:fillId row)
+      (:id row)))
+
+(defn- generated-fill-id
+  [{:keys [coin side size price ts]}]
+  (when (or (some? ts)
+            (seq coin)
+            (some? side)
+            (some? size)
+            (some? price))
+    (str coin "-" (name (or side :unknown)) "-"
+         (or ts "na") "-" (or size "na") "-" (or price "na"))))
+
+(defn- fill-row-id
+  [row normalized-fields]
+  (or (explicit-fill-id row)
+      (generated-fill-id normalized-fields)))
+
+(defn- normalized-fill-row-valid?
+  [{:keys [coin display-coin side size price]}]
+  (and (seq coin)
+       (seq display-coin)
+       (some? side)
+       (number? size)
+       (pos? size)
+       (number? price)))
+
+(defn- normalized-fill-row-map
+  [{:keys [coin display-coin id side size price order-type ts slippage-pct]}]
+  {:coin coin
+   :display-coin display-coin
+   :id (str id)
+   :side side
+   :size size
+   :qty size
+   :symbol display-coin
+   :price price
+   :orderType order-type
+   :ts (or ts 0)
+   :slippagePct slippage-pct})
+
 (defn- normalized-fill-row
   ([row]
    (normalized-fill-row row nil))
@@ -190,51 +259,23 @@
          display-coin* (or (fill-display-coin row market-by-key)
                            coin*)
          side* (normalize-fill-side row)
-         size* (some-> (or (:sz row)
-                           (:size row)
-                           (:filledSz row)
-                           (:filled row))
-                       parse-finite-number
-                       js/Math.abs)
-         price* (some-> (or (:px row)
-                            (:price row)
-                            (:fillPx row)
-                            (:avgPx row))
-                        parse-finite-number)
-         ts* (parse-fill-time-ms (or (:time row)
-                                     (:timestamp row)
-                                     (:ts row)
-                                     (:t row)))
-         id* (or (:tid row)
-                 (:fill-id row)
-                 (:fillId row)
-                 (:id row)
-                 (when (or (some? ts*)
-                           (seq coin*)
-                           (some? side*)
-                           (some? size*)
-                           (some? price*))
-                   (str coin* "-" (name (or side* :unknown)) "-"
-                        (or ts* "na") "-" (or size* "na") "-" (or price* "na"))))
+         size* (fill-size row)
+         price* (fill-price row)
+         ts* (fill-timestamp row)
          order-type* (normalize-order-type row)
-         slippage-pct* (parse-slippage-pct row)]
-     (when (and (seq coin*)
-                (seq display-coin*)
-                (some? side*)
-                (number? size*)
-                (pos? size*)
-                (number? price*))
-       {:coin coin*
-        :display-coin display-coin*
-        :id (str id*)
-        :side side*
-        :size size*
-        :qty size*
-        :symbol display-coin*
-        :price price*
-        :orderType order-type*
-        :ts (or ts* 0)
-        :slippagePct slippage-pct*}))))
+         slippage-pct* (parse-slippage-pct row)
+         normalized-fields {:coin coin*
+                            :display-coin display-coin*
+                            :side side*
+                            :size size*
+                            :price price*
+                            :ts ts*
+                            :order-type order-type*
+                            :slippage-pct slippage-pct*}
+         normalized-fields* (assoc normalized-fields
+                                   :id (fill-row-id row normalized-fields))]
+     (when (normalized-fill-row-valid? normalized-fields*)
+       (normalized-fill-row-map normalized-fields*)))))
 
 (defn- summarize-fill-group
   [fills]

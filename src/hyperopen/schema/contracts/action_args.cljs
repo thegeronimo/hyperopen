@@ -77,22 +77,6 @@
   (s/or :request-only (s/tuple ::api-submit-request)
         :request-and-path-values (s/tuple ::api-submit-request ::common/path-values)))
 
-(defn- action-request?
-  [value]
-  (and (vector? value)
-       (keyword? (first value))
-       (= "actions" (namespace (first value)))))
-
-(defn- unlock-agent-trading-args?
-  [args]
-  (or (empty? args)
-      (and (= 1 (count args))
-           (let [{:keys [after-success-actions] :as payload} (first args)]
-             (and (map? payload)
-                  (every? #{:after-success-actions} (keys payload))
-                  (vector? after-success-actions)
-                  (every? action-request? after-success-actions))))))
-
 (s/def ::action-id (s/and keyword?
                           #(= "actions" (namespace %))))
 
@@ -135,7 +119,7 @@
    :actions/copy-spectate-mode-watchlist-link ::common/address-args
    :actions/start-spectate-mode-watchlist-address ::common/address-args
    :actions/enable-agent-trading ::common/no-args
-   :actions/unlock-agent-trading unlock-agent-trading-args?
+   :actions/unlock-agent-trading ::common/unlock-agent-trading-args
    :actions/close-agent-recovery-modal ::common/no-args
    :actions/set-agent-storage-mode ::common/set-agent-storage-mode-args
    :actions/set-agent-local-protection-mode ::common/set-agent-local-protection-mode-args

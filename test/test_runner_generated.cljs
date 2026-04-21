@@ -371,6 +371,7 @@
             [hyperopen.views.portfolio.vm.volume-helpers-test]
             [hyperopen.views.portfolio.vm.volume-test]
             [hyperopen.views.portfolio.volume-history-popover-test]
+            [hyperopen.views.spectate-mode-modal-test]
             [hyperopen.views.staking-view-test]
             [hyperopen.views.trade-view.layout-state-test]
             [hyperopen.views.trade-view.layout-test]
@@ -509,6 +510,7 @@
             [hyperopen.websocket.subscriptions-runtime-test]
             [hyperopen.websocket.trades-policy-test]
             [hyperopen.websocket.trades-test]
+            [hyperopen.websocket.user-runtime.fills-normalization-test]
             [hyperopen.websocket.user-runtime.fills-test]
             [hyperopen.websocket.user-runtime.handlers-test]
             [hyperopen.websocket.user-runtime.refresh-test]
@@ -892,6 +894,7 @@
              'hyperopen.views.portfolio.vm.volume-helpers-test
              'hyperopen.views.portfolio.vm.volume-test
              'hyperopen.views.portfolio.volume-history-popover-test
+             'hyperopen.views.spectate-mode-modal-test
              'hyperopen.views.staking-view-test
              'hyperopen.views.trade-view.layout-state-test
              'hyperopen.views.trade-view.layout-test
@@ -1030,6 +1033,7 @@
              'hyperopen.websocket.subscriptions-runtime-test
              'hyperopen.websocket.trades-policy-test
              'hyperopen.websocket.trades-test
+             'hyperopen.websocket.user-runtime.fills-normalization-test
              'hyperopen.websocket.user-runtime.fills-test
              'hyperopen.websocket.user-runtime.handlers-test
              'hyperopen.websocket.user-runtime.refresh-test

@@ -1,6 +1,6 @@
 (ns hyperopen.views.spectate-mode-modal
   (:require [hyperopen.account.context :as account-context]
-            [hyperopen.wallet.core :as wallet]))
+            [hyperopen.views.spectate-mode-modal.watchlist :as watchlist]))
 
 (def ^:private panel-gap-px
   10)
@@ -154,37 +154,6 @@
    "items-center"
    "gap-2"])
 
-(defn- watchlist-action-icon-button
-  [{:keys [aria-label title on-click data-role disabled? class]} icon]
-  [:button {:type "button"
-            :class (cond-> (into ["inline-flex"
-                                  "h-7"
-                                  "w-7"
-                                  "items-center"
-                                  "justify-center"
-                                  "rounded-md"
-                                  "border"
-                                  "border-base-300"
-                                  "bg-base-200/40"
-                                  "text-gray-400"
-                                  "transition-colors"
-                                  "focus:outline-none"
-                                  "focus:ring-0"
-                                  "focus:ring-offset-0"
-                                  "hover:bg-base-200"
-                                  "hover:text-gray-100"]
-                                 (or class []))
-                     disabled? (into ["cursor-not-allowed"
-                                      "opacity-45"
-                                      "hover:bg-base-200/40"
-                                      "hover:text-gray-400"]))
-            :on (when-not disabled? {:click on-click})
-            :aria-label aria-label
-            :title title
-            :disabled disabled?
-            :data-role data-role}
-   icon])
-
 (defn- copy-feedback-row
   [copy-feedback]
   (let [kind (:kind copy-feedback)
@@ -223,390 +192,321 @@
      [:span {:data-role "spectate-mode-copy-feedback-message"}
       message]]))
 
-(defn- spectate-icon
-  []
-  [:svg {:viewBox "0 0 24 24"
-         :class ["h-3.5" "w-3.5"]
-         :fill "none"
-         :stroke "currentColor"
-         :stroke-width "1.8"
-         :stroke-linecap "round"
-         :stroke-linejoin "round"
-         :aria-hidden "true"}
-   [:path {:d "M3 12s3.5-5 9-5 9 5 9 5-3.5 5-9 5-9-5-9-5z"}]
-   [:circle {:cx "12" :cy "12" :r "2.25"}]])
-
-(defn- copy-icon
-  []
-  [:svg {:viewBox "0 0 20 20"
-         :class ["h-3.5" "w-3.5"]
-         :fill "currentColor"
-         :aria-hidden "true"}
-   [:path {:d "M4 4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1h-2V4H6v8h1v2H6a2 2 0 0 1-2-2V4z"}]
-   [:path {:d "M8 7a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V7zm2 0h4v7h-4V7z"}]])
-
-(defn- link-icon
-  []
-  [:svg {:viewBox "0 0 20 20"
-         :class ["h-3.5" "w-3.5"]
-         :fill "none"
-         :stroke "currentColor"
-         :stroke-width "1.7"
-         :stroke-linecap "round"
-         :stroke-linejoin "round"
-         :aria-hidden "true"}
-   [:path {:d "M8 12l4-4"}]
-   [:path {:d "M6.4 14.6 4.9 16.1a2.8 2.8 0 0 1-4 0 2.8 2.8 0 0 1 0-4l1.5-1.5"}]
-   [:path {:d "M13.6 5.4 15.1 3.9a2.8 2.8 0 0 1 4 0 2.8 2.8 0 0 1 0 4l-1.5 1.5"}]])
-
-(defn- edit-icon
-  []
-  [:svg {:viewBox "0 0 20 20"
-         :class ["h-3.5" "w-3.5"]
-         :fill "currentColor"
-         :aria-hidden "true"}
-   [:path {:d "M4 13.5V16h2.5L14 8.5 11.5 6 4 13.5Z"}]
-   [:path {:d "M10.5 7 13 9.5"}]])
-
-(defn- remove-icon
-  []
-  [:svg {:viewBox "0 0 20 20"
-         :class ["h-3.5" "w-3.5"]
-         :fill "none"
-         :stroke "currentColor"
-         :stroke-width "1.8"
-         :stroke-linecap "round"
-         :aria-hidden "true"}
-   [:path {:d "M5 5 15 15"}]
-   [:path {:d "M15 5 5 15"}]])
-
-(defn- watchlist-display-label
-  [entry]
-  (or (:label entry)
-      ""))
-
-(defn- watchlist-display-address
-  [address]
-  (or (wallet/short-addr address)
-      address))
-
-(defn- watchlist-row
-  [entry active? editing?]
-  (let [address (:address entry)
-        label (watchlist-display-label entry)]
-    [:li {:class (cond-> ["grid"
-                          "grid-cols-[minmax(0,1.15fr)_minmax(0,0.95fr)_auto]"
-                          "items-center"
-                          "gap-1.5"
-                          "px-3"
-                          "py-2.5"]
-                    active? (into ["bg-base-200/80"])
-                    (not active?) (into ["bg-base-100"])
-                    editing? (into ["ring-1" "ring-[#4f8f87]/70"]))
-        :data-role "spectate-mode-watchlist-row"}
-     [:div {:class ["min-w-0"]
-            :data-role "spectate-mode-watchlist-label"}
-      [:span {:class ["text-m" "font-medium" "text-gray-100" "break-words"]}
-       label]]
-     [:div {:class ["min-w-0" "truncate"]
-            :data-role "spectate-mode-watchlist-address"}
-      [:span {:class ["num" "truncate" "text-sm" "text-gray-400"]}
-       (watchlist-display-address address)]]
-     [:div {:class ["flex" "items-center" "justify-end" "gap-1"]
-            :data-role "spectate-mode-watchlist-actions"}
-      (watchlist-action-icon-button
-       {:aria-label (if active? "Currently spectating this address" "Spectate this address")
-        :title (if active? "Currently spectating" "Spectate this address")
-        :on-click [[:actions/start-spectate-mode-watchlist-address address]]
-        :class (when active? ["text-[#e8c25f]"
-                              "border-[#7f6a39]"
-                              "bg-[#2a2418]"
-                              "hover:border-[#9f854c]"
-                              "hover:bg-[#3a301f]"
-                              "hover:text-[#f2d981]"])
-        :data-role "spectate-mode-watchlist-spectate"}
-       (spectate-icon))
-      (watchlist-action-icon-button
-       {:aria-label "Copy watchlist address"
-        :title "Copy address"
-        :on-click [[:actions/copy-spectate-mode-watchlist-address address]]
-        :data-role "spectate-mode-watchlist-copy"}
-       (copy-icon))
-      (watchlist-action-icon-button
-       {:aria-label "Copy spectate link"
-        :title "Link address"
-        :on-click [[:actions/copy-spectate-mode-watchlist-link address]]
-        :data-role "spectate-mode-watchlist-link"}
-       (link-icon))
-      (watchlist-action-icon-button
-       {:aria-label "Edit watchlist label"
-        :title "Edit label"
-        :on-click [[:actions/edit-spectate-mode-watchlist-address address]]
-        :data-role "spectate-mode-watchlist-edit"}
-       (edit-icon))
-      (watchlist-action-icon-button
-       {:aria-label "Remove watchlist address"
-        :title "Remove address"
-        :on-click [[:actions/remove-spectate-mode-watchlist-address address]]
-        :data-role "spectate-mode-watchlist-remove"}
-       (remove-icon))]]))
-
-(defn spectate-mode-modal-view
+(defn- modal-model
   [state]
   (let [ui-state (get-in state [:account-context :spectate-ui] {})
-        open? (true? (:modal-open? ui-state))
-        anchor (:anchor ui-state)
         search (or (:search ui-state) "")
         label (or (:label ui-state) "")
         editing-address (account-context/normalize-address
                          (:editing-watchlist-address ui-state))
-        search-error (:search-error ui-state)
         copy-feedback (get-in state [:wallet :copy-feedback])
-        show-copy-feedback? (and (map? copy-feedback)
-                                 (seq (:message copy-feedback)))
         watchlist (account-context/normalize-watchlist
                    (get-in state [:account-context :watchlist]))
         active? (account-context/spectate-mode-active? state)
         active-address (account-context/spectate-address state)
         valid-search? (some? (account-context/normalize-address search))
-        start-disabled? (not valid-search?)
-        add-disabled? (not valid-search?)
-        edit-mode? (some? editing-address)
-        show-label-row? (or edit-mode?
-                            valid-search?
-                            (seq label))
-        add-watchlist-label (if edit-mode?
-                             "Save Label"
-                             "Add To Watchlist")
-        stored-anchor* (if (map? anchor) anchor {})
+        edit-mode? (some? editing-address)]
+    {:open? (true? (:modal-open? ui-state))
+     :anchor (:anchor ui-state)
+     :search search
+     :label label
+     :editing-address editing-address
+     :search-error (:search-error ui-state)
+     :copy-feedback copy-feedback
+     :show-copy-feedback? (and (map? copy-feedback)
+                               (seq (:message copy-feedback)))
+     :watchlist watchlist
+     :active? active?
+     :active-address active-address
+     :start-disabled? (not valid-search?)
+     :add-disabled? (not valid-search?)
+     :edit-mode? edit-mode?
+     :show-label-row? (or edit-mode?
+                          valid-search?
+                          (seq label))
+     :add-watchlist-label (if edit-mode?
+                            "Save Label"
+                            "Add To Watchlist")}))
+
+(defn- resolved-panel-style
+  [anchor]
+  (let [stored-anchor* (if (map? anchor) anchor {})
         fallback-anchor* (when-not (complete-anchor? stored-anchor*)
-                           (element-anchor-bounds fallback-anchor-selector))
-        anchor* (or fallback-anchor* stored-anchor*)
-        panel-style (anchored-panel-layout-style anchor*)]
+                           (element-anchor-bounds fallback-anchor-selector))]
+    (anchored-panel-layout-style (or fallback-anchor* stored-anchor*))))
+
+(defn- close-button
+  []
+  [:button {:type "button"
+            :class ["inline-flex"
+                    "h-8"
+                    "w-8"
+                    "items-center"
+                    "justify-center"
+                    "rounded-md"
+                    "text-gray-400"
+                    "hover:bg-base-200"
+                    "hover:text-gray-100"
+                    "focus:outline-none"
+                    "focus:ring-0"
+                    "focus:ring-offset-0"]
+            :on {:click [[:actions/close-spectate-mode-modal]]}
+            :aria-label "Close Spectate Mode"
+            :data-role "spectate-mode-close"}
+   [:svg {:viewBox "0 0 20 20"
+          :class ["h-4" "w-4"]
+          :fill "none"
+          :stroke "currentColor"
+          :stroke-width "1.8"
+          :stroke-linecap "round"
+          :aria-hidden "true"}
+    [:path {:d "M5 5 15 15"}]
+    [:path {:d "M15 5 5 15"}]]])
+
+(defn- modal-header
+  [{:keys [active?]}]
+  [:div {:class ["flex" "items-center" "justify-between" "gap-3"]}
+   [:div {:class ["flex" "min-w-0" "items-center" "gap-2"]}
+    [:h2 {:class ["text-[17px]" "font-semibold" "leading-[25px]" "text-[#e5eef1]"]}
+     "Spectate Mode"]]
+   [:div {:class ["flex" "items-center" "gap-2"]}
+    (when active?
+      [:button {:type "button"
+                :class (modal-button-classes false false)
+                :on {:click [[:actions/stop-spectate-mode]]}
+                :data-role "spectate-mode-stop"}
+       "Stop"])
+    (close-button)]])
+
+(defn- modal-input
+  [{:keys [value placeholder py-class on-input data-role]}]
+  [:input {:type "text"
+           :value value
+           :placeholder placeholder
+           :spell-check false
+           :auto-capitalize "off"
+           :auto-complete "off"
+           :class ["w-full"
+                   "rounded-lg"
+                   "border"
+                   "border-base-300"
+                   "bg-base-200"
+                   "px-3"
+                   py-class
+                   "text-m"
+                   "leading-[19px]"
+                   "text-gray-100"
+                   "placeholder:text-gray-500"
+                   "focus:outline-none"
+                   "focus-visible:outline-none"
+                   "focus:border-base-300"
+                   "focus:ring-1"
+                   "focus:ring-[#8a96a6]/35"
+                   "focus:ring-offset-0"
+                   "focus:shadow-none"]
+           :on {:input on-input}
+           :data-role data-role}])
+
+(defn- search-row
+  [{:keys [active? search start-disabled?]}]
+  [:div {:class input-row-layout-classes}
+   (modal-input
+    {:value search
+     :placeholder "Search or enter address to spectate..."
+     :py-class "py-2.5"
+     :on-input [[:actions/set-spectate-mode-search [:event.target/value]]]
+     :data-role "spectate-mode-search-input"})
+   [:button {:type "button"
+             :class (into (modal-button-classes true start-disabled?)
+                          input-row-action-button-classes)
+             :disabled start-disabled?
+             :on {:click [[:actions/start-spectate-mode]]}
+             :data-role "spectate-mode-start"}
+    (if active? "Switch" "Spectate")]])
+
+(defn- cancel-edit-button
+  []
+  [:button {:type "button"
+            :class ["rounded-lg"
+                    "border"
+                    "border-base-300"
+                    "bg-base-200"
+                    "px-2.5"
+                    "py-1.5"
+                    "text-xs"
+                    "text-gray-200"
+                    "hover:bg-base-300"
+                    "hover:text-gray-100"]
+            :on {:click [[:actions/clear-spectate-mode-watchlist-edit]]}
+            :data-role "spectate-mode-clear-watchlist-edit"}
+   "Cancel"])
+
+(defn- label-row
+  [{:keys [label add-disabled? add-watchlist-label edit-mode? show-label-row?]}]
+  (when show-label-row?
+    [:div {:class input-row-layout-classes}
+     (modal-input
+      {:value label
+       :placeholder "Enter label for this address..."
+       :py-class "py-2"
+       :on-input [[:actions/set-spectate-mode-label [:event.target/value]]]
+       :data-role "spectate-mode-label-input"})
+     [:button {:type "button"
+               :class (into (modal-button-classes false add-disabled?)
+                            input-row-action-button-classes)
+               :disabled add-disabled?
+               :on {:click [[:actions/add-spectate-mode-watchlist-address]]}
+               :data-role "spectate-mode-add-watchlist"}
+      add-watchlist-label]
+     (when edit-mode?
+       (cancel-edit-button))]))
+
+(defn- active-summary
+  [{:keys [active? active-address]}]
+  (when active?
+    [:div {:class ["rounded-lg"
+                   "border"
+                   "border-[#1f4f4f]"
+                   "bg-[#0a2f33]/60"
+                   "px-2.5"
+                   "py-1.5"
+                   "text-xs"
+                   "text-[#bdeee8]"]
+           :data-role "spectate-mode-active-summary"}
+     [:span {:class ["font-medium"]}
+      "Currently spectating: "]
+     [:span {:class ["num"]} active-address]]))
+
+(defn- search-error-row
+  [{:keys [search-error]}]
+  (when (seq search-error)
+    [:div {:class ["rounded-md"
+                   "border"
+                   "border-[#7b3340]"
+                   "bg-[#3a1b22]/55"
+                   "px-2.5"
+                   "py-2"
+                   "text-m"
+                   "leading-[19px]"
+                   "text-[#f2b8c5]"]
+           :data-role "spectate-mode-search-error"}
+     search-error]))
+
+(defn- modal-controls
+  [model]
+  [:div {:class ["px-4"
+                 "pt-3.5"
+                 "pb-1.5"]}
+   (modal-header model)
+   [:div {:class ["mt-2.5" "space-y-2"]}
+    (search-row model)
+    (label-row model)
+    (active-summary model)
+    (search-error-row model)]])
+
+(defn- watchlist-header
+  []
+  [:div {:class ["grid"
+                 "grid-cols-[minmax(0,1.15fr)_minmax(0,0.95fr)_auto]"
+                 "items-center"
+                 "gap-2"
+                 "border-y"
+                 "border-base-300"
+                 "px-3"
+                 "py-2"
+                 "text-xs"
+                 "font-medium"
+                 "text-gray-400"]
+         :data-role "spectate-mode-watchlist-header"}
+   [:span "Label"]
+   [:span "Address"]
+   [:span {:class ["text-right"]} "Actions"]])
+
+(defn- watchlist-empty-state
+  []
+  [:div {:class ["flex"
+                 "min-h-[160px]"
+                 "flex-1"
+                 "items-center"
+                 "justify-center"
+                 "rounded-lg"
+                 "border"
+                 "border-dashed"
+                 "border-[#2a4b4f]"
+                 "bg-[#081f28]"
+                 "px-3"
+                 "text-sm"
+                 "text-[#90a6ad]"]
+         :data-role "spectate-mode-watchlist-empty"}
+   "No spectated addresses saved yet."])
+
+(defn- watchlist-rows
+  [{:keys [watchlist active-address editing-address]}]
+  (into
+   [:ul {:class ["min-h-0"
+                 "flex-1"
+                 "overflow-y-auto"
+                 "border-b"
+                 "border-base-300"
+                 "divide-y"
+                 "divide-base-300"]
+         :data-role "spectate-mode-watchlist"}]
+   (map (fn [entry]
+          (let [address (:address entry)]
+            ^{:key address}
+            (watchlist/watchlist-row entry
+                                     (= address active-address)
+                                     (= address editing-address))))
+        watchlist)))
+
+(defn- watchlist-section
+  [{:keys [watchlist] :as model}]
+  [:div {:class ["flex" "min-h-0" "flex-1" "flex-col"]}
+   (watchlist-header)
+   (if (seq watchlist)
+     (watchlist-rows model)
+     (watchlist-empty-state))])
+
+(defn- copy-feedback-slot
+  [{:keys [show-copy-feedback? copy-feedback]}]
+  (when show-copy-feedback?
+    [:div {:class ["border-t"
+                   "border-[#1e353f]"
+                   "bg-[#0a2029]"
+                   "px-4"
+                   "pt-2"
+                   "pb-2.5"]
+           :data-role "spectate-mode-copy-feedback-slot"}
+     (copy-feedback-row copy-feedback)]))
+
+(defn- modal-dialog
+  [{:keys [anchor] :as model}]
+  [:div {:class ["absolute"
+                 "pointer-events-auto"
+                 "flex"
+                 "max-h-full"
+                 "min-h-0"
+                 "flex-col"
+                 "overflow-hidden"
+                 "rounded-xl"
+                 "border"
+                 "border-[#1f3b3c]"
+                 "bg-base-100"
+                 "shadow-2xl"]
+         :style (resolved-panel-style anchor)
+         :role "dialog"
+         :aria-modal false
+         :aria-label "Spectate Mode"
+         :data-role "spectate-mode-modal"
+         :data-spectate-mode-surface "true"}
+   (modal-controls model)
+   (watchlist-section model)
+   (copy-feedback-slot model)])
+
+(defn spectate-mode-modal-view
+  [state]
+  (let [{:keys [open?] :as model} (modal-model state)]
     (when open?
       [:div {:class ["fixed" "inset-0" "z-[290]" "pointer-events-none"]
              :data-role "spectate-mode-modal-root"}
-       [:div {:class ["absolute"
-                      "pointer-events-auto"
-                      "flex"
-                      "max-h-full"
-                      "min-h-0"
-                      "flex-col"
-                      "overflow-hidden"
-                      "rounded-xl"
-                      "border"
-                      "border-[#1f3b3c]"
-                      "bg-base-100"
-                      "shadow-2xl"]
-              :style panel-style
-              :role "dialog"
-              :aria-modal false
-              :aria-label "Spectate Mode"
-              :data-role "spectate-mode-modal"
-              :data-spectate-mode-surface "true"}
-        [:div {:class ["px-4"
-                       "pt-3.5"
-                       "pb-1.5"]}
-         [:div {:class ["flex" "items-center" "justify-between" "gap-3"]}
-          [:div {:class ["flex" "min-w-0" "items-center" "gap-2"]}
-           [:h2 {:class ["text-[17px]" "font-semibold" "leading-[25px]" "text-[#e5eef1]"]}
-            "Spectate Mode"]]
-          [:div {:class ["flex" "items-center" "gap-2"]}
-           (when active?
-             [:button {:type "button"
-                       :class (modal-button-classes false false)
-                       :on {:click [[:actions/stop-spectate-mode]]}
-                       :data-role "spectate-mode-stop"}
-              "Stop"])
-           [:button {:type "button"
-                     :class ["inline-flex"
-                             "h-8"
-                             "w-8"
-                             "items-center"
-                             "justify-center"
-                             "rounded-md"
-                             "text-gray-400"
-                             "hover:bg-base-200"
-                             "hover:text-gray-100"
-                             "focus:outline-none"
-                             "focus:ring-0"
-                             "focus:ring-offset-0"]
-                     :on {:click [[:actions/close-spectate-mode-modal]]}
-                     :aria-label "Close Spectate Mode"
-                     :data-role "spectate-mode-close"}
-            [:svg {:viewBox "0 0 20 20"
-                   :class ["h-4" "w-4"]
-                   :fill "none"
-                   :stroke "currentColor"
-                   :stroke-width "1.8"
-                   :stroke-linecap "round"
-                   :aria-hidden "true"}
-             [:path {:d "M5 5 15 15"}]
-             [:path {:d "M15 5 5 15"}]]]]]
-         [:div {:class ["mt-2.5" "space-y-2"]}
-          [:div {:class input-row-layout-classes}
-           [:input {:type "text"
-                    :value search
-                    :placeholder "Search or enter address to spectate..."
-                    :spell-check false
-                    :auto-capitalize "off"
-                    :auto-complete "off"
-                    :class ["w-full"
-                            "rounded-lg"
-                            "border"
-                            "border-base-300"
-                            "bg-base-200"
-                            "px-3"
-                            "py-2.5"
-                            "text-m"
-                            "leading-[19px]"
-                            "text-gray-100"
-                            "placeholder:text-gray-500"
-                            "focus:outline-none"
-                            "focus-visible:outline-none"
-                            "focus:border-base-300"
-                            "focus:ring-1"
-                            "focus:ring-[#8a96a6]/35"
-                            "focus:ring-offset-0"
-                            "focus:shadow-none"]
-                    :on {:input [[:actions/set-spectate-mode-search [:event.target/value]]]}
-                    :data-role "spectate-mode-search-input"}]
-           [:button {:type "button"
-                     :class (into (modal-button-classes true start-disabled?)
-                                  input-row-action-button-classes)
-                     :disabled start-disabled?
-                     :on {:click [[:actions/start-spectate-mode]]}
-                     :data-role "spectate-mode-start"}
-            (if active? "Switch" "Spectate")]]
-          (when show-label-row?
-            [:div {:class input-row-layout-classes}
-             [:input {:type "text"
-                      :value label
-                      :placeholder "Enter label for this address..."
-                      :spell-check false
-                      :auto-capitalize "off"
-                      :auto-complete "off"
-                      :class ["w-full"
-                              "rounded-lg"
-                              "border"
-                              "border-base-300"
-                              "bg-base-200"
-                              "px-3"
-                              "py-2"
-                              "text-m"
-                              "leading-[19px]"
-                              "text-gray-100"
-                              "placeholder:text-gray-500"
-                              "focus:outline-none"
-                              "focus-visible:outline-none"
-                              "focus:border-base-300"
-                              "focus:ring-1"
-                              "focus:ring-[#8a96a6]/35"
-                              "focus:ring-offset-0"
-                              "focus:shadow-none"]
-                      :on {:input [[:actions/set-spectate-mode-label [:event.target/value]]]}
-                      :data-role "spectate-mode-label-input"}]
-             [:button {:type "button"
-                       :class (into (modal-button-classes false add-disabled?)
-                                    input-row-action-button-classes)
-                       :disabled add-disabled?
-                       :on {:click [[:actions/add-spectate-mode-watchlist-address]]}
-                       :data-role "spectate-mode-add-watchlist"}
-              add-watchlist-label]
-             (when edit-mode?
-               [:button {:type "button"
-                         :class ["rounded-lg"
-                                 "border"
-                                 "border-base-300"
-                                 "bg-base-200"
-                                 "px-2.5"
-                                 "py-1.5"
-                                 "text-xs"
-                                 "text-gray-200"
-                                 "hover:bg-base-300"
-                                 "hover:text-gray-100"]
-                         :on {:click [[:actions/clear-spectate-mode-watchlist-edit]]}
-                         :data-role "spectate-mode-clear-watchlist-edit"}
-                "Cancel"])])
-          (when active?
-            [:div {:class ["rounded-lg"
-                           "border"
-                           "border-[#1f4f4f]"
-                           "bg-[#0a2f33]/60"
-                           "px-2.5"
-                           "py-1.5"
-                           "text-xs"
-                           "text-[#bdeee8]"]
-                   :data-role "spectate-mode-active-summary"}
-             [:span {:class ["font-medium"]}
-              "Currently spectating: "]
-             [:span {:class ["num"]} active-address]])
-          (when (seq search-error)
-            [:div {:class ["rounded-md"
-                           "border"
-                           "border-[#7b3340]"
-                           "bg-[#3a1b22]/55"
-                           "px-2.5"
-                           "py-2"
-                           "text-m"
-                           "leading-[19px]"
-                           "text-[#f2b8c5]"]
-                   :data-role "spectate-mode-search-error"}
-             search-error])]]
-        [:div {:class ["flex" "min-h-0" "flex-1" "flex-col"]}
-         [:div {:class ["grid"
-                        "grid-cols-[minmax(0,1.15fr)_minmax(0,0.95fr)_auto]"
-                        "items-center"
-                        "gap-2"
-                        "border-y"
-                        "border-base-300"
-                        "px-3"
-                        "py-2"
-                        "text-xs"
-                        "font-medium"
-                        "text-gray-400"]
-                :data-role "spectate-mode-watchlist-header"}
-          [:span "Label"]
-          [:span "Address"]
-          [:span {:class ["text-right"]} "Actions"]]
-         (if (seq watchlist)
-           (into
-            [:ul {:class ["min-h-0"
-                          "flex-1"
-                          "overflow-y-auto"
-                          "border-b"
-                          "border-base-300"
-                          "divide-y"
-                          "divide-base-300"]
-                  :data-role "spectate-mode-watchlist"}]
-            (map (fn [entry]
-                   (let [address (:address entry)]
-                     ^{:key address}
-                     (watchlist-row entry
-                                    (= address active-address)
-                                    (= address editing-address))))
-                 watchlist))
-           [:div {:class ["flex"
-                          "min-h-[160px]"
-                          "flex-1"
-                          "items-center"
-                          "justify-center"
-                          "rounded-lg"
-                          "border"
-                          "border-dashed"
-                          "border-[#2a4b4f]"
-                          "bg-[#081f28]"
-                          "px-3"
-                          "text-sm"
-                          "text-[#90a6ad]"]
-                  :data-role "spectate-mode-watchlist-empty"}
-            "No spectated addresses saved yet."])]
-        (when show-copy-feedback?
-          [:div {:class ["border-t"
-                         "border-[#1e353f]"
-                         "bg-[#0a2029]"
-                         "px-4"
-                         "pt-2"
-                         "pb-2.5"]
-                 :data-role "spectate-mode-copy-feedback-slot"}
-           (copy-feedback-row copy-feedback)])]])))
+       (modal-dialog model)])))
