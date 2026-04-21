@@ -268,6 +268,17 @@
      (seq path-values) (conj [:effects/save-many path-values])
      (map? request) (conj [:effects/api-submit-order request]))))
 
+(declare cancel-order-projection-effects)
+
+(defn submit-unlocked-cancel-request
+  ([_state request]
+   (submit-unlocked-cancel-request _state request nil))
+  ([state request path-values]
+   (cond-> []
+     (seq path-values) (conj [:effects/save-many path-values])
+     (map? request) (into (cancel-order-projection-effects state request))
+     (map? request) (conj [:effects/api-cancel-order request]))))
+
 (defn- unlock-after-success-payload
   [actions]
   (when (seq actions)
@@ -286,6 +297,14 @@
                         [[:wallet :agent :error] nil]]]
    (unlock-agent-trading-effect
     [[:actions/submit-unlocked-order-request request path-values]])])
+
+(defn- locked-cancel-effects
+  [request]
+  [[:effects/save-many [[[:orders :cancel-error] nil]
+                        [[:wallet :agent :status] :unlocking]
+                        [[:wallet :agent :error] nil]]]
+   (unlock-agent-trading-effect
+    [[:actions/submit-unlocked-cancel-request request]])])
 
 (def ^:private confirm-open-order-message
   "Submit this order?\n\nDisable open-order confirmation in Trading settings if you prefer one-click submits.")
@@ -409,18 +428,21 @@
       [[:effects/save [:orders :cancel-error] spectate-mode-message]]
 
       (not agent-ready?)
-      [[:effects/save [:orders :cancel-error]
-        (case agent-status
-          :locked "Unlock trading before cancelling orders."
-          :unlocking "Awaiting passkey before cancelling orders."
-          "Enable trading before cancelling orders.")]]
+      (case agent-status
+        :locked (if (map? request)
+                  (locked-cancel-effects request)
+                  [[:effects/save [:orders :cancel-error] missing-request-message]])
+        :unlocking [[:effects/save [:orders :cancel-error]
+                     "Awaiting passkey before cancelling orders."]]
+        [[:effects/save [:orders :cancel-error]
+          "Enable trading before cancelling orders."]])
 
-      (map? request)
-      (into (cancel-order-projection-effects state request)
-            [[:effects/api-cancel-order request]])
+      (not (map? request))
+      [[:effects/save [:orders :cancel-error] missing-request-message]]
 
       :else
-      [[:effects/save [:orders :cancel-error] missing-request-message]])))
+      (into (cancel-order-projection-effects state request)
+            [[:effects/api-cancel-order request]]))))
 
 (def ^:private cancel-visible-confirmation-path
   [:account-info :open-orders :cancel-visible-confirmation])

@@ -335,7 +335,8 @@
                                               :filter-open? false
                                               :cancel-visible-confirmation (cancel-visible-confirmation/default-state)}
                                              (get-in state [:account-info :open-orders] {}))
-                                      (assoc :market-by-key market-by-key))
+                                      (assoc :market-by-key market-by-key
+                                             :cancel-error (get-in state [:orders :cancel-error])))
                             true (assoc :read-only? read-only?)
                             (seq read-only-message) (assoc :read-only-message read-only-message))
         websocket-health (get-in state [:websocket :health])

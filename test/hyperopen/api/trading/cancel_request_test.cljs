@@ -71,6 +71,33 @@
     (is (nil? (trading/build-cancel-order-request state-missing-asset-id {:coin "hyna:GOLD"
                                                                            :oid "88"})))))
 
+(deftest build-cancel-order-request-resolves-base-coin-plus-dex-to-hip3-asset-id-test
+  (let [state {:asset-contexts {"xyz:SILVER" {:idx 4}}
+               :asset-selector {:market-by-key {"perp:xyz:SILVER" {:coin "xyz:SILVER"
+                                                                    :base "SILVER"
+                                                                    :dex "xyz"
+                                                                    :market-type :perp
+                                                                    :idx 4
+                                                                    :asset-id 120088}}}}
+        order {:coin "SILVER"
+               :dex "xyz"
+               :oid "404"}]
+    (is (= {:action {:type "cancel"
+                     :cancels [{:a 120088 :o 404}]}}
+           (trading/build-cancel-order-request state order)))))
+
+(deftest build-cancel-order-request-does-not-use-context-idx-for-base-coin-plus-dex-without-asset-id-test
+  (let [state {:asset-contexts {"xyz:SILVER" {:idx 4}}
+               :asset-selector {:market-by-key {"perp:xyz:SILVER" {:coin "xyz:SILVER"
+                                                                    :base "SILVER"
+                                                                    :dex "xyz"
+                                                                    :market-type :perp
+                                                                    :idx 4}}}}
+        order {:coin "SILVER"
+               :dex "xyz"
+               :oid "404"}]
+    (is (nil? (trading/build-cancel-order-request state order)))))
+
 (deftest build-cancel-order-request-returns-nil-when-required-fields-are-missing-test
   (is (nil? (trading/build-cancel-order-request {:asset-contexts {}
                                                  :asset-selector {:market-by-key {}}}

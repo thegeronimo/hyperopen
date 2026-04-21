@@ -551,6 +551,45 @@ async function setTradingConfirmations(page, { openOrders, closePosition } = {})
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 }
 
+async function seedNamedDexMarketForCancel(page) {
+  await page.evaluate(() => {
+    const c = globalThis.cljs?.core;
+    const store = globalThis.hyperopen?.system?.store;
+
+    if (!c || !store) {
+      throw new Error("Hyperopen store or cljs core unavailable");
+    }
+
+    const keyword = c.keyword;
+    const kwPath = (...segments) =>
+      c.PersistentVector.fromArray(segments.map((segment) => keyword(segment)), true);
+    const silverMarket = c.PersistentArrayMap.fromArray(
+      [
+        keyword("key"), "perp:xyz:SILVER",
+        keyword("coin"), "xyz:SILVER",
+        keyword("symbol"), "SILVER",
+        keyword("base"), "SILVER",
+        keyword("dex"), "xyz",
+        keyword("market-type"), keyword("perp"),
+        keyword("idx"), 4,
+        keyword("asset-id"), 120088,
+        keyword("szDecimals"), 2,
+        keyword("maxLeverage"), 3
+      ],
+      true
+    );
+    const marketByKey = c.PersistentArrayMap.fromArray(
+      ["perp:xyz:SILVER", silverMarket],
+      true
+    );
+
+    let nextState = c.deref(store);
+    nextState = c.assoc_in(nextState, kwPath("asset-selector", "market-by-key"), marketByKey);
+    c.reset_BANG_(store, nextState);
+  });
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+}
+
 async function installPasskeyLockboxMock(page) {
   await page.evaluate(() => {
     const c = globalThis.cljs?.core;
@@ -2262,6 +2301,8 @@ test("locked remembered passkey session submit unlocks and submits original orde
   page
 }) => {
   await visitRoute(page, "/trade");
+  await freezeAccountSurfaceSync(page, "0x1111111111111111111111111111111111111111");
+  await waitForIdle(page, { quietMs: 500, timeoutMs: 10_000, pollMs: 50 });
   await debugCall(page, "installExchangeSimulator", {
     signedActions: {
       default: {
@@ -2313,4 +2354,65 @@ test("locked remembered passkey session submit unlocks and submits original orde
       { timeout: 10_000 }
     )
     .toEqual(expect.arrayContaining(["updateLeverage", "order"]));
+});
+
+test("locked remembered passkey session cancel unlocks and submits named-dex cancel @regression", async ({
+  page
+}) => {
+  await visitRoute(page, "/trade");
+  await freezeAccountSurfaceSync(page, "0x1111111111111111111111111111111111111111");
+  await waitForIdle(page, { quietMs: 500, timeoutMs: 10_000, pollMs: 50 });
+  await debugCall(page, "installExchangeSimulator", {
+    signedActions: {
+      default: {
+        responses: [
+          {
+            status: "ok",
+            response: {
+              type: "cancel",
+              data: { statuses: ["success"] }
+            }
+          }
+        ]
+      }
+    },
+    info: {
+      default: {
+        responses: [[], { assetPositions: [] }, [], { assetPositions: [] }]
+      }
+    }
+  });
+  await installPasskeyUnlockMock(page);
+  await seedRememberedTradingSession(page, {
+    status: "locked",
+    localProtectionMode: "passkey",
+    passkeySupported: true
+  });
+  await waitForIdle(page, { quietMs: 500, timeoutMs: 10_000, pollMs: 50 });
+  await seedNamedDexMarketForCancel(page);
+
+  await dispatch(page, [":actions/cancel-order", { coin: "SILVER", dex: "xyz", oid: 404 }]);
+  await waitForIdle(page, { quietMs: 500, timeoutMs: 10_000, pollMs: 50 });
+
+  await expectOracle(page, "wallet-status", {
+    connected: true,
+    agentStatus: "ready",
+    agentError: null
+  });
+  await expectOracle(page, "order-form", {
+    cancelError: null
+  });
+  await expect
+    .poll(
+      async () => {
+        const exchangeSnapshot = await debugCall(page, "exchangeSimulatorSnapshot");
+        return exchangeSnapshot.calls.flatMap((call) =>
+          (call.paths ?? [])
+            .filter((path) => Array.isArray(path) && path[0] === "signedActions")
+            .map((path) => path[1])
+        );
+      },
+      { timeout: 10_000 }
+    )
+    .toEqual(expect.arrayContaining(["cancel"]));
 });

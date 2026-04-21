@@ -160,10 +160,65 @@
    (or (:dex order)
        (get-in order [:order :dex]))))
 
+(defn- namespaced-coin?
+  [coin]
+  (let [coin* (normalize-display-text coin)]
+    (boolean
+     (and coin*
+          (str/includes? coin* ":")))))
+
+(defn- namespaced-cancel-order-coin
+  [coin dex]
+  (let [coin* (normalize-display-text coin)
+        dex* (normalize-display-text dex)]
+    (when (and coin*
+               dex*
+               (not (namespaced-coin? coin*)))
+      (str dex* ":" coin*))))
+
+(defn- namespace-prefix
+  [coin]
+  (let [coin* (normalize-display-text coin)]
+    (when (and coin*
+               (str/includes? coin* ":"))
+      (normalize-display-text (first (str/split coin* #":" 2))))))
+
+(defn- normalize-lookup-token
+  [value]
+  (some-> value normalize-display-text str/lower-case))
+
+(defn- market-dex-token
+  [market]
+  (or (normalize-lookup-token (:dex market))
+      (normalize-lookup-token (namespace-prefix (:coin market)))))
+
+(defn- resolve-cancel-order-market-by-dex
+  [market-by-key coin dex]
+  (let [dex-token (normalize-lookup-token dex)]
+    (when (and (map? market-by-key)
+               dex-token)
+      (some (fn [market]
+              (when (and (= dex-token (market-dex-token market))
+                         (markets/market-matches-coin? market coin))
+                market))
+            (vals market-by-key)))))
+
+(defn- resolve-cancel-order-market
+  [market-by-key coin dex]
+  (let [direct-market (markets/resolve-market-by-coin market-by-key coin)]
+    (if (and (seq (normalize-display-text dex))
+             (not (namespaced-coin? coin)))
+      (or (some->> (namespaced-cancel-order-coin coin dex)
+                   (markets/resolve-market-by-coin market-by-key))
+          (resolve-cancel-order-market-by-dex market-by-key coin dex))
+      direct-market)))
+
 (defn- resolve-cancel-order-asset-idx
   [state order coin]
   (let [market-by-key (get-in state [:asset-selector :market-by-key] {})
-        market (markets/resolve-market-by-coin market-by-key coin)
+        market (resolve-cancel-order-market market-by-key
+                                            coin
+                                            (normalize-cancel-order-dex order))
         resolved-market-asset-id (market-asset-id market)
         named-dex-cancel? (or (seq (normalize-cancel-order-dex order))
                               (named-dex-market? market))

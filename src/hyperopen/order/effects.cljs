@@ -380,11 +380,19 @@
    (cond-> (open-enable-trading-recovery state)
      (seq error-text) (assoc-in [:wallet :agent :error] error-text))))
 
-(defn- dispatch-unlock-agent-trading! [dispatch! store request]
+(defn- dispatch-unlock-agent-trading!
+  [dispatch! store replay-action request]
   (when (fn? dispatch!)
-    (swap! store update-order-submit-runtime nil)
+    (case replay-action
+      :actions/submit-unlocked-order-request
+      (swap! store update-order-submit-runtime nil)
+
+      :actions/submit-unlocked-cancel-request
+      (swap! store assoc-in [:orders :cancel-error] nil)
+
+      nil)
     (dispatch! store nil [[:actions/unlock-agent-trading
-                           {:after-success-actions [[:actions/submit-unlocked-order-request request]]}]])
+                           {:after-success-actions [[replay-action request]]}]])
     true))
 
 (defn- trading-readiness-message
@@ -437,7 +445,11 @@
                        "Awaiting passkey before submitting orders.")]
           (case agent-status
             :locked
-            (when-not (dispatch-unlock-agent-trading! dispatch! store request)
+            (when-not (dispatch-unlock-agent-trading!
+                       dispatch!
+                       store
+                       :actions/submit-unlocked-order-request
+                       request)
               (swap! store assoc-in [:order-form-runtime :error] message)
               (show-toast! store :error message))
 
@@ -661,14 +673,24 @@
         (show-toast! store :error "Connect your wallet before cancelling."))
 
       (not= :ready agent-status)
-      (do
-        (let [message (trading-readiness-message
-                       agent-status
-                       "Enable trading before cancelling orders."
-                       "Unlock trading before cancelling orders."
-                       "Awaiting passkey before cancelling orders.")]
-          (swap! store assoc-in [:orders :cancel-error] message)
-          (show-toast! store :error message)))
+      (let [message (trading-readiness-message
+                     agent-status
+                     "Enable trading before cancelling orders."
+                     "Unlock trading before cancelling orders."
+                     "Awaiting passkey before cancelling orders.")]
+        (case agent-status
+          :locked
+          (when-not (dispatch-unlock-agent-trading!
+                     dispatch!
+                     store
+                     :actions/submit-unlocked-cancel-request
+                     request)
+            (swap! store assoc-in [:orders :cancel-error] message)
+            (show-toast! store :error message))
+
+          (do
+            (swap! store assoc-in [:orders :cancel-error] message)
+            (show-toast! store :error message))))
 
       :else
       (do

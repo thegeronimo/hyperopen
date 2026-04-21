@@ -73,6 +73,9 @@
 (s/def ::submit-unlocked-order-request-args
   (s/or :request-only (s/tuple ::api-submit-request)
         :request-and-path-values (s/tuple ::api-submit-request ::common/path-values)))
+(s/def ::submit-unlocked-cancel-request-args
+  (s/or :request-only (s/tuple ::api-submit-request)
+        :request-and-path-values (s/tuple ::api-submit-request ::common/path-values)))
 
 (defn- action-request?
   [value]
@@ -330,6 +333,7 @@
    :actions/confirm-order-submission ::common/no-args
    :actions/submit-order ::common/no-args
    :actions/submit-unlocked-order-request ::submit-unlocked-order-request-args
+   :actions/submit-unlocked-cancel-request ::submit-unlocked-cancel-request-args
    :actions/confirm-cancel-visible-open-orders ::confirm-cancel-visible-open-orders-args
    :actions/close-cancel-visible-open-orders-confirmation ::common/no-args
    :actions/handle-cancel-visible-open-orders-confirmation-keydown ::common/key-args

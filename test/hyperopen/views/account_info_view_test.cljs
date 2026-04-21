@@ -235,3 +235,26 @@
     (let [panel (view/account-info-panel (disconnected-cleared-account-info-state selected-tab))
           strings (set (hiccup/collect-strings panel))]
       (is (contains? strings expected-text) label))))
+
+(deftest account-info-panel-renders-open-orders-cancel-error-feedback-test
+  (let [state (-> fixtures/sample-account-info-state
+                  (assoc-in [:account-info :selected-tab] :open-orders)
+                  (assoc-in [:orders :open-orders]
+                            [{:coin "BTC"
+                              :oid 101
+                              :side "B"
+                              :sz "1.0"
+                              :origSz "1.0"
+                              :limitPx "100.0"
+                              :orderType "Limit"
+                              :timestamp 1700000000000
+                              :reduceOnly false
+                              :isTrigger false
+                              :isPositionTpsl false}])
+                  (assoc-in [:orders :cancel-error] "Missing asset or order id."))
+        panel (view/account-info-panel state)
+        error-node (hiccup/find-by-data-role panel "open-orders-cancel-error")]
+    (is (some? error-node))
+    (is (= "alert" (get-in error-node [1 :role])))
+    (is (contains? (set (hiccup/collect-strings error-node))
+                   "Missing asset or order id."))))

@@ -120,6 +120,31 @@
     (is (not (contains? row-strings "Cancel")))
     (is (= 1 (count row-buttons)))))
 
+(deftest open-orders-tab-content-renders-cancel-error-feedback-test
+  (let [row {:oid 101
+             :coin "BTC"
+             :side "B"
+             :sz "1.0"
+             :orig-sz "1.0"
+             :px "100.0"
+             :type "Limit"
+             :time 1700000000000
+             :reduce-only false
+             :is-trigger false
+             :trigger-condition nil
+             :is-position-tpsl false}
+        content (open-orders-tab/open-orders-tab-content [row]
+                                                         {:column "Time" :direction :desc}
+                                                         {:cancel-error "Missing asset or order id."})
+        error-node (hiccup/find-by-data-role content "open-orders-cancel-error")
+        error-classes (hiccup/node-class-set error-node)]
+    (is (some? error-node))
+    (is (= "alert" (get-in error-node [1 :role])))
+    (is (= "assertive" (get-in error-node [1 :aria-live])))
+    (is (contains? error-classes "text-trading-red"))
+    (is (contains? (set (hiccup/collect-strings error-node))
+                   "Missing asset or order id."))))
+
 (deftest open-orders-cancel-visible-confirmation-renders-dismiss-and-submit-actions-test
   (let [btc-row {:oid 101
                  :coin "BTC"

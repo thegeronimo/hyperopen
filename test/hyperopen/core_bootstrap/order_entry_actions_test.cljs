@@ -615,6 +615,54 @@
            (get save-many-path-values [:orders :pending-cancel-oids])))
     (is (= 1 (count cancel-effects)))))
 
+(deftest cancel-order-locked-passkey-session-dispatches-unlock-with-cancel-continuation-test
+  (let [state {:wallet {:connected? true
+                        :address "0xabc"
+                        :agent {:status :locked
+                                :storage-mode :local
+                                :local-protection-mode :passkey
+                                :agent-address "0xagent"}}
+               :asset-contexts {:BTC {:idx 0}}}
+        order {:coin "BTC"
+               :oid 202}
+        effects (core/cancel-order state order)]
+    (is (= [[:effects/save-many [[[:orders :cancel-error] nil]
+                                  [[:wallet :agent :status] :unlocking]
+                                  [[:wallet :agent :error] nil]]]
+            [:effects/unlock-agent-trading
+             {:after-success-actions
+              [[:actions/submit-unlocked-cancel-request
+                {:action {:type "cancel"
+                          :cancels [{:a 0 :o 202}]}}]]}]]
+           effects))))
+
+(deftest cancel-order-missing-request-does-not-unlock-locked-passkey-session-test
+  (let [state {:wallet {:connected? true
+                        :address "0xabc"
+                        :agent {:status :locked
+                                :storage-mode :local
+                                :local-protection-mode :passkey
+                                :agent-address "0xagent"}}
+               :asset-contexts {}}
+        order {:coin "UNKNOWN"
+               :oid 202}
+        effects (core/cancel-order state order)]
+    (is (= [[:effects/save [:orders :cancel-error] "Missing asset or order id."]]
+           effects))))
+
+(deftest submit-unlocked-cancel-request-emits-projection-and-api-cancel-effect-test
+  (let [state {:orders {:pending-cancel-oids #{101}}}
+        request {:action {:type "cancel"
+                          :cancels [{:a 0 :o 202}]}}
+        effects (core/submit-unlocked-cancel-request state request)
+        save-many-path-values (extract-save-many-path-values effects)]
+    (is (= :effects/save-many (ffirst effects)))
+    (is (nil? (get save-many-path-values [:orders :cancel-error])))
+    (is (= #{101 202}
+           (get save-many-path-values [:orders :pending-cancel-oids])))
+    (is (= [:effects/api-cancel-order request]
+           (second effects)))))
+
 (deftest cancel-order-falls-back-to-asset-selector-market-index-test
   (let [state {:wallet {:connected? true
                         :address "0xabc"

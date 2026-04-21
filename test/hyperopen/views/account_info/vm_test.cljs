@@ -333,6 +333,26 @@
     (is (= "AAPL"
            (get-in view-model [:open-orders-state :market-by-key "spot:@107" :base])))))
 
+(deftest account-info-vm-projects-order-cancel-error-into-open-orders-state-test
+  (let [state {:account-info {:selected-tab :open-orders}
+               :webdata2 {}
+               :orders {:open-orders [{:coin "BTC"
+                                       :oid 42
+                                       :side "B"
+                                       :sz "1.0"
+                                       :limitPx "10.0"
+                                       :timestamp 1700000000000}]
+                        :open-orders-snapshot []
+                        :open-orders-snapshot-by-dex {}
+                        :cancel-error "Missing asset or order id."}
+               :spot {:meta nil
+                      :clearinghouse-state nil}
+               :account {:mode :classic}
+               :perp-dex-clearinghouse {}}
+        view-model (vm/account-info-vm state)]
+    (is (= "Missing asset or order id."
+           (get-in view-model [:open-orders-state :cancel-error])))))
+
 (deftest account-info-vm-derives-freshness-cues-from-websocket-health-test
   (let [state {:account-info {:selected-tab :open-orders}
                :webdata2 {}

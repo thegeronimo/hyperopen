@@ -133,6 +133,7 @@
    [:actions/handle-order-submission-confirmation-keydown :handle-order-submission-confirmation-keydown]
    [:actions/confirm-order-submission :confirm-order-submission]
    [:actions/submit-unlocked-order-request :submit-unlocked-order-request]
+   [:actions/submit-unlocked-cancel-request :submit-unlocked-cancel-request]
    [:actions/confirm-cancel-visible-open-orders :confirm-cancel-visible-open-orders]
    [:actions/close-cancel-visible-open-orders-confirmation :close-cancel-visible-open-orders-confirmation]
    [:actions/handle-cancel-visible-open-orders-confirmation-keydown :handle-cancel-visible-open-orders-confirmation-keydown]

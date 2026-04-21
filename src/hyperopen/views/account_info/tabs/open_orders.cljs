@@ -28,6 +28,23 @@
    [:div.text-lg.font-medium message]
    [:div {:class ["mt-2" "text-sm" "text-trading-text-secondary"]} "No data available"]])
 
+(defn- cancel-error-view
+  [cancel-error]
+  (let [message (some-> cancel-error str str/trim)]
+    (when (seq message)
+      [:div {:class ["border-t"
+                     "border-[#3b2028]"
+                     "bg-[#160b10]"
+                     "px-3"
+                     "py-2"
+                     "text-xs"
+                     "font-medium"
+                     "text-trading-red"]
+             :data-role "open-orders-cancel-error"
+             :role "alert"
+             :aria-live "assertive"}
+       message])))
+
 (defn format-side [side]
   (case side
     "B" "Buy"
@@ -327,6 +344,14 @@
                      :on {:click [[:actions/submit-cancel-visible-open-orders-confirmation]]}}
             "Cancel Visible Orders"]]]]))))
 
+(defn- open-orders-footer
+  [cancel-error confirmation-view]
+  (let [error-view (cancel-error-view cancel-error)]
+    (when (or error-view confirmation-view)
+      [:div {:class ["shrink-0"]}
+       error-view
+       confirmation-view])))
+
 (defn open-orders-tab-content
   ([normalized sort-state]
    (open-orders-tab-content normalized sort-state {}))
@@ -341,7 +366,9 @@
          sorted (sorting/memoized-sorted-open-orders normalized direction-filter sort-state market-by-key coin-search)
          confirmation-view (when-not read-only?
                              (cancel-visible-open-orders-confirmation-view
-                              (:cancel-visible-confirmation open-orders-state)))]
+                              (:cancel-visible-confirmation open-orders-state)))
+         footer-view (open-orders-footer (:cancel-error open-orders-state)
+                                         confirmation-view)]
      (if (seq sorted)
        (table/tab-table-content
         [:div {:class ["grid" "gap-2" "py-1" "px-3" "bg-base-200" "text-xs" "font-medium" grid-template-class]}
@@ -395,9 +422,9 @@
                                 "whitespace-nowrap"]
                         :on {:click [[:actions/cancel-order o]]}}
                "Cancel"]])])
-        confirmation-view)
-       (if confirmation-view
+        footer-view)
+       (if footer-view
          [:div {:class ["relative" "h-full"]}
           (empty-state "No open orders")
-          confirmation-view]
+          footer-view]
          (empty-state "No open orders"))))))

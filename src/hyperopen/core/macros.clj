@@ -217,6 +217,7 @@
     handle-order-submission-confirmation-keydown
     confirm-order-submission
     submit-order
+    submit-unlocked-cancel-request
     confirm-cancel-visible-open-orders
     close-cancel-visible-open-orders-confirmation
     handle-cancel-visible-open-orders-confirmation-keydown

@@ -6,7 +6,8 @@
             [hyperopen.api.default :as api]
             [hyperopen.api.trading :as trading-api]
             [hyperopen.core.compat :as core]
-            [hyperopen.core-bootstrap.order-effects.test-support :as support]))
+            [hyperopen.core-bootstrap.order-effects.test-support :as support]
+            [hyperopen.order.effects :as order-effects]))
 
 (defn- open-order-rows
   [orders]
@@ -33,6 +34,32 @@
     {:promise promise
      :resolve! @resolve!
      :reject! @reject!}))
+
+(deftest api-cancel-order-effect-dispatches-unlock-when-agent-is-locked-locally-test
+  (let [store (atom {:wallet {:address "0xabc"
+                              :agent {:status :locked
+                                      :storage-mode :local
+                                      :local-protection-mode :passkey}}
+                     :orders {:cancel-error "old-error"}
+                     :ui {:toast nil}})
+        dispatched (atom [])]
+    (order-effects/api-cancel-order {:dispatch! (fn [_store _evt actions]
+                                                  (swap! dispatched conj actions))
+                                     :exchange-response-error support/test-exchange-response-error
+                                     :runtime-error-message support/test-runtime-error-message
+                                     :show-toast! support/test-show-toast!}
+                                    nil
+                                    store
+                                    {:action {:type "cancel"
+                                              :cancels [{:a 0 :o 22}]}})
+    (is (nil? (get-in @store [:orders :cancel-error])))
+    (is (= [[[:actions/unlock-agent-trading
+              {:after-success-actions
+               [[:actions/submit-unlocked-cancel-request
+                 {:action {:type "cancel"
+                           :cancels [{:a 0 :o 22}]}}]]}]]]
+           @dispatched))
+    (is (nil? (get-in @store [:ui :toast])))))
 
 (deftest api-cancel-order-effect-shows-success-toast-and-refreshes-open-orders-test
   (async done

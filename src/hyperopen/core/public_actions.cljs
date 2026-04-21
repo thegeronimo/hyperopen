@@ -462,6 +462,9 @@
 (def submit-order
   order-actions/submit-order)
 
+(def submit-unlocked-cancel-request
+  order-actions/submit-unlocked-cancel-request)
+
 (def confirm-cancel-visible-open-orders
   order-actions/confirm-cancel-visible-open-orders)
 
