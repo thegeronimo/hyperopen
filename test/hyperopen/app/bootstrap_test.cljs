@@ -1,7 +1,6 @@
 (ns hyperopen.app.bootstrap-test
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.app.bootstrap :as app-bootstrap]
-            [hyperopen.views.app-view :as app-view]
             [replicant.dom :as r]))
 
 (defn- with-fake-document
@@ -35,12 +34,15 @@
                                                             :markRaw "82.65"}}}
                    :ui {:locale "en-US"}}
             render-calls (atom [])]
-        (with-redefs [app-view/app-view (fn [render-state]
-                                          [:main {:data-state render-state}])
-                      r/render (fn [node view]
-                                 (swap! render-calls conj [node view]))]
-          (app-bootstrap/render-app! state))
-        (is (= "82.65 | SILVER (xyz) | HyperOpen"
-               (.-title document)))
-        (is (= [[app-node [:main {:data-state state}]]]
-               @render-calls))))))
+        (try
+          (app-bootstrap/set-app-view! (fn [render-state]
+                                         [:main {:data-state render-state}]))
+          (with-redefs [r/render (fn [node view]
+                                    (swap! render-calls conj [node view]))]
+            (app-bootstrap/render-app! state))
+          (is (= "82.65 | SILVER (xyz) | HyperOpen"
+                 (.-title document)))
+          (is (= [[app-node [:main {:data-state state}]]]
+                 @render-calls))
+          (finally
+            (app-bootstrap/set-app-view! nil)))))))

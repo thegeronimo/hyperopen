@@ -1,14 +1,14 @@
 (ns hyperopen.telemetry.console-preload-debug-api-test
   (:require [cljs.test :refer-macros [deftest is]]
             [nexus.registry :as nxr]
+            [hyperopen.account.history.position-projection :as position-projection]
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.platform :as platform]
             [hyperopen.runtime.validation :as runtime-validation]
             [hyperopen.system :as app-system]
             [hyperopen.telemetry :as telemetry]
             [hyperopen.telemetry.console-preload :as console-preload]
-            [hyperopen.views.account-info.vm :as account-info-vm]
-            [hyperopen.views.trade.order-form-vm :as order-form-vm]
+            [hyperopen.trading.order-form-view-model :as order-form-vm]
             [hyperopen.websocket.client :as ws-client]
             [hyperopen.websocket.client-compat :as ws-client-compat]
             [hyperopen.websocket.market-projection-runtime :as market-projection-runtime]))
@@ -123,9 +123,9 @@
                     funding-actions/funding-modal-view-model (fn [_] @current-funding-vm)
                     order-form-vm/order-form-vm (fn [_]
                                                   {:submit {}})
-                    account-info-vm/account-info-vm (fn [_]
-                                                      {:positions [{:coin "ETH"
-                                                                    :size 1}]})
+                    position-projection/first-position (fn [_]
+                                                         {:coin "ETH"
+                                                          :size 1})
                     runtime-validation/debug-action-effect-traces-snapshot
                     (fn []
                       [{:action-id :actions/start-spectate-mode

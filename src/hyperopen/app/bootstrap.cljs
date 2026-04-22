@@ -12,18 +12,25 @@
             [hyperopen.platform :as platform]
             [hyperopen.telemetry :as telemetry]
             [hyperopen.startup.watchers :as startup-watchers]
-            [hyperopen.views.app-view :as app-view]
             [hyperopen.wallet.agent-safety :as agent-safety]
             [hyperopen.wallet.address-watcher :as address-watcher]
             [hyperopen.wallet.core :as wallet]
             [hyperopen.websocket.client :as ws-client]))
 
+(defonce ^:private app-view-fn
+  (atom nil))
+
+(defn set-app-view!
+  [view-fn]
+  (reset! app-view-fn view-fn))
+
 (defn render-app!
   [state]
   (when (exists? js/document)
     (document-title/sync! js/document state)
-    (r/render (.getElementById js/document "app")
-              (app-view/app-view state))))
+    (when-let [view-fn @app-view-fn]
+      (r/render (.getElementById js/document "app")
+                (view-fn state)))))
 
 (defn- bootstrap-runtime-once!
   [runtime store]

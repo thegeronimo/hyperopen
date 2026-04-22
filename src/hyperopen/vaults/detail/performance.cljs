@@ -1,7 +1,7 @@
 (ns hyperopen.vaults.detail.performance
   (:require [clojure.string :as str]
+            [hyperopen.portfolio.application.summary :as portfolio-summary]
             [hyperopen.portfolio.metrics :as portfolio-metrics]
-            [hyperopen.views.portfolio.vm.summary :as vm-summary]
             [hyperopen.vaults.detail.metrics-bridge :as metrics-bridge]))
 
 (def ^:private performance-periods-per-year
@@ -172,9 +172,9 @@
 
 (defn selected-summary-context
   [details snapshot-range]
-  (vm-summary/selected-summary-context (or (:portfolio details) {})
-                                       :all
-                                       snapshot-range))
+  (portfolio-summary/selected-summary-context (or (:portfolio details) {})
+                                              :all
+                                              snapshot-range))
 
 (defn- coverage-metadata
   [rows]
@@ -189,10 +189,10 @@
   [state details snapshot-range]
   (let [portfolio (or (:portfolio details) {})
         selected-context (selected-summary-context details snapshot-range)
-        returns-context (vm-summary/returns-history-context portfolio
-                                                            :all
-                                                            snapshot-range
-                                                            selected-context)
+        returns-context (portfolio-summary/returns-history-context portfolio
+                                                                   :all
+                                                                   snapshot-range
+                                                                   selected-context)
         summary (:summary returns-context)
         account-rows (or (:accountValueHistory summary) [])
         pnl-rows (or (:pnlHistory summary) [])
