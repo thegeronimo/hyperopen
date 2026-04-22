@@ -23,6 +23,7 @@ The repository enforces dependency direction with `dev/check_namespace_boundarie
 - [x] (2026-04-22 12:31Z) Moved this ExecPlan to `docs/exec-plans/completed/` after validation.
 - [x] (2026-04-22 12:35Z) Ran `npm run test:playwright:smoke` for UI/browser accounting. The standard run passed 22 smoke tests and failed 2 route smoke cases. A targeted rerun passed the trader-portfolio root-render case, while the leaderboard IndexedDB preference smoke remained blocked by live leaderboard data/reload timing.
 - [x] (2026-04-22 12:40Z) Ran `npm run browser:cleanup`; it completed with no browser-inspection sessions to stop.
+- [x] (2026-04-22 12:52Z) Followed up on the two Playwright failures after committing the boundary work. `trader-portfolio desktop root renders` passed on the clean baseline and in the full smoke suite. The leaderboard preference smoke was stabilized by routing the live leaderboard and vault endpoints to small deterministic fixtures; `npm run test:playwright:smoke` now passes 24/24.
 
 ## Surprises & Discoveries
 
@@ -40,6 +41,9 @@ The repository enforces dependency direction with `dev/check_namespace_boundarie
 
 - Observation: The required smoke route coverage currently depends on live leaderboard data and can exceed the configured 45 second Playwright timeout independently of this boundary refactor.
   Evidence: `npm run test:playwright:smoke` passed 22 tests, then failed `trader-portfolio desktop root renders` with an initial debug-bridge startup timeout and `leaderboard preferences persist across reload via IndexedDB` at the post-reload oracle. A targeted rerun made the trader-portfolio case pass. The leaderboard trace showed the `leaderboard-root` oracle returning `{present: true}` just after the standard timeout in one run, and an isolated extended-timeout rerun later failed earlier while waiting for the live-data table's `Volume` header.
+
+- Observation: On the clean committed baseline, the trader-portfolio root-render failure was not reproducible, but the leaderboard preference failure was reproducible and caused by the unmocked stats-data leaderboard endpoint.
+  Evidence: A full smoke rerun passed `trader-portfolio desktop root renders` and failed only `leaderboard preferences persist across reload via IndexedDB`. The trace showed the test waiting about 39.9 seconds for the `Volume` table header click, while the network log showed `https://stats-data.hyperliquid.xyz/Mainnet/leaderboard` taking about 39.6 seconds and `https://stats-data.hyperliquid.xyz/Mainnet/vaults` taking about 27.9 seconds.
 
 ## Decision Log
 
@@ -61,7 +65,7 @@ The five view boundary exceptions were retired. `dev/namespace_boundary_exceptio
 
 Overall complexity decreased at the architectural boundary because non-view code no longer depends on view models for reusable behavior. A small amount of compatibility code remains in existing view namespaces, but those facades point in the permitted direction and keep the view-layer public surface stable for current callers and tests.
 
-Browser QA was explicitly accounted for because this work touched the Shadow CLJS app entrypoint and view facades. `npm run test:playwright:smoke` did not complete cleanly due the existing live-data leaderboard smoke behavior recorded above. The root-render regression relevant to the app entrypoint passed on targeted rerun; the remaining leaderboard smoke timeout is a residual browser-QA blocker unrelated to the retired namespace exceptions.
+Browser QA was explicitly accounted for because this work touched the Shadow CLJS app entrypoint and view facades. The first `npm run test:playwright:smoke` run did not complete cleanly due the live-data leaderboard smoke behavior recorded above. Follow-up investigation found the app-entrypoint-related trader-portfolio route passing consistently on a clean baseline, then made the leaderboard preference smoke deterministic by stubbing the live leaderboard and vault endpoints. The full smoke suite now passes.
 
 ## Context and Orientation
 
@@ -166,6 +170,19 @@ Final validation evidence:
 
     npm run browser:cleanup
     passed; stopped 0 browser-inspection sessions.
+
+Follow-up Playwright investigation:
+
+    npm run test:playwright:smoke
+    23 passed, 1 failed:
+    - trader-portfolio desktop root renders passed.
+    - leaderboard preferences persist across reload via IndexedDB timed out after the live leaderboard endpoint took about 39.6 seconds.
+
+    npx playwright test tools/playwright/test/routes.smoke.spec.mjs -g "leaderboard preferences persist across reload via IndexedDB"
+    passed after routing leaderboard stats endpoints to deterministic fixtures.
+
+    npm run test:playwright:smoke
+    24 passed.
 
 ## Interfaces and Dependencies
 

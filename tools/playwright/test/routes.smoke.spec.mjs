@@ -247,6 +247,40 @@ test.describe("main route smoke mobile @smoke", () => {
 });
 
 test("leaderboard preferences persist across reload via IndexedDB @smoke", async ({ page }) => {
+  const leaderboardUrl = "https://stats-data.hyperliquid.xyz/Mainnet/leaderboard";
+  const vaultsUrl = "https://stats-data.hyperliquid.xyz/Mainnet/vaults";
+
+  await page.route(leaderboardUrl, async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        leaderboardRows: [
+          {
+            ethAddress: "0x1111111111111111111111111111111111111111",
+            displayName: "Alpha Desk",
+            accountValue: 1200000,
+            windowPerformances: [["allTime", { pnl: 1200, roi: 0.2, vlm: 9000 }]]
+          },
+          {
+            ethAddress: "0x3333333333333333333333333333333333333333",
+            displayName: "Beta Desk",
+            accountValue: 900000,
+            windowPerformances: [["allTime", { pnl: 500, roi: 0.1, vlm: 4000 }]]
+          }
+        ]
+      })
+    });
+  });
+
+  await page.route(vaultsUrl, async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([])
+    });
+  });
+
   await visitRoute(page, "/leaderboard");
 
   const allTimeButton = page.locator("[data-role='leaderboard-timeframes'] button", { hasText: "All Time" });
