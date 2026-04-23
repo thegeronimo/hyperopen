@@ -9,9 +9,13 @@
 (def ^:private osqp-infinity
   1.0e20)
 
-(defn- unsupported-split-constraints
+(defn- supported-l1-constraint?
+  [constraint]
+  (= :gross-exposure (:code constraint)))
+
+(defn- unsupported-l1-constraints
   [problem]
-  (seq (filter :requires-split-variables? (:l1-constraints problem))))
+  (seq (remove supported-l1-constraint? (:l1-constraints problem))))
 
 (defn- unsupported-result
   [reason details]
@@ -28,6 +32,112 @@
                 (range)))
         matrix
         (range)))
+
+(defn- split-var
+  [n idx]
+  (if (< idx n)
+    {:original-idx idx
+     :sign 1}
+    {:original-idx (- idx n)
+     :sign -1}))
+
+(defn- split-coefficients
+  [coefficients]
+  (vec (concat coefficients
+               (mapv - coefficients))))
+
+(defn- split-quadratic
+  [quadratic]
+  (let [n (count quadratic)]
+    (mapv (fn [row-idx]
+            (let [{row-original :original-idx row-sign :sign} (split-var n row-idx)]
+              (mapv (fn [col-idx]
+                      (let [{col-original :original-idx col-sign :sign} (split-var n col-idx)]
+                        (* row-sign
+                           col-sign
+                           (get-in quadratic [row-original col-original]))))
+                    (range (* 2 n)))))
+          (range (* 2 n)))))
+
+(defn- split-linear
+  [linear]
+  (vec (concat linear
+               (mapv - linear))))
+
+(defn- split-equality
+  [constraint]
+  (update constraint :coefficients split-coefficients))
+
+(defn- split-inequality
+  [constraint]
+  (update constraint :coefficients split-coefficients))
+
+(defn- split-bound-inequality
+  [n idx lower upper]
+  (let [coefficients (split-coefficients
+                      (mapv (fn [i]
+                              (if (= i idx) 1 0))
+                            (range n)))]
+    (cond-> []
+      (number? lower)
+      (conj {:code :weight-lower-bound
+             :instrument-idx idx
+             :coefficients coefficients
+             :lower lower})
+
+      (number? upper)
+      (conj {:code :weight-upper-bound
+             :instrument-idx idx
+             :coefficients coefficients
+             :upper upper}))))
+
+(defn- gross-inequality
+  [n constraint]
+  {:code :gross-exposure
+   :coefficients (vec (repeat (* 2 n) 1))
+   :upper (:max constraint)})
+
+(defn- split-required?
+  [problem]
+  (seq (filter :requires-split-variables? (:l1-constraints problem))))
+
+(defn- decode-split-weights
+  [n solution]
+  (mapv (fn [idx]
+          (- (nth solution idx)
+             (nth solution (+ idx n))))
+        (range n)))
+
+(defn- adapt-problem
+  [problem]
+  (if (split-required? problem)
+    (let [n (count (:instrument-ids problem))
+          gross-constraints (filterv #(= :gross-exposure (:code %))
+                                     (:l1-constraints problem))
+          bound-inequalities (mapcat (fn [idx lower upper]
+                                       (split-bound-inequality n idx lower upper))
+                                     (range n)
+                                     (:lower-bounds problem)
+                                     (:upper-bounds problem))]
+      {:problem (assoc problem
+                       :instrument-ids (vec (concat (mapv #(str % ":positive")
+                                                           (:instrument-ids problem))
+                                                   (mapv #(str % ":negative")
+                                                         (:instrument-ids problem))))
+                       :quadratic (split-quadratic (:quadratic problem))
+                       :linear (split-linear (:linear problem))
+                       :equalities (mapv split-equality (:equalities problem))
+                       :inequalities (vec (concat (mapv split-inequality
+                                                        (:inequalities problem))
+                                                  bound-inequalities
+                                                  (mapv (partial gross-inequality n)
+                                                        gross-constraints)))
+                       :l1-constraints []
+                       :lower-bounds (vec (repeat (* 2 n) 0))
+                       :upper-bounds (vec (repeat (* 2 n) nil)))
+       :decode (partial decode-split-weights n)})
+    {:problem problem
+     :decode identity}))
 
 (defn- one-indexed-vector
   [values]
@@ -91,33 +201,35 @@
      (math/dot (:linear problem) weights)))
 
 (defn- normalize-quadprog-solution
-  [problem solved]
+  [problem solved decode]
   (let [message (.-message ^js solved)]
     (if (seq message)
       {:status :infeasible
        :solver :quadprog
        :reason :solver-message
        :message message}
-      (let [solution (vec (js->clj (.slice (.-solution ^js solved) 1)))]
+      (let [solution (vec (js->clj (.slice (.-solution ^js solved) 1)))
+            weights (decode solution)]
         {:status :solved
          :solver :quadprog
-         :weights solution
-         :objective-value (objective-value problem solution)
+         :weights weights
+         :objective-value (objective-value problem weights)
          :iterations (second (js->clj (.-iterations solved)))}))))
 
 (defn solve-with-quadprog
   [problem]
-  (if-let [unsupported (unsupported-split-constraints problem)]
-    (unsupported-result :split-variable-constraints-not-implemented
+  (if-let [unsupported (unsupported-l1-constraints problem)]
+    (unsupported-result :l1-constraints-not-implemented
                         {:constraints (vec unsupported)})
-    (let [n (count (:instrument-ids problem))
-          {:keys [columns meq]} (constraint-columns problem)
-          dmat (one-indexed-matrix (add-diagonal-epsilon (:quadratic problem)))
-          dvec (one-indexed-vector (mapv - (:linear problem)))
+    (let [{adapted-problem :problem decode :decode} (adapt-problem problem)
+          n (count (:instrument-ids adapted-problem))
+          {:keys [columns meq]} (constraint-columns adapted-problem)
+          dmat (one-indexed-matrix (add-diagonal-epsilon (:quadratic adapted-problem)))
+          dvec (one-indexed-vector (mapv - (:linear adapted-problem)))
           amat (one-indexed-matrix (quadprog-amat n columns))
           bvec (one-indexed-vector (mapv :bound columns))
           solved (.solveQP quadprog dmat dvec amat bvec meq)]
-      (normalize-quadprog-solution problem solved))))
+      (normalize-quadprog-solution problem solved decode))))
 
 (defn- float64-array
   [values]
@@ -209,8 +321,8 @@
        :max_iter 10000})
 
 (defn- normalize-osqp-solution
-  [problem solution]
-  (let [weights (vec (js->clj solution))]
+  [problem solution decode]
+  (let [weights (decode (vec (js->clj solution)))]
     {:status :solved
      :solver :osqp
      :weights weights
@@ -218,19 +330,20 @@
 
 (defn solve-with-osqp
   [problem]
-  (if-let [unsupported (unsupported-split-constraints problem)]
+  (if-let [unsupported (unsupported-l1-constraints problem)]
     (js/Promise.resolve
-     (unsupported-result :split-variable-constraints-not-implemented
+     (unsupported-result :l1-constraints-not-implemented
                          {:constraints (vec unsupported)}))
-    (-> (.setup OSQP (osqp-options problem) (osqp-settings))
-        (.then (fn [^js solver]
-                 (try
-                   (let [solution (.solve solver)]
-                     (normalize-osqp-solution problem solution))
-                   (finally
-                     (.cleanup solver)))))
-        (.catch (fn [err]
-                  {:status :error
-                   :solver :osqp
-                   :reason :solver-error
-                   :message (str err)})))))
+    (let [{adapted-problem :problem decode :decode} (adapt-problem problem)]
+      (-> (.setup OSQP (osqp-options adapted-problem) (osqp-settings))
+          (.then (fn [^js solver]
+                   (try
+                     (let [solution (.solve solver)]
+                       (normalize-osqp-solution problem solution decode))
+                     (finally
+                       (.cleanup solver)))))
+          (.catch (fn [err]
+                    {:status :error
+                     :solver :osqp
+                     :reason :solver-error
+                     :message (str err)}))))))

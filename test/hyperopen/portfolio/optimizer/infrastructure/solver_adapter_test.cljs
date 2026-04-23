@@ -39,14 +39,30 @@
     (is (near? 0.4 (first (:weights result))))
     (is (near? 0.6 (second (:weights result))))))
 
-(deftest adapter-rejects-split-variable-constraints-until-solver-expansion-is-implemented-test
+(def signed-gross-problem
+  {:kind :quadratic-program
+   :objective-kind :return-tilted
+   :instrument-ids ["A" "B"]
+   :quadratic [[1 0]
+               [0 1]]
+   :linear [-1 1]
+   :equalities [{:code :net-exposure
+                 :coefficients [1 1]
+                 :target 0}]
+   :inequalities []
+   :l1-constraints [{:code :gross-exposure
+                     :max 1
+                     :requires-split-variables? true}]
+   :lower-bounds [-1 -1]
+   :upper-bounds [1 1]})
+
+(deftest quadprog-adapter-solves-signed-gross-exposure-with-split-variables-test
   (let [result (solver-adapter/solve-with-quadprog
-                (assoc min-variance-problem
-                       :l1-constraints [{:code :gross-exposure
-                                         :max 1.5
-                                         :requires-split-variables? true}]))]
-    (is (= :unsupported (:status result)))
-    (is (= :split-variable-constraints-not-implemented (:reason result)))))
+                signed-gross-problem)]
+    (is (= :solved (:status result)))
+    (is (= :quadprog (:solver result)))
+    (is (near? 0.5 (first (:weights result))))
+    (is (near? -0.5 (second (:weights result))))))
 
 (deftest osqp-adapter-solves-long-only-minimum-variance-test
   (async done
@@ -59,4 +75,17 @@
                  (done)))
         (.catch (fn [err]
                   (is false (str "OSQP solve failed: " err))
+                  (done))))))
+
+(deftest osqp-adapter-solves-signed-gross-exposure-with-split-variables-test
+  (async done
+    (-> (solver-adapter/solve-with-osqp signed-gross-problem)
+        (.then (fn [result]
+                 (is (= :solved (:status result)))
+                 (is (= :osqp (:solver result)))
+                 (is (near? 0.5 (first (:weights result))))
+                 (is (near? -0.5 (second (:weights result))))
+                 (done)))
+        (.catch (fn [err]
+                  (is false (str "OSQP split-variable solve failed: " err))
                   (done))))))
