@@ -26,7 +26,7 @@ The observable proof is a routed workflow. `/portfolio/optimize` lists local sce
 - [x] (2026-04-23 21:01Z) Ran focused optimizer foundation validation with 27 tests and 85 assertions, then ran the existing legacy portfolio view regression slice with 20 tests and 254 assertions; both passed with zero failures and zero warnings.
 - [x] (2026-04-23 21:08Z) Completed the remaining Phase 1 infrastructure foundations: optimizer IndexedDB store and EDN-preserving persistence wrapper, dedicated `:portfolio-optimizer-worker` Shadow target and package scripts, and account bootstrap predicate correction so optimizer routes stay eager instead of inheriting the legacy performance-tab deferral.
 - [x] (2026-04-23 21:08Z) Ran focused Phase 1 validation with 46 tests and 166 assertions plus `npx shadow-cljs --force-spawn compile portfolio-optimizer-worker`; all passed with zero failures and zero warnings.
-- [ ] Complete the solver spike milestone and record a benchmark-backed ADR before committing to a production solver implementation.
+- [x] (2026-04-23 22:13Z) Completed the solver spike harness and recorded ADR 0027 selecting a worker-isolated OSQP adapter as the first production solver path, with quadprog retained as fallback and parity oracle.
 - [x] Implement the Phase 1 route, query-state, portfolio shell delegation, current-holdings snapshot, account bootstrap participation, worker target registration, and IndexedDB scenario store/versioning foundations.
 - [ ] Implement the worker-backed engine, setup/results UI, execution path, and tracking flow.
 
@@ -52,6 +52,15 @@ The observable proof is a routed workflow. `/portfolio/optimize` lists local sce
 
 - Observation: Several items that the previous draft treated as open questions are already fixed by the product contract and should not be reopened during implementation.
   Evidence: the review corrected the draft on scenario lifecycle, read-only analysis behavior, Black-Litterman prior posture, mandatory V1 constraints, default return-model framing, and the rejection of `Implemented` as a runtime status.
+
+- Observation: `osqp@0.0.2` can solve the benchmark fixtures much faster than JS alternatives, but it must be isolated behind the optimizer worker and configured explicitly.
+  Evidence: `node tools/optimizer/solver_spike_benchmark.mjs --external-root=/tmp/hyperopen-solver-spike.x2HSY7/packages --warmup=1 --runs=3` solved all 36 OSQP runs with mean 0.57 ms, max 0.98 ms, and max constraint violation 1.39e-17 after setting `verbose: false`, tighter tolerances, and polish.
+
+- Observation: `quadprog@1.6.1` is precise and small enough to keep as a fallback or parity oracle, but it is slower than OSQP on the same deterministic fixtures.
+  Evidence: the same solver spike solved all 36 quadprog runs with mean 14.59 ms, max 63.24 ms, and max constraint violation 1.39e-17.
+
+- Observation: the internal projected-gradient spike baseline is deterministic and useful for harness tests, but it is not suitable as the production V1 QP solver.
+  Evidence: the internal baseline solved all 36 fixtures with mean 47.78 ms and max 208.85 ms, and it would require substantially more custom work to match package solver infeasibility and frontier behavior.
 
 ## Decision Log
 
@@ -91,9 +100,13 @@ The observable proof is a routed workflow. `/portfolio/optimize` lists local sce
   Rationale: the low-level IndexedDB helper is JSON-oriented and does not preserve keyword values or string map keys through `clj->js` and `js->clj :keywordize-keys`. Scenario lifecycle status, objective ids, and user-provided string-key maps must roundtrip exactly.
   Date/Author: 2026-04-23 / Codex
 
+- Decision: Select a worker-isolated OSQP adapter as the first production solver path for V1, retain quadprog as fallback and fixture parity oracle, and reject a custom in-repo QP solver for V1.
+  Rationale: ADR 0027 records the benchmark. OSQP was fastest and satisfied deterministic fixture constraints when configured with quiet high-precision settings. quadprog was precise but slower. The internal projected-gradient baseline would turn V1 into a numerical-methods project.
+  Date/Author: 2026-04-23 / Codex
+
 ## Outcomes & Retrospective
 
-This milestone does not implement the optimizer. It promotes the planning work into the repository's canonical active ExecPlan flow and removes the misleading parts of the earlier draft. The plan now treats the execution contract honestly, turns prior "owner questions" that were already answered into requirements, fixes the scenario lifecycle, makes the UI acceptance criteria concrete, and narrows the real architectural uncertainty to one explicit solver ADR plus a few integration details. Overall complexity is reduced because the route, state, lifecycle, and UI contracts are now explicit, while the remaining complexity is acknowledged as real implementation work rather than hidden scope drift.
+This work promotes the planning into the repository's canonical active ExecPlan flow, removes the misleading parts of the earlier draft, and starts implementation through the route, persistence, worker-target, and solver-spike foundations. The plan treats the execution contract honestly, turns prior "owner questions" that were already answered into requirements, fixes the scenario lifecycle, makes the UI acceptance criteria concrete, and resolves the main solver uncertainty through ADR 0027. Overall complexity is reduced because the route, state, lifecycle, UI, and solver contracts are now explicit, while the remaining complexity is acknowledged as real implementation work rather than hidden scope drift.
 
 ## Context and Orientation
 
@@ -263,13 +276,11 @@ Add a new Shadow target and browser asset such as `/js/portfolio_optimizer_worke
 
 ### Numerical Layer and Solver Strategy
 
-Use a small matrix helper for covariance, shrinkage, and Black-Litterman calculations, but do not finalize the solver before the spike milestone. The recommended spike order is:
+Use a small matrix helper for covariance, shrinkage, and Black-Litterman calculations. ADR 0027 selects a worker-isolated OSQP adapter as the first production solver path, with quadprog retained as a fallback and fixture parity oracle. Do not implement a custom in-repo constrained QP solver for V1.
 
-1. Worker-backed WASM OSQP or an equivalent browser-safe quadratic-program solver.
-2. A JS QP dependency with acceptable licensing, determinism, and worker behavior.
-3. A custom in-repo solver only if the first two candidates fail the benchmark or integration gates.
+Keep solver imports behind the optimizer worker and a small protocol so the main app bundle does not absorb numerical code. Minimum Variance and Target Return are direct QP solves. Max Sharpe should be selected from the efficient frontier or repeated return-tilted QP solves. Target Volatility should be implemented through efficient-frontier sweep and point selection rather than as a direct nonlinear QP objective.
 
-The solver ADR must be decided by benchmark, not preference. Benchmark on realistic 20-, 40-, and 60-instrument universes. The winning candidate must support deterministic constrained solves, clean infeasibility reporting, and a worker-only dependency footprint so the main app bundle does not absorb numerical code.
+The benchmarked decision used deterministic 20-, 40-, and 60-instrument universes across Minimum Variance, Max Sharpe, Target Return, and Target Volatility. OSQP solved all 36 measured runs with mean 0.57 ms and max 0.98 ms once configured with quiet high-precision settings. quadprog solved all 36 measured runs with mean 14.59 ms and max 63.24 ms. The internal projected-gradient harness remains only a deterministic spike baseline.
 
 ### Return Models, Risk Models, and Objective Plug-In Shape
 
@@ -617,15 +628,11 @@ Every infeasible run must emit:
 
 ### Solver Alternatives and Recommendation
 
-Three solver paths are viable:
+ADR 0027 decides the V1 path. Use worker-isolated OSQP first. Keep quadprog as a fallback and fixture parity oracle. Do not use the internal projected-gradient spike baseline as the production optimizer.
 
-Path A uses a worker-backed WASM QP solver such as OSQP plus a small matrix helper for covariance and Black-Litterman math. This is the preferred first prototype because it reduces the risk of building an optimizer science project inside CLJS.
+The harness measured 12 deterministic problems with three measured runs each, covering 20-, 40-, and 60-instrument universes across the four V1 objectives. OSQP solved 36/36 runs with mean 0.57 ms, max 0.98 ms, max sum error 4.44e-16, and max bound violation 1.39e-17. quadprog solved 36/36 runs with mean 14.59 ms, max 63.24 ms, max sum error 7.77e-16, and max bound violation 1.39e-17. The projected-gradient baseline solved 36/36 but was slower at mean 47.78 ms and max 208.85 ms.
 
-Path B uses a JS QP library that can run inside the worker with deterministic results and acceptable licensing. This is the preferred fallback if the WASM path complicates bundling or runtime too much.
-
-Path C uses an in-repo custom solver with a matrix helper. This should remain the last resort, not the default assumption.
-
-The recommendation today is not "choose Path C." The recommendation is "prototype A first, B second, and keep C as the contingency." The ADR must record measured latency, bundle impact, infeasibility behavior, and implementation complexity before the engine milestone starts.
+The remaining solver work is dependency integration and constraint coverage, not solver selection. Before execution preview depends on optimizer output, add fixture parity for signed gross and net exposure, turnover caps, held-position locks, infeasible target return, and per-perp caps. If OSQP browser bundling or dependency review fails, fall back to quadprog for V1 instead of reopening a custom solver build.
 
 ## UI Implementation Mapping
 
@@ -850,9 +857,9 @@ This phase exits when `/portfolio/optimize`, `/portfolio/optimize/new`, and `/po
 
 ### Phase 2: Solver Spike and Numerical ADR
 
-This phase is intentionally a prototype milestone. Add a temporary worker harness and fixture runner that can feed identical constrained problems into candidate solver paths. Measure 20-, 40-, and 60-instrument workloads, including Min Variance, Max Sharpe via frontier selection, Target Return, and Target Volatility. Record warm latency, memory behavior, infeasibility reporting, and bundle footprint.
+This phase is intentionally a prototype milestone. It now has a committed deterministic fixture harness at `tools/optimizer/solver_spike_benchmark.mjs` and focused coverage through `npm run test:optimizer-spike`. The spike measured 20-, 40-, and 60-instrument workloads across Minimum Variance, Max Sharpe, Target Return, and Target Volatility.
 
-Do not build the full optimizer UI here. The deliverable is a benchmark-backed ADR stored in this ExecPlan's `Decision Log` and, if the decision should outlive this feature plan, a formal ADR under `docs/architecture-decision-records/`. A candidate fails this phase if it cannot deliver deterministic constrained solves inside a worker, if it swells the main bundle, or if it cannot explain infeasible inputs. This phase exits only when the solver choice is explicit and benchmarked.
+Phase 2 exits with ADR 0027. The selected V1 path is OSQP in the optimizer worker, with quadprog as fallback and parity oracle. Do not build the full optimizer UI here, and do not implement a custom QP solver for V1.
 
 ### Phase 3: Arbitrary-Universe History and Prior Data Loading
 
@@ -926,13 +933,13 @@ All commands below run from `/Users/barry/.codex/worktrees/d394/hyperopen`.
 
        node out/test.js --test=hyperopen.portfolio.optimizer.application.current-portfolio-test --test=hyperopen.app.startup-test
 
-3. Implement the solver spike behind a focused harness. Record benchmark numbers directly in this ExecPlan before advancing.
+3. Implement the solver spike behind a focused harness. This is complete through ADR 0027, and the focused test should stay in the gate.
 
-       npm run test:runner:generate
-       npx shadow-cljs --force-spawn compile app
-       node tools/optimizer/solver_spike_benchmark.mjs
+       npm run test:optimizer-spike
+       node tools/optimizer/solver_spike_benchmark.mjs --candidate=projected-gradient-js --warmup=2 --runs=3
+       node tools/optimizer/solver_spike_benchmark.mjs --external-root=<unpacked-solver-packages> --warmup=1 --runs=3
 
-   If the repo does not yet have `tools/optimizer/solver_spike_benchmark.mjs`, create it as part of the spike. Keep it deterministic and fixture-backed.
+   To rerun external package evidence without installing runtime dependencies in the repo, unpack `osqp@0.0.2` and `quadprog@1.6.1` into a temporary directory and pass that directory as `--external-root`.
 
 4. Add RED unit and property tests for the engine, then implement domain namespaces until the focused suite passes.
 
@@ -1047,19 +1054,19 @@ and returns:
      :id "run_..."
      :payload {...}}
 
-Use a worker-only dependency boundary for whichever numerical libraries the solver ADR selects. Keep matrix and solver imports out of the main route view code.
+Use a worker-only dependency boundary for OSQP, quadprog, and any matrix helper. Keep matrix and solver imports out of the main route view code.
 
 ## ADRs and Decisions Required
 
 ### ADR 1: Production Solver Selection
 
-Decision: choose the winning solver path after the spike milestone.
+Decision: accepted in `docs/architecture-decision-records/0027-portfolio-optimizer-solver-selection.md`.
 
 Why it matters: this affects correctness, latency, bundle shape, and whether the optimizer becomes a long-lived science project.
 
-Recommendation: prototype worker-backed WASM OSQP first, then a JS QP dependency, and treat a custom solver as contingency only.
+Recommendation: use a worker-isolated OSQP adapter as the first production solver path, retain quadprog as fallback and parity oracle, and do not build a custom in-repo QP solver for V1.
 
-Blockers and unknowns: benchmark results, bundle impact, licensing, and ease of surfacing infeasibility diagnostics.
+Blockers and unknowns: dependency review and browser bundling for `osqp@0.0.2`; if either fails, fall back to quadprog for V1.
 
 ### ADR 2: Black-Litterman Prior Data Source
 
@@ -1096,8 +1103,6 @@ Blockers and unknowns: whether product wants the fallback to be user-configurabl
 The product contract already answered many questions that the earlier draft reopened, so this list stays narrow.
 
 Which concrete market-cap data source, if any, is acceptable for the Black-Litterman prior in V1, and what caching policy is acceptable for it?
-
-Which solver candidate wins the spike once latency, infeasibility behavior, and bundle impact are measured on realistic universes?
 
 Does rebalance execution use a grouped exchange order action or sequential row submissions after the execution prototype is tested against current request-shaping seams?
 
@@ -1142,3 +1147,4 @@ Key reconnaissance facts captured for implementers:
 
 - 2026-04-23 / Codex: Created the canonical active ExecPlan from the earlier draft, aligned it to the repo's planning contract, corrected the scenario lifecycle and execution semantics, made the UI acceptance criteria explicit, restored the product default return-model framing, and moved solver selection into a benchmark-backed ADR milestone.
 - 2026-04-23 / Codex: Addressed review findings before commit by adding the global max asset weight field, UI control, and encoding rule, replacing stale read-only mode wording with Spectate Mode, embedding the visual contract from the design pack, pointing durable ADRs to `docs/architecture-decision-records/`, and removing the noncanonical draft redirect file.
+- 2026-04-23 / Codex: Added the deterministic solver spike harness, benchmarked internal projected-gradient, quadprog, and OSQP candidates, accepted ADR 0027, and updated the plan so Phase 4 starts from a worker-isolated OSQP path with quadprog fallback instead of reopening solver selection.
