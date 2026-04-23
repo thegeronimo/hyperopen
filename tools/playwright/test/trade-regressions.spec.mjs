@@ -2452,6 +2452,7 @@ test("locked remembered passkey session cancel unlocks and submits named-dex can
     signedActions: {
       default: {
         responses: [
+          { status: "ok" },
           {
             status: "ok",
             response: {
@@ -2492,13 +2493,31 @@ test("locked remembered passkey session cancel unlocks and submits named-dex can
     .poll(
       async () => {
         const exchangeSnapshot = await debugCall(page, "exchangeSimulatorSnapshot");
-        return exchangeSnapshot.calls.flatMap((call) =>
-          (call.paths ?? [])
-            .filter((path) => Array.isArray(path) && path[0] === "signedActions")
-            .map((path) => path[1])
-        );
+        return exchangeSnapshot.calls
+          .filter((call) =>
+            (call.paths ?? []).some(
+              (path) => Array.isArray(path) && path[0] === "signedActions"
+            )
+          )
+          .map((call) => ({
+            actionTypes: (call.paths ?? [])
+              .filter((path) => Array.isArray(path) && path[0] === "signedActions")
+              .map((path) => path[1]),
+            responseStatus: call.responseStatus
+          }));
       },
       { timeout: 10_000 }
     )
-    .toEqual(expect.arrayContaining(["cancel"]));
+    .toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          actionTypes: expect.arrayContaining(["scheduleCancel"]),
+          responseStatus: "ok"
+        }),
+        expect.objectContaining({
+          actionTypes: expect.arrayContaining(["cancel"]),
+          responseStatus: "ok"
+        })
+      ])
+    );
 });
