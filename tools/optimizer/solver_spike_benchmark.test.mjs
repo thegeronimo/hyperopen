@@ -61,7 +61,7 @@ test('solveWithProjectedGradient produces a feasible signed result summary for f
   assert.ok(Number.isFinite(summary.expectedReturn));
 });
 
-test('benchmarkCandidates reports unavailable optional solver packages without failing the spike', async () => {
+test('benchmarkCandidates uses locally installed optional solver packages when present', async () => {
   const problems = buildBenchmarkProblems({ sizes: [20], seed: 3 });
   const result = await benchmarkCandidates({
     problems,
@@ -73,9 +73,9 @@ test('benchmarkCandidates reports unavailable optional solver packages without f
 
   assert.deepEqual(candidateNames(result), ['projected-gradient-js', 'quadprog', 'osqp']);
   assert.equal(result.candidates['projected-gradient-js'].available, true);
-  assert.equal(result.candidates.quadprog.available, false);
-  assert.match(result.candidates.quadprog.unavailableReason, /not found/);
-  assert.equal(result.candidates.osqp.available, false);
-  assert.match(result.candidates.osqp.unavailableReason, /not found/);
+  assert.equal(result.candidates.quadprog.available, true);
+  assert.equal(result.candidates.quadprog.metadata.packageName, 'quadprog');
+  assert.equal(result.candidates.osqp.available, true);
+  assert.equal(result.candidates.osqp.metadata.packageName, 'osqp');
   assert.equal(result.problemCount, 4);
 });

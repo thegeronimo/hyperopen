@@ -190,6 +190,7 @@
             [hyperopen.portfolio.optimizer.infrastructure.history-client-test]
             [hyperopen.portfolio.optimizer.infrastructure.persistence-test]
             [hyperopen.portfolio.optimizer.infrastructure.prior-data-test]
+            [hyperopen.portfolio.optimizer.infrastructure.solver-adapter-test]
             [hyperopen.portfolio.optimizer.query-state-test]
             [hyperopen.portfolio.query-state-test]
             [hyperopen.portfolio.routes-test]
@@ -739,6 +740,7 @@
              'hyperopen.portfolio.optimizer.infrastructure.history-client-test
              'hyperopen.portfolio.optimizer.infrastructure.persistence-test
              'hyperopen.portfolio.optimizer.infrastructure.prior-data-test
+             'hyperopen.portfolio.optimizer.infrastructure.solver-adapter-test
              'hyperopen.portfolio.optimizer.query-state-test
              'hyperopen.portfolio.query-state-test
              'hyperopen.portfolio.routes-test

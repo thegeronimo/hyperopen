@@ -91,6 +91,8 @@
     "indicatorts": "^2.2.2",
     "lightweight-charts": "^5.0.8",
     "lucide": "^0.577.0",
+    "osqp": "^0.0.2",
+    "quadprog": "^1.6.1",
     "shadow-cljs": "^3.1.7",
     "smol-toml": "^1.6.0",
     "snabbdom": "3.5.1"
