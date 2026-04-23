@@ -960,7 +960,7 @@ test("trade route preserves core accessibility affordances @regression", async (
   ).toHaveAttribute("aria-label", "Time in force: GTC");
 });
 
-test("trade chart right-click opens the custom context menu @regression", async ({ page }) => {
+test("trade chart context menu supports pointer and keyboard flows @regression @smoke", async ({ page }) => {
   await page.goto("/trade", { waitUntil: "commit" });
   await expect(page.locator('[data-parity-id="trade-root"]')).toBeVisible();
   await expect
@@ -1029,6 +1029,18 @@ test("trade chart right-click opens the custom context menu @regression", async 
       return await copyItem.evaluate(node => node === document.activeElement ? "copy" : "other");
     })
     .toMatch(/reset|copy/);
+
+  await resetItem.click();
+  await expect(contextMenu).toBeHidden();
+
+  await chartCanvas.click({
+    button: "right",
+    position: {
+      x: Math.max(24, Math.floor(chartBox.width / 2)),
+      y: Math.max(24, Math.floor(chartBox.height / 2))
+    }
+  });
+  await expect(contextMenu).toBeVisible();
 
   await page.mouse.click(Math.max(4, chartBox.x - 2), Math.max(4, chartBox.y - 2));
   await expect(contextMenu).toBeHidden();
