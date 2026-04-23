@@ -1,5 +1,6 @@
 (ns hyperopen.route-query-state
   (:require [clojure.string :as str]
+            [hyperopen.portfolio.optimizer.query-state :as portfolio-optimizer-query-state]
             [hyperopen.portfolio.query-state :as portfolio-query-state]
             [hyperopen.portfolio.routes :as portfolio-routes]
             [hyperopen.router :as router]
@@ -42,6 +43,9 @@
         portfolio-kind (:kind (portfolio-routes/parse-portfolio-route path*))
         vault-kind (:kind (vault-routes/parse-vault-route path*))]
     (cond
+      (contains? #{:optimize-index :optimize-new :optimize-scenario} portfolio-kind)
+      :portfolio-optimizer
+
       (contains? #{:page :trader} portfolio-kind)
       :portfolio
 
@@ -57,6 +61,7 @@
 (def ^:private shareable-route-query-keys
   (into #{}
         (concat portfolio-query-state/owned-query-keys
+                portfolio-optimizer-query-state/owned-query-keys
                 vault-query-state/list-owned-query-keys
                 vault-query-state/detail-owned-query-keys)))
 
@@ -64,6 +69,7 @@
   [surface state]
   (case surface
     :portfolio (portfolio-query-state/portfolio-query-params state)
+    :portfolio-optimizer (portfolio-optimizer-query-state/optimizer-query-params state)
     :vault-list (vault-query-state/vault-list-query-params state)
     :vault-detail (vault-query-state/vault-detail-query-params state)
     []))
@@ -91,6 +97,11 @@
       (portfolio-query-state/apply-portfolio-query-state
        state
        (portfolio-query-state/parse-portfolio-query search))
+
+      :portfolio-optimizer
+      (portfolio-optimizer-query-state/apply-optimizer-query-state
+       state
+       (portfolio-optimizer-query-state/parse-optimizer-query search))
 
       :vault-list
       (vault-query-state/apply-vault-query-state

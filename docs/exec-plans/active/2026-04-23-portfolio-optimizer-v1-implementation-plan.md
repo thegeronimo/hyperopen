@@ -20,8 +20,14 @@ The observable proof is a routed workflow. `/portfolio/optimize` lists local sce
 - [x] (2026-04-23 17:53Z) Rewrote the previous noncanonical draft into this active ExecPlan and folded in the contract corrections from the review: real execution semantics, scenario lifecycle, mandatory constraints, default return model, tracking naming, and solver uncertainty.
 - [x] (2026-04-23 18:08Z) Ran `npm run lint:docs` after the rewrite to verify that the canonical ExecPlan passed the repository's documentation check.
 - [x] (2026-04-23 18:22Z) Addressed review findings by making max asset weight an explicit contract, embedding the visual requirements so the plan is self-contained, replacing older product read-only wording with repo-facing Spectate Mode terminology, and removing the obsolete redirect file.
+- [x] (2026-04-23 20:53Z) Implemented the first Phase 1 route/query-state foundation: `/portfolio/optimize`, `/portfolio/optimize/new`, and one-segment `/portfolio/optimize/:scenario-id` parsing; optimizer-owned query keys; optimizer route-query dispatch; and route-module coverage that keeps optimizer paths in the existing portfolio module.
+- [x] (2026-04-23 20:53Z) Ran focused route/query-state validation with `npm run test:runner:generate && npx shadow-cljs --force-spawn compile test && node out/test.js --test=hyperopen.portfolio.routes-test --test=hyperopen.portfolio.optimizer.query-state-test --test=hyperopen.route-query-state-test --test=hyperopen.route-modules-test`; after restoring missing lockfile dependencies with `npm install`, the focused suite passed with 21 tests and 52 assertions.
+- [x] (2026-04-23 21:01Z) Added the optimizer bounded-context boundary file, a non-view `current-portfolio` application seam, and a portfolio-shell delegate with scaffold optimizer index/workspace views so optimizer routes no longer fall through to the legacy tearsheet.
+- [x] (2026-04-23 21:01Z) Ran focused optimizer foundation validation with 27 tests and 85 assertions, then ran the existing legacy portfolio view regression slice with 20 tests and 254 assertions; both passed with zero failures and zero warnings.
+- [x] (2026-04-23 21:08Z) Completed the remaining Phase 1 infrastructure foundations: optimizer IndexedDB store and EDN-preserving persistence wrapper, dedicated `:portfolio-optimizer-worker` Shadow target and package scripts, and account bootstrap predicate correction so optimizer routes stay eager instead of inheriting the legacy performance-tab deferral.
+- [x] (2026-04-23 21:08Z) Ran focused Phase 1 validation with 46 tests and 166 assertions plus `npx shadow-cljs --force-spawn compile portfolio-optimizer-worker`; all passed with zero failures and zero warnings.
 - [ ] Complete the solver spike milestone and record a benchmark-backed ADR before committing to a production solver implementation.
-- [ ] Implement the route, state, holdings, and persistence foundations.
+- [x] Implement the Phase 1 route, query-state, portfolio shell delegation, current-holdings snapshot, account bootstrap participation, worker target registration, and IndexedDB scenario store/versioning foundations.
 - [ ] Implement the worker-backed engine, setup/results UI, execution path, and tracking flow.
 
 ## Surprises & Discoveries
@@ -79,6 +85,10 @@ The observable proof is a routed workflow. `/portfolio/optimize` lists local sce
 
 - Decision: Use the repo term Spectate Mode for the read-only account mode, even where product notes used older read-only terminology.
   Rationale: the implementation should point engineers at `hyperopen.account.context` and the current mutations-blocked path, not at nonexistent identifiers.
+  Date/Author: 2026-04-23 / Codex
+
+- Decision: Store optimizer scenarios, drafts, and tracking records in the optimizer IndexedDB store as EDN-encoded envelopes rather than raw `clj->js` JSON payloads.
+  Rationale: the low-level IndexedDB helper is JSON-oriented and does not preserve keyword values or string map keys through `clj->js` and `js->clj :keywordize-keys`. Scenario lifecycle status, objective ids, and user-provided string-key maps must roundtrip exactly.
   Date/Author: 2026-04-23 / Codex
 
 ## Outcomes & Retrospective

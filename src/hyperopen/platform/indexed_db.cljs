@@ -4,7 +4,7 @@
   "hyperopen-persistence")
 
 (def app-db-version
-  5)
+  6)
 
 (def asset-selector-markets-store
   "asset-selector-markets-cache")
@@ -27,6 +27,9 @@
 (def agent-locked-session-store
   "agent-locked-session")
 
+(def portfolio-optimizer-store
+  "portfolio-optimizer")
+
 (def ^:private app-store-names
   [asset-selector-markets-store
    funding-history-store
@@ -34,7 +37,8 @@
    vault-index-store
    leaderboard-preferences-store
    leaderboard-cache-store
-   agent-locked-session-store])
+   agent-locked-session-store
+   portfolio-optimizer-store])
 
 (defonce ^:private open-db-cache (atom {}))
 

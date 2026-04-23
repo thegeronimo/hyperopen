@@ -54,6 +54,17 @@
           "/portfolio"
           ""))))
 
+(deftest shareable-route-browser-path-restores-optimizer-state-on-optimizer-routes-test
+  (is (= "/portfolio/optimize/scn_01?foo=bar&ofilter=executed&osort=updated-asc&oview=tracking&otab=diagnostics&odiag=sensitivity"
+         (route-query-state/shareable-route-browser-path
+          {:portfolio-ui {:optimizer {:list-filter :executed
+                                      :list-sort :updated-asc
+                                      :workspace-panel :tracking
+                                      :results-tab :diagnostics
+                                      :diagnostics-tab :sensitivity}}}
+          "/portfolio/optimize/scn_01"
+          "?range=24h&bench=SOL&tab=positions&foo=bar&ofilter=saved&odiag=data"))))
+
 (deftest shareable-route-browser-path-ignores-non-shareable-routes-test
   (is (nil? (route-query-state/shareable-route-browser-path
              {}
@@ -76,6 +87,21 @@
                           :account-info-tab :balances}}
           "/portfolio"
           "?range=3m&scope=perps&chart=pnl&bench=BTC&bench=ETH&tab=positions"))))
+
+(deftest apply-route-query-state-restores-optimizer-state-for-optimizer-routes-test
+  (is (= {:portfolio-ui {:optimizer {:list-filter :saved
+                                      :list-sort :name-desc
+                                      :workspace-panel :results
+                                      :results-tab :frontier
+                                      :diagnostics-tab :constraints}}}
+         (route-query-state/apply-route-query-state
+          {:portfolio-ui {:optimizer {:list-filter :active
+                                      :list-sort :updated-desc
+                                      :workspace-panel :setup
+                                      :results-tab :allocation
+                                      :diagnostics-tab :conditioning}}}
+          "/portfolio/optimize"
+          "?ofilter=saved&osort=name-desc&oview=results&otab=frontier&odiag=constraints"))))
 
 (deftest apply-route-query-state-restores-vault-list-and-detail-by-route-kind-test
   (is (= {:vaults-ui {:snapshot-range :week

@@ -79,6 +79,13 @@
                                                   :web-worker true}}
                      :compiler-options {:optimizations :advanced}}
 
+  :portfolio-optimizer-worker {:target :browser
+                               :output-dir "resources/public/js"
+                               :asset-path "/js"
+                               :modules {:portfolio_optimizer_worker {:init-fn hyperopen.portfolio.optimizer.worker/init
+                                                                       :web-worker true}}
+                               :compiler-options {:optimizations :advanced}}
+
   :vault-detail-worker {:target :browser
                         :output-dir "resources/public/js"
                         :asset-path "/js"

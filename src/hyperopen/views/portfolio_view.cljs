@@ -1,12 +1,14 @@
 (ns hyperopen.views.portfolio-view
   (:require [hyperopen.account.context :as account-context]
             [hyperopen.portfolio.fee-schedule :as fee-schedule]
+            [hyperopen.portfolio.routes :as portfolio-routes]
             [hyperopen.views.account-info-view :as account-info-view]
             [hyperopen.views.chart.d3.hover-state :as chart-hover-state]
             [hyperopen.views.portfolio.account-tabs :as account-tabs]
             [hyperopen.views.portfolio.chart-view :as chart-view]
             [hyperopen.views.portfolio.fee-schedule :as fee-schedule-view]
             [hyperopen.views.portfolio.header :as portfolio-header]
+            [hyperopen.views.portfolio.optimize.view :as optimize-view]
             [hyperopen.views.portfolio.summary-cards :as summary-cards]
             [hyperopen.views.portfolio.volume-history-popover :as volume-history-popover]
             [hyperopen.views.portfolio.vm :as portfolio-vm]))
@@ -43,24 +45,26 @@
 
 (defn portfolio-view [state]
   (let [route (get-in state [:router :path])
+        optimizer-route? (portfolio-routes/portfolio-optimize-route? route)
         fee-schedule-model (fee-schedule/fee-schedule-model state)
         fee-schedule-cache-key (:open? fee-schedule-model)
         hover-active? (chart-hover-state/surface-hover-active? :portfolio)
         volume-history-open? (true? (get-in state [:portfolio-ui :volume-history-open?]))
         cached-entry @portfolio-view-cache
-        sections (if (and hover-active?
-                          (not volume-history-open?)
-                          (false? (:volume-history-open? cached-entry))
-                          (= route (:route cached-entry))
-                          (= fee-schedule-cache-key (:fee-schedule-cache-key cached-entry))
-                          (map? (:sections cached-entry)))
-                   (:sections cached-entry)
-                   (let [next-sections (build-portfolio-view-sections state fee-schedule-model)]
-                     (reset! portfolio-view-cache {:route route
-                                                  :volume-history-open? volume-history-open?
-                                                  :fee-schedule-cache-key fee-schedule-cache-key
-                                                  :sections next-sections})
-                     next-sections))]
+        sections (when-not optimizer-route?
+                   (if (and hover-active?
+                            (not volume-history-open?)
+                            (false? (:volume-history-open? cached-entry))
+                            (= route (:route cached-entry))
+                            (= fee-schedule-cache-key (:fee-schedule-cache-key cached-entry))
+                            (map? (:sections cached-entry)))
+                     (:sections cached-entry)
+                     (let [next-sections (build-portfolio-view-sections state fee-schedule-model)]
+                       (reset! portfolio-view-cache {:route route
+                                                    :volume-history-open? volume-history-open?
+                                                    :fee-schedule-cache-key fee-schedule-cache-key
+                                                    :sections next-sections})
+                       next-sections)))]
     [:div {:class ["w-full"
                    "app-shell-gutter"
                    "py-4"
@@ -69,12 +73,15 @@
            :style {:background-image "radial-gradient(circle at 15% 0%, rgba(0, 212, 170, 0.10), transparent 35%), radial-gradient(circle at 85% 100%, rgba(0, 212, 170, 0.08), transparent 40%)"
                    :padding-bottom "3.5rem"}
            :data-parity-id "portfolio-root"}
-     (:header sections)
-     (:background-status sections)
-     (:summary-grid sections)
-     (:account-table sections)
-     (:volume-history-popover sections)
-     (fee-schedule-view/fee-schedule-popover fee-schedule-model)]))
+     (if optimizer-route?
+       (optimize-view/optimizer-view state)
+       [:<>
+        (:header sections)
+        (:background-status sections)
+        (:summary-grid sections)
+        (:account-table sections)
+        (:volume-history-popover sections)
+        (fee-schedule-view/fee-schedule-popover fee-schedule-model)])]))
 
 (defn ^:export route-view
   [state]

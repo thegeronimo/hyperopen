@@ -173,7 +173,11 @@
             [hyperopen.portfolio.metrics.history-test]
             [hyperopen.portfolio.metrics.parsing-test]
             [hyperopen.portfolio.metrics.quantstats-parity-test]
+            [hyperopen.portfolio.optimizer.application.current-portfolio-test]
+            [hyperopen.portfolio.optimizer.infrastructure.persistence-test]
+            [hyperopen.portfolio.optimizer.query-state-test]
             [hyperopen.portfolio.query-state-test]
+            [hyperopen.portfolio.routes-test]
             [hyperopen.portfolio.worker-test]
             [hyperopen.registry.runtime-test]
             [hyperopen.route-modules-test]
@@ -356,6 +360,7 @@
             [hyperopen.views.portfolio.chart-view-test]
             [hyperopen.views.portfolio.fee-schedule-test]
             [hyperopen.views.portfolio.header-test]
+            [hyperopen.views.portfolio.optimize.view-test]
             [hyperopen.views.portfolio.performance-metrics-view-test]
             [hyperopen.views.portfolio.summary-cards-test]
             [hyperopen.views.portfolio.vm-test]
@@ -702,7 +707,11 @@
              'hyperopen.portfolio.metrics.history-test
              'hyperopen.portfolio.metrics.parsing-test
              'hyperopen.portfolio.metrics.quantstats-parity-test
+             'hyperopen.portfolio.optimizer.application.current-portfolio-test
+             'hyperopen.portfolio.optimizer.infrastructure.persistence-test
+             'hyperopen.portfolio.optimizer.query-state-test
              'hyperopen.portfolio.query-state-test
+             'hyperopen.portfolio.routes-test
              'hyperopen.portfolio.worker-test
              'hyperopen.registry.runtime-test
              'hyperopen.route-modules-test
@@ -885,6 +894,7 @@
              'hyperopen.views.portfolio.chart-view-test
              'hyperopen.views.portfolio.fee-schedule-test
              'hyperopen.views.portfolio.header-test
+             'hyperopen.views.portfolio.optimize.view-test
              'hyperopen.views.portfolio.performance-metrics-view-test
              'hyperopen.views.portfolio.summary-cards-test
              'hyperopen.views.portfolio.vm-test
