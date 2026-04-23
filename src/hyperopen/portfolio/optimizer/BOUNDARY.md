@@ -9,7 +9,9 @@ last_reviewed: 2026-04-23
 This bounded context owns Portfolio Optimizer V1 draft state, scenario lifecycle,
 current-portfolio snapshots, optimization request/result contracts, diagnostics,
 rebalance preview shaping, execution orchestration, local scenario persistence,
-and optimizer-specific route query state.
+optimizer-specific route query state, arbitrary-universe history assembly,
+Black-Litterman prior source labeling, and optimizer-specific orderbook preview
+planning.
 
 The domain and application namespaces under this directory must not depend on
 `hyperopen.views.*`. Views may consume optimizer view models, but optimizer math
@@ -25,6 +27,13 @@ Allowed upstream seams:
   `hyperopen.api.gateway.orders.*` for execution preview and submit integration.
 - `hyperopen.platform.*` and infrastructure adapters for browser persistence and
   worker communication.
+- `hyperopen.api.gateway.market.*` or default API wrappers through
+  optimizer-owned infrastructure clients for arbitrary candle and funding
+  history. Application and domain namespaces should consume normalized history
+  data, not API functions directly.
+- `hyperopen.websocket.orderbook` data through state/effect seams for rebalance
+  preview depth. Optimizer application code may plan subscriptions but must not
+  mutate websocket runtime state directly.
 
 The optimizer worker may depend on pure optimizer domain namespaces only. Browser,
 IndexedDB, websocket, and exchange submit effects belong in infrastructure and

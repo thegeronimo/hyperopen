@@ -174,7 +174,12 @@
             [hyperopen.portfolio.metrics.parsing-test]
             [hyperopen.portfolio.metrics.quantstats-parity-test]
             [hyperopen.portfolio.optimizer.application.current-portfolio-test]
+            [hyperopen.portfolio.optimizer.application.history-loader-test]
+            [hyperopen.portfolio.optimizer.application.orderbook-loader-test]
+            [hyperopen.portfolio.optimizer.application.request-builder-test]
+            [hyperopen.portfolio.optimizer.infrastructure.history-client-test]
             [hyperopen.portfolio.optimizer.infrastructure.persistence-test]
+            [hyperopen.portfolio.optimizer.infrastructure.prior-data-test]
             [hyperopen.portfolio.optimizer.query-state-test]
             [hyperopen.portfolio.query-state-test]
             [hyperopen.portfolio.routes-test]
@@ -708,7 +713,12 @@
              'hyperopen.portfolio.metrics.parsing-test
              'hyperopen.portfolio.metrics.quantstats-parity-test
              'hyperopen.portfolio.optimizer.application.current-portfolio-test
+             'hyperopen.portfolio.optimizer.application.history-loader-test
+             'hyperopen.portfolio.optimizer.application.orderbook-loader-test
+             'hyperopen.portfolio.optimizer.application.request-builder-test
+             'hyperopen.portfolio.optimizer.infrastructure.history-client-test
              'hyperopen.portfolio.optimizer.infrastructure.persistence-test
+             'hyperopen.portfolio.optimizer.infrastructure.prior-data-test
              'hyperopen.portfolio.optimizer.query-state-test
              'hyperopen.portfolio.query-state-test
              'hyperopen.portfolio.routes-test

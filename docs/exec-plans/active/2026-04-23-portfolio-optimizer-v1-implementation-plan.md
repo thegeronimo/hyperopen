@@ -27,7 +27,10 @@ The observable proof is a routed workflow. `/portfolio/optimize` lists local sce
 - [x] (2026-04-23 21:08Z) Completed the remaining Phase 1 infrastructure foundations: optimizer IndexedDB store and EDN-preserving persistence wrapper, dedicated `:portfolio-optimizer-worker` Shadow target and package scripts, and account bootstrap predicate correction so optimizer routes stay eager instead of inheriting the legacy performance-tab deferral.
 - [x] (2026-04-23 21:08Z) Ran focused Phase 1 validation with 46 tests and 166 assertions plus `npx shadow-cljs --force-spawn compile portfolio-optimizer-worker`; all passed with zero failures and zero warnings.
 - [x] (2026-04-23 22:13Z) Completed the solver spike harness and recorded ADR 0027 selecting a worker-isolated OSQP adapter as the first production solver path, with quadprog retained as fallback and parity oracle.
+- [x] (2026-04-23 23:02Z) Implemented Phase 3 data assembly seams: arbitrary-universe history request planning and client, common-calendar return alignment, per-perp funding carry summaries, Black-Litterman prior source resolution, orderbook subscription planning, and engine request assembly.
+- [x] (2026-04-23 23:02Z) Ran focused Phase 3 validation with `node out/test.js --test=hyperopen.portfolio.optimizer.application.history-loader-test --test=hyperopen.portfolio.optimizer.infrastructure.history-client-test --test=hyperopen.portfolio.optimizer.infrastructure.prior-data-test --test=hyperopen.portfolio.optimizer.application.orderbook-loader-test --test=hyperopen.portfolio.optimizer.application.request-builder-test`; 12 tests and 55 assertions passed with zero failures and zero errors.
 - [x] Implement the Phase 1 route, query-state, portfolio shell delegation, current-holdings snapshot, account bootstrap participation, worker target registration, and IndexedDB scenario store/versioning foundations.
+- [x] Implement the Phase 3 arbitrary-universe history, funding, orderbook preview planning, BL prior, and request-builder foundations.
 - [ ] Implement the worker-backed engine, setup/results UI, execution path, and tracking flow.
 
 ## Surprises & Discoveries
@@ -61,6 +64,12 @@ The observable proof is a routed workflow. `/portfolio/optimize` lists local sce
 
 - Observation: the internal projected-gradient spike baseline is deterministic and useful for harness tests, but it is not suitable as the production V1 QP solver.
   Evidence: the internal baseline solved all 36 fixtures with mean 47.78 ms and max 208.85 ms, and it would require substantially more custom work to match package solver infeasibility and frontier behavior.
+
+- Observation: the current market endpoint already supports arbitrary candle and market funding requests, so Phase 3 can stay dependency-injected instead of adding a new global API facade immediately.
+  Evidence: `src/hyperopen/api/endpoints/market.cljs` exposes `request-candle-snapshot!` and `request-market-funding-history!` that both accept explicit `coin`; `src/hyperopen/portfolio/optimizer/infrastructure/history_client.cljs` now wraps those semantics behind optimizer-owned deps.
+
+- Observation: orderbook preview loading should be planned as subscription effects, not direct websocket mutation.
+  Evidence: existing orderbook runtime owns websocket state in `src/hyperopen/websocket/orderbook.cljs`, while `src/hyperopen/portfolio/optimizer/application/orderbook_loader.cljs` only returns `[:effects/subscribe-orderbook coin]` effects and live/stale/fallback cost context labels.
 
 ## Decision Log
 
@@ -102,6 +111,10 @@ The observable proof is a routed workflow. `/portfolio/optimize` lists local sce
 
 - Decision: Select a worker-isolated OSQP adapter as the first production solver path for V1, retain quadprog as fallback and fixture parity oracle, and reject a custom in-repo QP solver for V1.
   Rationale: ADR 0027 records the benchmark. OSQP was fastest and satisfied deterministic fixture constraints when configured with quiet high-precision settings. quadprog was precise but slower. The internal projected-gradient baseline would turn V1 into a numerical-methods project.
+  Date/Author: 2026-04-23 / Codex
+
+- Decision: Keep Phase 3 history and prior loading dependency-injected behind optimizer-owned seams rather than adding app-wide effects before the engine contract stabilizes.
+  Rationale: the repo already has explicit arbitrary-coin market gateway functions, and the next engine phase needs deterministic assembled inputs more than UI-triggered fetch effects. Dependency injection keeps tests pure and leaves runtime effect wiring for the worker bridge phase.
   Date/Author: 2026-04-23 / Codex
 
 ## Outcomes & Retrospective
@@ -863,11 +876,11 @@ Phase 2 exits with ADR 0027. The selected V1 path is OSQP in the optimizer worke
 
 ### Phase 3: Arbitrary-Universe History and Prior Data Loading
 
-This phase builds the data assembly layer the engine requires. Create `application/history_loader.cljs`, `infrastructure/history_client.cljs`, and `infrastructure/prior_data.cljs`. The history loader must fetch candles for arbitrary coins, align histories to common daily buckets, merge funding history for perps, and expose completeness flags. The prior-data seam must resolve market-cap-first Black-Litterman weights with current-portfolio fallback and explicit source labeling.
+This phase builds the data assembly layer the engine requires. It now creates `application/history_loader.cljs`, `infrastructure/history_client.cljs`, `infrastructure/prior_data.cljs`, `application/orderbook_loader.cljs`, and `application/request_builder.cljs`. The history loader plans candles for arbitrary coins, aligns histories to common daily buckets, merges funding history for perps, and exposes completeness flags. The prior-data seam resolves market-cap-first Black-Litterman weights with current-portfolio fallback and explicit source labeling.
 
-Also add `application/orderbook_loader.cljs` for later execution preview. It should subscribe or load only the rows needed for preview cost estimates rather than subscribing to the entire optimizer universe at all times.
+`application/orderbook_loader.cljs` plans later execution-preview depth through `[:effects/subscribe-orderbook coin]` effects for missing or stale books only. It labels live, stale, and fallback cost contexts but does not mutate websocket state directly.
 
-This phase exits when the request builder can assemble aligned return inputs, funding carry inputs, and BL prior metadata for a chosen universe, and when missing data produces structured warnings instead of silent row drops.
+This phase exits when the request builder can assemble aligned return inputs, funding carry inputs, and BL prior metadata for a chosen universe, and when missing data produces structured warnings instead of silent row drops. That exit condition is satisfied by the focused Phase 3 tests recorded in `Progress`.
 
 ### Phase 4: Pure Engine Core
 
@@ -1148,3 +1161,4 @@ Key reconnaissance facts captured for implementers:
 - 2026-04-23 / Codex: Created the canonical active ExecPlan from the earlier draft, aligned it to the repo's planning contract, corrected the scenario lifecycle and execution semantics, made the UI acceptance criteria explicit, restored the product default return-model framing, and moved solver selection into a benchmark-backed ADR milestone.
 - 2026-04-23 / Codex: Addressed review findings before commit by adding the global max asset weight field, UI control, and encoding rule, replacing stale read-only mode wording with Spectate Mode, embedding the visual contract from the design pack, pointing durable ADRs to `docs/architecture-decision-records/`, and removing the noncanonical draft redirect file.
 - 2026-04-23 / Codex: Added the deterministic solver spike harness, benchmarked internal projected-gradient, quadprog, and OSQP candidates, accepted ADR 0027, and updated the plan so Phase 4 starts from a worker-isolated OSQP path with quadprog fallback instead of reopening solver selection.
+- 2026-04-23 / Codex: Added Phase 3 arbitrary-universe history, funding carry, BL prior, orderbook planning, and request-builder seams with focused tests, keeping API and websocket side effects behind optimizer-owned dependency boundaries.
