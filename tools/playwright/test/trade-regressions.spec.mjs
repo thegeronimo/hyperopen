@@ -194,6 +194,31 @@ async function seedDesktopPositionsTableState(page, assetPositions) {
   }, assetPositions);
 }
 
+async function forceAssetSelectorBootstrapState(page) {
+  await page.evaluate(() => {
+    const c = globalThis.cljs?.core;
+    const store = globalThis.hyperopen?.system?.store;
+
+    if (!c || !store) {
+      throw new Error("Hyperopen store or cljs core unavailable");
+    }
+
+    const keyword = c.keyword;
+    const kwPath = (...segments) =>
+      c.PersistentVector.fromArray(segments.map((segment) => keyword(segment)), true);
+
+    let nextState = c.deref(store);
+    nextState = c.assoc_in(nextState, kwPath("asset-selector", "phase"), keyword("bootstrap"));
+    nextState = c.assoc_in(
+      nextState,
+      kwPath("asset-selector", "market-by-key"),
+      c.PersistentArrayMap.EMPTY
+    );
+    nextState = c.assoc_in(nextState, kwPath("asset-selector", "loading?"), false);
+    c.reset_BANG_(store, nextState);
+  });
+}
+
 async function readSpectateLifecycleProbe(page) {
   return page.evaluate(() => {
     const c = globalThis.cljs?.core;
@@ -860,6 +885,56 @@ test("positions margin column leaves funding value readable at compact desktop w
   });
 
   expect(spacing.gapPx).toBeGreaterThanOrEqual(4);
+});
+
+test("named-dex close-position popover loads full market metadata before submit @regression", async ({
+  page
+}) => {
+  await visitRoute(page, "/trade");
+  await seedReadyTradingSession(page);
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await seedDesktopPositionsTableState(page, [
+    {
+      position: {
+        coin: "xyz:BRENTOIL",
+        szi: "1.31",
+        positionValue: "127.47",
+        entryPx: "95.5805",
+        markPx: "97.32",
+        unrealizedPnl: "2.26",
+        returnOnEquity: "0.36",
+        liquidationPx: "73.584",
+        marginUsed: "33.48",
+        leverage: { value: 20, type: "isolated" },
+        cumFunding: { sinceOpen: "4.55", sinceChange: "4.55", allTime: "4.55" }
+      }
+    }
+  ]);
+  await forceAssetSelectorBootstrapState(page);
+  await waitForIdle(page, { quietMs: 200, timeoutMs: 4_000, pollMs: 50 });
+
+  const brentRow = page
+    .locator("[data-role='account-tab-rows-viewport'] > div")
+    .filter({ hasText: "BRENTOIL" })
+    .first();
+  await expect(brentRow).toBeVisible();
+  await brentRow.locator("[data-position-reduce-trigger='true']").click();
+  await expect(page.locator("[data-position-reduce-surface='true']")).toBeVisible();
+
+  const trace = await oracle(page, "effect-order", {
+    actionId: ":actions/open-position-reduce-popover"
+  });
+  expect(trace).toMatchObject({
+    covered: true,
+    projectionBeforeHeavy: true,
+    phaseOrderValid: true
+  });
+  expect(trace.effectIds).toEqual(
+    expect.arrayContaining([
+      ":effects/save-many",
+      ":effects/fetch-asset-selector-markets"
+    ])
+  );
 });
 
 test("asset selector focuses search input and keyboard-navigates rows @regression", async ({ page }) => {

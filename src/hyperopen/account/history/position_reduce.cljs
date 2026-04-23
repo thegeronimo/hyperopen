@@ -338,6 +338,7 @@
 
       (not (number? asset-id))
       {:ok? false
+       :reason :market-metadata-missing
        :display-message "Select an asset and ensure market data is loaded."}
 
       (and (= :market (close-type popover))
