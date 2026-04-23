@@ -174,6 +174,7 @@
             [hyperopen.portfolio.metrics.parsing-test]
             [hyperopen.portfolio.metrics.quantstats-parity-test]
             [hyperopen.portfolio.optimizer.application.current-portfolio-test]
+            [hyperopen.portfolio.optimizer.application.engine-test]
             [hyperopen.portfolio.optimizer.application.history-loader-test]
             [hyperopen.portfolio.optimizer.application.orderbook-loader-test]
             [hyperopen.portfolio.optimizer.application.request-builder-test]
@@ -722,6 +723,7 @@
              'hyperopen.portfolio.metrics.parsing-test
              'hyperopen.portfolio.metrics.quantstats-parity-test
              'hyperopen.portfolio.optimizer.application.current-portfolio-test
+             'hyperopen.portfolio.optimizer.application.engine-test
              'hyperopen.portfolio.optimizer.application.history-loader-test
              'hyperopen.portfolio.optimizer.application.orderbook-loader-test
              'hyperopen.portfolio.optimizer.application.request-builder-test
