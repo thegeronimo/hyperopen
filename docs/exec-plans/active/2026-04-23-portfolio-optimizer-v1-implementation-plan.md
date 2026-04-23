@@ -29,9 +29,11 @@ The observable proof is a routed workflow. `/portfolio/optimize` lists local sce
 - [x] (2026-04-23 22:13Z) Completed the solver spike harness and recorded ADR 0027 selecting a worker-isolated OSQP adapter as the first production solver path, with quadprog retained as fallback and parity oracle.
 - [x] (2026-04-23 23:02Z) Implemented Phase 3 data assembly seams: arbitrary-universe history request planning and client, common-calendar return alignment, per-perp funding carry summaries, Black-Litterman prior source resolution, orderbook subscription planning, and engine request assembly.
 - [x] (2026-04-23 23:02Z) Ran focused Phase 3 validation with `node out/test.js --test=hyperopen.portfolio.optimizer.application.history-loader-test --test=hyperopen.portfolio.optimizer.infrastructure.history-client-test --test=hyperopen.portfolio.optimizer.infrastructure.prior-data-test --test=hyperopen.portfolio.optimizer.application.orderbook-loader-test --test=hyperopen.portfolio.optimizer.application.request-builder-test`; 12 tests and 55 assertions passed with zero failures and zero errors.
+- [x] (2026-04-23) Added the first Phase 4 pure-domain engine slice: numeric helpers, expected return estimation with funding decomposition, sample and diagonal-shrinkage risk models, Black-Litterman posterior math, constraint encoding, frontier point selection, diagnostics, and long-only/signed-aware dust weight cleaning.
+- [x] (2026-04-23) Ran focused Phase 4 validation with `npm run test:runner:generate && npx shadow-cljs --force-spawn compile test && node out/test.js --test=hyperopen.portfolio.optimizer.domain.returns-test --test=hyperopen.portfolio.optimizer.domain.risk-test --test=hyperopen.portfolio.optimizer.domain.black-litterman-test --test=hyperopen.portfolio.optimizer.domain.constraints-test --test=hyperopen.portfolio.optimizer.domain.frontier-test --test=hyperopen.portfolio.optimizer.domain.diagnostics-test --test=hyperopen.portfolio.optimizer.domain.weight-cleaning-test`; 19 tests and 61 assertions passed with zero failures and zero warnings.
 - [x] Implement the Phase 1 route, query-state, portfolio shell delegation, current-holdings snapshot, account bootstrap participation, worker target registration, and IndexedDB scenario store/versioning foundations.
 - [x] Implement the Phase 3 arbitrary-universe history, funding, orderbook preview planning, BL prior, and request-builder foundations.
-- [ ] Implement the worker-backed engine, setup/results UI, execution path, and tracking flow.
+- [ ] Implement the OSQP-backed optimizer runner, rebalance shaping, worker bridge, setup/results UI, execution path, and tracking flow.
 
 ## Surprises & Discoveries
 
@@ -117,9 +119,13 @@ The observable proof is a routed workflow. `/portfolio/optimize` lists local sce
   Rationale: the repo already has explicit arbitrary-coin market gateway functions, and the next engine phase needs deterministic assembled inputs more than UI-triggered fetch effects. Dependency injection keeps tests pure and leaves runtime effect wiring for the worker bridge phase.
   Date/Author: 2026-04-23 / Codex
 
+- Decision: Keep Phase 4 estimator, constraint, frontier, diagnostic, and cleaning logic pure and dependency-free, with package solver integration deferred to the dedicated runner and worker bridge.
+  Rationale: expected returns, covariance, Black-Litterman, infeasibility presolve, and diagnostics are deterministic domain math that should stay testable without browser workers or JS solver packages. Solver adapter failures should not contaminate these core contracts.
+  Date/Author: 2026-04-23 / Codex
+
 ## Outcomes & Retrospective
 
-This work promotes the planning into the repository's canonical active ExecPlan flow, removes the misleading parts of the earlier draft, and starts implementation through the route, persistence, worker-target, and solver-spike foundations. The plan treats the execution contract honestly, turns prior "owner questions" that were already answered into requirements, fixes the scenario lifecycle, makes the UI acceptance criteria concrete, and resolves the main solver uncertainty through ADR 0027. Overall complexity is reduced because the route, state, lifecycle, UI, and solver contracts are now explicit, while the remaining complexity is acknowledged as real implementation work rather than hidden scope drift.
+This work promotes the planning into the repository's canonical active ExecPlan flow, removes the misleading parts of the earlier draft, and starts implementation through the route, persistence, worker-target, solver-spike, data-assembly, and pure-domain math foundations. The plan treats the execution contract honestly, turns prior "owner questions" that were already answered into requirements, fixes the scenario lifecycle, makes the UI acceptance criteria concrete, and resolves the main solver uncertainty through ADR 0027. Overall complexity is reduced because the route, state, lifecycle, UI, and solver contracts are now explicit, while the remaining complexity is acknowledged as real implementation work rather than hidden scope drift.
 
 ## Context and Orientation
 
@@ -958,6 +964,8 @@ All commands below run from `/Users/barry/.codex/worktrees/d394/hyperopen`.
 
        node out/test.js --test=hyperopen.portfolio.optimizer.domain.returns-test --test=hyperopen.portfolio.optimizer.domain.risk-test --test=hyperopen.portfolio.optimizer.domain.black-litterman-test --test=hyperopen.portfolio.optimizer.domain.constraints-test --test=hyperopen.portfolio.optimizer.domain.frontier-test --test=hyperopen.portfolio.optimizer.domain.diagnostics-test
 
+   The first pure-domain slice is complete. The remaining Phase 4 implementation work is the OSQP/quadprog runner adapter, objective-to-QP translation, rebalance shaping, and committed fixture parity coverage.
+
 5. Add the worker target, bridge, and route integration, then verify compilation.
 
        npx shadow-cljs --force-spawn compile app
@@ -1162,3 +1170,4 @@ Key reconnaissance facts captured for implementers:
 - 2026-04-23 / Codex: Addressed review findings before commit by adding the global max asset weight field, UI control, and encoding rule, replacing stale read-only mode wording with Spectate Mode, embedding the visual contract from the design pack, pointing durable ADRs to `docs/architecture-decision-records/`, and removing the noncanonical draft redirect file.
 - 2026-04-23 / Codex: Added the deterministic solver spike harness, benchmarked internal projected-gradient, quadprog, and OSQP candidates, accepted ADR 0027, and updated the plan so Phase 4 starts from a worker-isolated OSQP path with quadprog fallback instead of reopening solver selection.
 - 2026-04-23 / Codex: Added Phase 3 arbitrary-universe history, funding carry, BL prior, orderbook planning, and request-builder seams with focused tests, keeping API and websocket side effects behind optimizer-owned dependency boundaries.
+- 2026-04-23 / Codex: Added the first Phase 4 pure-domain optimizer math slice with focused tests for returns, risk, Black-Litterman, constraints, frontier selection, diagnostics, and long-only/signed-aware weight cleaning. Solver adapter and rebalance shaping remain in Phase 4.
