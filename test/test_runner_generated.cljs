@@ -181,6 +181,8 @@
             [hyperopen.portfolio.optimizer.domain.constraints-test]
             [hyperopen.portfolio.optimizer.domain.diagnostics-test]
             [hyperopen.portfolio.optimizer.domain.frontier-test]
+            [hyperopen.portfolio.optimizer.domain.objectives-test]
+            [hyperopen.portfolio.optimizer.domain.rebalance-test]
             [hyperopen.portfolio.optimizer.domain.returns-test]
             [hyperopen.portfolio.optimizer.domain.risk-test]
             [hyperopen.portfolio.optimizer.domain.weight-cleaning-test]
@@ -727,6 +729,8 @@
              'hyperopen.portfolio.optimizer.domain.constraints-test
              'hyperopen.portfolio.optimizer.domain.diagnostics-test
              'hyperopen.portfolio.optimizer.domain.frontier-test
+             'hyperopen.portfolio.optimizer.domain.objectives-test
+             'hyperopen.portfolio.optimizer.domain.rebalance-test
              'hyperopen.portfolio.optimizer.domain.returns-test
              'hyperopen.portfolio.optimizer.domain.risk-test
              'hyperopen.portfolio.optimizer.domain.weight-cleaning-test

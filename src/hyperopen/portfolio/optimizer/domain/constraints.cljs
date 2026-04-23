@@ -86,6 +86,8 @@
         upper-bounds (mapv :upper bounds)
         violations* (violations lower-bounds upper-bounds constraints*)]
     {:status (if (seq violations*) :infeasible :ok)
+     :long-only? (:long-only? constraints*)
+     :net-target (target-net constraints*)
      :instrument-ids ids
      :lower-bounds lower-bounds
      :upper-bounds upper-bounds
