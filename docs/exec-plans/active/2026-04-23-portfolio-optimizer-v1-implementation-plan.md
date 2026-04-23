@@ -39,9 +39,11 @@ The observable proof is a routed workflow. `/portfolio/optimize` lists local sce
 - [x] (2026-04-23) Ran focused solver-adapter validation with `npm run test:runner:generate && npx shadow-cljs --force-spawn compile test && node out/test.js --test=hyperopen.portfolio.optimizer.infrastructure.solver-adapter-test`; 4 tests and 13 assertions passed with zero failures and zero warnings.
 - [x] (2026-04-23) Added Phase 4 split-variable gross-exposure expansion for the package adapters. Signed weights are expanded into positive/negative solver variables for `sum(abs(w)) <= gross-max`, original bounds and net/return constraints are projected into split-variable space, and solver output is decoded back to signed weights.
 - [x] (2026-04-23) Ran focused split-variable solver validation with `npm run test:runner:generate && npx shadow-cljs --force-spawn compile test && node out/test.js --test=hyperopen.portfolio.optimizer.infrastructure.solver-adapter-test`; 5 tests and 19 assertions passed with zero failures and zero warnings.
+- [x] (2026-04-23) Added Phase 4 turnover constraint encoding. `encode-constraints` now carries aligned current weights, objective plans emit `:turnover` L1 constraints as `sum(abs(target-current)) <= 2 * max-turnover`, and the solver adapter adds turnover auxiliary variables for both quadprog and OSQP while rejecting malformed turnover constraints without aligned current weights.
+- [x] (2026-04-23) Ran focused turnover validation with `npm run test:runner:generate && npx shadow-cljs --force-spawn compile test && node out/test.js --test=hyperopen.portfolio.optimizer.domain.constraints-test --test=hyperopen.portfolio.optimizer.domain.objectives-test --test=hyperopen.portfolio.optimizer.infrastructure.solver-adapter-test`; 17 tests and 60 assertions passed with zero failures and zero warnings.
 - [x] Implement the Phase 1 route, query-state, portfolio shell delegation, current-holdings snapshot, account bootstrap participation, worker target registration, and IndexedDB scenario store/versioning foundations.
 - [x] Implement the Phase 3 arbitrary-universe history, funding, orderbook preview planning, BL prior, and request-builder foundations.
-- [ ] Implement turnover solver expansion, fixture parity coverage, worker bridge, setup/results UI, execution path, and tracking flow.
+- [ ] Implement fixture parity coverage, worker bridge, setup/results UI, execution path, and tracking flow.
 
 ## Surprises & Discoveries
 
@@ -975,7 +977,7 @@ All commands below run from `/Users/barry/.codex/worktrees/d394/hyperopen`.
 
        node out/test.js --test=hyperopen.portfolio.optimizer.domain.returns-test --test=hyperopen.portfolio.optimizer.domain.risk-test --test=hyperopen.portfolio.optimizer.domain.black-litterman-test --test=hyperopen.portfolio.optimizer.domain.constraints-test --test=hyperopen.portfolio.optimizer.domain.frontier-test --test=hyperopen.portfolio.optimizer.domain.diagnostics-test
 
-   The pure-domain slices, application runner seam, first package adapters, and gross-exposure split-variable expansion are complete. The remaining Phase 4 implementation work is turnover constraint expansion and committed fixture parity coverage.
+   The pure-domain slices, application runner seam, first package adapters, gross-exposure split-variable expansion, and turnover constraint expansion are complete. The remaining Phase 4 implementation work is committed fixture parity coverage.
 
 5. Add the worker target, bridge, and route integration, then verify compilation.
 
@@ -1185,4 +1187,5 @@ Key reconnaissance facts captured for implementers:
 - 2026-04-23 / Codex: Added the second Phase 4 pure-domain seam for solver-neutral objective plan construction and rebalance preview row shaping. OSQP/quadprog adapter and fixture parity remain in Phase 4.
 - 2026-04-23 / Codex: Added the Phase 4 application engine runner seam with injected solver execution, frontier selection, diagnostics, and rebalance preview assembly. OSQP/quadprog package adapters and fixture parity remain before Phase 4 exits.
 - 2026-04-23 / Codex: Added `osqp@0.0.2` and `quadprog@1.6.1` plus focused infrastructure adapters for direct long-only QP solves.
-- 2026-04-23 / Codex: Added split-variable gross-exposure expansion for signed portfolios in both package adapters. Turnover constraints and fixture parity remain before Phase 4 exits.
+- 2026-04-23 / Codex: Added split-variable gross-exposure expansion for signed portfolios in both package adapters.
+- 2026-04-23 / Codex: Added turnover constraint encoding through current-weight-aware objective plans and solver-adapter auxiliary variables for both package adapters. Fixture parity remains before Phase 4 exits.

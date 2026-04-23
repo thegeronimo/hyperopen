@@ -45,12 +45,17 @@
   (let [encoded (constraints/encode-constraints
                  {:universe [{:instrument-id "A"}
                              {:instrument-id "B"}]
+                  :current-weights {"A" 0.3
+                                    "B" -0.1}
                   :constraints {:long-only? false
                                 :max-asset-weight 0.7
                                 :gross-leverage 1.4
+                                :max-turnover 0.25
                                 :net-exposure {:min -0.2
                                                :max 0.8}}})]
     (is (= [-0.7 -0.7] (:lower-bounds encoded)))
     (is (= [0.7 0.7] (:upper-bounds encoded)))
+    (is (= [0.3 -0.1] (:current-weights encoded)))
     (is (= {:max 1.4} (:gross-exposure encoded)))
+    (is (= 0.25 (:max-turnover encoded)))
     (is (= {:min -0.2 :max 0.8} (:net-exposure encoded)))))

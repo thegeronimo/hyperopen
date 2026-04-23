@@ -80,6 +80,8 @@
                             (or constraints {}))
         universe* (normalize-universe (or universe []) constraints*)
         ids (mapv instrument-id universe*)
+        current-weights* (or current-weights {})
+        current-weight-vector (mapv #(current-weight current-weights* %) ids)
         bounds (mapv (partial bounds-for constraints* (or current-weights {}))
                      universe*)
         lower-bounds (mapv :lower bounds)
@@ -89,6 +91,7 @@
      :long-only? (:long-only? constraints*)
      :net-target (target-net constraints*)
      :instrument-ids ids
+     :current-weights current-weight-vector
      :lower-bounds lower-bounds
      :upper-bounds upper-bounds
      :locked-weights (vec (keep :locked bounds))

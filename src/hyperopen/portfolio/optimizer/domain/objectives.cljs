@@ -62,11 +62,18 @@
 
 (defn- l1-constraints
   [encoded-constraints]
-  (let [max-gross (get-in encoded-constraints [:gross-exposure :max])]
+  (let [max-gross (get-in encoded-constraints [:gross-exposure :max])
+        max-turnover (:max-turnover encoded-constraints)]
     (cond-> []
       (finite-number? max-gross)
       (conj {:code :gross-exposure
              :max max-gross
+             :requires-split-variables? true})
+
+      (finite-number? max-turnover)
+      (conj {:code :turnover
+             :max (* 2 max-turnover)
+             :current-weights (:current-weights encoded-constraints)
              :requires-split-variables? true}))))
 
 (defn- greedy-return

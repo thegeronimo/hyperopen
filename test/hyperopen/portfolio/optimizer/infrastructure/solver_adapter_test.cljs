@@ -56,6 +56,13 @@
    :lower-bounds [-1 -1]
    :upper-bounds [1 1]})
 
+(def turnover-capped-problem
+  (assoc signed-gross-problem
+         :l1-constraints [{:code :turnover
+                           :max 0.5
+                           :current-weights [0 0]
+                           :requires-split-variables? true}]))
+
 (deftest quadprog-adapter-solves-signed-gross-exposure-with-split-variables-test
   (let [result (solver-adapter/solve-with-quadprog
                 signed-gross-problem)]
@@ -88,4 +95,32 @@
                  (done)))
         (.catch (fn [err]
                   (is false (str "OSQP split-variable solve failed: " err))
+                  (done))))))
+
+(deftest quadprog-adapter-solves-turnover-cap-with-split-variables-test
+  (let [result (solver-adapter/solve-with-quadprog
+                turnover-capped-problem)]
+    (is (= :solved (:status result)))
+    (is (near? 0.25 (first (:weights result))))
+    (is (near? -0.25 (second (:weights result))))))
+
+(deftest adapter-rejects-turnover-cap-without-current-weights-test
+  (let [result (solver-adapter/solve-with-quadprog
+                (assoc signed-gross-problem
+                       :l1-constraints [{:code :turnover
+                                         :max 0.5
+                                         :requires-split-variables? true}]))]
+    (is (= :unsupported (:status result)))
+    (is (= :invalid-l1-constraints (:reason result)))))
+
+(deftest osqp-adapter-solves-turnover-cap-with-split-variables-test
+  (async done
+    (-> (solver-adapter/solve-with-osqp turnover-capped-problem)
+        (.then (fn [result]
+                 (is (= :solved (:status result)))
+                 (is (near? 0.25 (first (:weights result))))
+                 (is (near? -0.25 (second (:weights result))))
+                 (done)))
+        (.catch (fn [err]
+                  (is false (str "OSQP turnover solve failed: " err))
                   (done))))))

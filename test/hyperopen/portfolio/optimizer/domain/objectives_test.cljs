@@ -99,3 +99,24 @@
     (is (= :infeasible (:status plan)))
     (is (= :constraint-presolve (:reason plan)))
     (is (= (:violations encoded) (get-in plan [:details :violations])))))
+
+(deftest solver-plan-encodes-turnover-as-l1-constraint-with-current-weights-test
+  (let [encoded (constraints/encode-constraints
+                 {:universe [{:instrument-id "A"}
+                             {:instrument-id "B"}]
+                  :current-weights {"A" 0.3
+                                    "B" -0.1}
+                  :constraints {:long-only? false
+                                :max-turnover 0.25}})
+        plan (objectives/build-solver-plan
+              {:objective {:kind :minimum-variance}
+               :instrument-ids ["A" "B"]
+               :expected-returns [0.1 0.2]
+               :covariance [[1 0]
+                            [0 1]]
+               :encoded-constraints encoded})]
+    (is (= [{:code :turnover
+             :max 0.5
+             :current-weights [0.3 -0.1]
+             :requires-split-variables? true}]
+           (get-in plan [:problems 0 :l1-constraints])))))
