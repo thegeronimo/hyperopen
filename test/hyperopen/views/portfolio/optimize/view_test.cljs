@@ -45,6 +45,14 @@
   [node]
   (get-in node [1 :on :change]))
 
+(defn- drag-start-actions
+  [node]
+  (get-in node [1 :on :drag-start]))
+
+(defn- drag-enter-actions
+  [node]
+  (get-in node [1 :on :drag-enter]))
+
 (deftest portfolio-view-delegates-optimizer-index-route-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize"}})]
@@ -362,6 +370,10 @@
                                  :last-successful-run {:result result
                                                        :computed-at-ms 2600}}}})
         frontier-point (node-by-role view-node "portfolio-optimizer-frontier-point-1")
+        frontier-point-actions [[:actions/set-portfolio-optimizer-objective-kind :target-volatility]
+                                [:actions/set-portfolio-optimizer-objective-parameter
+                                 :target-volatility
+                                 0.42]]
         strings (set (collect-strings view-node))]
     (is (some? (node-by-role view-node "portfolio-optimizer-results-surface")))
     (is (some? (node-by-role view-node "portfolio-optimizer-frontier-panel")))
@@ -373,14 +385,17 @@
            (get-in (node-by-role view-node
                                  "portfolio-optimizer-target-exposure-row-0")
                    [1 :data-binding])))
-    (is (= [[:actions/set-portfolio-optimizer-objective-kind :target-volatility]
-            [:actions/set-portfolio-optimizer-objective-parameter
-             :target-volatility
-             0.42]]
+    (is (= frontier-point-actions
            (click-actions frontier-point)))
+    (is (= true
+           (get-in frontier-point [1 :draggable])))
+    (is (= frontier-point-actions
+           (drag-start-actions frontier-point)))
+    (is (= frontier-point-actions
+           (drag-enter-actions frontier-point)))
     (is (contains? strings "Target Exposure"))
     (is (contains? strings "Efficient Frontier"))
-    (is (contains? strings "Click a point to set Target Volatility and rerun."))
+    (is (contains? strings "Click or drag across points to set Target Volatility and rerun."))
     (is (contains? strings "Funding Decomposition"))
     (is (contains? strings "Binding Constraints"))
     (is (contains? strings "partially-blocked"))

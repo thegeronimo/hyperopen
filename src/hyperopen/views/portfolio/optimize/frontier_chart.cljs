@@ -60,7 +60,11 @@
                       "hover:border-primary/60"
                       "hover:bg-primary/10"]
               :data-role (str "portfolio-optimizer-frontier-point-" idx)
-              :on {:click (point-actions target)}}
+              :data-frontier-drag-target "true"
+              :draggable true
+              :on {:click (point-actions target)
+                   :drag-start (point-actions target)
+                   :drag-enter (point-actions target)}}
      [:span {:class ["font-semibold" "text-trading-text"]}
       (str "#" idx)]
      [:span (format-pct (:expected-return point))]
@@ -83,7 +87,7 @@
                       "text-trading-muted"]}
           "Efficient Frontier"]
          [:p {:class ["mt-2" "text-sm" "text-trading-muted"]}
-          (str "Click a point to set " (:label target) " and rerun.")]]
+          (str "Click or drag across points to set " (:label target) " and rerun.")]]
         [:p {:class ["rounded-full"
                      "border"
                      "border-primary/40"
