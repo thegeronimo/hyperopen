@@ -2,7 +2,8 @@
   (:require [hyperopen.portfolio.optimizer.application.current-portfolio :as current-portfolio]
             [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
             [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
-            [hyperopen.portfolio.routes :as portfolio-routes]))
+            [hyperopen.portfolio.routes :as portfolio-routes]
+            [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]))
 
 (defn- metric-card
   [label value]
@@ -285,6 +286,7 @@
                        (str (count (:allowlist constraints)) " / " (count (:blocklist constraints))))
        (constraint-row "Perp Leverage"
                        (str (count (:perp-leverage constraints)) " overrides"))]]
+     (instrument-overrides-panel/instrument-overrides-panel draft)
      (panel-shell
       "portfolio-optimizer-execution-assumptions-panel"
       "Execution Assumptions"

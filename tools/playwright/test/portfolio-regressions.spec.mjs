@@ -304,6 +304,8 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
     .toContainText("Rebalance Tolerance");
   await expect(page.locator("[data-role='portfolio-optimizer-execution-assumptions-panel']"))
     .toContainText("Fallback Slippage");
+  await expect(page.locator("[data-role='portfolio-optimizer-instrument-overrides-panel']"))
+    .toContainText("Per-Asset Overrides");
 
   const maxSharpe = page.locator("[data-role='portfolio-optimizer-objective-max-sharpe']");
   const blackLitterman = page.locator("[data-role='portfolio-optimizer-return-model-black-litterman']");

@@ -68,6 +68,8 @@
   (s/tuple ::common/keyword-or-string any?))
 (s/def ::portfolio-optimizer-key-value-args
   (s/tuple ::common/keyword-or-string any?))
+(s/def ::portfolio-optimizer-instrument-key-value-args
+  (s/tuple ::common/keyword-or-string ::common/non-empty-string any?))
 (s/def ::portfolio-optimizer-run-args
   (s/tuple map? map?))
 (s/def ::staking-action-popover-open-args
@@ -206,6 +208,8 @@
    :actions/set-portfolio-optimizer-constraint ::portfolio-optimizer-constraint-args
    :actions/set-portfolio-optimizer-objective-parameter ::portfolio-optimizer-key-value-args
    :actions/set-portfolio-optimizer-execution-assumption ::portfolio-optimizer-key-value-args
+   :actions/set-portfolio-optimizer-instrument-filter ::portfolio-optimizer-instrument-key-value-args
+   :actions/set-portfolio-optimizer-asset-override ::portfolio-optimizer-instrument-key-value-args
    :actions/set-portfolio-optimizer-universe-from-current ::common/no-args
    :actions/run-portfolio-optimizer-from-draft ::common/no-args
    :actions/run-portfolio-optimizer ::portfolio-optimizer-run-args

@@ -40,6 +40,10 @@
                          action-adapters/set-portfolio-optimizer-objective-parameter-action
                          :set-portfolio-optimizer-execution-assumption
                          action-adapters/set-portfolio-optimizer-execution-assumption-action
+                         :set-portfolio-optimizer-instrument-filter
+                         action-adapters/set-portfolio-optimizer-instrument-filter-action
+                         :set-portfolio-optimizer-asset-override
+                         action-adapters/set-portfolio-optimizer-asset-override-action
                          :set-portfolio-optimizer-universe-from-current
                          action-adapters/set-portfolio-optimizer-universe-from-current-action
                          :run-portfolio-optimizer-from-draft

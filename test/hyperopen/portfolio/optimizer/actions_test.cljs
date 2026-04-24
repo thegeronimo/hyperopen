@@ -175,6 +175,80 @@
           :fallback-slippage-bps
           "not-a-number"))))
 
+(deftest set-draft-instrument-filter-updates-allowlist-and-blocklist-test
+  (let [state {:portfolio {:optimizer {:draft {:constraints {:allowlist ["perp:BTC"]
+                                                             :blocklist ["spot:PURR"]}}}}}]
+    (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :constraints :allowlist]
+                                  ["perp:BTC" "perp:ETH"]]
+                                 [[:portfolio :optimizer :draft :metadata :dirty?]
+                                  true]]]]
+           (actions/set-portfolio-optimizer-instrument-filter
+            state
+            :allowlist
+            "perp:ETH"
+            true)))
+    (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :constraints :blocklist]
+                                  []]
+                                 [[:portfolio :optimizer :draft :metadata :dirty?]
+                                  true]]]]
+           (actions/set-portfolio-optimizer-instrument-filter
+            state
+            :blocklist
+            "spot:PURR"
+            false)))
+    (is (= []
+           (actions/set-portfolio-optimizer-instrument-filter
+            state
+            :unknown
+            "perp:BTC"
+            true)))))
+
+(deftest set-draft-asset-override-updates-row-level-constraints-test
+  (let [state {:portfolio {:optimizer {:draft {:universe [{:instrument-id "perp:ETH"
+                                                            :market-type :perp}
+                                                           {:instrument-id "spot:PURR"
+                                                            :market-type :spot}]
+                                           :constraints {:held-locks ["perp:BTC"]}}}}}]
+    (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :constraints :asset-overrides "perp:ETH" :max-weight]
+                                  0.28]
+                                 [[:portfolio :optimizer :draft :metadata :dirty?]
+                                  true]]]]
+           (actions/set-portfolio-optimizer-asset-override
+            state
+            :max-weight
+            "perp:ETH"
+            "0.28")))
+    (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :constraints :held-locks]
+                                  ["perp:BTC" "perp:ETH"]]
+                                 [[:portfolio :optimizer :draft :metadata :dirty?]
+                                  true]]]]
+           (actions/set-portfolio-optimizer-asset-override
+            state
+            :held-lock?
+            "perp:ETH"
+            true)))
+    (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :constraints :perp-leverage "perp:ETH" :max-weight]
+                                  0.5]
+                                 [[:portfolio :optimizer :draft :metadata :dirty?]
+                                  true]]]]
+           (actions/set-portfolio-optimizer-asset-override
+            state
+            :perp-max-weight
+            "perp:ETH"
+            "0.5")))
+    (is (= []
+           (actions/set-portfolio-optimizer-asset-override
+            state
+            :max-weight
+            "perp:ETH"
+            "not-a-number")))
+    (is (= []
+           (actions/set-portfolio-optimizer-asset-override
+            state
+            :perp-max-weight
+            "spot:PURR"
+            "0.5")))))
+
 (deftest set-draft-universe-from-current-holdings-test
   (let [state {:webdata2 {:clearinghouseState
                           {:marginSummary {:accountValue "1000"}

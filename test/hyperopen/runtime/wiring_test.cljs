@@ -75,6 +75,10 @@
                     (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-objective-parameter])))
     (is (identical? action-adapters/set-portfolio-optimizer-execution-assumption-action
                     (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-execution-assumption])))
+    (is (identical? action-adapters/set-portfolio-optimizer-instrument-filter-action
+                    (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-instrument-filter])))
+    (is (identical? action-adapters/set-portfolio-optimizer-asset-override-action
+                    (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-asset-override])))
     (is (identical? action-adapters/set-portfolio-optimizer-universe-from-current-action
                     (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-universe-from-current])))
     (is (identical? action-adapters/run-portfolio-optimizer-from-draft-action

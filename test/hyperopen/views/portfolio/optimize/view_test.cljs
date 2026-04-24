@@ -164,6 +164,7 @@
            (change-actions
             (node-by-role view-node
                           "portfolio-optimizer-execution-fee-mode-input"))))
+    (is (some? (node-by-role view-node "portfolio-optimizer-instrument-overrides-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-signed-exposure-table")))
     (let [strings (set (collect-strings view-node))]
       (is (contains? strings "Minimum Variance"))
@@ -194,7 +195,42 @@
         run-button (node-by-role view-node "portfolio-optimizer-run-draft")]
     (is (= false (get-in run-button [1 :disabled])))
     (is (= [[:actions/run-portfolio-optimizer-from-draft]]
-           (click-actions run-button)))))
+           (click-actions run-button)))
+    (is (= [[:actions/set-portfolio-optimizer-instrument-filter
+             :allowlist
+             "perp:BTC"
+             :event.target/checked]]
+           (change-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-instrument-allowlist-input"))))
+    (is (= [[:actions/set-portfolio-optimizer-instrument-filter
+             :blocklist
+             "perp:BTC"
+             :event.target/checked]]
+           (change-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-instrument-blocklist-input"))))
+    (is (= [[:actions/set-portfolio-optimizer-asset-override
+             :max-weight
+             "perp:BTC"
+             [:event.target/value]]]
+           (input-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-instrument-max-weight-input"))))
+    (is (= [[:actions/set-portfolio-optimizer-asset-override
+             :held-lock?
+             "perp:BTC"
+             :event.target/checked]]
+           (change-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-instrument-held-lock-input"))))
+    (is (= [[:actions/set-portfolio-optimizer-asset-override
+             :perp-max-weight
+             "perp:BTC"
+             [:event.target/value]]]
+           (input-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-instrument-perp-max-weight-input"))))))
 
 (deftest portfolio-optimizer-workspace-blocks-run-when-history-is-missing-test
   (let [view-node (portfolio-view/portfolio-view

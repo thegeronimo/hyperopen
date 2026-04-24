@@ -37,6 +37,8 @@
    [:actions/set-portfolio-optimizer-constraint :set-portfolio-optimizer-constraint]
    [:actions/set-portfolio-optimizer-objective-parameter :set-portfolio-optimizer-objective-parameter]
    [:actions/set-portfolio-optimizer-execution-assumption :set-portfolio-optimizer-execution-assumption]
+   [:actions/set-portfolio-optimizer-instrument-filter :set-portfolio-optimizer-instrument-filter]
+   [:actions/set-portfolio-optimizer-asset-override :set-portfolio-optimizer-asset-override]
    [:actions/set-portfolio-optimizer-universe-from-current :set-portfolio-optimizer-universe-from-current]
    [:actions/run-portfolio-optimizer-from-draft :run-portfolio-optimizer-from-draft]
    [:actions/run-portfolio-optimizer :run-portfolio-optimizer]])

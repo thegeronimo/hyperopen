@@ -172,6 +172,16 @@
           :actions/set-portfolio-optimizer-execution-assumption
           [:fallback-slippage-bps "35"]
           {:phase :test})))
+  (is (= [:allowlist "perp:BTC" true]
+         (contracts/assert-action-args!
+          :actions/set-portfolio-optimizer-instrument-filter
+          [:allowlist "perp:BTC" true]
+          {:phase :test})))
+  (is (= [:max-weight "perp:BTC" "0.25"]
+         (contracts/assert-action-args!
+          :actions/set-portfolio-optimizer-asset-override
+          [:max-weight "perp:BTC" "0.25"]
+          {:phase :test})))
   (is (= []
          (contracts/assert-action-args!
           :actions/set-portfolio-optimizer-universe-from-current

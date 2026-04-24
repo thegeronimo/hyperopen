@@ -161,6 +161,12 @@
 (def set-portfolio-optimizer-execution-assumption-action
   portfolio-optimizer-actions/set-portfolio-optimizer-execution-assumption)
 
+(def set-portfolio-optimizer-instrument-filter-action
+  portfolio-optimizer-actions/set-portfolio-optimizer-instrument-filter)
+
+(def set-portfolio-optimizer-asset-override-action
+  portfolio-optimizer-actions/set-portfolio-optimizer-asset-override)
+
 (def set-portfolio-optimizer-universe-from-current-action
   portfolio-optimizer-actions/set-portfolio-optimizer-universe-from-current)
 

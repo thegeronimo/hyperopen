@@ -45,6 +45,17 @@
   #{:default-order-type
     :fee-mode})
 
+(def ^:private instrument-filter-keys
+  #{:allowlist
+    :blocklist})
+
+(def ^:private numeric-asset-override-keys
+  #{:max-weight
+    :perp-max-weight})
+
+(def ^:private boolean-asset-override-keys
+  #{:held-lock?})
+
 (defn- normalize-keyword-like
   [value]
   (let [text (cond
@@ -126,6 +137,25 @@
                       nil)
     :else nil))
 
+(defn- constraint-list
+  [state constraint-key]
+  (vec (or (get-in state [:portfolio :optimizer :draft :constraints constraint-key])
+           [])))
+
+(defn- instrument-market-type
+  [state instrument-id]
+  (some (fn [instrument]
+          (when (= instrument-id (:instrument-id instrument))
+            (:market-type instrument)))
+        (get-in state [:portfolio :optimizer :draft :universe])))
+
+(defn- set-membership
+  [items item enabled?]
+  (let [items* (vec (remove #(= item %) items))]
+    (if enabled?
+      (conj items* item)
+      items*)))
+
 (defn- set-draft-model
   [path models value]
   (if-let [model (get models (normalize-keyword-like value))]
@@ -191,6 +221,52 @@
       (save-draft-path-values
        [[[:portfolio :optimizer :draft :execution-assumptions assumption-key*] value*]])
       [])))
+
+(defn set-portfolio-optimizer-instrument-filter
+  [state filter-key instrument-id enabled?]
+  (let [filter-key* (normalize-keyword-like filter-key)
+        instrument-id* (non-blank-text instrument-id)
+        enabled?* (parse-boolean-value enabled?)]
+    (if (and (contains? instrument-filter-keys filter-key*)
+             instrument-id*
+             (some? enabled?*))
+      (save-draft-path-values
+       [[[:portfolio :optimizer :draft :constraints filter-key*]
+         (set-membership (constraint-list state filter-key*) instrument-id* enabled?*)]])
+      [])))
+
+(defn set-portfolio-optimizer-asset-override
+  [state override-key instrument-id value]
+  (let [override-key* (normalize-keyword-like override-key)
+        instrument-id* (non-blank-text instrument-id)
+        numeric-value (when (contains? numeric-asset-override-keys override-key*)
+                        (parse-number-value value))
+        boolean-value (when (contains? boolean-asset-override-keys override-key*)
+                        (parse-boolean-value value))]
+    (cond
+      (and instrument-id*
+           (= :max-weight override-key*)
+           (some? numeric-value))
+      (save-draft-path-values
+       [[[:portfolio :optimizer :draft :constraints :asset-overrides instrument-id* :max-weight]
+         numeric-value]])
+
+      (and instrument-id*
+           (= :perp-max-weight override-key*)
+           (= :perp (instrument-market-type state instrument-id*))
+           (some? numeric-value))
+      (save-draft-path-values
+       [[[:portfolio :optimizer :draft :constraints :perp-leverage instrument-id* :max-weight]
+         numeric-value]])
+
+      (and instrument-id*
+           (= :held-lock? override-key*)
+           (some? boolean-value))
+      (save-draft-path-values
+       [[[:portfolio :optimizer :draft :constraints :held-locks]
+         (set-membership (constraint-list state :held-locks) instrument-id* boolean-value)]])
+
+      :else [])))
 
 (defn set-portfolio-optimizer-universe-from-current
   [state]
