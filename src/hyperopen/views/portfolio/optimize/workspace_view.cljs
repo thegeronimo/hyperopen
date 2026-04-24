@@ -405,7 +405,7 @@
           "Run Optimization")]]]
      [:main {:class ["space-y-4"]}
       (setup-panels draft)
-      (results-panel/results-panel last-successful-run)
+      (results-panel/results-panel last-successful-run draft)
       [:div {:class ["grid" "grid-cols-1" "gap-3" "lg:grid-cols-3"]
              :data-role "portfolio-optimizer-current-summary"}
        (metric-card "NAV" (format-usdc (get-in snapshot [:capital :nav-usdc])))

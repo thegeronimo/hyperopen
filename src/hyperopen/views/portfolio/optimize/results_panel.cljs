@@ -1,4 +1,5 @@
-(ns hyperopen.views.portfolio.optimize.results-panel)
+(ns hyperopen.views.portfolio.optimize.results-panel
+  (:require [hyperopen.views.portfolio.optimize.frontier-chart :as frontier-chart]))
 
 (defn- finite-number?
   [value]
@@ -189,17 +190,20 @@
      (map rebalance-row (:rows preview)))))
 
 (defn results-panel
-  [last-successful-run]
-  (let [result (:result last-successful-run)]
-    (when (= :solved (:status result))
-      [:section {:class ["space-y-4"]
-                 :data-role "portfolio-optimizer-results-surface"}
-       [:div {:class ["grid" "grid-cols-2" "gap-3" "lg:grid-cols-4"]}
-        (summary-card "Expected Return" (format-pct (:expected-return result)))
-        (summary-card "Volatility" (format-pct (:volatility result)))
-        (summary-card "Return Model" (keyword-label (:return-model result)))
-        (summary-card "Risk Model" (keyword-label (:risk-model result)))]
-       (target-exposure-table result)
-       (return-decomposition result)
-       (diagnostics-panel result)
-       (rebalance-preview result)])))
+  ([last-successful-run]
+   (results-panel last-successful-run nil))
+  ([last-successful-run draft]
+   (let [result (:result last-successful-run)]
+     (when (= :solved (:status result))
+       [:section {:class ["space-y-4"]
+                  :data-role "portfolio-optimizer-results-surface"}
+        [:div {:class ["grid" "grid-cols-2" "gap-3" "lg:grid-cols-4"]}
+         (summary-card "Expected Return" (format-pct (:expected-return result)))
+         (summary-card "Volatility" (format-pct (:volatility result)))
+         (summary-card "Return Model" (keyword-label (:return-model result)))
+         (summary-card "Risk Model" (keyword-label (:risk-model result)))]
+        (target-exposure-table result)
+        (frontier-chart/frontier-chart draft result)
+        (return-decomposition result)
+        (diagnostics-panel result)
+        (rebalance-preview result)]))))

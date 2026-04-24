@@ -318,6 +318,14 @@
                 :target-weights [0.35 -0.02]
                 :expected-return 0.18
                 :volatility 0.42
+                :frontier [{:id 0
+                            :expected-return 0.12
+                            :volatility 0.24
+                            :sharpe 0.5}
+                           {:id 1
+                            :expected-return 0.18
+                            :volatility 0.42
+                            :sharpe 0.43}]
                 :return-decomposition-by-instrument
                 {"perp:BTC" {:return-component 0.12
                              :funding-component 0.04
@@ -350,15 +358,25 @@
         view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}
                     :portfolio {:optimizer
-                                {:last-successful-run {:result result
+                                {:draft {:objective {:kind :target-volatility}}
+                                 :last-successful-run {:result result
                                                        :computed-at-ms 2600}}}})
+        frontier-point (node-by-role view-node "portfolio-optimizer-frontier-point-1")
         strings (set (collect-strings view-node))]
     (is (some? (node-by-role view-node "portfolio-optimizer-results-surface")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-frontier-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-target-exposure-table")))
     (is (some? (node-by-role view-node "portfolio-optimizer-return-decomposition")))
     (is (some? (node-by-role view-node "portfolio-optimizer-diagnostics-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-rebalance-preview")))
+    (is (= [[:actions/set-portfolio-optimizer-objective-kind :target-volatility]
+            [:actions/set-portfolio-optimizer-objective-parameter
+             :target-volatility
+             0.42]]
+           (click-actions frontier-point)))
     (is (contains? strings "Target Exposure"))
+    (is (contains? strings "Efficient Frontier"))
+    (is (contains? strings "Click a point to set Target Volatility and rerun."))
     (is (contains? strings "Funding Decomposition"))
     (is (contains? strings "Binding Constraints"))
     (is (contains? strings "partially-blocked"))
