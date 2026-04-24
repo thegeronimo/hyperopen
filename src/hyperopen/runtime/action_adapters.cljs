@@ -1,5 +1,6 @@
 (ns hyperopen.runtime.action-adapters
   (:require [hyperopen.funding.actions :as funding-actions]
+            [hyperopen.portfolio.optimizer.actions :as portfolio-optimizer-actions]
             [hyperopen.runtime.action-adapters.leaderboard :as leaderboard-adapters]
             [hyperopen.runtime.action-adapters.navigation :as navigation-adapters]
             [hyperopen.runtime.action-adapters.spectate-mode :as spectate-mode-adapters]
@@ -138,3 +139,6 @@
 
 (def ws-diagnostics-reset-all-subscriptions
   ws-diagnostics-adapters/ws-diagnostics-reset-all-subscriptions)
+
+(def run-portfolio-optimizer-action
+  portfolio-optimizer-actions/run-portfolio-optimizer)

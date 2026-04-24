@@ -55,4 +55,5 @@
   (is (fn? action-adapters/toggle-show-surface-freshness-cues))
   (is (fn? action-adapters/ws-diagnostics-reset-market-subscriptions))
   (is (fn? action-adapters/ws-diagnostics-reset-orders-subscriptions))
-  (is (fn? action-adapters/ws-diagnostics-reset-all-subscriptions)))
+  (is (fn? action-adapters/ws-diagnostics-reset-all-subscriptions))
+  (is (fn? action-adapters/run-portfolio-optimizer-action)))

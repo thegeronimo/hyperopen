@@ -63,6 +63,8 @@
 (s/def ::portfolio-volume-history-open-args
   (s/or :none ::common/no-args
         :anchor-only (s/tuple any?)))
+(s/def ::portfolio-optimizer-run-args
+  (s/tuple map? map?))
 (s/def ::staking-action-popover-open-args
   (s/or :kind-only (s/tuple (s/or :keyword keyword?
                                    :string string?))
@@ -193,6 +195,7 @@
    :actions/open-portfolio-volume-history ::portfolio-volume-history-open-args
    :actions/close-portfolio-volume-history ::common/no-args
    :actions/handle-portfolio-volume-history-keydown ::common/single-input-args
+   :actions/run-portfolio-optimizer ::portfolio-optimizer-run-args
    :actions/toggle-orderbook-size-unit-dropdown ::common/no-args
    :actions/select-orderbook-size-unit ::common/keyword-or-string-args
    :actions/toggle-orderbook-price-aggregation-dropdown ::common/no-args

@@ -44,6 +44,8 @@
                     (get-in deps [:api :api-fetch-vault-ledger-updates])))
     (is (identical? effect-adapters/api-fetch-staking-validator-summaries-effect
                     (get-in deps [:api :api-fetch-staking-validator-summaries])))
+    (is (identical? effect-adapters/run-portfolio-optimizer-effect
+                    (get-in deps [:portfolio-optimizer :run-portfolio-optimizer])))
     (is (identical? action-adapters/enable-agent-trading
                     (get-in deps [:wallet :enable-agent-trading])))))
 
@@ -64,7 +66,9 @@
     (is (identical? action-adapters/load-staking-route-action
                     (get-in deps [:staking :load-staking-route])))
     (is (identical? action-adapters/navigate
-                    (get-in deps [:core :navigate])))))
+                    (get-in deps [:core :navigate])))
+    (is (identical? action-adapters/run-portfolio-optimizer-action
+                    (get-in deps [:portfolio-optimizer :run-portfolio-optimizer])))))
 
 (deftest runtime-registration-deps-builds-effect-and-action-handlers-test
   (let [deps (wiring/runtime-registration-deps)]
@@ -76,7 +80,11 @@
                     (get-in deps [:action-handlers :navigate])))
     (is (identical? effect-adapters/save
                     (get-in deps [:effect-handlers :save])))
-    (is (fn? (get-in deps [:effect-handlers :load-surface-module])))))
+    (is (fn? (get-in deps [:effect-handlers :load-surface-module])))
+    (is (identical? action-adapters/run-portfolio-optimizer-action
+                    (get-in deps [:action-handlers :run-portfolio-optimizer])))
+    (is (identical? effect-adapters/run-portfolio-optimizer-effect
+                    (get-in deps [:effect-handlers :run-portfolio-optimizer])))))
 
 (deftest runtime-action-deps-cover-catalog-handler-keys-test
   (let [action-deps (wiring/runtime-action-deps)

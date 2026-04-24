@@ -199,3 +199,28 @@
         :effects/sync-active-asset-funding-predictability
         [""]
         {:phase :test}))))
+
+(deftest assert-effect-args-validates-portfolio-optimizer-run-test
+  (is (= [{:scenario-id "scenario-1"}
+          {:scenario-id "scenario-1" :revision 1}]
+         (contracts/assert-effect-args!
+          :effects/run-portfolio-optimizer
+          [{:scenario-id "scenario-1"}
+           {:scenario-id "scenario-1" :revision 1}]
+          {:phase :test})))
+  (is (= [{:scenario-id "scenario-1"}
+          {:scenario-id "scenario-1" :revision 1}
+          {:computed-at-ms 123}]
+         (contracts/assert-effect-args!
+          :effects/run-portfolio-optimizer
+          [{:scenario-id "scenario-1"}
+           {:scenario-id "scenario-1" :revision 1}
+           {:computed-at-ms 123}]
+          {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"effect request"
+       (contracts/assert-effect-args!
+        :effects/run-portfolio-optimizer
+        [{:scenario-id "scenario-1"}]
+        {:phase :test}))))

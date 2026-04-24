@@ -1,7 +1,7 @@
 (ns hyperopen.schema.runtime-registration.portfolio)
 
 (def effect-binding-rows
-  [])
+  [[:effects/run-portfolio-optimizer :run-portfolio-optimizer]])
 
 (def action-binding-rows
   [[:actions/toggle-portfolio-summary-scope-dropdown :toggle-portfolio-summary-scope-dropdown]
@@ -30,4 +30,5 @@
    [:actions/clear-portfolio-returns-benchmark :clear-portfolio-returns-benchmark]
    [:actions/open-portfolio-volume-history :open-portfolio-volume-history]
    [:actions/close-portfolio-volume-history :close-portfolio-volume-history]
-   [:actions/handle-portfolio-volume-history-keydown :handle-portfolio-volume-history-keydown]])
+   [:actions/handle-portfolio-volume-history-keydown :handle-portfolio-volume-history-keydown]
+   [:actions/run-portfolio-optimizer :run-portfolio-optimizer]])

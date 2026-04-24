@@ -45,6 +45,9 @@
 (s/def ::request-id ::common/non-negative-int)
 (s/def ::request-id-args (s/tuple ::request-id))
 (s/def ::export-funding-history-csv-args (s/tuple ::common/map-vector))
+(s/def ::portfolio-optimizer-run-args
+  (s/or :base (s/tuple map? map?)
+        :with-opts (s/tuple map? map? map?)))
 
 (s/def ::effect-id (s/and keyword?
                           #(= "effects" (namespace %))))
@@ -135,4 +138,5 @@
    :effects/api-submit-funding-send ::api-submit-funding-send-args
    :effects/api-submit-funding-transfer ::api-submit-funding-transfer-args
    :effects/api-submit-funding-withdraw ::api-submit-funding-withdraw-args
-   :effects/api-submit-funding-deposit ::api-submit-funding-deposit-args})
+   :effects/api-submit-funding-deposit ::api-submit-funding-deposit-args
+   :effects/run-portfolio-optimizer ::portfolio-optimizer-run-args})

@@ -9,6 +9,7 @@
             [hyperopen.runtime.effect-adapters.funding :as funding-adapters]
             [hyperopen.runtime.effect-adapters.leaderboard :as leaderboard-adapters]
             [hyperopen.runtime.effect-adapters.order :as order-adapters]
+            [hyperopen.runtime.effect-adapters.portfolio-optimizer :as portfolio-optimizer-adapters]
             [hyperopen.runtime.effect-adapters.route-query :as route-query-adapters]
             [hyperopen.runtime.effect-adapters.staking :as staking-adapters]
             [hyperopen.runtime.effect-adapters.vaults :as vault-adapters]
@@ -474,3 +475,6 @@
           store
           request
           {:show-toast! show-order-feedback-toast!}]))
+
+(def run-portfolio-optimizer-effect
+  portfolio-optimizer-adapters/run-portfolio-optimizer-effect)

@@ -31,6 +31,7 @@
    :vaults {:load-vault-route action-adapters/load-vault-route-action}
    :funding-comparison {:load-funding-comparison-route action-adapters/load-funding-comparison-route-action}
    :staking {:load-staking-route action-adapters/load-staking-route-action}
+   :portfolio-optimizer {:run-portfolio-optimizer action-adapters/run-portfolio-optimizer-action}
    :api-wallets {:load-api-wallet-route action-adapters/load-api-wallet-route-action
                  :set-api-wallet-form-field api-wallets-actions/set-api-wallet-form-field
                  :set-api-wallet-sort api-wallets-actions/set-api-wallet-sort

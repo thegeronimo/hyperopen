@@ -23,6 +23,7 @@
    api-wallets/effect-binding-rows
    leaderboard/effect-binding-rows
    funding-comparison/effect-binding-rows
+   portfolio/effect-binding-rows
    trade/effect-binding-rows
    vaults/effect-binding-rows
    staking/effect-binding-rows

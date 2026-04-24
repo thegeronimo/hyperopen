@@ -45,9 +45,12 @@ The observable proof is a routed workflow. `/portfolio/optimize` lists local sce
 - [x] (2026-04-23) Ran focused fixture parity validation with `npm run test:runner:generate && npx shadow-cljs --force-spawn compile test && node out/test.js --test=hyperopen.portfolio.optimizer.infrastructure.solver-adapter-parity-test`; 5 tests and 25 assertions passed with zero failures and zero warnings.
 - [x] (2026-04-23) Added the first Phase 5 worker bridge slice. The engine now has an async run path for promise-returning solvers, the optimizer worker handles `run-optimizer` with OSQP as the worker solver, and the main-thread run bridge posts requests with run ids, dedupes identical signatures, preserves the last successful result during reruns, and ignores stale worker responses.
 - [x] (2026-04-23) Ran focused worker bridge validation with `npm run test:runner:generate && npx shadow-cljs --force-spawn compile test && node out/test.js --test=hyperopen.portfolio.optimizer.application.engine-test --test=hyperopen.portfolio.optimizer.worker-test --test=hyperopen.portfolio.optimizer.application.run-bridge-test`; 10 tests and 38 assertions passed with zero failures and zero warnings. Also compiled `npx shadow-cljs --force-spawn compile portfolio-optimizer-worker`; build completed with 69 files, 22 compiled, and zero warnings.
+- [x] (2026-04-23) Integrated the worker bridge with runtime action/effect wiring. `:actions/run-portfolio-optimizer` now emits `:effects/run-portfolio-optimizer`, portfolio effects are part of the central registration catalog, and the effect adapter invokes the run bridge with the runtime store while preserving request-signature dedupe and stale-result semantics.
+- [x] (2026-04-23) Ran focused runtime-integration validation with `npm run test:runner:generate && npx shadow-cljs --force-spawn compile test && node out/test.js --test=hyperopen.portfolio.optimizer.actions-test --test=hyperopen.portfolio.optimizer.application.run-bridge-test --test=hyperopen.runtime.effect-adapters.portfolio-optimizer-test --test=hyperopen.runtime.action-adapters-test --test=hyperopen.runtime.effect-adapters.facade-contract-test --test=hyperopen.runtime.wiring-test --test=hyperopen.schema.contracts.action-args-test --test=hyperopen.schema.contracts.effect-args-test`; 41 tests and 221 assertions passed with zero failures and zero warnings.
 - [x] Implement the Phase 1 route, query-state, portfolio shell delegation, current-holdings snapshot, account bootstrap participation, worker target registration, and IndexedDB scenario store/versioning foundations.
 - [x] Implement the Phase 3 arbitrary-universe history, funding, orderbook preview planning, BL prior, and request-builder foundations.
-- [ ] Integrate the worker bridge with route/runtime effects, then implement setup/results UI, execution path, and tracking flow.
+- [x] Integrate the worker bridge with route/runtime effects.
+- [ ] Implement setup/results UI, execution path, and tracking flow.
 
 ## Surprises & Discoveries
 
@@ -89,6 +92,9 @@ The observable proof is a routed workflow. `/portfolio/optimize` lists local sce
 
 - Observation: orderbook preview loading should be planned as subscription effects, not direct websocket mutation.
   Evidence: existing orderbook runtime owns websocket state in `src/hyperopen/websocket/orderbook.cljs`, while `src/hyperopen/portfolio/optimizer/application/orderbook_loader.cljs` only returns `[:effects/subscribe-orderbook coin]` effects and live/stale/fallback cost context labels.
+
+- Observation: portfolio action bindings were already included in the central runtime catalog, but portfolio effect bindings were not.
+  Evidence: `src/hyperopen/schema/runtime_registration_catalog.cljs` originally concatenated `portfolio/action-binding-rows` only. The optimizer runtime integration added `portfolio/effect-binding-rows` so `:effects/run-portfolio-optimizer` participates in the same registry and contract drift checks as the rest of the app.
 
 ## Decision Log
 
@@ -1195,3 +1201,4 @@ Key reconnaissance facts captured for implementers:
 - 2026-04-23 / Codex: Added turnover constraint encoding through current-weight-aware objective plans and solver-adapter auxiliary variables for both package adapters.
 - 2026-04-23 / Codex: Added package solver fixture parity coverage for signed gross/net exposure, turnover caps, held-position locks, per-perp caps, and infeasible target-return presolve.
 - 2026-04-23 / Codex: Added the first worker bridge slice with async engine execution, OSQP-backed optimizer worker handling, main-thread request dedupe, last-successful-run preservation, and stale-response guards.
+- 2026-04-23 / Codex: Added runtime action/effect integration for optimizer runs, including catalog and contract coverage plus an explicit store seam in the run bridge for runtime effect dispatch.

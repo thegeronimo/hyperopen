@@ -35,4 +35,5 @@
   (is (fn? effect-adapters/api-fetch-hyperunit-fee-estimate-effect))
   (is (fn? effect-adapters/api-submit-funding-send-effect))
   (is (fn? effect-adapters/api-submit-funding-transfer-effect))
-  (is (fn? effect-adapters/restore-leaderboard-preferences!)))
+  (is (fn? effect-adapters/restore-leaderboard-preferences!))
+  (is (fn? effect-adapters/run-portfolio-optimizer-effect)))

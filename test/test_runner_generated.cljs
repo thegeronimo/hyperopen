@@ -173,6 +173,7 @@
             [hyperopen.portfolio.metrics.history-test]
             [hyperopen.portfolio.metrics.parsing-test]
             [hyperopen.portfolio.metrics.quantstats-parity-test]
+            [hyperopen.portfolio.optimizer.actions-test]
             [hyperopen.portfolio.optimizer.application.current-portfolio-test]
             [hyperopen.portfolio.optimizer.application.engine-test]
             [hyperopen.portfolio.optimizer.application.history-loader-test]
@@ -220,6 +221,7 @@
             [hyperopen.runtime.effect-adapters.funding-test]
             [hyperopen.runtime.effect-adapters.leaderboard-test]
             [hyperopen.runtime.effect-adapters.order-test]
+            [hyperopen.runtime.effect-adapters.portfolio-optimizer-test]
             [hyperopen.runtime.effect-adapters.staking-test]
             [hyperopen.runtime.effect-adapters.vaults-test]
             [hyperopen.runtime.effect-adapters.wallet-test]
@@ -726,6 +728,7 @@
              'hyperopen.portfolio.metrics.history-test
              'hyperopen.portfolio.metrics.parsing-test
              'hyperopen.portfolio.metrics.quantstats-parity-test
+             'hyperopen.portfolio.optimizer.actions-test
              'hyperopen.portfolio.optimizer.application.current-portfolio-test
              'hyperopen.portfolio.optimizer.application.engine-test
              'hyperopen.portfolio.optimizer.application.history-loader-test
@@ -773,6 +776,7 @@
              'hyperopen.runtime.effect-adapters.funding-test
              'hyperopen.runtime.effect-adapters.leaderboard-test
              'hyperopen.runtime.effect-adapters.order-test
+             'hyperopen.runtime.effect-adapters.portfolio-optimizer-test
              'hyperopen.runtime.effect-adapters.staking-test
              'hyperopen.runtime.effect-adapters.vaults-test
              'hyperopen.runtime.effect-adapters.wallet-test

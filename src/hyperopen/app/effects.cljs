@@ -45,6 +45,7 @@
    :diagnostics {:confirm-ws-diagnostics-reveal effect-adapters/confirm-ws-diagnostics-reveal
                  :copy-websocket-diagnostics effect-adapters/copy-websocket-diagnostics
                  :ws-reset-subscriptions effect-adapters/ws-reset-subscriptions}
+   :portfolio-optimizer {:run-portfolio-optimizer effect-adapters/run-portfolio-optimizer-effect}
    :api-wallets {:api-load-api-wallets effect-adapters/api-load-api-wallets-effect
                  :generate-api-wallet effect-adapters/generate-api-wallet-effect
                  :api-authorize-api-wallet effect-adapters/api-authorize-api-wallet-effect

@@ -63,6 +63,31 @@
       (is (= "run-1"
              (get-in @store [:portfolio :optimizer :run-state :run-id]))))))
 
+(deftest request-run-uses-explicit-runtime-store-when-provided-test
+  (let [posted (atom [])
+        explicit-store (atom {:portfolio {:optimizer {:run-state {:status :idle}}}})
+        default-store (atom {:portfolio {:optimizer {:run-state {:status :default}}}})
+        fake-worker #js {}]
+    (set! (.-postMessage fake-worker)
+          (fn [message]
+            (swap! posted conj (js->clj message :keywordize-keys true))))
+    (with-redefs [system/store default-store
+                  worker-client/optimizer-worker fake-worker
+                  run-bridge/next-run-id (fn [] "run-explicit")]
+      (is (= "run-explicit"
+             (run-bridge/request-run! {:request {:scenario-id "scenario-explicit"}
+                                       :request-signature {:seed :explicit}
+                                       :computed-at-ms 111
+                                       :store explicit-store})))
+      (is (= :running
+             (get-in @explicit-store [:portfolio :optimizer :run-state :status])))
+      (is (= :default
+             (get-in @default-store [:portfolio :optimizer :run-state :status])))
+      (is (= [{:id "run-explicit"
+               :type "run-optimizer"
+               :payload {:scenario-id "scenario-explicit"}}]
+             @posted)))))
+
 (deftest worker-result-updates-last-successful-run-for-current-run-test
   (let [store (atom {:portfolio {:optimizer {:run-state {:status :running
                                                          :run-id "run-1"

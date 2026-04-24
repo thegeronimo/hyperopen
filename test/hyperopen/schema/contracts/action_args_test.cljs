@@ -125,6 +125,22 @@
         []
         {:phase :test}))))
 
+(deftest assert-action-args-validates-portfolio-optimizer-run-test
+  (is (= [{:scenario-id "scenario-1"}
+          {:scenario-id "scenario-1" :revision 1}]
+         (contracts/assert-action-args!
+          :actions/run-portfolio-optimizer
+          [{:scenario-id "scenario-1"}
+           {:scenario-id "scenario-1" :revision 1}]
+          {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"action payload"
+       (contracts/assert-action-args!
+        :actions/run-portfolio-optimizer
+        [{:scenario-id "scenario-1"}]
+        {:phase :test}))))
+
 (deftest assert-action-args-accepts-order-submission-confirmation-actions-test
   (is (= []
          (contracts/assert-action-args!

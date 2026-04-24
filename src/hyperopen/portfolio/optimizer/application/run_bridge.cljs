@@ -43,15 +43,16 @@
    :error nil})
 
 (defn request-run!
-  [{:keys [request request-signature computed-at-ms]}]
+  [{:keys [request request-signature computed-at-ms store]}]
   (when (not= request-signature (:request-signature @last-run-request))
     (worker-client/set-message-handler! handle-worker-message!)
     (let [run-id (next-run-id)
           scenario-id (:scenario-id request)
-          started-at-ms (or computed-at-ms (now-ms))]
+          started-at-ms (or computed-at-ms (now-ms))
+          store* (or store system/store)]
       (reset! last-run-request {:request-signature request-signature
                                 :run-id run-id})
-      (swap! system/store assoc-in
+      (swap! store* assoc-in
              [:portfolio :optimizer :run-state]
              (start-run-state {:run-id run-id
                                :scenario-id scenario-id
