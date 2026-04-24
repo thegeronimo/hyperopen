@@ -167,6 +167,11 @@
           :actions/set-portfolio-optimizer-universe-from-current
           []
           {:phase :test})))
+  (is (= []
+         (contracts/assert-action-args!
+          :actions/run-portfolio-optimizer-from-draft
+          []
+          {:phase :test})))
   (is (thrown-with-msg?
        js/Error
        #"action payload"

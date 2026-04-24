@@ -29,6 +29,10 @@
   (or (get-in state [:portfolio :optimizer :draft])
       (optimizer-defaults/default-draft)))
 
+(defn- runnable-draft?
+  [draft]
+  (seq (:universe draft)))
+
 (defn- panel-shell
   [data-role title subtitle & children]
   [:section {:class ["rounded-xl"
@@ -259,6 +263,7 @@
   [state route]
   (let [snapshot (current-portfolio/current-portfolio-snapshot state)
         draft (optimizer-draft state)
+        runnable? (boolean (runnable-draft? draft))
         scenario-id (:scenario-id route)]
     [:section {:class ["grid"
                        "grid-cols-1"
@@ -300,7 +305,35 @@
                           (or (when scenario-id
                                 (portfolio-routes/portfolio-optimize-scenario-path scenario-id))
                               (portfolio-routes/portfolio-optimize-index-path))]]}}
-        "Diagnostics"]]]
+        "Diagnostics"]]
+      [:div {:class ["mt-5" "border-t" "border-base-300" "pt-4"]}
+       [:p {:class ["text-[0.65rem]"
+                    "font-semibold"
+                    "uppercase"
+                    "tracking-[0.18em]"
+                    "text-trading-muted"]}
+        "Actions"]
+       [:button {:type "button"
+                 :class ["mt-3"
+                         "w-full"
+                         "rounded-lg"
+                         "border"
+                         "border-primary/50"
+                         "bg-primary/10"
+                         "px-3"
+                         "py-2"
+                         "text-left"
+                         "text-sm"
+                         "font-semibold"
+                         "text-primary"
+                         "disabled:cursor-not-allowed"
+                         "disabled:border-base-300"
+                         "disabled:bg-base-200/40"
+                         "disabled:text-trading-muted"]
+                 :data-role "portfolio-optimizer-run-draft"
+                 :disabled (not runnable?)
+                 :on {:click [[:actions/run-portfolio-optimizer-from-draft]]}}
+        "Run Optimization"]]]
      [:main {:class ["space-y-4"]}
       (setup-panels draft)
       [:div {:class ["grid" "grid-cols-1" "gap-3" "lg:grid-cols-3"]

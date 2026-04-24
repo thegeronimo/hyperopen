@@ -10,6 +10,47 @@
     (is (= [[:effects/run-portfolio-optimizer request signature]]
            (actions/run-portfolio-optimizer {} request signature)))))
 
+(deftest run-portfolio-optimizer-from-draft-builds-request-and-signature-test
+  (let [state {:portfolio {:optimizer {:draft {:id "draft-1"
+                                               :universe [{:instrument-id "perp:BTC"
+                                                           :market-type :perp
+                                                           :coin "BTC"}]
+                                               :objective {:kind :minimum-variance}
+                                               :return-model {:kind :historical-mean}
+                                               :risk-model {:kind :sample-covariance}
+                                               :constraints {:long-only? true
+                                                             :max-asset-weight 1.0}
+                                               :execution-assumptions {:fallback-slippage-bps 25}}
+                                      :history-data {:candle-history-by-coin
+                                                     {"BTC" [{:time 1000 :close "100"}
+                                                             {:time 2000 :close "110"}]}
+                                                     :funding-history-by-coin {}}
+                                      :market-cap-by-coin {}
+                                      :runtime {:as-of-ms 2500
+                                                :stale-after-ms 60000}}}
+               :webdata2 {:clearinghouseState
+                           {:marginSummary {:accountValue "1000"}
+                            :assetPositions
+                            [{:position {:coin "BTC"
+                                         :szi "0.5"
+                                         :positionValue "500"}}]}}}
+        [[effect-id request signature]]
+        (actions/run-portfolio-optimizer-from-draft state)]
+    (is (= :effects/run-portfolio-optimizer effect-id))
+    (is (= "draft-1" (:scenario-id request)))
+    (is (= ["perp:BTC"] (mapv :instrument-id (:universe request))))
+    (is (= :historical-mean (get-in request [:return-model :kind])))
+    (is (= :sample-covariance (get-in request [:risk-model :kind])))
+    (is (= 2500 (:as-of-ms request)))
+    (is (= false (get-in request [:history :freshness :stale?])))
+    (is (= "draft-1" (:scenario-id signature)))
+    (is (= request (:request signature)))))
+
+(deftest run-portfolio-optimizer-from-draft-requires-universe-test
+  (is (= []
+         (actions/run-portfolio-optimizer-from-draft
+          {:portfolio {:optimizer {:draft {:universe []}}}}))))
+
 (deftest set-draft-model-layer-actions-update-draft-and-mark-dirty-test
   (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :objective]
                                 {:kind :max-sharpe}]

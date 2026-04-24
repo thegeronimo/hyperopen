@@ -60,6 +60,9 @@
                     :webdata2 {:clearinghouseState {:marginSummary {:accountValue "100"}}}})]
     (is (some? (node-by-role view-node "portfolio-optimizer-workspace")))
     (is (some? (node-by-role view-node "portfolio-optimizer-left-rail")))
+    (is (= true
+           (get-in (node-by-role view-node "portfolio-optimizer-run-draft")
+                   [1 :disabled])))
     (is (some? (node-by-role view-node "portfolio-optimizer-universe-panel")))
     (is (= [[:actions/set-portfolio-optimizer-universe-from-current]]
            (click-actions
@@ -139,6 +142,22 @@
       (is (contains? strings "Max Asset Weight"))
       (is (contains? strings "Gross Leverage"))
       (is (contains? strings "Rebalance Tolerance")))))
+
+(deftest portfolio-optimizer-workspace-enables-run-for-draft-universe-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:draft {:universe [{:instrument-id "perp:BTC"
+                                                     :market-type :perp
+                                                     :coin "BTC"}]
+                                         :objective {:kind :minimum-variance}
+                                         :return-model {:kind :historical-mean}
+                                         :risk-model {:kind :ledoit-wolf}
+                                         :constraints {:long-only? true}}}}})
+        run-button (node-by-role view-node "portfolio-optimizer-run-draft")]
+    (is (= false (get-in run-button [1 :disabled])))
+    (is (= [[:actions/run-portfolio-optimizer-from-draft]]
+           (click-actions run-button)))))
 
 (deftest portfolio-view-delegates-optimizer-scenario-route-test
   (let [view-node (portfolio-view/portfolio-view

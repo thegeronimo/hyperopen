@@ -36,4 +36,5 @@
    [:actions/set-portfolio-optimizer-risk-model-kind :set-portfolio-optimizer-risk-model-kind]
    [:actions/set-portfolio-optimizer-constraint :set-portfolio-optimizer-constraint]
    [:actions/set-portfolio-optimizer-universe-from-current :set-portfolio-optimizer-universe-from-current]
+   [:actions/run-portfolio-optimizer-from-draft :run-portfolio-optimizer-from-draft]
    [:actions/run-portfolio-optimizer :run-portfolio-optimizer]])
