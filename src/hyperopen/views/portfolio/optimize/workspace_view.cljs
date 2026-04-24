@@ -3,7 +3,8 @@
             [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
             [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
             [hyperopen.portfolio.routes :as portfolio-routes]
-            [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]))
+            [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]
+            [hyperopen.views.portfolio.optimize.run-status-panel :as run-status-panel]))
 
 (defn- metric-card
   [label value]
@@ -360,7 +361,12 @@
   (let [snapshot (current-portfolio/current-portfolio-snapshot state)
         draft (optimizer-draft state)
         readiness (setup-readiness/build-readiness state)
-        runnable? (:runnable? readiness)
+        run-state (or (get-in state [:portfolio :optimizer :run-state])
+                      (optimizer-defaults/default-run-state))
+        running? (= :running (:status run-state))
+        runnable? (and (:runnable? readiness)
+                       (not running?))
+        last-successful-run (get-in state [:portfolio :optimizer :last-successful-run])
         scenario-id (:scenario-id route)]
     [:section {:class ["grid"
                        "grid-cols-1"
@@ -379,6 +385,7 @@
        "Scenario"]
       [:h1 {:class ["mt-2" "text-xl" "font-semibold" "tracking-tight"]}
        (route-title route)]
+      (run-status-panel/draft-state-badge draft)
       [:nav {:class ["mt-4" "space-y-2" "text-sm"]}
        [:a {:class ["block" "rounded-md" "bg-base-200/70" "px-3" "py-2"]
             :href (portfolio-routes/portfolio-optimize-new-path)
@@ -430,7 +437,9 @@
                  :data-role "portfolio-optimizer-run-draft"
                  :disabled (not runnable?)
                  :on {:click [[:actions/run-portfolio-optimizer-from-draft]]}}
-        "Run Optimization"]]]
+        (if running?
+          "Running Optimization"
+          "Run Optimization")]]]
      [:main {:class ["space-y-4"]}
       (setup-panels draft)
       [:div {:class ["grid" "grid-cols-1" "gap-3" "lg:grid-cols-3"]
@@ -457,6 +466,8 @@
          "Current portfolio snapshot is available."
          "Current portfolio snapshot is not loaded yet.")]
       (readiness-panel readiness)
+      (run-status-panel/run-status-panel run-state)
+      (run-status-panel/last-successful-run-panel run-state last-successful-run)
       (when-let [message (get-in snapshot [:account :read-only-message])]
         [:p {:class ["mt-3" "rounded-md" "border" "border-warning/40" "bg-warning/10" "p-2" "text-xs" "text-warning"]}
          message])]]))

@@ -60,6 +60,7 @@
                     :webdata2 {:clearinghouseState {:marginSummary {:accountValue "100"}}}})]
     (is (some? (node-by-role view-node "portfolio-optimizer-workspace")))
     (is (some? (node-by-role view-node "portfolio-optimizer-left-rail")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-draft-state")))
     (is (= true
            (get-in (node-by-role view-node "portfolio-optimizer-run-draft")
                    [1 :disabled])))
@@ -170,6 +171,7 @@
       (is (contains? strings "Minimum Variance"))
       (is (contains? strings "Historical Mean"))
       (is (contains? strings "Ledoit-Wolf"))
+      (is (contains? strings "Draft clean"))
       (is (contains? strings "Max Asset Weight"))
       (is (contains? strings "Gross Leverage"))
       (is (contains? strings "Rebalance Tolerance"))
@@ -231,6 +233,51 @@
            (input-actions
             (node-by-role view-node
                           "portfolio-optimizer-instrument-perp-max-weight-input"))))))
+
+(deftest portfolio-optimizer-workspace-shows-run-state-and-retained-result-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:draft {:universe [{:instrument-id "perp:BTC"
+                                                     :market-type :perp
+                                                     :coin "BTC"}]
+                                         :metadata {:dirty? true}}
+                                 :history-data {:candle-history-by-coin
+                                                {"BTC" [{:time 1000 :close "100"}
+                                                        {:time 2000 :close "110"}]}
+                                                :funding-history-by-coin {}}
+                                 :runtime {:as-of-ms 2500}
+                                 :run-state {:status :running
+                                             :run-id "run-1"
+                                             :started-at-ms 2400}
+                                 :last-successful-run {:result {:status :solved
+                                                                :instrument-ids ["perp:BTC"
+                                                                                 "spot:PURR"]}
+                                                       :computed-at-ms 2000}}}})
+        run-button (node-by-role view-node "portfolio-optimizer-run-draft")
+        strings (set (collect-strings view-node))]
+    (is (= true (get-in run-button [1 :disabled])))
+    (is (some? (node-by-role view-node "portfolio-optimizer-run-status-panel")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-last-successful-run")))
+    (is (contains? strings "Draft has unsaved changes"))
+    (is (contains? strings "Running Optimization"))
+    (is (contains? strings "Running"))
+    (is (contains? strings "Retaining last successful result while rerunning."))
+    (is (contains? strings "2 assets"))))
+
+(deftest portfolio-optimizer-workspace-shows-failed-run-status-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:run-state {:status :failed
+                                             :completed-at-ms 2600
+                                             :error {:code :solver-failed
+                                                     :message "solver blew up"}}}}})
+        strings (set (collect-strings view-node))]
+    (is (some? (node-by-role view-node "portfolio-optimizer-run-status-panel")))
+    (is (contains? strings "Failed"))
+    (is (contains? strings "solver-failed"))
+    (is (contains? strings "solver blew up"))))
 
 (deftest portfolio-optimizer-workspace-blocks-run-when-history-is-missing-test
   (let [view-node (portfolio-view/portfolio-view
