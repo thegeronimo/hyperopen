@@ -35,7 +35,9 @@
                          :set-portfolio-optimizer-objective-kind action-adapters/set-portfolio-optimizer-objective-kind-action
                          :set-portfolio-optimizer-return-model-kind action-adapters/set-portfolio-optimizer-return-model-kind-action
                          :set-portfolio-optimizer-risk-model-kind action-adapters/set-portfolio-optimizer-risk-model-kind-action
-                         :set-portfolio-optimizer-constraint action-adapters/set-portfolio-optimizer-constraint-action}
+                         :set-portfolio-optimizer-constraint action-adapters/set-portfolio-optimizer-constraint-action
+                         :set-portfolio-optimizer-universe-from-current
+                         action-adapters/set-portfolio-optimizer-universe-from-current-action}
    :api-wallets {:load-api-wallet-route action-adapters/load-api-wallet-route-action
                  :set-api-wallet-form-field api-wallets-actions/set-api-wallet-form-field
                  :set-api-wallet-sort api-wallets-actions/set-api-wallet-sort

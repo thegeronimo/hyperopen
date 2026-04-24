@@ -162,6 +162,11 @@
           :actions/set-portfolio-optimizer-constraint
           [:max-asset-weight "0.42"]
           {:phase :test})))
+  (is (= []
+         (contracts/assert-action-args!
+          :actions/set-portfolio-optimizer-universe-from-current
+          []
+          {:phase :test})))
   (is (thrown-with-msg?
        js/Error
        #"action payload"

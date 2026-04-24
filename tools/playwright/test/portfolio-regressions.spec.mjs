@@ -283,6 +283,8 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   await visitRoute(page, "/portfolio/optimize/new");
 
   await expect(page.locator("[data-role='portfolio-optimizer-workspace']")).toBeVisible();
+  await expect(page.locator("[data-role='portfolio-optimizer-universe-panel']"))
+    .toContainText("Use Current Holdings");
   await expect(page.locator("[data-role='portfolio-optimizer-objective-panel']"))
     .toContainText("Minimum Variance");
   await expect(page.locator("[data-role='portfolio-optimizer-return-model-panel']"))

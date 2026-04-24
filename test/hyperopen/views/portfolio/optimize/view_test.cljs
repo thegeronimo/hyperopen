@@ -60,6 +60,11 @@
                     :webdata2 {:clearinghouseState {:marginSummary {:accountValue "100"}}}})]
     (is (some? (node-by-role view-node "portfolio-optimizer-workspace")))
     (is (some? (node-by-role view-node "portfolio-optimizer-left-rail")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-universe-panel")))
+    (is (= [[:actions/set-portfolio-optimizer-universe-from-current]]
+           (click-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-universe-use-current"))))
     (is (some? (node-by-role view-node "portfolio-optimizer-objective-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-return-model-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-risk-model-panel")))

@@ -70,7 +70,9 @@
     (is (identical? action-adapters/run-portfolio-optimizer-action
                     (get-in deps [:portfolio-optimizer :run-portfolio-optimizer])))
     (is (identical? action-adapters/set-portfolio-optimizer-objective-kind-action
-                    (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-objective-kind])))))
+                    (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-objective-kind])))
+    (is (identical? action-adapters/set-portfolio-optimizer-universe-from-current-action
+                    (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-universe-from-current])))))
 
 (deftest runtime-registration-deps-builds-effect-and-action-handlers-test
   (let [deps (wiring/runtime-registration-deps)]

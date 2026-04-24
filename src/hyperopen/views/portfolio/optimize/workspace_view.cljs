@@ -131,6 +131,38 @@
                            constraint-key
                            :event.target/checked]]}}]])
 
+(defn- universe-panel
+  [draft]
+  (let [universe (vec (or (:universe draft) []))]
+    [:section {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
+               :data-role "portfolio-optimizer-universe-panel"}
+     [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
+      [:div
+       [:p {:class ["text-[0.65rem]"
+                    "font-semibold"
+                    "uppercase"
+                    "tracking-[0.24em]"
+                    "text-trading-muted"]}
+        "Universe"]
+       [:p {:class ["mt-2" "text-sm" "text-trading-muted"]}
+        (str (count universe)
+             " instruments selected. Seed from current holdings, then refine allowlist and overrides.")]]
+      [:button {:type "button"
+                :class ["rounded-lg"
+                        "border"
+                        "border-primary/50"
+                        "bg-primary/10"
+                        "px-3"
+                        "py-2"
+                        "text-xs"
+                        "font-semibold"
+                        "uppercase"
+                        "tracking-[0.16em]"
+                        "text-primary"]
+                :data-role "portfolio-optimizer-universe-use-current"
+                :on {:click [[:actions/set-portfolio-optimizer-universe-from-current]]}}
+       "Use Current Holdings"]]]))
+
 (defn- setup-panels
   [draft]
   (let [objective-kind (get-in draft [:objective :kind])
@@ -139,6 +171,7 @@
         constraints (:constraints draft)]
     [:div {:class ["grid" "grid-cols-1" "gap-4"]
            :data-role "portfolio-optimizer-setup-surface"}
+     (universe-panel draft)
      (panel-shell
       "portfolio-optimizer-objective-panel"
       "Objective"

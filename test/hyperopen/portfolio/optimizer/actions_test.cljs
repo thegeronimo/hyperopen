@@ -64,3 +64,39 @@
           {}
           :gross-max
           "not-a-number"))))
+
+(deftest set-draft-universe-from-current-holdings-test
+  (let [state {:webdata2 {:clearinghouseState
+                          {:marginSummary {:accountValue "1000"}
+                           :assetPositions
+                           [{:position {:coin "BTC"
+                                        :szi "0.5"
+                                        :positionValue "500"
+                                        :leverage {:type "cross"
+                                                   :value "5"}}}]}}
+               :spot {:balances [{:coin "PURR"
+                                  :total "10"}]}
+               :asset-selector {:market-by-key
+                                {"spot:PURR" {:key "spot:PURR"
+                                              :market-type :spot
+                                              :coin "PURR/USDC"
+                                              :base "PURR"
+                                              :quote "USDC"
+                                              :mark "2"}}}}]
+    (is (= [[:effects/save-many
+             [[[:portfolio :optimizer :draft :universe]
+               [{:instrument-id "perp:BTC"
+                 :market-type :perp
+                 :coin "BTC"
+                 :shortable? true}
+                {:instrument-id "spot:PURR"
+                 :market-type :spot
+                 :coin "PURR"
+                 :shortable? false}]]
+              [[:portfolio :optimizer :draft :metadata :dirty?]
+               true]]]]
+           (actions/set-portfolio-optimizer-universe-from-current state)))))
+
+(deftest set-draft-universe-from-current-holdings-ignores-empty-snapshot-test
+  (is (= []
+         (actions/set-portfolio-optimizer-universe-from-current {}))))

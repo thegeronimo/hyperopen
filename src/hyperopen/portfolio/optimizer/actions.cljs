@@ -1,5 +1,6 @@
 (ns hyperopen.portfolio.optimizer.actions
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [hyperopen.portfolio.optimizer.application.current-portfolio :as current-portfolio]))
 
 (def ^:private objective-models
   {:minimum-variance {:kind :minimum-variance}
@@ -48,6 +49,41 @@
   [[:effects/save-many
     (conj (vec path-values)
           [[:portfolio :optimizer :draft :metadata :dirty?] true])]])
+
+(defn- non-blank-text
+  [value]
+  (let [text (some-> value str str/trim)]
+    (when (seq text)
+      text)))
+
+(defn- exposure->universe-instrument
+  [exposure]
+  (let [instrument-id (non-blank-text (:instrument-id exposure))
+        coin (non-blank-text (:coin exposure))
+        market-type (:market-type exposure)]
+    (when (and instrument-id
+               coin
+               (keyword? market-type))
+      (cond-> {:instrument-id instrument-id
+               :market-type market-type
+               :coin coin
+               :shortable? (= :perp market-type)}
+        (non-blank-text (:dex exposure))
+        (assoc :dex (non-blank-text (:dex exposure)))))))
+
+(defn- dedupe-instruments
+  [instruments]
+  (:items
+   (reduce (fn [{:keys [seen] :as acc} instrument]
+             (let [instrument-id (:instrument-id instrument)]
+               (if (contains? seen instrument-id)
+                 acc
+                 (-> acc
+                     (update :seen conj instrument-id)
+                     (update :items conj instrument)))))
+           {:seen #{}
+            :items []}
+           instruments)))
 
 (defn- parse-number-value
   [value]
@@ -114,6 +150,17 @@
     (if (some? value*)
       (save-draft-path-values
        [[[:portfolio :optimizer :draft :constraints constraint-key*] value*]])
+      [])))
+
+(defn set-portfolio-optimizer-universe-from-current
+  [state]
+  (let [snapshot (current-portfolio/current-portfolio-snapshot state)
+        universe (->> (:exposures snapshot)
+                      (keep exposure->universe-instrument)
+                      dedupe-instruments)]
+    (if (seq universe)
+      (save-draft-path-values
+       [[[:portfolio :optimizer :draft :universe] universe]])
       [])))
 
 (defn run-portfolio-optimizer
