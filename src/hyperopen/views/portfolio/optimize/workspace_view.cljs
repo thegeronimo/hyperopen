@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.workspace-view
   (:require [hyperopen.portfolio.optimizer.application.current-portfolio :as current-portfolio]
+            [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
             [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
             [hyperopen.portfolio.routes :as portfolio-routes]))
 
@@ -28,10 +29,6 @@
   [state]
   (or (get-in state [:portfolio :optimizer :draft])
       (optimizer-defaults/default-draft)))
-
-(defn- runnable-draft?
-  [draft]
-  (seq (:universe draft)))
 
 (defn- panel-shell
   [data-role title subtitle & children]
@@ -259,11 +256,53 @@
        (constraint-row "Perp Leverage"
                        (str (count (:perp-leverage constraints)) " overrides"))]]]))
 
+(defn- warning-code-label
+  [warning]
+  (some-> (:code warning) name))
+
+(defn- readiness-copy
+  [readiness]
+  (case (:reason readiness)
+    :missing-universe "Select a universe before running."
+    :no-eligible-history "History is required before this draft can run."
+    "Optimizer inputs are ready to run."))
+
+(defn- readiness-panel
+  [readiness]
+  (let [warnings (vec (:warnings readiness))]
+    [:div {:class ["mt-4" "rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]
+           :data-role "portfolio-optimizer-readiness-panel"}
+     [:p {:class ["text-[0.65rem]"
+                  "font-semibold"
+                  "uppercase"
+                  "tracking-[0.18em]"
+                  "text-trading-muted"]}
+      "Readiness"]
+     [:p {:class ["mt-2" "text-xs" "text-trading-muted"]}
+      (readiness-copy readiness)]
+     (when (seq warnings)
+       (into
+        [:div {:class ["mt-3" "space-y-2"]}]
+        (map (fn [warning]
+               [:p {:class ["rounded-md"
+                            "border"
+                            "border-warning/40"
+                            "bg-warning/10"
+                            "px-2"
+                            "py-1.5"
+                            "text-xs"
+                            "font-semibold"
+                            "text-warning"]
+                    :data-role "portfolio-optimizer-readiness-warning"}
+                (warning-code-label warning)])
+             warnings)))]))
+
 (defn workspace-view
   [state route]
   (let [snapshot (current-portfolio/current-portfolio-snapshot state)
         draft (optimizer-draft state)
-        runnable? (boolean (runnable-draft? draft))
+        readiness (setup-readiness/build-readiness state)
+        runnable? (:runnable? readiness)
         scenario-id (:scenario-id route)]
     [:section {:class ["grid"
                        "grid-cols-1"
@@ -359,6 +398,7 @@
        (if (:loaded? snapshot)
          "Current portfolio snapshot is available."
          "Current portfolio snapshot is not loaded yet.")]
+      (readiness-panel readiness)
       (when-let [message (get-in snapshot [:account :read-only-message])]
         [:p {:class ["mt-3" "rounded-md" "border" "border-warning/40" "bg-warning/10" "p-2" "text-xs" "text-warning"]}
          message])]]))

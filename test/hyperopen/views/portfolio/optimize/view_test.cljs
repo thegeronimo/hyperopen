@@ -153,11 +153,37 @@
                                          :objective {:kind :minimum-variance}
                                          :return-model {:kind :historical-mean}
                                          :risk-model {:kind :ledoit-wolf}
-                                         :constraints {:long-only? true}}}}})
+                                         :constraints {:long-only? true}}
+                                 :history-data {:candle-history-by-coin
+                                                {"BTC" [{:time 1000 :close "100"}
+                                                        {:time 2000 :close "110"}]}
+                                                :funding-history-by-coin {}}
+                                 :runtime {:as-of-ms 2500}}}})
         run-button (node-by-role view-node "portfolio-optimizer-run-draft")]
     (is (= false (get-in run-button [1 :disabled])))
     (is (= [[:actions/run-portfolio-optimizer-from-draft]]
            (click-actions run-button)))))
+
+(deftest portfolio-optimizer-workspace-blocks-run-when-history-is-missing-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:draft {:universe [{:instrument-id "perp:BTC"
+                                                     :market-type :perp
+                                                     :coin "BTC"}]
+                                         :objective {:kind :minimum-variance}
+                                         :return-model {:kind :historical-mean}
+                                         :risk-model {:kind :ledoit-wolf}
+                                         :constraints {:long-only? true}}
+                                 :history-data {:candle-history-by-coin {}
+                                                :funding-history-by-coin {}}
+                                 :runtime {:as-of-ms 2500}}}})
+        run-button (node-by-role view-node "portfolio-optimizer-run-draft")]
+    (is (= true (get-in run-button [1 :disabled])))
+    (is (some? (node-by-role view-node
+                             "portfolio-optimizer-readiness-warning")))
+    (is (contains? (set (collect-strings view-node))
+                   "missing-candle-history"))))
 
 (deftest portfolio-view-delegates-optimizer-scenario-route-test
   (let [view-node (portfolio-view/portfolio-view

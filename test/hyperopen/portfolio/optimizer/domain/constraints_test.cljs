@@ -11,6 +11,15 @@
                                            {:allowlist #{"A" "B"}
                                             :blocklist #{"B"}})))))
 
+(deftest normalize-universe-accepts-vector-filters-from-worker-payload-test
+  (let [universe [{:instrument-id "A"}
+                  {:instrument-id "B"}
+                  {:instrument-id "C"}]]
+    (is (= [{:instrument-id "A"}]
+           (constraints/normalize-universe universe
+                                           {:allowlist ["A" "B"]
+                                            :blocklist ["B"]})))))
+
 (deftest encode-long-only-bounds-applies-global-cap-overrides-and-held-locks-test
   (let [encoded (constraints/encode-constraints
                  {:universe [{:instrument-id "A"}
@@ -28,6 +37,20 @@
              :weight 0.2}]
            (:locked-weights encoded)))
     (is (= :ok (:status encoded)))))
+
+(deftest encode-constraints-accepts-vector-held-locks-from-worker-payload-test
+  (let [encoded (constraints/encode-constraints
+                 {:universe [{:instrument-id "A"}
+                             {:instrument-id "B"}]
+                  :current-weights {"B" 0.35}
+                  :constraints {:long-only? true
+                                :max-asset-weight 0.8
+                                :held-position-locks ["B"]}})]
+    (is (= [0 0.35] (:lower-bounds encoded)))
+    (is (= [0.8 0.35] (:upper-bounds encoded)))
+    (is (= [{:instrument-id "B"
+             :weight 0.35}]
+           (:locked-weights encoded)))))
 
 (deftest presolve-reports-infeasible-long-only-cap-before-solver-test
   (let [encoded (constraints/encode-constraints

@@ -7,10 +7,18 @@
   [instrument]
   (:instrument-id instrument))
 
+(defn- id-set
+  [values]
+  (cond
+    (nil? values) nil
+    (set? values) values
+    (sequential? values) (set values)
+    :else #{values}))
+
 (defn normalize-universe
   [universe constraints]
-  (let [allowlist (:allowlist constraints)
-        blocklist (or (:blocklist constraints) #{})]
+  (let [allowlist (id-set (:allowlist constraints))
+        blocklist (or (id-set (:blocklist constraints)) #{})]
     (->> universe
          (filter (fn [instrument]
                    (let [id (instrument-id instrument)]
@@ -29,7 +37,8 @@
 
 (defn- locked?
   [constraints instrument-id]
-  (contains? (or (:held-position-locks constraints) #{}) instrument-id))
+  (contains? (or (id-set (:held-position-locks constraints)) #{})
+             instrument-id))
 
 (defn- current-weight
   [current-weights instrument-id]

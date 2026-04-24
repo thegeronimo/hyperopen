@@ -1,7 +1,7 @@
 (ns hyperopen.portfolio.optimizer.actions
   (:require [clojure.string :as str]
             [hyperopen.portfolio.optimizer.application.current-portfolio :as current-portfolio]
-            [hyperopen.portfolio.optimizer.application.request-builder :as request-builder]))
+            [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]))
 
 (def ^:private objective-models
   {:minimum-variance {:kind :minimum-variance}
@@ -164,11 +164,6 @@
        [[[:portfolio :optimizer :draft :universe] universe]])
       [])))
 
-(defn- current-as-of-ms
-  [state]
-  (or (get-in state [:portfolio :optimizer :runtime :as-of-ms])
-      (.now js/Date)))
-
 (defn- build-request-signature
   [request]
   {:scenario-id (:scenario-id request)
@@ -177,20 +172,9 @@
 
 (defn run-portfolio-optimizer-from-draft
   [state]
-  (let [draft (get-in state [:portfolio :optimizer :draft])]
-    (if (seq (:universe draft))
-      (let [as-of-ms (current-as-of-ms state)
-            request (request-builder/build-engine-request
-                     {:draft draft
-                      :current-portfolio (current-portfolio/current-portfolio-snapshot state)
-                      :history-data (get-in state [:portfolio :optimizer :history-data])
-                      :market-cap-by-coin (get-in state [:portfolio :optimizer :market-cap-by-coin])
-                      :as-of-ms as-of-ms
-                      :stale-after-ms (get-in state [:portfolio :optimizer :runtime :stale-after-ms])
-                      :funding-periods-per-year (get-in state
-                                                        [:portfolio :optimizer :runtime :funding-periods-per-year])})
-            signature (build-request-signature request)]
-        [[:effects/run-portfolio-optimizer request signature]])
+  (let [{:keys [request runnable?]} (setup-readiness/build-readiness state)]
+    (if runnable?
+      [[:effects/run-portfolio-optimizer request (build-request-signature request)]]
       [])))
 
 (defn run-portfolio-optimizer

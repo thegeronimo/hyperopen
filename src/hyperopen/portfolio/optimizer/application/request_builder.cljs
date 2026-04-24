@@ -1,5 +1,6 @@
 (ns hyperopen.portfolio.optimizer.application.request-builder
-  (:require [hyperopen.portfolio.optimizer.application.history-loader :as history-loader]
+  (:require [clojure.string :as str]
+            [hyperopen.portfolio.optimizer.application.history-loader :as history-loader]
             [hyperopen.portfolio.optimizer.infrastructure.prior-data :as prior-data]))
 
 (def default-return-model
@@ -14,6 +15,74 @@
 (defn- draft-universe
   [draft]
   (vec (or (:universe draft) [])))
+
+(defn- non-blank-text
+  [value]
+  (let [text (some-> value str str/trim)]
+    (when (seq text)
+      text)))
+
+(defn- normalize-id-list
+  [values]
+  (->> (cond
+         (nil? values) []
+         (set? values) values
+         (sequential? values) values
+         :else [values])
+       (keep non-blank-text)
+       distinct
+       vec))
+
+(defn- normalize-net-exposure
+  [constraints]
+  (let [net-min (:net-min constraints)
+        net-max (:net-max constraints)]
+    (if (or (some? net-min)
+            (some? net-max))
+      (cond-> {}
+        (some? net-min) (assoc :min net-min)
+        (some? net-max) (assoc :max net-max))
+      (:net-exposure constraints))))
+
+(def ^:private draft-only-constraint-keys
+  #{:gross-max
+    :net-min
+    :net-max
+    :asset-overrides
+    :held-locks
+    :perp-leverage})
+
+(defn- normalize-constraints
+  [constraints]
+  (let [constraints* (or constraints {})
+        allowlist (normalize-id-list (:allowlist constraints*))
+        blocklist (normalize-id-list (:blocklist constraints*))
+        held-locks (normalize-id-list (:held-locks constraints*))
+        net-exposure (normalize-net-exposure constraints*)]
+    (cond-> (apply dissoc constraints* draft-only-constraint-keys)
+      true
+      (assoc :blocklist blocklist)
+
+      (empty? allowlist)
+      (dissoc :allowlist)
+
+      (seq allowlist)
+      (assoc :allowlist allowlist)
+
+      (contains? constraints* :gross-max)
+      (assoc :gross-leverage (:gross-max constraints*))
+
+      (some? net-exposure)
+      (assoc :net-exposure net-exposure)
+
+      (contains? constraints* :asset-overrides)
+      (assoc :per-asset-overrides (:asset-overrides constraints*))
+
+      (contains? constraints* :held-locks)
+      (assoc :held-position-locks held-locks)
+
+      (contains? constraints* :perp-leverage)
+      (assoc :per-perp-leverage-caps (:perp-leverage constraints*)))))
 
 (defn- black-litterman-return-model?
   [return-model]
@@ -40,7 +109,7 @@
         return-model (or (:return-model draft*) default-return-model)
         risk-model (or (:risk-model draft*) default-risk-model)
         objective (or (:objective draft*) default-objective)
-        constraints (or (:constraints draft*) {})
+        constraints (normalize-constraints (:constraints draft*))
         history (history-loader/align-history-inputs
                  {:universe requested-universe
                   :candle-history-by-coin (:candle-history-by-coin history-data)

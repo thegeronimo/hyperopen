@@ -1,5 +1,6 @@
 (ns hyperopen.portfolio.optimizer.application.request-builder-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.portfolio.optimizer.defaults :as defaults]
             [hyperopen.portfolio.optimizer.application.request-builder :as request-builder]))
 
 (deftest build-engine-request-keeps-model-layers-separate-and-attaches-bl-prior-test
@@ -67,3 +68,65 @@
            (set (map :code (:warnings request)))))
     (is (= ["perp:BTC" "spot:MISSING"]
            (mapv :instrument-id (get-in request [:history :excluded-instruments]))))))
+
+(deftest build-engine-request-normalizes-setup-constraint-keys-test
+  (let [draft (assoc (defaults/default-draft)
+                     :id "draft-constraints"
+                     :universe [{:instrument-id "perp:BTC"
+                                 :market-type :perp
+                                 :coin "BTC"}]
+                     :constraints {:long-only? false
+                                   :gross-max 1.3
+                                   :net-min -0.2
+                                   :net-max 0.8
+                                   :max-asset-weight 0.6
+                                   :allowlist ["perp:BTC"]
+                                   :blocklist ["spot:PURR"]
+                                   :asset-overrides {"perp:BTC" {:max-weight 0.5}}
+                                   :held-locks ["perp:BTC"]
+                                   :perp-leverage {"perp:BTC" {:max-weight 0.4}}
+                                   :max-turnover 0.25
+                                   :rebalance-tolerance 0.01})
+        request (request-builder/build-engine-request
+                 {:draft draft
+                  :current-portfolio {:by-instrument {"perp:BTC" {:weight 1}}}
+                  :history-data {:candle-history-by-coin
+                                 {"BTC" [{:time 1000 :close "100"}
+                                         {:time 2000 :close "110"}]}
+                                 :funding-history-by-coin {}}
+                  :market-cap-by-coin {}
+                  :as-of-ms 2500})
+        constraints (:constraints request)]
+    (is (= 1.3 (:gross-leverage constraints)))
+    (is (= {:min -0.2 :max 0.8} (:net-exposure constraints)))
+    (is (= ["perp:BTC"] (:allowlist constraints)))
+    (is (= ["spot:PURR"] (:blocklist constraints)))
+    (is (= {"perp:BTC" {:max-weight 0.5}}
+           (:per-asset-overrides constraints)))
+    (is (= ["perp:BTC"] (:held-position-locks constraints)))
+    (is (= {"perp:BTC" {:max-weight 0.4}}
+           (:per-perp-leverage-caps constraints)))
+    (is (not (contains? constraints :gross-max)))
+    (is (not (contains? constraints :net-min)))
+    (is (not (contains? constraints :asset-overrides)))))
+
+(deftest build-engine-request-treats-empty-allowlist-as-unbounded-test
+  (let [draft (assoc (defaults/default-draft)
+                     :id "draft-default-constraints"
+                     :universe [{:instrument-id "perp:BTC"
+                                 :market-type :perp
+                                 :coin "BTC"}])
+        request (request-builder/build-engine-request
+                 {:draft draft
+                  :current-portfolio {:by-instrument {"perp:BTC" {:weight 1}}}
+                  :history-data {:candle-history-by-coin
+                                 {"BTC" [{:time 1000 :close "100"}
+                                         {:time 2000 :close "110"}]}
+                                 :funding-history-by-coin {}}
+                  :market-cap-by-coin {}
+                  :as-of-ms 2500})
+        constraints (:constraints request)]
+    (is (nil? (:allowlist constraints)))
+    (is (= [] (:blocklist constraints)))
+    (is (= 1.0 (:gross-leverage constraints)))
+    (is (= {:min -1.0 :max 1.0} (:net-exposure constraints)))))

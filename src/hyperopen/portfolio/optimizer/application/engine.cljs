@@ -161,12 +161,31 @@
          :selected selected
          :frontier frontier-points}))))
 
+(defn- finite-number?
+  [value]
+  (and (number? value)
+       (not (js/isNaN value))
+       (js/isFinite value)))
+
+(defn- dust-threshold
+  [request]
+  (let [direct-threshold (get-in request [:constraints :dust-threshold])
+        dust-usdc (get-in request [:constraints :dust-usdc])
+        nav-usdc (or (get-in request [:current-portfolio :capital :nav-usdc])
+                     (get-in request [:current-portfolio :capital :account-value-usd]))]
+    (if (some? direct-threshold)
+      direct-threshold
+      (when (and (finite-number? dust-usdc)
+                 (finite-number? nav-usdc)
+                 (pos? nav-usdc))
+        (/ dust-usdc nav-usdc)))))
+
 (defn- aligned-clean-weights
   [instrument-ids weights encoded-constraints request]
   (let [cleaned (weight-cleaning/clean-weights
                  {:instrument-ids instrument-ids
                   :weights weights
-                  :dust-threshold (get-in request [:constraints :dust-threshold])
+                  :dust-threshold (dust-threshold request)
                   :long-only? (:long-only? encoded-constraints)
                   :target-net (:net-target encoded-constraints)})
         by-id (zipmap (:instrument-ids cleaned) (:weights cleaned))]

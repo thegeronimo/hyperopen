@@ -284,6 +284,8 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
 
   await expect(page.locator("[data-role='portfolio-optimizer-workspace']")).toBeVisible();
   await expect(page.locator("[data-role='portfolio-optimizer-run-draft']")).toBeDisabled();
+  await expect(page.locator("[data-role='portfolio-optimizer-readiness-panel']"))
+    .toContainText("Select a universe before running.");
   await expect(page.locator("[data-role='portfolio-optimizer-universe-panel']"))
     .toContainText("Use Current Holdings");
   await expect(page.locator("[data-role='portfolio-optimizer-objective-panel']"))

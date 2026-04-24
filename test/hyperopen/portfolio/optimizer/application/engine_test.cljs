@@ -97,6 +97,22 @@
     (is (= 2 (count (:solver-results result))))
     (is (= 2 (count (:frontier result))))))
 
+(deftest run-optimization-converts-usdc-dust-threshold-to-weight-threshold-test
+  (let [result (engine/run-optimization
+                (assoc base-request
+                       :constraints {:long-only? true
+                                     :max-asset-weight 1
+                                     :dust-usdc 50})
+                {:solve-problem (fn [_problem]
+                                  {:status :solved
+                                   :weights [0.996 0.004]})})]
+    (is (= :solved (:status result)))
+    (is (= [1 0] (:target-weights result)))
+    (is (= [{:instrument-id "perp:ETH"
+             :weight 0.004
+             :reason :dust-threshold}]
+           (:dropped-weights result)))))
+
 (deftest run-optimization-async-awaits-promise-solver-results-test
   (async done
     (-> (engine/run-optimization-async

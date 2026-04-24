@@ -51,6 +51,21 @@
          (actions/run-portfolio-optimizer-from-draft
           {:portfolio {:optimizer {:draft {:universe []}}}}))))
 
+(deftest run-portfolio-optimizer-from-draft-requires-eligible-history-test
+  (is (= []
+         (actions/run-portfolio-optimizer-from-draft
+          {:portfolio {:optimizer {:draft {:id "draft-missing-history"
+                                           :universe [{:instrument-id "perp:BTC"
+                                                       :market-type :perp
+                                                       :coin "BTC"}]
+                                           :objective {:kind :minimum-variance}
+                                           :return-model {:kind :historical-mean}
+                                           :risk-model {:kind :ledoit-wolf}
+                                           :constraints {:long-only? true}}
+                                  :history-data {:candle-history-by-coin {}
+                                                 :funding-history-by-coin {}}
+                                  :runtime {:as-of-ms 2500}}}}))))
+
 (deftest set-draft-model-layer-actions-update-draft-and-mark-dirty-test
   (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :objective]
                                 {:kind :max-sharpe}]
