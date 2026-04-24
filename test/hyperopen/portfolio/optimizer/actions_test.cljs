@@ -105,6 +105,24 @@
           {}
           "/trade"))))
 
+(deftest scenario-board-row-actions-emit-persistence-effects-test
+  (is (= [[:effects/archive-portfolio-optimizer-scenario "scn_01"]]
+         (actions/archive-portfolio-optimizer-scenario
+          {}
+          "scn_01")))
+  (is (= [[:effects/duplicate-portfolio-optimizer-scenario "scn_01"]]
+         (actions/duplicate-portfolio-optimizer-scenario
+          {}
+          "scn_01")))
+  (is (= []
+         (actions/archive-portfolio-optimizer-scenario
+          {}
+          " ")))
+  (is (= []
+         (actions/duplicate-portfolio-optimizer-scenario
+          {}
+          nil))))
+
 (deftest set-draft-model-layer-actions-update-draft-and-mark-dirty-test
   (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :objective]
                                 {:kind :max-sharpe}]

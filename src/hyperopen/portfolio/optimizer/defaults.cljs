@@ -72,6 +72,23 @@
    :completed-at-ms nil
    :error nil})
 
+(defn default-scenario-archive-state
+  []
+  {:status :idle
+   :scenario-id nil
+   :started-at-ms nil
+   :completed-at-ms nil
+   :error nil})
+
+(defn default-scenario-duplicate-state
+  []
+  {:status :idle
+   :source-scenario-id nil
+   :duplicated-scenario-id nil
+   :started-at-ms nil
+   :completed-at-ms nil
+   :error nil})
+
 (defn default-optimizer-state
   []
   {:draft (default-draft)
@@ -88,6 +105,8 @@
    :scenario-save-state (default-scenario-save-state)
    :scenario-index-load-state (default-scenario-index-load-state)
    :scenario-load-state (default-scenario-load-state)
+   :scenario-archive-state (default-scenario-archive-state)
+   :scenario-duplicate-state (default-scenario-duplicate-state)
    :run-state (default-run-state)})
 
 (defn default-optimizer-ui-state

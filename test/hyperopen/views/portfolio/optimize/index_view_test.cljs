@@ -1,6 +1,8 @@
 (ns hyperopen.views.portfolio.optimize.index-view-test
   (:require [cljs.test :refer-macros [deftest is]]
-            [hyperopen.views.portfolio.optimize.index-view :as index-view]))
+            [hyperopen.system :as app-system]
+            [hyperopen.views.portfolio.optimize.index-view :as index-view]
+            [nexus.registry :as nxr]))
 
 (defn- node-children
   [node]
@@ -67,8 +69,41 @@
     (is (some? row))
     (is (= [[:actions/navigate "/portfolio/optimize/scn_01"]]
            (click-actions row)))
+    (let [duplicate-click (click-actions
+                           (node-by-role view-node
+                                         "portfolio-optimizer-scenario-duplicate-scn_01"))
+          archive-click (click-actions
+                         (node-by-role view-node
+                                       "portfolio-optimizer-scenario-archive-scn_01"))
+          dispatches* (atom [])
+          prevent-calls* (atom 0)
+          stop-calls* (atom 0)
+          event #js {:preventDefault (fn []
+                                       (swap! prevent-calls* inc))
+                     :stopPropagation (fn []
+                                        (swap! stop-calls* inc))}]
+      (is (fn? duplicate-click))
+      (is (fn? archive-click))
+      (with-redefs [app-system/store ::store
+                    nxr/dispatch (fn [store event actions]
+                                   (swap! dispatches* conj {:store store
+                                                            :event event
+                                                            :actions actions}))]
+        (duplicate-click event)
+        (archive-click event))
+      (is (= 2 @prevent-calls*))
+      (is (= 2 @stop-calls*))
+      (is (= [{:store ::store
+               :event nil
+               :actions [[:actions/duplicate-portfolio-optimizer-scenario "scn_01"]]}
+              {:store ::store
+               :event nil
+               :actions [[:actions/archive-portfolio-optimizer-scenario "scn_01"]]}]
+             @dispatches*)))
     (is (contains? strings "Fresh Run"))
     (is (contains? strings "Core Hedge"))
     (is (contains? strings "partially-executed"))
     (is (contains? strings "Black Litterman"))
+    (is (contains? strings "Duplicate"))
+    (is (contains? strings "Archive"))
     (is (contains? strings "18.00%"))))

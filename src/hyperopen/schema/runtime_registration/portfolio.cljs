@@ -7,6 +7,10 @@
     :load-portfolio-optimizer-scenario-index]
    [:effects/load-portfolio-optimizer-scenario
     :load-portfolio-optimizer-scenario]
+   [:effects/archive-portfolio-optimizer-scenario
+    :archive-portfolio-optimizer-scenario]
+   [:effects/duplicate-portfolio-optimizer-scenario
+    :duplicate-portfolio-optimizer-scenario]
    [:effects/save-portfolio-optimizer-scenario :save-portfolio-optimizer-scenario]])
 
 (def action-binding-rows
@@ -49,5 +53,7 @@
    [:actions/load-portfolio-optimizer-history-from-draft :load-portfolio-optimizer-history-from-draft]
    [:actions/save-portfolio-optimizer-scenario-from-current :save-portfolio-optimizer-scenario-from-current]
    [:actions/load-portfolio-optimizer-route :load-portfolio-optimizer-route]
+   [:actions/archive-portfolio-optimizer-scenario :archive-portfolio-optimizer-scenario]
+   [:actions/duplicate-portfolio-optimizer-scenario :duplicate-portfolio-optimizer-scenario]
    [:actions/run-portfolio-optimizer-from-draft :run-portfolio-optimizer-from-draft]
    [:actions/run-portfolio-optimizer :run-portfolio-optimizer]])

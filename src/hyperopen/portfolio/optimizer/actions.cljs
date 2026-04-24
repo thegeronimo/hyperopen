@@ -315,6 +315,20 @@
                            (:scenario-id route)]]
       [])))
 
+(defn- scenario-id-effect
+  [effect-id scenario-id]
+  (if-let [scenario-id* (non-blank-text scenario-id)]
+    [[effect-id scenario-id*]]
+    []))
+
+(defn archive-portfolio-optimizer-scenario
+  [_state scenario-id]
+  (scenario-id-effect :effects/archive-portfolio-optimizer-scenario scenario-id))
+
+(defn duplicate-portfolio-optimizer-scenario
+  [_state scenario-id]
+  (scenario-id-effect :effects/duplicate-portfolio-optimizer-scenario scenario-id))
+
 (defn run-portfolio-optimizer
   [_state request request-signature]
   [[:effects/run-portfolio-optimizer request request-signature]])

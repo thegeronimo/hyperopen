@@ -202,6 +202,16 @@
           :actions/load-portfolio-optimizer-route
           ["/portfolio/optimize/scn_01"]
           {:phase :test})))
+  (is (= ["scn_01"]
+         (contracts/assert-action-args!
+          :actions/archive-portfolio-optimizer-scenario
+          ["scn_01"]
+          {:phase :test})))
+  (is (= ["scn_01"]
+         (contracts/assert-action-args!
+          :actions/duplicate-portfolio-optimizer-scenario
+          ["scn_01"]
+          {:phase :test})))
   (is (= []
          (contracts/assert-action-args!
           :actions/run-portfolio-optimizer-from-draft

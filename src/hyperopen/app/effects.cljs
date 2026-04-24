@@ -52,6 +52,10 @@
                          effect-adapters/load-portfolio-optimizer-scenario-index-effect
                          :load-portfolio-optimizer-scenario
                          effect-adapters/load-portfolio-optimizer-scenario-effect
+                         :archive-portfolio-optimizer-scenario
+                         effect-adapters/archive-portfolio-optimizer-scenario-effect
+                         :duplicate-portfolio-optimizer-scenario
+                         effect-adapters/duplicate-portfolio-optimizer-scenario-effect
                          :save-portfolio-optimizer-scenario
                          effect-adapters/save-portfolio-optimizer-scenario-effect}
    :api-wallets {:api-load-api-wallets effect-adapters/api-load-api-wallets-effect

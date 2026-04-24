@@ -179,5 +179,11 @@
 (def load-portfolio-optimizer-route-action
   portfolio-optimizer-actions/load-portfolio-optimizer-route)
 
+(def archive-portfolio-optimizer-scenario-action
+  portfolio-optimizer-actions/archive-portfolio-optimizer-scenario)
+
+(def duplicate-portfolio-optimizer-scenario-action
+  portfolio-optimizer-actions/duplicate-portfolio-optimizer-scenario)
+
 (def run-portfolio-optimizer-from-draft-action
   portfolio-optimizer-actions/run-portfolio-optimizer-from-draft)

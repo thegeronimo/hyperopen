@@ -61,3 +61,32 @@
                        (vec (cons scenario-id ordered-ids)))]
     {:ordered-ids ordered-ids*
      :by-id (assoc (:by-id scenario-index) scenario-id summary)}))
+
+(defn archive-scenario-record
+  [scenario-record archived-at-ms]
+  (-> scenario-record
+      (assoc :status :archived
+             :updated-at-ms archived-at-ms)
+      (assoc-in [:config :status] :archived)
+      (assoc-in [:config :metadata :dirty?] false)
+      (assoc-in [:config :metadata :updated-at-ms] archived-at-ms)))
+
+(defn duplicate-scenario-record
+  [{:keys [source-record scenario-id duplicated-at-ms]}]
+  (let [copy-name (str "Copy of " (:name source-record))
+        config (-> (:config source-record)
+                   (assoc :id scenario-id
+                          :name copy-name
+                          :status :saved)
+                   (assoc-in [:metadata :dirty?] false)
+                   (assoc-in [:metadata :created-at-ms] duplicated-at-ms)
+                   (assoc-in [:metadata :updated-at-ms] duplicated-at-ms))]
+    (-> source-record
+        (assoc :id scenario-id
+               :name copy-name
+               :status :saved
+               :config config
+               :source-scenario-id (:id source-record)
+               :created-at-ms duplicated-at-ms
+               :updated-at-ms duplicated-at-ms
+               :execution-ledger []))))

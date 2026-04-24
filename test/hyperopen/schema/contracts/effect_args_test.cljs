@@ -273,6 +273,35 @@
         []
         {:phase :test}))))
 
+(deftest assert-effect-args-validates-portfolio-optimizer-scenario-mutations-test
+  (is (= ["scn_01"]
+         (contracts/assert-effect-args!
+          :effects/archive-portfolio-optimizer-scenario
+          ["scn_01"]
+          {:phase :test})))
+  (is (= ["scn_01" {:source :board}]
+         (contracts/assert-effect-args!
+          :effects/archive-portfolio-optimizer-scenario
+          ["scn_01" {:source :board}]
+          {:phase :test})))
+  (is (= ["scn_01"]
+         (contracts/assert-effect-args!
+          :effects/duplicate-portfolio-optimizer-scenario
+          ["scn_01"]
+          {:phase :test})))
+  (is (= ["scn_01" {:source :board}]
+         (contracts/assert-effect-args!
+          :effects/duplicate-portfolio-optimizer-scenario
+          ["scn_01" {:source :board}]
+          {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"effect request"
+       (contracts/assert-effect-args!
+        :effects/archive-portfolio-optimizer-scenario
+        []
+        {:phase :test}))))
+
 (deftest assert-effect-args-validates-portfolio-optimizer-scenario-save-test
   (is (= []
          (contracts/assert-effect-args!

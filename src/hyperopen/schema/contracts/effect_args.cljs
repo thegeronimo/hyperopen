@@ -57,6 +57,9 @@
 (s/def ::portfolio-optimizer-scenario-load-args
   (s/or :base (s/tuple ::common/non-empty-string)
         :with-opts (s/tuple ::common/non-empty-string map?)))
+(s/def ::portfolio-optimizer-scenario-mutation-args
+  (s/or :base (s/tuple ::common/non-empty-string)
+        :with-opts (s/tuple ::common/non-empty-string map?)))
 (s/def ::portfolio-optimizer-scenario-save-args
   (s/or :base empty?
         :with-opts (s/tuple map?)))
@@ -157,4 +160,8 @@
    ::portfolio-optimizer-scenario-index-load-args
    :effects/load-portfolio-optimizer-scenario
    ::portfolio-optimizer-scenario-load-args
+   :effects/archive-portfolio-optimizer-scenario
+   ::portfolio-optimizer-scenario-mutation-args
+   :effects/duplicate-portfolio-optimizer-scenario
+   ::portfolio-optimizer-scenario-mutation-args
    :effects/save-portfolio-optimizer-scenario ::portfolio-optimizer-scenario-save-args})

@@ -72,6 +72,8 @@
   (s/tuple ::common/keyword-or-string ::common/non-empty-string any?))
 (s/def ::portfolio-optimizer-run-args
   (s/tuple map? map?))
+(s/def ::portfolio-optimizer-scenario-id-args
+  (s/tuple ::common/non-empty-string))
 (s/def ::staking-action-popover-open-args
   (s/or :kind-only (s/tuple (s/or :keyword keyword?
                                    :string string?))
@@ -214,6 +216,8 @@
    :actions/load-portfolio-optimizer-history-from-draft ::common/no-args
    :actions/save-portfolio-optimizer-scenario-from-current ::common/no-args
    :actions/load-portfolio-optimizer-route ::common/path-args
+   :actions/archive-portfolio-optimizer-scenario ::portfolio-optimizer-scenario-id-args
+   :actions/duplicate-portfolio-optimizer-scenario ::portfolio-optimizer-scenario-id-args
    :actions/run-portfolio-optimizer-from-draft ::common/no-args
    :actions/run-portfolio-optimizer ::portfolio-optimizer-run-args
    :actions/toggle-orderbook-size-unit-dropdown ::common/no-args

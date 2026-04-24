@@ -71,3 +71,54 @@
     (is (= ["scn_02" "scn_01"] (:ordered-ids index)))
     (is (= summary (get-in index [:by-id "scn_01"])))
     (is (= ["scn_01" "scn_02"] (:ordered-ids missing-index)))))
+
+(deftest archive-scenario-record-marks-record-and-config-archived-test
+  (let [record {:id "scn_01"
+                :name "Core Hedge"
+                :status :saved
+                :config {:id "scn_01"
+                         :name "Core Hedge"
+                         :status :saved
+                         :metadata {:dirty? false
+                                    :updated-at-ms 3000}}
+                :saved-run solved-run
+                :updated-at-ms 3000}
+        archived (scenario-records/archive-scenario-record record 5000)]
+    (is (= :archived (:status archived)))
+    (is (= :archived (get-in archived [:config :status])))
+    (is (= 5000 (:updated-at-ms archived)))
+    (is (= 5000 (get-in archived [:config :metadata :updated-at-ms])))
+    (is (= false (get-in archived [:config :metadata :dirty?])))))
+
+(deftest duplicate-scenario-record-copies-config-and-run-under-new-id-test
+  (let [record {:id "scn_01"
+                :name "Core Hedge"
+                :address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                :status :partially-executed
+                :config {:id "scn_01"
+                         :name "Core Hedge"
+                         :status :partially-executed
+                         :metadata {:dirty? false
+                                    :created-at-ms 1000
+                                    :updated-at-ms 3000}}
+                :saved-run solved-run
+                :execution-ledger [{:row-id "row-1"}]
+                :updated-at-ms 3000}
+        duplicated (scenario-records/duplicate-scenario-record
+                    {:source-record record
+                     :scenario-id "scn_02"
+                     :duplicated-at-ms 5000})]
+    (is (= "scn_02" (:id duplicated)))
+    (is (= "Copy of Core Hedge" (:name duplicated)))
+    (is (= :saved (:status duplicated)))
+    (is (= "scn_01" (:source-scenario-id duplicated)))
+    (is (= "scn_02" (get-in duplicated [:config :id])))
+    (is (= :saved (get-in duplicated [:config :status])))
+    (is (= "Copy of Core Hedge" (get-in duplicated [:config :name])))
+    (is (= 5000 (:created-at-ms duplicated)))
+    (is (= 5000 (:updated-at-ms duplicated)))
+    (is (= 5000 (get-in duplicated [:config :metadata :created-at-ms])))
+    (is (= 5000 (get-in duplicated [:config :metadata :updated-at-ms])))
+    (is (= false (get-in duplicated [:config :metadata :dirty?])))
+    (is (= solved-run (:saved-run duplicated)))
+    (is (= [] (:execution-ledger duplicated)))))

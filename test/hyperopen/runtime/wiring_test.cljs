@@ -52,6 +52,10 @@
                     (get-in deps [:portfolio-optimizer :load-portfolio-optimizer-scenario-index])))
     (is (identical? effect-adapters/load-portfolio-optimizer-scenario-effect
                     (get-in deps [:portfolio-optimizer :load-portfolio-optimizer-scenario])))
+    (is (identical? effect-adapters/archive-portfolio-optimizer-scenario-effect
+                    (get-in deps [:portfolio-optimizer :archive-portfolio-optimizer-scenario])))
+    (is (identical? effect-adapters/duplicate-portfolio-optimizer-scenario-effect
+                    (get-in deps [:portfolio-optimizer :duplicate-portfolio-optimizer-scenario])))
     (is (identical? effect-adapters/save-portfolio-optimizer-scenario-effect
                     (get-in deps [:portfolio-optimizer :save-portfolio-optimizer-scenario])))
     (is (identical? action-adapters/enable-agent-trading
@@ -95,6 +99,10 @@
                     (get-in deps [:portfolio-optimizer :save-portfolio-optimizer-scenario-from-current])))
     (is (identical? action-adapters/load-portfolio-optimizer-route-action
                     (get-in deps [:portfolio-optimizer :load-portfolio-optimizer-route])))
+    (is (identical? action-adapters/archive-portfolio-optimizer-scenario-action
+                    (get-in deps [:portfolio-optimizer :archive-portfolio-optimizer-scenario])))
+    (is (identical? action-adapters/duplicate-portfolio-optimizer-scenario-action
+                    (get-in deps [:portfolio-optimizer :duplicate-portfolio-optimizer-scenario])))
     (is (identical? action-adapters/run-portfolio-optimizer-from-draft-action
                     (get-in deps [:portfolio-optimizer :run-portfolio-optimizer-from-draft])))))
 
@@ -119,6 +127,10 @@
                     (get-in deps [:effect-handlers :load-portfolio-optimizer-scenario-index])))
     (is (identical? effect-adapters/load-portfolio-optimizer-scenario-effect
                     (get-in deps [:effect-handlers :load-portfolio-optimizer-scenario])))
+    (is (identical? effect-adapters/archive-portfolio-optimizer-scenario-effect
+                    (get-in deps [:effect-handlers :archive-portfolio-optimizer-scenario])))
+    (is (identical? effect-adapters/duplicate-portfolio-optimizer-scenario-effect
+                    (get-in deps [:effect-handlers :duplicate-portfolio-optimizer-scenario])))
     (is (identical? effect-adapters/save-portfolio-optimizer-scenario-effect
                     (get-in deps [:effect-handlers :save-portfolio-optimizer-scenario])))))
 

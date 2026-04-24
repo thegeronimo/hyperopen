@@ -1,6 +1,8 @@
 (ns hyperopen.views.portfolio.optimize.index-view
   (:require [clojure.string :as str]
-            [hyperopen.portfolio.routes :as portfolio-routes]))
+            [hyperopen.portfolio.routes :as portfolio-routes]
+            [hyperopen.system :as app-system]
+            [nexus.registry :as nxr]))
 
 (defn- scenario-index
   [state]
@@ -26,6 +28,36 @@
   (if (number? value)
     (str (.toFixed (* value 100) 2) "%")
     "N/A"))
+
+(defn- row-action-click-handler
+  [action]
+  (fn [event]
+    (when (fn? (.-preventDefault event))
+      (.preventDefault event))
+    (when (fn? (.-stopPropagation event))
+      (.stopPropagation event))
+    (when app-system/store
+      (nxr/dispatch app-system/store nil [action]))))
+
+(defn- row-action-button
+  [label data-role action]
+  [:button {:type "button"
+            :class ["rounded-md"
+                    "border"
+                    "border-base-300"
+                    "bg-base-100/80"
+                    "px-2"
+                    "py-1"
+                    "text-[0.65rem]"
+                    "font-semibold"
+                    "uppercase"
+                    "tracking-[0.14em]"
+                    "text-trading-muted"
+                    "hover:border-primary/50"
+                    "hover:text-trading-text"]
+            :data-role data-role
+            :on {:click (row-action-click-handler action)}}
+   label])
 
 (defn- scenario-row
   [summary]
@@ -63,7 +95,17 @@
      [:td {:class ["px-3" "py-3" "text-right" "font-semibold" "tabular-nums"]}
       (percent-label (:expected-return summary))]
      [:td {:class ["px-3" "py-3" "text-right" "font-semibold" "tabular-nums"]}
-      (percent-label (:volatility summary))]]))
+      (percent-label (:volatility summary))]
+     [:td {:class ["px-3" "py-3" "text-right"]}
+      [:div {:class ["flex" "justify-end" "gap-2"]}
+       (row-action-button
+        "Duplicate"
+        (str "portfolio-optimizer-scenario-duplicate-" scenario-id)
+        [:actions/duplicate-portfolio-optimizer-scenario scenario-id])
+       (row-action-button
+        "Archive"
+        (str "portfolio-optimizer-scenario-archive-" scenario-id)
+        [:actions/archive-portfolio-optimizer-scenario scenario-id])]]]))
 
 (defn- scenario-board
   [summaries]
@@ -87,7 +129,8 @@
       [:th {:class ["px-3" "py-2"]} "Return"]
       [:th {:class ["px-3" "py-2"]} "Risk"]
       [:th {:class ["px-3" "py-2" "text-right"]} "Exp Return"]
-      [:th {:class ["px-3" "py-2" "text-right"]} "Vol"]]]
+      [:th {:class ["px-3" "py-2" "text-right"]} "Vol"]
+      [:th {:class ["px-3" "py-2" "text-right"]} "Actions"]]]
     (into [:tbody] (map scenario-row summaries))]])
 
 (defn index-view

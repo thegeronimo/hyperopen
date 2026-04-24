@@ -52,6 +52,10 @@
                          action-adapters/save-portfolio-optimizer-scenario-from-current-action
                          :load-portfolio-optimizer-route
                          action-adapters/load-portfolio-optimizer-route-action
+                         :archive-portfolio-optimizer-scenario
+                         action-adapters/archive-portfolio-optimizer-scenario-action
+                         :duplicate-portfolio-optimizer-scenario
+                         action-adapters/duplicate-portfolio-optimizer-scenario-action
                          :run-portfolio-optimizer-from-draft
                          action-adapters/run-portfolio-optimizer-from-draft-action}
    :api-wallets {:load-api-wallet-route action-adapters/load-api-wallet-route-action

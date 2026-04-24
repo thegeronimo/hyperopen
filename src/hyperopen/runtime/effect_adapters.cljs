@@ -255,6 +255,12 @@
 (def load-portfolio-optimizer-scenario-effect
   portfolio-optimizer-adapters/load-portfolio-optimizer-scenario-effect)
 
+(def archive-portfolio-optimizer-scenario-effect
+  portfolio-optimizer-adapters/archive-portfolio-optimizer-scenario-effect)
+
+(def duplicate-portfolio-optimizer-scenario-effect
+  portfolio-optimizer-adapters/duplicate-portfolio-optimizer-scenario-effect)
+
 (def save-portfolio-optimizer-scenario-effect
   portfolio-optimizer-adapters/save-portfolio-optimizer-scenario-effect)
 
