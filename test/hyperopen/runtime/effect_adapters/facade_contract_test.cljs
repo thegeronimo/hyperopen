@@ -41,4 +41,5 @@
   (is (fn? effect-adapters/load-portfolio-optimizer-scenario-index-effect))
   (is (fn? effect-adapters/load-portfolio-optimizer-scenario-effect))
   (is (fn? effect-adapters/archive-portfolio-optimizer-scenario-effect))
-  (is (fn? effect-adapters/duplicate-portfolio-optimizer-scenario-effect)))
+  (is (fn? effect-adapters/duplicate-portfolio-optimizer-scenario-effect))
+  (is (fn? effect-adapters/execute-portfolio-optimizer-plan-effect)))

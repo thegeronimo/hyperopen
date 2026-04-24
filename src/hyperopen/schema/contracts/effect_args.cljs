@@ -63,6 +63,8 @@
 (s/def ::portfolio-optimizer-scenario-save-args
   (s/or :base empty?
         :with-opts (s/tuple map?)))
+(s/def ::portfolio-optimizer-execution-plan-args
+  (s/tuple map?))
 
 (s/def ::effect-id (s/and keyword?
                           #(= "effects" (namespace %))))
@@ -164,4 +166,5 @@
    ::portfolio-optimizer-scenario-mutation-args
    :effects/duplicate-portfolio-optimizer-scenario
    ::portfolio-optimizer-scenario-mutation-args
-   :effects/save-portfolio-optimizer-scenario ::portfolio-optimizer-scenario-save-args})
+   :effects/save-portfolio-optimizer-scenario ::portfolio-optimizer-scenario-save-args
+   :effects/execute-portfolio-optimizer-plan ::portfolio-optimizer-execution-plan-args})

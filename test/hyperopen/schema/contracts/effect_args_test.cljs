@@ -108,6 +108,18 @@
             :path-values [[[:order-form-runtime :error] nil]]}]
           {:phase :test}))))
 
+(deftest assert-effect-args-accepts-portfolio-optimizer-execution-plan-test
+  (let [plan {:scenario-id "scn_01"
+              :status :ready
+              :summary {:ready-count 1}
+              :rows [{:instrument-id "perp:BTC"
+                      :status :ready}]}]
+    (is (= [plan]
+           (contracts/assert-effect-args!
+            :effects/execute-portfolio-optimizer-plan
+            [plan]
+            {:phase :test})))))
+
 (deftest assert-effect-args-validates-unlock-agent-trading-continuations-test
   (is (= []
          (contracts/assert-effect-args!

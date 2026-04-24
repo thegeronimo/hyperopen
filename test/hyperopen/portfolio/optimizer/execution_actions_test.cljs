@@ -54,3 +54,30 @@
   (is (= []
          (actions/open-portfolio-optimizer-execution-modal
           {:portfolio {:optimizer {:last-successful-run {:result {:status :infeasible}}}}}))))
+
+(deftest confirm-execution-modal-dispatches-execution-effect-test
+  (let [plan {:scenario-id "draft-1"
+              :status :ready
+              :execution-disabled? false
+              :summary {:ready-count 1}
+              :rows [{:row-id "perp:BTC"
+                      :status :ready
+                      :intent {:kind :perp-order}}]}
+        state {:portfolio {:optimizer {:execution-modal {:open? true
+                                                         :plan plan}}}}]
+    (is (= [[:effects/save [:portfolio :optimizer :execution-modal :submitting?] true]
+            [:effects/save [:portfolio :optimizer :execution-modal :error] nil]
+            [:effects/execute-portfolio-optimizer-plan plan]]
+           (actions/confirm-portfolio-optimizer-execution state)))))
+
+(deftest confirm-execution-modal-blocks-read-only-plan-test
+  (let [state {:portfolio {:optimizer {:execution-modal
+                                       {:open? true
+                                        :plan {:scenario-id "draft-1"
+                                               :status :ready
+                                               :execution-disabled? true
+                                               :disabled-message "Spectate Mode is read-only."}}}}}]
+    (is (= [[:effects/save
+             [:portfolio :optimizer :execution-modal :error]
+             "Spectate Mode is read-only."]]
+           (actions/confirm-portfolio-optimizer-execution state)))))

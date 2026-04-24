@@ -264,6 +264,8 @@
 (def save-portfolio-optimizer-scenario-effect
   portfolio-optimizer-adapters/save-portfolio-optimizer-scenario-effect)
 
+(def execute-portfolio-optimizer-plan-effect portfolio-optimizer-adapters/execute-portfolio-optimizer-plan-effect)
+
 (def restore-dialog-focus-effect
   funding-adapters/restore-dialog-focus-effect)
 

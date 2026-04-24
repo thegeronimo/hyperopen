@@ -18,7 +18,9 @@
   (is (identical? portfolio-optimizer-adapters/archive-portfolio-optimizer-scenario-effect
                   effect-adapters/archive-portfolio-optimizer-scenario-effect))
   (is (identical? portfolio-optimizer-adapters/duplicate-portfolio-optimizer-scenario-effect
-                  effect-adapters/duplicate-portfolio-optimizer-scenario-effect)))
+                  effect-adapters/duplicate-portfolio-optimizer-scenario-effect))
+  (is (identical? portfolio-optimizer-adapters/execute-portfolio-optimizer-plan-effect
+                  effect-adapters/execute-portfolio-optimizer-plan-effect)))
 
 (deftest run-portfolio-optimizer-effect-calls-run-bridge-with-runtime-store-test
   (let [calls (atom [])

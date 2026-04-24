@@ -96,6 +96,13 @@
    :submitting? false
    :error nil})
 
+(defn default-execution-state
+  []
+  {:status :idle
+   :attempt nil
+   :history []
+   :error nil})
+
 (defn default-optimizer-state
   []
   {:draft (default-draft)
@@ -115,6 +122,7 @@
    :scenario-archive-state (default-scenario-archive-state)
    :scenario-duplicate-state (default-scenario-duplicate-state)
    :execution-modal (default-execution-modal-state)
+   :execution (default-execution-state)
    :run-state (default-run-state)})
 
 (defn default-optimizer-ui-state

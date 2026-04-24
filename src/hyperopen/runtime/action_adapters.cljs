@@ -200,5 +200,8 @@
 (def close-portfolio-optimizer-execution-modal-action
   portfolio-optimizer-actions/close-portfolio-optimizer-execution-modal)
 
+(def confirm-portfolio-optimizer-execution-action
+  portfolio-optimizer-actions/confirm-portfolio-optimizer-execution)
+
 (def run-portfolio-optimizer-from-draft-action
   portfolio-optimizer-actions/run-portfolio-optimizer-from-draft)

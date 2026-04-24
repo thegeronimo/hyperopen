@@ -102,10 +102,33 @@
     (is (= [[:actions/close-portfolio-optimizer-execution-modal]]
            (click-actions
             (node-by-role view-node "portfolio-optimizer-execution-modal-close"))))
-    (is (= true
-           (get-in (node-by-role view-node
-                                 "portfolio-optimizer-execution-modal-confirm")
-                   [1 :disabled])))
+    (is (= false
+           (boolean
+            (get-in (node-by-role view-node
+                                  "portfolio-optimizer-execution-modal-confirm")
+                    [1 :disabled]))))
+    (is (= [[:actions/confirm-portfolio-optimizer-execution]]
+           (click-actions
+            (node-by-role view-node "portfolio-optimizer-execution-modal-confirm"))))
     (is (contains? strings "Confirm & Execute"))
     (is (contains? strings "perp:BTC"))
     (is (contains? strings "spot-read-only"))))
+
+(deftest execution-modal-disables-confirm-while-submitting-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:last-successful-run {:result solved-result}
+                                 :execution-modal
+                                 {:open? true
+                                  :submitting? true
+                                  :plan {:status :ready
+                                         :summary {:ready-count 1}
+                                         :rows [{:instrument-id "perp:BTC"
+                                                 :status :ready
+                                                 :side :buy
+                                                 :delta-notional-usd 1000}]}}}}})]
+    (is (= true
+           (get-in (node-by-role view-node
+                                 "portfolio-optimizer-execution-modal-confirm")
+                   [1 :disabled])))))

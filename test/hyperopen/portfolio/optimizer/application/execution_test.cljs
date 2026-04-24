@@ -63,3 +63,52 @@
     (is (= :read-only (:disabled-reason plan)))
     (is (= "Spectate Mode is read-only." (:disabled-message plan)))
     (is (= :partially-blocked (:status plan)))))
+
+(deftest build-execution-attempt-attaches-order-request-for-ready-perp-row-test
+  (let [plan (execution/build-execution-plan
+              {:scenario-id "scn_submit"
+               :rebalance-preview
+               {:rows [{:instrument-id "perp:BTC"
+                        :instrument-type :perp
+                        :coin "BTC"
+                        :status :ready
+                        :side :buy
+                        :price 100
+                        :quantity 0.25
+                        :delta-notional-usd 25}]}
+               :execution-assumptions {:default-order-type :market}})
+        attempt (execution/build-execution-attempt
+                 {:plan plan
+                  :market-by-key {"perp:BTC" {:coin "BTC"
+                                              :market-type :perp
+                                              :asset-id 0
+                                              :szDecimals 4}}})
+        row (first (:rows attempt))]
+    (is (= :ready (:status attempt)))
+    (is (= :ready (:status row)))
+    (is (= {:type "order"
+            :orders [{:a 0
+                      :b true
+                      :p "100"
+                      :s "0.25"
+                      :r false
+                      :t {:limit {:tif "Ioc"}}}]
+            :grouping "na"}
+           (get-in row [:request :action])))))
+
+(deftest build-execution-attempt-blocks-ready-row-without-market-metadata-test
+  (let [plan (execution/build-execution-plan
+              {:scenario-id "scn_missing_market"
+               :rebalance-preview
+               {:rows [{:instrument-id "perp:BTC"
+                        :instrument-type :perp
+                        :coin "BTC"
+                        :status :ready
+                        :side :buy
+                        :price 100
+                        :quantity 0.25
+                        :delta-notional-usd 25}]}})
+        attempt (execution/build-execution-attempt {:plan plan})]
+    (is (= :blocked (:status attempt)))
+    (is (= :blocked (get-in attempt [:rows 0 :status])))
+    (is (= :market-metadata-missing (get-in attempt [:rows 0 :reason])))))

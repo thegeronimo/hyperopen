@@ -1,5 +1,7 @@
 (ns hyperopen.portfolio.optimizer.application.execution
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [hyperopen.api.gateway.orders.commands :as order-commands]
+            [hyperopen.asset-selector.markets :as markets]))
 
 (defn- finite-positive?
   [value]
@@ -7,6 +9,16 @@
        (pos? value)
        (not (js/isNaN value))
        (js/isFinite value)))
+
+(defn- parse-int-value
+  [value]
+  (let [num (cond
+              (number? value) value
+              (string? value) (js/parseInt value 10)
+              :else js/NaN)]
+    (when (and (number? num)
+               (not (js/isNaN num)))
+      (js/Math.floor num))))
 
 (defn- non-blank-text
   [value]
@@ -32,13 +44,15 @@
 (defn- execution-row
   [execution-assumptions row]
   (let [instrument-id (:instrument-id row)
-        base-row {:row-id instrument-id
-                  :instrument-id instrument-id
-                  :instrument-type (:instrument-type row)
-                  :side (:side row)
-                  :quantity (:quantity row)
-                  :delta-notional-usd (:delta-notional-usd row)
-                  :cost (:cost row)}]
+        base-row (cond-> {:row-id instrument-id
+                          :instrument-id instrument-id
+                          :instrument-type (:instrument-type row)
+                          :side (:side row)
+                          :quantity (:quantity row)
+                          :delta-notional-usd (:delta-notional-usd row)
+                          :cost (:cost row)}
+                   (some? (:coin row)) (assoc :coin (:coin row))
+                   (some? (:price row)) (assoc :price (:price row)))]
     (cond
       (ready-perp-row? row)
       (assoc base-row
@@ -97,3 +111,122 @@
                (reduce + 0 (map #(js/Math.abs (:delta-notional-usd %))
                                 ready-rows))}
      :rows rows}))
+
+(defn- coin-for-row
+  [row]
+  (or (non-blank-text (:coin row))
+      (let [instrument-id (non-blank-text (:instrument-id row))]
+        (cond
+          (str/starts-with? instrument-id "perp:")
+          (subs instrument-id 5)
+
+          (str/starts-with? instrument-id "spot:")
+          (subs instrument-id 5)
+
+          :else instrument-id))))
+
+(defn- row-market
+  [market-by-key row]
+  (let [instrument-id (:instrument-id row)
+        coin (coin-for-row row)]
+    (or (get market-by-key instrument-id)
+        (markets/resolve-or-infer-market-by-coin market-by-key coin))))
+
+(defn- market-asset-idx
+  [market]
+  (some parse-int-value [(:asset-id market)
+                         (:assetId market)
+                         (:idx market)]))
+
+(defn- order-form-for-row
+  [row]
+  (let [intent (:intent row)]
+    {:type (or (:order-type intent) :market)
+     :side (:side intent)
+     :size (:quantity intent)
+     :price (:price row)
+     :reduce-only (boolean (:reduce-only? intent))
+     :margin-mode :cross}))
+
+(defn- order-request-for-row
+  [{:keys [market-by-key orderbooks]} row]
+  (let [market (row-market market-by-key row)
+        coin (coin-for-row row)
+        asset-idx (market-asset-idx market)]
+    (cond
+      (nil? market)
+      {:blocked-reason :market-metadata-missing}
+
+      (nil? asset-idx)
+      {:blocked-reason :market-asset-index-missing}
+
+      (not (finite-positive? (:price row)))
+      {:blocked-reason :price-missing}
+
+      :else
+      (let [command-context {:active-asset coin
+                             :asset-idx asset-idx
+                             :market market
+                             :orderbook (get orderbooks coin)}
+            request (order-commands/build-order-request command-context
+                                                        (order-form-for-row row))]
+        (if (map? request)
+          {:request request}
+          {:blocked-reason :request-unavailable})))))
+
+(defn- attempt-row
+  [opts row]
+  (if (= :ready (:status row))
+    (let [{:keys [request blocked-reason]} (order-request-for-row opts row)]
+      (if (map? request)
+        (assoc row :request request)
+        (-> row
+            (assoc :status :blocked
+                   :reason blocked-reason)
+            (dissoc :intent))))
+    row))
+
+(defn build-execution-attempt
+  [{:keys [plan market-by-key orderbooks]}]
+  (let [rows (mapv #(attempt-row {:market-by-key (or market-by-key {})
+                                  :orderbooks (or orderbooks {})}
+                                 %)
+                   (:rows plan))
+        ready-count (count (filter #(= :ready (:status %)) rows))
+        blocked-count (count (filter #(= :blocked (:status %)) rows))
+        skipped-count (count (filter #(= :skipped (:status %)) rows))]
+    (assoc plan
+           :status (plan-status ready-count blocked-count)
+           :summary (assoc (:summary plan)
+                           :ready-count ready-count
+                           :blocked-count blocked-count
+                           :skipped-count skipped-count)
+           :rows rows)))
+
+(defn response-ok?
+  [resp]
+  (let [top-level-ok? (= "ok" (:status resp))
+        statuses (let [statuses (get-in resp [:response :data :statuses])
+                       status (get-in resp [:response :data :status])]
+                   (cond
+                     (sequential? statuses) statuses
+                     (some? status) [status]
+                     :else []))]
+    (and top-level-ok?
+         (not-any? #(and (map? %)
+                         (contains? % :error))
+                   statuses))))
+
+(defn final-ledger-status
+  [rows]
+  (let [submitted-count (count (filter #(= :submitted (:status %)) rows))
+        failed-count (count (filter #(= :failed (:status %)) rows))
+        blocked-count (count (filter #(= :blocked (:status %)) rows))]
+    (cond
+      (and (pos? submitted-count)
+           (zero? failed-count)
+           (zero? blocked-count)) :executed
+      (pos? submitted-count) :partially-executed
+      (pos? failed-count) :failed
+      (pos? blocked-count) :blocked
+      :else :no-op)))

@@ -54,6 +54,11 @@
   (let [modal (get-in state [:portfolio :optimizer :execution-modal])
         plan (:plan modal)
         summary (:summary plan)
+        submitting? (boolean (:submitting? modal))
+        ready? (pos? (or (:ready-count summary) 0))
+        confirm-disabled? (or submitting?
+                              (:execution-disabled? plan)
+                              (not ready?))
         disabled-message (or (:disabled-message plan)
                              "Order submission wiring is not enabled in this slice.")]
     (when (:open? modal)
@@ -86,6 +91,10 @@
           [:p {:class ["mt-4" "rounded-lg" "border" "border-warning/40" "bg-warning/10"
                        "px-3" "py-2" "text-sm" "font-semibold" "text-warning"]}
            disabled-message])
+        (when (:error modal)
+          [:p {:class ["mt-4" "rounded-lg" "border" "border-error/40" "bg-error/10"
+                       "px-3" "py-2" "text-sm" "font-semibold" "text-error"]}
+           (:error modal)])
         (into
          [:div {:class ["mt-4" "space-y-2"]}]
          (cons
@@ -118,5 +127,8 @@
                            "disabled:border-base-300" "disabled:bg-base-200/40"
                            "disabled:text-trading-muted"]
                    :data-role "portfolio-optimizer-execution-modal-confirm"
-                   :disabled true}
-          "Confirm & Execute"]]]])))
+                   :disabled confirm-disabled?
+                   :on {:click [[:actions/confirm-portfolio-optimizer-execution]]}}
+          (if submitting?
+            "Submitting..."
+            "Confirm & Execute")]]]])))

@@ -417,6 +417,34 @@
     [:portfolio :optimizer :execution-modal]
     (optimizer-defaults/default-execution-modal-state)]])
 
+(defn confirm-portfolio-optimizer-execution
+  [state]
+  (let [modal (get-in state [:portfolio :optimizer :execution-modal])
+        plan (:plan modal)
+        ready-count (get-in plan [:summary :ready-count])]
+    (cond
+      (not (map? plan))
+      []
+
+      (:submitting? modal)
+      []
+
+      (:execution-disabled? plan)
+      [[:effects/save
+        [:portfolio :optimizer :execution-modal :error]
+        (or (:disabled-message plan)
+            "Execution is disabled for this scenario.")]]
+
+      (not (pos? (or ready-count 0)))
+      [[:effects/save
+        [:portfolio :optimizer :execution-modal :error]
+        "No executable rows are ready."]]
+
+      :else
+      [[:effects/save [:portfolio :optimizer :execution-modal :submitting?] true]
+       [:effects/save [:portfolio :optimizer :execution-modal :error] nil]
+       [:effects/execute-portfolio-optimizer-plan plan]])))
+
 (defn load-portfolio-optimizer-route
   [_state path]
   (let [route (portfolio-routes/parse-portfolio-route path)]

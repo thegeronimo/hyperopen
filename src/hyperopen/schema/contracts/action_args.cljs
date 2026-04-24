@@ -225,6 +225,7 @@
    :actions/duplicate-portfolio-optimizer-scenario ::portfolio-optimizer-scenario-id-args
    :actions/open-portfolio-optimizer-execution-modal ::common/no-args
    :actions/close-portfolio-optimizer-execution-modal ::common/no-args
+   :actions/confirm-portfolio-optimizer-execution ::common/no-args
    :actions/run-portfolio-optimizer-from-draft ::common/no-args
    :actions/run-portfolio-optimizer ::portfolio-optimizer-run-args
    :actions/toggle-orderbook-size-unit-dropdown ::common/no-args

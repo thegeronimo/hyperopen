@@ -66,6 +66,8 @@
                          action-adapters/open-portfolio-optimizer-execution-modal-action
                          :close-portfolio-optimizer-execution-modal
                          action-adapters/close-portfolio-optimizer-execution-modal-action
+                         :confirm-portfolio-optimizer-execution
+                         action-adapters/confirm-portfolio-optimizer-execution-action
                          :run-portfolio-optimizer-from-draft
                          action-adapters/run-portfolio-optimizer-from-draft-action}
    :api-wallets {:load-api-wallet-route action-adapters/load-api-wallet-route-action
