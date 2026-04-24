@@ -4,6 +4,7 @@
             [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
             [hyperopen.portfolio.routes :as portfolio-routes]
             [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]
+            [hyperopen.views.portfolio.optimize.results-panel :as results-panel]
             [hyperopen.views.portfolio.optimize.run-status-panel :as run-status-panel]
             [hyperopen.views.portfolio.optimize.setup-readiness-panel :as setup-readiness-panel]))
 
@@ -404,6 +405,7 @@
           "Run Optimization")]]]
      [:main {:class ["space-y-4"]}
       (setup-panels draft)
+      (results-panel/results-panel last-successful-run)
       [:div {:class ["grid" "grid-cols-1" "gap-3" "lg:grid-cols-3"]
              :data-role "portfolio-optimizer-current-summary"}
        (metric-card "NAV" (format-usdc (get-in snapshot [:capital :nav-usdc])))

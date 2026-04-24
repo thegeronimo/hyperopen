@@ -311,6 +311,60 @@
     (is (contains? strings "solver-failed"))
     (is (contains? strings "solver blew up"))))
 
+(deftest portfolio-optimizer-workspace-renders-results-diagnostics-and-rebalance-test
+  (let [result {:status :solved
+                :instrument-ids ["perp:BTC" "spot:PURR"]
+                :current-weights [0.2 0.1]
+                :target-weights [0.35 -0.02]
+                :expected-return 0.18
+                :volatility 0.42
+                :return-decomposition-by-instrument
+                {"perp:BTC" {:return-component 0.12
+                             :funding-component 0.04
+                             :funding-source :market-funding-history}
+                 "spot:PURR" {:return-component 0.08
+                              :funding-component 0
+                              :funding-source :missing}}
+                :diagnostics {:gross-exposure 0.37
+                              :net-exposure 0.33
+                              :effective-n 2.2
+                              :turnover 0.135
+                              :binding-constraints [{:instrument-id "perp:BTC"
+                                                     :constraint :upper-bound}]}
+                :rebalance-preview {:status :partially-blocked
+                                    :capital-usd 10000
+                                    :summary {:ready-count 1
+                                              :blocked-count 1
+                                              :gross-trade-notional-usd 2700
+                                              :estimated-fees-usd 1.2
+                                              :estimated-slippage-usd 2.4}
+                                    :rows [{:instrument-id "perp:BTC"
+                                            :status :ready
+                                            :side :buy
+                                            :delta-notional-usd 1500}
+                                           {:instrument-id "spot:PURR"
+                                            :status :blocked
+                                            :reason :spot-read-only
+                                            :side :sell
+                                            :delta-notional-usd -1200}]}}
+        view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:last-successful-run {:result result
+                                                       :computed-at-ms 2600}}}})
+        strings (set (collect-strings view-node))]
+    (is (some? (node-by-role view-node "portfolio-optimizer-results-surface")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-target-exposure-table")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-return-decomposition")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-diagnostics-panel")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-rebalance-preview")))
+    (is (contains? strings "Target Exposure"))
+    (is (contains? strings "Funding Decomposition"))
+    (is (contains? strings "Binding Constraints"))
+    (is (contains? strings "partially-blocked"))
+    (is (contains? strings "spot-read-only"))
+    (is (contains? strings "perp:BTC"))))
+
 (deftest portfolio-optimizer-workspace-blocks-run-when-history-is-missing-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}
