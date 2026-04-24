@@ -47,7 +47,9 @@
                  :ws-reset-subscriptions effect-adapters/ws-reset-subscriptions}
    :portfolio-optimizer {:run-portfolio-optimizer effect-adapters/run-portfolio-optimizer-effect
                          :load-portfolio-optimizer-history
-                         effect-adapters/load-portfolio-optimizer-history-effect}
+                         effect-adapters/load-portfolio-optimizer-history-effect
+                         :save-portfolio-optimizer-scenario
+                         effect-adapters/save-portfolio-optimizer-scenario-effect}
    :api-wallets {:api-load-api-wallets effect-adapters/api-load-api-wallets-effect
                  :generate-api-wallet effect-adapters/generate-api-wallet-effect
                  :api-authorize-api-wallet effect-adapters/api-authorize-api-wallet-effect

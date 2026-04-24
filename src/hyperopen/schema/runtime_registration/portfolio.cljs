@@ -2,7 +2,8 @@
 
 (def effect-binding-rows
   [[:effects/run-portfolio-optimizer :run-portfolio-optimizer]
-   [:effects/load-portfolio-optimizer-history :load-portfolio-optimizer-history]])
+   [:effects/load-portfolio-optimizer-history :load-portfolio-optimizer-history]
+   [:effects/save-portfolio-optimizer-scenario :save-portfolio-optimizer-scenario]])
 
 (def action-binding-rows
   [[:actions/toggle-portfolio-summary-scope-dropdown :toggle-portfolio-summary-scope-dropdown]
@@ -42,5 +43,6 @@
    [:actions/set-portfolio-optimizer-asset-override :set-portfolio-optimizer-asset-override]
    [:actions/set-portfolio-optimizer-universe-from-current :set-portfolio-optimizer-universe-from-current]
    [:actions/load-portfolio-optimizer-history-from-draft :load-portfolio-optimizer-history-from-draft]
+   [:actions/save-portfolio-optimizer-scenario-from-current :save-portfolio-optimizer-scenario-from-current]
    [:actions/run-portfolio-optimizer-from-draft :run-portfolio-optimizer-from-draft]
    [:actions/run-portfolio-optimizer :run-portfolio-optimizer]])

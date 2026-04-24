@@ -180,6 +180,7 @@
             [hyperopen.portfolio.optimizer.application.orderbook-loader-test]
             [hyperopen.portfolio.optimizer.application.request-builder-test]
             [hyperopen.portfolio.optimizer.application.run-bridge-test]
+            [hyperopen.portfolio.optimizer.application.scenario-records-test]
             [hyperopen.portfolio.optimizer.defaults-test]
             [hyperopen.portfolio.optimizer.domain.black-litterman-test]
             [hyperopen.portfolio.optimizer.domain.constraints-test]
@@ -736,6 +737,7 @@
              'hyperopen.portfolio.optimizer.application.orderbook-loader-test
              'hyperopen.portfolio.optimizer.application.request-builder-test
              'hyperopen.portfolio.optimizer.application.run-bridge-test
+             'hyperopen.portfolio.optimizer.application.scenario-records-test
              'hyperopen.portfolio.optimizer.defaults-test
              'hyperopen.portfolio.optimizer.domain.black-litterman-test
              'hyperopen.portfolio.optimizer.domain.constraints-test

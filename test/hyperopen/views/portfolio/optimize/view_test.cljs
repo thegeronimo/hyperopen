@@ -73,6 +73,9 @@
            (get-in (node-by-role view-node "portfolio-optimizer-run-draft")
                    [1 :disabled])))
     (is (= true
+           (get-in (node-by-role view-node "portfolio-optimizer-save-scenario")
+                   [1 :disabled])))
+    (is (= true
            (get-in (node-by-role view-node "portfolio-optimizer-load-history")
                    [1 :disabled])))
     (is (some? (node-by-role view-node "portfolio-optimizer-universe-panel")))
@@ -385,6 +388,12 @@
            (get-in (node-by-role view-node
                                  "portfolio-optimizer-target-exposure-row-0")
                    [1 :data-binding])))
+    (is (= false
+           (get-in (node-by-role view-node "portfolio-optimizer-save-scenario")
+                   [1 :disabled])))
+    (is (= [[:actions/save-portfolio-optimizer-scenario-from-current]]
+           (click-actions
+            (node-by-role view-node "portfolio-optimizer-save-scenario"))))
     (is (= frontier-point-actions
            (click-actions frontier-point)))
     (is (= true

@@ -51,6 +51,9 @@
 (s/def ::portfolio-optimizer-history-load-args
   (s/or :base empty?
         :with-opts (s/tuple map?)))
+(s/def ::portfolio-optimizer-scenario-save-args
+  (s/or :base empty?
+        :with-opts (s/tuple map?)))
 
 (s/def ::effect-id (s/and keyword?
                           #(= "effects" (namespace %))))
@@ -143,4 +146,5 @@
    :effects/api-submit-funding-withdraw ::api-submit-funding-withdraw-args
    :effects/api-submit-funding-deposit ::api-submit-funding-deposit-args
    :effects/run-portfolio-optimizer ::portfolio-optimizer-run-args
-   :effects/load-portfolio-optimizer-history ::portfolio-optimizer-history-load-args})
+   :effects/load-portfolio-optimizer-history ::portfolio-optimizer-history-load-args
+   :effects/save-portfolio-optimizer-scenario ::portfolio-optimizer-scenario-save-args})

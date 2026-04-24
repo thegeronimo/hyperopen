@@ -249,6 +249,9 @@
 (def load-portfolio-optimizer-history-effect
   portfolio-optimizer-adapters/load-portfolio-optimizer-history-effect)
 
+(def save-portfolio-optimizer-scenario-effect
+  portfolio-optimizer-adapters/save-portfolio-optimizer-scenario-effect)
+
 (def restore-dialog-focus-effect
   funding-adapters/restore-dialog-focus-effect)
 

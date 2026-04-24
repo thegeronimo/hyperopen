@@ -49,6 +49,14 @@
    :error nil
    :warnings []})
 
+(defn default-scenario-save-state
+  []
+  {:status :idle
+   :scenario-id nil
+   :started-at-ms nil
+   :completed-at-ms nil
+   :error nil})
+
 (defn default-optimizer-state
   []
   {:draft (default-draft)
@@ -62,6 +70,7 @@
                   :funding-history-by-coin {}
                   :warnings []}
    :history-load-state (default-history-load-state)
+   :scenario-save-state (default-scenario-save-state)
    :run-state (default-run-state)})
 
 (defn default-optimizer-ui-state

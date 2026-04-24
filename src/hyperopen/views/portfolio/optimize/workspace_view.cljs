@@ -341,6 +341,10 @@
         runnable? (and (:runnable? readiness)
                        (not running?))
         last-successful-run (get-in state [:portfolio :optimizer :last-successful-run])
+        solved-run? (= :solved (get-in last-successful-run [:result :status]))
+        scenario-save-state (or (get-in state [:portfolio :optimizer :scenario-save-state])
+                                (optimizer-defaults/default-scenario-save-state))
+        saving-scenario? (= :saving (:status scenario-save-state))
         history-load-state (or (get-in state [:portfolio :optimizer :history-load-state])
                                (optimizer-defaults/default-history-load-state))
         scenario-id (:scenario-id route)
@@ -417,7 +421,28 @@
                  :on {:click [[:actions/run-portfolio-optimizer-from-draft]]}}
         (if running?
           "Running Optimization"
-          "Run Optimization")]]]
+          "Run Optimization")]
+       [:button {:type "button"
+                 :class ["mt-2"
+                         "w-full"
+                         "rounded-lg"
+                         "border"
+                         "border-base-300"
+                         "bg-base-200/40"
+                         "px-3"
+                         "py-2"
+                         "text-left"
+                         "text-sm"
+                         "font-semibold"
+                         "text-trading-text"
+                         "disabled:cursor-not-allowed"
+                         "disabled:text-trading-muted"]
+                 :data-role "portfolio-optimizer-save-scenario"
+                 :disabled (or (not solved-run?) saving-scenario?)
+                 :on {:click [[:actions/save-portfolio-optimizer-scenario-from-current]]}}
+        (if saving-scenario?
+          "Saving Scenario"
+          "Save Scenario")]]]
      [:main {:class ["space-y-4"]}
       (infeasible-panel/infeasible-banner infeasible-result highlighted-controls)
       (setup-panels draft highlighted-controls)

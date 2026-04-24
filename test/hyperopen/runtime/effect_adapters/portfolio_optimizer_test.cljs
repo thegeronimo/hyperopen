@@ -8,7 +8,9 @@
   (is (identical? portfolio-optimizer-adapters/run-portfolio-optimizer-effect
                   effect-adapters/run-portfolio-optimizer-effect))
   (is (identical? portfolio-optimizer-adapters/load-portfolio-optimizer-history-effect
-                  effect-adapters/load-portfolio-optimizer-history-effect)))
+                  effect-adapters/load-portfolio-optimizer-history-effect))
+  (is (identical? portfolio-optimizer-adapters/save-portfolio-optimizer-scenario-effect
+                  effect-adapters/save-portfolio-optimizer-scenario-effect)))
 
 (deftest run-portfolio-optimizer-effect-calls-run-bridge-with-runtime-store-test
   (let [calls (atom [])
@@ -91,6 +93,52 @@
                               (get-in @store [:portfolio :optimizer :history-load-state])))
                        (done)))
               (.catch (async-support/unexpected-error done))))))))
+
+(deftest save-portfolio-optimizer-scenario-effect-persists-record-index-and-store-state-test
+  (async done
+    (let [calls (atom [])
+          address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          solved-run {:result {:status :solved
+                               :expected-return 0.18
+                               :volatility 0.42}
+                      :computed-at-ms 2000}
+          store (atom {:wallet {:address address}
+                       :portfolio {:optimizer
+                                   {:draft {:name "Core Hedge"
+                                            :objective {:kind :max-sharpe}
+                                            :return-model {:kind :historical-mean}
+                                            :risk-model {:kind :ledoit-wolf}
+                                            :metadata {:dirty? true}}
+                                    :scenario-index {:ordered-ids []
+                                                     :by-id {}}
+                                    :last-successful-run solved-run}}})]
+      (with-redefs [portfolio-optimizer-adapters/*now-ms* (fn [] 3000)
+                    portfolio-optimizer-adapters/*next-scenario-id* (fn [_now-ms] "scn_3000")
+                    portfolio-optimizer-adapters/*load-scenario-index!* (fn [addr]
+                                                                          (swap! calls conj [:load-index addr])
+                                                                          (js/Promise.resolve nil))
+                    portfolio-optimizer-adapters/*save-scenario!* (fn [scenario-id record]
+                                                                     (swap! calls conj [:save-scenario scenario-id record])
+                                                                     (js/Promise.resolve true))
+                    portfolio-optimizer-adapters/*save-scenario-index!* (fn [addr index]
+                                                                          (swap! calls conj [:save-index addr index])
+                                                                          (js/Promise.resolve true))]
+        (-> (portfolio-optimizer-adapters/save-portfolio-optimizer-scenario-effect nil store)
+            (.then (fn [record]
+                     (is (= "scn_3000" (:id record)))
+                     (is (= :saved (:status record)))
+                     (is (= solved-run (:saved-run record)))
+                     (is (= false (get-in @store [:portfolio :optimizer :draft :metadata :dirty?])))
+                     (is (= "scn_3000" (get-in @store [:portfolio :optimizer :active-scenario :loaded-id])))
+                     (is (= ["scn_3000"]
+                            (get-in @store [:portfolio :optimizer :scenario-index :ordered-ids])))
+                     (is (= :saved
+                            (get-in @store [:portfolio :optimizer :scenario-save-state :status])))
+                     (is (= [:load-index address] (first @calls)))
+                     (is (= :save-scenario (ffirst (drop 1 @calls))))
+                     (is (= :save-index (ffirst (drop 2 @calls))))
+                     (done)))
+            (.catch (async-support/unexpected-error done)))))))
 
 (deftest load-portfolio-optimizer-history-effect-preserves-data-on-error-test
   (async done

@@ -173,5 +173,8 @@
 (def load-portfolio-optimizer-history-from-draft-action
   portfolio-optimizer-actions/load-portfolio-optimizer-history-from-draft)
 
+(def save-portfolio-optimizer-scenario-from-current-action
+  portfolio-optimizer-actions/save-portfolio-optimizer-scenario-from-current)
+
 (def run-portfolio-optimizer-from-draft-action
   portfolio-optimizer-actions/run-portfolio-optimizer-from-draft)

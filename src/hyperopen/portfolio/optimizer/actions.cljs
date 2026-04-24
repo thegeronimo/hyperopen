@@ -298,6 +298,13 @@
       [[:effects/run-portfolio-optimizer request (build-request-signature request)]]
       [])))
 
+(defn save-portfolio-optimizer-scenario-from-current
+  [state]
+  (if (= :solved
+         (get-in state [:portfolio :optimizer :last-successful-run :result :status]))
+    [[:effects/save-portfolio-optimizer-scenario]]
+    []))
+
 (defn run-portfolio-optimizer
   [_state request request-signature]
   [[:effects/run-portfolio-optimizer request request-signature]])

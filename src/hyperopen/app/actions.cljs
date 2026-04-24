@@ -48,6 +48,8 @@
                          action-adapters/set-portfolio-optimizer-universe-from-current-action
                          :load-portfolio-optimizer-history-from-draft
                          action-adapters/load-portfolio-optimizer-history-from-draft-action
+                         :save-portfolio-optimizer-scenario-from-current
+                         action-adapters/save-portfolio-optimizer-scenario-from-current-action
                          :run-portfolio-optimizer-from-draft
                          action-adapters/run-portfolio-optimizer-from-draft-action}
    :api-wallets {:load-api-wallet-route action-adapters/load-api-wallet-route-action

@@ -243,3 +243,22 @@
         :effects/load-portfolio-optimizer-history
         ["bad"]
         {:phase :test}))))
+
+(deftest assert-effect-args-validates-portfolio-optimizer-scenario-save-test
+  (is (= []
+         (contracts/assert-effect-args!
+          :effects/save-portfolio-optimizer-scenario
+          []
+          {:phase :test})))
+  (is (= [{:scenario-id "scn_01"}]
+         (contracts/assert-effect-args!
+          :effects/save-portfolio-optimizer-scenario
+          [{:scenario-id "scn_01"}]
+          {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"effect request"
+       (contracts/assert-effect-args!
+        :effects/save-portfolio-optimizer-scenario
+        ["bad"]
+        {:phase :test}))))

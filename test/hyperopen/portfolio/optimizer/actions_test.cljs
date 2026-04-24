@@ -76,6 +76,17 @@
          (actions/load-portfolio-optimizer-history-from-draft
           {:portfolio {:optimizer {:draft {:universe []}}}}))))
 
+(deftest save-portfolio-optimizer-scenario-from-current-requires-solved-run-test
+  (is (= [[:effects/save-portfolio-optimizer-scenario]]
+         (actions/save-portfolio-optimizer-scenario-from-current
+          {:portfolio {:optimizer {:last-successful-run {:result {:status :solved}}}}})))
+  (is (= []
+         (actions/save-portfolio-optimizer-scenario-from-current
+          {:portfolio {:optimizer {:last-successful-run {:result {:status :infeasible}}}}})))
+  (is (= []
+         (actions/save-portfolio-optimizer-scenario-from-current
+          {:portfolio {:optimizer {}}}))))
+
 (deftest set-draft-model-layer-actions-update-draft-and-mark-dirty-test
   (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :objective]
                                 {:kind :max-sharpe}]

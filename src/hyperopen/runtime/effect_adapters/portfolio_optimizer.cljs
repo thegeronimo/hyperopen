@@ -1,12 +1,20 @@
 (ns hyperopen.runtime.effect-adapters.portfolio-optimizer
-  (:require [hyperopen.api.default :as api]
+  (:require [hyperopen.account.context :as account-context]
+            [hyperopen.api.default :as api]
+            [hyperopen.portfolio.optimizer.application.scenario-records :as scenario-records]
             [hyperopen.portfolio.optimizer.application.run-bridge :as run-bridge]
-            [hyperopen.portfolio.optimizer.infrastructure.history-client :as history-client]))
+            [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
+            [hyperopen.portfolio.optimizer.infrastructure.history-client :as history-client]
+            [hyperopen.portfolio.optimizer.infrastructure.persistence :as persistence]))
 
 (def ^:dynamic *request-run!* run-bridge/request-run!)
 (def ^:dynamic *request-history-bundle!* history-client/request-history-bundle!)
 (def ^:dynamic *request-candle-snapshot!* api/request-candle-snapshot!)
 (def ^:dynamic *request-market-funding-history!* api/request-market-funding-history!)
+(def ^:dynamic *load-scenario-index!* persistence/load-scenario-index!)
+(def ^:dynamic *save-scenario!* persistence/save-scenario!)
+(def ^:dynamic *save-scenario-index!* persistence/save-scenario-index!)
+(def ^:dynamic *next-scenario-id* (fn [now-ms] (str "scn_" now-ms)))
 (def ^:dynamic *now-ms* #(.now js/Date))
 
 (def ^:private default-funding-window-ms
@@ -122,6 +130,69 @@
                 (failed-history-load-state current-state completed-at-ms err)))
     state))
 
+(defn- solved-run?
+  [last-successful-run]
+  (= :solved (get-in last-successful-run [:result :status])))
+
+(defn- current-scenario-id
+  [state opts now-ms]
+  (or (:scenario-id opts)
+      (get-in state [:portfolio :optimizer :active-scenario :loaded-id])
+      (get-in state [:portfolio :optimizer :draft :id])
+      (*next-scenario-id* now-ms)))
+
+(defn- default-scenario-index
+  []
+  {:ordered-ids []
+   :by-id {}})
+
+(defn- begin-scenario-save-state
+  [scenario-id started-at-ms]
+  {:status :saving
+   :scenario-id scenario-id
+   :started-at-ms started-at-ms
+   :completed-at-ms nil
+   :error nil})
+
+(defn- saved-scenario-save-state
+  [scenario-id started-at-ms completed-at-ms]
+  {:status :saved
+   :scenario-id scenario-id
+   :started-at-ms started-at-ms
+   :completed-at-ms completed-at-ms
+   :error nil})
+
+(defn- failed-scenario-save-state
+  [scenario-id started-at-ms completed-at-ms err]
+  {:status :failed
+   :scenario-id scenario-id
+   :started-at-ms started-at-ms
+   :completed-at-ms completed-at-ms
+   :error {:message (error-message err)}})
+
+(defn- apply-scenario-save-success
+  [state scenario-index scenario-record started-at-ms completed-at-ms]
+  (-> state
+      (assoc-in [:portfolio :optimizer :draft] (:config scenario-record))
+      (assoc-in [:portfolio :optimizer :active-scenario]
+                {:loaded-id (:id scenario-record)
+                 :status :saved
+                 :read-only? false})
+      (assoc-in [:portfolio :optimizer :scenario-index] scenario-index)
+      (assoc-in [:portfolio :optimizer :scenario-save-state]
+                (saved-scenario-save-state (:id scenario-record)
+                                           started-at-ms
+                                           completed-at-ms))))
+
+(defn- apply-scenario-save-error
+  [state scenario-id started-at-ms completed-at-ms err]
+  (assoc-in state
+            [:portfolio :optimizer :scenario-save-state]
+            (failed-scenario-save-state scenario-id
+                                        started-at-ms
+                                        completed-at-ms
+                                        err)))
+
 (defn load-portfolio-optimizer-history-effect
   ([_ store]
    (load-portfolio-optimizer-history-effect nil store nil))
@@ -148,3 +219,69 @@
                          (swap! store apply-history-error signature completed-at-ms err))
                        nil))))
        (js/Promise.resolve nil)))))
+
+(defn save-portfolio-optimizer-scenario-effect
+  ([_ store]
+   (save-portfolio-optimizer-scenario-effect nil store nil))
+  ([_ store opts]
+   (let [opts* (or opts {})
+         state @store
+         address (account-context/effective-account-address state)
+         draft (or (get-in state [:portfolio :optimizer :draft])
+                   (optimizer-defaults/default-draft))
+         last-successful-run (get-in state [:portfolio :optimizer :last-successful-run])
+         now-ms-fn *now-ms*
+         load-scenario-index! *load-scenario-index!*
+         save-scenario! *save-scenario!*
+         save-scenario-index! *save-scenario-index!*
+         started-at-ms (now-ms-fn)
+         scenario-id (current-scenario-id state opts* started-at-ms)
+         existing-index (or (get-in state [:portfolio :optimizer :scenario-index])
+                            (default-scenario-index))]
+     (if (and address
+              scenario-id
+              (solved-run? last-successful-run))
+       (do
+         (swap! store assoc-in
+                [:portfolio :optimizer :scenario-save-state]
+                (begin-scenario-save-state scenario-id started-at-ms))
+         (-> (load-scenario-index! address)
+             (.then (fn [loaded-index]
+                      (let [scenario-record (scenario-records/build-saved-scenario-record
+                                             {:address address
+                                              :scenario-id scenario-id
+                                              :draft draft
+                                              :last-successful-run last-successful-run
+                                              :saved-at-ms started-at-ms})
+                            scenario-index (scenario-records/upsert-scenario-index
+                                            (or loaded-index existing-index (default-scenario-index))
+                                            (scenario-records/scenario-summary scenario-record))]
+                        (-> (save-scenario! scenario-id scenario-record)
+                            (.then (fn [_]
+                                     (save-scenario-index! address scenario-index)))
+                            (.then (fn [_]
+                                     (let [completed-at-ms (now-ms-fn)]
+                                       (swap! store
+                                              apply-scenario-save-success
+                                              scenario-index
+                                              scenario-record
+                                              started-at-ms
+                                              completed-at-ms)
+                                       scenario-record)))))))
+             (.catch (fn [err]
+                       (let [completed-at-ms (now-ms-fn)]
+                         (swap! store
+                                apply-scenario-save-error
+                                scenario-id
+                                started-at-ms
+                                completed-at-ms
+                                err))
+                       nil))))
+       (do
+         (swap! store assoc-in
+                [:portfolio :optimizer :scenario-save-state]
+                (failed-scenario-save-state scenario-id
+                                            started-at-ms
+                                            started-at-ms
+                                            {:message "Cannot save scenario without an address and solved run."}))
+         (js/Promise.resolve nil))))))
