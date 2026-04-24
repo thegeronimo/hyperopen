@@ -189,6 +189,11 @@
           {:phase :test})))
   (is (= []
          (contracts/assert-action-args!
+          :actions/load-portfolio-optimizer-history-from-draft
+          []
+          {:phase :test})))
+  (is (= []
+         (contracts/assert-action-args!
           :actions/run-portfolio-optimizer-from-draft
           []
           {:phase :test})))

@@ -31,6 +31,13 @@
           :error nil
           :result nil}
          (:run-state (defaults/default-optimizer-state))))
+  (is (= {:status :idle
+          :request-signature nil
+          :started-at-ms nil
+          :completed-at-ms nil
+          :error nil
+          :warnings []}
+         (:history-load-state (defaults/default-optimizer-state))))
   (is (= {:loaded-id nil
           :status :idle
           :read-only? false}

@@ -279,6 +279,12 @@
        [[[:portfolio :optimizer :draft :universe] universe]])
       [])))
 
+(defn load-portfolio-optimizer-history-from-draft
+  [state]
+  (if (seq (get-in state [:portfolio :optimizer :draft :universe]))
+    [[:effects/load-portfolio-optimizer-history]]
+    []))
+
 (defn- build-request-signature
   [request]
   {:scenario-id (:scenario-id request)

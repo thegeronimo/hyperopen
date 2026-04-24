@@ -66,4 +66,5 @@
   (is (fn? action-adapters/set-portfolio-optimizer-instrument-filter-action))
   (is (fn? action-adapters/set-portfolio-optimizer-asset-override-action))
   (is (fn? action-adapters/set-portfolio-optimizer-universe-from-current-action))
+  (is (fn? action-adapters/load-portfolio-optimizer-history-from-draft-action))
   (is (fn? action-adapters/run-portfolio-optimizer-from-draft-action)))

@@ -170,5 +170,8 @@
 (def set-portfolio-optimizer-universe-from-current-action
   portfolio-optimizer-actions/set-portfolio-optimizer-universe-from-current)
 
+(def load-portfolio-optimizer-history-from-draft-action
+  portfolio-optimizer-actions/load-portfolio-optimizer-history-from-draft)
+
 (def run-portfolio-optimizer-from-draft-action
   portfolio-optimizer-actions/run-portfolio-optimizer-from-draft)

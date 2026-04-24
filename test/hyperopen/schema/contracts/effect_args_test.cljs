@@ -224,3 +224,22 @@
         :effects/run-portfolio-optimizer
         [{:scenario-id "scenario-1"}]
         {:phase :test}))))
+
+(deftest assert-effect-args-validates-portfolio-optimizer-history-load-test
+  (is (= []
+         (contracts/assert-effect-args!
+          :effects/load-portfolio-optimizer-history
+          []
+          {:phase :test})))
+  (is (= [{:bars 180}]
+         (contracts/assert-effect-args!
+          :effects/load-portfolio-optimizer-history
+          [{:bars 180}]
+          {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"effect request"
+       (contracts/assert-effect-args!
+        :effects/load-portfolio-optimizer-history
+        ["bad"]
+        {:phase :test}))))

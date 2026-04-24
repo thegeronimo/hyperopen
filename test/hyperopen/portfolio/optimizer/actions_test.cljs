@@ -66,6 +66,16 @@
                                                  :funding-history-by-coin {}}
                                   :runtime {:as-of-ms 2500}}}}))))
 
+(deftest load-portfolio-optimizer-history-from-draft-requires-universe-test
+  (is (= [[:effects/load-portfolio-optimizer-history]]
+         (actions/load-portfolio-optimizer-history-from-draft
+          {:portfolio {:optimizer {:draft {:universe [{:instrument-id "perp:BTC"
+                                                       :market-type :perp
+                                                       :coin "BTC"}]}}}})))
+  (is (= []
+         (actions/load-portfolio-optimizer-history-from-draft
+          {:portfolio {:optimizer {:draft {:universe []}}}}))))
+
 (deftest set-draft-model-layer-actions-update-draft-and-mark-dirty-test
   (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :objective]
                                 {:kind :max-sharpe}]

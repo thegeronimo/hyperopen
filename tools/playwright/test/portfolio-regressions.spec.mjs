@@ -288,6 +288,9 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
     .toContainText("Draft clean");
   await expect(page.locator("[data-role='portfolio-optimizer-readiness-panel']"))
     .toContainText("Select a universe before running.");
+  await expect(page.locator("[data-role='portfolio-optimizer-load-history']"))
+    .toContainText("Load History");
+  await expect(page.locator("[data-role='portfolio-optimizer-load-history']")).toBeDisabled();
   await expect(page.locator("[data-role='portfolio-optimizer-run-status-panel']"))
     .toContainText("Idle");
   await expect(page.locator("[data-role='portfolio-optimizer-universe-panel']"))

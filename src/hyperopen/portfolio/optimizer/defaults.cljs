@@ -40,6 +40,15 @@
    :error nil
    :result nil})
 
+(defn default-history-load-state
+  []
+  {:status :idle
+   :request-signature nil
+   :started-at-ms nil
+   :completed-at-ms nil
+   :error nil
+   :warnings []})
+
 (defn default-optimizer-state
   []
   {:draft (default-draft)
@@ -49,6 +58,10 @@
    :scenario-index {:ordered-ids []
                     :by-id {}}
    :last-successful-run nil
+   :history-data {:candle-history-by-coin {}
+                  :funding-history-by-coin {}
+                  :warnings []}
+   :history-load-state (default-history-load-state)
    :run-state (default-run-state)})
 
 (defn default-optimizer-ui-state

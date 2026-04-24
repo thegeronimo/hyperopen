@@ -46,6 +46,8 @@
                     (get-in deps [:api :api-fetch-staking-validator-summaries])))
     (is (identical? effect-adapters/run-portfolio-optimizer-effect
                     (get-in deps [:portfolio-optimizer :run-portfolio-optimizer])))
+    (is (identical? effect-adapters/load-portfolio-optimizer-history-effect
+                    (get-in deps [:portfolio-optimizer :load-portfolio-optimizer-history])))
     (is (identical? action-adapters/enable-agent-trading
                     (get-in deps [:wallet :enable-agent-trading])))))
 
@@ -81,6 +83,8 @@
                     (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-asset-override])))
     (is (identical? action-adapters/set-portfolio-optimizer-universe-from-current-action
                     (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-universe-from-current])))
+    (is (identical? action-adapters/load-portfolio-optimizer-history-from-draft-action
+                    (get-in deps [:portfolio-optimizer :load-portfolio-optimizer-history-from-draft])))
     (is (identical? action-adapters/run-portfolio-optimizer-from-draft-action
                     (get-in deps [:portfolio-optimizer :run-portfolio-optimizer-from-draft])))))
 
@@ -98,7 +102,9 @@
     (is (identical? action-adapters/run-portfolio-optimizer-action
                     (get-in deps [:action-handlers :run-portfolio-optimizer])))
     (is (identical? effect-adapters/run-portfolio-optimizer-effect
-                    (get-in deps [:effect-handlers :run-portfolio-optimizer])))))
+                    (get-in deps [:effect-handlers :run-portfolio-optimizer])))
+    (is (identical? effect-adapters/load-portfolio-optimizer-history-effect
+                    (get-in deps [:effect-handlers :load-portfolio-optimizer-history])))))
 
 (deftest runtime-action-deps-cover-catalog-handler-keys-test
   (let [action-deps (wiring/runtime-action-deps)

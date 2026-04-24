@@ -4,7 +4,8 @@
             [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
             [hyperopen.portfolio.routes :as portfolio-routes]
             [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]
-            [hyperopen.views.portfolio.optimize.run-status-panel :as run-status-panel]))
+            [hyperopen.views.portfolio.optimize.run-status-panel :as run-status-panel]
+            [hyperopen.views.portfolio.optimize.setup-readiness-panel :as setup-readiness-panel]))
 
 (defn- metric-card
   [label value]
@@ -315,47 +316,6 @@
                      :fee-mode
                      [:event.target/value]]))]))
 
-(defn- warning-code-label
-  [warning]
-  (some-> (:code warning) name))
-
-(defn- readiness-copy
-  [readiness]
-  (case (:reason readiness)
-    :missing-universe "Select a universe before running."
-    :no-eligible-history "History is required before this draft can run."
-    "Optimizer inputs are ready to run."))
-
-(defn- readiness-panel
-  [readiness]
-  (let [warnings (vec (:warnings readiness))]
-    [:div {:class ["mt-4" "rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]
-           :data-role "portfolio-optimizer-readiness-panel"}
-     [:p {:class ["text-[0.65rem]"
-                  "font-semibold"
-                  "uppercase"
-                  "tracking-[0.18em]"
-                  "text-trading-muted"]}
-      "Readiness"]
-     [:p {:class ["mt-2" "text-xs" "text-trading-muted"]}
-      (readiness-copy readiness)]
-     (when (seq warnings)
-       (into
-        [:div {:class ["mt-3" "space-y-2"]}]
-        (map (fn [warning]
-               [:p {:class ["rounded-md"
-                            "border"
-                            "border-warning/40"
-                            "bg-warning/10"
-                            "px-2"
-                            "py-1.5"
-                            "text-xs"
-                            "font-semibold"
-                            "text-warning"]
-                    :data-role "portfolio-optimizer-readiness-warning"}
-                (warning-code-label warning)])
-             warnings)))]))
-
 (defn workspace-view
   [state route]
   (let [snapshot (current-portfolio/current-portfolio-snapshot state)
@@ -367,6 +327,8 @@
         runnable? (and (:runnable? readiness)
                        (not running?))
         last-successful-run (get-in state [:portfolio :optimizer :last-successful-run])
+        history-load-state (or (get-in state [:portfolio :optimizer :history-load-state])
+                               (optimizer-defaults/default-history-load-state))
         scenario-id (:scenario-id route)]
     [:section {:class ["grid"
                        "grid-cols-1"
@@ -465,7 +427,7 @@
        (if (:loaded? snapshot)
          "Current portfolio snapshot is available."
          "Current portfolio snapshot is not loaded yet.")]
-      (readiness-panel readiness)
+      (setup-readiness-panel/readiness-panel readiness history-load-state)
       (run-status-panel/run-status-panel run-state)
       (run-status-panel/last-successful-run-panel run-state last-successful-run)
       (when-let [message (get-in snapshot [:account :read-only-message])]

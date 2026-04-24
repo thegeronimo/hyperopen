@@ -1,7 +1,8 @@
 (ns hyperopen.schema.runtime-registration.portfolio)
 
 (def effect-binding-rows
-  [[:effects/run-portfolio-optimizer :run-portfolio-optimizer]])
+  [[:effects/run-portfolio-optimizer :run-portfolio-optimizer]
+   [:effects/load-portfolio-optimizer-history :load-portfolio-optimizer-history]])
 
 (def action-binding-rows
   [[:actions/toggle-portfolio-summary-scope-dropdown :toggle-portfolio-summary-scope-dropdown]
@@ -40,5 +41,6 @@
    [:actions/set-portfolio-optimizer-instrument-filter :set-portfolio-optimizer-instrument-filter]
    [:actions/set-portfolio-optimizer-asset-override :set-portfolio-optimizer-asset-override]
    [:actions/set-portfolio-optimizer-universe-from-current :set-portfolio-optimizer-universe-from-current]
+   [:actions/load-portfolio-optimizer-history-from-draft :load-portfolio-optimizer-history-from-draft]
    [:actions/run-portfolio-optimizer-from-draft :run-portfolio-optimizer-from-draft]
    [:actions/run-portfolio-optimizer :run-portfolio-optimizer]])

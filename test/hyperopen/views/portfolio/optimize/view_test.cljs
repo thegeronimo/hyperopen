@@ -64,6 +64,9 @@
     (is (= true
            (get-in (node-by-role view-node "portfolio-optimizer-run-draft")
                    [1 :disabled])))
+    (is (= true
+           (get-in (node-by-role view-node "portfolio-optimizer-load-history")
+                   [1 :disabled])))
     (is (some? (node-by-role view-node "portfolio-optimizer-universe-panel")))
     (is (= [[:actions/set-portfolio-optimizer-universe-from-current]]
            (click-actions
@@ -172,6 +175,7 @@
       (is (contains? strings "Historical Mean"))
       (is (contains? strings "Ledoit-Wolf"))
       (is (contains? strings "Draft clean"))
+      (is (contains? strings "Load History"))
       (is (contains? strings "Max Asset Weight"))
       (is (contains? strings "Gross Leverage"))
       (is (contains? strings "Rebalance Tolerance"))
@@ -198,6 +202,10 @@
     (is (= false (get-in run-button [1 :disabled])))
     (is (= [[:actions/run-portfolio-optimizer-from-draft]]
            (click-actions run-button)))
+    (is (= [[:actions/load-portfolio-optimizer-history-from-draft]]
+           (click-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-load-history"))))
     (is (= [[:actions/set-portfolio-optimizer-instrument-filter
              :allowlist
              "perp:BTC"
@@ -264,6 +272,30 @@
     (is (contains? strings "Running"))
     (is (contains? strings "Retaining last successful result while rerunning."))
     (is (contains? strings "2 assets"))))
+
+(deftest portfolio-optimizer-workspace-shows-history-load-state-test
+  (let [loading-node (portfolio-view/portfolio-view
+                      {:router {:path "/portfolio/optimize/new"}
+                       :portfolio {:optimizer
+                                   {:draft {:universe [{:instrument-id "perp:BTC"
+                                                        :market-type :perp
+                                                        :coin "BTC"}]}
+                                    :history-load-state {:status :loading
+                                                         :started-at-ms 123}}}})
+        failed-node (portfolio-view/portfolio-view
+                     {:router {:path "/portfolio/optimize/new"}
+                      :portfolio {:optimizer
+                                  {:draft {:universe [{:instrument-id "perp:BTC"
+                                                       :market-type :perp
+                                                       :coin "BTC"}]}
+                                   :history-load-state {:status :failed
+                                                        :error {:message "history unavailable"}}}}})
+        loading-button (node-by-role loading-node "portfolio-optimizer-load-history")]
+    (is (= true (get-in loading-button [1 :disabled])))
+    (is (contains? (set (collect-strings loading-node))
+                   "Loading History"))
+    (is (contains? (set (collect-strings failed-node))
+                   "history unavailable"))))
 
 (deftest portfolio-optimizer-workspace-shows-failed-run-status-test
   (let [view-node (portfolio-view/portfolio-view

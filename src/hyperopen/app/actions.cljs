@@ -46,6 +46,8 @@
                          action-adapters/set-portfolio-optimizer-asset-override-action
                          :set-portfolio-optimizer-universe-from-current
                          action-adapters/set-portfolio-optimizer-universe-from-current-action
+                         :load-portfolio-optimizer-history-from-draft
+                         action-adapters/load-portfolio-optimizer-history-from-draft-action
                          :run-portfolio-optimizer-from-draft
                          action-adapters/run-portfolio-optimizer-from-draft-action}
    :api-wallets {:load-api-wallet-route action-adapters/load-api-wallet-route-action

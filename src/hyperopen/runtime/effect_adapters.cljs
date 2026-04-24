@@ -246,6 +246,9 @@
 (def sync-active-asset-funding-predictability
   funding-adapters/sync-active-asset-funding-predictability)
 
+(def load-portfolio-optimizer-history-effect
+  portfolio-optimizer-adapters/load-portfolio-optimizer-history-effect)
+
 (def restore-dialog-focus-effect
   funding-adapters/restore-dialog-focus-effect)
 

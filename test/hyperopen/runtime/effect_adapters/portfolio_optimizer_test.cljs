@@ -1,11 +1,14 @@
 (ns hyperopen.runtime.effect-adapters.portfolio-optimizer-test
-  (:require [cljs.test :refer-macros [deftest is]]
+  (:require [cljs.test :refer-macros [async deftest is]]
             [hyperopen.runtime.effect-adapters :as effect-adapters]
-            [hyperopen.runtime.effect-adapters.portfolio-optimizer :as portfolio-optimizer-adapters]))
+            [hyperopen.runtime.effect-adapters.portfolio-optimizer :as portfolio-optimizer-adapters]
+            [hyperopen.test-support.async :as async-support]))
 
 (deftest facade-portfolio-optimizer-adapter-delegates-to-owner-module-test
   (is (identical? portfolio-optimizer-adapters/run-portfolio-optimizer-effect
-                  effect-adapters/run-portfolio-optimizer-effect)))
+                  effect-adapters/run-portfolio-optimizer-effect))
+  (is (identical? portfolio-optimizer-adapters/load-portfolio-optimizer-history-effect
+                  effect-adapters/load-portfolio-optimizer-history-effect)))
 
 (deftest run-portfolio-optimizer-effect-calls-run-bridge-with-runtime-store-test
   (let [calls (atom [])
@@ -28,3 +31,87 @@
                :computed-at-ms 123
                :store store}]
              @calls)))))
+
+(deftest load-portfolio-optimizer-history-effect-persists-success-for-current-request-test
+  (async done
+    (let [calls (atom [])
+          store (atom {:portfolio {:optimizer
+                                    {:draft {:universe [{:instrument-id "perp:BTC"
+                                                         :market-type :perp
+                                                         :coin "BTC"}]}
+                                     :runtime {:as-of-ms 3000
+                                               :stale-after-ms 60000}}}})
+          bundle {:candle-history-by-coin {"BTC" [{:time 1000 :close "100"}
+                                                  {:time 2000 :close "110"}]}
+                  :funding-history-by-coin {"BTC" [{:time-ms 1000
+                                                    :funding-rate-raw 0.001}]}
+                  :warnings [{:code :funding-partial}]
+                  :request-plan {:candle-requests [{:coin "BTC"}]}}]
+      (with-redefs [portfolio-optimizer-adapters/*request-history-bundle!*
+                    (fn [deps request]
+                      (swap! calls conj {:deps deps
+                                         :request request})
+                      (js/Promise.resolve bundle))
+                    portfolio-optimizer-adapters/*now-ms* (fn [] 12345)]
+        (let [promise (portfolio-optimizer-adapters/load-portfolio-optimizer-history-effect
+                       nil
+                       store
+                       {:bars 90})]
+          (is (= :loading
+                 (get-in @store [:portfolio :optimizer :history-load-state :status])))
+          (-> promise
+              (.then (fn [result]
+                       (is (= bundle result))
+                       (is (= 1 (count @calls)))
+                       (is (= [{:instrument-id "perp:BTC"
+                                :market-type :perp
+                                :coin "BTC"}]
+                              (get-in @calls [0 :request :universe])))
+                       (is (= 90 (get-in @calls [0 :request :bars])))
+                       (is (fn? (get-in @calls [0 :deps :request-candle-snapshot!])))
+                       (is (fn? (get-in @calls [0 :deps :request-market-funding-history!])))
+                       (is (= {"BTC" [{:time 1000 :close "100"}
+                                      {:time 2000 :close "110"}]}
+                              (get-in @store
+                                      [:portfolio :optimizer :history-data :candle-history-by-coin])))
+                       (is (= {"BTC" [{:time-ms 1000
+                                       :funding-rate-raw 0.001}]}
+                              (get-in @store
+                                      [:portfolio :optimizer :history-data :funding-history-by-coin])))
+                       (is (= {:status :succeeded
+                               :request-signature (get-in @store
+                                                          [:portfolio
+                                                           :optimizer
+                                                           :history-load-state
+                                                           :request-signature])
+                               :started-at-ms 12345
+                               :completed-at-ms 12345
+                               :error nil
+                               :warnings [{:code :funding-partial}]}
+                              (get-in @store [:portfolio :optimizer :history-load-state])))
+                       (done)))
+              (.catch (async-support/unexpected-error done))))))))
+
+(deftest load-portfolio-optimizer-history-effect-preserves-data-on-error-test
+  (async done
+    (let [store (atom {:portfolio {:optimizer
+                                    {:draft {:universe [{:instrument-id "perp:BTC"
+                                                         :market-type :perp
+                                                         :coin "BTC"}]}
+                                     :history-data {:candle-history-by-coin {"BTC" [:old]}}}}})]
+      (with-redefs [portfolio-optimizer-adapters/*request-history-bundle!*
+                    (fn [_deps _request]
+                      (js/Promise.reject (js/Error. "history boom")))
+                    portfolio-optimizer-adapters/*now-ms* (fn [] 222)]
+        (let [promise (portfolio-optimizer-adapters/load-portfolio-optimizer-history-effect nil store)]
+          (-> promise
+              (.then (fn [_]
+                       (is (= {"BTC" [:old]}
+                              (get-in @store
+                                      [:portfolio :optimizer :history-data :candle-history-by-coin])))
+                       (is (= :failed
+                              (get-in @store [:portfolio :optimizer :history-load-state :status])))
+                       (is (= "history boom"
+                              (get-in @store [:portfolio :optimizer :history-load-state :error :message])))
+                       (done)))
+              (.catch (async-support/unexpected-error done))))))))

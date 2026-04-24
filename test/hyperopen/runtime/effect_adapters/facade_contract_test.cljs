@@ -36,4 +36,5 @@
   (is (fn? effect-adapters/api-submit-funding-send-effect))
   (is (fn? effect-adapters/api-submit-funding-transfer-effect))
   (is (fn? effect-adapters/restore-leaderboard-preferences!))
-  (is (fn? effect-adapters/run-portfolio-optimizer-effect)))
+  (is (fn? effect-adapters/run-portfolio-optimizer-effect))
+  (is (fn? effect-adapters/load-portfolio-optimizer-history-effect)))
