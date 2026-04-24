@@ -37,6 +37,14 @@
   [node]
   (get-in node [1 :on :click]))
 
+(defn- input-actions
+  [node]
+  (get-in node [1 :on :input]))
+
+(defn- change-actions
+  [node]
+  (get-in node [1 :on :change]))
+
 (deftest portfolio-view-delegates-optimizer-index-route-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize"}})]
@@ -56,6 +64,62 @@
     (is (some? (node-by-role view-node "portfolio-optimizer-return-model-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-risk-model-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-constraints-panel")))
+    (is (= [[:actions/set-portfolio-optimizer-constraint
+             :long-only?
+             :event.target/checked]]
+           (change-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-constraint-long-only-input"))))
+    (is (= false
+           (get-in (node-by-role view-node
+                                 "portfolio-optimizer-constraint-long-only-input")
+                   [1 :checked])))
+    (is (= "0.35"
+           (get-in (node-by-role view-node
+                                 "portfolio-optimizer-constraint-max-asset-weight-input")
+                   [1 :value])))
+    (is (= [[:actions/set-portfolio-optimizer-constraint
+             :max-asset-weight
+             [:event.target/value]]]
+           (input-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-constraint-max-asset-weight-input"))))
+    (is (= [[:actions/set-portfolio-optimizer-constraint
+             :gross-max
+             [:event.target/value]]]
+           (input-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-constraint-gross-max-input"))))
+    (is (= [[:actions/set-portfolio-optimizer-constraint
+             :net-min
+             [:event.target/value]]]
+           (input-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-constraint-net-min-input"))))
+    (is (= [[:actions/set-portfolio-optimizer-constraint
+             :net-max
+             [:event.target/value]]]
+           (input-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-constraint-net-max-input"))))
+    (is (= [[:actions/set-portfolio-optimizer-constraint
+             :dust-usdc
+             [:event.target/value]]]
+           (input-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-constraint-dust-usdc-input"))))
+    (is (= [[:actions/set-portfolio-optimizer-constraint
+             :max-turnover
+             [:event.target/value]]]
+           (input-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-constraint-max-turnover-input"))))
+    (is (= [[:actions/set-portfolio-optimizer-constraint
+             :rebalance-tolerance
+             [:event.target/value]]]
+           (input-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-constraint-rebalance-tolerance-input"))))
     (is (= [[:actions/set-portfolio-optimizer-objective-kind :max-sharpe]]
            (click-actions (node-by-role view-node "portfolio-optimizer-objective-max-sharpe"))))
     (is (= [[:actions/set-portfolio-optimizer-return-model-kind :black-litterman]]

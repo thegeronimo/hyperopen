@@ -29,21 +29,6 @@
   (or (get-in state [:portfolio :optimizer :draft])
       (optimizer-defaults/default-draft)))
 
-(defn- format-percent
-  [value]
-  (if (number? value)
-    (str (.toLocaleString (* 100 value)
-                          "en-US"
-                          #js {:maximumFractionDigits 2})
-         "%")
-    "N/A"))
-
-(defn- format-leverage
-  [value]
-  (if (number? value)
-    (str (.toLocaleString value "en-US" #js {:maximumFractionDigits 2}) "x")
-    "N/A"))
-
 (defn- panel-shell
   [data-role title subtitle & children]
   [:section {:class ["rounded-xl"
@@ -89,6 +74,62 @@
     label]
    [:p {:class ["mt-2" "text-sm" "font-semibold" "tabular-nums"]}
     value]])
+
+(defn- constraint-input
+  [label constraint-key value data-role]
+  [:label {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]}
+   [:span {:class ["block"
+                   "text-[0.65rem]"
+                   "font-semibold"
+                   "uppercase"
+                   "tracking-[0.18em]"
+                   "text-trading-muted"]}
+    label]
+   [:input {:type "text"
+            :inputmode "decimal"
+            :class ["mt-2"
+                    "w-full"
+                    "rounded-md"
+                    "border"
+                    "border-base-300"
+                    "bg-base-100"
+                    "px-2"
+                    "py-1.5"
+                    "text-sm"
+                    "font-semibold"
+                    "tabular-nums"
+                    "outline-none"
+                    "focus:border-primary/70"]
+            :data-role data-role
+            :value (str value)
+            :on {:input [[:actions/set-portfolio-optimizer-constraint
+                          constraint-key
+                          [:event.target/value]]]}}]])
+
+(defn- constraint-toggle
+  [label constraint-key checked? data-role]
+  [:label {:class ["flex"
+                   "items-center"
+                   "justify-between"
+                   "gap-3"
+                   "rounded-lg"
+                   "border"
+                   "border-base-300"
+                   "bg-base-200/40"
+                   "p-3"]}
+   [:span {:class ["text-[0.65rem]"
+                   "font-semibold"
+                   "uppercase"
+                   "tracking-[0.18em]"
+                   "text-trading-muted"]}
+    label]
+   [:input {:type "checkbox"
+            :class ["h-4" "w-4" "accent-primary"]
+            :data-role data-role
+            :checked (true? checked?)
+            :on {:change [[:actions/set-portfolio-optimizer-constraint
+                           constraint-key
+                           :event.target/checked]]}}]])
 
 (defn- setup-panels
   [draft]
@@ -144,12 +185,38 @@
       [:p {:class ["mt-2" "text-sm" "text-trading-muted"]}
        "Mandatory V1 controls stay visible, including global max asset weight and turnover."]
       [:div {:class ["mt-4" "grid" "grid-cols-1" "gap-2" "md:grid-cols-2" "xl:grid-cols-3"]}
-       (constraint-row "Max Asset Weight" (format-percent (:max-asset-weight constraints)))
-       (constraint-row "Gross Leverage" (format-leverage (:gross-max constraints)))
-       (constraint-row "Net Exposure" (str (:net-min constraints) " to " (:net-max constraints)))
-       (constraint-row "Dust Threshold" (format-usdc (:dust-usdc constraints)))
-       (constraint-row "Max Turnover" (format-percent (:max-turnover constraints)))
-       (constraint-row "Rebalance Tolerance" (format-percent (:rebalance-tolerance constraints)))
+       (constraint-toggle "Long Only"
+                          :long-only?
+                          (:long-only? constraints)
+                          "portfolio-optimizer-constraint-long-only-input")
+       (constraint-input "Max Asset Weight"
+                         :max-asset-weight
+                         (:max-asset-weight constraints)
+                         "portfolio-optimizer-constraint-max-asset-weight-input")
+       (constraint-input "Gross Leverage"
+                         :gross-max
+                         (:gross-max constraints)
+                         "portfolio-optimizer-constraint-gross-max-input")
+       (constraint-input "Net Min"
+                         :net-min
+                         (:net-min constraints)
+                         "portfolio-optimizer-constraint-net-min-input")
+       (constraint-input "Net Max"
+                         :net-max
+                         (:net-max constraints)
+                         "portfolio-optimizer-constraint-net-max-input")
+       (constraint-input "Dust Threshold"
+                         :dust-usdc
+                         (:dust-usdc constraints)
+                         "portfolio-optimizer-constraint-dust-usdc-input")
+       (constraint-input "Max Turnover"
+                         :max-turnover
+                         (:max-turnover constraints)
+                         "portfolio-optimizer-constraint-max-turnover-input")
+       (constraint-input "Rebalance Tolerance"
+                         :rebalance-tolerance
+                         (:rebalance-tolerance constraints)
+                         "portfolio-optimizer-constraint-rebalance-tolerance-input")
        (constraint-row "Allowlist / Blocklist"
                        (str (count (:allowlist constraints)) " / " (count (:blocklist constraints))))
        (constraint-row "Perp Leverage"

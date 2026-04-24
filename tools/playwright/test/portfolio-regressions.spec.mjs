@@ -316,6 +316,21 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   await sampleCovariance.click();
   await expect(sampleCovariance).toHaveAttribute("aria-pressed", "true");
   await expect(sampleCovariance).toContainText("Active");
+
+  const longOnly = page.locator("[data-role='portfolio-optimizer-constraint-long-only-input']");
+  const maxAssetWeight = page.locator(
+    "[data-role='portfolio-optimizer-constraint-max-asset-weight-input']"
+  );
+
+  await expect(longOnly).not.toBeChecked();
+  await longOnly.check();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(longOnly).toBeChecked();
+
+  await expect(maxAssetWeight).toHaveValue("0.35");
+  await maxAssetWeight.fill("0.25");
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(maxAssetWeight).toHaveValue("0.25");
 });
 
 test("portfolio volume history opens near the metric card trigger @regression", async ({ page }) => {
