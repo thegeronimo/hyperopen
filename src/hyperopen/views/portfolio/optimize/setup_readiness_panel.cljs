@@ -9,6 +9,8 @@
   (case (:reason readiness)
     :missing-universe "Select a universe before running."
     :no-eligible-history "History is required before this draft can run."
+    :incomplete-history "Reload history before running this changed universe."
+    :history-loading "History reload is still in flight."
     "Optimizer inputs are ready to run."))
 
 (defn- history-load-copy

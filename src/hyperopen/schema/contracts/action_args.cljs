@@ -74,6 +74,8 @@
   (s/tuple map? map?))
 (s/def ::portfolio-optimizer-scenario-id-args
   (s/tuple ::common/non-empty-string))
+(s/def ::portfolio-optimizer-instrument-id-args
+  (s/tuple ::common/non-empty-string))
 (s/def ::staking-action-popover-open-args
   (s/or :kind-only (s/tuple (s/or :keyword keyword?
                                    :string string?))
@@ -212,6 +214,9 @@
    :actions/set-portfolio-optimizer-execution-assumption ::portfolio-optimizer-key-value-args
    :actions/set-portfolio-optimizer-instrument-filter ::portfolio-optimizer-instrument-key-value-args
    :actions/set-portfolio-optimizer-asset-override ::portfolio-optimizer-instrument-key-value-args
+   :actions/set-portfolio-optimizer-universe-search-query ::common/single-input-args
+   :actions/add-portfolio-optimizer-universe-instrument ::portfolio-optimizer-instrument-id-args
+   :actions/remove-portfolio-optimizer-universe-instrument ::portfolio-optimizer-instrument-id-args
    :actions/set-portfolio-optimizer-universe-from-current ::common/no-args
    :actions/load-portfolio-optimizer-history-from-draft ::common/no-args
    :actions/save-portfolio-optimizer-scenario-from-current ::common/no-args

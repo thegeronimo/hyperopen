@@ -167,6 +167,15 @@
 (def set-portfolio-optimizer-asset-override-action
   portfolio-optimizer-actions/set-portfolio-optimizer-asset-override)
 
+(def set-portfolio-optimizer-universe-search-query-action
+  portfolio-optimizer-actions/set-portfolio-optimizer-universe-search-query)
+
+(def add-portfolio-optimizer-universe-instrument-action
+  portfolio-optimizer-actions/add-portfolio-optimizer-universe-instrument)
+
+(def remove-portfolio-optimizer-universe-instrument-action
+  portfolio-optimizer-actions/remove-portfolio-optimizer-universe-instrument)
+
 (def set-portfolio-optimizer-universe-from-current-action
   portfolio-optimizer-actions/set-portfolio-optimizer-universe-from-current)
 

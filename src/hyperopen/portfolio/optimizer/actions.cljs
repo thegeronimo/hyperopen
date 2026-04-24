@@ -46,6 +46,9 @@
   #{:default-order-type
     :fee-mode})
 
+(def ^:private supported-universe-market-types
+  #{:perp :spot})
+
 (def ^:private instrument-filter-keys
   #{:allowlist
     :blocklist})
@@ -97,6 +100,30 @@
         (non-blank-text (:dex exposure))
         (assoc :dex (non-blank-text (:dex exposure)))))))
 
+(defn- market->universe-instrument
+  [market]
+  (let [instrument-id (non-blank-text (:key market))
+        coin (non-blank-text (:coin market))
+        market-type (normalize-keyword-like (:market-type market))]
+    (when (and instrument-id
+               coin
+               (contains? supported-universe-market-types market-type))
+      (cond-> {:instrument-id instrument-id
+               :market-type market-type
+               :coin coin
+               :shortable? (= :perp market-type)}
+        (non-blank-text (:dex market))
+        (assoc :dex (non-blank-text (:dex market)))
+
+        (non-blank-text (:symbol market))
+        (assoc :symbol (non-blank-text (:symbol market)))
+
+        (non-blank-text (:base market))
+        (assoc :base (non-blank-text (:base market)))
+
+        (non-blank-text (:quote market))
+        (assoc :quote (non-blank-text (:quote market)))))))
+
 (defn- dedupe-instruments
   [instruments]
   (:items
@@ -142,6 +169,16 @@
   [state constraint-key]
   (vec (or (get-in state [:portfolio :optimizer :draft :constraints constraint-key])
            [])))
+
+(defn- draft-universe
+  [state]
+  (vec (or (get-in state [:portfolio :optimizer :draft :universe])
+           [])))
+
+(defn- instrument-present?
+  [universe instrument-id]
+  (boolean
+   (some #(= instrument-id (:instrument-id %)) universe)))
 
 (defn- instrument-market-type
   [state instrument-id]
@@ -268,6 +305,48 @@
          (set-membership (constraint-list state :held-locks) instrument-id* boolean-value)]])
 
       :else [])))
+
+(defn set-portfolio-optimizer-universe-search-query
+  [_state query]
+  [[:effects/save
+    [:portfolio-ui :optimizer :universe-search-query]
+    (or (some-> query str) "")]])
+
+(defn add-portfolio-optimizer-universe-instrument
+  [state market-key]
+  (let [market-key* (non-blank-text market-key)
+        universe (draft-universe state)
+        market (get-in state [:asset-selector :market-by-key market-key*])
+        instrument (market->universe-instrument market)
+        instrument-id (:instrument-id instrument)]
+    (if (and instrument
+             (not (instrument-present? universe instrument-id)))
+      (save-draft-path-values
+       [[[:portfolio :optimizer :draft :universe]
+         (conj universe instrument)]])
+      [])))
+
+(defn remove-portfolio-optimizer-universe-instrument
+  [state instrument-id]
+  (let [instrument-id* (non-blank-text instrument-id)
+        universe (draft-universe state)
+        universe* (vec (remove #(= instrument-id* (:instrument-id %)) universe))
+        constraints (get-in state [:portfolio :optimizer :draft :constraints])]
+    (if (and instrument-id*
+             (not= universe universe*))
+      (save-draft-path-values
+       [[[:portfolio :optimizer :draft :universe] universe*]
+        [[:portfolio :optimizer :draft :constraints :allowlist]
+         (set-membership (vec (:allowlist constraints)) instrument-id* false)]
+        [[:portfolio :optimizer :draft :constraints :blocklist]
+         (set-membership (vec (:blocklist constraints)) instrument-id* false)]
+        [[:portfolio :optimizer :draft :constraints :held-locks]
+         (set-membership (vec (:held-locks constraints)) instrument-id* false)]
+        [[:portfolio :optimizer :draft :constraints :asset-overrides]
+         (dissoc (or (:asset-overrides constraints) {}) instrument-id*)]
+        [[:portfolio :optimizer :draft :constraints :perp-leverage]
+         (dissoc (or (:perp-leverage constraints) {}) instrument-id*)]])
+      [])))
 
 (defn set-portfolio-optimizer-universe-from-current
   [state]

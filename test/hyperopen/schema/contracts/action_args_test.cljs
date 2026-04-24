@@ -182,6 +182,21 @@
           :actions/set-portfolio-optimizer-asset-override
           [:max-weight "perp:BTC" "0.25"]
           {:phase :test})))
+  (is (= ["eth"]
+         (contracts/assert-action-args!
+          :actions/set-portfolio-optimizer-universe-search-query
+          ["eth"]
+          {:phase :test})))
+  (is (= ["perp:ETH"]
+         (contracts/assert-action-args!
+          :actions/add-portfolio-optimizer-universe-instrument
+          ["perp:ETH"]
+          {:phase :test})))
+  (is (= ["perp:ETH"]
+         (contracts/assert-action-args!
+          :actions/remove-portfolio-optimizer-universe-instrument
+          ["perp:ETH"]
+          {:phase :test})))
   (is (= []
          (contracts/assert-action-args!
           :actions/set-portfolio-optimizer-universe-from-current

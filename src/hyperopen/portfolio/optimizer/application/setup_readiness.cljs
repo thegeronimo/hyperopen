@@ -19,10 +19,21 @@
     :funding-periods-per-year (get-in state
                                       [:portfolio :optimizer :runtime :funding-periods-per-year])}))
 
+(defn- instrument-ids
+  [instruments]
+  (set (keep :instrument-id instruments)))
+
+(defn- incomplete-history?
+  [requested-universe request]
+  (not= (instrument-ids requested-universe)
+        (instrument-ids (:universe request))))
+
 (defn build-readiness
   [state]
   (let [draft (get-in state [:portfolio :optimizer :draft])
-        requested-universe (vec (or (:universe draft) []))]
+        requested-universe (vec (or (:universe draft) []))
+        history-loading? (= :loading
+                            (get-in state [:portfolio :optimizer :history-load-state :status]))]
     (if (empty? requested-universe)
       {:status :blocked
        :reason :missing-universe
@@ -30,9 +41,17 @@
        :request nil
        :warnings []}
       (let [request (build-request state draft)
-            runnable? (boolean (seq (:universe request)))]
+            eligible? (boolean (seq (:universe request)))
+            incomplete? (incomplete-history? requested-universe request)
+            runnable? (and eligible?
+                           (not incomplete?)
+                           (not history-loading?))]
         {:status (if runnable? :ready :blocked)
-         :reason (when-not runnable? :no-eligible-history)
-         :runnable? runnable?
+         :reason (cond
+                   history-loading? :history-loading
+                   (not eligible?) :no-eligible-history
+                   incomplete? :incomplete-history
+                   :else nil)
+         :runnable? (boolean runnable?)
          :request request
          :warnings (vec (:warnings request))}))))

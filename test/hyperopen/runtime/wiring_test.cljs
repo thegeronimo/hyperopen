@@ -91,6 +91,12 @@
                     (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-instrument-filter])))
     (is (identical? action-adapters/set-portfolio-optimizer-asset-override-action
                     (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-asset-override])))
+    (is (identical? action-adapters/set-portfolio-optimizer-universe-search-query-action
+                    (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-universe-search-query])))
+    (is (identical? action-adapters/add-portfolio-optimizer-universe-instrument-action
+                    (get-in deps [:portfolio-optimizer :add-portfolio-optimizer-universe-instrument])))
+    (is (identical? action-adapters/remove-portfolio-optimizer-universe-instrument-action
+                    (get-in deps [:portfolio-optimizer :remove-portfolio-optimizer-universe-instrument])))
     (is (identical? action-adapters/set-portfolio-optimizer-universe-from-current-action
                     (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-universe-from-current])))
     (is (identical? action-adapters/load-portfolio-optimizer-history-from-draft-action

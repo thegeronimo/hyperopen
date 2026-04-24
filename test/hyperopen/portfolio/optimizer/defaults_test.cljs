@@ -50,6 +50,7 @@
 (deftest default-optimizer-ui-state-matches-route-query-defaults-test
   (is (= {:list-filter :active
           :list-sort :updated-desc
+          :universe-search-query ""
           :workspace-panel :setup
           :results-tab :allocation
           :diagnostics-tab :conditioning}

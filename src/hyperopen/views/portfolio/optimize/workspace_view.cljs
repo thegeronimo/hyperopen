@@ -7,7 +7,8 @@
             [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]
             [hyperopen.views.portfolio.optimize.results-panel :as results-panel]
             [hyperopen.views.portfolio.optimize.run-status-panel :as run-status-panel]
-            [hyperopen.views.portfolio.optimize.setup-readiness-panel :as setup-readiness-panel]))
+            [hyperopen.views.portfolio.optimize.setup-readiness-panel :as setup-readiness-panel]
+            [hyperopen.views.portfolio.optimize.universe-panel :as universe-panel]))
 
 (defn- metric-card
   [label value]
@@ -164,40 +165,8 @@
                            constraint-key
                            :event.target/checked]]}}]])
 
-(defn- universe-panel
-  [draft]
-  (let [universe (vec (or (:universe draft) []))]
-    [:section {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
-               :data-role "portfolio-optimizer-universe-panel"}
-     [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
-      [:div
-       [:p {:class ["text-[0.65rem]"
-                    "font-semibold"
-                    "uppercase"
-                    "tracking-[0.24em]"
-                    "text-trading-muted"]}
-        "Universe"]
-       [:p {:class ["mt-2" "text-sm" "text-trading-muted"]}
-        (str (count universe)
-             " instruments selected. Seed from current holdings, then refine allowlist and overrides.")]]
-      [:button {:type "button"
-                :class ["rounded-lg"
-                        "border"
-                        "border-primary/50"
-                        "bg-primary/10"
-                        "px-3"
-                        "py-2"
-                        "text-xs"
-                        "font-semibold"
-                        "uppercase"
-                        "tracking-[0.16em]"
-                        "text-primary"]
-                :data-role "portfolio-optimizer-universe-use-current"
-                :on {:click [[:actions/set-portfolio-optimizer-universe-from-current]]}}
-       "Use Current Holdings"]]]))
-
 (defn- setup-panels
-  [draft highlighted-controls]
+  [state draft highlighted-controls]
   (let [objective-kind (get-in draft [:objective :kind])
         return-kind (get-in draft [:return-model :kind])
         risk-kind (get-in draft [:risk-model :kind])
@@ -205,7 +174,7 @@
         execution-assumptions (:execution-assumptions draft)]
     [:div {:class ["grid" "grid-cols-1" "gap-4"]
            :data-role "portfolio-optimizer-setup-surface"}
-     (universe-panel draft)
+     (universe-panel/universe-panel state draft)
      (panel-shell
       "portfolio-optimizer-objective-panel"
       "Objective"
@@ -445,7 +414,7 @@
           "Save Scenario")]]]
      [:main {:class ["space-y-4"]}
       (infeasible-panel/infeasible-banner infeasible-result highlighted-controls)
-      (setup-panels draft highlighted-controls)
+      (setup-panels state draft highlighted-controls)
       (results-panel/results-panel last-successful-run draft)
       [:div {:class ["grid" "grid-cols-1" "gap-3" "lg:grid-cols-3"]
              :data-role "portfolio-optimizer-current-summary"}

@@ -44,6 +44,12 @@
                          action-adapters/set-portfolio-optimizer-instrument-filter-action
                          :set-portfolio-optimizer-asset-override
                          action-adapters/set-portfolio-optimizer-asset-override-action
+                         :set-portfolio-optimizer-universe-search-query
+                         action-adapters/set-portfolio-optimizer-universe-search-query-action
+                         :add-portfolio-optimizer-universe-instrument
+                         action-adapters/add-portfolio-optimizer-universe-instrument-action
+                         :remove-portfolio-optimizer-universe-instrument
+                         action-adapters/remove-portfolio-optimizer-universe-instrument-action
                          :set-portfolio-optimizer-universe-from-current
                          action-adapters/set-portfolio-optimizer-universe-from-current-action
                          :load-portfolio-optimizer-history-from-draft

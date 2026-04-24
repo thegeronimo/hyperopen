@@ -49,6 +49,12 @@
    [:actions/set-portfolio-optimizer-execution-assumption :set-portfolio-optimizer-execution-assumption]
    [:actions/set-portfolio-optimizer-instrument-filter :set-portfolio-optimizer-instrument-filter]
    [:actions/set-portfolio-optimizer-asset-override :set-portfolio-optimizer-asset-override]
+   [:actions/set-portfolio-optimizer-universe-search-query
+    :set-portfolio-optimizer-universe-search-query]
+   [:actions/add-portfolio-optimizer-universe-instrument
+    :add-portfolio-optimizer-universe-instrument]
+   [:actions/remove-portfolio-optimizer-universe-instrument
+    :remove-portfolio-optimizer-universe-instrument]
    [:actions/set-portfolio-optimizer-universe-from-current :set-portfolio-optimizer-universe-from-current]
    [:actions/load-portfolio-optimizer-history-from-draft :load-portfolio-optimizer-history-from-draft]
    [:actions/save-portfolio-optimizer-scenario-from-current :save-portfolio-optimizer-scenario-from-current]

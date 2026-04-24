@@ -176,6 +176,90 @@ async function seedPortfolioVolumeHistory(page) {
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 }
 
+async function seedOptimizerAssetSelectorMarkets(page) {
+  await page.evaluate(() => {
+    const c = globalThis.cljs.core;
+    const kw = (name) => c.keyword(name);
+    const market = (key, marketType, coin, symbol, dex = null) => {
+      const entries = [
+        kw("key"), key,
+        kw("market-type"), kw(marketType),
+        kw("coin"), coin,
+        kw("symbol"), symbol
+      ];
+      if (dex) {
+        entries.push(kw("dex"), dex);
+      }
+      return c.PersistentArrayMap.fromArray(entries, true);
+    };
+
+    const btc = market("perp:BTC", "perp", "BTC", "BTC-USDC", "hl");
+    const eth = market("perp:ETH", "perp", "ETH", "ETH-USDC", "hl");
+    const purr = market("spot:PURR/USDC", "spot", "PURR/USDC", "PURR/USDC");
+    const markets = c.PersistentVector.fromArray([btc, eth, purr], true);
+    const marketByKey = c.PersistentArrayMap.fromArray(
+      ["perp:BTC", btc, "perp:ETH", eth, "spot:PURR/USDC", purr],
+      true
+    );
+    const state = c.deref(globalThis.hyperopen.system.store);
+    const withMarkets = c.assoc_in(
+      state,
+      c.PersistentVector.fromArray([kw("asset-selector"), kw("markets")], true),
+      markets
+    );
+    const nextState = c.assoc_in(
+      withMarkets,
+      c.PersistentVector.fromArray([kw("asset-selector"), kw("market-by-key")], true),
+      marketByKey
+    );
+
+    c.reset_BANG_(globalThis.hyperopen.system.store, nextState);
+  });
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+}
+
+async function seedOptimizerBtcOnlyHistory(page) {
+  await page.evaluate(() => {
+    const c = globalThis.cljs.core;
+    const kw = (name) => c.keyword(name);
+    const path = (...segments) =>
+      c.PersistentVector.fromArray(segments.map((segment) => kw(segment)), true);
+    const vector = (items) => c.PersistentVector.fromArray(items, true);
+    const map = (entries) => c.PersistentArrayMap.fromArray(entries, true);
+    const candle = (time, close) =>
+      map([kw("time"), time, kw("close"), close]);
+
+    const btcInstrument = map([
+      kw("instrument-id"), "perp:BTC",
+      kw("market-type"), kw("perp"),
+      kw("coin"), "BTC",
+      kw("shortable?"), true,
+      kw("symbol"), "BTC-USDC"
+    ]);
+    const historyData = map([
+      kw("candle-history-by-coin"),
+      map(["BTC", vector([candle(1000, "100"), candle(2000, "110")])]),
+      kw("funding-history-by-coin"),
+      c.PersistentArrayMap.EMPTY
+    ]);
+
+    const store = globalThis.hyperopen.system.store;
+    const withUniverse = c.assoc_in(
+      c.deref(store),
+      path("portfolio", "optimizer", "draft", "universe"),
+      vector([btcInstrument])
+    );
+    const withHistory = c.assoc_in(
+      withUniverse,
+      path("portfolio", "optimizer", "history-data"),
+      historyData
+    );
+
+    c.reset_BANG_(store, withHistory);
+  });
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+}
+
 async function seedExpandedTradeBlotterToast(page) {
   await page.evaluate(() => {
     const c = globalThis.cljs?.core;
@@ -377,6 +461,43 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   await fallbackSlippage.fill("35");
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(fallbackSlippage).toHaveValue("35");
+});
+
+test("portfolio optimizer manual universe builder adds and removes assets @regression", async ({ page }) => {
+  await visitRoute(page, "/portfolio/optimize/new");
+  await expect(page.locator("[data-role='portfolio-optimizer-workspace']")).toBeVisible();
+  await seedOptimizerAssetSelectorMarkets(page);
+  await seedOptimizerBtcOnlyHistory(page);
+
+  const searchInput = page.locator("[data-role='portfolio-optimizer-universe-search-input']");
+  const ethCandidate = page.locator("[data-role='portfolio-optimizer-universe-add-perp:ETH']");
+  const ethRemove = page.locator("[data-role='portfolio-optimizer-universe-remove-perp:ETH']");
+
+  await expect(page.locator("[data-role='portfolio-optimizer-universe-panel']"))
+    .toContainText("Manual Add");
+  await searchInput.fill("eth");
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+  await expect(ethCandidate).toBeVisible();
+  await expect(page.locator("[data-role='portfolio-optimizer-universe-panel']"))
+    .toContainText("ETH-USDC");
+  await ethCandidate.click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+  await expect(page.locator("[data-role='portfolio-optimizer-draft-state']"))
+    .toContainText("Draft has unsaved changes");
+  await expect(ethRemove).toBeVisible();
+  await expect(ethCandidate).toHaveCount(0);
+  await expect(page.locator("[data-role='portfolio-optimizer-universe-panel']"))
+    .toContainText("Requires history reload after adding new assets.");
+  await expect(page.locator("[data-role='portfolio-optimizer-run-draft']")).toBeDisabled();
+  await expect(page.locator("[data-role='portfolio-optimizer-readiness-panel']"))
+    .toContainText("Reload history before running this changed universe.");
+
+  await ethRemove.click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(ethRemove).toHaveCount(0);
+  await expect(ethCandidate).toBeVisible();
 });
 
 test("portfolio volume history opens near the metric card trigger @regression", async ({ page }) => {
