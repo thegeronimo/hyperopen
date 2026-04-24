@@ -48,6 +48,10 @@
                     (get-in deps [:portfolio-optimizer :run-portfolio-optimizer])))
     (is (identical? effect-adapters/load-portfolio-optimizer-history-effect
                     (get-in deps [:portfolio-optimizer :load-portfolio-optimizer-history])))
+    (is (identical? effect-adapters/load-portfolio-optimizer-scenario-index-effect
+                    (get-in deps [:portfolio-optimizer :load-portfolio-optimizer-scenario-index])))
+    (is (identical? effect-adapters/load-portfolio-optimizer-scenario-effect
+                    (get-in deps [:portfolio-optimizer :load-portfolio-optimizer-scenario])))
     (is (identical? effect-adapters/save-portfolio-optimizer-scenario-effect
                     (get-in deps [:portfolio-optimizer :save-portfolio-optimizer-scenario])))
     (is (identical? action-adapters/enable-agent-trading
@@ -89,6 +93,8 @@
                     (get-in deps [:portfolio-optimizer :load-portfolio-optimizer-history-from-draft])))
     (is (identical? action-adapters/save-portfolio-optimizer-scenario-from-current-action
                     (get-in deps [:portfolio-optimizer :save-portfolio-optimizer-scenario-from-current])))
+    (is (identical? action-adapters/load-portfolio-optimizer-route-action
+                    (get-in deps [:portfolio-optimizer :load-portfolio-optimizer-route])))
     (is (identical? action-adapters/run-portfolio-optimizer-from-draft-action
                     (get-in deps [:portfolio-optimizer :run-portfolio-optimizer-from-draft])))))
 
@@ -109,6 +115,10 @@
                     (get-in deps [:effect-handlers :run-portfolio-optimizer])))
     (is (identical? effect-adapters/load-portfolio-optimizer-history-effect
                     (get-in deps [:effect-handlers :load-portfolio-optimizer-history])))
+    (is (identical? effect-adapters/load-portfolio-optimizer-scenario-index-effect
+                    (get-in deps [:effect-handlers :load-portfolio-optimizer-scenario-index])))
+    (is (identical? effect-adapters/load-portfolio-optimizer-scenario-effect
+                    (get-in deps [:effect-handlers :load-portfolio-optimizer-scenario])))
     (is (identical? effect-adapters/save-portfolio-optimizer-scenario-effect
                     (get-in deps [:effect-handlers :save-portfolio-optimizer-scenario])))))
 

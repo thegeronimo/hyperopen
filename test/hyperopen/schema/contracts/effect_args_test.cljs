@@ -240,8 +240,37 @@
        js/Error
        #"effect request"
        (contracts/assert-effect-args!
-        :effects/load-portfolio-optimizer-history
+       :effects/load-portfolio-optimizer-history
         ["bad"]
+        {:phase :test}))))
+
+(deftest assert-effect-args-validates-portfolio-optimizer-scenario-loads-test
+  (is (= []
+         (contracts/assert-effect-args!
+          :effects/load-portfolio-optimizer-scenario-index
+          []
+          {:phase :test})))
+  (is (= [{:source :route}]
+         (contracts/assert-effect-args!
+          :effects/load-portfolio-optimizer-scenario-index
+          [{:source :route}]
+          {:phase :test})))
+  (is (= ["scn_01"]
+         (contracts/assert-effect-args!
+          :effects/load-portfolio-optimizer-scenario
+          ["scn_01"]
+          {:phase :test})))
+  (is (= ["scn_01" {:source :route}]
+         (contracts/assert-effect-args!
+          :effects/load-portfolio-optimizer-scenario
+          ["scn_01" {:source :route}]
+          {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"effect request"
+       (contracts/assert-effect-args!
+        :effects/load-portfolio-optimizer-scenario
+        []
         {:phase :test}))))
 
 (deftest assert-effect-args-validates-portfolio-optimizer-scenario-save-test

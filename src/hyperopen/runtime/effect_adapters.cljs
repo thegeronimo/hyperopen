@@ -249,6 +249,12 @@
 (def load-portfolio-optimizer-history-effect
   portfolio-optimizer-adapters/load-portfolio-optimizer-history-effect)
 
+(def load-portfolio-optimizer-scenario-index-effect
+  portfolio-optimizer-adapters/load-portfolio-optimizer-scenario-index-effect)
+
+(def load-portfolio-optimizer-scenario-effect
+  portfolio-optimizer-adapters/load-portfolio-optimizer-scenario-effect)
+
 (def save-portfolio-optimizer-scenario-effect
   portfolio-optimizer-adapters/save-portfolio-optimizer-scenario-effect)
 

@@ -176,5 +176,8 @@
 (def save-portfolio-optimizer-scenario-from-current-action
   portfolio-optimizer-actions/save-portfolio-optimizer-scenario-from-current)
 
+(def load-portfolio-optimizer-route-action
+  portfolio-optimizer-actions/load-portfolio-optimizer-route)
+
 (def run-portfolio-optimizer-from-draft-action
   portfolio-optimizer-actions/run-portfolio-optimizer-from-draft)

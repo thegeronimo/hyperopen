@@ -48,6 +48,10 @@
    :portfolio-optimizer {:run-portfolio-optimizer effect-adapters/run-portfolio-optimizer-effect
                          :load-portfolio-optimizer-history
                          effect-adapters/load-portfolio-optimizer-history-effect
+                         :load-portfolio-optimizer-scenario-index
+                         effect-adapters/load-portfolio-optimizer-scenario-index-effect
+                         :load-portfolio-optimizer-scenario
+                         effect-adapters/load-portfolio-optimizer-scenario-effect
                          :save-portfolio-optimizer-scenario
                          effect-adapters/save-portfolio-optimizer-scenario-effect}
    :api-wallets {:api-load-api-wallets effect-adapters/api-load-api-wallets-effect

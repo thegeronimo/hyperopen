@@ -213,6 +213,7 @@
    :actions/set-portfolio-optimizer-universe-from-current ::common/no-args
    :actions/load-portfolio-optimizer-history-from-draft ::common/no-args
    :actions/save-portfolio-optimizer-scenario-from-current ::common/no-args
+   :actions/load-portfolio-optimizer-route ::common/path-args
    :actions/run-portfolio-optimizer-from-draft ::common/no-args
    :actions/run-portfolio-optimizer ::portfolio-optimizer-run-args
    :actions/toggle-orderbook-size-unit-dropdown ::common/no-args

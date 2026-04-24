@@ -53,3 +53,21 @@
                summary)]
     (is (= ["scn_02" "scn_01"] (:ordered-ids index)))
     (is (= summary (get-in index [:by-id "scn_02"])))))
+
+(deftest refresh-scenario-index-summary-preserves-existing-board-order-test
+  (let [summary {:id "scn_01"
+                 :name "Updated Existing"
+                 :updated-at-ms 3000}
+        index (scenario-records/refresh-scenario-index-summary
+               {:ordered-ids ["scn_02" "scn_01"]
+                :by-id {"scn_01" {:id "scn_01"
+                                  :name "Old Existing"}
+                        "scn_02" {:id "scn_02"}}}
+               summary)
+        missing-index (scenario-records/refresh-scenario-index-summary
+                       {:ordered-ids ["scn_02"]
+                        :by-id {"scn_02" {:id "scn_02"}}}
+                       summary)]
+    (is (= ["scn_02" "scn_01"] (:ordered-ids index)))
+    (is (= summary (get-in index [:by-id "scn_01"])))
+    (is (= ["scn_01" "scn_02"] (:ordered-ids missing-index)))))

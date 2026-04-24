@@ -10,7 +10,11 @@
   (is (identical? portfolio-optimizer-adapters/load-portfolio-optimizer-history-effect
                   effect-adapters/load-portfolio-optimizer-history-effect))
   (is (identical? portfolio-optimizer-adapters/save-portfolio-optimizer-scenario-effect
-                  effect-adapters/save-portfolio-optimizer-scenario-effect)))
+                  effect-adapters/save-portfolio-optimizer-scenario-effect))
+  (is (identical? portfolio-optimizer-adapters/load-portfolio-optimizer-scenario-index-effect
+                  effect-adapters/load-portfolio-optimizer-scenario-index-effect))
+  (is (identical? portfolio-optimizer-adapters/load-portfolio-optimizer-scenario-effect
+                  effect-adapters/load-portfolio-optimizer-scenario-effect)))
 
 (deftest run-portfolio-optimizer-effect-calls-run-bridge-with-runtime-store-test
   (let [calls (atom [])
@@ -137,6 +141,94 @@
                      (is (= [:load-index address] (first @calls)))
                      (is (= :save-scenario (ffirst (drop 1 @calls))))
                      (is (= :save-index (ffirst (drop 2 @calls))))
+                     (done)))
+            (.catch (async-support/unexpected-error done)))))))
+
+(deftest load-portfolio-optimizer-scenario-index-effect-loads-address-scoped-index-test
+  (async done
+    (let [address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          index {:ordered-ids ["scn_02" "scn_01"]
+                 :by-id {"scn_02" {:id "scn_02"
+                                    :name "Fresh Run"
+                                    :status :saved}
+                         "scn_01" {:id "scn_01"
+                                    :name "Core Hedge"
+                                    :status :partially-executed}}}
+          calls (atom [])
+          store (atom {:wallet {:address address}
+                       :portfolio {:optimizer {:scenario-index {:ordered-ids []
+                                                                 :by-id {}}}}})]
+      (with-redefs [portfolio-optimizer-adapters/*load-scenario-index!*
+                    (fn [addr]
+                      (swap! calls conj [:load-index addr])
+                      (js/Promise.resolve index))
+                    portfolio-optimizer-adapters/*now-ms* (fn [] 4000)]
+        (-> (portfolio-optimizer-adapters/load-portfolio-optimizer-scenario-index-effect
+             nil
+             store)
+            (.then (fn [loaded-index]
+                     (is (= index loaded-index))
+                     (is (= [[:load-index address]] @calls))
+                     (is (= index
+                            (get-in @store [:portfolio :optimizer :scenario-index])))
+                     (is (= {:status :loaded
+                             :started-at-ms 4000
+                             :completed-at-ms 4000
+                             :error nil}
+                            (get-in @store
+                                    [:portfolio :optimizer :scenario-index-load-state])))
+                     (done)))
+            (.catch (async-support/unexpected-error done)))))))
+
+(deftest load-portfolio-optimizer-scenario-effect-hydrates-workspace-state-test
+  (async done
+    (let [scenario-record {:schema-version 1
+                           :id "scn_01"
+                           :name "Core Hedge"
+                           :status :saved
+                           :config {:id "scn_01"
+                                    :name "Core Hedge"
+                                    :objective {:kind :max-sharpe}
+                                    :return-model {:kind :historical-mean}
+                                    :risk-model {:kind :ledoit-wolf}
+                                    :metadata {:dirty? false}}
+                           :saved-run {:computed-at-ms 2000
+                                       :result {:status :solved
+                                                :expected-return 0.18
+                                                :volatility 0.42}}
+                           :updated-at-ms 3000}
+          store (atom {:portfolio {:optimizer {}}})
+          calls (atom [])]
+      (with-redefs [portfolio-optimizer-adapters/*load-scenario!*
+                    (fn [scenario-id]
+                      (swap! calls conj [:load-scenario scenario-id])
+                      (js/Promise.resolve scenario-record))
+                    portfolio-optimizer-adapters/*now-ms* (fn [] 4100)]
+        (-> (portfolio-optimizer-adapters/load-portfolio-optimizer-scenario-effect
+             nil
+             store
+             "scn_01")
+            (.then (fn [loaded-record]
+                     (is (= scenario-record loaded-record))
+                     (is (= [[:load-scenario "scn_01"]] @calls))
+                     (is (= (:config scenario-record)
+                            (get-in @store [:portfolio :optimizer :draft])))
+                     (is (= (:saved-run scenario-record)
+                            (get-in @store [:portfolio :optimizer :last-successful-run])))
+                     (is (= {:loaded-id "scn_01"
+                             :status :saved
+                             :read-only? false}
+                            (get-in @store [:portfolio :optimizer :active-scenario])))
+                     (is (= {:status :loaded
+                             :scenario-id "scn_01"
+                             :started-at-ms 4100
+                             :completed-at-ms 4100
+                             :error nil}
+                            (get-in @store
+                                    [:portfolio :optimizer :scenario-load-state])))
+                     (is (= "Core Hedge"
+                            (get-in @store
+                                    [:portfolio :optimizer :scenario-index :by-id "scn_01" :name])))
                      (done)))
             (.catch (async-support/unexpected-error done)))))))
 

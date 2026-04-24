@@ -57,6 +57,21 @@
    :completed-at-ms nil
    :error nil})
 
+(defn default-scenario-index-load-state
+  []
+  {:status :idle
+   :started-at-ms nil
+   :completed-at-ms nil
+   :error nil})
+
+(defn default-scenario-load-state
+  []
+  {:status :idle
+   :scenario-id nil
+   :started-at-ms nil
+   :completed-at-ms nil
+   :error nil})
+
 (defn default-optimizer-state
   []
   {:draft (default-draft)
@@ -71,6 +86,8 @@
                   :warnings []}
    :history-load-state (default-history-load-state)
    :scenario-save-state (default-scenario-save-state)
+   :scenario-index-load-state (default-scenario-index-load-state)
+   :scenario-load-state (default-scenario-load-state)
    :run-state (default-run-state)})
 
 (defn default-optimizer-ui-state

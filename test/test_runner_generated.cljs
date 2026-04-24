@@ -383,6 +383,7 @@
             [hyperopen.views.portfolio.chart-view-test]
             [hyperopen.views.portfolio.fee-schedule-test]
             [hyperopen.views.portfolio.header-test]
+            [hyperopen.views.portfolio.optimize.index-view-test]
             [hyperopen.views.portfolio.optimize.view-test]
             [hyperopen.views.portfolio.performance-metrics-view-test]
             [hyperopen.views.portfolio.summary-cards-test]
@@ -940,6 +941,7 @@
              'hyperopen.views.portfolio.chart-view-test
              'hyperopen.views.portfolio.fee-schedule-test
              'hyperopen.views.portfolio.header-test
+             'hyperopen.views.portfolio.optimize.index-view-test
              'hyperopen.views.portfolio.optimize.view-test
              'hyperopen.views.portfolio.performance-metrics-view-test
              'hyperopen.views.portfolio.summary-cards-test

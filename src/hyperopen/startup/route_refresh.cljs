@@ -34,6 +34,9 @@
                      (api-wallets-actions/api-wallet-route? route)
                      [[:actions/load-api-wallet-route route]]
 
+                     (portfolio-routes/portfolio-optimize-route? route)
+                     [[:actions/load-portfolio-optimizer-route route]]
+
                      :else [])
                    (when (and (portfolio-routes/portfolio-route? route)
                               (seq (portfolio-actions/selected-portfolio-vault-benchmark-addresses state)))

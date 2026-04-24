@@ -38,6 +38,16 @@
             {:router {:path "/api"}}
             "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")))))
 
+(deftest current-route-refresh-effects-loads-optimizer-scenario-surfaces-test
+  (is (= [[:actions/load-portfolio-optimizer-route "/portfolio/optimize"]]
+         (route-refresh/current-route-refresh-effects
+          {:router {:path "/portfolio/optimize"}}
+          nil)))
+  (is (= [[:actions/load-portfolio-optimizer-route "/portfolio/optimize/scn_01"]]
+         (route-refresh/current-route-refresh-effects
+          {:router {:path "/portfolio/optimize/scn_01"}}
+          nil))))
+
 (deftest current-route-refresh-effects-preserve-portfolio-chart-bootstrap-test
   (let [address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
     (is (= [[:actions/select-portfolio-chart-tab :returns]]

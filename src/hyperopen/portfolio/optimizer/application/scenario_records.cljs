@@ -51,3 +51,13 @@
                                        (:ordered-ids scenario-index))))]
     {:ordered-ids ordered-ids
      :by-id (assoc (:by-id scenario-index) scenario-id summary)}))
+
+(defn refresh-scenario-index-summary
+  [scenario-index summary]
+  (let [scenario-id (:id summary)
+        ordered-ids (vec (:ordered-ids scenario-index))
+        ordered-ids* (if (some #(= scenario-id %) ordered-ids)
+                       ordered-ids
+                       (vec (cons scenario-id ordered-ids)))]
+    {:ordered-ids ordered-ids*
+     :by-id (assoc (:by-id scenario-index) scenario-id summary)}))

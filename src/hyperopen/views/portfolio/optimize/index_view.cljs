@@ -1,7 +1,98 @@
-(ns hyperopen.views.portfolio.optimize.index-view)
+(ns hyperopen.views.portfolio.optimize.index-view
+  (:require [clojure.string :as str]
+            [hyperopen.portfolio.routes :as portfolio-routes]))
+
+(defn- scenario-index
+  [state]
+  (or (get-in state [:portfolio :optimizer :scenario-index])
+      {:ordered-ids []
+       :by-id {}}))
+
+(defn- scenario-summaries
+  [state]
+  (let [{:keys [ordered-ids by-id]} (scenario-index state)]
+    (keep #(get by-id %) ordered-ids)))
+
+(defn- title-label
+  [value]
+  (if (keyword? value)
+    (->> (str/split (name value) #"-")
+         (map str/capitalize)
+         (str/join " "))
+    "N/A"))
+
+(defn- percent-label
+  [value]
+  (if (number? value)
+    (str (.toFixed (* value 100) 2) "%")
+    "N/A"))
+
+(defn- scenario-row
+  [summary]
+  (let [scenario-id (:id summary)
+        path (portfolio-routes/portfolio-optimize-scenario-path scenario-id)]
+    [:tr {:class ["cursor-pointer"
+                  "border-t"
+                  "border-base-300"
+                  "text-sm"
+                  "hover:bg-base-200/60"]
+          :data-role (str "portfolio-optimizer-scenario-row-" scenario-id)
+          :on {:click [[:actions/navigate path]]}}
+     [:td {:class ["px-3" "py-3" "font-semibold" "text-trading-text"]}
+      (:name summary)]
+     [:td {:class ["px-3" "py-3"]}
+       [:span {:class ["rounded-full"
+                      "border"
+                      "border-base-300"
+                      "bg-base-200/60"
+                      "px-2"
+                      "py-1"
+                      "text-[0.65rem]"
+                      "font-semibold"
+                      "uppercase"
+                      "tracking-[0.14em]"
+                      "text-trading-muted"]}
+       (or (some-> (:status summary) name)
+           "unknown")]]
+     [:td {:class ["px-3" "py-3" "text-trading-muted"]}
+      (title-label (:objective-kind summary))]
+     [:td {:class ["px-3" "py-3" "text-trading-muted"]}
+      (title-label (:return-model-kind summary))]
+     [:td {:class ["px-3" "py-3" "text-trading-muted"]}
+      (title-label (:risk-model-kind summary))]
+     [:td {:class ["px-3" "py-3" "text-right" "font-semibold" "tabular-nums"]}
+      (percent-label (:expected-return summary))]
+     [:td {:class ["px-3" "py-3" "text-right" "font-semibold" "tabular-nums"]}
+      (percent-label (:volatility summary))]]))
+
+(defn- scenario-board
+  [summaries]
+  [:div {:class ["overflow-hidden"
+                 "rounded-lg"
+                 "border"
+                 "border-base-300"
+                 "bg-base-200/30"]
+         :data-role "portfolio-optimizer-scenario-board"}
+   [:table {:class ["w-full" "border-collapse"]}
+    [:thead
+     [:tr {:class ["text-left"
+                   "text-[0.65rem]"
+                   "font-semibold"
+                   "uppercase"
+                   "tracking-[0.16em]"
+                   "text-trading-muted"]}
+      [:th {:class ["px-3" "py-2"]} "Scenario"]
+      [:th {:class ["px-3" "py-2"]} "Status"]
+      [:th {:class ["px-3" "py-2"]} "Objective"]
+      [:th {:class ["px-3" "py-2"]} "Return"]
+      [:th {:class ["px-3" "py-2"]} "Risk"]
+      [:th {:class ["px-3" "py-2" "text-right"]} "Exp Return"]
+      [:th {:class ["px-3" "py-2" "text-right"]} "Vol"]]]
+    (into [:tbody] (map scenario-row summaries))]])
 
 (defn index-view
-  [_state]
+  [state]
+  (let [summaries (vec (scenario-summaries state))]
   [:section {:class ["rounded-xl"
                      "border"
                      "border-base-300"
@@ -42,13 +133,15 @@
       "Scenario Filters"]
      [:p {:class ["mt-2" "text-sm" "text-trading-muted"]}
       "Active, saved, executed, partial, and archived filters bind to optimizer-owned query params."]]
-    [:div {:class ["rounded-lg"
-                   "border"
-                   "border-dashed"
-                   "border-base-300"
-                   "bg-base-200/40"
-                   "p-6"
-                   "text-sm"
-                   "text-trading-muted"]
-           :data-role "portfolio-optimizer-empty-scenarios"}
-     "No local optimizer scenarios are loaded yet."]]])
+    (if (seq summaries)
+      (scenario-board summaries)
+      [:div {:class ["rounded-lg"
+                     "border"
+                     "border-dashed"
+                     "border-base-300"
+                     "bg-base-200/40"
+                     "p-6"
+                     "text-sm"
+                     "text-trading-muted"]
+             :data-role "portfolio-optimizer-empty-scenarios"}
+       "No local optimizer scenarios are loaded yet."])]]))

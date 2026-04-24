@@ -279,6 +279,19 @@ test("portfolio route exposes deterministic interaction states @regression", asy
     .not.toHaveAttribute("aria-pressed", "true");
 });
 
+test("portfolio optimizer scenario board renders the local scenario surface @regression", async ({ page }) => {
+  await visitRoute(page, "/portfolio/optimize");
+
+  await expect(page.locator("[data-role='portfolio-optimizer-index']")).toBeVisible();
+  await expect(page.locator("[data-role='portfolio-optimizer-scenario-filters']"))
+    .toContainText("Scenario Filters");
+  await expect(page.locator("[data-role='portfolio-optimizer-empty-scenarios']"))
+    .toContainText("No local optimizer scenarios are loaded yet.");
+
+  await page.locator("a[href='/portfolio/optimize/new']").click();
+  await expect(page.locator("[data-role='portfolio-optimizer-workspace']")).toBeVisible();
+});
+
 test("portfolio optimizer setup exposes separate model layers @regression", async ({ page }) => {
   await visitRoute(page, "/portfolio/optimize/new");
 

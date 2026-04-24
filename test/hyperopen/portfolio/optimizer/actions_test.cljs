@@ -87,6 +87,24 @@
          (actions/save-portfolio-optimizer-scenario-from-current
           {:portfolio {:optimizer {}}}))))
 
+(deftest load-portfolio-optimizer-route-emits-scenario-read-effects-test
+  (is (= [[:effects/load-portfolio-optimizer-scenario-index]]
+         (actions/load-portfolio-optimizer-route
+          {}
+          "/portfolio/optimize")))
+  (is (= [[:effects/load-portfolio-optimizer-scenario "scn_01"]]
+         (actions/load-portfolio-optimizer-route
+          {}
+          "/portfolio/optimize/scn_01")))
+  (is (= []
+         (actions/load-portfolio-optimizer-route
+          {}
+          "/portfolio/optimize/new")))
+  (is (= []
+         (actions/load-portfolio-optimizer-route
+          {}
+          "/trade"))))
+
 (deftest set-draft-model-layer-actions-update-draft-and-mark-dirty-test
   (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :objective]
                                 {:kind :max-sharpe}]

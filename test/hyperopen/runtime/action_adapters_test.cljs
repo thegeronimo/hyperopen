@@ -68,4 +68,5 @@
   (is (fn? action-adapters/set-portfolio-optimizer-universe-from-current-action))
   (is (fn? action-adapters/load-portfolio-optimizer-history-from-draft-action))
   (is (fn? action-adapters/save-portfolio-optimizer-scenario-from-current-action))
+  (is (fn? action-adapters/load-portfolio-optimizer-route-action))
   (is (fn? action-adapters/run-portfolio-optimizer-from-draft-action)))

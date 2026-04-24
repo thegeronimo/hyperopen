@@ -197,6 +197,11 @@
           :actions/save-portfolio-optimizer-scenario-from-current
           []
           {:phase :test})))
+  (is (= ["/portfolio/optimize/scn_01"]
+         (contracts/assert-action-args!
+          :actions/load-portfolio-optimizer-route
+          ["/portfolio/optimize/scn_01"]
+          {:phase :test})))
   (is (= []
          (contracts/assert-action-args!
           :actions/run-portfolio-optimizer-from-draft

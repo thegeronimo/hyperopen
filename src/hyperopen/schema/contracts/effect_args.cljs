@@ -51,6 +51,12 @@
 (s/def ::portfolio-optimizer-history-load-args
   (s/or :base empty?
         :with-opts (s/tuple map?)))
+(s/def ::portfolio-optimizer-scenario-index-load-args
+  (s/or :base empty?
+        :with-opts (s/tuple map?)))
+(s/def ::portfolio-optimizer-scenario-load-args
+  (s/or :base (s/tuple ::common/non-empty-string)
+        :with-opts (s/tuple ::common/non-empty-string map?)))
 (s/def ::portfolio-optimizer-scenario-save-args
   (s/or :base empty?
         :with-opts (s/tuple map?)))
@@ -147,4 +153,8 @@
    :effects/api-submit-funding-deposit ::api-submit-funding-deposit-args
    :effects/run-portfolio-optimizer ::portfolio-optimizer-run-args
    :effects/load-portfolio-optimizer-history ::portfolio-optimizer-history-load-args
+   :effects/load-portfolio-optimizer-scenario-index
+   ::portfolio-optimizer-scenario-index-load-args
+   :effects/load-portfolio-optimizer-scenario
+   ::portfolio-optimizer-scenario-load-args
    :effects/save-portfolio-optimizer-scenario ::portfolio-optimizer-scenario-save-args})

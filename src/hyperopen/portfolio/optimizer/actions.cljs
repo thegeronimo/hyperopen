@@ -1,7 +1,8 @@
 (ns hyperopen.portfolio.optimizer.actions
   (:require [clojure.string :as str]
             [hyperopen.portfolio.optimizer.application.current-portfolio :as current-portfolio]
-            [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]))
+            [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
+            [hyperopen.portfolio.routes :as portfolio-routes]))
 
 (def ^:private objective-models
   {:minimum-variance {:kind :minimum-variance}
@@ -304,6 +305,15 @@
          (get-in state [:portfolio :optimizer :last-successful-run :result :status]))
     [[:effects/save-portfolio-optimizer-scenario]]
     []))
+
+(defn load-portfolio-optimizer-route
+  [_state path]
+  (let [route (portfolio-routes/parse-portfolio-route path)]
+    (case (:kind route)
+      :optimize-index [[:effects/load-portfolio-optimizer-scenario-index]]
+      :optimize-scenario [[:effects/load-portfolio-optimizer-scenario
+                           (:scenario-id route)]]
+      [])))
 
 (defn run-portfolio-optimizer
   [_state request request-signature]
