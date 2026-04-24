@@ -46,6 +46,14 @@
     (is (= false (get-in state [:portfolio-ui :performance-metrics-time-range-dropdown-open?])))
     (is (= false (get-in state [:portfolio-ui :volume-history-open?])))
     (is (nil? (get-in state [:portfolio-ui :volume-history-anchor])))
+    (is (= :active (get-in state [:portfolio-ui :optimizer :list-filter])))
+    (is (= :setup (get-in state [:portfolio-ui :optimizer :workspace-panel])))
+    (is (= :idle (get-in state [:portfolio :optimizer :run-state :status])))
+    (is (= :draft (get-in state [:portfolio :optimizer :draft :status])))
+    (is (= :historical-mean
+           (get-in state [:portfolio :optimizer :draft :return-model :kind])))
+    (is (= :ledoit-wolf
+           (get-in state [:portfolio :optimizer :draft :risk-model :kind])))
     (is (= "" (get-in state [:vaults-ui :search-query])))
     (is (= true (get-in state [:vaults-ui :filter-leading?])))
     (is (= true (get-in state [:vaults-ui :filter-deposited?])))

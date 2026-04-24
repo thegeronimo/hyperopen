@@ -48,9 +48,18 @@
                     :webdata2 {:clearinghouseState {:marginSummary {:accountValue "100"}}}})]
     (is (some? (node-by-role view-node "portfolio-optimizer-workspace")))
     (is (some? (node-by-role view-node "portfolio-optimizer-left-rail")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-objective-panel")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-return-model-panel")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-risk-model-panel")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-constraints-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-signed-exposure-table")))
-    (is (contains? (set (collect-strings view-node))
-                   "Objective, Return Model, Risk Model, Constraints"))))
+    (let [strings (set (collect-strings view-node))]
+      (is (contains? strings "Minimum Variance"))
+      (is (contains? strings "Historical Mean"))
+      (is (contains? strings "Ledoit-Wolf"))
+      (is (contains? strings "Max Asset Weight"))
+      (is (contains? strings "Gross Leverage"))
+      (is (contains? strings "Rebalance Tolerance")))))
 
 (deftest portfolio-view-delegates-optimizer-scenario-route-test
   (let [view-node (portfolio-view/portfolio-view

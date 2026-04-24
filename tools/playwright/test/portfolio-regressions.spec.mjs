@@ -279,6 +279,26 @@ test("portfolio route exposes deterministic interaction states @regression", asy
     .not.toHaveAttribute("aria-pressed", "true");
 });
 
+test("portfolio optimizer setup exposes separate model layers @regression", async ({ page }) => {
+  await visitRoute(page, "/portfolio/optimize/new");
+
+  await expect(page.locator("[data-role='portfolio-optimizer-workspace']")).toBeVisible();
+  await expect(page.locator("[data-role='portfolio-optimizer-objective-panel']"))
+    .toContainText("Minimum Variance");
+  await expect(page.locator("[data-role='portfolio-optimizer-return-model-panel']"))
+    .toContainText("Historical Mean");
+  await expect(page.locator("[data-role='portfolio-optimizer-return-model-panel']"))
+    .toContainText("Black-Litterman");
+  await expect(page.locator("[data-role='portfolio-optimizer-risk-model-panel']"))
+    .toContainText("Ledoit-Wolf");
+  await expect(page.locator("[data-role='portfolio-optimizer-constraints-panel']"))
+    .toContainText("Max Asset Weight");
+  await expect(page.locator("[data-role='portfolio-optimizer-constraints-panel']"))
+    .toContainText("Gross Leverage");
+  await expect(page.locator("[data-role='portfolio-optimizer-constraints-panel']"))
+    .toContainText("Rebalance Tolerance");
+});
+
 test("portfolio volume history opens near the metric card trigger @regression", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await stubPortfolioUserFees(page);

@@ -11,6 +11,7 @@
             [hyperopen.leaderboard.actions :as leaderboard-actions]
             [hyperopen.platform :as platform]
             [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.portfolio.optimizer.defaults :as portfolio-optimizer-defaults]
             [hyperopen.surface-modules :as surface-modules]
             [hyperopen.trade-modules :as trade-modules]
             [hyperopen.trading-settings :as trading-settings]
@@ -170,7 +171,8 @@
    :fee-schedule-staking-dropdown-open? false
    :fee-schedule-maker-rebate-dropdown-open? false
    :fee-schedule-market-type :perps
-   :fee-schedule-market-dropdown-open? false})
+   :fee-schedule-market-dropdown-open? false
+   :optimizer (portfolio-optimizer-defaults/default-optimizer-ui-state)})
 
 (defn default-portfolio-state
   []
@@ -187,7 +189,8 @@
    :loaded-at-ms nil
    :user-fees-loaded-at-ms nil
    :user-fees-loaded-for-address nil
-   :ledger-loaded-at-ms nil})
+   :ledger-loaded-at-ms nil
+   :optimizer (portfolio-optimizer-defaults/default-optimizer-state)})
 
 (defn default-vaults-ui-state
   []
