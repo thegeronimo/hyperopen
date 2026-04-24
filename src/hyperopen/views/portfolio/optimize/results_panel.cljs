@@ -70,12 +70,34 @@
                        "tabular-nums"]}]
         children))
 
+(defn- row-shell-with-attrs
+  [attrs & children]
+  (let [base-class ["grid"
+                    "grid-cols-[minmax(8rem,1.1fr)_repeat(4,minmax(5rem,0.8fr))]"
+                    "gap-3"
+                    "rounded-lg"
+                    "border"
+                    "border-base-300"
+                    "bg-base-200/40"
+                    "p-3"
+                    "text-xs"
+                    "tabular-nums"]
+        attrs* (-> attrs
+                   (dissoc :extra-class)
+                   (assoc :class (into base-class (:extra-class attrs))))]
+    (into [:div attrs*] children)))
+
 (defn- exposure-row
-  [instrument-id capital-usd current-weight target-weight]
+  [idx binding-instrument-ids instrument-id capital-usd current-weight target-weight]
   (let [current-notional (* (or capital-usd 0) (or current-weight 0))
         target-notional (* (or capital-usd 0) (or target-weight 0))
-        delta (- (or target-weight 0) (or current-weight 0))]
-    (row-shell
+        delta (- (or target-weight 0) (or current-weight 0))
+        binding? (contains? binding-instrument-ids instrument-id)]
+    (row-shell-with-attrs
+     {:data-role (str "portfolio-optimizer-target-exposure-row-" idx)
+      :data-binding (when binding? "true")
+      :extra-class (when binding?
+                     ["border-warning/60" "bg-warning/10"])}
      [:span {:class ["font-semibold" "text-trading-text"]} instrument-id]
      [:span (format-pct current-weight)]
      [:span (format-pct target-weight)]
@@ -87,7 +109,9 @@
   (let [capital-usd (get-in result [:rebalance-preview :capital-usd])
         ids (:instrument-ids result)
         current (:current-weights result)
-        target (:target-weights result)]
+        target (:target-weights result)
+        binding-instrument-ids (set (keep :instrument-id
+                                          (get-in result [:diagnostics :binding-constraints])))]
     (panel-shell
      "portfolio-optimizer-target-exposure-table"
      "Target Exposure"
@@ -98,11 +122,14 @@
       [:span {:class ["font-semibold" "text-trading-muted"]} "Target"]
       [:span {:class ["font-semibold" "text-trading-muted"]} "Delta"]
       [:span {:class ["font-semibold" "text-trading-muted"]} "Notional"])
-     (map (fn [instrument-id current-weight target-weight]
-            (exposure-row instrument-id capital-usd current-weight target-weight))
-          ids
-          current
-          target))))
+     (map-indexed (fn [idx [instrument-id current-weight target-weight]]
+                    (exposure-row idx
+                                  binding-instrument-ids
+                                  instrument-id
+                                  capital-usd
+                                  current-weight
+                                  target-weight))
+                  (map vector ids current target)))))
 
 (defn- decomposition-row
   [instrument-id decomposition]

@@ -369,6 +369,10 @@
     (is (some? (node-by-role view-node "portfolio-optimizer-return-decomposition")))
     (is (some? (node-by-role view-node "portfolio-optimizer-diagnostics-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-rebalance-preview")))
+    (is (= "true"
+           (get-in (node-by-role view-node
+                                 "portfolio-optimizer-target-exposure-row-0")
+                   [1 :data-binding])))
     (is (= [[:actions/set-portfolio-optimizer-objective-kind :target-volatility]
             [:actions/set-portfolio-optimizer-objective-parameter
              :target-volatility
@@ -382,6 +386,42 @@
     (is (contains? strings "partially-blocked"))
     (is (contains? strings "spot-read-only"))
     (is (contains? strings "perp:BTC"))))
+
+(deftest portfolio-optimizer-workspace-renders-infeasible-result-and-highlights-controls-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:draft {:universe [{:instrument-id "perp:BTC"
+                                                     :market-type :perp
+                                                     :coin "BTC"}
+                                                    {:instrument-id "perp:ETH"
+                                                     :market-type :perp
+                                                     :coin "ETH"}]
+                                         :objective {:kind :minimum-variance}
+                                         :constraints {:long-only? true
+                                                       :max-asset-weight 0.4}}
+                                 :run-state {:status :infeasible
+                                             :completed-at-ms 3000
+                                             :result {:status :infeasible
+                                                      :reason :constraint-presolve
+                                                      :details
+                                                      {:violations
+                                                       [{:code :sum-upper-below-target
+                                                         :sum-upper 0.8
+                                                         :target-net 1}]}}}}}})
+        strings (set (collect-strings view-node))]
+    (is (some? (node-by-role view-node "portfolio-optimizer-infeasible-banner")))
+    (is (contains? strings "Infeasible Optimization"))
+    (is (contains? strings "sum-upper-below-target"))
+    (is (contains? strings "Max Asset Weight"))
+    (is (= "true"
+           (get-in (node-by-role view-node
+                                 "portfolio-optimizer-constraint-max-asset-weight-input")
+                   [1 :data-infeasible])))
+    (is (= "true"
+           (get-in (node-by-role view-node
+                                 "portfolio-optimizer-constraint-max-asset-weight-input")
+                   [1 :aria-invalid])))))
 
 (deftest portfolio-optimizer-workspace-blocks-run-when-history-is-missing-test
   (let [view-node (portfolio-view/portfolio-view

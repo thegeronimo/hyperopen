@@ -3,6 +3,7 @@
             [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
             [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
             [hyperopen.portfolio.routes :as portfolio-routes]
+            [hyperopen.views.portfolio.optimize.infeasible-panel :as infeasible-panel]
             [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]
             [hyperopen.views.portfolio.optimize.results-panel :as results-panel]
             [hyperopen.views.portfolio.optimize.run-status-panel :as run-status-panel]
@@ -92,28 +93,38 @@
    "text-sm" "font-semibold" "outline-none" "focus:border-primary/70"])
 
 (defn- constraint-input
-  [label constraint-key value data-role]
-  [:label {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]}
+  ([label constraint-key value data-role]
+   (constraint-input label constraint-key value data-role false))
+  ([label constraint-key value data-role highlighted?]
+  [:label {:class (cond-> ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]
+                    highlighted? (conj "border-warning/60" "bg-warning/10"))}
    [:span {:class setup-field-label-class} label]
    [:input {:type "text"
             :inputmode "decimal"
             :class setup-number-input-class
             :data-role data-role
+            :data-infeasible (when highlighted? "true")
+            :aria-invalid (when highlighted? "true")
             :value (str value)
             :on {:input [[:actions/set-portfolio-optimizer-constraint
                           constraint-key
-                          [:event.target/value]]]}}]])
+                          [:event.target/value]]]}}]]))
 
 (defn- number-input
-  [label value data-role action]
-  [:label {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]}
+  ([label value data-role action]
+   (number-input label value data-role action false))
+  ([label value data-role action highlighted?]
+  [:label {:class (cond-> ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]
+                    highlighted? (conj "border-warning/60" "bg-warning/10"))}
    [:span {:class setup-field-label-class} label]
    [:input {:type "text"
             :inputmode "decimal"
             :class setup-number-input-class
             :data-role data-role
+            :data-infeasible (when highlighted? "true")
+            :aria-invalid (when highlighted? "true")
             :value (str value)
-            :on {:input [action]}}]])
+            :on {:input [action]}}]]))
 
 (defn- select-input
   [label value options data-role action]
@@ -186,7 +197,7 @@
        "Use Current Holdings"]]]))
 
 (defn- setup-panels
-  [draft]
+  [draft highlighted-controls]
   (let [objective-kind (get-in draft [:objective :kind])
         return-kind (get-in draft [:return-model :kind])
         risk-kind (get-in draft [:risk-model :kind])
@@ -216,7 +227,8 @@
                     "portfolio-optimizer-objective-target-return-input"
                     [:actions/set-portfolio-optimizer-objective-parameter
                      :target-return
-                     [:event.target/value]])
+                     [:event.target/value]]
+                    (contains? highlighted-controls :target-return))
       (number-input "Target Volatility"
                     (or (get-in draft [:objective :target-volatility]) 0.2)
                     "portfolio-optimizer-objective-target-volatility-input"
@@ -260,7 +272,8 @@
        (constraint-input "Max Asset Weight"
                          :max-asset-weight
                          (:max-asset-weight constraints)
-                         "portfolio-optimizer-constraint-max-asset-weight-input")
+                         "portfolio-optimizer-constraint-max-asset-weight-input"
+                         (contains? highlighted-controls :max-asset-weight))
        (constraint-input "Gross Leverage"
                          :gross-max
                          (:gross-max constraints)
@@ -330,7 +343,9 @@
         last-successful-run (get-in state [:portfolio :optimizer :last-successful-run])
         history-load-state (or (get-in state [:portfolio :optimizer :history-load-state])
                                (optimizer-defaults/default-history-load-state))
-        scenario-id (:scenario-id route)]
+        scenario-id (:scenario-id route)
+        infeasible-result (infeasible-panel/infeasible-result run-state)
+        highlighted-controls (infeasible-panel/highlighted-control-keys infeasible-result)]
     [:section {:class ["grid"
                        "grid-cols-1"
                        "gap-4"
@@ -404,7 +419,8 @@
           "Running Optimization"
           "Run Optimization")]]]
      [:main {:class ["space-y-4"]}
-      (setup-panels draft)
+      (infeasible-panel/infeasible-banner infeasible-result highlighted-controls)
+      (setup-panels draft highlighted-controls)
       (results-panel/results-panel last-successful-run draft)
       [:div {:class ["grid" "grid-cols-1" "gap-3" "lg:grid-cols-3"]
              :data-role "portfolio-optimizer-current-summary"}
