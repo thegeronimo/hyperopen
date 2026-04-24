@@ -316,6 +316,7 @@
     (is (some? chart-returns-tab))
     (is (some? chart-shell))
     (is (some? chart-host))
+    (is (nil? (find-first-node root-node #(= :<> (first %)))))
     (is (nil? background-status))
     (is (fn? (get-in chart-host [1 :replicant/on-render])))
     (is (some? account-table))

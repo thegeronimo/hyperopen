@@ -289,17 +289,17 @@
 (defn wallet-status [state]
   (let [{:keys [connected? address chain-id error connecting?]}
         (get-in state [:wallet])]
-    [:div.flex.items-center.gap-2
+    (into
+     [:div.flex.items-center.gap-2]
      (cond
-       error            [:span.text-red-600 (str "Wallet error: " error)]
-       connecting?      [:span.text-white.opacity-80 "Connecting…"]
-       connected?       [:<>
-                         [:span.inline-block.px-2.py-1.rounded.bg-teal-700.text-teal-100.text-sm
-                          (str "Connected " (short-addr address))]
-                         (when chain-id
-                           [:span.text-sm.text-white.opacity-60.ml-1
-                            (str " chain " chain-id)])]
-       :else            [:span.text-white.opacity-80 "Not connected"])]))
+       error [[:span.text-red-600 (str "Wallet error: " error)]]
+       connecting? [[:span.text-white.opacity-80 "Connecting…"]]
+       connected? (cond-> [[:span.inline-block.px-2.py-1.rounded.bg-teal-700.text-teal-100.text-sm
+                            (str "Connected " (short-addr address))]]
+                    chain-id
+                    (conj [:span.text-sm.text-white.opacity-60.ml-1
+                           (str " chain " chain-id)]))
+       :else [[:span.text-white.opacity-80 "Not connected"]]))))
 
 (defn connect-button [state]
   (let [{:keys [connected? connecting?]} (get-in state [:wallet])]

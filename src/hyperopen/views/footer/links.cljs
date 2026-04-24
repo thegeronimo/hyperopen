@@ -80,20 +80,21 @@
 
 (defn render
   [{:keys [links build now-ms]}]
-  [:div {:class footer-utility-link-classes
-         :data-role "footer-utility-links"}
-   (when (seq links)
-     [:<>
-      [:div {:class footer-text-link-classes
-             :data-role "footer-text-links"}
-       (for [{:keys [label href]} links]
-         ^{:key label}
-         [:a {:class footer-link-classes
-              :href href}
-          label])]
-      [:span {:class ["h-3" "w-px" "bg-base-content/15"]
-              :data-role "footer-links-divider"
-              :aria-hidden true}]])
-   (build-badge/render {:build build
-                        :now-ms now-ms})
-   (render-social-icons)])
+  (into
+   [:div {:class footer-utility-link-classes
+          :data-role "footer-utility-links"}]
+   (concat
+    (when (seq links)
+      [[:div {:class footer-text-link-classes
+              :data-role "footer-text-links"}
+        (for [{:keys [label href]} links]
+          ^{:key label}
+          [:a {:class footer-link-classes
+               :href href}
+           label])]
+       [:span {:class ["h-3" "w-px" "bg-base-content/15"]
+               :data-role "footer-links-divider"
+               :aria-hidden true}]])
+    [(build-badge/render {:build build
+                          :now-ms now-ms})
+     (render-social-icons)])))

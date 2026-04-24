@@ -56,6 +56,34 @@
     (is (= [[store :event [[:actions/navigate "/trade"]]]] @dispatch-calls))
     (is (= [{:count 2} {:count 3}] @render-calls))))
 
+(deftest install-render-loop-defers-updates-raised-during-render-test
+  (let [store (atom {:count 0})
+        render-calls (atom [])
+        scheduled-frame-callbacks (atom [])
+        scheduled-count-during-render (atom nil)]
+    (runtime-bootstrap/install-render-loop!
+     {:store store
+      :render-watch-key ::render-reentrant
+      :set-dispatch! (fn [_] nil)
+      :dispatch! (fn [& _] nil)
+      :render! (fn [state]
+                 (swap! render-calls conj state)
+                 (when (= 1 (:count state))
+                   (swap! store assoc :count 2)
+                   (reset! scheduled-count-during-render
+                           (count @scheduled-frame-callbacks))))
+      :document? true
+      :request-animation-frame! (fn [cb]
+                                  (swap! scheduled-frame-callbacks conj cb)
+                                  :frame-id)})
+    (swap! store assoc :count 1)
+    (is (= 1 (count @scheduled-frame-callbacks)))
+    ((first @scheduled-frame-callbacks) 0)
+    (is (= 1 @scheduled-count-during-render))
+    (is (= 2 (count @scheduled-frame-callbacks)))
+    ((second @scheduled-frame-callbacks) 0)
+    (is (= [{:count 1} {:count 2}] @render-calls))))
+
 (deftest install-render-loop-skips-watch-registration-when-document-missing-test
   (let [store (atom {:count 0})
         render-calls (atom [])

@@ -504,8 +504,8 @@
                         {:wallet {:connected? true
                                   :address "0x1234567890abcdef"
                                   :chain-id "0x1"}})
-        chain-pill (nth (second connected-view) 2)]
-    (is (= :<> (first (second connected-view))))
+        chain-pill (nth connected-view 2)]
+    (is (= :div.flex.items-center.gap-2 (first connected-view)))
     (is (= [:span.text-sm.text-white.opacity-60.ml-1 " chain 0x1"] chain-pill)))
   (is (= [:span.text-white.opacity-80 "Not connected"]
          (second (wallet/wallet-status {:wallet {:connected? false}})))))

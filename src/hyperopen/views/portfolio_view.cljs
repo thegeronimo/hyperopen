@@ -65,23 +65,23 @@
                                                     :fee-schedule-cache-key fee-schedule-cache-key
                                                     :sections next-sections})
                        next-sections)))]
-    [:div {:class ["w-full"
-                   "app-shell-gutter"
-                   "py-4"
-                   "space-y-4"
-                   "md:py-5"]
-           :style {:background-image "radial-gradient(circle at 15% 0%, rgba(0, 212, 170, 0.10), transparent 35%), radial-gradient(circle at 85% 100%, rgba(0, 212, 170, 0.08), transparent 40%)"
-                   :padding-bottom "3.5rem"}
-           :data-parity-id "portfolio-root"}
+    (into
+     [:div {:class ["w-full"
+                    "app-shell-gutter"
+                    "py-4"
+                    "space-y-4"
+                    "md:py-5"]
+            :style {:background-image "radial-gradient(circle at 15% 0%, rgba(0, 212, 170, 0.10), transparent 35%), radial-gradient(circle at 85% 100%, rgba(0, 212, 170, 0.08), transparent 40%)"
+                    :padding-bottom "3.5rem"}
+            :data-parity-id "portfolio-root"}]
      (if optimizer-route?
-       (optimize-view/optimizer-view state)
-       [:<>
-        (:header sections)
+       [(optimize-view/optimizer-view state)]
+       [(:header sections)
         (:background-status sections)
         (:summary-grid sections)
         (:account-table sections)
         (:volume-history-popover sections)
-        (fee-schedule-view/fee-schedule-popover fee-schedule-model)])]))
+        (fee-schedule-view/fee-schedule-popover fee-schedule-model)]))))
 
 (defn ^:export route-view
   [state]
