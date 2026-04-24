@@ -41,9 +41,11 @@ The observable proof is a routed workflow. `/portfolio/optimize` lists local sce
 - [x] (2026-04-23) Ran focused split-variable solver validation with `npm run test:runner:generate && npx shadow-cljs --force-spawn compile test && node out/test.js --test=hyperopen.portfolio.optimizer.infrastructure.solver-adapter-test`; 5 tests and 19 assertions passed with zero failures and zero warnings.
 - [x] (2026-04-23) Added Phase 4 turnover constraint encoding. `encode-constraints` now carries aligned current weights, objective plans emit `:turnover` L1 constraints as `sum(abs(target-current)) <= 2 * max-turnover`, and the solver adapter adds turnover auxiliary variables for both quadprog and OSQP while rejecting malformed turnover constraints without aligned current weights.
 - [x] (2026-04-23) Ran focused turnover validation with `npm run test:runner:generate && npx shadow-cljs --force-spawn compile test && node out/test.js --test=hyperopen.portfolio.optimizer.domain.constraints-test --test=hyperopen.portfolio.optimizer.domain.objectives-test --test=hyperopen.portfolio.optimizer.infrastructure.solver-adapter-test`; 17 tests and 60 assertions passed with zero failures and zero warnings.
+- [x] (2026-04-23) Added Phase 4 fixture parity coverage across the package solver adapters. The fixture suite compares quadprog and OSQP results for signed gross/net exposure, turnover caps, held-position locks, per-perp caps, and asserts infeasible target return fails before solver invocation.
+- [x] (2026-04-23) Ran focused fixture parity validation with `npm run test:runner:generate && npx shadow-cljs --force-spawn compile test && node out/test.js --test=hyperopen.portfolio.optimizer.infrastructure.solver-adapter-parity-test`; 5 tests and 25 assertions passed with zero failures and zero warnings.
 - [x] Implement the Phase 1 route, query-state, portfolio shell delegation, current-holdings snapshot, account bootstrap participation, worker target registration, and IndexedDB scenario store/versioning foundations.
 - [x] Implement the Phase 3 arbitrary-universe history, funding, orderbook preview planning, BL prior, and request-builder foundations.
-- [ ] Implement fixture parity coverage, worker bridge, setup/results UI, execution path, and tracking flow.
+- [ ] Implement worker bridge, setup/results UI, execution path, and tracking flow.
 
 ## Surprises & Discoveries
 
@@ -977,7 +979,7 @@ All commands below run from `/Users/barry/.codex/worktrees/d394/hyperopen`.
 
        node out/test.js --test=hyperopen.portfolio.optimizer.domain.returns-test --test=hyperopen.portfolio.optimizer.domain.risk-test --test=hyperopen.portfolio.optimizer.domain.black-litterman-test --test=hyperopen.portfolio.optimizer.domain.constraints-test --test=hyperopen.portfolio.optimizer.domain.frontier-test --test=hyperopen.portfolio.optimizer.domain.diagnostics-test
 
-   The pure-domain slices, application runner seam, first package adapters, gross-exposure split-variable expansion, and turnover constraint expansion are complete. The remaining Phase 4 implementation work is committed fixture parity coverage.
+   The pure-domain slices, application runner seam, first package adapters, gross-exposure split-variable expansion, turnover constraint expansion, and committed fixture parity coverage are complete.
 
 5. Add the worker target, bridge, and route integration, then verify compilation.
 
@@ -1188,4 +1190,5 @@ Key reconnaissance facts captured for implementers:
 - 2026-04-23 / Codex: Added the Phase 4 application engine runner seam with injected solver execution, frontier selection, diagnostics, and rebalance preview assembly. OSQP/quadprog package adapters and fixture parity remain before Phase 4 exits.
 - 2026-04-23 / Codex: Added `osqp@0.0.2` and `quadprog@1.6.1` plus focused infrastructure adapters for direct long-only QP solves.
 - 2026-04-23 / Codex: Added split-variable gross-exposure expansion for signed portfolios in both package adapters.
-- 2026-04-23 / Codex: Added turnover constraint encoding through current-weight-aware objective plans and solver-adapter auxiliary variables for both package adapters. Fixture parity remains before Phase 4 exits.
+- 2026-04-23 / Codex: Added turnover constraint encoding through current-weight-aware objective plans and solver-adapter auxiliary variables for both package adapters.
+- 2026-04-23 / Codex: Added package solver fixture parity coverage for signed gross/net exposure, turnover caps, held-position locks, per-perp caps, and infeasible target-return presolve.
