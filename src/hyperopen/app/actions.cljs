@@ -31,7 +31,11 @@
    :vaults {:load-vault-route action-adapters/load-vault-route-action}
    :funding-comparison {:load-funding-comparison-route action-adapters/load-funding-comparison-route-action}
    :staking {:load-staking-route action-adapters/load-staking-route-action}
-   :portfolio-optimizer {:run-portfolio-optimizer action-adapters/run-portfolio-optimizer-action}
+   :portfolio-optimizer {:run-portfolio-optimizer action-adapters/run-portfolio-optimizer-action
+                         :set-portfolio-optimizer-objective-kind action-adapters/set-portfolio-optimizer-objective-kind-action
+                         :set-portfolio-optimizer-return-model-kind action-adapters/set-portfolio-optimizer-return-model-kind-action
+                         :set-portfolio-optimizer-risk-model-kind action-adapters/set-portfolio-optimizer-risk-model-kind-action
+                         :set-portfolio-optimizer-constraint action-adapters/set-portfolio-optimizer-constraint-action}
    :api-wallets {:load-api-wallet-route action-adapters/load-api-wallet-route-action
                  :set-api-wallet-form-field api-wallets-actions/set-api-wallet-form-field
                  :set-api-wallet-sort api-wallets-actions/set-api-wallet-sort

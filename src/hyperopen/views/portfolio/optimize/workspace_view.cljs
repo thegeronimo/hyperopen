@@ -64,14 +64,19 @@
          children)])
 
 (defn- option-chip
-  [label selected?]
-  [:div {:class (cond-> ["rounded-lg"
-                         "border"
-                         "px-3"
-                         "py-2"
-                         "text-sm"]
-                  selected? (conj "border-primary/60" "bg-primary/10")
-                  (not selected?) (conj "border-base-300" "bg-base-200/40"))}
+  [label selected? data-role action]
+  [:button {:type "button"
+            :class (cond-> ["rounded-lg"
+                            "border"
+                            "px-3"
+                            "py-2"
+                            "text-left"
+                            "text-sm"]
+                     selected? (conj "border-primary/60" "bg-primary/10")
+                     (not selected?) (conj "border-base-300" "bg-base-200/40"))
+            :aria-pressed (str selected?)
+            :data-role data-role
+            :on {:click [action]}}
    [:span {:class ["font-medium"]} label]
    (when selected?
      [:span {:class ["ml-2" "text-xs" "uppercase" "tracking-[0.16em]" "text-primary"]}
@@ -97,23 +102,41 @@
       "portfolio-optimizer-objective-panel"
       "Objective"
       "Choose the optimizer objective separately from the return model."
-      (option-chip "Minimum Variance" (= :minimum-variance objective-kind))
-      (option-chip "Max Sharpe" (= :max-sharpe objective-kind))
-      (option-chip "Target Volatility" (= :target-volatility objective-kind))
-      (option-chip "Target Return" (= :target-return objective-kind)))
+      (option-chip "Minimum Variance" (= :minimum-variance objective-kind)
+                   "portfolio-optimizer-objective-minimum-variance"
+                   [:actions/set-portfolio-optimizer-objective-kind :minimum-variance])
+      (option-chip "Max Sharpe" (= :max-sharpe objective-kind)
+                   "portfolio-optimizer-objective-max-sharpe"
+                   [:actions/set-portfolio-optimizer-objective-kind :max-sharpe])
+      (option-chip "Target Volatility" (= :target-volatility objective-kind)
+                   "portfolio-optimizer-objective-target-volatility"
+                   [:actions/set-portfolio-optimizer-objective-kind :target-volatility])
+      (option-chip "Target Return" (= :target-return objective-kind)
+                   "portfolio-optimizer-objective-target-return"
+                   [:actions/set-portfolio-optimizer-objective-kind :target-return]))
      (panel-shell
       "portfolio-optimizer-return-model-panel"
       "Return Model"
       "Black-Litterman stays here as a return-model mode, not an objective."
-      (option-chip "Historical Mean" (= :historical-mean return-kind))
-      (option-chip "EW Mean" (= :ew-mean return-kind))
-      (option-chip "Black-Litterman" (= :black-litterman return-kind)))
+      (option-chip "Historical Mean" (= :historical-mean return-kind)
+                   "portfolio-optimizer-return-model-historical-mean"
+                   [:actions/set-portfolio-optimizer-return-model-kind :historical-mean])
+      (option-chip "EW Mean" (= :ew-mean return-kind)
+                   "portfolio-optimizer-return-model-ew-mean"
+                   [:actions/set-portfolio-optimizer-return-model-kind :ew-mean])
+      (option-chip "Black-Litterman" (= :black-litterman return-kind)
+                   "portfolio-optimizer-return-model-black-litterman"
+                   [:actions/set-portfolio-optimizer-return-model-kind :black-litterman]))
      (panel-shell
       "portfolio-optimizer-risk-model-panel"
       "Risk Model"
       "Covariance estimation is configured independently from expected returns."
-      (option-chip "Ledoit-Wolf" (= :ledoit-wolf risk-kind))
-      (option-chip "Sample Covariance" (= :sample-covariance risk-kind)))
+      (option-chip "Ledoit-Wolf" (= :ledoit-wolf risk-kind)
+                   "portfolio-optimizer-risk-model-ledoit-wolf"
+                   [:actions/set-portfolio-optimizer-risk-model-kind :ledoit-wolf])
+      (option-chip "Sample Covariance" (= :sample-covariance risk-kind)
+                   "portfolio-optimizer-risk-model-sample-covariance"
+                   [:actions/set-portfolio-optimizer-risk-model-kind :sample-covariance]))
      [:section {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
                 :data-role "portfolio-optimizer-constraints-panel"}
       [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"]}

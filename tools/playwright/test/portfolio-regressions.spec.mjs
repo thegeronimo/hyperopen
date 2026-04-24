@@ -297,6 +297,25 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
     .toContainText("Gross Leverage");
   await expect(page.locator("[data-role='portfolio-optimizer-constraints-panel']"))
     .toContainText("Rebalance Tolerance");
+
+  const maxSharpe = page.locator("[data-role='portfolio-optimizer-objective-max-sharpe']");
+  const blackLitterman = page.locator("[data-role='portfolio-optimizer-return-model-black-litterman']");
+  const sampleCovariance = page.locator("[data-role='portfolio-optimizer-risk-model-sample-covariance']");
+
+  await expect(maxSharpe).toHaveAttribute("aria-pressed", "false");
+  await maxSharpe.click();
+  await expect(maxSharpe).toHaveAttribute("aria-pressed", "true");
+  await expect(maxSharpe).toContainText("Active");
+
+  await expect(blackLitterman).toHaveAttribute("aria-pressed", "false");
+  await blackLitterman.click();
+  await expect(blackLitterman).toHaveAttribute("aria-pressed", "true");
+  await expect(blackLitterman).toContainText("Active");
+
+  await expect(sampleCovariance).toHaveAttribute("aria-pressed", "false");
+  await sampleCovariance.click();
+  await expect(sampleCovariance).toHaveAttribute("aria-pressed", "true");
+  await expect(sampleCovariance).toContainText("Active");
 });
 
 test("portfolio volume history opens near the metric card trigger @regression", async ({ page }) => {

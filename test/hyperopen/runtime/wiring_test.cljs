@@ -68,7 +68,9 @@
     (is (identical? action-adapters/navigate
                     (get-in deps [:core :navigate])))
     (is (identical? action-adapters/run-portfolio-optimizer-action
-                    (get-in deps [:portfolio-optimizer :run-portfolio-optimizer])))))
+                    (get-in deps [:portfolio-optimizer :run-portfolio-optimizer])))
+    (is (identical? action-adapters/set-portfolio-optimizer-objective-kind-action
+                    (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-objective-kind])))))
 
 (deftest runtime-registration-deps-builds-effect-and-action-handlers-test
   (let [deps (wiring/runtime-registration-deps)]

@@ -142,3 +142,15 @@
 
 (def run-portfolio-optimizer-action
   portfolio-optimizer-actions/run-portfolio-optimizer)
+
+(def set-portfolio-optimizer-objective-kind-action
+  portfolio-optimizer-actions/set-portfolio-optimizer-objective-kind)
+
+(def set-portfolio-optimizer-return-model-kind-action
+  portfolio-optimizer-actions/set-portfolio-optimizer-return-model-kind)
+
+(def set-portfolio-optimizer-risk-model-kind-action
+  portfolio-optimizer-actions/set-portfolio-optimizer-risk-model-kind)
+
+(def set-portfolio-optimizer-constraint-action
+  portfolio-optimizer-actions/set-portfolio-optimizer-constraint)

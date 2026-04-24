@@ -8,6 +8,7 @@
     (is (= :minimum-variance (get-in draft [:objective :kind])))
     (is (= :historical-mean (get-in draft [:return-model :kind])))
     (is (= :ledoit-wolf (get-in draft [:risk-model :kind])))
+    (is (= false (get-in draft [:metadata :dirty?])))
     (is (= false (get-in draft [:constraints :long-only?])))
     (is (contains? (:constraints draft) :max-asset-weight))
     (is (contains? (:constraints draft) :gross-max))

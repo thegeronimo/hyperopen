@@ -31,4 +31,8 @@
    [:actions/open-portfolio-volume-history :open-portfolio-volume-history]
    [:actions/close-portfolio-volume-history :close-portfolio-volume-history]
    [:actions/handle-portfolio-volume-history-keydown :handle-portfolio-volume-history-keydown]
+   [:actions/set-portfolio-optimizer-objective-kind :set-portfolio-optimizer-objective-kind]
+   [:actions/set-portfolio-optimizer-return-model-kind :set-portfolio-optimizer-return-model-kind]
+   [:actions/set-portfolio-optimizer-risk-model-kind :set-portfolio-optimizer-risk-model-kind]
+   [:actions/set-portfolio-optimizer-constraint :set-portfolio-optimizer-constraint]
    [:actions/run-portfolio-optimizer :run-portfolio-optimizer]])

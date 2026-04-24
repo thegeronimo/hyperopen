@@ -33,6 +33,10 @@
   [node role]
   (find-first-node node #(= role (get-in % [1 :data-role]))))
 
+(defn- click-actions
+  [node]
+  (get-in node [1 :on :click]))
+
 (deftest portfolio-view-delegates-optimizer-index-route-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize"}})]
@@ -52,6 +56,12 @@
     (is (some? (node-by-role view-node "portfolio-optimizer-return-model-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-risk-model-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-constraints-panel")))
+    (is (= [[:actions/set-portfolio-optimizer-objective-kind :max-sharpe]]
+           (click-actions (node-by-role view-node "portfolio-optimizer-objective-max-sharpe"))))
+    (is (= [[:actions/set-portfolio-optimizer-return-model-kind :black-litterman]]
+           (click-actions (node-by-role view-node "portfolio-optimizer-return-model-black-litterman"))))
+    (is (= [[:actions/set-portfolio-optimizer-risk-model-kind :sample-covariance]]
+           (click-actions (node-by-role view-node "portfolio-optimizer-risk-model-sample-covariance"))))
     (is (some? (node-by-role view-node "portfolio-optimizer-signed-exposure-table")))
     (let [strings (set (collect-strings view-node))]
       (is (contains? strings "Minimum Variance"))

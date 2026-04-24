@@ -26,7 +26,8 @@
                            :slippage-fallback-bps 25
                            :fee-mode :taker}
    :metadata {:created-at-ms nil
-              :updated-at-ms nil}})
+              :updated-at-ms nil
+              :dirty? false}})
 
 (defn default-run-state
   []

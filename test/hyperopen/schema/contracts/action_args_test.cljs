@@ -141,6 +141,35 @@
         [{:scenario-id "scenario-1"}]
         {:phase :test}))))
 
+(deftest assert-action-args-validates-portfolio-optimizer-draft-mutations-test
+  (is (= ["maxSharpe"]
+         (contracts/assert-action-args!
+          :actions/set-portfolio-optimizer-objective-kind
+          ["maxSharpe"]
+          {:phase :test})))
+  (is (= [:black-litterman]
+         (contracts/assert-action-args!
+          :actions/set-portfolio-optimizer-return-model-kind
+          [:black-litterman]
+          {:phase :test})))
+  (is (= ["sampleCovariance"]
+         (contracts/assert-action-args!
+          :actions/set-portfolio-optimizer-risk-model-kind
+          ["sampleCovariance"]
+          {:phase :test})))
+  (is (= [:max-asset-weight "0.42"]
+         (contracts/assert-action-args!
+          :actions/set-portfolio-optimizer-constraint
+          [:max-asset-weight "0.42"]
+          {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"action payload"
+       (contracts/assert-action-args!
+        :actions/set-portfolio-optimizer-objective-kind
+        []
+        {:phase :test}))))
+
 (deftest assert-action-args-accepts-order-submission-confirmation-actions-test
   (is (= []
          (contracts/assert-action-args!
