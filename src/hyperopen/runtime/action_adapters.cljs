@@ -194,5 +194,11 @@
 (def duplicate-portfolio-optimizer-scenario-action
   portfolio-optimizer-actions/duplicate-portfolio-optimizer-scenario)
 
+(def open-portfolio-optimizer-execution-modal-action
+  portfolio-optimizer-actions/open-portfolio-optimizer-execution-modal)
+
+(def close-portfolio-optimizer-execution-modal-action
+  portfolio-optimizer-actions/close-portfolio-optimizer-execution-modal)
+
 (def run-portfolio-optimizer-from-draft-action
   portfolio-optimizer-actions/run-portfolio-optimizer-from-draft)

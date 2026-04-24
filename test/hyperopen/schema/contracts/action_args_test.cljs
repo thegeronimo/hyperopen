@@ -229,6 +229,16 @@
           {:phase :test})))
   (is (= []
          (contracts/assert-action-args!
+          :actions/open-portfolio-optimizer-execution-modal
+          []
+          {:phase :test})))
+  (is (= []
+         (contracts/assert-action-args!
+          :actions/close-portfolio-optimizer-execution-modal
+          []
+          {:phase :test})))
+  (is (= []
+         (contracts/assert-action-args!
           :actions/run-portfolio-optimizer-from-draft
           []
           {:phase :test})))

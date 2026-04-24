@@ -1,7 +1,10 @@
 (ns hyperopen.portfolio.optimizer.actions
   (:require [clojure.string :as str]
+            [hyperopen.account.context :as account-context]
             [hyperopen.portfolio.optimizer.application.current-portfolio :as current-portfolio]
+            [hyperopen.portfolio.optimizer.application.execution :as execution]
             [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
+            [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
             [hyperopen.portfolio.routes :as portfolio-routes]))
 
 (def ^:private objective-models
@@ -384,6 +387,35 @@
          (get-in state [:portfolio :optimizer :last-successful-run :result :status]))
     [[:effects/save-portfolio-optimizer-scenario]]
     []))
+
+(defn- current-scenario-id
+  [state]
+  (or (non-blank-text (get-in state [:portfolio :optimizer :active-scenario :loaded-id]))
+      (non-blank-text (get-in state [:portfolio :optimizer :draft :id]))))
+
+(defn open-portfolio-optimizer-execution-modal
+  [state]
+  (let [result (get-in state [:portfolio :optimizer :last-successful-run :result])
+        preview (:rebalance-preview result)]
+    (if (and (= :solved (:status result))
+             (map? preview))
+      [[:effects/save
+        [:portfolio :optimizer :execution-modal]
+        {:open? true
+         :plan (execution/build-execution-plan
+                {:scenario-id (current-scenario-id state)
+                 :rebalance-preview preview
+                 :execution-assumptions (get-in state
+                                                [:portfolio :optimizer :draft :execution-assumptions])
+                 :mutations-blocked-message
+                 (account-context/mutations-blocked-message state)})}]]
+      [])))
+
+(defn close-portfolio-optimizer-execution-modal
+  [_state]
+  [[:effects/save
+    [:portfolio :optimizer :execution-modal]
+    (optimizer-defaults/default-execution-modal-state)]])
 
 (defn load-portfolio-optimizer-route
   [_state path]

@@ -176,6 +176,7 @@
             [hyperopen.portfolio.optimizer.actions-test]
             [hyperopen.portfolio.optimizer.application.current-portfolio-test]
             [hyperopen.portfolio.optimizer.application.engine-test]
+            [hyperopen.portfolio.optimizer.application.execution-test]
             [hyperopen.portfolio.optimizer.application.history-loader-test]
             [hyperopen.portfolio.optimizer.application.orderbook-loader-test]
             [hyperopen.portfolio.optimizer.application.request-builder-test]
@@ -192,6 +193,7 @@
             [hyperopen.portfolio.optimizer.domain.returns-test]
             [hyperopen.portfolio.optimizer.domain.risk-test]
             [hyperopen.portfolio.optimizer.domain.weight-cleaning-test]
+            [hyperopen.portfolio.optimizer.execution-actions-test]
             [hyperopen.portfolio.optimizer.infrastructure.history-client-test]
             [hyperopen.portfolio.optimizer.infrastructure.persistence-test]
             [hyperopen.portfolio.optimizer.infrastructure.prior-data-test]
@@ -384,6 +386,7 @@
             [hyperopen.views.portfolio.chart-view-test]
             [hyperopen.views.portfolio.fee-schedule-test]
             [hyperopen.views.portfolio.header-test]
+            [hyperopen.views.portfolio.optimize.execution-modal-test]
             [hyperopen.views.portfolio.optimize.index-view-test]
             [hyperopen.views.portfolio.optimize.universe-panel-test]
             [hyperopen.views.portfolio.optimize.view-test]
@@ -736,6 +739,7 @@
              'hyperopen.portfolio.optimizer.actions-test
              'hyperopen.portfolio.optimizer.application.current-portfolio-test
              'hyperopen.portfolio.optimizer.application.engine-test
+             'hyperopen.portfolio.optimizer.application.execution-test
              'hyperopen.portfolio.optimizer.application.history-loader-test
              'hyperopen.portfolio.optimizer.application.orderbook-loader-test
              'hyperopen.portfolio.optimizer.application.request-builder-test
@@ -752,6 +756,7 @@
              'hyperopen.portfolio.optimizer.domain.returns-test
              'hyperopen.portfolio.optimizer.domain.risk-test
              'hyperopen.portfolio.optimizer.domain.weight-cleaning-test
+             'hyperopen.portfolio.optimizer.execution-actions-test
              'hyperopen.portfolio.optimizer.infrastructure.history-client-test
              'hyperopen.portfolio.optimizer.infrastructure.persistence-test
              'hyperopen.portfolio.optimizer.infrastructure.prior-data-test
@@ -944,6 +949,7 @@
              'hyperopen.views.portfolio.chart-view-test
              'hyperopen.views.portfolio.fee-schedule-test
              'hyperopen.views.portfolio.header-test
+             'hyperopen.views.portfolio.optimize.execution-modal-test
              'hyperopen.views.portfolio.optimize.index-view-test
              'hyperopen.views.portfolio.optimize.universe-panel-test
              'hyperopen.views.portfolio.optimize.view-test

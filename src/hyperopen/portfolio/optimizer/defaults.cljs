@@ -89,6 +89,13 @@
    :completed-at-ms nil
    :error nil})
 
+(defn default-execution-modal-state
+  []
+  {:open? false
+   :plan nil
+   :submitting? false
+   :error nil})
+
 (defn default-optimizer-state
   []
   {:draft (default-draft)
@@ -107,6 +114,7 @@
    :scenario-load-state (default-scenario-load-state)
    :scenario-archive-state (default-scenario-archive-state)
    :scenario-duplicate-state (default-scenario-duplicate-state)
+   :execution-modal (default-execution-modal-state)
    :run-state (default-run-state)})
 
 (defn default-optimizer-ui-state

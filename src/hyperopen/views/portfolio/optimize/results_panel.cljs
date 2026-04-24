@@ -208,6 +208,15 @@
       (summary-card "Ready" (str (or (:ready-count summary) 0)))
       (summary-card "Blocked" (str (or (:blocked-count summary) 0)))
       (summary-card "Gross Trade" (format-usdc (:gross-trade-notional-usd summary)))]
+     [:button {:type "button"
+               :class ["rounded-lg" "border" "border-primary/50" "bg-primary/10" "px-3" "py-2"
+                       "text-left" "text-sm" "font-semibold" "text-primary"
+                       "disabled:cursor-not-allowed" "disabled:border-base-300"
+                       "disabled:bg-base-200/40" "disabled:text-trading-muted"]
+               :data-role "portfolio-optimizer-open-execution-modal"
+               :disabled (not (pos? (or (:ready-count summary) 0)))
+               :on {:click [[:actions/open-portfolio-optimizer-execution-modal]]}}
+      "Review Execution"]
      (row-shell
       [:span {:class ["font-semibold" "text-trading-muted"]} "Instrument"]
       [:span {:class ["font-semibold" "text-trading-muted"]} "Status"]

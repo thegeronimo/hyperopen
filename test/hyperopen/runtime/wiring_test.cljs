@@ -109,6 +109,10 @@
                     (get-in deps [:portfolio-optimizer :archive-portfolio-optimizer-scenario])))
     (is (identical? action-adapters/duplicate-portfolio-optimizer-scenario-action
                     (get-in deps [:portfolio-optimizer :duplicate-portfolio-optimizer-scenario])))
+    (is (identical? action-adapters/open-portfolio-optimizer-execution-modal-action
+                    (get-in deps [:portfolio-optimizer :open-portfolio-optimizer-execution-modal])))
+    (is (identical? action-adapters/close-portfolio-optimizer-execution-modal-action
+                    (get-in deps [:portfolio-optimizer :close-portfolio-optimizer-execution-modal])))
     (is (identical? action-adapters/run-portfolio-optimizer-from-draft-action
                     (get-in deps [:portfolio-optimizer :run-portfolio-optimizer-from-draft])))))
 

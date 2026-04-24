@@ -3,6 +3,7 @@
             [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
             [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
             [hyperopen.portfolio.routes :as portfolio-routes]
+            [hyperopen.views.portfolio.optimize.execution-modal :as execution-modal]
             [hyperopen.views.portfolio.optimize.infeasible-panel :as infeasible-panel]
             [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]
             [hyperopen.views.portfolio.optimize.results-panel :as results-panel]
@@ -444,4 +445,5 @@
       (run-status-panel/last-successful-run-panel run-state last-successful-run)
       (when-let [message (get-in snapshot [:account :read-only-message])]
         [:p {:class ["mt-3" "rounded-md" "border" "border-warning/40" "bg-warning/10" "p-2" "text-xs" "text-warning"]}
-         message])]]))
+         message])]
+     (execution-modal/execution-modal state)]))

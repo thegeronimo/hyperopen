@@ -74,4 +74,6 @@
   (is (fn? action-adapters/load-portfolio-optimizer-route-action))
   (is (fn? action-adapters/archive-portfolio-optimizer-scenario-action))
   (is (fn? action-adapters/duplicate-portfolio-optimizer-scenario-action))
+  (is (fn? action-adapters/open-portfolio-optimizer-execution-modal-action))
+  (is (fn? action-adapters/close-portfolio-optimizer-execution-modal-action))
   (is (fn? action-adapters/run-portfolio-optimizer-from-draft-action)))

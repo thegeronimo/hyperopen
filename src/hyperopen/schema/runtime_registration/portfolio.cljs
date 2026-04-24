@@ -61,5 +61,7 @@
    [:actions/load-portfolio-optimizer-route :load-portfolio-optimizer-route]
    [:actions/archive-portfolio-optimizer-scenario :archive-portfolio-optimizer-scenario]
    [:actions/duplicate-portfolio-optimizer-scenario :duplicate-portfolio-optimizer-scenario]
+   [:actions/open-portfolio-optimizer-execution-modal :open-portfolio-optimizer-execution-modal]
+   [:actions/close-portfolio-optimizer-execution-modal :close-portfolio-optimizer-execution-modal]
    [:actions/run-portfolio-optimizer-from-draft :run-portfolio-optimizer-from-draft]
    [:actions/run-portfolio-optimizer :run-portfolio-optimizer]])
