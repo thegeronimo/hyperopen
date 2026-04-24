@@ -178,6 +178,7 @@
             [hyperopen.portfolio.optimizer.application.history-loader-test]
             [hyperopen.portfolio.optimizer.application.orderbook-loader-test]
             [hyperopen.portfolio.optimizer.application.request-builder-test]
+            [hyperopen.portfolio.optimizer.application.run-bridge-test]
             [hyperopen.portfolio.optimizer.domain.black-litterman-test]
             [hyperopen.portfolio.optimizer.domain.constraints-test]
             [hyperopen.portfolio.optimizer.domain.diagnostics-test]
@@ -193,6 +194,7 @@
             [hyperopen.portfolio.optimizer.infrastructure.solver-adapter-parity-test]
             [hyperopen.portfolio.optimizer.infrastructure.solver-adapter-test]
             [hyperopen.portfolio.optimizer.query-state-test]
+            [hyperopen.portfolio.optimizer.worker-test]
             [hyperopen.portfolio.query-state-test]
             [hyperopen.portfolio.routes-test]
             [hyperopen.portfolio.worker-test]
@@ -729,6 +731,7 @@
              'hyperopen.portfolio.optimizer.application.history-loader-test
              'hyperopen.portfolio.optimizer.application.orderbook-loader-test
              'hyperopen.portfolio.optimizer.application.request-builder-test
+             'hyperopen.portfolio.optimizer.application.run-bridge-test
              'hyperopen.portfolio.optimizer.domain.black-litterman-test
              'hyperopen.portfolio.optimizer.domain.constraints-test
              'hyperopen.portfolio.optimizer.domain.diagnostics-test
@@ -744,6 +747,7 @@
              'hyperopen.portfolio.optimizer.infrastructure.solver-adapter-parity-test
              'hyperopen.portfolio.optimizer.infrastructure.solver-adapter-test
              'hyperopen.portfolio.optimizer.query-state-test
+             'hyperopen.portfolio.optimizer.worker-test
              'hyperopen.portfolio.query-state-test
              'hyperopen.portfolio.routes-test
              'hyperopen.portfolio.worker-test

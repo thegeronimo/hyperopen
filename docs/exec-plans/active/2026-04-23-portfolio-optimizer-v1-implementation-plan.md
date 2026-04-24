@@ -43,9 +43,11 @@ The observable proof is a routed workflow. `/portfolio/optimize` lists local sce
 - [x] (2026-04-23) Ran focused turnover validation with `npm run test:runner:generate && npx shadow-cljs --force-spawn compile test && node out/test.js --test=hyperopen.portfolio.optimizer.domain.constraints-test --test=hyperopen.portfolio.optimizer.domain.objectives-test --test=hyperopen.portfolio.optimizer.infrastructure.solver-adapter-test`; 17 tests and 60 assertions passed with zero failures and zero warnings.
 - [x] (2026-04-23) Added Phase 4 fixture parity coverage across the package solver adapters. The fixture suite compares quadprog and OSQP results for signed gross/net exposure, turnover caps, held-position locks, per-perp caps, and asserts infeasible target return fails before solver invocation.
 - [x] (2026-04-23) Ran focused fixture parity validation with `npm run test:runner:generate && npx shadow-cljs --force-spawn compile test && node out/test.js --test=hyperopen.portfolio.optimizer.infrastructure.solver-adapter-parity-test`; 5 tests and 25 assertions passed with zero failures and zero warnings.
+- [x] (2026-04-23) Added the first Phase 5 worker bridge slice. The engine now has an async run path for promise-returning solvers, the optimizer worker handles `run-optimizer` with OSQP as the worker solver, and the main-thread run bridge posts requests with run ids, dedupes identical signatures, preserves the last successful result during reruns, and ignores stale worker responses.
+- [x] (2026-04-23) Ran focused worker bridge validation with `npm run test:runner:generate && npx shadow-cljs --force-spawn compile test && node out/test.js --test=hyperopen.portfolio.optimizer.application.engine-test --test=hyperopen.portfolio.optimizer.worker-test --test=hyperopen.portfolio.optimizer.application.run-bridge-test`; 10 tests and 38 assertions passed with zero failures and zero warnings. Also compiled `npx shadow-cljs --force-spawn compile portfolio-optimizer-worker`; build completed with 69 files, 22 compiled, and zero warnings.
 - [x] Implement the Phase 1 route, query-state, portfolio shell delegation, current-holdings snapshot, account bootstrap participation, worker target registration, and IndexedDB scenario store/versioning foundations.
 - [x] Implement the Phase 3 arbitrary-universe history, funding, orderbook preview planning, BL prior, and request-builder foundations.
-- [ ] Implement worker bridge, setup/results UI, execution path, and tracking flow.
+- [ ] Integrate the worker bridge with route/runtime effects, then implement setup/results UI, execution path, and tracking flow.
 
 ## Surprises & Discoveries
 
@@ -1192,3 +1194,4 @@ Key reconnaissance facts captured for implementers:
 - 2026-04-23 / Codex: Added split-variable gross-exposure expansion for signed portfolios in both package adapters.
 - 2026-04-23 / Codex: Added turnover constraint encoding through current-weight-aware objective plans and solver-adapter auxiliary variables for both package adapters.
 - 2026-04-23 / Codex: Added package solver fixture parity coverage for signed gross/net exposure, turnover caps, held-position locks, per-perp caps, and infeasible target-return presolve.
+- 2026-04-23 / Codex: Added the first worker bridge slice with async engine execution, OSQP-backed optimizer worker handling, main-thread request dedupe, last-successful-run preservation, and stale-response guards.

@@ -35,6 +35,7 @@ Allowed upstream seams:
   preview depth. Optimizer application code may plan subscriptions but must not
   mutate websocket runtime state directly.
 
-The optimizer worker may depend on pure optimizer domain namespaces only. Browser,
-IndexedDB, websocket, and exchange submit effects belong in infrastructure and
-runtime effect adapters.
+The optimizer worker may depend on pure optimizer domain/application namespaces
+and worker-safe optimizer infrastructure adapters such as the solver adapter.
+Browser UI, IndexedDB, websocket, and exchange submit effects belong in
+infrastructure clients and runtime effect adapters outside the worker runtime.

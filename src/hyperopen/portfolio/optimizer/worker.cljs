@@ -1,4 +1,9 @@
-(ns hyperopen.portfolio.optimizer.worker)
+(ns hyperopen.portfolio.optimizer.worker
+  (:require [hyperopen.portfolio.optimizer.application.engine :as engine]
+            [hyperopen.portfolio.optimizer.infrastructure.solver-adapter :as solver-adapter]))
+
+(def ^:dynamic run-optimization-async
+  engine/run-optimization-async)
 
 (defn- post-message!
   [id type payload]
@@ -6,20 +11,38 @@
                              :type type
                              :payload (clj->js payload)}))
 
+(defn optimizer-result-payload
+  [request]
+  (run-optimization-async
+   request
+   {:solve-problem solver-adapter/solve-with-osqp}))
+
+(defn- post-run-result!
+  [id payload]
+  (-> (optimizer-result-payload payload)
+      (.then (fn [result]
+               (post-message! id "optimizer-result" result)))
+      (.catch (fn [err]
+                (post-message! id
+                               "optimizer-error"
+                               {:code :optimizer-worker-error
+                                :message (str err)})))))
+
 (defn- handle-message
   [^js event]
   (let [data (.-data event)
         id (.-id data)
-        type (keyword (.-type data))]
+        type (keyword (.-type data))
+        payload (js->clj (.-payload data) :keywordize-keys true)]
     (case type
       :ping
       (post-message! id "optimizer-pong" {:ready? true})
 
+      :run-optimizer
+      (post-run-result! id payload)
+
       :run-optimization
-      (post-message! id
-                     "optimizer-error"
-                     {:code :engine-not-implemented
-                      :message "Portfolio Optimizer engine is not implemented yet."})
+      (post-run-result! id payload)
 
       (post-message! id
                      "optimizer-error"

@@ -1,5 +1,5 @@
 (ns hyperopen.portfolio.optimizer.application.engine-test
-  (:require [cljs.test :refer-macros [deftest is]]
+  (:require [cljs.test :refer-macros [async deftest is]]
             [hyperopen.portfolio.optimizer.application.engine :as engine]))
 
 (defn- near?
@@ -96,3 +96,22 @@
     (is (= [0.5 0.5] (:target-weights result)))
     (is (= 2 (count (:solver-results result))))
     (is (= 2 (count (:frontier result))))))
+
+(deftest run-optimization-async-awaits-promise-solver-results-test
+  (async done
+    (-> (engine/run-optimization-async
+         base-request
+         {:solve-problem (fn [_problem]
+                           (js/Promise.resolve
+                            {:status :solved
+                             :solver :promise-fixture-solver
+                             :weights [0.5 0.5]}))})
+        (.then (fn [result]
+                 (is (= :solved (:status result)))
+                 (is (= :promise-fixture-solver
+                        (get-in result [:solver-results 0 :solver])))
+                 (is (= [0.5 0.5] (:target-weights result)))
+                 (done)))
+        (.catch (fn [err]
+                  (is false (str "async optimization failed: " err))
+                  (done))))))

@@ -98,6 +98,18 @@
             (assoc result :problem problem)))
         (:problems solver-plan)))
 
+(defn- solve-plan-async
+  [solver-plan solve-problem]
+  (-> (js/Promise.all
+       (clj->js
+        (mapv (fn [problem]
+                (-> (js/Promise.resolve (solve-problem problem))
+                    (.then (fn [result]
+                             (assoc result :problem problem)))))
+              (:problems solver-plan))))
+      (.then (fn [results]
+               (vec (array-seq results))))))
+
 (defn- solved?
   [result]
   (= :solved (:status result)))
@@ -236,45 +248,84 @@
                                            current-weights*
                                            target-weights)}))
 
+(defn- optimization-context
+  [request]
+  (let [risk-result (risk/estimate-risk-model
+                     {:risk-model (:risk-model request)
+                      :periods-per-year (:periods-per-year request)
+                      :history (:history request)})
+        instrument-ids (:instrument-ids risk-result)
+        return-result (expected-return-result request risk-result)
+        expected-returns (expected-return-vector return-result instrument-ids)
+        encoded (encoded-constraints request instrument-ids)
+        current-weights* (current-weights request instrument-ids)
+        solver-plan (objectives/build-solver-plan
+                     {:objective (:objective request)
+                      :instrument-ids instrument-ids
+                      :expected-returns expected-returns
+                      :covariance (:covariance risk-result)
+                      :encoded-constraints encoded
+                      :return-tilts (:return-tilts request)})]
+    {:risk-result risk-result
+     :return-result return-result
+     :expected-returns expected-returns
+     :encoded encoded
+     :current-weights current-weights*
+     :solver-plan solver-plan}))
+
+(defn- infeasible-payload
+  [request risk-result return-result solver-plan]
+  (assoc solver-plan
+         :scenario-id (:scenario-id request)
+         :warnings (vec (concat (:warnings request)
+                                (:warnings risk-result)
+                                (:warnings return-result)))))
+
+(defn- result-from-solver-results
+  [request
+   {:keys [risk-result
+           return-result
+           expected-returns
+           encoded
+           current-weights
+           solver-plan]}
+   solver-results]
+  (let [selection (selected-point request
+                                  solver-plan
+                                  solver-results
+                                  expected-returns
+                                  (:covariance risk-result))]
+    (if (= :solved (:status selection))
+      (solved-payload request
+                      risk-result
+                      return-result
+                      solver-plan
+                      solver-results
+                      selection
+                      encoded
+                      current-weights)
+      selection)))
+
 (defn run-optimization
   ([request]
    (run-optimization request {}))
   ([request {:keys [solve-problem]}]
-   (let [risk-result (risk/estimate-risk-model
-                      {:risk-model (:risk-model request)
-                       :periods-per-year (:periods-per-year request)
-                       :history (:history request)})
-         instrument-ids (:instrument-ids risk-result)
-         return-result (expected-return-result request risk-result)
-         expected-returns (expected-return-vector return-result instrument-ids)
-         encoded (encoded-constraints request instrument-ids)
-         current-weights* (current-weights request instrument-ids)
-         solver-plan (objectives/build-solver-plan
-                      {:objective (:objective request)
-                       :instrument-ids instrument-ids
-                       :expected-returns expected-returns
-                       :covariance (:covariance risk-result)
-                       :encoded-constraints encoded
-                       :return-tilts (:return-tilts request)})]
+   (let [{:keys [risk-result return-result solver-plan] :as context}
+         (optimization-context request)]
      (if (= :infeasible (:status solver-plan))
-       (assoc solver-plan
-              :scenario-id (:scenario-id request)
-              :warnings (vec (concat (:warnings request)
-                                     (:warnings risk-result)
-                                     (:warnings return-result))))
-       (let [solver-results (solve-plan solver-plan (or solve-problem default-solve-problem))
-             selection (selected-point request
-                                       solver-plan
-                                       solver-results
-                                       expected-returns
-                                       (:covariance risk-result))]
-         (if (= :solved (:status selection))
-           (solved-payload request
-                           risk-result
-                           return-result
-                           solver-plan
-                           solver-results
-                           selection
-                           encoded
-                           current-weights*)
-           selection))))))
+       (infeasible-payload request risk-result return-result solver-plan)
+       (let [solver-results (solve-plan solver-plan (or solve-problem default-solve-problem))]
+         (result-from-solver-results request context solver-results))))))
+
+(defn run-optimization-async
+  ([request]
+   (run-optimization-async request {}))
+  ([request {:keys [solve-problem]}]
+   (let [{:keys [risk-result return-result solver-plan] :as context}
+         (optimization-context request)]
+     (if (= :infeasible (:status solver-plan))
+       (js/Promise.resolve
+        (infeasible-payload request risk-result return-result solver-plan))
+       (-> (solve-plan-async solver-plan (or solve-problem default-solve-problem))
+           (.then (fn [solver-results]
+                    (result-from-solver-results request context solver-results))))))))
