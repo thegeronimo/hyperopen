@@ -23,7 +23,7 @@
                  :max-turnover 0.35
                  :rebalance-tolerance 0.01}
    :execution-assumptions {:default-order-type :market
-                           :slippage-fallback-bps 25
+                           :fallback-slippage-bps 25
                            :fee-mode :taker}
    :metadata {:created-at-ms nil
               :updated-at-ms nil

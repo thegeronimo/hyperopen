@@ -121,6 +121,60 @@
           :gross-max
           "not-a-number"))))
 
+(deftest set-draft-objective-parameter-updates-supported-targets-test
+  (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :objective :target-return]
+                                0.18]
+                               [[:portfolio :optimizer :draft :metadata :dirty?]
+                                true]]]]
+         (actions/set-portfolio-optimizer-objective-parameter
+          {}
+          :target-return
+          "0.18")))
+  (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :objective :target-volatility]
+                                0.22]
+                               [[:portfolio :optimizer :draft :metadata :dirty?]
+                                true]]]]
+         (actions/set-portfolio-optimizer-objective-parameter
+          {}
+          "targetVolatility"
+          "0.22")))
+  (is (= []
+         (actions/set-portfolio-optimizer-objective-parameter
+          {}
+          :unknown
+          "0.1"))))
+
+(deftest set-draft-execution-assumption-normalizes-supported-values-test
+  (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :execution-assumptions :fallback-slippage-bps]
+                                35]
+                               [[:portfolio :optimizer :draft :metadata :dirty?]
+                                true]]]]
+         (actions/set-portfolio-optimizer-execution-assumption
+          {}
+          :fallback-slippage-bps
+          "35")))
+  (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :execution-assumptions :default-order-type]
+                                :market]
+                               [[:portfolio :optimizer :draft :metadata :dirty?]
+                                true]]]]
+         (actions/set-portfolio-optimizer-execution-assumption
+          {}
+          :default-order-type
+          "market")))
+  (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :execution-assumptions :fee-mode]
+                                :taker]
+                               [[:portfolio :optimizer :draft :metadata :dirty?]
+                                true]]]]
+         (actions/set-portfolio-optimizer-execution-assumption
+          {}
+          :fee-mode
+          :taker)))
+  (is (= []
+         (actions/set-portfolio-optimizer-execution-assumption
+          {}
+          :fallback-slippage-bps
+          "not-a-number"))))
+
 (deftest set-draft-universe-from-current-holdings-test
   (let [state {:webdata2 {:clearinghouseState
                           {:marginSummary {:accountValue "1000"}

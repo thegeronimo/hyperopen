@@ -134,6 +134,36 @@
            (click-actions (node-by-role view-node "portfolio-optimizer-return-model-black-litterman"))))
     (is (= [[:actions/set-portfolio-optimizer-risk-model-kind :sample-covariance]]
            (click-actions (node-by-role view-node "portfolio-optimizer-risk-model-sample-covariance"))))
+    (is (= [[:actions/set-portfolio-optimizer-objective-parameter
+             :target-return
+             [:event.target/value]]]
+           (input-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-objective-target-return-input"))))
+    (is (= [[:actions/set-portfolio-optimizer-objective-parameter
+             :target-volatility
+             [:event.target/value]]]
+           (input-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-objective-target-volatility-input"))))
+    (is (= [[:actions/set-portfolio-optimizer-execution-assumption
+             :fallback-slippage-bps
+             [:event.target/value]]]
+           (input-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-execution-fallback-slippage-bps-input"))))
+    (is (= [[:actions/set-portfolio-optimizer-execution-assumption
+             :default-order-type
+             [:event.target/value]]]
+           (change-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-execution-default-order-type-input"))))
+    (is (= [[:actions/set-portfolio-optimizer-execution-assumption
+             :fee-mode
+             [:event.target/value]]]
+           (change-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-execution-fee-mode-input"))))
     (is (some? (node-by-role view-node "portfolio-optimizer-signed-exposure-table")))
     (let [strings (set (collect-strings view-node))]
       (is (contains? strings "Minimum Variance"))
@@ -141,7 +171,9 @@
       (is (contains? strings "Ledoit-Wolf"))
       (is (contains? strings "Max Asset Weight"))
       (is (contains? strings "Gross Leverage"))
-      (is (contains? strings "Rebalance Tolerance")))))
+      (is (contains? strings "Rebalance Tolerance"))
+      (is (contains? strings "Execution Assumptions"))
+      (is (contains? strings "Fallback Slippage")))))
 
 (deftest portfolio-optimizer-workspace-enables-run-for-draft-universe-test
   (let [view-node (portfolio-view/portfolio-view

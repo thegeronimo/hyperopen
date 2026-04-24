@@ -36,6 +36,10 @@
                          :set-portfolio-optimizer-return-model-kind action-adapters/set-portfolio-optimizer-return-model-kind-action
                          :set-portfolio-optimizer-risk-model-kind action-adapters/set-portfolio-optimizer-risk-model-kind-action
                          :set-portfolio-optimizer-constraint action-adapters/set-portfolio-optimizer-constraint-action
+                         :set-portfolio-optimizer-objective-parameter
+                         action-adapters/set-portfolio-optimizer-objective-parameter-action
+                         :set-portfolio-optimizer-execution-assumption
+                         action-adapters/set-portfolio-optimizer-execution-assumption-action
                          :set-portfolio-optimizer-universe-from-current
                          action-adapters/set-portfolio-optimizer-universe-from-current-action
                          :run-portfolio-optimizer-from-draft

@@ -6,8 +6,10 @@
 (def ^:private objective-models
   {:minimum-variance {:kind :minimum-variance}
    :max-sharpe {:kind :max-sharpe}
-   :target-volatility {:kind :target-volatility}
-   :target-return {:kind :target-return}})
+   :target-volatility {:kind :target-volatility
+                       :target-volatility 0.2}
+   :target-return {:kind :target-return
+                   :target-return 0.15}})
 
 (def ^:private return-models
   {:historical-mean {:kind :historical-mean}
@@ -31,6 +33,17 @@
 
 (def ^:private boolean-constraint-keys
   #{:long-only?})
+
+(def ^:private numeric-objective-parameter-keys
+  #{:target-return
+    :target-volatility})
+
+(def ^:private numeric-execution-assumption-keys
+  #{:fallback-slippage-bps})
+
+(def ^:private keyword-execution-assumption-keys
+  #{:default-order-type
+    :fee-mode})
 
 (defn- normalize-keyword-like
   [value]
@@ -151,6 +164,32 @@
     (if (some? value*)
       (save-draft-path-values
        [[[:portfolio :optimizer :draft :constraints constraint-key*] value*]])
+      [])))
+
+(defn set-portfolio-optimizer-objective-parameter
+  [_state parameter-key value]
+  (let [parameter-key* (normalize-keyword-like parameter-key)
+        value* (when (contains? numeric-objective-parameter-keys parameter-key*)
+                 (parse-number-value value))]
+    (if (some? value*)
+      (save-draft-path-values
+       [[[:portfolio :optimizer :draft :objective parameter-key*] value*]])
+      [])))
+
+(defn set-portfolio-optimizer-execution-assumption
+  [_state assumption-key value]
+  (let [assumption-key* (normalize-keyword-like assumption-key)
+        value* (cond
+                 (contains? numeric-execution-assumption-keys assumption-key*)
+                 (parse-number-value value)
+
+                 (contains? keyword-execution-assumption-keys assumption-key*)
+                 (normalize-keyword-like value)
+
+                 :else nil)]
+    (if (some? value*)
+      (save-draft-path-values
+       [[[:portfolio :optimizer :draft :execution-assumptions assumption-key*] value*]])
       [])))
 
 (defn set-portfolio-optimizer-universe-from-current

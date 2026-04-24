@@ -61,5 +61,7 @@
   (is (fn? action-adapters/set-portfolio-optimizer-return-model-kind-action))
   (is (fn? action-adapters/set-portfolio-optimizer-risk-model-kind-action))
   (is (fn? action-adapters/set-portfolio-optimizer-constraint-action))
+  (is (fn? action-adapters/set-portfolio-optimizer-objective-parameter-action))
+  (is (fn? action-adapters/set-portfolio-optimizer-execution-assumption-action))
   (is (fn? action-adapters/set-portfolio-optimizer-universe-from-current-action))
   (is (fn? action-adapters/run-portfolio-optimizer-from-draft-action)))

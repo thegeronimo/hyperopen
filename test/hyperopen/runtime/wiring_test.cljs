@@ -71,6 +71,10 @@
                     (get-in deps [:portfolio-optimizer :run-portfolio-optimizer])))
     (is (identical? action-adapters/set-portfolio-optimizer-objective-kind-action
                     (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-objective-kind])))
+    (is (identical? action-adapters/set-portfolio-optimizer-objective-parameter-action
+                    (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-objective-parameter])))
+    (is (identical? action-adapters/set-portfolio-optimizer-execution-assumption-action
+                    (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-execution-assumption])))
     (is (identical? action-adapters/set-portfolio-optimizer-universe-from-current-action
                     (get-in deps [:portfolio-optimizer :set-portfolio-optimizer-universe-from-current])))
     (is (identical? action-adapters/run-portfolio-optimizer-from-draft-action

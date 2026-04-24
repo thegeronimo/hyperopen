@@ -162,6 +162,16 @@
           :actions/set-portfolio-optimizer-constraint
           [:max-asset-weight "0.42"]
           {:phase :test})))
+  (is (= [:target-return "0.18"]
+         (contracts/assert-action-args!
+          :actions/set-portfolio-optimizer-objective-parameter
+          [:target-return "0.18"]
+          {:phase :test})))
+  (is (= [:fallback-slippage-bps "35"]
+         (contracts/assert-action-args!
+          :actions/set-portfolio-optimizer-execution-assumption
+          [:fallback-slippage-bps "35"]
+          {:phase :test})))
   (is (= []
          (contracts/assert-action-args!
           :actions/set-portfolio-optimizer-universe-from-current

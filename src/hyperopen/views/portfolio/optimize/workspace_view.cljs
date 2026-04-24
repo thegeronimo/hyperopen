@@ -76,36 +76,53 @@
    [:p {:class ["mt-2" "text-sm" "font-semibold" "tabular-nums"]}
     value]])
 
+(def ^:private setup-field-label-class
+  ["block" "text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.18em]" "text-trading-muted"])
+
+(def ^:private setup-number-input-class
+  ["mt-2" "w-full" "rounded-md" "border" "border-base-300" "bg-base-100" "px-2" "py-1.5"
+   "text-sm" "font-semibold" "tabular-nums" "outline-none" "focus:border-primary/70"])
+
+(def ^:private setup-select-class
+  ["mt-2" "w-full" "rounded-md" "border" "border-base-300" "bg-base-100" "px-2" "py-1.5"
+   "text-sm" "font-semibold" "outline-none" "focus:border-primary/70"])
+
 (defn- constraint-input
   [label constraint-key value data-role]
   [:label {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]}
-   [:span {:class ["block"
-                   "text-[0.65rem]"
-                   "font-semibold"
-                   "uppercase"
-                   "tracking-[0.18em]"
-                   "text-trading-muted"]}
-    label]
+   [:span {:class setup-field-label-class} label]
    [:input {:type "text"
             :inputmode "decimal"
-            :class ["mt-2"
-                    "w-full"
-                    "rounded-md"
-                    "border"
-                    "border-base-300"
-                    "bg-base-100"
-                    "px-2"
-                    "py-1.5"
-                    "text-sm"
-                    "font-semibold"
-                    "tabular-nums"
-                    "outline-none"
-                    "focus:border-primary/70"]
+            :class setup-number-input-class
             :data-role data-role
             :value (str value)
             :on {:input [[:actions/set-portfolio-optimizer-constraint
                           constraint-key
                           [:event.target/value]]]}}]])
+
+(defn- number-input
+  [label value data-role action]
+  [:label {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]}
+   [:span {:class setup-field-label-class} label]
+   [:input {:type "text"
+            :inputmode "decimal"
+            :class setup-number-input-class
+            :data-role data-role
+            :value (str value)
+            :on {:input [action]}}]])
+
+(defn- select-input
+  [label value options data-role action]
+  [:label {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]}
+   [:span {:class setup-field-label-class} label]
+   (into
+    [:select {:class setup-select-class
+              :data-role data-role
+              :value (name value)
+              :on {:change [action]}}]
+    (map (fn [[option-value label*]]
+           [:option {:value (name option-value)} label*])
+         options))])
 
 (defn- constraint-toggle
   [label constraint-key checked? data-role]
@@ -169,7 +186,8 @@
   (let [objective-kind (get-in draft [:objective :kind])
         return-kind (get-in draft [:return-model :kind])
         risk-kind (get-in draft [:risk-model :kind])
-        constraints (:constraints draft)]
+        constraints (:constraints draft)
+        execution-assumptions (:execution-assumptions draft)]
     [:div {:class ["grid" "grid-cols-1" "gap-4"]
            :data-role "portfolio-optimizer-setup-surface"}
      (universe-panel draft)
@@ -188,7 +206,19 @@
                    [:actions/set-portfolio-optimizer-objective-kind :target-volatility])
       (option-chip "Target Return" (= :target-return objective-kind)
                    "portfolio-optimizer-objective-target-return"
-                   [:actions/set-portfolio-optimizer-objective-kind :target-return]))
+                   [:actions/set-portfolio-optimizer-objective-kind :target-return])
+      (number-input "Target Return"
+                    (or (get-in draft [:objective :target-return]) 0.15)
+                    "portfolio-optimizer-objective-target-return-input"
+                    [:actions/set-portfolio-optimizer-objective-parameter
+                     :target-return
+                     [:event.target/value]])
+      (number-input "Target Volatility"
+                    (or (get-in draft [:objective :target-volatility]) 0.2)
+                    "portfolio-optimizer-objective-target-volatility-input"
+                    [:actions/set-portfolio-optimizer-objective-parameter
+                     :target-volatility
+                     [:event.target/value]]))
      (panel-shell
       "portfolio-optimizer-return-model-panel"
       "Return Model"
@@ -254,7 +284,33 @@
        (constraint-row "Allowlist / Blocklist"
                        (str (count (:allowlist constraints)) " / " (count (:blocklist constraints))))
        (constraint-row "Perp Leverage"
-                       (str (count (:perp-leverage constraints)) " overrides"))]]]))
+                       (str (count (:perp-leverage constraints)) " overrides"))]]
+     (panel-shell
+      "portfolio-optimizer-execution-assumptions-panel"
+      "Execution Assumptions"
+      "Preview costs use live market context where available, with explicit fallbacks."
+      (number-input "Fallback Slippage"
+                    (or (:fallback-slippage-bps execution-assumptions)
+                        (:slippage-fallback-bps execution-assumptions)
+                        25)
+                    "portfolio-optimizer-execution-fallback-slippage-bps-input"
+                    [:actions/set-portfolio-optimizer-execution-assumption
+                     :fallback-slippage-bps
+                     [:event.target/value]])
+      (select-input "Default Order Type"
+                    (or (:default-order-type execution-assumptions) :market)
+                    [[:market "Market"]]
+                    "portfolio-optimizer-execution-default-order-type-input"
+                    [:actions/set-portfolio-optimizer-execution-assumption
+                     :default-order-type
+                     [:event.target/value]])
+      (select-input "Fee Mode"
+                    (or (:fee-mode execution-assumptions) :taker)
+                    [[:taker "Taker"]]
+                    "portfolio-optimizer-execution-fee-mode-input"
+                    [:actions/set-portfolio-optimizer-execution-assumption
+                     :fee-mode
+                     [:event.target/value]]))]))
 
 (defn- warning-code-label
   [warning]

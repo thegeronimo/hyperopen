@@ -302,6 +302,8 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
     .toContainText("Gross Leverage");
   await expect(page.locator("[data-role='portfolio-optimizer-constraints-panel']"))
     .toContainText("Rebalance Tolerance");
+  await expect(page.locator("[data-role='portfolio-optimizer-execution-assumptions-panel']"))
+    .toContainText("Fallback Slippage");
 
   const maxSharpe = page.locator("[data-role='portfolio-optimizer-objective-max-sharpe']");
   const blackLitterman = page.locator("[data-role='portfolio-optimizer-return-model-black-litterman']");
@@ -336,6 +338,23 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   await maxAssetWeight.fill("0.25");
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(maxAssetWeight).toHaveValue("0.25");
+
+  const targetReturn = page.locator(
+    "[data-role='portfolio-optimizer-objective-target-return-input']"
+  );
+  const fallbackSlippage = page.locator(
+    "[data-role='portfolio-optimizer-execution-fallback-slippage-bps-input']"
+  );
+
+  await expect(targetReturn).toHaveValue("0.15");
+  await targetReturn.fill("0.18");
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(targetReturn).toHaveValue("0.18");
+
+  await expect(fallbackSlippage).toHaveValue("25");
+  await fallbackSlippage.fill("35");
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(fallbackSlippage).toHaveValue("35");
 });
 
 test("portfolio volume history opens near the metric card trigger @regression", async ({ page }) => {

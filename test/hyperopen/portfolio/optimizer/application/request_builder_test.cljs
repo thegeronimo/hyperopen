@@ -130,3 +130,27 @@
     (is (= [] (:blocklist constraints)))
     (is (= 1.0 (:gross-leverage constraints)))
     (is (= {:min -1.0 :max 1.0} (:net-exposure constraints)))))
+
+(deftest build-engine-request-normalizes-execution-assumptions-test
+  (let [draft (assoc (defaults/default-draft)
+                     :id "draft-execution-assumptions"
+                     :universe [{:instrument-id "perp:BTC"
+                                 :market-type :perp
+                                 :coin "BTC"}]
+                     :execution-assumptions {:default-order-type :market
+                                             :slippage-fallback-bps 25
+                                             :fee-mode :taker})
+        request (request-builder/build-engine-request
+                 {:draft draft
+                  :current-portfolio {:by-instrument {"perp:BTC" {:weight 1}}}
+                  :history-data {:candle-history-by-coin
+                                 {"BTC" [{:time 1000 :close "100"}
+                                         {:time 2000 :close "110"}]}
+                                 :funding-history-by-coin {}}
+                  :market-cap-by-coin {}
+                  :as-of-ms 2500})
+        assumptions (:execution-assumptions request)]
+    (is (= :market (:default-order-type assumptions)))
+    (is (= 25 (:fallback-slippage-bps assumptions)))
+    (is (= :taker (:fee-mode assumptions)))
+    (is (not (contains? assumptions :slippage-fallback-bps)))))

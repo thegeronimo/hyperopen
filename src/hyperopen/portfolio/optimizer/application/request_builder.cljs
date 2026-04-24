@@ -84,6 +84,15 @@
       (contains? constraints* :perp-leverage)
       (assoc :per-perp-leverage-caps (:perp-leverage constraints*)))))
 
+(defn- normalize-execution-assumptions
+  [execution-assumptions]
+  (let [assumptions* (or execution-assumptions {})
+        fallback-slippage-bps (or (:fallback-slippage-bps assumptions*)
+                                  (:slippage-fallback-bps assumptions*))]
+    (cond-> (dissoc assumptions* :slippage-fallback-bps)
+      (some? fallback-slippage-bps)
+      (assoc :fallback-slippage-bps fallback-slippage-bps))))
+
 (defn- black-litterman-return-model?
   [return-model]
   (= :black-litterman (:kind return-model)))
@@ -132,7 +141,8 @@
              :risk-model risk-model
              :objective objective
              :constraints constraints
-             :execution-assumptions (or (:execution-assumptions draft*) {})
+             :execution-assumptions (normalize-execution-assumptions
+                                     (:execution-assumptions draft*))
              :history history
              :warnings warnings
              :as-of-ms as-of-ms}

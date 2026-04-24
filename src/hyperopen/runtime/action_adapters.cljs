@@ -155,6 +155,12 @@
 (def set-portfolio-optimizer-constraint-action
   portfolio-optimizer-actions/set-portfolio-optimizer-constraint)
 
+(def set-portfolio-optimizer-objective-parameter-action
+  portfolio-optimizer-actions/set-portfolio-optimizer-objective-parameter)
+
+(def set-portfolio-optimizer-execution-assumption-action
+  portfolio-optimizer-actions/set-portfolio-optimizer-execution-assumption)
+
 (def set-portfolio-optimizer-universe-from-current-action
   portfolio-optimizer-actions/set-portfolio-optimizer-universe-from-current)
 
