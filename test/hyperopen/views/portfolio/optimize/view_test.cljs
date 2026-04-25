@@ -169,14 +169,14 @@
                           "portfolio-optimizer-execution-fallback-slippage-bps-input"))))
     (is (= [[:actions/set-portfolio-optimizer-execution-assumption
              :default-order-type
-             [:event.target/value]]]
-           (change-actions
+             :market]]
+           (click-actions
             (node-by-role view-node
                           "portfolio-optimizer-execution-default-order-type-input"))))
     (is (= [[:actions/set-portfolio-optimizer-execution-assumption
              :fee-mode
-             [:event.target/value]]]
-           (change-actions
+             :taker]]
+           (click-actions
             (node-by-role view-node
                           "portfolio-optimizer-execution-fee-mode-input"))))
     (is (some? (node-by-role view-node "portfolio-optimizer-instrument-overrides-panel")))
@@ -191,7 +191,9 @@
       (is (contains? strings "Gross Leverage"))
       (is (contains? strings "Rebalance Tolerance"))
       (is (contains? strings "Execution Assumptions"))
-      (is (contains? strings "Fallback Slippage")))))
+      (is (contains? strings "Fallback Slippage"))
+      (is (contains? strings "Default Order: Market"))
+      (is (contains? strings "Fee Mode: Taker")))))
 
 (deftest portfolio-optimizer-workspace-enables-run-for-draft-universe-test
   (let [view-node (portfolio-view/portfolio-view

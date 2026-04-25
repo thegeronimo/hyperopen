@@ -642,6 +642,16 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
     .toContainText("Rebalance Tolerance");
   await expect(page.locator("[data-role='portfolio-optimizer-execution-assumptions-panel']"))
     .toContainText("Fallback Slippage");
+  await expect(
+    page.locator(
+      "[data-role='portfolio-optimizer-workspace'] select, " +
+      "[data-role='portfolio-optimizer-workspace'] input[type='number'], " +
+      "[data-role='portfolio-optimizer-workspace'] input[type='date'], " +
+      "[data-role='portfolio-optimizer-workspace'] input[type='time'], " +
+      "[data-role='portfolio-optimizer-workspace'] input[type='color'], " +
+      "[data-role='portfolio-optimizer-workspace'] input[type='file']"
+    )
+  ).toHaveCount(0);
   await expect(page.locator("[data-role='portfolio-optimizer-instrument-overrides-panel']"))
     .toContainText("Per-Asset Overrides");
 
@@ -732,6 +742,74 @@ test("portfolio optimizer manual universe builder adds and removes assets @regre
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(ethRemove).toHaveCount(0);
   await expect(ethCandidate).toBeVisible();
+});
+
+test("portfolio optimizer history load requests each manual perp once @regression", async ({ page }) => {
+  const historyRequests = [];
+  await page.route("https://api.hyperliquid.xyz/info", async (route) => {
+    const request = route.request();
+    if (request.method() !== "POST") {
+      await route.continue();
+      return;
+    }
+
+    const payload = request.postDataJSON();
+    if (payload?.type === "candleSnapshot") {
+      historyRequests.push(`${payload.type}:${payload.req?.coin}`);
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          { T: 1776800000000, c: "100" },
+          { T: 1776886400000, c: "105" },
+          { T: 1776972800000, c: "110" }
+        ])
+      });
+      return;
+    }
+
+    if (payload?.type === "fundingHistory") {
+      historyRequests.push(`${payload.type}:${payload.coin}`);
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          { time: 1776800000000, coin: payload.coin, fundingRate: "0.00001" },
+          { time: 1776886400000, coin: payload.coin, fundingRate: "0.00002" }
+        ])
+      });
+      return;
+    }
+
+    await route.continue();
+  });
+
+  await visitRoute(page, "/portfolio/optimize/new");
+  await seedOptimizerAssetSelectorMarkets(page);
+
+  const searchInput = page.locator("[data-role='portfolio-optimizer-universe-search-input']");
+  await searchInput.fill("btc");
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await page.locator("[data-role='portfolio-optimizer-universe-add-perp:BTC']").click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+  await searchInput.fill("eth");
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await page.locator("[data-role='portfolio-optimizer-universe-add-perp:ETH']").click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+  historyRequests.length = 0;
+  await expect(page.locator("[data-role='portfolio-optimizer-load-history']")).toBeEnabled();
+  await page.locator("[data-role='portfolio-optimizer-load-history']").click();
+  await expect(page.locator("[data-role='portfolio-optimizer-readiness-panel']"))
+    .toContainText("Optimizer history is loaded.", { timeout: 10_000 });
+
+  expect(historyRequests.sort()).toEqual([
+    "candleSnapshot:BTC",
+    "candleSnapshot:ETH",
+    "fundingHistory:BTC",
+    "fundingHistory:ETH"
+  ]);
 });
 
 test("portfolio optimizer persisted scenario hydrates results and tracking after reload @regression", async ({ page }) => {

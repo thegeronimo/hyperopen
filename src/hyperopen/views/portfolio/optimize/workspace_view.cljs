@@ -91,10 +91,6 @@
   ["mt-2" "w-full" "rounded-md" "border" "border-base-300" "bg-base-100" "px-2" "py-1.5"
    "text-sm" "font-semibold" "tabular-nums" "outline-none" "focus:border-primary/70"])
 
-(def ^:private setup-select-class
-  ["mt-2" "w-full" "rounded-md" "border" "border-base-300" "bg-base-100" "px-2" "py-1.5"
-   "text-sm" "font-semibold" "outline-none" "focus:border-primary/70"])
-
 (defn- constraint-input
   ([label constraint-key value data-role]
    (constraint-input label constraint-key value data-role false))
@@ -128,19 +124,6 @@
             :aria-invalid (when highlighted? "true")
             :value (str value)
             :on {:input [action]}}]]))
-
-(defn- select-input
-  [label value options data-role action]
-  [:label {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]}
-   [:span {:class setup-field-label-class} label]
-   (into
-    [:select {:class setup-select-class
-              :data-role data-role
-              :value (name value)
-              :on {:change [action]}}]
-    (map (fn [[option-value label*]]
-           [:option {:value (name option-value)} label*])
-         options))])
 
 (defn- constraint-toggle
   [label constraint-key checked? data-role]
@@ -286,20 +269,18 @@
                     [:actions/set-portfolio-optimizer-execution-assumption
                      :fallback-slippage-bps
                      [:event.target/value]])
-      (select-input "Default Order Type"
-                    (or (:default-order-type execution-assumptions) :market)
-                    [[:market "Market"]]
-                    "portfolio-optimizer-execution-default-order-type-input"
-                    [:actions/set-portfolio-optimizer-execution-assumption
-                     :default-order-type
-                     [:event.target/value]])
-      (select-input "Fee Mode"
-                    (or (:fee-mode execution-assumptions) :taker)
-                    [[:taker "Taker"]]
-                    "portfolio-optimizer-execution-fee-mode-input"
-                    [:actions/set-portfolio-optimizer-execution-assumption
-                     :fee-mode
-                     [:event.target/value]]))]))
+      (option-chip "Default Order: Market"
+                   (= :market (or (:default-order-type execution-assumptions) :market))
+                   "portfolio-optimizer-execution-default-order-type-input"
+                   [:actions/set-portfolio-optimizer-execution-assumption
+                    :default-order-type
+                    :market])
+      (option-chip "Fee Mode: Taker"
+                   (= :taker (or (:fee-mode execution-assumptions) :taker))
+                   "portfolio-optimizer-execution-fee-mode-input"
+                   [:actions/set-portfolio-optimizer-execution-assumption
+                    :fee-mode
+                    :taker]))]))
 
 (defn workspace-view
   [state route]
