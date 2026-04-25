@@ -132,3 +132,38 @@
            (get-in (node-by-role view-node
                                  "portfolio-optimizer-execution-modal-confirm")
                    [1 :disabled])))))
+
+(deftest execution-modal-renders-failed-latest-attempt-for-recovery-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:last-successful-run {:result solved-result}
+                                 :execution
+                                 {:status :failed
+                                  :history [{:attempt-id "exec_1000"
+                                             :status :failed
+                                             :rows [{:instrument-id "perp:BTC"
+                                                     :status :failed
+                                                     :side :buy
+                                                     :delta-notional-usd 1000
+                                                     :error {:message "Order submit failed: exchange down"}}]}]}
+                                 :execution-modal
+                                 {:open? true
+                                  :error "Execution failed before any rows submitted."
+                                  :plan {:status :ready
+                                         :summary {:ready-count 1}
+                                         :rows [{:instrument-id "perp:BTC"
+                                                 :status :ready
+                                                 :side :buy
+                                                 :delta-notional-usd 1000}]}}}}})
+        strings (set (collect-strings view-node))]
+    (is (some? (node-by-role view-node
+                             "portfolio-optimizer-execution-latest-attempt")))
+    (is (contains? strings "Latest Attempt"))
+    (is (contains? strings "failed"))
+    (is (contains? strings "Order submit failed: exchange down"))
+    (is (= false
+           (boolean
+            (get-in (node-by-role view-node
+                                  "portfolio-optimizer-execution-modal-confirm")
+                    [1 :disabled]))))))

@@ -49,11 +49,87 @@
    [:span (format-usdc (:delta-notional-usd execution-row))]
    [:span (keyword-label (:reason execution-row))]])
 
+(defn- row-error-message
+  [execution-row]
+  (or (get-in execution-row [:error :message])
+      (:reason execution-row)))
+
+(defn- latest-attempt-row
+  [execution-row]
+  [:div {:class ["grid"
+                 "grid-cols-[minmax(8rem,1.1fr)_repeat(4,minmax(5rem,0.8fr))]"
+                 "gap-3"
+                 "rounded-lg"
+                 "border"
+                 "border-base-300"
+                 "bg-base-200/40"
+                 "p-3"
+                 "text-xs"
+                 "tabular-nums"]}
+   [:span {:class ["font-semibold" "text-trading-text"]}
+    (:instrument-id execution-row)]
+   [:span (keyword-label (:status execution-row))]
+   [:span (keyword-label (:side execution-row))]
+   [:span (format-usdc (:delta-notional-usd execution-row))]
+   [:span (keyword-label (row-error-message execution-row))]])
+
+(defn- latest-attempt-panel
+  [latest-attempt]
+  (when (seq (:rows latest-attempt))
+    [:section {:class ["mt-4"
+                       "rounded-xl"
+                       "border"
+                       "border-base-300"
+                       "bg-base-200/30"
+                       "p-4"]
+               :data-role "portfolio-optimizer-execution-latest-attempt"}
+     [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
+      [:div
+       [:p {:class ["text-[0.65rem]"
+                    "font-semibold"
+                    "uppercase"
+                    "tracking-[0.24em]"
+                    "text-trading-muted"]}
+        "Latest Attempt"]
+       [:p {:class ["mt-2" "text-sm" "text-trading-muted"]}
+        "Review the last execution result before retrying the ready rows."]]
+      [:p {:class ["rounded-full"
+                   "border"
+                   "border-base-300"
+                   "bg-base-100"
+                   "px-3"
+                   "py-1"
+                   "text-xs"
+                   "font-semibold"
+                   "text-trading-muted"]}
+       (keyword-label (:status latest-attempt))]]
+     (into
+      [:div {:class ["mt-3" "space-y-2"]}]
+      (cons
+       [:div {:class ["grid"
+                      "grid-cols-[minmax(8rem,1.1fr)_repeat(4,minmax(5rem,0.8fr))]"
+                      "gap-3"
+                      "rounded-lg"
+                      "border"
+                      "border-base-300"
+                      "bg-base-200/60"
+                      "p-3"
+                      "text-xs"
+                      "font-semibold"
+                      "text-trading-muted"]}
+        [:span "Instrument"]
+        [:span "Status"]
+        [:span "Side"]
+        [:span "Delta"]
+        [:span "Recovery Detail"]]
+       (map latest-attempt-row (:rows latest-attempt))))]))
+
 (defn execution-modal
   [state]
   (let [modal (get-in state [:portfolio :optimizer :execution-modal])
         plan (:plan modal)
         summary (:summary plan)
+        latest-attempt (last (vec (get-in state [:portfolio :optimizer :execution :history])))
         submitting? (boolean (:submitting? modal))
         ready? (pos? (or (:ready-count summary) 0))
         confirm-disabled? (or submitting?
@@ -115,6 +191,7 @@
            [:span "Delta"]
            [:span "Reason"]]
           (map row (:rows plan))))
+        (latest-attempt-panel latest-attempt)
         [:div {:class ["mt-5" "flex" "items-center" "justify-end" "gap-3"]}
          [:button {:type "button"
                    :class ["rounded-lg" "border" "border-base-300" "px-4" "py-2" "text-sm"

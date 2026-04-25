@@ -77,13 +77,21 @@ const OPTIMIZER_RELOAD_SCENARIO_EDN = `{:schema-version 1
                                                     :blocked-count 0
                                                     :gross-trade-notional-usd 1000.0}
                                           :rows [{:instrument-id "perp:BTC"
+                                                  :instrument-type :perp
+                                                  :coin "BTC"
                                                   :status :ready
                                                   :side :buy
+                                                  :price 100
+                                                  :quantity 5.0
                                                   :delta-notional-usd 500.0
                                                   :reason :supported-perp}
                                                  {:instrument-id "perp:ETH"
+                                                  :instrument-type :perp
+                                                  :coin "ETH"
                                                   :status :ready
                                                   :side :sell
+                                                  :price 50
+                                                  :quantity 10.0
                                                   :delta-notional-usd -500.0
                                                   :reason :supported-perp}]}}}
  :execution-ledger [{:attempt-id "exec_playwright"
@@ -428,6 +436,64 @@ async function enableOptimizerSpectateMode(page) {
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 }
 
+async function seedOptimizerFailedExecutionAttempt(page) {
+  await page.evaluate(() => {
+    const c = globalThis.cljs.core;
+    const kw = (name) => c.keyword(name);
+    const path = (...segments) =>
+      c.PersistentVector.fromArray(segments.map((segment) => kw(segment)), true);
+    const map = (entries) => c.PersistentArrayMap.fromArray(entries, true);
+    const vector = (items) => c.PersistentVector.fromArray(items, true);
+    const failedRow = map([
+      kw("instrument-id"), "perp:BTC",
+      kw("status"), kw("failed"),
+      kw("side"), kw("buy"),
+      kw("delta-notional-usd"), 500,
+      kw("error"), map([kw("message"), "Order submit failed: exchange down"])
+    ]);
+    const ledger = map([
+      kw("attempt-id"), "exec_playwright_failed",
+      kw("status"), kw("failed"),
+      kw("rows"), vector([failedRow])
+    ]);
+    const execution = map([
+      kw("status"), kw("failed"),
+      kw("attempt"), null,
+      kw("history"), vector([ledger]),
+      kw("error"), map([kw("message"), "Execution failed before any rows submitted."])
+    ]);
+    const store = globalThis.hyperopen.system.store;
+    c.reset_BANG_(
+      store,
+      c.assoc_in(c.deref(store), path("portfolio", "optimizer", "execution"), execution)
+    );
+  });
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+}
+
+async function seedOptimizerRerunInFlight(page) {
+  await page.evaluate(() => {
+    const c = globalThis.cljs.core;
+    const kw = (name) => c.keyword(name);
+    const path = (...segments) =>
+      c.PersistentVector.fromArray(segments.map((segment) => kw(segment)), true);
+    const map = (entries) => c.PersistentArrayMap.fromArray(entries, true);
+    const runState = map([
+      kw("status"), kw("running"),
+      kw("run-id"), "optimizer-rerun-playwright",
+      kw("scenario-id"), "scn_playwright_tracking_reload",
+      kw("started-at-ms"), 1777046500000,
+      kw("error"), null
+    ]);
+    const store = globalThis.hyperopen.system.store;
+    c.reset_BANG_(
+      store,
+      c.assoc_in(c.deref(store), path("portfolio", "optimizer", "run-state"), runState)
+    );
+  });
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+}
+
 async function seedExpandedTradeBlotterToast(page) {
   await page.evaluate(() => {
     const c = globalThis.cljs?.core;
@@ -699,6 +765,22 @@ test("portfolio optimizer persisted scenario hydrates results and tracking after
     .toContainText("perp:ETH");
 });
 
+test("portfolio optimizer rerun keeps last successful result visible @regression", async ({ page }) => {
+  await visitRoute(page, "/portfolio/optimize");
+  await seedPersistedOptimizerTrackingScenario(page);
+  await visitRoute(page, `/portfolio/optimize/${OPTIMIZER_RELOAD_SCENARIO_ID}`);
+  await seedOptimizerRerunInFlight(page);
+
+  await expect(page.locator("[data-role='portfolio-optimizer-run-status-panel']"))
+    .toContainText("Running");
+  await expect(page.locator("[data-role='portfolio-optimizer-last-successful-run']"))
+    .toContainText("Retaining last successful result while rerunning.");
+  await expect(page.locator("[data-role='portfolio-optimizer-results-surface']"))
+    .toContainText("Rebalance Preview");
+  await expect(page.locator("[data-role='portfolio-optimizer-run-draft']"))
+    .toBeDisabled();
+});
+
 test("portfolio optimizer execution remains read-only in Spectate Mode @regression", async ({ page }) => {
   await visitRoute(page, "/portfolio/optimize");
   await seedPersistedOptimizerTrackingScenario(page);
@@ -714,6 +796,23 @@ test("portfolio optimizer execution remains read-only in Spectate Mode @regressi
   );
   await expect(page.locator("[data-role='portfolio-optimizer-execution-modal-confirm']"))
     .toBeDisabled();
+});
+
+test("portfolio optimizer execution modal surfaces failed attempt recovery details @regression", async ({ page }) => {
+  await visitRoute(page, "/portfolio/optimize");
+  await seedPersistedOptimizerTrackingScenario(page);
+  await visitRoute(page, `/portfolio/optimize/${OPTIMIZER_RELOAD_SCENARIO_ID}`);
+  await seedOptimizerFailedExecutionAttempt(page);
+
+  await page.locator("[data-role='portfolio-optimizer-open-execution-modal']").click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+  const latestAttempt = page.locator("[data-role='portfolio-optimizer-execution-latest-attempt']");
+  await expect(latestAttempt).toContainText("Latest Attempt");
+  await expect(latestAttempt).toContainText("failed");
+  await expect(latestAttempt).toContainText("Order submit failed: exchange down");
+  await expect(page.locator("[data-role='portfolio-optimizer-execution-modal-confirm']"))
+    .toBeEnabled();
 });
 
 test("portfolio volume history opens near the metric card trigger @regression", async ({ page }) => {
