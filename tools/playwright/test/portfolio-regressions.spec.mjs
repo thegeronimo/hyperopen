@@ -405,6 +405,29 @@ async function seedPersistedOptimizerTrackingScenario(page) {
   );
 }
 
+async function enableOptimizerSpectateMode(page) {
+  await page.evaluate((address) => {
+    const c = globalThis.cljs.core;
+    const kw = (name) => c.keyword(name);
+    const path = (...segments) =>
+      c.PersistentVector.fromArray(segments.map((segment) => kw(segment)), true);
+    const spectateMode = c.PersistentArrayMap.fromArray(
+      [
+        kw("active?"), true,
+        kw("address"), address,
+        kw("started-at-ms"), 1777046300000
+      ],
+      true
+    );
+    const store = globalThis.hyperopen.system.store;
+    c.reset_BANG_(
+      store,
+      c.assoc_in(c.deref(store), path("account-context", "spectate-mode"), spectateMode)
+    );
+  }, SPECTATE_ADDRESS);
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+}
+
 async function seedExpandedTradeBlotterToast(page) {
   await page.evaluate(() => {
     const c = globalThis.cljs?.core;
@@ -674,6 +697,23 @@ test("portfolio optimizer persisted scenario hydrates results and tracking after
   await expect(tracking).toContainText("Realized Return");
   await expect(page.locator("[data-role='portfolio-optimizer-tracking-row-1']"))
     .toContainText("perp:ETH");
+});
+
+test("portfolio optimizer execution remains read-only in Spectate Mode @regression", async ({ page }) => {
+  await visitRoute(page, "/portfolio/optimize");
+  await seedPersistedOptimizerTrackingScenario(page);
+  await visitRoute(page, `/portfolio/optimize/${OPTIMIZER_RELOAD_SCENARIO_ID}`);
+  await enableOptimizerSpectateMode(page);
+
+  await page.locator("[data-role='portfolio-optimizer-open-execution-modal']").click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+  const modal = page.locator("[data-role='portfolio-optimizer-execution-modal']");
+  await expect(modal).toContainText(
+    "Spectate Mode is read-only. Stop Spectate Mode to place trades or move funds."
+  );
+  await expect(page.locator("[data-role='portfolio-optimizer-execution-modal-confirm']"))
+    .toBeDisabled();
 });
 
 test("portfolio volume history opens near the metric card trigger @regression", async ({ page }) => {
