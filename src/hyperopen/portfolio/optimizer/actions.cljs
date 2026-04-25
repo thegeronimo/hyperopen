@@ -445,6 +445,13 @@
        [:effects/save [:portfolio :optimizer :execution-modal :error] nil]
        [:effects/execute-portfolio-optimizer-plan plan]])))
 
+(defn refresh-portfolio-optimizer-tracking
+  [state]
+  (if (contains? #{:executed :partially-executed}
+                 (get-in state [:portfolio :optimizer :active-scenario :status]))
+    [[:effects/refresh-portfolio-optimizer-tracking]]
+    []))
+
 (defn load-portfolio-optimizer-route
   [_state path]
   (let [route (portfolio-routes/parse-portfolio-route path)]

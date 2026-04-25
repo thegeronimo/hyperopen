@@ -9,10 +9,11 @@
     :load-portfolio-optimizer-scenario]
    [:effects/archive-portfolio-optimizer-scenario
     :archive-portfolio-optimizer-scenario]
-   [:effects/duplicate-portfolio-optimizer-scenario
-    :duplicate-portfolio-optimizer-scenario]
-   [:effects/save-portfolio-optimizer-scenario :save-portfolio-optimizer-scenario]
-   [:effects/execute-portfolio-optimizer-plan :execute-portfolio-optimizer-plan]])
+	   [:effects/duplicate-portfolio-optimizer-scenario
+	    :duplicate-portfolio-optimizer-scenario]
+	   [:effects/save-portfolio-optimizer-scenario :save-portfolio-optimizer-scenario]
+	   [:effects/execute-portfolio-optimizer-plan :execute-portfolio-optimizer-plan]
+	   [:effects/refresh-portfolio-optimizer-tracking :refresh-portfolio-optimizer-tracking]])
 
 (def action-binding-rows
   [[:actions/toggle-portfolio-summary-scope-dropdown :toggle-portfolio-summary-scope-dropdown]
@@ -63,7 +64,8 @@
    [:actions/archive-portfolio-optimizer-scenario :archive-portfolio-optimizer-scenario]
    [:actions/duplicate-portfolio-optimizer-scenario :duplicate-portfolio-optimizer-scenario]
    [:actions/open-portfolio-optimizer-execution-modal :open-portfolio-optimizer-execution-modal]
-   [:actions/close-portfolio-optimizer-execution-modal :close-portfolio-optimizer-execution-modal]
-   [:actions/confirm-portfolio-optimizer-execution :confirm-portfolio-optimizer-execution]
-   [:actions/run-portfolio-optimizer-from-draft :run-portfolio-optimizer-from-draft]
+	   [:actions/close-portfolio-optimizer-execution-modal :close-portfolio-optimizer-execution-modal]
+	   [:actions/confirm-portfolio-optimizer-execution :confirm-portfolio-optimizer-execution]
+	   [:actions/refresh-portfolio-optimizer-tracking :refresh-portfolio-optimizer-tracking]
+	   [:actions/run-portfolio-optimizer-from-draft :run-portfolio-optimizer-from-draft]
    [:actions/run-portfolio-optimizer :run-portfolio-optimizer]])

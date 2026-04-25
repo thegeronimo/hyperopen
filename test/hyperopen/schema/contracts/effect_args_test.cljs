@@ -114,11 +114,18 @@
               :summary {:ready-count 1}
               :rows [{:instrument-id "perp:BTC"
                       :status :ready}]}]
-    (is (= [plan]
-           (contracts/assert-effect-args!
-            :effects/execute-portfolio-optimizer-plan
-            [plan]
-            {:phase :test})))))
+	    (is (= [plan]
+	           (contracts/assert-effect-args!
+	            :effects/execute-portfolio-optimizer-plan
+	            [plan]
+	            {:phase :test})))))
+
+(deftest assert-effect-args-accepts-portfolio-optimizer-tracking-refresh-test
+  (is (= []
+         (contracts/assert-effect-args!
+          :effects/refresh-portfolio-optimizer-tracking
+          []
+          {:phase :test}))))
 
 (deftest assert-effect-args-validates-unlock-agent-trading-continuations-test
   (is (= []

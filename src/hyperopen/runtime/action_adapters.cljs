@@ -203,5 +203,8 @@
 (def confirm-portfolio-optimizer-execution-action
   portfolio-optimizer-actions/confirm-portfolio-optimizer-execution)
 
+(def refresh-portfolio-optimizer-tracking-action
+  portfolio-optimizer-actions/refresh-portfolio-optimizer-tracking)
+
 (def run-portfolio-optimizer-from-draft-action
   portfolio-optimizer-actions/run-portfolio-optimizer-from-draft)

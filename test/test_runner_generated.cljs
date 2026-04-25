@@ -183,6 +183,7 @@
             [hyperopen.portfolio.optimizer.application.run-bridge-test]
             [hyperopen.portfolio.optimizer.application.scenario-records-test]
             [hyperopen.portfolio.optimizer.application.setup-readiness-test]
+            [hyperopen.portfolio.optimizer.application.tracking-test]
             [hyperopen.portfolio.optimizer.defaults-test]
             [hyperopen.portfolio.optimizer.domain.black-litterman-test]
             [hyperopen.portfolio.optimizer.domain.constraints-test]
@@ -200,6 +201,7 @@
             [hyperopen.portfolio.optimizer.infrastructure.solver-adapter-parity-test]
             [hyperopen.portfolio.optimizer.infrastructure.solver-adapter-test]
             [hyperopen.portfolio.optimizer.query-state-test]
+            [hyperopen.portfolio.optimizer.tracking-actions-test]
             [hyperopen.portfolio.optimizer.worker-test]
             [hyperopen.portfolio.query-state-test]
             [hyperopen.portfolio.routes-test]
@@ -228,6 +230,7 @@
             [hyperopen.runtime.effect-adapters.order-test]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-execution-test]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-test]
+            [hyperopen.runtime.effect-adapters.portfolio-optimizer-tracking-test]
             [hyperopen.runtime.effect-adapters.staking-test]
             [hyperopen.runtime.effect-adapters.vaults-test]
             [hyperopen.runtime.effect-adapters.wallet-test]
@@ -747,6 +750,7 @@
              'hyperopen.portfolio.optimizer.application.run-bridge-test
              'hyperopen.portfolio.optimizer.application.scenario-records-test
              'hyperopen.portfolio.optimizer.application.setup-readiness-test
+             'hyperopen.portfolio.optimizer.application.tracking-test
              'hyperopen.portfolio.optimizer.defaults-test
              'hyperopen.portfolio.optimizer.domain.black-litterman-test
              'hyperopen.portfolio.optimizer.domain.constraints-test
@@ -764,6 +768,7 @@
              'hyperopen.portfolio.optimizer.infrastructure.solver-adapter-parity-test
              'hyperopen.portfolio.optimizer.infrastructure.solver-adapter-test
              'hyperopen.portfolio.optimizer.query-state-test
+             'hyperopen.portfolio.optimizer.tracking-actions-test
              'hyperopen.portfolio.optimizer.worker-test
              'hyperopen.portfolio.query-state-test
              'hyperopen.portfolio.routes-test
@@ -792,6 +797,7 @@
              'hyperopen.runtime.effect-adapters.order-test
              'hyperopen.runtime.effect-adapters.portfolio-optimizer-execution-test
              'hyperopen.runtime.effect-adapters.portfolio-optimizer-test
+             'hyperopen.runtime.effect-adapters.portfolio-optimizer-tracking-test
              'hyperopen.runtime.effect-adapters.staking-test
              'hyperopen.runtime.effect-adapters.vaults-test
              'hyperopen.runtime.effect-adapters.wallet-test

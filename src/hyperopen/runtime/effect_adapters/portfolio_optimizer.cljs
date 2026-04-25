@@ -2,9 +2,11 @@
   (:require [nexus.registry :as nxr]
             [hyperopen.api.default :as api]
             [hyperopen.api.trading :as trading-api]
+            [hyperopen.portfolio.optimizer.application.current-portfolio :as current-portfolio]
             [hyperopen.portfolio.optimizer.application.execution :as execution]
             [hyperopen.portfolio.optimizer.application.run-bridge :as run-bridge]
             [hyperopen.portfolio.optimizer.application.scenario-records :as scenario-records]
+            [hyperopen.portfolio.optimizer.application.tracking :as tracking]
             [hyperopen.portfolio.optimizer.infrastructure.history-client :as history-client]
             [hyperopen.portfolio.optimizer.infrastructure.persistence :as persistence]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-scenarios :as scenario-effects]))
@@ -17,6 +19,8 @@
 (def ^:dynamic *load-scenario!* persistence/load-scenario!)
 (def ^:dynamic *save-scenario!* persistence/save-scenario!)
 (def ^:dynamic *save-scenario-index!* persistence/save-scenario-index!)
+(def ^:dynamic *load-tracking!* persistence/load-tracking!)
+(def ^:dynamic *save-tracking!* persistence/save-tracking!)
 (def ^:dynamic *next-scenario-id* (fn [now-ms] (str "scn_" now-ms)))
 (def ^:dynamic *now-ms* #(.now js/Date))
 (def ^:dynamic *submit-order!* trading-api/submit-order!)
@@ -384,6 +388,35 @@
 	                                                   store
 	                                                   address
 	                                                   ledger))))))))))
+
+(defn refresh-portfolio-optimizer-tracking-effect
+  ([_ store]
+   (let [now-ms-fn *now-ms*
+         load-tracking! *load-tracking!*
+         save-tracking! *save-tracking!*
+         state @store
+         scenario-id (or (get-in state [:portfolio :optimizer :active-scenario :loaded-id])
+                         (get-in state [:portfolio :optimizer :draft :id]))
+         snapshot (tracking/build-tracking-snapshot
+                   {:scenario-id scenario-id
+                    :as-of-ms (now-ms-fn)
+                    :saved-run (get-in state [:portfolio :optimizer :last-successful-run])
+                    :current-snapshot (current-portfolio/current-portfolio-snapshot state)})]
+     (if-not (= :tracked (:status snapshot))
+       (do
+         (swap! store assoc-in [:portfolio :optimizer :tracking] snapshot)
+         (js/Promise.resolve snapshot))
+       (-> (load-tracking! scenario-id)
+           (.then (fn [loaded-tracking]
+                    (let [tracking-record (tracking/append-tracking-snapshot
+                                           loaded-tracking
+                                           snapshot)]
+                      (-> (save-tracking! scenario-id tracking-record)
+                          (.then (fn [_]
+                                   (swap! store assoc-in
+                                          [:portfolio :optimizer :tracking]
+                                          tracking-record)
+                                   tracking-record)))))))))))
 
 (defn- scenario-env
   []

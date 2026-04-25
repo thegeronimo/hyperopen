@@ -237,13 +237,18 @@
           :actions/close-portfolio-optimizer-execution-modal
           []
           {:phase :test})))
-  (is (= []
-         (contracts/assert-action-args!
-          :actions/confirm-portfolio-optimizer-execution
-          []
-          {:phase :test})))
-  (is (= []
-         (contracts/assert-action-args!
+	  (is (= []
+	         (contracts/assert-action-args!
+	          :actions/confirm-portfolio-optimizer-execution
+	          []
+	          {:phase :test})))
+	  (is (= []
+	         (contracts/assert-action-args!
+	          :actions/refresh-portfolio-optimizer-tracking
+	          []
+	          {:phase :test})))
+	  (is (= []
+	         (contracts/assert-action-args!
           :actions/run-portfolio-optimizer-from-draft
           []
           {:phase :test})))

@@ -45,7 +45,13 @@
   (is (= {:ordered-ids []
           :by-id {}}
          (get-in (defaults/default-optimizer-state)
-                 [:scenario-index]))))
+                 [:scenario-index])))
+  (is (= {:status :idle
+          :scenario-id nil
+          :updated-at-ms nil
+          :snapshots []
+          :error nil}
+         (:tracking (defaults/default-optimizer-state)))))
 
 (deftest default-optimizer-ui-state-matches-route-query-defaults-test
   (is (= {:list-filter :active

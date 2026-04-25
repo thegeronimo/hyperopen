@@ -60,6 +60,8 @@
                     (get-in deps [:portfolio-optimizer :save-portfolio-optimizer-scenario])))
     (is (identical? effect-adapters/execute-portfolio-optimizer-plan-effect
                     (get-in deps [:portfolio-optimizer :execute-portfolio-optimizer-plan])))
+    (is (identical? effect-adapters/refresh-portfolio-optimizer-tracking-effect
+                    (get-in deps [:portfolio-optimizer :refresh-portfolio-optimizer-tracking])))
     (is (identical? action-adapters/enable-agent-trading
                     (get-in deps [:wallet :enable-agent-trading])))))
 
@@ -117,6 +119,8 @@
                     (get-in deps [:portfolio-optimizer :close-portfolio-optimizer-execution-modal])))
     (is (identical? action-adapters/confirm-portfolio-optimizer-execution-action
                     (get-in deps [:portfolio-optimizer :confirm-portfolio-optimizer-execution])))
+    (is (identical? action-adapters/refresh-portfolio-optimizer-tracking-action
+                    (get-in deps [:portfolio-optimizer :refresh-portfolio-optimizer-tracking])))
     (is (identical? action-adapters/run-portfolio-optimizer-from-draft-action
                     (get-in deps [:portfolio-optimizer :run-portfolio-optimizer-from-draft])))))
 
@@ -148,7 +152,9 @@
     (is (identical? effect-adapters/save-portfolio-optimizer-scenario-effect
                     (get-in deps [:effect-handlers :save-portfolio-optimizer-scenario])))
     (is (identical? effect-adapters/execute-portfolio-optimizer-plan-effect
-                    (get-in deps [:effect-handlers :execute-portfolio-optimizer-plan])))))
+                    (get-in deps [:effect-handlers :execute-portfolio-optimizer-plan])))
+    (is (identical? effect-adapters/refresh-portfolio-optimizer-tracking-effect
+                    (get-in deps [:effect-handlers :refresh-portfolio-optimizer-tracking])))))
 
 (deftest runtime-action-deps-cover-catalog-handler-keys-test
   (let [action-deps (wiring/runtime-action-deps)

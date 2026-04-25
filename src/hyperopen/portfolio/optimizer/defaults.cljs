@@ -103,6 +103,14 @@
    :history []
    :error nil})
 
+(defn default-tracking-state
+  []
+  {:status :idle
+   :scenario-id nil
+   :updated-at-ms nil
+   :snapshots []
+   :error nil})
+
 (defn default-optimizer-state
   []
   {:draft (default-draft)
@@ -120,10 +128,11 @@
    :scenario-index-load-state (default-scenario-index-load-state)
    :scenario-load-state (default-scenario-load-state)
    :scenario-archive-state (default-scenario-archive-state)
-   :scenario-duplicate-state (default-scenario-duplicate-state)
-   :execution-modal (default-execution-modal-state)
-   :execution (default-execution-state)
-   :run-state (default-run-state)})
+	   :scenario-duplicate-state (default-scenario-duplicate-state)
+	   :execution-modal (default-execution-modal-state)
+	   :execution (default-execution-state)
+	   :tracking (default-tracking-state)
+	   :run-state (default-run-state)})
 
 (defn default-optimizer-ui-state
   []
