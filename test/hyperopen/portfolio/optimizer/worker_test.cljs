@@ -149,6 +149,45 @@
                       (is false (str "worker payload normalization failed: " err))
                       (done))))))))
 
+(deftest optimizer-result-payload-normalizes-worker-decoded-enum-values-test
+  (async done
+    (let [captured (atom nil)
+          request {:scenario-id "scenario-1"
+                   :universe [{:instrument-id "perp:BTC"
+                               :market-type "perp"
+                               :coin "BTC"}]
+                   :return-model {:kind "historical-mean"}
+                   :risk-model {:kind "ledoit-wolf"}
+                   :objective {:kind "minimum-variance"}
+                   :history {:funding-by-instrument {"perp:BTC" {:annualized-carry 0.01
+                                                                  :source "market-funding-history"}}}
+                   :execution-assumptions {:default-order-type "market"
+                                           :fee-mode "taker"}}]
+      (with-redefs [worker/run-optimization-async
+                    (fn [request* _opts]
+                      (reset! captured request*)
+                      (js/Promise.resolve {:status :solved}))]
+        (-> (worker/optimizer-result-payload request)
+            (.then (fn [_]
+                     (is (= :perp
+                            (get-in @captured [:universe 0 :market-type])))
+                     (is (= :historical-mean
+                            (get-in @captured [:return-model :kind])))
+                     (is (= :ledoit-wolf
+                            (get-in @captured [:risk-model :kind])))
+                     (is (= :minimum-variance
+                            (get-in @captured [:objective :kind])))
+                     (is (= :market-funding-history
+                            (get-in @captured [:history :funding-by-instrument "perp:BTC" :source])))
+                     (is (= :market
+                            (get-in @captured [:execution-assumptions :default-order-type])))
+                     (is (= :taker
+                            (get-in @captured [:execution-assumptions :fee-mode])))
+                     (done)))
+            (.catch (fn [err]
+                      (is false (str "worker enum value normalization failed: " err))
+                      (done))))))))
+
 (deftest optimizer-result-payload-solves-realistic-universes-within-runaway-budget-test
   (async done
     (let [budgets-by-size {20 3000

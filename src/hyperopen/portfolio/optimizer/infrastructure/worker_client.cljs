@@ -1,14 +1,16 @@
-(ns hyperopen.portfolio.optimizer.infrastructure.worker-client)
+(ns hyperopen.portfolio.optimizer.infrastructure.worker-client
+  (:require [hyperopen.portfolio.optimizer.infrastructure.wire :as wire]))
 
 (defonce ^:private message-handler
   (atom nil))
 
 (defn normalize-worker-message
   [data]
-  (cond
-    (map? data) data
-    (some? data) (js->clj data :keywordize-keys true)
-    :else {}))
+  (wire/normalize-wire-values
+   (cond
+     (map? data) data
+     (some? data) (js->clj data :keywordize-keys true)
+     :else {})))
 
 (defn set-message-handler!
   [handler]

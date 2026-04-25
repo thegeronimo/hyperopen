@@ -1,5 +1,6 @@
 (ns hyperopen.portfolio.optimizer.worker
   (:require [hyperopen.portfolio.optimizer.application.engine :as engine]
+            [hyperopen.portfolio.optimizer.infrastructure.wire :as wire]
             [hyperopen.portfolio.optimizer.infrastructure.solver-adapter :as solver-adapter]))
 
 (def ^:dynamic run-optimization-async
@@ -47,10 +48,11 @@
 
 (defn- normalize-worker-request
   [request]
-  (reduce (fn [request* path]
-            (update-existing-in request* path stringify-map-keys))
-          request
-          instrument-key-map-paths))
+  (wire/normalize-wire-values
+   (reduce (fn [request* path]
+             (update-existing-in request* path stringify-map-keys))
+           request
+           instrument-key-map-paths)))
 
 (defn optimizer-result-payload
   [request]

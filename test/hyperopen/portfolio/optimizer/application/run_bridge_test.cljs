@@ -113,6 +113,28 @@
               :computed-at-ms 200}
              (get-in @store [:portfolio :optimizer :last-successful-run]))))))
 
+(deftest normalized-worker-result-with-string-status-updates-successful-run-test
+  (let [store (atom {:portfolio {:optimizer {:run-state {:status :running
+                                                         :run-id "run-1"
+                                                         :scenario-id "scenario-1"
+                                                         :request-signature {:seed 1}}}}})
+        message (worker-client/normalize-worker-message
+                 (clj->js {:id "run-1"
+                           :type "optimizer-result"
+                           :payload {:status "solved"
+                                     :scenario-id "scenario-1"
+                                     :solver {:strategy "single-qp"}
+                                     :warnings [{:code "missing-funding-history"}]}}))]
+    (with-redefs [system/store store]
+      (run-bridge/handle-worker-message! message {:computed-at-ms 250})
+      (is (= :succeeded
+             (get-in @store [:portfolio :optimizer :run-state :status])))
+      (is (= {:status :solved
+              :scenario-id "scenario-1"
+              :solver {:strategy :single-qp}
+              :warnings [{:code :missing-funding-history}]}
+             (get-in @store [:portfolio :optimizer :last-successful-run :result]))))))
+
 (deftest worker-result-ignores-stale-run-id-and-route-changes-test
   (let [state {:portfolio {:optimizer {:active-scenario {:loaded-id "scenario-2"}
                                        :run-state {:status :running
