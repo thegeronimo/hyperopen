@@ -5,11 +5,115 @@ import {
   expectOracle,
   sourceRectForLocator,
   visitRoute,
+  waitForDebugBridge,
   waitForIdle
 } from "../support/hyperopen.mjs";
 
 const TRADER_ADDRESS = "0x3333333333333333333333333333333333333333";
 const SPECTATE_ADDRESS = "0x162cc7c861ebd0c06b3d72319201150482518185";
+const OPTIMIZER_RELOAD_SCENARIO_ID = "scn_playwright_tracking_reload";
+const OPTIMIZER_RELOAD_SCENARIO_EDN = `{:schema-version 1
+ :id "scn_playwright_tracking_reload"
+ :name "QA Tracking Reload"
+ :address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+ :status :partially-executed
+ :config {:id "scn_playwright_tracking_reload"
+          :name "QA Tracking Reload"
+          :status :partially-executed
+          :objective {:kind :max-sharpe}
+          :return-model {:kind :historical-mean}
+          :risk-model {:kind :ledoit-wolf}
+          :constraints {:long-only? true
+                        :max-asset-weight 0.75
+                        :rebalance-tolerance 0.001}
+          :execution-assumptions {:fallback-slippage-bps 25
+                                  :default-order-type :market
+                                  :fee-mode :taker}
+          :universe [{:instrument-id "perp:BTC"
+                      :market-type :perp
+                      :coin "BTC"
+                      :shortable? true}
+                     {:instrument-id "perp:ETH"
+                      :market-type :perp
+                      :coin "ETH"
+                      :shortable? true}]
+          :metadata {:dirty? false
+                     :created-at-ms 1777045900000
+                     :updated-at-ms 1777046100000}}
+ :saved-run {:request-signature {:scenario-id "scn_playwright_tracking_reload"}
+             :computed-at-ms 1777046000000
+             :result {:status :solved
+                      :scenario-id "scn_playwright_tracking_reload"
+                      :instrument-ids ["perp:BTC" "perp:ETH"]
+                      :target-weights [0.6 0.4]
+                      :current-weights [0.55 0.45]
+                      :expected-return 0.24
+                      :volatility 0.38
+                      :return-model :historical-mean
+                      :risk-model :ledoit-wolf
+                      :frontier [{:id 0
+                                  :expected-return 0.2
+                                  :volatility 0.32
+                                  :sharpe 0.62}
+                                 {:id 1
+                                  :expected-return 0.24
+                                  :volatility 0.38
+                                  :sharpe 0.63}]
+                      :diagnostics {:gross-exposure 1.0
+                                    :net-exposure 1.0
+                                    :effective-n 1.92
+                                    :turnover 0.1
+                                    :binding-constraints []}
+                      :return-decomposition-by-instrument
+                      {"perp:BTC" {:return-component 0.2
+                                   :funding-component 0.04
+                                   :funding-source :market-funding-history}
+                       "perp:ETH" {:return-component 0.12
+                                   :funding-component -0.01
+                                   :funding-source :market-funding-history}}
+                      :rebalance-preview {:capital-usd 10000.0
+                                          :status :ready
+                                          :summary {:ready-count 2
+                                                    :blocked-count 0
+                                                    :gross-trade-notional-usd 1000.0}
+                                          :rows [{:instrument-id "perp:BTC"
+                                                  :status :ready
+                                                  :side :buy
+                                                  :delta-notional-usd 500.0
+                                                  :reason :supported-perp}
+                                                 {:instrument-id "perp:ETH"
+                                                  :status :ready
+                                                  :side :sell
+                                                  :delta-notional-usd -500.0
+                                                  :reason :supported-perp}]}}}
+ :execution-ledger [{:attempt-id "exec_playwright"
+                    :status :partially-executed
+                    :completed-at-ms 1777046100000
+                    :rows [{:row-id "perp:BTC"
+                            :status :submitted}]}]
+ :created-at-ms 1777045900000
+ :updated-at-ms 1777046100000}`;
+const OPTIMIZER_RELOAD_TRACKING_EDN = `{:status :loaded
+ :scenario-id "scn_playwright_tracking_reload"
+ :updated-at-ms 1777046200000
+ :snapshots [{:status :partially-executed
+              :snapshot-at-ms 1777046200000
+              :weight-drift-rms 0.0282842712
+              :distance-to-target 0.0282842712
+              :max-abs-weight-drift 0.04
+              :predicted-return 0.24
+              :realized-return 0.018
+              :rows [{:instrument-id "perp:BTC"
+                      :current-weight 0.56
+                      :target-weight 0.6
+                      :weight-drift 0.04
+                      :signed-notional-usdc 400.0}
+                     {:instrument-id "perp:ETH"
+                      :current-weight 0.44
+                      :target-weight 0.4
+                      :weight-drift -0.04
+                      :signed-notional-usdc -400.0}]}]
+ :error nil}`;
 const VOLUME_HISTORY_FIXTURE = {
   dailyUserVlm: [
     {
@@ -260,6 +364,47 @@ async function seedOptimizerBtcOnlyHistory(page) {
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 }
 
+async function putOptimizerRecord(page, key, payload) {
+  await page.evaluate(async ({ key, payload }) => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open("hyperopen-persistence", 6);
+      request.onupgradeneeded = (event) => {
+        const database = event.target.result;
+        if (!database.objectStoreNames.contains("portfolio-optimizer")) {
+          database.createObjectStore("portfolio-optimizer");
+        }
+      };
+      request.onsuccess = (event) => resolve(event.target.result);
+      request.onerror = () => reject(request.error);
+      request.onblocked = () => reject(new Error("IndexedDB open blocked"));
+    });
+
+    await new Promise((resolve, reject) => {
+      const transaction = db.transaction(["portfolio-optimizer"], "readwrite");
+      const store = transaction.objectStore("portfolio-optimizer");
+      const request = store.put({ encoding: "edn-v1", payload }, key);
+      request.onerror = () => reject(request.error);
+      transaction.oncomplete = () => resolve(true);
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+    db.close();
+  }, { key, payload });
+}
+
+async function seedPersistedOptimizerTrackingScenario(page) {
+  await putOptimizerRecord(
+    page,
+    `scenario::${OPTIMIZER_RELOAD_SCENARIO_ID}`,
+    OPTIMIZER_RELOAD_SCENARIO_EDN
+  );
+  await putOptimizerRecord(
+    page,
+    `tracking::${OPTIMIZER_RELOAD_SCENARIO_ID}`,
+    OPTIMIZER_RELOAD_TRACKING_EDN
+  );
+}
+
 async function seedExpandedTradeBlotterToast(page) {
   await page.evaluate(() => {
     const c = globalThis.cljs?.core;
@@ -498,6 +643,37 @@ test("portfolio optimizer manual universe builder adds and removes assets @regre
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(ethRemove).toHaveCount(0);
   await expect(ethCandidate).toBeVisible();
+});
+
+test("portfolio optimizer persisted scenario hydrates results and tracking after reload @regression", async ({ page }) => {
+  await visitRoute(page, "/portfolio/optimize");
+  await seedPersistedOptimizerTrackingScenario(page);
+
+  await visitRoute(page, `/portfolio/optimize/${OPTIMIZER_RELOAD_SCENARIO_ID}`);
+
+  const workspace = page.locator("[data-role='portfolio-optimizer-workspace']");
+  const results = page.locator("[data-role='portfolio-optimizer-results-surface']");
+  const tracking = page.locator("[data-role='portfolio-optimizer-tracking-panel']");
+
+  await expect(workspace).toHaveAttribute("data-scenario-id", OPTIMIZER_RELOAD_SCENARIO_ID);
+  await expect(results).toContainText("Funding Decomposition");
+  await expect(page.locator("[data-role='portfolio-optimizer-target-exposure-row-0']"))
+    .toContainText("perp:BTC");
+  await expect(tracking).toContainText("Weight Drift RMS");
+  await expect(page.locator("[data-role='portfolio-optimizer-tracking-row-0']"))
+    .toContainText("perp:BTC");
+
+  await page.reload();
+  await waitForDebugBridge(page);
+  await waitForIdle(page, { quietMs: 200, timeoutMs: 6_000, pollMs: 50 });
+  await expect(page.locator("[data-parity-id='app-route-module-shell']"))
+    .toHaveCount(0, { timeout: 15_000 });
+
+  await expect(workspace).toHaveAttribute("data-scenario-id", OPTIMIZER_RELOAD_SCENARIO_ID);
+  await expect(results).toContainText("Rebalance Preview");
+  await expect(tracking).toContainText("Realized Return");
+  await expect(page.locator("[data-role='portfolio-optimizer-tracking-row-1']"))
+    .toContainText("perp:ETH");
 });
 
 test("portfolio volume history opens near the metric card trigger @regression", async ({ page }) => {

@@ -2,6 +2,90 @@
   (:require [cljs.test :refer-macros [async deftest is]]
             [hyperopen.portfolio.optimizer.worker :as worker]))
 
+(defn- now-ms
+  []
+  (js/Date.now))
+
+(defn- synthetic-return-series
+  [instrument-idx observation-count]
+  (mapv (fn [observation-idx]
+          (+ 0.0001
+             (* 0.00001 instrument-idx)
+             (* 0.001 (js/Math.sin (+ observation-idx instrument-idx)))
+             (* 0.00005 (mod (+ observation-idx (* 3 instrument-idx)) 7))))
+        (range observation-count)))
+
+(defn- synthetic-request
+  [size]
+  (let [instrument-ids (mapv #(str "perp:QA" %) (range size))
+        equal-weight (/ 1 size)
+        observations 90]
+    {:scenario-id (str "perf-" size)
+     :universe (mapv (fn [instrument-id idx]
+                       {:instrument-id instrument-id
+                        :market-type :perp
+                        :coin (str "QA" idx)
+                        :shortable? true})
+                     instrument-ids
+                     (range))
+     :current-portfolio {:capital {:nav-usdc 100000}
+                         :by-instrument (into {}
+                                              (map (fn [instrument-id]
+                                                     [instrument-id
+                                                      {:weight equal-weight}]))
+                                              instrument-ids)}
+     :return-model {:kind :historical-mean}
+     :risk-model {:kind :ledoit-wolf}
+     :objective {:kind :minimum-variance}
+     :constraints {:long-only? true
+                   :max-asset-weight 1
+                   :rebalance-tolerance 0.0001}
+     :execution-assumptions {:fallback-slippage-bps 25
+                             :prices-by-id (into {}
+                                                 (map-indexed
+                                                  (fn [idx instrument-id]
+                                                    [instrument-id (+ 100 idx)]))
+                                                 instrument-ids)
+                             :fee-bps-by-id (into {}
+                                               (map (fn [instrument-id]
+                                                      [instrument-id 4]))
+                                               instrument-ids)}
+     :history {:return-series-by-instrument
+               (into {}
+                     (map-indexed
+                      (fn [idx instrument-id]
+                        [instrument-id
+                         (synthetic-return-series idx observations)]))
+                     instrument-ids)
+               :funding-by-instrument
+               (into {}
+                     (map (fn [instrument-id]
+                            [instrument-id {:annualized-carry 0
+                                            :source :synthetic-fixture}]))
+                     instrument-ids)}
+     :warnings []
+     :as-of-ms 1777046400000}))
+
+(defn- timed-worker-run
+  [request]
+  (let [started-at-ms (now-ms)]
+    (-> (worker/optimizer-result-payload request)
+        (.then (fn [result]
+                 {:size (count (:universe request))
+                  :elapsed-ms (- (now-ms) started-at-ms)
+                  :result result})))))
+
+(defn- run-timed-requests
+  [requests]
+  (reduce (fn [chain request]
+            (.then chain
+                   (fn [results]
+                     (-> (timed-worker-run request)
+                         (.then (fn [result]
+                                  (conj results result)))))))
+          (js/Promise.resolve [])
+          requests))
+
 (deftest optimizer-result-payload-runs-engine-with-worker-solver-test
   (async done
     (let [captured (atom nil)
@@ -64,3 +148,24 @@
             (.catch (fn [err]
                       (is false (str "worker payload normalization failed: " err))
                       (done))))))))
+
+(deftest optimizer-result-payload-solves-realistic-universes-within-runaway-budget-test
+  (async done
+    (let [budgets-by-size {20 3000
+                           40 4000
+                           60 5000}]
+      (-> (run-timed-requests (mapv synthetic-request [20 40 60]))
+          (.then (fn [runs]
+                   (doseq [{:keys [size elapsed-ms result]} runs]
+                     (is (= :solved (:status result))
+                         (str "expected solved optimizer result for " size " instruments"))
+                     (is (= size (count (:target-weights result)))
+                         (str "expected target weights for every instrument in " size " universe"))
+                     (is (< elapsed-ms (get budgets-by-size size))
+                         (str "optimizer worker run for " size
+                              " instruments exceeded runaway budget: "
+                              elapsed-ms "ms")))
+                   (done)))
+          (.catch (fn [err]
+                    (is false (str "worker performance guard failed: " err))
+                    (done)))))))
