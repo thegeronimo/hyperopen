@@ -122,3 +122,36 @@
     (is (= false (get-in duplicated [:config :metadata :dirty?])))
     (is (= solved-run (:saved-run duplicated)))
     (is (= [] (:execution-ledger duplicated)))))
+
+(deftest append-execution-ledger-updates-scenario-lifecycle-test
+  (let [record {:id "scn_01"
+                :name "Core Hedge"
+                :status :saved
+                :config {:id "scn_01"
+                         :name "Core Hedge"
+                         :status :saved
+                         :metadata {:dirty? false
+                                    :updated-at-ms 3000}}
+                :saved-run solved-run
+                :execution-ledger [{:attempt-id "exec_old"
+                                    :status :failed}]
+                :updated-at-ms 3000}
+        ledger {:attempt-id "exec_5000"
+                :status :partially-executed
+                :completed-at-ms 5100
+                :rows [{:row-id "perp:BTC"
+                        :status :submitted}
+                       {:row-id "spot:PURR"
+                        :status :blocked}]}
+        updated (scenario-records/append-execution-ledger record ledger)]
+    (is (= :partially-executed (:status updated)))
+    (is (= :partially-executed (get-in updated [:config :status])))
+    (is (= false (get-in updated [:config :metadata :dirty?])))
+    (is (= 5100 (:updated-at-ms updated)))
+    (is (= 5100 (get-in updated [:config :metadata :updated-at-ms])))
+    (is (= [{:attempt-id "exec_old"
+             :status :failed}
+            ledger]
+           (:execution-ledger updated)))
+    (is (= :partially-executed
+           (:status (scenario-records/scenario-summary updated))))))

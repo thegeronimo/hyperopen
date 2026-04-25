@@ -90,3 +90,16 @@
                :created-at-ms duplicated-at-ms
                :updated-at-ms duplicated-at-ms
                :execution-ledger []))))
+
+(defn append-execution-ledger
+  [scenario-record ledger]
+  (let [status (:status ledger)
+        updated-at-ms (or (:completed-at-ms ledger)
+                          (:updated-at-ms scenario-record))]
+    (-> scenario-record
+        (assoc :status status
+               :updated-at-ms updated-at-ms)
+        (assoc-in [:config :status] status)
+        (assoc-in [:config :metadata :dirty?] false)
+        (assoc-in [:config :metadata :updated-at-ms] updated-at-ms)
+        (update :execution-ledger #(conj (vec %) ledger)))))

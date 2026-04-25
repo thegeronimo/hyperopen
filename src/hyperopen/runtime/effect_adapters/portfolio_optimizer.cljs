@@ -4,6 +4,7 @@
             [hyperopen.api.trading :as trading-api]
             [hyperopen.portfolio.optimizer.application.execution :as execution]
             [hyperopen.portfolio.optimizer.application.run-bridge :as run-bridge]
+            [hyperopen.portfolio.optimizer.application.scenario-records :as scenario-records]
             [hyperopen.portfolio.optimizer.infrastructure.history-client :as history-client]
             [hyperopen.portfolio.optimizer.infrastructure.persistence :as persistence]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-scenarios :as scenario-effects]))
@@ -287,13 +288,70 @@
     (dispatch! store nil [[:actions/load-user-data address]
                           [:actions/refresh-order-history]])))
 
+(defn- apply-execution-ledger-persistence
+  [state scenario-index scenario-record]
+  (-> state
+      (assoc-in [:portfolio :optimizer :scenario-index] scenario-index)
+      (assoc-in [:portfolio :optimizer :draft] (:config scenario-record))
+      (assoc-in [:portfolio :optimizer :active-scenario :status]
+                (:status scenario-record))))
+
+(defn- persist-execution-ledger!
+  [{:keys [load-scenario!
+           load-scenario-index!
+           save-scenario!
+           save-scenario-index!]}
+   store
+   address
+   ledger]
+  (let [scenario-id (:scenario-id ledger)]
+    (if-not (and address scenario-id)
+      (js/Promise.resolve ledger)
+      (let [persist-promise
+            (.then (load-scenario! scenario-id)
+                   (fn [scenario-record]
+                     (if-not (map? scenario-record)
+                       ledger
+                       (.then (load-scenario-index! address)
+                              (fn [loaded-index]
+                                (let [updated-record
+                                      (scenario-records/append-execution-ledger
+                                       scenario-record
+                                       ledger)
+                                      scenario-index
+                                      (scenario-records/refresh-scenario-index-summary
+                                       (or loaded-index
+                                           (get-in @store
+                                                   [:portfolio :optimizer :scenario-index])
+                                           (scenario-effects/default-scenario-index))
+                                       (scenario-records/scenario-summary updated-record))]
+                                  (-> (save-scenario! scenario-id updated-record)
+                                      (.then (fn [_]
+                                               (save-scenario-index! address scenario-index)))
+                                      (.then (fn [_]
+                                               (swap! store
+                                                      apply-execution-ledger-persistence
+                                                      scenario-index
+                                                      updated-record)
+                                               ledger)))))))))]
+        (.catch persist-promise
+                (fn [err]
+                  (swap! store assoc-in
+                         [:portfolio :optimizer :execution :persistence-error]
+                         {:message (runtime-error-message err)})
+                  ledger))))))
+
 (defn execute-portfolio-optimizer-plan-effect
   ([_ store plan]
-   (let [now-ms-fn *now-ms*
-         submit-order! *submit-order!*
-         dispatch! *dispatch!*
-         state @store
-         address (get-in state [:wallet :address])
+	   (let [now-ms-fn *now-ms*
+	         submit-order! *submit-order!*
+	         dispatch! *dispatch!*
+	         persistence-env {:load-scenario! *load-scenario!*
+	                          :load-scenario-index! *load-scenario-index!*
+	                          :save-scenario! *save-scenario!*
+	                          :save-scenario-index! *save-scenario-index!*}
+	         state @store
+	         address (get-in state [:wallet :address])
          started-at-ms (now-ms-fn)
          attempt (execution/build-execution-attempt
                   {:plan plan
@@ -319,10 +377,13 @@
                             ledger (execution-ledger attempt
                                                      started-at-ms
                                                      completed-at-ms
-                                                     rows)]
-                        (swap! store apply-execution-ledger ledger)
-                        (refresh-after-execution! dispatch! store address ledger)
-                        ledger)))))))))
+	                                                     rows)]
+	                        (swap! store apply-execution-ledger ledger)
+	                        (refresh-after-execution! dispatch! store address ledger)
+	                        (persist-execution-ledger! persistence-env
+	                                                   store
+	                                                   address
+	                                                   ledger))))))))))
 
 (defn- scenario-env
   []
