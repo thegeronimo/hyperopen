@@ -9,6 +9,7 @@
             [hyperopen.views.portfolio.optimize.results-panel :as results-panel]
             [hyperopen.views.portfolio.optimize.run-status-panel :as run-status-panel]
             [hyperopen.views.portfolio.optimize.setup-readiness-panel :as setup-readiness-panel]
+            [hyperopen.views.portfolio.optimize.tracking-panel :as tracking-panel]
             [hyperopen.views.portfolio.optimize.universe-panel :as universe-panel]))
 
 (defn- metric-card
@@ -417,6 +418,7 @@
       (infeasible-panel/infeasible-banner infeasible-result highlighted-controls)
       (setup-panels state draft highlighted-controls)
       (results-panel/results-panel last-successful-run draft)
+      (tracking-panel/tracking-panel state)
       [:div {:class ["grid" "grid-cols-1" "gap-3" "lg:grid-cols-3"]
              :data-role "portfolio-optimizer-current-summary"}
        (metric-card "NAV" (format-usdc (get-in snapshot [:capital :nav-usdc])))

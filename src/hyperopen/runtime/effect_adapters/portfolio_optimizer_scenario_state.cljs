@@ -90,6 +90,14 @@
    :completed-at-ms completed-at-ms
    :error {:message (error-message err)}})
 
+(defn cleared-tracking-state
+  [scenario-id]
+  {:status :idle
+   :scenario-id scenario-id
+   :updated-at-ms nil
+   :snapshots []
+   :error nil})
+
 (defn begin-scenario-archive-state
   [scenario-id started-at-ms]
   {:status :archiving
@@ -180,23 +188,34 @@
                                              err)))
 
 (defn apply-scenario-load-success
-  [state scenario-id scenario-record started-at-ms completed-at-ms]
-  (let [scenario-index (scenario-records/refresh-scenario-index-summary
-                        (or (get-in state [:portfolio :optimizer :scenario-index])
-                            (default-scenario-index))
-                        (scenario-records/scenario-summary scenario-record))]
-    (-> state
-        (assoc-in [:portfolio :optimizer :draft] (:config scenario-record))
-        (assoc-in [:portfolio :optimizer :last-successful-run] (:saved-run scenario-record))
-        (assoc-in [:portfolio :optimizer :active-scenario]
-                  {:loaded-id scenario-id
-                   :status (:status scenario-record)
-                   :read-only? false})
-        (assoc-in [:portfolio :optimizer :scenario-index] scenario-index)
-        (assoc-in [:portfolio :optimizer :scenario-load-state]
-                  (loaded-scenario-load-state scenario-id
-                                              started-at-ms
-                                              completed-at-ms)))))
+  ([state scenario-id scenario-record started-at-ms completed-at-ms]
+   (apply-scenario-load-success state
+                                scenario-id
+                                scenario-record
+                                nil
+                                started-at-ms
+                                completed-at-ms))
+  ([state scenario-id scenario-record tracking-record started-at-ms completed-at-ms]
+   (let [scenario-index (scenario-records/refresh-scenario-index-summary
+                         (or (get-in state [:portfolio :optimizer :scenario-index])
+                             (default-scenario-index))
+                         (scenario-records/scenario-summary scenario-record))]
+     (-> state
+         (assoc-in [:portfolio :optimizer :draft] (:config scenario-record))
+         (assoc-in [:portfolio :optimizer :last-successful-run] (:saved-run scenario-record))
+         (assoc-in [:portfolio :optimizer :active-scenario]
+                   {:loaded-id scenario-id
+                    :status (:status scenario-record)
+                    :read-only? false})
+         (assoc-in [:portfolio :optimizer :scenario-index] scenario-index)
+         (assoc-in [:portfolio :optimizer :scenario-load-state]
+                   (loaded-scenario-load-state scenario-id
+                                               started-at-ms
+                                               completed-at-ms))
+         (assoc-in [:portfolio :optimizer :tracking]
+                   (if (map? tracking-record)
+                     tracking-record
+                     (cleared-tracking-state scenario-id)))))))
 
 (defn apply-scenario-load-not-found
   [state scenario-id started-at-ms completed-at-ms]

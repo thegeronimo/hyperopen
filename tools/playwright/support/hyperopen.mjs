@@ -115,6 +115,14 @@ function readPageUrl(page) {
   }
 }
 
+async function hasShadowStaleOutput(page) {
+  try {
+    return (await page.locator("text=shadow-cljs - Stale Output").count()) > 0;
+  } catch (_error) {
+    return false;
+  }
+}
+
 async function readPageTitle(page) {
   try {
     return typeof page?.title === "function" ? await page.title() : null;
@@ -271,25 +279,30 @@ export async function visitRoute(page, route, options = {}) {
   const debugBridgeTimeoutMs = options.debugBridgeTimeoutMs ?? 15_000;
   const debugBridgePollMs = options.debugBridgePollMs ?? 50;
   const debugBridgeRetryCount = options.debugBridgeRetryCount ?? 1;
+  const pageLoadRetryCount =
+    options.pageLoadRetryCount ?? Math.max(debugBridgeRetryCount, 8);
   const debugBridgeRetryDelayMs = options.debugBridgeRetryDelayMs ?? 250;
+  const initialUrl = `${path}${search}`;
 
   trackDebugBridgeEvents(page);
-  await page.goto(`/index.html${search}`);
   let lastDebugBridgeError = null;
-  for (let attempt = 0; attempt <= debugBridgeRetryCount; attempt += 1) {
+  for (let attempt = 0; attempt <= pageLoadRetryCount; attempt += 1) {
     try {
+      await page.goto(initialUrl);
       await waitForDebugBridge(page, debugBridgeTimeoutMs, {
         pollMs: debugBridgePollMs
       });
+      if (await hasShadowStaleOutput(page)) {
+        throw new Error("shadow-cljs stale output loaded");
+      }
       lastDebugBridgeError = null;
       break;
     } catch (error) {
       lastDebugBridgeError = error;
-      if (attempt >= debugBridgeRetryCount) {
+      if (attempt >= pageLoadRetryCount) {
         throw error;
       }
       await sleepForPage(page, debugBridgeRetryDelayMs);
-      await page.goto(`/index.html${search}`);
     }
   }
   if (lastDebugBridgeError) {
@@ -304,6 +317,10 @@ export async function visitRoute(page, route, options = {}) {
     ]);
   }
   await waitForIdle(page, options.idleOptions || defaultIdleOptions);
+  if (path !== "/trade") {
+    await expect(page.locator("[data-parity-id='app-route-module-shell']"))
+      .toHaveCount(0, { timeout: options.routeModuleTimeoutMs ?? 15_000 });
+  }
 }
 
 export async function dispatch(page, action) {

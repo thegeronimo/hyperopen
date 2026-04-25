@@ -392,6 +392,7 @@
             [hyperopen.views.portfolio.header-test]
             [hyperopen.views.portfolio.optimize.execution-modal-test]
             [hyperopen.views.portfolio.optimize.index-view-test]
+            [hyperopen.views.portfolio.optimize.tracking-panel-test]
             [hyperopen.views.portfolio.optimize.universe-panel-test]
             [hyperopen.views.portfolio.optimize.view-test]
             [hyperopen.views.portfolio.performance-metrics-view-test]
@@ -959,6 +960,7 @@
              'hyperopen.views.portfolio.header-test
              'hyperopen.views.portfolio.optimize.execution-modal-test
              'hyperopen.views.portfolio.optimize.index-view-test
+             'hyperopen.views.portfolio.optimize.tracking-panel-test
              'hyperopen.views.portfolio.optimize.universe-panel-test
              'hyperopen.views.portfolio.optimize.view-test
              'hyperopen.views.portfolio.performance-metrics-view-test

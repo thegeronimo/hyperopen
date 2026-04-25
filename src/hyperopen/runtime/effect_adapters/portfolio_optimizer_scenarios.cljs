@@ -8,6 +8,13 @@
   [env key]
   (get env key))
 
+(defn- load-tracking-record
+  [load-tracking! scenario-id]
+  (if load-tracking!
+    (-> (load-tracking! scenario-id)
+        (.catch (fn [_err] nil)))
+    (js/Promise.resolve nil)))
+
 (defn- solved-run?
   [last-successful-run]
   (= :solved (get-in last-successful-run [:result :status])))
@@ -81,6 +88,7 @@
   [env store scenario-id _opts]
   (let [now-ms-fn (env-fn env :now-ms)
         load-scenario! (env-fn env :load-scenario!)
+        load-tracking! (env-fn env :load-tracking!)
         started-at-ms (now-ms-fn)]
     (if scenario-id
       (do
@@ -89,23 +97,25 @@
                (begin-scenario-load-state scenario-id started-at-ms))
         (-> (load-scenario! scenario-id)
             (.then (fn [scenario-record]
-                     (let [completed-at-ms (now-ms-fn)]
-                       (if (map? scenario-record)
-                         (do
-                           (swap! store
-                                  apply-scenario-load-success
-                                  scenario-id
-                                  scenario-record
-                                  started-at-ms
-                                  completed-at-ms)
-                           scenario-record)
-                         (do
-                           (swap! store
-                                  apply-scenario-load-not-found
-                                  scenario-id
-                                  started-at-ms
-                                  completed-at-ms)
-                           nil)))))
+                     (if (map? scenario-record)
+                       (-> (load-tracking-record load-tracking! scenario-id)
+                           (.then (fn [tracking-record]
+                                    (let [completed-at-ms (now-ms-fn)]
+                                      (swap! store
+                                             apply-scenario-load-success
+                                             scenario-id
+                                             scenario-record
+                                             tracking-record
+                                             started-at-ms
+                                             completed-at-ms)
+                                      scenario-record))))
+                       (let [completed-at-ms (now-ms-fn)]
+                         (swap! store
+                                apply-scenario-load-not-found
+                                scenario-id
+                                started-at-ms
+                                completed-at-ms)
+                         nil))))
             (.catch (fn [err]
                       (let [completed-at-ms (now-ms-fn)]
                         (swap! store

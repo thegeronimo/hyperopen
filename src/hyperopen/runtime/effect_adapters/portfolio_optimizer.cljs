@@ -424,6 +424,7 @@
    :next-scenario-id *next-scenario-id*
    :load-scenario-index! *load-scenario-index!*
    :load-scenario! *load-scenario!*
+   :load-tracking! *load-tracking!*
    :save-scenario! *save-scenario!*
    :save-scenario-index! *save-scenario-index!*})
 
