@@ -307,10 +307,18 @@ async function seedOptimizerAssetSelectorMarkets(page) {
 
     const btc = market("perp:BTC", "perp", "BTC", "BTC-USDC", "hl");
     const eth = market("perp:ETH", "perp", "ETH", "ETH-USDC", "hl");
+    const sol = market("perp:SOL", "perp", "SOL", "SOL-USDC", "hl");
+    const hype = market("perp:HYPE", "perp", "HYPE", "HYPE-USDC", "hl");
     const purr = market("spot:PURR/USDC", "spot", "PURR/USDC", "PURR/USDC");
-    const markets = c.PersistentVector.fromArray([btc, eth, purr], true);
+    const markets = c.PersistentVector.fromArray([btc, eth, sol, hype, purr], true);
     const marketByKey = c.PersistentArrayMap.fromArray(
-      ["perp:BTC", btc, "perp:ETH", eth, "spot:PURR/USDC", purr],
+      [
+        "perp:BTC", btc,
+        "perp:ETH", eth,
+        "perp:SOL", sol,
+        "perp:HYPE", hype,
+        "spot:PURR/USDC", purr
+      ],
       true
     );
     const state = c.deref(globalThis.hyperopen.system.store);
@@ -328,6 +336,27 @@ async function seedOptimizerAssetSelectorMarkets(page) {
     c.reset_BANG_(globalThis.hyperopen.system.store, nextState);
   });
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+}
+
+async function readOptimizerTargetWeights(page) {
+  return await page.evaluate(() => {
+    const c = globalThis.cljs.core;
+    const kw = (name) => c.keyword(name);
+    const path = (...segments) =>
+      c.PersistentVector.fromArray(segments.map((segment) => kw(segment)), true);
+    const state = c.deref(globalThis.hyperopen.system.store);
+    const weights = c.get_in(
+      state,
+      path(
+        "portfolio",
+        "optimizer",
+        "last-successful-run",
+        "result",
+        "target-weights"
+      )
+    );
+    return c.clj__GT_js(weights || c.PersistentVector.EMPTY);
+  });
 }
 
 async function seedOptimizerBtcOnlyHistory(page) {
@@ -810,6 +839,81 @@ test("portfolio optimizer history load requests each manual perp once @regressio
     "fundingHistory:BTC",
     "fundingHistory:ETH"
   ]);
+});
+
+test("portfolio optimizer default minimum variance run returns non-zero target weights @regression", async ({ page }) => {
+  const priceHistoryByCoin = {
+    BTC: ["100", "104", "103", "108"],
+    ETH: ["50", "52", "55", "54"],
+    SOL: ["20", "21", "20.5", "22"],
+    HYPE: ["10", "10.4", "10.2", "10.8"]
+  };
+
+  await page.route("https://api.hyperliquid.xyz/info", async (route) => {
+    const request = route.request();
+    if (request.method() !== "POST") {
+      await route.continue();
+      return;
+    }
+
+    const payload = request.postDataJSON();
+    if (payload?.type === "candleSnapshot") {
+      const coin = payload.req?.coin;
+      const closes = priceHistoryByCoin[coin] || ["100", "101", "102", "103"];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(
+          closes.map((close, idx) => ({
+            T: 1776800000000 + idx * 86_400_000,
+            c: close
+          }))
+        )
+      });
+      return;
+    }
+
+    if (payload?.type === "fundingHistory") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          { time: 1776800000000, coin: payload.coin, fundingRate: "0" },
+          { time: 1776886400000, coin: payload.coin, fundingRate: "0" }
+        ])
+      });
+      return;
+    }
+
+    await route.continue();
+  });
+
+  await visitRoute(page, "/portfolio/optimize/new");
+  await seedOptimizerAssetSelectorMarkets(page);
+
+  const searchInput = page.locator("[data-role='portfolio-optimizer-universe-search-input']");
+  for (const coin of ["btc", "eth", "sol", "hype"]) {
+    await searchInput.fill(coin);
+    await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+    await page.locator(`[data-role='portfolio-optimizer-universe-add-perp:${coin.toUpperCase()}']`).click();
+    await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  }
+
+  await page.locator("[data-role='portfolio-optimizer-load-history']").click();
+  await expect(page.locator("[data-role='portfolio-optimizer-readiness-panel']"))
+    .toContainText("Optimizer history is loaded.", { timeout: 10_000 });
+  await page.locator("[data-role='portfolio-optimizer-run-draft']").click();
+  await expect(page.locator("[data-role='portfolio-optimizer-run-status-panel']"))
+    .toContainText("Succeeded", { timeout: 10_000 });
+  await expect(page.locator("[data-role='portfolio-optimizer-results-surface']"))
+    .toBeVisible();
+
+  const weights = await readOptimizerTargetWeights(page);
+  const grossTarget = weights.reduce((sum, weight) => sum + Math.abs(weight), 0);
+  const netTarget = weights.reduce((sum, weight) => sum + weight, 0);
+  expect(weights.some((weight) => Math.abs(weight) > 0.01)).toBe(true);
+  expect(grossTarget).toBeGreaterThan(0.79);
+  expect(netTarget).toBeGreaterThan(0.79);
 });
 
 test("portfolio optimizer persisted scenario hydrates results and tracking after reload @regression", async ({ page }) => {
