@@ -78,7 +78,7 @@ A branch is only review-ready when all of the following are true:
 - [x] (2026-04-25 21:22Z) Created remediation branch `codex/portfolio-optimizer-v1-remediation` from spike head `8ab4c711447e2a87a8a2d31698aab03a4d56aaac`.
 - [x] (2026-04-25 21:25Z) Stored the user-provided remediation plan under `docs/exec-plans/active/2026-04-25-portfolio-optimizer-v1-remediation.md` and created tracked issue `hyperopen-zenl`.
 - [x] (2026-04-25 21:55Z) Completed Phase 0 scope pruning. The working tree diff against `main` is restricted to optimizer code plus required route/runtime/build/test/browser-storage collateral, and `npm run check`, `npm test`, and `npm run test:websocket` passed.
-- [ ] Complete Phase 1 capital-base and execution-readiness correctness.
+- [x] (2026-04-25 22:08Z) Completed Phase 1 capital-base and execution-readiness correctness. Snapshot readiness is split into `:snapshot-loaded?`, `:capital-ready?`, and `:execution-ready?`; zero-capital and below-lot rebalance rows are blocked; preview summaries count executable rows only; and the required gates passed.
 - [ ] Complete Phase 2 defaults and minimum-variance honesty.
 - [ ] Complete Phase 3 Black-Litterman authoring UI and persistence.
 - [ ] Complete Phase 4 worker wire normalization and funding rendering.

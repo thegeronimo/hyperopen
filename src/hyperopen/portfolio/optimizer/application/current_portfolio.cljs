@@ -296,12 +296,19 @@
         net-exposure (reduce + (map :signed-notional-usdc exposures))
         address (account-context/effective-account-address state)
         read-only? (account-context/inspected-account-read-only? state)
-        read-only-message (account-context/mutations-blocked-message state)]
+        read-only-message (account-context/mutations-blocked-message state)
+        snapshot-loaded? (boolean
+                          (or (some? perp-account-value)
+                              (seq exposures)
+                              (pos? cash-usdc)))
+        capital-ready? (positive-number? nav-usdc)
+        execution-ready? (and capital-ready?
+                              (not read-only?))]
     {:address address
-     :loaded? (boolean
-               (or (some? perp-account-value)
-                   (seq exposures)
-                   (pos? cash-usdc)))
+     :loaded? snapshot-loaded?
+     :snapshot-loaded? snapshot-loaded?
+     :capital-ready? capital-ready?
+     :execution-ready? execution-ready?
      :account {:mode (or (get-in state [:account :mode]) :classic)
                :read-only? read-only?
                :read-only-message read-only-message}

@@ -7,19 +7,67 @@
   [value]
   (js/Math.abs value))
 
+(defn- finite-number?
+  [value]
+  (and (number? value)
+       (not (js/isNaN value))
+       (js/isFinite value)))
+
 (defn- side-for
-  [delta-notional]
+  [delta-value]
   (cond
-    (pos? delta-notional) :buy
-    (neg? delta-notional) :sell
+    (pos? delta-value) :buy
+    (neg? delta-value) :sell
     :else :none))
 
 (defn- finite-positive?
   [value]
-  (and (number? value)
+  (and (finite-number? value)
        (pos? value)
-       (not (js/isNaN value))
-       (js/isFinite value)))
+       true))
+
+(defn- finite-nonzero?
+  [value]
+  (and (finite-number? value)
+       (not (zero? value))))
+
+(defn- size-decimals
+  [instrument]
+  (some (fn [k]
+          (let [value (get instrument k)]
+            (cond
+              (and (integer? value) (not (neg? value))) value
+              (and (number? value) (not (neg? value))) (js/Math.floor value)
+              :else nil)))
+        [:szDecimals :sz-decimals :size-decimals :quantity-decimals]))
+
+(defn- min-quantity
+  [instrument]
+  (some (fn [k]
+          (let [value (get instrument k)]
+            (when (finite-positive? value)
+              value)))
+        [:min-size :minSize :minSz :min-quantity]))
+
+(defn- round-down-quantity
+  [quantity decimals]
+  (if (and (finite-positive? quantity)
+           (integer? decimals))
+    (let [scale (js/Math.pow 10 decimals)]
+      (/ (js/Math.floor (* quantity scale)) scale))
+    quantity))
+
+(defn- executable-quantity
+  [instrument price delta-notional-usd]
+  (when (and (finite-positive? price)
+             (finite-nonzero? delta-notional-usd))
+    (let [raw-quantity (/ (abs-num delta-notional-usd) price)
+          rounded (round-down-quantity raw-quantity (size-decimals instrument))
+          min-size (min-quantity instrument)]
+      (if (and (finite-positive? min-size)
+               (< rounded min-size))
+        0
+        rounded))))
 
 (defn- cost-context
   [opts instrument-id]
@@ -41,18 +89,34 @@
      :estimated-fee-usd (* notional (/ fee-bps 10000))}))
 
 (defn- row-status
-  [{:keys [rebalance-tolerance]} instrument price delta-weight]
+  [{:keys [rebalance-tolerance]} instrument price capital-usd delta-weight delta-notional-usd quantity]
   (cond
     (<= (abs-num delta-weight) (or rebalance-tolerance 0))
     {:status :within-tolerance}
 
+    (nil? instrument)
+    {:status :blocked
+     :reason :market-metadata-missing}
+
+    (not (finite-positive? capital-usd))
+    {:status :blocked
+     :reason :missing-capital-base}
+
     (= :spot (:instrument-type instrument))
     {:status :blocked
-     :reason :spot-read-only}
+     :reason :spot-submit-unsupported}
 
     (not (finite-positive? price))
     {:status :blocked
      :reason :missing-price}
+
+    (not (finite-nonzero? delta-notional-usd))
+    {:status :blocked
+     :reason :zero-delta-notional}
+
+    (not (finite-positive? quantity))
+    {:status :blocked
+     :reason :quantity-below-lot}
 
     :else
     {:status :ready}))
@@ -64,10 +128,11 @@
         capital-usd (or (:capital-usd opts) 0)
         delta-weight (- target-weight current-weight)
         delta-notional-usd (* capital-usd delta-weight)
-        status (row-status opts instrument price delta-weight)
-        quantity (when (and (= :ready (:status status))
-                            (finite-positive? price))
-                   (/ (abs-num delta-notional-usd) price))]
+        quantity (executable-quantity instrument price delta-notional-usd)
+        status (row-status opts instrument price capital-usd delta-weight delta-notional-usd quantity)
+        side (side-for (if (finite-nonzero? delta-notional-usd)
+                         delta-notional-usd
+                         delta-weight))]
     (merge {:instrument-id instrument-id
             :instrument-type (:instrument-type instrument)
             :coin (:coin instrument)
@@ -75,7 +140,7 @@
             :target-weight target-weight
             :delta-weight delta-weight
             :delta-notional-usd delta-notional-usd
-            :side (side-for delta-notional-usd)
+            :side side
             :price price
             :quantity quantity}
            status
@@ -99,13 +164,13 @@
                    instrument-ids
                    current-weights
                    target-weights)
-        trade-rows (remove #(= :within-tolerance (:status %)) rows)]
+        ready-rows (filter #(= :ready (:status %)) rows)]
     {:status (preview-status rows)
      :capital-usd (:capital-usd opts)
      :rows rows
      :summary {:ready-count (count (filter #(= :ready (:status %)) rows))
                :blocked-count (count (filter #(= :blocked (:status %)) rows))
                :within-tolerance-count (count (filter #(= :within-tolerance (:status %)) rows))
-               :gross-trade-notional-usd (reduce + 0 (map #(abs-num (:delta-notional-usd %)) trade-rows))
-               :estimated-fees-usd (reduce + 0 (map #(or (get-in % [:cost :estimated-fee-usd]) 0) trade-rows))
-               :estimated-slippage-usd (reduce + 0 (map #(or (get-in % [:cost :estimated-slippage-usd]) 0) trade-rows))}}))
+               :gross-trade-notional-usd (reduce + 0 (map #(abs-num (:delta-notional-usd %)) ready-rows))
+               :estimated-fees-usd (reduce + 0 (map #(or (get-in % [:cost :estimated-fee-usd]) 0) ready-rows))
+               :estimated-slippage-usd (reduce + 0 (map #(or (get-in % [:cost :estimated-slippage-usd]) 0) ready-rows))}}))

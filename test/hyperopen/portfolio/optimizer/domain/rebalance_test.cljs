@@ -38,7 +38,7 @@
       (is (= 4.5 (get-in perp-row [:cost :fee-bps])))
       (is (near? 0.675 (get-in perp-row [:cost :estimated-fee-usd])))
       (is (= :blocked (:status spot-row)))
-      (is (= :spot-read-only (:reason spot-row)))
+      (is (= :spot-submit-unsupported (:reason spot-row)))
       (is (near? -800 (:delta-notional-usd spot-row))))))
 
 (deftest build-rebalance-preview-skips-tolerance-and-blocks-missing-prices-test
@@ -55,4 +55,55 @@
     (is (= :within-tolerance (get-in preview [:rows 0 :status])))
     (is (= :blocked (get-in preview [:rows 1 :status])))
     (is (= :missing-price (get-in preview [:rows 1 :reason])))
-    (is (near? 100 (get-in preview [:summary :gross-trade-notional-usd])))))
+    (is (near? 0 (get-in preview [:summary :gross-trade-notional-usd])))))
+
+(deftest build-rebalance-preview-blocks-zero-capital-without-ready-rows-test
+  (let [preview (rebalance/build-rebalance-preview
+                 {:capital-usd 0
+                  :rebalance-tolerance 0.005
+                  :instrument-ids ["perp:BTC"]
+                  :current-weights [0.0]
+                  :target-weights [0.5]
+                  :instruments-by-id {"perp:BTC" {:instrument-type :perp
+                                                  :coin "BTC"}}
+                  :prices-by-id {"perp:BTC" 30000}})]
+    (is (= :blocked (:status preview)))
+    (is (= :blocked (get-in preview [:rows 0 :status])))
+    (is (= :missing-capital-base (get-in preview [:rows 0 :reason])))
+    (is (= :buy (get-in preview [:rows 0 :side])))
+    (is (= 0 (get-in preview [:summary :ready-count])))
+    (is (= 0 (get-in preview [:summary :gross-trade-notional-usd])))))
+
+(deftest build-rebalance-preview-blocks-quantity-rounded-below-lot-test
+  (let [preview (rebalance/build-rebalance-preview
+                 {:capital-usd 100
+                  :rebalance-tolerance 0.0
+                  :instrument-ids ["perp:BTC"]
+                  :current-weights [0.0]
+                  :target-weights [0.00001]
+                  :instruments-by-id {"perp:BTC" {:instrument-type :perp
+                                                  :coin "BTC"
+                                                  :szDecimals 4}}
+                  :prices-by-id {"perp:BTC" 30000}})]
+    (is (= :blocked (:status preview)))
+    (is (= :quantity-below-lot (get-in preview [:rows 0 :reason])))
+    (is (= 0 (get-in preview [:rows 0 :quantity])))
+    (is (= 0 (get-in preview [:summary :ready-count])))))
+
+(deftest build-rebalance-preview-keeps-summary-to-executable-rows-test
+  (let [preview (rebalance/build-rebalance-preview
+                 {:capital-usd 10000
+                  :rebalance-tolerance 0.0
+                  :instrument-ids ["perp:BTC" "spot:PURR"]
+                  :current-weights [0.0 0.0]
+                  :target-weights [0.1 0.1]
+                  :instruments-by-id {"perp:BTC" {:instrument-type :perp
+                                                  :coin "BTC"}
+                                      "spot:PURR" {:instrument-type :spot
+                                                   :coin "PURR"}}
+                  :prices-by-id {"perp:BTC" 10000
+                                 "spot:PURR" 1}})]
+    (is (= :partially-blocked (:status preview)))
+    (is (= 1 (get-in preview [:summary :ready-count])))
+    (is (= 1 (get-in preview [:summary :blocked-count])))
+    (is (= 1000 (get-in preview [:summary :gross-trade-notional-usd])))))

@@ -420,9 +420,18 @@
       [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"]}
        "Trust & Freshness"]
       [:p {:class ["mt-2" "text-sm" "text-trading-muted"]}
-       (if (:loaded? snapshot)
-         "Current portfolio snapshot is available."
-         "Current portfolio snapshot is not loaded yet.")]
+       (cond
+         (not (:snapshot-loaded? snapshot))
+         "Current portfolio snapshot is not loaded yet."
+
+         (not (:capital-ready? snapshot))
+         "Current portfolio snapshot is available, but no positive capital base is available for execution preview."
+
+         (not (:execution-ready? snapshot))
+         "Current portfolio snapshot is available in read-only mode. Optimization can run, but execution is blocked."
+
+         :else
+         "Current portfolio snapshot is available.")]
       (setup-readiness-panel/readiness-panel readiness history-load-state)
       (run-status-panel/run-status-panel run-state)
       (run-status-panel/last-successful-run-panel run-state last-successful-run)

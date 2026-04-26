@@ -30,7 +30,9 @@
   [row]
   (and (= :ready (:status row))
        (= :perp (:instrument-type row))
-       (finite-positive? (:quantity row))))
+       (finite-positive? (:quantity row))
+       (not= :none (:side row))
+       (not (zero? (or (:delta-notional-usd row) 0)))))
 
 (defn- intent-for-row
   [execution-assumptions row]
@@ -58,6 +60,19 @@
       (assoc base-row
              :status :ready
              :intent (intent-for-row execution-assumptions row))
+
+      (and (= :ready (:status row))
+           (not (finite-positive? (:quantity row))))
+      (assoc base-row
+             :status :blocked
+             :reason :quantity-below-lot)
+
+      (and (= :ready (:status row))
+           (or (= :none (:side row))
+               (zero? (or (:delta-notional-usd row) 0))))
+      (assoc base-row
+             :status :blocked
+             :reason :zero-delta-notional)
 
       (= :within-tolerance (:status row))
       (assoc base-row
@@ -158,10 +173,10 @@
       {:blocked-reason :market-metadata-missing}
 
       (nil? asset-idx)
-      {:blocked-reason :market-asset-index-missing}
+      {:blocked-reason :market-metadata-missing}
 
       (not (finite-positive? (:price row)))
-      {:blocked-reason :price-missing}
+      {:blocked-reason :missing-price}
 
       :else
       (let [command-context {:active-asset coin

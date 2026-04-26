@@ -56,6 +56,9 @@
     (is (= owner-address (:address snapshot)))
     (is (= :unified (get-in snapshot [:account :mode])))
     (is (true? (:loaded? snapshot)))
+    (is (true? (:snapshot-loaded? snapshot)))
+    (is (true? (:capital-ready? snapshot)))
+    (is (true? (:execution-ready? snapshot)))
     (is (= 4 (count (:exposures snapshot))))
     (is (= 100005 (get-in snapshot [:capital :nav-usdc])))
     (is (= 100000 (get-in snapshot [:capital :cash-usdc])))
@@ -83,6 +86,24 @@
     (is (true? (get-in snapshot [:account :read-only?])))
     (is (= account-context/trader-portfolio-read-only-message
            (get-in snapshot [:account :read-only-message])))))
+
+(deftest current-portfolio-snapshot-separates-loaded-capital-and-execution-readiness-test
+  (let [zero-capital (current-portfolio/current-portfolio-snapshot
+                      {:wallet {:address owner-address}
+                       :router {:path "/portfolio"}
+                       :webdata2 {:clearinghouseState
+                                  {:marginSummary {:accountValue "0"}}}})
+        read-only (current-portfolio/current-portfolio-snapshot
+                   {:wallet {:address owner-address}
+                    :router {:path (str "/portfolio/trader/" trader-address)}
+                    :webdata2 {:clearinghouseState
+                               {:marginSummary {:accountValue "1000"}}}})]
+    (is (true? (:snapshot-loaded? zero-capital)))
+    (is (false? (:capital-ready? zero-capital)))
+    (is (false? (:execution-ready? zero-capital)))
+    (is (true? (:snapshot-loaded? read-only)))
+    (is (true? (:capital-ready? read-only)))
+    (is (false? (:execution-ready? read-only)))))
 
 (deftest current-portfolio-snapshot-warns-and-skips-unpriced-spot-rows-test
   (let [snapshot (current-portfolio/current-portfolio-snapshot

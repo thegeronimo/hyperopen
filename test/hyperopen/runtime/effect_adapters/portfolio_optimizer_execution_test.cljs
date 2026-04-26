@@ -91,7 +91,7 @@
                                    :instrument-id "spot:PURR"
                                    :instrument-type :spot
                                    :status :blocked
-                                   :reason :spot-read-only}))
+                                   :reason :spot-submit-unsupported}))
           store (atom {:wallet {:address address
                                 :agent {:status :ready}}
                        :asset-selector {:market-by-key

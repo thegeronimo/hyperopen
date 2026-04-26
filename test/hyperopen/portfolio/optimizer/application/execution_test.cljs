@@ -20,7 +20,7 @@
           {:instrument-id "spot:PURR"
            :instrument-type :spot
            :status :blocked
-           :reason :spot-read-only
+           :reason :spot-submit-unsupported
            :side :sell
            :delta-notional-usd -1000}
           {:instrument-id "perp:ETH"
@@ -50,7 +50,7 @@
             :reduce-only? false}
            (get-in plan [:rows 0 :intent])))
     (is (= :blocked (get-in plan [:rows 1 :status])))
-    (is (= :spot-read-only (get-in plan [:rows 1 :reason])))
+    (is (= :spot-submit-unsupported (get-in plan [:rows 1 :reason])))
     (is (= :skipped (get-in plan [:rows 2 :status])))
     (is (= :within-tolerance (get-in plan [:rows 2 :reason])))))
 
@@ -112,3 +112,28 @@
     (is (= :blocked (:status attempt)))
     (is (= :blocked (get-in attempt [:rows 0 :status])))
     (is (= :market-metadata-missing (get-in attempt [:rows 0 :reason])))))
+
+(deftest build-execution-plan-blocks-ready-row-with-non-executable-values-test
+  (let [zero-quantity (execution/build-execution-plan
+                       {:scenario-id "scn_zero_qty"
+                        :rebalance-preview
+                        {:rows [{:instrument-id "perp:BTC"
+                                 :instrument-type :perp
+                                 :status :ready
+                                 :side :buy
+                                 :quantity 0
+                                 :delta-notional-usd 100}]}})
+        no-side (execution/build-execution-plan
+                 {:scenario-id "scn_no_side"
+                  :rebalance-preview
+                  {:rows [{:instrument-id "perp:BTC"
+                           :instrument-type :perp
+                           :status :ready
+                           :side :none
+                           :quantity 0.01
+                           :delta-notional-usd 100}]}})]
+    (is (= :blocked (:status zero-quantity)))
+    (is (= :quantity-below-lot (get-in zero-quantity [:rows 0 :reason])))
+    (is (= 0 (get-in zero-quantity [:summary :ready-count])))
+    (is (= :blocked (:status no-side)))
+    (is (= :zero-delta-notional (get-in no-side [:rows 0 :reason])))))

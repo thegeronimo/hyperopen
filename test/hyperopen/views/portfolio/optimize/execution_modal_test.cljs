@@ -93,9 +93,9 @@
                                                  :status :ready
                                                  :side :buy
                                                  :delta-notional-usd 1000}
-                                                {:instrument-id "spot:PURR"
+                                               {:instrument-id "spot:PURR"
                                                  :status :blocked
-                                                 :reason :spot-read-only
+                                                 :reason :spot-submit-unsupported
                                                  :delta-notional-usd -500}]}}}}})
         strings (set (collect-strings view-node))]
     (is (some? (node-by-role view-node "portfolio-optimizer-execution-modal")))
@@ -112,7 +112,7 @@
             (node-by-role view-node "portfolio-optimizer-execution-modal-confirm"))))
     (is (contains? strings "Confirm & Execute"))
     (is (contains? strings "perp:BTC"))
-    (is (contains? strings "spot-read-only"))))
+    (is (contains? strings "spot-submit-unsupported"))))
 
 (deftest execution-modal-disables-confirm-while-submitting-test
   (let [view-node (portfolio-view/portfolio-view

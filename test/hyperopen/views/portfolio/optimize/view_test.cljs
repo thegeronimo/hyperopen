@@ -365,7 +365,7 @@
                                             :delta-notional-usd 1500}
                                            {:instrument-id "spot:PURR"
                                             :status :blocked
-                                            :reason :spot-read-only
+                                            :reason :spot-submit-unsupported
                                             :side :sell
                                             :delta-notional-usd -1200}]}}
         view-node (portfolio-view/portfolio-view
@@ -410,7 +410,7 @@
     (is (contains? strings "Funding Decomposition"))
     (is (contains? strings "Binding Constraints"))
     (is (contains? strings "partially-blocked"))
-    (is (contains? strings "spot-read-only"))
+    (is (contains? strings "spot-submit-unsupported"))
     (is (contains? strings "perp:BTC"))))
 
 (deftest portfolio-optimizer-workspace-renders-infeasible-result-and-highlights-controls-test
