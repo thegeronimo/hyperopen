@@ -183,14 +183,6 @@
                                            "/portfolio")))
       (is (= 0 @chart-bootstrap-calls)))))
 
-(deftest navigate-inside-portfolio-loads-optimizer-route-data-test
-  (is (= [[:effects/save [:router :path] "/portfolio/optimize/scn_01"]
-          [:effects/push-state "/portfolio/optimize/scn_01"]
-          [:effects/load-route-module "/portfolio/optimize/scn_01"]
-          [:effects/load-portfolio-optimizer-scenario "scn_01"]]
-         (navigation-adapters/navigate {:router {:path "/portfolio"}}
-                                       "/portfolio/optimize/scn_01"))))
-
 (deftest navigate-preserves-spectate-query-when-spectate-mode-is-active-test
   (with-redefs [portfolio-actions/select-portfolio-chart-tab (fn [_state _tab] [])
                 vault-actions/load-vault-route (fn [_state _path] [])

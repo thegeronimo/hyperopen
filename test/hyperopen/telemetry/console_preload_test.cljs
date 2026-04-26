@@ -4,7 +4,7 @@
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.system :as app-system]
             [hyperopen.telemetry.console-preload :as console-preload]
-            [hyperopen.trading.order-form-view-model :as order-form-vm]
+            [hyperopen.views.trade.order-form-vm :as order-form-vm]
             [hyperopen.wallet.core :as wallet-core]))
 
 (deftest console-preload-installs-debug-global-in-debug-build-test

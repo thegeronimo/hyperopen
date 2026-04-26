@@ -1,6 +1,5 @@
 (ns hyperopen.telemetry.console-preload
   (:require [clojure.string :as str]
-            [hyperopen.account.history.position-projection :as position-projection]
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.runtime.validation :as runtime-validation]
             [nexus.registry :as nxr]
@@ -9,7 +8,8 @@
             [hyperopen.system :as app-system]
             [hyperopen.telemetry :as telemetry]
             [hyperopen.telemetry.console-preload.simulators :as simulators]
-            [hyperopen.trading.order-form-view-model :as order-form-vm]
+            [hyperopen.views.account-info.vm :as account-info-vm]
+            [hyperopen.views.trade.order-form-vm :as order-form-vm]
             [hyperopen.websocket.market-projection-runtime :as market-projection-runtime]
             [hyperopen.websocket.client-compat :as ws-client-compat]
             [hyperopen.websocket.client :as ws-client]))
@@ -268,7 +268,8 @@
 
 (defn- first-position-oracle
   []
-  (let [position-data (position-projection/first-position @app-system/store)]
+  (let [view-model (account-info-vm/account-info-vm @app-system/store)
+        position-data (first (:positions view-model))]
     {:present (boolean position-data)
      :positionData position-data}))
 

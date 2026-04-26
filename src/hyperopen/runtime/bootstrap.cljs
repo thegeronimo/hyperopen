@@ -50,28 +50,7 @@
                                  (emit-fn :ui/app-render-flush
                                           {:changed-root-keys changed-root-keys*
                                            :changed-root-key-count (count changed-root-keys*)
-                                           :render-duration-ms render-duration-ms})))
-          schedule-frame! (fn schedule-frame! []
-                            (when-not @frame-pending?
-                              (reset! frame-pending? true)
-                              (request-frame!
-                               (fn [_]
-                                 (let [state-to-render @pending-state
-                                       changed-root-keys* (vec (sort-by str @pending-root-keys))]
-                                   (reset! pending-state nil)
-                                   (reset! pending-root-keys #{})
-                                   (try
-                                     (when (some? state-to-render)
-                                       (let [render-start-ms (now-ms-fn)]
-                                         (render! state-to-render)
-                                         (let [render-end-ms (now-ms-fn)]
-                                           (emit-render-flush!
-                                            changed-root-keys*
-                                            (max 0 (- render-end-ms render-start-ms))))))
-                                     (finally
-                                       (reset! frame-pending? false)
-                                       (when (some? @pending-state)
-                                         (schedule-frame!)))))))))]
+                                           :render-duration-ms render-duration-ms})))]
       (remove-watch store render-watch-key)
       (add-watch store
                  render-watch-key
@@ -79,7 +58,21 @@
                    (when (not= old-state new-state)
                      (reset! pending-state new-state)
                      (swap! pending-root-keys into (changed-root-keys old-state new-state))
-                     (schedule-frame!)))))))
+                     (when-not @frame-pending?
+                       (reset! frame-pending? true)
+                       (request-frame!
+                        (fn [_]
+                          (let [state-to-render @pending-state
+                                changed-root-keys* (vec (sort-by str @pending-root-keys))]
+                            (reset! pending-state nil)
+                            (reset! pending-root-keys #{})
+                            (reset! frame-pending? false)
+                            (when (some? state-to-render)
+                              (let [render-start-ms (now-ms-fn)]
+                                (render! state-to-render)
+                                (let [render-end-ms (now-ms-fn)]
+                                  (emit-render-flush! changed-root-keys*
+                                                      (max 0 (- render-end-ms render-start-ms))))))))))))))))
 
 (defn install-runtime-watchers!
   [{:keys [store

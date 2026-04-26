@@ -1,8 +1,8 @@
 (ns hyperopen.vaults.detail.benchmarks
   (:require [clojure.string :as str]
             [hyperopen.portfolio.actions :as portfolio-actions]
-            [hyperopen.portfolio.application.history :as portfolio-history]
             [hyperopen.portfolio.metrics :as portfolio-metrics]
+            [hyperopen.views.portfolio.vm.history :as vm-history]
             [hyperopen.vaults.detail.performance :as performance-model]
             [hyperopen.vaults.detail.types :as detail-types]))
 
@@ -442,8 +442,8 @@
      (let [{:keys [interval]} (portfolio-actions/returns-benchmark-candle-request snapshot-range)
            normalized-range (portfolio-actions/normalize-summary-time-range snapshot-range)
            anchor-time-ms (or (:cutoff-ms strategy-window)
-                              (portfolio-history/market-benchmark-anchor-time-ms normalized-range
-                                                                                 strategy-return-points))
+                              (vm-history/market-benchmark-anchor-time-ms normalized-range
+                                                                         strategy-return-points))
            end-time-ms (or (:window-end-ms strategy-window)
                            (some-> strategy-return-points last :time-ms))]
        (reduce (fn [rows-by-coin coin]
@@ -453,18 +453,17 @@
                                       summary (performance-model/portfolio-summary-by-range details
                                                                                             normalized-range)]
                                   (rows->chart-points
-                                   (portfolio-history/aligned-summary-return-rows
+                                   (vm-history/aligned-summary-return-rows
                                     (portfolio-metrics/returns-history-rows state summary :all)
                                     strategy-return-points)
                                    :returns))
-                                (let [candles (portfolio-history/benchmark-candle-points
+                                (let [candles (vm-history/benchmark-candle-points
                                                (get-in state [:candles coin interval]))]
                                   (rows->chart-points
-                                   (portfolio-history/cumulative-return-row-pairs
-                                    (portfolio-history/benchmark-market-return-rows
-                                     candles
-                                     {:anchor-time-ms anchor-time-ms
-                                      :end-time-ms end-time-ms}))
+                                   (vm-history/cumulative-return-row-pairs
+                                    (vm-history/benchmark-market-return-rows candles
+                                                                            {:anchor-time-ms anchor-time-ms
+                                                                             :end-time-ms end-time-ms}))
                                    :returns)))]
                      (assoc rows-by-coin coin rows))
                    rows-by-coin))

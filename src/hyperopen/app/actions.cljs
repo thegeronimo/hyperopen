@@ -66,12 +66,12 @@
                          action-adapters/open-portfolio-optimizer-execution-modal-action
                          :close-portfolio-optimizer-execution-modal
                          action-adapters/close-portfolio-optimizer-execution-modal-action
-	                         :confirm-portfolio-optimizer-execution
-	                         action-adapters/confirm-portfolio-optimizer-execution-action
-	                         :refresh-portfolio-optimizer-tracking
-	                         action-adapters/refresh-portfolio-optimizer-tracking-action
-	                         :run-portfolio-optimizer-from-draft
-	                         action-adapters/run-portfolio-optimizer-from-draft-action}
+                         :confirm-portfolio-optimizer-execution
+                         action-adapters/confirm-portfolio-optimizer-execution-action
+                         :refresh-portfolio-optimizer-tracking
+                         action-adapters/refresh-portfolio-optimizer-tracking-action
+                         :run-portfolio-optimizer-from-draft
+                         action-adapters/run-portfolio-optimizer-from-draft-action}
    :api-wallets {:load-api-wallet-route action-adapters/load-api-wallet-route-action
                  :set-api-wallet-form-field api-wallets-actions/set-api-wallet-form-field
                  :set-api-wallet-sort api-wallets-actions/set-api-wallet-sort

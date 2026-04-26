@@ -1,6 +1,5 @@
 (ns hyperopen.account.history.position-overlay-actions
-  (:require [clojure.string :as str]
-            [hyperopen.account.history.position-margin :as position-margin]
+  (:require [hyperopen.account.history.position-margin :as position-margin]
             [hyperopen.account.history.position-reduce :as position-reduce]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.trading-settings :as trading-settings]))
@@ -22,38 +21,6 @@
   (assoc (or (get-in state [:positions-ui :margin-modal])
              (position-margin/default-modal-state))
          :locale (get-in state [:ui :locale])))
-
-(defn- namespaced-position-row?
-  [position-data]
-  (let [coin (some-> (get-in position-data [:position :coin]) str str/trim)]
-    (boolean
-     (and (seq coin)
-          (str/includes? coin ":")))))
-
-(defn- named-dex-position-row?
-  [position-data]
-  (or (namespaced-position-row? position-data)
-      (seq (some-> (:dex position-data) str str/trim))))
-
-(defn- full-market-metadata-loaded?
-  [state]
-  (= :full (get-in state [:asset-selector :phase])))
-
-(defn- fetch-full-market-metadata-effect
-  []
-  [:effects/fetch-asset-selector-markets {:phase :full}])
-
-(defn- full-market-metadata-fetch-needed?
-  [state position-data]
-  (and (named-dex-position-row? position-data)
-       (not (full-market-metadata-loaded? state))))
-
-(defn- maybe-append-metadata-fetch-effect
-  [effects state result]
-  (cond-> effects
-    (and (= :market-metadata-missing (:reason result))
-         (not (full-market-metadata-loaded? state)))
-    (conj (fetch-full-market-metadata-effect))))
 
 (defn open-position-tpsl-modal
   ([state position-data]
@@ -103,25 +70,21 @@
 
 (defn open-position-reduce-popover
   ([state position-data]
-   (cond-> [[:effects/save-many [[[:positions-ui :reduce-popover]
-                                  (assoc (position-reduce/from-position-row position-data)
-                                         :locale (get-in state [:ui :locale]))]
-                                 [[:positions-ui :tpsl-modal]
-                                  (position-tpsl/default-modal-state)]
-                                 [[:positions-ui :margin-modal]
-                                  (position-margin/default-modal-state)]]]]
-     (full-market-metadata-fetch-needed? state position-data)
-     (conj (fetch-full-market-metadata-effect))))
+   [[:effects/save-many [[[:positions-ui :reduce-popover]
+                          (assoc (position-reduce/from-position-row position-data)
+                                 :locale (get-in state [:ui :locale]))]
+                         [[:positions-ui :tpsl-modal]
+                          (position-tpsl/default-modal-state)]
+                         [[:positions-ui :margin-modal]
+                          (position-margin/default-modal-state)]]]])
   ([state position-data trigger-bounds]
-   (cond-> [[:effects/save-many [[[:positions-ui :reduce-popover]
-                                  (assoc (position-reduce/from-position-row position-data trigger-bounds)
-                                         :locale (get-in state [:ui :locale]))]
-                                 [[:positions-ui :tpsl-modal]
-                                  (position-tpsl/default-modal-state)]
-                                 [[:positions-ui :margin-modal]
-                                  (position-margin/default-modal-state)]]]]
-     (full-market-metadata-fetch-needed? state position-data)
-     (conj (fetch-full-market-metadata-effect)))))
+   [[:effects/save-many [[[:positions-ui :reduce-popover]
+                          (assoc (position-reduce/from-position-row position-data trigger-bounds)
+                                 :locale (get-in state [:ui :locale]))]
+                         [[:positions-ui :tpsl-modal]
+                          (position-tpsl/default-modal-state)]
+                         [[:positions-ui :margin-modal]
+                          (position-margin/default-modal-state)]]]]))
 
 (defn close-position-reduce-popover [_state]
   [[:effects/save [:positions-ui :reduce-popover]
@@ -155,11 +118,8 @@
   (let [popover (reduce-popover-with-locale state)
         result (position-reduce/prepare-submit state popover)]
     (if-not (:ok? result)
-      (maybe-append-metadata-fetch-effect
-       [[:effects/save [:positions-ui :reduce-popover]
-         (assoc popover :error (:display-message result))]]
-       state
-       result)
+      [[:effects/save [:positions-ui :reduce-popover]
+        (assoc popover :error (:display-message result))]]
       (let [next-popover (assoc popover :error nil)]
         (if (trading-settings/confirm-close-position? state)
           [[:effects/confirm-api-submit-order {:variant :close-position

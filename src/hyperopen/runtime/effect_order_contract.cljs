@@ -105,8 +105,6 @@
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/api-fetch-user-funding-history}}
 
-   :actions/open-position-reduce-popover {:required-phase-order [:projection :persistence :heavy-io] :require-projection-before-heavy? true :allow-duplicate-heavy-effects? false :heavy-effect-ids #{:effects/fetch-asset-selector-markets}}
-   :actions/submit-position-reduce-close {:required-phase-order [:projection :persistence :heavy-io] :require-projection-before-heavy? true :allow-duplicate-heavy-effects? false :heavy-effect-ids #{:effects/api-submit-order :effects/fetch-asset-selector-markets}}
    :actions/submit-position-margin-update
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true

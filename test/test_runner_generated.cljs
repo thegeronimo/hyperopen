@@ -6,9 +6,7 @@
             [hyperopen.account.history.actions-test]
             [hyperopen.account.history.effects-test]
             [hyperopen.account.history.position-margin-test]
-            [hyperopen.account.history.position-reduce-metadata-test]
             [hyperopen.account.history.position-tpsl-test]
-            [hyperopen.account.history.twap-actions-test]
             [hyperopen.account.lifecycle-invariants-test]
             [hyperopen.account.lifecycle-transitions-test]
             [hyperopen.account.spectate-mode-actions-search-test]
@@ -212,7 +210,6 @@
             [hyperopen.router-test]
             [hyperopen.runtime.account-lifecycle-validation-test]
             [hyperopen.runtime.action-adapters-test]
-            [hyperopen.runtime.action-adapters.leaderboard-test]
             [hyperopen.runtime.action-adapters.navigation-test]
             [hyperopen.runtime.action-adapters.wallet-test]
             [hyperopen.runtime.action-adapters.websocket-test]
@@ -411,7 +408,6 @@
             [hyperopen.views.portfolio.vm.performance-helpers-test]
             [hyperopen.views.portfolio.vm.summary-helpers-test]
             [hyperopen.views.portfolio.vm.summary-test]
-            [hyperopen.views.portfolio.vm.utils-test]
             [hyperopen.views.portfolio.vm.volume-helpers-test]
             [hyperopen.views.portfolio.vm.volume-test]
             [hyperopen.views.portfolio.volume-history-popover-test]
@@ -574,9 +570,7 @@
              'hyperopen.account.history.actions-test
              'hyperopen.account.history.effects-test
              'hyperopen.account.history.position-margin-test
-             'hyperopen.account.history.position-reduce-metadata-test
              'hyperopen.account.history.position-tpsl-test
-             'hyperopen.account.history.twap-actions-test
              'hyperopen.account.lifecycle-invariants-test
              'hyperopen.account.lifecycle-transitions-test
              'hyperopen.account.spectate-mode-actions-search-test
@@ -780,7 +774,6 @@
              'hyperopen.router-test
              'hyperopen.runtime.account-lifecycle-validation-test
              'hyperopen.runtime.action-adapters-test
-             'hyperopen.runtime.action-adapters.leaderboard-test
              'hyperopen.runtime.action-adapters.navigation-test
              'hyperopen.runtime.action-adapters.wallet-test
              'hyperopen.runtime.action-adapters.websocket-test
@@ -979,7 +972,6 @@
              'hyperopen.views.portfolio.vm.performance-helpers-test
              'hyperopen.views.portfolio.vm.summary-helpers-test
              'hyperopen.views.portfolio.vm.summary-test
-             'hyperopen.views.portfolio.vm.utils-test
              'hyperopen.views.portfolio.vm.volume-helpers-test
              'hyperopen.views.portfolio.vm.volume-test
              'hyperopen.views.portfolio.volume-history-popover-test

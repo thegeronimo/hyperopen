@@ -15,7 +15,7 @@
         :module-hash-names true
         :build-options {:manifest-name "manifest.json"}
         :module-loader true
-        :modules {:main {:init-fn hyperopen.views.entrypoint/start!}
+        :modules {:main {:init-fn hyperopen.core/start!}
                   :trading_crypto {:entries [hyperopen.trading-crypto.module]
                                    :depends-on #{:main}}
                   :trade_chart {:entries [hyperopen.views.trading-chart.module]
@@ -45,7 +45,7 @@
         :devtools {:preloads [hyperopen.telemetry.console-preload]
                    :http-root "resources/public"
                    :http-port 8080
-                   :after-load hyperopen.views.entrypoint/reload}}
+                   :after-load hyperopen.core/reload}}
 
   :portfolio {:target :portfolio
               :runner-ns hyperopen.workbench.runner
@@ -111,7 +111,7 @@
             :module-hash-names true
             :build-options {:manifest-name "manifest.json"}
             :module-loader true
-            :modules {:main {:init-fn hyperopen.views.entrypoint/start!}
+            :modules {:main {:init-fn hyperopen.core/start!}
                       :trading_crypto {:entries [hyperopen.trading-crypto.module]
                                        :depends-on #{:main}}
                       :trade_chart {:entries [hyperopen.views.trading-chart.module]
