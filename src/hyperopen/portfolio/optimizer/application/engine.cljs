@@ -261,6 +261,8 @@
      :instrument-ids instrument-ids
      :target-weights target-weights
      :current-weights current-weights*
+     :target-weights-by-instrument (zipmap instrument-ids target-weights)
+     :current-weights-by-instrument (zipmap instrument-ids current-weights*)
      :dropped-weights dropped
      :expected-return (math/portfolio-return target-weights expected-returns)
      :volatility (sqrt (math/portfolio-variance target-weights (:covariance risk-result)))

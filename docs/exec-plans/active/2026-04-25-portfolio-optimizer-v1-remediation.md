@@ -81,7 +81,7 @@ A branch is only review-ready when all of the following are true:
 - [x] (2026-04-25 22:08Z) Completed Phase 1 capital-base and execution-readiness correctness. Snapshot readiness is split into `:snapshot-loaded?`, `:capital-ready?`, and `:execution-ready?`; zero-capital and below-lot rebalance rows are blocked; preview summaries count executable rows only; and the required gates passed.
 - [x] (2026-04-26 01:57Z) Completed Phase 2 defaults and minimum-variance honesty. Defaults no longer include hidden `net-min`, default leverage/weight/tolerance values match the remediation contract, signed minimum-variance near-cash solutions are surfaced with an explicit warning, and the required gates passed.
 - [x] (2026-04-26 02:15Z) Completed Phase 3 Black-Litterman authoring UI and persistence. BL now has absolute/relative view add/edit/remove actions, draft and saved scenario persistence coverage, request-builder view normalization with confidence variance, prior-source/weight transparency in setup, and the required gates passed.
-- [ ] Complete Phase 4 worker wire normalization and funding rendering.
+- [x] (2026-04-26 02:23Z) Completed Phase 4 worker wire normalization and funding rendering. Known instrument-keyed request/response maps normalize to string keys across worker boundaries, slash-containing spot IDs are preserved, result payloads include current/target weight maps, funding-source enum values survive normalization, and the required gates passed.
 - [ ] Complete Phase 5 risk and diagnostics correction.
 - [ ] Complete Phase 6 results surface upgrade.
 - [ ] Complete Phase 7 rebalance review upgrade.
@@ -108,6 +108,9 @@ A branch is only review-ready when all of the following are true:
 - Observation: Black-Litterman authoring would have pushed existing optimizer action and view test namespaces over the governed namespace-size thresholds if added inline.
   Evidence: The first Phase 3 `npm run check` attempt failed `lint:namespace-sizes` for `src/hyperopen/portfolio/optimizer/actions.cljs`, `test/hyperopen/portfolio/optimizer/actions_test.cljs`, and `test/hyperopen/views/portfolio/optimize/view_test.cljs`. The implementation was split into focused BL action and panel test namespaces instead of adding new size exceptions.
 
+- Observation: Worker response normalization had the same instrument-key hazard as worker request decoding.
+  Evidence: `worker-client/normalize-worker-message` uses `js->clj :keywordize-keys true`, so payload maps such as `return-decomposition-by-instrument` were converted from string instrument IDs into keywords before the results panel looked them up by string. Slash-containing spot IDs also require `(subs (str keyword) 1)` instead of `name` to avoid dropping the namespace portion.
+
 ## Decision Log
 
 - Decision: Execute remediation on a new branch named `codex/portfolio-optimizer-v1-remediation`, not directly on `codex/portfolio-optimizer-v1-foundations`.
@@ -132,6 +135,10 @@ A branch is only review-ready when all of the following are true:
 
 - Decision: Put BL view draft mutations in `hyperopen.portfolio.optimizer.black-litterman-actions` and wire them through the existing runtime action adapter/catalog.
   Rationale: BL view authoring is a cohesive subdomain and keeping it out of the already-large optimizer action namespace preserves the repo's namespace-size guard while still using the existing action/effect runtime conventions.
+  Date/Author: 2026-04-26 / Codex
+
+- Decision: Centralize optimizer worker-boundary normalization in `hyperopen.portfolio.optimizer.infrastructure.wire`.
+  Rationale: Request normalization in the worker and response normalization in the client must share the same list of instrument-keyed map paths and the same keyword-to-string conversion rules; keeping the behavior in one boundary module prevents future `keywordize-keys` regressions.
   Date/Author: 2026-04-26 / Codex
 
 ## Outcomes & Retrospective

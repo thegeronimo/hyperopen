@@ -12,47 +12,9 @@
                              :type type
                              :payload (clj->js payload)}))
 
-(defn- instrument-id-key
-  [key]
-  (cond
-    (keyword? key) (name key)
-    (string? key) key
-    :else (str key)))
-
-(defn- stringify-map-keys
-  [value]
-  (if (map? value)
-    (into {}
-          (map (fn [[key item]]
-                 [(instrument-id-key key) item]))
-          value)
-    value))
-
-(def ^:private instrument-key-map-paths
-  [[:current-portfolio :by-instrument]
-   [:history :return-series-by-instrument]
-   [:history :price-series-by-instrument]
-   [:history :funding-by-instrument]
-   [:black-litterman-prior :weights-by-instrument]
-   [:constraints :per-asset-overrides]
-   [:constraints :per-perp-leverage-caps]
-   [:execution-assumptions :prices-by-id]
-   [:execution-assumptions :cost-contexts-by-id]
-   [:execution-assumptions :fee-bps-by-id]])
-
-(defn- update-existing-in
-  [request path f]
-  (if (nil? (get-in request path))
-    request
-    (update-in request path f)))
-
 (defn- normalize-worker-request
   [request]
-  (wire/normalize-wire-values
-   (reduce (fn [request* path]
-             (update-existing-in request* path stringify-map-keys))
-           request
-           instrument-key-map-paths)))
+  (wire/normalize-worker-boundary request))
 
 (defn optimizer-result-payload
   [request]

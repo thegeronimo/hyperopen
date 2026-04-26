@@ -6,7 +6,7 @@
 
 (defn normalize-worker-message
   [data]
-  (wire/normalize-wire-values
+  (wire/normalize-worker-boundary
    (cond
      (map? data) data
      (some? data) (js->clj data :keywordize-keys true)

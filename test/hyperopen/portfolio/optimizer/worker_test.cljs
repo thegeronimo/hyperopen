@@ -111,12 +111,17 @@
 (deftest optimizer-result-payload-normalizes-worker-decoded-instrument-key-maps-test
   (async done
     (let [decoded-id (keyword "perp:BTC")
+          decoded-spot-id (keyword "spot:PURR/USDC")
           captured (atom nil)
           request {:scenario-id "scenario-1"
                    :universe [{:instrument-id "perp:BTC"
                                :market-type :perp
-                               :coin "BTC"}]
-                   :current-portfolio {:by-instrument {decoded-id {:weight 1}}}
+                               :coin "BTC"}
+                              {:instrument-id "spot:PURR/USDC"
+                               :market-type :spot
+                               :coin "PURR"}]
+                   :current-portfolio {:by-instrument {decoded-id {:weight 0.8}
+                                                       decoded-spot-id {:weight 0.2}}}
                    :history {:return-series-by-instrument {decoded-id [0.01 0.02]}
                              :price-series-by-instrument {decoded-id [{:close 100}
                                                                       {:close 101}]}
@@ -124,7 +129,8 @@
                    :black-litterman-prior {:weights-by-instrument {decoded-id 1}}
                    :constraints {:per-asset-overrides {decoded-id {:max-weight 0.5}}
                                  :per-perp-leverage-caps {decoded-id {:max-weight 0.4}}}
-                   :execution-assumptions {:prices-by-id {decoded-id 100}
+                   :execution-assumptions {:prices-by-id {decoded-id 100
+                                                          decoded-spot-id 2}
                                            :fee-bps-by-id {decoded-id 4}}}]
       (with-redefs [worker/run-optimization-async
                     (fn [request* _opts]
@@ -132,7 +138,8 @@
                       (js/Promise.resolve {:status :solved}))]
         (-> (worker/optimizer-result-payload request)
             (.then (fn [_]
-                     (is (= {"perp:BTC" {:weight 1}}
+                     (is (= {"perp:BTC" {:weight 0.8}
+                             "spot:PURR/USDC" {:weight 0.2}}
                             (get-in @captured [:current-portfolio :by-instrument])))
                      (is (= {"perp:BTC" [0.01 0.02]}
                             (get-in @captured [:history :return-series-by-instrument])))
@@ -142,7 +149,8 @@
                             (get-in @captured [:black-litterman-prior :weights-by-instrument])))
                      (is (= {"perp:BTC" {:max-weight 0.5}}
                             (get-in @captured [:constraints :per-asset-overrides])))
-                     (is (= {"perp:BTC" 100}
+                     (is (= {"perp:BTC" 100
+                             "spot:PURR/USDC" 2}
                             (get-in @captured [:execution-assumptions :prices-by-id])))
                      (done)))
             (.catch (fn [err]

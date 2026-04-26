@@ -124,6 +124,14 @@
                            :payload {:status "solved"
                                      :scenario-id "scenario-1"
                                      :solver {:strategy "single-qp"}
+                                     :return-decomposition-by-instrument
+                                     {"perp:BTC" {:return-component 0.12
+                                                  :funding-component 0.04
+                                                  :funding-source "market-funding-history"}}
+                                     :current-weights-by-instrument
+                                     {"spot:PURR/USDC" 0.2}
+                                     :target-weights-by-instrument
+                                     {"perp:BTC" 0.35}
                                      :warnings [{:code "missing-funding-history"}]}}))]
     (with-redefs [system/store store]
       (run-bridge/handle-worker-message! message {:computed-at-ms 250})
@@ -132,6 +140,12 @@
       (is (= {:status :solved
               :scenario-id "scenario-1"
               :solver {:strategy :single-qp}
+              :return-decomposition-by-instrument
+              {"perp:BTC" {:return-component 0.12
+                           :funding-component 0.04
+                           :funding-source :market-funding-history}}
+              :current-weights-by-instrument {"spot:PURR/USDC" 0.2}
+              :target-weights-by-instrument {"perp:BTC" 0.35}
               :warnings [{:code :missing-funding-history}]}
              (get-in @store [:portfolio :optimizer :last-successful-run :result]))))))
 

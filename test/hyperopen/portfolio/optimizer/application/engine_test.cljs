@@ -57,6 +57,12 @@
     (is (= :minimum-variance (get-in result [:solver :objective-kind])))
     (is (= ["perp:BTC" "perp:ETH"] (:instrument-ids result)))
     (is (= [0.5 0.5] (:target-weights result)))
+    (is (= {"perp:BTC" 0.6
+            "perp:ETH" 0.4}
+           (:current-weights-by-instrument result)))
+    (is (= {"perp:BTC" 0.5
+            "perp:ETH" 0.5}
+           (:target-weights-by-instrument result)))
     (is (near? 1 (:gross-exposure (:diagnostics result))))
     (is (near? 0.1 (get-in result [:diagnostics :turnover])))
     (is (= :ready (get-in result [:rebalance-preview :status])))
