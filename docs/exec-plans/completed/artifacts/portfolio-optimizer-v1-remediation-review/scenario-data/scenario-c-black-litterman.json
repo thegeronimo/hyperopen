@@ -1,0 +1,766 @@
+{
+  "draft": {
+    "schema-version": 1,
+    "id": "scn_acceptance_c_black_litterman",
+    "name": "Scenario C - Black Litterman",
+    "status": "saved",
+    "universe": [
+      {
+        "instrument-id": "perp:BTC",
+        "market-type": "perp",
+        "coin": "BTC",
+        "shortable?": true,
+        "symbol": "BTC-USDC"
+      },
+      {
+        "instrument-id": "perp:ETH",
+        "market-type": "perp",
+        "coin": "ETH",
+        "shortable?": true,
+        "symbol": "ETH-USDC"
+      },
+      {
+        "instrument-id": "perp:SOL",
+        "market-type": "perp",
+        "coin": "SOL",
+        "shortable?": true,
+        "symbol": "SOL-USDC"
+      }
+    ],
+    "objective": {
+      "kind": "max-sharpe"
+    },
+    "return-model": {
+      "kind": "black-litterman",
+      "views": [
+        {
+          "id": "view_abs_btc",
+          "kind": "absolute",
+          "instrument-id": "perp:BTC",
+          "return": 0.22,
+          "confidence": 0.65
+        },
+        {
+          "id": "view_rel_sol_eth",
+          "kind": "relative",
+          "long-instrument-id": "perp:SOL",
+          "short-instrument-id": "perp:ETH",
+          "return": 0.08,
+          "confidence": 0.55
+        }
+      ]
+    },
+    "risk-model": {
+      "kind": "diagonal-shrink"
+    },
+    "constraints": {
+      "long-only?": false,
+      "gross-max": 3,
+      "net-max": 1.5,
+      "max-asset-weight": 0.45,
+      "dust-usdc": 50,
+      "max-turnover": 1,
+      "rebalance-tolerance": 0.03,
+      "asset-overrides": {},
+      "held-locks": [],
+      "perp-leverage": {},
+      "allowlist": [],
+      "blocklist": []
+    },
+    "execution-assumptions": {
+      "default-order-type": "market",
+      "fallback-slippage-bps": 25,
+      "fee-mode": "taker"
+    },
+    "metadata": {
+      "dirty?": false,
+      "created-at-ms": 1777046999000,
+      "updated-at-ms": 1777047000000
+    }
+  },
+  "active-scenario": {
+    "loaded-id": "scn_acceptance_c_black_litterman",
+    "status": "saved",
+    "read-only?": false
+  },
+  "scenario-index": {
+    "ordered-ids": [
+      "scn_acceptance_c_black_litterman"
+    ],
+    "by-id": {
+      "scn_acceptance_c_black_litterman": {
+        "id": "scn_acceptance_c_black_litterman",
+        "name": "Scenario C - Black Litterman",
+        "status": "saved",
+        "objective-kind": "max-sharpe",
+        "return-model-kind": "black-litterman",
+        "risk-model-kind": "diagonal-shrink",
+        "expected-return": 0.241,
+        "volatility": 0.36,
+        "rebalance-status": "ready",
+        "updated-at-ms": 1777047000000
+      }
+    }
+  },
+  "last-successful-run": {
+    "request-signature": {
+      "scenario-id": "scn_acceptance_c_black_litterman"
+    },
+    "computed-at-ms": 1777047000000,
+    "result": {
+      "status": "solved",
+      "scenario-id": "scn_acceptance_c_black_litterman",
+      "instrument-ids": [
+        "perp:BTC",
+        "perp:ETH",
+        "perp:SOL"
+      ],
+      "current-weights": [
+        0.38,
+        0.32,
+        0.08
+      ],
+      "target-weights": [
+        0.42,
+        0.24,
+        0.22
+      ],
+      "current-weights-by-instrument": {
+        "perp:BTC": 0.38,
+        "perp:ETH": 0.32,
+        "perp:SOL": 0.08
+      },
+      "target-weights-by-instrument": {
+        "perp:BTC": 0.42,
+        "perp:ETH": 0.24,
+        "perp:SOL": 0.22
+      },
+      "expected-return": 0.241,
+      "volatility": 0.36,
+      "return-model": "black-litterman",
+      "risk-model": "diagonal-shrink",
+      "history-summary": {
+        "return-observations": 4
+      },
+      "performance": {
+        "in-sample-sharpe": 0.91,
+        "shrunk-sharpe": 0.68
+      },
+      "frontier": [
+        {
+          "id": 0,
+          "expected-return": 0.20099999999999998,
+          "volatility": 0.27999999999999997,
+          "sharpe": 0.55
+        },
+        {
+          "id": 1,
+          "expected-return": 0.241,
+          "volatility": 0.36,
+          "sharpe": 0.68
+        },
+        {
+          "id": 2,
+          "expected-return": 0.271,
+          "volatility": 0.41,
+          "sharpe": 0.63
+        }
+      ],
+      "diagnostics": {
+        "gross-exposure": 0.8799999999999999,
+        "net-exposure": 0.8799999999999999,
+        "effective-n": 3.5410764872521248,
+        "turnover": 0.28,
+        "binding-constraints": [],
+        "covariance-conditioning": {
+          "status": "ok",
+          "condition-number": 18.4,
+          "min-eigenvalue": 0.002,
+          "max-eigenvalue": 0.036
+        },
+        "weight-sensitivity-by-instrument": {
+          "perp:BTC": {
+            "base-expected-return": 0.12,
+            "down-expected-return": 0.1,
+            "up-expected-return": 0.14
+          },
+          "perp:ETH": {
+            "base-expected-return": 0.135,
+            "down-expected-return": 0.112,
+            "up-expected-return": 0.158
+          },
+          "perp:SOL": {
+            "base-expected-return": 0.15,
+            "down-expected-return": 0.124,
+            "up-expected-return": 0.17600000000000002
+          }
+        }
+      },
+      "return-decomposition-by-instrument": {
+        "perp:BTC": {
+          "return-component": 0.18,
+          "funding-component": 0.04,
+          "funding-source": "market-funding-history"
+        },
+        "perp:ETH": {
+          "return-component": 0.1,
+          "funding-component": 0.02,
+          "funding-source": "market-funding-history"
+        },
+        "perp:SOL": {
+          "return-component": 0.26,
+          "funding-component": -0.01,
+          "funding-source": "market-funding-history"
+        }
+      },
+      "rebalance-preview": {
+        "capital-usd": 80000,
+        "status": "ready",
+        "summary": {
+          "ready-count": 3,
+          "blocked-count": 0,
+          "gross-trade-notional-usd": 14000,
+          "gross-ready-notional-usd": 14000,
+          "estimated-fees-usd": 4.9,
+          "estimated-slippage-usd": 11.2,
+          "margin": {
+            "capital-usd": 80000,
+            "current-used-usd": 9600,
+            "estimated-impact-usd": 14000,
+            "after-used-usd": 23600,
+            "before-utilization": 0.12,
+            "after-utilization": 0.295,
+            "warning": null
+          }
+        },
+        "rows": [
+          {
+            "instrument-id": "perp:BTC",
+            "instrument-type": "perp",
+            "coin": "BTC",
+            "status": "ready",
+            "side": "buy",
+            "price": 100000,
+            "quantity": 0.032,
+            "delta-notional-usd": 3200,
+            "order-type": "market",
+            "cost": {
+              "source": "live-orderbook",
+              "estimated-fill-price": null,
+              "notional-usd": 3200,
+              "slippage-bps": 8,
+              "estimated-slippage-usd": 2.56,
+              "fee-bps": 3.5,
+              "estimated-fee-usd": 1.12
+            },
+            "reason": "supported-perp"
+          },
+          {
+            "instrument-id": "perp:ETH",
+            "instrument-type": "perp",
+            "coin": "ETH",
+            "status": "ready",
+            "side": "sell",
+            "price": 4000,
+            "quantity": 1.6,
+            "delta-notional-usd": -6400,
+            "order-type": "market",
+            "cost": {
+              "source": "live-orderbook",
+              "estimated-fill-price": null,
+              "notional-usd": 6400,
+              "slippage-bps": 8,
+              "estimated-slippage-usd": 5.12,
+              "fee-bps": 3.5,
+              "estimated-fee-usd": 2.24
+            },
+            "reason": "supported-perp"
+          },
+          {
+            "instrument-id": "perp:SOL",
+            "instrument-type": "perp",
+            "coin": "SOL",
+            "status": "ready",
+            "side": "buy",
+            "price": 150,
+            "quantity": 48,
+            "delta-notional-usd": 7200,
+            "order-type": "market",
+            "cost": {
+              "source": "live-orderbook",
+              "estimated-fill-price": null,
+              "notional-usd": 7200,
+              "slippage-bps": 8,
+              "estimated-slippage-usd": 5.76,
+              "fee-bps": 3.5,
+              "estimated-fee-usd": 2.52
+            },
+            "reason": "supported-perp"
+          }
+        ]
+      },
+      "warnings": []
+    }
+  },
+  "history-data": {
+    "candle-history-by-coin": {
+      "BTC": [
+        {
+          "time": 1776701400000,
+          "close": "100000"
+        },
+        {
+          "time": 1776787800000,
+          "close": "101499.99999999999"
+        },
+        {
+          "time": 1776874200000,
+          "close": "103000"
+        },
+        {
+          "time": 1776960600000,
+          "close": "104500"
+        },
+        {
+          "time": 1777047000000,
+          "close": "106000"
+        }
+      ],
+      "ETH": [
+        {
+          "time": 1776701400000,
+          "close": "4000"
+        },
+        {
+          "time": 1776787800000,
+          "close": "4059.9999999999995"
+        },
+        {
+          "time": 1776874200000,
+          "close": "4120"
+        },
+        {
+          "time": 1776960600000,
+          "close": "4180"
+        },
+        {
+          "time": 1777047000000,
+          "close": "4240"
+        }
+      ],
+      "SOL": [
+        {
+          "time": 1776701400000,
+          "close": "150"
+        },
+        {
+          "time": 1776787800000,
+          "close": "152.24999999999997"
+        },
+        {
+          "time": 1776874200000,
+          "close": "154.5"
+        },
+        {
+          "time": 1776960600000,
+          "close": "156.75"
+        },
+        {
+          "time": 1777047000000,
+          "close": "159"
+        }
+      ],
+      "HYPE": [
+        {
+          "time": 1776701400000,
+          "close": "110"
+        },
+        {
+          "time": 1776787800000,
+          "close": "111.64999999999999"
+        },
+        {
+          "time": 1776874200000,
+          "close": "113.3"
+        },
+        {
+          "time": 1776960600000,
+          "close": "114.94999999999999"
+        },
+        {
+          "time": 1777047000000,
+          "close": "116.60000000000001"
+        }
+      ],
+      "PURR": [
+        {
+          "time": 1776701400000,
+          "close": "1"
+        },
+        {
+          "time": 1776787800000,
+          "close": "1.015"
+        },
+        {
+          "time": 1776874200000,
+          "close": "1.03"
+        },
+        {
+          "time": 1776960600000,
+          "close": "1.045"
+        },
+        {
+          "time": 1777047000000,
+          "close": "1.06"
+        }
+      ]
+    },
+    "funding-history-by-coin": {
+      "BTC": [
+        {
+          "time": 1776931800000,
+          "fundingRate": "0.00008"
+        },
+        {
+          "time": 1776960600000,
+          "fundingRate": "0.000082"
+        },
+        {
+          "time": 1776989400000,
+          "fundingRate": "0.00008400000000000001"
+        },
+        {
+          "time": 1777018200000,
+          "fundingRate": "0.000086"
+        },
+        {
+          "time": 1777047000000,
+          "fundingRate": "0.00008800000000000001"
+        }
+      ],
+      "ETH": [
+        {
+          "time": 1776931800000,
+          "fundingRate": "0.00003"
+        },
+        {
+          "time": 1776960600000,
+          "fundingRate": "0.000032"
+        },
+        {
+          "time": 1776989400000,
+          "fundingRate": "0.000034"
+        },
+        {
+          "time": 1777018200000,
+          "fundingRate": "0.000036"
+        },
+        {
+          "time": 1777047000000,
+          "fundingRate": "0.000038"
+        }
+      ],
+      "SOL": [
+        {
+          "time": 1776931800000,
+          "fundingRate": "-0.00002"
+        },
+        {
+          "time": 1776960600000,
+          "fundingRate": "-0.000018"
+        },
+        {
+          "time": 1776989400000,
+          "fundingRate": "-0.000016000000000000003"
+        },
+        {
+          "time": 1777018200000,
+          "fundingRate": "-0.000014000000000000001"
+        },
+        {
+          "time": 1777047000000,
+          "fundingRate": "-0.000012000000000000002"
+        }
+      ],
+      "HYPE": [
+        {
+          "time": 1776931800000,
+          "fundingRate": "0.00004"
+        },
+        {
+          "time": 1776960600000,
+          "fundingRate": "0.000042000000000000004"
+        },
+        {
+          "time": 1776989400000,
+          "fundingRate": "0.000044000000000000006"
+        },
+        {
+          "time": 1777018200000,
+          "fundingRate": "0.00004600000000000001"
+        },
+        {
+          "time": 1777047000000,
+          "fundingRate": "0.000048"
+        }
+      ]
+    },
+    "warnings": []
+  },
+  "history-load-state": {
+    "status": "succeeded",
+    "completed-at-ms": 1777047000000,
+    "warnings": []
+  },
+  "scenario-save-state": {
+    "status": "saved",
+    "scenario-id": "scn_acceptance_c_black_litterman"
+  },
+  "scenario-index-load-state": {
+    "status": "loaded"
+  },
+  "scenario-load-state": {
+    "status": "not-found",
+    "scenario-id": "scn_acceptance_c_black_litterman",
+    "started-at-ms": 1777175765000,
+    "completed-at-ms": 1777175765003,
+    "error": {
+      "message": "Scenario scn_acceptance_c_black_litterman was not found."
+    }
+  },
+  "scenario-archive-state": {
+    "status": "idle"
+  },
+  "scenario-duplicate-state": {
+    "status": "idle"
+  },
+  "execution-modal": {
+    "open?": false,
+    "plan": null,
+    "submitting?": false,
+    "error": null
+  },
+  "execution": {
+    "status": "idle",
+    "attempt": null,
+    "history": [],
+    "error": null
+  },
+  "tracking": {
+    "status": "idle",
+    "scenario-id": "scn_acceptance_c_black_litterman",
+    "snapshots": [],
+    "error": null
+  },
+  "run-state": {
+    "status": "succeeded",
+    "scenario-id": "scn_acceptance_c_black_litterman",
+    "result": {
+      "status": "solved",
+      "scenario-id": "scn_acceptance_c_black_litterman",
+      "instrument-ids": [
+        "perp:BTC",
+        "perp:ETH",
+        "perp:SOL"
+      ],
+      "current-weights": [
+        0.38,
+        0.32,
+        0.08
+      ],
+      "target-weights": [
+        0.42,
+        0.24,
+        0.22
+      ],
+      "current-weights-by-instrument": {
+        "perp:BTC": 0.38,
+        "perp:ETH": 0.32,
+        "perp:SOL": 0.08
+      },
+      "target-weights-by-instrument": {
+        "perp:BTC": 0.42,
+        "perp:ETH": 0.24,
+        "perp:SOL": 0.22
+      },
+      "expected-return": 0.241,
+      "volatility": 0.36,
+      "return-model": "black-litterman",
+      "risk-model": "diagonal-shrink",
+      "history-summary": {
+        "return-observations": 4
+      },
+      "performance": {
+        "in-sample-sharpe": 0.91,
+        "shrunk-sharpe": 0.68
+      },
+      "frontier": [
+        {
+          "id": 0,
+          "expected-return": 0.20099999999999998,
+          "volatility": 0.27999999999999997,
+          "sharpe": 0.55
+        },
+        {
+          "id": 1,
+          "expected-return": 0.241,
+          "volatility": 0.36,
+          "sharpe": 0.68
+        },
+        {
+          "id": 2,
+          "expected-return": 0.271,
+          "volatility": 0.41,
+          "sharpe": 0.63
+        }
+      ],
+      "diagnostics": {
+        "gross-exposure": 0.8799999999999999,
+        "net-exposure": 0.8799999999999999,
+        "effective-n": 3.5410764872521248,
+        "turnover": 0.28,
+        "binding-constraints": [],
+        "covariance-conditioning": {
+          "status": "ok",
+          "condition-number": 18.4,
+          "min-eigenvalue": 0.002,
+          "max-eigenvalue": 0.036
+        },
+        "weight-sensitivity-by-instrument": {
+          "perp:BTC": {
+            "base-expected-return": 0.12,
+            "down-expected-return": 0.1,
+            "up-expected-return": 0.14
+          },
+          "perp:ETH": {
+            "base-expected-return": 0.135,
+            "down-expected-return": 0.112,
+            "up-expected-return": 0.158
+          },
+          "perp:SOL": {
+            "base-expected-return": 0.15,
+            "down-expected-return": 0.124,
+            "up-expected-return": 0.17600000000000002
+          }
+        }
+      },
+      "return-decomposition-by-instrument": {
+        "perp:BTC": {
+          "return-component": 0.18,
+          "funding-component": 0.04,
+          "funding-source": "market-funding-history"
+        },
+        "perp:ETH": {
+          "return-component": 0.1,
+          "funding-component": 0.02,
+          "funding-source": "market-funding-history"
+        },
+        "perp:SOL": {
+          "return-component": 0.26,
+          "funding-component": -0.01,
+          "funding-source": "market-funding-history"
+        }
+      },
+      "rebalance-preview": {
+        "capital-usd": 80000,
+        "status": "ready",
+        "summary": {
+          "ready-count": 3,
+          "blocked-count": 0,
+          "gross-trade-notional-usd": 14000,
+          "gross-ready-notional-usd": 14000,
+          "estimated-fees-usd": 4.9,
+          "estimated-slippage-usd": 11.2,
+          "margin": {
+            "capital-usd": 80000,
+            "current-used-usd": 9600,
+            "estimated-impact-usd": 14000,
+            "after-used-usd": 23600,
+            "before-utilization": 0.12,
+            "after-utilization": 0.295,
+            "warning": null
+          }
+        },
+        "rows": [
+          {
+            "instrument-id": "perp:BTC",
+            "instrument-type": "perp",
+            "coin": "BTC",
+            "status": "ready",
+            "side": "buy",
+            "price": 100000,
+            "quantity": 0.032,
+            "delta-notional-usd": 3200,
+            "order-type": "market",
+            "cost": {
+              "source": "live-orderbook",
+              "estimated-fill-price": null,
+              "notional-usd": 3200,
+              "slippage-bps": 8,
+              "estimated-slippage-usd": 2.56,
+              "fee-bps": 3.5,
+              "estimated-fee-usd": 1.12
+            },
+            "reason": "supported-perp"
+          },
+          {
+            "instrument-id": "perp:ETH",
+            "instrument-type": "perp",
+            "coin": "ETH",
+            "status": "ready",
+            "side": "sell",
+            "price": 4000,
+            "quantity": 1.6,
+            "delta-notional-usd": -6400,
+            "order-type": "market",
+            "cost": {
+              "source": "live-orderbook",
+              "estimated-fill-price": null,
+              "notional-usd": 6400,
+              "slippage-bps": 8,
+              "estimated-slippage-usd": 5.12,
+              "fee-bps": 3.5,
+              "estimated-fee-usd": 2.24
+            },
+            "reason": "supported-perp"
+          },
+          {
+            "instrument-id": "perp:SOL",
+            "instrument-type": "perp",
+            "coin": "SOL",
+            "status": "ready",
+            "side": "buy",
+            "price": 150,
+            "quantity": 48,
+            "delta-notional-usd": 7200,
+            "order-type": "market",
+            "cost": {
+              "source": "live-orderbook",
+              "estimated-fill-price": null,
+              "notional-usd": 7200,
+              "slippage-bps": 8,
+              "estimated-slippage-usd": 5.76,
+              "fee-bps": 3.5,
+              "estimated-fee-usd": 2.52
+            },
+            "reason": "supported-perp"
+          }
+        ]
+      },
+      "warnings": []
+    }
+  },
+  "runtime": {
+    "as-of-ms": 1777047000000,
+    "stale-after-ms": 604800000,
+    "orderbook-stale-after-ms": 15000,
+    "funding-periods-per-year": 1095
+  },
+  "market-cap-by-coin": {
+    "BTC": 900,
+    "ETH": 350,
+    "SOL": 80,
+    "HYPE": 25,
+    "PURR": 5
+  }
+}

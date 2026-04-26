@@ -1,0 +1,762 @@
+{
+  "draft": {
+    "schema-version": 1,
+    "id": "scn_acceptance_b_mixed_spot_perp",
+    "name": "Scenario B - Mixed Spot Perp",
+    "status": "saved",
+    "universe": [
+      {
+        "instrument-id": "perp:BTC",
+        "market-type": "perp",
+        "coin": "BTC",
+        "shortable?": true,
+        "symbol": "BTC-USDC"
+      },
+      {
+        "instrument-id": "perp:ETH",
+        "market-type": "perp",
+        "coin": "ETH",
+        "shortable?": true,
+        "symbol": "ETH-USDC"
+      },
+      {
+        "instrument-id": "spot:PURR/USDC",
+        "market-type": "spot",
+        "coin": "PURR",
+        "shortable?": false,
+        "symbol": "PURR/USDC",
+        "base": "PURR",
+        "quote": "USDC"
+      }
+    ],
+    "objective": {
+      "kind": "target-volatility",
+      "target-volatility": 0.3
+    },
+    "return-model": {
+      "kind": "historical-mean"
+    },
+    "risk-model": {
+      "kind": "diagonal-shrink"
+    },
+    "constraints": {
+      "long-only?": false,
+      "gross-max": 3,
+      "net-max": 1.5,
+      "max-asset-weight": 0.45,
+      "dust-usdc": 50,
+      "max-turnover": 1,
+      "rebalance-tolerance": 0.03,
+      "asset-overrides": {},
+      "held-locks": [],
+      "perp-leverage": {},
+      "allowlist": [],
+      "blocklist": []
+    },
+    "execution-assumptions": {
+      "default-order-type": "market",
+      "fallback-slippage-bps": 25,
+      "fee-mode": "taker"
+    },
+    "metadata": {
+      "dirty?": false,
+      "created-at-ms": 1777046999000,
+      "updated-at-ms": 1777047000000
+    }
+  },
+  "active-scenario": {
+    "loaded-id": "scn_acceptance_b_mixed_spot_perp",
+    "status": "saved",
+    "read-only?": false
+  },
+  "scenario-index": {
+    "ordered-ids": [
+      "scn_acceptance_b_mixed_spot_perp"
+    ],
+    "by-id": {
+      "scn_acceptance_b_mixed_spot_perp": {
+        "id": "scn_acceptance_b_mixed_spot_perp",
+        "name": "Scenario B - Mixed Spot Perp",
+        "status": "saved",
+        "objective-kind": "target-volatility",
+        "return-model-kind": "historical-mean",
+        "risk-model-kind": "diagonal-shrink",
+        "expected-return": 0.166,
+        "volatility": 0.29,
+        "rebalance-status": "partially-blocked",
+        "updated-at-ms": 1777047000000
+      }
+    }
+  },
+  "last-successful-run": {
+    "request-signature": {
+      "scenario-id": "scn_acceptance_b_mixed_spot_perp"
+    },
+    "computed-at-ms": 1777047000000,
+    "result": {
+      "status": "solved",
+      "scenario-id": "scn_acceptance_b_mixed_spot_perp",
+      "instrument-ids": [
+        "perp:BTC",
+        "perp:ETH",
+        "spot:PURR/USDC"
+      ],
+      "current-weights": [
+        0.4,
+        0.3,
+        0.05
+      ],
+      "target-weights": [
+        0.45,
+        0.35,
+        0.2
+      ],
+      "current-weights-by-instrument": {
+        "perp:BTC": 0.4,
+        "perp:ETH": 0.3,
+        "spot:PURR/USDC": 0.05
+      },
+      "target-weights-by-instrument": {
+        "perp:BTC": 0.45,
+        "perp:ETH": 0.35,
+        "spot:PURR/USDC": 0.2
+      },
+      "expected-return": 0.166,
+      "volatility": 0.29,
+      "return-model": "historical-mean",
+      "risk-model": "diagonal-shrink",
+      "history-summary": {
+        "return-observations": 4
+      },
+      "performance": {
+        "in-sample-sharpe": 0.91,
+        "shrunk-sharpe": 0.68
+      },
+      "frontier": [
+        {
+          "id": 0,
+          "expected-return": 0.126,
+          "volatility": 0.20999999999999996,
+          "sharpe": 0.55
+        },
+        {
+          "id": 1,
+          "expected-return": 0.166,
+          "volatility": 0.29,
+          "sharpe": 0.68
+        },
+        {
+          "id": 2,
+          "expected-return": 0.196,
+          "volatility": 0.33999999999999997,
+          "sharpe": 0.63
+        }
+      ],
+      "diagnostics": {
+        "gross-exposure": 1,
+        "net-exposure": 1,
+        "effective-n": 2.73972602739726,
+        "turnover": 0.28,
+        "binding-constraints": [],
+        "covariance-conditioning": {
+          "status": "ok",
+          "condition-number": 18.4,
+          "min-eigenvalue": 0.002,
+          "max-eigenvalue": 0.036
+        },
+        "weight-sensitivity-by-instrument": {
+          "perp:BTC": {
+            "base-expected-return": 0.12,
+            "down-expected-return": 0.1,
+            "up-expected-return": 0.14
+          },
+          "perp:ETH": {
+            "base-expected-return": 0.135,
+            "down-expected-return": 0.112,
+            "up-expected-return": 0.158
+          },
+          "spot:PURR/USDC": {
+            "base-expected-return": 0.15,
+            "down-expected-return": 0.124,
+            "up-expected-return": 0.17600000000000002
+          }
+        }
+      },
+      "return-decomposition-by-instrument": {
+        "perp:BTC": {
+          "return-component": 0.14,
+          "funding-component": 0.03,
+          "funding-source": "market-funding-history"
+        },
+        "perp:ETH": {
+          "return-component": 0.11,
+          "funding-component": 0.02,
+          "funding-source": "market-funding-history"
+        },
+        "spot:PURR/USDC": {
+          "return-component": 0.21,
+          "funding-component": 0,
+          "funding-source": "not-applicable"
+        }
+      },
+      "rebalance-preview": {
+        "capital-usd": 50000,
+        "status": "partially-blocked",
+        "summary": {
+          "ready-count": 2,
+          "blocked-count": 1,
+          "gross-trade-notional-usd": 12500,
+          "gross-ready-notional-usd": 10000,
+          "estimated-fees-usd": 1.75,
+          "estimated-slippage-usd": 20.5,
+          "margin": {
+            "capital-usd": 50000,
+            "current-used-usd": 6000,
+            "estimated-impact-usd": 12500,
+            "after-used-usd": 18500,
+            "before-utilization": 0.12,
+            "after-utilization": 0.37,
+            "warning": null
+          }
+        },
+        "rows": [
+          {
+            "instrument-id": "perp:BTC",
+            "instrument-type": "perp",
+            "coin": "BTC",
+            "status": "ready",
+            "side": "buy",
+            "price": 100000,
+            "quantity": 0.025,
+            "delta-notional-usd": 2500,
+            "order-type": "market",
+            "cost": {
+              "source": "live-orderbook",
+              "estimated-fill-price": null,
+              "notional-usd": 2500,
+              "slippage-bps": 8,
+              "estimated-slippage-usd": 2,
+              "fee-bps": 3.5,
+              "estimated-fee-usd": 0.875
+            },
+            "reason": "supported-perp"
+          },
+          {
+            "instrument-id": "perp:ETH",
+            "instrument-type": "perp",
+            "coin": "ETH",
+            "status": "ready",
+            "side": "buy",
+            "price": 4000,
+            "quantity": 0.625,
+            "delta-notional-usd": 2500,
+            "order-type": "market",
+            "cost": {
+              "source": "live-orderbook",
+              "estimated-fill-price": null,
+              "notional-usd": 2500,
+              "slippage-bps": 8,
+              "estimated-slippage-usd": 2,
+              "fee-bps": 3.5,
+              "estimated-fee-usd": 0.875
+            },
+            "reason": "supported-perp"
+          },
+          {
+            "instrument-id": "spot:PURR/USDC",
+            "instrument-type": "spot",
+            "coin": "PURR",
+            "status": "blocked",
+            "side": "buy",
+            "price": 1,
+            "quantity": 7500,
+            "delta-notional-usd": 7500,
+            "order-type": "market",
+            "cost": {
+              "source": "fallback-bps",
+              "estimated-fill-price": null,
+              "notional-usd": 7500,
+              "slippage-bps": 25,
+              "estimated-slippage-usd": 18.75,
+              "fee-bps": 3.5,
+              "estimated-fee-usd": 2.625
+            },
+            "reason": "spot-submit-unsupported"
+          }
+        ]
+      },
+      "warnings": [
+        {
+          "code": "partially-blocked-preview",
+          "message": "Spot submit is intentionally blocked in V1."
+        }
+      ]
+    }
+  },
+  "history-data": {
+    "candle-history-by-coin": {
+      "BTC": [
+        {
+          "time": 1776701400000,
+          "close": "100000"
+        },
+        {
+          "time": 1776787800000,
+          "close": "101499.99999999999"
+        },
+        {
+          "time": 1776874200000,
+          "close": "103000"
+        },
+        {
+          "time": 1776960600000,
+          "close": "104500"
+        },
+        {
+          "time": 1777047000000,
+          "close": "106000"
+        }
+      ],
+      "ETH": [
+        {
+          "time": 1776701400000,
+          "close": "4000"
+        },
+        {
+          "time": 1776787800000,
+          "close": "4059.9999999999995"
+        },
+        {
+          "time": 1776874200000,
+          "close": "4120"
+        },
+        {
+          "time": 1776960600000,
+          "close": "4180"
+        },
+        {
+          "time": 1777047000000,
+          "close": "4240"
+        }
+      ],
+      "SOL": [
+        {
+          "time": 1776701400000,
+          "close": "150"
+        },
+        {
+          "time": 1776787800000,
+          "close": "152.24999999999997"
+        },
+        {
+          "time": 1776874200000,
+          "close": "154.5"
+        },
+        {
+          "time": 1776960600000,
+          "close": "156.75"
+        },
+        {
+          "time": 1777047000000,
+          "close": "159"
+        }
+      ],
+      "HYPE": [
+        {
+          "time": 1776701400000,
+          "close": "110"
+        },
+        {
+          "time": 1776787800000,
+          "close": "111.64999999999999"
+        },
+        {
+          "time": 1776874200000,
+          "close": "113.3"
+        },
+        {
+          "time": 1776960600000,
+          "close": "114.94999999999999"
+        },
+        {
+          "time": 1777047000000,
+          "close": "116.60000000000001"
+        }
+      ],
+      "PURR": [
+        {
+          "time": 1776701400000,
+          "close": "1"
+        },
+        {
+          "time": 1776787800000,
+          "close": "1.015"
+        },
+        {
+          "time": 1776874200000,
+          "close": "1.03"
+        },
+        {
+          "time": 1776960600000,
+          "close": "1.045"
+        },
+        {
+          "time": 1777047000000,
+          "close": "1.06"
+        }
+      ]
+    },
+    "funding-history-by-coin": {
+      "BTC": [
+        {
+          "time": 1776931800000,
+          "fundingRate": "0.00008"
+        },
+        {
+          "time": 1776960600000,
+          "fundingRate": "0.000082"
+        },
+        {
+          "time": 1776989400000,
+          "fundingRate": "0.00008400000000000001"
+        },
+        {
+          "time": 1777018200000,
+          "fundingRate": "0.000086"
+        },
+        {
+          "time": 1777047000000,
+          "fundingRate": "0.00008800000000000001"
+        }
+      ],
+      "ETH": [
+        {
+          "time": 1776931800000,
+          "fundingRate": "0.00003"
+        },
+        {
+          "time": 1776960600000,
+          "fundingRate": "0.000032"
+        },
+        {
+          "time": 1776989400000,
+          "fundingRate": "0.000034"
+        },
+        {
+          "time": 1777018200000,
+          "fundingRate": "0.000036"
+        },
+        {
+          "time": 1777047000000,
+          "fundingRate": "0.000038"
+        }
+      ],
+      "SOL": [
+        {
+          "time": 1776931800000,
+          "fundingRate": "-0.00002"
+        },
+        {
+          "time": 1776960600000,
+          "fundingRate": "-0.000018"
+        },
+        {
+          "time": 1776989400000,
+          "fundingRate": "-0.000016000000000000003"
+        },
+        {
+          "time": 1777018200000,
+          "fundingRate": "-0.000014000000000000001"
+        },
+        {
+          "time": 1777047000000,
+          "fundingRate": "-0.000012000000000000002"
+        }
+      ],
+      "HYPE": [
+        {
+          "time": 1776931800000,
+          "fundingRate": "0.00004"
+        },
+        {
+          "time": 1776960600000,
+          "fundingRate": "0.000042000000000000004"
+        },
+        {
+          "time": 1776989400000,
+          "fundingRate": "0.000044000000000000006"
+        },
+        {
+          "time": 1777018200000,
+          "fundingRate": "0.00004600000000000001"
+        },
+        {
+          "time": 1777047000000,
+          "fundingRate": "0.000048"
+        }
+      ]
+    },
+    "warnings": []
+  },
+  "history-load-state": {
+    "status": "succeeded",
+    "completed-at-ms": 1777047000000,
+    "warnings": []
+  },
+  "scenario-save-state": {
+    "status": "saved",
+    "scenario-id": "scn_acceptance_b_mixed_spot_perp"
+  },
+  "scenario-index-load-state": {
+    "status": "loaded"
+  },
+  "scenario-load-state": {
+    "status": "not-found",
+    "scenario-id": "scn_acceptance_b_mixed_spot_perp",
+    "started-at-ms": 1777175762872,
+    "completed-at-ms": 1777175762893,
+    "error": {
+      "message": "Scenario scn_acceptance_b_mixed_spot_perp was not found."
+    }
+  },
+  "scenario-archive-state": {
+    "status": "idle"
+  },
+  "scenario-duplicate-state": {
+    "status": "idle"
+  },
+  "execution-modal": {
+    "open?": false,
+    "plan": null,
+    "submitting?": false,
+    "error": null
+  },
+  "execution": {
+    "status": "idle",
+    "attempt": null,
+    "history": [],
+    "error": null
+  },
+  "tracking": {
+    "status": "idle",
+    "scenario-id": "scn_acceptance_b_mixed_spot_perp",
+    "snapshots": [],
+    "error": null
+  },
+  "run-state": {
+    "status": "succeeded",
+    "scenario-id": "scn_acceptance_b_mixed_spot_perp",
+    "result": {
+      "status": "solved",
+      "scenario-id": "scn_acceptance_b_mixed_spot_perp",
+      "instrument-ids": [
+        "perp:BTC",
+        "perp:ETH",
+        "spot:PURR/USDC"
+      ],
+      "current-weights": [
+        0.4,
+        0.3,
+        0.05
+      ],
+      "target-weights": [
+        0.45,
+        0.35,
+        0.2
+      ],
+      "current-weights-by-instrument": {
+        "perp:BTC": 0.4,
+        "perp:ETH": 0.3,
+        "spot:PURR/USDC": 0.05
+      },
+      "target-weights-by-instrument": {
+        "perp:BTC": 0.45,
+        "perp:ETH": 0.35,
+        "spot:PURR/USDC": 0.2
+      },
+      "expected-return": 0.166,
+      "volatility": 0.29,
+      "return-model": "historical-mean",
+      "risk-model": "diagonal-shrink",
+      "history-summary": {
+        "return-observations": 4
+      },
+      "performance": {
+        "in-sample-sharpe": 0.91,
+        "shrunk-sharpe": 0.68
+      },
+      "frontier": [
+        {
+          "id": 0,
+          "expected-return": 0.126,
+          "volatility": 0.20999999999999996,
+          "sharpe": 0.55
+        },
+        {
+          "id": 1,
+          "expected-return": 0.166,
+          "volatility": 0.29,
+          "sharpe": 0.68
+        },
+        {
+          "id": 2,
+          "expected-return": 0.196,
+          "volatility": 0.33999999999999997,
+          "sharpe": 0.63
+        }
+      ],
+      "diagnostics": {
+        "gross-exposure": 1,
+        "net-exposure": 1,
+        "effective-n": 2.73972602739726,
+        "turnover": 0.28,
+        "binding-constraints": [],
+        "covariance-conditioning": {
+          "status": "ok",
+          "condition-number": 18.4,
+          "min-eigenvalue": 0.002,
+          "max-eigenvalue": 0.036
+        },
+        "weight-sensitivity-by-instrument": {
+          "perp:BTC": {
+            "base-expected-return": 0.12,
+            "down-expected-return": 0.1,
+            "up-expected-return": 0.14
+          },
+          "perp:ETH": {
+            "base-expected-return": 0.135,
+            "down-expected-return": 0.112,
+            "up-expected-return": 0.158
+          },
+          "spot:PURR/USDC": {
+            "base-expected-return": 0.15,
+            "down-expected-return": 0.124,
+            "up-expected-return": 0.17600000000000002
+          }
+        }
+      },
+      "return-decomposition-by-instrument": {
+        "perp:BTC": {
+          "return-component": 0.14,
+          "funding-component": 0.03,
+          "funding-source": "market-funding-history"
+        },
+        "perp:ETH": {
+          "return-component": 0.11,
+          "funding-component": 0.02,
+          "funding-source": "market-funding-history"
+        },
+        "spot:PURR/USDC": {
+          "return-component": 0.21,
+          "funding-component": 0,
+          "funding-source": "not-applicable"
+        }
+      },
+      "rebalance-preview": {
+        "capital-usd": 50000,
+        "status": "partially-blocked",
+        "summary": {
+          "ready-count": 2,
+          "blocked-count": 1,
+          "gross-trade-notional-usd": 12500,
+          "gross-ready-notional-usd": 10000,
+          "estimated-fees-usd": 1.75,
+          "estimated-slippage-usd": 20.5,
+          "margin": {
+            "capital-usd": 50000,
+            "current-used-usd": 6000,
+            "estimated-impact-usd": 12500,
+            "after-used-usd": 18500,
+            "before-utilization": 0.12,
+            "after-utilization": 0.37,
+            "warning": null
+          }
+        },
+        "rows": [
+          {
+            "instrument-id": "perp:BTC",
+            "instrument-type": "perp",
+            "coin": "BTC",
+            "status": "ready",
+            "side": "buy",
+            "price": 100000,
+            "quantity": 0.025,
+            "delta-notional-usd": 2500,
+            "order-type": "market",
+            "cost": {
+              "source": "live-orderbook",
+              "estimated-fill-price": null,
+              "notional-usd": 2500,
+              "slippage-bps": 8,
+              "estimated-slippage-usd": 2,
+              "fee-bps": 3.5,
+              "estimated-fee-usd": 0.875
+            },
+            "reason": "supported-perp"
+          },
+          {
+            "instrument-id": "perp:ETH",
+            "instrument-type": "perp",
+            "coin": "ETH",
+            "status": "ready",
+            "side": "buy",
+            "price": 4000,
+            "quantity": 0.625,
+            "delta-notional-usd": 2500,
+            "order-type": "market",
+            "cost": {
+              "source": "live-orderbook",
+              "estimated-fill-price": null,
+              "notional-usd": 2500,
+              "slippage-bps": 8,
+              "estimated-slippage-usd": 2,
+              "fee-bps": 3.5,
+              "estimated-fee-usd": 0.875
+            },
+            "reason": "supported-perp"
+          },
+          {
+            "instrument-id": "spot:PURR/USDC",
+            "instrument-type": "spot",
+            "coin": "PURR",
+            "status": "blocked",
+            "side": "buy",
+            "price": 1,
+            "quantity": 7500,
+            "delta-notional-usd": 7500,
+            "order-type": "market",
+            "cost": {
+              "source": "fallback-bps",
+              "estimated-fill-price": null,
+              "notional-usd": 7500,
+              "slippage-bps": 25,
+              "estimated-slippage-usd": 18.75,
+              "fee-bps": 3.5,
+              "estimated-fee-usd": 2.625
+            },
+            "reason": "spot-submit-unsupported"
+          }
+        ]
+      },
+      "warnings": [
+        {
+          "code": "partially-blocked-preview",
+          "message": "Spot submit is intentionally blocked in V1."
+        }
+      ]
+    }
+  },
+  "runtime": {
+    "as-of-ms": 1777047000000,
+    "stale-after-ms": 604800000,
+    "orderbook-stale-after-ms": 15000,
+    "funding-periods-per-year": 1095
+  },
+  "market-cap-by-coin": {
+    "BTC": 900,
+    "ETH": 350,
+    "SOL": 80,
+    "HYPE": 25,
+    "PURR": 5
+  }
+}

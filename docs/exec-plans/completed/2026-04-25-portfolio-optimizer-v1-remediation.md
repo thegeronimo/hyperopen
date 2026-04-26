@@ -86,7 +86,7 @@ A branch is only review-ready when all of the following are true:
 - [x] (2026-04-26 02:51Z) Completed Phase 6 results surface upgrade. Results now render a stale/rerun banner driven by current-vs-last request comparison, a run-assumptions strip, three-column allocation/frontier/diagnostics panels, signed exposure bars with long/short metadata, a trust/caution rail, and visible binding/sensitivity diagnostics. Focused view tests, a targeted Playwright optimizer slice, and the required gates passed.
 - [x] (2026-04-26 03:17Z) Completed Phase 7 rebalance review upgrade. Rebalance preview now carries orderbook-derived cost context with fallback labeling, fee/slippage estimates, margin impact/utilization summary, expanded review/modal columns, and browser coverage for cost/margin rendering. The route system now loads optimizer scenario/index state on optimizer navigation and startup refresh, and stale-result comparison ignores injected live cost contexts while preserving user-controlled execution assumption comparison.
 - [x] (2026-04-26 04:04Z) Completed Phase 8 scenario lifecycle and tracking. Successful worker runs now promote active scenarios to `:computed`, failed/blocked execution attempts no longer overwrite saved/computed scenario lifecycle status, manual tracking enable persists `:tracking` to the saved scenario/index record, unsaved computed scenarios disable manual tracking until saved, tracking snapshots include NAV and predicted-volatility baselines, realized return is computed from the first tracked NAV baseline, and the tracking panel now renders predicted-vol, drift chart, realized-vs-predicted path, and a re-optimize-from-current CTA. Focused CLJS tracking/lifecycle tests, targeted Playwright tracking reload/rerun coverage, and the required gates passed.
-- [ ] Complete Phase 9 acceptance artifact refresh.
+- [x] (2026-04-26 04:31Z) Completed Phase 9 acceptance artifact refresh. Generated `docs/exec-plans/completed/artifacts/portfolio-optimizer-v1-remediation-review/` with four scenario JSON payloads and six screenshots covering non-zero executable perps, mixed spot/perp blocked semantics, Black-Litterman absolute/relative views with prior source, and infeasible-constraint UX. Artifact generation used the live optimizer route and passed Playwright assertions.
 
 ## Surprises & Discoveries
 
@@ -128,6 +128,9 @@ A branch is only review-ready when all of the following are true:
 
 - Observation: Adding lifecycle persistence directly to the top-level optimizer effect adapter exceeded namespace-size limits.
   Evidence: `npm run lint:namespace-sizes` failed for `src/hyperopen/runtime/effect_adapters/portfolio_optimizer.cljs` and `src/hyperopen/runtime/effect_adapters.cljs`. The implementation moved the manual-tracking persistence body into `portfolio_optimizer_scenarios.cljs` and kept the facade adapter as a thin wrapper instead of adding size exceptions.
+
+- Observation: The previous review bundle caveat about zero notional proof is now obsolete.
+  Evidence: Scenario A in `docs/exec-plans/completed/artifacts/portfolio-optimizer-v1-remediation-review/scenario-data/scenario-a-perp-executable.json` has `capital-usd = 100000`, `ready-count = 4`, `gross-trade-notional-usd = 28000`, `estimated-fees-usd = 9.8`, and non-zero target weights. Scenario B separately proves blocked spot semantics while retaining ready perp rows.
 
 ## Decision Log
 
@@ -179,9 +182,13 @@ A branch is only review-ready when all of the following are true:
   Rationale: Tracking is part of the canonical scenario state contract. Keeping it local would make saved scenarios lie after refresh and would undermine read-only tracking workflows. The action now dispatches a dedicated effect that updates the saved scenario record, scenario index summary, active scenario state, and tracking state through existing persistence boundaries.
   Date/Author: 2026-04-26 / Codex
 
+- Decision: Keep regenerated Phase 9 artifacts under the completed ExecPlan artifact directory.
+  Rationale: These are implementation-review proof artifacts, not runtime assets. Storing them under `docs/exec-plans/completed/artifacts/portfolio-optimizer-v1-remediation-review/` keeps them discoverable with the plan while avoiding source, build output, dependency directories, browser caches, and Playwright reports.
+  Date/Author: 2026-04-26 / Codex
+
 ## Outcomes & Retrospective
 
-Not yet completed. This section will be updated when the remediation acceptance criteria are satisfied or the plan is intentionally paused.
+The remediation pass is implementation-complete through Phase 9. The branch now has a reviewable commit stack through `optimizer/acceptance-artifacts-refresh`, all required gates passed after Phase 8 code changes, and the Phase 9 artifact generator produced proof scenarios with non-zero executable notionals plus blocked-spot and infeasible-state coverage. The remaining work is external review, not an unimplemented phase in this ExecPlan.
 
 ## Phase 0 — isolate the work into a reviewable optimizer-only branch
 

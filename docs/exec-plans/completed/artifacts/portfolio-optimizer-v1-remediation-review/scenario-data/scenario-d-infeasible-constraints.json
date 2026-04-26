@@ -1,0 +1,378 @@
+{
+  "draft": {
+    "schema-version": 1,
+    "id": "scn_acceptance_d_infeasible_constraints",
+    "name": "Scenario D - Infeasible Constraints",
+    "status": "saved",
+    "universe": [
+      {
+        "instrument-id": "perp:BTC",
+        "market-type": "perp",
+        "coin": "BTC",
+        "shortable?": true,
+        "symbol": "BTC-USDC"
+      },
+      {
+        "instrument-id": "perp:ETH",
+        "market-type": "perp",
+        "coin": "ETH",
+        "shortable?": true,
+        "symbol": "ETH-USDC"
+      },
+      {
+        "instrument-id": "perp:SOL",
+        "market-type": "perp",
+        "coin": "SOL",
+        "shortable?": true,
+        "symbol": "SOL-USDC"
+      }
+    ],
+    "objective": {
+      "kind": "target-return",
+      "target-return": 0.85
+    },
+    "return-model": {
+      "kind": "historical-mean"
+    },
+    "risk-model": {
+      "kind": "diagonal-shrink"
+    },
+    "constraints": {
+      "long-only?": false,
+      "gross-max": 0.5,
+      "net-max": 1.5,
+      "max-asset-weight": 0.2,
+      "dust-usdc": 50,
+      "max-turnover": 1,
+      "rebalance-tolerance": 0.03,
+      "asset-overrides": {},
+      "held-locks": [],
+      "perp-leverage": {},
+      "allowlist": [],
+      "blocklist": []
+    },
+    "execution-assumptions": {
+      "default-order-type": "market",
+      "fallback-slippage-bps": 25,
+      "fee-mode": "taker"
+    },
+    "metadata": {
+      "dirty?": false,
+      "created-at-ms": 1777046999000,
+      "updated-at-ms": 1777047000000
+    }
+  },
+  "active-scenario": {
+    "loaded-id": "scn_acceptance_d_infeasible_constraints",
+    "status": "saved",
+    "read-only?": false
+  },
+  "scenario-index": {
+    "ordered-ids": [
+      "scn_acceptance_d_infeasible_constraints"
+    ],
+    "by-id": {
+      "scn_acceptance_d_infeasible_constraints": {
+        "id": "scn_acceptance_d_infeasible_constraints",
+        "name": "Scenario D - Infeasible Constraints",
+        "status": "saved",
+        "objective-kind": "target-return",
+        "return-model-kind": "historical-mean",
+        "risk-model-kind": "diagonal-shrink",
+        "expected-return": null,
+        "volatility": null,
+        "rebalance-status": null,
+        "updated-at-ms": 1777047000000
+      }
+    }
+  },
+  "last-successful-run": null,
+  "history-data": {
+    "candle-history-by-coin": {
+      "BTC": [
+        {
+          "time": 1776701400000,
+          "close": "100000"
+        },
+        {
+          "time": 1776787800000,
+          "close": "101499.99999999999"
+        },
+        {
+          "time": 1776874200000,
+          "close": "103000"
+        },
+        {
+          "time": 1776960600000,
+          "close": "104500"
+        },
+        {
+          "time": 1777047000000,
+          "close": "106000"
+        }
+      ],
+      "ETH": [
+        {
+          "time": 1776701400000,
+          "close": "4000"
+        },
+        {
+          "time": 1776787800000,
+          "close": "4059.9999999999995"
+        },
+        {
+          "time": 1776874200000,
+          "close": "4120"
+        },
+        {
+          "time": 1776960600000,
+          "close": "4180"
+        },
+        {
+          "time": 1777047000000,
+          "close": "4240"
+        }
+      ],
+      "SOL": [
+        {
+          "time": 1776701400000,
+          "close": "150"
+        },
+        {
+          "time": 1776787800000,
+          "close": "152.24999999999997"
+        },
+        {
+          "time": 1776874200000,
+          "close": "154.5"
+        },
+        {
+          "time": 1776960600000,
+          "close": "156.75"
+        },
+        {
+          "time": 1777047000000,
+          "close": "159"
+        }
+      ],
+      "HYPE": [
+        {
+          "time": 1776701400000,
+          "close": "110"
+        },
+        {
+          "time": 1776787800000,
+          "close": "111.64999999999999"
+        },
+        {
+          "time": 1776874200000,
+          "close": "113.3"
+        },
+        {
+          "time": 1776960600000,
+          "close": "114.94999999999999"
+        },
+        {
+          "time": 1777047000000,
+          "close": "116.60000000000001"
+        }
+      ],
+      "PURR": [
+        {
+          "time": 1776701400000,
+          "close": "1"
+        },
+        {
+          "time": 1776787800000,
+          "close": "1.015"
+        },
+        {
+          "time": 1776874200000,
+          "close": "1.03"
+        },
+        {
+          "time": 1776960600000,
+          "close": "1.045"
+        },
+        {
+          "time": 1777047000000,
+          "close": "1.06"
+        }
+      ]
+    },
+    "funding-history-by-coin": {
+      "BTC": [
+        {
+          "time": 1776931800000,
+          "fundingRate": "0.00008"
+        },
+        {
+          "time": 1776960600000,
+          "fundingRate": "0.000082"
+        },
+        {
+          "time": 1776989400000,
+          "fundingRate": "0.00008400000000000001"
+        },
+        {
+          "time": 1777018200000,
+          "fundingRate": "0.000086"
+        },
+        {
+          "time": 1777047000000,
+          "fundingRate": "0.00008800000000000001"
+        }
+      ],
+      "ETH": [
+        {
+          "time": 1776931800000,
+          "fundingRate": "0.00003"
+        },
+        {
+          "time": 1776960600000,
+          "fundingRate": "0.000032"
+        },
+        {
+          "time": 1776989400000,
+          "fundingRate": "0.000034"
+        },
+        {
+          "time": 1777018200000,
+          "fundingRate": "0.000036"
+        },
+        {
+          "time": 1777047000000,
+          "fundingRate": "0.000038"
+        }
+      ],
+      "SOL": [
+        {
+          "time": 1776931800000,
+          "fundingRate": "-0.00002"
+        },
+        {
+          "time": 1776960600000,
+          "fundingRate": "-0.000018"
+        },
+        {
+          "time": 1776989400000,
+          "fundingRate": "-0.000016000000000000003"
+        },
+        {
+          "time": 1777018200000,
+          "fundingRate": "-0.000014000000000000001"
+        },
+        {
+          "time": 1777047000000,
+          "fundingRate": "-0.000012000000000000002"
+        }
+      ],
+      "HYPE": [
+        {
+          "time": 1776931800000,
+          "fundingRate": "0.00004"
+        },
+        {
+          "time": 1776960600000,
+          "fundingRate": "0.000042000000000000004"
+        },
+        {
+          "time": 1776989400000,
+          "fundingRate": "0.000044000000000000006"
+        },
+        {
+          "time": 1777018200000,
+          "fundingRate": "0.00004600000000000001"
+        },
+        {
+          "time": 1777047000000,
+          "fundingRate": "0.000048"
+        }
+      ]
+    },
+    "warnings": []
+  },
+  "history-load-state": {
+    "status": "succeeded",
+    "completed-at-ms": 1777047000000,
+    "warnings": []
+  },
+  "scenario-save-state": {
+    "status": "saved",
+    "scenario-id": "scn_acceptance_d_infeasible_constraints"
+  },
+  "scenario-index-load-state": {
+    "status": "loaded"
+  },
+  "scenario-load-state": {
+    "status": "not-found",
+    "scenario-id": "scn_acceptance_d_infeasible_constraints",
+    "started-at-ms": 1777175767415,
+    "completed-at-ms": 1777175767433,
+    "error": {
+      "message": "Scenario scn_acceptance_d_infeasible_constraints was not found."
+    }
+  },
+  "scenario-archive-state": {
+    "status": "idle"
+  },
+  "scenario-duplicate-state": {
+    "status": "idle"
+  },
+  "execution-modal": {
+    "open?": false,
+    "plan": null,
+    "submitting?": false,
+    "error": null
+  },
+  "execution": {
+    "status": "idle",
+    "attempt": null,
+    "history": [],
+    "error": null
+  },
+  "tracking": {
+    "status": "idle",
+    "scenario-id": "scn_acceptance_d_infeasible_constraints",
+    "snapshots": [],
+    "error": null
+  },
+  "run-state": {
+    "status": "infeasible",
+    "scenario-id": "scn_acceptance_d_infeasible_constraints",
+    "result": {
+      "status": "infeasible",
+      "reason": "target-return-above-feasible-maximum",
+      "details": {
+        "violations": [
+          {
+            "code": "target-return-above-feasible-maximum",
+            "target-return": 0.85,
+            "max-feasible-return": 0.31
+          },
+          {
+            "code": "sum-upper-below-target",
+            "constraint": "max-asset-weight"
+          }
+        ]
+      }
+    },
+    "error": {
+      "code": "infeasible-constraints",
+      "message": "Target return exceeds feasible maximum under max asset weight."
+    }
+  },
+  "runtime": {
+    "as-of-ms": 1777047000000,
+    "stale-after-ms": 604800000,
+    "orderbook-stale-after-ms": 15000,
+    "funding-periods-per-year": 1095
+  },
+  "market-cap-by-coin": {
+    "BTC": 900,
+    "ETH": 350,
+    "SOL": 80,
+    "HYPE": 25,
+    "PURR": 5
+  }
+}

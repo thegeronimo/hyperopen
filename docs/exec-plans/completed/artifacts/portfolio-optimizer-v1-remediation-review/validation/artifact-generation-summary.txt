@@ -1,0 +1,2 @@
+Command: npx playwright test tools/playwright/test/portfolio-optimizer-artifacts.tmp.spec.mjs
+Result: generated four scenario payloads and six screenshots through the live optimizer route.
