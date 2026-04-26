@@ -10,10 +10,9 @@
    :return-model {:kind :historical-mean}
    :risk-model {:kind :ledoit-wolf}
    :constraints {:long-only? false
-                 :gross-max 1.5
-                 :net-min 0.8
-                 :net-max 1.1
-                 :max-asset-weight 0.35
+                 :gross-max 3.0
+                 :net-max 1.5
+                 :max-asset-weight 0.25
                  :dust-usdc 50.0
                  :asset-overrides {}
                  :held-locks []
@@ -21,7 +20,7 @@
                  :allowlist []
                  :blocklist []
                  :max-turnover 1.0
-                 :rebalance-tolerance 0.01}
+                 :rebalance-tolerance 0.03}
    :execution-assumptions {:default-order-type :market
                            :fallback-slippage-bps 25
                            :fee-mode :taker}

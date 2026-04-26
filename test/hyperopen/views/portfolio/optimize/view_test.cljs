@@ -97,7 +97,7 @@
            (get-in (node-by-role view-node
                                  "portfolio-optimizer-constraint-long-only-input")
                    [1 :checked])))
-    (is (= "0.35"
+    (is (= "0.25"
            (get-in (node-by-role view-node
                                  "portfolio-optimizer-constraint-max-asset-weight-input")
                    [1 :value])))
@@ -352,6 +352,8 @@
                               :turnover 0.135
                               :binding-constraints [{:instrument-id "perp:BTC"
                                                      :constraint :upper-bound}]}
+                :warnings [{:code :low-invested-exposure
+                            :message "Minimum variance selected a near-cash signed portfolio."}]
                 :rebalance-preview {:status :partially-blocked
                                     :capital-usd 10000
                                     :summary {:ready-count 1
@@ -384,6 +386,7 @@
     (is (some? (node-by-role view-node "portfolio-optimizer-frontier-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-target-exposure-table")))
     (is (some? (node-by-role view-node "portfolio-optimizer-return-decomposition")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-result-warnings")))
     (is (some? (node-by-role view-node "portfolio-optimizer-diagnostics-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-rebalance-preview")))
     (is (= "true"
@@ -408,6 +411,7 @@
     (is (contains? strings "Efficient Frontier"))
     (is (contains? strings "Click or drag across points to set Target Volatility and rerun."))
     (is (contains? strings "Funding Decomposition"))
+    (is (contains? strings "low-invested-exposure"))
     (is (contains? strings "Binding Constraints"))
     (is (contains? strings "partially-blocked"))
     (is (contains? strings "spot-submit-unsupported"))

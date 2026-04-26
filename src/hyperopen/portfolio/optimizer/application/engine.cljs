@@ -202,6 +202,19 @@
                                             (:market-type instrument)))]))
         universe))
 
+(defn- min-variance-cash-warning
+  [request encoded diagnostics]
+  (let [gross-exposure (:gross-exposure diagnostics)
+        net-min (get-in encoded [:net-exposure :min])]
+    (when (and (= :minimum-variance (get-in request [:objective :kind]))
+               (false? (:long-only? encoded))
+               (not (finite-number? net-min))
+               (finite-number? gross-exposure)
+               (< gross-exposure 0.05))
+      {:code :low-invested-exposure
+       :invested-exposure gross-exposure
+       :message "Minimum variance selected a near-cash signed portfolio. Use Target Return, Target Volatility, or an explicit Net Min floor if you want invested exposure."})))
+
 (defn- rebalance-preview
   [request instrument-ids current-weights target-weights]
   (let [execution-assumptions (:execution-assumptions request)]
@@ -240,7 +253,8 @@
                       :target-weights target-weights
                       :lower-bounds (:lower-bounds encoded)
                       :upper-bounds (:upper-bounds encoded)
-                      :covariance (:covariance risk-result)})]
+                      :covariance (:covariance risk-result)})
+        cash-warning (min-variance-cash-warning request encoded diagnostics)]
     {:status :solved
      :scenario-id (:scenario-id request)
      :as-of-ms (:as-of-ms request)
@@ -261,7 +275,8 @@
      :black-litterman-diagnostics (:diagnostics return-result)
      :warnings (vec (concat (:warnings request)
                             (:warnings risk-result)
-                            (:warnings return-result)))
+                            (:warnings return-result)
+                            (when cash-warning [cash-warning])))
      :rebalance-preview (rebalance-preview request
                                            instrument-ids
                                            current-weights*

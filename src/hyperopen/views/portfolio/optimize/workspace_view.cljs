@@ -232,7 +232,7 @@
                          :gross-max
                          (:gross-max constraints)
                          "portfolio-optimizer-constraint-gross-max-input")
-       (constraint-input "Net Min"
+       (constraint-input "Net Min (optional floor)"
                          :net-min
                          (:net-min constraints)
                          "portfolio-optimizer-constraint-net-min-input")

@@ -79,7 +79,7 @@ A branch is only review-ready when all of the following are true:
 - [x] (2026-04-25 21:25Z) Stored the user-provided remediation plan under `docs/exec-plans/active/2026-04-25-portfolio-optimizer-v1-remediation.md` and created tracked issue `hyperopen-zenl`.
 - [x] (2026-04-25 21:55Z) Completed Phase 0 scope pruning. The working tree diff against `main` is restricted to optimizer code plus required route/runtime/build/test/browser-storage collateral, and `npm run check`, `npm test`, and `npm run test:websocket` passed.
 - [x] (2026-04-25 22:08Z) Completed Phase 1 capital-base and execution-readiness correctness. Snapshot readiness is split into `:snapshot-loaded?`, `:capital-ready?`, and `:execution-ready?`; zero-capital and below-lot rebalance rows are blocked; preview summaries count executable rows only; and the required gates passed.
-- [ ] Complete Phase 2 defaults and minimum-variance honesty.
+- [x] (2026-04-26 01:57Z) Completed Phase 2 defaults and minimum-variance honesty. Defaults no longer include hidden `net-min`, default leverage/weight/tolerance values match the remediation contract, signed minimum-variance near-cash solutions are surfaced with an explicit warning, and the required gates passed.
 - [ ] Complete Phase 3 Black-Litterman authoring UI and persistence.
 - [ ] Complete Phase 4 worker wire normalization and funding rendering.
 - [ ] Complete Phase 5 risk and diagnostics correction.
@@ -102,6 +102,9 @@ A branch is only review-ready when all of the following are true:
 - Observation: Optimizer runtime handlers must be wired into the app-level action/effect dependency graph.
   Evidence: After restoring the registration catalog, `npm test` failed at runtime bootstrap with "Missing effect handler :run-portfolio-optimizer"; `src/hyperopen/app/actions.cljs` and `src/hyperopen/app/effects.cljs` need the optimizer handler groups so the registry composition can resolve registered optimizer ids.
 
+- Observation: A true minimum invested gross-exposure floor is not safely expressible in the current signed split-variable QP encoding.
+  Evidence: A lower bound such as `p+n >= floor` can be satisfied by paired positive and negative split variables that decode back to zero signed weight. Phase 2 therefore keeps the explicit optional `Net Min` floor and low-invested warning instead of adding a misleading `minimum-invested-exposure` default.
+
 ## Decision Log
 
 - Decision: Execute remediation on a new branch named `codex/portfolio-optimizer-v1-remediation`, not directly on `codex/portfolio-optimizer-v1-foundations`.
@@ -119,6 +122,10 @@ A branch is only review-ready when all of the following are true:
 - Decision: Keep the minimal optimizer handler groups in `src/hyperopen/app/actions.cljs` and `src/hyperopen/app/effects.cljs`.
   Rationale: These files are the existing composition seam between runtime registration and concrete action/effect adapters. Adding optimizer groups there avoids a parallel runtime shell and lets the existing registry boot normally.
   Date/Author: 2026-04-25 / Codex
+
+- Decision: Do not add a V1 `minimum-invested-exposure` control until the solver ADR supports a true signed gross-exposure lower bound.
+  Rationale: The current solver can honestly enforce net exposure floors, max gross exposure, and max asset weight. Pretending it can enforce a minimum gross invested floor would recreate the hidden-exposure bug under a different label. The UI now labels `Net Min` as an optional floor and the engine warns when signed minimum variance returns near cash.
+  Date/Author: 2026-04-26 / Codex
 
 ## Outcomes & Retrospective
 

@@ -164,6 +164,23 @@
    [:span {:class ["font-semibold"]} (:instrument-id binding)]
    [:span {:class ["ml-2"]} (keyword-label (:constraint binding))]])
 
+(defn- warning-row
+  [warning]
+  [:p {:class ["rounded-md" "border" "border-warning/40" "bg-warning/10" "p-2" "text-xs" "text-warning"]
+       :data-role "portfolio-optimizer-result-warning"}
+   [:span {:class ["font-semibold"]} (keyword-label (:code warning))]
+   (when-let [message (:message warning)]
+     [:span {:class ["ml-2"]} message])])
+
+(defn- warnings-panel
+  [result]
+  (when (seq (:warnings result))
+    (panel-shell
+     "portfolio-optimizer-result-warnings"
+     "Result Warnings"
+     "Warnings explain assumptions or mathematically valid outcomes that may require a rerun with different controls."
+     (map warning-row (:warnings result)))))
+
 (defn- diagnostics-panel
   [result]
   (let [diagnostics (:diagnostics result)
@@ -238,6 +255,7 @@
          (summary-card "Volatility" (format-pct (:volatility result)))
          (summary-card "Return Model" (keyword-label (:return-model result)))
          (summary-card "Risk Model" (keyword-label (:risk-model result)))]
+        (warnings-panel result)
         (target-exposure-table result)
         (frontier-chart/frontier-chart draft result)
         (return-decomposition result)

@@ -128,8 +128,9 @@
         constraints (:constraints request)]
     (is (nil? (:allowlist constraints)))
     (is (= [] (:blocklist constraints)))
-    (is (= 1.5 (:gross-leverage constraints)))
-    (is (= {:min 0.8 :max 1.1} (:net-exposure constraints)))
+    (is (= 3.0 (:gross-leverage constraints)))
+    (is (= {:max 1.5} (:net-exposure constraints)))
+    (is (not (contains? (:net-exposure constraints) :min)))
     (is (= 1.0 (:max-turnover constraints)))))
 
 (deftest build-engine-request-normalizes-execution-assumptions-test
