@@ -3,6 +3,7 @@
             [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
             [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
             [hyperopen.portfolio.routes :as portfolio-routes]
+            [hyperopen.views.portfolio.optimize.black-litterman-views-panel :as black-litterman-views-panel]
             [hyperopen.views.portfolio.optimize.execution-modal :as execution-modal]
             [hyperopen.views.portfolio.optimize.infeasible-panel :as infeasible-panel]
             [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]
@@ -151,7 +152,7 @@
                            :event.target/checked]]}}]])
 
 (defn- setup-panels
-  [state draft highlighted-controls]
+  [state draft readiness highlighted-controls]
   (let [objective-kind (get-in draft [:objective :kind])
         return-kind (get-in draft [:return-model :kind])
         risk-kind (get-in draft [:risk-model :kind])
@@ -202,6 +203,9 @@
       (option-chip "Black-Litterman" (= :black-litterman return-kind)
                    "portfolio-optimizer-return-model-black-litterman"
                    [:actions/set-portfolio-optimizer-return-model-kind :black-litterman]))
+     (black-litterman-views-panel/black-litterman-views-panel
+      draft
+      (get-in readiness [:request :black-litterman-prior]))
      (panel-shell
       "portfolio-optimizer-risk-model-panel"
       "Risk Model"
@@ -397,7 +401,7 @@
           "Save Scenario")]]]
      [:main {:class ["space-y-4"]}
       (infeasible-panel/infeasible-banner infeasible-result highlighted-controls)
-      (setup-panels state draft highlighted-controls)
+      (setup-panels state draft readiness highlighted-controls)
       (results-panel/results-panel last-successful-run draft)
       (tracking-panel/tracking-panel state)
       [:div {:class ["grid" "grid-cols-1" "gap-3" "lg:grid-cols-3"]

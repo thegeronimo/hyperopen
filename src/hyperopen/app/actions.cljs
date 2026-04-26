@@ -40,6 +40,12 @@
                          action-adapters/set-portfolio-optimizer-objective-parameter-action
                          :set-portfolio-optimizer-execution-assumption
                          action-adapters/set-portfolio-optimizer-execution-assumption-action
+                         :add-portfolio-optimizer-black-litterman-view
+                         action-adapters/add-portfolio-optimizer-black-litterman-view-action
+                         :set-portfolio-optimizer-black-litterman-view-parameter
+                         action-adapters/set-portfolio-optimizer-black-litterman-view-parameter-action
+                         :remove-portfolio-optimizer-black-litterman-view
+                         action-adapters/remove-portfolio-optimizer-black-litterman-view-action
                          :set-portfolio-optimizer-instrument-filter
                          action-adapters/set-portfolio-optimizer-instrument-filter-action
                          :set-portfolio-optimizer-asset-override

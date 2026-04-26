@@ -16,7 +16,14 @@
 (deftest build-saved-scenario-record-preserves-config-run-and-summary-test
   (let [draft {:name "Core Hedge"
                :objective {:kind :max-sharpe}
-               :return-model {:kind :historical-mean}
+               :return-model {:kind :black-litterman
+                              :views [{:id "view-1"
+                                       :kind :absolute
+                                       :instrument-id "perp:BTC"
+                                       :return 0.12
+                                       :confidence 0.7
+                                       :confidence-variance 0.3
+                                       :weights {"perp:BTC" 1}}]}
                :risk-model {:kind :ledoit-wolf}
                :metadata {:dirty? true}}
         record (scenario-records/build-saved-scenario-record
@@ -29,12 +36,20 @@
     (is (= "scn_01" (:id record)))
     (is (= "Core Hedge" (:name record)))
     (is (= false (get-in record [:config :metadata :dirty?])))
+    (is (= [{:id "view-1"
+             :kind :absolute
+             :instrument-id "perp:BTC"
+             :return 0.12
+             :confidence 0.7
+             :confidence-variance 0.3
+             :weights {"perp:BTC" 1}}]
+           (get-in record [:config :return-model :views])))
     (is (= solved-run (:saved-run record)))
     (is (= {:id "scn_01"
             :name "Core Hedge"
             :status :saved
             :objective-kind :max-sharpe
-            :return-model-kind :historical-mean
+            :return-model-kind :black-litterman
             :risk-model-kind :ledoit-wolf
             :expected-return 0.18
             :volatility 0.42

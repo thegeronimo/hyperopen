@@ -27,11 +27,29 @@
       (fn []
         (let [scenario {:id "scn_01"
                         :status :saved
-                        :config {:objective {:kind :max-sharpe}}}
+                        :config {:objective {:kind :max-sharpe}
+                                 :return-model {:kind :black-litterman
+                                                :views [{:id "view-1"
+                                                         :kind :relative
+                                                         :long-instrument-id "perp:BTC"
+                                                         :short-instrument-id "perp:ETH"
+                                                         :return 0.04
+                                                         :confidence 0.8
+                                                         :confidence-variance 0.2
+                                                         :weights {"perp:BTC" 1
+                                                                   "perp:ETH" -1}}]}}}
               scenario-index {:ordered-ids ["scn_01"]
                               :by-id {"scn_01" {:name "Core run"}}}
               draft {:name "Draft"
-                     :objective {:kind :minimum-variance}}
+                     :objective {:kind :minimum-variance}
+                     :return-model {:kind :black-litterman
+                                    :views [{:id "view-2"
+                                             :kind :absolute
+                                             :instrument-id "perp:SOL"
+                                             :return 0.12
+                                             :confidence 0.7
+                                             :confidence-variance 0.3
+                                             :weights {"perp:SOL" 1}}]}}
               tracking {:scenario-id "scn_01"
                         :snapshots [{:weight-drift-rms 0.02}]}
               fail! (async-support/unexpected-error done)]

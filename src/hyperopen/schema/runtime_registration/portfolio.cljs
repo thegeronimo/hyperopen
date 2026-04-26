@@ -49,6 +49,12 @@
    [:actions/set-portfolio-optimizer-constraint :set-portfolio-optimizer-constraint]
    [:actions/set-portfolio-optimizer-objective-parameter :set-portfolio-optimizer-objective-parameter]
    [:actions/set-portfolio-optimizer-execution-assumption :set-portfolio-optimizer-execution-assumption]
+   [:actions/add-portfolio-optimizer-black-litterman-view
+    :add-portfolio-optimizer-black-litterman-view]
+   [:actions/set-portfolio-optimizer-black-litterman-view-parameter
+    :set-portfolio-optimizer-black-litterman-view-parameter]
+   [:actions/remove-portfolio-optimizer-black-litterman-view
+    :remove-portfolio-optimizer-black-litterman-view]
    [:actions/set-portfolio-optimizer-instrument-filter :set-portfolio-optimizer-instrument-filter]
    [:actions/set-portfolio-optimizer-asset-override :set-portfolio-optimizer-asset-override]
    [:actions/set-portfolio-optimizer-universe-search-query

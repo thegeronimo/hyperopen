@@ -182,6 +182,7 @@
             [hyperopen.portfolio.optimizer.application.scenario-records-test]
             [hyperopen.portfolio.optimizer.application.setup-readiness-test]
             [hyperopen.portfolio.optimizer.application.tracking-test]
+            [hyperopen.portfolio.optimizer.black-litterman-actions-test]
             [hyperopen.portfolio.optimizer.defaults-test]
             [hyperopen.portfolio.optimizer.domain.black-litterman-test]
             [hyperopen.portfolio.optimizer.domain.constraints-test]
@@ -387,6 +388,7 @@
             [hyperopen.views.portfolio.chart-view-test]
             [hyperopen.views.portfolio.fee-schedule-test]
             [hyperopen.views.portfolio.header-test]
+            [hyperopen.views.portfolio.optimize.black-litterman-views-panel-test]
             [hyperopen.views.portfolio.optimize.execution-modal-test]
             [hyperopen.views.portfolio.optimize.index-view-test]
             [hyperopen.views.portfolio.optimize.tracking-panel-test]
@@ -746,6 +748,7 @@
              'hyperopen.portfolio.optimizer.application.scenario-records-test
              'hyperopen.portfolio.optimizer.application.setup-readiness-test
              'hyperopen.portfolio.optimizer.application.tracking-test
+             'hyperopen.portfolio.optimizer.black-litterman-actions-test
              'hyperopen.portfolio.optimizer.defaults-test
              'hyperopen.portfolio.optimizer.domain.black-litterman-test
              'hyperopen.portfolio.optimizer.domain.constraints-test
@@ -951,6 +954,7 @@
              'hyperopen.views.portfolio.chart-view-test
              'hyperopen.views.portfolio.fee-schedule-test
              'hyperopen.views.portfolio.header-test
+             'hyperopen.views.portfolio.optimize.black-litterman-views-panel-test
              'hyperopen.views.portfolio.optimize.execution-modal-test
              'hyperopen.views.portfolio.optimize.index-view-test
              'hyperopen.views.portfolio.optimize.tracking-panel-test

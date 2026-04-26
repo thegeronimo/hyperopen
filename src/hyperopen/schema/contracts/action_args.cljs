@@ -68,6 +68,8 @@
   (s/tuple ::common/keyword-or-string any?))
 (s/def ::portfolio-optimizer-key-value-args
   (s/tuple ::common/keyword-or-string any?))
+(s/def ::portfolio-optimizer-view-key-value-args
+  (s/tuple ::common/non-empty-string ::common/keyword-or-string any?))
 (s/def ::portfolio-optimizer-instrument-key-value-args
   (s/tuple ::common/keyword-or-string ::common/non-empty-string any?))
 (s/def ::portfolio-optimizer-run-args
@@ -212,6 +214,9 @@
    :actions/set-portfolio-optimizer-constraint ::portfolio-optimizer-constraint-args
    :actions/set-portfolio-optimizer-objective-parameter ::portfolio-optimizer-key-value-args
    :actions/set-portfolio-optimizer-execution-assumption ::portfolio-optimizer-key-value-args
+   :actions/add-portfolio-optimizer-black-litterman-view ::portfolio-optimizer-model-kind-args
+   :actions/set-portfolio-optimizer-black-litterman-view-parameter ::portfolio-optimizer-view-key-value-args
+   :actions/remove-portfolio-optimizer-black-litterman-view ::portfolio-optimizer-scenario-id-args
    :actions/set-portfolio-optimizer-instrument-filter ::portfolio-optimizer-instrument-key-value-args
    :actions/set-portfolio-optimizer-asset-override ::portfolio-optimizer-instrument-key-value-args
    :actions/set-portfolio-optimizer-universe-search-query ::common/single-input-args

@@ -85,6 +85,7 @@
                           "portfolio-optimizer-universe-use-current"))))
     (is (some? (node-by-role view-node "portfolio-optimizer-objective-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-return-model-panel")))
+    (is (nil? (node-by-role view-node "portfolio-optimizer-black-litterman-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-risk-model-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-constraints-panel")))
     (is (= [[:actions/set-portfolio-optimizer-constraint

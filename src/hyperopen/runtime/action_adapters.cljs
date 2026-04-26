@@ -1,5 +1,6 @@
 (ns hyperopen.runtime.action-adapters
   (:require [hyperopen.funding.actions :as funding-actions]
+            [hyperopen.portfolio.optimizer.black-litterman-actions :as portfolio-optimizer-bl-actions]
             [hyperopen.portfolio.optimizer.actions :as portfolio-optimizer-actions]
             [hyperopen.runtime.action-adapters.leaderboard :as leaderboard-adapters]
             [hyperopen.runtime.action-adapters.navigation :as navigation-adapters]
@@ -160,6 +161,15 @@
 
 (def set-portfolio-optimizer-execution-assumption-action
   portfolio-optimizer-actions/set-portfolio-optimizer-execution-assumption)
+
+(def add-portfolio-optimizer-black-litterman-view-action
+  portfolio-optimizer-bl-actions/add-portfolio-optimizer-black-litterman-view)
+
+(def set-portfolio-optimizer-black-litterman-view-parameter-action
+  portfolio-optimizer-bl-actions/set-portfolio-optimizer-black-litterman-view-parameter)
+
+(def remove-portfolio-optimizer-black-litterman-view-action
+  portfolio-optimizer-bl-actions/remove-portfolio-optimizer-black-litterman-view)
 
 (def set-portfolio-optimizer-instrument-filter-action
   portfolio-optimizer-actions/set-portfolio-optimizer-instrument-filter)

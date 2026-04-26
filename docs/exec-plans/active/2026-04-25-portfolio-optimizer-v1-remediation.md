@@ -80,7 +80,7 @@ A branch is only review-ready when all of the following are true:
 - [x] (2026-04-25 21:55Z) Completed Phase 0 scope pruning. The working tree diff against `main` is restricted to optimizer code plus required route/runtime/build/test/browser-storage collateral, and `npm run check`, `npm test`, and `npm run test:websocket` passed.
 - [x] (2026-04-25 22:08Z) Completed Phase 1 capital-base and execution-readiness correctness. Snapshot readiness is split into `:snapshot-loaded?`, `:capital-ready?`, and `:execution-ready?`; zero-capital and below-lot rebalance rows are blocked; preview summaries count executable rows only; and the required gates passed.
 - [x] (2026-04-26 01:57Z) Completed Phase 2 defaults and minimum-variance honesty. Defaults no longer include hidden `net-min`, default leverage/weight/tolerance values match the remediation contract, signed minimum-variance near-cash solutions are surfaced with an explicit warning, and the required gates passed.
-- [ ] Complete Phase 3 Black-Litterman authoring UI and persistence.
+- [x] (2026-04-26 02:15Z) Completed Phase 3 Black-Litterman authoring UI and persistence. BL now has absolute/relative view add/edit/remove actions, draft and saved scenario persistence coverage, request-builder view normalization with confidence variance, prior-source/weight transparency in setup, and the required gates passed.
 - [ ] Complete Phase 4 worker wire normalization and funding rendering.
 - [ ] Complete Phase 5 risk and diagnostics correction.
 - [ ] Complete Phase 6 results surface upgrade.
@@ -105,6 +105,9 @@ A branch is only review-ready when all of the following are true:
 - Observation: A true minimum invested gross-exposure floor is not safely expressible in the current signed split-variable QP encoding.
   Evidence: A lower bound such as `p+n >= floor` can be satisfied by paired positive and negative split variables that decode back to zero signed weight. Phase 2 therefore keeps the explicit optional `Net Min` floor and low-invested warning instead of adding a misleading `minimum-invested-exposure` default.
 
+- Observation: Black-Litterman authoring would have pushed existing optimizer action and view test namespaces over the governed namespace-size thresholds if added inline.
+  Evidence: The first Phase 3 `npm run check` attempt failed `lint:namespace-sizes` for `src/hyperopen/portfolio/optimizer/actions.cljs`, `test/hyperopen/portfolio/optimizer/actions_test.cljs`, and `test/hyperopen/views/portfolio/optimize/view_test.cljs`. The implementation was split into focused BL action and panel test namespaces instead of adding new size exceptions.
+
 ## Decision Log
 
 - Decision: Execute remediation on a new branch named `codex/portfolio-optimizer-v1-remediation`, not directly on `codex/portfolio-optimizer-v1-foundations`.
@@ -125,6 +128,10 @@ A branch is only review-ready when all of the following are true:
 
 - Decision: Do not add a V1 `minimum-invested-exposure` control until the solver ADR supports a true signed gross-exposure lower bound.
   Rationale: The current solver can honestly enforce net exposure floors, max gross exposure, and max asset weight. Pretending it can enforce a minimum gross invested floor would recreate the hidden-exposure bug under a different label. The UI now labels `Net Min` as an optional floor and the engine warns when signed minimum variance returns near cash.
+  Date/Author: 2026-04-26 / Codex
+
+- Decision: Put BL view draft mutations in `hyperopen.portfolio.optimizer.black-litterman-actions` and wire them through the existing runtime action adapter/catalog.
+  Rationale: BL view authoring is a cohesive subdomain and keeping it out of the already-large optimizer action namespace preserves the repo's namespace-size guard while still using the existing action/effect runtime conventions.
   Date/Author: 2026-04-26 / Codex
 
 ## Outcomes & Retrospective

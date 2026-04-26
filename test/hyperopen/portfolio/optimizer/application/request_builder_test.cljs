@@ -3,6 +3,10 @@
             [hyperopen.portfolio.optimizer.defaults :as defaults]
             [hyperopen.portfolio.optimizer.application.request-builder :as request-builder]))
 
+(defn- near?
+  [expected actual]
+  (< (js/Math.abs (- expected actual)) 0.0000001))
+
 (deftest build-engine-request-keeps-model-layers-separate-and-attaches-bl-prior-test
   (let [request (request-builder/build-engine-request
                  {:draft {:id "draft-1"
@@ -15,7 +19,12 @@
                           :objective {:kind :target-return
                                       :target-return 0.2}
                           :return-model {:kind :black-litterman
-                                         :views []}
+                                         :views [{:id "view-1"
+                                                  :kind :relative
+                                                  :long-instrument-id "perp:BTC"
+                                                  :short-instrument-id "spot:PURR"
+                                                  :return 0.04
+                                                  :confidence 0.8}]}
                           :risk-model {:kind :ledoit-wolf
                                        :shrinkage 0.3}
                           :constraints {:long-only? true
@@ -36,6 +45,17 @@
     (is (= :target-return (get-in request [:objective :kind])))
     (is (= :black-litterman (get-in request [:return-model :kind])))
     (is (= :ledoit-wolf (get-in request [:risk-model :kind])))
+    (is (= {:id "view-1"
+            :kind :relative
+            :long-instrument-id "perp:BTC"
+            :short-instrument-id "spot:PURR"
+            :return 0.04
+            :confidence 0.8
+            :weights {"perp:BTC" 1
+                      "spot:PURR" -1}}
+           (dissoc (first (get-in request [:return-model :views]))
+                   :confidence-variance)))
+    (is (near? 0.2 (get-in request [:return-model :views 0 :confidence-variance])))
     (is (= :market-cap (get-in request [:black-litterman-prior :source])))
     (is (= ["perp:BTC" "spot:PURR"]
            (mapv :instrument-id (:universe request))))

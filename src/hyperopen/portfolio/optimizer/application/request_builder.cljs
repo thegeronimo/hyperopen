@@ -93,6 +93,54 @@
       (some? fallback-slippage-bps)
       (assoc :fallback-slippage-bps fallback-slippage-bps))))
 
+(defn- finite-number?
+  [value]
+  (and (number? value)
+       (not (js/isNaN value))
+       (js/isFinite value)))
+
+(defn- confidence-variance
+  [confidence]
+  (let [confidence* (-> confidence
+                        (max 0.0)
+                        (min 1.0))]
+    (max 0.000001 (- 1.0 confidence*))))
+
+(defn- normalize-black-litterman-view
+  [view]
+  (let [view* (or view {})
+        confidence (:confidence view*)
+        instrument-id (non-blank-text (:instrument-id view*))
+        long-id (non-blank-text (:long-instrument-id view*))
+        short-id (non-blank-text (:short-instrument-id view*))
+        weights (cond
+                  (map? (:weights view*))
+                  (:weights view*)
+
+                  (and (= :absolute (:kind view*))
+                       instrument-id)
+                  {instrument-id 1}
+
+                  (and (= :relative (:kind view*))
+                       long-id
+                       short-id
+                       (not= long-id short-id))
+                  {long-id 1
+                   short-id -1}
+
+                  :else nil)]
+    (cond-> (assoc view* :weights weights)
+      (and (not (finite-number? (:confidence-variance view*)))
+           (finite-number? confidence))
+      (assoc :confidence-variance (confidence-variance confidence)))))
+
+(defn- normalize-return-model
+  [return-model]
+  (let [return-model* (or return-model default-return-model)]
+    (if (= :black-litterman (:kind return-model*))
+      (update return-model* :views #(vec (map normalize-black-litterman-view (or % []))))
+      return-model*)))
+
 (defn- black-litterman-return-model?
   [return-model]
   (= :black-litterman (:kind return-model)))
@@ -115,7 +163,7 @@
            funding-periods-per-year]}]
   (let [draft* (or draft {})
         requested-universe (draft-universe draft*)
-        return-model (or (:return-model draft*) default-return-model)
+        return-model (normalize-return-model (:return-model draft*))
         risk-model (or (:risk-model draft*) default-risk-model)
         objective (or (:objective draft*) default-objective)
         constraints (normalize-constraints (:constraints draft*))
