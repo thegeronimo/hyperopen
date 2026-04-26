@@ -39,6 +39,21 @@
   (or (get-in state [:portfolio :optimizer :draft])
       (optimizer-defaults/default-draft)))
 
+(defn- comparable-request
+  [request]
+  (some-> request
+          (dissoc :as-of-ms)
+          (update-in [:history :freshness] dissoc :as-of-ms :age-ms)))
+
+(defn- stale-result?
+  [last-successful-run readiness]
+  (let [previous-request (get-in last-successful-run [:request-signature :request])
+        current-request (:request readiness)]
+    (and (some? previous-request)
+         (some? current-request)
+         (not= (comparable-request previous-request)
+               (comparable-request current-request)))))
+
 (defn- panel-shell
   [data-role title subtitle & children]
   [:section {:class ["rounded-xl"
@@ -402,7 +417,10 @@
      [:main {:class ["space-y-4"]}
       (infeasible-panel/infeasible-banner infeasible-result highlighted-controls)
       (setup-panels state draft readiness highlighted-controls)
-      (results-panel/results-panel last-successful-run draft)
+      (results-panel/results-panel last-successful-run
+                                   draft
+                                   {:stale? (stale-result? last-successful-run
+                                                           readiness)})
       (tracking-panel/tracking-panel state)
       [:div {:class ["grid" "grid-cols-1" "gap-3" "lg:grid-cols-3"]
              :data-role "portfolio-optimizer-current-summary"}

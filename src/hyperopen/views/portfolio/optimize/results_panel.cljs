@@ -38,12 +38,27 @@
     (some? value) (str value)
     :else "N/A"))
 
+(defn- signed-label
+  [value]
+  (cond
+    (and (finite-number? value) (neg? value)) "short"
+    (and (finite-number? value) (pos? value)) "long"
+    :else "flat"))
+
 (defn- summary-card
   [label value]
   [:div {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/50" "p-3"]}
    [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.18em]" "text-trading-muted"]}
     label]
    [:p {:class ["mt-2" "text-lg" "font-semibold" "tabular-nums"]}
+    value]])
+
+(defn- compact-fact
+  [label value]
+  [:div {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/50" "px-3" "py-2"]}
+   [:p {:class ["text-[0.6rem]" "font-semibold" "uppercase" "tracking-[0.18em]" "text-trading-muted"]}
+    label]
+   [:p {:class ["mt-1" "text-sm" "font-semibold" "tabular-nums"]}
     value]])
 
 (defn- panel-shell
@@ -87,6 +102,22 @@
                    (assoc :class (into base-class (:extra-class attrs))))]
     (into [:div attrs*] children)))
 
+(defn- signed-weight-cell
+  [value]
+  (let [sign (signed-label value)
+        width (if (finite-number? value)
+                (min 100 (* 100 (js/Math.abs value)))
+                0)]
+    [:span {:class ["space-y-1"]
+            :data-sign sign}
+     [:span {:class ["block"]} (format-pct value)]
+     [:span {:class ["block" "h-1.5" "overflow-hidden" "rounded-full" "bg-base-300/50"]}
+      [:span {:class (cond-> ["block" "h-full" "rounded-full"]
+                       (= "long" sign) (conj "bg-primary/70")
+                       (= "short" sign) (conj "bg-error/70")
+                       (= "flat" sign) (conj "bg-trading-muted/40"))
+              :style {:width (str width "%")}}]]]))
+
 (defn- exposure-row
   [idx binding-instrument-ids instrument-id capital-usd current-weight target-weight]
   (let [current-notional (* (or capital-usd 0) (or current-weight 0))
@@ -96,11 +127,13 @@
     (row-shell-with-attrs
      {:data-role (str "portfolio-optimizer-target-exposure-row-" idx)
       :data-binding (when binding? "true")
+      :data-current-sign (signed-label current-weight)
+      :data-target-sign (signed-label target-weight)
       :extra-class (when binding?
                      ["border-warning/60" "bg-warning/10"])}
      [:span {:class ["font-semibold" "text-trading-text"]} instrument-id]
-     [:span (format-pct current-weight)]
-     [:span (format-pct target-weight)]
+     (signed-weight-cell current-weight)
+     (signed-weight-cell target-weight)
      [:span (format-pct delta)]
      [:span (format-usdc (- target-notional current-notional))])))
 
@@ -230,6 +263,101 @@
         [:p {:class ["mt-2" "text-xs" "text-trading-muted"]}
          "No sensitivity diagnostics reported."])])))
 
+(defn- stale-result-banner
+  [stale?]
+  (when stale?
+    [:div {:class ["rounded-xl" "border" "border-warning/50" "bg-warning/10" "p-4"]
+           :data-role "portfolio-optimizer-stale-result-banner"}
+     [:div {:class ["flex" "flex-col" "gap-3" "md:flex-row" "md:items-center" "md:justify-between"]}
+      [:div
+       [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-warning"]}
+        "Stale Result"]
+       [:p {:class ["mt-2" "text-sm" "text-trading-muted"]}
+        "The setup draft has changed since the retained allocation was computed. Rerun before using these weights for execution."]]
+      [:button {:type "button"
+                :class ["rounded-lg" "border" "border-warning/60" "bg-warning/10" "px-3" "py-2"
+                        "text-sm" "font-semibold" "text-warning" "hover:bg-warning/20"]
+                :data-role "portfolio-optimizer-rerun-stale-result"
+                :on {:click [[:actions/run-portfolio-optimizer-from-draft]]}}
+       "Run Again"]]]))
+
+(defn- history-lookback-label
+  [result]
+  (let [summary (:history-summary result)
+        observations (:return-observations summary)]
+    (if (finite-number? observations)
+      (str observations " returns")
+      "Loaded history")))
+
+(defn- funding-assumption-label
+  [result]
+  (let [sources (->> (:return-decomposition-by-instrument result)
+                     vals
+                     (keep :funding-source)
+                     set)]
+    (cond
+      (empty? sources) "No funding data"
+      (= #{:not-applicable} sources) "Spot only"
+      (contains? sources :market-funding-history) "Market funding"
+      :else (keyword-label (first sources)))))
+
+(defn- assumptions-strip
+  [draft result]
+  (let [objective-kind (or (get-in draft [:objective :kind])
+                           (get-in result [:solver :objective-kind]))]
+    [:section {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
+               :data-role "portfolio-optimizer-assumptions-strip"}
+     [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"]}
+      "Run Assumptions"]
+     [:div {:class ["mt-3" "grid" "grid-cols-2" "gap-2" "xl:grid-cols-5"]}
+      (compact-fact "Objective" (keyword-label objective-kind))
+      (compact-fact "Return Model" (keyword-label (:return-model result)))
+      (compact-fact "Risk Model" (keyword-label (:risk-model result)))
+      (compact-fact "Lookback" (history-lookback-label result))
+      (compact-fact "Funding" (funding-assumption-label result))]]))
+
+(defn- condition-caution
+  [conditioning]
+  (let [status (:status conditioning)]
+    (when (and status
+               (not= :ok status))
+      {:code status
+       :message (str "Covariance conditioning is " (keyword-label status) ".")})))
+
+(defn- preview-caution
+  [preview]
+  (when (contains? #{:blocked :partially-blocked} (:status preview))
+    {:code (:status preview)
+     :message "Some rebalance rows are blocked or require manual handling."}))
+
+(defn- trust-caution-panel
+  [result]
+  (let [cautions (vec (concat (take 3 (:warnings result))
+                              (keep identity
+                                    [(condition-caution
+                                      (get-in result [:diagnostics :covariance-conditioning]))
+                                     (preview-caution (:rebalance-preview result))])))]
+    [:section {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
+               :data-role "portfolio-optimizer-trust-caution-panel"}
+     [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"]}
+      "Trust & Caution"]
+     [:p {:class ["mt-2" "text-sm" "text-trading-muted"]}
+      "Use this run when assumptions are current, diagnostics are stable, and blocked execution rows are understood."]
+     (if (seq cautions)
+       (into [:div {:class ["mt-4" "space-y-2"]}]
+             (map warning-row cautions))
+       [:p {:class ["mt-4" "rounded-md" "border" "border-primary/30" "bg-primary/10" "p-2" "text-xs" "text-primary"]}
+        "No caution flags reported for this run."])]))
+
+(defn- performance-summary
+  [result]
+  (let [performance (:performance result)]
+    [:div {:class ["grid" "grid-cols-2" "gap-2"]}
+     (summary-card "Expected Return" (format-pct (:expected-return result)))
+     (summary-card "Volatility" (format-pct (:volatility result)))
+     (summary-card "In-sample Sharpe" (format-decimal (:in-sample-sharpe performance)))
+     (summary-card "Shrunk Sharpe" (format-decimal (:shrunk-sharpe performance)))]))
+
 (defn- rebalance-row
   [row]
   (row-shell
@@ -273,18 +401,27 @@
   ([last-successful-run]
    (results-panel last-successful-run nil))
   ([last-successful-run draft]
+   (results-panel last-successful-run draft nil))
+  ([last-successful-run draft {:keys [stale?]}]
    (let [result (:result last-successful-run)]
      (when (= :solved (:status result))
        [:section {:class ["space-y-4"]
                   :data-role "portfolio-optimizer-results-surface"}
-        [:div {:class ["grid" "grid-cols-2" "gap-3" "lg:grid-cols-4"]}
-         (summary-card "Expected Return" (format-pct (:expected-return result)))
-         (summary-card "Volatility" (format-pct (:volatility result)))
-         (summary-card "Return Model" (keyword-label (:return-model result)))
-         (summary-card "Risk Model" (keyword-label (:risk-model result)))]
-        (warnings-panel result)
-        (target-exposure-table result)
-        (frontier-chart/frontier-chart draft result)
-        (return-decomposition result)
-        (diagnostics-panel result)
+        (stale-result-banner stale?)
+        (assumptions-strip draft result)
+        [:div {:class ["grid" "grid-cols-1" "gap-4" "2xl:grid-cols-[minmax(22rem,1.1fr)_minmax(22rem,1fr)_minmax(18rem,0.9fr)]"]
+               :data-role "portfolio-optimizer-results-grid"}
+         [:div {:class ["space-y-4"]
+                :data-role "portfolio-optimizer-results-left-panel"}
+          (target-exposure-table result)
+          (return-decomposition result)]
+         [:div {:class ["space-y-4"]
+                :data-role "portfolio-optimizer-results-center-panel"}
+          (performance-summary result)
+          (frontier-chart/frontier-chart draft result)]
+         [:div {:class ["space-y-4"]
+                :data-role "portfolio-optimizer-results-right-panel"}
+          (trust-caution-panel result)
+          (warnings-panel result)
+          (diagnostics-panel result)]]
         (rebalance-preview result)]))))

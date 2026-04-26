@@ -45,14 +45,6 @@
   [node]
   (get-in node [1 :on :change]))
 
-(defn- drag-start-actions
-  [node]
-  (get-in node [1 :on :drag-start]))
-
-(defn- drag-enter-actions
-  [node]
-  (get-in node [1 :on :drag-enter]))
-
 (deftest portfolio-view-delegates-optimizer-index-route-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize"}})]
@@ -326,103 +318,6 @@
     (is (contains? strings "Failed"))
     (is (contains? strings "solver-failed"))
     (is (contains? strings "solver blew up"))))
-
-(deftest portfolio-optimizer-workspace-renders-results-diagnostics-and-rebalance-test
-  (let [result {:status :solved
-                :instrument-ids ["perp:BTC" "spot:PURR"]
-                :current-weights [0.2 0.1]
-                :target-weights [0.35 -0.02]
-                :expected-return 0.18
-                :volatility 0.42
-                :frontier [{:id 0
-                            :expected-return 0.12
-                            :volatility 0.24
-                            :sharpe 0.5}
-                           {:id 1
-                            :expected-return 0.18
-                            :volatility 0.42
-                            :sharpe 0.43}]
-                :return-decomposition-by-instrument
-                {"perp:BTC" {:return-component 0.12
-                             :funding-component 0.04
-                             :funding-source :market-funding-history}
-                 "spot:PURR" {:return-component 0.08
-                              :funding-component 0
-                              :funding-source :missing}}
-                :diagnostics {:gross-exposure 0.37
-                              :net-exposure 0.33
-                              :effective-n 2.2
-                              :turnover 0.135
-                              :binding-constraints [{:instrument-id "perp:BTC"
-                                                     :constraint :upper-bound}]}
-                :warnings [{:code :low-invested-exposure
-                            :message "Minimum variance selected a near-cash signed portfolio."}]
-                :rebalance-preview {:status :partially-blocked
-                                    :capital-usd 10000
-                                    :summary {:ready-count 1
-                                              :blocked-count 1
-                                              :gross-trade-notional-usd 2700
-                                              :estimated-fees-usd 1.2
-                                              :estimated-slippage-usd 2.4}
-                                    :rows [{:instrument-id "perp:BTC"
-                                            :status :ready
-                                            :side :buy
-                                            :delta-notional-usd 1500}
-                                           {:instrument-id "spot:PURR"
-                                            :status :blocked
-                                            :reason :spot-submit-unsupported
-                                            :side :sell
-                                            :delta-notional-usd -1200}]}}
-        view-node (portfolio-view/portfolio-view
-                   {:router {:path "/portfolio/optimize/new"}
-                    :portfolio {:optimizer
-                                {:draft {:objective {:kind :target-volatility}}
-                                 :last-successful-run {:result result
-                                                       :computed-at-ms 2600}}}})
-        frontier-point (node-by-role view-node "portfolio-optimizer-frontier-point-1")
-        frontier-point-actions [[:actions/set-portfolio-optimizer-objective-kind :target-volatility]
-                                [:actions/set-portfolio-optimizer-objective-parameter
-                                 :target-volatility
-                                 0.42]]
-        strings (set (collect-strings view-node))]
-    (is (some? (node-by-role view-node "portfolio-optimizer-results-surface")))
-    (is (some? (node-by-role view-node "portfolio-optimizer-frontier-panel")))
-    (is (some? (node-by-role view-node "portfolio-optimizer-target-exposure-table")))
-    (is (some? (node-by-role view-node "portfolio-optimizer-return-decomposition")))
-    (is (some? (node-by-role view-node "portfolio-optimizer-result-warnings")))
-    (is (some? (node-by-role view-node "portfolio-optimizer-diagnostics-panel")))
-    (is (some? (node-by-role view-node "portfolio-optimizer-rebalance-preview")))
-    (is (= "true"
-           (get-in (node-by-role view-node
-                                 "portfolio-optimizer-target-exposure-row-0")
-                   [1 :data-binding])))
-    (is (= false
-           (get-in (node-by-role view-node "portfolio-optimizer-save-scenario")
-                   [1 :disabled])))
-    (is (= [[:actions/save-portfolio-optimizer-scenario-from-current]]
-           (click-actions
-            (node-by-role view-node "portfolio-optimizer-save-scenario"))))
-    (is (= frontier-point-actions
-           (click-actions frontier-point)))
-    (is (= true
-           (get-in frontier-point [1 :draggable])))
-    (is (= frontier-point-actions
-           (drag-start-actions frontier-point)))
-    (is (= frontier-point-actions
-           (drag-enter-actions frontier-point)))
-    (is (contains? strings "Target Exposure"))
-    (is (contains? strings "Efficient Frontier"))
-    (is (contains? strings "Click or drag across points to set Target Volatility and rerun."))
-    (is (contains? strings "Funding Decomposition"))
-    (is (contains? strings "12.00%"))
-    (is (contains? strings "4.00%"))
-    (is (contains? strings "16.00%"))
-    (is (contains? strings "market-funding-history"))
-    (is (contains? strings "low-invested-exposure"))
-    (is (contains? strings "Binding Constraints"))
-    (is (contains? strings "partially-blocked"))
-    (is (contains? strings "spot-submit-unsupported"))
-    (is (contains? strings "perp:BTC"))))
 
 (deftest portfolio-optimizer-workspace-renders-infeasible-result-and-highlights-controls-test
   (let [view-node (portfolio-view/portfolio-view

@@ -225,6 +225,16 @@
      :shrunk-sharpe (when (finite-number? in-sample-sharpe)
                       (* 0.5 in-sample-sharpe))}))
 
+(defn- history-summary
+  [request]
+  (let [history (:history request)
+        freshness (:freshness history)]
+    {:return-observations (count (:return-calendar history))
+     :oldest-common-ms (:oldest-common-ms freshness)
+     :latest-common-ms (:latest-common-ms freshness)
+     :age-ms (:age-ms freshness)
+     :stale? (:stale? freshness)}))
+
 (defn- rebalance-preview
   [request instrument-ids current-weights target-weights]
   (let [execution-assumptions (:execution-assumptions request)]
@@ -280,6 +290,7 @@
      :expected-return expected-return
      :volatility volatility
      :performance (sharpe-summary expected-return volatility)
+     :history-summary (history-summary request)
      :solver {:strategy (:strategy solver-plan)
               :objective-kind (get-in solver-plan [:problems 0 :objective-kind])}
      :solver-results solver-results

@@ -33,6 +33,11 @@
                                            "perp:ETH" 5}}
    :history {:return-series-by-instrument {"perp:BTC" [0.01 0.02 0.03]
                                            "perp:ETH" [0.02 0.01 0.0]}
+             :return-calendar [100 200 300]
+             :freshness {:oldest-common-ms 0
+                         :latest-common-ms 300
+                         :age-ms 700
+                         :stale? false}
              :funding-by-instrument {"perp:BTC" {:annualized-carry 0.05
                                                  :source :market-funding-history}
                                      "perp:ETH" {:annualized-carry -0.01
@@ -68,6 +73,12 @@
     (is (= :ready (get-in result [:rebalance-preview :status])))
     (is (= :market-funding-history
            (get-in result [:return-decomposition-by-instrument "perp:BTC" :funding-source])))
+    (is (= {:return-observations 3
+            :oldest-common-ms 0
+            :latest-common-ms 300
+            :age-ms 700
+            :stale? false}
+           (:history-summary result)))
     (is (seq (:frontier result)))))
 
 (deftest run-optimization-returns-structured-infeasibility-without-calling-solver-test

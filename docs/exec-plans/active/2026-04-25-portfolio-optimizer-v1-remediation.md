@@ -83,7 +83,7 @@ A branch is only review-ready when all of the following are true:
 - [x] (2026-04-26 02:15Z) Completed Phase 3 Black-Litterman authoring UI and persistence. BL now has absolute/relative view add/edit/remove actions, draft and saved scenario persistence coverage, request-builder view normalization with confidence variance, prior-source/weight transparency in setup, and the required gates passed.
 - [x] (2026-04-26 02:23Z) Completed Phase 4 worker wire normalization and funding rendering. Known instrument-keyed request/response maps normalize to string keys across worker boundaries, slash-containing spot IDs are preserved, result payloads include current/target weight maps, funding-source enum values survive normalization, and the required gates passed.
 - [x] (2026-04-26 02:36Z) Completed Phase 5 risk and diagnostics correction. The mislabeled Ledoit-Wolf path is now honestly labeled `diagonal-shrink` with a legacy alias warning, covariance conditioning uses eigenvalue-derived condition/min/max values, low-observation expected-return warnings are emitted, shrunk in-sample Sharpe is carried on results, per-instrument sensitivity is surfaced, and the required gates passed.
-- [ ] Complete Phase 6 results surface upgrade.
+- [x] (2026-04-26 02:51Z) Completed Phase 6 results surface upgrade. Results now render a stale/rerun banner driven by current-vs-last request comparison, a run-assumptions strip, three-column allocation/frontier/diagnostics panels, signed exposure bars with long/short metadata, a trust/caution rail, and visible binding/sensitivity diagnostics. Focused view tests, a targeted Playwright optimizer slice, and the required gates passed.
 - [ ] Complete Phase 7 rebalance review upgrade.
 - [ ] Complete Phase 8 scenario lifecycle and tracking.
 - [ ] Complete Phase 9 acceptance artifact refresh.
@@ -113,6 +113,9 @@ A branch is only review-ready when all of the following are true:
 
 - Observation: A naive immutable Jacobi eigenvalue implementation was too slow for the existing worker runaway budget.
   Evidence: The focused optimizer suite initially failed the 60-instrument worker guard at 5480ms against a 5000ms budget. Phase 5 now uses a bounded mutable cyclic Jacobi pass for the conditioning diagnostic, preserving eigenvalue-derived outputs while keeping the worker performance test green.
+
+- Observation: The old Playwright default-minimum-variance assertion conflicted with Phase 2's signed minimum-variance honesty decision.
+  Evidence: The targeted Playwright run showed the default signed minimum-variance scenario can legitimately return a near-cash allocation with `low-invested-exposure`. The browser regression now asserts visible results plus the honest warning when gross target exposure is near zero, rather than requiring default full investment.
 
 ## Decision Log
 
@@ -146,6 +149,10 @@ A branch is only review-ready when all of the following are true:
 
 - Decision: Rename the current risk estimator to `diagonal-shrink` instead of claiming Ledoit-Wolf in V1 remediation.
   Rationale: The implementation shrinks off-diagonal sample covariance entries toward zero; it is not a full Ledoit-Wolf estimator with data-derived shrinkage intensity. Renaming is the honest V1 fix and a legacy `:ledoit-wolf` alias remains only to normalize old saved drafts with a warning.
+  Date/Author: 2026-04-26 / Codex
+
+- Decision: Treat result staleness as a stable request comparison, not as the draft dirty flag.
+  Rationale: `:metadata :dirty?` tracks saved-scenario persistence, so a freshly run unsaved draft can still be dirty. The stale banner now compares the last successful run request with the current readiness request after removing volatile clock-only fields.
   Date/Author: 2026-04-26 / Codex
 
 ## Outcomes & Retrospective

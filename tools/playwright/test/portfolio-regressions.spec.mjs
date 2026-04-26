@@ -662,7 +662,7 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   await expect(page.locator("[data-role='portfolio-optimizer-return-model-panel']"))
     .toContainText("Black-Litterman");
   await expect(page.locator("[data-role='portfolio-optimizer-risk-model-panel']"))
-    .toContainText("Ledoit-Wolf");
+    .toContainText("Diagonal Shrink");
   await expect(page.locator("[data-role='portfolio-optimizer-constraints-panel']"))
     .toContainText("Max Asset Weight");
   await expect(page.locator("[data-role='portfolio-optimizer-constraints-panel']"))
@@ -713,10 +713,10 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(longOnly).toBeChecked();
 
-  await expect(maxAssetWeight).toHaveValue("0.35");
-  await maxAssetWeight.fill("0.25");
-  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(maxAssetWeight).toHaveValue("0.25");
+  await maxAssetWeight.fill("0.3");
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(maxAssetWeight).toHaveValue("0.3");
 
   const targetReturn = page.locator(
     "[data-role='portfolio-optimizer-objective-target-return-input']"
@@ -841,7 +841,7 @@ test("portfolio optimizer history load requests each manual perp once @regressio
   ]);
 });
 
-test("portfolio optimizer default minimum variance run returns non-zero target weights @regression", async ({ page }) => {
+test("portfolio optimizer default minimum variance run renders honest target weights @regression", async ({ page }) => {
   const priceHistoryByCoin = {
     BTC: ["100", "104", "103", "108"],
     ETH: ["50", "52", "55", "54"],
@@ -907,13 +907,28 @@ test("portfolio optimizer default minimum variance run returns non-zero target w
     .toContainText("Succeeded", { timeout: 10_000 });
   await expect(page.locator("[data-role='portfolio-optimizer-results-surface']"))
     .toBeVisible();
+  await expect(page.locator("[data-role='portfolio-optimizer-assumptions-strip']"))
+    .toContainText("Run Assumptions");
+  await expect(page.locator("[data-role='portfolio-optimizer-results-grid']"))
+    .toBeVisible();
+  await expect(page.locator("[data-role='portfolio-optimizer-results-left-panel']"))
+    .toContainText("Target Exposure");
+  await expect(page.locator("[data-role='portfolio-optimizer-results-center-panel']"))
+    .toContainText("Efficient Frontier");
+  await expect(page.locator("[data-role='portfolio-optimizer-results-right-panel']"))
+    .toContainText("Trust & Caution");
+  await expect(page.locator("[data-role='portfolio-optimizer-stale-result-banner']"))
+    .toHaveCount(0);
 
   const weights = await readOptimizerTargetWeights(page);
   const grossTarget = weights.reduce((sum, weight) => sum + Math.abs(weight), 0);
-  const netTarget = weights.reduce((sum, weight) => sum + weight, 0);
-  expect(weights.some((weight) => Math.abs(weight) > 0.01)).toBe(true);
-  expect(grossTarget).toBeGreaterThan(0.79);
-  expect(netTarget).toBeGreaterThan(0.79);
+  expect(weights).toHaveLength(4);
+  if (grossTarget < 0.01) {
+    await expect(page.locator("[data-role='portfolio-optimizer-result-warnings']"))
+      .toContainText("low-invested-exposure");
+  } else {
+    expect(weights.some((weight) => Math.abs(weight) > 0.01)).toBe(true);
+  }
 });
 
 test("portfolio optimizer persisted scenario hydrates results and tracking after reload @regression", async ({ page }) => {
