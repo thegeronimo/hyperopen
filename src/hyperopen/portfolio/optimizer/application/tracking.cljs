@@ -30,6 +30,13 @@
    :status :not-trackable
    :warnings [{:code code}]})
 
+(defn- realized-return
+  [baseline-nav current-nav fallback]
+  (if (and (positive-number? baseline-nav)
+           (positive-number? current-nav))
+    (dec (/ current-nav baseline-nav))
+    fallback))
+
 (defn build-tracking-snapshot
   [{:keys [scenario-id as-of-ms saved-run current-snapshot]}]
   (let [result (:result saved-run)
@@ -67,17 +74,25 @@
         {:scenario-id scenario-id
          :as-of-ms as-of-ms
          :status :tracked
+         :nav-usdc nav-usdc
          :weight-drift-rms drift-rms
-         :distance-to-target drift-rms
          :max-abs-weight-drift max-drift
          :predicted-return (:expected-return result)
+         :predicted-volatility (:volatility result)
          :realized-return nil
          :rows rows
          :warnings []}))))
 
 (defn append-tracking-snapshot
   [tracking-record snapshot]
-  (let [scenario-id (:scenario-id snapshot)]
+  (let [scenario-id (:scenario-id snapshot)
+        snapshots (vec (:snapshots tracking-record))
+        baseline-nav (some :nav-usdc snapshots)
+        snapshot* (assoc snapshot
+                         :realized-return
+                         (realized-return baseline-nav
+                                          (:nav-usdc snapshot)
+                                          (:realized-return snapshot)))]
     {:scenario-id scenario-id
-     :updated-at-ms (:as-of-ms snapshot)
-     :snapshots (conj (vec (:snapshots tracking-record)) snapshot)}))
+     :updated-at-ms (:as-of-ms snapshot*)
+     :snapshots (conj snapshots snapshot*)}))

@@ -50,6 +50,9 @@
   #{:default-order-type
     :fee-mode})
 
+(def ^:private manual-tracking-source-statuses
+  #{:saved :computed})
+
 (def ^:private supported-universe-market-types
   #{:perp :spot})
 
@@ -448,9 +451,18 @@
 
 (defn refresh-portfolio-optimizer-tracking
   [state]
-  (if (contains? #{:executed :partially-executed}
+  (if (contains? #{:executed :partially-executed :tracking}
                  (get-in state [:portfolio :optimizer :active-scenario :status]))
     [[:effects/refresh-portfolio-optimizer-tracking]]
+    []))
+
+(defn enable-portfolio-optimizer-manual-tracking
+  [state]
+  (if (and (contains? manual-tracking-source-statuses
+                      (get-in state [:portfolio :optimizer :active-scenario :status]))
+           (or (get-in state [:portfolio :optimizer :active-scenario :loaded-id])
+               (get-in state [:portfolio :optimizer :draft :id])))
+    [[:effects/enable-portfolio-optimizer-manual-tracking]]
     []))
 
 (defn load-portfolio-optimizer-route

@@ -95,13 +95,20 @@
     state
     (let [current-run (run-state state)]
       (if (= :solved (:status payload))
-        (-> state
-            (assoc-in [:portfolio :optimizer :run-state]
-                      (success-run-state current-run computed-at-ms))
-            (assoc-in [:portfolio :optimizer :last-successful-run]
-                      {:request-signature (:request-signature current-run)
-                       :result payload
-                       :computed-at-ms computed-at-ms}))
+        (let [scenario-id (:scenario-id current-run)]
+          (-> state
+              (assoc-in [:portfolio :optimizer :run-state]
+                        (success-run-state current-run computed-at-ms))
+              (assoc-in [:portfolio :optimizer :last-successful-run]
+                        {:request-signature (:request-signature current-run)
+                         :result payload
+                         :computed-at-ms computed-at-ms})
+              (update-in [:portfolio :optimizer :active-scenario]
+                         (fn [active-scenario]
+                           (cond-> (assoc (or active-scenario {})
+                                          :status :computed
+                                          :read-only? false)
+                             scenario-id (assoc :loaded-id scenario-id))))))
         (assoc-in state
                   [:portfolio :optimizer :run-state]
                   (non-solved-run-state current-run computed-at-ms payload))))))

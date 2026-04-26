@@ -475,3 +475,9 @@
     (scenario-env)
     store
     opts)))
+
+(defn enable-portfolio-optimizer-manual-tracking-effect
+  ([_ store]
+   (scenario-effects/enable-portfolio-optimizer-manual-tracking-effect
+    (scenario-env)
+    store)))

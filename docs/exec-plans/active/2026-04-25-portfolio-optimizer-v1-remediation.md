@@ -85,7 +85,7 @@ A branch is only review-ready when all of the following are true:
 - [x] (2026-04-26 02:36Z) Completed Phase 5 risk and diagnostics correction. The mislabeled Ledoit-Wolf path is now honestly labeled `diagonal-shrink` with a legacy alias warning, covariance conditioning uses eigenvalue-derived condition/min/max values, low-observation expected-return warnings are emitted, shrunk in-sample Sharpe is carried on results, per-instrument sensitivity is surfaced, and the required gates passed.
 - [x] (2026-04-26 02:51Z) Completed Phase 6 results surface upgrade. Results now render a stale/rerun banner driven by current-vs-last request comparison, a run-assumptions strip, three-column allocation/frontier/diagnostics panels, signed exposure bars with long/short metadata, a trust/caution rail, and visible binding/sensitivity diagnostics. Focused view tests, a targeted Playwright optimizer slice, and the required gates passed.
 - [x] (2026-04-26 03:17Z) Completed Phase 7 rebalance review upgrade. Rebalance preview now carries orderbook-derived cost context with fallback labeling, fee/slippage estimates, margin impact/utilization summary, expanded review/modal columns, and browser coverage for cost/margin rendering. The route system now loads optimizer scenario/index state on optimizer navigation and startup refresh, and stale-result comparison ignores injected live cost contexts while preserving user-controlled execution assumption comparison.
-- [ ] Complete Phase 8 scenario lifecycle and tracking.
+- [x] (2026-04-26 04:04Z) Completed Phase 8 scenario lifecycle and tracking. Successful worker runs now promote active scenarios to `:computed`, failed/blocked execution attempts no longer overwrite saved/computed scenario lifecycle status, manual tracking enable persists `:tracking` to the saved scenario/index record, unsaved computed scenarios disable manual tracking until saved, tracking snapshots include NAV and predicted-volatility baselines, realized return is computed from the first tracked NAV baseline, and the tracking panel now renders predicted-vol, drift chart, realized-vs-predicted path, and a re-optimize-from-current CTA. Focused CLJS tracking/lifecycle tests, targeted Playwright tracking reload/rerun coverage, and the required gates passed.
 - [ ] Complete Phase 9 acceptance artifact refresh.
 
 ## Surprises & Discoveries
@@ -122,6 +122,12 @@ A branch is only review-ready when all of the following are true:
 
 - Observation: Optimizer scenario routes were rendered by the portfolio module but not refreshed by the shared route-effect wiring.
   Evidence: Playwright persisted-scenario tests navigated to `/portfolio/optimize/scn_playwright_tracking_reload` and rendered the workspace route shell without the saved run or rebalance preview button. `runtime.action-adapters.navigation` and `startup.route-refresh` now route optimizer paths through `load-portfolio-optimizer-route`, and optimizer paths no longer trigger canonical portfolio chart-tab bootstrap.
+
+- Observation: Manual tracking enable must be persisted, not only reflected in local UI state.
+  Evidence: A saved scenario manually promoted to tracking would otherwise revert on reload because only `:active-scenario` and draft state changed. Phase 8 adds `:effects/enable-portfolio-optimizer-manual-tracking`, persists the updated scenario record/index through the existing scenario persistence boundary, and clears stale tracking snapshots for the promoted scenario.
+
+- Observation: Adding lifecycle persistence directly to the top-level optimizer effect adapter exceeded namespace-size limits.
+  Evidence: `npm run lint:namespace-sizes` failed for `src/hyperopen/runtime/effect_adapters/portfolio_optimizer.cljs` and `src/hyperopen/runtime/effect_adapters.cljs`. The implementation moved the manual-tracking persistence body into `portfolio_optimizer_scenarios.cljs` and kept the facade adapter as a thin wrapper instead of adding size exceptions.
 
 ## Decision Log
 
@@ -167,6 +173,10 @@ A branch is only review-ready when all of the following are true:
 
 - Decision: Optimizer routes must participate in both navigation-time and startup/address-refresh route loading.
   Rationale: `/portfolio/optimize` and `/portfolio/optimize/:scenario-id` are rendered inside the portfolio route module, but their scenario index and saved scenario state are optimizer-specific data dependencies. The existing route loader did not call optimizer route actions during client-side navigation, so persisted scenarios could show an empty draft shell.
+  Date/Author: 2026-04-26 / Codex
+
+- Decision: Manual tracking enable is a persisted scenario lifecycle transition, not a local save-many mutation.
+  Rationale: Tracking is part of the canonical scenario state contract. Keeping it local would make saved scenarios lie after refresh and would undermine read-only tracking workflows. The action now dispatches a dedicated effect that updates the saved scenario record, scenario index summary, active scenario state, and tracking state through existing persistence boundaries.
   Date/Author: 2026-04-26 / Codex
 
 ## Outcomes & Retrospective

@@ -111,7 +111,9 @@
               :result {:status :solved
                        :scenario-id "scenario-1"}
               :computed-at-ms 200}
-             (get-in @store [:portfolio :optimizer :last-successful-run]))))))
+             (get-in @store [:portfolio :optimizer :last-successful-run])))
+      (is (= :computed
+             (get-in @store [:portfolio :optimizer :active-scenario :status]))))))
 
 (deftest normalized-worker-result-with-string-status-updates-successful-run-test
   (let [store (atom {:portfolio {:optimizer {:run-state {:status :running

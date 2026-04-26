@@ -78,4 +78,5 @@
   (is (fn? action-adapters/close-portfolio-optimizer-execution-modal-action))
   (is (fn? action-adapters/confirm-portfolio-optimizer-execution-action))
   (is (fn? action-adapters/refresh-portfolio-optimizer-tracking-action))
+  (is (fn? action-adapters/enable-portfolio-optimizer-manual-tracking-action))
   (is (fn? action-adapters/run-portfolio-optimizer-from-draft-action)))

@@ -170,3 +170,47 @@
            (:execution-ledger updated)))
     (is (= :partially-executed
            (:status (scenario-records/scenario-summary updated))))))
+
+(deftest append-execution-ledger-preserves-canonical-state-for-failed-attempt-test
+  (let [record {:id "scn_01"
+                :name "Core Hedge"
+                :status :saved
+                :config {:id "scn_01"
+                         :name "Core Hedge"
+                         :status :saved
+                         :metadata {:dirty? false
+                                    :updated-at-ms 3000}}
+                :saved-run solved-run
+                :execution-ledger []
+                :updated-at-ms 3000}
+        ledger {:attempt-id "exec_5000"
+                :status :failed
+                :completed-at-ms 5100
+                :rows [{:row-id "perp:BTC"
+                        :status :failed}]}
+        updated (scenario-records/append-execution-ledger record ledger)
+        summary (scenario-records/scenario-summary updated)]
+    (is (= :saved (:status updated)))
+    (is (= :saved (get-in updated [:config :status])))
+    (is (= :failed (:last-execution-status updated)))
+    (is (= :failed (:last-execution-status summary)))
+    (is (= 5100 (:updated-at-ms updated)))
+    (is (= [ledger] (:execution-ledger updated)))))
+
+(deftest mark-tracking-enabled-promotes-saved-scenario-to-tracking-test
+  (let [record {:id "scn_01"
+                :name "Core Hedge"
+                :status :saved
+                :config {:id "scn_01"
+                         :name "Core Hedge"
+                         :status :saved
+                         :metadata {:dirty? false
+                                    :updated-at-ms 3000}}
+                :saved-run solved-run
+                :updated-at-ms 3000}
+        updated (scenario-records/mark-tracking-enabled record 5200)]
+    (is (= :tracking (:status updated)))
+    (is (= :tracking (get-in updated [:config :status])))
+    (is (= false (get-in updated [:config :metadata :dirty?])))
+    (is (= 5200 (:updated-at-ms updated)))
+    (is (= 5200 (get-in updated [:config :metadata :updated-at-ms])))))

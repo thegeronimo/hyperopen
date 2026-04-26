@@ -76,6 +76,8 @@
                          action-adapters/confirm-portfolio-optimizer-execution-action
                          :refresh-portfolio-optimizer-tracking
                          action-adapters/refresh-portfolio-optimizer-tracking-action
+                         :enable-portfolio-optimizer-manual-tracking
+                         action-adapters/enable-portfolio-optimizer-manual-tracking-action
                          :run-portfolio-optimizer-from-draft
                          action-adapters/run-portfolio-optimizer-from-draft-action}
    :api-wallets {:load-api-wallet-route action-adapters/load-api-wallet-route-action

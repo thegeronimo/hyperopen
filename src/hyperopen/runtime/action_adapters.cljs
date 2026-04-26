@@ -216,5 +216,8 @@
 (def refresh-portfolio-optimizer-tracking-action
   portfolio-optimizer-actions/refresh-portfolio-optimizer-tracking)
 
+(def enable-portfolio-optimizer-manual-tracking-action
+  portfolio-optimizer-actions/enable-portfolio-optimizer-manual-tracking)
+
 (def run-portfolio-optimizer-from-draft-action
   portfolio-optimizer-actions/run-portfolio-optimizer-from-draft)

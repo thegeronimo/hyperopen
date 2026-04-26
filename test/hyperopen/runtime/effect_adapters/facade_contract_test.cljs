@@ -43,4 +43,5 @@
   (is (fn? effect-adapters/archive-portfolio-optimizer-scenario-effect))
   (is (fn? effect-adapters/duplicate-portfolio-optimizer-scenario-effect))
   (is (fn? effect-adapters/execute-portfolio-optimizer-plan-effect))
-  (is (fn? effect-adapters/refresh-portfolio-optimizer-tracking-effect)))
+  (is (fn? effect-adapters/refresh-portfolio-optimizer-tracking-effect))
+  (is (fn? effect-adapters/enable-portfolio-optimizer-manual-tracking-effect)))

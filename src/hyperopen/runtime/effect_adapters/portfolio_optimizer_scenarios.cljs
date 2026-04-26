@@ -19,6 +19,9 @@
   [last-successful-run]
   (= :solved (get-in last-successful-run [:result :status])))
 
+(def ^:private manual-tracking-source-statuses
+  #{:saved :computed})
+
 (defn- current-scenario-id
   [env state opts now-ms]
   (or (:scenario-id opts)
@@ -44,6 +47,19 @@
 (def begin-scenario-duplicate-state state/begin-scenario-duplicate-state)
 (def apply-scenario-duplicate-success state/apply-scenario-duplicate-success)
 (def apply-scenario-duplicate-error state/apply-scenario-duplicate-error)
+
+(defn- apply-manual-tracking-success
+  [state scenario-index scenario-record]
+  (let [scenario-id (:id scenario-record)]
+    (-> state
+        (assoc-in [:portfolio :optimizer :scenario-index] scenario-index)
+        (assoc-in [:portfolio :optimizer :draft] (:config scenario-record))
+        (assoc-in [:portfolio :optimizer :active-scenario]
+                  {:loaded-id scenario-id
+                   :status (:status scenario-record)
+                   :read-only? false})
+        (assoc-in [:portfolio :optimizer :tracking]
+                  (state/cleared-tracking-state scenario-id)))))
 
 (defn load-portfolio-optimizer-scenario-index-effect
   [env store _opts]
@@ -260,6 +276,53 @@
                started-at-ms
                {:message "Cannot duplicate scenario without an address and scenario id."})
         (js/Promise.resolve nil)))))
+
+(defn enable-portfolio-optimizer-manual-tracking-effect
+  [env store]
+  (let [state @store
+        address (account-context/effective-account-address state)
+        scenario-id (or (get-in state [:portfolio :optimizer :active-scenario :loaded-id])
+                        (get-in state [:portfolio :optimizer :draft :id]))
+        now-ms-fn (env-fn env :now-ms)
+        load-scenario! (env-fn env :load-scenario!)
+        load-scenario-index! (env-fn env :load-scenario-index!)
+        save-scenario! (env-fn env :save-scenario!)
+        save-scenario-index! (env-fn env :save-scenario-index!)]
+    (if (and address scenario-id)
+      (-> (load-scenario! scenario-id)
+          (.then (fn [scenario-record]
+                   (if-not (and (map? scenario-record)
+                                (contains? manual-tracking-source-statuses
+                                           (:status scenario-record)))
+                     scenario-record
+                     (-> (load-scenario-index! address)
+                         (.then (fn [loaded-index]
+                                  (let [updated-record
+                                        (scenario-records/mark-tracking-enabled
+                                         scenario-record
+                                         (now-ms-fn))
+                                        scenario-index
+                                        (scenario-records/refresh-scenario-index-summary
+                                         (or loaded-index
+                                             (get-in @store
+                                                     [:portfolio :optimizer :scenario-index])
+                                             (default-scenario-index))
+                                         (scenario-records/scenario-summary updated-record))]
+                                    (-> (save-scenario! scenario-id updated-record)
+                                        (.then (fn [_]
+                                                 (save-scenario-index! address scenario-index)))
+                                        (.then (fn [_]
+                                                 (swap! store
+                                                        apply-manual-tracking-success
+                                                        scenario-index
+                                                        updated-record)
+                                                 updated-record))))))))))
+          (.catch (fn [err]
+                    (swap! store assoc-in
+                           [:portfolio :optimizer :tracking :error]
+                           {:message (state/error-message err)})
+                    nil)))
+      (js/Promise.resolve nil))))
 
 (defn save-portfolio-optimizer-scenario-effect
   [env store opts]

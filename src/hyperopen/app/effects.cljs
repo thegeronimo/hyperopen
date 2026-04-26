@@ -61,7 +61,9 @@
                          :execute-portfolio-optimizer-plan
                          effect-adapters/execute-portfolio-optimizer-plan-effect
                          :refresh-portfolio-optimizer-tracking
-                         effect-adapters/refresh-portfolio-optimizer-tracking-effect}
+                         effect-adapters/refresh-portfolio-optimizer-tracking-effect
+                         :enable-portfolio-optimizer-manual-tracking
+                         effect-adapters/enable-portfolio-optimizer-manual-tracking-effect}
    :api-wallets {:api-load-api-wallets effect-adapters/api-load-api-wallets-effect
                  :generate-api-wallet effect-adapters/generate-api-wallet-effect
                  :api-authorize-api-wallet effect-adapters/api-authorize-api-wallet-effect

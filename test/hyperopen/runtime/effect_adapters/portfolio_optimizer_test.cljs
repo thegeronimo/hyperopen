@@ -22,7 +22,9 @@
   (is (identical? portfolio-optimizer-adapters/execute-portfolio-optimizer-plan-effect
                   effect-adapters/execute-portfolio-optimizer-plan-effect))
   (is (identical? portfolio-optimizer-adapters/refresh-portfolio-optimizer-tracking-effect
-                  effect-adapters/refresh-portfolio-optimizer-tracking-effect)))
+                  effect-adapters/refresh-portfolio-optimizer-tracking-effect))
+  (is (identical? portfolio-optimizer-adapters/enable-portfolio-optimizer-manual-tracking-effect
+                  effect-adapters/enable-portfolio-optimizer-manual-tracking-effect)))
 
 (deftest run-portfolio-optimizer-effect-calls-run-bridge-with-runtime-store-test
   (let [calls (atom [])

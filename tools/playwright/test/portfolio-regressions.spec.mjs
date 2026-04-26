@@ -132,10 +132,11 @@ const OPTIMIZER_RELOAD_TRACKING_EDN = `{:status :loaded
  :updated-at-ms 1777046200000
  :snapshots [{:status :partially-executed
               :snapshot-at-ms 1777046200000
+              :nav-usdc 10000.0
               :weight-drift-rms 0.0282842712
-              :distance-to-target 0.0282842712
               :max-abs-weight-drift 0.04
               :predicted-return 0.24
+              :predicted-volatility 0.38
               :realized-return 0.018
               :rows [{:instrument-id "perp:BTC"
                       :current-weight 0.56
@@ -976,6 +977,10 @@ test("portfolio optimizer persisted scenario hydrates results and tracking after
   await expect(page.locator("[data-role='portfolio-optimizer-target-exposure-row-0']"))
     .toContainText("perp:BTC");
   await expect(tracking).toContainText("Weight Drift RMS");
+  await expect(tracking).toContainText("Predicted Vol");
+  await expect(tracking).toContainText("Drift Chart");
+  await expect(tracking).toContainText("Realized vs Predicted");
+  await expect(tracking).toContainText("Re-optimize From Current");
   await expect(page.locator("[data-role='portfolio-optimizer-tracking-row-0']"))
     .toContainText("perp:BTC");
 
@@ -988,6 +993,7 @@ test("portfolio optimizer persisted scenario hydrates results and tracking after
   await expect(workspace).toHaveAttribute("data-scenario-id", OPTIMIZER_RELOAD_SCENARIO_ID);
   await expect(results).toContainText("Rebalance Preview");
   await expect(tracking).toContainText("Realized Return");
+  await expect(tracking).toContainText("38.00%");
   await expect(page.locator("[data-role='portfolio-optimizer-tracking-row-1']"))
     .toContainText("perp:ETH");
 });

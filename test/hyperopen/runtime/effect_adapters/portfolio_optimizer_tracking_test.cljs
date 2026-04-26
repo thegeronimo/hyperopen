@@ -52,6 +52,83 @@
                  (done))))
             (.catch (async-support/unexpected-error done)))))))
 
+(deftest enable-portfolio-optimizer-manual-tracking-effect-persists-scenario-status-test
+  (async done
+    (let [saved-scenarios (atom [])
+          saved-indexes (atom [])
+          address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          scenario-record {:schema-version 1
+                           :id "scn_track"
+                           :name "Saved Tracking Candidate"
+                           :address address
+                           :status :saved
+                           :config {:id "scn_track"
+                                    :name "Saved Tracking Candidate"
+                                    :status :saved
+                                    :objective {:kind :max-sharpe}
+                                    :return-model {:kind :historical-mean}
+                                    :risk-model {:kind :diagonal-shrink}
+                                    :metadata {:dirty? false}}
+                           :saved-run {:computed-at-ms 1000
+                                       :result {:status :solved}}
+                           :created-at-ms 1000
+                           :updated-at-ms 1000}
+          loaded-index {:ordered-ids ["scn_track"]
+                        :by-id {"scn_track" {:id "scn_track"
+                                             :status :saved}}}
+          store (atom {:wallet {:address address}
+                       :portfolio {:optimizer
+                                   {:active-scenario {:loaded-id "scn_track"
+                                                      :status :saved}
+                                    :draft {:id "scn_track"
+                                            :status :saved}
+                                    :scenario-index loaded-index
+                                    :tracking {:scenario-id "old"
+                                               :snapshots [{:scenario-id "old"}]}}}})]
+      (with-redefs [portfolio-optimizer-adapters/*now-ms* (fn [] 5000)
+                    portfolio-optimizer-adapters/*load-scenario!*
+                    (fn [scenario-id]
+                      (is (= "scn_track" scenario-id))
+                      (js/Promise.resolve scenario-record))
+                    portfolio-optimizer-adapters/*load-scenario-index!*
+                    (fn [loaded-address]
+                      (is (= address loaded-address))
+                      (js/Promise.resolve loaded-index))
+                    portfolio-optimizer-adapters/*save-scenario!*
+                    (fn [scenario-id record]
+                      (swap! saved-scenarios conj [scenario-id record])
+                      (js/Promise.resolve nil))
+                    portfolio-optimizer-adapters/*save-scenario-index!*
+                    (fn [address index]
+                      (swap! saved-indexes conj [address index])
+                      (js/Promise.resolve nil))]
+        (-> (portfolio-optimizer-adapters/enable-portfolio-optimizer-manual-tracking-effect
+             nil
+             store)
+            (.then
+             (fn [updated-record]
+               (is (= :tracking (:status updated-record)))
+               (is (= :tracking (get-in updated-record [:config :status])))
+               (is (= 5000 (:updated-at-ms updated-record)))
+               (is (= [["scn_track" updated-record]]
+                      @saved-scenarios))
+               (is (= address (ffirst @saved-indexes)))
+               (is (= :tracking
+                      (get-in (second (first @saved-indexes))
+                              [:by-id "scn_track" :status])))
+               (is (= :tracking
+                      (get-in @store [:portfolio :optimizer :active-scenario :status])))
+               (is (= :tracking
+                      (get-in @store [:portfolio :optimizer :draft :status])))
+               (is (= {:status :idle
+                       :scenario-id "scn_track"
+                       :updated-at-ms nil
+                       :snapshots []
+                       :error nil}
+                      (get-in @store [:portfolio :optimizer :tracking])))
+               (done)))
+            (.catch (async-support/unexpected-error done)))))))
+
 (deftest load-portfolio-optimizer-scenario-effect-hydrates-tracking-record-test
   (async done
     (let [scenario-record {:schema-version 1

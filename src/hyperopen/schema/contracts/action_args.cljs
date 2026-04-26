@@ -232,6 +232,7 @@
 	   :actions/close-portfolio-optimizer-execution-modal ::common/no-args
 	   :actions/confirm-portfolio-optimizer-execution ::common/no-args
 	   :actions/refresh-portfolio-optimizer-tracking ::common/no-args
+	   :actions/enable-portfolio-optimizer-manual-tracking ::common/no-args
 	   :actions/run-portfolio-optimizer-from-draft ::common/no-args
    :actions/run-portfolio-optimizer ::portfolio-optimizer-run-args
    :actions/toggle-orderbook-size-unit-dropdown ::common/no-args

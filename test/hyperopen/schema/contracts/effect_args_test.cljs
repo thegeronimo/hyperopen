@@ -127,6 +127,13 @@
           []
           {:phase :test}))))
 
+(deftest assert-effect-args-accepts-portfolio-optimizer-manual-tracking-enable-test
+  (is (= []
+         (contracts/assert-effect-args!
+          :effects/enable-portfolio-optimizer-manual-tracking
+          []
+          {:phase :test}))))
+
 (deftest assert-effect-args-validates-unlock-agent-trading-continuations-test
   (is (= []
          (contracts/assert-effect-args!

@@ -7,7 +7,8 @@
             :scenario-id "scn_track"
             :instrument-ids ["perp:BTC" "perp:ETH"]
             :target-weights [0.6 -0.2]
-            :expected-return 0.18}})
+            :expected-return 0.18
+            :volatility 0.32}})
 
 (def current-snapshot
   {:loaded? true
@@ -30,7 +31,9 @@
     (is (= :tracked (:status snapshot)))
     (is (= "scn_track" (:scenario-id snapshot)))
     (is (= 2000 (:as-of-ms snapshot)))
+    (is (= 1000 (:nav-usdc snapshot)))
     (is (= 0.18 (:predicted-return snapshot)))
+    (is (= 0.32 (:predicted-volatility snapshot)))
     (is (= nil (:realized-return snapshot)))
     (is (< (js/Math.abs (- 0.1 (:max-abs-weight-drift snapshot))) 1e-9))
     (is (< (js/Math.abs (- 0.1 (:weight-drift-rms snapshot))) 1e-9))
@@ -53,6 +56,30 @@
     (is (= 2000 (:updated-at-ms tracking-record)))
     (is (= [{:as-of-ms 1000} snapshot]
            (:snapshots tracking-record)))))
+
+(deftest append-tracking-snapshot-computes-realized-return-from-baseline-nav-test
+  (let [baseline {:scenario-id "scn_track"
+                  :as-of-ms 1000
+                  :status :tracked
+                  :nav-usdc 1000
+                  :realized-return nil}
+        snapshot {:scenario-id "scn_track"
+                  :as-of-ms 2000
+                  :status :tracked
+                  :nav-usdc 1100
+                  :predicted-return 0.18
+                  :predicted-volatility 0.32
+                  :rows []}
+        tracking-record (tracking/append-tracking-snapshot
+                         {:scenario-id "scn_track"
+                          :snapshots [baseline]}
+                         snapshot)]
+    (is (near? 0.1
+               (get-in tracking-record [:snapshots 1 :realized-return])))
+    (is (= 0.18
+           (get-in tracking-record [:snapshots 1 :predicted-return])))
+    (is (= 0.32
+           (get-in tracking-record [:snapshots 1 :predicted-volatility])))))
 
 (deftest build-tracking-snapshot-rejects-missing-current-capital-test
   (let [snapshot (tracking/build-tracking-snapshot

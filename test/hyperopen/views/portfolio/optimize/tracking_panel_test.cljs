@@ -50,11 +50,12 @@
                                   [{:scenario-id "scn_track"
                                     :as-of-ms 2000
                                     :status :tracked
+                                    :nav-usdc 1000
                                     :weight-drift-rms 0.1
-                                    :distance-to-target 0.1
                                     :max-abs-weight-drift 0.12
                                     :predicted-return 0.18
-                                    :realized-return nil
+                                    :predicted-volatility 0.32
+                                    :realized-return 0.03
                                     :rows [{:instrument-id "perp:BTC"
                                             :current-weight 0.5
                                             :target-weight 0.6
@@ -63,11 +64,56 @@
         panel (node-by-role view-node "portfolio-optimizer-tracking-panel")
         refresh-button (node-by-role view-node
                                      "portfolio-optimizer-refresh-tracking")
+        reoptimize-button (node-by-role view-node
+                                        "portfolio-optimizer-reoptimize-current")
         strings (set (collect-strings view-node))]
     (is (some? panel))
     (is (= [[:actions/refresh-portfolio-optimizer-tracking]]
            (click-actions refresh-button)))
+    (is (= [[:actions/run-portfolio-optimizer-from-draft]]
+           (click-actions reoptimize-button)))
     (is (contains? strings "Tracking"))
     (is (contains? strings "Weight Drift RMS"))
     (is (contains? strings "Predicted Return"))
+    (is (contains? strings "Predicted Vol"))
+    (is (contains? strings "Drift Chart"))
+    (is (contains? strings "Realized vs Predicted"))
+    (is (contains? strings "Re-optimize From Current"))
     (is (contains? strings "perp:BTC"))))
+
+(deftest saved-scenario-renders-manual-tracking-enable-panel-test
+  (let [view-node
+        (portfolio-view/portfolio-view
+         {:router {:path "/portfolio/optimize/scn_track"}
+          :portfolio {:optimizer
+                      {:active-scenario {:loaded-id "scn_track"
+                                         :status :saved}
+                       :tracking {:status :idle
+                                  :scenario-id "scn_track"
+                                  :snapshots []}}}})
+        panel (node-by-role view-node "portfolio-optimizer-tracking-panel")
+        enable-button (node-by-role view-node
+                                    "portfolio-optimizer-enable-manual-tracking")
+        strings (set (collect-strings view-node))]
+    (is (some? panel))
+    (is (= [[:actions/enable-portfolio-optimizer-manual-tracking]]
+           (click-actions enable-button)))
+    (is (contains? strings "Tracking Not Active"))
+    (is (contains? strings "Enable Manual Tracking"))))
+
+(deftest unsaved-computed-scenario-disables-manual-tracking-enable-test
+  (let [view-node
+        (portfolio-view/portfolio-view
+         {:router {:path "/portfolio/optimize/new"}
+          :portfolio {:optimizer
+                      {:active-scenario {:loaded-id nil
+                                         :status :computed}
+                       :draft {:status :computed}
+                       :tracking {:status :idle
+                                  :snapshots []}}}})
+        enable-button (node-by-role view-node
+                                    "portfolio-optimizer-enable-manual-tracking")
+        strings (set (collect-strings view-node))]
+    (is (= true (get-in enable-button [1 :disabled])))
+    (is (nil? (click-actions enable-button)))
+    (is (contains? strings "Save scenario before enabling manual tracking."))))

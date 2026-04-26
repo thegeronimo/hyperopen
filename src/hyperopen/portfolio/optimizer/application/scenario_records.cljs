@@ -4,6 +4,9 @@
   [saved-run & ks]
   (get-in saved-run (into [:result] ks)))
 
+(def ^:private execution-scenario-statuses
+  #{:executed :partially-executed})
+
 (defn- with-saved-metadata
   [draft saved-at-ms]
   (-> draft
@@ -32,16 +35,18 @@
   [scenario-record]
   (let [config (:config scenario-record)
         saved-run (:saved-run scenario-record)]
-    {:id (:id scenario-record)
-     :name (:name scenario-record)
-     :status (:status scenario-record)
-     :objective-kind (get-in config [:objective :kind])
-     :return-model-kind (get-in config [:return-model :kind])
-     :risk-model-kind (get-in config [:risk-model :kind])
-     :expected-return (result-summary saved-run :expected-return)
-     :volatility (result-summary saved-run :volatility)
-     :rebalance-status (result-summary saved-run :rebalance-preview :status)
-     :updated-at-ms (:updated-at-ms scenario-record)}))
+    (cond-> {:id (:id scenario-record)
+             :name (:name scenario-record)
+             :status (:status scenario-record)
+             :objective-kind (get-in config [:objective :kind])
+             :return-model-kind (get-in config [:return-model :kind])
+             :risk-model-kind (get-in config [:risk-model :kind])
+             :expected-return (result-summary saved-run :expected-return)
+             :volatility (result-summary saved-run :volatility)
+             :rebalance-status (result-summary saved-run :rebalance-preview :status)
+             :updated-at-ms (:updated-at-ms scenario-record)}
+      (some? (:last-execution-status scenario-record))
+      (assoc :last-execution-status (:last-execution-status scenario-record)))))
 
 (defn upsert-scenario-index
   [scenario-index summary]
@@ -93,13 +98,26 @@
 
 (defn append-execution-ledger
   [scenario-record ledger]
-  (let [status (:status ledger)
+  (let [execution-status (:status ledger)
+        status (if (contains? execution-scenario-statuses execution-status)
+                 execution-status
+                 (:status scenario-record))
         updated-at-ms (or (:completed-at-ms ledger)
                           (:updated-at-ms scenario-record))]
     (-> scenario-record
         (assoc :status status
+               :last-execution-status execution-status
                :updated-at-ms updated-at-ms)
         (assoc-in [:config :status] status)
         (assoc-in [:config :metadata :dirty?] false)
         (assoc-in [:config :metadata :updated-at-ms] updated-at-ms)
         (update :execution-ledger #(conj (vec %) ledger)))))
+
+(defn mark-tracking-enabled
+  [scenario-record enabled-at-ms]
+  (-> scenario-record
+      (assoc :status :tracking
+             :updated-at-ms enabled-at-ms)
+      (assoc-in [:config :status] :tracking)
+      (assoc-in [:config :metadata :dirty?] false)
+      (assoc-in [:config :metadata :updated-at-ms] enabled-at-ms)))

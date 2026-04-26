@@ -13,7 +13,9 @@
 	    :duplicate-portfolio-optimizer-scenario]
 	   [:effects/save-portfolio-optimizer-scenario :save-portfolio-optimizer-scenario]
 	   [:effects/execute-portfolio-optimizer-plan :execute-portfolio-optimizer-plan]
-	   [:effects/refresh-portfolio-optimizer-tracking :refresh-portfolio-optimizer-tracking]])
+	   [:effects/refresh-portfolio-optimizer-tracking :refresh-portfolio-optimizer-tracking]
+	   [:effects/enable-portfolio-optimizer-manual-tracking
+	    :enable-portfolio-optimizer-manual-tracking]])
 
 (def action-binding-rows
   [[:actions/toggle-portfolio-summary-scope-dropdown :toggle-portfolio-summary-scope-dropdown]
@@ -73,5 +75,7 @@
 	   [:actions/close-portfolio-optimizer-execution-modal :close-portfolio-optimizer-execution-modal]
 	   [:actions/confirm-portfolio-optimizer-execution :confirm-portfolio-optimizer-execution]
 	   [:actions/refresh-portfolio-optimizer-tracking :refresh-portfolio-optimizer-tracking]
+	   [:actions/enable-portfolio-optimizer-manual-tracking
+	    :enable-portfolio-optimizer-manual-tracking]
 	   [:actions/run-portfolio-optimizer-from-draft :run-portfolio-optimizer-from-draft]
    [:actions/run-portfolio-optimizer :run-portfolio-optimizer]])

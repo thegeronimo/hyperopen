@@ -247,7 +247,6 @@
   funding-adapters/sync-active-asset-funding-predictability)
 
 (def load-portfolio-optimizer-history-effect portfolio-optimizer-adapters/load-portfolio-optimizer-history-effect)
-
 (def load-portfolio-optimizer-scenario-index-effect
   portfolio-optimizer-adapters/load-portfolio-optimizer-scenario-index-effect)
 
@@ -262,9 +261,10 @@
 
 (def save-portfolio-optimizer-scenario-effect
   portfolio-optimizer-adapters/save-portfolio-optimizer-scenario-effect)
-
 (def execute-portfolio-optimizer-plan-effect portfolio-optimizer-adapters/execute-portfolio-optimizer-plan-effect)
 (def refresh-portfolio-optimizer-tracking-effect portfolio-optimizer-adapters/refresh-portfolio-optimizer-tracking-effect)
+(def enable-portfolio-optimizer-manual-tracking-effect
+  portfolio-optimizer-adapters/enable-portfolio-optimizer-manual-tracking-effect)
 
 (def restore-dialog-focus-effect
   funding-adapters/restore-dialog-focus-effect)
