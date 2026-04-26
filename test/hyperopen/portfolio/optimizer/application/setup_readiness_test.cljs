@@ -105,3 +105,26 @@
     (is (= 35
            (get-in readiness
                    [:request :execution-assumptions :cost-contexts-by-id "perp:ETH" :fallback-bps])))))
+
+(deftest build-readiness-applies-manual-capital-when-snapshot-has-no-nav-test
+  (let [readiness (setup-readiness/build-readiness
+                   (optimizer-state
+                    {:portfolio
+                     {:optimizer
+                      {:draft {:execution-assumptions {:manual-capital-usdc 100000}}
+                       :history-data
+                       {:candle-history-by-coin
+                        {"BTC" [{:time 1000 :close "100"}
+                                {:time 2000 :close "110"}]
+                         "ETH" [{:time 1000 :close "2000"}
+                                {:time 2000 :close "2200"}]}
+                        :funding-history-by-coin {}}}}}))]
+    (is (= :ready (:status readiness)))
+    (is (= 100000
+           (get-in readiness [:request :current-portfolio :capital :nav-usdc])))
+    (is (= :manual
+           (get-in readiness [:request :current-portfolio :capital :source])))
+    (is (= true
+           (get-in readiness [:request :current-portfolio :capital-ready?])))
+    (is (= #{:manual-capital-base}
+           (set (map :code (get-in readiness [:request :current-portfolio :warnings])))))))

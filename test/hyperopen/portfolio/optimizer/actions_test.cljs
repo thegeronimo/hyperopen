@@ -210,6 +210,22 @@
           {}
           :fallback-slippage-bps
           "35")))
+  (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :execution-assumptions :manual-capital-usdc]
+                                100000]
+                               [[:portfolio :optimizer :draft :metadata :dirty?]
+                                true]]]]
+         (actions/set-portfolio-optimizer-execution-assumption
+          {}
+          :manual-capital-usdc
+          "100000")))
+  (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :execution-assumptions :manual-capital-usdc]
+                                nil]
+                               [[:portfolio :optimizer :draft :metadata :dirty?]
+                                true]]]]
+         (actions/set-portfolio-optimizer-execution-assumption
+          {}
+          :manual-capital-usdc
+          "")))
   (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :execution-assumptions :default-order-type]
                                 :market]
                                [[:portfolio :optimizer :draft :metadata :dirty?]

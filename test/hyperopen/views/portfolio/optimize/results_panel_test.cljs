@@ -162,5 +162,6 @@
     (is (contains? strings "low-invested-exposure"))
     (is (contains? strings "Binding Constraints"))
     (is (contains? strings "partially-blocked"))
+    (is (contains? strings "Blocked reasons: spot-submit-unsupported x1."))
     (is (contains? strings "spot-submit-unsupported"))
     (is (contains? strings "perp:BTC"))))

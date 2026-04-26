@@ -44,7 +44,8 @@
     :target-volatility})
 
 (def ^:private numeric-execution-assumption-keys
-  #{:fallback-slippage-bps})
+  #{:fallback-slippage-bps
+    :manual-capital-usdc})
 
 (def ^:private keyword-execution-assumption-keys
   #{:default-order-type
@@ -254,7 +255,12 @@
 (defn set-portfolio-optimizer-execution-assumption
   [_state assumption-key value]
   (let [assumption-key* (normalize-keyword-like assumption-key)
+        manual-capital-clear? (and (= :manual-capital-usdc assumption-key*)
+                                   (nil? (non-blank-text value)))
         value* (cond
+                 manual-capital-clear?
+                 nil
+
                  (contains? numeric-execution-assumption-keys assumption-key*)
                  (parse-number-value value)
 
@@ -262,7 +268,8 @@
                  (normalize-keyword-like value)
 
                  :else nil)]
-    (if (some? value*)
+    (if (or (some? value*)
+            manual-capital-clear?)
       (save-draft-path-values
        [[[:portfolio :optimizer :draft :execution-assumptions assumption-key*] value*]])
       [])))

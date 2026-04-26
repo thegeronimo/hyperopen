@@ -8,11 +8,35 @@
   (or (get-in state [:portfolio :optimizer :runtime :as-of-ms])
       (.now js/Date)))
 
+(defn- positive-number?
+  [value]
+  (and (number? value)
+       (pos? value)
+       (not (js/isNaN value))
+       (js/isFinite value)))
+
+(defn- with-manual-capital
+  [snapshot draft]
+  (let [manual-capital (get-in draft [:execution-assumptions :manual-capital-usdc])]
+    (if (positive-number? manual-capital)
+      (-> snapshot
+          (assoc :capital-ready? true)
+          (assoc-in [:capital :nav-usdc] manual-capital)
+          (assoc-in [:capital :source] :manual)
+          (assoc-in [:capital :manual-capital-usdc] manual-capital)
+          (update :warnings
+                  #(conj (vec %)
+                         {:code :manual-capital-base
+                          :message "Manual capital base is being used for preview sizing."})))
+      snapshot)))
+
 (defn- build-request
   [state draft]
   (request-builder/build-engine-request
    {:draft draft
-    :current-portfolio (current-portfolio/current-portfolio-snapshot state)
+    :current-portfolio (with-manual-capital
+                         (current-portfolio/current-portfolio-snapshot state)
+                         draft)
     :history-data (get-in state [:portfolio :optimizer :history-data])
     :market-cap-by-coin (get-in state [:portfolio :optimizer :market-cap-by-coin])
     :as-of-ms (current-as-of-ms state)

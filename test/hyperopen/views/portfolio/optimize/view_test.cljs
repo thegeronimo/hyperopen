@@ -163,6 +163,12 @@
             (node-by-role view-node
                           "portfolio-optimizer-execution-fallback-slippage-bps-input"))))
     (is (= [[:actions/set-portfolio-optimizer-execution-assumption
+             :manual-capital-usdc
+             [:event.target/value]]]
+           (input-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-execution-manual-capital-usdc-input"))))
+    (is (= [[:actions/set-portfolio-optimizer-execution-assumption
              :default-order-type
              :market]]
            (click-actions
@@ -187,6 +193,7 @@
       (is (contains? strings "Rebalance Tolerance"))
       (is (contains? strings "Execution Assumptions"))
       (is (contains? strings "Fallback Slippage"))
+      (is (contains? strings "Manual Capital Base"))
       (is (contains? strings "Default Order: Market"))
       (is (contains? strings "Fee Mode: Taker")))))
 

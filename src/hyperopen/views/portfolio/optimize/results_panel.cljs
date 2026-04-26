@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.results-panel
-  (:require [hyperopen.views.portfolio.optimize.frontier-chart :as frontier-chart]))
+  (:require [clojure.string :as str]
+            [hyperopen.views.portfolio.optimize.frontier-chart :as frontier-chart]))
 
 (defn- finite-number?
   [value]
@@ -324,11 +325,29 @@
       {:code status
        :message (str "Covariance conditioning is " (keyword-label status) ".")})))
 
+(defn- blocked-reason-summary
+  [preview]
+  (let [counts (frequencies
+                (keep (fn [row]
+                        (when (= :blocked (:status row))
+                          (:reason row)))
+                      (:rows preview)))]
+    (when (seq counts)
+      (->> counts
+           (sort-by (fn [[reason _count]]
+                      (keyword-label reason)))
+           (map (fn [[reason count]]
+                  (str (keyword-label reason) " x" count)))
+           (str/join ", ")))))
+
 (defn- preview-caution
   [preview]
   (when (contains? #{:blocked :partially-blocked} (:status preview))
-    {:code (:status preview)
-     :message "Some rebalance rows are blocked or require manual handling."}))
+    (let [reason-summary (blocked-reason-summary preview)]
+      {:code (:status preview)
+       :message (if (seq reason-summary)
+                  (str "Blocked reasons: " reason-summary ".")
+                  "Some rebalance rows are blocked or require manual handling.")})))
 
 (defn- trust-caution-panel
   [result]

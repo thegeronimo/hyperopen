@@ -81,6 +81,28 @@
            (:history-summary result)))
     (is (seq (:frontier result)))))
 
+(deftest run-optimization-uses-latest-history-price-for-rebalance-preview-test
+  (let [result (engine/run-optimization
+                (-> base-request
+                    (assoc :current-portfolio {:capital {:nav-usdc 100000}
+                                               :by-instrument {"perp:BTC" {:weight 0}
+                                                               "perp:ETH" {:weight 0}}})
+                    (assoc :execution-assumptions {:fallback-slippage-bps 20})
+                    (assoc-in [:history :price-series-by-instrument]
+                              {"perp:BTC" [{:close 90} {:close 100}]
+                               "perp:ETH" [{:close 45} {:close 50}]}))
+                {:solve-problem (fn [_problem]
+                                  {:status :solved
+                                   :weights [0.4 0.6]})})
+        rows-by-id (into {}
+                         (map (juxt :instrument-id identity))
+                         (get-in result [:rebalance-preview :rows]))]
+    (is (= :ready (get-in result [:rebalance-preview :status])))
+    (is (= 100 (:price (get rows-by-id "perp:BTC"))))
+    (is (= 50 (:price (get rows-by-id "perp:ETH"))))
+    (is (= 400 (:quantity (get rows-by-id "perp:BTC"))))
+    (is (= 1200 (:quantity (get rows-by-id "perp:ETH"))))))
+
 (deftest run-optimization-returns-structured-infeasibility-without-calling-solver-test
   (let [called? (atom false)
         result (engine/run-optimization

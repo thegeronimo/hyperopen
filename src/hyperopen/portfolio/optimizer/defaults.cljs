@@ -23,7 +23,8 @@
                  :rebalance-tolerance 0.03}
    :execution-assumptions {:default-order-type :market
                            :fallback-slippage-bps 25
-                           :fee-mode :taker}
+                           :fee-mode :taker
+                           :manual-capital-usdc nil}
    :metadata {:created-at-ms nil
               :updated-at-ms nil
               :dirty? false}})

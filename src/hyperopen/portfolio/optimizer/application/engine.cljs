@@ -167,6 +167,18 @@
        (not (js/isNaN value))
        (js/isFinite value)))
 
+(defn- parse-number
+  [value]
+  (cond
+    (finite-number? value) value
+
+    (string? value)
+    (let [parsed (js/parseFloat value)]
+      (when (finite-number? parsed)
+        parsed))
+
+    :else nil))
+
 (defn- dust-threshold
   [request]
   (let [direct-threshold (get-in request [:constraints :dust-threshold])
@@ -201,6 +213,20 @@
                        :instrument-type (or (:instrument-type instrument)
                                             (:market-type instrument)))]))
         universe))
+
+(defn- latest-history-prices-by-id
+  [request instrument-ids]
+  (into {}
+        (keep (fn [instrument-id]
+                (let [latest-row (last (get-in request
+                                               [:history
+                                                :price-series-by-instrument
+                                                instrument-id]))
+                      price (or (parse-number (:close latest-row))
+                                (parse-number (:close-price latest-row)))]
+                  (when (finite-number? price)
+                    [instrument-id price]))))
+        instrument-ids))
 
 (defn- min-variance-cash-warning
   [request encoded diagnostics]
@@ -250,7 +276,8 @@
       :current-weights current-weights
       :target-weights target-weights
       :instruments-by-id (normalized-instruments-by-id (:universe request))
-      :prices-by-id (:prices-by-id execution-assumptions)
+      :prices-by-id (merge (latest-history-prices-by-id request instrument-ids)
+                           (:prices-by-id execution-assumptions))
       :cost-contexts-by-id (:cost-contexts-by-id execution-assumptions)
       :leverage-by-id (get-in request [:constraints :perp-leverage])
       :fee-bps-by-id (:fee-bps-by-id execution-assumptions)})))

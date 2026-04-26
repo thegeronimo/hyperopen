@@ -280,7 +280,7 @@
      (panel-shell
       "portfolio-optimizer-execution-assumptions-panel"
       "Execution Assumptions"
-      "Preview costs use live market context where available, with explicit fallbacks."
+      "Preview costs use live market context where available, with explicit fallbacks and optional manual capital sizing."
       (number-input "Fallback Slippage"
                     (or (:fallback-slippage-bps execution-assumptions)
                         (:slippage-fallback-bps execution-assumptions)
@@ -288,6 +288,12 @@
                     "portfolio-optimizer-execution-fallback-slippage-bps-input"
                     [:actions/set-portfolio-optimizer-execution-assumption
                      :fallback-slippage-bps
+                     [:event.target/value]])
+      (number-input "Manual Capital Base"
+                    (:manual-capital-usdc execution-assumptions)
+                    "portfolio-optimizer-execution-manual-capital-usdc-input"
+                    [:actions/set-portfolio-optimizer-execution-assumption
+                     :manual-capital-usdc
                      [:event.target/value]])
       (option-chip "Default Order: Market"
                    (= :market (or (:default-order-type execution-assumptions) :market))
@@ -307,6 +313,8 @@
   (let [snapshot (current-portfolio/current-portfolio-snapshot state)
         draft (optimizer-draft state)
         readiness (setup-readiness/build-readiness state)
+        preview-snapshot (or (get-in readiness [:request :current-portfolio])
+                             snapshot)
         run-state (or (get-in state [:portfolio :optimizer :run-state])
                       (optimizer-defaults/default-run-state))
         running? (= :running (:status run-state))
@@ -423,17 +431,17 @@
                                    {:stale? (stale-result? last-successful-run
                                                            readiness)})
       (tracking-panel/tracking-panel state)
-      [:div {:class ["grid" "grid-cols-1" "gap-3" "lg:grid-cols-3"]
+     [:div {:class ["grid" "grid-cols-1" "gap-3" "lg:grid-cols-3"]
              :data-role "portfolio-optimizer-current-summary"}
-       (metric-card "NAV" (format-usdc (get-in snapshot [:capital :nav-usdc])))
-       (metric-card "Gross Exposure" (format-usdc (get-in snapshot [:capital :gross-exposure-usdc])))
-       (metric-card "Net Exposure" (format-usdc (get-in snapshot [:capital :net-exposure-usdc])))]
+       (metric-card "NAV" (format-usdc (get-in preview-snapshot [:capital :nav-usdc])))
+       (metric-card "Gross Exposure" (format-usdc (get-in preview-snapshot [:capital :gross-exposure-usdc])))
+       (metric-card "Net Exposure" (format-usdc (get-in preview-snapshot [:capital :net-exposure-usdc])))]
       [:div {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
              :data-role "portfolio-optimizer-signed-exposure-table"}
        [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"]}
         "Current Signed Exposure"]
        [:p {:class ["mt-2" "text-sm" "text-trading-muted"]}
-        (str (count (:exposures snapshot)) " current exposure rows available for optimizer request assembly.")]]]
+        (str (count (:exposures preview-snapshot)) " current exposure rows available for optimizer request assembly.")]]]
      [:aside {:class ["rounded-xl"
                       "border"
                       "border-base-300"
@@ -445,12 +453,14 @@
       [:p {:class ["mt-2" "text-sm" "text-trading-muted"]}
        (cond
          (not (:snapshot-loaded? snapshot))
-         "Current portfolio snapshot is not loaded yet."
+         (if (= :manual (get-in preview-snapshot [:capital :source]))
+           "Manual capital base is being used for preview sizing. Execution still depends on connected account readiness."
+           "Current portfolio snapshot is not loaded yet.")
 
-         (not (:capital-ready? snapshot))
+         (not (:capital-ready? preview-snapshot))
          "Current portfolio snapshot is available, but no positive capital base is available for execution preview."
 
-         (not (:execution-ready? snapshot))
+         (not (:execution-ready? preview-snapshot))
          "Current portfolio snapshot is available in read-only mode. Optimization can run, but execution is blocked."
 
          :else
@@ -458,7 +468,7 @@
       (setup-readiness-panel/readiness-panel readiness history-load-state)
       (run-status-panel/run-status-panel run-state)
       (run-status-panel/last-successful-run-panel run-state last-successful-run)
-      (when-let [message (get-in snapshot [:account :read-only-message])]
+      (when-let [message (get-in preview-snapshot [:account :read-only-message])]
         [:p {:class ["mt-3" "rounded-md" "border" "border-warning/40" "bg-warning/10" "p-2" "text-xs" "text-warning"]}
          message])]
      (execution-modal/execution-modal state)]))
