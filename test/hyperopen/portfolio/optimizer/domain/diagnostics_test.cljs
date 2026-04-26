@@ -11,6 +11,7 @@
                 {:instrument-ids ["A" "B"]
                  :current-weights [0.6 0.4]
                  :target-weights [0.5 0.5]
+                 :expected-returns [0.1 0.2]
                  :lower-bounds [0 0]
                  :upper-bounds [0.5 0.8]
                  :covariance [[1 0]
@@ -25,7 +26,8 @@
              :weight 0.5
              :bound 0.5}]
            (:binding-constraints result)))
-    (is (= :ok (get-in result [:covariance-conditioning :status])))))
+    (is (= :ok (get-in result [:covariance-conditioning :status])))
+    (is (contains? (:weight-sensitivity-by-instrument result) "A"))))
 
 (deftest weight-sensitivity-perturbs-top-weights-and-reports-return-range-test
   (let [result (diagnostics/weight-sensitivity
@@ -37,4 +39,5 @@
     (is (= ["A"] (mapv :instrument-id result)))
     (is (near? 0.13 (:base-expected-return (first result))))
     (is (near? 0.1303030303 (:down-expected-return (first result))))
-    (is (near? 0.1297029703 (:up-expected-return (first result))))))
+    (is (near? 0.1297029703 (:up-expected-return (first result))))
+    (is (near? 0.01 (:shock (first result))))))

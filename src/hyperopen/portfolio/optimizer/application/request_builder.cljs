@@ -7,7 +7,7 @@
   {:kind :historical-mean})
 
 (def default-risk-model
-  {:kind :ledoit-wolf})
+  {:kind :diagonal-shrink})
 
 (def default-objective
   {:kind :minimum-variance})

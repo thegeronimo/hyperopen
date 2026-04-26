@@ -26,7 +26,7 @@
                    :coin "ETH"}]
        :objective {:kind :minimum-variance}
        :return-model {:kind :historical-mean}
-       :risk-model {:kind :ledoit-wolf}
+       :risk-model {:kind :diagonal-shrink}
        :constraints {:long-only? true}}
       :runtime {:as-of-ms 2500
                 :stale-after-ms 5000

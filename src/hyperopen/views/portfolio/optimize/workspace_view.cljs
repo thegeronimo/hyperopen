@@ -210,9 +210,9 @@
       "portfolio-optimizer-risk-model-panel"
       "Risk Model"
       "Covariance estimation is configured independently from expected returns."
-      (option-chip "Ledoit-Wolf" (= :ledoit-wolf risk-kind)
-                   "portfolio-optimizer-risk-model-ledoit-wolf"
-                   [:actions/set-portfolio-optimizer-risk-model-kind :ledoit-wolf])
+      (option-chip "Diagonal Shrink" (= :diagonal-shrink risk-kind)
+                   "portfolio-optimizer-risk-model-diagonal-shrink"
+                   [:actions/set-portfolio-optimizer-risk-model-kind :diagonal-shrink])
       (option-chip "Sample Covariance" (= :sample-covariance risk-kind)
                    "portfolio-optimizer-risk-model-sample-covariance"
                    [:actions/set-portfolio-optimizer-risk-model-kind :sample-covariance]))

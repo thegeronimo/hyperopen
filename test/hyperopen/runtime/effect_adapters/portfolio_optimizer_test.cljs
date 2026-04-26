@@ -119,7 +119,7 @@
                                    {:draft {:name "Core Hedge"
                                             :objective {:kind :max-sharpe}
                                             :return-model {:kind :historical-mean}
-                                            :risk-model {:kind :ledoit-wolf}
+                                            :risk-model {:kind :diagonal-shrink}
                                             :metadata {:dirty? true}}
                                     :scenario-index {:ordered-ids []
                                                      :by-id {}}
@@ -198,7 +198,7 @@
                                     :name "Core Hedge"
                                     :objective {:kind :max-sharpe}
                                     :return-model {:kind :historical-mean}
-                                    :risk-model {:kind :ledoit-wolf}
+                                    :risk-model {:kind :diagonal-shrink}
                                     :metadata {:dirty? false}}
                            :saved-run {:computed-at-ms 2000
                                        :result {:status :solved

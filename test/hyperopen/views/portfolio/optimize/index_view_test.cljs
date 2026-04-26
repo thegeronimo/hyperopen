@@ -49,7 +49,7 @@
                                                      :status :saved
                                                      :objective-kind :minimum-variance
                                                      :return-model-kind :historical-mean
-                                                     :risk-model-kind :ledoit-wolf
+                                                     :risk-model-kind :diagonal-shrink
                                                      :expected-return 0.12
                                                      :volatility 0.24
                                                      :updated-at-ms 4000}
@@ -58,7 +58,7 @@
                                                      :status :partially-executed
                                                      :objective-kind :max-sharpe
                                                      :return-model-kind :black-litterman
-                                                     :risk-model-kind :ledoit-wolf
+                                                     :risk-model-kind :diagonal-shrink
                                                      :expected-return 0.18
                                                      :volatility 0.42
                                                      :updated-at-ms 3000}}}}}})

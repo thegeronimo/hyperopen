@@ -113,7 +113,7 @@
                                                      :coin "ETH"}]
                                          :objective {:kind :minimum-variance}
                                          :return-model {:kind :historical-mean}
-                                         :risk-model {:kind :ledoit-wolf}
+                                         :risk-model {:kind :diagonal-shrink}
                                          :constraints {:long-only? true}}
                                  :history-data {:candle-history-by-coin
                                                 {"BTC" [{:time 1000 :close "100"}

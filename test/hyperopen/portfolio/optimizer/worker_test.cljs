@@ -35,7 +35,7 @@
                                                       {:weight equal-weight}]))
                                               instrument-ids)}
      :return-model {:kind :historical-mean}
-     :risk-model {:kind :ledoit-wolf}
+     :risk-model {:kind :diagonal-shrink}
      :objective {:kind :minimum-variance}
      :constraints {:long-only? true
                    :max-asset-weight 1
@@ -165,7 +165,7 @@
                                :market-type "perp"
                                :coin "BTC"}]
                    :return-model {:kind "historical-mean"}
-                   :risk-model {:kind "ledoit-wolf"}
+                   :risk-model {:kind "diagonal-shrink"}
                    :objective {:kind "minimum-variance"}
                    :history {:funding-by-instrument {"perp:BTC" {:annualized-carry 0.01
                                                                   :source "market-funding-history"}}}
@@ -181,7 +181,7 @@
                             (get-in @captured [:universe 0 :market-type])))
                      (is (= :historical-mean
                             (get-in @captured [:return-model :kind])))
-                     (is (= :ledoit-wolf
+                     (is (= :diagonal-shrink
                             (get-in @captured [:risk-model :kind])))
                      (is (= :minimum-variance
                             (get-in @captured [:objective :kind])))

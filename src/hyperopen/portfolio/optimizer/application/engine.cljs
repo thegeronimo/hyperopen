@@ -215,6 +215,16 @@
        :invested-exposure gross-exposure
        :message "Minimum variance selected a near-cash signed portfolio. Use Target Return, Target Volatility, or an explicit Net Min floor if you want invested exposure."})))
 
+(defn- sharpe-summary
+  [expected-return volatility]
+  (let [in-sample-sharpe (when (and (finite-number? expected-return)
+                                    (finite-number? volatility)
+                                    (pos? volatility))
+                           (/ expected-return volatility))]
+    {:in-sample-sharpe in-sample-sharpe
+     :shrunk-sharpe (when (finite-number? in-sample-sharpe)
+                      (* 0.5 in-sample-sharpe))}))
+
 (defn- rebalance-preview
   [request instrument-ids current-weights target-weights]
   (let [execution-assumptions (:execution-assumptions request)]
@@ -253,8 +263,11 @@
                       :target-weights target-weights
                       :lower-bounds (:lower-bounds encoded)
                       :upper-bounds (:upper-bounds encoded)
-                      :covariance (:covariance risk-result)})
-        cash-warning (min-variance-cash-warning request encoded diagnostics)]
+                      :covariance (:covariance risk-result)
+                      :expected-returns expected-returns})
+        cash-warning (min-variance-cash-warning request encoded diagnostics)
+        expected-return (math/portfolio-return target-weights expected-returns)
+        volatility (sqrt (math/portfolio-variance target-weights (:covariance risk-result)))]
     {:status :solved
      :scenario-id (:scenario-id request)
      :as-of-ms (:as-of-ms request)
@@ -264,8 +277,9 @@
      :target-weights-by-instrument (zipmap instrument-ids target-weights)
      :current-weights-by-instrument (zipmap instrument-ids current-weights*)
      :dropped-weights dropped
-     :expected-return (math/portfolio-return target-weights expected-returns)
-     :volatility (sqrt (math/portfolio-variance target-weights (:covariance risk-result)))
+     :expected-return expected-return
+     :volatility volatility
+     :performance (sharpe-summary expected-return volatility)
      :solver {:strategy (:strategy solver-plan)
               :objective-kind (get-in solver-plan [:problems 0 :objective-kind])}
      :solver-results solver-results

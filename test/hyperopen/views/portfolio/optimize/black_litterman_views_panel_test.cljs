@@ -68,7 +68,7 @@
                                                                  :confidence-variance 0.2
                                                                  :weights {"perp:BTC" 1
                                                                            "perp:ETH" -1}}]}
-                                         :risk-model {:kind :ledoit-wolf}}
+                                         :risk-model {:kind :diagonal-shrink}}
                                  :history-data {:candle-history-by-coin
                                                 {"BTC" [{:time 1000 :close "100"}
                                                         {:time 2000 :close "110"}]

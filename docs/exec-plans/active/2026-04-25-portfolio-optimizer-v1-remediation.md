@@ -82,7 +82,7 @@ A branch is only review-ready when all of the following are true:
 - [x] (2026-04-26 01:57Z) Completed Phase 2 defaults and minimum-variance honesty. Defaults no longer include hidden `net-min`, default leverage/weight/tolerance values match the remediation contract, signed minimum-variance near-cash solutions are surfaced with an explicit warning, and the required gates passed.
 - [x] (2026-04-26 02:15Z) Completed Phase 3 Black-Litterman authoring UI and persistence. BL now has absolute/relative view add/edit/remove actions, draft and saved scenario persistence coverage, request-builder view normalization with confidence variance, prior-source/weight transparency in setup, and the required gates passed.
 - [x] (2026-04-26 02:23Z) Completed Phase 4 worker wire normalization and funding rendering. Known instrument-keyed request/response maps normalize to string keys across worker boundaries, slash-containing spot IDs are preserved, result payloads include current/target weight maps, funding-source enum values survive normalization, and the required gates passed.
-- [ ] Complete Phase 5 risk and diagnostics correction.
+- [x] (2026-04-26 02:36Z) Completed Phase 5 risk and diagnostics correction. The mislabeled Ledoit-Wolf path is now honestly labeled `diagonal-shrink` with a legacy alias warning, covariance conditioning uses eigenvalue-derived condition/min/max values, low-observation expected-return warnings are emitted, shrunk in-sample Sharpe is carried on results, per-instrument sensitivity is surfaced, and the required gates passed.
 - [ ] Complete Phase 6 results surface upgrade.
 - [ ] Complete Phase 7 rebalance review upgrade.
 - [ ] Complete Phase 8 scenario lifecycle and tracking.
@@ -110,6 +110,9 @@ A branch is only review-ready when all of the following are true:
 
 - Observation: Worker response normalization had the same instrument-key hazard as worker request decoding.
   Evidence: `worker-client/normalize-worker-message` uses `js->clj :keywordize-keys true`, so payload maps such as `return-decomposition-by-instrument` were converted from string instrument IDs into keywords before the results panel looked them up by string. Slash-containing spot IDs also require `(subs (str keyword) 1)` instead of `name` to avoid dropping the namespace portion.
+
+- Observation: A naive immutable Jacobi eigenvalue implementation was too slow for the existing worker runaway budget.
+  Evidence: The focused optimizer suite initially failed the 60-instrument worker guard at 5480ms against a 5000ms budget. Phase 5 now uses a bounded mutable cyclic Jacobi pass for the conditioning diagnostic, preserving eigenvalue-derived outputs while keeping the worker performance test green.
 
 ## Decision Log
 
@@ -139,6 +142,10 @@ A branch is only review-ready when all of the following are true:
 
 - Decision: Centralize optimizer worker-boundary normalization in `hyperopen.portfolio.optimizer.infrastructure.wire`.
   Rationale: Request normalization in the worker and response normalization in the client must share the same list of instrument-keyed map paths and the same keyword-to-string conversion rules; keeping the behavior in one boundary module prevents future `keywordize-keys` regressions.
+  Date/Author: 2026-04-26 / Codex
+
+- Decision: Rename the current risk estimator to `diagonal-shrink` instead of claiming Ledoit-Wolf in V1 remediation.
+  Rationale: The implementation shrinks off-diagonal sample covariance entries toward zero; it is not a full Ledoit-Wolf estimator with data-derived shrinkage intensity. Renaming is the honest V1 fix and a legacy `:ledoit-wolf` alias remains only to normalize old saved drafts with a warning.
   Date/Author: 2026-04-26 / Codex
 
 ## Outcomes & Retrospective

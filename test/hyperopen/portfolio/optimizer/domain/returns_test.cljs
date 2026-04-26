@@ -42,3 +42,13 @@
     (is (= [{:code :missing-return-series
              :instrument-id "perp:BTC"}]
            (:warnings result)))))
+
+(deftest expected-returns-warn-on-low-observation-samples-test
+  (let [result (returns/estimate-expected-returns
+                {:return-model {:kind :historical-mean}
+                 :history {:return-series-by-instrument {"perp:BTC" [0.01 0.02]}}})]
+    (is (= [{:code :low-return-sample-size
+             :instrument-id "perp:BTC"
+             :observations 2
+             :recommended-observations 30}]
+           (:warnings result)))))

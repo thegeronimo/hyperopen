@@ -164,6 +164,16 @@
    [:span {:class ["font-semibold"]} (:instrument-id binding)]
    [:span {:class ["ml-2"]} (keyword-label (:constraint binding))]])
 
+(defn- sensitivity-row
+  [[instrument-id row]]
+  [:div {:class ["rounded-md" "border" "border-base-300" "bg-base-200/40" "p-2" "text-xs"]
+         :data-role (str "portfolio-optimizer-sensitivity-row-" instrument-id)}
+   [:span {:class ["font-semibold"]} instrument-id]
+   [:span {:class ["ml-2" "text-trading-muted"]}
+    (str "Base " (format-pct (:base-expected-return row))
+         " / Down " (format-pct (:down-expected-return row))
+         " / Up " (format-pct (:up-expected-return row)))]])
+
 (defn- warning-row
   [warning]
   [:p {:class ["rounded-md" "border" "border-warning/40" "bg-warning/10" "p-2" "text-xs" "text-warning"]
@@ -184,7 +194,9 @@
 (defn- diagnostics-panel
   [result]
   (let [diagnostics (:diagnostics result)
-        bindings (:binding-constraints diagnostics)]
+        bindings (:binding-constraints diagnostics)
+        conditioning (:covariance-conditioning diagnostics)
+        sensitivity (:weight-sensitivity-by-instrument diagnostics)]
     (panel-shell
      "portfolio-optimizer-diagnostics-panel"
      "Diagnostics"
@@ -194,6 +206,12 @@
       (summary-card "Net" (format-pct (:net-exposure diagnostics)))
       (summary-card "Effective N" (format-decimal (:effective-n diagnostics)))
       (summary-card "Turnover" (format-pct (:turnover diagnostics)))]
+     [:div {:class ["grid" "grid-cols-1" "gap-2" "lg:grid-cols-3"]}
+      (summary-card "Condition" (keyword-label (:status conditioning)))
+      (summary-card "Condition #"
+                    (format-decimal (:condition-number conditioning)))
+      (summary-card "Min Eigen"
+                    (format-decimal (:min-eigenvalue conditioning)))]
      [:div {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]}
       [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.18em]" "text-trading-muted"]}
        "Binding Constraints"]
@@ -201,7 +219,16 @@
         (into [:div {:class ["mt-2" "space-y-2"]}]
               (map binding-constraint-row bindings))
         [:p {:class ["mt-2" "text-xs" "text-trading-muted"]}
-         "No binding constraints reported."])])))
+         "No binding constraints reported."])]
+     [:div {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]
+            :data-role "portfolio-optimizer-sensitivity-panel"}
+      [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.18em]" "text-trading-muted"]}
+       "Weight Sensitivity"]
+      (if (seq sensitivity)
+        (into [:div {:class ["mt-2" "space-y-2"]}]
+              (map sensitivity-row sensitivity))
+        [:p {:class ["mt-2" "text-xs" "text-trading-muted"]}
+         "No sensitivity diagnostics reported."])])))
 
 (defn- rebalance-row
   [row]

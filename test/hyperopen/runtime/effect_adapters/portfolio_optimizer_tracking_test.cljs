@@ -62,7 +62,7 @@
                                     :name "Tracked Scenario"
                                     :objective {:kind :max-sharpe}
                                     :return-model {:kind :historical-mean}
-                                    :risk-model {:kind :ledoit-wolf}
+                                    :risk-model {:kind :diagonal-shrink}
                                     :metadata {:dirty? false}}
                            :saved-run {:computed-at-ms 2000
                                        :result {:status :solved
@@ -111,7 +111,7 @@
                                     :name "Untracked Scenario"
                                     :objective {:kind :max-sharpe}
                                     :return-model {:kind :historical-mean}
-                                    :risk-model {:kind :ledoit-wolf}
+                                    :risk-model {:kind :diagonal-shrink}
                                     :metadata {:dirty? false}}
                            :saved-run {:computed-at-ms 2000
                                        :result {:status :solved}}

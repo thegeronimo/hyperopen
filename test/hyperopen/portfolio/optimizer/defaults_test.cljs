@@ -7,7 +7,7 @@
     (is (= :draft (:status draft)))
     (is (= :minimum-variance (get-in draft [:objective :kind])))
     (is (= :historical-mean (get-in draft [:return-model :kind])))
-    (is (= :ledoit-wolf (get-in draft [:risk-model :kind])))
+    (is (= :diagonal-shrink (get-in draft [:risk-model :kind])))
     (is (= false (get-in draft [:metadata :dirty?])))
     (is (= false (get-in draft [:constraints :long-only?])))
     (is (= 3.0 (get-in draft [:constraints :gross-max])))

@@ -25,7 +25,7 @@
                                                   :short-instrument-id "spot:PURR"
                                                   :return 0.04
                                                   :confidence 0.8}]}
-                          :risk-model {:kind :ledoit-wolf
+                          :risk-model {:kind :diagonal-shrink
                                        :shrinkage 0.3}
                           :constraints {:long-only? true
                                         :max-asset-weight 0.4}
@@ -44,7 +44,7 @@
                   :as-of-ms 2500})]
     (is (= :target-return (get-in request [:objective :kind])))
     (is (= :black-litterman (get-in request [:return-model :kind])))
-    (is (= :ledoit-wolf (get-in request [:risk-model :kind])))
+    (is (= :diagonal-shrink (get-in request [:risk-model :kind])))
     (is (= {:id "view-1"
             :kind :relative
             :long-instrument-id "perp:BTC"

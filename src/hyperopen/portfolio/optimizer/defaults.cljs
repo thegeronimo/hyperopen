@@ -8,7 +8,7 @@
    :universe []
    :objective {:kind :minimum-variance}
    :return-model {:kind :historical-mean}
-   :risk-model {:kind :ledoit-wolf}
+   :risk-model {:kind :diagonal-shrink}
    :constraints {:long-only? false
                  :gross-max 3.0
                  :net-max 1.5

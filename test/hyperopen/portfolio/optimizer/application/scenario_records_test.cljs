@@ -24,7 +24,7 @@
                                        :confidence 0.7
                                        :confidence-variance 0.3
                                        :weights {"perp:BTC" 1}}]}
-               :risk-model {:kind :ledoit-wolf}
+               :risk-model {:kind :diagonal-shrink}
                :metadata {:dirty? true}}
         record (scenario-records/build-saved-scenario-record
                 {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -50,7 +50,7 @@
             :status :saved
             :objective-kind :max-sharpe
             :return-model-kind :black-litterman
-            :risk-model-kind :ledoit-wolf
+            :risk-model-kind :diagonal-shrink
             :expected-return 0.18
             :volatility 0.42
             :rebalance-status :partially-blocked

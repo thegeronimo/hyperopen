@@ -23,7 +23,8 @@
                      :views []}})
 
 (def ^:private risk-models
-  {:ledoit-wolf {:kind :ledoit-wolf}
+  {:diagonal-shrink {:kind :diagonal-shrink}
+   :ledoit-wolf {:kind :diagonal-shrink}
    :sample-covariance {:kind :sample-covariance}})
 
 (def ^:private numeric-constraint-keys

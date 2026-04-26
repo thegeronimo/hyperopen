@@ -150,6 +150,8 @@
            (click-actions (node-by-role view-node "portfolio-optimizer-return-model-black-litterman"))))
     (is (= [[:actions/set-portfolio-optimizer-risk-model-kind :sample-covariance]]
            (click-actions (node-by-role view-node "portfolio-optimizer-risk-model-sample-covariance"))))
+    (is (= [[:actions/set-portfolio-optimizer-risk-model-kind :diagonal-shrink]]
+           (click-actions (node-by-role view-node "portfolio-optimizer-risk-model-diagonal-shrink"))))
     (is (= [[:actions/set-portfolio-optimizer-objective-parameter
              :target-return
              [:event.target/value]]]
@@ -185,7 +187,7 @@
     (let [strings (set (collect-strings view-node))]
       (is (contains? strings "Minimum Variance"))
       (is (contains? strings "Historical Mean"))
-      (is (contains? strings "Ledoit-Wolf"))
+      (is (contains? strings "Diagonal Shrink"))
       (is (contains? strings "Draft clean"))
       (is (contains? strings "Load History"))
       (is (contains? strings "Max Asset Weight"))
@@ -205,7 +207,7 @@
                                                      :coin "BTC"}]
                                          :objective {:kind :minimum-variance}
                                          :return-model {:kind :historical-mean}
-                                         :risk-model {:kind :ledoit-wolf}
+                                         :risk-model {:kind :diagonal-shrink}
                                          :constraints {:long-only? true}}
                                  :history-data {:candle-history-by-coin
                                                 {"BTC" [{:time 1000 :close "100"}
@@ -467,7 +469,7 @@
                                                      :coin "BTC"}]
                                          :objective {:kind :minimum-variance}
                                          :return-model {:kind :historical-mean}
-                                         :risk-model {:kind :ledoit-wolf}
+                                         :risk-model {:kind :diagonal-shrink}
                                          :constraints {:long-only? true}}
                                  :history-data {:candle-history-by-coin {}
                                                 :funding-history-by-coin {}}

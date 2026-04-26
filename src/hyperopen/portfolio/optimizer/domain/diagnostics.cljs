@@ -44,16 +44,6 @@
                       :bound upper}]))))
        vec))
 
-(defn portfolio-diagnostics
-  [{:keys [target-weights current-weights covariance] :as opts}]
-  {:gross-exposure (gross-exposure target-weights)
-   :net-exposure (reduce + 0 target-weights)
-   :effective-n (effective-n target-weights)
-   :max-weight (apply max (map abs-num target-weights))
-   :turnover (turnover current-weights target-weights)
-   :binding-constraints (binding-constraints opts)
-   :covariance-conditioning (risk/covariance-conditioning covariance)})
-
 (defn- renormalize
   [weights]
   (let [total (reduce + 0 weights)]
@@ -85,5 +75,31 @@
               {:instrument-id (nth instrument-ids idx)
                :base-expected-return base-return
                :down-expected-return (math/portfolio-return down expected-returns)
-               :up-expected-return (math/portfolio-return up expected-returns)}))
+               :up-expected-return (math/portfolio-return up expected-returns)
+               :shock shock*}))
           top-indexes)))
+
+(defn- weight-sensitivity-by-instrument
+  [opts]
+  (into {}
+        (map (fn [{:keys [instrument-id] :as row}]
+               [instrument-id (dissoc row :instrument-id)]))
+        (weight-sensitivity opts)))
+
+(defn portfolio-diagnostics
+  [{:keys [target-weights current-weights covariance expected-returns] :as opts}]
+  (cond-> {:gross-exposure (gross-exposure target-weights)
+           :net-exposure (reduce + 0 target-weights)
+           :effective-n (effective-n target-weights)
+           :max-weight (apply max (map abs-num target-weights))
+           :turnover (turnover current-weights target-weights)
+           :binding-constraints (binding-constraints opts)
+           :covariance-conditioning (risk/covariance-conditioning covariance)}
+    (seq expected-returns)
+    (assoc :weight-sensitivity-by-instrument
+           (weight-sensitivity-by-instrument
+            {:instrument-ids (:instrument-ids opts)
+             :weights target-weights
+             :expected-returns expected-returns
+             :shock 0.01
+             :top-n 5}))))

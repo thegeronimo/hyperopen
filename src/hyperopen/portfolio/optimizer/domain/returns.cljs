@@ -7,6 +7,9 @@
 (def default-ew-alpha
   0.25)
 
+(def default-min-observations
+  30)
+
 (defn- return-series
   [history instrument-id]
   (vec (get-in history [:return-series-by-instrument instrument-id])))
@@ -57,6 +60,14 @@
          :black-litterman (or (math/mean series) 0)
          (or (math/mean series) 0)))))
 
+(defn- sample-size-warning
+  [instrument-id series]
+  (when (< (count series) default-min-observations)
+    {:code :low-return-sample-size
+     :instrument-id instrument-id
+     :observations (count series)
+     :recommended-observations default-min-observations}))
+
 (defn estimate-expected-returns
   [{:keys [return-model periods-per-year history]}]
   (let [return-model* (or return-model {:kind :historical-mean})
@@ -69,14 +80,17 @@
                                                       periods-per-year*
                                                       series)
                         funding-part (funding-carry history instrument-id)
-                        total (+ return-part funding-part)]
-                    (-> acc
-                        (update :instrument-ids conj instrument-id)
-                        (assoc-in [:expected-returns-by-instrument instrument-id] total)
-                        (assoc-in [:decomposition-by-instrument instrument-id]
-                                  {:return-component return-part
-                                   :funding-component funding-part
-                                   :funding-source (funding-source history instrument-id)})))
+                        total (+ return-part funding-part)
+                        warning (sample-size-warning instrument-id series)]
+                    (cond-> (-> acc
+                                (update :instrument-ids conj instrument-id)
+                                (assoc-in [:expected-returns-by-instrument instrument-id] total)
+                                (assoc-in [:decomposition-by-instrument instrument-id]
+                                          {:return-component return-part
+                                           :funding-component funding-part
+                                           :funding-source (funding-source history instrument-id)}))
+                      warning
+                      (update :warnings conj warning)))
                   (update acc :warnings conj
                           {:code :missing-return-series
                            :instrument-id instrument-id}))))
