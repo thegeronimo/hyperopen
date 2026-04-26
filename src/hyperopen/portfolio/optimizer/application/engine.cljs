@@ -242,6 +242,8 @@
      {:capital-usd (or (get-in request [:current-portfolio :capital :nav-usdc])
                        (get-in request [:current-portfolio :capital :account-value-usd])
                        0)
+      :current-margin-used-usdc (get-in request
+                                        [:current-portfolio :capital :total-margin-used-usdc])
       :rebalance-tolerance (get-in request [:constraints :rebalance-tolerance])
       :fallback-slippage-bps (:fallback-slippage-bps execution-assumptions)
       :instrument-ids instrument-ids
@@ -250,6 +252,7 @@
       :instruments-by-id (normalized-instruments-by-id (:universe request))
       :prices-by-id (:prices-by-id execution-assumptions)
       :cost-contexts-by-id (:cost-contexts-by-id execution-assumptions)
+      :leverage-by-id (get-in request [:constraints :perp-leverage])
       :fee-bps-by-id (:fee-bps-by-id execution-assumptions)})))
 
 (defn- solved-payload

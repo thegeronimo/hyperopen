@@ -3,6 +3,7 @@
             [hyperopen.api-wallets.actions :as api-wallets-actions]
             [hyperopen.funding-comparison.actions :as funding-comparison-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.portfolio.optimizer.actions :as portfolio-optimizer-actions]
             [hyperopen.runtime.action-adapters.navigation :as navigation-adapters]
             [hyperopen.runtime.effect-order-contract :as effect-order-contract]
             [hyperopen.staking.actions :as staking-actions]
@@ -80,6 +81,20 @@
             [:effects/load-route-module "/API"]
             [:effects/api-load-api-wallets]]
            (navigation-adapters/navigate {} "/API")))))
+
+(deftest navigate-appends-portfolio-optimizer-route-effects-after-route-module-load-test
+  (with-redefs [vault-actions/load-vault-route (fn [_state _path] [])
+                funding-comparison-actions/load-funding-comparison-route (fn [_state _path] [])
+                api-wallets-actions/load-api-wallet-route (fn [_state _path] [])
+                staking-actions/load-staking-route (fn [_state _path] [])
+                portfolio-optimizer-actions/load-portfolio-optimizer-route
+                (fn [_state path]
+                  [[:effects/load-portfolio-optimizer-scenario "scn_route"]])]
+    (is (= [[:effects/save [:router :path] "/portfolio/optimize/scn_route"]
+            [:effects/push-state "/portfolio/optimize/scn_route"]
+            [:effects/load-route-module "/portfolio/optimize/scn_route"]
+            [:effects/load-portfolio-optimizer-scenario "scn_route"]]
+           (navigation-adapters/navigate {} "/portfolio/optimize/scn_route")))))
 
 (deftest navigate-trade-route-loads-deferred-chart-module-test
   (with-redefs [vault-actions/load-vault-route (fn [_state _path] [])

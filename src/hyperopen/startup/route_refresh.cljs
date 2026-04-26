@@ -34,11 +34,15 @@
                      (api-wallets-actions/api-wallet-route? route)
                      [[:actions/load-api-wallet-route route]]
 
+                     (portfolio-routes/portfolio-optimize-route? route)
+                     [[:actions/load-portfolio-optimizer-route route]]
+
                      :else [])
                    (when (and (portfolio-routes/portfolio-route? route)
                               (seq (portfolio-actions/selected-portfolio-vault-benchmark-addresses state)))
                      [[:actions/load-vault-route route]])))
       (and new-address
-           (portfolio-routes/portfolio-route? route))
+           (portfolio-routes/portfolio-route? route)
+           (not (portfolio-routes/portfolio-optimize-route? route)))
       (conj [:actions/select-portfolio-chart-tab
              (get-in state [:portfolio-ui :chart-tab])]))))

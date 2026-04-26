@@ -36,6 +36,11 @@
     (is (= [[:actions/load-api-wallet-route "/api"]]
            (route-refresh/current-route-refresh-effects
             {:router {:path "/api"}}
+            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))))
+  (testing "optimizer scenario route refreshes only optimizer scenario state"
+    (is (= [[:actions/load-portfolio-optimizer-route "/portfolio/optimize/scn_route"]]
+           (route-refresh/current-route-refresh-effects
+            {:router {:path "/portfolio/optimize/scn_route"}}
             "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")))))
 
 (deftest current-route-refresh-effects-preserve-portfolio-chart-bootstrap-test
@@ -53,6 +58,11 @@
     (is (= []
            (route-refresh/current-route-refresh-effects
             {:router {:path "/portfolio"}
+             :portfolio-ui {:chart-tab :returns}}
+            nil)))
+    (is (= [[:actions/load-portfolio-optimizer-route "/portfolio/optimize/scn_01"]]
+           (route-refresh/current-route-refresh-effects
+            {:router {:path "/portfolio/optimize/scn_01"}
              :portfolio-ui {:chart-tab :returns}}
             nil)))))
 

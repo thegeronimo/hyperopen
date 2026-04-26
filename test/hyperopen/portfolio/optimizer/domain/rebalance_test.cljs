@@ -107,3 +107,35 @@
     (is (= 1 (get-in preview [:summary :ready-count])))
     (is (= 1 (get-in preview [:summary :blocked-count])))
     (is (= 1000 (get-in preview [:summary :gross-trade-notional-usd])))))
+
+(deftest build-rebalance-preview-derives-live-orderbook-costs-and-margin-impact-test
+  (let [preview (rebalance/build-rebalance-preview
+                 {:capital-usd 10000
+                  :current-margin-used-usdc 1000
+                  :rebalance-tolerance 0.0
+                  :fallback-slippage-bps 25
+                  :instrument-ids ["perp:BTC"]
+                  :current-weights [0.0]
+                  :target-weights [0.2]
+                  :instruments-by-id {"perp:BTC" {:instrument-type :perp
+                                                  :coin "BTC"}}
+                  :prices-by-id {"perp:BTC" 100}
+                  :cost-contexts-by-id {"perp:BTC" {:source :live-orderbook
+                                                    :best-bid {:px-num 99}
+                                                    :best-ask {:px-num 101}}}
+                  :fee-bps-by-id {"perp:BTC" 5}
+                  :leverage-by-id {"perp:BTC" 5}})]
+    (is (= :ready (:status preview)))
+    (is (= :live-orderbook (get-in preview [:rows 0 :cost :source])))
+    (is (= 101 (get-in preview [:rows 0 :cost :estimated-fill-price])))
+    (is (near? 100 (get-in preview [:rows 0 :cost :slippage-bps])))
+    (is (near? 20 (get-in preview [:rows 0 :cost :estimated-slippage-usd])))
+    (is (near? 1 (get-in preview [:rows 0 :cost :estimated-fee-usd])))
+    (is (= {:capital-usd 10000
+            :current-used-usd 1000
+            :estimated-impact-usd 400
+            :after-used-usd 1400
+            :before-utilization 0.1
+            :after-utilization 0.14
+            :warning nil}
+           (get-in preview [:summary :margin])))))

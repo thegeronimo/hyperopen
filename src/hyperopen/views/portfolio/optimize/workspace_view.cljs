@@ -43,7 +43,8 @@
   [request]
   (some-> request
           (dissoc :as-of-ms)
-          (update-in [:history :freshness] dissoc :as-of-ms :age-ms)))
+          (update-in [:history :freshness] dissoc :as-of-ms :age-ms)
+          (update :execution-assumptions dissoc :cost-contexts-by-id)))
 
 (defn- stale-result?
   [last-successful-run readiness]

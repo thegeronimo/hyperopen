@@ -75,3 +75,33 @@
     (is (= false (:runnable? readiness)))
     (is (= ["perp:BTC" "perp:ETH"]
            (mapv :instrument-id (get-in readiness [:request :universe]))))))
+
+(deftest build-readiness-injects-orderbook-cost-contexts-into-request-test
+  (let [readiness (setup-readiness/build-readiness
+                   (optimizer-state
+                    {:orderbooks {"BTC" {:timestamp 2400
+                                         :render {:best-bid {:px-num 99}
+                                                  :best-ask {:px-num 101}}}}
+                     :portfolio
+                     {:optimizer
+                      {:draft {:execution-assumptions {:fallback-slippage-bps 35}}
+                       :history-data
+                       {:candle-history-by-coin
+                        {"BTC" [{:time 1000 :close "100"}
+                                {:time 2000 :close "110"}]
+                         "ETH" [{:time 1000 :close "2000"}
+                                {:time 2000 :close "2200"}]}
+                        :funding-history-by-coin {}}}}}))]
+    (is (= :ready (:status readiness)))
+    (is (= {:best-bid {:px-num 99}
+            :best-ask {:px-num 101}
+            :source :live-orderbook
+            :stale? false}
+           (get-in readiness
+                   [:request :execution-assumptions :cost-contexts-by-id "perp:BTC"])))
+    (is (= :fallback-cost-assumption
+           (get-in readiness
+                   [:request :execution-assumptions :cost-contexts-by-id "perp:ETH" :source])))
+    (is (= 35
+           (get-in readiness
+                   [:request :execution-assumptions :cost-contexts-by-id "perp:ETH" :fallback-bps])))))

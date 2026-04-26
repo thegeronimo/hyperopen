@@ -22,7 +22,7 @@ const OPTIMIZER_RELOAD_SCENARIO_EDN = `{:schema-version 1
           :status :partially-executed
           :objective {:kind :max-sharpe}
           :return-model {:kind :historical-mean}
-          :risk-model {:kind :ledoit-wolf}
+          :risk-model {:kind :diagonal-shrink}
           :constraints {:long-only? true
                         :max-asset-weight 0.75
                         :rebalance-tolerance 0.001}
@@ -50,7 +50,7 @@ const OPTIMIZER_RELOAD_SCENARIO_EDN = `{:schema-version 1
                       :expected-return 0.24
                       :volatility 0.38
                       :return-model :historical-mean
-                      :risk-model :ledoit-wolf
+                      :risk-model :diagonal-shrink
                       :frontier [{:id 0
                                   :expected-return 0.2
                                   :volatility 0.32
@@ -75,7 +75,17 @@ const OPTIMIZER_RELOAD_SCENARIO_EDN = `{:schema-version 1
                                           :status :ready
                                           :summary {:ready-count 2
                                                     :blocked-count 0
-                                                    :gross-trade-notional-usd 1000.0}
+                                                    :gross-trade-notional-usd 1000.0
+                                                    :gross-ready-notional-usd 1000.0
+                                                    :estimated-fees-usd 0.35
+                                                    :estimated-slippage-usd 1.0
+                                                    :margin {:capital-usd 10000.0
+                                                             :current-used-usd 1200.0
+                                                             :estimated-impact-usd 1000.0
+                                                             :after-used-usd 2200.0
+                                                             :before-utilization 0.12
+                                                             :after-utilization 0.22
+                                                             :warning nil}}
                                           :rows [{:instrument-id "perp:BTC"
                                                   :instrument-type :perp
                                                   :coin "BTC"
@@ -84,6 +94,14 @@ const OPTIMIZER_RELOAD_SCENARIO_EDN = `{:schema-version 1
                                                   :price 100
                                                   :quantity 5.0
                                                   :delta-notional-usd 500.0
+                                                  :order-type :market
+                                                  :cost {:source :live-orderbook
+                                                         :estimated-fill-price 100.1
+                                                         :notional-usd 500.0
+                                                         :slippage-bps 10.0
+                                                         :estimated-slippage-usd 0.5
+                                                         :fee-bps 3.5
+                                                         :estimated-fee-usd 0.175}
                                                   :reason :supported-perp}
                                                  {:instrument-id "perp:ETH"
                                                   :instrument-type :perp
@@ -93,6 +111,14 @@ const OPTIMIZER_RELOAD_SCENARIO_EDN = `{:schema-version 1
                                                   :price 50
                                                   :quantity 10.0
                                                   :delta-notional-usd -500.0
+                                                  :order-type :market
+                                                  :cost {:source :live-orderbook
+                                                         :estimated-fill-price 49.95
+                                                         :notional-usd 500.0
+                                                         :slippage-bps 10.0
+                                                         :estimated-slippage-usd 0.5
+                                                         :fee-bps 3.5
+                                                         :estimated-fee-usd 0.175}
                                                   :reason :supported-perp}]}}}
  :execution-ledger [{:attempt-id "exec_playwright"
                     :status :partially-executed
@@ -917,6 +943,10 @@ test("portfolio optimizer default minimum variance run renders honest target wei
     .toContainText("Efficient Frontier");
   await expect(page.locator("[data-role='portfolio-optimizer-results-right-panel']"))
     .toContainText("Trust & Caution");
+  await expect(page.locator("[data-role='portfolio-optimizer-rebalance-preview']"))
+    .toContainText("Cost Source");
+  await expect(page.locator("[data-role='portfolio-optimizer-rebalance-preview']"))
+    .toContainText("Margin After");
   await expect(page.locator("[data-role='portfolio-optimizer-stale-result-banner']"))
     .toHaveCount(0);
 
@@ -988,6 +1018,8 @@ test("portfolio optimizer execution remains read-only in Spectate Mode @regressi
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 
   const modal = page.locator("[data-role='portfolio-optimizer-execution-modal']");
+  await expect(modal).toContainText("Cost Source");
+  await expect(modal).toContainText("Margin After");
   await expect(modal).toContainText(
     "Spectate Mode is read-only. Stop Spectate Mode to place trades or move funds."
   );
@@ -1005,6 +1037,8 @@ test("portfolio optimizer execution modal surfaces failed attempt recovery detai
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 
   const latestAttempt = page.locator("[data-role='portfolio-optimizer-execution-latest-attempt']");
+  await expect(page.locator("[data-role='portfolio-optimizer-execution-modal']"))
+    .toContainText("live-orderbook");
   await expect(latestAttempt).toContainText("Latest Attempt");
   await expect(latestAttempt).toContainText("failed");
   await expect(latestAttempt).toContainText("Order submit failed: exchange down");

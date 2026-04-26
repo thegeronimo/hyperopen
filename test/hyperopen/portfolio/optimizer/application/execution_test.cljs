@@ -7,7 +7,10 @@
    :summary {:ready-count 1
              :blocked-count 1
              :within-tolerance-count 1
-             :gross-trade-notional-usd 2000}
+             :gross-trade-notional-usd 2000
+             :estimated-fees-usd 1.0
+             :estimated-slippage-usd 2.5
+             :margin {:after-used-usd 500}}
    :rows [{:instrument-id "perp:BTC"
            :instrument-type :perp
            :status :ready
@@ -40,7 +43,10 @@
     (is (= {:ready-count 1
             :blocked-count 1
             :skipped-count 1
-            :gross-ready-notional-usd 1000}
+            :gross-ready-notional-usd 1000
+            :estimated-fees-usd 1.0
+            :estimated-slippage-usd 2.5
+            :margin {:after-used-usd 500}}
            (:summary plan)))
     (is (= {:kind :perp-order
             :instrument-id "perp:BTC"
@@ -49,6 +55,7 @@
             :order-type :market
             :reduce-only? false}
            (get-in plan [:rows 0 :intent])))
+    (is (= :market (get-in plan [:rows 0 :order-type])))
     (is (= :blocked (get-in plan [:rows 1 :status])))
     (is (= :spot-submit-unsupported (get-in plan [:rows 1 :reason])))
     (is (= :skipped (get-in plan [:rows 2 :status])))

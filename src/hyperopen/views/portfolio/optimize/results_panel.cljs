@@ -360,12 +360,26 @@
 
 (defn- rebalance-row
   [row]
-  (row-shell
+  [:div {:class ["grid"
+                 "grid-cols-[minmax(8rem,1.1fr)_repeat(8,minmax(5rem,0.75fr))]"
+                 "gap-3"
+                 "rounded-lg"
+                 "border"
+                 "border-base-300"
+                 "bg-base-200/40"
+                 "p-3"
+                 "text-xs"
+                 "tabular-nums"]
+         :data-role (str "portfolio-optimizer-rebalance-row-" (:instrument-id row))}
    [:span {:class ["font-semibold" "text-trading-text"]} (:instrument-id row)]
    [:span (keyword-label (:status row))]
    [:span (keyword-label (:side row))]
+   [:span (format-decimal (:quantity row))]
+   [:span (format-usdc (:price row))]
+   [:span (keyword-label (get-in row [:cost :source]))]
+   [:span (format-usdc (get-in row [:cost :estimated-slippage-usd]))]
    [:span (format-usdc (:delta-notional-usd row))]
-   [:span (keyword-label (:reason row))]))
+   [:span (keyword-label (:reason row))]])
 
 (defn- rebalance-preview
   [result]
@@ -380,6 +394,13 @@
       (summary-card "Ready" (str (or (:ready-count summary) 0)))
       (summary-card "Blocked" (str (or (:blocked-count summary) 0)))
       (summary-card "Gross Trade" (format-usdc (:gross-trade-notional-usd summary)))]
+     [:div {:class ["grid" "grid-cols-2" "gap-2" "lg:grid-cols-4"]}
+      (summary-card "Fees" (format-usdc (:estimated-fees-usd summary)))
+      (summary-card "Slippage" (format-usdc (:estimated-slippage-usd summary)))
+      (summary-card "Margin After"
+                    (format-pct (get-in summary [:margin :after-utilization])))
+      (summary-card "Margin Warning"
+                    (keyword-label (get-in summary [:margin :warning])))]
      [:button {:type "button"
                :class ["rounded-lg" "border" "border-primary/50" "bg-primary/10" "px-3" "py-2"
                        "text-left" "text-sm" "font-semibold" "text-primary"
@@ -389,12 +410,28 @@
                :disabled (not (pos? (or (:ready-count summary) 0)))
                :on {:click [[:actions/open-portfolio-optimizer-execution-modal]]}}
       "Review Execution"]
-     (row-shell
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Instrument"]
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Status"]
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Side"]
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Delta"]
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Reason"])
+     [:div {:class ["grid"
+                    "grid-cols-[minmax(8rem,1.1fr)_repeat(8,minmax(5rem,0.75fr))]"
+                    "gap-3"
+                    "rounded-lg"
+                    "border"
+                    "border-base-300"
+                    "bg-base-200/40"
+                    "p-3"
+                    "text-xs"
+                    "font-semibold"
+                    "uppercase"
+                    "tracking-[0.14em]"
+                    "text-trading-muted"]}
+      [:span "Instrument"]
+      [:span "Status"]
+      [:span "Side"]
+      [:span "Size"]
+      [:span "Price"]
+      [:span "Cost Source"]
+      [:span "Slippage"]
+      [:span "Delta"]
+      [:span "Reason"]]
      (map rebalance-row (:rows preview)))))
 
 (defn results-panel

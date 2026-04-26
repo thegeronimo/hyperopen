@@ -51,6 +51,7 @@
                           :instrument-type (:instrument-type row)
                           :side (:side row)
                           :quantity (:quantity row)
+                          :order-type (or (:default-order-type execution-assumptions) :market)
                           :delta-notional-usd (:delta-notional-usd row)
                           :cost (:cost row)}
                    (some? (:coin row)) (assoc :coin (:coin row))
@@ -124,7 +125,12 @@
                :skipped-count (count skipped-rows)
                :gross-ready-notional-usd
                (reduce + 0 (map #(js/Math.abs (:delta-notional-usd %))
-                                ready-rows))}
+                                ready-rows))
+               :estimated-fees-usd (get-in rebalance-preview
+                                            [:summary :estimated-fees-usd])
+               :estimated-slippage-usd (get-in rebalance-preview
+                                                [:summary :estimated-slippage-usd])
+               :margin (get-in rebalance-preview [:summary :margin])}
      :rows rows}))
 
 (defn- coin-for-row

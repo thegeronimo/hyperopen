@@ -26,13 +26,17 @@
                      :summary {:ready-count 1
                                :blocked-count 0
                                :skipped-count 0
-                               :gross-ready-notional-usd 1000}
+                               :gross-ready-notional-usd 1000
+                               :estimated-fees-usd nil
+                               :estimated-slippage-usd nil
+                               :margin nil}
                      :rows [{:row-id "perp:BTC"
                              :instrument-id "perp:BTC"
                              :instrument-type :perp
                              :status :ready
                              :side :buy
                              :quantity 0.25
+                             :order-type :market
                              :delta-notional-usd 1000
                              :cost nil
                              :intent {:kind :perp-order

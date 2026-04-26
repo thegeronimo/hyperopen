@@ -4,6 +4,7 @@
             [hyperopen.funding-comparison.actions :as funding-comparison-actions]
             [hyperopen.leaderboard.actions :as leaderboard-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.portfolio.optimizer.actions :as portfolio-optimizer-actions]
             [hyperopen.portfolio.routes :as portfolio-routes]
             [hyperopen.route-modules :as route-modules]
             [hyperopen.router :as router]
@@ -34,6 +35,7 @@
   [state normalized-path]
   (let [current-route (router/normalize-path (get-in state [:router :path]))]
     (and (portfolio-routes/portfolio-route? normalized-path)
+         (not (portfolio-routes/portfolio-optimize-route? normalized-path))
          (not (portfolio-routes/portfolio-route? current-route)))))
 
 (defn- portfolio-route-effects
@@ -76,6 +78,8 @@
   [state normalized-path]
   (into []
         (concat (leaderboard-actions/load-leaderboard-route state normalized-path)
+                (portfolio-optimizer-actions/load-portfolio-optimizer-route state
+                                                                            normalized-path)
                 (vault-actions/load-vault-route state normalized-path)
                 (funding-comparison-actions/load-funding-comparison-route state normalized-path)
                 (staking-actions/load-staking-route state normalized-path)

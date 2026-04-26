@@ -33,7 +33,7 @@
 (defn- row
   [execution-row]
   [:div {:class ["grid"
-                 "grid-cols-[minmax(8rem,1.1fr)_repeat(4,minmax(5rem,0.8fr))]"
+                 "grid-cols-[minmax(8rem,1.1fr)_repeat(9,minmax(5rem,0.75fr))]"
                  "gap-3"
                  "rounded-lg"
                  "border"
@@ -47,7 +47,36 @@
    [:span (keyword-label (:status execution-row))]
    [:span (keyword-label (:side execution-row))]
    [:span (format-usdc (:delta-notional-usd execution-row))]
+   [:span (str (or (:quantity execution-row) "N/A"))]
+   [:span (format-usdc (:price execution-row))]
+   [:span (keyword-label (:order-type execution-row))]
+   [:span (keyword-label (get-in execution-row [:cost :source]))]
+   [:span (format-usdc (get-in execution-row [:cost :estimated-slippage-usd]))]
    [:span (keyword-label (:reason execution-row))]])
+
+(defn- execution-row-header
+  []
+  [:div {:class ["grid"
+                 "grid-cols-[minmax(8rem,1.1fr)_repeat(9,minmax(5rem,0.75fr))]"
+                 "gap-3"
+                 "rounded-lg"
+                 "border"
+                 "border-base-300"
+                 "bg-base-200/60"
+                 "p-3"
+                 "text-xs"
+                 "font-semibold"
+                 "text-trading-muted"]}
+   [:span "Instrument"]
+   [:span "Status"]
+   [:span "Side"]
+   [:span "Delta"]
+   [:span "Size"]
+   [:span "Price"]
+   [:span "Order Type"]
+   [:span "Cost Source"]
+   [:span "Slippage"]
+   [:span "Reason"]])
 
 (defn- row-error-message
   [execution-row]
@@ -163,6 +192,13 @@
          (summary-card "Ready" (str (or (:ready-count summary) 0)))
          (summary-card "Blocked" (str (or (:blocked-count summary) 0)))
          (summary-card "Ready Notional" (format-usdc (:gross-ready-notional-usd summary)))]
+        [:div {:class ["mt-2" "grid" "grid-cols-2" "gap-2" "lg:grid-cols-4"]}
+         (summary-card "Fees" (format-usdc (:estimated-fees-usd summary)))
+         (summary-card "Slippage" (format-usdc (:estimated-slippage-usd summary)))
+         (summary-card "Margin After"
+                       (format-usdc (get-in summary [:margin :after-used-usd])))
+         (summary-card "Margin Warning"
+                       (keyword-label (get-in summary [:margin :warning])))]
         (when (:execution-disabled? plan)
           [:p {:class ["mt-4" "rounded-lg" "border" "border-warning/40" "bg-warning/10"
                        "px-3" "py-2" "text-sm" "font-semibold" "text-warning"]}
@@ -173,24 +209,8 @@
            (:error modal)])
         (into
          [:div {:class ["mt-4" "space-y-2"]}]
-         (cons
-          [:div {:class ["grid"
-                         "grid-cols-[minmax(8rem,1.1fr)_repeat(4,minmax(5rem,0.8fr))]"
-                         "gap-3"
-                         "rounded-lg"
-                         "border"
-                         "border-base-300"
-                         "bg-base-200/60"
-                         "p-3"
-                         "text-xs"
-                         "font-semibold"
-                         "text-trading-muted"]}
-           [:span "Instrument"]
-           [:span "Status"]
-           [:span "Side"]
-           [:span "Delta"]
-           [:span "Reason"]]
-          (map row (:rows plan))))
+         (cons (execution-row-header)
+               (map row (:rows plan))))
         (latest-attempt-panel latest-attempt)
         [:div {:class ["mt-5" "flex" "items-center" "justify-end" "gap-3"]}
          [:button {:type "button"
