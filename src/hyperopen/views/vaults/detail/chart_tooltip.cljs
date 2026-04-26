@@ -1,5 +1,6 @@
 (ns hyperopen.views.vaults.detail.chart-tooltip
-  (:require [hyperopen.utils.formatting :as fmt]
+  (:require [clojure.string :as str]
+            [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.chart.tooltip-core :as tooltip-core]
             [hyperopen.views.vaults.detail.format :as vf]))
 
@@ -34,6 +35,26 @@
       :account-value (vf/format-currency n {:missing "$0.00"})
       (vf/format-currency n {:missing "$0.00"}))))
 
+(defn- non-blank-text
+  [value]
+  (let [text (some-> value str str/trim)]
+    (when (seq text)
+      text)))
+
+(defn- primary-series-label
+  [series]
+  (some (fn [{:keys [id label]}]
+          (when (= :strategy id)
+            (non-blank-text label)))
+        (or series [])))
+
+(defn- primary-metric-label
+  [series metric-kind]
+  (let [metric-label (tooltip-core/metric-label metric-kind)]
+    (if-let [series-label (primary-series-label series)]
+      (str series-label " " metric-label)
+      metric-label)))
+
 (defn build-chart-hover-tooltip
   [summary-time-range axis-kind hover series]
   (tooltip-core/build-hover-tooltip {:time-range summary-time-range
@@ -44,4 +65,5 @@
                                     {:format-date format-tooltip-date
                                      :format-time format-tooltip-time
                                      :format-metric-value format-chart-tooltip-value
+                                     :metric-label-fn #(primary-metric-label series %)
                                      :format-benchmark-value #(format-chart-tooltip-value :returns %)}))

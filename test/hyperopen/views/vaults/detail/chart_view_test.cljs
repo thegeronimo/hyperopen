@@ -72,7 +72,7 @@
                                    :series-tabs [{:value :returns :label "Returns"}
                                                  {:value :pnl :label "PNL"}]
                                    :series [{:id :strategy
-                                             :label "Vault"
+                                             :label "Growi HF"
                                              :stroke "#16d6a1"
                                              :has-data? true
                                              :points [{:time-ms 1700000000000 :value 0.2 :x-ratio 0.0 :y-ratio 0.7}
@@ -133,7 +133,7 @@
       (is (some? hover-tooltip))
       (is (= "translate3d(390px, 130px, 0px) translate(calc(-100% - 8px), -50%)"
              (aget (.-style hover-tooltip) "transform")))
-      (is (contains? tooltip-strings "Returns"))
+      (is (contains? tooltip-strings "Growi HF Returns"))
       (is (contains? tooltip-strings "-0.10%"))
       (is (some? hover-benchmark-value))
       (is (= "#f7931a" (aget (.-style hover-benchmark-value) "color")))

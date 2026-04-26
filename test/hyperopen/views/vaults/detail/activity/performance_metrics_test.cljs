@@ -10,6 +10,7 @@
    :benchmark-columns [{:coin "BTC"
                         :label "Bitcoin"}]
    :benchmark-coin "BTC"
+   :vault-label "Growi HF"
    :timeframe-options [{:value :month :label "30D"}]
    :timeframe-menu-open? true
    :selected-timeframe :month
@@ -88,6 +89,7 @@
         benchmark-low-confidence-cell (hiccup/find-by-data-role view "vault-detail-performance-metric-omega-benchmark-value-BTC")
         badge-node (hiccup/find-by-data-role view "vault-detail-performance-metric-omega-vault-value-status-badge")
         benchmark-label (hiccup/find-by-data-role view "vault-detail-performance-metrics-benchmark-label")
+        vault-label (hiccup/find-by-data-role view "vault-detail-performance-metrics-vault-label")
         scroll-region (hiccup/find-by-data-role view "vault-detail-performance-metrics-scroll-region")
         timeframe-trigger (hiccup/find-by-data-role view "vault-detail-performance-metrics-timeframe-trigger")
         timeframe-menu (hiccup/find-by-data-role view "vault-detail-performance-metrics-timeframe-options")
@@ -119,6 +121,7 @@
     (is (contains? (hiccup/node-class-set benchmark-low-confidence-cell) "text-[#9fb4bb]"))
     (is (nil? badge-node))
     (is (some? benchmark-label))
+    (is (= "Growi HF" (first (hiccup/collect-strings vault-label))))
     (is (= "region" (get-in scroll-region [1 :role])))
     (is (= "Vault performance metrics" (get-in scroll-region [1 :aria-label])))
     (is (= 0 (get-in scroll-region [1 :tab-index])))

@@ -312,10 +312,12 @@
         strategy-series (first (get-in vm [:chart :series]))]
     (is (= :returns (get-in vm [:chart :selected-series])))
     (is (= :returns (get-in vm [:chart :axis-kind])))
+    (is (= "Vault Detail" (:label strategy-series)))
     (is (= 2 (count (get-in vm [:chart :series]))))
     (is (seq (get-in vm [:chart :points])))
     (is (= [0 15.38 34.62]
            (mapv :value (get-in vm [:chart :points]))))
+    (is (= "Vault Detail" (get-in vm [:performance-metrics :vault-label])))
     (is (= ["BTC"] (get-in vm [:performance-metrics :benchmark-coins])))
     (is (= "BTC (HL PERP)" (get-in vm [:performance-metrics :benchmark-label])))
     (is (seq (get-in vm [:performance-metrics :groups])))))

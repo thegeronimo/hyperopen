@@ -8,6 +8,12 @@ import {
 
 const VAULT_ADDRESS = "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303";
 const LEADER_ADDRESS = "0x677d00000000000000000000000000000008a4e7";
+const REVIEW_VIEWPORTS = [
+  { label: "review-375", width: 375, height: 812 },
+  { label: "review-768", width: 768, height: 1024 },
+  { label: "review-1280", width: 1280, height: 900 },
+  { label: "review-1440", width: 1440, height: 900 }
+];
 
 const T0 = Date.UTC(2025, 4, 1);
 const T1 = Date.UTC(2025, 7, 1);
@@ -149,38 +155,48 @@ async function stubVaultDetailTooltipFixture(page) {
   });
 }
 
-test("vault detail returns tooltip waits for benchmark text after hover @regression", async ({ page }) => {
-  await stubVaultDetailTooltipFixture(page);
-  await visitRoute(page, `/vaults/${VAULT_ADDRESS}`);
+for (const viewport of REVIEW_VIEWPORTS) {
+  test(`vault detail returns tooltip labels the selected vault after hover ${viewport.label} @regression`, async ({ page }) => {
+    await stubVaultDetailTooltipFixture(page);
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await visitRoute(page, `/vaults/${VAULT_ADDRESS}`);
 
-  await expect(page.locator("[data-parity-id='vault-detail-root']")).toBeVisible();
+    await expect(page.locator("[data-parity-id='vault-detail-root']")).toBeVisible();
 
-  await dispatch(page, [":actions/set-vault-detail-chart-series", ":returns"]);
-  await waitForIdle(page, { quietMs: 200, timeoutMs: 6_000, pollMs: 50 });
+    await dispatch(page, [":actions/set-vault-detail-chart-series", ":returns"]);
+    await waitForIdle(page, { quietMs: 200, timeoutMs: 6_000, pollMs: 50 });
 
-  await dispatch(page, [":actions/set-vaults-snapshot-range", ":one-year"]);
-  await waitForIdle(page, { quietMs: 200, timeoutMs: 6_000, pollMs: 50 });
+    await dispatch(page, [":actions/set-vaults-snapshot-range", ":one-year"]);
+    await waitForIdle(page, { quietMs: 200, timeoutMs: 6_000, pollMs: 50 });
 
-  await dispatch(page, [":actions/select-vault-detail-returns-benchmark", "BTC"]);
-  await dispatch(page, [":actions/select-vault-detail-returns-benchmark", "HYPE"]);
+    await dispatch(page, [":actions/select-vault-detail-returns-benchmark", "BTC"]);
+    await dispatch(page, [":actions/select-vault-detail-returns-benchmark", "HYPE"]);
 
-  await expect
-    .poll(async () => {
-      const paths = await page
-        .locator("[data-role^='vault-detail-chart-path-benchmark-']")
-        .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("d") || ""));
-      return paths.filter(Boolean).length;
-    }, { timeout: 10_000 })
-    .toBeGreaterThanOrEqual(2);
+    await expect
+      .poll(async () => {
+        const paths = await page
+          .locator("[data-role^='vault-detail-chart-path-benchmark-']")
+          .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("d") || ""));
+        return paths.filter(Boolean).length;
+      }, { timeout: 10_000 })
+      .toBeGreaterThanOrEqual(2);
 
-  const plotArea = page.locator("[data-role='vault-detail-chart-plot-area']");
-  const tooltip = page.locator("[data-role='vault-detail-chart-hover-tooltip']");
+    const plotArea = page.locator("[data-role='vault-detail-chart-plot-area']");
+    const tooltip = page.locator("[data-role='vault-detail-chart-hover-tooltip']");
+    await plotArea.scrollIntoViewIfNeeded();
+    await expect(
+      page.locator("[data-role='vault-detail-performance-metrics-vault-label']"),
+      `${viewport.label} selected-vault metrics column`
+    ).toHaveText("Tooltip Vault");
 
-  await expect
-    .poll(async () => {
-      await hoverLocatorAtRatio(page, plotArea, { xRatio: 0.8, yRatio: 0.45 });
-      const text = (await tooltip.textContent()) || "";
-      return ["Returns", "BTC", "HYPE"].every((snippet) => text.includes(snippet));
-    }, { timeout: 6_000 })
-    .toBe(true);
-});
+    await expect
+      .poll(async () => {
+        await hoverLocatorAtRatio(page, plotArea, { xRatio: 0.8, yRatio: 0.45 });
+        const text = (await tooltip.textContent()) || "";
+        return ["Tooltip Vault Returns", "BTC", "HYPE"].every((snippet) =>
+          text.includes(snippet)
+        );
+      }, { message: `${viewport.label} chart tooltip selected-vault label`, timeout: 6_000 })
+      .toBe(true);
+  });
+}

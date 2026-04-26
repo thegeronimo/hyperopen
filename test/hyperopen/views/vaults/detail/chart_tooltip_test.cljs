@@ -54,6 +54,25 @@
                                                                            :index 0}
                                                                           []))))))
 
+(deftest build-chart-hover-tooltip-labels-primary-row-with-selected-vault-test
+  (let [tooltip (chart-tooltip/build-chart-hover-tooltip :day
+                                                         :returns
+                                                         {:point {:time-ms 1700000000000
+                                                                  :value -2.0}
+                                                          :index 0}
+                                                         [{:id :strategy
+                                                           :label "Growi HF"
+                                                           :points [{:value -2.0}]}
+                                                          {:id :benchmark-0
+                                                           :coin "vault:0xabc"
+                                                           :label "Peer Vault (VAULT)"
+                                                           :stroke "#f2cf66"
+                                                           :points [{:value 53.82}]}])]
+    (is (= "Growi HF Returns" (:metric-label tooltip)))
+    (is (= "-2.00%" (:metric-value tooltip)))
+    (is (= "Peer Vault (VAULT)"
+           (get-in tooltip [:benchmark-values 0 :label])))))
+
 (deftest build-chart-hover-tooltip-uses-latest-prior-benchmark-point-by-time-test
   (let [tooltip (chart-tooltip/build-chart-hover-tooltip :month
                                                          :returns

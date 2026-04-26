@@ -223,6 +223,12 @@
                                             (repeat benchmark-column-count "132px")
                                             ["132px"]))})
 
+(defn- non-blank-text
+  [value]
+  (let [text (some-> value str str/trim)]
+    (when (seq text)
+      text)))
+
 (defn- performance-metric-row [{:keys [key label description kind value] :as row} benchmark-columns grid-style]
   (let [portfolio-value (if (contains? row :portfolio-value)
                           (:portfolio-value row)
@@ -269,6 +275,7 @@
                                         benchmark-label
                                         benchmark-columns
                                         benchmark-coin
+                                        vault-label
                                         loading?
                                         groups
                                         timeframe-options
@@ -330,8 +337,10 @@
                              "vault-detail-performance-metrics-benchmark-label"
                              (str "vault-detail-performance-metrics-benchmark-label-" coin))}
          label])
-      [:span {:class ["justify-self-start" "text-xs" "font-medium" "uppercase" "tracking-wide" "text-left" "text-[#8aa0a7]"]}
-       "Vault"]]
+      [:span {:class ["justify-self-start" "text-xs" "font-medium" "uppercase" "tracking-wide" "text-left" "text-[#8aa0a7]"]
+              :data-role "vault-detail-performance-metrics-vault-label"}
+       (or (non-blank-text vault-label)
+           "Vault")]]
      [:div {:class ["flex-1"
                     "min-h-0"
                     "space-y-2.5"

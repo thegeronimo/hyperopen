@@ -452,12 +452,8 @@
      :your-deposit your-deposit
      :all-time-earned all-time-earned}))
 
-(defn- resolve-vault-name
-  [details row vault-address]
-  (or (non-blank-text (:name details))
-      (non-blank-text (:name row))
-      vault-address
-      "Vault"))
+(defn- resolve-vault-name [details row vault-address]
+  (or (non-blank-text (:name details)) (non-blank-text (:name row)) vault-address "Vault"))
 
 (defn- build-benchmark-series
   [selected-series selected-benchmark-coins benchmark-label-by-coin benchmark-points-by-coin]
@@ -489,7 +485,7 @@
                                                                 selected-benchmark-coins)}))
 
 (defn- build-vault-detail-chart-section
-  [state snapshot-range activity-tab chart-series details-base viewer-details metrics-context]
+  [state snapshot-range activity-tab chart-series details-base viewer-details metrics-context vault-label]
   (let [details (merge (or details-base {})
                        (or viewer-details {}))
         summary (cached-portfolio-summary details-base viewer-details snapshot-range)
@@ -519,7 +515,7 @@
                                                  benchmark-label-by-coin
                                                  benchmark-points-by-coin)
         raw-series (cond-> [{:id :strategy
-                             :label "Vault"
+                             :label vault-label
                              :stroke (chart-model/strategy-series-stroke selected-series)
                              :raw-points strategy-raw-points}]
                      (seq benchmark-series)
@@ -546,6 +542,7 @@
                 :month month-return
                 :all-time (return-for-range :all-time)}
      :performance-metrics (assoc performance-metrics
+                                 :vault-label vault-label
                                  :timeframe-options chart-timeframe-options
                                  :selected-timeframe snapshot-range
                                  :timeframe-menu-open? (true? (get-in state [:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?])))
@@ -689,6 +686,7 @@
          activity-sources (detail-activity-sources state vault-address relationship webdata)
          metrics-context (detail-metrics-context state details row user-equity viewer-follower)
          vault-name (resolve-vault-name details row vault-address)
+         vault-comparison-label (or (non-blank-text (:name details)) (non-blank-text (:name row)) (when-not detail-loading? vault-address) "Selected Vault")
          vault-transfer (transfer-model/read-model state {:vault-address vault-address
                                                           :vault-name vault-name
                                                           :details details
@@ -701,7 +699,8 @@
                                                          chart-series
                                                          details-base
                                                          viewer-details
-                                                         metrics-context)
+                                                         metrics-context
+                                                         vault-comparison-label)
          activity-section (build-vault-detail-activity-section state
                                                                details
                                                                webdata
