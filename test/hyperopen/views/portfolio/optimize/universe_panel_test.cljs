@@ -128,6 +128,44 @@
     (is (not (contains? strings "@107")))
     (is (not (contains? strings "@221")))))
 
+(deftest portfolio-optimizer-search-results-prefer-symbols-for-raw-spot-assets-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio-ui {:optimizer {:universe-search-query "hype"}}
+                    :portfolio {:optimizer {:draft {:universe []
+                                                     :constraints {:long-only? false}}}}
+                    :asset-selector
+                    {:markets [{:key "perp:HYPE"
+                                :market-type :perp
+                                :coin "HYPE"
+                                :symbol "HYPE-USDC"
+                                :name "Hyperliquid"}
+                               {:key "spot:@107"
+                                :market-type :spot
+                                :coin "@107"
+                                :symbol "HYPE/USDC"
+                                :base "HYPE"
+                                :quote "USDC"}
+                               {:key "spot:@232"
+                                :market-type :spot
+                                :coin "@232"
+                                :symbol "HYPE/USDH"
+                                :base "HYPE"
+                                :quote "USDH"}]
+                     :market-by-key {"spot:@107" {:key "spot:@107"
+                                                  :market-type :spot
+                                                  :coin "@107"
+                                                  :symbol "HYPE/USDC"
+                                                  :base "HYPE"
+                                                  :quote "USDC"}}}})
+        strings (set (collect-strings view-node))]
+    (is (contains? strings "HYPE-USDC"))
+    (is (contains? strings "HYPE/USDC"))
+    (is (contains? strings "HYPE/USDH"))
+    (is (contains? strings "Hyperliquid"))
+    (is (not (contains? strings "@107")))
+    (is (not (contains? strings "@232")))))
+
 (deftest portfolio-optimizer-workspace-blocks-run-when-retained-history-misses-assets-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}

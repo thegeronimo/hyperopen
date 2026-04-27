@@ -65,13 +65,17 @@
 
 (defn- market-row
   [market]
-  (let [market-key (:key market)]
+  (let [market-key (:key market)
+        primary-label (instrument-display/primary-label market)
+        secondary-token (or (instrument-display/base-label market)
+                            (:coin market)
+                            market-key)]
     [:div {:class ["flex" "items-center" "justify-between" "gap-3" "rounded-lg" "border"
                    "border-base-300" "bg-base-200/30" "px-3" "py-2"]}
      [:div
-      [:p {:class ["text-sm" "font-semibold"]} (market-label market)]
+      [:p {:class ["text-sm" "font-semibold"]} primary-label]
       [:p {:class ["text-xs" "uppercase" "tracking-[0.14em]" "text-trading-muted"]}
-       (str market-key " / " (name (:market-type market)))]]
+       (str secondary-token " / " (name (:market-type market)))]]
      [:button {:type "button"
                :class ["rounded-md" "border" "border-primary/50" "bg-primary/10" "px-2" "py-1"
                        "text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.14em]"

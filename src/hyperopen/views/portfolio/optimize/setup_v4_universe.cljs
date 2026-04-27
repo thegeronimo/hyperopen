@@ -45,6 +45,8 @@
   [market]
   (or (normalized-text (:name market))
       (normalized-text (:full-name market))
+      (when (instrument-display/symbol-first? market)
+        (display-name (instrument-display/base-label market)))
       (display-name (:coin market))))
 
 (defn- candidate-markets
