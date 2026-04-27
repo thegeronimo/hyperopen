@@ -19,6 +19,10 @@
     :optimize-scenario (str "Scenario " (:scenario-id route))
     "Optimizer Workspace"))
 
+(defn- retained-result-path
+  []
+  (portfolio-routes/portfolio-optimize-scenario-path "draft"))
+
 (defn- optimizer-draft
   [state]
   (or (get-in state [:portfolio :optimizer :draft])
@@ -443,6 +447,7 @@
         history-load-state (or (get-in state [:portfolio :optimizer :history-load-state])
                                (optimizer-defaults/default-history-load-state))
         scenario-id (:scenario-id route)
+        result-path (retained-result-path)
         infeasible-result (infeasible-panel/infeasible-result run-state)
         highlighted-controls (infeasible-panel/highlighted-control-keys infeasible-result)]
      [:section {:class ["grid"
@@ -472,15 +477,22 @@
             :on {:click [[:actions/navigate
                           (portfolio-routes/portfolio-optimize-new-path)]]}}
         "Setup"]
-       [:a {:class ["block" "rounded-md" "px-3" "py-2" "text-trading-muted"]
-            :href (or (when scenario-id
-                        (portfolio-routes/portfolio-optimize-scenario-path scenario-id))
-                      (portfolio-routes/portfolio-optimize-index-path))
-            :on {:click [[:actions/navigate
-                          (or (when scenario-id
-                                (portfolio-routes/portfolio-optimize-scenario-path scenario-id))
-                              (portfolio-routes/portfolio-optimize-index-path))]]}}
-        "Results"]
+       (if solved-run?
+         [:button {:type "button"
+                   :class ["block" "w-full" "rounded-md" "px-3" "py-2" "text-left" "text-primary"]
+                   :data-role "portfolio-optimizer-results-link"
+                   :on {:click [[:actions/navigate result-path]]}}
+          "Results"]
+         [:a {:class ["block" "rounded-md" "px-3" "py-2" "text-trading-muted"]
+              :href (or (when scenario-id
+                          (portfolio-routes/portfolio-optimize-scenario-path scenario-id))
+                        (portfolio-routes/portfolio-optimize-index-path))
+              :data-role "portfolio-optimizer-results-link"
+              :on {:click [[:actions/navigate
+                            (or (when scenario-id
+                                  (portfolio-routes/portfolio-optimize-scenario-path scenario-id))
+                                (portfolio-routes/portfolio-optimize-index-path))]]}}
+          "Results"])
        [:a {:class ["block" "rounded-md" "px-3" "py-2" "text-trading-muted"]
             :href (or (when scenario-id
                         (portfolio-routes/portfolio-optimize-scenario-path scenario-id))
@@ -540,7 +552,25 @@
                  :on {:click [[:actions/save-portfolio-optimizer-scenario-from-current]]}}
         (if saving-scenario?
           "Saving Scenario"
-          "Save Scenario")]]]
+          "Save Scenario")]
+       (when solved-run?
+         [:button {:type "button"
+                   :class ["mt-2"
+                           "block"
+                           "w-full"
+                           "rounded-lg"
+                           "border"
+                           "border-primary/60"
+                           "bg-primary/10"
+                           "px-3"
+                           "py-2"
+                           "text-left"
+                           "text-sm"
+                           "font-semibold"
+                           "text-primary"]
+                   :data-role "portfolio-optimizer-view-weights"
+                   :on {:click [[:actions/navigate result-path]]}}
+          "View Weights"])]]
      [:main {:class ["space-y-4"]}
       (infeasible-panel/infeasible-banner infeasible-result highlighted-controls)
       (setup-panels state draft readiness highlighted-controls)]

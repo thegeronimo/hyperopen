@@ -930,6 +930,15 @@ test("portfolio optimizer default minimum variance run stores honest target weig
     .toContainText("Last successful result is available for comparison.");
   await expect(page.locator("[data-role='portfolio-optimizer-results-surface']"))
     .toHaveCount(0);
+  await expect(page.locator("[data-role='portfolio-optimizer-view-weights']"))
+    .toBeVisible();
+  await page.locator("[data-role='portfolio-optimizer-view-weights']").click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(page).toHaveURL(/\/portfolio\/optimize\/draft/);
+  await expect(page.locator("[data-role='portfolio-optimizer-results-surface']"))
+    .toContainText("Target Exposure");
+  await expect(page.locator("[data-role='portfolio-optimizer-target-exposure-row-0']"))
+    .toContainText("perp:");
 
   const weights = await readOptimizerTargetWeights(page);
   const grossTarget = weights.reduce((sum, weight) => sum + Math.abs(weight), 0);

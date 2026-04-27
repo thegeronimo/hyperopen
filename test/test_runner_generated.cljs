@@ -396,6 +396,7 @@
             [hyperopen.views.portfolio.optimize.results-panel-test]
             [hyperopen.views.portfolio.optimize.tracking-panel-test]
             [hyperopen.views.portfolio.optimize.universe-panel-test]
+            [hyperopen.views.portfolio.optimize.unsaved-draft-route-test]
             [hyperopen.views.portfolio.optimize.view-test]
             [hyperopen.views.portfolio.performance-metrics-view-test]
             [hyperopen.views.portfolio.summary-cards-test]
@@ -965,6 +966,7 @@
              'hyperopen.views.portfolio.optimize.results-panel-test
              'hyperopen.views.portfolio.optimize.tracking-panel-test
              'hyperopen.views.portfolio.optimize.universe-panel-test
+             'hyperopen.views.portfolio.optimize.unsaved-draft-route-test
              'hyperopen.views.portfolio.optimize.view-test
              'hyperopen.views.portfolio.performance-metrics-view-test
              'hyperopen.views.portfolio.summary-cards-test

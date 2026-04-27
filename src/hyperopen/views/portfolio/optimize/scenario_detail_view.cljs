@@ -91,14 +91,21 @@
   (and (nil? (get-in state [:portfolio :optimizer :active-scenario :loaded-id]))
        (some? (get-in state [:portfolio :optimizer :last-successful-run]))))
 
+(defn- retained-unsaved-route?
+  [state scenario-id]
+  (and (retained-unsaved-run? state)
+       (contains? #{"draft"}
+                  scenario-id)))
+
 (defn- route-mismatched?
   [state scenario-id]
   (let [loaded-id (get-in state [:portfolio :optimizer :active-scenario :loaded-id])]
-    (or (and (some? loaded-id)
-             (not= loaded-id scenario-id))
-        (and (nil? loaded-id)
-             (or (pending-route-load? state scenario-id)
-                 (retained-unsaved-run? state))))))
+    (and (not (retained-unsaved-route? state scenario-id))
+         (or (and (some? loaded-id)
+                  (not= loaded-id scenario-id))
+             (and (nil? loaded-id)
+                  (or (pending-route-load? state scenario-id)
+                      (retained-unsaved-run? state)))))))
 
 (defn- scenario-scoped-state
   [state scenario-id]
@@ -118,6 +125,9 @@
   (or (when (loaded-scenario-matches-route? state scenario-id)
         (or (get-in state [:portfolio :optimizer :active-scenario :name])
             (get-in state [:portfolio :optimizer :draft :name])))
+      (when (retained-unsaved-route? state scenario-id)
+        (or (get-in state [:portfolio :optimizer :draft :name])
+            "Unsaved Optimization"))
       (when (= scenario-id (get-in state [:portfolio :optimizer :draft :id]))
         (get-in state [:portfolio :optimizer :draft :name]))
       (str "Scenario " scenario-id)))

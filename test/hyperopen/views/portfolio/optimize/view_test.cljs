@@ -295,10 +295,17 @@
                                                                                  "spot:PURR"]}
                                                        :computed-at-ms 2000}}}})
         run-button (node-by-role view-node "portfolio-optimizer-run-draft")
+        view-weights-link (node-by-role view-node "portfolio-optimizer-view-weights")
+        results-link (node-by-role view-node "portfolio-optimizer-results-link")
         strings (set (collect-strings view-node))]
     (is (= true (get-in run-button [1 :disabled])))
     (is (some? (node-by-role view-node "portfolio-optimizer-run-status-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-last-successful-run")))
+    (is (= "button" (get-in view-weights-link [1 :type])))
+    (is (= [[:actions/navigate "/portfolio/optimize/draft"]]
+           (click-actions view-weights-link)))
+    (is (= "button" (get-in results-link [1 :type])))
+    (is (= [[:actions/navigate "/portfolio/optimize/draft"]] (click-actions results-link)))
     (is (nil? (node-by-role view-node "portfolio-optimizer-results-surface")))
     (is (nil? (node-by-role view-node "portfolio-optimizer-rebalance-preview")))
     (is (nil? (node-by-role view-node "portfolio-optimizer-tracking-panel")))
