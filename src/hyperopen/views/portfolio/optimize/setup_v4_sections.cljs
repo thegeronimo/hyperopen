@@ -1,17 +1,13 @@
 (ns hyperopen.views.portfolio.optimize.setup-v4-sections
   (:require [clojure.string :as str]
-            [hyperopen.asset-selector.query :as asset-query]
-            [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]))
+            [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]
+            [hyperopen.views.portfolio.optimize.setup-v4-universe :as setup-v4-universe]))
 (def ^:private eyebrow-class
   ["font-mono" "text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"])
 
 (def ^:private input-class
   ["w-full" "border" "border-base-300" "bg-base-100/80" "px-2" "py-1.5"
    "font-mono" "text-xs" "font-semibold" "outline-none" "focus:border-warning/70"])
-
-(defn- normalized-text
-  [value]
-  (some-> value str str/trim))
 
 (defn- active-preset
   [draft]
@@ -33,37 +29,6 @@
   (if (number? value)
     (str (.toFixed (* value 100) 0) "%")
     "--"))
-
-(defn- selected-instrument-ids
-  [universe]
-  (into #{} (keep :instrument-id) universe))
-
-(defn- market-label
-  [market]
-  (or (normalized-text (:symbol market))
-      (normalized-text (:coin market))
-      (normalized-text (:key market))
-      "Unknown Market"))
-
-(defn- candidate-markets
-  [state universe query]
-  (let [selected-ids (selected-instrument-ids universe)
-        query* (or (normalized-text query) "")]
-    (->> (asset-query/filter-and-sort-assets
-          (get-in state [:asset-selector :markets])
-          query*
-          :volume
-          :desc
-          #{}
-          false
-          false
-          :all)
-         (filter #(and (normalized-text (:key %))
-                       (normalized-text (:coin %))
-                       (:market-type %)
-                       (not (contains? selected-ids (:key %)))))
-         (take 6)
-         vec)))
 
 (defn- panel
   [role & children]
@@ -98,98 +63,6 @@
    label
    (when hidden-label
      [:span {:class ["sr-only"]} hidden-label])]))
-
-(defn- history-label
-  [state coin]
-  (if (seq (get-in state [:portfolio :optimizer :history-data :candle-history-by-coin coin]))
-    "sufficient"
-    "missing"))
-
-(defn- selected-row
-  [state instrument]
-  (let [instrument-id (:instrument-id instrument)
-        coin (:coin instrument)]
-    [:div {:class ["grid" "grid-cols-[minmax(0,1fr)_76px_80px_26px]" "items-center"
-                   "gap-2" "border-b" "border-base-300/70" "px-2" "py-2" "text-xs"]
-           :data-role (str "portfolio-optimizer-universe-selected-row-" instrument-id)}
-     [:div {:class ["min-w-0"]}
-      [:p {:class ["truncate" "font-semibold"]} (or coin instrument-id)]
-      [:p {:class ["font-mono" "text-[0.6rem]" "uppercase" "tracking-[0.14em]" "text-trading-muted"]}
-       (str (name (:market-type instrument)) " / " instrument-id)]]
-     [:span {:class ["font-mono" "text-warning"]} (history-label state coin)]
-     [:span {:class ["font-mono" "text-trading-muted"]} "medium"]
-     [:button {:type "button"
-               :class ["text-trading-muted" "hover:text-warning"]
-               :aria-label (str "Remove " instrument-id)
-               :data-role (str "portfolio-optimizer-universe-remove-" instrument-id)
-               :on {:click [[:actions/remove-portfolio-optimizer-universe-instrument
-                              instrument-id]]}}
-      "x"]]))
-
-(defn- market-row
-  [market]
-  (let [market-key (:key market)]
-    [:div {:class ["grid" "grid-cols-[minmax(0,1fr)_56px]" "items-center" "gap-2"
-                   "border-b" "border-base-300" "px-2" "py-1.5"
-                   "last:border-b-0" "hover:bg-base-200/30"]}
-     [:div {:class ["min-w-0"]}
-      [:p {:class ["truncate" "text-xs" "font-semibold"]} (market-label market)]
-      [:p {:class ["font-mono" "text-[0.6rem]" "uppercase" "tracking-[0.14em]" "text-trading-muted"]}
-       (str market-key " / " (name (:market-type market)))]]
-     [:button {:type "button"
-               :class ["border" "border-primary/50" "bg-primary/10" "px-2" "py-0.5"
-                       "font-mono" "text-[0.6rem]" "font-semibold" "uppercase"
-                       "tracking-[0.14em]" "text-primary"]
-               :data-role (str "portfolio-optimizer-universe-add-" market-key)
-               :on {:click [[:actions/add-portfolio-optimizer-universe-instrument market-key]]}}
-      "Add"]]))
-
-(defn- universe-section
-  [state draft]
-  (let [universe (vec (or (:universe draft) []))
-        search-query (or (get-in state [:portfolio-ui :optimizer :universe-search-query]) "")
-        markets (candidate-markets state universe search-query)]
-    (panel
-     "portfolio-optimizer-universe-panel"
-     (section-heading "01" "Universe" (str (count universe) " included"))
-     [:div {:class ["mt-3" "grid" "grid-cols-3" "border" "border-base-300" "text-center"
-                    "font-mono" "text-[0.6rem]" "font-semibold" "uppercase"
-                    "tracking-[0.12em]" "text-trading-muted"]}
-      [:button {:type "button"
-                :class ["border-r" "border-base-300" "px-2" "py-2" "hover:text-warning"]
-                :data-role "portfolio-optimizer-universe-use-current"
-                :on {:click [[:actions/set-portfolio-optimizer-universe-from-current]]}}
-       "From holdings"
-       [:span {:class ["sr-only"]} "Use Current Holdings"]]
-      [:span {:class ["border-r" "border-warning/60" "bg-warning/10" "px-2" "py-2" "text-warning"]}
-       "Custom"]
-      [:span {:class ["px-2" "py-2" "text-trading-muted/60"]} "Index"]]
-     [:div {:class ["mt-3" "border" "border-base-300" "bg-base-200/15"]}
-      [:div {:class ["grid" "grid-cols-[minmax(0,1fr)_76px_80px_26px]" "gap-2" "px-2"
-                     "py-1.5" "font-mono" "text-[0.58rem]" "uppercase"
-                     "tracking-[0.12em]" "text-trading-muted"]}
-       [:span "Asset"] [:span "History"] [:span "Liquidity"] [:span ""]]
-      (if (seq universe)
-        (into [:div] (map #(selected-row state %) universe))
-        [:p {:class ["border-t" "border-base-300" "px-2" "py-3" "text-xs" "text-trading-muted"]}
-         "No instruments selected yet."])]
-     [:div {:class ["mt-3"]}
-      [:p {:class eyebrow-class} "Manual Add"]
-      [:input {:type "search"
-               :class (conj input-class "mt-2")
-               :placeholder "Search ticker or name (e.g. BTC, ETH, Solana...)"
-               :data-role "portfolio-optimizer-universe-search-input"
-               :value search-query
-               :on {:input [[:actions/set-portfolio-optimizer-universe-search-query
-                             [:event.target/value]]]}}]
-      [:p {:class ["mt-1.5" "text-xs" "text-trading-muted"]}
-       "Requires history reload after adding new assets."]
-      (if (seq markets)
-        (into [:div {:class ["mt-2" "border" "border-base-300" "bg-base-200/15"]}]
-              (map market-row markets))
-        [:p {:class ["mt-2" "border" "border-base-300" "bg-base-200/20" "p-2"
-                     "text-xs" "text-trading-muted"]}
-         "No matching unused markets found."])])))
 
 (defn- model-section
   [draft]
@@ -364,7 +237,7 @@
 (defn control-rail
   [{:keys [state draft highlighted-controls]}]
   [:aside {:class ["min-h-0" "overflow-hidden"] :data-role "portfolio-optimizer-setup-control-rail"}
-   (universe-section state draft)
+   (setup-v4-universe/universe-section state draft)
    (model-section draft)
    (objective-section draft highlighted-controls)
    (constraints-section draft highlighted-controls)

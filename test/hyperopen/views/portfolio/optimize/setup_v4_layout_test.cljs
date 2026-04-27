@@ -55,7 +55,7 @@
     (is (some? (node-by-role view-node "portfolio-optimizer-assumptions-rail")))
     (is (nil? (node-by-role view-node "portfolio-optimizer-trust-freshness-panel")))
     (is (nil? (node-by-role view-node "portfolio-optimizer-left-rail")))
-    (is (contains? strings "Optimizer - portfolio / optimize / new"))
+    (is (contains? strings "Optimizer · portfolio / optimize / new"))
     (is (contains? strings "Start with"))
     (is (contains? strings "From holdings"))
     (is (contains? strings "Custom"))

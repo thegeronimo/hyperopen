@@ -292,9 +292,25 @@
   }
 
   .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-universe-add-"] {
-    border-color: rgb(212 181 88 / 0.4);
-    background-color: rgb(212 181 88 / 0.08);
+    border-color: transparent;
+    background-color: transparent;
     color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-universe-candidate-row-"][data-active="true"] {
+    background-color: rgb(212 181 88 / 0.05);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-universe-panel"] table td {
+    border-bottom: 1px solid var(--optimizer-border);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-universe-panel"] table tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-universe-panel"] table tr:hover td {
+    background-color: var(--optimizer-surface-2);
   }
 
   .portfolio-optimizer-v4 [data-v4-chip="true"] {
@@ -307,6 +323,26 @@
     border-color: var(--optimizer-accent-border);
     background-color: var(--optimizer-accent-soft);
     color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-chip="true"][data-tone="accent"] {
+    border-color: rgb(212 181 88 / 0.4);
+    color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-chip="true"][data-tone="info"] {
+    border-color: rgb(107 141 181 / 0.4);
+    color: var(--optimizer-info, #6b8db5);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-chip="true"][data-tone="long"] {
+    border-color: rgb(78 166 116 / 0.4);
+    color: var(--optimizer-long);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-chip="true"][data-tone="warn"] {
+    border-color: rgb(212 154 58 / 0.45);
+    color: var(--optimizer-warn, #d49a3a);
   }
 
   .portfolio-optimizer-v4 [data-v4-note="true"] {

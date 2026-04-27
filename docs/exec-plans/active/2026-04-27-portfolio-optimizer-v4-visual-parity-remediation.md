@@ -35,7 +35,8 @@ This is a visual remediation pass, not another information-architecture rewrite.
 - [x] (2026-04-27 18:11Z) Slice 4: normalized the right rail so idle setup shows preset guidance first, while trust/readiness/progress/run-status panels appear only when history, run, warning, retained result, or read-only context makes them actionable.
 - [x] (2026-04-27 18:16Z) Slice 5: captured a fresh browser screenshot artifact at `tmp/portfolio-optimizer-v4-remediation-1294x885.png` and ran the optimizer Playwright regression subset plus the history-network smoke.
 - [x] (2026-04-27 18:25Z) Validation completed: `npm run check`, `npm test`, `npm run test:websocket`, `npx playwright test tools/playwright/test/portfolio-regressions.spec.mjs -g "portfolio optimizer"`, `npx playwright test tools/playwright/test/optimizer-history-network.qa.spec.mjs`, and `npm run browser:cleanup` passed.
-- [ ] Follow-up: if product wants the remaining v4 universe custom-flow parity, replace the compact manual-add list with the designer's anchored autocomplete, quick-add chips, and included-row treatment in a separate focused pass.
+- [x] (2026-04-27 18:49Z) Follow-up pass: extracted `setup_v4_universe.cljs`, replaced the generic manual-add list with a v4-style custom search block, search-result rows, quick-add chips, and included-instrument table treatment; tightened the route grid to `380px / 1fr / 340px`; captured `tmp/portfolio-optimizer-v4-pass2-1294x885.png`.
+- [ ] Await product/design review of `tmp/portfolio-optimizer-v4-pass2-1294x885.png` against the v4 artboard before moving this ExecPlan out of `active`.
 
 ## Surprises & Discoveries
 
@@ -65,6 +66,9 @@ This is a visual remediation pass, not another information-architecture rewrite.
 
 - Observation: Default right-rail readiness and run-status cards were the source of visible operational noise.
   Evidence: The default setup screenshot now shows only `Why this preset is safe` in the right rail. The readiness and run-status panels still render when history is loading, failed, succeeded, stale/incomplete, or when a run has started, failed, or completed.
+
+- Observation: The largest remaining visible setup delta was the universe builder, not the summary or model controls.
+  Evidence: The second parity pass moved universe rendering into `setup_v4_universe.cljs` and now matches the designer's mental model more closely: mode tabs, search bar with `↵ add`, query results above the included table, semantic spot/perp/history tags, quick-add chips for empty search, and compact included rows.
 
 ## Decision Log
 
@@ -104,11 +108,15 @@ This is a visual remediation pass, not another information-architecture rewrite.
   Rationale: Existing Playwright tests cover behavior and stable selectors. A saved artifact is sufficient for human visual review without introducing pixel-snapshot churn while the design is still being tuned.
   Date/Author: 2026-04-27 / Codex
 
+- Decision: Extract the universe builder into `setup_v4_universe.cljs` instead of continuing to grow `setup_v4_sections.cljs`.
+  Rationale: The universe custom-flow parity work needs enough helper functions for candidate sorting, tag rendering, quick chips, and included rows that keeping it in the section namespace would make the file harder to review and risk reintroducing the namespace-size failure.
+  Date/Author: 2026-04-27 / Codex
+
 ## Outcomes & Retrospective
 
-This pass materially tightened `/portfolio/optimize/new` against the v4 setup artboard while preserving optimizer behavior. The setup surface now uses scoped neutral v4 tokens, a compact header without a visible draft-state row, a filled amber Run Optimization CTA, a tighter preset strip, a no-gutter three-pane workspace, a continuous left control rail, segmented return/risk controls, compact editable constraints, denser manual-add rows, and an idle right rail focused on preset guidance instead of default status dashboards.
+This pass materially tightened `/portfolio/optimize/new` against the v4 setup artboard while preserving optimizer behavior. The setup surface now uses scoped neutral v4 tokens, a compact header without a visible draft-state row, a filled amber Run Optimization CTA, a tighter preset strip, a no-gutter three-pane workspace, a continuous left control rail, segmented return/risk controls, compact editable constraints, v4-style universe search/results/included rows, and an idle right rail focused on preset guidance instead of default status dashboards.
 
-The implementation reduced local complexity by extracting `setup_v4_header.cljs` from the previously oversized `setup_v4_sections.cljs`. It increased CSS specificity inside `.portfolio-optimizer-v4`, but that complexity is intentionally route-scoped and prevents global HyperOpen header/footer or unrelated route drift. Remaining visual gaps are mostly in the universe custom flow: the design's anchored autocomplete and quick-add chips are still not fully represented, although the current manual-add list is denser and closer to table rows than before.
+The implementation reduced local complexity by extracting `setup_v4_header.cljs` and `setup_v4_universe.cljs` from the previously oversized `setup_v4_sections.cljs`. It increased CSS specificity inside `.portfolio-optimizer-v4`, but that complexity is intentionally route-scoped and prevents global HyperOpen header/footer or unrelated route drift. Remaining visual gaps are now narrower: the custom search/results model is structurally aligned, but exact pixel parity still depends on final production data density, the current app shell gutters, and the right-rail status behavior when readiness warnings are legitimately actionable.
 
 ## Context and Orientation
 
@@ -216,6 +224,8 @@ The primary design reference for this pass is the setup block in `/Users/barry/D
 The current-state reviewer artifact is `/Users/barry/.codex/worktrees/d394/hyperopen/tmp/portfolio-optimizer-current-v4-diff-1294x885.png`.
 
 The post-remediation reviewer artifact is `/Users/barry/.codex/worktrees/d394/hyperopen/tmp/portfolio-optimizer-v4-remediation-1294x885.png`.
+
+The second-pass reviewer artifact is `/Users/barry/.codex/worktrees/d394/hyperopen/tmp/portfolio-optimizer-v4-pass2-1294x885.png`.
 
 Validation transcript summary:
 

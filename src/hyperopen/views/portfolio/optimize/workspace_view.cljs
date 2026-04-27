@@ -60,7 +60,7 @@
      (infeasible-panel/infeasible-banner infeasible-result highlighted-controls)
      [:section {:class ["grid"
                         "grid-cols-1"
-                        "xl:grid-cols-[420px_minmax(0,1fr)_380px]"]
+                        "xl:grid-cols-[380px_minmax(0,1fr)_340px]"]
                 :data-role "portfolio-optimizer-setup-surface"}
       (setup-v4/control-rail {:state state
                               :draft draft
