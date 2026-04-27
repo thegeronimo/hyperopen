@@ -375,6 +375,7 @@
                                 {"spot:PURR" {:key "spot:PURR"
                                               :market-type :spot
                                               :coin "PURR/USDC"
+                                              :symbol "PURR/USDC"
                                               :base "PURR"
                                               :quote "USDC"
                                               :mark "2"}}}}]
@@ -387,7 +388,10 @@
                 {:instrument-id "spot:PURR"
                  :market-type :spot
                  :coin "PURR"
-                 :shortable? false}]]
+                 :shortable? false
+                 :symbol "PURR/USDC"
+                 :base "PURR"
+                 :quote "USDC"}]]
               [[:portfolio :optimizer :draft :metadata :dirty?]
                true]]]]
            (actions/set-portfolio-optimizer-universe-from-current state)))))

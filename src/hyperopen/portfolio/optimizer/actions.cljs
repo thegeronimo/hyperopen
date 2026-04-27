@@ -116,7 +116,11 @@
                :coin coin
                :shortable? (= :perp market-type)}
         (non-blank-text (:dex exposure))
-        (assoc :dex (non-blank-text (:dex exposure)))))))
+        (assoc :dex (non-blank-text (:dex exposure)))
+        (non-blank-text (:symbol exposure)) (assoc :symbol (non-blank-text (:symbol exposure)))
+        (non-blank-text (:base exposure)) (assoc :base (non-blank-text (:base exposure)))
+        (non-blank-text (:quote exposure)) (assoc :quote (non-blank-text (:quote exposure)))
+        (contains? exposure :hip3?) (assoc :hip3? (boolean (:hip3? exposure)))))))
 
 (defn- market->universe-instrument
   [market]
@@ -132,15 +136,10 @@
                :shortable? (= :perp market-type)}
         (non-blank-text (:dex market))
         (assoc :dex (non-blank-text (:dex market)))
-
-        (non-blank-text (:symbol market))
-        (assoc :symbol (non-blank-text (:symbol market)))
-
-        (non-blank-text (:base market))
-        (assoc :base (non-blank-text (:base market)))
-
-        (non-blank-text (:quote market))
-        (assoc :quote (non-blank-text (:quote market)))))))
+        (non-blank-text (:symbol market)) (assoc :symbol (non-blank-text (:symbol market)))
+        (non-blank-text (:base market)) (assoc :base (non-blank-text (:base market)))
+        (non-blank-text (:quote market)) (assoc :quote (non-blank-text (:quote market)))
+        (contains? market :hip3?) (assoc :hip3? (boolean (:hip3? market)))))))
 
 (defn- dedupe-instruments
   [instruments]

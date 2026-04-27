@@ -156,6 +156,8 @@
                  (not (zeroish? signed-size)))
         (* signed-size mark-price))))
 
+(declare market-display-fields)
+
 (defn- build-perp-exposures
   [state]
   (let [market-by-key (get-in state [:asset-selector :market-by-key])]
@@ -184,20 +186,24 @@
                   :else
                   (assoc acc :exposures
                          (conj exposures
-                               {:instrument-id instrument-id
-                                :market-type :perp
-                                :coin coin
-                                :dex dex
-                                :signed-size signed-size
-                                :mark-price mark-price
-                                :signed-notional-usdc signed-notional
-                                :abs-notional-usdc (abs-number signed-notional)
-                                :side (position-side signed-size)
-                                :margin-mode (leverage-mode position)
-                                :leverage (parse-number (get-in position [:leverage :value]))
-                                :source (if (seq dex)
-                                          :perp-dex-clearinghouse
-                                          :clearinghouse)})))))
+                               (merge
+                                {:instrument-id instrument-id
+                                 :market-type :perp
+                                 :coin coin
+                                 :dex dex
+                                 :signed-size signed-size
+                                 :mark-price mark-price
+                                 :signed-notional-usdc signed-notional
+                                 :abs-notional-usdc (abs-number signed-notional)
+                                 :side (position-side signed-size)
+                                 :margin-mode (leverage-mode position)
+                                 :leverage (parse-number (get-in position [:leverage :value]))
+                                 :source (if (seq dex)
+                                           :perp-dex-clearinghouse
+                                           :clearinghouse)}
+                                (market-display-fields
+                                 (or (get market-by-key instrument-id)
+                                     (markets/resolve-market-by-coin market-by-key coin)))))))))
             {:exposures []
              :warnings []}
             (position-rows state))))
@@ -211,6 +217,21 @@
   (if (usdc-coin? coin)
     1
     (market-mark-price (markets/resolve-market-by-coin market-by-key coin))))
+
+(defn- market-display-fields
+  [market]
+  (cond-> {}
+    (non-blank-text (:symbol market))
+    (assoc :symbol (non-blank-text (:symbol market)))
+
+    (non-blank-text (:base market))
+    (assoc :base (non-blank-text (:base market)))
+
+    (non-blank-text (:quote market))
+    (assoc :quote (non-blank-text (:quote market)))
+
+    (contains? market :hip3?)
+    (assoc :hip3? (boolean (:hip3? market)))))
 
 (defn- build-spot-exposures
   [state]
@@ -244,17 +265,19 @@
                     (-> acc
                         (update :spot-noncash-usdc + signed-notional)
                         (update :exposures conj
-                                {:instrument-id instrument-id
-                                 :market-type :spot
-                                 :coin coin
-                                 :signed-size total
-                                 :available-size available
-                                 :hold-size hold
-                                 :mark-price price
-                                 :signed-notional-usdc signed-notional
-                                 :abs-notional-usdc (abs-number signed-notional)
-                                 :side :long
-                                 :source :spot-clearinghouse}))))))
+                                (merge
+                                 {:instrument-id instrument-id
+                                  :market-type :spot
+                                  :coin coin
+                                  :signed-size total
+                                  :available-size available
+                                  :hold-size hold
+                                  :mark-price price
+                                  :signed-notional-usdc signed-notional
+                                  :abs-notional-usdc (abs-number signed-notional)
+                                  :side :long
+                                  :source :spot-clearinghouse}
+                                 (market-display-fields market))))))))
             {:exposures []
              :warnings []
              :cash-usdc 0

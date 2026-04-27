@@ -1,6 +1,7 @@
 (ns hyperopen.views.portfolio.optimize.universe-panel
   (:require [clojure.string :as str]
-            [hyperopen.asset-selector.query :as asset-query]))
+            [hyperopen.asset-selector.query :as asset-query]
+            [hyperopen.views.portfolio.optimize.instrument-display :as instrument-display]))
 
 (def ^:private search-input-class
   ["mt-2" "w-full" "rounded-md" "border" "border-base-300" "bg-base-100" "px-2" "py-1.5"
@@ -43,13 +44,16 @@
 
 (defn- selected-row
   [instrument]
-  (let [instrument-id (:instrument-id instrument)]
+  (let [instrument-id (:instrument-id instrument)
+        primary-label (instrument-display/primary-label instrument)
+        secondary-token (or (instrument-display/base-label instrument)
+                            (:coin instrument))]
     [:div {:class ["flex" "items-center" "justify-between" "gap-3" "rounded-lg" "border"
                    "border-base-300" "bg-base-200/40" "px-3" "py-2"]}
      [:div
-      [:p {:class ["text-sm" "font-semibold"]} instrument-id]
+      [:p {:class ["text-sm" "font-semibold"]} primary-label]
       [:p {:class ["text-xs" "uppercase" "tracking-[0.14em]" "text-trading-muted"]}
-       (str (:coin instrument) " / " (name (:market-type instrument)))]]
+       (str secondary-token " / " (name (:market-type instrument)))]]
      [:button {:type "button"
                :class ["rounded-md" "border" "border-base-300" "px-2" "py-1" "text-[0.65rem]"
                        "font-semibold" "uppercase" "tracking-[0.14em]" "text-trading-muted"

@@ -1,6 +1,7 @@
 (ns hyperopen.views.portfolio.optimize.setup-v4-universe
   (:require [clojure.string :as str]
-            [hyperopen.asset-selector.query :as asset-query]))
+            [hyperopen.asset-selector.query :as asset-query]
+            [hyperopen.views.portfolio.optimize.instrument-display :as instrument-display]))
 
 (def ^:private eyebrow-class
   ["font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"])
@@ -152,7 +153,13 @@
   (let [instrument-id (:instrument-id instrument)
         coin (:coin instrument)
         market-type (:market-type instrument)
-        history (history-label state coin)]
+        history (history-label state coin)
+        primary-label (instrument-display/primary-label instrument)
+        secondary-label (or (normalized-text (:name instrument))
+                            (normalized-text (:full-name instrument))
+                            (when (instrument-display/symbol-first? instrument)
+                              (instrument-display/base-label instrument))
+                            (display-name coin))]
     [:div {:class ["grid" "grid-cols-[18px_minmax(0,1fr)_42px_72px_48px_20px]"
                    "items-center" "gap-2" "border-b" "border-base-300"
                    "px-2" "py-1.5" "last:border-b-0" "hover:bg-base-200/30"]
@@ -160,9 +167,9 @@
      [:span {:class ["text-warning"]} "☑"]
      [:span {:class ["min-w-0"]}
       [:span {:class ["block" "truncate" "font-mono" "text-[0.6875rem]" "font-semibold"]}
-       (or coin instrument-id)]
+       primary-label]
       [:span {:class ["block" "truncate" "text-[0.65625rem]" "text-trading-muted"]}
-       (display-name coin)]]
+       secondary-label]]
      [:span {:class ["min-w-0"]} (market-type-tags market-type)]
      [:span {:class ["min-w-0"]} (tag history (if (= "sufficient" history) :long :warn))]
      [:span {:class ["truncate" "text-[0.65625rem]" "text-trading-muted"]}

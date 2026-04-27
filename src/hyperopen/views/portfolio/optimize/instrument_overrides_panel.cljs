@@ -1,4 +1,5 @@
-(ns hyperopen.views.portfolio.optimize.instrument-overrides-panel)
+(ns hyperopen.views.portfolio.optimize.instrument-overrides-panel
+  (:require [hyperopen.views.portfolio.optimize.instrument-display :as instrument-display]))
 
 (def ^:private row-shell-class
   ["grid" "grid-cols-1" "gap-2" "rounded-lg" "border" "border-base-300" "bg-base-200/40"
@@ -68,13 +69,16 @@
 (defn- instrument-row
   [constraints instrument]
   (let [id (instrument-id instrument)
-        perp? (= :perp (:market-type instrument))]
+        perp? (= :perp (:market-type instrument))
+        primary-label (instrument-display/primary-label instrument)
+        secondary-token (or (instrument-display/base-label instrument)
+                            (:coin instrument))]
     [:div {:class row-shell-class
            :data-role "portfolio-optimizer-instrument-override-row"}
      [:div
-      [:p {:class ["text-sm" "font-semibold"]} id]
+      [:p {:class ["text-sm" "font-semibold"]} primary-label]
       [:p {:class ["mt-1" "text-xs" "uppercase" "tracking-[0.14em]" "text-trading-muted"]}
-       (str (:coin instrument) " / " (market-label instrument))]]
+       (str secondary-token " / " (market-label instrument))]]
      (checkbox-control
       "Allow"
       (checked? (:allowlist constraints) id)

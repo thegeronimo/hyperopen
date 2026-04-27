@@ -101,6 +101,33 @@
     (is (contains? strings "ETH-USDC"))
     (is (contains? strings "Requires history reload after adding new assets."))))
 
+(deftest portfolio-optimizer-selected-universe-prefers-symbol-for-raw-spot-and-hip3-assets-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:draft {:universe [{:instrument-id "spot:@107"
+                                                     :market-type :spot
+                                                     :coin "@107"
+                                                     :symbol "UBTC/USDC"
+                                                     :base "UBTC"
+                                                     :quote "USDC"}
+                                                    {:instrument-id "perp:xyz:@221"
+                                                     :market-type :perp
+                                                     :coin "@221"
+                                                     :dex "xyz"
+                                                     :hip3? true
+                                                     :symbol "GOLD-USDC"
+                                                     :base "GOLD"
+                                                     :quote "USDC"}]
+                                         :constraints {:long-only? false}}}}})
+        strings (set (collect-strings view-node))]
+    (is (contains? strings "UBTC/USDC"))
+    (is (contains? strings "UBTC"))
+    (is (contains? strings "GOLD-USDC"))
+    (is (contains? strings "GOLD"))
+    (is (not (contains? strings "@107")))
+    (is (not (contains? strings "@221")))))
+
 (deftest portfolio-optimizer-workspace-blocks-run-when-retained-history-misses-assets-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}

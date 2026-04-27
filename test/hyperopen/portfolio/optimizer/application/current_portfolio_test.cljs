@@ -45,6 +45,7 @@
                :asset-selector {:market-by-key {"spot:PURR/USDC" {:key "spot:PURR/USDC"
                                                                   :market-type :spot
                                                                   :coin "PURR/USDC"
+                                                                  :symbol "PURR/USDC"
                                                                   :base "PURR"
                                                                   :quote "USDC"
                                                                   :mark "0.5"}}}}
@@ -71,6 +72,9 @@
     (is (= "dex-a" (:dex sol)))
     (is (= 5 (:signed-notional-usdc purr)))
     (is (= :spot (:market-type purr)))
+    (is (= "PURR/USDC" (:symbol purr)))
+    (is (= "PURR" (:base purr)))
+    (is (= "USDC" (:quote purr)))
     (is (near? (/ 25000 100005) (:weight btc)))
     (is (= 32005 (get-in snapshot [:capital :gross-exposure-usdc])))
     (is (= 20005 (get-in snapshot [:capital :net-exposure-usdc])))
