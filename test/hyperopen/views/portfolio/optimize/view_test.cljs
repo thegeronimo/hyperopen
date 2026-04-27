@@ -100,8 +100,7 @@
     (is (nil? (node-by-role view-node "portfolio-optimizer-black-litterman-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-risk-model-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-constraints-panel")))
-    (is (some? (node-by-role (node-by-role view-node "portfolio-optimizer-right-rail")
-                             "portfolio-optimizer-execution-assumptions-panel")))
+    (is (nil? (node-by-role view-node "portfolio-optimizer-execution-assumptions-panel")))
     (is (= [[:actions/set-portfolio-optimizer-constraint
              :long-only?
              :event.target/checked]]
@@ -178,30 +177,6 @@
            (input-actions
             (node-by-role view-node
                           "portfolio-optimizer-objective-target-volatility-input"))))
-    (is (= [[:actions/set-portfolio-optimizer-execution-assumption
-             :fallback-slippage-bps
-             [:event.target/value]]]
-           (input-actions
-            (node-by-role view-node
-                          "portfolio-optimizer-execution-fallback-slippage-bps-input"))))
-    (is (= [[:actions/set-portfolio-optimizer-execution-assumption
-             :manual-capital-usdc
-             [:event.target/value]]]
-           (input-actions
-            (node-by-role view-node
-                          "portfolio-optimizer-execution-manual-capital-usdc-input"))))
-    (is (= [[:actions/set-portfolio-optimizer-execution-assumption
-             :default-order-type
-             :market]]
-           (click-actions
-            (node-by-role view-node
-                          "portfolio-optimizer-execution-default-order-type-input"))))
-    (is (= [[:actions/set-portfolio-optimizer-execution-assumption
-             :fee-mode
-             :taker]]
-           (click-actions
-            (node-by-role view-node
-                          "portfolio-optimizer-execution-fee-mode-input"))))
     (is (some? (node-by-role view-node "portfolio-optimizer-advanced-overrides-shell")))
     (is (some? (node-by-role view-node "portfolio-optimizer-instrument-overrides-panel")))
     (let [strings (set (collect-strings view-node))]
@@ -213,11 +188,11 @@
       (is (contains? strings "Max Asset Weight"))
       (is (contains? strings "Gross Leverage"))
       (is (contains? strings "Rebalance Tolerance"))
-      (is (contains? strings "Execution Assumptions"))
-      (is (contains? strings "Fallback Slippage"))
-      (is (contains? strings "Manual Capital Base"))
-      (is (contains? strings "Default Order: Market"))
-      (is (contains? strings "Fee Mode: Taker")))))
+      (is (not (contains? strings "Execution Assumptions")))
+      (is (not (contains? strings "Fallback Slippage")))
+      (is (not (contains? strings "Manual Capital Base")))
+      (is (not (contains? strings "Default Order: Market")))
+      (is (not (contains? strings "Fee Mode: Taker"))))))
 
 (deftest portfolio-optimizer-setup-route-shows-use-my-views-context-for-black-litterman-test
   (let [view-node (portfolio-view/portfolio-view

@@ -297,39 +297,6 @@
                            constraint-key
                            :event.target/checked]]}}]])
 
-(defn- execution-assumptions-panel
-  [execution-assumptions]
-  (panel-shell
-   "portfolio-optimizer-execution-assumptions-panel"
-   "Execution Assumptions"
-   "Preview costs use live market context where available, with explicit fallbacks and optional manual capital sizing."
-   (number-input "Fallback Slippage"
-                 (or (:fallback-slippage-bps execution-assumptions)
-                     (:slippage-fallback-bps execution-assumptions)
-                     25)
-                 "portfolio-optimizer-execution-fallback-slippage-bps-input"
-                 [:actions/set-portfolio-optimizer-execution-assumption
-                  :fallback-slippage-bps
-                  [:event.target/value]])
-   (number-input "Manual Capital Base"
-                 (:manual-capital-usdc execution-assumptions)
-                 "portfolio-optimizer-execution-manual-capital-usdc-input"
-                 [:actions/set-portfolio-optimizer-execution-assumption
-                  :manual-capital-usdc
-                  [:event.target/value]])
-   (option-chip "Default Order: Market"
-                (= :market (or (:default-order-type execution-assumptions) :market))
-                "portfolio-optimizer-execution-default-order-type-input"
-                [:actions/set-portfolio-optimizer-execution-assumption
-                 :default-order-type
-                 :market])
-   (option-chip "Fee Mode: Taker"
-                (= :taker (or (:fee-mode execution-assumptions) :taker))
-                "portfolio-optimizer-execution-fee-mode-input"
-                [:actions/set-portfolio-optimizer-execution-assumption
-                 :fee-mode
-                 :taker])))
-
 (defn- setup-panels
   [state draft readiness highlighted-controls]
   (let [objective-kind (get-in draft [:objective :kind])
@@ -469,7 +436,6 @@
         saving-scenario? (= :saving (:status scenario-save-state))
         history-load-state (or (get-in state [:portfolio :optimizer :history-load-state])
                                (optimizer-defaults/default-history-load-state))
-        execution-assumptions (:execution-assumptions draft)
         scenario-id (:scenario-id route)
         infeasible-result (infeasible-panel/infeasible-result run-state)
         highlighted-controls (infeasible-panel/highlighted-control-keys infeasible-result)]
@@ -595,7 +561,6 @@
 
          :else
          "Current portfolio snapshot is available.")]
-      (execution-assumptions-panel execution-assumptions)
       (setup-readiness-panel/readiness-panel readiness history-load-state)
       (run-status-panel/run-status-panel run-state)
       (run-status-panel/last-successful-run-panel run-state last-successful-run)
