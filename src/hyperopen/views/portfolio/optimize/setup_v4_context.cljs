@@ -6,7 +6,7 @@
             [hyperopen.views.portfolio.optimize.setup-readiness-panel :as setup-readiness-panel]))
 
 (def ^:private eyebrow-class
-  ["font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted"])
+  ["font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"])
 
 (defn context-rail
   [{:keys [draft readiness snapshot preview-snapshot run-state optimization-progress

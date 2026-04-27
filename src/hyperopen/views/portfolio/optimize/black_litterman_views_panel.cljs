@@ -1,7 +1,7 @@
 (ns hyperopen.views.portfolio.optimize.black-litterman-views-panel)
 
 (def ^:private field-label-class
-  ["block" "font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted"])
+  ["block" "font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"])
 
 (def ^:private input-class
   ["mt-2" "w-full" "rounded-md" "border" "border-base-300" "bg-base-100" "px-2" "py-1.5"
@@ -190,7 +190,7 @@
                  :data-role "portfolio-optimizer-black-litterman-panel"}
        [:div {:class ["flex" "flex-wrap" "items-start" "justify-between" "gap-3"]}
         [:div
-         [:p {:class ["font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted"]}
+         [:p {:class ["font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"]}
           "Black-Litterman Views"]
          [:p {:class ["mt-2" "text-[0.6875rem]" "leading-[1.45]" "text-trading-muted"]}
           "Author absolute returns and relative spreads as a return-model input. This does not change the objective layer."]]

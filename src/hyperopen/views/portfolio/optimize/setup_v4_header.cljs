@@ -1,7 +1,7 @@
 (ns hyperopen.views.portfolio.optimize.setup-v4-header)
 
 (def ^:private eyebrow-class
-  ["font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted"])
+  ["font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"])
 
 (defn- route-title
   [route]
@@ -33,7 +33,7 @@
        "- configure your target portfolio"]
       [:span {:class ["border" "border-base-300" "bg-base-200/40" "px-2" "py-0.5"
                       "font-mono" "text-[0.6rem]" "font-semibold" "uppercase"
-                      "tracking-[0.12em]" "text-trading-muted"]
+                      "tracking-[0.12em]" "text-trading-muted/70"]
               :data-role "portfolio-optimizer-setup-status-tag"}
        (if (= :computed (:status draft)) "computed" "draft")]]
      [:span {:class ["sr-only"]
@@ -85,15 +85,16 @@
               :on {:click [[:actions/apply-portfolio-optimizer-setup-preset preset]]}}
      [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
       [:div
-       [:p {:class ["text-[0.6875rem]" "font-medium" (if selected? "text-warning" "text-trading-text")]}
-        (str (if selected? "◉ " "○ ") title)]
+       [:p {:class ["text-[0.6875rem]" "font-medium" "text-trading-text"]}
+        [:span {:class (if selected? "text-warning" "text-trading-muted")} (if selected? "◉ " "○ ")]
+        title]
        [:p {:class ["mt-1.5" "text-[0.65625rem]" "text-trading-muted"]} subtitle]
        [:p {:class ["mt-1.5" "font-mono" "text-[0.5625rem]" "uppercase" "tracking-[0.16em]"
-                    "text-trading-muted"]}
+                    "text-trading-muted/70"]}
         kicker]]
       (when selected?
         [:span {:class ["border" "border-base-300" "px-1.5" "py-0.5" "font-mono"
-                        "text-[0.55rem]" "uppercase" "tracking-[0.12em]" "text-trading-muted"]}
+                        "text-[0.55rem]" "uppercase" "tracking-[0.12em]" "text-trading-muted/70"]}
          "default"])]]))
 
 (defn preset-row

@@ -3,7 +3,7 @@
             [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]
             [hyperopen.views.portfolio.optimize.setup-v4-universe :as setup-v4-universe]))
 (def ^:private eyebrow-class
-  ["font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted"])
+  ["font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"])
 
 (def ^:private section-title-class
   ["text-[0.6875rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-text"])
@@ -46,7 +46,8 @@
     [:span {:class ["mr-2" "font-mono" "text-trading-muted/70"]} idx]
     title]
    (when trailing
-     [:span {:class ["font-mono" "text-[0.65625rem]" "uppercase" "tracking-[0.08em]" "text-trading-muted"]}
+     [:span {:class ["font-mono" "text-[0.65625rem]" "uppercase" "tracking-[0.08em]"
+                      "text-trading-muted/70"]}
       trailing])])
 
 (defn- segmented-button
@@ -170,8 +171,9 @@
             :aria-pressed (str selected?)
             :data-role role
             :on {:click [action]}}
-   [:p {:class ["text-[0.6875rem]" "font-medium" (if selected? "text-warning" "text-trading-text")]}
-    (str (if selected? "◉ " "○ ") title)
+   [:p {:class ["text-[0.6875rem]" "font-medium" "text-trading-text"]}
+    [:span {:class (if selected? "text-warning" "text-trading-muted")} (if selected? "◉ " "○ ")]
+    title
     [:span {:class ["sr-only"]} title]]
    [:p {:class ["mt-1" "text-[0.65625rem]" "text-trading-muted"]} subtitle]])
 
@@ -315,11 +317,11 @@
          [:div [:p {:class eyebrow-class} "3 - Combined output"]
           [:p {:class ["mt-2" "text-[0.6875rem]" "leading-[1.45]" "text-trading-muted"]}
            "The posterior return estimate feeds the selected optimizer objective."]]]])
-     [:section {:class ["border" "border-base-300" "bg-base-100/90" "p-4"]
+     [:section {:class ["border" "border-base-300" "bg-base-100/90"]
                 :data-v4-note "true"}
       [:p {:class eyebrow-class} "What this model assumes"]
-      [:ul {:class ["mt-3" "space-y-2" "text-[0.6875rem]" "leading-[1.55]" "text-trading-muted"]}
-       [:li "- Returns are roughly normal at the chosen horizon."]
-       [:li "- Past covariance is informative about future covariance."]
-       [:li "- Cross-margin is treated as one book."]
-       [:li "- Tail risk and drawdown are not modeled in this setup pass."]]]]))
+      [:ul {:class ["mt-1" "space-y-[3px]" "text-[0.6875rem]" "leading-[1.55]" "text-trading-muted"]}
+       [:li "Returns are roughly normal at the chosen horizon."]
+       [:li "Past covariance is informative about future covariance."]
+       [:li "Cross-margin is treated as one book."]
+       [:li "Tail risk and drawdown are not modeled in this setup pass."]]]]))

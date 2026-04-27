@@ -121,6 +121,8 @@
     --optimizer-accent-border: rgb(212 181 88 / 0.58);
     --optimizer-long: #4ea674;
     --optimizer-short: #c25b5b;
+    --optimizer-warn: #d49a3a;
+    --optimizer-info: #6b8db5;
     background-color: var(--optimizer-bg);
     color: var(--optimizer-text);
     font-family: "Inter Variable", var(--font-ui-system);
@@ -131,6 +133,37 @@
 
   .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-"] {
     border-color: var(--optimizer-border);
+  }
+
+  .portfolio-optimizer-v4 .text-trading-text {
+    color: var(--optimizer-text);
+  }
+
+  .portfolio-optimizer-v4 .text-trading-muted {
+    color: var(--optimizer-text-2);
+  }
+
+  .portfolio-optimizer-v4 .text-trading-muted\/70 {
+    color: var(--optimizer-text-3);
+  }
+
+  .portfolio-optimizer-v4 .text-trading-muted\/60 {
+    color: rgb(90 95 104 / 0.72);
+  }
+
+  .portfolio-optimizer-v4 .text-warning,
+  .portfolio-optimizer-v4 .text-primary {
+    color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4 .text-success,
+  .portfolio-optimizer-v4 .text-trading-green {
+    color: var(--optimizer-long);
+  }
+
+  .portfolio-optimizer-v4 .text-error,
+  .portfolio-optimizer-v4 .text-trading-red {
+    color: var(--optimizer-short);
   }
 
   .portfolio-optimizer-v4 :is(.font-mono, .tabular-nums) {
@@ -224,7 +257,7 @@
     )[aria-pressed="true"] {
     border-color: var(--optimizer-accent-border);
     background-color: var(--optimizer-accent-soft);
-    color: var(--optimizer-accent);
+    color: var(--optimizer-text);
   }
 
   .portfolio-optimizer-v4
@@ -266,6 +299,11 @@
     border-color: var(--optimizer-border-strong);
     color: var(--optimizer-text);
     height: 26px;
+  }
+
+  .portfolio-optimizer-v4 input::placeholder {
+    color: var(--optimizer-text-3);
+    opacity: 1;
   }
 
   .portfolio-optimizer-v4 :is(input, select):focus {
@@ -346,7 +384,28 @@
   }
 
   .portfolio-optimizer-v4 [data-v4-note="true"] {
-    border-left: 2px solid var(--optimizer-accent);
+    background-color: var(--optimizer-surface);
+    border: 1px solid var(--optimizer-border);
+    border-left: 2px solid var(--optimizer-text-3);
+    color: var(--optimizer-text);
+    padding: 10px 12px;
+  }
+
+  .portfolio-optimizer-v4 [data-v4-note="true"] > p {
+    color: var(--optimizer-text-2);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-note="true"] li {
+    position: relative;
+    padding-left: 14px;
+    color: var(--optimizer-text-2);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-note="true"] li::before {
+    content: "·";
+    position: absolute;
+    left: 4px;
+    color: var(--optimizer-accent);
   }
 
   .staking-action-popover-surface {

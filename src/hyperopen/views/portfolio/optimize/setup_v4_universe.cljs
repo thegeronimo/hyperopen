@@ -3,7 +3,7 @@
             [hyperopen.asset-selector.query :as asset-query]))
 
 (def ^:private eyebrow-class
-  ["font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted"])
+  ["font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"])
 
 (def ^:private section-title-class
   ["text-[0.6875rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-text"])
@@ -252,7 +252,7 @@
        [:span {:class ["mr-2" "font-mono" "text-trading-muted/70"]} "01"]
        "Universe"]
       [:span {:class ["font-mono" "text-[0.65625rem]" "uppercase" "tracking-[0.08em]"
-                      "text-trading-muted"]}
+                      "text-trading-muted/70"]}
        (str (count universe) " included")]]
      [:div {:class ["mt-3" "grid" "grid-cols-3" "border" "border-base-300" "text-center"
                     "text-[0.65625rem]" "font-medium" "uppercase"
