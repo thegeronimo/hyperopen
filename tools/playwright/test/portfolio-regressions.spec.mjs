@@ -787,6 +787,79 @@ test("portfolio optimizer manual universe builder adds and removes assets @regre
   await expect(ethCandidate).toBeVisible();
 });
 
+test("portfolio optimizer selected universe keeps remove controls visible for long assets @regression", async ({ page }) => {
+  await visitRoute(page, "/portfolio/optimize/new");
+
+  await page.evaluate(() => {
+    const c = globalThis.cljs.core;
+    const kw = (name) => c.keyword(name);
+    const path = (...segments) =>
+      c.PersistentVector.fromArray(segments.map((segment) => kw(segment)), true);
+    const instrument = (instrumentId, coin) =>
+      c.PersistentArrayMap.fromArray(
+        [
+          kw("instrument-id"), instrumentId,
+          kw("market-type"), kw("perp"),
+          kw("coin"), coin,
+          kw("symbol"), `${coin}-USDC`
+        ],
+        true
+      );
+    const universe = c.PersistentVector.fromArray(
+      [
+        instrument("perp:CFX", "CFX"),
+        instrument("perp:REZ", "REZ"),
+        instrument("perp:KAITO", "KAITO"),
+        instrument("perp:XYZ:GOLD", "xyz:GOLD"),
+        instrument("perp:XYZ:AAPL", "xyz:AAPL"),
+        instrument("perp:XYZ:SILVER", "xyz:SILVER"),
+        instrument("perp:XYZ:BRENTOIL", "xyz:BRENTOIL")
+      ],
+      true
+    );
+    const draft = c.PersistentArrayMap.fromArray(
+      [
+        kw("universe"), universe,
+        kw("objective"), c.PersistentArrayMap.fromArray([kw("kind"), kw("minimum-variance")], true),
+        kw("return-model"), c.PersistentArrayMap.fromArray([kw("kind"), kw("historical-mean")], true),
+        kw("risk-model"), c.PersistentArrayMap.fromArray([kw("kind"), kw("diagonal-shrink")], true),
+        kw("constraints"), c.PersistentArrayMap.fromArray([kw("long-only?"), true], true)
+      ],
+      true
+    );
+    const state = c.deref(globalThis.hyperopen.system.store);
+    c.reset_BANG_(
+      globalThis.hyperopen.system.store,
+      c.assoc_in(state, path("portfolio", "optimizer", "draft"), draft)
+    );
+  });
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+  const panel = page.locator("[data-role='portfolio-optimizer-universe-panel']");
+  const longAssetRow = page.locator(
+    "[data-role='portfolio-optimizer-universe-selected-row-perp:XYZ:BRENTOIL']"
+  );
+  const longAssetRemove = page.locator(
+    "[data-role='portfolio-optimizer-universe-remove-perp:XYZ:BRENTOIL']"
+  );
+
+  await expect(panel).toContainText("7 included");
+  await expect(longAssetRow).toBeVisible();
+  await expect(longAssetRemove).toBeVisible();
+
+  const [panelBox, removeBox] = await Promise.all([
+    panel.boundingBox(),
+    longAssetRemove.boundingBox()
+  ]);
+  expect(panelBox).not.toBeNull();
+  expect(removeBox).not.toBeNull();
+  expect(removeBox.x + removeBox.width).toBeLessThanOrEqual(panelBox.x + panelBox.width);
+
+  await longAssetRemove.click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(longAssetRemove).toHaveCount(0);
+});
+
 test("portfolio optimizer history load requests each manual perp once @regression", async ({ page }) => {
   const historyRequests = [];
   await page.route("https://api.hyperliquid.xyz/info", async (route) => {
