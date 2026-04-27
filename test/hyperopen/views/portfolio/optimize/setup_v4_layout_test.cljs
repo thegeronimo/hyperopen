@@ -53,7 +53,7 @@
     (is (some? (node-by-role view-node "portfolio-optimizer-setup-control-rail")))
     (is (some? (node-by-role view-node "portfolio-optimizer-setup-summary-pane")))
     (is (some? (node-by-role view-node "portfolio-optimizer-assumptions-rail")))
-    (is (some? (node-by-role view-node "portfolio-optimizer-trust-freshness-panel")))
+    (is (nil? (node-by-role view-node "portfolio-optimizer-trust-freshness-panel")))
     (is (nil? (node-by-role view-node "portfolio-optimizer-left-rail")))
     (is (contains? strings "Optimizer - portfolio / optimize / new"))
     (is (contains? strings "Start with"))

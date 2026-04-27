@@ -6,6 +6,7 @@
             [hyperopen.views.portfolio.optimize.execution-modal :as execution-modal]
             [hyperopen.views.portfolio.optimize.infeasible-panel :as infeasible-panel]
             [hyperopen.views.portfolio.optimize.setup-v4-context :as setup-v4-context]
+            [hyperopen.views.portfolio.optimize.setup-v4-header :as setup-v4-header]
             [hyperopen.views.portfolio.optimize.setup-v4-sections :as setup-v4]))
 
 (defn- retained-result-path
@@ -48,20 +49,18 @@
     [:section {:class ["portfolio-optimizer-v4" "space-y-3" "text-trading-text"]
                :data-role "portfolio-optimizer-setup-route-surface"
                :data-scenario-id scenario-id}
-     (setup-v4/setup-header {:draft draft
-                             :route route
-                             :running? running?
-                             :run-triggerable? run-triggerable?
-                             :saving-scenario? saving-scenario?
-                             :solved-run? solved-run?
-                             :result-path result-path})
-     (setup-v4/preset-row draft)
+     (setup-v4-header/setup-header {:draft draft
+                                    :route route
+                                    :running? running?
+                                    :run-triggerable? run-triggerable?
+                                    :saving-scenario? saving-scenario?
+                                    :solved-run? solved-run?
+                                    :result-path result-path})
+     (setup-v4-header/preset-row draft)
      (infeasible-panel/infeasible-banner infeasible-result highlighted-controls)
      [:section {:class ["grid"
                         "grid-cols-1"
-                        "gap-3"
-                        "xl:grid-cols-[420px_minmax(0,1fr)_360px]"
-                        "2xl:grid-cols-[420px_minmax(0,1fr)_380px]"]
+                        "xl:grid-cols-[420px_minmax(0,1fr)_380px]"]
                 :data-role "portfolio-optimizer-setup-surface"}
       (setup-v4/control-rail {:state state
                               :draft draft

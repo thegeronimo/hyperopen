@@ -673,12 +673,12 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   await expect(page.locator("[data-role='portfolio-optimizer-run-draft']")).toBeDisabled();
   await expect(page.locator("[data-role='portfolio-optimizer-draft-state']"))
     .toContainText("Draft clean");
-  await expect(page.locator("[data-role='portfolio-optimizer-readiness-panel']"))
-    .toContainText("Select a universe before running.");
+  await expect(page.locator("[data-role='portfolio-optimizer-trust-freshness-panel']"))
+    .toHaveCount(0);
   await expect(page.locator("[data-role='portfolio-optimizer-load-history']"))
     .toHaveCount(0);
   await expect(page.locator("[data-role='portfolio-optimizer-run-status-panel']"))
-    .toContainText("Idle");
+    .toHaveCount(0);
   await expect(page.locator("[data-role='portfolio-optimizer-universe-panel']"))
     .toContainText("Use Current Holdings");
   await expect(page.locator("[data-role='portfolio-optimizer-objective-panel']"))
@@ -717,17 +717,14 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   await expect(maxSharpe).toHaveAttribute("aria-pressed", "false");
   await maxSharpe.click();
   await expect(maxSharpe).toHaveAttribute("aria-pressed", "true");
-  await expect(maxSharpe).toContainText("Active");
 
   await expect(blackLitterman).toHaveAttribute("aria-pressed", "false");
   await blackLitterman.click();
   await expect(blackLitterman).toHaveAttribute("aria-pressed", "true");
-  await expect(blackLitterman).toContainText("Active");
 
   await expect(sampleCovariance).toHaveAttribute("aria-pressed", "false");
   await sampleCovariance.click();
   await expect(sampleCovariance).toHaveAttribute("aria-pressed", "true");
-  await expect(sampleCovariance).toContainText("Active");
 
   const longOnly = page.locator("[data-role='portfolio-optimizer-constraint-long-only-input']");
   const maxAssetWeight = page.locator(

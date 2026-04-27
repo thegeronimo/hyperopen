@@ -106,26 +106,46 @@
   }
 
   .portfolio-optimizer-v4 {
-    --optimizer-accent: rgb(213 163 69);
-    --optimizer-accent-soft: rgb(213 163 69 / 0.12);
-    --optimizer-accent-border: rgb(213 163 69 / 0.58);
-    --optimizer-panel-bg: rgb(5 18 22 / 0.86);
-    --optimizer-panel-raised: rgb(9 28 33 / 0.78);
-    --optimizer-border: rgb(72 97 106 / 0.42);
-    --optimizer-border-muted: rgb(48 66 74 / 0.72);
+    --optimizer-bg: #0a0b0d;
+    --optimizer-surface: #111316;
+    --optimizer-surface-2: #15181c;
+    --optimizer-surface-3: #1a1d22;
+    --optimizer-border: #1d2025;
+    --optimizer-border-strong: #292d33;
+    --optimizer-text: #e6e7ea;
+    --optimizer-text-2: #8a8f98;
+    --optimizer-text-3: #5a5f68;
+    --optimizer-accent: #d4b558;
+    --optimizer-accent-soft: rgb(212 181 88 / 0.06);
+    --optimizer-accent-strong: rgb(212 181 88 / 0.2);
+    --optimizer-accent-border: rgb(212 181 88 / 0.58);
+    --optimizer-long: #4ea674;
+    --optimizer-short: #c25b5b;
+    background-color: var(--optimizer-bg);
+    color: var(--optimizer-text);
+    font-family: "Inter Variable", var(--font-ui-system);
+    font-size: 12px;
+    letter-spacing: -0.005em;
+    line-height: 1.4;
   }
 
   .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-"] {
     border-color: var(--optimizer-border);
   }
 
+  .portfolio-optimizer-v4 :is(.font-mono, .tabular-nums) {
+    font-family: "JetBrains Mono", var(--font-mono);
+    font-feature-settings: "tnum", "zero";
+    font-variant-numeric: tabular-nums;
+  }
+
   .portfolio-optimizer-v4 [class*="rounded-xl"] {
-    border-radius: 4px;
+    border-radius: 2px;
   }
 
   .portfolio-optimizer-v4 [class*="rounded-lg"],
   .portfolio-optimizer-v4 [class*="rounded-md"] {
-    border-radius: 3px;
+    border-radius: 2px;
   }
 
   .portfolio-optimizer-v4 [class*="rounded-full"] {
@@ -145,13 +165,76 @@
       [data-role$="-board"],
       [data-role$="-shell"]
     ) {
-    background-color: var(--optimizer-panel-bg);
+    background-color: var(--optimizer-surface);
   }
 
-  .portfolio-optimizer-v4 :is([aria-current="page"], [aria-pressed="true"]) {
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-setup-route-surface"] {
+    background-color: var(--optimizer-bg);
+  }
+
+  .portfolio-optimizer-v4
+    :is(
+      [data-role="portfolio-optimizer-setup-header"],
+      [data-role="portfolio-optimizer-setup-preset-row"]
+    ) {
+    background-color: var(--optimizer-bg);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-setup-surface"] {
+    background-color: var(--optimizer-bg);
+    border: 1px solid var(--optimizer-border);
+  }
+
+  .portfolio-optimizer-v4
+    :is(
+      [data-role="portfolio-optimizer-setup-control-rail"],
+      [data-role="portfolio-optimizer-setup-summary-pane"],
+      [data-role="portfolio-optimizer-right-rail"]
+    ) {
+    background-color: var(--optimizer-surface);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-setup-control-rail"] {
+    border-right: 1px solid var(--optimizer-border);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-right-rail"] {
+    border-left: 1px solid var(--optimizer-border);
+  }
+
+  .portfolio-optimizer-v4
+    [data-role="portfolio-optimizer-setup-control-rail"]
+    > :is(section, details) {
+    background-color: var(--optimizer-surface);
+    border-width: 0 0 1px 0;
+    border-color: var(--optimizer-border);
+    border-radius: 0;
+  }
+
+  .portfolio-optimizer-v4
+    [data-role="portfolio-optimizer-setup-control-rail"]
+    > :is(section, details):last-child {
+    border-bottom-width: 0;
+  }
+
+  .portfolio-optimizer-v4
+    :is(
+      [data-role^="portfolio-optimizer-setup-preset-"],
+      [data-role^="portfolio-optimizer-objective-"]
+    )[aria-pressed="true"] {
     border-color: var(--optimizer-accent-border);
     background-color: var(--optimizer-accent-soft);
     color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4
+    :is(
+      [data-role^="portfolio-optimizer-return-model-"],
+      [data-role^="portfolio-optimizer-risk-model-"]
+    )[aria-pressed="true"] {
+    border-color: var(--optimizer-border-strong);
+    background-color: var(--optimizer-surface-3);
+    color: var(--optimizer-text);
   }
 
   .portfolio-optimizer-v4
@@ -162,9 +245,10 @@
       button[data-role="portfolio-optimizer-scenario-rerun-stale"],
       button[data-role="portfolio-optimizer-open-execution-modal"]
     ):not(:disabled) {
-    border-color: var(--optimizer-accent-border);
-    background-color: var(--optimizer-accent-soft);
-    color: var(--optimizer-accent);
+    border-color: var(--optimizer-accent);
+    background-color: var(--optimizer-accent);
+    color: #1a1408;
+    font-weight: 600;
   }
 
   .portfolio-optimizer-v4
@@ -173,7 +257,60 @@
   }
 
   .portfolio-optimizer-v4 :is(input, select, button) {
-    min-height: 2.25rem;
+    min-height: 26px;
+    border-radius: 2px;
+  }
+
+  .portfolio-optimizer-v4 :is(input, select) {
+    background-color: var(--optimizer-bg);
+    border-color: var(--optimizer-border-strong);
+    color: var(--optimizer-text);
+    height: 26px;
+  }
+
+  .portfolio-optimizer-v4 :is(input, select):focus {
+    border-color: var(--optimizer-accent);
+    box-shadow: none;
+    outline: none;
+  }
+
+  .portfolio-optimizer-v4 button:not(:disabled):hover {
+    border-color: var(--optimizer-border-strong);
+    background-color: var(--optimizer-surface-3);
+  }
+
+  .portfolio-optimizer-v4
+    :is(
+      button[data-role="portfolio-optimizer-run-draft"],
+      button[data-role="portfolio-optimizer-run-draft-header"],
+      button[data-role="portfolio-optimizer-scenario-rerun"],
+      button[data-role="portfolio-optimizer-scenario-rerun-stale"],
+      button[data-role="portfolio-optimizer-open-execution-modal"]
+    ):not(:disabled):hover {
+    background-color: #e0c067;
+    border-color: #e0c067;
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-universe-add-"] {
+    border-color: rgb(212 181 88 / 0.4);
+    background-color: rgb(212 181 88 / 0.08);
+    color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-chip="true"] {
+    border-color: var(--optimizer-border-strong);
+    background-color: var(--optimizer-surface-2);
+    color: var(--optimizer-text-2);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-chip="true"][data-active="true"] {
+    border-color: var(--optimizer-accent-border);
+    background-color: var(--optimizer-accent-soft);
+    color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-note="true"] {
+    border-left: 2px solid var(--optimizer-accent);
   }
 
   .staking-action-popover-surface {

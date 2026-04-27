@@ -1,8 +1,7 @@
 (ns hyperopen.views.portfolio.optimize.setup-v4-sections
   (:require [clojure.string :as str]
             [hyperopen.asset-selector.query :as asset-query]
-            [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]
-            [hyperopen.views.portfolio.optimize.run-status-panel :as run-status-panel]))
+            [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]))
 (def ^:private eyebrow-class
   ["font-mono" "text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"])
 
@@ -13,13 +12,6 @@
 (defn- normalized-text
   [value]
   (some-> value str str/trim))
-
-(defn- route-title
-  [route]
-  (case (:kind route)
-    :optimize-new "Untitled scenario"
-    :optimize-scenario (str "Scenario " (:scenario-id route))
-    "Optimizer scenario"))
 
 (defn- active-preset
   [draft]
@@ -89,110 +81,23 @@
      [:span {:class ["font-mono" "text-[0.65rem]" "uppercase" "tracking-[0.14em]" "text-trading-muted"]}
       trailing])])
 
-(defn- v4-button
-  [label selected? role action]
+(defn- segmented-button
+  ([label selected? role action]
+   (segmented-button label nil selected? role action))
+  ([label hidden-label selected? role action]
   [:button {:type "button"
-            :class (cond-> ["border" "border-base-300" "bg-base-200/20" "px-2.5" "py-2"
-                            "text-left" "text-xs" "font-semibold" "text-trading-text"
-                            "transition-colors" "hover:border-warning/50" "hover:text-warning"]
-                     selected? (conj "border-warning/60" "bg-warning/10" "text-warning"))
+            :class (cond-> ["border-r" "border-base-300" "bg-transparent" "px-2"
+                            "py-1.5" "text-center" "font-mono" "text-[0.6rem]"
+                            "font-semibold" "uppercase" "tracking-[0.08em]"
+                            "text-trading-muted" "transition-colors"
+                            "last:border-r-0" "hover:text-warning"]
+                     selected? (conj "bg-base-200/40" "text-trading-text"))
             :aria-pressed (str selected?)
             :data-role role
             :on {:click [action]}}
    label
-   (when selected?
-     [:span {:class ["ml-2" "font-mono" "text-[0.6rem]" "uppercase" "tracking-[0.14em]" "text-primary"]}
-      "Active"])])
-
-(defn setup-header
-  [{:keys [draft route running? run-triggerable? saving-scenario? solved-run? result-path]}]
-  [:header {:class ["border" "border-base-300" "bg-base-100/90" "px-3" "py-2.5"]
-            :data-role "portfolio-optimizer-setup-header"}
-   [:div {:class ["flex" "items-center" "justify-between" "gap-4"]}
-    [:div {:class ["min-w-0"]}
-     [:p {:class eyebrow-class} "Optimizer - portfolio / optimize / new"]
-     [:div {:class ["mt-1" "flex" "flex-wrap" "items-center" "gap-2"]}
-      [:h1 {:class ["text-lg" "font-semibold" "tracking-tight" "text-trading-text"]}
-       (route-title route)]
-      [:span {:class ["text-sm" "text-trading-muted"]}
-       "- configure your target portfolio"]
-      [:span {:class ["border" "border-base-300" "bg-base-200/40" "px-2" "py-0.5"
-                      "font-mono" "text-[0.6rem]" "font-semibold" "uppercase"
-                      "tracking-[0.12em]" "text-trading-muted"]
-              :data-role "portfolio-optimizer-setup-status-tag"}
-       (if (= :computed (:status draft)) "computed" "draft")]]
-     (run-status-panel/draft-state-badge draft)]
-    [:div {:class ["flex" "shrink-0" "items-center" "gap-2"]}
-     [:button {:type "button"
-               :class ["border" "border-base-300" "bg-base-200/20" "px-3" "py-1.5"
-                       "font-mono" "text-xs" "font-semibold" "text-trading-muted"]
-               :aria-label "More setup actions"
-               :data-role "portfolio-optimizer-setup-overflow"}
-      "..."]
-     [:button {:type "button"
-               :class ["border" "border-base-300" "bg-base-200/30" "px-3" "py-1.5"
-                       "text-xs" "font-semibold" "text-trading-text"
-                       "disabled:cursor-not-allowed" "disabled:text-trading-muted"]
-               :data-role "portfolio-optimizer-save-scenario"
-               :disabled (or (not solved-run?) saving-scenario?)
-               :on {:click [[:actions/save-portfolio-optimizer-scenario-from-current]]}}
-      (if saving-scenario? "Saving" "Save draft")]
-     [:button {:type "button"
-               :class ["border" "border-warning/60" "bg-warning/10" "px-3" "py-1.5"
-                       "text-xs" "font-semibold" "text-warning"
-                       "disabled:cursor-not-allowed" "disabled:border-base-300"
-                       "disabled:bg-base-200/30" "disabled:text-trading-muted"]
-               :data-role "portfolio-optimizer-run-draft"
-               :disabled (not run-triggerable?)
-               :on {:click [[:actions/run-portfolio-optimizer-from-draft]]}}
-      (if running? "Running Optimization" "Run optimization")]
-     (when solved-run?
-       [:button {:type "button"
-                 :class ["border" "border-warning/60" "bg-warning/10" "px-3" "py-1.5"
-                         "text-xs" "font-semibold" "text-warning"]
-                 :data-role "portfolio-optimizer-view-weights"
-                 :on {:click [[:actions/navigate result-path]]}}
-        "View weights"])]]])
-
-(defn- preset-card
-  [draft preset title subtitle kicker]
-  (let [selected? (= preset (active-preset draft))]
-    [:button {:type "button"
-              :class (cond-> ["border" "border-base-300" "bg-base-100/70" "p-3" "text-left"
-                              "transition-colors" "hover:border-warning/50"]
-                       selected? (conj "border-warning/70" "bg-warning/10"))
-              :aria-pressed (str selected?)
-              :data-role (str "portfolio-optimizer-setup-preset-" (name preset))
-              :on {:click [[:actions/apply-portfolio-optimizer-setup-preset preset]]}}
-     [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
-      [:div
-       [:p {:class ["text-sm" "font-semibold" (if selected? "text-warning" "text-trading-text")]}
-        (str (if selected? "(*) " "( ) ") title)]
-       [:p {:class ["mt-2" "text-xs" "text-trading-muted"]} subtitle]
-       [:p {:class ["mt-2" "font-mono" "text-[0.6rem]" "uppercase" "tracking-[0.16em]"
-                    "text-trading-muted"]}
-        kicker]]
-      (when selected?
-        [:span {:class ["border" "border-base-300" "px-1.5" "py-0.5" "font-mono"
-                        "text-[0.55rem]" "uppercase" "tracking-[0.12em]" "text-trading-muted"]}
-         "default"])]]))
-
-(defn preset-row
-  [draft]
-  [:section {:class ["border" "border-base-300" "bg-base-100/80" "p-3"]
-             :data-role "portfolio-optimizer-setup-preset-row"}
-   [:div {:class ["grid" "grid-cols-1" "gap-2" "xl:grid-cols-[90px_minmax(0,1fr)]"]}
-    [:p {:class (conj eyebrow-class "pt-2")} "Start with"]
-    [:div {:class ["grid" "grid-cols-1" "gap-2" "lg:grid-cols-3"]}
-     (preset-card draft :conservative "Conservative"
-                  "Minimum variance - stabilized historical returns"
-                  "Recommended for first runs")
-     (preset-card draft :risk-adjusted "Risk-adjusted"
-                  "Maximum Sharpe - stabilized historical returns"
-                  "Best risk-adjusted return")
-     (preset-card draft :use-my-views "Use my views"
-                  "Combine the market reference with your absolute / relative beliefs"
-                  "For experienced users")]]])
+   (when hidden-label
+     [:span {:class ["sr-only"]} hidden-label])]))
 
 (defn- history-label
   [state coin]
@@ -225,13 +130,14 @@
   [market]
   (let [market-key (:key market)]
     [:div {:class ["grid" "grid-cols-[minmax(0,1fr)_56px]" "items-center" "gap-2"
-                   "border" "border-base-300" "bg-base-200/20" "px-2" "py-2"]}
+                   "border-b" "border-base-300" "px-2" "py-1.5"
+                   "last:border-b-0" "hover:bg-base-200/30"]}
      [:div {:class ["min-w-0"]}
       [:p {:class ["truncate" "text-xs" "font-semibold"]} (market-label market)]
       [:p {:class ["font-mono" "text-[0.6rem]" "uppercase" "tracking-[0.14em]" "text-trading-muted"]}
        (str market-key " / " (name (:market-type market)))]]
      [:button {:type "button"
-               :class ["border" "border-primary/50" "bg-primary/10" "px-2" "py-1"
+               :class ["border" "border-primary/50" "bg-primary/10" "px-2" "py-0.5"
                        "font-mono" "text-[0.6rem]" "font-semibold" "uppercase"
                        "tracking-[0.14em]" "text-primary"]
                :data-role (str "portfolio-optimizer-universe-add-" market-key)
@@ -279,7 +185,8 @@
       [:p {:class ["mt-1.5" "text-xs" "text-trading-muted"]}
        "Requires history reload after adding new assets."]
       (if (seq markets)
-        (into [:div {:class ["mt-2" "space-y-2"]}] (map market-row markets))
+        (into [:div {:class ["mt-2" "border" "border-base-300" "bg-base-200/15"]}]
+              (map market-row markets))
         [:p {:class ["mt-2" "border" "border-base-300" "bg-base-200/20" "p-2"
                      "text-xs" "text-trading-muted"]}
          "No matching unused markets found."])])))
@@ -294,18 +201,18 @@
      [:div {:class ["mt-3" "space-y-3"] :data-role "portfolio-optimizer-setup-model-grid"}
       [:div {:data-role "portfolio-optimizer-return-model-panel"}
        [:p {:class eyebrow-class} "Expected returns"]
-       [:div {:class ["mt-2" "grid" "grid-cols-1" "gap-1.5"]}
-        (v4-button "Historical Mean" (= :historical-mean return-kind)
-                   "portfolio-optimizer-return-model-historical-mean"
-                   [:actions/set-portfolio-optimizer-return-model-kind :historical-mean])
-        (v4-button "EW Mean" (= :ew-mean return-kind)
-                   "portfolio-optimizer-return-model-ew-mean"
-                   [:actions/set-portfolio-optimizer-return-model-kind :ew-mean])
-        [:div {:class ["relative"]}
-         (v4-button "Use my views" (= :black-litterman return-kind)
-                    "portfolio-optimizer-return-model-black-litterman"
-                    [:actions/set-portfolio-optimizer-return-model-kind :black-litterman])
-         [:span {:class ["sr-only"]} "Black-Litterman"]]]
+       [:div {:class ["mt-2" "grid" "grid-cols-3" "overflow-hidden" "border"
+                      "border-base-300"]}
+        (segmented-button "Historical" "Historical Mean" (= :historical-mean return-kind)
+                          "portfolio-optimizer-return-model-historical-mean"
+                          [:actions/set-portfolio-optimizer-return-model-kind :historical-mean])
+        (segmented-button "EW Mean" (= :ew-mean return-kind)
+                          "portfolio-optimizer-return-model-ew-mean"
+                          [:actions/set-portfolio-optimizer-return-model-kind :ew-mean])
+        (segmented-button "Use my views" (= :black-litterman return-kind)
+                          "portfolio-optimizer-return-model-black-litterman"
+                          [:actions/set-portfolio-optimizer-return-model-kind :black-litterman])
+        [:span {:class ["sr-only"]} "Black-Litterman"]]
        [:p {:class ["mt-2" "text-xs" "text-trading-muted"]}
         (case return-kind
           :black-litterman "Black-Litterman stays here as a return-model mode, not an objective."
@@ -314,13 +221,14 @@
       [:div {:data-role "portfolio-optimizer-setup-model-column"}
        [:div {:data-role "portfolio-optimizer-risk-model-panel"}
         [:p {:class eyebrow-class} "Risk model"]
-        [:div {:class ["mt-2" "grid" "grid-cols-1" "gap-1.5"]}
-         (v4-button "Diagonal Shrink" (= :diagonal-shrink risk-kind)
-                    "portfolio-optimizer-risk-model-diagonal-shrink"
-                    [:actions/set-portfolio-optimizer-risk-model-kind :diagonal-shrink])
-         (v4-button "Sample Covariance" (= :sample-covariance risk-kind)
-                    "portfolio-optimizer-risk-model-sample-covariance"
-                    [:actions/set-portfolio-optimizer-risk-model-kind :sample-covariance])]]]])))
+        [:div {:class ["mt-2" "grid" "grid-cols-2" "overflow-hidden" "border"
+                       "border-base-300"]}
+         (segmented-button "Stabilized Covariance" "Diagonal Shrink" (= :diagonal-shrink risk-kind)
+                           "portfolio-optimizer-risk-model-diagonal-shrink"
+                           [:actions/set-portfolio-optimizer-risk-model-kind :diagonal-shrink])
+         (segmented-button "Sample Covariance" (= :sample-covariance risk-kind)
+                           "portfolio-optimizer-risk-model-sample-covariance"
+                           [:actions/set-portfolio-optimizer-risk-model-kind :sample-covariance])]]]])))
 
 (defn- number-input
   [label value role action highlighted?]
@@ -336,6 +244,8 @@
             :value (str value)
             :on {:input [action]}}]])
 
+(declare objective-card)
+
 (defn- objective-section
   [draft highlighted-controls]
   (let [objective-kind (get-in draft [:objective :kind])]
@@ -343,18 +253,22 @@
      "portfolio-optimizer-objective-panel"
      (section-heading "03" "Objective" (labelize objective-kind))
      [:div {:class ["mt-3" "grid" "grid-cols-1" "gap-1.5" "sm:grid-cols-2"]}
-      (v4-button "Minimum Variance" (= :minimum-variance objective-kind)
-                 "portfolio-optimizer-objective-minimum-variance"
-                 [:actions/set-portfolio-optimizer-objective-kind :minimum-variance])
-      (v4-button "Maximum Sharpe" (= :max-sharpe objective-kind)
-                 "portfolio-optimizer-objective-max-sharpe"
-                 [:actions/set-portfolio-optimizer-objective-kind :max-sharpe])
-      (v4-button "Target Volatility" (= :target-volatility objective-kind)
-                 "portfolio-optimizer-objective-target-volatility"
-                 [:actions/set-portfolio-optimizer-objective-kind :target-volatility])
-      (v4-button "Target Return" (= :target-return objective-kind)
-                 "portfolio-optimizer-objective-target-return"
-                 [:actions/set-portfolio-optimizer-objective-kind :target-return])]
+      (objective-card "Minimum Variance" "Lowest risk - no return assumption"
+                      (= :minimum-variance objective-kind)
+                      "portfolio-optimizer-objective-minimum-variance"
+                      [:actions/set-portfolio-optimizer-objective-kind :minimum-variance])
+      (objective-card "Maximum Sharpe" "Best risk-adjusted return"
+                      (= :max-sharpe objective-kind)
+                      "portfolio-optimizer-objective-max-sharpe"
+                      [:actions/set-portfolio-optimizer-objective-kind :max-sharpe])
+      (objective-card "Target Volatility" "Cap how much risk you take"
+                      (= :target-volatility objective-kind)
+                      "portfolio-optimizer-objective-target-volatility"
+                      [:actions/set-portfolio-optimizer-objective-kind :target-volatility])
+      (objective-card "Target Return" "Aim for a specific return"
+                      (= :target-return objective-kind)
+                      "portfolio-optimizer-objective-target-return"
+                      [:actions/set-portfolio-optimizer-objective-kind :target-return])]
      [:div {:class ["mt-2" "grid" "grid-cols-1" "gap-2" "sm:grid-cols-2"]}
       (number-input "Target Return"
                     (or (get-in draft [:objective :target-return]) 0.15)
@@ -371,13 +285,45 @@
                      [:event.target/value]]
                     false)])))
 
-(defn- constraint-input
-  [label constraint-key value role highlighted?]
-  (number-input label value role
-                [:actions/set-portfolio-optimizer-constraint
-                 constraint-key
-                 [:event.target/value]]
-                highlighted?))
+(defn- objective-card
+  [title subtitle selected? role action]
+  [:button {:type "button"
+            :class (cond-> ["border" "border-base-300" "bg-base-200/20" "p-2"
+                            "text-left" "transition-colors" "hover:border-warning/50"]
+                     selected? (conj "border-warning/60" "bg-warning/10"))
+            :aria-pressed (str selected?)
+            :data-role role
+            :on {:click [action]}}
+   [:p {:class ["text-xs" "font-semibold" (if selected? "text-warning" "text-trading-text")]}
+    (str (if selected? "◉ " "○ ") title)
+    [:span {:class ["sr-only"]} title]]
+   [:p {:class ["mt-1" "text-[0.65rem]" "text-trading-muted"]} subtitle]])
+
+(defn- constraint-row
+  ([label constraint-key value role highlighted?]
+   (constraint-row label nil constraint-key value role highlighted?))
+  ([label hidden-label constraint-key value role highlighted?]
+  [:label {:class (cond-> ["grid" "grid-cols-[minmax(0,1fr)_92px]" "items-center"
+                           "gap-2" "border" "border-base-300" "bg-base-200/20"
+                           "px-2" "py-1.5"]
+                    highlighted? (conj "border-warning/70" "bg-warning/10"))}
+   [:span {:class ["min-w-0"]}
+    [:span {:class eyebrow-class} label]
+    (when hidden-label
+      [:span {:class ["sr-only"]} hidden-label])
+    [:span {:class ["ml-2" "font-mono" "text-[0.6rem]" "uppercase"
+                    "tracking-[0.08em]" "text-trading-muted"]}
+     "edit"]]
+   [:input {:type "text"
+            :inputmode "decimal"
+            :class input-class
+            :data-role role
+            :data-infeasible (when highlighted? "true")
+            :aria-invalid (when highlighted? "true")
+            :value (str value)
+            :on {:input [[:actions/set-portfolio-optimizer-constraint
+                          constraint-key
+                          [:event.target/value]]]}}]]))
 
 (defn- constraints-section
   [draft highlighted-controls]
@@ -396,25 +342,28 @@
                 :on {:change [[:actions/set-portfolio-optimizer-constraint
                                :long-only?
                                :event.target/checked]]}}]]
-      (constraint-input "Max Asset Weight" :max-asset-weight (:max-asset-weight constraints)
-                        "portfolio-optimizer-constraint-max-asset-weight-input"
-                        (contains? highlighted-controls :max-asset-weight))
-      (constraint-input "Gross Leverage" :gross-max (:gross-max constraints)
-                        "portfolio-optimizer-constraint-gross-max-input" false)
-      (constraint-input "Net Min" :net-min (:net-min constraints)
-                        "portfolio-optimizer-constraint-net-min-input" false)
-      (constraint-input "Net Max" :net-max (:net-max constraints)
-                        "portfolio-optimizer-constraint-net-max-input" false)
-      (constraint-input "Dust Threshold" :dust-usdc (:dust-usdc constraints)
-                        "portfolio-optimizer-constraint-dust-usdc-input" false)
-      (constraint-input "Max Turnover" :max-turnover (:max-turnover constraints)
-                        "portfolio-optimizer-constraint-max-turnover-input" false)
-      (constraint-input "Rebalance Tolerance" :rebalance-tolerance (:rebalance-tolerance constraints)
-                        "portfolio-optimizer-constraint-rebalance-tolerance-input" false)])))
+      (constraint-row "Per-asset cap" "Max Asset Weight"
+                      :max-asset-weight (:max-asset-weight constraints)
+                      "portfolio-optimizer-constraint-max-asset-weight-input"
+                      (contains? highlighted-controls :max-asset-weight))
+      (constraint-row "Gross exposure" "Gross Leverage"
+                      :gross-max (:gross-max constraints)
+                      "portfolio-optimizer-constraint-gross-max-input" false)
+      (constraint-row "Net exposure min" :net-min (:net-min constraints)
+                      "portfolio-optimizer-constraint-net-min-input" false)
+      (constraint-row "Net exposure max" :net-max (:net-max constraints)
+                      "portfolio-optimizer-constraint-net-max-input" false)
+      (constraint-row "Dust threshold" :dust-usdc (:dust-usdc constraints)
+                      "portfolio-optimizer-constraint-dust-usdc-input" false)
+      (constraint-row "Turnover cap" :max-turnover (:max-turnover constraints)
+                      "portfolio-optimizer-constraint-max-turnover-input" false)
+      (constraint-row "Rebalance tolerance" "Rebalance Tolerance"
+                      :rebalance-tolerance (:rebalance-tolerance constraints)
+                      "portfolio-optimizer-constraint-rebalance-tolerance-input" false)])))
 
 (defn control-rail
   [{:keys [state draft highlighted-controls]}]
-  [:aside {:class ["space-y-3"] :data-role "portfolio-optimizer-setup-control-rail"}
+  [:aside {:class ["min-h-0" "overflow-hidden"] :data-role "portfolio-optimizer-setup-control-rail"}
    (universe-section state draft)
    (model-section draft)
    (objective-section draft highlighted-controls)
@@ -491,7 +440,8 @@
          [:div [:p {:class eyebrow-class} "3 - Combined output"]
           [:p {:class ["mt-2" "text-xs" "text-trading-muted"]}
            "The posterior return estimate feeds the selected optimizer objective."]]]])
-     [:section {:class ["border" "border-base-300" "bg-base-100/90" "p-4"]}
+     [:section {:class ["border" "border-base-300" "bg-base-100/90" "p-4"]
+                :data-v4-note "true"}
       [:p {:class eyebrow-class} "What this model assumes"]
       [:ul {:class ["mt-3" "space-y-2" "text-xs" "text-trading-muted"]}
        [:li "- Returns are roughly normal at the chosen horizon."]
