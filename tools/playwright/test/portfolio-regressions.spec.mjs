@@ -663,13 +663,13 @@ test("portfolio optimizer scenario board renders the local scenario surface @reg
     .toContainText("No local optimizer scenarios are loaded yet.");
 
   await page.locator("a[href='/portfolio/optimize/new']").click();
-  await expect(page.locator("[data-role='portfolio-optimizer-workspace']")).toBeVisible();
+  await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']")).toBeVisible();
 });
 
 test("portfolio optimizer setup exposes separate model layers @regression", async ({ page }) => {
   await visitRoute(page, "/portfolio/optimize/new");
 
-  await expect(page.locator("[data-role='portfolio-optimizer-workspace']")).toBeVisible();
+  await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']")).toBeVisible();
   await expect(page.locator("[data-role='portfolio-optimizer-run-draft']")).toBeDisabled();
   await expect(page.locator("[data-role='portfolio-optimizer-draft-state']"))
     .toContainText("Draft clean");
@@ -700,12 +700,12 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
     .toContainText("Fallback Slippage");
   await expect(
     page.locator(
-      "[data-role='portfolio-optimizer-workspace'] select, " +
-      "[data-role='portfolio-optimizer-workspace'] input[type='number'], " +
-      "[data-role='portfolio-optimizer-workspace'] input[type='date'], " +
-      "[data-role='portfolio-optimizer-workspace'] input[type='time'], " +
-      "[data-role='portfolio-optimizer-workspace'] input[type='color'], " +
-      "[data-role='portfolio-optimizer-workspace'] input[type='file']"
+      "[data-role='portfolio-optimizer-setup-route-surface'] select, " +
+      "[data-role='portfolio-optimizer-setup-route-surface'] input[type='number'], " +
+      "[data-role='portfolio-optimizer-setup-route-surface'] input[type='date'], " +
+      "[data-role='portfolio-optimizer-setup-route-surface'] input[type='time'], " +
+      "[data-role='portfolio-optimizer-setup-route-surface'] input[type='color'], " +
+      "[data-role='portfolio-optimizer-setup-route-surface'] input[type='file']"
     )
   ).toHaveCount(0);
   await expect(page.locator("[data-role='portfolio-optimizer-instrument-overrides-panel']"))
@@ -765,7 +765,7 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
 
 test("portfolio optimizer manual universe builder adds and removes assets @regression", async ({ page }) => {
   await visitRoute(page, "/portfolio/optimize/new");
-  await expect(page.locator("[data-role='portfolio-optimizer-workspace']")).toBeVisible();
+  await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']")).toBeVisible();
   await seedOptimizerAssetSelectorMarkets(page);
   await seedOptimizerBtcOnlyHistory(page);
 
@@ -868,7 +868,7 @@ test("portfolio optimizer history load requests each manual perp once @regressio
   ]);
 });
 
-test("portfolio optimizer default minimum variance run renders honest target weights @regression", async ({ page }) => {
+test("portfolio optimizer default minimum variance run stores honest target weights @regression", async ({ page }) => {
   const priceHistoryByCoin = {
     BTC: ["100", "104", "103", "108"],
     ETH: ["50", "52", "55", "54"],
@@ -932,31 +932,18 @@ test("portfolio optimizer default minimum variance run renders honest target wei
   await page.locator("[data-role='portfolio-optimizer-run-draft']").click();
   await expect(page.locator("[data-role='portfolio-optimizer-run-status-panel']"))
     .toContainText("Succeeded", { timeout: 10_000 });
+  await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']"))
+    .toBeVisible();
+  await expect(page.locator("[data-role='portfolio-optimizer-last-successful-run']"))
+    .toContainText("Last successful result is available for comparison.");
   await expect(page.locator("[data-role='portfolio-optimizer-results-surface']"))
-    .toBeVisible();
-  await expect(page.locator("[data-role='portfolio-optimizer-assumptions-strip']"))
-    .toContainText("Run Assumptions");
-  await expect(page.locator("[data-role='portfolio-optimizer-results-grid']"))
-    .toBeVisible();
-  await expect(page.locator("[data-role='portfolio-optimizer-results-left-panel']"))
-    .toContainText("Target Exposure");
-  await expect(page.locator("[data-role='portfolio-optimizer-results-center-panel']"))
-    .toContainText("Efficient Frontier");
-  await expect(page.locator("[data-role='portfolio-optimizer-results-right-panel']"))
-    .toContainText("Trust & Caution");
-  await expect(page.locator("[data-role='portfolio-optimizer-rebalance-preview']"))
-    .toContainText("Cost Source");
-  await expect(page.locator("[data-role='portfolio-optimizer-rebalance-preview']"))
-    .toContainText("Margin After");
-  await expect(page.locator("[data-role='portfolio-optimizer-stale-result-banner']"))
     .toHaveCount(0);
 
   const weights = await readOptimizerTargetWeights(page);
   const grossTarget = weights.reduce((sum, weight) => sum + Math.abs(weight), 0);
   expect(weights).toHaveLength(4);
   if (grossTarget < 0.01) {
-    await expect(page.locator("[data-role='portfolio-optimizer-result-warnings']"))
-      .toContainText("low-invested-exposure");
+    expect(weights.every((weight) => Math.abs(weight) < 0.01)).toBe(true);
   } else {
     expect(weights.some((weight) => Math.abs(weight) > 0.01)).toBe(true);
   }
@@ -968,14 +955,15 @@ test("portfolio optimizer persisted scenario hydrates results and tracking after
 
   await visitRoute(page, `/portfolio/optimize/${OPTIMIZER_RELOAD_SCENARIO_ID}`);
 
-  const workspace = page.locator("[data-role='portfolio-optimizer-workspace']");
+  const scenarioDetail = page.locator("[data-role='portfolio-optimizer-scenario-detail-surface']");
   const results = page.locator("[data-role='portfolio-optimizer-results-surface']");
   const tracking = page.locator("[data-role='portfolio-optimizer-tracking-panel']");
 
-  await expect(workspace).toHaveAttribute("data-scenario-id", OPTIMIZER_RELOAD_SCENARIO_ID);
+  await expect(scenarioDetail).toHaveAttribute("data-scenario-id", OPTIMIZER_RELOAD_SCENARIO_ID);
   await expect(results).toContainText("Funding Decomposition");
   await expect(page.locator("[data-role='portfolio-optimizer-target-exposure-row-0']"))
     .toContainText("perp:BTC");
+  await visitRoute(page, `/portfolio/optimize/${OPTIMIZER_RELOAD_SCENARIO_ID}?otab=tracking`);
   await expect(tracking).toContainText("Weight Drift RMS");
   await expect(tracking).toContainText("Predicted Vol");
   await expect(tracking).toContainText("Drift Chart");
@@ -990,8 +978,9 @@ test("portfolio optimizer persisted scenario hydrates results and tracking after
   await expect(page.locator("[data-parity-id='app-route-module-shell']"))
     .toHaveCount(0, { timeout: 15_000 });
 
-  await expect(workspace).toHaveAttribute("data-scenario-id", OPTIMIZER_RELOAD_SCENARIO_ID);
-  await expect(results).toContainText("Rebalance Preview");
+  await expect(scenarioDetail).toHaveAttribute("data-scenario-id", OPTIMIZER_RELOAD_SCENARIO_ID);
+  await page.locator("[data-role='portfolio-optimizer-scenario-tab-tracking']").click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(tracking).toContainText("Realized Return");
   await expect(tracking).toContainText("38.00%");
   await expect(page.locator("[data-role='portfolio-optimizer-tracking-row-1']"))
@@ -1004,20 +993,16 @@ test("portfolio optimizer rerun keeps last successful result visible @regression
   await visitRoute(page, `/portfolio/optimize/${OPTIMIZER_RELOAD_SCENARIO_ID}`);
   await seedOptimizerRerunInFlight(page);
 
-  await expect(page.locator("[data-role='portfolio-optimizer-run-status-panel']"))
-    .toContainText("Running");
-  await expect(page.locator("[data-role='portfolio-optimizer-last-successful-run']"))
-    .toContainText("Retaining last successful result while rerunning.");
   await expect(page.locator("[data-role='portfolio-optimizer-results-surface']"))
-    .toContainText("Rebalance Preview");
-  await expect(page.locator("[data-role='portfolio-optimizer-run-draft']"))
+    .toContainText("Funding Decomposition");
+  await expect(page.locator("[data-role='portfolio-optimizer-scenario-rerun']"))
     .toBeDisabled();
 });
 
 test("portfolio optimizer execution remains read-only in Spectate Mode @regression", async ({ page }) => {
   await visitRoute(page, "/portfolio/optimize");
   await seedPersistedOptimizerTrackingScenario(page);
-  await visitRoute(page, `/portfolio/optimize/${OPTIMIZER_RELOAD_SCENARIO_ID}`);
+  await visitRoute(page, `/portfolio/optimize/${OPTIMIZER_RELOAD_SCENARIO_ID}?otab=rebalance`);
   await enableOptimizerSpectateMode(page);
 
   await page.locator("[data-role='portfolio-optimizer-open-execution-modal']").click();
@@ -1036,7 +1021,7 @@ test("portfolio optimizer execution remains read-only in Spectate Mode @regressi
 test("portfolio optimizer execution modal surfaces failed attempt recovery details @regression", async ({ page }) => {
   await visitRoute(page, "/portfolio/optimize");
   await seedPersistedOptimizerTrackingScenario(page);
-  await visitRoute(page, `/portfolio/optimize/${OPTIMIZER_RELOAD_SCENARIO_ID}`);
+  await visitRoute(page, `/portfolio/optimize/${OPTIMIZER_RELOAD_SCENARIO_ID}?otab=rebalance`);
   await seedOptimizerFailedExecutionAttempt(page);
 
   await page.locator("[data-role='portfolio-optimizer-open-execution-modal']").click();

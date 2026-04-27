@@ -7,25 +7,9 @@
             [hyperopen.views.portfolio.optimize.execution-modal :as execution-modal]
             [hyperopen.views.portfolio.optimize.infeasible-panel :as infeasible-panel]
             [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]
-            [hyperopen.views.portfolio.optimize.results-panel :as results-panel]
             [hyperopen.views.portfolio.optimize.run-status-panel :as run-status-panel]
             [hyperopen.views.portfolio.optimize.setup-readiness-panel :as setup-readiness-panel]
-            [hyperopen.views.portfolio.optimize.tracking-panel :as tracking-panel]
             [hyperopen.views.portfolio.optimize.universe-panel :as universe-panel]))
-
-(defn- metric-card
-  [label value]
-  [:div {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/50" "p-3"]}
-   [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.18em]" "text-trading-muted"]}
-    label]
-   [:p {:class ["mt-2" "text-lg" "font-semibold" "tabular-nums"]}
-    value]])
-
-(defn- format-usdc
-  [value]
-  (if (number? value)
-    (str "$" (.toLocaleString value "en-US" #js {:maximumFractionDigits 2}))
-    "N/A"))
 
 (defn- route-title
   [route]
@@ -39,21 +23,133 @@
   (or (get-in state [:portfolio :optimizer :draft])
       (optimizer-defaults/default-draft)))
 
-(defn- comparable-request
-  [request]
-  (some-> request
-          (dissoc :as-of-ms)
-          (update-in [:history :freshness] dissoc :as-of-ms :age-ms)
-          (update :execution-assumptions dissoc :cost-contexts-by-id)))
+(def ^:private setup-field-label-class
+  ["block" "text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.18em]" "text-trading-muted"])
 
-(defn- stale-result?
-  [last-successful-run readiness]
-  (let [previous-request (get-in last-successful-run [:request-signature :request])
-        current-request (:request readiness)]
-    (and (some? previous-request)
-         (some? current-request)
-         (not= (comparable-request previous-request)
-               (comparable-request current-request)))))
+(defn- draft-status-label
+  [draft]
+  (cond
+    (true? (get-in draft [:metadata :dirty?]))
+    "Unsaved changes"
+
+    (= :computed (:status draft))
+    "Computed"
+
+    :else
+    "Draft clean"))
+
+(defn- active-preset
+  [draft]
+  (let [objective-kind (get-in draft [:objective :kind])
+        return-kind (get-in draft [:return-model :kind])]
+    (cond
+      (= :black-litterman return-kind) :use-my-views
+      (= :max-sharpe objective-kind) :risk-adjusted
+      :else :conservative)))
+
+(defn- setup-preset-button
+  [draft preset label description]
+  (let [selected? (= preset (active-preset draft))]
+    [:button {:type "button"
+              :class (cond-> ["rounded-lg"
+                              "border"
+                              "px-3"
+                              "py-2.5"
+                              "text-left"
+                              "transition-colors"]
+                       selected? (conj "border-primary/60" "bg-primary/10" "text-trading-text")
+                       (not selected?) (conj "border-base-300" "bg-base-200/40" "text-trading-muted"))
+              :aria-pressed (str selected?)
+              :data-role (str "portfolio-optimizer-setup-preset-" (name preset))
+              :on {:click [[:actions/apply-portfolio-optimizer-setup-preset preset]]}}
+     [:span {:class ["block" "text-sm" "font-semibold"]} label]
+     [:span {:class ["mt-1" "block" "text-xs" "leading-relaxed" "text-trading-muted"]}
+      description]]))
+
+(defn- setup-header
+  [draft route running? runnable? saving-scenario?]
+  [:header {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4" "xl:col-span-3"]
+            :data-role "portfolio-optimizer-setup-header"}
+   [:div {:class ["flex" "flex-wrap" "items-start" "justify-between" "gap-4"]}
+    [:div
+     [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"]}
+      "Optimizer Setup"]
+     [:h1 {:class ["mt-2" "text-2xl" "font-semibold" "tracking-tight"]}
+      (route-title route)]
+     [:span {:class ["mt-3"
+                     "inline-flex"
+                     "rounded-full"
+                     "border"
+                     "border-base-300"
+                     "bg-base-200/60"
+                     "px-2.5"
+                     "py-1"
+                     "text-[0.65rem]"
+                     "font-semibold"
+                     "uppercase"
+                     "tracking-[0.14em]"
+                     "text-trading-muted"]
+             :data-role "portfolio-optimizer-setup-status-tag"}
+      (draft-status-label draft)]]
+    [:div {:class ["flex" "flex-wrap" "gap-2"]}
+     [:button {:type "button"
+               :class ["rounded-lg"
+                       "border"
+                       "border-base-300"
+                       "bg-base-200/40"
+                       "px-3"
+                       "py-2"
+                       "text-sm"
+                       "font-semibold"
+                       "text-trading-text"
+                       "disabled:cursor-not-allowed"
+                       "disabled:text-trading-muted"]
+               :data-role "portfolio-optimizer-save-scenario-header"
+               :disabled saving-scenario?
+               :on {:click [[:actions/save-portfolio-optimizer-scenario-from-current]]}}
+      (if saving-scenario?
+        "Saving"
+        "Save Draft")]
+     [:button {:type "button"
+               :class ["rounded-lg"
+                       "border"
+                       "border-primary/50"
+                       "bg-primary/10"
+                       "px-3"
+                       "py-2"
+                       "text-sm"
+                       "font-semibold"
+                       "text-primary"
+                       "disabled:cursor-not-allowed"
+                       "disabled:border-base-300"
+                       "disabled:bg-base-200/40"
+                       "disabled:text-trading-muted"]
+               :data-role "portfolio-optimizer-run-draft-header"
+               :disabled (not runnable?)
+               :on {:click [[:actions/run-portfolio-optimizer-from-draft]]}}
+      (if running?
+        "Running"
+        "Run Optimization")]]]])
+
+(defn- setup-preset-row
+  [draft]
+  [:section {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-3" "xl:col-span-3"]
+             :data-role "portfolio-optimizer-setup-preset-row"}
+   [:p {:class ["px-1" "text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"]}
+    "Start With"]
+   [:div {:class ["mt-3" "grid" "grid-cols-1" "gap-2" "lg:grid-cols-3"]}
+    (setup-preset-button draft
+                         :conservative
+                         "Conservative"
+                         "Minimum variance with historical mean returns.")
+    (setup-preset-button draft
+                         :risk-adjusted
+                         "Risk-adjusted"
+                         "Max Sharpe using the standard historical return model.")
+    (setup-preset-button draft
+                         :use-my-views
+                         "Use my views"
+                         "Black-Litterman return model with explicit views.")]])
 
 (defn- panel-shell
   [data-role title subtitle & children]
@@ -73,6 +169,43 @@
     subtitle]
    (into [:div {:class ["mt-4" "grid" "grid-cols-1" "gap-2" "md:grid-cols-2"]}]
          children)])
+
+(defn- advanced-shell
+  [data-role title subtitle & children]
+  (into
+   [:details {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
+              :data-role data-role}
+    [:summary {:class ["cursor-pointer"
+                       "select-none"
+                       "text-[0.65rem]"
+                       "font-semibold"
+                       "uppercase"
+                       "tracking-[0.24em]"
+                       "text-trading-muted"]}
+     title]
+    [:p {:class ["mt-2" "text-sm" "text-trading-muted"]} subtitle]]
+   children))
+
+(defn- use-my-views-context
+  [draft readiness]
+  (when (= :black-litterman (get-in draft [:return-model :kind]))
+    (let [views (count (get-in draft [:return-model :views]))
+          prior-source (get-in readiness [:request :black-litterman-prior :source])]
+      [:section {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
+                 :data-role "portfolio-optimizer-setup-use-my-views-context"}
+       [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"]}
+        "Use my views"]
+       [:p {:class ["mt-2" "text-sm" "text-trading-muted"]}
+        "Black-Litterman keeps your optimization objective separate while tilting expected returns with market priors and explicit views."]
+       [:div {:class ["mt-4" "grid" "grid-cols-1" "gap-2" "sm:grid-cols-2"]}
+        [:div {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]}
+         [:p {:class setup-field-label-class} "Views"]
+         [:p {:class ["mt-2" "text-sm" "font-semibold" "tabular-nums"]} (str views)]]
+        [:div {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]}
+         [:p {:class setup-field-label-class} "Prior"]
+         [:p {:class ["mt-2" "text-sm" "font-semibold"]} (if (keyword? prior-source)
+                                                            (name prior-source)
+                                                            "pending")]]]])))
 
 (defn- option-chip
   [label selected? data-role action]
@@ -100,9 +233,6 @@
     label]
    [:p {:class ["mt-2" "text-sm" "font-semibold" "tabular-nums"]}
     value]])
-
-(def ^:private setup-field-label-class
-  ["block" "text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.18em]" "text-trading-muted"])
 
 (def ^:private setup-number-input-class
   ["mt-2" "w-full" "rounded-md" "border" "border-base-300" "bg-base-100" "px-2" "py-1.5"
@@ -167,71 +297,108 @@
                            constraint-key
                            :event.target/checked]]}}]])
 
+(defn- execution-assumptions-panel
+  [execution-assumptions]
+  (panel-shell
+   "portfolio-optimizer-execution-assumptions-panel"
+   "Execution Assumptions"
+   "Preview costs use live market context where available, with explicit fallbacks and optional manual capital sizing."
+   (number-input "Fallback Slippage"
+                 (or (:fallback-slippage-bps execution-assumptions)
+                     (:slippage-fallback-bps execution-assumptions)
+                     25)
+                 "portfolio-optimizer-execution-fallback-slippage-bps-input"
+                 [:actions/set-portfolio-optimizer-execution-assumption
+                  :fallback-slippage-bps
+                  [:event.target/value]])
+   (number-input "Manual Capital Base"
+                 (:manual-capital-usdc execution-assumptions)
+                 "portfolio-optimizer-execution-manual-capital-usdc-input"
+                 [:actions/set-portfolio-optimizer-execution-assumption
+                  :manual-capital-usdc
+                  [:event.target/value]])
+   (option-chip "Default Order: Market"
+                (= :market (or (:default-order-type execution-assumptions) :market))
+                "portfolio-optimizer-execution-default-order-type-input"
+                [:actions/set-portfolio-optimizer-execution-assumption
+                 :default-order-type
+                 :market])
+   (option-chip "Fee Mode: Taker"
+                (= :taker (or (:fee-mode execution-assumptions) :taker))
+                "portfolio-optimizer-execution-fee-mode-input"
+                [:actions/set-portfolio-optimizer-execution-assumption
+                 :fee-mode
+                 :taker])))
+
 (defn- setup-panels
   [state draft readiness highlighted-controls]
   (let [objective-kind (get-in draft [:objective :kind])
         return-kind (get-in draft [:return-model :kind])
         risk-kind (get-in draft [:risk-model :kind])
-        constraints (:constraints draft)
-        execution-assumptions (:execution-assumptions draft)]
+        constraints (:constraints draft)]
     [:div {:class ["grid" "grid-cols-1" "gap-4"]
            :data-role "portfolio-optimizer-setup-surface"}
      (universe-panel/universe-panel state draft)
-     (panel-shell
-      "portfolio-optimizer-objective-panel"
-      "Objective"
-      "Choose the optimizer objective separately from the return model."
-      (option-chip "Minimum Variance" (= :minimum-variance objective-kind)
-                   "portfolio-optimizer-objective-minimum-variance"
-                   [:actions/set-portfolio-optimizer-objective-kind :minimum-variance])
-      (option-chip "Max Sharpe" (= :max-sharpe objective-kind)
-                   "portfolio-optimizer-objective-max-sharpe"
-                   [:actions/set-portfolio-optimizer-objective-kind :max-sharpe])
-      (option-chip "Target Volatility" (= :target-volatility objective-kind)
-                   "portfolio-optimizer-objective-target-volatility"
-                   [:actions/set-portfolio-optimizer-objective-kind :target-volatility])
-      (option-chip "Target Return" (= :target-return objective-kind)
-                   "portfolio-optimizer-objective-target-return"
-                   [:actions/set-portfolio-optimizer-objective-kind :target-return])
-      (number-input "Target Return"
-                    (or (get-in draft [:objective :target-return]) 0.15)
-                    "portfolio-optimizer-objective-target-return-input"
-                    [:actions/set-portfolio-optimizer-objective-parameter
-                     :target-return
-                     [:event.target/value]]
-                    (contains? highlighted-controls :target-return))
-      (number-input "Target Volatility"
-                    (or (get-in draft [:objective :target-volatility]) 0.2)
-                    "portfolio-optimizer-objective-target-volatility-input"
-                    [:actions/set-portfolio-optimizer-objective-parameter
-                     :target-volatility
-                     [:event.target/value]]))
-     (panel-shell
-      "portfolio-optimizer-return-model-panel"
-      "Return Model"
-      "Black-Litterman stays here as a return-model mode, not an objective."
-      (option-chip "Historical Mean" (= :historical-mean return-kind)
-                   "portfolio-optimizer-return-model-historical-mean"
-                   [:actions/set-portfolio-optimizer-return-model-kind :historical-mean])
-      (option-chip "EW Mean" (= :ew-mean return-kind)
-                   "portfolio-optimizer-return-model-ew-mean"
-                   [:actions/set-portfolio-optimizer-return-model-kind :ew-mean])
-      (option-chip "Black-Litterman" (= :black-litterman return-kind)
-                   "portfolio-optimizer-return-model-black-litterman"
-                   [:actions/set-portfolio-optimizer-return-model-kind :black-litterman]))
-     (black-litterman-views-panel/black-litterman-views-panel
-      draft
-      (get-in readiness [:request :black-litterman-prior]))
-     (panel-shell
-      "portfolio-optimizer-risk-model-panel"
-      "Risk Model"
-      "Covariance estimation is configured independently from expected returns."
-      (option-chip "Diagonal Shrink" (= :diagonal-shrink risk-kind)
-                   "portfolio-optimizer-risk-model-diagonal-shrink"
-                   [:actions/set-portfolio-optimizer-risk-model-kind :diagonal-shrink])
-      (option-chip "Sample Covariance" (= :sample-covariance risk-kind)
-                   "portfolio-optimizer-risk-model-sample-covariance"
-                   [:actions/set-portfolio-optimizer-risk-model-kind :sample-covariance]))
+     [:div {:class ["grid" "grid-cols-1" "gap-4" "2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"]
+            :data-role "portfolio-optimizer-setup-model-grid"}
+      (panel-shell
+       "portfolio-optimizer-objective-panel"
+       "Objective"
+       "Choose the optimizer objective separately from the return model."
+       (option-chip "Minimum Variance" (= :minimum-variance objective-kind)
+                    "portfolio-optimizer-objective-minimum-variance"
+                    [:actions/set-portfolio-optimizer-objective-kind :minimum-variance])
+       (option-chip "Max Sharpe" (= :max-sharpe objective-kind)
+                    "portfolio-optimizer-objective-max-sharpe"
+                    [:actions/set-portfolio-optimizer-objective-kind :max-sharpe])
+       (option-chip "Target Volatility" (= :target-volatility objective-kind)
+                    "portfolio-optimizer-objective-target-volatility"
+                    [:actions/set-portfolio-optimizer-objective-kind :target-volatility])
+       (option-chip "Target Return" (= :target-return objective-kind)
+                    "portfolio-optimizer-objective-target-return"
+                    [:actions/set-portfolio-optimizer-objective-kind :target-return])
+       (number-input "Target Return"
+                     (or (get-in draft [:objective :target-return]) 0.15)
+                     "portfolio-optimizer-objective-target-return-input"
+                     [:actions/set-portfolio-optimizer-objective-parameter
+                      :target-return
+                      [:event.target/value]]
+                     (contains? highlighted-controls :target-return))
+       (number-input "Target Volatility"
+                     (or (get-in draft [:objective :target-volatility]) 0.2)
+                     "portfolio-optimizer-objective-target-volatility-input"
+                     [:actions/set-portfolio-optimizer-objective-parameter
+                      :target-volatility
+                      [:event.target/value]]))
+      [:div {:class ["space-y-4"]
+             :data-role "portfolio-optimizer-setup-model-column"}
+       (panel-shell
+        "portfolio-optimizer-return-model-panel"
+        "Return Model"
+        "Black-Litterman stays here as a return-model mode, not an objective."
+        (option-chip "Historical Mean" (= :historical-mean return-kind)
+                     "portfolio-optimizer-return-model-historical-mean"
+                     [:actions/set-portfolio-optimizer-return-model-kind :historical-mean])
+        (option-chip "EW Mean" (= :ew-mean return-kind)
+                     "portfolio-optimizer-return-model-ew-mean"
+                     [:actions/set-portfolio-optimizer-return-model-kind :ew-mean])
+        (option-chip "Black-Litterman" (= :black-litterman return-kind)
+                     "portfolio-optimizer-return-model-black-litterman"
+                     [:actions/set-portfolio-optimizer-return-model-kind :black-litterman]))
+       (use-my-views-context draft readiness)
+       (black-litterman-views-panel/black-litterman-views-panel
+        draft
+        (get-in readiness [:request :black-litterman-prior]))
+       (panel-shell
+        "portfolio-optimizer-risk-model-panel"
+        "Risk Model"
+        "Covariance estimation is configured independently from expected returns."
+        (option-chip "Diagonal Shrink" (= :diagonal-shrink risk-kind)
+                     "portfolio-optimizer-risk-model-diagonal-shrink"
+                     [:actions/set-portfolio-optimizer-risk-model-kind :diagonal-shrink])
+        (option-chip "Sample Covariance" (= :sample-covariance risk-kind)
+                     "portfolio-optimizer-risk-model-sample-covariance"
+                     [:actions/set-portfolio-optimizer-risk-model-kind :sample-covariance]))]]
      [:section {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
                 :data-role "portfolio-optimizer-constraints-panel"}
       [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"]}
@@ -276,37 +443,12 @@
                        (str (count (:allowlist constraints)) " / " (count (:blocklist constraints))))
        (constraint-row "Perp Leverage"
                        (str (count (:perp-leverage constraints)) " overrides"))]]
-     (instrument-overrides-panel/instrument-overrides-panel draft)
-     (panel-shell
-      "portfolio-optimizer-execution-assumptions-panel"
-      "Execution Assumptions"
-      "Preview costs use live market context where available, with explicit fallbacks and optional manual capital sizing."
-      (number-input "Fallback Slippage"
-                    (or (:fallback-slippage-bps execution-assumptions)
-                        (:slippage-fallback-bps execution-assumptions)
-                        25)
-                    "portfolio-optimizer-execution-fallback-slippage-bps-input"
-                    [:actions/set-portfolio-optimizer-execution-assumption
-                     :fallback-slippage-bps
-                     [:event.target/value]])
-      (number-input "Manual Capital Base"
-                    (:manual-capital-usdc execution-assumptions)
-                    "portfolio-optimizer-execution-manual-capital-usdc-input"
-                    [:actions/set-portfolio-optimizer-execution-assumption
-                     :manual-capital-usdc
-                     [:event.target/value]])
-      (option-chip "Default Order: Market"
-                   (= :market (or (:default-order-type execution-assumptions) :market))
-                   "portfolio-optimizer-execution-default-order-type-input"
-                   [:actions/set-portfolio-optimizer-execution-assumption
-                    :default-order-type
-                    :market])
-      (option-chip "Fee Mode: Taker"
-                   (= :taker (or (:fee-mode execution-assumptions) :taker))
-                   "portfolio-optimizer-execution-fee-mode-input"
-                   [:actions/set-portfolio-optimizer-execution-assumption
-                    :fee-mode
-                    :taker]))]))
+     (advanced-shell
+      "portfolio-optimizer-advanced-overrides-shell"
+      "Advanced Overrides"
+      "Per-asset limits and held locks stay available without dominating the default setup scan."
+      [:div {:class ["mt-4" "space-y-4"]}
+       (instrument-overrides-panel/instrument-overrides-panel draft)])]))
 
 (defn workspace-view
   [state route]
@@ -327,16 +469,20 @@
         saving-scenario? (= :saving (:status scenario-save-state))
         history-load-state (or (get-in state [:portfolio :optimizer :history-load-state])
                                (optimizer-defaults/default-history-load-state))
+        execution-assumptions (:execution-assumptions draft)
         scenario-id (:scenario-id route)
         infeasible-result (infeasible-panel/infeasible-result run-state)
         highlighted-controls (infeasible-panel/highlighted-control-keys infeasible-result)]
-    [:section {:class ["grid"
+     [:section {:class ["grid"
+                       "portfolio-optimizer-v4"
                        "grid-cols-1"
                        "gap-4"
                        "text-trading-text"
                        "xl:grid-cols-[260px_minmax(0,1fr)_280px]"]
-               :data-role "portfolio-optimizer-workspace"
+               :data-role "portfolio-optimizer-setup-route-surface"
                :data-scenario-id scenario-id}
+     (setup-header draft route running? runnable? saving-scenario?)
+     (setup-preset-row draft)
      [:aside {:class ["rounded-xl"
                       "border"
                       "border-base-300"
@@ -425,23 +571,7 @@
           "Save Scenario")]]]
      [:main {:class ["space-y-4"]}
       (infeasible-panel/infeasible-banner infeasible-result highlighted-controls)
-      (setup-panels state draft readiness highlighted-controls)
-      (results-panel/results-panel last-successful-run
-                                   draft
-                                   {:stale? (stale-result? last-successful-run
-                                                           readiness)})
-      (tracking-panel/tracking-panel state)
-     [:div {:class ["grid" "grid-cols-1" "gap-3" "lg:grid-cols-3"]
-             :data-role "portfolio-optimizer-current-summary"}
-       (metric-card "NAV" (format-usdc (get-in preview-snapshot [:capital :nav-usdc])))
-       (metric-card "Gross Exposure" (format-usdc (get-in preview-snapshot [:capital :gross-exposure-usdc])))
-       (metric-card "Net Exposure" (format-usdc (get-in preview-snapshot [:capital :net-exposure-usdc])))]
-      [:div {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
-             :data-role "portfolio-optimizer-signed-exposure-table"}
-       [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"]}
-        "Current Signed Exposure"]
-       [:p {:class ["mt-2" "text-sm" "text-trading-muted"]}
-        (str (count (:exposures preview-snapshot)) " current exposure rows available for optimizer request assembly.")]]]
+      (setup-panels state draft readiness highlighted-controls)]
      [:aside {:class ["rounded-xl"
                       "border"
                       "border-base-300"
@@ -465,6 +595,7 @@
 
          :else
          "Current portfolio snapshot is available.")]
+      (execution-assumptions-panel execution-assumptions)
       (setup-readiness-panel/readiness-panel readiness history-load-state)
       (run-status-panel/run-status-panel run-state)
       (run-status-panel/last-successful-run-panel run-state last-successful-run)

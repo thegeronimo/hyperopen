@@ -67,11 +67,19 @@
 
 (deftest results-rebalance-preview-opens-execution-modal-test
   (let [view-node (portfolio-view/portfolio-view
-                   {:router {:path "/portfolio/optimize/new"}
+                   {:router {:path "/portfolio/optimize/scn_01"}
+                    :portfolio-ui {:optimizer {:results-tab :rebalance}}
                     :portfolio {:optimizer
-                                {:draft {:id "draft-1"}
+                                {:active-scenario {:loaded-id "scn_01"
+                                                   :status :computed}
+                                 :draft {:id "scn_01"}
                                  :last-successful-run {:result solved-result}}}})
         open-button (node-by-role view-node "portfolio-optimizer-open-execution-modal")]
+    (is (some? (node-by-role view-node "portfolio-optimizer-rebalance-review-surface")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-rebalance-summary-kpis")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-rebalance-preview")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-rebalance-asset-BTC")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-rebalance-review-caution")))
     (is (some? open-button))
     (is (= false (get-in open-button [1 :disabled])))
     (is (= [[:actions/open-portfolio-optimizer-execution-modal]]

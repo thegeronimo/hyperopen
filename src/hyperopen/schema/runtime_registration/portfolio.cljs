@@ -48,6 +48,7 @@
    [:actions/set-portfolio-optimizer-objective-kind :set-portfolio-optimizer-objective-kind]
    [:actions/set-portfolio-optimizer-return-model-kind :set-portfolio-optimizer-return-model-kind]
    [:actions/set-portfolio-optimizer-risk-model-kind :set-portfolio-optimizer-risk-model-kind]
+   [:actions/apply-portfolio-optimizer-setup-preset :apply-portfolio-optimizer-setup-preset]
    [:actions/set-portfolio-optimizer-constraint :set-portfolio-optimizer-constraint]
    [:actions/set-portfolio-optimizer-objective-parameter :set-portfolio-optimizer-objective-parameter]
    [:actions/set-portfolio-optimizer-execution-assumption :set-portfolio-optimizer-execution-assumption]
@@ -61,6 +62,8 @@
    [:actions/set-portfolio-optimizer-asset-override :set-portfolio-optimizer-asset-override]
    [:actions/set-portfolio-optimizer-universe-search-query
     :set-portfolio-optimizer-universe-search-query]
+   [:actions/set-portfolio-optimizer-results-tab
+    :set-portfolio-optimizer-results-tab]
    [:actions/add-portfolio-optimizer-universe-instrument
     :add-portfolio-optimizer-universe-instrument]
    [:actions/remove-portfolio-optimizer-universe-instrument

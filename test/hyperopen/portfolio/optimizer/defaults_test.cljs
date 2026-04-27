@@ -63,6 +63,6 @@
           :list-sort :updated-desc
           :universe-search-query ""
           :workspace-panel :setup
-          :results-tab :allocation
+          :results-tab :recommendation
           :diagnostics-tab :conditioning}
          (defaults/default-optimizer-ui-state))))

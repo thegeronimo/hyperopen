@@ -35,6 +35,8 @@
                          :set-portfolio-optimizer-objective-kind action-adapters/set-portfolio-optimizer-objective-kind-action
                          :set-portfolio-optimizer-return-model-kind action-adapters/set-portfolio-optimizer-return-model-kind-action
                          :set-portfolio-optimizer-risk-model-kind action-adapters/set-portfolio-optimizer-risk-model-kind-action
+                         :apply-portfolio-optimizer-setup-preset
+                         action-adapters/apply-portfolio-optimizer-setup-preset-action
                          :set-portfolio-optimizer-constraint action-adapters/set-portfolio-optimizer-constraint-action
                          :set-portfolio-optimizer-objective-parameter
                          action-adapters/set-portfolio-optimizer-objective-parameter-action
@@ -52,6 +54,8 @@
                          action-adapters/set-portfolio-optimizer-asset-override-action
                          :set-portfolio-optimizer-universe-search-query
                          action-adapters/set-portfolio-optimizer-universe-search-query-action
+                         :set-portfolio-optimizer-results-tab
+                         action-adapters/set-portfolio-optimizer-results-tab-action
                          :add-portfolio-optimizer-universe-instrument
                          action-adapters/add-portfolio-optimizer-universe-instrument-action
                          :remove-portfolio-optimizer-universe-instrument

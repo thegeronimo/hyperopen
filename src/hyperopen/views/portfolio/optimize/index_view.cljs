@@ -136,7 +136,8 @@
 (defn index-view
   [state]
   (let [summaries (vec (scenario-summaries state))]
-  [:section {:class ["rounded-xl"
+  [:section {:class ["portfolio-optimizer-v4"
+                     "rounded-xl"
                      "border"
                      "border-base-300"
                      "bg-base-100/95"

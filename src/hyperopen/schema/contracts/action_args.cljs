@@ -211,6 +211,7 @@
    :actions/set-portfolio-optimizer-objective-kind ::portfolio-optimizer-model-kind-args
    :actions/set-portfolio-optimizer-return-model-kind ::portfolio-optimizer-model-kind-args
    :actions/set-portfolio-optimizer-risk-model-kind ::portfolio-optimizer-model-kind-args
+   :actions/apply-portfolio-optimizer-setup-preset ::portfolio-optimizer-model-kind-args
    :actions/set-portfolio-optimizer-constraint ::portfolio-optimizer-constraint-args
    :actions/set-portfolio-optimizer-objective-parameter ::portfolio-optimizer-key-value-args
    :actions/set-portfolio-optimizer-execution-assumption ::portfolio-optimizer-key-value-args
@@ -220,6 +221,7 @@
    :actions/set-portfolio-optimizer-instrument-filter ::portfolio-optimizer-instrument-key-value-args
    :actions/set-portfolio-optimizer-asset-override ::portfolio-optimizer-instrument-key-value-args
    :actions/set-portfolio-optimizer-universe-search-query ::common/single-input-args
+   :actions/set-portfolio-optimizer-results-tab ::common/tab-args
    :actions/add-portfolio-optimizer-universe-instrument ::portfolio-optimizer-instrument-id-args
    :actions/remove-portfolio-optimizer-universe-instrument ::portfolio-optimizer-instrument-id-args
    :actions/set-portfolio-optimizer-universe-from-current ::common/no-args

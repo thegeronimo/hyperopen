@@ -77,7 +77,7 @@ test("portfolio optimizer adding an asset does not fetch history until load @reg
   });
 
   await visitRoute(page, "/portfolio/optimize/new");
-  await expect(page.locator("[data-role='portfolio-optimizer-workspace']"))
+  await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']"))
     .toBeVisible({ timeout: 60_000 });
   await seedMarkets(page);
   seen.length = 0;

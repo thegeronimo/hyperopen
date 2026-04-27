@@ -1,6 +1,7 @@
 (ns hyperopen.views.portfolio.optimize.results-panel
   (:require [clojure.string :as str]
-            [hyperopen.views.portfolio.optimize.frontier-chart :as frontier-chart]))
+            [hyperopen.views.portfolio.optimize.frontier-chart :as frontier-chart]
+            [hyperopen.views.portfolio.optimize.target-exposure-table :as target-exposure-table]))
 
 (defn- finite-number?
   [value]
@@ -38,13 +39,6 @@
     (keyword? value) (name value)
     (some? value) (str value)
     :else "N/A"))
-
-(defn- signed-label
-  [value]
-  (cond
-    (and (finite-number? value) (neg? value)) "short"
-    (and (finite-number? value) (pos? value)) "long"
-    :else "flat"))
 
 (defn- summary-card
   [label value]
@@ -85,85 +79,6 @@
                        "text-xs"
                        "tabular-nums"]}]
         children))
-
-(defn- row-shell-with-attrs
-  [attrs & children]
-  (let [base-class ["grid"
-                    "grid-cols-[minmax(8rem,1.1fr)_repeat(4,minmax(5rem,0.8fr))]"
-                    "gap-3"
-                    "rounded-lg"
-                    "border"
-                    "border-base-300"
-                    "bg-base-200/40"
-                    "p-3"
-                    "text-xs"
-                    "tabular-nums"]
-        attrs* (-> attrs
-                   (dissoc :extra-class)
-                   (assoc :class (into base-class (:extra-class attrs))))]
-    (into [:div attrs*] children)))
-
-(defn- signed-weight-cell
-  [value]
-  (let [sign (signed-label value)
-        width (if (finite-number? value)
-                (min 100 (* 100 (js/Math.abs value)))
-                0)]
-    [:span {:class ["space-y-1"]
-            :data-sign sign}
-     [:span {:class ["block"]} (format-pct value)]
-     [:span {:class ["block" "h-1.5" "overflow-hidden" "rounded-full" "bg-base-300/50"]}
-      [:span {:class (cond-> ["block" "h-full" "rounded-full"]
-                       (= "long" sign) (conj "bg-primary/70")
-                       (= "short" sign) (conj "bg-error/70")
-                       (= "flat" sign) (conj "bg-trading-muted/40"))
-              :style {:width (str width "%")}}]]]))
-
-(defn- exposure-row
-  [idx binding-instrument-ids instrument-id capital-usd current-weight target-weight]
-  (let [current-notional (* (or capital-usd 0) (or current-weight 0))
-        target-notional (* (or capital-usd 0) (or target-weight 0))
-        delta (- (or target-weight 0) (or current-weight 0))
-        binding? (contains? binding-instrument-ids instrument-id)]
-    (row-shell-with-attrs
-     {:data-role (str "portfolio-optimizer-target-exposure-row-" idx)
-      :data-binding (when binding? "true")
-      :data-current-sign (signed-label current-weight)
-      :data-target-sign (signed-label target-weight)
-      :extra-class (when binding?
-                     ["border-warning/60" "bg-warning/10"])}
-     [:span {:class ["font-semibold" "text-trading-text"]} instrument-id]
-     (signed-weight-cell current-weight)
-     (signed-weight-cell target-weight)
-     [:span (format-pct delta)]
-     [:span (format-usdc (- target-notional current-notional))])))
-
-(defn- target-exposure-table
-  [result]
-  (let [capital-usd (get-in result [:rebalance-preview :capital-usd])
-        ids (:instrument-ids result)
-        current (:current-weights result)
-        target (:target-weights result)
-        binding-instrument-ids (set (keep :instrument-id
-                                          (get-in result [:diagnostics :binding-constraints])))]
-    (panel-shell
-     "portfolio-optimizer-target-exposure-table"
-     "Target Exposure"
-     "Signed current-vs-target weights and notional deltas remain visible for long-only and signed portfolios."
-     (row-shell
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Instrument"]
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Current"]
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Target"]
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Delta"]
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Notional"])
-     (map-indexed (fn [idx [instrument-id current-weight target-weight]]
-                    (exposure-row idx
-                                  binding-instrument-ids
-                                  instrument-id
-                                  capital-usd
-                                  current-weight
-                                  target-weight))
-                  (map vector ids current target)))))
 
 (defn- decomposition-row
   [instrument-id decomposition]
@@ -458,7 +373,8 @@
    (results-panel last-successful-run nil))
   ([last-successful-run draft]
    (results-panel last-successful-run draft nil))
-  ([last-successful-run draft {:keys [stale?]}]
+  ([last-successful-run draft {:keys [stale? include-rebalance?]
+                               :or {include-rebalance? true}}]
    (let [result (:result last-successful-run)]
      (when (= :solved (:status result))
        [:section {:class ["space-y-4"]
@@ -469,7 +385,7 @@
                :data-role "portfolio-optimizer-results-grid"}
          [:div {:class ["space-y-4"]
                 :data-role "portfolio-optimizer-results-left-panel"}
-          (target-exposure-table result)
+          (target-exposure-table/target-exposure-table result)
           (return-decomposition result)]
          [:div {:class ["space-y-4"]
                 :data-role "portfolio-optimizer-results-center-panel"}
@@ -480,4 +396,5 @@
           (trust-caution-panel result)
           (warnings-panel result)
           (diagnostics-panel result)]]
-        (rebalance-preview result)]))))
+        (when include-rebalance?
+          (rebalance-preview result))]))))

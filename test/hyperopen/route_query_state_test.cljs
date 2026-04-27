@@ -55,12 +55,12 @@
           ""))))
 
 (deftest shareable-route-browser-path-restores-optimizer-state-on-optimizer-routes-test
-  (is (= "/portfolio/optimize/scn_01?foo=bar&ofilter=executed&osort=updated-asc&oview=tracking&otab=diagnostics&odiag=sensitivity"
+  (is (= "/portfolio/optimize/scn_01?foo=bar&ofilter=executed&osort=updated-asc&oview=tracking&otab=recommendation&odiag=sensitivity"
          (route-query-state/shareable-route-browser-path
           {:portfolio-ui {:optimizer {:list-filter :executed
                                       :list-sort :updated-asc
                                       :workspace-panel :tracking
-                                      :results-tab :diagnostics
+                                      :results-tab :recommendation
                                       :diagnostics-tab :sensitivity}}}
           "/portfolio/optimize/scn_01"
           "?range=24h&bench=SOL&tab=positions&foo=bar&ofilter=saved&odiag=data"))))
@@ -92,16 +92,28 @@
   (is (= {:portfolio-ui {:optimizer {:list-filter :saved
                                       :list-sort :name-desc
                                       :workspace-panel :results
-                                      :results-tab :frontier
+                                      :results-tab :recommendation
                                       :diagnostics-tab :constraints}}}
          (route-query-state/apply-route-query-state
           {:portfolio-ui {:optimizer {:list-filter :active
                                       :list-sort :updated-desc
                                       :workspace-panel :setup
-                                      :results-tab :allocation
+                                      :results-tab :recommendation
                                       :diagnostics-tab :conditioning}}}
           "/portfolio/optimize"
           "?ofilter=saved&osort=name-desc&oview=results&otab=frontier&odiag=constraints"))))
+
+(deftest apply-route-query-state-defaults-bare-scenario-routes-to-recommendation-test
+  (is (= :recommendation
+         (get-in (route-query-state/apply-route-query-state
+                  {:portfolio-ui {:optimizer {:results-tab :tracking
+                                              :list-filter :active
+                                              :list-sort :updated-desc
+                                              :workspace-panel :setup
+                                              :diagnostics-tab :conditioning}}}
+                  "/portfolio/optimize/scn_02"
+                  "")
+                 [:portfolio-ui :optimizer :results-tab]))))
 
 (deftest apply-route-query-state-restores-vault-list-and-detail-by-route-kind-test
   (is (= {:vaults-ui {:snapshot-range :week

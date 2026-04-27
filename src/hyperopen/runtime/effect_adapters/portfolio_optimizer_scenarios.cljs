@@ -2,6 +2,7 @@
   (:require [hyperopen.account.context :as account-context]
             [hyperopen.portfolio.optimizer.application.scenario-records :as scenario-records]
             [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
+            [hyperopen.portfolio.routes :as portfolio-routes]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-scenario-state :as state]))
 
 (defn- env-fn
@@ -24,10 +25,15 @@
 
 (defn- current-scenario-id
   [env state opts now-ms]
-  (or (:scenario-id opts)
-      (get-in state [:portfolio :optimizer :active-scenario :loaded-id])
-      (get-in state [:portfolio :optimizer :draft :id])
-      ((env-fn env :next-scenario-id) now-ms)))
+  (let [route-kind (:kind (portfolio-routes/parse-portfolio-route
+                           (get-in state [:router :path])))
+        new-route? (= :optimize-new route-kind)]
+    (or (:scenario-id opts)
+        (when-not new-route?
+          (get-in state [:portfolio :optimizer :active-scenario :loaded-id]))
+        (when-not new-route?
+          (get-in state [:portfolio :optimizer :draft :id]))
+        ((env-fn env :next-scenario-id) now-ms))))
 
 (def default-scenario-index state/default-scenario-index)
 (def begin-scenario-save-state state/begin-scenario-save-state)

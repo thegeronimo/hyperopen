@@ -91,7 +91,8 @@
 (defn apply-route-query-state
   [state pathname search]
   (let [path (router/normalize-path pathname)
-        surface (route-surface path)]
+        surface (route-surface path)
+        portfolio-route (portfolio-routes/parse-portfolio-route path)]
     (case surface
       :portfolio
       (portfolio-query-state/apply-portfolio-query-state
@@ -99,9 +100,14 @@
        (portfolio-query-state/parse-portfolio-query search))
 
       :portfolio-optimizer
-      (portfolio-optimizer-query-state/apply-optimizer-query-state
-       state
-       (portfolio-optimizer-query-state/parse-optimizer-query search))
+      (let [optimizer-query-state
+            (portfolio-optimizer-query-state/parse-optimizer-query search)]
+        (portfolio-optimizer-query-state/apply-optimizer-query-state
+         state
+         (cond-> optimizer-query-state
+           (and (= :optimize-scenario (:kind portfolio-route))
+                (not (contains? optimizer-query-state :results-tab)))
+           (assoc :results-tab :recommendation))))
 
       :vault-list
       (vault-query-state/apply-vault-query-state

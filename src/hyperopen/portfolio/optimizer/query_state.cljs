@@ -14,7 +14,7 @@
   :setup)
 
 (def ^:private default-results-tab
-  :allocation)
+  :recommendation)
 
 (def ^:private default-diagnostics-tab
   :conditioning)
@@ -34,7 +34,12 @@
   #{:setup :results :rebalance :tracking :diagnostics})
 
 (def ^:private results-tab-values
-  #{:allocation :frontier :diagnostics :rebalance :tracking})
+  #{:recommendation :rebalance :tracking :inputs})
+
+(def ^:private results-tab-aliases
+  {:allocation :recommendation
+   :frontier :recommendation
+   :diagnostics :recommendation})
 
 (def ^:private diagnostics-tab-values
   #{:conditioning :constraints :sensitivity :data :returns})
@@ -101,7 +106,11 @@
 
 (defn normalize-results-tab
   [value]
-  (normalize-enum value results-tab-values default-results-tab))
+  (let [value* (normalize-keyword-like value)
+        aliased-value (get results-tab-aliases value* value*)]
+    (if (contains? results-tab-values aliased-value)
+      aliased-value
+      default-results-tab)))
 
 (defn normalize-diagnostics-tab
   [value]

@@ -153,6 +153,9 @@
 (def set-portfolio-optimizer-risk-model-kind-action
   portfolio-optimizer-actions/set-portfolio-optimizer-risk-model-kind)
 
+(def apply-portfolio-optimizer-setup-preset-action
+  portfolio-optimizer-actions/apply-portfolio-optimizer-setup-preset)
+
 (def set-portfolio-optimizer-constraint-action
   portfolio-optimizer-actions/set-portfolio-optimizer-constraint)
 
@@ -179,6 +182,9 @@
 
 (def set-portfolio-optimizer-universe-search-query-action
   portfolio-optimizer-actions/set-portfolio-optimizer-universe-search-query)
+
+(def set-portfolio-optimizer-results-tab-action
+  portfolio-optimizer-actions/set-portfolio-optimizer-results-tab)
 
 (def add-portfolio-optimizer-universe-instrument-action
   portfolio-optimizer-actions/add-portfolio-optimizer-universe-instrument)

@@ -105,6 +105,77 @@
     @apply input input-sm bg-trading-surface border-trading-border text-trading-text;
   }
 
+  .portfolio-optimizer-v4 {
+    --optimizer-accent: rgb(213 163 69);
+    --optimizer-accent-soft: rgb(213 163 69 / 0.12);
+    --optimizer-accent-border: rgb(213 163 69 / 0.58);
+    --optimizer-panel-bg: rgb(5 18 22 / 0.86);
+    --optimizer-panel-raised: rgb(9 28 33 / 0.78);
+    --optimizer-border: rgb(72 97 106 / 0.42);
+    --optimizer-border-muted: rgb(48 66 74 / 0.72);
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-"] {
+    border-color: var(--optimizer-border);
+  }
+
+  .portfolio-optimizer-v4 [class*="rounded-xl"] {
+    border-radius: 4px;
+  }
+
+  .portfolio-optimizer-v4 [class*="rounded-lg"],
+  .portfolio-optimizer-v4 [class*="rounded-md"] {
+    border-radius: 3px;
+  }
+
+  .portfolio-optimizer-v4 [class*="rounded-full"] {
+    border-radius: 9999px;
+  }
+
+  .portfolio-optimizer-v4
+    :is(
+      [data-role$="-surface"],
+      [data-role$="-header"],
+      [data-role$="-strip"],
+      [data-role$="-panel"],
+      [data-role$="-tab"],
+      [data-role$="-rail"],
+      [data-role$="-row"],
+      [data-role$="-table"],
+      [data-role$="-board"],
+      [data-role$="-shell"]
+    ) {
+    background-color: var(--optimizer-panel-bg);
+  }
+
+  .portfolio-optimizer-v4 :is([aria-current="page"], [aria-pressed="true"]) {
+    border-color: var(--optimizer-accent-border);
+    background-color: var(--optimizer-accent-soft);
+    color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4
+    :is(
+      button[data-role="portfolio-optimizer-run-draft"],
+      button[data-role="portfolio-optimizer-run-draft-header"],
+      button[data-role="portfolio-optimizer-scenario-rerun"],
+      button[data-role="portfolio-optimizer-scenario-rerun-stale"],
+      button[data-role="portfolio-optimizer-open-execution-modal"]
+    ):not(:disabled) {
+    border-color: var(--optimizer-accent-border);
+    background-color: var(--optimizer-accent-soft);
+    color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4
+    :is(table, th, td, [data-role*="row"], [data-role*="kpi"], [data-role*="exposure"]) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .portfolio-optimizer-v4 :is(input, select, button) {
+    min-height: 2.25rem;
+  }
+
   .staking-action-popover-surface {
     background-color: var(--staking-action-popover-bg);
   }

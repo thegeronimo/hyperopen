@@ -5,6 +5,7 @@
             [hyperopen.portfolio.optimizer.application.execution :as execution]
             [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
             [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
+            [hyperopen.portfolio.optimizer.query-state :as optimizer-query-state]
             [hyperopen.portfolio.routes :as portfolio-routes]))
 
 (def ^:private objective-models
@@ -26,6 +27,15 @@
   {:diagonal-shrink {:kind :diagonal-shrink}
    :ledoit-wolf {:kind :diagonal-shrink}
    :sample-covariance {:kind :sample-covariance}})
+
+(def ^:private setup-presets
+  {:conservative {:objective {:kind :minimum-variance}
+                  :return-model {:kind :historical-mean}}
+   :risk-adjusted {:objective {:kind :max-sharpe}
+                   :return-model {:kind :historical-mean}}
+   :use-my-views {:objective {:kind :max-sharpe}
+                  :return-model {:kind :black-litterman
+                                 :views []}}})
 
 (def ^:private numeric-constraint-keys
   #{:max-asset-weight
@@ -226,6 +236,15 @@
                    risk-models
                    kind))
 
+(defn apply-portfolio-optimizer-setup-preset
+  [_state preset]
+  (if-let [{:keys [objective return-model]} (get setup-presets
+                                                 (normalize-keyword-like preset))]
+    (save-draft-path-values
+     [[[:portfolio :optimizer :draft :objective] objective]
+      [[:portfolio :optimizer :draft :return-model] return-model]])
+    []))
+
 (defn set-portfolio-optimizer-constraint
   [_state constraint-key value]
   (let [constraint-key* (normalize-keyword-like constraint-key)
@@ -325,6 +344,13 @@
   [[:effects/save
     [:portfolio-ui :optimizer :universe-search-query]
     (or (some-> query str) "")]])
+
+(defn set-portfolio-optimizer-results-tab
+  [_state tab]
+  [[:effects/save
+    [:portfolio-ui :optimizer :results-tab]
+    (optimizer-query-state/normalize-results-tab tab)]
+   [:effects/replace-shareable-route-query]])
 
 (defn add-portfolio-optimizer-universe-instrument
   [state market-key]

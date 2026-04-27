@@ -105,6 +105,44 @@
           {}
           "/trade"))))
 
+(deftest set-portfolio-optimizer-results-tab-updates-shareable-tab-state-test
+  (is (= [[:effects/save [:portfolio-ui :optimizer :results-tab] :tracking]
+          [:effects/replace-shareable-route-query]]
+         (actions/set-portfolio-optimizer-results-tab {} :tracking)))
+  (is (= [[:effects/save [:portfolio-ui :optimizer :results-tab] :recommendation]
+          [:effects/replace-shareable-route-query]]
+         (actions/set-portfolio-optimizer-results-tab {} :frontier)))
+  (is (= [[:effects/save [:portfolio-ui :optimizer :results-tab] :recommendation]
+          [:effects/replace-shareable-route-query]]
+         (actions/set-portfolio-optimizer-results-tab {} :wat))))
+
+(deftest apply-portfolio-optimizer-setup-preset-updates-only-model-layer-test
+  (let [state {:portfolio {:optimizer {:draft {:universe [{:instrument-id "perp:BTC"}]
+                                               :objective {:kind :target-return
+                                                           :target-return 0.2}
+                                               :return-model {:kind :ew-mean}
+                                               :risk-model {:kind :sample-covariance}
+                                               :constraints {:max-asset-weight 0.4
+                                                             :gross-max 2.0}}}}}]
+    (is (= [[:effects/save-many
+             [[[:portfolio :optimizer :draft :objective] {:kind :minimum-variance}]
+              [[:portfolio :optimizer :draft :return-model] {:kind :historical-mean}]
+              [[:portfolio :optimizer :draft :metadata :dirty?] true]]]]
+           (actions/apply-portfolio-optimizer-setup-preset state :conservative)))
+    (is (= [[:effects/save-many
+             [[[:portfolio :optimizer :draft :objective] {:kind :max-sharpe}]
+              [[:portfolio :optimizer :draft :return-model] {:kind :historical-mean}]
+              [[:portfolio :optimizer :draft :metadata :dirty?] true]]]]
+           (actions/apply-portfolio-optimizer-setup-preset state :risk-adjusted)))
+    (is (= [[:effects/save-many
+             [[[:portfolio :optimizer :draft :objective] {:kind :max-sharpe}]
+              [[:portfolio :optimizer :draft :return-model] {:kind :black-litterman
+                                                             :views []}]
+              [[:portfolio :optimizer :draft :metadata :dirty?] true]]]]
+           (actions/apply-portfolio-optimizer-setup-preset state :use-my-views)))
+    (is (= []
+           (actions/apply-portfolio-optimizer-setup-preset state :unknown)))))
+
 (deftest scenario-board-row-actions-emit-persistence-effects-test
   (is (= [[:effects/archive-portfolio-optimizer-scenario "scn_01"]]
          (actions/archive-portfolio-optimizer-scenario

@@ -41,6 +41,7 @@
   (let [view-node
         (portfolio-view/portfolio-view
          {:router {:path "/portfolio/optimize/scn_track"}
+          :portfolio-ui {:optimizer {:results-tab :tracking}}
           :portfolio {:optimizer
                       {:active-scenario {:loaded-id "scn_track"
                                          :status :executed}
@@ -85,6 +86,7 @@
   (let [view-node
         (portfolio-view/portfolio-view
          {:router {:path "/portfolio/optimize/scn_track"}
+          :portfolio-ui {:optimizer {:results-tab :tracking}}
           :portfolio {:optimizer
                       {:active-scenario {:loaded-id "scn_track"
                                          :status :saved}
@@ -104,7 +106,8 @@
 (deftest unsaved-computed-scenario-disables-manual-tracking-enable-test
   (let [view-node
         (portfolio-view/portfolio-view
-         {:router {:path "/portfolio/optimize/new"}
+         {:router {:path "/portfolio/optimize/scn_unsaved"}
+          :portfolio-ui {:optimizer {:results-tab :tracking}}
           :portfolio {:optimizer
                       {:active-scenario {:loaded-id nil
                                          :status :computed}
