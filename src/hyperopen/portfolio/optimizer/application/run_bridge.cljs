@@ -1,5 +1,6 @@
 (ns hyperopen.portfolio.optimizer.application.run-bridge
-  (:require [hyperopen.portfolio.optimizer.infrastructure.worker-client :as worker-client]
+  (:require [hyperopen.portfolio.optimizer.application.progress :as progress]
+            [hyperopen.portfolio.optimizer.infrastructure.worker-client :as worker-client]
             [hyperopen.system :as system]))
 
 (declare handle-worker-message!)
@@ -43,10 +44,11 @@
    :error nil})
 
 (defn request-run!
-  [{:keys [request request-signature computed-at-ms store]}]
-  (when (not= request-signature (:request-signature @last-run-request))
+  [{:keys [request request-signature computed-at-ms store run-id]}]
+  (when (or run-id
+            (not= request-signature (:request-signature @last-run-request)))
     (worker-client/set-message-handler! handle-worker-message!)
-    (let [run-id (next-run-id)
+    (let [run-id (or run-id (next-run-id))
           scenario-id (:scenario-id request)
           started-at-ms (or computed-at-ms (now-ms))
           store* (or store system/store)]
@@ -60,6 +62,23 @@
                                :started-at-ms started-at-ms}))
       (worker-client/post-run! run-id request)
       run-id)))
+
+(defn- current-progress
+  [state]
+  (get-in state [:portfolio :optimizer :optimization-progress]))
+
+(defn- update-progress
+  [state id f & args]
+  (let [progress-state (current-progress state)]
+    (if (= id (:run-id progress-state))
+      (assoc-in state
+                [:portfolio :optimizer :optimization-progress]
+                (apply f progress-state args))
+      state)))
+
+(defn- apply-worker-progress
+  [state id payload]
+  (update-progress state id progress/worker-progress payload))
 
 (defn- success-run-state
   [current-run completed-at-ms]
@@ -108,18 +127,21 @@
                            (cond-> (assoc (or active-scenario {})
                                           :status :computed
                                           :read-only? false)
-                             scenario-id (assoc :loaded-id scenario-id))))))
-        (assoc-in state
-                  [:portfolio :optimizer :run-state]
-                  (non-solved-run-state current-run computed-at-ms payload))))))
+                             scenario-id (assoc :loaded-id scenario-id))))
+              (update-progress id progress/succeed-progress computed-at-ms)))
+        (-> state
+            (assoc-in [:portfolio :optimizer :run-state]
+                      (non-solved-run-state current-run computed-at-ms payload))
+            (update-progress id progress/fail-progress computed-at-ms payload))))))
 
 (defn- apply-worker-error
   [state id payload computed-at-ms]
   (if (stale-message? state id)
     state
-    (assoc-in state
-              [:portfolio :optimizer :run-state]
-              (failed-run-state (run-state state) computed-at-ms payload))))
+    (-> state
+        (assoc-in [:portfolio :optimizer :run-state]
+                  (failed-run-state (run-state state) computed-at-ms payload))
+        (update-progress id progress/fail-progress computed-at-ms payload))))
 
 (defn handle-worker-message!
   ([message]
@@ -131,6 +153,12 @@
 
      :optimizer-result
      (swap! system/store apply-worker-result id payload computed-at-ms)
+
+     "optimizer-progress"
+     (swap! system/store apply-worker-progress id payload)
+
+     :optimizer-progress
+     (swap! system/store apply-worker-progress id payload)
 
      "optimizer-error"
      (swap! system/store apply-worker-error id payload computed-at-ms)

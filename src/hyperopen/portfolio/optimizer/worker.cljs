@@ -17,14 +17,19 @@
   (wire/normalize-worker-boundary request))
 
 (defn optimizer-result-payload
-  [request]
+  ([request]
+   (optimizer-result-payload nil request))
+  ([id request]
   (run-optimization-async
    (normalize-worker-request request)
-   {:solve-problem solver-adapter/solve-with-osqp}))
+   {:solve-problem solver-adapter/solve-with-osqp
+    :on-progress (fn [payload]
+                   (when id
+                     (post-message! id "optimizer-progress" payload)))})))
 
 (defn- post-run-result!
   [id payload]
-  (-> (optimizer-result-payload payload)
+  (-> (optimizer-result-payload id payload)
       (.then (fn [result]
                (post-message! id "optimizer-result" result)))
       (.catch (fn [err]

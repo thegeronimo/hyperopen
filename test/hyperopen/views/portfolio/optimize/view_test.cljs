@@ -85,9 +85,7 @@
     (is (= true
            (get-in (node-by-role view-node "portfolio-optimizer-save-scenario")
                    [1 :disabled])))
-    (is (= true
-           (get-in (node-by-role view-node "portfolio-optimizer-load-history")
-                   [1 :disabled])))
+    (is (nil? (node-by-role view-node "portfolio-optimizer-load-history")))
     (is (some? (node-by-role view-node "portfolio-optimizer-universe-panel")))
     (is (= [[:actions/set-portfolio-optimizer-universe-from-current]]
            (click-actions
@@ -184,7 +182,7 @@
       (is (contains? strings "Historical Mean"))
       (is (contains? strings "Diagonal Shrink"))
       (is (contains? strings "Draft clean"))
-      (is (contains? strings "Load History"))
+      (is (not (contains? strings "Load History")))
       (is (contains? strings "Max Asset Weight"))
       (is (contains? strings "Gross Leverage"))
       (is (contains? strings "Rebalance Tolerance"))
@@ -239,10 +237,7 @@
     (is (= false (get-in run-button [1 :disabled])))
     (is (= [[:actions/run-portfolio-optimizer-from-draft]]
            (click-actions run-button)))
-    (is (= [[:actions/load-portfolio-optimizer-history-from-draft]]
-           (click-actions
-            (node-by-role view-node
-                          "portfolio-optimizer-load-history"))))
+    (is (nil? (node-by-role view-node "portfolio-optimizer-load-history")))
     (is (= [[:actions/set-portfolio-optimizer-instrument-filter
              :allowlist
              "perp:BTC"
@@ -333,9 +328,9 @@
                                    :history-load-state {:status :failed
                                                         :error {:message "history unavailable"}}}}})
         loading-button (node-by-role loading-node "portfolio-optimizer-load-history")]
-    (is (= true (get-in loading-button [1 :disabled])))
+    (is (nil? loading-button))
     (is (contains? (set (collect-strings loading-node))
-                   "Loading History"))
+                   "Loading optimizer history for the selected universe."))
     (is (contains? (set (collect-strings failed-node))
                    "history unavailable"))))
 
@@ -352,6 +347,41 @@
     (is (contains? strings "Failed"))
     (is (contains? strings "solver-failed"))
     (is (contains? strings "solver blew up"))))
+
+(deftest portfolio-optimizer-workspace-shows-optimization-progress-panel-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:draft {:universe [{:instrument-id "perp:BTC"
+                                                     :market-type :perp
+                                                     :coin "BTC"}]}
+                                 :optimization-progress
+                                 {:status :running
+                                  :run-id "run-1"
+                                  :scenario-id "draft-1"
+                                  :started-at-ms 1000
+                                  :active-step :fetch-returns
+                                  :overall-percent 25
+                                  :steps [{:id :fetch-returns
+                                           :label "fetch returns matrix"
+                                           :detail "1/2 requests"
+                                           :status :running
+                                           :percent 50}
+                                          {:id :solve
+                                           :label "QP solve"
+                                           :detail "OSQP"
+                                           :status :pending
+                                           :percent 0}]
+                                  :error nil}}}})
+        run-button (node-by-role view-node "portfolio-optimizer-run-draft")
+        strings (set (collect-strings view-node))]
+    (is (= true (get-in run-button [1 :disabled])))
+    (is (some? (node-by-role view-node "portfolio-optimizer-progress-panel")))
+    (is (some? (node-by-role view-node "portfolio-optimizer-progress-step-fetch-returns")))
+    (is (contains? strings "Optimization In Progress"))
+    (is (contains? strings "Computing"))
+    (is (contains? strings "fetch returns matrix"))
+    (is (contains? strings "QP solve"))))
 
 (deftest portfolio-optimizer-workspace-renders-infeasible-result-and-highlights-controls-test
   (let [view-node (portfolio-view/portfolio-view
@@ -389,7 +419,7 @@
                                  "portfolio-optimizer-constraint-max-asset-weight-input")
                    [1 :aria-invalid])))))
 
-(deftest portfolio-optimizer-workspace-blocks-run-when-history-is-missing-test
+(deftest portfolio-optimizer-workspace-allows-one-click-run-when-history-is-missing-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}
                     :portfolio {:optimizer
@@ -404,7 +434,9 @@
                                                 :funding-history-by-coin {}}
                                  :runtime {:as-of-ms 2500}}}})
         run-button (node-by-role view-node "portfolio-optimizer-run-draft")]
-    (is (= true (get-in run-button [1 :disabled])))
+    (is (= false (get-in run-button [1 :disabled])))
+    (is (= [[:actions/run-portfolio-optimizer-from-draft]]
+           (click-actions run-button)))
     (is (some? (node-by-role view-node
                              "portfolio-optimizer-readiness-warning")))
     (is (contains? (set (collect-strings view-node))

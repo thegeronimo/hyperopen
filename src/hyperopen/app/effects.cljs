@@ -46,6 +46,8 @@
                  :copy-websocket-diagnostics effect-adapters/copy-websocket-diagnostics
                  :ws-reset-subscriptions effect-adapters/ws-reset-subscriptions}
    :portfolio-optimizer {:run-portfolio-optimizer effect-adapters/run-portfolio-optimizer-effect
+                         :run-portfolio-optimizer-pipeline
+                         effect-adapters/run-portfolio-optimizer-pipeline-effect
                          :load-portfolio-optimizer-history
                          effect-adapters/load-portfolio-optimizer-history-effect
                          :load-portfolio-optimizer-scenario-index

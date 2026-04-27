@@ -10,7 +10,7 @@
     (is (= [[:effects/run-portfolio-optimizer request signature]]
            (actions/run-portfolio-optimizer {} request signature)))))
 
-(deftest run-portfolio-optimizer-from-draft-builds-request-and-signature-test
+(deftest run-portfolio-optimizer-from-ready-draft-builds-request-and-signature-test
   (let [state {:portfolio {:optimizer {:draft {:id "draft-1"
                                                :universe [{:instrument-id "perp:BTC"
                                                            :market-type :perp
@@ -35,7 +35,7 @@
                                          :szi "0.5"
                                          :positionValue "500"}}]}}}
         [[effect-id request signature]]
-        (actions/run-portfolio-optimizer-from-draft state)]
+        (actions/run-portfolio-optimizer-from-ready-draft state)]
     (is (= :effects/run-portfolio-optimizer effect-id))
     (is (= "draft-1" (:scenario-id request)))
     (is (= ["perp:BTC"] (mapv :instrument-id (:universe request))))
@@ -51,8 +51,8 @@
          (actions/run-portfolio-optimizer-from-draft
           {:portfolio {:optimizer {:draft {:universe []}}}}))))
 
-(deftest run-portfolio-optimizer-from-draft-requires-eligible-history-test
-  (is (= []
+(deftest run-portfolio-optimizer-from-draft-starts-pipeline-without-history-test
+  (is (= [[:effects/run-portfolio-optimizer-pipeline]]
          (actions/run-portfolio-optimizer-from-draft
           {:portfolio {:optimizer {:draft {:id "draft-missing-history"
                                            :universe [{:instrument-id "perp:BTC"

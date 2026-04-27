@@ -413,6 +413,12 @@
 
 (defn run-portfolio-optimizer-from-draft
   [state]
+  (if (seq (get-in state [:portfolio :optimizer :draft :universe]))
+    [[:effects/run-portfolio-optimizer-pipeline]]
+    []))
+
+(defn run-portfolio-optimizer-from-ready-draft
+  [state]
   (let [{:keys [request runnable?]} (setup-readiness/build-readiness state)]
     (if runnable?
       [[:effects/run-portfolio-optimizer request (build-request-signature request)]]

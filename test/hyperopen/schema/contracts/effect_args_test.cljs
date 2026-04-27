@@ -251,6 +251,20 @@
         [{:scenario-id "scenario-1"}]
         {:phase :test}))))
 
+(deftest assert-effect-args-validates-portfolio-optimizer-pipeline-test
+  (is (= []
+         (contracts/assert-effect-args!
+          :effects/run-portfolio-optimizer-pipeline
+          []
+          {:phase :test})))
+  (is (thrown-with-msg?
+       js/Error
+       #"effect request"
+       (contracts/assert-effect-args!
+        :effects/run-portfolio-optimizer-pipeline
+        [{:unexpected true}]
+        {:phase :test}))))
+
 (deftest assert-effect-args-validates-portfolio-optimizer-history-load-test
   (is (= []
          (contracts/assert-effect-args!

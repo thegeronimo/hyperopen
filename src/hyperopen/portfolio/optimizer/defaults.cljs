@@ -49,6 +49,18 @@
    :error nil
    :warnings []})
 
+(defn default-optimization-progress-state
+  []
+  {:status :idle
+   :run-id nil
+   :scenario-id nil
+   :started-at-ms nil
+   :completed-at-ms nil
+   :active-step nil
+   :overall-percent 0
+   :steps []
+   :error nil})
+
 (defn default-scenario-save-state
   []
   {:status :idle
@@ -124,6 +136,7 @@
                   :funding-history-by-coin {}
                   :warnings []}
    :history-load-state (default-history-load-state)
+   :optimization-progress (default-optimization-progress-state)
    :scenario-save-state (default-scenario-save-state)
    :scenario-index-load-state (default-scenario-index-load-state)
    :scenario-load-state (default-scenario-load-state)

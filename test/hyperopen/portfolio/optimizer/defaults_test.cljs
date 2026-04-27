@@ -43,6 +43,16 @@
           :error nil
           :warnings []}
          (:history-load-state (defaults/default-optimizer-state))))
+  (is (= {:status :idle
+          :run-id nil
+          :scenario-id nil
+          :started-at-ms nil
+          :completed-at-ms nil
+          :active-step nil
+          :overall-percent 0
+          :steps []
+          :error nil}
+         (:optimization-progress (defaults/default-optimizer-state))))
   (is (= {:loaded-id nil
           :status :idle
           :read-only? false}

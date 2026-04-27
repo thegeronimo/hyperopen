@@ -228,6 +228,7 @@
             [hyperopen.runtime.effect-adapters.leaderboard-test]
             [hyperopen.runtime.effect-adapters.order-test]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-execution-test]
+            [hyperopen.runtime.effect-adapters.portfolio-optimizer-pipeline-test]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-test]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-tracking-test]
             [hyperopen.runtime.effect-adapters.staking-test]
@@ -796,6 +797,7 @@
              'hyperopen.runtime.effect-adapters.leaderboard-test
              'hyperopen.runtime.effect-adapters.order-test
              'hyperopen.runtime.effect-adapters.portfolio-optimizer-execution-test
+             'hyperopen.runtime.effect-adapters.portfolio-optimizer-pipeline-test
              'hyperopen.runtime.effect-adapters.portfolio-optimizer-test
              'hyperopen.runtime.effect-adapters.portfolio-optimizer-tracking-test
              'hyperopen.runtime.effect-adapters.staking-test

@@ -157,6 +157,7 @@
    :effects/api-submit-funding-withdraw ::api-submit-funding-withdraw-args
    :effects/api-submit-funding-deposit ::api-submit-funding-deposit-args
    :effects/run-portfolio-optimizer ::portfolio-optimizer-run-args
+   :effects/run-portfolio-optimizer-pipeline ::common/no-args
    :effects/load-portfolio-optimizer-history ::portfolio-optimizer-history-load-args
    :effects/load-portfolio-optimizer-scenario-index
    ::portfolio-optimizer-scenario-index-load-args

@@ -7,6 +7,7 @@
             [hyperopen.views.portfolio.optimize.execution-modal :as execution-modal]
             [hyperopen.views.portfolio.optimize.infeasible-panel :as infeasible-panel]
             [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]
+            [hyperopen.views.portfolio.optimize.optimization-progress-panel :as optimization-progress-panel]
             [hyperopen.views.portfolio.optimize.run-status-panel :as run-status-panel]
             [hyperopen.views.portfolio.optimize.setup-readiness-panel :as setup-readiness-panel]
             [hyperopen.views.portfolio.optimize.universe-panel :as universe-panel]))
@@ -67,7 +68,7 @@
       description]]))
 
 (defn- setup-header
-  [draft route running? runnable? saving-scenario?]
+  [draft route running? run-triggerable? saving-scenario?]
   [:header {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4" "xl:col-span-3"]
             :data-role "portfolio-optimizer-setup-header"}
    [:div {:class ["flex" "flex-wrap" "items-start" "justify-between" "gap-4"]}
@@ -122,10 +123,10 @@
                        "text-primary"
                        "disabled:cursor-not-allowed"
                        "disabled:border-base-300"
-                       "disabled:bg-base-200/40"
-                       "disabled:text-trading-muted"]
+               "disabled:bg-base-200/40"
+               "disabled:text-trading-muted"]
                :data-role "portfolio-optimizer-run-draft-header"
-               :disabled (not runnable?)
+               :disabled (not run-triggerable?)
                :on {:click [[:actions/run-portfolio-optimizer-from-draft]]}}
       (if running?
         "Running"
@@ -426,9 +427,14 @@
                              snapshot)
         run-state (or (get-in state [:portfolio :optimizer :run-state])
                       (optimizer-defaults/default-run-state))
-        running? (= :running (:status run-state))
-        runnable? (and (:runnable? readiness)
-                       (not running?))
+        optimization-progress (or (get-in state
+                                          [:portfolio :optimizer :optimization-progress])
+                                  (optimizer-defaults/default-optimization-progress-state))
+        progress-running? (= :running (:status optimization-progress))
+        running? (or (= :running (:status run-state))
+                     progress-running?)
+        run-triggerable? (and (seq (:universe draft))
+                              (not running?))
         last-successful-run (get-in state [:portfolio :optimizer :last-successful-run])
         solved-run? (= :solved (get-in last-successful-run [:result :status]))
         scenario-save-state (or (get-in state [:portfolio :optimizer :scenario-save-state])
@@ -447,7 +453,7 @@
                        "xl:grid-cols-[260px_minmax(0,1fr)_280px]"]
                :data-role "portfolio-optimizer-setup-route-surface"
                :data-scenario-id scenario-id}
-     (setup-header draft route running? runnable? saving-scenario?)
+     (setup-header draft route running? run-triggerable? saving-scenario?)
      (setup-preset-row draft)
      [:aside {:class ["rounded-xl"
                       "border"
@@ -509,7 +515,7 @@
                          "disabled:bg-base-200/40"
                          "disabled:text-trading-muted"]
                  :data-role "portfolio-optimizer-run-draft"
-                 :disabled (not runnable?)
+                 :disabled (not run-triggerable?)
                  :on {:click [[:actions/run-portfolio-optimizer-from-draft]]}}
         (if running?
           "Running Optimization"
@@ -561,6 +567,7 @@
 
          :else
          "Current portfolio snapshot is available.")]
+      (optimization-progress-panel/progress-panel optimization-progress)
       (setup-readiness-panel/readiness-panel readiness history-load-state)
       (run-status-panel/run-status-panel run-state)
       (run-status-panel/last-successful-run-panel run-state last-successful-run)

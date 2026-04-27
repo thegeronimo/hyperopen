@@ -676,8 +676,7 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   await expect(page.locator("[data-role='portfolio-optimizer-readiness-panel']"))
     .toContainText("Select a universe before running.");
   await expect(page.locator("[data-role='portfolio-optimizer-load-history']"))
-    .toContainText("Load History");
-  await expect(page.locator("[data-role='portfolio-optimizer-load-history']")).toBeDisabled();
+    .toHaveCount(0);
   await expect(page.locator("[data-role='portfolio-optimizer-run-status-panel']"))
     .toContainText("Idle");
   await expect(page.locator("[data-role='portfolio-optimizer-universe-panel']"))
@@ -781,9 +780,9 @@ test("portfolio optimizer manual universe builder adds and removes assets @regre
   await expect(ethCandidate).toHaveCount(0);
   await expect(page.locator("[data-role='portfolio-optimizer-universe-panel']"))
     .toContainText("Requires history reload after adding new assets.");
-  await expect(page.locator("[data-role='portfolio-optimizer-run-draft']")).toBeDisabled();
+  await expect(page.locator("[data-role='portfolio-optimizer-run-draft']")).toBeEnabled();
   await expect(page.locator("[data-role='portfolio-optimizer-readiness-panel']"))
-    .toContainText("Reload history before running this changed universe.");
+    .toContainText("Run Optimization will refresh history for this changed universe.");
 
   await ethRemove.click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
@@ -846,8 +845,10 @@ test("portfolio optimizer history load requests each manual perp once @regressio
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 
   historyRequests.length = 0;
-  await expect(page.locator("[data-role='portfolio-optimizer-load-history']")).toBeEnabled();
-  await page.locator("[data-role='portfolio-optimizer-load-history']").click();
+  await expect(page.locator("[data-role='portfolio-optimizer-load-history']")).toHaveCount(0);
+  await page.locator("[data-role='portfolio-optimizer-run-draft']").click();
+  await expect(page.locator("[data-role='portfolio-optimizer-progress-panel']"))
+    .toContainText("Optimization", { timeout: 10_000 });
   await expect(page.locator("[data-role='portfolio-optimizer-readiness-panel']"))
     .toContainText("Optimizer history is loaded.", { timeout: 10_000 });
 
@@ -917,10 +918,10 @@ test("portfolio optimizer default minimum variance run stores honest target weig
     await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   }
 
-  await page.locator("[data-role='portfolio-optimizer-load-history']").click();
-  await expect(page.locator("[data-role='portfolio-optimizer-readiness-panel']"))
-    .toContainText("Optimizer history is loaded.", { timeout: 10_000 });
+  await expect(page.locator("[data-role='portfolio-optimizer-load-history']")).toHaveCount(0);
   await page.locator("[data-role='portfolio-optimizer-run-draft']").click();
+  await expect(page.locator("[data-role='portfolio-optimizer-progress-panel']"))
+    .toContainText("Optimization", { timeout: 10_000 });
   await expect(page.locator("[data-role='portfolio-optimizer-run-status-panel']"))
     .toContainText("Succeeded", { timeout: 10_000 });
   await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']"))

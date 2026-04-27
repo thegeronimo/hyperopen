@@ -123,6 +123,6 @@
                                            :stale-after-ms 5000}}}})
         run-button (node-by-role view-node "portfolio-optimizer-run-draft")
         strings (set (collect-strings view-node))]
-    (is (= true (get-in run-button [1 :disabled])))
-    (is (contains? strings "Reload history before running this changed universe."))
+    (is (= false (get-in run-button [1 :disabled])))
+    (is (contains? strings "Run Optimization will refresh history for this changed universe."))
     (is (contains? strings "missing-candle-history"))))

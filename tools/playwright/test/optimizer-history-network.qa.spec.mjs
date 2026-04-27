@@ -39,7 +39,7 @@ async function seedMarkets(page) {
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 }
 
-test("portfolio optimizer adding an asset does not fetch history until load @regression", async ({ page }) => {
+test("portfolio optimizer adding an asset does not fetch history until run @regression", async ({ page }) => {
   test.setTimeout(90_000);
 
   const seen = [];
@@ -88,9 +88,12 @@ test("portfolio optimizer adding an asset does not fetch history until load @reg
   await waitForIdle(page, { quietMs: 300, timeoutMs: 4_000, pollMs: 50 });
 
   const afterAddCount = seen.length;
-  await page.locator("[data-role='portfolio-optimizer-load-history']").click();
+  await expect(page.locator("[data-role='portfolio-optimizer-load-history']")).toHaveCount(0);
+  await page.locator("[data-role='portfolio-optimizer-run-draft']").click();
+  await expect(page.locator("[data-role='portfolio-optimizer-progress-panel']"))
+    .toContainText("Optimization", { timeout: 10_000 });
   await expect(page.locator("[data-role='portfolio-optimizer-readiness-panel']"))
-    .toContainText("Optimizer history is loaded.");
+    .toContainText("Optimizer history is loaded.", { timeout: 10_000 });
 
   expect(afterAddCount).toBe(0);
   expect(seen).toEqual([

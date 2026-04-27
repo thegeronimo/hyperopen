@@ -46,6 +46,8 @@
                     (get-in deps [:api :api-fetch-staking-validator-summaries])))
     (is (identical? effect-adapters/run-portfolio-optimizer-effect
                     (get-in deps [:portfolio-optimizer :run-portfolio-optimizer])))
+    (is (identical? effect-adapters/run-portfolio-optimizer-pipeline-effect
+                    (get-in deps [:portfolio-optimizer :run-portfolio-optimizer-pipeline])))
     (is (identical? effect-adapters/load-portfolio-optimizer-history-effect
                     (get-in deps [:portfolio-optimizer :load-portfolio-optimizer-history])))
     (is (identical? effect-adapters/load-portfolio-optimizer-scenario-index-effect
@@ -143,6 +145,8 @@
                     (get-in deps [:action-handlers :run-portfolio-optimizer])))
     (is (identical? effect-adapters/run-portfolio-optimizer-effect
                     (get-in deps [:effect-handlers :run-portfolio-optimizer])))
+    (is (identical? effect-adapters/run-portfolio-optimizer-pipeline-effect
+                    (get-in deps [:effect-handlers :run-portfolio-optimizer-pipeline])))
     (is (identical? effect-adapters/load-portfolio-optimizer-history-effect
                     (get-in deps [:effect-handlers :load-portfolio-optimizer-history])))
     (is (identical? effect-adapters/load-portfolio-optimizer-scenario-index-effect

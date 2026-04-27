@@ -9,6 +9,7 @@
             [hyperopen.portfolio.optimizer.application.tracking :as tracking]
             [hyperopen.portfolio.optimizer.infrastructure.history-client :as history-client]
             [hyperopen.portfolio.optimizer.infrastructure.persistence :as persistence]
+            [hyperopen.runtime.effect-adapters.portfolio-optimizer-pipeline :as pipeline]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-scenarios :as scenario-effects]))
 
 (def ^:dynamic *request-run!* run-bridge/request-run!)
@@ -39,7 +40,9 @@
                :request-signature request-signature
                :store store}
         (contains? opts* :computed-at-ms)
-        (assoc :computed-at-ms (:computed-at-ms opts*)))))))
+        (assoc :computed-at-ms (:computed-at-ms opts*))
+        (contains? opts* :run-id)
+        (assoc :run-id (:run-id opts*)))))))
 
 (defn- request-candle-snapshot!
   [coin opts]
@@ -143,8 +146,10 @@
   ([_ store]
    (load-portfolio-optimizer-history-effect nil store nil))
   ([_ store opts]
-   (let [request (history-request @store opts)
+   (let [opts* (or opts {})
+         request (history-request @store (dissoc opts* :on-progress))
          signature (request-signature request)
+         on-progress (:on-progress opts*)
          now-ms-fn *now-ms*
          started-at-ms (now-ms-fn)]
      (if (seq (:universe request))
@@ -154,7 +159,8 @@
                 (begin-history-load-state signature started-at-ms))
          (-> (*request-history-bundle!*
               {:request-candle-snapshot! request-candle-snapshot!
-               :request-market-funding-history! *request-market-funding-history!*}
+               :request-market-funding-history! *request-market-funding-history!*
+               :on-progress on-progress}
              request)
              (.then (fn [bundle]
                       (let [completed-at-ms (now-ms-fn)]
@@ -165,6 +171,17 @@
                          (swap! store apply-history-error signature completed-at-ms err))
                        nil))))
        (js/Promise.resolve nil)))))
+
+(defn run-portfolio-optimizer-pipeline-effect
+  [_ store]
+  (pipeline/run-portfolio-optimizer-pipeline-effect
+   {:now-ms *now-ms*
+    :next-run-id run-bridge/next-run-id
+    :request-run! *request-run!*
+    :load-history! (fn [store* opts]
+                     (load-portfolio-optimizer-history-effect nil store* opts))}
+   nil
+   store))
 
 (defn- begin-execution-state
   [attempt started-at-ms]

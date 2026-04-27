@@ -98,17 +98,38 @@
             (assoc result :problem problem)))
         (:problems solver-plan)))
 
+(defn- report-progress!
+  [on-progress payload]
+  (when (fn? on-progress)
+    (on-progress payload)))
+
 (defn- solve-plan-async
-  [solver-plan solve-problem]
-  (-> (js/Promise.all
-       (clj->js
-        (mapv (fn [problem]
-                (-> (js/Promise.resolve (solve-problem problem))
-                    (.then (fn [result]
-                             (assoc result :problem problem)))))
-              (:problems solver-plan))))
-      (.then (fn [results]
-               (vec (array-seq results))))))
+  ([solver-plan solve-problem]
+   (solve-plan-async solver-plan solve-problem nil))
+  ([solver-plan solve-problem on-progress]
+   (let [problems (vec (:problems solver-plan))
+         total (count problems)
+         completed (atom 0)]
+     (-> (js/Promise.all
+          (clj->js
+           (mapv
+            (fn [problem]
+              (-> (js/Promise.resolve (solve-problem problem))
+                  (.then
+                   (fn [result]
+                     (let [done (swap! completed inc)]
+                       (report-progress!
+                        on-progress
+                        {:step :solve
+                         :status (if (= done total) :succeeded :running)
+                         :percent (if (pos? total)
+                                    (* 100 (/ done total))
+                                    100)
+                         :detail (str done "/" total " problems")})
+                       (assoc result :problem problem))))))
+            problems)))
+         (.then (fn [results]
+                  (vec (array-seq results))))))))
 
 (defn- solved?
   [result]
@@ -340,13 +361,29 @@
                                            target-weights)}))
 
 (defn- optimization-context
-  [request]
+  ([request]
+   (optimization-context request nil))
+  ([request on-progress]
   (let [risk-result (risk/estimate-risk-model
                      {:risk-model (:risk-model request)
                       :periods-per-year (:periods-per-year request)
                       :history (:history request)})
+        _ (report-progress!
+           on-progress
+           {:step :risk-model
+            :status :succeeded
+            :percent 100
+            :detail (or (some-> (:model risk-result) name)
+                        "estimated")})
         instrument-ids (:instrument-ids risk-result)
         return-result (expected-return-result request risk-result)
+        _ (report-progress!
+           on-progress
+           {:step :return-model
+            :status :succeeded
+            :percent 100
+            :detail (or (some-> (:model return-result) name)
+                        "estimated")})
         expected-returns (expected-return-vector return-result instrument-ids)
         encoded (encoded-constraints request instrument-ids)
         current-weights* (current-weights request instrument-ids)
@@ -362,7 +399,7 @@
      :expected-returns expected-returns
      :encoded encoded
      :current-weights current-weights*
-     :solver-plan solver-plan}))
+     :solver-plan solver-plan})))
 
 (defn- infeasible-payload
   [request risk-result return-result solver-plan]
@@ -411,12 +448,40 @@
 (defn run-optimization-async
   ([request]
    (run-optimization-async request {}))
-  ([request {:keys [solve-problem]}]
+  ([request {:keys [solve-problem on-progress]}]
    (let [{:keys [risk-result return-result solver-plan] :as context}
-         (optimization-context request)]
+         (optimization-context request on-progress)]
      (if (= :infeasible (:status solver-plan))
        (js/Promise.resolve
         (infeasible-payload request risk-result return-result solver-plan))
-       (-> (solve-plan-async solver-plan (or solve-problem default-solve-problem))
-           (.then (fn [solver-results]
-                    (result-from-solver-results request context solver-results))))))))
+       (do
+         (report-progress!
+          on-progress
+          {:step :solve
+           :status :running
+           :percent 0
+           :detail (str (count (:problems solver-plan)) " problems")})
+         (-> (solve-plan-async solver-plan
+                               (or solve-problem default-solve-problem)
+                               on-progress)
+             (.then (fn [solver-results]
+                      (report-progress!
+                       on-progress
+                       {:step :frontier
+                        :status :running
+                        :percent 80
+                        :detail "selecting frontier"})
+                      (let [result (result-from-solver-results request context solver-results)]
+                        (report-progress!
+                         on-progress
+                         {:step :diagnostics
+                          :status :succeeded
+                          :percent 100
+                          :detail "complete"})
+                        (report-progress!
+                         on-progress
+                         {:step :frontier
+                          :status :succeeded
+                          :percent 100
+                          :detail (str (count (:frontier result)) " points")})
+                        result)))))))))

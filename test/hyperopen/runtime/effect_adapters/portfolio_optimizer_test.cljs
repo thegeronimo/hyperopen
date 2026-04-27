@@ -7,6 +7,8 @@
 (deftest facade-portfolio-optimizer-adapter-delegates-to-owner-module-test
   (is (identical? portfolio-optimizer-adapters/run-portfolio-optimizer-effect
                   effect-adapters/run-portfolio-optimizer-effect))
+  (is (identical? portfolio-optimizer-adapters/run-portfolio-optimizer-pipeline-effect
+                  effect-adapters/run-portfolio-optimizer-pipeline-effect))
   (is (identical? portfolio-optimizer-adapters/load-portfolio-optimizer-history-effect
                   effect-adapters/load-portfolio-optimizer-history-effect))
   (is (identical? portfolio-optimizer-adapters/save-portfolio-optimizer-scenario-effect

@@ -243,10 +243,10 @@
 
 (def make-api-submit-position-margin order-adapters/make-api-submit-position-margin)
 
-(def sync-active-asset-funding-predictability
-  funding-adapters/sync-active-asset-funding-predictability)
+(def sync-active-asset-funding-predictability funding-adapters/sync-active-asset-funding-predictability)
 
 (def load-portfolio-optimizer-history-effect portfolio-optimizer-adapters/load-portfolio-optimizer-history-effect)
+(def run-portfolio-optimizer-pipeline-effect portfolio-optimizer-adapters/run-portfolio-optimizer-pipeline-effect)
 (def load-portfolio-optimizer-scenario-index-effect
   portfolio-optimizer-adapters/load-portfolio-optimizer-scenario-index-effect)
 
