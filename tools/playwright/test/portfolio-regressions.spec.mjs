@@ -736,7 +736,7 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(longOnly).toBeChecked();
 
-  await expect(maxAssetWeight).toHaveValue("0.25");
+  await expect(maxAssetWeight).toHaveValue("0.5");
   await maxAssetWeight.fill("0.3");
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(maxAssetWeight).toHaveValue("0.3");

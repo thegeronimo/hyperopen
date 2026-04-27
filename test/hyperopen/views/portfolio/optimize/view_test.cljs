@@ -109,7 +109,7 @@
            (get-in (node-by-role view-node
                                  "portfolio-optimizer-constraint-long-only-input")
                    [1 :checked])))
-    (is (= "0.25"
+    (is (= "0.5"
            (get-in (node-by-role view-node
                                  "portfolio-optimizer-constraint-max-asset-weight-input")
                    [1 :value])))

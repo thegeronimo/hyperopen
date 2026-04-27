@@ -14,10 +14,10 @@
 
 (def ^:private constraint-help
   {:long-only? "Restricts target weights to zero or positive values. Turn this off when short or hedged perp exposure is allowed."
-   :max-asset-weight "Maximum target portfolio weight any single asset can receive. 0.25 means no asset can exceed 25%."
-   :gross-max "Maximum total absolute exposure across all legs. 3 means long exposure plus short exposure can total up to 300% of capital."
+   :max-asset-weight "Maximum target portfolio weight any single asset can receive. 0.5 means no asset can exceed 50%."
+   :gross-max "Maximum total absolute exposure across all legs. 1 means long exposure plus short exposure can total up to 100% of capital."
    :net-min "Minimum signed net exposure allowed after optimization. Leave blank when only the maximum net exposure matters."
-   :net-max "Maximum signed net exposure allowed after optimization. 1.5 means the portfolio can be net long up to 150% of capital."
+   :net-max "Maximum signed net exposure allowed after optimization. 1 means the portfolio can be net long up to 100% of capital."
    :dust-usdc "Small rebalance trades below this USDC notional are ignored so the output avoids noisy dust orders."
    :max-turnover "Maximum total portfolio turnover allowed for the rebalance. 1 means trades can sum to 100% of capital."
    :rebalance-tolerance "Minimum target-vs-current weight difference before a rebalance row is considered actionable. 0.03 means 3 percentage points."})

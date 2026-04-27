@@ -139,9 +139,9 @@
            (get-in long-only [1 :aria-describedby])))
     (is (= "tooltip" (get-in long-only-tooltip [1 :role])))
     (is (contains? strings
-                   "Maximum target portfolio weight any single asset can receive. 0.25 means no asset can exceed 25%."))
+                   "Maximum target portfolio weight any single asset can receive. 0.5 means no asset can exceed 50%."))
     (is (contains? strings
-                   "Maximum total absolute exposure across all legs. 3 means long exposure plus short exposure can total up to 300% of capital."))
+                   "Maximum total absolute exposure across all legs. 1 means long exposure plus short exposure can total up to 100% of capital."))
     (is (contains? strings
                    "Small rebalance trades below this USDC notional are ignored so the output avoids noisy dust orders."))
     (is (contains? strings

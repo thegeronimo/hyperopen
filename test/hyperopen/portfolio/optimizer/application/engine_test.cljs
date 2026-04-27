@@ -174,7 +174,7 @@
                   (is false (str "async optimization failed: " err))
                   (done))))))
 
-(deftest default-signed-minimum-variance-run-can-return-near-cash-with-warning-test
+(deftest default-signed-minimum-variance-run-respects-net-min-floor-test
   (async done
     (let [instrument (fn [coin]
                        {:instrument-id (str "perp:" coin)
@@ -216,10 +216,10 @@
                                           {:solve-problem solver-adapter/solve-with-osqp})
           (.then (fn [result]
                    (is (= :solved (:status result)))
-                   (is (near? 0 (get-in result [:diagnostics :gross-exposure])))
-                   (is (= [0 0 0 0] (:target-weights result)))
-                   (is (contains? (set (map :code (:warnings result)))
-                                  :low-invested-exposure))
+                   (is (<= 0.049 (get-in result [:diagnostics :net-exposure])))
+                   (is (<= 0.049 (get-in result [:diagnostics :gross-exposure])))
+                   (is (not (contains? (set (map :code (:warnings result)))
+                                       :low-invested-exposure)))
                    (done)))
           (.catch (fn [err]
                     (is false (str "default minimum-variance regression failed: " err))
