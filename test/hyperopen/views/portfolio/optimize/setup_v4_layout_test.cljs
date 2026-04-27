@@ -107,3 +107,42 @@
            (input-actions
             (node-by-role view-node
                           "portfolio-optimizer-constraint-gross-max-input"))))))
+
+(deftest setup-v4-constraints-explain-each-control-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:draft {:constraints {:long-only? true
+                                                       :max-asset-weight 0.25
+                                                       :gross-max 3
+                                                       :net-max 1.5
+                                                       :dust-usdc 50
+                                                       :max-turnover 1
+                                                       :rebalance-tolerance 0.03}}}}})
+        strings (set (collect-strings view-node))
+        max-weight (node-by-role
+                    view-node
+                    "portfolio-optimizer-constraint-max-asset-weight-input")
+        max-weight-tooltip (node-by-role
+                            view-node
+                            "portfolio-optimizer-constraint-max-asset-weight-input-tooltip")
+        long-only (node-by-role
+                   view-node
+                   "portfolio-optimizer-constraint-long-only-input")
+        long-only-tooltip (node-by-role
+                           view-node
+                           "portfolio-optimizer-constraint-long-only-tooltip")]
+    (is (= "portfolio-optimizer-constraint-max-asset-weight-input-tooltip"
+           (get-in max-weight [1 :aria-describedby])))
+    (is (= "tooltip" (get-in max-weight-tooltip [1 :role])))
+    (is (= "portfolio-optimizer-constraint-long-only-tooltip"
+           (get-in long-only [1 :aria-describedby])))
+    (is (= "tooltip" (get-in long-only-tooltip [1 :role])))
+    (is (contains? strings
+                   "Maximum target portfolio weight any single asset can receive. 0.25 means no asset can exceed 25%."))
+    (is (contains? strings
+                   "Maximum total absolute exposure across all legs. 3 means long exposure plus short exposure can total up to 300% of capital."))
+    (is (contains? strings
+                   "Small rebalance trades below this USDC notional are ignored so the output avoids noisy dust orders."))
+    (is (contains? strings
+                   "Minimum target-vs-current weight difference before a rebalance row is considered actionable. 0.03 means 3 percentage points."))))

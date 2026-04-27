@@ -12,6 +12,16 @@
   ["w-full" "border" "border-base-300" "bg-base-100/80" "px-2" "py-1.5"
    "font-mono" "text-[0.6875rem]" "font-medium" "outline-none" "focus:border-warning/70"])
 
+(def ^:private constraint-help
+  {:long-only? "Restricts target weights to zero or positive values. Turn this off when short or hedged perp exposure is allowed."
+   :max-asset-weight "Maximum target portfolio weight any single asset can receive. 0.25 means no asset can exceed 25%."
+   :gross-max "Maximum total absolute exposure across all legs. 3 means long exposure plus short exposure can total up to 300% of capital."
+   :net-min "Minimum signed net exposure allowed after optimization. Leave blank when only the maximum net exposure matters."
+   :net-max "Maximum signed net exposure allowed after optimization. 1.5 means the portfolio can be net long up to 150% of capital."
+   :dust-usdc "Small rebalance trades below this USDC notional are ignored so the output avoids noisy dust orders."
+   :max-turnover "Maximum total portfolio turnover allowed for the rebalance. 1 means trades can sum to 100% of capital."
+   :rebalance-tolerance "Minimum target-vs-current weight difference before a rebalance row is considered actionable. 0.03 means 3 percentage points."})
+
 (defn- active-preset
   [draft]
   (let [objective-kind (get-in draft [:objective :kind])
@@ -177,16 +187,44 @@
     [:span {:class ["sr-only"]} title]]
    [:p {:class ["mt-1" "text-[0.65625rem]" "text-trading-muted"]} subtitle]])
 
+(defn- constraint-tooltip
+  [tooltip-id copy]
+  [:span {:class ["pointer-events-none" "absolute" "left-0" "top-[calc(100%+6px)]"
+                  "z-30" "w-[min(22rem,calc(100vw-2rem))]" "border"
+                  "border-base-300" "bg-base-100" "px-2" "py-1.5"
+                  "font-sans" "text-[0.65625rem]" "font-normal"
+                  "normal-case" "leading-[1.45]" "tracking-normal"
+                  "text-trading-muted" "opacity-0" "shadow-[0_12px_32px_rgba(0,0,0,0.45)]"
+                  "transition-opacity" "duration-150" "group-hover:opacity-100"
+                  "group-focus-within:opacity-100"]
+          :id tooltip-id
+          :role "tooltip"
+          :data-role tooltip-id}
+   copy])
+
+(defn- constraint-label
+  [label tooltip-id help-copy]
+  [:span {:class ["relative" "inline-flex" "min-w-0" "items-center" "gap-1.5"]}
+   [:span {:class eyebrow-class} label]
+   [:span {:class ["font-mono" "text-[0.5625rem]" "text-trading-muted/70"]
+           :aria-hidden "true"}
+    "?"]
+   (constraint-tooltip tooltip-id help-copy)])
+
 (defn- constraint-row
   ([label constraint-key value role highlighted?]
    (constraint-row label nil constraint-key value role highlighted?))
   ([label hidden-label constraint-key value role highlighted?]
-  [:label {:class (cond-> ["grid" "grid-cols-[minmax(0,1fr)_92px]" "items-center"
+   (let [tooltip-id (str role "-tooltip")
+         help-copy (get constraint-help constraint-key)]
+  [:label {:class (cond-> ["group" "relative" "grid" "grid-cols-[minmax(0,1fr)_92px]" "items-center"
                            "gap-2" "border" "border-base-300" "bg-base-200/20"
                            "px-2" "py-1.5"]
                     highlighted? (conj "border-warning/70" "bg-warning/10"))}
    [:span {:class ["min-w-0"]}
-    [:span {:class eyebrow-class} label]
+    (if help-copy
+      (constraint-label label tooltip-id help-copy)
+      [:span {:class eyebrow-class} label])
     (when hidden-label
       [:span {:class ["sr-only"]} hidden-label])
     [:span {:class ["ml-2" "font-mono" "text-[0.59375rem]" "uppercase"
@@ -198,10 +236,11 @@
             :data-role role
             :data-infeasible (when highlighted? "true")
             :aria-invalid (when highlighted? "true")
+            :aria-describedby (when help-copy tooltip-id)
             :value (str value)
             :on {:input [[:actions/set-portfolio-optimizer-constraint
                           constraint-key
-                          [:event.target/value]]]}}]]))
+                          [:event.target/value]]]}}]])))
 
 (defn- constraints-section
   [draft highlighted-controls]
@@ -210,12 +249,16 @@
      "portfolio-optimizer-constraints-panel"
      (section-heading "04" "Constraints" "mandatory")
      [:div {:class ["mt-3" "grid" "grid-cols-1" "gap-2"]}
-      [:label {:class ["flex" "items-center" "justify-between" "gap-3" "border"
+      [:label {:class ["group" "relative" "flex" "items-center" "justify-between" "gap-3" "border"
                        "border-base-300" "bg-base-200/20" "p-2"]}
-       [:span {:class eyebrow-class} "Long Only"]
+       [:span {:class ["min-w-0"]}
+        (constraint-label "Long Only"
+                          "portfolio-optimizer-constraint-long-only-tooltip"
+                          (:long-only? constraint-help))]
        [:input {:type "checkbox"
                 :class ["h-4" "w-4" "accent-warning"]
                 :data-role "portfolio-optimizer-constraint-long-only-input"
+                :aria-describedby "portfolio-optimizer-constraint-long-only-tooltip"
                 :checked (true? (:long-only? constraints))
                 :on {:change [[:actions/set-portfolio-optimizer-constraint
                                :long-only?
