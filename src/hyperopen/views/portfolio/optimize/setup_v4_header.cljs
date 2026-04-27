@@ -1,7 +1,7 @@
 (ns hyperopen.views.portfolio.optimize.setup-v4-header)
 
 (def ^:private eyebrow-class
-  ["font-mono" "text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"])
+  ["font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted"])
 
 (defn- route-title
   [route]
@@ -27,9 +27,9 @@
     [:div {:class ["min-w-0"]}
      [:p {:class eyebrow-class} "Optimizer · portfolio / optimize / new"]
      [:div {:class ["mt-1" "flex" "flex-wrap" "items-center" "gap-2"]}
-      [:h1 {:class ["text-lg" "font-semibold" "tracking-tight" "text-trading-text"]}
+      [:h1 {:class ["text-lg" "font-medium" "tracking-[-0.01em]" "text-trading-text"]}
        (route-title route)]
-      [:span {:class ["text-sm" "text-trading-muted"]}
+      [:span {:class ["text-[0.8125rem]" "text-trading-muted"]}
        "- configure your target portfolio"]
       [:span {:class ["border" "border-base-300" "bg-base-200/40" "px-2" "py-0.5"
                       "font-mono" "text-[0.6rem]" "font-semibold" "uppercase"
@@ -44,13 +44,13 @@
     [:div {:class ["flex" "shrink-0" "items-center" "gap-2"]}
      [:button {:type "button"
                :class ["border" "border-base-300" "bg-base-200/20" "px-2.5" "py-1"
-                       "font-mono" "text-xs" "font-semibold" "text-trading-muted"]
+                       "font-mono" "text-[0.65625rem]" "font-semibold" "text-trading-muted"]
                :aria-label "More setup actions"
                :data-role "portfolio-optimizer-setup-overflow"}
       "..."]
      [:button {:type "button"
                :class ["border" "border-base-300" "bg-base-200/30" "px-2.5" "py-1"
-                       "text-xs" "font-semibold" "text-trading-text"
+                       "text-[0.65625rem]" "font-medium" "text-trading-text"
                        "disabled:cursor-not-allowed" "disabled:text-trading-muted"]
                :data-role "portfolio-optimizer-save-scenario"
                :disabled (or (not solved-run?) saving-scenario?)
@@ -58,7 +58,7 @@
       (if saving-scenario? "Saving" "Save draft")]
      [:button {:type "button"
                :class ["border" "border-warning/60" "bg-warning/10" "px-2.5" "py-1"
-                       "text-xs" "font-semibold" "text-warning"
+                       "text-[0.65625rem]" "font-medium" "text-warning"
                        "disabled:cursor-not-allowed" "disabled:border-base-300"
                        "disabled:bg-base-200/30" "disabled:text-trading-muted"]
                :data-role "portfolio-optimizer-run-draft"
@@ -68,7 +68,7 @@
      (when solved-run?
        [:button {:type "button"
                  :class ["border" "border-warning/60" "bg-warning/10" "px-2.5" "py-1"
-                         "text-xs" "font-semibold" "text-warning"]
+                         "text-[0.65625rem]" "font-medium" "text-warning"]
                  :data-role "portfolio-optimizer-view-weights"
                  :on {:click [[:actions/navigate result-path]]}}
         "View weights"])]]])
@@ -85,10 +85,10 @@
               :on {:click [[:actions/apply-portfolio-optimizer-setup-preset preset]]}}
      [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
       [:div
-       [:p {:class ["text-xs" "font-semibold" (if selected? "text-warning" "text-trading-text")]}
+       [:p {:class ["text-[0.6875rem]" "font-medium" (if selected? "text-warning" "text-trading-text")]}
         (str (if selected? "◉ " "○ ") title)]
-       [:p {:class ["mt-1.5" "text-[0.68rem]" "text-trading-muted"]} subtitle]
-       [:p {:class ["mt-1.5" "font-mono" "text-[0.55rem]" "uppercase" "tracking-[0.16em]"
+       [:p {:class ["mt-1.5" "text-[0.65625rem]" "text-trading-muted"]} subtitle]
+       [:p {:class ["mt-1.5" "font-mono" "text-[0.5625rem]" "uppercase" "tracking-[0.16em]"
                     "text-trading-muted"]}
         kicker]]
       (when selected?

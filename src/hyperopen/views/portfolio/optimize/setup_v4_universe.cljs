@@ -3,11 +3,14 @@
             [hyperopen.asset-selector.query :as asset-query]))
 
 (def ^:private eyebrow-class
-  ["font-mono" "text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"])
+  ["font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted"])
+
+(def ^:private section-title-class
+  ["text-[0.6875rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-text"])
 
 (def ^:private input-class
   ["w-full" "border" "border-base-300" "bg-base-100/80" "px-2" "py-1.5"
-   "font-mono" "text-xs" "font-semibold" "outline-none" "focus:border-warning/70"])
+   "font-mono" "text-[0.6875rem]" "font-medium" "outline-none" "focus:border-warning/70"])
 
 (defn- normalized-text
   [value]
@@ -124,7 +127,7 @@
    (tag label tone nil))
   ([label tone extra-class]
    [:span {:class (cond-> ["border" "px-1.5" "py-[1px]" "font-mono"
-                           "text-[0.52rem]" "font-semibold" "uppercase"
+                           "text-[0.53125rem]" "font-semibold" "uppercase"
                            "tracking-[0.12em]"]
                     (= tone :accent) (conj "border-warning/40" "text-warning")
                     (= tone :info) (conj "border-info/40" "text-info")
@@ -155,12 +158,12 @@
      [:td {:class ["w-5" "px-2" "py-1.5"]}
       [:span {:class ["text-warning"]} "☑"]]
      [:td {:class ["px-2" "py-1.5"]}
-      [:span {:class ["font-mono" "text-xs" "font-semibold"]} (or coin instrument-id)]
-      [:span {:class ["ml-2" "text-[0.65rem]" "text-trading-muted"]}
+      [:span {:class ["font-mono" "text-[0.6875rem]" "font-semibold"]} (or coin instrument-id)]
+      [:span {:class ["ml-2" "text-[0.65625rem]" "text-trading-muted"]}
        (display-name coin)]]
      [:td {:class ["px-2" "py-1.5"]} (market-type-tags market-type)]
      [:td {:class ["px-2" "py-1.5"]} (tag history (if (= "sufficient" history) :long :warn))]
-     [:td {:class ["px-2" "py-1.5" "text-[0.65rem]" "text-trading-muted"]} (liquidity-label instrument)]
+     [:td {:class ["px-2" "py-1.5" "text-[0.65625rem]" "text-trading-muted"]} (liquidity-label instrument)]
      [:td {:class ["w-5" "px-2" "py-1.5" "text-right"]}
       [:button {:type "button"
                 :class ["text-trading-muted" "hover:text-warning"]
@@ -180,16 +183,16 @@
                    "py-1.5" "last:border-b-0" "hover:bg-base-200/30"]
            :data-role (str "portfolio-optimizer-universe-candidate-row-" market-key)
            :data-active (when (zero? idx) "true")}
-     [:span {:class ["truncate" "font-mono" "text-xs" "font-semibold"]}
+     [:span {:class ["truncate" "font-mono" "text-[0.6875rem]" "font-semibold"]}
       (market-label market)]
-     [:span {:class ["truncate" "text-[0.65rem]" "text-trading-muted"]}
+     [:span {:class ["truncate" "text-[0.6875rem]" "text-trading-muted"]}
       (market-display-name market)]
      (market-type-tags market-type)
      (tag history (if (= "sufficient" history) :long :warn))
      [:span {:class ["font-mono" "text-[0.6rem]" "text-trading-muted" "text-right"]}
       (adv-label market)]
      [:button {:type "button"
-               :class ["text-right" "font-mono" "text-[0.65rem]" "font-semibold"
+               :class ["text-right" "font-mono" "text-[0.65625rem]" "font-semibold"
                        "text-warning" "hover:text-warning"]
                :data-role (str "portfolio-optimizer-universe-add-" market-key)
                :on {:click [[:actions/add-portfolio-optimizer-universe-instrument market-key]]}}
@@ -204,7 +207,7 @@
                       (contains? selected-ids market-key))]
     [:button {:type "button"
               :class ["border" "border-base-300" "px-1.5" "py-[1px]"
-                      "font-mono" "text-[0.6rem]" "uppercase"
+                      "font-mono" "text-[0.59375rem]" "uppercase"
                       "tracking-[0.08em]" "text-trading-muted"
                       "disabled:cursor-not-allowed" "disabled:opacity-40"
                       "enabled:hover:border-warning/40" "enabled:hover:text-warning"]
@@ -242,17 +245,17 @@
                :data-role "portfolio-optimizer-universe-panel"}
      [:div {:class ["flex" "items-center" "justify-between" "gap-3" "border-b"
                     "border-base-300" "pb-2"]}
-      [:p {:class eyebrow-class}
-       [:span {:class ["mr-2" "text-trading-muted/70"]} "01"]
+      [:p {:class section-title-class}
+       [:span {:class ["mr-2" "font-mono" "text-trading-muted/70"]} "01"]
        "Universe"]
-      [:span {:class ["font-mono" "text-[0.65rem]" "uppercase" "tracking-[0.14em]"
+      [:span {:class ["font-mono" "text-[0.65625rem]" "uppercase" "tracking-[0.08em]"
                       "text-trading-muted"]}
        (str (count universe) " included")]]
      [:div {:class ["mt-3" "grid" "grid-cols-3" "border" "border-base-300" "text-center"
-                    "font-mono" "text-[0.6rem]" "font-semibold" "uppercase"
-                    "tracking-[0.12em]" "text-trading-muted"]}
+                    "text-[0.65625rem]" "font-medium" "uppercase"
+                    "tracking-[0.04em]" "text-trading-muted"]}
       [:button {:type "button"
-                :class ["border-r" "border-base-300" "px-2" "py-2" "hover:text-warning"]
+                :class ["border-r" "border-base-300" "px-2" "py-2" "uppercase" "hover:text-warning"]
                 :data-role "portfolio-optimizer-universe-use-current"
                 :on {:click [[:actions/set-portfolio-optimizer-universe-from-current]]}}
        "From holdings"
@@ -297,7 +300,7 @@
            "No matching unused markets found."]))]
      (when-not searching?
        [:div {:class ["mt-2" "flex" "flex-wrap" "items-center" "gap-1.5"]}
-        [:span {:class ["font-mono" "text-[0.6rem]" "uppercase" "tracking-[0.1em]"
+        [:span {:class ["font-mono" "text-[0.59375rem]" "uppercase" "tracking-[0.1em]"
                         "text-trading-muted/70"]}
          "quick add"]
         (for [symbol ["TON" "NEAR" "INJ" "JUP" "AVAX" "DOT"]]

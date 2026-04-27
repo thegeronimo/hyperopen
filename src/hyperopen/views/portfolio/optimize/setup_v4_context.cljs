@@ -6,7 +6,7 @@
             [hyperopen.views.portfolio.optimize.setup-readiness-panel :as setup-readiness-panel]))
 
 (def ^:private eyebrow-class
-  ["font-mono" "text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"])
+  ["font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted"])
 
 (defn context-rail
   [{:keys [draft readiness snapshot preview-snapshot run-state optimization-progress
@@ -39,7 +39,7 @@
          (black-litterman-views-panel/black-litterman-views-panel
           draft
           (get-in readiness [:request :black-litterman-prior]))]
-        [:div {:class ["mt-3" "space-y-3" "text-xs" "text-trading-muted"]}
+        [:div {:class ["mt-3" "space-y-3" "text-[0.6875rem]" "leading-[1.55]" "text-trading-muted"]}
          [:p "Stabilized inputs reduce dependence on a single historical window."]
          [:p "Minimum variance does not rely on return forecasts."]
          [:p "Cash floor and turnover caps protect against destructive rebalances."]
@@ -49,7 +49,7 @@
        [:section {:class ["border-t" "border-base-300" "bg-base-100/90" "p-3"]
                   :data-role "portfolio-optimizer-trust-freshness-panel"}
         [:p {:class eyebrow-class} "Trust & Freshness"]
-        [:p {:class ["mt-2" "text-xs" "text-trading-muted"]}
+        [:p {:class ["mt-2" "text-[0.6875rem]" "leading-[1.45]" "text-trading-muted"]}
          (cond
            (not (:snapshot-loaded? snapshot))
            (if (= :manual (get-in preview-snapshot [:capital :source]))
@@ -70,7 +70,7 @@
         (when (:result last-successful-run)
           [:button {:type "button"
                     :class ["mt-3" "w-full" "border" "border-warning/60" "bg-warning/10"
-                            "px-3" "py-2" "text-left" "text-xs" "font-semibold" "text-warning"]
+                            "px-3" "py-2" "text-left" "text-[0.6875rem]" "font-medium" "text-warning"]
                     :data-role "portfolio-optimizer-results-link"
                     :on {:click [[:actions/navigate
                                   (or result-path
@@ -78,5 +78,5 @@
            "Results"])
         (when read-only-message
           [:p {:class ["mt-3" "border" "border-warning/40" "bg-warning/10" "p-2"
-                       "text-xs" "text-warning"]}
+                       "text-[0.6875rem]" "text-warning"]}
            read-only-message])])]))

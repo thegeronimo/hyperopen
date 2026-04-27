@@ -1,11 +1,11 @@
 (ns hyperopen.views.portfolio.optimize.black-litterman-views-panel)
 
 (def ^:private field-label-class
-  ["block" "text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.18em]" "text-trading-muted"])
+  ["block" "font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted"])
 
 (def ^:private input-class
   ["mt-2" "w-full" "rounded-md" "border" "border-base-300" "bg-base-100" "px-2" "py-1.5"
-   "text-sm" "font-semibold" "tabular-nums" "outline-none" "focus:border-primary/70"])
+   "font-mono" "text-[0.75rem]" "font-medium" "tabular-nums" "outline-none" "focus:border-primary/70"])
 
 (defn- format-pct
   [value]
@@ -56,7 +56,7 @@
 (defn- view-kind-button
   [view idx kind label selected?]
   [:button {:type "button"
-            :class (cond-> ["rounded-md" "border" "px-2" "py-1.5" "text-left" "text-xs" "font-semibold"]
+            :class (cond-> ["rounded-md" "border" "px-2" "py-1.5" "text-left" "text-[0.65625rem]" "font-medium"]
                      selected? (conj "border-primary/60" "bg-primary/10" "text-primary")
                      (not selected?) (conj "border-base-300" "bg-base-200/40" "text-trading-muted"))
             :aria-pressed (str selected?)
@@ -75,15 +75,15 @@
            :data-role (str "portfolio-optimizer-black-litterman-view-row-" idx)}
      [:div {:class ["flex" "flex-wrap" "items-center" "justify-between" "gap-2"]}
       [:div
-       [:p {:class ["text-sm" "font-semibold"]}
+       [:p {:class ["text-[0.71875rem]" "font-medium"]}
         (if relative? "Relative View" "Absolute View")]
-       [:p {:class ["mt-1" "text-xs" "text-trading-muted"]}
+       [:p {:class ["mt-1" "text-[0.6875rem]" "text-trading-muted"]}
         (if relative?
           "Express expected spread between two instruments."
           "Express expected return for one instrument.")]]
       [:button {:type "button"
                 :class ["rounded-md" "border" "border-base-300" "bg-base-100" "px-2" "py-1.5"
-                        "text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.18em]"
+                        "text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.08em]"
                         "text-trading-muted" "hover:text-trading-text"]
                 :data-role (str "portfolio-optimizer-black-litterman-view-" idx "-remove")
                 :on {:click [[:actions/remove-portfolio-optimizer-black-litterman-view
@@ -151,20 +151,20 @@
    [:div {:class ["grid" "grid-cols-1" "gap-2" "md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]"]}
     [:div {:class ["rounded-lg" "border" "border-base-300" "bg-base-100" "p-3"]}
      [:p {:class field-label-class} "Prior Source"]
-     [:p {:class ["mt-2" "text-sm" "font-semibold"]} (keyword-label (:source prior))]
-     [:p {:class ["mt-2" "text-xs" "text-trading-muted"]}
+     [:p {:class ["mt-2" "text-[0.6875rem]" "font-medium"]} (keyword-label (:source prior))]
+     [:p {:class ["mt-2" "text-[0.6875rem]" "text-trading-muted"]}
       "Market-cap weights are preferred; current portfolio and equal weight are explicit fallbacks."]]
     [:div {:class ["space-y-2"]}
      (cond
        (not (map? prior))
        [:p {:class ["rounded-md" "border" "border-base-300" "bg-base-200/40" "p-2"
-                    "text-xs" "text-trading-muted"]}
+                    "text-[0.6875rem]" "text-trading-muted"]}
         "Prior metadata will appear after a universe is selected."]
 
        (seq (:warnings prior))
        (map (fn [warning]
               [:p {:class ["rounded-md" "border" "border-warning/40" "bg-warning/10" "p-2"
-                           "text-xs" "text-warning"]
+                           "text-[0.6875rem]" "text-warning"]
                    :data-role "portfolio-optimizer-black-litterman-prior-warning"}
                [:span {:class ["font-semibold"]} (keyword-label (:code warning))]
                [:span {:class ["ml-2"]}
@@ -173,13 +173,13 @@
 
        :else
        [:p {:class ["rounded-md" "border" "border-success/30" "bg-success/10" "p-2"
-                    "text-xs" "text-success"]}
+                    "text-[0.6875rem]" "text-success"]}
         "Prior coverage is complete for the selected universe."])]]
    [:div {:class ["mt-3" "space-y-2"]}
     [:p {:class field-label-class} "Implied Prior Weights"]
     (if (seq universe)
       (map (partial prior-row prior) universe)
-      [:p {:class ["text-xs" "text-trading-muted"]} "Add instruments to see prior weights."])]])
+      [:p {:class ["text-[0.6875rem]" "text-trading-muted"]} "Add instruments to see prior weights."])]])
 
 (defn black-litterman-views-panel
   [draft prior]
@@ -190,21 +190,21 @@
                  :data-role "portfolio-optimizer-black-litterman-panel"}
        [:div {:class ["flex" "flex-wrap" "items-start" "justify-between" "gap-3"]}
         [:div
-         [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"]}
+         [:p {:class ["font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted"]}
           "Black-Litterman Views"]
-         [:p {:class ["mt-2" "text-sm" "text-trading-muted"]}
+         [:p {:class ["mt-2" "text-[0.6875rem]" "leading-[1.45]" "text-trading-muted"]}
           "Author absolute returns and relative spreads as a return-model input. This does not change the objective layer."]]
         [:div {:class ["flex" "flex-wrap" "gap-2"]}
          [:button {:type "button"
                    :class ["rounded-lg" "border" "border-primary/50" "bg-primary/10" "px-3" "py-2"
-                           "text-xs" "font-semibold" "uppercase" "tracking-[0.16em]" "text-primary"]
+                           "text-[0.65625rem]" "font-medium" "uppercase" "tracking-[0.08em]" "text-primary"]
                    :data-role "portfolio-optimizer-black-litterman-add-absolute-view"
                    :on {:click [[:actions/add-portfolio-optimizer-black-litterman-view
                                  :absolute]]}}
           "Add Absolute"]
          [:button {:type "button"
                    :class ["rounded-lg" "border" "border-primary/50" "bg-primary/10" "px-3" "py-2"
-                           "text-xs" "font-semibold" "uppercase" "tracking-[0.16em]" "text-primary"
+                           "text-[0.65625rem]" "font-medium" "uppercase" "tracking-[0.08em]" "text-primary"
                            "disabled:cursor-not-allowed" "disabled:border-base-300"
                            "disabled:bg-base-200/40" "disabled:text-trading-muted"]
                    :disabled (> 2 (count universe))
@@ -218,5 +218,5 @@
         (if (seq views)
           (map-indexed (partial view-row universe) views)
           [:p {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"
-                       "text-sm" "text-trading-muted"]}
+                       "text-[0.6875rem]" "text-trading-muted"]}
            "No Black-Litterman views yet. Add an absolute view or a relative spread to tilt the prior."])]])))
