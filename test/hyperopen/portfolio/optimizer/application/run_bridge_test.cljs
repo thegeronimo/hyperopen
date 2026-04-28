@@ -1,6 +1,7 @@
 (ns hyperopen.portfolio.optimizer.application.run-bridge-test
   (:require [cljs.test :refer-macros [deftest is use-fixtures]]
             [hyperopen.portfolio.optimizer.application.run-bridge :as run-bridge]
+            [hyperopen.portfolio.optimizer.fixtures :as fixtures]
             [hyperopen.portfolio.optimizer.infrastructure.worker-client :as worker-client]
             [hyperopen.system :as system]))
 
@@ -12,9 +13,10 @@
 
 (deftest request-run-posts-worker-message-and-preserves-existing-success-test
   (let [posted (atom [])
-        store (atom {:portfolio {:optimizer {:last-successful-run {:request-signature {:seed 0}
-                                                                    :result {:status :solved
-                                                                             :old? true}}
+        store (atom {:portfolio {:optimizer {:last-successful-run
+                                             (fixtures/sample-minimal-last-successful-run
+                                              {:request-signature {:seed 0}
+                                               :result {:old? true}})
                                              :run-state {:status :idle}}}})
         fake-worker #js {}]
     (set! (.-postMessage fake-worker)
@@ -109,8 +111,8 @@
               :error nil}
              (get-in @store [:portfolio :optimizer :run-state])))
       (is (= {:request-signature {:seed 1}
-              :result {:status :solved
-                       :scenario-id "scenario-1"}
+              :result (fixtures/sample-minimal-solved-result
+                       {:scenario-id "scenario-1"})
               :computed-at-ms 200}
              (get-in @store [:portfolio :optimizer :last-successful-run])))
       (is (= :computed

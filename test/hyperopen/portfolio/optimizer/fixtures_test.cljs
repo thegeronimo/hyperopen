@@ -75,6 +75,19 @@
     (is (= :market-funding-history
            (get-in result [:return-decomposition-by-instrument "perp:BTC" :funding-source])))))
 
+(deftest sample-minimal-last-successful-run-preserves-exact-contract-shapes-test
+  (is (= {:status :solved
+          :old? true}
+         (fixtures/sample-minimal-solved-result {:old? true})))
+  (is (= {:request-signature {:seed 1}
+          :result {:status :solved
+                   :scenario-id "scenario-1"}
+          :computed-at-ms 200}
+         (fixtures/sample-minimal-last-successful-run
+          {:request-signature {:seed 1}
+           :result {:scenario-id "scenario-1"}
+           :computed-at-ms 200}))))
+
 (deftest sample-scenario-state-is-route-and-view-ready-test
   (let [state (fixtures/sample-scenario-state)
         scenario-id "fixture-scenario"]

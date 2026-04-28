@@ -366,6 +366,27 @@
      :result (sample-solved-result)}
     overrides)))
 
+(defn sample-minimal-solved-result
+  ([]
+   (sample-minimal-solved-result {}))
+  ([overrides]
+   (with-overrides
+    {:status :solved}
+    overrides)))
+
+(defn sample-minimal-last-successful-run
+  ([]
+   (sample-minimal-last-successful-run {}))
+  ([overrides]
+   (let [result-overrides (:result overrides)
+         run-overrides (dissoc overrides :result)
+         base {:request-signature {:scenario-id default-scenario-id}
+               :computed-at-ms default-as-of-ms
+               :result (sample-minimal-solved-result)}]
+     (cond-> (merge base run-overrides)
+       (contains? overrides :result)
+       (assoc :result (sample-minimal-solved-result result-overrides))))))
+
 (defn- scenario-summary
   [scenario-id draft result]
   {:id scenario-id
