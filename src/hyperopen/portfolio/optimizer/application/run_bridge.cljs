@@ -122,6 +122,7 @@
                         {:request-signature (:request-signature current-run)
                          :result payload
                          :computed-at-ms computed-at-ms})
+              (assoc-in [:portfolio :optimizer :draft :metadata :dirty?] false)
               (update-in [:portfolio :optimizer :active-scenario]
                          (fn [active-scenario]
                            (cond-> (assoc (or active-scenario {})

@@ -119,10 +119,9 @@
         strings (set (collect-strings view-node))]
     (is (some? (node-by-role view-node "portfolio-optimizer-results-surface")))
     (is (some? (node-by-role view-node "portfolio-optimizer-stale-result-banner")))
-    (is (= [[:actions/run-portfolio-optimizer-from-draft]]
+   (is (= [[:actions/run-portfolio-optimizer-from-draft]]
            (click-actions
             (node-by-role view-node "portfolio-optimizer-rerun-stale-result"))))
-    (is (some? (node-by-role view-node "portfolio-optimizer-assumptions-strip")))
     (is (some? (node-by-role view-node "portfolio-optimizer-results-grid")))
     (is (some? (node-by-role view-node "portfolio-optimizer-results-left-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-results-center-panel")))
@@ -158,18 +157,16 @@
            (drag-start-actions frontier-point)))
     (is (= frontier-point-actions
            (drag-enter-actions frontier-point)))
-    (is (contains? strings "Run Assumptions"))
-    (is (contains? strings "2 returns"))
-    (is (contains? strings "Market funding"))
-    (is (contains? strings "Trust & Caution"))
-    (is (contains? strings "Weight Sensitivity"))
-    (is (contains? strings "Shrunk Sharpe"))
+    (is (contains? strings "Allocation"))
+    (is (contains? strings "By asset · click to expand legs"))
+    (is (contains? strings "How much to trust this"))
+    (is (contains? strings "Weight Stability"))
+    (is (contains? strings "Effective N · 2.2 of 2"))
+    (is (contains? strings "Recommended target"))
     (is (contains? strings "watch"))
     (is (contains? strings "Funding Decomposition"))
     (is (contains? strings "market-funding-history"))
     (is (contains? strings "low-invested-exposure"))
-    (is (contains? strings "Binding Constraints"))
     (is (contains? strings "partially-blocked"))
-    (is (contains? strings "Blocked reasons: spot-submit-unsupported x1."))
     (is (contains? strings "spot-submit-unsupported"))
     (is (contains? strings "perp:BTC"))))

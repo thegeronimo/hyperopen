@@ -22,7 +22,7 @@
   (if (finite-number? value)
     (str "$" (.toLocaleString value
                               "en-US"
-                              #js {:maximumFractionDigits 2}))
+                              #js {:maximumFractionDigits 0}))
     "N/A"))
 
 (defn- signed-label
@@ -45,98 +45,48 @@
       (str/replace #"[^A-Za-z0-9_-]+" "-")
       (str/replace #"(^-+|-+$)" "")))
 
-(defn- panel-shell
-  [data-role title subtitle & children]
-  [:section {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
-             :data-role data-role}
-   [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"]}
-    title]
-   [:p {:class ["mt-2" "text-sm" "text-trading-muted"]} subtitle]
-   (into [:div {:class ["mt-4" "space-y-2"]}]
-         children)])
-
-(defn- row-shell
-  [& children]
-  (into [:div {:class ["grid"
-                       "grid-cols-[minmax(8rem,1.1fr)_repeat(4,minmax(5rem,0.8fr))]"
-                       "gap-3"
-                       "rounded-lg"
-                       "border"
-                       "border-base-300"
-                       "bg-base-200/40"
-                       "p-3"
-                       "text-xs"
-                       "tabular-nums"]}]
-        children))
-
-(defn- row-shell-with-attrs
-  [attrs & children]
-  (let [base-class ["grid"
-                    "grid-cols-[minmax(8rem,1.1fr)_repeat(4,minmax(5rem,0.8fr))]"
-                    "gap-3"
-                    "rounded-lg"
-                    "border"
-                    "border-base-300"
-                    "bg-base-200/40"
-                    "p-3"
-                    "text-xs"
-                    "tabular-nums"]
-        attrs* (-> attrs
-                   (dissoc :extra-class)
-                   (assoc :class (into base-class (:extra-class attrs))))]
-    (into [:div attrs*] children)))
-
-(defn- signed-weight-cell
-  [value]
-  (let [sign (signed-label value)
-        width (if (finite-number? value)
-                (min 100 (* 100 (js/Math.abs value)))
-                0)]
-    [:span {:class ["space-y-1"]
-            :data-sign sign}
-     [:span {:class ["block"]} (format-pct value)]
-     [:span {:class ["block" "h-1.5" "overflow-hidden" "rounded-full" "bg-base-300/50"]}
-      [:span {:class (cond-> ["block" "h-full" "rounded-full"]
-                       (= "long" sign) (conj "bg-primary/70")
-                       (= "short" sign) (conj "bg-error/70")
-                       (= "flat" sign) (conj "bg-trading-muted/40"))
-              :style {:width (str width "%")}}]]]))
-
 (defn- exposure-row
   [idx binding-instrument-ids instrument-id capital-usd current-weight target-weight]
   (let [current-notional (* (or capital-usd 0) (or current-weight 0))
         target-notional (* (or capital-usd 0) (or target-weight 0))
         delta (- (or target-weight 0) (or current-weight 0))
         binding? (contains? binding-instrument-ids instrument-id)]
-    (row-shell-with-attrs
-     {:data-role (str "portfolio-optimizer-target-exposure-row-" idx)
-      :data-binding (when binding? "true")
-      :data-current-sign (signed-label current-weight)
-      :data-target-sign (signed-label target-weight)
-      :extra-class (when binding?
-                     ["border-warning/60" "bg-warning/10"])}
-     [:span {:class ["font-semibold" "text-trading-text"]} instrument-id]
-     (signed-weight-cell current-weight)
-     (signed-weight-cell target-weight)
-     [:span (format-pct delta)]
-     [:span (format-usdc (- target-notional current-notional))])))
+    [:tr {:class (when binding? ["bg-warning/10"])
+          :data-role (str "portfolio-optimizer-target-exposure-row-" idx)
+          :data-binding (when binding? "true")
+          :data-current-sign (signed-label current-weight)
+          :data-target-sign (signed-label target-weight)}
+     [:td {:class ["pl-8" "text-trading-muted"]} instrument-id]
+     [:td {:class ["font-mono" "text-right" "tabular-nums"]} (format-pct current-weight)]
+     [:td {:class ["font-mono" "text-right" "tabular-nums"]} (format-pct target-weight)]
+     [:td {:class [(if (neg? delta) "text-trading-red" "text-trading-green")
+                   "font-mono" "text-right" "tabular-nums"]}
+      (format-pct delta)]
+     [:td {:class [(if (neg? delta) "text-trading-red" "text-trading-green")
+                   "font-mono" "text-right" "tabular-nums"]}
+      (format-usdc (- target-notional current-notional))]]))
 
 (defn- exposure-group-row
   [asset capital-usd rows]
   (let [current-weight (reduce + 0 (map :current-weight rows))
         target-weight (reduce + 0 (map :target-weight rows))
         delta (- target-weight current-weight)]
-    (row-shell-with-attrs
-     {:data-role (str "portfolio-optimizer-target-exposure-group-"
-                      (data-role-token asset))
-      :data-target-sign (signed-label target-weight)
-      :extra-class ["border-base-300" "bg-base-200/70"]}
-     [:span {:class ["font-semibold" "text-trading-text"]}
-      (str asset " group")]
-     (signed-weight-cell current-weight)
-     (signed-weight-cell target-weight)
-     [:span (format-pct delta)]
-     [:span (format-usdc (* (or capital-usd 0) delta))])))
+    [:tr {:class ["cursor-pointer"]
+          :data-role (str "portfolio-optimizer-target-exposure-asset-"
+                          (data-role-token asset))
+          :data-target-sign (signed-label target-weight)}
+     [:td {:class ["font-mono" "font-semibold" "text-trading-text"]}
+      [:span {:data-role (str "portfolio-optimizer-target-exposure-group-"
+                              (data-role-token asset))}
+       asset]]
+     [:td {:class ["font-mono" "text-right" "font-semibold" "tabular-nums"]} (format-pct current-weight)]
+     [:td {:class ["font-mono" "text-right" "font-semibold" "tabular-nums"]} (format-pct target-weight)]
+     [:td {:class [(if (neg? delta) "text-trading-red" "text-trading-green")
+                   "font-mono" "text-right" "font-semibold" "tabular-nums"]}
+      (format-pct delta)]
+     [:td {:class [(if (neg? delta) "text-trading-red" "text-trading-green")
+                   "font-mono" "text-right" "font-semibold" "tabular-nums"]}
+      (format-usdc (* (or capital-usd 0) delta))]]))
 
 (defn target-exposure-table
   [result]
@@ -154,29 +104,42 @@
                              :target-weight (or target-weight 0)})
                           (map vector ids current target))
         groups (group-by :asset rows)]
-    (panel-shell
-     "portfolio-optimizer-target-exposure-table"
-     "Target Exposure"
-     "Signed current-vs-target weights are grouped by asset with instrument legs visible for long-only and signed portfolios."
-     (row-shell
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Instrument"]
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Current"]
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Target"]
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Delta"]
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Notional"])
-     (map (fn [[asset asset-rows]]
-            [:details {:class ["space-y-2"]
-                       :data-role (str "portfolio-optimizer-target-exposure-asset-"
-                                       (data-role-token asset))
-                       :open true}
-             [:summary {:class ["cursor-pointer" "list-none"]}
-              (exposure-group-row asset capital-usd asset-rows)]
-             (map (fn [{:keys [idx instrument-id current-weight target-weight]}]
-                    (exposure-row idx
-                                  binding-instrument-ids
-                                  instrument-id
-                                  capital-usd
-                                  current-weight
-                                  target-weight))
-                  asset-rows)])
-          groups))))
+    [:section {:class ["min-h-0" "border-r" "border-base-300" "bg-base-100/95"]
+               :data-role "portfolio-optimizer-target-exposure-table"}
+     [:div {:class ["flex" "items-center" "justify-between" "border-b" "border-base-300" "px-4" "py-3"]}
+      [:div
+       [:p {:class ["font-mono" "text-[0.62rem]" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"]}
+        "Allocation"]
+       [:p {:class ["mt-1" "text-xs" "text-trading-text"]}
+        "By asset · click to expand legs"]]
+      [:div {:class ["flex" "border" "border-base-300" "text-[0.62rem]" "font-semibold" "uppercase" "tracking-[0.06em]"]}
+       [:button {:type "button"
+                 :class ["border-r" "border-base-300" "bg-base-200/60" "px-3" "py-1" "text-trading-text"]}
+        "By Asset"]
+       [:button {:type "button"
+                 :class ["px-3" "py-1" "text-trading-muted"]}
+        "By Leg"]]]
+     [:div {:class ["overflow-auto"]}
+      [:table {:class ["w-full" "border-collapse" "text-[0.7rem]"]}
+       [:thead
+        [:tr
+         [:th {:class ["sticky" "top-0" "border-b" "border-base-300" "bg-base-100" "px-3" "py-2" "text-left" "font-mono" "text-[0.58rem]" "font-normal" "uppercase" "tracking-[0.06em]" "text-trading-muted/70"]} "Asset"]
+         [:th {:class ["sticky" "top-0" "border-b" "border-base-300" "bg-base-100" "px-3" "py-2" "text-right" "font-mono" "text-[0.58rem]" "font-normal" "uppercase" "tracking-[0.06em]" "text-trading-muted/70"]} "Current"]
+         [:th {:class ["sticky" "top-0" "border-b" "border-base-300" "bg-base-100" "px-3" "py-2" "text-right" "font-mono" "text-[0.58rem]" "font-normal" "uppercase" "tracking-[0.06em]" "text-trading-muted/70"]} "Target"]
+         [:th {:class ["sticky" "top-0" "border-b" "border-base-300" "bg-base-100" "px-3" "py-2" "text-right" "font-mono" "text-[0.58rem]" "font-normal" "uppercase" "tracking-[0.06em]" "text-trading-muted/70"]} "Δ"]
+         [:th {:class ["sticky" "top-0" "border-b" "border-base-300" "bg-base-100" "px-3" "py-2" "text-right" "font-mono" "text-[0.58rem]" "font-normal" "uppercase" "tracking-[0.06em]" "text-trading-muted/70"]} "Δ $"]]]
+       (into
+        [:tbody]
+        (mapcat
+         (fn [[asset asset-rows]]
+           (concat
+            [(exposure-group-row asset capital-usd asset-rows)]
+            (map (fn [{:keys [idx instrument-id current-weight target-weight]}]
+                   (exposure-row idx
+                                 binding-instrument-ids
+                                 instrument-id
+                                 capital-usd
+                                 current-weight
+                                 target-weight))
+                 asset-rows)))
+         groups))]]]))

@@ -157,26 +157,54 @@
   (let [point {:expected-return (:expected-return result)
                :volatility (:volatility result)}
         {:keys [x y]} (point-position x-domain y-domain point)]
-    [:g {:class ["text-success"]
+    [:g {:class ["text-primary"]
          :data-role "portfolio-optimizer-frontier-target-marker"}
      [:circle {:cx x
                :cy y
-               :r 7
+               :r 6
                :fill "currentColor"
                :stroke "currentColor"
                :strokeWidth 2}]
      [:circle {:cx x
                :cy y
-               :r 13
+               :r 12
                :fill "transparent"
                :stroke "currentColor"
-               :strokeOpacity "0.35"}]
+               :strokeOpacity "0.45"}]
      [:text {:x (+ x 10)
              :y (- y 10)
              :fill "currentColor"
-             :fontSize 11
+             :fontSize 10
              :fontWeight 700}
       "Target"]]))
+
+(defn- current-marker
+  [result x-domain y-domain]
+  (when (and (finite-number? (:current-expected-return result))
+             (finite-number? (:current-volatility result)))
+    (let [point {:expected-return (:current-expected-return result)
+                 :volatility (:current-volatility result)}
+          {:keys [x y]} (point-position x-domain y-domain point)]
+      [:g {:class ["text-info"]
+           :data-role "portfolio-optimizer-frontier-current-marker"}
+       [:circle {:cx x
+                 :cy y
+                 :r 5
+                 :fill "currentColor"
+                 :stroke "currentColor"
+                 :strokeWidth 2}]
+       [:circle {:cx x
+                 :cy y
+                 :r 11
+                 :fill "transparent"
+                 :stroke "currentColor"
+                 :strokeOpacity "0.45"}]
+       [:text {:x (+ x 10)
+               :y (+ y 16)
+               :fill "currentColor"
+               :fontSize 10
+               :fontWeight 700}
+        "Current"]])))
 
 (defn frontier-chart
   [draft result]
@@ -187,12 +215,16 @@
                     vec)
         x-domain (domain (concat (numeric-values points :volatility)
                                  (when (finite-number? (:volatility result))
-                                   [(:volatility result)]))
+                                   [(:volatility result)])
+                                 (when (finite-number? (:current-volatility result))
+                                   [(:current-volatility result)]))
                          0
                          1)
         y-domain (domain (concat (numeric-values points :expected-return)
                                  (when (finite-number? (:expected-return result))
-                                   [(:expected-return result)]))
+                                   [(:expected-return result)])
+                                 (when (finite-number? (:current-expected-return result))
+                                   [(:current-expected-return result)]))
                          0
                          1)
         positions (map #(point-position x-domain y-domain %) points)
@@ -202,27 +234,27 @@
                  :data-role "portfolio-optimizer-frontier-panel"}
        [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
         [:div
-         [:p {:class ["text-[0.65rem]"
-                      "font-semibold"
+         [:p {:class ["font-mono"
+                      "text-[0.62rem]"
                       "uppercase"
-                      "tracking-[0.24em]"
-                      "text-trading-muted"]}
+                      "tracking-[0.08em]"
+                      "text-trading-muted/70"]}
           "Efficient Frontier"]
-         [:p {:class ["mt-2" "text-sm" "text-trading-muted"]}
-          (str "Click or drag across points to set " (:label target) " and rerun.")]]
-        [:p {:class ["rounded-full"
-                     "border"
-                     "border-primary/40"
-                     "bg-primary/10"
-                     "px-3"
-                     "py-1"
-                     "text-xs"
-	                     "font-semibold"
-	                     "text-primary"]}
-	         (str (count points) " points")]]
-       [:div {:class ["mt-4" "rounded-xl" "border" "border-base-300" "bg-base-200/30" "p-3"]}
+         [:p {:class ["mt-1" "text-xs" "text-trading-muted"]}
+          "Risk vs return — annualized"]]
+        [:p {:class ["font-mono" "text-[0.62rem]" "text-trading-muted/70"]}
+         (str (count points) " points")]]
+       [:div {:class ["relative" "mt-4" "border" "border-base-300" "bg-base-200/30" "p-4"]}
+        [:div {:class ["absolute" "right-6" "top-6" "z-10" "border" "border-base-300" "bg-base-200/80" "px-3" "py-2" "text-[0.65rem]"]
+               :data-role "portfolio-optimizer-frontier-legend"}
+         [:div {:class ["flex" "items-center" "gap-2" "text-trading-muted"]}
+          [:span {:class ["h-2" "w-2" "rounded-full" "bg-info"]}]
+          "Where you are now"]
+         [:div {:class ["mt-1" "flex" "items-center" "gap-2" "text-trading-text"]}
+          [:span {:class ["h-2" "w-2" "rounded-full" "bg-primary"]}]
+          "Recommended target"]]
         [:svg {:viewBox (str "0 0 " chart-width " " chart-height)
-               :class ["h-72" "w-full" "overflow-visible" "text-trading-text"]
+               :class ["h-[23rem]" "w-full" "overflow-visible" "text-trading-text"]
                :data-role "portfolio-optimizer-frontier-svg"}
          [:g {:data-role "portfolio-optimizer-frontier-grid"}
           (map-indexed (partial grid-line :vertical) [0 0.25 0.5 0.75 1])
@@ -250,6 +282,7 @@
          (map-indexed (fn [idx point]
                         (frontier-point draft idx point x-domain y-domain))
                       points)
+         (current-marker result x-domain y-domain)
          (target-marker result x-domain y-domain)
          [:text {:x chart-pad
                  :y (- chart-height 8)
@@ -276,12 +309,11 @@
                  :fontSize 11
                  :opacity 0.65}
           (str "Ret " (format-pct (first y-domain)))]]]
-       [:div {:class ["mt-3" "flex" "flex-wrap" "items-center" "gap-3" "text-xs" "text-trading-muted"]
-              :data-role "portfolio-optimizer-frontier-legend"}
-        [:span {:class ["inline-flex" "items-center" "gap-1"]}
-         [:span {:class ["h-2" "w-2" "rounded-full" "bg-primary"]}]
-         "Frontier points"]
-        [:span {:class ["inline-flex" "items-center" "gap-1"]}
-         [:span {:class ["h-2" "w-2" "rounded-full" "bg-success"]}]
-         "Current target"]
-        [:span "Click or drag a point to set the active target."]]])))
+       [:div {:class ["mt-4" "flex" "gap-3" "text-[0.7rem]" "text-trading-muted"]}
+        [:span {:class ["font-mono" "text-[0.62rem]" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"]}
+         "Reading this"]
+        [:span "·"]
+        [:span
+         (str "Each point is a feasible portfolio. Click or drag a point to set "
+              (:label target)
+              " and rerun.")]]])))

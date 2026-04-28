@@ -327,6 +327,9 @@
                       :covariance (:covariance risk-result)
                       :expected-returns expected-returns})
         cash-warning (min-variance-cash-warning request encoded diagnostics)
+        current-expected-return (math/portfolio-return current-weights* expected-returns)
+        current-volatility (sqrt (math/portfolio-variance current-weights*
+                                                          (:covariance risk-result)))
         expected-return (math/portfolio-return target-weights expected-returns)
         volatility (sqrt (math/portfolio-variance target-weights (:covariance risk-result)))]
     {:status :solved
@@ -338,6 +341,9 @@
      :target-weights-by-instrument (zipmap instrument-ids target-weights)
      :current-weights-by-instrument (zipmap instrument-ids current-weights*)
      :dropped-weights dropped
+     :current-expected-return current-expected-return
+     :current-volatility current-volatility
+     :current-performance (sharpe-summary current-expected-return current-volatility)
      :expected-return expected-return
      :volatility volatility
      :performance (sharpe-summary expected-return volatility)

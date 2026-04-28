@@ -1048,7 +1048,11 @@ test("portfolio optimizer default minimum variance run stores honest target weig
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(page).toHaveURL(/\/portfolio\/optimize\/draft/);
   await expect(page.locator("[data-role='portfolio-optimizer-results-surface']"))
-    .toContainText("Target Exposure");
+    .toContainText("Allocation");
+  await expect(page.locator("[data-role='portfolio-optimizer-scenario-stale-banner']"))
+    .toHaveCount(0);
+  await expect(page.locator("[data-role='portfolio-optimizer-stale-result-banner']"))
+    .toHaveCount(0);
   await expect(page.locator("[data-role='portfolio-optimizer-target-exposure-row-0']"))
     .toContainText("perp:");
 

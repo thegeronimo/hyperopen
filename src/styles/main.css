@@ -230,6 +230,64 @@
     background-color: transparent;
   }
 
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-detail-surface"] {
+    background-color: var(--optimizer-bg);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-provenance-strip"],
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-tabs"],
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-kpi-strip"] {
+    border-radius: 0;
+    background-color: var(--optimizer-surface-2);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-tabs"] {
+    background-color: var(--optimizer-bg);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-results-grid"] {
+    min-height: min(640px, calc(100vh - 280px));
+    overflow: hidden;
+    background-color: var(--optimizer-bg);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-results-left-panel"],
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-results-center-panel"],
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-results-right-panel"] {
+    min-width: 0;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-target-exposure-table"] {
+    border-radius: 0;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-target-exposure-table"] table td {
+    border-bottom: 1px solid var(--optimizer-border);
+    padding: 7px 12px;
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-target-exposure-row-"] {
+    background-color: var(--optimizer-surface-2);
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-target-exposure-asset-"]:hover td,
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-target-exposure-row-"]:hover td {
+    background-color: var(--optimizer-surface-3);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-frontier-panel"],
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-trust-caution-panel"] {
+    border-radius: 0;
+  }
+
+  .portfolio-optimizer-v4 .text-info {
+    color: var(--optimizer-info);
+  }
+
+  .portfolio-optimizer-v4 .bg-info {
+    background-color: var(--optimizer-info);
+  }
+
   .portfolio-optimizer-v4 [data-role="portfolio-optimizer-setup-control-rail"] {
     border-right: 1px solid var(--optimizer-border);
   }

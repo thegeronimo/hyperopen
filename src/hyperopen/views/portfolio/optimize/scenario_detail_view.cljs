@@ -59,6 +59,17 @@
                               #js {:maximumFractionDigits 0}))
     "N/A"))
 
+(defn- format-pct-delta
+  [value]
+  (if (finite-number? value)
+    (let [pct (* 100 value)
+          label (.toLocaleString pct
+                                  "en-US"
+                                  #js {:minimumFractionDigits 2
+                                       :maximumFractionDigits 2})]
+      (str (when (pos? pct) "+") label " pts"))
+    "N/A"))
+
 (defn- format-time
   [ms]
   (if (number? ms)
@@ -228,48 +239,67 @@
         (if running? "Running" "Rerun Scenario")]]]]))
 
 (defn- kpi-card
-  [data-role label value]
-  [:div {:class ["rounded-xl"
-                 "border"
-                 "border-base-300"
-                 "bg-base-100/95"
-                 "p-4"]
+  [data-role label value delta]
+  [:div {:class ["border-r" "border-base-300" "px-3" "py-2.5" "last:border-r-0"]
          :data-role data-role}
-   [:p {:class ["text-[0.65rem]"
-                "font-semibold"
+   [:p {:class ["font-mono"
+                "text-[0.6rem]"
                 "uppercase"
-                "tracking-[0.2em]"
-                "text-trading-muted"]}
+                "tracking-[0.08em]"
+                "text-trading-muted/70"]}
     label]
-   [:p {:class ["mt-2" "text-xl" "font-semibold" "tabular-nums"]}
-    value]])
+   [:p {:class ["mt-1" "font-mono" "text-sm" "font-semibold" "tabular-nums" "text-trading-text"]}
+    value]
+   [:p {:class ["mt-0.5" "font-mono" "text-[0.65rem]" "tabular-nums" "text-trading-green"]}
+    delta]])
 
 (defn- kpi-strip
   [state]
   (let [result* (result state)
         preview (:rebalance-preview result*)
-        performance (:performance result*)]
-    [:section {:class ["grid"
-                       "grid-cols-2"
-                       "gap-3"
-                       "lg:grid-cols-5"]
+        performance (:performance result*)
+        diagnostics (:diagnostics result*)
+        current-return (:current-expected-return result*)
+        current-vol (:current-volatility result*)
+        target-return (:expected-return result*)
+        target-vol (:volatility result*)
+        gross (:gross-exposure diagnostics)
+        net (:net-exposure diagnostics)]
+    [:section {:class ["grid" "grid-cols-2" "border-y" "border-base-300" "bg-base-100/95" "lg:grid-cols-5"]
                :data-role "portfolio-optimizer-scenario-kpi-strip"}
      (kpi-card "portfolio-optimizer-scenario-kpi-expected-return"
-               "Expected Return"
-               (format-pct (:expected-return result*)))
+               "Expected Return · current → target"
+               (if (finite-number? current-return)
+                 [:span [:span {:class ["text-trading-muted"]} (format-pct current-return)]
+                  " → "
+                  (format-pct target-return)]
+                 (format-pct target-return))
+               (if (finite-number? current-return)
+                 (str (format-pct-delta (- (or target-return 0) current-return)) " · annualized")
+                 "annualized"))
      (kpi-card "portfolio-optimizer-scenario-kpi-volatility"
-               "Volatility"
-               (format-pct (:volatility result*)))
+               "Volatility · current → target"
+               (if (finite-number? current-vol)
+                 [:span [:span {:class ["text-trading-muted"]} (format-pct current-vol)]
+                  " → "
+                  (format-pct target-vol)]
+                 (format-pct target-vol))
+               (if (finite-number? current-vol)
+                 (str (format-pct-delta (- (or target-vol 0) current-vol)) " · annualized")
+                 "annualized"))
      (kpi-card "portfolio-optimizer-scenario-kpi-sharpe"
                "Sharpe"
                (format-decimal (or (:shrunk-sharpe performance)
-                                   (:in-sample-sharpe performance))))
+                                   (:in-sample-sharpe performance)))
+               "optimized run")
      (kpi-card "portfolio-optimizer-scenario-kpi-turnover"
-               "Turnover"
-               (format-pct (get-in result* [:diagnostics :turnover])))
+               "Turnover Required"
+               (format-pct (:turnover diagnostics))
+               (str "rebalance " (keyword-label (:status preview))))
      (kpi-card "portfolio-optimizer-scenario-kpi-rebalance"
-               "Rebalance"
-               (keyword-label (:status preview)))]))
+               "Gross / Net"
+               (str (format-pct gross) " / " (format-pct net))
+               "constraint utilization")]))
 
 (defn- stale-banner
   [state]
@@ -305,70 +335,49 @@
         result* (result state)
         history-summary (:history-summary result*)
         constraints (:constraints draft)]
-    [:section {:class ["rounded-xl"
-                       "border"
-                       "border-base-300"
-                       "bg-base-100/95"
-                       "p-4"]
-               :data-role "portfolio-optimizer-provenance-strip"}
-     [:p {:class ["text-[0.65rem]"
-                  "font-semibold"
-                  "uppercase"
-                  "tracking-[0.24em]"
-                  "text-trading-muted"]}
-      "Provenance"]
-     [:div {:class ["mt-3"
-                    "grid"
-                    "grid-cols-2"
-                    "gap-2"
-                    "text-xs"
-                    "md:grid-cols-4"
-                    "xl:grid-cols-6"]}
-      [:div [:span {:class ["text-trading-muted"]} "Objective"] [:p (keyword-label (or (get-in draft [:objective :kind])
-                                                                                       (get-in result* [:solver :objective-kind])))]]
-      [:div [:span {:class ["text-trading-muted"]} "Returns"] [:p (keyword-label (or (:return-model result*)
-                                                                                     (get-in draft [:return-model :kind])))]]
-      [:div [:span {:class ["text-trading-muted"]} "Risk"] [:p (keyword-label (or (:risk-model result*)
-                                                                                  (get-in draft [:risk-model :kind])))]]
-      [:div [:span {:class ["text-trading-muted"]} "Funding"] [:p (if (seq (:return-decomposition-by-instrument result*))
-                                                                    "Included"
-                                                                    "Pending run")]]
-      [:div [:span {:class ["text-trading-muted"]} "History"] [:p (if-let [observations (:return-observations history-summary)]
-                                                                    (str observations " returns")
-                                                                    "N/A")]]
-      [:div [:span {:class ["text-trading-muted"]} "As Of"] [:p (format-time (:as-of-ms result*))]]
-      [:div [:span {:class ["text-trading-muted"]} "Max Weight"] [:p (format-pct (:max-asset-weight constraints))]]
-      [:div [:span {:class ["text-trading-muted"]} "Gross"] [:p (format-decimal (:gross-max constraints))]]
-      [:div [:span {:class ["text-trading-muted"]} "Status"] [:p (keyword-label (get-in state [:portfolio :optimizer :active-scenario :status]))]]
-      [:div [:span {:class ["text-trading-muted"]} "Data"] [:p (if result*
-                                                                 "Last successful run"
-                                                                 "Awaiting run")]]
-      [:div [:span {:class ["text-trading-muted"]} "Capital"] [:p (format-usdc (get-in result* [:rebalance-preview :capital-usd]))]]
-      [:div [:span {:class ["text-trading-muted"]} "Link"] [:a {:class ["text-primary"]
-                                                                 :href (portfolio-routes/portfolio-optimize-scenario-path scenario-id)}
-                                                            scenario-id]]]]))
+    (let [field (fn [label value]
+                  [:div {:class ["border-r" "border-base-300" "px-3" "py-2"]}
+                   [:span {:class ["block" "font-mono" "text-[0.56rem]" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"]}
+                    label]
+                   [:span {:class ["mt-0.5" "block" "text-[0.7rem]" "font-medium" "text-trading-text"]}
+                    value]])
+          fields [(field "Objective"
+                         (keyword-label (or (get-in draft [:objective :kind])
+                                            (get-in result* [:solver :objective-kind]))))
+                  (field "Returns"
+                         (keyword-label (or (:return-model result*)
+                                            (get-in draft [:return-model :kind]))))
+                  (field "Risk"
+                         (keyword-label (or (:risk-model result*)
+                                            (get-in draft [:risk-model :kind]))))
+                  (field "Horizon" "Annualized")
+                  (field "Funding"
+                         (if (seq (:return-decomposition-by-instrument result*))
+                           "Included"
+                           "Pending run"))
+                  (field "Constraints"
+                         (str "gross ≤ " (format-decimal (:gross-max constraints))
+                              " · cap " (format-pct (:max-asset-weight constraints))))
+                  [:div {:class ["ml-auto" "flex" "items-center" "gap-2" "px-3" "py-2" "font-mono" "text-[0.62rem]" "text-trading-muted"]}
+                   [:span "data as of " [:span {:class ["text-trading-muted"]} (format-time (:as-of-ms result*))]]
+                   [:span "·"]
+                   [:a {:class ["text-trading-muted"]
+                        :href (portfolio-routes/portfolio-optimize-scenario-path scenario-id)}
+                    scenario-id]]]]
+      (into
+       [:section {:class ["flex" "flex-wrap" "items-stretch" "border-y" "border-base-300" "bg-base-200/40"]
+                  :data-role "portfolio-optimizer-provenance-strip"}]
+       fields))))
 
 (defn- scenario-tabs
   [scenario-id selected-tab]
   (into
-   [:nav {:class ["flex"
-                  "flex-wrap"
-                  "gap-2"
-                  "rounded-xl"
-                  "border"
-                  "border-base-300"
-                  "bg-base-100/95"
-                  "p-2"]
+   [:nav {:class ["flex" "h-8" "items-stretch" "border-b" "border-base-300" "bg-base-100/95" "pl-4"]
           :data-role "portfolio-optimizer-scenario-tabs"}]
    (map (fn [{:keys [key label data-role]}]
-          [:a {:class (cond-> ["rounded-lg"
-                               "border"
-                               "px-3"
-                               "py-2"
-                               "text-sm"
-                               "font-semibold"]
-                        (= key selected-tab) (conj "border-primary/60" "bg-primary/10" "text-primary")
-                        (not= key selected-tab) (conj "border-base-300" "bg-base-200/40" "text-trading-muted"))
+          [:a {:class (cond-> ["flex" "items-center" "border-b" "px-4" "text-[0.7rem]" "font-medium"]
+                        (= key selected-tab) (conj "border-primary" "text-trading-text")
+                        (not= key selected-tab) (conj "border-transparent" "text-trading-muted"))
                :href (tab-path scenario-id key)
                :data-role data-role
                :aria-current (when (= key selected-tab) "page")
@@ -439,10 +448,10 @@
                :data-role "portfolio-optimizer-scenario-detail-surface"
                :data-scenario-id scenario-id}
      (scenario-header state* scenario-id)
-     (kpi-strip state*)
-     (stale-banner state*)
      (provenance-strip state* scenario-id)
      (scenario-tabs scenario-id selected-tab)
+     (kpi-strip state*)
+     (stale-banner state*)
      (if loading?
        (scenario-loading-state scenario-id)
        (tab-body state* selected-tab))

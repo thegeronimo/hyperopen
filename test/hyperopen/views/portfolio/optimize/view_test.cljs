@@ -547,8 +547,8 @@
     (is (contains? strings "32.00%"))
     (is (contains? strings "0.44"))
     (is (contains? strings "20.00%"))
-    (is (contains? strings "12 returns"))
-    (is (contains? strings "$100,000"))
+    (is (contains? strings "data as of "))
+    (is (contains? strings "gross ≤ 1.5 · cap 40.00%"))
     (is (contains? strings "Draft inputs changed after the last successful run. Rerun before using recommendation or rebalance output."))))
 
 (deftest portfolio-optimizer-inputs-tab-renders-read-only-audit-test
