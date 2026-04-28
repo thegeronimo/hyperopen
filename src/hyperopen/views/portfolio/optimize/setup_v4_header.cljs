@@ -20,7 +20,7 @@
       :else :conservative)))
 
 (defn setup-header
-  [{:keys [draft route running? run-triggerable? saving-scenario? solved-run? result-path]}]
+  [{:keys [draft route]}]
   [:header {:class ["border" "border-base-300" "bg-base-100/90" "px-3" "py-2"]
             :data-role "portfolio-optimizer-setup-header"}
    [:div {:class ["flex" "items-center" "justify-between" "gap-4"]}
@@ -47,31 +47,7 @@
                        "font-mono" "text-[0.65625rem]" "font-semibold" "text-trading-muted"]
                :aria-label "More setup actions"
                :data-role "portfolio-optimizer-setup-overflow"}
-      "..."]
-     [:button {:type "button"
-               :class ["border" "border-base-300" "bg-base-200/30" "px-2.5" "py-1"
-                       "text-[0.65625rem]" "font-medium" "text-trading-text"
-                       "disabled:cursor-not-allowed" "disabled:text-trading-muted"]
-               :data-role "portfolio-optimizer-save-scenario"
-               :disabled (or (not solved-run?) saving-scenario?)
-               :on {:click [[:actions/save-portfolio-optimizer-scenario-from-current]]}}
-      (if saving-scenario? "Saving" "Save draft")]
-     [:button {:type "button"
-               :class ["border" "border-warning/60" "bg-warning/10" "px-2.5" "py-1"
-                       "text-[0.65625rem]" "font-medium" "text-warning"
-                       "disabled:cursor-not-allowed" "disabled:border-base-300"
-                       "disabled:bg-base-200/30" "disabled:text-trading-muted"]
-               :data-role "portfolio-optimizer-run-draft"
-               :disabled (not run-triggerable?)
-               :on {:click [[:actions/run-portfolio-optimizer-from-draft]]}}
-      (if running? "Running Optimization" "Run optimization")]
-     (when solved-run?
-       [:button {:type "button"
-                 :class ["border" "border-warning/60" "bg-warning/10" "px-2.5" "py-1"
-                         "text-[0.65625rem]" "font-medium" "text-warning"]
-                 :data-role "portfolio-optimizer-view-weights"
-                 :on {:click [[:actions/navigate result-path]]}}
-        "View weights"])]]])
+      "..."]]]])
 
 (defn- preset-card
   [draft preset title subtitle kicker]

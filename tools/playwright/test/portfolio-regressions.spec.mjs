@@ -671,6 +671,28 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
 
   await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']")).toBeVisible();
   await expect(page.locator("[data-role='portfolio-optimizer-run-draft']")).toBeDisabled();
+  await expect(page.locator("[data-role='portfolio-optimizer-setup-header'] [data-role='portfolio-optimizer-run-draft']"))
+    .toHaveCount(0);
+  const summaryPane = page.locator("[data-role='portfolio-optimizer-setup-summary-pane']");
+  const assumptionsPanel = page.locator("[data-role='portfolio-optimizer-model-assumptions-panel']");
+  const bottomActions = page.locator("[data-role='portfolio-optimizer-setup-bottom-actions']");
+  const footer = page.locator("[data-parity-id='footer']");
+  await expect(summaryPane.locator("[data-role='portfolio-optimizer-setup-bottom-actions']"))
+    .toBeVisible();
+  await expect(assumptionsPanel).toBeVisible();
+  await expect.poll(async () => {
+    const [summaryBox, assumptionsBox, actionsBox, footerBox] = await Promise.all([
+      summaryPane.boundingBox(),
+      assumptionsPanel.boundingBox(),
+      bottomActions.boundingBox(),
+      footer.boundingBox()
+    ]);
+    if (!summaryBox || !assumptionsBox || !actionsBox || !footerBox) return false;
+    return actionsBox.x >= summaryBox.x
+      && actionsBox.x + actionsBox.width <= summaryBox.x + summaryBox.width + 1
+      && actionsBox.y > assumptionsBox.y + assumptionsBox.height
+      && actionsBox.y < footerBox.y;
+  }).toBe(true);
   await expect(page.locator("[data-role='portfolio-optimizer-draft-state']"))
     .toContainText("Draft clean");
   await expect(page.locator("[data-role='portfolio-optimizer-trust-freshness-panel']"))

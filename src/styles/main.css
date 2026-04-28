@@ -558,6 +558,10 @@
     color: var(--optimizer-accent);
   }
 
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-model-assumptions-panel"][data-v4-note="true"] {
+    padding: 7px 12px;
+  }
+
   .staking-action-popover-surface {
     background-color: var(--staking-action-popover-bg);
   }

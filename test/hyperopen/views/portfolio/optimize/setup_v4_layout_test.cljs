@@ -41,6 +41,19 @@
   [node]
   (get-in node [1 :on :input]))
 
+(defn- count-nodes
+  [node pred]
+  (cond
+    (vector? node)
+    (let [children (node-children node)]
+      (+ (if (pred node) 1 0)
+         (reduce + 0 (map #(count-nodes % pred) children))))
+
+    (seq? node)
+    (reduce + 0 (map #(count-nodes % pred) node))
+
+    :else 0))
+
 (deftest setup-new-route-uses-v4-grid-instead-of-old-left-rail-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}
@@ -107,6 +120,51 @@
            (input-actions
             (node-by-role view-node
                           "portfolio-optimizer-constraint-gross-max-input"))))))
+
+(deftest setup-v4-run-action-renders-under-center-assumptions-panel-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:draft {:universe [{:instrument-id "perp:BTC"
+                                                     :market-type :perp
+                                                     :coin "BTC"}]
+                                         :objective {:kind :minimum-variance}
+                                         :return-model {:kind :historical-mean}
+                                         :risk-model {:kind :diagonal-shrink}
+                                         :constraints {:long-only? true
+                                                       :max-asset-weight 0.25
+                                                       :gross-max 2}}}}})
+        route-surface (node-by-role view-node "portfolio-optimizer-setup-route-surface")
+        header (node-by-role view-node "portfolio-optimizer-setup-header")
+        summary-pane (node-by-role view-node "portfolio-optimizer-setup-summary-pane")
+        assumptions-stack (node-by-role view-node "portfolio-optimizer-model-assumptions-stack")
+        assumptions-panel (node-by-role view-node "portfolio-optimizer-model-assumptions-panel")
+        action-bar (node-by-role view-node "portfolio-optimizer-setup-bottom-actions")
+        run-button (node-by-role action-bar "portfolio-optimizer-run-draft")
+        save-button (node-by-role action-bar "portfolio-optimizer-save-scenario")
+        action-bar-children (vec (node-children action-bar))
+        run-index (.indexOf action-bar-children run-button)
+        save-index (.indexOf action-bar-children save-button)
+        assumptions-stack-children (vec (node-children assumptions-stack))
+        assumptions-index (.indexOf assumptions-stack-children assumptions-panel)
+        action-bar-index (.indexOf assumptions-stack-children action-bar)
+        route-child-action-index (.indexOf (vec (node-children route-surface)) action-bar)]
+    (is (some? summary-pane))
+    (is (some? assumptions-stack))
+    (is (some? action-bar))
+    (is (< assumptions-index action-bar-index))
+    (is (= -1 route-child-action-index))
+    (is (= 0 run-index))
+    (is (= 1 save-index))
+    (is (= 0 (count-nodes header #(= "portfolio-optimizer-run-draft"
+                                     (get-in % [1 :data-role])))))
+    (is (= 1 (count-nodes view-node #(= "portfolio-optimizer-run-draft"
+                                        (get-in % [1 :data-role])))))
+    (is (= false (get-in run-button [1 :disabled])))
+    (is (= [[:actions/run-portfolio-optimizer-from-draft]]
+           (click-actions run-button)))
+    (is (= [[:actions/save-portfolio-optimizer-scenario-from-current]]
+           (click-actions save-button)))))
 
 (deftest setup-v4-constraints-explain-each-control-test
   (let [view-node (portfolio-view/portfolio-view
