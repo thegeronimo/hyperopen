@@ -1221,6 +1221,11 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
   await expect(standaloneCallout).toContainText("Target Weight");
   await expect(standaloneMarkerGroup.locator("title")).toHaveCount(0);
   await expect(standaloneCallout.locator("text[text-anchor='end']")).toHaveCount(4);
+  await expect(standaloneCallout.locator("rect")).toHaveAttribute("stroke", "none");
+  await expect(standaloneCallout.locator("line")).toHaveCount(1);
+  const standaloneFocusRing = standaloneMarkerGroup.locator(".portfolio-frontier-focus-ring");
+  await expect(standaloneFocusRing).toHaveCSS("display", "inline");
+  await expect(standaloneFocusRing).not.toHaveCSS("stroke-dasharray", /3px/);
   expect(await standaloneCallout.evaluate((node) => {
     const rect = node.querySelector("rect").getBBox();
     return [...node.querySelectorAll("text")]

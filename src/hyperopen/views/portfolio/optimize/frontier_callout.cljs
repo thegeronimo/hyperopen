@@ -3,7 +3,7 @@
 
 (def ^:private callout-width 188)
 (def ^:private row-height 16)
-(def ^:private header-height 30)
+(def ^:private header-height 39)
 (def ^:private callout-margin 8)
 
 (defn finite-positive?
@@ -141,14 +141,20 @@
               :height height*
               :rx 2
               :fill "var(--optimizer-surface-2)"
-              :stroke "var(--optimizer-border-strong)"
-              :strokeWidth 1}]
+              :stroke "none"}]
       [:text {:x 10
-              :y 19
+              :y 18
               :fill "var(--optimizer-accent)"
               :fontSize 11
               :fontWeight 700}
-       label]]
+       label]
+      [:line {:x1 10
+              :x2 (- callout-width 10)
+              :y1 27
+              :y2 27
+              :stroke "var(--optimizer-border)"
+              :strokeWidth 1
+              :opacity 0.8}]]
      (map-indexed
       (fn [idx {:keys [label value]}]
         (let [row-y (+ header-height (* row-height idx))]

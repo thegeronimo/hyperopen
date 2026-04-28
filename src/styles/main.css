@@ -370,11 +370,13 @@
     display: none;
     fill: none;
     pointer-events: none;
-    stroke: var(--optimizer-accent);
-    stroke-dasharray: 3 3;
+    stroke: currentColor;
     stroke-width: 2;
+    opacity: 0.9;
+    filter: drop-shadow(0 0 5px currentColor);
   }
 
+  .portfolio-optimizer-v4 .portfolio-frontier-marker:hover .portfolio-frontier-focus-ring,
   .portfolio-optimizer-v4 .portfolio-frontier-marker:focus .portfolio-frontier-focus-ring,
   .portfolio-optimizer-v4
     .portfolio-frontier-marker:focus-within

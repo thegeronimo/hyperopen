@@ -224,6 +224,9 @@
     (is (some? contribution-callout))
     (is (empty? (collect-nodes view-node #(= :title (first %))))
         "SVG native title nodes should not create a second browser tooltip.")
+    (is (= "none" (node-attr (first (collect-nodes standalone-callout #(= :rect (first %)))) :stroke)))
+    (is (some? (first (collect-nodes standalone-callout #(= :line (first %)))))
+        "Callouts should visually separate the title from metric rows.")
     (is (= "end" (node-attr (text-node standalone-callout "40.00%") :text-anchor)))
     (is (nil? (node-attr (text-node standalone-callout "40.00%") :textAnchor)))
     (is (= #{"Target Portfolio"

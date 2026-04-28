@@ -59,14 +59,17 @@
   (or (:label point) (:instrument-id point)))
 
 (defn- marker-shell-attrs
-  [data-role label rows]
+  ([data-role label rows]
+   (marker-shell-attrs data-role label rows nil))
+  ([data-role label rows color]
   {:data-role data-role
    :role "img"
    :tabIndex 0
    :tabindex 0
    :focusable "true"
    :class ["portfolio-frontier-marker" "outline-none"]
-   :aria-label (frontier-callout/aria-label label rows)})
+   :aria-label (frontier-callout/aria-label label rows)
+   :style (when color {:color color})}))
 
 (defn- standalone-marker
   [{:keys [bounds point-position x-domain y-domain point]}]
@@ -80,7 +83,8 @@
          (str "portfolio-optimizer-frontier-overlay-standalone-"
               (:instrument-id point))
          label
-         rows)
+         rows
+         standalone-color)
      [:rect {:x (- x 5)
              :y (- y 5)
              :width 10
@@ -132,7 +136,8 @@
          (str "portfolio-optimizer-frontier-overlay-contribution-"
               (:instrument-id point))
          label
-         rows)
+         rows
+         contribution-color)
      [:path {:d (triangle-path x y)
              :fill "none"
              :stroke contribution-color
