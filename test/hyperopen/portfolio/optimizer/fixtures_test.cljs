@@ -39,14 +39,20 @@
                             :coin "SOL"}]})
         current (fixtures/sample-current-portfolio
                  {:capital {:nav-usdc 50000}
-                  :by-instrument {"perp:SOL" {:weight 1}}})]
+                  :by-instrument {"perp:SOL" {:weight 1}}})
+        result (fixtures/sample-solved-result
+                {:instrument-ids ["perp:SOL"]
+                 :target-weights-by-instrument {"perp:SOL" 1}
+                 :current-weights-by-instrument {"perp:SOL" 0}})]
     (is (= "custom-scenario" (:id draft)))
     (is (= ["perp:SOL"] (instrument-ids (:universe draft))))
     (is (= false (get-in draft [:constraints :long-only?])))
     (is (= -0.1 (get-in draft [:constraints :net-min])))
     (is (= 0.85 (get-in draft [:constraints :max-asset-weight])))
     (is (= 50000 (get-in current [:capital :nav-usdc])))
-    (is (= {"perp:SOL" {:weight 1}} (:by-instrument current)))))
+    (is (= {"perp:SOL" {:weight 1}} (:by-instrument current)))
+    (is (= {"perp:SOL" 1} (:target-weights-by-instrument result)))
+    (is (= {"perp:SOL" 0} (:current-weights-by-instrument result)))))
 
 (deftest sample-solved-result-is-internally-aligned-test
   (let [result (fixtures/sample-solved-result)

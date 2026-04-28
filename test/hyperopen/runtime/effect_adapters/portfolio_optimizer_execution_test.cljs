@@ -1,5 +1,6 @@
 (ns hyperopen.runtime.effect-adapters.portfolio-optimizer-execution-test
   (:require [cljs.test :refer-macros [async deftest is]]
+            [hyperopen.portfolio.optimizer.fixtures :as fixtures]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer :as portfolio-optimizer-adapters]
             [hyperopen.test-support.async :as async-support]))
 
@@ -135,10 +136,10 @@
                                     :status :saved
                                     :metadata {:dirty? false
                                                :updated-at-ms 900}}
-                           :saved-run {:result {:status :solved
-                                                :expected-return 0.2
-                                                :volatility 0.4
-                                                :rebalance-preview {:status :ready}}}
+                           :saved-run (fixtures/sample-last-successful-run
+                                       {:result {:expected-return 0.2
+                                                 :volatility 0.4
+                                                 :rebalance-preview {:status :ready}}})
                            :execution-ledger []
                            :updated-at-ms 900}
           scenario-index {:ordered-ids ["scn_submit"]

@@ -1,5 +1,6 @@
 (ns hyperopen.runtime.effect-adapters.portfolio-optimizer-tracking-test
   (:require [cljs.test :refer-macros [async deftest is]]
+            [hyperopen.portfolio.optimizer.fixtures :as fixtures]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer :as portfolio-optimizer-adapters]
             [hyperopen.test-support.async :as async-support]))
 
@@ -8,14 +9,15 @@
     (let [saved-records (atom [])
           ticks (atom [2000])
           store (atom {:portfolio {:optimizer
-                                   {:active-scenario {:loaded-id "scn_track"
+                                    {:active-scenario {:loaded-id "scn_track"
                                                       :status :executed}
                                     :last-successful-run
-                                    {:result {:status :solved
-                                              :scenario-id "scn_track"
-                                              :instrument-ids ["perp:BTC"]
-                                              :target-weights [0.6]
-                                              :expected-return 0.18}}}}
+                                    (fixtures/sample-last-successful-run
+                                     {:result {:scenario-id "scn_track"
+                                               :instrument-ids ["perp:BTC"]
+                                               :target-weights [0.6]
+                                               :target-weights-by-instrument {"perp:BTC" 0.6}
+                                               :expected-return 0.18}})}}
                        :webdata2 {:clearinghouseState
                                   {:marginSummary {:accountValue "1000"}
                                    :assetPositions
@@ -69,8 +71,8 @@
                                     :return-model {:kind :historical-mean}
                                     :risk-model {:kind :diagonal-shrink}
                                     :metadata {:dirty? false}}
-                           :saved-run {:computed-at-ms 1000
-                                       :result {:status :solved}}
+                           :saved-run (fixtures/sample-last-successful-run
+                                       {:computed-at-ms 1000})
                            :created-at-ms 1000
                            :updated-at-ms 1000}
           loaded-index {:ordered-ids ["scn_track"]
@@ -141,10 +143,11 @@
                                     :return-model {:kind :historical-mean}
                                     :risk-model {:kind :diagonal-shrink}
                                     :metadata {:dirty? false}}
-                           :saved-run {:computed-at-ms 2000
-                                       :result {:status :solved
-                                                :instrument-ids ["perp:BTC"]
-                                                :target-weights [0.6]}}
+                           :saved-run (fixtures/sample-last-successful-run
+                                       {:computed-at-ms 2000
+                                        :result {:instrument-ids ["perp:BTC"]
+                                                 :target-weights [0.6]
+                                                 :target-weights-by-instrument {"perp:BTC" 0.6}}})
                            :updated-at-ms 3000}
           tracking-record {:scenario-id "scn_track"
                            :updated-at-ms 4000
@@ -190,8 +193,8 @@
                                     :return-model {:kind :historical-mean}
                                     :risk-model {:kind :diagonal-shrink}
                                     :metadata {:dirty? false}}
-                           :saved-run {:computed-at-ms 2000
-                                       :result {:status :solved}}
+                           :saved-run (fixtures/sample-last-successful-run
+                                       {:computed-at-ms 2000})
                            :updated-at-ms 3000}
           store (atom {:portfolio
                        {:optimizer

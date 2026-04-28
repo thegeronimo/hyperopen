@@ -1,5 +1,6 @@
 (ns hyperopen.runtime.effect-adapters.portfolio-optimizer-test
   (:require [cljs.test :refer-macros [async deftest is]]
+            [hyperopen.portfolio.optimizer.fixtures :as fixtures]
             [hyperopen.runtime.effect-adapters :as effect-adapters]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer :as portfolio-optimizer-adapters]
             [hyperopen.test-support.async :as async-support]))
@@ -114,10 +115,10 @@
   (async done
     (let [calls (atom [])
           address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-          solved-run {:result {:status :solved
-                               :expected-return 0.18
-                               :volatility 0.42}
-                      :computed-at-ms 2000}
+          solved-run (fixtures/sample-last-successful-run
+                      {:result {:expected-return 0.18
+                                :volatility 0.42}
+                       :computed-at-ms 2000})
           store (atom {:wallet {:address address}
                        :portfolio {:optimizer
                                    {:draft {:name "Core Hedge"
@@ -160,10 +161,10 @@
   (async done
     (let [calls (atom [])
           address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-          solved-run {:result {:status :solved
-                               :expected-return 0.12
-                               :volatility 0.3}
-                      :computed-at-ms 2500}
+          solved-run (fixtures/sample-last-successful-run
+                      {:result {:expected-return 0.12
+                                :volatility 0.3}
+                       :computed-at-ms 2500})
           store (atom {:router {:path "/portfolio/optimize/new"}
                        :wallet {:address address}
                        :portfolio {:optimizer
@@ -258,10 +259,10 @@
                                     :return-model {:kind :historical-mean}
                                     :risk-model {:kind :diagonal-shrink}
                                     :metadata {:dirty? false}}
-                           :saved-run {:computed-at-ms 2000
-                                       :result {:status :solved
-                                                :expected-return 0.18
-                                                :volatility 0.42}}
+                           :saved-run (fixtures/sample-last-successful-run
+                                       {:computed-at-ms 2000
+                                        :result {:expected-return 0.18
+                                                 :volatility 0.42}})
                            :updated-at-ms 3000}
           store (atom {:portfolio {:optimizer {}}})
           calls (atom [])]
@@ -311,7 +312,7 @@
                                     :status :saved
                                     :metadata {:dirty? false
                                                :updated-at-ms 3000}}
-                           :saved-run {:result {:status :solved}}
+                           :saved-run (fixtures/sample-last-successful-run)
                            :updated-at-ms 3000}
           scenario-index {:ordered-ids ["scn_02" "scn_01"]
                           :by-id {"scn_02" {:id "scn_02"
@@ -379,9 +380,9 @@
                                     :status :partially-executed
                                     :metadata {:dirty? false
                                                :updated-at-ms 3000}}
-                           :saved-run {:result {:status :solved
-                                                :expected-return 0.18
-                                                :volatility 0.42}}
+                           :saved-run (fixtures/sample-last-successful-run
+                                       {:result {:expected-return 0.18
+                                                 :volatility 0.42}})
                            :execution-ledger [{:row-id "row-1"}]
                            :updated-at-ms 3000}
           scenario-index {:ordered-ids ["scn_01"]

@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.execution-modal-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.portfolio.optimizer.fixtures :as fixtures]
             [hyperopen.views.portfolio-view :as portfolio-view]))
 
 (defn- node-children
@@ -38,32 +39,34 @@
   (get-in node [1 :on :click]))
 
 (def solved-result
-  {:status :solved
-   :instrument-ids ["perp:BTC"]
-   :current-weights [0.1]
-   :target-weights [0.2]
-   :expected-return 0.12
-   :volatility 0.24
-   :return-decomposition-by-instrument
-   {"perp:BTC" {:return-component 0.1
-                :funding-component 0.02
-                :funding-source :market-funding-history}}
-   :diagnostics {:gross-exposure 0.2
-                 :net-exposure 0.2
-                 :effective-n 1
-                 :turnover 0.1}
-   :rebalance-preview
-   {:status :ready
-    :capital-usd 10000
-    :summary {:ready-count 1
-              :blocked-count 0
-              :gross-trade-notional-usd 1000}
-    :rows [{:instrument-id "perp:BTC"
-            :instrument-type :perp
-            :status :ready
-            :side :buy
-            :quantity 0.25
-            :delta-notional-usd 1000}]}})
+  (fixtures/sample-solved-result
+   {:instrument-ids ["perp:BTC"]
+    :current-weights [0.1]
+    :target-weights [0.2]
+    :target-weights-by-instrument {"perp:BTC" 0.2}
+    :current-weights-by-instrument {"perp:BTC" 0.1}
+    :expected-return 0.12
+    :volatility 0.24
+    :return-decomposition-by-instrument
+    {"perp:BTC" {:return-component 0.1
+                 :funding-component 0.02
+                 :funding-source :market-funding-history}}
+    :diagnostics {:gross-exposure 0.2
+                  :net-exposure 0.2
+                  :effective-n 1
+                  :turnover 0.1}
+    :rebalance-preview
+    {:status :ready
+     :capital-usd 10000
+     :summary {:ready-count 1
+               :blocked-count 0
+               :gross-trade-notional-usd 1000}
+     :rows [{:instrument-id "perp:BTC"
+             :instrument-type :perp
+             :status :ready
+             :side :buy
+             :quantity 0.25
+             :delta-notional-usd 1000}]}}))
 
 (deftest results-rebalance-preview-opens-execution-modal-test
   (let [view-node (portfolio-view/portfolio-view

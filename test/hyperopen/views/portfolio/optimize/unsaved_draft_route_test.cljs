@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.unsaved-draft-route-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.portfolio.optimizer.fixtures :as fixtures]
             [hyperopen.views.portfolio-view :as portfolio-view]))
 
 (defn- node-children
@@ -25,33 +26,37 @@
   (find-first-node node #(= role (get-in % [1 :data-role]))))
 
 (def solved-run
-  {:computed-at-ms 1714137600000
-   :request-signature {:seed 1}
-   :result {:status :solved
-            :as-of-ms 1714137600000
-            :instrument-ids ["perp:BTC" "perp:ETH"]
-            :current-weights [0.1 0.2]
-            :target-weights [0.35 0.15]
-            :expected-return 0.14
-            :volatility 0.32
-            :performance {:shrunk-sharpe 0.44}
-            :history-summary {:return-observations 12}
-            :return-model :historical-mean
-            :risk-model :diagonal-shrink
-            :frontier []
-            :return-decomposition-by-instrument
-            {"perp:BTC" {:return-component 0.1
-                         :funding-component 0.02}
-             "perp:ETH" {:return-component 0.08
-                         :funding-component 0.01}}
-            :diagnostics {:gross-exposure 0.5
-                          :net-exposure 0.5
-                          :effective-n 2
-                          :turnover 0.2}
-            :rebalance-preview {:status :ready
-                                :capital-usd 100000
-                                :summary {:ready-count 2}
-                                :rows []}}})
+  (fixtures/sample-last-successful-run
+   {:computed-at-ms 1714137600000
+    :request-signature {:seed 1}
+    :result {:as-of-ms 1714137600000
+             :instrument-ids ["perp:BTC" "perp:ETH"]
+             :current-weights [0.1 0.2]
+             :target-weights [0.35 0.15]
+             :target-weights-by-instrument {"perp:BTC" 0.35
+                                            "perp:ETH" 0.15}
+             :current-weights-by-instrument {"perp:BTC" 0.1
+                                             "perp:ETH" 0.2}
+             :expected-return 0.14
+             :volatility 0.32
+             :performance {:shrunk-sharpe 0.44}
+             :history-summary {:return-observations 12}
+             :return-model :historical-mean
+             :risk-model :diagonal-shrink
+             :frontier []
+             :return-decomposition-by-instrument
+             {"perp:BTC" {:return-component 0.1
+                          :funding-component 0.02}
+              "perp:ETH" {:return-component 0.08
+                          :funding-component 0.01}}
+             :diagnostics {:gross-exposure 0.5
+                           :net-exposure 0.5
+                           :effective-n 2
+                           :turnover 0.2}
+             :rebalance-preview {:status :ready
+                                 :capital-usd 100000
+                                 :summary {:ready-count 2}
+                                 :rows []}}}))
 
 (deftest unsaved-draft-results-route-renders-last-run-weights-test
   (let [view-node (portfolio-view/portfolio-view

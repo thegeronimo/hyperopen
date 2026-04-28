@@ -1,22 +1,23 @@
 (ns hyperopen.portfolio.optimizer.application.tracking-test
   (:require [cljs.test :refer-macros [deftest is]]
-            [hyperopen.portfolio.optimizer.application.tracking :as tracking]))
+            [hyperopen.portfolio.optimizer.application.tracking :as tracking]
+            [hyperopen.portfolio.optimizer.fixtures :as fixtures]))
 
 (def solved-run
-  {:result {:status :solved
-            :scenario-id "scn_track"
-            :instrument-ids ["perp:BTC" "perp:ETH"]
-            :target-weights [0.6 -0.2]
-            :expected-return 0.18
-            :volatility 0.32}})
+  (fixtures/sample-last-successful-run
+   {:result {:scenario-id "scn_track"
+             :instrument-ids ["perp:BTC" "perp:ETH"]
+             :target-weights [0.6 -0.2]
+             :expected-return 0.18
+             :volatility 0.32}}))
 
 (def current-snapshot
-  {:loaded? true
-   :capital {:nav-usdc 1000}
-   :exposures [{:instrument-id "perp:BTC"
-                :signed-notional-usdc 500}
-               {:instrument-id "perp:ETH"
-                :signed-notional-usdc -100}]})
+  (fixtures/sample-current-portfolio
+   {:capital {:nav-usdc 1000}
+    :exposures [{:instrument-id "perp:BTC"
+                 :signed-notional-usdc 500}
+                {:instrument-id "perp:ETH"
+                 :signed-notional-usdc -100}]}))
 
 (defn- near?
   [expected actual]

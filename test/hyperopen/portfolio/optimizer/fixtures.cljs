@@ -10,12 +10,18 @@
 
 (def ^:private replace-on-override
   #{:by-instrument
+    :current-weights-by-instrument
     :exposures
+    :fee-bps-by-id
     :frontier
+    :funding-history-by-coin
     :instrument-ids
     :markets
     :ordered-ids
+    :prices-by-id
+    :return-decomposition-by-instrument
     :rows
+    :target-weights-by-instrument
     :target-weights
     :universe})
 

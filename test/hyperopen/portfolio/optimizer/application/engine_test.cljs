@@ -3,6 +3,7 @@
             [hyperopen.portfolio.optimizer.application.engine :as engine]
             [hyperopen.portfolio.optimizer.application.request-builder :as request-builder]
             [hyperopen.portfolio.optimizer.defaults :as defaults]
+            [hyperopen.portfolio.optimizer.fixtures :as fixtures]
             [hyperopen.portfolio.optimizer.infrastructure.solver-adapter :as solver-adapter]))
 
 (defn- near?
@@ -10,40 +11,44 @@
   (< (js/Math.abs (- expected actual)) 0.000001))
 
 (def base-request
-  {:scenario-id "scenario-1"
-   :universe [{:instrument-id "perp:BTC"
-               :market-type :perp
-               :coin "BTC"}
-              {:instrument-id "perp:ETH"
-               :market-type :perp
-               :coin "ETH"}]
-   :current-portfolio {:capital {:nav-usdc 10000}
-                       :by-instrument {"perp:BTC" {:weight 0.6}
-                                       "perp:ETH" {:weight 0.4}}}
-   :return-model {:kind :historical-mean}
-   :risk-model {:kind :sample-covariance}
-   :objective {:kind :minimum-variance}
-   :constraints {:long-only? true
-                 :max-asset-weight 0.8
-                 :rebalance-tolerance 0.001}
-   :execution-assumptions {:fallback-slippage-bps 20
-                           :prices-by-id {"perp:BTC" 100
-                                          "perp:ETH" 50}
-                           :fee-bps-by-id {"perp:BTC" 4
-                                           "perp:ETH" 5}}
-   :history {:return-series-by-instrument {"perp:BTC" [0.01 0.02 0.03]
-                                           "perp:ETH" [0.02 0.01 0.0]}
-             :return-calendar [100 200 300]
-             :freshness {:oldest-common-ms 0
-                         :latest-common-ms 300
-                         :age-ms 700
-                         :stale? false}
-             :funding-by-instrument {"perp:BTC" {:annualized-carry 0.05
-                                                 :source :market-funding-history}
-                                     "perp:ETH" {:annualized-carry -0.01
-                                                 :source :market-funding-history}}}
-   :warnings []
-   :as-of-ms 1000})
+  (fixtures/sample-engine-request
+   {:draft (fixtures/sample-draft
+            {:id "scenario-1"
+             :universe [{:instrument-id "perp:BTC"
+                         :market-type :perp
+                         :coin "BTC"}
+                        {:instrument-id "perp:ETH"
+                         :market-type :perp
+                         :coin "ETH"}]
+             :return-model {:kind :historical-mean}
+             :risk-model {:kind :sample-covariance}
+             :objective {:kind :minimum-variance}
+             :constraints {:long-only? true
+                           :max-asset-weight 0.8
+                           :rebalance-tolerance 0.001}
+             :execution-assumptions {:fallback-slippage-bps 20
+                                     :prices-by-id {"perp:BTC" 100
+                                                    "perp:ETH" 50}
+                                     :fee-bps-by-id {"perp:BTC" 4
+                                                    "perp:ETH" 5}}})
+    :current-portfolio (fixtures/sample-current-portfolio
+                        {:capital {:nav-usdc 10000}
+                         :by-instrument {"perp:BTC" {:weight 0.6}
+                                         "perp:ETH" {:weight 0.4}}})
+    :history-data {:candle-history-by-coin
+                   {"BTC" [{:time-ms 0 :close "100"}
+                           {:time-ms 100 :close "101"}
+                           {:time-ms 200 :close "103.02"}
+                           {:time-ms 300 :close "106.1106"}]
+                    "ETH" [{:time-ms 0 :close "100"}
+                           {:time-ms 100 :close "102"}
+                           {:time-ms 200 :close "103.02"}
+                           {:time-ms 300 :close "103.02"}]}
+                   :funding-history-by-coin
+                   {"BTC" [{:time-ms 0 :funding-rate-raw 0.000045662100456621}]
+                    "ETH" [{:time-ms 0 :funding-rate-raw -0.000009132420091324}]}}
+    :market-cap-by-coin {}
+    :as-of-ms 1000}))
 
 (deftest run-optimization-assembles-solved-result-with-diagnostics-and-rebalance-preview-test
   (let [calls (atom [])

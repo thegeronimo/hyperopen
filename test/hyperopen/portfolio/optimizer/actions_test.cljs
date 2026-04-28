@@ -1,6 +1,7 @@
 (ns hyperopen.portfolio.optimizer.actions-test
   (:require [cljs.test :refer-macros [deftest is]]
-            [hyperopen.portfolio.optimizer.actions :as actions]))
+            [hyperopen.portfolio.optimizer.actions :as actions]
+            [hyperopen.portfolio.optimizer.fixtures :as fixtures]))
 
 (deftest run-portfolio-optimizer-emits-registered-worker-effect-test
   (let [request {:scenario-id "scenario-1"
@@ -79,10 +80,13 @@
 (deftest save-portfolio-optimizer-scenario-from-current-requires-solved-run-test
   (is (= [[:effects/save-portfolio-optimizer-scenario]]
          (actions/save-portfolio-optimizer-scenario-from-current
-          {:portfolio {:optimizer {:last-successful-run {:result {:status :solved}}}}})))
+          {:portfolio {:optimizer {:last-successful-run
+                                    (fixtures/sample-last-successful-run)}}})))
   (is (= []
          (actions/save-portfolio-optimizer-scenario-from-current
-          {:portfolio {:optimizer {:last-successful-run {:result {:status :infeasible}}}}})))
+          {:portfolio {:optimizer {:last-successful-run
+                                    (fixtures/sample-last-successful-run
+                                     {:result {:status :infeasible}})}}})))
   (is (= []
          (actions/save-portfolio-optimizer-scenario-from-current
           {:portfolio {:optimizer {}}}))))

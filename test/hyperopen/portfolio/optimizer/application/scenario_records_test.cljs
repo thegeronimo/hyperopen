@@ -1,17 +1,18 @@
 (ns hyperopen.portfolio.optimizer.application.scenario-records-test
   (:require [cljs.test :refer-macros [deftest is]]
-            [hyperopen.portfolio.optimizer.application.scenario-records :as scenario-records]))
+            [hyperopen.portfolio.optimizer.application.scenario-records :as scenario-records]
+            [hyperopen.portfolio.optimizer.fixtures :as fixtures]))
 
 (def solved-run
-  {:request-signature {:scenario-id "draft-1"}
-   :computed-at-ms 2000
-   :result {:status :solved
-            :expected-return 0.18
-            :volatility 0.42
-            :diagnostics {:turnover 0.12}
-            :rebalance-preview {:status :partially-blocked
-                                :summary {:ready-count 1
-                                          :blocked-count 1}}}})
+  (fixtures/sample-last-successful-run
+   {:request-signature {:scenario-id "draft-1"}
+    :computed-at-ms 2000
+    :result {:expected-return 0.18
+             :volatility 0.42
+             :diagnostics {:turnover 0.12}
+             :rebalance-preview {:status :partially-blocked
+                                 :summary {:ready-count 1
+                                           :blocked-count 1}}}}))
 
 (deftest build-saved-scenario-record-preserves-config-run-and-summary-test
   (let [draft {:name "Core Hedge"

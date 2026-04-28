@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.view-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.portfolio.optimizer.fixtures :as fixtures]
             [hyperopen.views.portfolio-view :as portfolio-view]))
 
 (defn- node-children
@@ -290,10 +291,9 @@
                                  :run-state {:status :running
                                              :run-id "run-1"
                                              :started-at-ms 2400}
-                                 :last-successful-run {:result {:status :solved
-                                                                :instrument-ids ["perp:BTC"
-                                                                                 "spot:PURR"]}
-                                                       :computed-at-ms 2000}}}})
+                                 :last-successful-run (fixtures/sample-last-successful-run
+                                                       {:computed-at-ms 2000
+                                                        :result {:instrument-ids ["perp:BTC" "spot:PURR"]}})}}})
         run-button (node-by-role view-node "portfolio-optimizer-run-draft")
         view-weights-link (node-by-role view-node "portfolio-optimizer-view-weights")
         results-link (node-by-role view-node "portfolio-optimizer-results-link")
@@ -495,31 +495,29 @@
                                          :constraints {:max-asset-weight 0.4
                                                        :gross-max 1.5}}
                                  :last-successful-run
-                                 {:computed-at-ms 1714137600000
-                                  :request-signature {:seed 1}
-                                  :result {:status :solved
-                                           :as-of-ms 1714137600000
-                                           :instrument-ids ["perp:BTC" "perp:ETH"]
-                                           :current-weights [0.1 0.2]
-                                           :target-weights [0.35 0.15]
-                                           :expected-return 0.14
-                                           :volatility 0.32
-                                           :performance {:shrunk-sharpe 0.44}
-                                           :history-summary {:return-observations 12
-                                                             :stale? false}
-                                           :return-model :historical-mean
-                                           :risk-model :diagonal-shrink
-                                           :return-decomposition-by-instrument
-                                           {"perp:BTC" {:return-component 0.1
-                                                        :funding-component 0.02}
-                                            "perp:ETH" {:return-component 0.08
-                                                        :funding-component 0.01}}
-                                           :diagnostics {:turnover 0.2}
-                                           :rebalance-preview {:status :ready
-                                                               :capital-usd 100000
-                                                               :summary {:ready-count 2
-                                                                         :blocked-count 0}
-                                                               :rows []}}}}}})
+                                 (fixtures/sample-last-successful-run
+                                  {:computed-at-ms 1714137600000
+                                   :request-signature {:seed 1}
+                                   :result {:as-of-ms 1714137600000
+                                            :instrument-ids ["perp:BTC" "perp:ETH"]
+                                            :current-weights [0.1 0.2]
+                                            :target-weights [0.35 0.15]
+                                            :target-weights-by-instrument {"perp:BTC" 0.35 "perp:ETH" 0.15}
+                                            :current-weights-by-instrument {"perp:BTC" 0.1 "perp:ETH" 0.2}
+                                            :expected-return 0.14
+                                            :volatility 0.32
+                                            :performance {:shrunk-sharpe 0.44}
+                                            :history-summary {:return-observations 12 :stale? false}
+                                            :return-model :historical-mean
+                                            :risk-model :diagonal-shrink
+                                            :return-decomposition-by-instrument
+                                            {"perp:BTC" {:return-component 0.1 :funding-component 0.02}
+                                             "perp:ETH" {:return-component 0.08 :funding-component 0.01}}
+                                            :diagnostics {:turnover 0.2}
+                                            :rebalance-preview {:status :ready
+                                                                :capital-usd 100000
+                                                                :summary {:ready-count 2 :blocked-count 0}
+                                                                :rows []}}})}}})
         strings (set (collect-strings view-node))]
     (is (some? (node-by-role view-node "portfolio-optimizer-scenario-header")))
     (is (some? (node-by-role view-node "portfolio-optimizer-scenario-status-tag")))
@@ -601,8 +599,8 @@
                                          :universe [{:instrument-id "perp:OLD"
                                                      :market-type :perp
                                                      :coin "OLD"}]}
-                                 :last-successful-run {:result {:status :solved
-                                                                :instrument-ids ["perp:OLD"]}}
+                                 :last-successful-run (fixtures/sample-last-successful-run
+                                                       {:result {:instrument-ids ["perp:OLD"]}})
                                  :tracking {:scenario-id "scn_old"
                                             :snapshots
                                             [{:scenario-id "scn_old"
@@ -631,8 +629,8 @@
                                          :universe [{:instrument-id "perp:UNSAVED"
                                                      :market-type :perp
                                                      :coin "UNSAVED"}]}
-                                 :last-successful-run {:result {:status :solved
-                                                                :instrument-ids ["perp:UNSAVED"]}}}}})
+                                 :last-successful-run (fixtures/sample-last-successful-run
+                                                       {:result {:instrument-ids ["perp:UNSAVED"]}})}}})
         strings (set (collect-strings view-node))]
     (is (some? (node-by-role view-node "portfolio-optimizer-scenario-loading-state")))
     (is (contains? strings "Scenario scn_loading"))

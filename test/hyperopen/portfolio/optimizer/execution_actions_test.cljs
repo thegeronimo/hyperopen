@@ -1,20 +1,23 @@
 (ns hyperopen.portfolio.optimizer.execution-actions-test
   (:require [cljs.test :refer-macros [deftest is]]
-            [hyperopen.portfolio.optimizer.actions :as actions]))
+            [hyperopen.portfolio.optimizer.actions :as actions]
+            [hyperopen.portfolio.optimizer.fixtures :as fixtures]))
 
 (deftest execution-modal-actions-save-plan-from-last-successful-run-test
   (let [state {:portfolio {:optimizer
                            {:draft {:id "draft-1"
                                     :execution-assumptions {:default-order-type :market}}
                             :last-successful-run
-                            {:result {:status :solved
-                                      :rebalance-preview
-                                      {:rows [{:instrument-id "perp:BTC"
-                                               :instrument-type :perp
-                                               :status :ready
-                                               :side :buy
-                                               :quantity 0.25
-                                               :delta-notional-usd 1000}]}}}}}}]
+                            (fixtures/sample-last-successful-run
+                             {:result {:rebalance-preview
+                                       {:summary {:estimated-fees-usd nil
+                                                  :estimated-slippage-usd nil}
+                                        :rows [{:instrument-id "perp:BTC"
+                                                :instrument-type :perp
+                                                :status :ready
+                                                :side :buy
+                                                :quantity 0.25
+                                                :delta-notional-usd 1000}]}}})}}}]
     (is (= [[:effects/save
              [:portfolio :optimizer :execution-modal]
              {:open? true
@@ -57,7 +60,9 @@
 (deftest open-execution-modal-requires-solved-run-test
   (is (= []
          (actions/open-portfolio-optimizer-execution-modal
-          {:portfolio {:optimizer {:last-successful-run {:result {:status :infeasible}}}}}))))
+          {:portfolio {:optimizer {:last-successful-run
+                                    (fixtures/sample-last-successful-run
+                                     {:result {:status :infeasible}})}}}))))
 
 (deftest confirm-execution-modal-dispatches-execution-effect-test
   (let [plan {:scenario-id "draft-1"
