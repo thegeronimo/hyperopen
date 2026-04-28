@@ -60,7 +60,8 @@
      (infeasible-panel/infeasible-banner infeasible-result highlighted-controls)
      [:section {:class ["grid"
                         "grid-cols-1"
-                        "gap-4"
+                        "gap-5"
+                        "xl:gap-6"
                         "xl:grid-cols-[minmax(420px,7fr)_minmax(0,11fr)_minmax(360px,6fr)]"]
                 :data-role "portfolio-optimizer-setup-surface"}
       (setup-v4/control-rail {:state state

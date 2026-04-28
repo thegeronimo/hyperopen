@@ -221,10 +221,13 @@
   .portfolio-optimizer-v4
     :is(
       [data-role="portfolio-optimizer-setup-control-rail"],
-      [data-role="portfolio-optimizer-setup-summary-pane"],
       [data-role="portfolio-optimizer-right-rail"]
     ) {
     background-color: var(--optimizer-surface);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-setup-summary-pane"] {
+    background-color: transparent;
   }
 
   .portfolio-optimizer-v4 [data-role="portfolio-optimizer-setup-control-rail"] {

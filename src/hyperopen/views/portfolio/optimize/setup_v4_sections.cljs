@@ -319,15 +319,16 @@
         return-kind (get-in draft [:return-model :kind])
         constraints (:constraints draft)
         bl? (= :black-litterman return-kind)]
-    [:main {:class ["space-y-3"] :data-role "portfolio-optimizer-setup-summary-pane"}
-     [:section {:class ["border" "border-base-300" "bg-base-100/90"]
-                :data-role "portfolio-optimizer-setup-summary-panel"}
-      [:div {:class ["border-b" "border-base-300" "px-4" "py-3"]}
+    [:main {:class ["space-y-4"] :data-role "portfolio-optimizer-setup-summary-pane"}
+     [:div {:class ["px-1" "pt-2" "pb-1"]
+            :data-role "portfolio-optimizer-setup-summary-heading"}
        [:p {:class eyebrow-class} "Summary"]
        [:h2 {:class ["mt-2" "text-[0.875rem]" "font-medium" "tracking-[-0.01em]"]}
         (if bl?
           "What your views will change"
           "What this scenario will solve for")]]
+     [:section {:class ["border" "border-base-300" "bg-base-100/90"]
+                :data-role "portfolio-optimizer-setup-summary-panel"}
       (summary-row "Preset" (labelize preset)
                    "You can deviate from the preset below without changing the universe.")
       (summary-row "Universe" (universe-summary draft)
