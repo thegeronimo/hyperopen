@@ -774,6 +774,9 @@ test("portfolio optimizer manual universe builder adds and removes assets @regre
   await expect(page.locator("[data-role='portfolio-optimizer-draft-state']"))
     .toContainText("Draft has unsaved changes");
   await expect(ethRemove).toBeVisible();
+  await expect(searchInput).toHaveValue("");
+  await expect(page.locator("[data-role='portfolio-optimizer-universe-search-results']"))
+    .toHaveCount(0);
   await expect(ethCandidate).toHaveCount(0);
   await expect(page.locator("[data-role='portfolio-optimizer-universe-panel']"))
     .toContainText("Requires history reload after adding new assets.");
@@ -784,6 +787,8 @@ test("portfolio optimizer manual universe builder adds and removes assets @regre
   await ethRemove.click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(ethRemove).toHaveCount(0);
+  await searchInput.fill("eth");
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(ethCandidate).toBeVisible();
 });
 
@@ -819,6 +824,9 @@ test("portfolio optimizer manual universe search supports keyboard selection @re
   await expect(
     page.locator(`[data-role='portfolio-optimizer-universe-remove-${selectedMarketKey}']`)
   ).toBeVisible();
+  await expect(searchInput).toHaveValue("");
+  await expect(page.locator("[data-role='portfolio-optimizer-universe-search-results']"))
+    .toHaveCount(0);
 });
 
 test("portfolio optimizer selected universe keeps remove controls visible for long assets @regression", async ({ page }) => {

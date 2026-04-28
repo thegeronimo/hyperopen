@@ -42,6 +42,10 @@
                  :coin "ETH"
                  :shortable? true
                  :symbol "ETH-USDC"}]]
+              [[:portfolio-ui :optimizer :universe-search-query]
+               ""]
+              [[:portfolio-ui :optimizer :universe-search-active-index]
+               0]
               [[:portfolio :optimizer :draft :metadata :dirty?]
                true]]]]
            (actions/handle-portfolio-optimizer-universe-search-keydown

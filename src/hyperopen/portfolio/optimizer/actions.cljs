@@ -360,8 +360,7 @@
     (optimizer-query-state/normalize-results-tab tab)]
    [:effects/replace-shareable-route-query]])
 
-(defn add-portfolio-optimizer-universe-instrument
-  [state market-key]
+(defn add-portfolio-optimizer-universe-instrument [state market-key]
   (let [market-key* (non-blank-text market-key)
         universe (draft-universe state)
         market (get-in state [:asset-selector :market-by-key market-key*])
@@ -370,8 +369,9 @@
     (if (and instrument
              (not (instrument-present? universe instrument-id)))
       (save-draft-path-values
-       [[[:portfolio :optimizer :draft :universe]
-         (conj universe instrument)]])
+       [[[:portfolio :optimizer :draft :universe] (conj universe instrument)]
+        [[:portfolio-ui :optimizer :universe-search-query] ""]
+        [[:portfolio-ui :optimizer :universe-search-active-index] 0]])
       [])))
 
 (defn remove-portfolio-optimizer-universe-instrument

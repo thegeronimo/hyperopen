@@ -434,6 +434,10 @@
                  :symbol "ETH-USDC"
                  :base "ETH"
                  :quote "USDC"}]]
+              [[:portfolio-ui :optimizer :universe-search-query]
+               ""]
+              [[:portfolio-ui :optimizer :universe-search-active-index]
+               0]
               [[:portfolio :optimizer :draft :metadata :dirty?]
                true]]]]
            (actions/add-portfolio-optimizer-universe-instrument
@@ -452,6 +456,10 @@
                  :symbol "PURR/USDC"
                  :base "PURR"
                  :quote "USDC"}]]
+              [[:portfolio-ui :optimizer :universe-search-query]
+               ""]
+              [[:portfolio-ui :optimizer :universe-search-active-index]
+               0]
               [[:portfolio :optimizer :draft :metadata :dirty?]
                true]]]]
            (actions/add-portfolio-optimizer-universe-instrument
