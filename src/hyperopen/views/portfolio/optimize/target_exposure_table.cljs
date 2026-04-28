@@ -12,17 +12,50 @@
   (if (finite-number? value)
     (str (.toLocaleString (* 100 value)
                           "en-US"
-                          #js {:minimumFractionDigits 2
-                               :maximumFractionDigits 2})
+                          #js {:minimumFractionDigits 1
+                               :maximumFractionDigits 1})
          "%")
     "N/A"))
 
-(defn- format-usdc
+(defn- format-delta-pct
   [value]
   (if (finite-number? value)
-    (str "$" (.toLocaleString value
-                              "en-US"
-                              #js {:maximumFractionDigits 0}))
+    (let [pct (* 100 value)]
+      (str (when (pos? pct) "+")
+           (.toLocaleString pct
+                             "en-US"
+                             #js {:minimumFractionDigits 1
+                                  :maximumFractionDigits 1})))
+    "N/A"))
+
+(defn- format-compact-usdc
+  [value]
+  (if (finite-number? value)
+    (let [abs-value (js/Math.abs value)
+          sign (cond
+                 (pos? value) "+"
+                 (neg? value) "-"
+                 :else "")]
+      (cond
+        (>= abs-value 1000000)
+        (str sign "$"
+             (.toLocaleString (/ abs-value 1000000)
+                               "en-US"
+                               #js {:maximumFractionDigits 1})
+             "m")
+
+        (>= abs-value 1000)
+        (str sign "$"
+             (.toLocaleString (/ abs-value 1000)
+                               "en-US"
+                               #js {:maximumFractionDigits 0})
+             "k")
+
+        :else
+        (str sign "$"
+             (.toLocaleString abs-value
+                               "en-US"
+                               #js {:maximumFractionDigits 0}))))
     "N/A"))
 
 (defn- signed-label
@@ -39,6 +72,19 @@
         base (first (str/split unprefixed #"[/-]"))]
     (if (seq base) base value)))
 
+(defn- leg-label
+  [instrument-id current-weight target-weight]
+  (let [value (str instrument-id)
+        market-type (first (str/split value #":"))]
+    (case market-type
+      "spot" "spot"
+      "perp" (cond
+               (neg? (or target-weight 0)) "perp short"
+               (pos? (or target-weight 0)) "perp long"
+               (neg? (or current-weight 0)) "perp short"
+               :else "perp long")
+      value)))
+
 (defn- data-role-token
   [value]
   (-> (str value)
@@ -46,47 +92,59 @@
       (str/replace #"(^-+|-+$)" "")))
 
 (defn- exposure-row
-  [idx binding-instrument-ids instrument-id capital-usd current-weight target-weight]
+  [idx binding-instrument-ids hidden? instrument-id capital-usd current-weight target-weight]
   (let [current-notional (* (or capital-usd 0) (or current-weight 0))
         target-notional (* (or capital-usd 0) (or target-weight 0))
         delta (- (or target-weight 0) (or current-weight 0))
         binding? (contains? binding-instrument-ids instrument-id)]
-    [:tr {:class (when binding? ["bg-warning/10"])
+    [:tr {:class (cond-> []
+                  binding? (conj "bg-warning/10")
+                  hidden? (conj "hidden"))
           :data-role (str "portfolio-optimizer-target-exposure-row-" idx)
           :data-binding (when binding? "true")
           :data-current-sign (signed-label current-weight)
           :data-target-sign (signed-label target-weight)}
-     [:td {:class ["pl-8" "text-trading-muted"]} instrument-id]
+     [:td {:class ["text-trading-muted"]} ""]
+     [:td {:class ["pl-8" "text-trading-muted"]} (leg-label instrument-id current-weight target-weight)]
      [:td {:class ["font-mono" "text-right" "tabular-nums"]} (format-pct current-weight)]
      [:td {:class ["font-mono" "text-right" "tabular-nums"]} (format-pct target-weight)]
      [:td {:class [(if (neg? delta) "text-trading-red" "text-trading-green")
                    "font-mono" "text-right" "tabular-nums"]}
-      (format-pct delta)]
+      (format-delta-pct delta)]
      [:td {:class [(if (neg? delta) "text-trading-red" "text-trading-green")
                    "font-mono" "text-right" "tabular-nums"]}
-      (format-usdc (- target-notional current-notional))]]))
+      (format-compact-usdc (- target-notional current-notional))]]))
 
 (defn- exposure-group-row
-  [asset capital-usd rows]
+  [asset capital-usd binding-instrument-ids rows]
   (let [current-weight (reduce + 0 (map :current-weight rows))
         target-weight (reduce + 0 (map :target-weight rows))
-        delta (- target-weight current-weight)]
+        delta (- target-weight current-weight)
+        binding? (some #(contains? binding-instrument-ids (:instrument-id %)) rows)
+        expandable? (> (count rows) 1)]
     [:tr {:class ["cursor-pointer"]
           :data-role (str "portfolio-optimizer-target-exposure-asset-"
                           (data-role-token asset))
           :data-target-sign (signed-label target-weight)}
+     [:td {:class ["w-5" "font-mono" "text-trading-muted/70"]}
+      (when expandable? "▾")]
      [:td {:class ["font-mono" "font-semibold" "text-trading-text"]}
       [:span {:data-role (str "portfolio-optimizer-target-exposure-group-"
                               (data-role-token asset))}
-       asset]]
+       asset]
+      (when binding?
+        [:span {:class ["ml-2" "border" "border-warning/50" "px-1.5" "py-0.5"
+                        "font-mono" "text-[0.5rem]" "font-semibold" "uppercase"
+                        "tracking-[0.08em]" "text-warning"]}
+         "capped"])]
      [:td {:class ["font-mono" "text-right" "font-semibold" "tabular-nums"]} (format-pct current-weight)]
      [:td {:class ["font-mono" "text-right" "font-semibold" "tabular-nums"]} (format-pct target-weight)]
      [:td {:class [(if (neg? delta) "text-trading-red" "text-trading-green")
                    "font-mono" "text-right" "font-semibold" "tabular-nums"]}
-      (format-pct delta)]
+      (format-delta-pct delta)]
      [:td {:class [(if (neg? delta) "text-trading-red" "text-trading-green")
                    "font-mono" "text-right" "font-semibold" "tabular-nums"]}
-      (format-usdc (* (or capital-usd 0) delta))]]))
+      (format-compact-usdc (* (or capital-usd 0) delta))]]))
 
 (defn target-exposure-table
   [result]
@@ -120,9 +178,10 @@
                  :class ["px-3" "py-1" "text-trading-muted"]}
         "By Leg"]]]
      [:div {:class ["overflow-auto"]}
-      [:table {:class ["w-full" "border-collapse" "text-[0.7rem]"]}
+      [:table {:class ["w-full" "border-collapse" "text-[0.6875rem]"]}
        [:thead
         [:tr
+         [:th {:class ["sticky" "top-0" "w-5" "border-b" "border-base-300" "bg-base-100" "px-2" "py-1.5" "text-left" "font-mono" "text-[0.58rem]" "font-normal" "uppercase" "tracking-[0.06em]" "text-trading-muted/70"]} ""]
          [:th {:class ["sticky" "top-0" "border-b" "border-base-300" "bg-base-100" "px-3" "py-2" "text-left" "font-mono" "text-[0.58rem]" "font-normal" "uppercase" "tracking-[0.06em]" "text-trading-muted/70"]} "Asset"]
          [:th {:class ["sticky" "top-0" "border-b" "border-base-300" "bg-base-100" "px-3" "py-2" "text-right" "font-mono" "text-[0.58rem]" "font-normal" "uppercase" "tracking-[0.06em]" "text-trading-muted/70"]} "Current"]
          [:th {:class ["sticky" "top-0" "border-b" "border-base-300" "bg-base-100" "px-3" "py-2" "text-right" "font-mono" "text-[0.58rem]" "font-normal" "uppercase" "tracking-[0.06em]" "text-trading-muted/70"]} "Target"]
@@ -133,10 +192,11 @@
         (mapcat
          (fn [[asset asset-rows]]
            (concat
-            [(exposure-group-row asset capital-usd asset-rows)]
+            [(exposure-group-row asset capital-usd binding-instrument-ids asset-rows)]
             (map (fn [{:keys [idx instrument-id current-weight target-weight]}]
                    (exposure-row idx
                                  binding-instrument-ids
+                                 (= 1 (count asset-rows))
                                  instrument-id
                                  capital-usd
                                  current-weight

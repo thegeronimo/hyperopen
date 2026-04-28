@@ -42,9 +42,13 @@
     (:parameter-key target)
     (:parameter-value target)]])
 
-(def ^:private chart-width 640)
-(def ^:private chart-height 280)
+(def ^:private chart-width 680)
+(def ^:private chart-height 380)
 (def ^:private chart-pad 42)
+(def ^:private chart-grid-stroke "#1d2025")
+(def ^:private chart-axis-stroke "#292d33")
+(def ^:private current-halo-stroke "rgba(107, 141, 181, 0.45)")
+(def ^:private target-halo-stroke "rgba(212, 181, 88, 0.45)")
 
 (defn- numeric-values
   [points key]
@@ -111,15 +115,13 @@
               :x2 x
               :y1 chart-pad
               :y2 (- chart-height chart-pad)
-              :stroke "currentColor"
-              :strokeOpacity "0.08"}]
+              :stroke chart-grid-stroke}]
       [:line {:key (str "h-" idx)
               :x1 chart-pad
               :x2 (- chart-width chart-pad)
               :y1 y
               :y2 y
-              :stroke "currentColor"
-              :strokeOpacity "0.08"}])))
+              :stroke chart-grid-stroke}])))
 
 (defn- frontier-point
   [draft idx point x-domain y-domain]
@@ -145,8 +147,7 @@
                :cy y
                :r 11
                :fill "transparent"
-               :stroke "currentColor"
-               :strokeOpacity "0.16"}]
+               :stroke "rgba(212, 181, 88, 0.16)"}]
      [:title
       (str "Return " (format-pct (:expected-return point))
            ", volatility " (format-pct (:volatility point))
@@ -169,8 +170,7 @@
                :cy y
                :r 12
                :fill "transparent"
-               :stroke "currentColor"
-               :strokeOpacity "0.45"}]
+               :stroke target-halo-stroke}]
      [:text {:x (+ x 10)
              :y (- y 10)
              :fill "currentColor"
@@ -197,8 +197,7 @@
                  :cy y
                  :r 11
                  :fill "transparent"
-                 :stroke "currentColor"
-                 :strokeOpacity "0.45"}]
+                 :stroke current-halo-stroke}]
        [:text {:x (+ x 10)
                :y (+ y 16)
                :fill "currentColor"
@@ -230,7 +229,7 @@
         positions (map #(point-position x-domain y-domain %) points)
         target (objective-target draft (first points))]
     (when (seq points)
-      [:section {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
+      [:section {:class ["bg-transparent"]
                  :data-role "portfolio-optimizer-frontier-panel"}
        [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
         [:div
@@ -244,7 +243,8 @@
           "Risk vs return — annualized"]]
         [:p {:class ["font-mono" "text-[0.62rem]" "text-trading-muted/70"]}
          (str (count points) " points")]]
-       [:div {:class ["relative" "mt-4" "border" "border-base-300" "bg-base-200/30" "p-4"]}
+       [:div {:class ["relative" "mt-4" "border" "border-base-300" "bg-base-100" "p-4"]
+              :data-role "portfolio-optimizer-frontier-chart-box"}
         [:div {:class ["absolute" "right-6" "top-6" "z-10" "border" "border-base-300" "bg-base-200/80" "px-3" "py-2" "text-[0.65rem]"]
                :data-role "portfolio-optimizer-frontier-legend"}
          [:div {:class ["flex" "items-center" "gap-2" "text-trading-muted"]}
@@ -254,7 +254,7 @@
           [:span {:class ["h-2" "w-2" "rounded-full" "bg-primary"]}]
           "Recommended target"]]
         [:svg {:viewBox (str "0 0 " chart-width " " chart-height)
-               :class ["h-[23rem]" "w-full" "overflow-visible" "text-trading-text"]
+               :class ["h-[23.75rem]" "w-full" "overflow-visible" "text-trading-text"]
                :data-role "portfolio-optimizer-frontier-svg"}
          [:g {:data-role "portfolio-optimizer-frontier-grid"}
           (map-indexed (partial grid-line :vertical) [0 0.25 0.5 0.75 1])
@@ -263,14 +263,12 @@
                  :x2 (- chart-width chart-pad)
                  :y1 (- chart-height chart-pad)
                  :y2 (- chart-height chart-pad)
-                 :stroke "currentColor"
-                 :strokeOpacity "0.22"}]
+                 :stroke chart-axis-stroke}]
          [:line {:x1 chart-pad
                  :x2 chart-pad
                  :y1 chart-pad
                  :y2 (- chart-height chart-pad)
-                 :stroke "currentColor"
-                 :strokeOpacity "0.22"}]
+                 :stroke chart-axis-stroke}]
          [:path {:d (path-data positions)
                  :fill "none"
                  :stroke "currentColor"

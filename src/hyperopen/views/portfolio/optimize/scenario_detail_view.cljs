@@ -9,18 +9,10 @@
             [hyperopen.views.portfolio.optimize.tracking-panel :as tracking-panel]))
 
 (def ^:private tabs
-  [{:key :recommendation
-    :label "Recommendation"
-    :data-role "portfolio-optimizer-scenario-tab-recommendation"}
-   {:key :rebalance
-    :label "Rebalance preview"
-    :data-role "portfolio-optimizer-scenario-tab-rebalance"}
-   {:key :tracking
-    :label "Tracking"
-    :data-role "portfolio-optimizer-scenario-tab-tracking"}
-   {:key :inputs
-    :label "Inputs"
-    :data-role "portfolio-optimizer-scenario-tab-inputs"}])
+  [{:key :recommendation :label "Recommendation" :data-role "portfolio-optimizer-scenario-tab-recommendation"}
+   {:key :rebalance :label "Rebalance preview" :data-role "portfolio-optimizer-scenario-tab-rebalance"}
+   {:key :tracking :label "Tracking" :data-role "portfolio-optimizer-scenario-tab-tracking"}
+   {:key :inputs :label "Inputs" :data-role "portfolio-optimizer-scenario-tab-inputs"}])
 
 (defn- keyword-label
   [value]
@@ -28,6 +20,23 @@
     (keyword? value) (name value)
     (some? value) (str value)
     :else "N/A"))
+
+(defn- display-label
+  [value]
+  (case (cond
+          (keyword? value) value
+          (string? value) (keyword value)
+          :else value)
+    :minimum-variance "Minimum variance"
+    :max-sharpe "Maximum Sharpe"
+    :target-volatility "Target volatility"
+    :target-return "Target return"
+    :historical-mean "Historical mean"
+    :ew-mean "EW mean"
+    :black-litterman "Black-Litterman"
+    :diagonal-shrink "Stabilized covariance"
+    :sample-covariance "Sample covariance"
+    (keyword-label value)))
 
 (defn- finite-number?
   [value]
@@ -162,6 +171,15 @@
        "?otab="
        (name tab-key)))
 
+(defn- copy-scenario-link!
+  [scenario-id]
+  (fn [_event]
+    (let [clipboard (some-> js/globalThis .-navigator .-clipboard)]
+      (when (some-> clipboard .-writeText)
+        (.writeText clipboard
+                    (str (.-origin js/location)
+                         (portfolio-routes/portfolio-optimize-scenario-path scenario-id)))))))
+
 (defn- scenario-header
   [state scenario-id]
   (let [status (get-in state [:portfolio :optimizer :active-scenario :status])
@@ -169,13 +187,13 @@
         running? (= :running (get-in state [:portfolio :optimizer :run-state :status]))
         save-state (get-in state [:portfolio :optimizer :scenario-save-state :status])
         saving? (= :saving save-state)]
-    [:header {:class ["rounded-xl"
-                      "border"
+    [:header {:class ["border-b"
                       "border-base-300"
                       "bg-base-100/95"
-                      "p-4"]
+                      "px-5"
+                      "py-3"]
               :data-role "portfolio-optimizer-scenario-header"}
-     [:div {:class ["flex" "flex-wrap" "items-start" "justify-between" "gap-4"]}
+     [:div {:class ["flex" "flex-wrap" "items-end" "justify-between" "gap-4"]}
       [:div
        [:p {:class ["text-[0.65rem]"
                     "font-semibold"
@@ -183,34 +201,46 @@
                     "tracking-[0.24em]"
                     "text-trading-muted"]}
         "Scenario"]
-       [:div {:class ["mt-2" "flex" "flex-wrap" "items-center" "gap-3"]}
-        [:h1 {:class ["text-2xl" "font-semibold" "tracking-tight"]}
+       [:div {:class ["mt-1" "flex" "flex-wrap" "items-center" "gap-2"]}
+        [:h1 {:class ["text-lg" "font-medium" "tracking-[-0.01em]"]}
          (scenario-name state scenario-id)]
+        [:span {:class ["text-[0.8125rem]" "text-trading-muted"]}
+         (str "/ scenario id " scenario-id
+              (when read-only? " · read-only"))]
         [:span {:class ["rounded-full"
                         "border"
                         "border-base-300"
                         "bg-base-200/60"
-                        "px-2.5"
-                        "py-1"
-                        "text-[0.65rem]"
+                        "px-2"
+                        "py-0.5"
+                        "text-[0.58rem]"
                         "font-semibold"
                         "uppercase"
                         "tracking-[0.14em]"
                         "text-trading-muted"]
                 :data-role "portfolio-optimizer-scenario-status-tag"}
-         (keyword-label status)]]
-       [:p {:class ["mt-2" "text-xs" "text-trading-muted"]}
-        (str "Scenario id " scenario-id
-             (when read-only? " · read-only"))]]
-      [:div {:class ["flex" "flex-wrap" "gap-2"]}
+         (keyword-label status)]]]
+      [:div {:class ["flex" "flex-wrap" "items-center" "gap-2"]}
+       [:button {:type "button"
+                 :class ["border"
+                         "border-base-300"
+                         "bg-base-200/30"
+                         "px-2"
+                         "py-1"
+                         "font-mono"
+                         "text-[0.65625rem]"
+                         "font-semibold"
+                         "text-trading-muted"]
+                 :aria-label "More scenario actions"}
+        "..."]
        [:button {:type "button"
                  :class ["rounded-lg"
                          "border"
                          "border-base-300"
                          "bg-base-200/40"
-                         "px-3"
-                         "py-2"
-                         "text-sm"
+                         "px-2.5"
+                         "py-1"
+                         "text-[0.65625rem]"
                          "font-semibold"
                          "text-trading-text"
                          "disabled:cursor-not-allowed"
@@ -218,15 +248,15 @@
                  :data-role "portfolio-optimizer-scenario-save"
                  :disabled saving?
                  :on {:click [[:actions/save-portfolio-optimizer-scenario-from-current]]}}
-        (if saving? "Saving" "Save Scenario")]
+        (if saving? "Saving" "Save scenario")]
        [:button {:type "button"
                  :class ["rounded-lg"
                          "border"
                          "border-primary/50"
                          "bg-primary/10"
-                         "px-3"
-                         "py-2"
-                         "text-sm"
+                         "px-2.5"
+                         "py-1"
+                         "text-[0.65625rem]"
                          "font-semibold"
                          "text-primary"
                          "disabled:cursor-not-allowed"
@@ -236,7 +266,7 @@
                  :data-role "portfolio-optimizer-scenario-rerun"
                  :disabled running?
                  :on {:click [[:actions/run-portfolio-optimizer-from-draft]]}}
-        (if running? "Running" "Rerun Scenario")]]]]))
+        (if running? "Running" "Rerun")]]]]))
 
 (defn- kpi-card
   [data-role label value delta]
@@ -267,16 +297,6 @@
         net (:net-exposure diagnostics)]
     [:section {:class ["grid" "grid-cols-2" "border-y" "border-base-300" "bg-base-100/95" "lg:grid-cols-5"]
                :data-role "portfolio-optimizer-scenario-kpi-strip"}
-     (kpi-card "portfolio-optimizer-scenario-kpi-expected-return"
-               "Expected Return · current → target"
-               (if (finite-number? current-return)
-                 [:span [:span {:class ["text-trading-muted"]} (format-pct current-return)]
-                  " → "
-                  (format-pct target-return)]
-                 (format-pct target-return))
-               (if (finite-number? current-return)
-                 (str (format-pct-delta (- (or target-return 0) current-return)) " · annualized")
-                 "annualized"))
      (kpi-card "portfolio-optimizer-scenario-kpi-volatility"
                "Volatility · current → target"
                (if (finite-number? current-vol)
@@ -286,6 +306,16 @@
                  (format-pct target-vol))
                (if (finite-number? current-vol)
                  (str (format-pct-delta (- (or target-vol 0) current-vol)) " · annualized")
+                 "annualized"))
+     (kpi-card "portfolio-optimizer-scenario-kpi-expected-return"
+               "Expected Return · current → target"
+               (if (finite-number? current-return)
+                 [:span [:span {:class ["text-trading-muted"]} (format-pct current-return)]
+                  " → "
+                  (format-pct target-return)]
+                 (format-pct target-return))
+               (if (finite-number? current-return)
+                 (str (format-pct-delta (- (or target-return 0) current-return)) " · annualized")
                  "annualized"))
      (kpi-card "portfolio-optimizer-scenario-kpi-sharpe"
                "Sharpe"
@@ -342,13 +372,13 @@
                    [:span {:class ["mt-0.5" "block" "text-[0.7rem]" "font-medium" "text-trading-text"]}
                     value]])
           fields [(field "Objective"
-                         (keyword-label (or (get-in draft [:objective :kind])
+                         (display-label (or (get-in draft [:objective :kind])
                                             (get-in result* [:solver :objective-kind]))))
                   (field "Returns"
-                         (keyword-label (or (:return-model result*)
+                         (display-label (or (:return-model result*)
                                             (get-in draft [:return-model :kind]))))
                   (field "Risk"
-                         (keyword-label (or (:risk-model result*)
+                         (display-label (or (:risk-model result*)
                                             (get-in draft [:risk-model :kind]))))
                   (field "Horizon" "Annualized")
                   (field "Funding"
@@ -363,7 +393,13 @@
                    [:span "·"]
                    [:a {:class ["text-trading-muted"]
                         :href (portfolio-routes/portfolio-optimize-scenario-path scenario-id)}
-                    scenario-id]]]]
+                    scenario-id]
+                   [:button {:type "button"
+                             :class ["border" "border-base-300" "bg-base-200/40" "px-2" "py-1" "font-mono"
+                                     "text-[0.58rem]" "uppercase" "tracking-[0.08em]" "text-trading-muted"]
+                             :data-role "portfolio-optimizer-copy-scenario-link"
+                             :on {:click (copy-scenario-link! scenario-id)}}
+                    "Copy link"]]]]
       (into
        [:section {:class ["flex" "flex-wrap" "items-stretch" "border-y" "border-base-300" "bg-base-200/40"]
                   :data-role "portfolio-optimizer-provenance-strip"}]
@@ -399,7 +435,7 @@
 
 (defn- recommendation-tab
   [state]
-  [:section {:class ["space-y-4"]
+  [:section {:class ["space-y-0"]
              :data-role "portfolio-optimizer-recommendation-tab"}
    (if (solved-result? state)
      (results-panel/results-panel
@@ -444,7 +480,7 @@
         loading? (route-mismatched? state scenario-id)
         state* (scenario-scoped-state state scenario-id)
         selected-tab (active-tab state)]
-    [:section {:class ["portfolio-optimizer-v4" "space-y-4" "text-trading-text"]
+    [:section {:class ["portfolio-optimizer-v4" "space-y-0" "text-trading-text"]
                :data-role "portfolio-optimizer-scenario-detail-surface"
                :data-scenario-id scenario-id}
      (scenario-header state* scenario-id)

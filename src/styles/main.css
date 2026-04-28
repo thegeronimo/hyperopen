@@ -234,6 +234,27 @@
     background-color: var(--optimizer-bg);
   }
 
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-header"] {
+    border-width: 0 0 1px 0;
+    border-radius: 0;
+    background-color: var(--optimizer-bg);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-header"] h1 {
+    color: var(--optimizer-text);
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-status-tag"] {
+    border-color: var(--optimizer-border-strong);
+    border-radius: 2px;
+    background-color: var(--optimizer-bg);
+    color: var(--optimizer-text-2);
+  }
+
   .portfolio-optimizer-v4 [data-role="portfolio-optimizer-provenance-strip"],
   .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-tabs"],
   .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-kpi-strip"] {
@@ -243,10 +264,41 @@
 
   .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-tabs"] {
     background-color: var(--optimizer-bg);
+    height: 32px;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-tabs"] a {
+    min-height: 32px;
+    font-size: 11px;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-kpi-strip"] {
+    background-color: var(--optimizer-bg);
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-scenario-kpi-"] {
+    padding: 10px;
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-scenario-kpi-"] p:first-child {
+    color: var(--optimizer-text-3);
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-scenario-kpi-"] p:nth-child(2) {
+    color: var(--optimizer-text);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-scenario-kpi-"] p:nth-child(3) {
+    font-size: 10.5px;
   }
 
   .portfolio-optimizer-v4 [data-role="portfolio-optimizer-results-grid"] {
-    min-height: min(640px, calc(100vh - 280px));
+    min-height: min(674px, calc(100vh - 236px));
     overflow: hidden;
     background-color: var(--optimizer-bg);
   }
@@ -257,16 +309,32 @@
     min-width: 0;
   }
 
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-results-left-panel"],
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-results-center-panel"] {
+    background-color: var(--optimizer-bg);
+  }
+
   .portfolio-optimizer-v4 [data-role="portfolio-optimizer-target-exposure-table"] {
     border-radius: 0;
+    background-color: var(--optimizer-bg);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-target-exposure-table"] table th {
+    background-color: var(--optimizer-surface);
+    color: var(--optimizer-text-3);
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    padding: 6px 10px;
   }
 
   .portfolio-optimizer-v4 [data-role="portfolio-optimizer-target-exposure-table"] table td {
     border-bottom: 1px solid var(--optimizer-border);
-    padding: 7px 12px;
+    background-color: var(--optimizer-bg);
+    color: var(--optimizer-text);
+    padding: 6px 10px;
   }
 
-  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-target-exposure-row-"] {
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-target-exposure-row-"] td {
     background-color: var(--optimizer-surface-2);
   }
 
@@ -278,6 +346,27 @@
   .portfolio-optimizer-v4 [data-role="portfolio-optimizer-frontier-panel"],
   .portfolio-optimizer-v4 [data-role="portfolio-optimizer-trust-caution-panel"] {
     border-radius: 0;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-frontier-panel"] {
+    background-color: transparent;
+    border: 0;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-frontier-chart-box"] {
+    background-color: var(--optimizer-surface);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-trust-caution-panel"] {
+    background-color: var(--optimizer-surface);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-trust-caution-panel"] > div:first-child {
+    padding: 12px 14px;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-trust-caution-panel"] [data-role="portfolio-optimizer-diagnostics-panel"] > div {
+    padding: 10px;
   }
 
   .portfolio-optimizer-v4 .text-info {

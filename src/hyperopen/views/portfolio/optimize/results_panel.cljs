@@ -25,6 +25,16 @@
     (.toLocaleString value "en-US" #js {:maximumFractionDigits 3})
     "N/A"))
 
+(defn- format-effective-n
+  [value universe-size]
+  (if (finite-number? value)
+    (.toLocaleString (if (pos? universe-size)
+                       (min value universe-size)
+                       value)
+                     "en-US"
+                     #js {:maximumFractionDigits 1})
+    "N/A"))
+
 (defn- format-usdc
   [value]
   (if (finite-number? value)
@@ -65,47 +75,6 @@
    [:p {:class ["mt-2" "text-sm" "text-trading-muted"]} subtitle]
    (into [:div {:class ["mt-4" "space-y-2"]}]
          children)])
-
-(defn- row-shell
-  [& children]
-  (into [:div {:class ["grid"
-                       "grid-cols-[minmax(8rem,1.1fr)_repeat(4,minmax(5rem,0.8fr))]"
-                       "gap-3"
-                       "rounded-lg"
-                       "border"
-                       "border-base-300"
-                       "bg-base-200/40"
-                       "p-3"
-                       "text-xs"
-                       "tabular-nums"]}]
-        children))
-
-(defn- decomposition-row
-  [instrument-id decomposition]
-  (row-shell
-   [:span {:class ["font-semibold" "text-trading-text"]} instrument-id]
-   [:span (format-pct (:return-component decomposition))]
-   [:span (format-pct (:funding-component decomposition))]
-   [:span (keyword-label (:funding-source decomposition))]
-   [:span (format-pct (+ (or (:return-component decomposition) 0)
-                         (or (:funding-component decomposition) 0)))]))
-
-(defn- return-decomposition
-  [result]
-  (let [by-id (:return-decomposition-by-instrument result)]
-    (panel-shell
-     "portfolio-optimizer-return-decomposition"
-     "Funding Decomposition"
-     "Perp funding is shown separately from price-return estimates so expected returns are auditable."
-     (row-shell
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Instrument"]
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Return"]
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Funding"]
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Source"]
-      [:span {:class ["font-semibold" "text-trading-muted"]} "Total"])
-     (map (fn [instrument-id]
-            (decomposition-row instrument-id (get by-id instrument-id)))
-          (:instrument-ids result)))))
 
 (defn- binding-constraint-row
   [binding]
@@ -240,7 +209,7 @@
                   :subtext "Correlation matrix is checked before weights are accepted."})
       (trust-row {:label "Diversification"
                   :status :ok
-                  :value (str "Effective N · " (format-decimal effective-n) " of " universe-size)
+                  :value (str "Effective N · " (format-effective-n effective-n universe-size) " of " universe-size)
                   :subtext "Higher effective N means less concentration in one name."})
       (trust-row {:label "Weight Stability"
                   :status weight-stability-status
@@ -468,12 +437,11 @@
        [:section {:class ["space-y-0"]
                   :data-role "portfolio-optimizer-results-surface"}
         (stale-result-banner stale?)
-        [:div {:class ["grid" "grid-cols-1" "xl:grid-cols-[minmax(28rem,8fr)_minmax(32rem,10fr)_minmax(20rem,6fr)]"]
+        [:div {:class ["grid" "grid-cols-1" "xl:grid-cols-[500px_minmax(0,1fr)_320px]"]
                :data-role "portfolio-optimizer-results-grid"}
          [:div {:class ["min-h-0" "space-y-0"]
                 :data-role "portfolio-optimizer-results-left-panel"}
-          (target-exposure-table/target-exposure-table result)
-          (return-decomposition result)]
+          (target-exposure-table/target-exposure-table result)]
          [:div {:class ["min-h-0" "bg-base-100" "p-6"]
                 :data-role "portfolio-optimizer-results-center-panel"}
           (frontier-chart/frontier-chart draft result)]
