@@ -1,27 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.frontier-chart
-  (:require [clojure.string :as str]))
-
-(defn- finite-number?
-  [value]
-  (and (number? value)
-       (not (js/isNaN value))
-       (js/isFinite value)))
-
-(defn- format-pct
-  [value]
-  (if (finite-number? value)
-    (str (.toLocaleString (* 100 value)
-                          "en-US"
-                          #js {:minimumFractionDigits 2
-                               :maximumFractionDigits 2})
-         "%")
-    "N/A"))
-
-(defn- format-decimal
-  [value]
-  (if (finite-number? value)
-    (.toLocaleString value "en-US" #js {:maximumFractionDigits 3})
-    "N/A"))
+  (:require [clojure.string :as str]
+            [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
 (defn- objective-target
   [draft point]
@@ -54,7 +33,7 @@
   [points key]
   (keep (fn [point]
           (let [value (get point key)]
-            (when (finite-number? value) value)))
+            (when (opt-format/finite-number? value) value)))
         points))
 
 (defn- domain
@@ -70,7 +49,7 @@
 
 (defn- scale-value
   [domain-min domain-max range-min range-max value]
-  (if (and (finite-number? value)
+  (if (and (opt-format/finite-number? value)
            (not= domain-min domain-max))
     (+ range-min
        (* (/ (- value domain-min)
@@ -99,9 +78,9 @@
                (fn [idx {:keys [x y]}]
                  (str (if (zero? idx) "M" "L")
                       " "
-                      (format-decimal x)
+                      (opt-format/format-decimal x)
                       " "
-                      (format-decimal y)))
+                      (opt-format/format-decimal y)))
                positions))))
 
 (defn- grid-line
@@ -132,9 +111,9 @@
          :class ["cursor-pointer" "text-primary" "outline-none"]
          :data-role (str "portfolio-optimizer-frontier-point-" idx)
          :data-frontier-drag-target "true"
-         :data-return (format-pct (:expected-return point))
-         :data-volatility (format-pct (:volatility point))
-         :data-sharpe (format-decimal (:sharpe point))
+         :data-return (opt-format/format-pct (:expected-return point))
+         :data-volatility (opt-format/format-pct (:volatility point))
+         :data-sharpe (opt-format/format-decimal (:sharpe point))
          :draggable true
          :on {:click (point-actions target)
               :drag-start (point-actions target)
@@ -149,9 +128,9 @@
                :fill "transparent"
                :stroke "rgba(212, 181, 88, 0.16)"}]
      [:title
-      (str "Return " (format-pct (:expected-return point))
-           ", volatility " (format-pct (:volatility point))
-           ", Sharpe " (format-decimal (:sharpe point)))]]))
+      (str "Return " (opt-format/format-pct (:expected-return point))
+           ", volatility " (opt-format/format-pct (:volatility point))
+           ", Sharpe " (opt-format/format-decimal (:sharpe point)))]]))
 
 (defn- target-marker
   [result x-domain y-domain]
@@ -180,8 +159,8 @@
 
 (defn- current-marker
   [result x-domain y-domain]
-  (when (and (finite-number? (:current-expected-return result))
-             (finite-number? (:current-volatility result)))
+  (when (and (opt-format/finite-number? (:current-expected-return result))
+             (opt-format/finite-number? (:current-volatility result)))
     (let [point {:expected-return (:current-expected-return result)
                  :volatility (:current-volatility result)}
           {:keys [x y]} (point-position x-domain y-domain point)]
@@ -208,21 +187,21 @@
 (defn frontier-chart
   [draft result]
   (let [points (->> (:frontier result)
-                    (filter #(and (finite-number? (:volatility %))
-                                  (finite-number? (:expected-return %))))
+                    (filter #(and (opt-format/finite-number? (:volatility %))
+                                  (opt-format/finite-number? (:expected-return %))))
                     (sort-by :volatility)
                     vec)
         x-domain (domain (concat (numeric-values points :volatility)
-                                 (when (finite-number? (:volatility result))
+                                 (when (opt-format/finite-number? (:volatility result))
                                    [(:volatility result)])
-                                 (when (finite-number? (:current-volatility result))
+                                 (when (opt-format/finite-number? (:current-volatility result))
                                    [(:current-volatility result)]))
                          0
                          1)
         y-domain (domain (concat (numeric-values points :expected-return)
-                                 (when (finite-number? (:expected-return result))
+                                 (when (opt-format/finite-number? (:expected-return result))
                                    [(:expected-return result)])
-                                 (when (finite-number? (:current-expected-return result))
+                                 (when (opt-format/finite-number? (:current-expected-return result))
                                    [(:current-expected-return result)]))
                          0
                          1)
@@ -287,26 +266,26 @@
                  :fill "currentColor"
                  :fontSize 11
                  :opacity 0.65}
-          (str "Vol " (format-pct (first x-domain)))]
+          (str "Vol " (opt-format/format-pct (first x-domain)))]
          [:text {:x (- chart-width chart-pad)
                  :y (- chart-height 8)
                  :fill "currentColor"
                  :fontSize 11
                  :opacity 0.65
                  :textAnchor "end"}
-          (str "Vol " (format-pct (second x-domain)))]
+          (str "Vol " (opt-format/format-pct (second x-domain)))]
          [:text {:x 10
                  :y chart-pad
                  :fill "currentColor"
                  :fontSize 11
                  :opacity 0.65}
-          (str "Ret " (format-pct (second y-domain)))]
+          (str "Ret " (opt-format/format-pct (second y-domain)))]
          [:text {:x 10
                  :y (- chart-height chart-pad)
                  :fill "currentColor"
                  :fontSize 11
                  :opacity 0.65}
-          (str "Ret " (format-pct (first y-domain)))]]]
+          (str "Ret " (opt-format/format-pct (first y-domain)))]]]
        [:div {:class ["mt-4" "flex" "gap-3" "text-[0.7rem]" "text-trading-muted"]}
         [:span {:class ["font-mono" "text-[0.62rem]" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"]}
          "Reading this"]

@@ -1,4 +1,5 @@
-(ns hyperopen.views.portfolio.optimize.black-litterman-views-panel)
+(ns hyperopen.views.portfolio.optimize.black-litterman-views-panel
+  (:require [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
 (def ^:private field-label-class
   ["block" "font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"])
@@ -6,23 +7,6 @@
 (def ^:private input-class
   ["mt-2" "w-full" "rounded-md" "border" "border-base-300" "bg-base-100" "px-2" "py-1.5"
    "font-mono" "text-[0.75rem]" "font-medium" "tabular-nums" "outline-none" "focus:border-primary/70"])
-
-(defn- format-pct
-  [value]
-  (if (number? value)
-    (str (.toLocaleString (* 100 value)
-                          "en-US"
-                          #js {:minimumFractionDigits 2
-                               :maximumFractionDigits 2})
-         "%")
-    "N/A"))
-
-(defn- keyword-label
-  [value]
-  (cond
-    (keyword? value) (name value)
-    (some? value) (str value)
-    :else "N/A"))
 
 (defn- instrument-options
   [universe]
@@ -142,7 +126,7 @@
     [:div {:class ["grid" "grid-cols-[minmax(8rem,1fr)_7rem]" "gap-3" "rounded-lg"
                    "border" "border-base-300" "bg-base-200/40" "p-2" "text-xs"]}
      [:span {:class ["font-semibold"]} instrument-id]
-     [:span {:class ["tabular-nums" "text-trading-muted"]} (format-pct weight)]]))
+     [:span {:class ["tabular-nums" "text-trading-muted"]} (opt-format/format-pct weight)]]))
 
 (defn- prior-panel
   [universe prior]
@@ -151,7 +135,7 @@
    [:div {:class ["grid" "grid-cols-1" "gap-2" "md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]"]}
     [:div {:class ["rounded-lg" "border" "border-base-300" "bg-base-100" "p-3"]}
      [:p {:class field-label-class} "Prior Source"]
-     [:p {:class ["mt-2" "text-[0.6875rem]" "font-medium"]} (keyword-label (:source prior))]
+     [:p {:class ["mt-2" "text-[0.6875rem]" "font-medium"]} (opt-format/keyword-label (:source prior))]
      [:p {:class ["mt-2" "text-[0.6875rem]" "text-trading-muted"]}
       "Market-cap weights are preferred; current portfolio and equal weight are explicit fallbacks."]]
     [:div {:class ["space-y-2"]}
@@ -166,9 +150,9 @@
               [:p {:class ["rounded-md" "border" "border-warning/40" "bg-warning/10" "p-2"
                            "text-[0.6875rem]" "text-warning"]
                    :data-role "portfolio-optimizer-black-litterman-prior-warning"}
-               [:span {:class ["font-semibold"]} (keyword-label (:code warning))]
+               [:span {:class ["font-semibold"]} (opt-format/keyword-label (:code warning))]
                [:span {:class ["ml-2"]}
-                (str "Fallback: " (keyword-label (:fallback warning)))]])
+                (str "Fallback: " (opt-format/keyword-label (:fallback warning)))]])
             (:warnings prior))
 
        :else

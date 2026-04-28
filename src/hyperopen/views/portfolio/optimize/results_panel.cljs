@@ -1,54 +1,8 @@
 (ns hyperopen.views.portfolio.optimize.results-panel
   (:require [clojure.string :as str]
+            [hyperopen.views.portfolio.optimize.format :as opt-format]
             [hyperopen.views.portfolio.optimize.frontier-chart :as frontier-chart]
             [hyperopen.views.portfolio.optimize.target-exposure-table :as target-exposure-table]))
-
-(defn- finite-number?
-  [value]
-  (and (number? value)
-       (not (js/isNaN value))
-       (js/isFinite value)))
-
-(defn- format-pct
-  [value]
-  (if (finite-number? value)
-    (str (.toLocaleString (* 100 value)
-                          "en-US"
-                          #js {:minimumFractionDigits 2
-                               :maximumFractionDigits 2})
-         "%")
-    "N/A"))
-
-(defn- format-decimal
-  [value]
-  (if (finite-number? value)
-    (.toLocaleString value "en-US" #js {:maximumFractionDigits 3})
-    "N/A"))
-
-(defn- format-effective-n
-  [value universe-size]
-  (if (finite-number? value)
-    (.toLocaleString (if (pos? universe-size)
-                       (min value universe-size)
-                       value)
-                     "en-US"
-                     #js {:maximumFractionDigits 1})
-    "N/A"))
-
-(defn- format-usdc
-  [value]
-  (if (finite-number? value)
-    (str "$" (.toLocaleString value
-                              "en-US"
-                              #js {:maximumFractionDigits 2}))
-    "N/A"))
-
-(defn- keyword-label
-  [value]
-  (cond
-    (keyword? value) (name value)
-    (some? value) (str value)
-    :else "N/A"))
 
 (defn- summary-card
   [label value]
@@ -80,7 +34,7 @@
   [binding]
   [:div {:class ["rounded-md" "border" "border-warning/40" "bg-warning/10" "p-2" "text-xs" "text-warning"]}
    [:span {:class ["font-semibold"]} (:instrument-id binding)]
-   [:span {:class ["ml-2"]} (keyword-label (:constraint binding))]])
+   [:span {:class ["ml-2"]} (opt-format/keyword-label (:constraint binding))]])
 
 (defn- sensitivity-row
   [[instrument-id row]]
@@ -88,15 +42,15 @@
          :data-role (str "portfolio-optimizer-sensitivity-row-" instrument-id)}
    [:span {:class ["font-semibold"]} instrument-id]
    [:span {:class ["ml-2" "text-trading-muted"]}
-    (str "Base " (format-pct (:base-expected-return row))
-         " / Down " (format-pct (:down-expected-return row))
-         " / Up " (format-pct (:up-expected-return row)))]])
+    (str "Base " (opt-format/format-pct (:base-expected-return row))
+         " / Down " (opt-format/format-pct (:down-expected-return row))
+         " / Up " (opt-format/format-pct (:up-expected-return row)))]])
 
 (defn- warning-row
   [warning]
   [:p {:class ["rounded-md" "border" "border-warning/40" "bg-warning/10" "p-2" "text-xs" "text-warning"]
        :data-role "portfolio-optimizer-result-warning"}
-   [:span {:class ["font-semibold"]} (keyword-label (:code warning))]
+   [:span {:class ["font-semibold"]} (opt-format/keyword-label (:code warning))]
    (when-let [message (:message warning)]
      [:span {:class ["ml-2"]} message])])
 
@@ -120,16 +74,16 @@
      "Diagnostics"
      "Engine diagnostics are rendered from the run result, not recomputed in the view."
      [:div {:class ["grid" "grid-cols-2" "gap-2" "lg:grid-cols-4"]}
-      (summary-card "Gross" (format-pct (:gross-exposure diagnostics)))
-      (summary-card "Net" (format-pct (:net-exposure diagnostics)))
-      (summary-card "Effective N" (format-decimal (:effective-n diagnostics)))
-      (summary-card "Turnover" (format-pct (:turnover diagnostics)))]
+      (summary-card "Gross" (opt-format/format-pct (:gross-exposure diagnostics)))
+      (summary-card "Net" (opt-format/format-pct (:net-exposure diagnostics)))
+      (summary-card "Effective N" (opt-format/format-decimal (:effective-n diagnostics)))
+      (summary-card "Turnover" (opt-format/format-pct (:turnover diagnostics)))]
      [:div {:class ["grid" "grid-cols-1" "gap-2" "lg:grid-cols-3"]}
-      (summary-card "Condition" (keyword-label (:status conditioning)))
+      (summary-card "Condition" (opt-format/keyword-label (:status conditioning)))
       (summary-card "Condition #"
-                    (format-decimal (:condition-number conditioning)))
+                    (opt-format/format-decimal (:condition-number conditioning)))
       (summary-card "Min Eigen"
-                    (format-decimal (:min-eigenvalue conditioning)))]
+                    (opt-format/format-decimal (:min-eigenvalue conditioning)))]
      [:div {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]}
       [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.18em]" "text-trading-muted"]}
        "Binding Constraints"]
@@ -157,7 +111,7 @@
     :caution {:label "caution" :class "text-warning"}
     :ill-conditioned {:label "caution" :class "text-warning"}
     :singular {:label "bad" :class "text-trading-red"}
-    {:label (keyword-label status) :class "text-trading-muted"}))
+    {:label (opt-format/keyword-label status) :class "text-trading-muted"}))
 
 (defn- top-sensitivity
   [sensitivity]
@@ -205,11 +159,11 @@
      [:div {:data-role "portfolio-optimizer-diagnostics-panel"}
       (trust-row {:label "Conditioning"
                   :status conditioning-status
-                  :value (if (= :ok conditioning-status) "Healthy" (keyword-label conditioning-status))
+                  :value (if (= :ok conditioning-status) "Healthy" (opt-format/keyword-label conditioning-status))
                   :subtext "Correlation matrix is checked before weights are accepted."})
       (trust-row {:label "Diversification"
                   :status :ok
-                  :value (str "Effective N · " (format-effective-n effective-n universe-size) " of " universe-size)
+                  :value (str "Effective N · " (opt-format/format-effective-n effective-n universe-size) " of " universe-size)
                   :subtext "Higher effective N means less concentration in one name."})
       (trust-row {:label "Weight Stability"
                   :status weight-stability-status
@@ -217,7 +171,7 @@
                   :subtext (if sensitivity-top
                              (str (:instrument-id sensitivity-top)
                                   " is most sensitive (±"
-                                  (format-pct (/ (:span sensitivity-top) 2))
+                                  (opt-format/format-pct (/ (:span sensitivity-top) 2))
                                   ").")
                              "No material sensitivity flags reported.")})
       (when (seq (:warnings result))
@@ -231,10 +185,10 @@
        [:summary {:class ["cursor-pointer" "px-4" "py-3" "font-mono" "text-[0.62rem]" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"]}
         "More Diagnostics"]
        [:div {:class ["space-y-2" "px-4" "pb-4"]}
-        (summary-card "Gross" (format-pct (:gross-exposure diagnostics)))
-        (summary-card "Net" (format-pct (:net-exposure diagnostics)))
-        (summary-card "Turnover" (format-pct (:turnover diagnostics)))
-        (summary-card "Condition #" (format-decimal (:condition-number conditioning)))]]]]))
+        (summary-card "Gross" (opt-format/format-pct (:gross-exposure diagnostics)))
+        (summary-card "Net" (opt-format/format-pct (:net-exposure diagnostics)))
+        (summary-card "Turnover" (opt-format/format-pct (:turnover diagnostics)))
+        (summary-card "Condition #" (opt-format/format-decimal (:condition-number conditioning)))]]]]))
 
 (defn- stale-result-banner
   [stale?]
@@ -258,7 +212,7 @@
   [result]
   (let [summary (:history-summary result)
         observations (:return-observations summary)]
-    (if (finite-number? observations)
+    (if (opt-format/finite-number? observations)
       (str observations " returns")
       "Loaded history")))
 
@@ -272,7 +226,7 @@
       (empty? sources) "No funding data"
       (= #{:not-applicable} sources) "Spot only"
       (contains? sources :market-funding-history) "Market funding"
-      :else (keyword-label (first sources)))))
+      :else (opt-format/keyword-label (first sources)))))
 
 (defn- assumptions-strip
   [draft result]
@@ -283,9 +237,9 @@
      [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"]}
       "Run Assumptions"]
      [:div {:class ["mt-3" "grid" "grid-cols-2" "gap-2" "xl:grid-cols-5"]}
-      (compact-fact "Objective" (keyword-label objective-kind))
-      (compact-fact "Return Model" (keyword-label (:return-model result)))
-      (compact-fact "Risk Model" (keyword-label (:risk-model result)))
+      (compact-fact "Objective" (opt-format/keyword-label objective-kind))
+      (compact-fact "Return Model" (opt-format/keyword-label (:return-model result)))
+      (compact-fact "Risk Model" (opt-format/keyword-label (:risk-model result)))
       (compact-fact "Lookback" (history-lookback-label result))
       (compact-fact "Funding" (funding-assumption-label result))]]))
 
@@ -295,7 +249,7 @@
     (when (and status
                (not= :ok status))
       {:code status
-       :message (str "Covariance conditioning is " (keyword-label status) ".")})))
+       :message (str "Covariance conditioning is " (opt-format/keyword-label status) ".")})))
 
 (defn- blocked-reason-summary
   [preview]
@@ -307,9 +261,9 @@
     (when (seq counts)
       (->> counts
            (sort-by (fn [[reason _count]]
-                      (keyword-label reason)))
+                      (opt-format/keyword-label reason)))
            (map (fn [[reason count]]
-                  (str (keyword-label reason) " x" count)))
+                  (str (opt-format/keyword-label reason) " x" count)))
            (str/join ", ")))))
 
 (defn- preview-caution
@@ -344,10 +298,10 @@
   [result]
   (let [performance (:performance result)]
     [:div {:class ["grid" "grid-cols-2" "gap-2"]}
-     (summary-card "Expected Return" (format-pct (:expected-return result)))
-     (summary-card "Volatility" (format-pct (:volatility result)))
-     (summary-card "In-sample Sharpe" (format-decimal (:in-sample-sharpe performance)))
-     (summary-card "Shrunk Sharpe" (format-decimal (:shrunk-sharpe performance)))]))
+     (summary-card "Expected Return" (opt-format/format-pct (:expected-return result)))
+     (summary-card "Volatility" (opt-format/format-pct (:volatility result)))
+     (summary-card "In-sample Sharpe" (opt-format/format-decimal (:in-sample-sharpe performance)))
+     (summary-card "Shrunk Sharpe" (opt-format/format-decimal (:shrunk-sharpe performance)))]))
 
 (defn- rebalance-row
   [row]
@@ -363,14 +317,14 @@
                  "tabular-nums"]
          :data-role (str "portfolio-optimizer-rebalance-row-" (:instrument-id row))}
    [:span {:class ["font-semibold" "text-trading-text"]} (:instrument-id row)]
-   [:span (keyword-label (:status row))]
-   [:span (keyword-label (:side row))]
-   [:span (format-decimal (:quantity row))]
-   [:span (format-usdc (:price row))]
-   [:span (keyword-label (get-in row [:cost :source]))]
-   [:span (format-usdc (get-in row [:cost :estimated-slippage-usd]))]
-   [:span (format-usdc (:delta-notional-usd row))]
-   [:span (keyword-label (:reason row))]])
+   [:span (opt-format/keyword-label (:status row))]
+   [:span (opt-format/keyword-label (:side row))]
+   [:span (opt-format/format-decimal (:quantity row))]
+   [:span (opt-format/format-usdc (:price row))]
+   [:span (opt-format/keyword-label (get-in row [:cost :source]))]
+   [:span (opt-format/format-usdc (get-in row [:cost :estimated-slippage-usd]))]
+   [:span (opt-format/format-usdc (:delta-notional-usd row))]
+   [:span (opt-format/keyword-label (:reason row))]])
 
 (defn- rebalance-preview
   [result]
@@ -381,17 +335,17 @@
      "Rebalance Preview"
      "Rows that cannot execute through the current trading stack remain visible instead of being dropped."
      [:div {:class ["grid" "grid-cols-2" "gap-2" "lg:grid-cols-4"]}
-      (summary-card "Status" (keyword-label (:status preview)))
+      (summary-card "Status" (opt-format/keyword-label (:status preview)))
       (summary-card "Ready" (str (or (:ready-count summary) 0)))
       (summary-card "Blocked" (str (or (:blocked-count summary) 0)))
-      (summary-card "Gross Trade" (format-usdc (:gross-trade-notional-usd summary)))]
+      (summary-card "Gross Trade" (opt-format/format-usdc (:gross-trade-notional-usd summary)))]
      [:div {:class ["grid" "grid-cols-2" "gap-2" "lg:grid-cols-4"]}
-      (summary-card "Fees" (format-usdc (:estimated-fees-usd summary)))
-      (summary-card "Slippage" (format-usdc (:estimated-slippage-usd summary)))
+      (summary-card "Fees" (opt-format/format-usdc (:estimated-fees-usd summary)))
+      (summary-card "Slippage" (opt-format/format-usdc (:estimated-slippage-usd summary)))
       (summary-card "Margin After"
-                    (format-pct (get-in summary [:margin :after-utilization])))
+                    (opt-format/format-pct (get-in summary [:margin :after-utilization])))
       (summary-card "Margin Warning"
-                    (keyword-label (get-in summary [:margin :warning])))]
+                    (opt-format/keyword-label (get-in summary [:margin :warning])))]
      [:button {:type "button"
                :class ["rounded-lg" "border" "border-primary/50" "bg-primary/10" "px-3" "py-2"
                        "text-left" "text-sm" "font-semibold" "text-primary"

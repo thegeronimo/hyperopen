@@ -3,6 +3,7 @@
             [hyperopen.portfolio.optimizer.query-state :as optimizer-query-state]
             [hyperopen.portfolio.routes :as portfolio-routes]
             [hyperopen.views.portfolio.optimize.execution-modal :as execution-modal]
+            [hyperopen.views.portfolio.optimize.format :as opt-format]
             [hyperopen.views.portfolio.optimize.inputs-tab :as inputs-tab-view]
             [hyperopen.views.portfolio.optimize.rebalance-tab :as rebalance-tab-view]
             [hyperopen.views.portfolio.optimize.results-panel :as results-panel]
@@ -13,82 +14,6 @@
    {:key :rebalance :label "Rebalance preview" :data-role "portfolio-optimizer-scenario-tab-rebalance"}
    {:key :tracking :label "Tracking" :data-role "portfolio-optimizer-scenario-tab-tracking"}
    {:key :inputs :label "Inputs" :data-role "portfolio-optimizer-scenario-tab-inputs"}])
-
-(defn- keyword-label
-  [value]
-  (cond
-    (keyword? value) (name value)
-    (some? value) (str value)
-    :else "N/A"))
-
-(defn- display-label
-  [value]
-  (case (cond
-          (keyword? value) value
-          (string? value) (keyword value)
-          :else value)
-    :minimum-variance "Minimum variance"
-    :max-sharpe "Maximum Sharpe"
-    :target-volatility "Target volatility"
-    :target-return "Target return"
-    :historical-mean "Historical mean"
-    :ew-mean "EW mean"
-    :black-litterman "Black-Litterman"
-    :diagonal-shrink "Stabilized covariance"
-    :sample-covariance "Sample covariance"
-    (keyword-label value)))
-
-(defn- finite-number?
-  [value]
-  (and (number? value)
-       (not (js/isNaN value))
-       (js/isFinite value)))
-
-(defn- format-pct
-  [value]
-  (if (finite-number? value)
-    (str (.toLocaleString (* 100 value)
-                          "en-US"
-                          #js {:minimumFractionDigits 2
-                               :maximumFractionDigits 2})
-         "%")
-    "N/A"))
-
-(defn- format-decimal
-  [value]
-  (if (finite-number? value)
-    (.toLocaleString value "en-US" #js {:maximumFractionDigits 3})
-    "N/A"))
-
-(defn- format-usdc
-  [value]
-  (if (finite-number? value)
-    (str "$" (.toLocaleString value
-                              "en-US"
-                              #js {:maximumFractionDigits 0}))
-    "N/A"))
-
-(defn- format-pct-delta
-  [value]
-  (if (finite-number? value)
-    (let [pct (* 100 value)
-          label (.toLocaleString pct
-                                  "en-US"
-                                  #js {:minimumFractionDigits 2
-                                       :maximumFractionDigits 2})]
-      (str (when (pos? pct) "+") label " pts"))
-    "N/A"))
-
-(defn- format-time
-  [ms]
-  (if (number? ms)
-    (.toLocaleString (js/Date. ms)
-                     "en-US"
-                     #js {:month "short"
-                          :day "numeric"
-                          :hour "2-digit"
-                          :minute "2-digit"})
-    "N/A"))
 
 (defn- active-tab
   [state]
@@ -219,7 +144,7 @@
                         "tracking-[0.14em]"
                         "text-trading-muted"]
                 :data-role "portfolio-optimizer-scenario-status-tag"}
-         (keyword-label status)]]]
+         (opt-format/keyword-label status)]]]
       [:div {:class ["flex" "flex-wrap" "items-center" "gap-2"]}
        [:button {:type "button"
                  :class ["border"
@@ -299,36 +224,36 @@
                :data-role "portfolio-optimizer-scenario-kpi-strip"}
      (kpi-card "portfolio-optimizer-scenario-kpi-volatility"
                "Volatility · current → target"
-               (if (finite-number? current-vol)
-                 [:span [:span {:class ["text-trading-muted"]} (format-pct current-vol)]
+               (if (opt-format/finite-number? current-vol)
+                 [:span [:span {:class ["text-trading-muted"]} (opt-format/format-pct current-vol)]
                   " → "
-                  (format-pct target-vol)]
-                 (format-pct target-vol))
-               (if (finite-number? current-vol)
-                 (str (format-pct-delta (- (or target-vol 0) current-vol)) " · annualized")
+                  (opt-format/format-pct target-vol)]
+                 (opt-format/format-pct target-vol))
+               (if (opt-format/finite-number? current-vol)
+                 (str (opt-format/format-pct-delta (- (or target-vol 0) current-vol)) " · annualized")
                  "annualized"))
      (kpi-card "portfolio-optimizer-scenario-kpi-expected-return"
                "Expected Return · current → target"
-               (if (finite-number? current-return)
-                 [:span [:span {:class ["text-trading-muted"]} (format-pct current-return)]
+               (if (opt-format/finite-number? current-return)
+                 [:span [:span {:class ["text-trading-muted"]} (opt-format/format-pct current-return)]
                   " → "
-                  (format-pct target-return)]
-                 (format-pct target-return))
-               (if (finite-number? current-return)
-                 (str (format-pct-delta (- (or target-return 0) current-return)) " · annualized")
+                  (opt-format/format-pct target-return)]
+                 (opt-format/format-pct target-return))
+               (if (opt-format/finite-number? current-return)
+                 (str (opt-format/format-pct-delta (- (or target-return 0) current-return)) " · annualized")
                  "annualized"))
      (kpi-card "portfolio-optimizer-scenario-kpi-sharpe"
                "Sharpe"
-               (format-decimal (or (:shrunk-sharpe performance)
-                                   (:in-sample-sharpe performance)))
+               (opt-format/format-decimal (or (:shrunk-sharpe performance)
+                                               (:in-sample-sharpe performance)))
                "optimized run")
      (kpi-card "portfolio-optimizer-scenario-kpi-turnover"
                "Turnover Required"
-               (format-pct (:turnover diagnostics))
-               (str "rebalance " (keyword-label (:status preview))))
+               (opt-format/format-pct (:turnover diagnostics))
+               (str "rebalance " (opt-format/keyword-label (:status preview))))
      (kpi-card "portfolio-optimizer-scenario-kpi-rebalance"
                "Gross / Net"
-               (str (format-pct gross) " / " (format-pct net))
+               (str (opt-format/format-pct gross) " / " (opt-format/format-pct net))
                "constraint utilization")]))
 
 (defn- stale-banner
@@ -372,24 +297,24 @@
                    [:span {:class ["mt-0.5" "block" "text-[0.7rem]" "font-medium" "text-trading-text"]}
                     value]])
           fields [(field "Objective"
-                         (display-label (or (get-in draft [:objective :kind])
-                                            (get-in result* [:solver :objective-kind]))))
+                         (opt-format/display-label (or (get-in draft [:objective :kind])
+                                                       (get-in result* [:solver :objective-kind]))))
                   (field "Returns"
-                         (display-label (or (:return-model result*)
-                                            (get-in draft [:return-model :kind]))))
+                         (opt-format/display-label (or (:return-model result*)
+                                                       (get-in draft [:return-model :kind]))))
                   (field "Risk"
-                         (display-label (or (:risk-model result*)
-                                            (get-in draft [:risk-model :kind]))))
+                         (opt-format/display-label (or (:risk-model result*)
+                                                       (get-in draft [:risk-model :kind]))))
                   (field "Horizon" "Annualized")
                   (field "Funding"
                          (if (seq (:return-decomposition-by-instrument result*))
                            "Included"
                            "Pending run"))
                   (field "Constraints"
-                         (str "gross ≤ " (format-decimal (:gross-max constraints))
-                              " · cap " (format-pct (:max-asset-weight constraints))))
+                         (str "gross ≤ " (opt-format/format-decimal (:gross-max constraints))
+                              " · cap " (opt-format/format-pct (:max-asset-weight constraints))))
                   [:div {:class ["ml-auto" "flex" "items-center" "gap-2" "px-3" "py-2" "font-mono" "text-[0.62rem]" "text-trading-muted"]}
-                   [:span "data as of " [:span {:class ["text-trading-muted"]} (format-time (:as-of-ms result*))]]
+                   [:span "data as of " [:span {:class ["text-trading-muted"]} (opt-format/format-time (:as-of-ms result*))]]
                    [:span "·"]
                    [:a {:class ["text-trading-muted"]
                         :href (portfolio-routes/portfolio-optimize-scenario-path scenario-id)}

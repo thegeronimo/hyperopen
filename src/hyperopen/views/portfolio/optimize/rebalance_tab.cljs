@@ -1,42 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.rebalance-tab
-  (:require [clojure.string :as str]))
-
-(defn- finite-number?
-  [value]
-  (and (number? value)
-       (not (js/isNaN value))
-       (js/isFinite value)))
-
-(defn- format-usdc
-  [value]
-  (if (finite-number? value)
-    (str "$" (.toLocaleString value
-                              "en-US"
-                              #js {:maximumFractionDigits 2}))
-    "N/A"))
-
-(defn- format-decimal
-  [value]
-  (if (finite-number? value)
-    (.toLocaleString value "en-US" #js {:maximumFractionDigits 4})
-    "N/A"))
-
-(defn- format-pct
-  [value]
-  (if (finite-number? value)
-    (str (.toLocaleString (* 100 value)
-                          "en-US"
-                          #js {:minimumFractionDigits 2
-                               :maximumFractionDigits 2})
-         "%")
-    "N/A"))
-
-(defn- keyword-label
-  [value]
-  (cond
-    (keyword? value) (name value)
-    (some? value) (str value)
-    :else "N/A"))
+  (:require [clojure.string :as str]
+            [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
 (defn- instrument-group-key
   [instrument-id]
@@ -67,7 +31,7 @@
     (when (seq reasons)
       (->> reasons
            (map (fn [[reason count]]
-                  (str (keyword-label reason) " x" count)))
+                  (str (opt-format/keyword-label reason) " x" count)))
            (str/join ", ")))))
 
 (defn- review-caution
@@ -127,7 +91,7 @@
      [:span "N/A"]
      [:span "N/A"]
      [:span "N/A"]
-     [:span (format-usdc delta)]
+     [:span (opt-format/format-usdc delta)]
      [:span ""])) )
 
 (defn- trade-row
@@ -136,14 +100,14 @@
    {:data-role (str "portfolio-optimizer-rebalance-row-"
                     (data-role-token (:instrument-id row)))}
    [:span {:class ["font-semibold" "text-trading-text"]} (:instrument-id row)]
-   [:span (keyword-label (:status row))]
-   [:span (keyword-label (:side row))]
-   [:span (format-decimal (:quantity row))]
-   [:span (format-usdc (:price row))]
-   [:span (keyword-label (get-in row [:cost :source]))]
-   [:span (format-usdc (get-in row [:cost :estimated-slippage-usd]))]
-   [:span (format-usdc (:delta-notional-usd row))]
-   [:span (keyword-label (:reason row))]))
+   [:span (opt-format/keyword-label (:status row))]
+   [:span (opt-format/keyword-label (:side row))]
+   [:span (opt-format/format-decimal (:quantity row) {:maximum-fraction-digits 4})]
+   [:span (opt-format/format-usdc (:price row))]
+   [:span (opt-format/keyword-label (get-in row [:cost :source]))]
+   [:span (opt-format/format-usdc (get-in row [:cost :estimated-slippage-usd]))]
+   [:span (opt-format/format-usdc (:delta-notional-usd row))]
+   [:span (opt-format/keyword-label (:reason row))]))
 
 (defn- trade-table
   [preview]
@@ -218,12 +182,12 @@
           "Review Execution"]]]
        [:section {:class ["grid" "grid-cols-2" "gap-2" "lg:grid-cols-6"]
                   :data-role "portfolio-optimizer-rebalance-summary-kpis"}
-        (kpi-card "Status" (keyword-label (:status preview)))
+        (kpi-card "Status" (opt-format/keyword-label (:status preview)))
         (kpi-card "Ready" (str (or (:ready-count summary) 0)))
         (kpi-card "Blocked" (str (or (:blocked-count summary) 0)))
-        (kpi-card "Gross Trade" (format-usdc (:gross-trade-notional-usd summary)))
-        (kpi-card "Fees" (format-usdc (:estimated-fees-usd summary)))
-        (kpi-card "Slippage" (format-usdc (:estimated-slippage-usd summary)))]
+        (kpi-card "Gross Trade" (opt-format/format-usdc (:gross-trade-notional-usd summary)))
+        (kpi-card "Fees" (opt-format/format-usdc (:estimated-fees-usd summary)))
+        (kpi-card "Slippage" (opt-format/format-usdc (:estimated-slippage-usd summary)))]
        [:section {:class ["grid" "grid-cols-1" "gap-4" "xl:grid-cols-[minmax(0,1fr)_18rem]"]}
         (trade-table preview)
         [:aside {:class ["space-y-4"]}
@@ -235,8 +199,8 @@
           [:p {:class ["mt-2" "text-sm" "text-trading-muted"]}
            "Cross-margin impact is rendered when supplied by the preview builder."]
           [:div {:class ["mt-3" "grid" "grid-cols-1" "gap-2"]}
-           (kpi-card "After Utilization" (format-pct (get-in summary [:margin :after-utilization])))
-           (kpi-card "Warning" (keyword-label (get-in summary [:margin :warning])))]]]]]
+           (kpi-card "After Utilization" (opt-format/format-pct (get-in summary [:margin :after-utilization])))
+           (kpi-card "Warning" (opt-format/keyword-label (get-in summary [:margin :warning])))]]]]]
       [:section {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
                  :data-role "portfolio-optimizer-rebalance-empty"}
        [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"]}

@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.infeasible-panel
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
 (def ^:private violation-control-keys
   {:sum-upper-below-target #{:max-asset-weight}
@@ -29,13 +30,6 @@
   [result]
   (set (mapcat violation-control-keys (violation-codes result))))
 
-(defn- keyword-label
-  [value]
-  (cond
-    (keyword? value) (name value)
-    (some? value) (str value)
-    :else "unknown"))
-
 (defn infeasible-banner
   [result highlighted-controls]
   (when result
@@ -54,7 +48,7 @@
                     "tracking-[0.24em]"]}
         "Infeasible Optimization"]
        [:p {:class ["mt-2" "text-sm"]}
-        (str "Reason: " (keyword-label (:reason result)))]
+        (str "Reason: " (opt-format/keyword-label (:reason result) "unknown"))]
        (when (seq codes)
          (into [:div {:class ["mt-3" "flex" "flex-wrap" "gap-2"]}]
                (map (fn [code]
@@ -65,7 +59,7 @@
                                       "py-1"
                                       "text-xs"
                                       "font-semibold"]}
-                       (keyword-label code)])
+                       (opt-format/keyword-label code "unknown")])
                     codes)))
        (when (seq labels)
          [:p {:class ["mt-3" "text-xs"]}

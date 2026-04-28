@@ -1,25 +1,5 @@
-(ns hyperopen.views.portfolio.optimize.execution-modal)
-
-(defn- finite-number?
-  [value]
-  (and (number? value)
-       (not (js/isNaN value))
-       (js/isFinite value)))
-
-(defn- format-usdc
-  [value]
-  (if (finite-number? value)
-    (str "$" (.toLocaleString value
-                              "en-US"
-                              #js {:maximumFractionDigits 2}))
-    "N/A"))
-
-(defn- keyword-label
-  [value]
-  (cond
-    (keyword? value) (name value)
-    (some? value) (str value)
-    :else "N/A"))
+(ns hyperopen.views.portfolio.optimize.execution-modal
+  (:require [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
 (defn- summary-card
   [label value]
@@ -44,15 +24,15 @@
                  "tabular-nums"]}
    [:span {:class ["font-semibold" "text-trading-text"]}
     (:instrument-id execution-row)]
-   [:span (keyword-label (:status execution-row))]
-   [:span (keyword-label (:side execution-row))]
-   [:span (format-usdc (:delta-notional-usd execution-row))]
+   [:span (opt-format/keyword-label (:status execution-row))]
+   [:span (opt-format/keyword-label (:side execution-row))]
+   [:span (opt-format/format-usdc (:delta-notional-usd execution-row))]
    [:span (str (or (:quantity execution-row) "N/A"))]
-   [:span (format-usdc (:price execution-row))]
-   [:span (keyword-label (:order-type execution-row))]
-   [:span (keyword-label (get-in execution-row [:cost :source]))]
-   [:span (format-usdc (get-in execution-row [:cost :estimated-slippage-usd]))]
-   [:span (keyword-label (:reason execution-row))]])
+   [:span (opt-format/format-usdc (:price execution-row))]
+   [:span (opt-format/keyword-label (:order-type execution-row))]
+   [:span (opt-format/keyword-label (get-in execution-row [:cost :source]))]
+   [:span (opt-format/format-usdc (get-in execution-row [:cost :estimated-slippage-usd]))]
+   [:span (opt-format/keyword-label (:reason execution-row))]])
 
 (defn- execution-row-header
   []
@@ -97,10 +77,10 @@
                  "tabular-nums"]}
    [:span {:class ["font-semibold" "text-trading-text"]}
     (:instrument-id execution-row)]
-   [:span (keyword-label (:status execution-row))]
-   [:span (keyword-label (:side execution-row))]
-   [:span (format-usdc (:delta-notional-usd execution-row))]
-   [:span (keyword-label (row-error-message execution-row))]])
+   [:span (opt-format/keyword-label (:status execution-row))]
+   [:span (opt-format/keyword-label (:side execution-row))]
+   [:span (opt-format/format-usdc (:delta-notional-usd execution-row))]
+   [:span (opt-format/keyword-label (row-error-message execution-row))]])
 
 (defn- latest-attempt-panel
   [latest-attempt]
@@ -131,7 +111,7 @@
                    "text-xs"
                    "font-semibold"
                    "text-trading-muted"]}
-       (keyword-label (:status latest-attempt))]]
+       (opt-format/keyword-label (:status latest-attempt))]]
      (into
       [:div {:class ["mt-3" "space-y-2"]}]
       (cons
@@ -188,17 +168,17 @@
                    :on {:click [[:actions/close-portfolio-optimizer-execution-modal]]}}
           "Close"]]
         [:div {:class ["mt-4" "grid" "grid-cols-2" "gap-2" "lg:grid-cols-4"]}
-         (summary-card "Status" (keyword-label (:status plan)))
+         (summary-card "Status" (opt-format/keyword-label (:status plan)))
          (summary-card "Ready" (str (or (:ready-count summary) 0)))
          (summary-card "Blocked" (str (or (:blocked-count summary) 0)))
-         (summary-card "Ready Notional" (format-usdc (:gross-ready-notional-usd summary)))]
+         (summary-card "Ready Notional" (opt-format/format-usdc (:gross-ready-notional-usd summary)))]
         [:div {:class ["mt-2" "grid" "grid-cols-2" "gap-2" "lg:grid-cols-4"]}
-         (summary-card "Fees" (format-usdc (:estimated-fees-usd summary)))
-         (summary-card "Slippage" (format-usdc (:estimated-slippage-usd summary)))
+         (summary-card "Fees" (opt-format/format-usdc (:estimated-fees-usd summary)))
+         (summary-card "Slippage" (opt-format/format-usdc (:estimated-slippage-usd summary)))
          (summary-card "Margin After"
-                       (format-usdc (get-in summary [:margin :after-used-usd])))
+                       (opt-format/format-usdc (get-in summary [:margin :after-used-usd])))
          (summary-card "Margin Warning"
-                       (keyword-label (get-in summary [:margin :warning])))]
+                       (opt-format/keyword-label (get-in summary [:margin :warning])))]
         (when (:execution-disabled? plan)
           [:p {:class ["mt-4" "rounded-lg" "border" "border-warning/40" "bg-warning/10"
                        "px-3" "py-2" "text-sm" "font-semibold" "text-warning"]}

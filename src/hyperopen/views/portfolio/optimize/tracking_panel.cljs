@@ -1,38 +1,8 @@
-(ns hyperopen.views.portfolio.optimize.tracking-panel)
+(ns hyperopen.views.portfolio.optimize.tracking-panel
+  (:require [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
 (def trackable-statuses #{:executed :partially-executed :tracking})
 (def manual-tracking-source-statuses #{:saved :computed})
-
-(defn- finite-number?
-  [value]
-  (and (number? value)
-       (not (js/isNaN value))
-       (js/isFinite value)))
-
-(defn- format-pct
-  [value]
-  (if (finite-number? value)
-    (str (.toLocaleString (* 100 value)
-                          "en-US"
-                          #js {:minimumFractionDigits 2
-                               :maximumFractionDigits 2})
-         "%")
-    "N/A"))
-
-(defn- format-usdc
-  [value]
-  (if (finite-number? value)
-    (str "$" (.toLocaleString value
-                              "en-US"
-                              #js {:maximumFractionDigits 2}))
-    "N/A"))
-
-(defn- keyword-label
-  [value]
-  (cond
-    (keyword? value) (name value)
-    (some? value) (str value)
-    :else "N/A"))
 
 (defn- latest-snapshot
   [tracking-record]
@@ -60,10 +30,10 @@
                  "tabular-nums"]
          :data-role (str "portfolio-optimizer-tracking-row-" idx)}
    [:span {:class ["font-semibold" "text-trading-text"]} (:instrument-id row)]
-   [:span (format-pct (:current-weight row))]
-   [:span (format-pct (:target-weight row))]
-   [:span (format-pct (:weight-drift row))]
-   [:span (format-usdc (:signed-notional-usdc row))]])
+   [:span (opt-format/format-pct (:current-weight row))]
+   [:span (opt-format/format-pct (:target-weight row))]
+   [:span (opt-format/format-pct (:weight-drift row))]
+   [:span (opt-format/format-usdc (:signed-notional-usdc row))]])
 
 (defn- tracking-header-row
   []
@@ -93,7 +63,7 @@
     [:div {:class ["mt-3" "space-y-2"]}]
     (map (fn [row]
            (let [drift (:weight-drift row)
-                 width (if (finite-number? drift)
+                 width (if (opt-format/finite-number? drift)
                          (min 100 (* 1000 (js/Math.abs drift)))
                          0)]
              [:div {:class ["grid" "grid-cols-[8rem_minmax(0,1fr)_4rem]" "items-center" "gap-2" "text-xs"]}
@@ -101,7 +71,7 @@
               [:div {:class ["h-2" "overflow-hidden" "rounded-full" "bg-base-300"]}
                [:div {:class ["h-full" "rounded-full" "bg-primary/70"]
                       :style {:width (str width "%")}}]]
-              [:span {:class ["text-right" "tabular-nums"]} (format-pct drift)]]))
+              [:span {:class ["text-right" "tabular-nums"]} (opt-format/format-pct drift)]]))
          rows))])
 
 (defn- tracking-path
@@ -117,8 +87,8 @@
        [:div {:class ["rounded-md" "border" "border-base-300" "bg-base-100/80" "p-2" "text-xs"]}
         [:p {:class ["font-semibold" "uppercase" "tracking-[0.14em]" "text-trading-muted"]}
          (str "Snapshot " (inc idx))]
-        [:p {:class ["mt-1" "tabular-nums"]} (str "Realized " (format-pct (:realized-return snapshot)))]
-        [:p {:class ["tabular-nums"]} (str "Predicted " (format-pct (:predicted-return snapshot)))]])
+        [:p {:class ["mt-1" "tabular-nums"]} (str "Realized " (opt-format/format-pct (:realized-return snapshot)))]
+        [:p {:class ["tabular-nums"]} (str "Predicted " (opt-format/format-pct (:predicted-return snapshot)))]])
      snapshots))])
 
 (defn- active-scenario-id
@@ -201,12 +171,12 @@
           "Re-optimize From Current"]]
         (if latest
           [:div {:class ["mt-4" "grid" "grid-cols-2" "gap-2" "lg:grid-cols-6"]}
-           (metric-card "Status" (keyword-label (:status latest)))
-           (metric-card "Weight Drift RMS" (format-pct (:weight-drift-rms latest)))
-           (metric-card "Max Drift" (format-pct (:max-abs-weight-drift latest)))
-           (metric-card "Predicted Return" (format-pct (:predicted-return latest)))
-           (metric-card "Predicted Vol" (format-pct (:predicted-volatility latest)))
-           (metric-card "Realized Return" (format-pct (:realized-return latest)))]
+           (metric-card "Status" (opt-format/keyword-label (:status latest)))
+           (metric-card "Weight Drift RMS" (opt-format/format-pct (:weight-drift-rms latest)))
+           (metric-card "Max Drift" (opt-format/format-pct (:max-abs-weight-drift latest)))
+           (metric-card "Predicted Return" (opt-format/format-pct (:predicted-return latest)))
+           (metric-card "Predicted Vol" (opt-format/format-pct (:predicted-volatility latest)))
+           (metric-card "Realized Return" (opt-format/format-pct (:realized-return latest)))]
           [:p {:class ["mt-4" "rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3" "text-sm" "text-trading-muted"]}
            "No tracking snapshots yet. Refresh tracking after execution to measure weight drift."])]
        (when latest

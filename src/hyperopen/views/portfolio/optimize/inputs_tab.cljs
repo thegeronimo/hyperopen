@@ -1,42 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.inputs-tab
-  (:require [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]))
-
-(defn- finite-number?
-  [value]
-  (and (number? value)
-       (not (js/isNaN value))
-       (js/isFinite value)))
-
-(defn- format-pct
-  [value]
-  (if (finite-number? value)
-    (str (.toLocaleString (* 100 value)
-                          "en-US"
-                          #js {:minimumFractionDigits 2
-                               :maximumFractionDigits 2})
-         "%")
-    "N/A"))
-
-(defn- format-decimal
-  [value]
-  (if (finite-number? value)
-    (.toLocaleString value "en-US" #js {:maximumFractionDigits 3})
-    "N/A"))
-
-(defn- format-usdc
-  [value]
-  (if (finite-number? value)
-    (str "$" (.toLocaleString value
-                              "en-US"
-                              #js {:maximumFractionDigits 0}))
-    "N/A"))
-
-(defn- keyword-label
-  [value]
-  (cond
-    (keyword? value) (name value)
-    (some? value) (str value)
-    :else "N/A"))
+  (:require [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
+            [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
 (defn- audit-card
   [data-role title & children]
@@ -66,9 +30,9 @@
    "portfolio-optimizer-inputs-models"
    "Model Stack"
    [:div {:class ["grid" "grid-cols-1" "gap-2" "sm:grid-cols-3"]}
-    [:div [:span {:class ["text-xs" "text-trading-muted"]} "Objective"] [:p (keyword-label (get-in draft [:objective :kind]))]]
-    [:div [:span {:class ["text-xs" "text-trading-muted"]} "Return Model"] [:p (keyword-label (get-in draft [:return-model :kind]))]]
-    [:div [:span {:class ["text-xs" "text-trading-muted"]} "Risk Model"] [:p (keyword-label (get-in draft [:risk-model :kind]))]]]
+    [:div [:span {:class ["text-xs" "text-trading-muted"]} "Objective"] [:p (opt-format/keyword-label (get-in draft [:objective :kind]))]]
+    [:div [:span {:class ["text-xs" "text-trading-muted"]} "Return Model"] [:p (opt-format/keyword-label (get-in draft [:return-model :kind]))]]
+    [:div [:span {:class ["text-xs" "text-trading-muted"]} "Risk Model"] [:p (opt-format/keyword-label (get-in draft [:risk-model :kind]))]]]
    [:p {:class ["mt-3" "text-xs" "text-trading-muted"]}
     (str "Black-Litterman views: " (count views))]))
 
@@ -79,10 +43,10 @@
    "Constraints"
    [:div {:class ["grid" "grid-cols-2" "gap-2" "text-xs"]}
     [:p (str "Long-only: " (if (:long-only? constraints) "yes" "no"))]
-    [:p (str "Max asset: " (format-pct (:max-asset-weight constraints)))]
-    [:p (str "Gross: " (format-decimal (:gross-max constraints)))]
-    [:p (str "Turnover: " (format-pct (:max-turnover constraints)))]
-    [:p (str "Rebalance tolerance: " (format-pct (:rebalance-tolerance constraints)))]
+    [:p (str "Max asset: " (opt-format/format-pct (:max-asset-weight constraints)))]
+    [:p (str "Gross: " (opt-format/format-decimal (:gross-max constraints)))]
+    [:p (str "Turnover: " (opt-format/format-pct (:max-turnover constraints)))]
+    [:p (str "Rebalance tolerance: " (opt-format/format-pct (:rebalance-tolerance constraints)))]
     [:p (str "Dust: " (or (:dust-usdc constraints) "N/A"))]]))
 
 (defn- execution-audit
@@ -91,10 +55,11 @@
    "portfolio-optimizer-inputs-execution-assumptions"
    "Execution Assumptions"
    [:div {:class ["grid" "grid-cols-2" "gap-2" "text-xs"]}
-    [:p (str "Manual capital: " (format-usdc (:manual-capital-usdc execution-assumptions)))]
+    [:p (str "Manual capital: " (opt-format/format-usdc (:manual-capital-usdc execution-assumptions)
+                                                        {:maximum-fraction-digits 0}))]
     [:p (str "Fallback slippage: " (or (:fallback-slippage-bps execution-assumptions) "N/A") " bps")]
-    [:p (str "Default order: " (keyword-label (:default-order-type execution-assumptions)))]
-    [:p (str "Fee mode: " (keyword-label (:fee-mode execution-assumptions)))]]))
+    [:p (str "Default order: " (opt-format/keyword-label (:default-order-type execution-assumptions)))]
+    [:p (str "Fee mode: " (opt-format/keyword-label (:fee-mode execution-assumptions)))]]))
 
 (defn inputs-tab
   [state]

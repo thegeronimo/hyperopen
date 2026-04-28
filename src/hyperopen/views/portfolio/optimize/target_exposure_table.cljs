@@ -1,36 +1,17 @@
 (ns hyperopen.views.portfolio.optimize.target-exposure-table
-  (:require [clojure.string :as str]))
-
-(defn- finite-number?
-  [value]
-  (and (number? value)
-       (not (js/isNaN value))
-       (js/isFinite value)))
-
-(defn- format-pct
-  [value]
-  (if (finite-number? value)
-    (str (.toLocaleString (* 100 value)
-                          "en-US"
-                          #js {:minimumFractionDigits 1
-                               :maximumFractionDigits 1})
-         "%")
-    "N/A"))
+  (:require [clojure.string :as str]
+            [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
 (defn- format-delta-pct
   [value]
-  (if (finite-number? value)
-    (let [pct (* 100 value)]
-      (str (when (pos? pct) "+")
-           (.toLocaleString pct
-                             "en-US"
-                             #js {:minimumFractionDigits 1
-                                  :maximumFractionDigits 1})))
-    "N/A"))
+  (opt-format/format-pct-delta value
+                               {:minimum-fraction-digits 1
+                                :maximum-fraction-digits 1
+                                :suffix ""}))
 
 (defn- format-compact-usdc
   [value]
-  (if (finite-number? value)
+  (if (opt-format/finite-number? value)
     (let [abs-value (js/Math.abs value)
           sign (cond
                  (pos? value) "+"
@@ -61,8 +42,8 @@
 (defn- signed-label
   [value]
   (cond
-    (and (finite-number? value) (neg? value)) "short"
-    (and (finite-number? value) (pos? value)) "long"
+    (and (opt-format/finite-number? value) (neg? value)) "short"
+    (and (opt-format/finite-number? value) (pos? value)) "long"
     :else "flat"))
 
 (defn- instrument-group-key
@@ -106,8 +87,8 @@
           :data-target-sign (signed-label target-weight)}
      [:td {:class ["text-trading-muted"]} ""]
      [:td {:class ["pl-8" "text-trading-muted"]} (leg-label instrument-id current-weight target-weight)]
-     [:td {:class ["font-mono" "text-right" "tabular-nums"]} (format-pct current-weight)]
-     [:td {:class ["font-mono" "text-right" "tabular-nums"]} (format-pct target-weight)]
+     [:td {:class ["font-mono" "text-right" "tabular-nums"]} (opt-format/format-pct current-weight {:minimum-fraction-digits 1 :maximum-fraction-digits 1})]
+     [:td {:class ["font-mono" "text-right" "tabular-nums"]} (opt-format/format-pct target-weight {:minimum-fraction-digits 1 :maximum-fraction-digits 1})]
      [:td {:class [(if (neg? delta) "text-trading-red" "text-trading-green")
                    "font-mono" "text-right" "tabular-nums"]}
       (format-delta-pct delta)]
@@ -137,8 +118,8 @@
                         "font-mono" "text-[0.5rem]" "font-semibold" "uppercase"
                         "tracking-[0.08em]" "text-warning"]}
          "capped"])]
-     [:td {:class ["font-mono" "text-right" "font-semibold" "tabular-nums"]} (format-pct current-weight)]
-     [:td {:class ["font-mono" "text-right" "font-semibold" "tabular-nums"]} (format-pct target-weight)]
+     [:td {:class ["font-mono" "text-right" "font-semibold" "tabular-nums"]} (opt-format/format-pct current-weight {:minimum-fraction-digits 1 :maximum-fraction-digits 1})]
+     [:td {:class ["font-mono" "text-right" "font-semibold" "tabular-nums"]} (opt-format/format-pct target-weight {:minimum-fraction-digits 1 :maximum-fraction-digits 1})]
      [:td {:class [(if (neg? delta) "text-trading-red" "text-trading-green")
                    "font-mono" "text-right" "font-semibold" "tabular-nums"]}
       (format-delta-pct delta)]
