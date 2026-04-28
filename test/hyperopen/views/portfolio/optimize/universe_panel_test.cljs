@@ -45,6 +45,37 @@
   [node]
   (get-in node [1 :on :keydown]))
 
+(deftest portfolio-optimizer-universe-panel-does-not-render-quick-add-buttons-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer {:draft {:universe []
+                                                     :constraints {:long-only? false}}}}
+                    :asset-selector
+                    {:markets [{:key "perp:TON"
+                                :market-type :perp
+                                :coin "TON"
+                                :symbol "TON-USDC"}
+                               {:key "perp:NEAR"
+                                :market-type :perp
+                                :coin "NEAR"
+                                :symbol "NEAR-USDC"}
+                               {:key "perp:AVAX"
+                                :market-type :perp
+                                :coin "AVAX"
+                                :symbol "AVAX-USDC"}]}})
+        strings (set (collect-strings view-node))]
+    (is (contains? strings "Manual Add"))
+    (is (not (contains? strings "quick add")))
+    (is (not (contains? strings "+ TON")))
+    (is (not (contains? strings "+ NEAR")))
+    (is (not (contains? strings "+ AVAX")))
+    (is (nil? (node-by-role view-node
+                            "portfolio-optimizer-universe-quick-add-perp:TON")))
+    (is (nil? (node-by-role view-node
+                            "portfolio-optimizer-universe-quick-add-perp:NEAR")))
+    (is (nil? (node-by-role view-node
+                            "portfolio-optimizer-universe-quick-add-perp:AVAX")))))
+
 (deftest portfolio-optimizer-workspace-supports-manual-universe-builder-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}

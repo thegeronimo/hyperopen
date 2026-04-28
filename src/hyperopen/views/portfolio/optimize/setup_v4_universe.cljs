@@ -214,27 +214,6 @@
                :on {:click [[:actions/add-portfolio-optimizer-universe-instrument market-key]]}}
       "+ add"]]))
 
-(defn- quick-chip
-  [state selected-ids symbol]
-  (let [market (some #(when (= symbol (some-> (:coin %) str str/upper-case)) %)
-                     (get-in state [:asset-selector :markets]))
-        market-key (:key market)
-        disabled? (or (not market-key)
-                      (contains? selected-ids market-key))]
-    [:button {:type "button"
-              :class ["border" "border-base-300" "px-1.5" "py-[1px]"
-                      "font-mono" "text-[0.59375rem]" "uppercase"
-                      "tracking-[0.08em]" "text-trading-muted"
-                      "disabled:cursor-not-allowed" "disabled:opacity-40"
-                      "enabled:hover:border-warning/40" "enabled:hover:text-warning"]
-              :disabled disabled?
-              :data-v4-chip "true"
-              :data-role (when market-key
-                           (str "portfolio-optimizer-universe-quick-add-" market-key))
-              :on (when market-key
-                    {:click [[:actions/add-portfolio-optimizer-universe-instrument market-key]]})}
-     (str "+ " symbol)]))
-
 (defn- selected-table
   [state universe]
   [:div {:class ["mt-2" "border" "border-base-300" "bg-base-100/50"]}
@@ -253,7 +232,6 @@
 (defn universe-section
   [state draft]
   (let [universe (vec (or (:universe draft) []))
-        selected-ids (selected-instrument-ids universe)
         search-query (or (get-in state [:portfolio-ui :optimizer :universe-search-query]) "")
         markets (candidate-markets state universe search-query)
         active-index (if (seq markets)
@@ -328,13 +306,6 @@
                        "text-xs" "text-trading-muted"]
                :data-role "portfolio-optimizer-universe-search-results-empty"}
            "No matching unused markets found."]))]
-     (when-not searching?
-       [:div {:class ["mt-2" "flex" "flex-wrap" "items-center" "gap-1.5"]}
-        [:span {:class ["font-mono" "text-[0.59375rem]" "uppercase" "tracking-[0.1em]"
-                        "text-trading-muted/70"]}
-         "quick add"]
-        (for [symbol ["TON" "NEAR" "INJ" "JUP" "AVAX" "DOT"]]
-          (quick-chip state selected-ids symbol))])
      (selected-table state universe)
      [:div {:class ["mt-2" "font-mono" "text-[0.58rem]" "leading-5"
                     "text-trading-muted/70"]}
