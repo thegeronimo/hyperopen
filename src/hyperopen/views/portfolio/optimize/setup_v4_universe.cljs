@@ -266,13 +266,20 @@
      [:div {:class ["sr-only"]} "Manual Add"]
      [:div {:class ["mt-3" "relative"]}
       [:div {:class ["flex" "items-center" "gap-1.5" "border" "px-2"
+                     "portfolio-optimizer-universe-search-shell"
                      (if searching?
                        "border-warning/70"
                        "border-base-300")
-                     "bg-base-100/80"]}
-       [:span {:class ["font-mono" "text-[0.65rem]" "text-trading-muted"]} "⌕"]
+                     "bg-transparent"]
+              :data-role "portfolio-optimizer-universe-search-shell"
+              :data-searching (when searching? "true")}
+       [:span {:class ["portfolio-optimizer-universe-search-affordance"
+                       "font-mono" "text-[0.65rem]" "text-trading-muted"]
+               :data-role "portfolio-optimizer-universe-search-icon"}
+        "⌕"]
        [:input {:type "search"
-                :class (into input-class ["border-0" "bg-transparent" "px-0" "focus:border-0"])
+                :class (into input-class ["portfolio-optimizer-universe-search-field"
+                                          "border-0" "bg-transparent" "px-0" "focus:border-0"])
                 :placeholder "Search ticker or name (e.g. TIA, AVAX, Solana...)"
                 :data-role "portfolio-optimizer-universe-search-input"
                 :aria-controls "portfolio-optimizer-universe-search-results"
@@ -286,13 +293,17 @@
                                 market-keys]]}}]
        (when searching?
          [:button {:type "button"
-                   :class ["font-mono" "text-xs" "text-trading-muted" "hover:text-warning"]
+                   :class ["portfolio-optimizer-universe-search-affordance"
+                           "font-mono" "text-xs" "text-trading-muted" "hover:text-warning"]
                    :aria-label "Clear universe search"
+                   :data-role "portfolio-optimizer-universe-search-clear"
                    :on {:click [[:actions/set-portfolio-optimizer-universe-search-query ""]]}}
           "x"])
-       [:span {:class ["border" "border-base-300" "px-1.5" "py-[1px]"
+       [:span {:class ["portfolio-optimizer-universe-search-add-hint"
+                       "border" "border-base-300" "px-1.5" "py-[1px]"
                        "font-mono" "text-[0.55rem]" "uppercase"
-                       "tracking-[0.1em]" "text-trading-muted"]}
+                       "tracking-[0.1em]" "text-trading-muted"]
+               :data-role "portfolio-optimizer-universe-search-add-hint"}
         "↵ add"]]
       (when searching?
         (if (seq markets)

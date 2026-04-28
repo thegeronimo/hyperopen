@@ -41,6 +41,10 @@
   [node]
   (get-in node [1 :on :input]))
 
+(defn- class-token-set
+  [node]
+  (set (get-in node [1 :class])))
+
 (defn- count-nodes
   [node pred]
   (cond
@@ -120,6 +124,35 @@
            (input-actions
             (node-by-role view-node
                           "portfolio-optimizer-constraint-gross-max-input"))))))
+
+(deftest setup-v4-universe-search-renders-as-single-integrated-control-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio-ui {:optimizer {:universe-search-query "TIA"}}
+                    :portfolio {:optimizer {:draft {:universe []
+                                                     :constraints {:long-only? false}}}}})
+        search-shell (node-by-role view-node "portfolio-optimizer-universe-search-shell")
+        search-icon (node-by-role view-node "portfolio-optimizer-universe-search-icon")
+        search-input (node-by-role view-node "portfolio-optimizer-universe-search-input")
+        clear-button (node-by-role view-node "portfolio-optimizer-universe-search-clear")
+        add-hint (node-by-role view-node "portfolio-optimizer-universe-search-add-hint")]
+    (is (some? search-shell))
+    (is (= "true" (get-in search-shell [1 :data-searching])))
+    (is (contains? (class-token-set search-shell)
+                   "portfolio-optimizer-universe-search-shell"))
+    (is (some? search-icon))
+    (is (contains? (class-token-set search-icon)
+                   "portfolio-optimizer-universe-search-affordance"))
+    (is (contains? (class-token-set search-input)
+                   "portfolio-optimizer-universe-search-field"))
+    (is (some? clear-button))
+    (is (contains? (class-token-set clear-button)
+                   "portfolio-optimizer-universe-search-affordance"))
+    (is (some? add-hint))
+    (is (contains? (class-token-set add-hint)
+                   "portfolio-optimizer-universe-search-add-hint"))
+    (is (not (contains? (class-token-set add-hint) "bg-warning/10")))
+    (is (not (contains? (class-token-set add-hint) "bg-base-200")))))
 
 (deftest setup-v4-run-action-renders-under-center-assumptions-panel-test
   (let [view-node (portfolio-view/portfolio-view

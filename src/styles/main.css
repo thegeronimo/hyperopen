@@ -467,6 +467,57 @@
     background-color: var(--optimizer-surface-3);
   }
 
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-universe-search-shell"] {
+    min-height: 34px;
+    background-color: var(--optimizer-bg);
+    color: var(--optimizer-text);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-universe-search-shell"][data-searching="true"] {
+    border-color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4
+    [data-role="portfolio-optimizer-universe-search-shell"]
+    :is(
+      [data-role="portfolio-optimizer-universe-search-icon"],
+      [data-role="portfolio-optimizer-universe-search-clear"],
+      [data-role="portfolio-optimizer-universe-search-add-hint"]
+    ) {
+    background-color: transparent;
+  }
+
+  .portfolio-optimizer-v4
+    [data-role="portfolio-optimizer-universe-search-shell"]
+    [data-role="portfolio-optimizer-universe-search-input"] {
+    height: 30px;
+    min-height: 30px;
+    background-color: transparent;
+    border-color: transparent;
+    box-shadow: none;
+  }
+
+  .portfolio-optimizer-v4
+    [data-role="portfolio-optimizer-universe-search-shell"]
+    [data-role="portfolio-optimizer-universe-search-input"]:focus {
+    background-color: transparent;
+    border-color: transparent;
+    box-shadow: none;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-universe-search-add-hint"] {
+    border-color: var(--optimizer-border-strong);
+    color: var(--optimizer-text-2);
+  }
+
+  .portfolio-optimizer-v4
+    [data-role="portfolio-optimizer-universe-search-shell"]
+    [data-role="portfolio-optimizer-universe-search-clear"]:not(:disabled):hover {
+    background-color: transparent;
+    border-color: transparent;
+    color: var(--optimizer-accent);
+  }
+
   .portfolio-optimizer-v4
     :is(
       button[data-role="portfolio-optimizer-run-draft"],

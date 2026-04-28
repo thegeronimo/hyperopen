@@ -796,6 +796,91 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   await expect(targetReturn).toHaveValue("0.18");
 });
 
+test("portfolio optimizer universe search uses one integrated shell @regression", async ({ page }) => {
+  const reviewViewports = [
+    { width: 375, height: 812 },
+    { width: 768, height: 1024 },
+    { width: 1280, height: 900 },
+    { width: 1440, height: 900 }
+  ];
+
+  for (const viewport of reviewViewports) {
+    await page.setViewportSize(viewport);
+    await visitRoute(page, "/portfolio/optimize/new");
+    await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']")).toBeVisible();
+    await seedOptimizerAssetSelectorMarkets(page);
+
+    const searchShell = page.locator("[data-role='portfolio-optimizer-universe-search-shell']");
+    const searchInput = page.locator("[data-role='portfolio-optimizer-universe-search-input']");
+    const searchIcon = page.locator("[data-role='portfolio-optimizer-universe-search-icon']");
+    const clearButton = page.locator("[data-role='portfolio-optimizer-universe-search-clear']");
+    const addHint = page.locator("[data-role='portfolio-optimizer-universe-search-add-hint']");
+
+    await searchInput.fill("eth");
+    await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+    await expect(searchShell).toHaveAttribute("data-searching", "true");
+    await expect(searchIcon).toBeVisible();
+    await expect(clearButton).toBeVisible();
+    await expect(addHint).toBeVisible();
+
+    const styles = await searchShell.evaluate((shell) => {
+      const read = (selector) => {
+        const element = shell.querySelector(selector);
+        const style = window.getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return {
+          backgroundColor: style.backgroundColor,
+          borderColor: style.borderColor,
+          color: style.color,
+          rect: {
+            left: rect.left,
+            right: rect.right,
+            top: rect.top,
+            bottom: rect.bottom,
+            width: rect.width,
+            height: rect.height
+          }
+        };
+      };
+      const shellStyle = window.getComputedStyle(shell);
+      const shellRect = shell.getBoundingClientRect();
+      return {
+        shell: {
+          backgroundColor: shellStyle.backgroundColor,
+          borderColor: shellStyle.borderColor,
+          rect: {
+            left: shellRect.left,
+            right: shellRect.right,
+            top: shellRect.top,
+            bottom: shellRect.bottom,
+            width: shellRect.width,
+            height: shellRect.height
+          }
+        },
+        icon: read("[data-role='portfolio-optimizer-universe-search-icon']"),
+        input: read("[data-role='portfolio-optimizer-universe-search-input']"),
+        clear: read("[data-role='portfolio-optimizer-universe-search-clear']"),
+        addHint: read("[data-role='portfolio-optimizer-universe-search-add-hint']")
+      };
+    });
+
+    expect(styles.shell.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+    expect(styles.shell.borderColor).toBe("rgb(212, 181, 88)");
+    expect(styles.icon.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    expect(styles.input.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    expect(styles.input.borderColor).toBe("rgba(0, 0, 0, 0)");
+    expect(styles.clear.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    expect(styles.addHint.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    expect(styles.addHint.borderColor).not.toBe("rgba(0, 0, 0, 0)");
+    expect(styles.addHint.color).not.toBe(styles.shell.borderColor);
+    expect(styles.shell.rect.left).toBeGreaterThanOrEqual(0);
+    expect(styles.shell.rect.right).toBeLessThanOrEqual(viewport.width + 1);
+    expect(styles.addHint.rect.left).toBeGreaterThanOrEqual(styles.input.rect.right);
+    expect(styles.addHint.rect.right).toBeLessThanOrEqual(styles.shell.rect.right + 1);
+  }
+});
+
 test("portfolio optimizer manual universe builder adds and removes assets @regression", async ({ page }) => {
   await visitRoute(page, "/portfolio/optimize/new");
   await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']")).toBeVisible();
