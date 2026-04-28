@@ -187,6 +187,11 @@
           :actions/set-portfolio-optimizer-universe-search-query
           ["eth"]
           {:phase :test})))
+  (is (= ["ArrowDown" ["perp:BTC" "spot:HYPE/USDC"]]
+         (contracts/assert-action-args!
+          :actions/handle-portfolio-optimizer-universe-search-keydown
+          ["ArrowDown" ["perp:BTC" "spot:HYPE/USDC"]]
+          {:phase :test})))
   (is (= ["perp:ETH"]
          (contracts/assert-action-args!
           :actions/add-portfolio-optimizer-universe-instrument

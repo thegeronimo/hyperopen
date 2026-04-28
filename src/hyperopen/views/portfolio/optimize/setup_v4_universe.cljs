@@ -186,15 +186,19 @@
        "x"]]]))
 
 (defn- market-row
-  [market idx]
+  [market idx active-index]
   (let [market-key (:key market)
         market-type (:market-type market)
-        history (:history-label market "sufficient")]
+        history (:history-label market "sufficient")
+        active? (= idx active-index)]
     [:div {:class ["grid" "grid-cols-[66px_minmax(0,1fr)_58px_72px_42px_44px]"
                    "items-center" "gap-2" "border-b" "border-base-300" "px-2"
                    "py-1.5" "last:border-b-0" "hover:bg-base-200/30"]
            :data-role (str "portfolio-optimizer-universe-candidate-row-" market-key)
-           :data-active (when (zero? idx) "true")}
+           :id (str "portfolio-optimizer-universe-candidate-" idx)
+           :role "option"
+           :aria-selected (if active? "true" "false")
+           :data-active (when active? "true")}
      [:span {:class ["truncate" "font-mono" "text-[0.6875rem]" "font-semibold"]}
       (market-label market)]
      [:span {:class ["truncate" "text-[0.6875rem]" "text-trading-muted"]}
@@ -252,6 +256,12 @@
         selected-ids (selected-instrument-ids universe)
         search-query (or (get-in state [:portfolio-ui :optimizer :universe-search-query]) "")
         markets (candidate-markets state universe search-query)
+        active-index (if (seq markets)
+                       (-> (get-in state [:portfolio-ui :optimizer :universe-search-active-index] 0)
+                           (max 0)
+                           (min (dec (count markets))))
+                       0)
+        market-keys (mapv :key markets)
         searching? (seq (normalized-text search-query))]
     [:section {:class ["border" "border-base-300" "bg-base-100/90" "p-3"]
                :data-role "portfolio-optimizer-universe-panel"}
@@ -287,9 +297,15 @@
                 :class (into input-class ["border-0" "bg-transparent" "px-0" "focus:border-0"])
                 :placeholder "Search ticker or name (e.g. TIA, AVAX, Solana...)"
                 :data-role "portfolio-optimizer-universe-search-input"
+                :aria-controls "portfolio-optimizer-universe-search-results"
+                :aria-activedescendant (when (and searching? (seq markets))
+                                         (str "portfolio-optimizer-universe-candidate-" active-index))
                 :value search-query
                 :on {:input [[:actions/set-portfolio-optimizer-universe-search-query
-                              [:event.target/value]]]}}]
+                              [:event.target/value]]]
+                     :keydown [[:actions/handle-portfolio-optimizer-universe-search-keydown
+                                [:event/key]
+                                market-keys]]}}]
        (when searching?
          [:button {:type "button"
                    :class ["font-mono" "text-xs" "text-trading-muted" "hover:text-warning"]
@@ -304,8 +320,10 @@
         (if (seq markets)
           (into [:div {:class ["mt-1" "border" "border-base-300" "bg-base-200/80"
                                "shadow-[0_12px_32px_rgba(0,0,0,0.45)]"]
+                       :id "portfolio-optimizer-universe-search-results"
+                       :role "listbox"
                        :data-role "portfolio-optimizer-universe-search-results"}]
-                (map-indexed (fn [idx market] (market-row market idx)) markets))
+                (map-indexed (fn [idx market] (market-row market idx active-index)) markets))
           [:p {:class ["mt-1" "border" "border-base-300" "bg-base-200/70" "p-2"
                        "text-xs" "text-trading-muted"]
                :data-role "portfolio-optimizer-universe-search-results-empty"}

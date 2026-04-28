@@ -54,6 +54,8 @@
                          action-adapters/set-portfolio-optimizer-asset-override-action
                          :set-portfolio-optimizer-universe-search-query
                          action-adapters/set-portfolio-optimizer-universe-search-query-action
+                         :handle-portfolio-optimizer-universe-search-keydown
+                         action-adapters/handle-portfolio-optimizer-universe-search-keydown-action
                          :set-portfolio-optimizer-results-tab
                          action-adapters/set-portfolio-optimizer-results-tab-action
                          :add-portfolio-optimizer-universe-instrument

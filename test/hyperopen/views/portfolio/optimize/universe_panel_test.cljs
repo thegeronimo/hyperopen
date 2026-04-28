@@ -41,6 +41,10 @@
   [node]
   (get-in node [1 :on :input]))
 
+(defn- keydown-actions
+  [node]
+  (get-in node [1 :on :keydown]))
+
 (deftest portfolio-optimizer-workspace-supports-manual-universe-builder-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}
@@ -87,6 +91,12 @@
            (input-actions
             (node-by-role view-node
                           "portfolio-optimizer-universe-search-input"))))
+    (is (= [[:actions/handle-portfolio-optimizer-universe-search-keydown
+             [:event/key]
+             ["perp:ETH"]]]
+           (keydown-actions
+            (node-by-role view-node
+                          "portfolio-optimizer-universe-search-input"))))
     (is (= [[:actions/add-portfolio-optimizer-universe-instrument "perp:ETH"]]
            (click-actions
             (node-by-role view-node
@@ -100,6 +110,39 @@
     (is (contains? strings "Manual Add"))
     (is (contains? strings "ETH-USDC"))
     (is (contains? strings "Requires history reload after adding new assets."))))
+
+(deftest portfolio-optimizer-search-results-use-active-keyboard-row-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio-ui {:optimizer {:universe-search-query "hype"
+                                               :universe-search-active-index 1}}
+                    :portfolio {:optimizer {:draft {:universe []
+                                                     :constraints {:long-only? false}}}}
+                    :asset-selector
+                    {:markets [{:key "spot:@107"
+                                :market-type :spot
+                                :coin "@107"
+                                :symbol "HYPE/USDC"
+                                :base "HYPE"
+                                :quote "USDC"}
+                               {:key "spot:@232"
+                                :market-type :spot
+                                :coin "@232"
+                                :symbol "HYPE/USDH"
+                                :base "HYPE"
+                                :quote "USDH"}]}})
+        input (node-by-role view-node "portfolio-optimizer-universe-search-input")
+        first-row (node-by-role view-node "portfolio-optimizer-universe-candidate-row-spot:@107")
+        second-row (node-by-role view-node "portfolio-optimizer-universe-candidate-row-spot:@232")]
+    (is (= "portfolio-optimizer-universe-candidate-1"
+           (get-in input [1 :aria-activedescendant])))
+    (is (= [[:actions/handle-portfolio-optimizer-universe-search-keydown
+             [:event/key]
+             ["spot:@107" "spot:@232"]]]
+           (keydown-actions input)))
+    (is (= nil (get-in first-row [1 :data-active])))
+    (is (= "true" (get-in second-row [1 :data-active])))
+    (is (= "true" (get-in second-row [1 :aria-selected])))))
 
 (deftest portfolio-optimizer-selected-universe-prefers-symbol-for-raw-spot-and-hip3-assets-test
   (let [view-node (portfolio-view/portfolio-view

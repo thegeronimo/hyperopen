@@ -74,6 +74,7 @@
   (is (= {:list-filter :active
           :list-sort :updated-desc
           :universe-search-query ""
+          :universe-search-active-index 0
           :workspace-panel :setup
           :results-tab :recommendation
           :diagnostics-tab :conditioning}

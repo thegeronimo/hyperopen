@@ -64,14 +64,20 @@
       "Remove"]]))
 
 (defn- market-row
-  [market]
+  [market idx active-index]
   (let [market-key (:key market)
         primary-label (instrument-display/primary-label market)
         secondary-token (or (instrument-display/base-label market)
                             (:coin market)
-                            market-key)]
+                            market-key)
+        active? (= idx active-index)]
     [:div {:class ["flex" "items-center" "justify-between" "gap-3" "rounded-lg" "border"
-                   "border-base-300" "bg-base-200/30" "px-3" "py-2"]}
+                   "border-base-300" "bg-base-200/30" "px-3" "py-2"]
+           :data-role (str "portfolio-optimizer-universe-candidate-row-" market-key)
+           :data-active (when active? "true")
+           :role "option"
+           :aria-selected (if active? "true" "false")
+           :id (str "portfolio-optimizer-universe-candidate-" idx)}
      [:div
       [:p {:class ["text-sm" "font-semibold"]} primary-label]
       [:p {:class ["text-xs" "uppercase" "tracking-[0.14em]" "text-trading-muted"]}
@@ -88,7 +94,13 @@
   [state draft]
   (let [universe (vec (or (:universe draft) []))
         search-query (or (get-in state [:portfolio-ui :optimizer :universe-search-query]) "")
-        markets (candidate-markets state universe search-query)]
+        markets (candidate-markets state universe search-query)
+        active-index (if (seq markets)
+                       (-> (get-in state [:portfolio-ui :optimizer :universe-search-active-index] 0)
+                           (max 0)
+                           (min (dec (count markets))))
+                       0)
+        market-keys (mapv :key markets)]
     [:section {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
                :data-role "portfolio-optimizer-universe-panel"}
      [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
@@ -127,14 +139,23 @@
                 :class search-input-class
                 :placeholder "Search BTC, ETH, spot:PURR/USDC..."
                 :data-role "portfolio-optimizer-universe-search-input"
+                :aria-controls "portfolio-optimizer-universe-search-results"
+                :aria-activedescendant (when (seq markets)
+                                         (str "portfolio-optimizer-universe-candidate-" active-index))
                 :value search-query
                 :on {:input [[:actions/set-portfolio-optimizer-universe-search-query
-                              [:event.target/value]]]}}]
+                              [:event.target/value]]]
+                     :keydown [[:actions/handle-portfolio-optimizer-universe-search-keydown
+                                [:event/key]
+                                market-keys]]}}]
        [:p {:class ["mt-2" "text-xs" "text-trading-muted"]}
         "Requires history reload after adding new assets."]
        (if (seq markets)
-         (into [:div {:class ["mt-2" "space-y-2"]}]
-               (map market-row markets))
+         (into [:div {:class ["mt-2" "space-y-2"]
+                      :id "portfolio-optimizer-universe-search-results"
+                      :role "listbox"
+                      :data-role "portfolio-optimizer-universe-search-results"}]
+               (map-indexed (fn [idx market] (market-row market idx active-index)) markets))
          [:p {:class ["mt-2" "rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"
                       "text-sm" "text-trading-muted"]}
           "No matching unused markets found."])]]]))

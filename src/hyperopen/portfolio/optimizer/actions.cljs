@@ -6,6 +6,7 @@
             [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
             [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
             [hyperopen.portfolio.optimizer.query-state :as optimizer-query-state]
+            [hyperopen.portfolio.optimizer.universe-keyboard :as universe-keyboard]
             [hyperopen.portfolio.routes :as portfolio-routes]))
 
 (def ^:private objective-models
@@ -338,11 +339,19 @@
 
       :else [])))
 
+(declare add-portfolio-optimizer-universe-instrument)
+
 (defn set-portfolio-optimizer-universe-search-query
   [_state query]
-  [[:effects/save
-    [:portfolio-ui :optimizer :universe-search-query]
-    (or (some-> query str) "")]])
+  [[:effects/save-many
+    [[[:portfolio-ui :optimizer :universe-search-query]
+      (or (some-> query str) "")]
+     [[:portfolio-ui :optimizer :universe-search-active-index]
+      0]]]])
+
+(defn handle-portfolio-optimizer-universe-search-keydown
+  [state key market-keys]
+  (universe-keyboard/handle-keydown add-portfolio-optimizer-universe-instrument state key market-keys))
 
 (defn set-portfolio-optimizer-results-tab
   [_state tab]

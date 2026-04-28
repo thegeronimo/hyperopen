@@ -63,6 +63,8 @@
    [:actions/set-portfolio-optimizer-asset-override :set-portfolio-optimizer-asset-override]
    [:actions/set-portfolio-optimizer-universe-search-query
     :set-portfolio-optimizer-universe-search-query]
+   [:actions/handle-portfolio-optimizer-universe-search-keydown
+    :handle-portfolio-optimizer-universe-search-keydown]
    [:actions/set-portfolio-optimizer-results-tab
     :set-portfolio-optimizer-results-tab]
    [:actions/add-portfolio-optimizer-universe-instrument

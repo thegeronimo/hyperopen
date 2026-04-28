@@ -787,6 +787,40 @@ test("portfolio optimizer manual universe builder adds and removes assets @regre
   await expect(ethCandidate).toBeVisible();
 });
 
+test("portfolio optimizer manual universe search supports keyboard selection @regression", async ({ page }) => {
+  await visitRoute(page, "/portfolio/optimize/new");
+  await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']")).toBeVisible();
+  await seedOptimizerAssetSelectorMarkets(page);
+
+  const searchInput = page.locator("[data-role='portfolio-optimizer-universe-search-input']");
+  const activeCandidate = page.locator(
+    "[data-role^='portfolio-optimizer-universe-candidate-row-'][data-active='true']"
+  );
+
+  await searchInput.fill("h");
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+  await expect(activeCandidate).toHaveCount(1);
+  const firstActiveRole = await activeCandidate.getAttribute("data-role");
+  await searchInput.press("ArrowDown");
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+  await expect(activeCandidate).toHaveCount(1);
+  const secondActiveRole = await activeCandidate.getAttribute("data-role");
+  expect(secondActiveRole).not.toEqual(firstActiveRole);
+  const selectedMarketKey = secondActiveRole.replace(
+    "portfolio-optimizer-universe-candidate-row-",
+    ""
+  );
+
+  await searchInput.press("Enter");
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+  await expect(
+    page.locator(`[data-role='portfolio-optimizer-universe-remove-${selectedMarketKey}']`)
+  ).toBeVisible();
+});
+
 test("portfolio optimizer selected universe keeps remove controls visible for long assets @regression", async ({ page }) => {
   await visitRoute(page, "/portfolio/optimize/new");
 

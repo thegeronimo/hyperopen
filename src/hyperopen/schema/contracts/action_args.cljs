@@ -78,6 +78,9 @@
   (s/tuple ::common/non-empty-string))
 (s/def ::portfolio-optimizer-instrument-id-args
   (s/tuple ::common/non-empty-string))
+(s/def ::portfolio-optimizer-universe-search-keydown-args
+  (s/tuple ::common/non-empty-string
+           (s/coll-of ::common/non-empty-string :kind vector?)))
 (s/def ::staking-action-popover-open-args
   (s/or :kind-only (s/tuple (s/or :keyword keyword?
                                    :string string?))
@@ -221,6 +224,8 @@
    :actions/set-portfolio-optimizer-instrument-filter ::portfolio-optimizer-instrument-key-value-args
    :actions/set-portfolio-optimizer-asset-override ::portfolio-optimizer-instrument-key-value-args
    :actions/set-portfolio-optimizer-universe-search-query ::common/single-input-args
+   :actions/handle-portfolio-optimizer-universe-search-keydown
+   ::portfolio-optimizer-universe-search-keydown-args
    :actions/set-portfolio-optimizer-results-tab ::common/tab-args
    :actions/add-portfolio-optimizer-universe-instrument ::portfolio-optimizer-instrument-id-args
    :actions/remove-portfolio-optimizer-universe-instrument ::portfolio-optimizer-instrument-id-args

@@ -202,6 +202,7 @@
             [hyperopen.portfolio.optimizer.infrastructure.wire-test]
             [hyperopen.portfolio.optimizer.query-state-test]
             [hyperopen.portfolio.optimizer.tracking-actions-test]
+            [hyperopen.portfolio.optimizer.universe-keyboard-test]
             [hyperopen.portfolio.optimizer.worker-test]
             [hyperopen.portfolio.query-state-test]
             [hyperopen.portfolio.routes-test]
@@ -773,6 +774,7 @@
              'hyperopen.portfolio.optimizer.infrastructure.wire-test
              'hyperopen.portfolio.optimizer.query-state-test
              'hyperopen.portfolio.optimizer.tracking-actions-test
+             'hyperopen.portfolio.optimizer.universe-keyboard-test
              'hyperopen.portfolio.optimizer.worker-test
              'hyperopen.portfolio.query-state-test
              'hyperopen.portfolio.routes-test

@@ -183,6 +183,9 @@
 (def set-portfolio-optimizer-universe-search-query-action
   portfolio-optimizer-actions/set-portfolio-optimizer-universe-search-query)
 
+(def handle-portfolio-optimizer-universe-search-keydown-action
+  portfolio-optimizer-actions/handle-portfolio-optimizer-universe-search-keydown)
+
 (def set-portfolio-optimizer-results-tab-action
   portfolio-optimizer-actions/set-portfolio-optimizer-results-tab)
 
