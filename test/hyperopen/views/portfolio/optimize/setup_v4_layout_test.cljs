@@ -149,10 +149,13 @@
     (is (contains? (class-token-set clear-button)
                    "portfolio-optimizer-universe-search-affordance"))
     (is (some? add-hint))
+    (is (= ["↵ add"] (collect-strings add-hint)))
     (is (contains? (class-token-set add-hint)
                    "portfolio-optimizer-universe-search-add-hint"))
     (is (not (contains? (class-token-set add-hint) "bg-warning/10")))
-    (is (not (contains? (class-token-set add-hint) "bg-base-200")))))
+    (is (not (contains? (class-token-set add-hint) "bg-base-200")))
+    (is (not (contains? (class-token-set add-hint) "uppercase")))
+    (is (not (contains? (class-token-set add-hint) "tracking-[0.1em]")))))
 
 (deftest setup-v4-run-action-renders-under-center-assumptions-panel-test
   (let [view-node (portfolio-view/portfolio-view

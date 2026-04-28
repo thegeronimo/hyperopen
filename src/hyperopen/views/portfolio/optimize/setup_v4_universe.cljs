@@ -300,9 +300,8 @@
                    :on {:click [[:actions/set-portfolio-optimizer-universe-search-query ""]]}}
           "x"])
        [:span {:class ["portfolio-optimizer-universe-search-add-hint"
-                       "border" "border-base-300" "px-1.5" "py-[1px]"
-                       "font-mono" "text-[0.55rem]" "uppercase"
-                       "tracking-[0.1em]" "text-trading-muted"]
+                       "border" "border-base-300"
+                       "font-mono" "text-[0.55rem]" "text-trading-muted"]
                :data-role "portfolio-optimizer-universe-search-add-hint"}
         "↵ add"]]
       (when searching?

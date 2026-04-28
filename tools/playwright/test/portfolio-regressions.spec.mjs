@@ -832,7 +832,12 @@ test("portfolio optimizer universe search uses one integrated shell @regression"
         return {
           backgroundColor: style.backgroundColor,
           borderColor: style.borderColor,
+          borderRadius: style.borderRadius,
           color: style.color,
+          marginBottom: style.marginBottom,
+          marginTop: style.marginTop,
+          textTransform: style.textTransform,
+          whiteSpace: style.whiteSpace,
           rect: {
             left: rect.left,
             right: rect.right,
@@ -873,7 +878,12 @@ test("portfolio optimizer universe search uses one integrated shell @regression"
     expect(styles.clear.backgroundColor).toBe("rgba(0, 0, 0, 0)");
     expect(styles.addHint.backgroundColor).toBe("rgba(0, 0, 0, 0)");
     expect(styles.addHint.borderColor).not.toBe("rgba(0, 0, 0, 0)");
+    expect(parseFloat(styles.addHint.borderRadius)).toBeGreaterThanOrEqual(4);
     expect(styles.addHint.color).not.toBe(styles.shell.borderColor);
+    expect(parseFloat(styles.addHint.marginTop)).toBeGreaterThanOrEqual(4);
+    expect(parseFloat(styles.addHint.marginBottom)).toBeGreaterThanOrEqual(4);
+    expect(styles.addHint.textTransform).toBe("none");
+    expect(styles.addHint.whiteSpace).toBe("nowrap");
     expect(styles.shell.rect.left).toBeGreaterThanOrEqual(0);
     expect(styles.shell.rect.right).toBeLessThanOrEqual(viewport.width + 1);
     expect(styles.addHint.rect.left).toBeGreaterThanOrEqual(styles.input.rect.right);
