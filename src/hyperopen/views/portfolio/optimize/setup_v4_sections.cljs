@@ -379,9 +379,7 @@
                :aria-hidden "true"}])
      [:span (if run-triggerable? "Ready to run" "Add assets to run")]
      [:span {:class ["text-trading-muted/50"]} "·"]
-     [:span (str asset-count " assets")]
-     [:span {:class ["text-trading-muted/50"]} "·"]
-     [:span "est. 1.4s"]]
+     [:span (str asset-count " assets")]]
     [:div {:class ["whitespace-nowrap" "text-[0.625rem]" "font-semibold" "normal-case"
                    "tracking-normal" "text-trading-muted" "sm:w-max"]
            :data-role "portfolio-optimizer-setup-bottom-actions-status-detail"}
