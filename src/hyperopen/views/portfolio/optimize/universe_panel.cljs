@@ -1,46 +1,10 @@
 (ns hyperopen.views.portfolio.optimize.universe-panel
-  (:require [clojure.string :as str]
-            [hyperopen.asset-selector.query :as asset-query]
+  (:require [hyperopen.portfolio.optimizer.application.universe-candidates :as universe-candidates]
             [hyperopen.views.portfolio.optimize.instrument-display :as instrument-display]))
 
 (def ^:private search-input-class
   ["mt-2" "w-full" "rounded-md" "border" "border-base-300" "bg-base-100" "px-2" "py-1.5"
    "text-sm" "font-semibold" "outline-none" "focus:border-primary/70"])
-
-(defn- normalized-text
-  [value]
-  (some-> value str str/trim))
-
-(defn- selected-instrument-ids
-  [universe]
-  (into #{} (keep :instrument-id) universe))
-
-(defn- market-label
-  [market]
-  (or (normalized-text (:symbol market))
-      (normalized-text (:coin market))
-      (normalized-text (:key market))
-      "Unknown Market"))
-
-(defn- candidate-markets
-  [state universe query]
-  (let [selected-ids (selected-instrument-ids universe)
-        query* (or (normalized-text query) "")]
-    (->> (asset-query/filter-and-sort-assets
-          (get-in state [:asset-selector :markets])
-          query*
-          :volume
-          :desc
-          #{}
-          false
-          false
-          :all)
-         (filter #(and (normalized-text (:key %))
-                       (normalized-text (:coin %))
-                       (:market-type %)
-                       (not (contains? selected-ids (:key %)))))
-         (take 6)
-         vec)))
 
 (defn- selected-row
   [instrument]
@@ -94,12 +58,12 @@
   [state draft]
   (let [universe (vec (or (:universe draft) []))
         search-query (or (get-in state [:portfolio-ui :optimizer :universe-search-query]) "")
-        markets (candidate-markets state universe search-query)
-        active-index (if (seq markets)
-                       (-> (get-in state [:portfolio-ui :optimizer :universe-search-active-index] 0)
-                           (max 0)
-                           (min (dec (count markets))))
-                       0)
+        markets (universe-candidates/candidate-markets
+                 state
+                 universe
+                 search-query
+                 {:ranking :asset-query})
+        active-index (universe-candidates/active-index state markets)
         market-keys (mapv :key markets)]
     [:section {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
                :data-role "portfolio-optimizer-universe-panel"}

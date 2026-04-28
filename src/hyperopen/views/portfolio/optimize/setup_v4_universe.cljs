@@ -1,6 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.setup-v4-universe
   (:require [clojure.string :as str]
-            [hyperopen.asset-selector.query :as asset-query]
+            [hyperopen.portfolio.optimizer.application.universe-candidates :as universe-candidates]
             [hyperopen.views.portfolio.optimize.instrument-display :as instrument-display]))
 
 (def ^:private eyebrow-class
@@ -16,67 +16,6 @@
 (defn- normalized-text
   [value]
   (some-> value str str/trim))
-
-(defn- selected-instrument-ids
-  [universe]
-  (into #{} (keep :instrument-id) universe))
-
-(defn- market-label
-  [market]
-  (or (normalized-text (:symbol market))
-      (normalized-text (:coin market))
-      (normalized-text (:key market))
-      "Unknown Market"))
-
-(defn- display-name
-  [value]
-  (case (some-> value str str/upper-case)
-    "BTC" "Bitcoin"
-    "ETH" "Ether"
-    "SOL" "Solana"
-    "HYPE" "Hyperliquid"
-    "ARB" "Arbitrum"
-    "LINK" "Chainlink"
-    "USDC" "USD Coin"
-    "PURR/USDC" "Purr"
-    (or (normalized-text value) "--")))
-
-(defn- market-display-name
-  [market]
-  (or (normalized-text (:name market))
-      (normalized-text (:full-name market))
-      (when (instrument-display/symbol-first? market)
-        (display-name (instrument-display/base-label market)))
-      (display-name (:coin market))))
-
-(defn- candidate-markets
-  [state universe query]
-  (let [selected-ids (selected-instrument-ids universe)
-        query* (or (normalized-text query) "")
-        query-upper (str/upper-case query*)]
-    (->> (asset-query/filter-and-sort-assets
-          (get-in state [:asset-selector :markets])
-          query*
-          :volume
-          :desc
-          #{}
-          false
-          false
-          :all)
-         (filter #(and (normalized-text (:key %))
-                       (normalized-text (:coin %))
-                       (:market-type %)
-                       (not (contains? selected-ids (:key %)))))
-         (sort-by (fn [market]
-                    (let [symbol-upper (some-> (market-label market) str/upper-case)
-                          coin-upper (some-> (:coin market) str str/upper-case)]
-                      [(if (or (= query-upper symbol-upper)
-                               (= query-upper coin-upper))
-                         0
-                         1)
-                       (if (= :spot (:market-type market)) 0 1)])))
-         (take 6)
-         vec)))
 
 (defn- finite-number
   [value]
@@ -157,11 +96,12 @@
         market-type (:market-type instrument)
         history (history-label state coin)
         primary-label (instrument-display/primary-label instrument)
+        {:keys [name base-label]} (universe-candidates/market-display instrument)
         secondary-label (or (normalized-text (:name instrument))
                             (normalized-text (:full-name instrument))
                             (when (instrument-display/symbol-first? instrument)
-                              (instrument-display/base-label instrument))
-                            (display-name coin))]
+                              base-label)
+                            name)]
     [:div {:class ["grid" "grid-cols-[18px_minmax(0,1fr)_42px_72px_48px_20px]"
                    "items-center" "gap-2" "border-b" "border-base-300"
                    "px-2" "py-1.5" "last:border-b-0" "hover:bg-base-200/30"]
@@ -190,7 +130,8 @@
   (let [market-key (:key market)
         market-type (:market-type market)
         history (:history-label market "sufficient")
-        active? (= idx active-index)]
+        active? (= idx active-index)
+        {:keys [label name]} (universe-candidates/market-display market)]
     [:div {:class ["grid" "grid-cols-[66px_minmax(0,1fr)_58px_72px_42px_44px]"
                    "items-center" "gap-2" "border-b" "border-base-300" "px-2"
                    "py-1.5" "last:border-b-0" "hover:bg-base-200/30"]
@@ -200,9 +141,9 @@
            :aria-selected (if active? "true" "false")
            :data-active (when active? "true")}
      [:span {:class ["truncate" "font-mono" "text-[0.6875rem]" "font-semibold"]}
-      (market-label market)]
+      label]
      [:span {:class ["truncate" "text-[0.6875rem]" "text-trading-muted"]}
-      (market-display-name market)]
+      name]
      (market-type-tags market-type)
      (tag history (if (= "sufficient" history) :long :warn))
      [:span {:class ["font-mono" "text-[0.6rem]" "text-trading-muted" "text-right"]}
@@ -233,12 +174,8 @@
   [state draft]
   (let [universe (vec (or (:universe draft) []))
         search-query (or (get-in state [:portfolio-ui :optimizer :universe-search-query]) "")
-        markets (candidate-markets state universe search-query)
-        active-index (if (seq markets)
-                       (-> (get-in state [:portfolio-ui :optimizer :universe-search-active-index] 0)
-                           (max 0)
-                           (min (dec (count markets))))
-                       0)
+        markets (universe-candidates/candidate-markets state universe search-query)
+        active-index (universe-candidates/active-index state markets)
         market-keys (mapv :key markets)
         searching? (seq (normalized-text search-query))]
     [:section {:class ["border" "border-base-300" "bg-base-100/90" "p-3"]
