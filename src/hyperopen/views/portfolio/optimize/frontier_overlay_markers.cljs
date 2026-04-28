@@ -54,28 +54,6 @@
      :reading-text "Each point is a feasible portfolio."
      :legend-label nil}))
 
-(defn- overlay-title
-  [overlay-mode point]
-  (let [mode (normalize-mode overlay-mode)
-        label (or (:label point) (:instrument-id point))]
-    (case mode
-      :contribution
-      (str label
-           " contribution: return contribution "
-           (opt-format/format-pct (:expected-return point))
-           ", signed volatility contribution "
-           (opt-format/format-pct (:volatility point))
-           ", target weight "
-           (opt-format/format-pct (:target-weight point)))
-
-      (str label
-           " standalone: return "
-           (opt-format/format-pct (:expected-return point))
-           ", volatility "
-           (opt-format/format-pct (:volatility point))
-           ", target weight "
-           (opt-format/format-pct (:target-weight point))))))
-
 (defn- overlay-label
   [point]
   (or (:label point) (:instrument-id point)))
@@ -125,7 +103,6 @@
       x
       y
       16)
-     [:title (overlay-title :standalone point)]
      (frontier-callout/callout
       {:bounds bounds
        :data-role (str "portfolio-optimizer-frontier-callout-standalone-"
@@ -174,7 +151,6 @@
       x
       y
       16)
-     [:title (overlay-title :contribution point)]
      (frontier-callout/callout
       {:bounds bounds
        :data-role (str "portfolio-optimizer-frontier-callout-contribution-"

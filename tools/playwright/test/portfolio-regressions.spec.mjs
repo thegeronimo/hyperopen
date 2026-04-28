@@ -1209,6 +1209,7 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
   await expect(targetCallout).toContainText("Sharpe");
   await expect(targetCallout).toContainText("Gross Exposure");
 
+  const standaloneMarkerGroup = page.locator("[data-role='portfolio-optimizer-frontier-overlay-standalone-perp:BTC']");
   const standaloneMarker = page.locator("[data-role='portfolio-optimizer-frontier-overlay-standalone-perp:BTC-hitbox']");
   const standaloneCallout = page.locator("[data-role='portfolio-optimizer-frontier-callout-standalone-perp:BTC']");
   await expect(standaloneMarker)
@@ -1218,6 +1219,16 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
   await expect(standaloneCallout).toContainText("BTC");
   await expect(standaloneCallout).toContainText("Expected Return");
   await expect(standaloneCallout).toContainText("Target Weight");
+  await expect(standaloneMarkerGroup.locator("title")).toHaveCount(0);
+  await expect(standaloneCallout.locator("text[text-anchor='end']")).toHaveCount(4);
+  expect(await standaloneCallout.evaluate((node) => {
+    const rect = node.querySelector("rect").getBBox();
+    return [...node.querySelectorAll("text")]
+      .every((text) => {
+        const box = text.getBBox();
+        return box.x >= rect.x - 1 && (box.x + box.width) <= (rect.x + rect.width + 1);
+      });
+  })).toBe(true);
   await page.locator("[data-role='portfolio-optimizer-frontier-overlay-mode-contribution']").click();
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-overlay-mode-contribution']"))
     .toHaveAttribute("aria-pressed", "true");

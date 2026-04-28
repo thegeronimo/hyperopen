@@ -143,10 +143,6 @@
       x
       y
       14)
-     [:title
-      (str "Return " (opt-format/format-pct (:expected-return point))
-           ", volatility " (opt-format/format-pct (:volatility point))
-           ", Sharpe " (opt-format/format-decimal (:sharpe point)))]
      (frontier-callout/callout
       {:bounds chart-bounds
        :data-role (str "portfolio-optimizer-frontier-callout-frontier-" idx)
@@ -221,7 +217,6 @@
       x
       y
       18)
-     [:title (frontier-callout/aria-label label rows)]
      (frontier-callout/callout
       {:bounds chart-bounds
        :data-role "portfolio-optimizer-frontier-callout-target"
@@ -272,7 +267,6 @@
         x
         y
         18)
-       [:title (frontier-callout/aria-label label rows)]
        (frontier-callout/callout
         {:bounds chart-bounds
          :data-role "portfolio-optimizer-frontier-callout-current"

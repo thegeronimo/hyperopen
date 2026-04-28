@@ -163,6 +163,6 @@
                    :fill "var(--optimizer-text)"
                    :fontSize 10
                    :fontWeight 700
-                   :textAnchor "end"}
+                   :text-anchor "end"}
             value]]))
       rows*))))

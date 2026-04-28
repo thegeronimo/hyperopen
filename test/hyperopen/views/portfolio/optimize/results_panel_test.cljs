@@ -30,9 +30,29 @@
     (seq? node) (mapcat collect-strings node)
     :else []))
 
+(defn- collect-nodes
+  [node pred]
+  (cond
+    (vector? node)
+    (let [children (node-children node)
+          matches (when (pred node) [node])]
+      (concat matches (mapcat #(collect-nodes % pred) children)))
+
+    (seq? node)
+    (mapcat #(collect-nodes % pred) node)
+
+    :else []))
+
 (defn- node-by-role
   [node role]
   (find-first-node node #(= role (get-in % [1 :data-role]))))
+
+(defn- text-node
+  [node value]
+  (find-first-node
+   node
+   #(and (= :text (first %))
+         (some #{value} (collect-strings %)))))
 
 (defn- click-actions
   [node]
@@ -202,6 +222,10 @@
     (is (some? frontier-callout))
     (is (some? standalone-callout))
     (is (some? contribution-callout))
+    (is (empty? (collect-nodes view-node #(= :title (first %))))
+        "SVG native title nodes should not create a second browser tooltip.")
+    (is (= "end" (node-attr (text-node standalone-callout "40.00%") :text-anchor)))
+    (is (nil? (node-attr (text-node standalone-callout "40.00%") :textAnchor)))
     (is (= #{"Target Portfolio"
              "Expected Return"
              "Volatility"
