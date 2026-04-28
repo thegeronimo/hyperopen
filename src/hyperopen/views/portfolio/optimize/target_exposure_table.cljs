@@ -143,7 +143,7 @@
                              :target-weight (or target-weight 0)})
                           (map vector ids current target))
         groups (group-by :asset rows)]
-    [:section {:class ["min-h-0" "border-r" "border-base-300" "bg-base-100/95"]
+    [:section {:class ["min-h-0" "border-r" "border-base-300" "bg-base-100/95" "leading-4"]
                :data-role "portfolio-optimizer-target-exposure-table"}
      [:div {:class ["flex" "items-center" "justify-between" "border-b" "border-base-300" "px-4" "py-3"]}
       [:div

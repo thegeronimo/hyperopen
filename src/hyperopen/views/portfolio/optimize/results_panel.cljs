@@ -384,11 +384,12 @@
    (results-panel last-successful-run nil))
   ([last-successful-run draft]
    (results-panel last-successful-run draft nil))
-  ([last-successful-run draft {:keys [stale? include-rebalance?]
-                               :or {include-rebalance? true}}]
+  ([last-successful-run draft {:keys [stale? include-rebalance? frontier-overlay-mode]
+                               :or {include-rebalance? true
+                                    frontier-overlay-mode :standalone}}]
    (let [result (:result last-successful-run)]
      (when (= :solved (:status result))
-       [:section {:class ["space-y-0"]
+       [:section {:class ["space-y-0" "leading-4"]
                   :data-role "portfolio-optimizer-results-surface"}
         (stale-result-banner stale?)
         [:div {:class ["grid" "grid-cols-1" "xl:grid-cols-[500px_minmax(0,1fr)_320px]"]
@@ -398,7 +399,7 @@
           (target-exposure-table/target-exposure-table result)]
          [:div {:class ["min-h-0" "bg-base-100" "p-6"]
                 :data-role "portfolio-optimizer-results-center-panel"}
-          (frontier-chart/frontier-chart draft result)]
+          (frontier-chart/frontier-chart draft result frontier-overlay-mode)]
          [:div {:class ["min-h-0"]
                 :data-role "portfolio-optimizer-results-right-panel"}
           (trust-diagnostics-rail result)]]

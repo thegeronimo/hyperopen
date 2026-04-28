@@ -202,6 +202,16 @@
           :actions/remove-portfolio-optimizer-universe-instrument
           ["perp:ETH"]
           {:phase :test})))
+  (is (= [:contribution]
+         (contracts/assert-action-args!
+          :actions/set-portfolio-optimizer-frontier-overlay-mode
+          [:contribution]
+          {:phase :test})))
+  (is (= ["none"]
+         (contracts/assert-action-args!
+          :actions/set-portfolio-optimizer-frontier-overlay-mode
+          ["none"]
+          {:phase :test})))
   (is (= []
          (contracts/assert-action-args!
           :actions/set-portfolio-optimizer-universe-from-current

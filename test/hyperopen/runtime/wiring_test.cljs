@@ -104,6 +104,9 @@
     (is (identical? action-adapters/handle-portfolio-optimizer-universe-search-keydown-action
                     (get-in deps [:portfolio-optimizer
                                   :handle-portfolio-optimizer-universe-search-keydown])))
+    (is (identical? action-adapters/set-portfolio-optimizer-frontier-overlay-mode-action
+                    (get-in deps [:portfolio-optimizer
+                                  :set-portfolio-optimizer-frontier-overlay-mode])))
     (is (identical? action-adapters/add-portfolio-optimizer-universe-instrument-action
                     (get-in deps [:portfolio-optimizer :add-portfolio-optimizer-universe-instrument])))
     (is (identical? action-adapters/remove-portfolio-optimizer-universe-instrument-action

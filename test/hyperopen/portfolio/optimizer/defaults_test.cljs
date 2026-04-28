@@ -77,5 +77,6 @@
           :universe-search-active-index 0
           :workspace-panel :setup
           :results-tab :recommendation
-          :diagnostics-tab :conditioning}
+          :diagnostics-tab :conditioning
+          :frontier-overlay-mode :standalone}
          (defaults/default-optimizer-ui-state))))

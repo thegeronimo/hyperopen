@@ -367,6 +367,7 @@
       (get-in state [:portfolio :optimizer :last-successful-run])
       (get-in state [:portfolio :optimizer :draft])
       {:stale? (scenario-stale? state)
+       :frontier-overlay-mode (get-in state [:portfolio-ui :optimizer :frontier-overlay-mode])
        :include-rebalance? false})
      (empty-tab "portfolio-optimizer-recommendation-empty"
                 "Recommendation"
@@ -405,7 +406,7 @@
         loading? (route-mismatched? state scenario-id)
         state* (scenario-scoped-state state scenario-id)
         selected-tab (active-tab state)]
-    [:section {:class ["portfolio-optimizer-v4" "space-y-0" "text-trading-text"]
+    [:section {:class ["portfolio-optimizer-v4" "space-y-0" "leading-4" "text-trading-text"]
                :data-role "portfolio-optimizer-scenario-detail-surface"
                :data-scenario-id scenario-id}
      (scenario-header state* scenario-id)

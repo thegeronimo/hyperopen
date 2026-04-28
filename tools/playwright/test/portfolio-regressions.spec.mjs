@@ -1113,7 +1113,7 @@ test("portfolio optimizer history load requests each manual perp once @regressio
   ]);
 });
 
-test("portfolio optimizer default minimum variance run stores honest target weights @regression", async ({ page }) => {
+test("portfolio optimizer recommendation chart shows minimum variance frontier overlays and honest target weights @regression", async ({ page }) => {
   const priceHistoryByCoin = {
     BTC: ["100", "104", "103", "108"],
     ETH: ["50", "52", "55", "54"],
@@ -1190,12 +1190,29 @@ test("portfolio optimizer default minimum variance run stores honest target weig
   await expect(page).toHaveURL(/\/portfolio\/optimize\/draft/);
   await expect(page.locator("[data-role='portfolio-optimizer-results-surface']"))
     .toContainText("Allocation");
+  await expect(page.locator("[data-role='portfolio-optimizer-frontier-panel']"))
+    .toContainText("Efficient Frontier");
+  const frontierPath = page.locator("[data-role='portfolio-optimizer-frontier-path']");
+  await expect(frontierPath).toBeVisible();
+  await expect.poll(async () => await frontierPath.getAttribute("d"))
+    .toMatch(/\bL\b/);
+  const standaloneFrontierPath = await frontierPath.getAttribute("d");
+  await expect(page.locator("[data-role='portfolio-optimizer-frontier-overlay-mode-standalone']"))
+    .toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("[data-role='portfolio-optimizer-frontier-overlay-standalone-perp:BTC']"))
+    .toBeVisible();
+  await page.locator("[data-role='portfolio-optimizer-frontier-overlay-mode-contribution']").click();
+  await expect(page.locator("[data-role='portfolio-optimizer-frontier-overlay-mode-contribution']"))
+    .toHaveAttribute("aria-pressed", "true");
+  await expect(frontierPath).toHaveAttribute("d", standaloneFrontierPath);
+  await expect(page.locator("[data-role='portfolio-optimizer-frontier-overlay-contribution-perp:BTC']"))
+    .toBeVisible();
   await expect(page.locator("[data-role='portfolio-optimizer-scenario-stale-banner']"))
     .toHaveCount(0);
   await expect(page.locator("[data-role='portfolio-optimizer-stale-result-banner']"))
     .toHaveCount(0);
-  await expect(page.locator("[data-role='portfolio-optimizer-target-exposure-row-0']"))
-    .toContainText("perp:");
+  await expect(page.locator("[data-role='portfolio-optimizer-target-exposure-asset-BTC']"))
+    .toContainText("BTC");
 
   const weights = await readOptimizerTargetWeights(page);
   const grossTarget = weights.reduce((sum, weight) => sum + Math.abs(weight), 0);

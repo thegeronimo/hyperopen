@@ -1,7 +1,8 @@
 (ns hyperopen.runtime.action-adapters
   (:require [hyperopen.funding.actions :as funding-actions]
-            [hyperopen.portfolio.optimizer.black-litterman-actions :as portfolio-optimizer-bl-actions]
             [hyperopen.portfolio.optimizer.actions :as portfolio-optimizer-actions]
+            [hyperopen.portfolio.optimizer.black-litterman-actions :as portfolio-optimizer-bl-actions]
+            [hyperopen.portfolio.optimizer.frontier-actions :as portfolio-optimizer-frontier-actions]
             [hyperopen.runtime.action-adapters.leaderboard :as leaderboard-adapters]
             [hyperopen.runtime.action-adapters.navigation :as navigation-adapters]
             [hyperopen.runtime.action-adapters.spectate-mode :as spectate-mode-adapters]
@@ -188,6 +189,9 @@
 
 (def set-portfolio-optimizer-results-tab-action
   portfolio-optimizer-actions/set-portfolio-optimizer-results-tab)
+
+(def set-portfolio-optimizer-frontier-overlay-mode-action
+  portfolio-optimizer-frontier-actions/set-portfolio-optimizer-frontier-overlay-mode)
 
 (def add-portfolio-optimizer-universe-instrument-action
   portfolio-optimizer-actions/add-portfolio-optimizer-universe-instrument)

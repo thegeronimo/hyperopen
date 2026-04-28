@@ -11,7 +11,9 @@
 
 (def ^:private input-class
   ["w-full" "border" "border-base-300" "bg-base-100/80" "px-2" "py-1.5"
-   "font-mono" "text-[0.6875rem]" "font-medium" "outline-none" "focus:border-warning/70"])
+   "font-mono" "text-[0.6875rem]" "font-medium" "outline-none"
+   "transition-shadow" "focus:border-warning/70"
+   "focus:shadow-[0_0_0_1px_rgba(212,181,88,0.75)]"])
 
 (defn- normalized-text
   [value]
@@ -178,7 +180,7 @@
         active-index (universe-candidates/active-index state markets)
         market-keys (mapv :key markets)
         searching? (seq (normalized-text search-query))]
-    [:section {:class ["border" "border-base-300" "bg-base-100/90" "p-3"]
+    [:section {:class ["border" "border-base-300" "bg-base-100/90" "p-3" "leading-4"]
                :data-role "portfolio-optimizer-universe-panel"}
      [:div {:class ["flex" "items-center" "justify-between" "gap-3" "border-b"
                     "border-base-300" "pb-2"]}

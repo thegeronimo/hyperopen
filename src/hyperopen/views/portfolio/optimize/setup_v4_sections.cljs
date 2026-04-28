@@ -10,7 +10,9 @@
 
 (def ^:private input-class
   ["w-full" "border" "border-base-300" "bg-base-100/80" "px-2" "py-1.5"
-   "font-mono" "text-[0.6875rem]" "font-medium" "outline-none" "focus:border-warning/70"])
+   "font-mono" "text-[0.6875rem]" "font-medium" "outline-none"
+   "transition-shadow" "focus:border-warning/70"
+   "focus:shadow-[0_0_0_1px_rgba(212,181,88,0.75)]"])
 
 (def ^:private constraint-help
   {:long-only? "Restricts target weights to zero or positive values. Turn this off when short or hedged perp exposure is allowed."
@@ -256,7 +258,9 @@
                           "portfolio-optimizer-constraint-long-only-tooltip"
                           (:long-only? constraint-help))]
        [:input {:type "checkbox"
-                :class ["h-4" "w-4" "accent-warning"]
+                :class ["h-4" "w-4" "accent-warning" "outline-none"
+                        "transition-shadow"
+                        "focus:shadow-[0_0_0_2px_rgba(212,181,88,0.75)]"]
                 :data-role "portfolio-optimizer-constraint-long-only-input"
                 :aria-describedby "portfolio-optimizer-constraint-long-only-tooltip"
                 :checked (true? (:long-only? constraints))
@@ -335,8 +339,8 @@
                                        (get-in draft [:risk-model :kind]))]
   [:section {:class ["relative" "z-[180]" "mt-2" "flex" "flex-col" "items-start" "gap-3"
                      "border" "border-base-300" "bg-[#101518]"
-                     "px-7" "py-[14px]" "scroll-mb-12"
-                     "sm:flex-row" "sm:items-center" "sm:gap-4"]
+                     "px-7" "py-[14px]" "scroll-mb-12" "leading-4"
+                     "sm:flex-row" "sm:flex-wrap" "sm:items-center" "sm:gap-4"]
              :data-role "portfolio-optimizer-setup-bottom-actions"}
    [:button {:type "button"
              :class ["border" "border-warning/70" "bg-warning/80" "px-6" "py-2.5"
@@ -366,9 +370,8 @@
                :data-role "portfolio-optimizer-view-weights"
                :on {:click [[:actions/navigate result-path]]}}
       "View weights"])
-   [:div {:class ["relative" "flex" "flex-col" "items-end" "gap-1.5" "font-mono"
-                  "sm:absolute" "sm:right-7" "sm:top-1/2" "sm:-translate-y-1/2"
-                  "sm:w-[300px]" "sm:text-right"]}
+   [:div {:class ["flex" "max-w-full" "flex-col" "items-start" "gap-1.5" "font-mono"
+                  "sm:ml-auto" "sm:min-w-[220px]" "sm:items-end" "sm:text-right"]}
     [:div {:class ["flex" "items-center" "gap-2" "text-[0.6875rem]" "font-semibold"
                    "whitespace-nowrap" "uppercase" "tracking-[0.14em]"
                    (if run-triggerable? "text-[#5a5f68]" "text-[#444951]")
@@ -380,8 +383,8 @@
      [:span (if run-triggerable? "Ready to run" "Add assets to run")]
      [:span {:class ["text-trading-muted/50"]} "·"]
      [:span (str asset-count " assets")]]
-    [:div {:class ["whitespace-nowrap" "text-[0.625rem]" "font-semibold" "normal-case"
-                   "tracking-normal" "text-trading-muted" "sm:w-max"]
+    [:div {:class ["max-w-full" "text-[0.625rem]" "font-semibold" "normal-case"
+                   "tracking-normal" "text-trading-muted" "sm:max-w-[300px]"]
            :data-role "portfolio-optimizer-setup-bottom-actions-status-detail"}
      (str "Solving " objective-copy " · " model-copy)]]]))
 
@@ -392,7 +395,7 @@
         return-kind (get-in draft [:return-model :kind])
         constraints (:constraints draft)
         bl? (= :black-litterman return-kind)]
-    [:main {:class ["space-y-4"] :data-role "portfolio-optimizer-setup-summary-pane"}
+    [:main {:class ["space-y-4" "leading-4"] :data-role "portfolio-optimizer-setup-summary-pane"}
      [:div {:class ["px-1" "pt-2" "pb-1"]
             :data-role "portfolio-optimizer-setup-summary-heading"}
        [:p {:class eyebrow-class} "Summary"]

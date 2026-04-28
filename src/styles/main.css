@@ -458,7 +458,7 @@
 
   .portfolio-optimizer-v4 :is(input, select):focus {
     border-color: var(--optimizer-accent);
-    box-shadow: none;
+    box-shadow: 0 0 0 1px rgba(212, 181, 88, 0.75);
     outline: none;
   }
 
@@ -502,7 +502,7 @@
     [data-role="portfolio-optimizer-universe-search-input"]:focus {
     background-color: transparent;
     border-color: transparent;
-    box-shadow: none;
+    box-shadow: 0 0 0 1px rgba(212, 181, 88, 0.75);
   }
 
   .portfolio-optimizer-v4 [data-role="portfolio-optimizer-universe-search-add-hint"] {

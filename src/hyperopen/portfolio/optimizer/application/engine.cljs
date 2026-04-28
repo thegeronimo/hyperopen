@@ -3,6 +3,7 @@
             [hyperopen.portfolio.optimizer.domain.constraints :as constraints]
             [hyperopen.portfolio.optimizer.domain.diagnostics :as diagnostics]
             [hyperopen.portfolio.optimizer.domain.frontier :as frontier]
+            [hyperopen.portfolio.optimizer.domain.frontier-overlays :as frontier-overlays]
             [hyperopen.portfolio.optimizer.domain.math :as math]
             [hyperopen.portfolio.optimizer.domain.objectives :as objectives]
             [hyperopen.portfolio.optimizer.domain.rebalance :as rebalance]
@@ -161,26 +162,31 @@
    :solver {:strategy (:strategy solver-plan)}
    :solver-results solver-results})
 
-(defn- selected-point
+(defn- solved-points
+  [request solver-results expected-returns covariance]
+  (->> solver-results
+       (keep-indexed (fn [idx result]
+                       (when (solved? result)
+                         (portfolio-point expected-returns
+                                          covariance
+                                          (:risk-free-rate request)
+                                          idx
+                                          result))))
+       vec))
+
+(defn- target-selection
   [request solver-plan solver-results expected-returns covariance]
-  (let [points (->> solver-results
-                    (keep-indexed (fn [idx result]
-                                    (when (solved? result)
-                                      (portfolio-point expected-returns
-                                                       covariance
-                                                       (:risk-free-rate request)
-                                                       idx
-                                                       result))))
-                    vec)]
+  (let [points (solved-points request solver-results expected-returns covariance)]
     (if (empty? points)
       (solver-failure solver-plan solver-results)
       (let [frontier-points (frontier/efficient-frontier points)
-            selected (if (= :frontier-sweep (:strategy solver-plan))
-                       (frontier/select-frontier-point frontier-points (:objective request))
-                       (first points))]
+            selected (or (when (= :frontier-sweep (:strategy solver-plan))
+                           (frontier/select-frontier-point frontier-points (:objective request)))
+                         (first frontier-points)
+                         (first points))]
         {:status :solved
          :selected selected
-         :frontier frontier-points}))))
+         :target-frontier frontier-points}))))
 
 (defn- finite-number?
   [value]
@@ -262,6 +268,59 @@
        :invested-exposure gross-exposure
        :message "Minimum variance selected a near-cash signed portfolio. Use Target Return, Target Volatility, or an explicit Net Min floor if you want invested exposure."})))
 
+(defn- labels-by-instrument
+  [request instrument-ids]
+  (let [by-id (universe-by-id (:universe request))]
+    (into {}
+          (map (fn [instrument-id]
+                 [instrument-id
+                  (or (get-in by-id [instrument-id :coin])
+                      instrument-id)]))
+          instrument-ids)))
+
+(defn- display-frontier-warning
+  [display-frontier-plan solved-point-count]
+  (when (and display-frontier-plan
+             (< solved-point-count (count (:problems display-frontier-plan))))
+    {:code :display-frontier-unavailable
+     :requested-points (count (:problems display-frontier-plan))
+     :available-points solved-point-count
+     :message "Display frontier sweep did not produce a complete chart frontier."}))
+
+(defn- display-frontier-selection
+  [request
+   solver-plan
+   expected-returns
+   covariance
+   target-frontier
+   display-frontier-plan
+   display-frontier-results]
+  (if (= :frontier-sweep (:strategy solver-plan))
+    {:frontier target-frontier
+     :frontier-summary {:source :target-sweep
+                        :point-count (count target-frontier)}
+     :warnings []}
+    (let [points (solved-points request
+                                (or display-frontier-results [])
+                                expected-returns
+                                covariance)
+          frontier-points (frontier/efficient-frontier points)
+          warning (display-frontier-warning display-frontier-plan (count points))]
+      (if (seq frontier-points)
+        {:frontier frontier-points
+         :frontier-summary {:source :display-sweep
+                            :point-count (count frontier-points)}
+         :warnings (cond-> []
+                     warning (conj warning))}
+        {:frontier target-frontier
+         :frontier-summary {:source :target-solve
+                            :point-count (count target-frontier)}
+         :warnings [(or warning
+                        {:code :display-frontier-unavailable
+                         :requested-points (count (:problems display-frontier-plan))
+                         :available-points 0
+                         :message "Display frontier sweep was unavailable."})]}))))
+
 (defn- sharpe-summary
   [expected-return volatility]
   (let [in-sample-sharpe (when (and (finite-number? expected-return)
@@ -309,13 +368,14 @@
    return-result
    solver-plan
    solver-results
-   selection
+   target-selection
+   display-frontier
    encoded
    current-weights*]
   (let [instrument-ids (:instrument-ids risk-result)
         expected-returns (expected-return-vector return-result instrument-ids)
         {:keys [target-weights dropped]} (aligned-clean-weights instrument-ids
-                                                               (get-in selection [:selected :weights])
+                                                               (get-in target-selection [:selected :weights])
                                                                encoded
                                                                request)
         diagnostics (diagnostics/portfolio-diagnostics
@@ -331,7 +391,13 @@
         current-volatility (sqrt (math/portfolio-variance current-weights*
                                                           (:covariance risk-result)))
         expected-return (math/portfolio-return target-weights expected-returns)
-        volatility (sqrt (math/portfolio-variance target-weights (:covariance risk-result)))]
+        volatility (sqrt (math/portfolio-variance target-weights (:covariance risk-result)))
+        overlay-payload (frontier-overlays/overlay-series
+                         {:instrument-ids instrument-ids
+                          :target-weights target-weights
+                          :expected-returns expected-returns
+                          :covariance (:covariance risk-result)
+                          :labels-by-instrument (labels-by-instrument request instrument-ids)})]
     {:status :solved
      :scenario-id (:scenario-id request)
      :as-of-ms (:as-of-ms request)
@@ -351,7 +417,9 @@
      :solver {:strategy (:strategy solver-plan)
               :objective-kind (get-in solver-plan [:problems 0 :objective-kind])}
      :solver-results solver-results
-     :frontier (:frontier selection)
+     :frontier (:frontier display-frontier)
+     :frontier-summary (:frontier-summary display-frontier)
+     :frontier-overlays overlay-payload
      :diagnostics diagnostics
      :return-model (:model return-result)
      :risk-model (:model risk-result)
@@ -360,6 +428,7 @@
      :warnings (vec (concat (:warnings request)
                             (:warnings risk-result)
                             (:warnings return-result)
+                            (:warnings display-frontier)
                             (when cash-warning [cash-warning])))
      :rebalance-preview (rebalance-preview request
                                            instrument-ids
@@ -399,13 +468,22 @@
                       :expected-returns expected-returns
                       :covariance (:covariance risk-result)
                       :encoded-constraints encoded
-                      :return-tilts (:return-tilts request)})]
+                      :return-tilts (:return-tilts request)})
+        display-frontier-plan (when (= :ok (:status solver-plan))
+                                (objectives/build-display-frontier-plan
+                                 {:objective (:objective request)
+                                  :instrument-ids instrument-ids
+                                  :expected-returns expected-returns
+                                  :covariance (:covariance risk-result)
+                                  :encoded-constraints encoded
+                                  :return-tilts (:return-tilts request)}))]
     {:risk-result risk-result
      :return-result return-result
      :expected-returns expected-returns
      :encoded encoded
      :current-weights current-weights*
-     :solver-plan solver-plan})))
+     :solver-plan solver-plan
+     :display-frontier-plan display-frontier-plan})))
 
 (defn- infeasible-payload
   [request risk-result return-result solver-plan]
@@ -422,22 +500,32 @@
            expected-returns
            encoded
            current-weights
-           solver-plan]}
-   solver-results]
-  (let [selection (selected-point request
-                                  solver-plan
-                                  solver-results
-                                  expected-returns
-                                  (:covariance risk-result))]
+           solver-plan
+           display-frontier-plan]}
+   solver-results
+   display-frontier-results]
+  (let [selection (target-selection request
+                                    solver-plan
+                                    solver-results
+                                    expected-returns
+                                    (:covariance risk-result))]
     (if (= :solved (:status selection))
-      (solved-payload request
-                      risk-result
-                      return-result
-                      solver-plan
-                      solver-results
-                      selection
-                      encoded
-                      current-weights)
+      (let [display-frontier (display-frontier-selection request
+                                                         solver-plan
+                                                         expected-returns
+                                                         (:covariance risk-result)
+                                                         (:target-frontier selection)
+                                                         display-frontier-plan
+                                                         display-frontier-results)]
+        (solved-payload request
+                        risk-result
+                        return-result
+                        solver-plan
+                        solver-results
+                        selection
+                        display-frontier
+                        encoded
+                        current-weights))
       selection)))
 
 (defn run-optimization
@@ -448,15 +536,22 @@
          (optimization-context request)]
      (if (= :infeasible (:status solver-plan))
        (infeasible-payload request risk-result return-result solver-plan)
-       (let [solver-results (solve-plan solver-plan (or solve-problem default-solve-problem))]
-         (result-from-solver-results request context solver-results))))))
+       (let [solve-problem* (or solve-problem default-solve-problem)
+             solver-results (solve-plan solver-plan solve-problem*)
+             display-frontier-results (when-let [display-frontier-plan (:display-frontier-plan context)]
+                                        (solve-plan display-frontier-plan solve-problem*))]
+         (result-from-solver-results request
+                                     context
+                                     solver-results
+                                     display-frontier-results))))))
 
 (defn run-optimization-async
   ([request]
    (run-optimization-async request {}))
   ([request {:keys [solve-problem on-progress]}]
    (let [{:keys [risk-result return-result solver-plan] :as context}
-         (optimization-context request on-progress)]
+         (optimization-context request on-progress)
+         solve-problem* (or solve-problem default-solve-problem)]
      (if (= :infeasible (:status solver-plan))
        (js/Promise.resolve
         (infeasible-payload request risk-result return-result solver-plan))
@@ -468,26 +563,36 @@
            :percent 0
            :detail (str (count (:problems solver-plan)) " problems")})
          (-> (solve-plan-async solver-plan
-                               (or solve-problem default-solve-problem)
+                               solve-problem*
                                on-progress)
              (.then (fn [solver-results]
-                      (report-progress!
-                       on-progress
-                       {:step :frontier
-                        :status :running
-                        :percent 80
-                        :detail "selecting frontier"})
-                      (let [result (result-from-solver-results request context solver-results)]
-                        (report-progress!
-                         on-progress
-                         {:step :diagnostics
-                          :status :succeeded
-                          :percent 100
-                          :detail "complete"})
-                        (report-progress!
-                         on-progress
-                         {:step :frontier
-                          :status :succeeded
-                          :percent 100
-                          :detail (str (count (:frontier result)) " points")})
-                        result)))))))))
+                      (let [display-frontier-plan (:display-frontier-plan context)
+                            finish-result (fn [display-frontier-results]
+                                            (report-progress!
+                                             on-progress
+                                             {:step :frontier
+                                              :status :running
+                                              :percent 80
+                                              :detail "selecting frontier"})
+                                            (let [result (result-from-solver-results request
+                                                                                     context
+                                                                                     solver-results
+                                                                                     display-frontier-results)]
+                                              (report-progress!
+                                               on-progress
+                                               {:step :diagnostics
+                                                :status :succeeded
+                                                :percent 100
+                                                :detail "complete"})
+                                              (report-progress!
+                                               on-progress
+                                               {:step :frontier
+                                                :status :succeeded
+                                                :percent 100
+                                               :detail (str (count (:frontier result)) " points")})
+                                              result))]
+                        (if display-frontier-plan
+                          (-> (solve-plan-async display-frontier-plan
+                                                solve-problem*)
+                              (.then finish-result))
+                          (finish-result nil)))))))))))

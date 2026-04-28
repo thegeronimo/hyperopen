@@ -38,6 +38,10 @@
   [node]
   (get-in node [1 :on :click]))
 
+(defn- node-attr
+  [node attr]
+  (get-in node [1 attr]))
+
 (defn- drag-start-actions
   [node]
   (get-in node [1 :on :drag-start]))
@@ -69,6 +73,29 @@
                 :expected-return 0.18
                 :volatility 0.42
                 :sharpe 0.43}]
+    :frontier-summary {:source :display-sweep
+                       :point-count 2}
+    :frontier-overlays
+    {:standalone [{:instrument-id "perp:BTC"
+                   :label "BTC"
+                   :target-weight 0.35
+                   :expected-return 0.12
+                   :volatility 0.4}
+                  {:instrument-id "spot:PURR"
+                   :label "PURR"
+                   :target-weight -0.02
+                   :expected-return 0.08
+                   :volatility 0.22}]
+     :contribution [{:instrument-id "perp:BTC"
+                     :label "BTC"
+                     :target-weight 0.35
+                     :expected-return 0.042
+                     :volatility 0.14}
+                    {:instrument-id "spot:PURR"
+                     :label "PURR"
+                     :target-weight -0.02
+                     :expected-return -0.0016
+                     :volatility -0.01}]}
     :return-decomposition-by-instrument
     {"perp:BTC" {:return-component 0.12
                  :funding-component 0.04
@@ -115,8 +142,22 @@
                    {:result solved-result
                     :computed-at-ms 2600}
                    draft
-                   {:stale? true})
+                   {:stale? true
+                    :frontier-overlay-mode :standalone})
+        contribution-view-node (results-panel/results-panel
+                                {:result solved-result
+                                 :computed-at-ms 2600}
+                                draft
+                                {:frontier-overlay-mode :contribution})
         frontier-point (node-by-role view-node "portfolio-optimizer-frontier-point-1")
+        standalone-toggle (node-by-role view-node
+                                        "portfolio-optimizer-frontier-overlay-mode-standalone")
+        contribution-toggle (node-by-role view-node
+                                          "portfolio-optimizer-frontier-overlay-mode-contribution")
+        standalone-path (node-by-role view-node
+                                      "portfolio-optimizer-frontier-path")
+        contribution-path (node-by-role contribution-view-node
+                                        "portfolio-optimizer-frontier-path")
         frontier-point-actions [[:actions/set-portfolio-optimizer-objective-kind :target-volatility]
                                 [:actions/set-portfolio-optimizer-objective-parameter
                                  :target-volatility
@@ -135,8 +176,21 @@
     (is (some? (node-by-role view-node "portfolio-optimizer-frontier-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-frontier-svg")))
     (is (some? (node-by-role view-node "portfolio-optimizer-frontier-path")))
+    (is (= (node-attr standalone-path :d)
+           (node-attr contribution-path :d))
+        "Overlay mode should not move the efficient frontier.")
     (is (some? (node-by-role view-node "portfolio-optimizer-frontier-target-marker")))
     (is (some? (node-by-role view-node "portfolio-optimizer-frontier-legend")))
+    (is (some? standalone-toggle))
+    (is (= "true" (get-in standalone-toggle [1 :aria-pressed])))
+    (is (= [[:actions/set-portfolio-optimizer-frontier-overlay-mode :contribution]]
+           (click-actions contribution-toggle)))
+    (is (some? (node-by-role view-node
+                             "portfolio-optimizer-frontier-overlay-standalone-perp:BTC")))
+    (is (nil? (node-by-role view-node
+                            "portfolio-optimizer-frontier-overlay-contribution-perp:BTC")))
+    (is (some? (node-by-role contribution-view-node
+                             "portfolio-optimizer-frontier-overlay-contribution-perp:BTC")))
     (is (some? (node-by-role view-node "portfolio-optimizer-target-exposure-table")))
     (is (some? (node-by-role view-node "portfolio-optimizer-target-exposure-asset-BTC")))
     (is (some? (node-by-role view-node "portfolio-optimizer-target-exposure-group-BTC")))
@@ -167,6 +221,8 @@
     (is (contains? strings "Weight Stability"))
     (is (contains? strings "Effective N · 2 of 2"))
     (is (contains? strings "Recommended target"))
+    (is (contains? strings "Standalone"))
+    (is (contains? strings "Contribution"))
     (is (contains? strings "watch"))
     (is (not (contains? strings "Funding Decomposition")))
     (is (contains? strings "low-invested-exposure"))

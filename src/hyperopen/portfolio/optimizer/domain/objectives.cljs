@@ -159,6 +159,17 @@
                                             :return-tilt return-tilt)))
                    (or return-tilts default-return-tilts))})
 
+(defn build-display-frontier-plan
+  [{:keys [objective] :as opts}]
+  (case (:kind objective)
+    :minimum-variance
+    (frontier-plan opts)
+
+    :target-return
+    (frontier-plan opts)
+
+    nil))
+
 (defn build-solver-plan
   [{:keys [objective encoded-constraints] :as opts}]
   (let [target-return-failure (target-return-infeasible opts)]
