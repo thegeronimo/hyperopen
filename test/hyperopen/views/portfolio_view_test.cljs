@@ -386,6 +386,24 @@
     (is (contains? all-text "Staking Account"))
     (is (some #(str/includes? % "Open Orders") all-text))))
 
+(deftest portfolio-view-optimizer-route-uses-dark-route-frame-test
+  (let [view-node (portfolio-view/portfolio-view
+                   (assoc sample-state :router {:path "/portfolio/optimize/draft"}))
+        root-node (find-first-node view-node #(= "portfolio-root" (get-in % [1 :data-parity-id])))
+        scenario-surface (find-first-node view-node #(= "portfolio-optimizer-scenario-detail-surface"
+                                                        (get-in % [1 :data-role])))]
+    (is (some? root-node))
+    (is (= "portfolio-optimizer-route-frame" (get-in root-node [1 :data-role])))
+    (is (contains? (set (class-values root-node)) "portfolio-optimizer-v4"))
+    (is (contains? (set (class-values root-node)) "w-full"))
+    (is (not (contains? (set (class-values root-node)) "app-shell-gutter")))
+    (is (not (contains? (set (class-values root-node)) "py-4")))
+    (is (= "var(--optimizer-bg)" (get-in root-node [1 :style :background-color])))
+    (is (= "calc(100vh - 3.5rem)" (get-in root-node [1 :style :min-height])))
+    (is (= "3.5rem" (get-in root-node [1 :style :padding-bottom])))
+    (is (nil? (get-in root-node [1 :style :background-image])))
+    (is (some? scenario-surface))))
+
 (deftest portfolio-view-exposes-route-local-summary-selector-hooks-test
   (let [state (-> sample-state
                   (assoc-in [:portfolio-ui :summary-scope-dropdown-open?] true)
