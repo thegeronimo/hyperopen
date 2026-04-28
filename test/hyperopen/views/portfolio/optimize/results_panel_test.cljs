@@ -158,6 +158,20 @@
                                       "portfolio-optimizer-frontier-path")
         contribution-path (node-by-role contribution-view-node
                                         "portfolio-optimizer-frontier-path")
+        target-marker (node-by-role view-node
+                                    "portfolio-optimizer-frontier-target-marker")
+        current-marker (node-by-role view-node
+                                     "portfolio-optimizer-frontier-current-marker")
+        target-callout (node-by-role view-node
+                                     "portfolio-optimizer-frontier-callout-target")
+        current-callout (node-by-role view-node
+                                      "portfolio-optimizer-frontier-callout-current")
+        frontier-callout (node-by-role view-node
+                                      "portfolio-optimizer-frontier-callout-frontier-1")
+        standalone-callout (node-by-role view-node
+                                        "portfolio-optimizer-frontier-callout-standalone-perp:BTC")
+        contribution-callout (node-by-role contribution-view-node
+                                          "portfolio-optimizer-frontier-callout-contribution-perp:BTC")
         frontier-point-actions [[:actions/set-portfolio-optimizer-objective-kind :target-volatility]
                                 [:actions/set-portfolio-optimizer-objective-parameter
                                  :target-volatility
@@ -179,7 +193,66 @@
     (is (= (node-attr standalone-path :d)
            (node-attr contribution-path :d))
         "Overlay mode should not move the efficient frontier.")
-    (is (some? (node-by-role view-node "portfolio-optimizer-frontier-target-marker")))
+    (is (some? target-marker))
+    (is (= 0 (node-attr target-marker :tabIndex)))
+    (is (some? current-marker))
+    (is (= 0 (node-attr current-marker :tabIndex)))
+    (is (some? target-callout))
+    (is (some? current-callout))
+    (is (some? frontier-callout))
+    (is (some? standalone-callout))
+    (is (some? contribution-callout))
+    (is (= #{"Target Portfolio"
+             "Expected Return"
+             "Volatility"
+             "Sharpe"
+             "Gross Exposure"
+             "Net Exposure"
+             "18.00%"
+             "42.00%"
+             "0.43"
+             "37.00%"
+             "33.00%"}
+           (set (collect-strings target-callout))))
+    (is (= #{"Current Portfolio"
+             "Expected Return"
+             "Volatility"
+             "Sharpe"
+             "Gross Exposure"
+             "Net Exposure"
+             "12.00%"
+             "24.00%"
+             "0.5"
+             "30.00%"}
+           (set (collect-strings current-callout))))
+    (is (= #{"Frontier Point 2"
+             "Expected Return"
+             "Volatility"
+             "Sharpe"
+             "18.00%"
+             "42.00%"
+             "0.43"}
+           (set (collect-strings frontier-callout))))
+    (is (= #{"BTC"
+             "Expected Return"
+             "Volatility"
+             "Sharpe"
+             "Target Weight"
+             "12.00%"
+             "40.00%"
+             "0.3"
+             "35.00%"}
+           (set (collect-strings standalone-callout))))
+    (is (= #{"BTC"
+             "Return Contribution"
+             "Volatility Contribution"
+             "Sharpe"
+             "Target Weight"
+             "4.20%"
+             "14.00%"
+             "0.3"
+             "35.00%"}
+           (set (collect-strings contribution-callout))))
     (is (some? (node-by-role view-node "portfolio-optimizer-frontier-legend")))
     (is (some? standalone-toggle))
     (is (= "true" (get-in standalone-toggle [1 :aria-pressed])))

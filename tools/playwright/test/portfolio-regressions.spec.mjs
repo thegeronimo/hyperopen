@@ -1199,14 +1199,37 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
   const standaloneFrontierPath = await frontierPath.getAttribute("d");
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-overlay-mode-standalone']"))
     .toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator("[data-role='portfolio-optimizer-frontier-overlay-standalone-perp:BTC']"))
+  const targetMarker = page.locator("[data-role='portfolio-optimizer-frontier-target-marker-hitbox']");
+  const targetCallout = page.locator("[data-role='portfolio-optimizer-frontier-callout-target']");
+  await targetMarker.hover();
+  await expect(targetCallout).toHaveCSS("opacity", "1");
+  await expect(targetCallout).toContainText("Target Portfolio");
+  await expect(targetCallout).toContainText("Expected Return");
+  await expect(targetCallout).toContainText("Volatility");
+  await expect(targetCallout).toContainText("Sharpe");
+  await expect(targetCallout).toContainText("Gross Exposure");
+
+  const standaloneMarker = page.locator("[data-role='portfolio-optimizer-frontier-overlay-standalone-perp:BTC-hitbox']");
+  const standaloneCallout = page.locator("[data-role='portfolio-optimizer-frontier-callout-standalone-perp:BTC']");
+  await expect(standaloneMarker)
     .toBeVisible();
+  await standaloneMarker.hover();
+  await expect(standaloneCallout).toHaveCSS("opacity", "1");
+  await expect(standaloneCallout).toContainText("BTC");
+  await expect(standaloneCallout).toContainText("Expected Return");
+  await expect(standaloneCallout).toContainText("Target Weight");
   await page.locator("[data-role='portfolio-optimizer-frontier-overlay-mode-contribution']").click();
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-overlay-mode-contribution']"))
     .toHaveAttribute("aria-pressed", "true");
   await expect(frontierPath).toHaveAttribute("d", standaloneFrontierPath);
-  await expect(page.locator("[data-role='portfolio-optimizer-frontier-overlay-contribution-perp:BTC']"))
+  const contributionMarker = page.locator("[data-role='portfolio-optimizer-frontier-overlay-contribution-perp:BTC']");
+  const contributionCallout = page.locator("[data-role='portfolio-optimizer-frontier-callout-contribution-perp:BTC']");
+  await expect(contributionMarker)
     .toBeVisible();
+  await contributionMarker.focus();
+  await expect(contributionCallout).toHaveCSS("opacity", "1");
+  await expect(contributionCallout).toContainText("Return Contribution");
+  await expect(contributionCallout).toContainText("Volatility Contribution");
   await expect(page.locator("[data-role='portfolio-optimizer-scenario-stale-banner']"))
     .toHaveCount(0);
   await expect(page.locator("[data-role='portfolio-optimizer-stale-result-banner']"))

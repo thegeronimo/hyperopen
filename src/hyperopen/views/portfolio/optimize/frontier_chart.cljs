@@ -1,5 +1,7 @@
 (ns hyperopen.views.portfolio.optimize.frontier-chart
   (:require [clojure.string :as str]
+            [hyperopen.views.portfolio.optimize.frontier-callout :as frontier-callout]
+            [hyperopen.views.portfolio.optimize.frontier-overlay-markers :as frontier-overlays]
             [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
 (defn- objective-target
@@ -28,9 +30,8 @@
 (def ^:private chart-axis-stroke "#292d33")
 (def ^:private current-halo-stroke "rgba(107, 141, 181, 0.45)")
 (def ^:private target-halo-stroke "rgba(212, 181, 88, 0.45)")
-(def ^:private standalone-overlay-color "#8f96a3")
-(def ^:private contribution-overlay-color "#59a5c8")
-(def ^:private overlay-modes [:standalone :contribution :none])
+(def ^:private chart-bounds {:width chart-width
+                             :height chart-height})
 
 (defn- numeric-values
   [points key]
@@ -108,15 +109,21 @@
 (defn- frontier-point
   [draft idx point x-domain y-domain]
   (let [target (objective-target draft point)
-        {:keys [x y]} (point-position x-domain y-domain point)]
+        position (point-position x-domain y-domain point)
+        {:keys [x y]} position
+        label (str "Frontier Point " (inc idx))
+        rows (frontier-callout/point-rows point)]
     [:g {:role "button"
          :tabIndex 0
-         :class ["cursor-pointer" "text-primary" "outline-none"]
+         :tabindex 0
+         :focusable "true"
+         :class ["portfolio-frontier-marker" "cursor-pointer" "text-primary" "outline-none"]
          :data-role (str "portfolio-optimizer-frontier-point-" idx)
          :data-frontier-drag-target "true"
          :data-return (opt-format/format-pct (:expected-return point))
          :data-volatility (opt-format/format-pct (:volatility point))
          :data-sharpe (opt-format/format-decimal (:sharpe point))
+         :aria-label (frontier-callout/aria-label label rows)
          :draggable true
          :on {:click (point-actions target)
               :drag-start (point-actions target)
@@ -130,139 +137,22 @@
                :r 11
                :fill "transparent"
                :stroke "rgba(212, 181, 88, 0.16)"}]
+     (frontier-callout/focus-ring x y 15)
+     (frontier-callout/hitbox
+      (str "portfolio-optimizer-frontier-point-" idx "-hitbox")
+      x
+      y
+      14)
      [:title
       (str "Return " (opt-format/format-pct (:expected-return point))
            ", volatility " (opt-format/format-pct (:volatility point))
-           ", Sharpe " (opt-format/format-decimal (:sharpe point)))]]))
-
-(defn- normalize-overlay-mode
-  [overlay-mode]
-  (if (some #{overlay-mode} overlay-modes)
-    overlay-mode
-    :standalone))
-
-(defn- visible-overlay-points
-  [result overlay-mode]
-  (let [mode (normalize-overlay-mode overlay-mode)]
-    (if (contains? #{:standalone :contribution} mode)
-      (->> (get-in result [:frontier-overlays mode])
-           (filter #(and (opt-format/finite-number? (:volatility %))
-                         (opt-format/finite-number? (:expected-return %))))
-           vec)
-      [])))
-
-(defn- all-overlay-points
-  [result]
-  (->> [:standalone :contribution]
-       (mapcat #(get-in result [:frontier-overlays %]))
-       (filter #(and (opt-format/finite-number? (:volatility %))
-                     (opt-format/finite-number? (:expected-return %))))
-       vec))
-
-(defn- overlay-copy
-  [overlay-mode]
-  (case (normalize-overlay-mode overlay-mode)
-    :contribution
-    {:subtitle "Risk vs return — annualized frontier with contribution overlays"
-     :x-axis-prefix "Vol"
-     :y-axis-prefix "Ret"
-     :reading-text "Frontier points stay on the same risk / return scale. Overlay markers show signed volatility contribution on x and return contribution on y for each selected asset."
-     :legend-label "Signed contribution"}
-
-    :standalone
-    {:subtitle "Risk vs return — annualized frontier with standalone asset overlays"
-     :x-axis-prefix "Vol"
-     :y-axis-prefix "Ret"
-     :reading-text "Frontier points are feasible portfolios. Overlay markers show each selected asset as its own standalone risk / return point."
-     :legend-label "Standalone assets"}
-
-    {:subtitle "Risk vs return — annualized"
-     :x-axis-prefix "Vol"
-     :y-axis-prefix "Ret"
-     :reading-text "Each point is a feasible portfolio."
-     :legend-label nil}))
-
-(defn- overlay-title
-  [overlay-mode point]
-  (let [mode (normalize-overlay-mode overlay-mode)
-        label (or (:label point) (:instrument-id point))]
-    (case mode
-      :contribution
-      (str label
-           " contribution: return contribution "
-           (opt-format/format-pct (:expected-return point))
-           ", signed volatility contribution "
-           (opt-format/format-pct (:volatility point))
-           ", target weight "
-           (opt-format/format-pct (:target-weight point)))
-
-      (str label
-           " standalone: return "
-           (opt-format/format-pct (:expected-return point))
-           ", volatility "
-           (opt-format/format-pct (:volatility point))
-           ", target weight "
-           (opt-format/format-pct (:target-weight point))))))
-
-(defn- overlay-label
-  [point]
-  (or (:label point) (:instrument-id point)))
-
-(defn- standalone-overlay-marker
-  [point x-domain y-domain]
-  (let [{:keys [x y]} (point-position x-domain y-domain point)]
-    [:g {:data-role (str "portfolio-optimizer-frontier-overlay-standalone-"
-                         (:instrument-id point))
-         :role "img"
-         :aria-label (overlay-title :standalone point)}
-     [:rect {:x (- x 5)
-             :y (- y 5)
-             :width 10
-             :height 10
-             :transform (str "rotate(45 " x " " y ")")
-             :fill "none"
-             :stroke standalone-overlay-color
-             :strokeWidth 2}]
-     [:text {:x (+ x 9)
-             :y (- y 8)
-             :fill standalone-overlay-color
-             :fontSize 9
-             :fontWeight 700}
-      (overlay-label point)]
-     [:title (overlay-title :standalone point)]]))
-
-(defn- triangle-path
-  [x y]
-  (str "M " x " " (- y 6)
-       " L " (+ x 6) " " (+ y 6)
-       " L " (- x 6) " " (+ y 6)
-       " Z"))
-
-(defn- contribution-overlay-marker
-  [point x-domain y-domain]
-  (let [{:keys [x y]} (point-position x-domain y-domain point)]
-    [:g {:data-role (str "portfolio-optimizer-frontier-overlay-contribution-"
-                         (:instrument-id point))
-         :role "img"
-         :aria-label (overlay-title :contribution point)}
-     [:path {:d (triangle-path x y)
-             :fill "none"
-             :stroke contribution-overlay-color
-             :strokeWidth 2}]
-     [:text {:x (+ x 9)
-             :y (+ y 14)
-             :fill contribution-overlay-color
-             :fontSize 9
-             :fontWeight 700}
-      (overlay-label point)]
-     [:title (overlay-title :contribution point)]]))
-
-(defn- overlay-marker
-  [overlay-mode point x-domain y-domain]
-  (case (normalize-overlay-mode overlay-mode)
-    :contribution (contribution-overlay-marker point x-domain y-domain)
-    :standalone (standalone-overlay-marker point x-domain y-domain)
-    nil))
+           ", Sharpe " (opt-format/format-decimal (:sharpe point)))]
+     (frontier-callout/callout
+      {:bounds chart-bounds
+       :data-role (str "portfolio-optimizer-frontier-callout-frontier-" idx)
+       :label label
+       :point position
+       :rows rows})]))
 
 (defn- overlay-mode-button
   [current-mode mode]
@@ -293,10 +183,21 @@
 (defn- target-marker
   [result x-domain y-domain]
   (let [point {:expected-return (:expected-return result)
-               :volatility (:volatility result)}
-        {:keys [x y]} (point-position x-domain y-domain point)]
-    [:g {:class ["text-primary"]
-         :data-role "portfolio-optimizer-frontier-target-marker"}
+               :volatility (:volatility result)
+               :sharpe (get-in result [:performance :in-sample-sharpe])}
+        position (point-position x-domain y-domain point)
+        {:keys [x y]} position
+        label "Target Portfolio"
+        rows (frontier-callout/point-rows
+              point
+              {:exposure (frontier-callout/exposure-summary result :target)})]
+    [:g {:class ["portfolio-frontier-marker" "text-primary" "outline-none"]
+         :data-role "portfolio-optimizer-frontier-target-marker"
+         :role "img"
+         :tabIndex 0
+         :tabindex 0
+         :focusable "true"
+         :aria-label (frontier-callout/aria-label label rows)}
      [:circle {:cx x
                :cy y
                :r 6
@@ -308,22 +209,46 @@
                :r 12
                :fill "transparent"
                :stroke target-halo-stroke}]
+     (frontier-callout/focus-ring x y 16)
      [:text {:x (+ x 10)
              :y (- y 10)
              :fill "currentColor"
              :fontSize 10
              :fontWeight 700}
-      "Target"]]))
+      "Target"]
+     (frontier-callout/hitbox
+      "portfolio-optimizer-frontier-target-marker-hitbox"
+      x
+      y
+      18)
+     [:title (frontier-callout/aria-label label rows)]
+     (frontier-callout/callout
+      {:bounds chart-bounds
+       :data-role "portfolio-optimizer-frontier-callout-target"
+       :label label
+       :point position
+       :rows rows})]))
 
 (defn- current-marker
   [result x-domain y-domain]
   (when (and (opt-format/finite-number? (:current-expected-return result))
              (opt-format/finite-number? (:current-volatility result)))
     (let [point {:expected-return (:current-expected-return result)
-                 :volatility (:current-volatility result)}
-          {:keys [x y]} (point-position x-domain y-domain point)]
-      [:g {:class ["text-info"]
-           :data-role "portfolio-optimizer-frontier-current-marker"}
+                 :volatility (:current-volatility result)
+                 :sharpe (get-in result [:current-performance :in-sample-sharpe])}
+          position (point-position x-domain y-domain point)
+          {:keys [x y]} position
+          label "Current Portfolio"
+          rows (frontier-callout/point-rows
+                point
+                {:exposure (frontier-callout/exposure-summary result :current)})]
+      [:g {:class ["portfolio-frontier-marker" "text-info" "outline-none"]
+           :data-role "portfolio-optimizer-frontier-current-marker"
+           :role "img"
+           :tabIndex 0
+           :tabindex 0
+           :focusable "true"
+           :aria-label (frontier-callout/aria-label label rows)}
        [:circle {:cx x
                  :cy y
                  :r 5
@@ -335,25 +260,38 @@
                  :r 11
                  :fill "transparent"
                  :stroke current-halo-stroke}]
+       (frontier-callout/focus-ring x y 15)
        [:text {:x (+ x 10)
                :y (+ y 16)
                :fill "currentColor"
                :fontSize 10
                :fontWeight 700}
-        "Current"]])))
+        "Current"]
+       (frontier-callout/hitbox
+        "portfolio-optimizer-frontier-current-marker-hitbox"
+        x
+        y
+        18)
+       [:title (frontier-callout/aria-label label rows)]
+       (frontier-callout/callout
+        {:bounds chart-bounds
+         :data-role "portfolio-optimizer-frontier-callout-current"
+         :label label
+         :point position
+         :rows rows})])))
 
 (defn frontier-chart
   ([draft result]
    (frontier-chart draft result :standalone))
   ([draft result overlay-mode]
-   (let [overlay-mode* (normalize-overlay-mode overlay-mode)
-         overlay-points (visible-overlay-points result overlay-mode*)
-         domain-overlay-points (all-overlay-points result)
+   (let [overlay-mode* (frontier-overlays/normalize-mode overlay-mode)
+         overlay-points (frontier-overlays/visible-points result overlay-mode*)
+         domain-overlay-points (frontier-overlays/all-points result)
          {:keys [subtitle
                  x-axis-prefix
                  y-axis-prefix
                  reading-text
-                 legend-label]} (overlay-copy overlay-mode*)
+                 legend-label]} (frontier-overlays/copy overlay-mode*)
          points (->> (:frontier result)
                      (filter #(and (opt-format/finite-number? (:volatility %))
                                    (opt-format/finite-number? (:expected-return %))))
@@ -393,7 +331,7 @@
          [:div {:class ["flex" "items-start" "gap-3"]}
           [:div {:class ["overflow-hidden" "border" "border-base-300" "bg-base-100/90"]}
            (into [:div {:class ["flex" "items-stretch"]}]
-                 (map #(overlay-mode-button overlay-mode* %) overlay-modes))]
+                 (map #(overlay-mode-button overlay-mode* %) frontier-overlays/modes))]
           [:p {:class ["font-mono" "text-[0.62rem]" "text-trading-muted/70"]}
            (str (count points) " points")]]]
         [:div {:class ["relative" "mt-4" "overflow-hidden" "border" "border-base-300" "bg-base-100" "p-4"]
@@ -438,12 +376,19 @@
                   :strokeLinejoin "round"
                   :class ["text-primary"]
                   :data-role "portfolio-optimizer-frontier-path"}]
-          (map #(overlay-marker overlay-mode* % x-domain y-domain) overlay-points)
           (map-indexed (fn [idx point]
                          (frontier-point draft idx point x-domain y-domain))
                        points)
           (current-marker result x-domain y-domain)
           (target-marker result x-domain y-domain)
+          (map #(frontier-overlays/marker
+                 {:bounds chart-bounds
+                  :overlay-mode overlay-mode*
+                  :point-position point-position
+                  :x-domain x-domain
+                  :y-domain y-domain
+                  :point %})
+               overlay-points)
           [:text {:x chart-pad
                   :y (- chart-height 8)
                   :fill "currentColor"

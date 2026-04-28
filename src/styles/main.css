@@ -357,6 +357,46 @@
     background-color: var(--optimizer-surface);
   }
 
+  .portfolio-optimizer-v4 .portfolio-frontier-marker {
+    outline: none;
+  }
+
+  .portfolio-optimizer-v4 .portfolio-frontier-marker:focus {
+    outline: 2px solid var(--optimizer-accent);
+    outline-offset: 3px;
+  }
+
+  .portfolio-optimizer-v4 .portfolio-frontier-focus-ring {
+    display: none;
+    fill: none;
+    pointer-events: none;
+    stroke: var(--optimizer-accent);
+    stroke-dasharray: 3 3;
+    stroke-width: 2;
+  }
+
+  .portfolio-optimizer-v4 .portfolio-frontier-marker:focus .portfolio-frontier-focus-ring,
+  .portfolio-optimizer-v4
+    .portfolio-frontier-marker:focus-within
+    .portfolio-frontier-focus-ring {
+    display: inline;
+  }
+
+  .portfolio-optimizer-v4 .portfolio-frontier-callout {
+    display: none;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .portfolio-optimizer-v4 .portfolio-frontier-marker:hover .portfolio-frontier-callout,
+  .portfolio-optimizer-v4 .portfolio-frontier-marker:focus .portfolio-frontier-callout,
+  .portfolio-optimizer-v4
+    .portfolio-frontier-marker:focus-within
+    .portfolio-frontier-callout {
+    display: inline;
+    opacity: 1;
+  }
+
   .portfolio-optimizer-v4 [data-role="portfolio-optimizer-trust-caution-panel"] {
     background-color: var(--optimizer-surface);
   }
