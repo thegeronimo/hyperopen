@@ -366,13 +366,14 @@
                :data-role "portfolio-optimizer-view-weights"
                :on {:click [[:actions/navigate result-path]]}}
       "View weights"])
-   [:div {:class ["space-y-2" "font-mono"
+   [:div {:class ["relative" "flex" "flex-col" "items-end" "gap-1.5" "font-mono"
                   "sm:absolute" "sm:right-7" "sm:top-1/2" "sm:-translate-y-1/2"
                   "sm:w-[300px]" "sm:text-right"]}
     [:div {:class ["flex" "items-center" "gap-2" "text-[0.6875rem]" "font-semibold"
                    "whitespace-nowrap" "uppercase" "tracking-[0.14em]"
-                   (if run-triggerable? "text-trading-muted" "text-trading-muted/70")
-                   "sm:justify-end"]}
+                   (if run-triggerable? "text-[#5a5f68]" "text-[#444951]")
+                   "sm:justify-end"]
+           :data-role "portfolio-optimizer-setup-bottom-actions-status-meta"}
      (when run-triggerable?
        [:span {:class ["h-2" "w-2" "rounded-full" "bg-success"]
                :aria-hidden "true"}])
@@ -382,7 +383,8 @@
      [:span {:class ["text-trading-muted/50"]} "·"]
      [:span "est. 1.4s"]]
     [:div {:class ["whitespace-nowrap" "text-[0.625rem]" "font-semibold" "normal-case"
-                   "tracking-normal" "text-trading-muted"]}
+                   "tracking-normal" "text-trading-muted" "sm:w-max"]
+           :data-role "portfolio-optimizer-setup-bottom-actions-status-detail"}
      (str "Solving " objective-copy " · " model-copy)]]]))
 
 (defn summary-pane

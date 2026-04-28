@@ -676,22 +676,46 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   const summaryPane = page.locator("[data-role='portfolio-optimizer-setup-summary-pane']");
   const assumptionsPanel = page.locator("[data-role='portfolio-optimizer-model-assumptions-panel']");
   const bottomActions = page.locator("[data-role='portfolio-optimizer-setup-bottom-actions']");
+  const actionMeta = page.locator("[data-role='portfolio-optimizer-setup-bottom-actions-status-meta']");
+  const actionDetail = page.locator("[data-role='portfolio-optimizer-setup-bottom-actions-status-detail']");
   const footer = page.locator("[data-parity-id='footer']");
   await expect(summaryPane.locator("[data-role='portfolio-optimizer-setup-bottom-actions']"))
     .toBeVisible();
   await expect(assumptionsPanel).toBeVisible();
   await expect.poll(async () => {
-    const [summaryBox, assumptionsBox, actionsBox, footerBox] = await Promise.all([
+    const [summaryBox, assumptionsBox, actionsBox, metaBox, detailBox, footerBox] = await Promise.all([
       summaryPane.boundingBox(),
       assumptionsPanel.boundingBox(),
       bottomActions.boundingBox(),
+      actionMeta.boundingBox(),
+      actionDetail.boundingBox(),
       footer.boundingBox()
     ]);
-    if (!summaryBox || !assumptionsBox || !actionsBox || !footerBox) return false;
+    if (!summaryBox || !assumptionsBox || !actionsBox || !metaBox || !detailBox || !footerBox) return false;
+    const topPadding = metaBox.y - actionsBox.y;
+    const bottomPadding = actionsBox.y + actionsBox.height - (detailBox.y + detailBox.height);
     return actionsBox.x >= summaryBox.x
       && actionsBox.x + actionsBox.width <= summaryBox.x + summaryBox.width + 1
+      && detailBox.x >= actionsBox.x
+      && detailBox.x + detailBox.width <= actionsBox.x + actionsBox.width + 1
+      && bottomPadding >= 10
+      && Math.abs(topPadding - bottomPadding) <= 8
       && actionsBox.y > assumptionsBox.y + assumptionsBox.height
       && actionsBox.y < footerBox.y;
+  }).toBe(true);
+  await expect.poll(async () => {
+    const [metaColor, detailColor] = await Promise.all([
+      actionMeta.evaluate((element) => getComputedStyle(element).color),
+      actionDetail.evaluate((element) => getComputedStyle(element).color)
+    ]);
+    const rgb = (color) => (color.match(/\d+(\.\d+)?/g) || []).slice(0, 3).map(Number);
+    const meta = rgb(metaColor);
+    const detail = rgb(detailColor);
+    return meta.length === 3
+      && detail.length === 3
+      && detail[0] > meta[0]
+      && detail[1] > meta[1]
+      && detail[2] > meta[2];
   }).toBe(true);
   await expect(page.locator("[data-role='portfolio-optimizer-draft-state']"))
     .toContainText("Draft clean");
