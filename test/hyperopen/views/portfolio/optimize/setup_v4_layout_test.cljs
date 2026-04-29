@@ -114,6 +114,31 @@
     (is (str/includes? (node-text (node-by-role view-node "portfolio-optimizer-return-risk-panel"))
                        "03Return / Risk Model"))))
 
+(deftest setup-v4-return-risk-and-constraints-panels-are-collapsed-disclosures-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:draft {:universe [{:instrument-id "perp:BTC"
+                                                     :market-type :perp
+                                                     :coin "BTC"}]
+                                         :objective {:kind :minimum-variance}
+                                         :return-model {:kind :historical-mean}
+                                         :risk-model {:kind :diagonal-shrink}
+                                         :constraints {:long-only? true
+                                                       :max-asset-weight 0.25
+                                                       :gross-max 2}}}}})
+        model-panel (node-by-role view-node "portfolio-optimizer-return-risk-panel")
+        constraints-panel (node-by-role view-node "portfolio-optimizer-constraints-panel")
+        advanced-panel (node-by-role view-node "portfolio-optimizer-advanced-overrides-shell")]
+    (doseq [panel [model-panel constraints-panel advanced-panel]]
+      (is (= :details (first panel)))
+      (is (not (contains? (second panel) :open)))
+      (is (= :summary (first (first (node-children panel))))))
+    (is (some? (node-by-role model-panel "portfolio-optimizer-return-model-panel")))
+    (is (some? (node-by-role model-panel "portfolio-optimizer-risk-model-panel")))
+    (is (some? (node-by-role constraints-panel
+                              "portfolio-optimizer-constraint-gross-max-input")))))
+
 (deftest setup-v4-layout-preserves-optimizer-control-actions-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}
@@ -185,6 +210,8 @@
             tooltip-id (str role "-tooltip")
             tooltip (node-by-role view-node tooltip-id)]
         (is (= tooltip-id (get-in button [1 :aria-describedby])))
+        (is (contains? (class-token-set button)
+                       "focus:shadow-[inset_0_0_0_1px_rgba(212,181,88,0.75)]"))
         (is (= "tooltip" (get-in tooltip [1 :role])))
         (is (= copy (node-text tooltip)))))))
 

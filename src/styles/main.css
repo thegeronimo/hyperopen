@@ -451,6 +451,10 @@
     border-right: 1px solid var(--optimizer-border);
   }
 
+  .portfolio-optimizer-v4 details:not([open]) > :not(summary) {
+    display: none;
+  }
+
   .portfolio-optimizer-v4 [data-role="portfolio-optimizer-right-rail"] {
     border-left: 1px solid var(--optimizer-border);
   }

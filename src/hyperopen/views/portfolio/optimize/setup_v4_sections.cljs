@@ -58,6 +58,12 @@
                    :data-role role}]
         children))
 
+(defn- disclosure-panel
+  [role & children]
+  (into [:details {:class ["border" "border-base-300" "bg-base-100/90" "p-3"]
+                   :data-role role}]
+        children))
+
 (defn- section-heading
   [idx title trailing]
   [:div {:class ["flex" "items-center" "justify-between" "gap-3" "border-b" "border-base-300" "pb-2"]}
@@ -68,6 +74,11 @@
      [:span {:class ["font-mono" "text-[0.65625rem]" "uppercase" "tracking-[0.08em]"
                       "text-trading-muted/70"]}
       trailing])])
+
+(defn- disclosure-heading
+  [idx title trailing]
+  [:summary {:class ["cursor-pointer" "select-none" "focus:outline-none" "focus:text-warning"]}
+   (section-heading idx title trailing)])
 
 (defn- segmented-button
   ([label selected? role action]
@@ -87,7 +98,8 @@
                                "tracking-[0.04em]" "text-trading-muted"
                                "transition-colors" "last:border-r-0"
                                "hover:text-warning" "focus:outline-none"
-                               "focus:text-warning"]
+                               "focus:text-warning"
+                               "focus:shadow-[inset_0_0_0_1px_rgba(212,181,88,0.75)]"]
                         selected? (conj "bg-base-200/40" "text-trading-text"))
                :aria-pressed (str selected?)
                :aria-describedby (when help-copy tooltip-id)
@@ -116,9 +128,9 @@
   [draft]
   (let [return-kind (get-in draft [:return-model :kind])
         risk-kind (get-in draft [:risk-model :kind])]
-    (panel
+    (disclosure-panel
      "portfolio-optimizer-return-risk-panel"
-     (section-heading "03" "Return / Risk Model" (labelize return-kind))
+     (disclosure-heading "03" "Return / Risk Model" (labelize return-kind))
      [:div {:class ["mt-3" "space-y-3"] :data-role "portfolio-optimizer-setup-model-grid"}
       [:div {:data-role "portfolio-optimizer-return-model-panel"}
        [:p {:class eyebrow-class} "Expected returns"]
@@ -279,9 +291,9 @@
 (defn- constraints-section
   [draft highlighted-controls]
   (let [constraints (:constraints draft)]
-    (panel
+    (disclosure-panel
      "portfolio-optimizer-constraints-panel"
-     (section-heading "04" "Constraints" "mandatory")
+     (disclosure-heading "04" "Constraints" "mandatory")
      [:div {:class ["mt-3" "grid" "grid-cols-1" "gap-2"]}
       [:label {:class ["group" "relative" "flex" "items-center" "justify-between" "gap-3" "border"
                        "border-base-300" "bg-base-200/20" "p-2"]}
@@ -416,7 +428,7 @@
      [:span {:class ["text-trading-muted/50"]} "·"]
      [:span (str asset-count " assets")]]
     [:div {:class ["max-w-full" "text-[0.625rem]" "font-semibold" "normal-case"
-                   "tracking-normal" "text-trading-muted" "sm:max-w-[300px]"]
+                   "tracking-normal" "text-trading-muted" "sm:max-w-[260px]"]
            :data-role "portfolio-optimizer-setup-bottom-actions-status-detail"}
      (str "Solving " objective-copy " · " model-copy)]]]))
 
