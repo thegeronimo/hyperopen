@@ -11,6 +11,7 @@ import {
 
 const TRADER_ADDRESS = "0x3333333333333333333333333333333333333333";
 const SPECTATE_ADDRESS = "0x162cc7c861ebd0c06b3d72319201150482518185";
+const OPTIMIZER_VAULT_ADDRESS = "0x1111111111111111111111111111111111111111";
 const OPTIMIZER_RELOAD_SCENARIO_ID = "scn_playwright_tracking_reload";
 const OPTIMIZER_RELOAD_SCENARIO_EDN = `{:schema-version 1
  :id "scn_playwright_tracking_reload"
@@ -362,6 +363,69 @@ async function seedOptimizerAssetSelectorMarkets(page) {
 
     c.reset_BANG_(globalThis.hyperopen.system.store, nextState);
   });
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+}
+
+async function stubOptimizerVaultMetadata(page) {
+  const vaultSummary = {
+    vaultAddress: OPTIMIZER_VAULT_ADDRESS,
+    name: "Alpha Yield",
+    leader: "0x2222222222222222222222222222222222222222",
+    tvl: "5000000",
+    relationship: { type: "normal" },
+    createTimeMillis: 1777045900000
+  };
+
+  await page.route("https://stats-data.hyperliquid.xyz/Mainnet/vaults", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([{ summary: vaultSummary }])
+    });
+  });
+
+  await page.route("**/info", async (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      try {
+        const payload = request.postDataJSON();
+        if (payload?.type === "vaultSummaries") {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([vaultSummary])
+          });
+          return;
+        }
+      } catch {
+        // Let non-JSON info requests follow the normal route.
+      }
+    }
+    await route.continue();
+  });
+}
+
+async function seedOptimizerVaultRows(page) {
+  await page.evaluate((vaultAddress) => {
+    const c = globalThis.cljs.core;
+    const kw = (name) => c.keyword(name);
+    const path = (...segments) =>
+      c.PersistentVector.fromArray(segments.map((segment) => kw(segment)), true);
+    const map = (entries) => c.PersistentArrayMap.fromArray(entries, true);
+    const row = map([
+      kw("name"), "Alpha Yield",
+      kw("vault-address"), vaultAddress,
+      kw("leader"), "0x2222222222222222222222222222222222222222",
+      kw("tvl"), 5000000,
+      kw("relationship"), map([kw("type"), kw("normal")])
+    ]);
+    const rows = c.PersistentVector.fromArray([row], true);
+    const store = globalThis.hyperopen.system.store;
+    c.reset_BANG_(
+      store,
+      c.assoc_in(c.deref(store), path("vaults", "merged-index-rows"), rows)
+    );
+  }, OPTIMIZER_VAULT_ADDRESS);
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 }
 
@@ -971,6 +1035,51 @@ test("portfolio optimizer manual universe builder adds and removes assets @regre
   await searchInput.fill("eth");
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(ethCandidate).toBeVisible();
+});
+
+test("portfolio optimizer manual universe builder adds and removes vaults @regression", async ({ page }) => {
+  await stubOptimizerVaultMetadata(page);
+  await visitRoute(page, "/portfolio/optimize/new");
+  await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']")).toBeVisible();
+  await seedOptimizerVaultRows(page);
+
+  const vaultKey = `vault:${OPTIMIZER_VAULT_ADDRESS}`;
+  const searchInput = page.locator("[data-role='portfolio-optimizer-universe-search-input']");
+  const vaultRow = page.locator(
+    `[data-role='portfolio-optimizer-universe-candidate-row-${vaultKey}']`
+  );
+  const vaultAdd = page.locator(`[data-role='portfolio-optimizer-universe-add-${vaultKey}']`);
+  const vaultSelected = page.locator(
+    `[data-role='portfolio-optimizer-universe-selected-row-${vaultKey}']`
+  );
+  const vaultRemove = page.locator(
+    `[data-role='portfolio-optimizer-universe-remove-${vaultKey}']`
+  );
+
+  await expect(searchInput).toHaveAttribute("placeholder", /vault/);
+  await searchInput.fill("alpha");
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+  await expect(vaultRow).toBeVisible();
+  await expect(vaultRow).toContainText("Alpha Yield");
+  await expect(vaultRow).toContainText("vault");
+  await vaultAdd.click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+  await expect(vaultSelected).toBeVisible();
+  await expect(vaultSelected).toContainText("Alpha Yield");
+  await expect(vaultSelected).toContainText("vault");
+  await expect(vaultRemove).toBeVisible();
+  await expect(searchInput).toHaveValue("");
+  await expect(page.locator("[data-role='portfolio-optimizer-universe-search-results']"))
+    .toHaveCount(0);
+
+  await vaultRemove.click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(vaultSelected).toHaveCount(0);
+  await searchInput.fill("alpha");
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(vaultAdd).toBeVisible();
 });
 
 test("portfolio optimizer manual universe search supports keyboard selection @regression", async ({ page }) => {

@@ -94,20 +94,43 @@
 (deftest load-portfolio-optimizer-route-emits-scenario-read-effects-test
   (is (= [[:effects/load-portfolio-optimizer-scenario-index]]
          (actions/load-portfolio-optimizer-route
-          {}
+          {:vaults {:merged-index-rows [{:vault-address "0xloaded"}]}}
           "/portfolio/optimize")))
   (is (= [[:effects/load-portfolio-optimizer-scenario "scn_01"]]
          (actions/load-portfolio-optimizer-route
-          {}
+          {:vaults {:merged-index-rows [{:vault-address "0xloaded"}]}}
           "/portfolio/optimize/scn_01")))
   (is (= []
          (actions/load-portfolio-optimizer-route
-          {}
+          {:vaults {:merged-index-rows [{:vault-address "0xloaded"}]}}
           "/portfolio/optimize/new")))
   (is (= []
          (actions/load-portfolio-optimizer-route
           {}
           "/trade"))))
+
+(deftest load-portfolio-optimizer-route-fetches-vault-metadata-for-universe-search-test
+  (is (= [[:effects/api-fetch-vault-index]
+          [:effects/api-fetch-vault-summaries]]
+         (actions/load-portfolio-optimizer-route
+          {}
+          "/portfolio/optimize/new")))
+  (is (= [[:effects/load-portfolio-optimizer-scenario-index]
+          [:effects/api-fetch-vault-index]
+          [:effects/api-fetch-vault-summaries]]
+         (actions/load-portfolio-optimizer-route
+          {:vaults {}}
+          "/portfolio/optimize")))
+  (is (= [[:effects/load-portfolio-optimizer-scenario "scn_01"]
+          [:effects/api-fetch-vault-index]
+          [:effects/api-fetch-vault-summaries]]
+         (actions/load-portfolio-optimizer-route
+          {:vaults {}}
+          "/portfolio/optimize/scn_01")))
+  (is (= []
+         (actions/load-portfolio-optimizer-route
+          {:vaults {:merged-index-rows [{:vault-address "0xloaded"}]}}
+          "/portfolio/optimize/new"))))
 
 (deftest set-portfolio-optimizer-results-tab-updates-shareable-tab-state-test
   (is (= [[:effects/save [:portfolio-ui :optimizer :results-tab] :tracking]
@@ -469,6 +492,40 @@
            (actions/add-portfolio-optimizer-universe-instrument
             state
             "spot:PURR/USDC")))))
+
+(deftest add-draft-universe-instrument-from-vault-row-test
+  (let [vault-address "0x1111111111111111111111111111111111111111"
+        state {:portfolio {:optimizer {:draft {:universe [{:instrument-id "perp:BTC"
+                                                            :market-type :perp
+                                                            :coin "BTC"
+                                                            :shortable? true}]}}}
+               :vaults {:merged-index-rows [{:name "Alpha Yield"
+                                             :vault-address "0x1111111111111111111111111111111111111111"
+                                             :relationship {:type :normal}
+                                             :tvl 500}]}}]
+    (is (= [[:effects/save-many
+             [[[:portfolio :optimizer :draft :universe]
+               [{:instrument-id "perp:BTC"
+                 :market-type :perp
+                 :coin "BTC"
+                 :shortable? true}
+                {:instrument-id (str "vault:" vault-address)
+                 :market-type :vault
+                 :coin (str "vault:" vault-address)
+                 :vault-address vault-address
+                 :shortable? false
+                 :name "Alpha Yield"
+                 :symbol "Alpha Yield"
+                 :tvl 500}]]
+              [[:portfolio-ui :optimizer :universe-search-query]
+               ""]
+              [[:portfolio-ui :optimizer :universe-search-active-index]
+               0]
+              [[:portfolio :optimizer :draft :metadata :dirty?]
+               true]]]]
+           (actions/add-portfolio-optimizer-universe-instrument
+            state
+            (str "vault:" vault-address))))))
 
 (deftest add-draft-universe-instrument-rejects-missing-or-duplicate-market-test
   (let [state {:portfolio {:optimizer {:draft {:universe [{:instrument-id "perp:BTC"

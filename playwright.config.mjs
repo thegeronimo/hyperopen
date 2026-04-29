@@ -1,6 +1,10 @@
 import { defineConfig } from "@playwright/test";
 
 const ci = process.env.CI === "1" || process.env.CI === "true";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8080";
+const reuseExistingServer = process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === "true";
+const webServerCommand =
+  process.env.PLAYWRIGHT_WEB_SERVER_COMMAND || "npm run dev:browser-inspection";
 
 export default defineConfig({
   testDir: "./tools/playwright/test",
@@ -23,7 +27,7 @@ export default defineConfig({
         ["html", { open: "never", outputFolder: "tmp/playwright/report/interactive" }]
       ],
   use: {
-    baseURL: "http://127.0.0.1:8080",
+    baseURL,
     headless: true,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
@@ -31,9 +35,9 @@ export default defineConfig({
     viewport: { width: 1440, height: 900 }
   },
   webServer: {
-    command: "npm run dev:browser-inspection",
-    url: "http://127.0.0.1:8080/",
-    reuseExistingServer: false,
+    command: webServerCommand,
+    url: baseURL,
+    reuseExistingServer,
     timeout: 120_000
   }
 });

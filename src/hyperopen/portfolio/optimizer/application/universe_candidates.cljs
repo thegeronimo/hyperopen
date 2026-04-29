@@ -5,6 +5,9 @@
 (def ^:private default-candidate-limit
   6)
 
+(def vault-instrument-prefix
+  "vault:")
+
 (defn- normalized-text
   [value]
   (let [text (some-> value str str/trim)]
@@ -18,6 +21,23 @@
      (and text
           (or (str/starts-with? text "@")
               (re-matches #"\d+" text))))))
+
+(defn normalize-vault-address
+  [value]
+  (some-> value str str/trim str/lower-case not-empty))
+
+(defn vault-instrument-id
+  [vault-address]
+  (when-let [vault-address* (normalize-vault-address vault-address)]
+    (str vault-instrument-prefix vault-address*)))
+
+(defn vault-address-from-instrument-id
+  [value]
+  (let [text (some-> value str str/trim)
+        lower (some-> text str/lower-case)]
+    (when (and (seq lower)
+               (str/starts-with? lower vault-instrument-prefix))
+      (normalize-vault-address (subs text (count vault-instrument-prefix))))))
 
 (defn- hip3-instrument?
   [instrument]
@@ -46,7 +66,11 @@
 
 (defn- base-label
   [instrument]
-  (or (normalized-text (:base instrument))
+  (or (when (= :vault (:market-type instrument))
+        (or (normalize-vault-address (:vault-address instrument))
+            (vault-address-from-instrument-id (:coin instrument))
+            (vault-address-from-instrument-id (:instrument-id instrument))))
+      (normalized-text (:base instrument))
       (base-from-symbol (:symbol instrument))
       (when-not (raw-asset-id? (:coin instrument))
         (normalized-text (:coin instrument)))))
@@ -70,7 +94,10 @@
 
 (defn- market-label
   [market-or-instrument]
-  (or (normalized-text (:symbol market-or-instrument))
+  (or (when (= :vault (:market-type market-or-instrument))
+        (or (normalized-text (:name market-or-instrument))
+            (normalized-text (:symbol market-or-instrument))))
+      (normalized-text (:symbol market-or-instrument))
       (normalized-text (:coin market-or-instrument))
       (normalized-text (:key market-or-instrument))
       (normalized-text (:instrument-id market-or-instrument))
@@ -98,6 +125,81 @@
   [market]
   (if (= :spot (:market-type market)) 0 1))
 
+(defn- finite-number
+  [value]
+  (cond
+    (number? value)
+    (when (js/isFinite value) value)
+
+    (string? value)
+    (let [parsed (js/Number value)]
+      (when (js/isFinite parsed)
+        parsed))
+
+    :else nil))
+
+(defn- vault-tvl
+  [row]
+  (or (finite-number (:tvl row)) 0))
+
+(defn- vault-name
+  [row]
+  (normalized-text (:name row)))
+
+(defn vault-row?
+  [row]
+  (and (map? row)
+       (seq (normalize-vault-address (:vault-address row)))
+       (not= :child (get-in row [:relationship :type]))))
+
+(defn- vault-row-rank
+  [row]
+  [(- (vault-tvl row))
+   (str/lower-case (or (vault-name row) ""))
+   (str/lower-case (or (normalize-vault-address (:vault-address row)) ""))])
+
+(defn vault-row->candidate
+  [row]
+  (when (vault-row? row)
+    (let [vault-address (normalize-vault-address (:vault-address row))
+          key (vault-instrument-id vault-address)
+          name (or (vault-name row) vault-address)]
+      {:key key
+       :market-type :vault
+       :coin key
+       :vault-address vault-address
+       :name name
+       :symbol name
+       :tvl (vault-tvl row)})))
+
+(defn- vault-search-text
+  [candidate]
+  (str/lower-case
+   (str (or (:name candidate) "")
+        " "
+        (or (:symbol candidate) "")
+        " "
+        (or (:vault-address candidate) "")
+        " "
+        (or (:key candidate) "")
+        " vault")))
+
+(defn- vault-matches-query?
+  [query candidate]
+  (let [query* (some-> query normalized-text str/lower-case)]
+    (or (not (seq query*))
+        (str/includes? (vault-search-text candidate) query*))))
+
+(defn- candidate-vaults
+  [state selected-ids query]
+  (->> (get-in state [:vaults :merged-index-rows])
+       (filter vault-row?)
+       (sort-by vault-row-rank)
+       (keep vault-row->candidate)
+       (remove #(contains? selected-ids (:key %)))
+       (filter #(vault-matches-query? query %))
+       vec))
+
 (defn- rank-candidates
   [markets query ranking]
   (let [query-upper (some-> query normalized-text str/upper-case)]
@@ -122,18 +224,20 @@
    (let [selected-ids (selected-instrument-ids universe)
          query* (or (normalized-text query) "")
          ranking (or (:ranking opts) :exact-spot)
-         markets (->> (asset-query/filter-and-sort-assets
-                       (get-in state [:asset-selector :markets])
-                       query*
-                       :volume
-                       :desc
-                       #{}
-                       false
-                       false
-                       :all)
-                      (filter #(usable-market? selected-ids %))
-                      vec)]
-     (->> (rank-candidates markets query* ranking)
+        markets (->> (asset-query/filter-and-sort-assets
+                      (get-in state [:asset-selector :markets])
+                      query*
+                      :volume
+                      :desc
+                      #{}
+                      false
+                      false
+                      :all)
+                     (filter #(usable-market? selected-ids %))
+                     vec)
+        vaults (candidate-vaults state selected-ids query*)
+        candidates (into (vec markets) vaults)]
+     (->> (rank-candidates candidates query* ranking)
           (take default-candidate-limit)
           vec))))
 
@@ -147,19 +251,6 @@
                  (friendly-name base-label))
                (friendly-name (:coin market-or-instrument)))
      :base-label base-label}))
-
-(defn- finite-number
-  [value]
-  (cond
-    (number? value)
-    (when (js/isFinite value) value)
-
-    (string? value)
-    (let [parsed (js/Number value)]
-      (when (js/isFinite parsed)
-        parsed))
-
-    :else nil))
 
 (defn active-index
   [state markets]

@@ -4,6 +4,7 @@
             [hyperopen.portfolio.optimizer.application.current-portfolio :as current-portfolio]
             [hyperopen.portfolio.optimizer.application.execution :as execution]
             [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
+            [hyperopen.portfolio.optimizer.application.universe-candidates :as universe-candidates]
             [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
             [hyperopen.portfolio.optimizer.query-state :as optimizer-query-state]
             [hyperopen.portfolio.optimizer.universe-keyboard :as universe-keyboard]
@@ -66,7 +67,7 @@
   #{:saved :computed})
 
 (def ^:private supported-universe-market-types
-  #{:perp :spot})
+  #{:perp :spot :vault})
 
 (def ^:private instrument-filter-keys
   #{:allowlist
@@ -127,19 +128,26 @@
   [market]
   (let [instrument-id (non-blank-text (:key market))
         coin (non-blank-text (:coin market))
-        market-type (normalize-keyword-like (:market-type market))]
+        market-type (normalize-keyword-like (:market-type market))
+        vault-address (universe-candidates/normalize-vault-address (:vault-address market))]
     (when (and instrument-id
                coin
-               (contains? supported-universe-market-types market-type))
+               (contains? supported-universe-market-types market-type)
+               (or (not= :vault market-type)
+                   vault-address))
       (cond-> {:instrument-id instrument-id
                :market-type market-type
                :coin coin
                :shortable? (= :perp market-type)}
+        (= :vault market-type)
+        (assoc :vault-address vault-address)
         (non-blank-text (:dex market))
         (assoc :dex (non-blank-text (:dex market)))
         (non-blank-text (:symbol market)) (assoc :symbol (non-blank-text (:symbol market)))
+        (non-blank-text (:name market)) (assoc :name (non-blank-text (:name market)))
         (non-blank-text (:base market)) (assoc :base (non-blank-text (:base market)))
         (non-blank-text (:quote market)) (assoc :quote (non-blank-text (:quote market)))
+        (contains? market :tvl) (assoc :tvl (:tvl market))
         (contains? market :hip3?) (assoc :hip3? (boolean (:hip3? market)))))))
 
 (defn- dedupe-instruments
@@ -261,6 +269,13 @@
        [[[:portfolio :optimizer :draft :constraints constraint-key*] value*]])
       [])))
 
+(defn- vault-list-metadata-fetch-effects
+  [state]
+  (if (seq (get-in state [:vaults :merged-index-rows]))
+    []
+    [[:effects/api-fetch-vault-index]
+     [:effects/api-fetch-vault-summaries]]))
+
 (defn set-portfolio-optimizer-objective-parameter
   [_state parameter-key value]
   (let [parameter-key* (normalize-keyword-like parameter-key)
@@ -363,7 +378,15 @@
 (defn add-portfolio-optimizer-universe-instrument [state market-key]
   (let [market-key* (non-blank-text market-key)
         universe (draft-universe state)
-        market (get-in state [:asset-selector :market-by-key market-key*])
+        market (or (get-in state [:asset-selector :market-by-key market-key*])
+                   (when-let [vault-address (universe-candidates/vault-address-from-instrument-id
+                                             market-key*)]
+                     (some (fn [row]
+                             (when (= vault-address
+                                      (universe-candidates/normalize-vault-address
+                                       (:vault-address row)))
+                               (universe-candidates/vault-row->candidate row)))
+                           (get-in state [:vaults :merged-index-rows]))))
         instrument (market->universe-instrument market)
         instrument-id (:instrument-id instrument)]
     (if (and instrument
@@ -513,13 +536,18 @@
     []))
 
 (defn load-portfolio-optimizer-route
-  [_state path]
+  [state path]
   (let [route (portfolio-routes/parse-portfolio-route path)]
-    (case (:kind route)
-      :optimize-index [[:effects/load-portfolio-optimizer-scenario-index]]
-      :optimize-scenario [[:effects/load-portfolio-optimizer-scenario
-                           (:scenario-id route)]]
-      [])))
+    (into
+     (case (:kind route)
+       :optimize-index [[:effects/load-portfolio-optimizer-scenario-index]]
+       :optimize-scenario [[:effects/load-portfolio-optimizer-scenario
+                            (:scenario-id route)]]
+       [])
+     (if (contains? #{:optimize-index :optimize-new :optimize-scenario}
+                    (:kind route))
+       (vault-list-metadata-fetch-effects state)
+       []))))
 
 (defn- scenario-id-effect
   [effect-id scenario-id]

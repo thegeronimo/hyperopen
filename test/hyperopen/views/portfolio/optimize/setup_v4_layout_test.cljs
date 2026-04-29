@@ -247,6 +247,35 @@
     (is (not (contains? (class-token-set add-hint) "uppercase")))
     (is (not (contains? (class-token-set add-hint) "tracking-[0.1em]")))))
 
+(deftest setup-v4-universe-search-renders-vault-candidates-test
+  (let [vault-address "0x1111111111111111111111111111111111111111"
+        view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio-ui {:optimizer {:universe-search-query "vault"}}
+                    :portfolio {:optimizer {:draft {:universe []
+                                                     :constraints {:long-only? false}}}}
+                    :asset-selector {:markets []}
+                    :vaults {:merged-index-rows [{:name "Alpha Yield"
+                                                 :vault-address vault-address
+                                                 :relationship {:type :normal}
+                                                 :tvl 500}]}})
+        search-input (node-by-role view-node "portfolio-optimizer-universe-search-input")
+        vault-row (node-by-role view-node
+                                (str "portfolio-optimizer-universe-candidate-row-vault:"
+                                     vault-address))
+        add-button (node-by-role view-node
+                                 (str "portfolio-optimizer-universe-add-vault:"
+                                      vault-address))
+        strings (set (collect-strings view-node))]
+    (is (= "Search ticker, name, or vault (e.g. TIA, AVAX, Solana, HLP...)"
+           (get-in search-input [1 :placeholder])))
+    (is (some? vault-row))
+    (is (contains? strings "Alpha Yield"))
+    (is (contains? strings "vault"))
+    (is (= [[:actions/add-portfolio-optimizer-universe-instrument
+             (str "vault:" vault-address)]]
+           (click-actions add-button)))))
+
 (deftest setup-v4-run-action-renders-under-center-assumptions-panel-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}

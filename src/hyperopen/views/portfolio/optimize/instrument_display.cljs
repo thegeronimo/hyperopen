@@ -15,6 +15,27 @@
           (or (str/starts-with? text "@")
               (re-matches #"\d+" text))))))
 
+(def ^:private vault-prefix
+  "vault:")
+
+(defn vault-instrument?
+  [instrument]
+  (= :vault (:market-type instrument)))
+
+(defn vault-address
+  [instrument]
+  (let [direct (non-blank-text (:vault-address instrument))
+        from-value (fn [value]
+                     (let [text (non-blank-text value)
+                           lower (some-> text str/lower-case)]
+                       (when (and lower
+                                  (str/starts-with? lower vault-prefix))
+                         (subs text (count vault-prefix)))))]
+    (some-> (or direct
+                (from-value (:coin instrument))
+                (from-value (:instrument-id instrument)))
+            str/lower-case)))
+
 (defn hip3-instrument?
   [instrument]
   (boolean
@@ -46,7 +67,11 @@
 
 (defn primary-label
   [instrument]
-  (or (when (symbol-first? instrument)
+  (or (when (vault-instrument? instrument)
+        (or (non-blank-text (:name instrument))
+            (non-blank-text (:symbol instrument))
+            (vault-address instrument)))
+      (when (symbol-first? instrument)
         (non-blank-text (:symbol instrument)))
       (when (raw-asset-id? (:coin instrument))
         (or (non-blank-text (:base instrument))
@@ -58,7 +83,9 @@
 
 (defn base-label
   [instrument]
-  (or (non-blank-text (:base instrument))
+  (or (when (vault-instrument? instrument)
+        (vault-address instrument))
+      (non-blank-text (:base instrument))
       (base-from-symbol (:symbol instrument))
       (when-not (raw-asset-id? (:coin instrument))
         (non-blank-text (:coin instrument)))))

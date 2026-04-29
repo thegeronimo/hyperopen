@@ -10,6 +10,15 @@
   [markets]
   (mapv :key markets))
 
+(def ^:private alpha-vault-address
+  "0x1111111111111111111111111111111111111111")
+
+(def ^:private beta-vault-address
+  "0x2222222222222222222222222222222222222222")
+
+(def ^:private child-vault-address
+  "0x3333333333333333333333333333333333333333")
+
 (deftest selected-instrument-ids-ignores-missing-ids-test
   (is (= #{"perp:BTC" "spot:@107"}
          (universe-candidates/selected-instrument-ids
@@ -124,6 +133,55 @@
     (is (= ["spot:HYPE" "perp:HYPE" "spot:@232" "perp:SUPERHYPE"]
            (market-keys candidates)))))
 
+(deftest candidate-markets-includes-eligible-vault-rows-by-name-address-and-type-test
+  (let [state {:asset-selector {:markets []}
+               :vaults {:merged-index-rows [{:name "Alpha Yield"
+                                             :vault-address alpha-vault-address
+                                             :relationship {:type :normal}
+                                             :tvl 500}
+                                            {:name "Beta Carry"
+                                             :vault-address beta-vault-address
+                                             :relationship {:type :normal}
+                                             :tvl 700}
+                                            {:name "Child Sleeve"
+                                             :vault-address child-vault-address
+                                             :relationship {:type :child}
+                                             :tvl 900}]}}
+        universe [{:instrument-id (str "vault:" beta-vault-address)
+                   :market-type :vault
+                   :coin (str "vault:" beta-vault-address)
+                   :vault-address beta-vault-address}]
+        vault-candidates (universe-candidates/candidate-markets
+                          state
+                          universe
+                          "vault")
+        name-candidates (universe-candidates/candidate-markets
+                         state
+                         []
+                         "alpha")
+        address-candidates (universe-candidates/candidate-markets
+                            state
+                            []
+                            (subs alpha-vault-address 0 10))]
+    (is (= [(str "vault:" alpha-vault-address)]
+           (market-keys vault-candidates)))
+    (is (= [(str "vault:" alpha-vault-address)]
+           (market-keys name-candidates)))
+    (is (= [(str "vault:" alpha-vault-address)]
+           (market-keys address-candidates)))
+    (is (= {:market-type :vault
+            :coin (str "vault:" alpha-vault-address)
+            :vault-address alpha-vault-address
+            :name "Alpha Yield"
+            :symbol "Alpha Yield"
+            :tvl 500}
+           (select-keys (first vault-candidates)
+                        [:market-type :coin :vault-address :name :symbol :tvl])))
+    (is (not-any? #(= (str "vault:" beta-vault-address) (:key %))
+                  vault-candidates))
+    (is (not-any? #(= (str "vault:" child-vault-address) (:key %))
+                  vault-candidates))))
+
 (deftest market-display-prefers-friendly-labels-over-raw-asset-ids-test
   (let [raw-spot-display (universe-candidates/market-display
                           {:key "spot:@107"
@@ -147,6 +205,20 @@
             :name "Ether"
             :base-label "ETH"}
            (select-keys named-perp-display [:label :name :base-label])))))
+
+(deftest market-display-labels-vault-instruments-by-name-and-address-test
+  (let [display (universe-candidates/market-display
+                 {:key (str "vault:" alpha-vault-address)
+                  :instrument-id (str "vault:" alpha-vault-address)
+                  :market-type :vault
+                  :coin (str "vault:" alpha-vault-address)
+                  :vault-address alpha-vault-address
+                  :name "Alpha Yield"
+                  :symbol "Alpha Yield"})]
+    (is (= {:label "Alpha Yield"
+            :name "Alpha Yield"
+            :base-label alpha-vault-address}
+           (select-keys display [:label :name :base-label])))))
 
 (deftest active-index-clamps-negative-oversized-and-invalid-values-test
   (let [markets [{:key "perp:BTC"}

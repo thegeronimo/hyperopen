@@ -54,6 +54,45 @@
              :market-type :spot}]
            (:warnings plan)))))
 
+(deftest build-history-request-plan-fetches-vault-details-without-market-candles-test
+  (let [vault-address "0x1111111111111111111111111111111111111111"
+        plan (history-loader/build-history-request-plan
+              [{:instrument-id "perp:BTC"
+                :market-type :perp
+                :coin "BTC"}
+               {:instrument-id (str "vault:" vault-address)
+                :market-type :vault
+                :coin (str "vault:" vault-address)
+                :vault-address vault-address}]
+              {:interval :1d
+               :bars 180
+               :priority :low
+               :now-ms 2000000
+               :funding-window-ms 86400000})]
+    (is (= [{:coin "BTC"
+             :instrument-ids ["perp:BTC"]
+             :opts {:interval :1d
+                    :bars 180
+                    :priority :low
+                    :cache-key [:portfolio-optimizer :candles "BTC" :1d 180]
+                    :dedupe-key [:portfolio-optimizer :candles "BTC" :1d 180]}}]
+           (:candle-requests plan)))
+    (is (= [{:coin "BTC"
+             :instrument-ids ["perp:BTC"]
+             :opts {:priority :low
+                    :start-time-ms (- 2000000 86400000)
+                    :end-time-ms 2000000
+                    :cache-key [:portfolio-optimizer :funding "BTC" (- 2000000 86400000) 2000000]
+                    :dedupe-key [:portfolio-optimizer :funding "BTC" (- 2000000 86400000) 2000000]}}]
+           (:funding-requests plan)))
+    (is (= [{:vault-address vault-address
+             :instrument-ids [(str "vault:" vault-address)]
+             :opts {:priority :low
+                    :cache-key [:portfolio-optimizer :vault-details vault-address]
+                    :dedupe-key [:portfolio-optimizer :vault-details vault-address]}}]
+           (:vault-detail-requests plan)))
+    (is (= [] (:warnings plan)))))
+
 (deftest align-history-inputs-aligns-common-calendar-and-exposes-funding-carry-test
   (let [aligned (history-loader/align-history-inputs
                  {:universe [{:instrument-id "perp:BTC"
@@ -94,6 +133,42 @@
             :age-ms 1000
             :stale? false}
            (:freshness aligned)))))
+
+(deftest align-history-inputs-aligns-vault-detail-return-history-test
+  (let [vault-address "0x1111111111111111111111111111111111111111"
+        vault-instrument-id (str "vault:" vault-address)
+        aligned (history-loader/align-history-inputs
+                 {:universe [{:instrument-id "perp:BTC"
+                              :market-type :perp
+                              :coin "BTC"}
+                             {:instrument-id vault-instrument-id
+                              :market-type :vault
+                              :coin vault-instrument-id
+                              :vault-address vault-address}]
+                  :candle-history-by-coin {"BTC" [{:time 1000 :close "100"}
+                                                  {:time 2000 :close "110"}
+                                                  {:time 3000 :close "121"}]}
+                  :vault-details-by-address {vault-address
+                                             {:portfolio
+                                              {:all-time
+                                               {:accountValueHistory [[1000 100]
+                                                                      [2000 110]
+                                                                      [3000 121]]
+                                                :pnlHistory [[1000 0]
+                                                             [2000 10]
+                                                             [3000 21]]}}}}
+                  :as-of-ms 4000
+                  :stale-after-ms 5000
+                  :funding-periods-per-year 100})]
+    (is (= [1000 2000 3000] (:calendar aligned)))
+    (is (= ["perp:BTC" vault-instrument-id]
+           (mapv :instrument-id (:eligible-instruments aligned))))
+    (is (near? 0.1 (get-in aligned [:return-series-by-instrument vault-instrument-id 0])))
+    (is (near? 0.1 (get-in aligned [:return-series-by-instrument vault-instrument-id 1])))
+    (is (= :not-applicable
+           (get-in aligned [:funding-by-instrument vault-instrument-id :source])))
+    (is (= [] (:excluded-instruments aligned)))
+    (is (= [] (:warnings aligned)))))
 
 (deftest align-history-inputs-reports-missing-and-insufficient-history-without-silent-drops-test
   (let [aligned (history-loader/align-history-inputs

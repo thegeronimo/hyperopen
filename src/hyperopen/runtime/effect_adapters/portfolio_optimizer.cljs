@@ -16,6 +16,7 @@
 (def ^:dynamic *request-history-bundle!* history-client/request-history-bundle!)
 (def ^:dynamic *request-candle-snapshot!* api/request-candle-snapshot!)
 (def ^:dynamic *request-market-funding-history!* api/request-market-funding-history!)
+(def ^:dynamic *request-vault-details!* api/request-vault-details!)
 (def ^:dynamic *load-scenario-index!* persistence/load-scenario-index!)
 (def ^:dynamic *load-scenario!* persistence/load-scenario!)
 (def ^:dynamic *save-scenario!* persistence/save-scenario!)
@@ -160,6 +161,7 @@
          (-> (*request-history-bundle!*
               {:request-candle-snapshot! request-candle-snapshot!
                :request-market-funding-history! *request-market-funding-history!*
+               :request-vault-details! *request-vault-details!*
                :on-progress on-progress}
              request)
              (.then (fn [bundle]

@@ -1,6 +1,7 @@
 (ns hyperopen.portfolio.optimizer.application.history-loader
   (:require [clojure.set :as set]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [hyperopen.portfolio.metrics.history :as metrics-history]))
 
 (def default-interval
   :1d)
@@ -16,6 +17,12 @@
 
 (def default-funding-periods-per-year
   1095)
+
+(def ^:private vault-instrument-prefix
+  "vault:")
+
+(def ^:private vault-summary-preference
+  [:all-time :one-year :six-month :three-month :month :week :day])
 
 (defn- finite-number?
   [value]
@@ -60,6 +67,18 @@
   (or (non-blank-text (:instrument-id instrument))
       (normalize-coin instrument)))
 
+(defn- normalize-vault-address
+  [value]
+  (some-> value str str/trim str/lower-case not-empty))
+
+(defn- vault-address-from-value
+  [value]
+  (let [text (some-> value str str/trim)
+        lower (some-> text str/lower-case)]
+    (when (and (seq lower)
+               (str/starts-with? lower vault-instrument-prefix))
+      (normalize-vault-address (subs text (count vault-instrument-prefix))))))
+
 (defn- market-type
   [instrument]
   (let [value (:market-type instrument)]
@@ -71,6 +90,19 @@
 (defn- perp-instrument?
   [instrument]
   (= :perp (market-type instrument)))
+
+(defn- vault-address
+  [instrument]
+  (or (normalize-vault-address (:vault-address instrument))
+      (vault-address-from-value (:instrument-id instrument))
+      (vault-address-from-value (:coin instrument))))
+
+(defn- vault-instrument?
+  [instrument]
+  (boolean
+   (or (= :vault (market-type instrument))
+       (vault-address-from-value (:instrument-id instrument))
+       (vault-address-from-value (:coin instrument)))))
 
 (defn- instrument-warning-context
   [instrument]
@@ -102,6 +134,32 @@
                    ordered-coins)
      :warnings warnings}))
 
+(defn- group-vault-instruments-by-address
+  [universe]
+  (reduce (fn [{:keys [by-address ordered-addresses] :as acc} instrument]
+            (if-not (vault-instrument? instrument)
+              acc
+              (if-let [address (vault-address instrument)]
+                (cond-> (update-in acc [:by-address address] (fnil conj []) instrument)
+                  (not (contains? by-address address))
+                  (update :ordered-addresses conj address))
+                (update acc :warnings conj
+                        (assoc (instrument-warning-context instrument)
+                               :code :missing-vault-address)))))
+          {:by-address {}
+           :ordered-addresses []
+           :warnings []}
+          (or universe [])))
+
+(defn- sorted-vault-groups
+  [universe]
+  (let [{:keys [by-address ordered-addresses warnings]}
+        (group-vault-instruments-by-address universe)]
+    {:groups (mapv (fn [address]
+                     [address (vec (get by-address address))])
+                   ordered-addresses)
+     :warnings warnings}))
+
 (defn build-history-request-plan
   [universe opts]
   (let [opts* (or opts {})
@@ -116,8 +174,10 @@
                                (- now-ms funding-window-ms)))
         funding-end-ms (or (:funding-end-ms opts*)
                            now-ms)
-        all-groups (sorted-coin-groups universe (constantly true))
-        perp-groups (sorted-coin-groups universe perp-instrument?)
+        market-universe (vec (remove vault-instrument? (or universe [])))
+        all-groups (sorted-coin-groups market-universe (constantly true))
+        perp-groups (sorted-coin-groups market-universe perp-instrument?)
+        vault-groups (sorted-vault-groups universe)
         candle-request (fn [[coin instruments]]
                          {:coin coin
                           :instrument-ids (mapv normalize-instrument-id instruments)
@@ -133,10 +193,18 @@
                                   :start-time-ms funding-start-ms
                                   :end-time-ms funding-end-ms
                                   :cache-key [:portfolio-optimizer :funding coin funding-start-ms funding-end-ms]
-                                  :dedupe-key [:portfolio-optimizer :funding coin funding-start-ms funding-end-ms]}})]
+                                  :dedupe-key [:portfolio-optimizer :funding coin funding-start-ms funding-end-ms]}})
+        vault-detail-request (fn [[address instruments]]
+                               {:vault-address address
+                                :instrument-ids (mapv normalize-instrument-id instruments)
+                                :opts {:priority priority
+                                       :cache-key [:portfolio-optimizer :vault-details address]
+                                       :dedupe-key [:portfolio-optimizer :vault-details address]}})]
     {:candle-requests (mapv candle-request (:groups all-groups))
      :funding-requests (mapv funding-request (:groups perp-groups))
-     :warnings (:warnings all-groups)}))
+     :vault-detail-requests (mapv vault-detail-request (:groups vault-groups))
+     :warnings (vec (concat (:warnings all-groups)
+                            (:warnings vault-groups)))}))
 
 (defn- normalize-candle-row
   [row]
@@ -159,6 +227,48 @@
   [rows]
   (->> rows
        (keep normalize-candle-row)
+       (reduce (fn [acc row]
+                 (assoc acc (:time-ms row) row))
+               {})
+       vals
+       (sort-by :time-ms)
+       vec))
+
+(defn- selected-vault-summary
+  [details]
+  (let [portfolio (or (:portfolio details) {})]
+    (or (some (fn [summary-key]
+                (when-let [summary (get portfolio summary-key)]
+                  summary))
+              vault-summary-preference)
+        (some (fn [[_key summary]]
+                (when (map? summary)
+                  summary))
+              portfolio))))
+
+(defn- cumulative-percent-row->price-row
+  [row]
+  (let [time-ms (if (map? row)
+                  (or (parse-ms (:time-ms row))
+                      (parse-ms (:time row)))
+                  (parse-ms (first row)))
+        percent (if (map? row)
+                  (or (parse-number (:percent row))
+                      (parse-number (:value row)))
+                  (parse-number (second row)))
+        close (when (number? percent)
+                (* 100 (+ 1 (/ percent 100))))]
+    (when (and (number? time-ms)
+               (number? close)
+               (pos? close))
+      {:time-ms time-ms
+       :close close})))
+
+(defn- normalize-vault-history
+  [details]
+  (->> (metrics-history/returns-history-rows-from-summary
+        (or (selected-vault-summary details) {}))
+       (keep cumulative-percent-row->price-row)
        (reduce (fn [acc row]
                  (assoc acc (:time-ms row) row))
                {})
@@ -261,6 +371,7 @@
   [{:keys [universe
            candle-history-by-coin
            funding-history-by-coin
+           vault-details-by-address
            as-of-ms
            stale-after-ms
            funding-periods-per-year
@@ -271,10 +382,23 @@
         prepared (mapv (fn [instrument]
                          (let [coin (normalize-coin instrument)
                                instrument-id (normalize-instrument-id instrument)
-                               history (normalize-candle-history
-                                        (get candle-history-by-coin coin))]
+                               vault? (vault-instrument? instrument)
+                               vault-address* (vault-address instrument)
+                               history (if vault?
+                                         (normalize-vault-history
+                                          (get vault-details-by-address vault-address*))
+                                         (normalize-candle-history
+                                          (get candle-history-by-coin coin)))]
                            (cond
-                             (not (seq coin))
+                             (and vault? (not (seq vault-address*)))
+                             {:instrument instrument
+                              :instrument-id instrument-id
+                              :excluded? true
+                              :warning {:code :missing-vault-address
+                                        :instrument-id instrument-id
+                                        :market-type (market-type instrument)}}
+
+                             (and (not vault?) (not (seq coin)))
                              {:instrument instrument
                               :instrument-id instrument-id
                               :excluded? true
@@ -283,32 +407,52 @@
                                         :market-type (market-type instrument)}}
 
                              (empty? history)
-                             {:instrument instrument
-                              :instrument-id instrument-id
-                              :coin coin
-                              :excluded? true
-                              :warning {:code :missing-candle-history
-                                        :instrument-id instrument-id
-                                        :coin coin}}
+                             (if vault?
+                               {:instrument instrument
+                                :instrument-id instrument-id
+                                :vault-address vault-address*
+                                :excluded? true
+                                :warning {:code :missing-vault-history
+                                          :instrument-id instrument-id
+                                          :vault-address vault-address*}}
+                               {:instrument instrument
+                                :instrument-id instrument-id
+                                :coin coin
+                                :excluded? true
+                                :warning {:code :missing-candle-history
+                                          :instrument-id instrument-id
+                                          :coin coin}})
 
                              (< (count history) min-observations*)
-                             {:instrument instrument
-                              :instrument-id instrument-id
-                              :coin coin
-                              :history history
-                              :excluded? true
-                              :warning {:code :insufficient-candle-history
-                                        :instrument-id instrument-id
-                                        :coin coin
-                                        :observations (count history)
-                                        :required min-observations*}}
+                             (if vault?
+                               {:instrument instrument
+                                :instrument-id instrument-id
+                                :vault-address vault-address*
+                                :history history
+                                :excluded? true
+                                :warning {:code :insufficient-vault-history
+                                          :instrument-id instrument-id
+                                          :vault-address vault-address*
+                                          :observations (count history)
+                                          :required min-observations*}}
+                               {:instrument instrument
+                                :instrument-id instrument-id
+                                :coin coin
+                                :history history
+                                :excluded? true
+                                :warning {:code :insufficient-candle-history
+                                          :instrument-id instrument-id
+                                          :coin coin
+                                          :observations (count history)
+                                          :required min-observations*}})
 
                              :else
-                             {:instrument instrument
-                              :instrument-id instrument-id
-                              :coin coin
-                              :history history
-                              :excluded? false})))
+                             (cond-> {:instrument instrument
+                                      :instrument-id instrument-id
+                                      :history history
+                                      :excluded? false}
+                               vault? (assoc :vault-address vault-address*)
+                               (not vault?) (assoc :coin coin)))))
                        (or universe []))
         eligible (filterv (complement :excluded?) prepared)
         calendar (common-calendar (map :history eligible))

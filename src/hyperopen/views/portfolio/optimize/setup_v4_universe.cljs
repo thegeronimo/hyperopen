@@ -47,24 +47,33 @@
   [market]
   (compact-usd (or (:volume24h market)
                    (:volume market)
-                   (:openInterest market))))
+                   (:openInterest market)
+                   (:tvl market))))
 
 (defn- liquidity-label
   [market-or-instrument]
   (let [value (or (:liquidity market-or-instrument)
                   (:liquidity-label market-or-instrument)
                   (:depth market-or-instrument))]
-    (or (normalized-text value)
+    (or (when (= :vault (:market-type market-or-instrument))
+          "vault")
+        (normalized-text value)
         (if-let [volume (finite-number (or (:volume24h market-or-instrument)
                                            (:volume market-or-instrument)))]
           (if (>= volume 50000000) "deep" "medium")
           "medium"))))
 
 (defn- history-label
-  [state coin]
-  (if (seq (get-in state [:portfolio :optimizer :history-data :candle-history-by-coin coin]))
-    "sufficient"
-    "missing"))
+  [state instrument]
+  (if (= :vault (:market-type instrument))
+    (if (seq (get-in state [:portfolio :optimizer :history-data :vault-details-by-address
+                            (:vault-address instrument)]))
+      "sufficient"
+      "missing")
+    (if (seq (get-in state [:portfolio :optimizer :history-data :candle-history-by-coin
+                            (:coin instrument)]))
+      "sufficient"
+      "missing")))
 
 (defn- tag
   ([label tone]
@@ -89,14 +98,16 @@
    (when (= :spot market-type)
      (tag "spot" :info))
    (when (= :perp market-type)
-     (tag "perp" :accent))])
+     (tag "perp" :accent))
+   (when (= :vault market-type)
+     (tag "vault" :info))])
 
 (defn- selected-row
   [state instrument]
   (let [instrument-id (:instrument-id instrument)
         coin (:coin instrument)
         market-type (:market-type instrument)
-        history (history-label state coin)
+        history (history-label state instrument)
         primary-label (instrument-display/primary-label instrument)
         {:keys [name base-label]} (universe-candidates/market-display instrument)
         secondary-label (or (normalized-text (:name instrument))
@@ -219,7 +230,7 @@
        [:input {:type "search"
                 :class (into input-class ["portfolio-optimizer-universe-search-field"
                                           "border-0" "bg-transparent" "px-0" "focus:border-0"])
-                :placeholder "Search ticker or name (e.g. TIA, AVAX, Solana...)"
+                :placeholder "Search ticker, name, or vault (e.g. TIA, AVAX, Solana, HLP...)"
                 :data-role "portfolio-optimizer-universe-search-input"
                 :aria-controls "portfolio-optimizer-universe-search-results"
                 :aria-activedescendant (when (and searching? (seq markets))
@@ -254,10 +265,10 @@
           [:p {:class ["mt-1" "border" "border-base-300" "bg-base-200/70" "p-2"
                        "text-xs" "text-trading-muted"]
                :data-role "portfolio-optimizer-universe-search-results-empty"}
-           "No matching unused markets found."]))]
+           "No matching unused instruments found."]))]
      (selected-table state universe)
      [:div {:class ["mt-2" "font-mono" "text-[0.58rem]" "leading-5"
                     "text-trading-muted/70"]}
-      "Search adds tradeable spot or perp legs. Symbols with limited history use stabilized covariance with a longer pull toward the market reference."
+      "Search adds tradeable spot, perp, or vault return legs. Symbols with limited history use stabilized covariance with a longer pull toward the market reference."
       [:span {:class ["sr-only"]}
        "Requires history reload after adding new assets."]]]))

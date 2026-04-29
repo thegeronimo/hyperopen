@@ -101,7 +101,7 @@
         "Manual Add"]
        [:input {:type "search"
                 :class search-input-class
-                :placeholder "Search BTC, ETH, spot:PURR/USDC..."
+                :placeholder "Search BTC, ETH, spot:PURR/USDC, or vault..."
                 :data-role "portfolio-optimizer-universe-search-input"
                 :aria-controls "portfolio-optimizer-universe-search-results"
                 :aria-activedescendant (when (seq markets)
@@ -113,7 +113,7 @@
                                 [:event/key]
                                 market-keys]]}}]
        [:p {:class ["mt-2" "text-xs" "text-trading-muted"]}
-        "Requires history reload after adding new assets."]
+        "Requires history reload after adding new instruments."]
        (if (seq markets)
          (into [:div {:class ["mt-2" "space-y-2"]
                       :id "portfolio-optimizer-universe-search-results"
@@ -122,4 +122,4 @@
                (map-indexed (fn [idx market] (market-row market idx active-index)) markets))
          [:p {:class ["mt-2" "rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"
                       "text-sm" "text-trading-muted"]}
-          "No matching unused markets found."])]]]))
+          "No matching unused instruments found."])]]]))
