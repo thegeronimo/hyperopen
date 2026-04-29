@@ -1224,6 +1224,11 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
   await expect(frontierPath).toBeVisible();
   await expect.poll(async () => await frontierPath.getAttribute("d"))
     .toMatch(/\bL\b/);
+  await expect.poll(async () =>
+    page.locator("[data-role^='portfolio-optimizer-frontier-point-'][data-frontier-drag-target='true']").count()
+  ).toBeGreaterThanOrEqual(12);
+  await expect(page.locator("[data-role='portfolio-optimizer-results-surface']"))
+    .not.toContainText("display-frontier-unavailable");
   const standaloneFrontierPath = await frontierPath.getAttribute("d");
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-overlay-mode-standalone']"))
     .toHaveAttribute("aria-pressed", "true");

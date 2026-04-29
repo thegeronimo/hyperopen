@@ -83,6 +83,63 @@
     (is (= [[0 0] [-0.05 -0.1] [-0.1 -0.2]]
            (mapv :linear (:problems plan))))))
 
+(deftest default-frontier-sweep-uses-dense-log-spaced-tilts-test
+  (let [tilts objectives/default-return-tilts
+        encoded (constraints/encode-constraints
+                 {:universe [{:instrument-id "A"}
+                             {:instrument-id "B"}]
+                  :constraints {:long-only? true}})
+        plan (objectives/build-solver-plan
+              {:objective {:kind :target-volatility
+                           :target-volatility 0.12
+                           :frontier-points 12}
+               :instrument-ids ["A" "B"]
+               :expected-returns [0.1 0.2]
+               :covariance [[1 0]
+                            [0 1]]
+               :encoded-constraints encoded})]
+    (is (= objectives/default-frontier-point-count (count tilts)))
+    (is (= 0 (first tilts)))
+    (is (apply < (rest tilts)))
+    (is (< 12.8 (last tilts))
+        "Dense frontier sweeps should extend beyond the old sparse tilt ceiling.")
+    (is (= 12 (count (:problems plan))))
+    (is (= 0 (get-in plan [:problems 0 :return-tilt])))
+    (is (< 12.8 (get-in plan [:problems 11 :return-tilt])))))
+
+(deftest display-frontier-uses-target-return-sweep-when-range-is-known-test
+  (let [encoded (constraints/encode-constraints
+                 {:universe [{:instrument-id "BTC"}
+                             {:instrument-id "ETH"}
+                             {:instrument-id "HYPE"}
+                             {:instrument-id "SOL"}]
+                  :constraints {:long-only? true
+                                :max-asset-weight 0.5}})
+        plan (objectives/build-display-frontier-plan
+              {:objective {:kind :target-return
+                           :target-return 0.1584
+                           :frontier-points 12}
+               :instrument-ids ["BTC" "ETH" "HYPE" "SOL"]
+               :expected-returns [-0.0933 0.5266 1.2449 -0.2713]
+               :covariance [[0.18 0 0 0]
+                            [0 0.52 0 0]
+                            [0 0 0.93 0]
+                            [0 0 0 0.54]]
+               :encoded-constraints encoded})
+        problems (:problems plan)
+        target-floors (keep #(get-in % [:inequalities 0 :lower]) problems)]
+    (is (= :frontier-sweep (:strategy plan)))
+    (is (= 12 (count problems)))
+    (is (= :return-tilted (get-in problems [0 :objective-kind]))
+        "The display sweep keeps a minimum-variance anchor before return floors.")
+    (is (= :target-return (get-in problems [1 :objective-kind])))
+    (is (= 11 (count target-floors)))
+    (is (apply < target-floors))
+    (is (<= 0.1584 (first target-floors)))
+    (is (near? 0.88575 (last target-floors)))
+    (is (every? zero? (map :return-tilt problems))
+        "Target-return frontier points should minimize variance at each return floor, not add return tilts.")))
+
 (deftest solver-plan-propagates-constraint-presolve-infeasibility-test
   (let [encoded (constraints/encode-constraints
                  {:universe [{:instrument-id "A"}
