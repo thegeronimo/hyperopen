@@ -666,6 +666,26 @@ test("portfolio optimizer scenario board renders the local scenario surface @reg
   await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']")).toBeVisible();
 });
 
+test("portfolio optimizer setup orders objective before return risk model @regression", async ({ page }) => {
+  await visitRoute(page, "/portfolio/optimize/new");
+
+  await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']")).toBeVisible();
+  await expect(page.locator("[data-role='portfolio-optimizer-objective-panel']"))
+    .toContainText(/02\s*Objective/);
+  await expect(page.locator("[data-role='portfolio-optimizer-return-risk-panel']"))
+    .toContainText(/03\s*Return \/ Risk Model/);
+  await expect.poll(async () => page
+    .locator("[data-role='portfolio-optimizer-setup-control-rail']")
+    .evaluate((rail) => Array.from(rail.children).map((child) => child.getAttribute("data-role"))))
+    .toEqual([
+      "portfolio-optimizer-universe-panel",
+      "portfolio-optimizer-objective-panel",
+      "portfolio-optimizer-return-risk-panel",
+      "portfolio-optimizer-constraints-panel",
+      "portfolio-optimizer-advanced-overrides-shell"
+    ]);
+});
+
 test("portfolio optimizer setup exposes separate model layers @regression", async ({ page }) => {
   await visitRoute(page, "/portfolio/optimize/new");
 

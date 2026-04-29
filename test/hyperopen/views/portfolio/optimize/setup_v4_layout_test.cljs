@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.setup-v4-layout-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [clojure.string :as str]
             [hyperopen.views.portfolio-view :as portfolio-view]))
 
 (defn- node-children
@@ -32,6 +33,12 @@
 (defn- node-by-role
   [node role]
   (find-first-node node #(= role (get-in % [1 :data-role]))))
+
+(defn- child-roles
+  [node]
+  (->> (node-children node)
+       (keep #(get-in % [1 :data-role]))
+       vec))
 
 (defn- node-text
   [node]
@@ -83,6 +90,29 @@
     (is (contains? strings "What this scenario will solve for"))
     (is (contains? strings "Why this preset is safe"))
     (is (not (contains? strings "Execution Assumptions")))))
+
+(deftest setup-v4-control-rail-orders-objective-before-return-risk-model-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:draft {:universe [{:instrument-id "perp:BTC"
+                                                     :market-type :perp
+                                                     :coin "BTC"}]
+                                         :objective {:kind :minimum-variance}
+                                         :return-model {:kind :historical-mean}
+                                         :risk-model {:kind :diagonal-shrink}
+                                         :constraints {:long-only? true}}}}})
+        control-rail (node-by-role view-node "portfolio-optimizer-setup-control-rail")]
+    (is (= ["portfolio-optimizer-universe-panel"
+            "portfolio-optimizer-objective-panel"
+            "portfolio-optimizer-return-risk-panel"
+            "portfolio-optimizer-constraints-panel"
+            "portfolio-optimizer-advanced-overrides-shell"]
+           (child-roles control-rail)))
+    (is (str/includes? (node-text (node-by-role view-node "portfolio-optimizer-objective-panel"))
+                       "02Objective"))
+    (is (str/includes? (node-text (node-by-role view-node "portfolio-optimizer-return-risk-panel"))
+                       "03Return / Risk Model"))))
 
 (deftest setup-v4-layout-preserves-optimizer-control-actions-test
   (let [view-node (portfolio-view/portfolio-view

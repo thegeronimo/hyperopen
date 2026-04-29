@@ -118,7 +118,7 @@
         risk-kind (get-in draft [:risk-model :kind])]
     (panel
      "portfolio-optimizer-return-risk-panel"
-     (section-heading "02" "Return / Risk Model" (labelize return-kind))
+     (section-heading "03" "Return / Risk Model" (labelize return-kind))
      [:div {:class ["mt-3" "space-y-3"] :data-role "portfolio-optimizer-setup-model-grid"}
       [:div {:data-role "portfolio-optimizer-return-model-panel"}
        [:p {:class eyebrow-class} "Expected returns"]
@@ -172,7 +172,7 @@
   (let [objective-kind (get-in draft [:objective :kind])]
     (panel
      "portfolio-optimizer-objective-panel"
-     (section-heading "03" "Objective" (labelize objective-kind))
+     (section-heading "02" "Objective" (labelize objective-kind))
      [:div {:class ["mt-3" "grid" "grid-cols-1" "gap-1.5" "sm:grid-cols-2"]}
       (objective-card "Minimum Variance" "Lowest risk - no return assumption"
                       (= :minimum-variance objective-kind)
@@ -322,8 +322,8 @@
   [{:keys [state draft highlighted-controls]}]
   [:aside {:class ["min-h-0" "overflow-hidden"] :data-role "portfolio-optimizer-setup-control-rail"}
    (setup-v4-universe/universe-section state draft)
-   (model-section draft)
    (objective-section draft highlighted-controls)
+   (model-section draft)
    (constraints-section draft highlighted-controls)
    [:details {:class ["border" "border-base-300" "bg-base-100/90" "p-3"]
               :data-role "portfolio-optimizer-advanced-overrides-shell"}
