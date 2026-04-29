@@ -11,7 +11,7 @@
     (is (= false (get-in draft [:metadata :dirty?])))
     (is (= false (get-in draft [:constraints :long-only?])))
     (is (= 1.0 (get-in draft [:constraints :gross-max])))
-    (is (= 0.05 (get-in draft [:constraints :net-min])))
+    (is (= 1.0 (get-in draft [:constraints :net-min])))
     (is (= 1.0 (get-in draft [:constraints :net-max])))
     (is (= 0.5 (get-in draft [:constraints :max-asset-weight])))
     (is (= 0.0 (get-in draft [:constraints :dust-usdc])))

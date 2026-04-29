@@ -11,7 +11,7 @@
    :risk-model {:kind :diagonal-shrink}
    :constraints {:long-only? false
                  :gross-max 1.0
-                 :net-min 0.05
+                 :net-min 1.0
                  :net-max 1.0
                  :max-asset-weight 0.5
                  :dust-usdc 0.0
