@@ -353,6 +353,25 @@
     border: 0;
   }
 
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-frontier-controls"] {
+    min-width: max-content;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-constrain-frontier-control"] {
+    min-height: 30px;
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-frontier-overlay-mode-"] {
+    min-width: 0;
+  }
+
+  .portfolio-optimizer-v4
+    [data-role^="portfolio-optimizer-frontier-overlay-mode-"][aria-pressed="true"] {
+    background-color: var(--optimizer-surface-3);
+    color: var(--optimizer-text);
+    box-shadow: inset 0 -1px 0 var(--optimizer-accent);
+  }
+
   .portfolio-optimizer-v4 [data-role="portfolio-optimizer-frontier-chart-box"] {
     background-color: var(--optimizer-surface);
   }
@@ -507,6 +526,47 @@
 
   .portfolio-optimizer-v4 :is(input, select):focus {
     border-color: var(--optimizer-accent);
+    box-shadow: 0 0 0 1px rgba(212, 181, 88, 0.75);
+    outline: none;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-constrain-frontier-checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    display: grid;
+    place-content: center;
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+    min-height: 14px;
+    margin: 0;
+    border: 1px solid var(--optimizer-border-strong);
+    border-radius: 2px;
+    background-color: var(--optimizer-bg);
+    color: var(--optimizer-accent);
+    box-shadow: none;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-constrain-frontier-checkbox"]::before {
+    content: "";
+    width: 4px;
+    height: 7px;
+    border-right: 2px solid var(--optimizer-bg);
+    border-bottom: 2px solid var(--optimizer-bg);
+    transform: rotate(45deg) scale(0);
+    transform-origin: center;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-constrain-frontier-checkbox"]:checked {
+    border-color: var(--optimizer-accent);
+    background-color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-constrain-frontier-checkbox"]:checked::before {
+    transform: rotate(45deg) scale(1);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-constrain-frontier-checkbox"]:focus-visible {
     box-shadow: 0 0 0 1px rgba(212, 181, 88, 0.75);
     outline: none;
   }

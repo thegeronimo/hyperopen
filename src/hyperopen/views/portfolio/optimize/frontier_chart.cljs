@@ -177,6 +177,8 @@
               :class (cond-> ["border-r"
                               "border-base-300"
                               "bg-transparent"
+                              "text-center"
+                              "whitespace-nowrap"
                               "px-2.5"
                               "py-1.5"
                               "text-[0.62rem]"
@@ -189,6 +191,7 @@
                               "hover:text-trading-text"]
                        selected? (conj "bg-base-200/60" "text-trading-text"))
               :data-role (str "portfolio-optimizer-frontier-overlay-mode-" (name mode))
+              :data-selected (str selected?)
               :aria-pressed (str selected?)
               :on {:click [[:actions/set-portfolio-optimizer-frontier-overlay-mode mode]]}}
      (case mode
@@ -308,8 +311,9 @@
      (when (seq points)
        [:section {:class ["min-w-0" "overflow-hidden" "bg-transparent" "leading-4"]
                   :data-role "portfolio-optimizer-frontier-panel"}
-        [:div {:class ["flex" "flex-wrap" "items-start" "justify-between" "gap-3"]}
-         [:div
+        [:div {:class ["grid" "items-start" "gap-3" "lg:grid-cols-[minmax(0,1fr)_auto]"]
+               :data-role "portfolio-optimizer-frontier-toolbar"}
+         [:div {:class ["min-w-0"]}
           [:p {:class ["font-mono"
                        "text-[0.62rem]"
                        "uppercase"
@@ -318,10 +322,12 @@
            "Efficient Frontier"]
           [:p {:class ["mt-1" "text-xs" "text-trading-muted"]}
            subtitle]]
-         [:div {:class ["flex" "items-start" "gap-3"]}
+         [:div {:class ["flex" "items-start" "justify-start" "gap-3" "lg:justify-end"]
+                :data-role "portfolio-optimizer-frontier-controls"}
           (constrain-frontier-control constrain-frontier?)
-          [:div {:class ["overflow-hidden" "border" "border-base-300" "bg-base-100/90"]}
-           (into [:div {:class ["flex" "items-stretch"]}]
+          [:div {:class ["w-[16.5rem]" "overflow-hidden" "border" "border-base-300" "bg-base-100/90"]
+                 :data-role "portfolio-optimizer-frontier-overlay-mode-group"}
+           (into [:div {:class ["grid" "grid-cols-3" "items-stretch"]}]
                  (map #(overlay-mode-button overlay-mode* %) frontier-overlays/modes))]
           [:p {:class ["font-mono" "text-[0.62rem]" "text-trading-muted/70"]}
            (str (count points) " points")]]]
