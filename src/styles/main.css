@@ -363,6 +363,8 @@
 
   .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-frontier-overlay-mode-"] {
     min-width: 0;
+    border: 1px solid transparent;
+    border-radius: 2px;
   }
 
   .portfolio-optimizer-v4
@@ -567,7 +569,14 @@
   }
 
   .portfolio-optimizer-v4 [data-role="portfolio-optimizer-constrain-frontier-checkbox"]:focus-visible {
-    box-shadow: 0 0 0 1px rgba(212, 181, 88, 0.75);
+    border-color: var(--optimizer-border-strong);
+    box-shadow: none;
+    outline: none;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-constrain-frontier-checkbox"]:focus {
+    border-color: var(--optimizer-border-strong);
+    box-shadow: none;
     outline: none;
   }
 

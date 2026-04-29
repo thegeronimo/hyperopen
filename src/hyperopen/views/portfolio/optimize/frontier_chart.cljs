@@ -174,20 +174,17 @@
   [current-mode mode]
   (let [selected? (= current-mode mode)]
     [:button {:type "button"
-              :class (cond-> ["border-r"
-                              "border-base-300"
-                              "bg-transparent"
+              :class (cond-> ["bg-transparent"
                               "text-center"
                               "whitespace-nowrap"
-                              "px-2.5"
+                              "px-3"
                               "py-1.5"
                               "text-[0.62rem]"
                               "font-semibold"
                               "uppercase"
-                              "tracking-[0.08em]"
+                              "tracking-[0.06em]"
                               "text-trading-muted"
                               "transition-colors"
-                              "last:border-r-0"
                               "hover:text-trading-text"]
                        selected? (conj "bg-base-200/60" "text-trading-text"))
               :data-role (str "portfolio-optimizer-frontier-overlay-mode-" (name mode))
@@ -325,9 +322,12 @@
          [:div {:class ["flex" "items-start" "justify-start" "gap-3" "lg:justify-end"]
                 :data-role "portfolio-optimizer-frontier-controls"}
           (constrain-frontier-control constrain-frontier?)
-          [:div {:class ["w-[16.5rem]" "overflow-hidden" "border" "border-base-300" "bg-base-100/90"]
+          [:div {:class ["min-w-[19.25rem]" "border" "border-base-300" "bg-base-100/90" "p-0.5"]
                  :data-role "portfolio-optimizer-frontier-overlay-mode-group"}
-           (into [:div {:class ["grid" "grid-cols-3" "items-stretch"]}]
+           (into [:div {:class ["grid"
+                                "grid-cols-[minmax(0,1fr)_minmax(0,1.28fr)_minmax(0,0.78fr)]"
+                                "items-stretch"
+                                "gap-1"]}]
                  (map #(overlay-mode-button overlay-mode* %) frontier-overlays/modes))]
           [:p {:class ["font-mono" "text-[0.62rem]" "text-trading-muted/70"]}
            (str (count points) " points")]]]

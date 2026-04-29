@@ -1253,10 +1253,14 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
   await expect(frontierPath).toHaveAttribute("d", standaloneFrontierPath);
   await constrainFrontierCheckbox.uncheck();
   await expect(constrainFrontierCheckbox).not.toBeChecked();
+  await expect(constrainFrontierCheckbox).toHaveCSS("box-shadow", "none");
   await expect.poll(async () => await frontierPath.getAttribute("d"))
     .toBe(standaloneFrontierPath);
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-overlay-mode-standalone']"))
     .toHaveAttribute("aria-pressed", "true");
+  const modeButtonsFit = async () => page.locator("[data-role^='portfolio-optimizer-frontier-overlay-mode-']")
+    .evaluateAll((buttons) => buttons.every((button) => button.scrollWidth <= button.clientWidth));
+  expect(await modeButtonsFit()).toBe(true);
   const modeButtonPositions = async () => page.locator("[data-role^='portfolio-optimizer-frontier-overlay-mode-']")
     .evaluateAll((buttons) => buttons.map((button) => {
       const rect = button.getBoundingClientRect();
@@ -1272,6 +1276,7 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-overlay-mode-none']"))
     .toHaveAttribute("aria-pressed", "true");
   expect(await modeButtonPositions()).toEqual(standaloneModeButtonPositions);
+  expect(await modeButtonsFit()).toBe(true);
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-overlay-mode-none']"))
     .toHaveCSS("box-shadow", /rgb\(212, 181, 88\)/);
   await page.locator("[data-role='portfolio-optimizer-frontier-overlay-mode-standalone']").click();
