@@ -33,6 +33,10 @@
   [node role]
   (find-first-node node #(= role (get-in % [1 :data-role]))))
 
+(defn- node-text
+  [node]
+  (apply str (collect-strings node)))
+
 (defn- click-actions
   [node]
   (get-in node [1 :on :click]))
@@ -124,6 +128,35 @@
            (input-actions
             (node-by-role view-node
                           "portfolio-optimizer-constraint-gross-max-input"))))))
+
+(deftest setup-v4-return-risk-model-buttons-expose-tooltips-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:draft {:universe [{:instrument-id "perp:BTC"
+                                                     :market-type :perp
+                                                     :coin "BTC"}]
+                                         :objective {:kind :minimum-variance}
+                                         :return-model {:kind :historical-mean}
+                                         :risk-model {:kind :diagonal-shrink}
+                                         :constraints {:long-only? true}}}}})
+        expectations [["portfolio-optimizer-return-model-historical-mean"
+                       "Uses the arithmetic mean of historical returns for each selected asset."]
+                      ["portfolio-optimizer-return-model-ew-mean"
+                       "Uses exponentially weighted historical returns so recent observations count more."]
+                      ["portfolio-optimizer-return-model-black-litterman"
+                       "Combines market-implied returns with your Black-Litterman views and confidence inputs."]
+                      ["portfolio-optimizer-risk-model-diagonal-shrink"
+                       "Shrinks the covariance estimate toward a diagonal model to reduce noisy cross-asset correlations."]
+                      ["portfolio-optimizer-risk-model-sample-covariance"
+                       "Uses the raw historical covariance matrix from the selected asset return history."]]]
+    (doseq [[role copy] expectations]
+      (let [button (node-by-role view-node role)
+            tooltip-id (str role "-tooltip")
+            tooltip (node-by-role view-node tooltip-id)]
+        (is (= tooltip-id (get-in button [1 :aria-describedby])))
+        (is (= "tooltip" (get-in tooltip [1 :role])))
+        (is (= copy (node-text tooltip)))))))
 
 (deftest setup-v4-universe-search-renders-as-single-integrated-control-test
   (let [view-node (portfolio-view/portfolio-view

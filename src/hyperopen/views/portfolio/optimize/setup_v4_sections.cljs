@@ -24,6 +24,13 @@
    :max-turnover "Maximum total portfolio turnover allowed for the rebalance. 1 means trades can sum to 100% of capital."
    :rebalance-tolerance "Minimum target-vs-current weight difference before a rebalance row is considered actionable. 0.03 means 3 percentage points."})
 
+(def ^:private model-help
+  {:historical-mean "Uses the arithmetic mean of historical returns for each selected asset."
+   :ew-mean "Uses exponentially weighted historical returns so recent observations count more."
+   :black-litterman "Combines market-implied returns with your Black-Litterman views and confidence inputs."
+   :diagonal-shrink "Shrinks the covariance estimate toward a diagonal model to reduce noisy cross-asset correlations."
+   :sample-covariance "Uses the raw historical covariance matrix from the selected asset return history."})
+
 (defn- active-preset
   [draft]
   (let [objective-kind (get-in draft [:objective :kind])
@@ -64,21 +71,46 @@
 
 (defn- segmented-button
   ([label selected? role action]
-   (segmented-button label nil selected? role action))
+   (segmented-button label nil nil :center selected? role action))
   ([label hidden-label selected? role action]
-  [:button {:type "button"
-            :class (cond-> ["border-r" "border-base-300" "bg-transparent" "px-2"
-                            "py-1.5" "text-center" "text-[0.65625rem]"
-                            "font-medium" "uppercase" "tracking-[0.04em]"
-                            "text-trading-muted" "transition-colors"
-                            "last:border-r-0" "hover:text-warning"]
-                     selected? (conj "bg-base-200/40" "text-trading-text"))
-            :aria-pressed (str selected?)
-            :data-role role
-            :on {:click [action]}}
-   label
-   (when hidden-label
-     [:span {:class ["sr-only"]} hidden-label])]))
+   (segmented-button label hidden-label nil :center selected? role action))
+  ([label hidden-label help-copy tooltip-position selected? role action]
+   (let [tooltip-id (str role "-tooltip")
+         tooltip-position-classes (case tooltip-position
+                                    :start ["left-0"]
+                                    :end ["right-0"]
+                                    ["left-1/2" "-translate-x-1/2"])]
+     [:button {:type "button"
+               :class (cond-> ["group" "relative" "border-r" "border-base-300"
+                               "bg-transparent" "px-2" "py-1.5" "text-center"
+                               "text-[0.65625rem]" "font-medium" "uppercase"
+                               "tracking-[0.04em]" "text-trading-muted"
+                               "transition-colors" "last:border-r-0"
+                               "hover:text-warning" "focus:outline-none"
+                               "focus:text-warning"]
+                        selected? (conj "bg-base-200/40" "text-trading-text"))
+               :aria-pressed (str selected?)
+               :aria-describedby (when help-copy tooltip-id)
+               :data-role role
+               :on {:click [action]}}
+      label
+      (when hidden-label
+        [:span {:class ["sr-only"]} hidden-label])
+      (when help-copy
+        [:span {:class (into ["pointer-events-none" "absolute" "top-[calc(100%+6px)]"
+                              "z-30" "w-72" "max-w-[calc(100vw-2rem)]"
+                              "border" "border-base-300" "bg-base-100" "px-2" "py-1.5"
+                              "font-sans" "text-[0.65625rem]" "font-normal"
+                              "normal-case" "leading-[1.45]" "tracking-normal"
+                              "text-trading-muted" "opacity-0"
+                              "shadow-[0_12px_32px_rgba(0,0,0,0.45)]"
+                              "transition-opacity" "duration-150"
+                              "group-hover:opacity-100" "group-focus:opacity-100"]
+                             tooltip-position-classes)
+                :id tooltip-id
+                :role "tooltip"
+                :data-role tooltip-id}
+         help-copy])])))
 
 (defn- model-section
   [draft]
@@ -90,15 +122,15 @@
      [:div {:class ["mt-3" "space-y-3"] :data-role "portfolio-optimizer-setup-model-grid"}
       [:div {:data-role "portfolio-optimizer-return-model-panel"}
        [:p {:class eyebrow-class} "Expected returns"]
-       [:div {:class ["mt-2" "grid" "grid-cols-3" "overflow-hidden" "border"
+       [:div {:class ["mt-2" "grid" "grid-cols-3" "border"
                       "border-base-300"]}
-        (segmented-button "Historical" "Historical Mean" (= :historical-mean return-kind)
+        (segmented-button "Historical" "Historical Mean" (:historical-mean model-help) :start (= :historical-mean return-kind)
                           "portfolio-optimizer-return-model-historical-mean"
                           [:actions/set-portfolio-optimizer-return-model-kind :historical-mean])
-        (segmented-button "EW Mean" (= :ew-mean return-kind)
+        (segmented-button "EW Mean" nil (:ew-mean model-help) :center (= :ew-mean return-kind)
                           "portfolio-optimizer-return-model-ew-mean"
                           [:actions/set-portfolio-optimizer-return-model-kind :ew-mean])
-        (segmented-button "Use my views" (= :black-litterman return-kind)
+        (segmented-button "Use my views" nil (:black-litterman model-help) :end (= :black-litterman return-kind)
                           "portfolio-optimizer-return-model-black-litterman"
                           [:actions/set-portfolio-optimizer-return-model-kind :black-litterman])
         [:span {:class ["sr-only"]} "Black-Litterman"]]
@@ -110,12 +142,12 @@
       [:div {:data-role "portfolio-optimizer-setup-model-column"}
        [:div {:data-role "portfolio-optimizer-risk-model-panel"}
         [:p {:class eyebrow-class} "Risk model"]
-        [:div {:class ["mt-2" "grid" "grid-cols-2" "overflow-hidden" "border"
+        [:div {:class ["mt-2" "grid" "grid-cols-2" "border"
                        "border-base-300"]}
-         (segmented-button "Stabilized Covariance" "Diagonal Shrink" (= :diagonal-shrink risk-kind)
+         (segmented-button "Stabilized Covariance" "Diagonal Shrink" (:diagonal-shrink model-help) :start (= :diagonal-shrink risk-kind)
                            "portfolio-optimizer-risk-model-diagonal-shrink"
                            [:actions/set-portfolio-optimizer-risk-model-kind :diagonal-shrink])
-         (segmented-button "Sample Covariance" (= :sample-covariance risk-kind)
+         (segmented-button "Sample Covariance" nil (:sample-covariance model-help) :end (= :sample-covariance risk-kind)
                            "portfolio-optimizer-risk-model-sample-covariance"
                            [:actions/set-portfolio-optimizer-risk-model-kind :sample-covariance])]]]])))
 
