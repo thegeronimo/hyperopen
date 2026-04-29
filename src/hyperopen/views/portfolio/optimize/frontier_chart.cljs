@@ -33,7 +33,6 @@
 (def ^:private chart-tick-count 6)
 (def ^:private chart-grid-stroke "#1d2025")
 (def ^:private chart-axis-stroke "#292d33")
-(def ^:private current-halo-stroke "rgba(107, 141, 181, 0.45)")
 (def ^:private target-halo-stroke "rgba(212, 181, 88, 0.45)")
 (def ^:private chart-bounds {:width chart-width
                              :height chart-height})
@@ -267,56 +266,6 @@
        :point position
        :rows rows})]))
 
-(defn- current-marker
-  [result x-domain y-domain]
-  (when (and (opt-format/finite-number? (:current-expected-return result))
-             (opt-format/finite-number? (:current-volatility result)))
-    (let [point {:expected-return (:current-expected-return result)
-                 :volatility (:current-volatility result)
-                 :sharpe (get-in result [:current-performance :in-sample-sharpe])}
-          position (point-position x-domain y-domain point)
-          {:keys [x y]} position
-          label "Current Portfolio"
-          rows (frontier-callout/point-rows
-                point
-                {:exposure (frontier-callout/exposure-summary result :current)})]
-      [:g {:class ["portfolio-frontier-marker" "text-info" "outline-none"]
-           :data-role "portfolio-optimizer-frontier-current-marker"
-           :role "img"
-           :tabIndex 0
-           :tabindex 0
-           :focusable "true"
-           :aria-label (frontier-callout/aria-label label rows)}
-       [:circle {:cx x
-                 :cy y
-                 :r 5
-                 :fill "currentColor"
-                 :stroke "currentColor"
-                 :strokeWidth 2}]
-       [:circle {:cx x
-                 :cy y
-                 :r 11
-                 :fill "transparent"
-                 :stroke current-halo-stroke}]
-       (frontier-callout/focus-ring x y 15)
-       [:text {:x (+ x 10)
-               :y (+ y 16)
-               :fill "currentColor"
-               :fontSize 10
-               :fontWeight 700}
-        "Current"]
-       (frontier-callout/hitbox
-        "portfolio-optimizer-frontier-current-marker-hitbox"
-        x
-        y
-        18)
-       (frontier-callout/callout
-        {:bounds chart-bounds
-         :data-role "portfolio-optimizer-frontier-callout-current"
-         :label label
-         :point position
-         :rows rows})])))
-
 (defn frontier-chart
   ([draft result]
    (frontier-chart draft result :standalone))
@@ -339,18 +288,14 @@
         x-domain (domain (concat (numeric-values points :volatility)
                                  (numeric-values domain-overlay-points :volatility)
                                  (when (opt-format/finite-number? (:volatility result))
-                                   [(:volatility result)])
-                                 (when (opt-format/finite-number? (:current-volatility result))
-                                   [(:current-volatility result)]))
+                                   [(:volatility result)]))
                          0
                          1
                          {:floor-zero? true})
         y-domain (domain (concat (numeric-values points :expected-return)
                                  (numeric-values domain-overlay-points :expected-return)
                                  (when (opt-format/finite-number? (:expected-return result))
-                                   [(:expected-return result)])
-                                 (when (opt-format/finite-number? (:current-expected-return result))
-                                   [(:current-expected-return result)]))
+                                   [(:expected-return result)]))
                          0
                          1
                          {:include-zero? true})
@@ -384,10 +329,7 @@
                :data-role "portfolio-optimizer-frontier-chart-box"}
          [:div {:class ["absolute" "right-6" "top-6" "z-10" "border" "border-base-300" "bg-base-200/80" "px-3" "py-2" "text-[0.65rem]"]
                 :data-role "portfolio-optimizer-frontier-legend"}
-          [:div {:class ["flex" "items-center" "gap-2" "text-trading-muted"]}
-           [:span {:class ["h-2" "w-2" "rounded-full" "bg-info"]}]
-           "Where you are now"]
-          [:div {:class ["mt-1" "flex" "items-center" "gap-2" "text-trading-text"]}
+          [:div {:class ["flex" "items-center" "gap-2" "text-trading-text"]}
            [:span {:class ["h-2" "w-2" "rounded-full" "bg-primary"]}]
            "Recommended target"]
           (when legend-label
@@ -467,7 +409,6 @@
           (map-indexed (fn [idx point]
                          (frontier-point draft idx point x-domain* y-domain*))
                        points)
-          (current-marker result x-domain* y-domain*)
           (target-marker result x-domain* y-domain*)
           (map #(frontier-overlays/marker
                  {:bounds chart-bounds

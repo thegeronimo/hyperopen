@@ -184,8 +184,6 @@
                                      "portfolio-optimizer-frontier-current-marker")
         target-callout (node-by-role view-node
                                      "portfolio-optimizer-frontier-callout-target")
-        current-callout (node-by-role view-node
-                                      "portfolio-optimizer-frontier-callout-current")
         frontier-callout (node-by-role view-node
                                       "portfolio-optimizer-frontier-callout-frontier-1")
         standalone-callout (node-by-role view-node
@@ -239,10 +237,8 @@
         "Overlay mode should not move the efficient frontier.")
     (is (some? target-marker))
     (is (= 0 (node-attr target-marker :tabIndex)))
-    (is (some? current-marker))
-    (is (= 0 (node-attr current-marker :tabIndex)))
+    (is (nil? current-marker))
     (is (some? target-callout))
-    (is (some? current-callout))
     (is (some? frontier-callout))
     (is (some? standalone-callout))
     (is (some? contribution-callout))
@@ -284,17 +280,8 @@
              "37.00%"
              "33.00%"}
            (set (collect-strings target-callout))))
-    (is (= #{"Current Portfolio"
-             "Expected Return"
-             "Volatility"
-             "Sharpe"
-             "Gross Exposure"
-             "Net Exposure"
-             "12.00%"
-             "24.00%"
-             "0.5"
-             "30.00%"}
-           (set (collect-strings current-callout))))
+    (is (not (contains? strings "Current Portfolio")))
+    (is (not (contains? strings "Where you are now")))
     (is (= #{"Frontier Point 2"
              "Expected Return"
              "Volatility"

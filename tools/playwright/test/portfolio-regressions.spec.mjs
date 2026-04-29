@@ -1192,6 +1192,10 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
     .toContainText("Allocation");
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-panel']"))
     .toContainText("Efficient Frontier");
+  await expect(page.locator("[data-role='portfolio-optimizer-frontier-current-marker']"))
+    .toHaveCount(0);
+  await expect(page.locator("[data-role='portfolio-optimizer-frontier-legend']"))
+    .not.toContainText("Where you are now");
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-x-axis-label']"))
     .toHaveText("Volatility (Annualized)");
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-y-axis-label']"))
